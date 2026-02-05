@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__notebooklm-mcp__notebook_list",
+      "mcp__x-agent__get_user_profile",
+      "mcp__x-agent__health_check",
+      "mcp__x-agent__grok_chat",
+      "WebSearch"
+    ]
+  }
+}
