@@ -8,8 +8,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import firestore
 
-from models import AnalyzeRequest, AnalyzeResponse, UserProfile, RFPDocument
+from models import AnalyzeRequest, AnalyzeResponse, UserProfile, RFPDocument, Paper
 from services.analyzer import get_analyzer
 from services.crawler import get_crawler
 from services.kddf_crawler import get_kddf_crawler
@@ -174,10 +176,16 @@ async def get_vector_count():
 async def upload_to_ipfs(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
-    abstract: Optional[str] = Form(None)
+    abstract: Optional[str] = Form(None),
+    user: dict = Depends(get_current_user)  # Require Auth
 ):
-    """파일을 IPFS에 업로드"""
+    """파일을 IPFS에 업로드하고 Firestore에 메타데이터 저장"""
     import tempfile
+    
+    # User ID check for DB storage
+    user_id = user.get("uid")
+    if not user_id:
+         raise HTTPException(status_code=401, detail="User ID not found")
     
     try:
         # 임시 파일 저장
@@ -197,6 +205,35 @@ async def upload_to_ipfs(
         # 임시 파일 삭제
         os.unlink(tmp_path)
         
+        # IPFS Result
+        cid = result.get("IpfsHash")
+        ipfs_url = f"https://gateway.pinata.cloud/ipfs/{cid}"
+        
+        paper_data = {
+            "id": cid,
+            "title": title or file.filename,
+            "abstract": abstract or "",
+            "cid": cid,
+            "ipfs_url": ipfs_url,
+            "original_filename": file.filename,
+            "uploaded_at": datetime.now().isoformat(),
+            "reward_claimed": False,
+            "user_id": user_id
+        }
+
+        # Save to Firestore if available
+        if db:
+            try:
+                # Save to users/{uid}/papers/{cid}
+                doc_ref = db.collection("users").document(user_id).collection("papers").document(cid)
+                doc_ref.set(paper_data)
+                print(f"Saved paper {cid} to Firestore for user {user_id}")
+            except Exception as e:
+                print(f"Failed to save to Firestore: {e}")
+
+        # 임시 파일 삭제
+        os.unlink(tmp_path)
+        
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -207,6 +244,49 @@ async def upload_json_to_ipfs(data: dict, name: str = "metadata.json"):
     """JSON 데이터를 IPFS에 업로드"""
     ipfs = get_ipfs_service()
     return await ipfs.upload_json(data, name)
+
+
+@app.get("/papers/me", response_model=list[Paper])
+async def get_my_papers(user: dict = Depends(get_current_user)):
+    """내 논문 목록 조회 (Firestore/Mock)"""
+    user_id = user.get("uid")
+    
+    # 1. Try Firestore
+    if db and user_id:
+        try:
+            docs = db.collection("users").document(user_id).collection("papers").stream()
+            papers = []
+            for doc in docs:
+                data = doc.to_dict()
+                # Ensure id exists (if missing in data, use doc.id)
+                if "id" not in data: 
+                    data["id"] = doc.id
+                papers.append(Paper(**data))
+            
+            if papers:
+                return papers
+        except Exception as e:
+            print(f"Firestore read error: {e}")
+
+    # 2. Fallback to Mock if DB empty or failed
+    return [
+        Paper(
+            id="p-001",
+            title="AI-Driven Drug Discovery Framework",
+            abstract="A novel framework for accelerating drug discovery using deep learning...",
+            cid="QmXyZ...",
+            ipfs_url="https://gateway.pinata.cloud/ipfs/QmXyZ...",
+            reward_claimed=True
+        ),
+        Paper(
+            id="p-002",
+            title="Decentralized Science: A New Era",
+            abstract="exploring the potential of blockchain in scientific research...",
+            cid="QmAbC...",
+            ipfs_url="https://gateway.pinata.cloud/ipfs/QmAbC...",
+            reward_claimed=False
+        )
+    ]
 
 
 # ============== 토큰 보상 ==============

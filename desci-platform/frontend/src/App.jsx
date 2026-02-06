@@ -6,6 +6,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import BioLinker from './components/BioLinker';
+import Upload from './components/Upload';
+import Wallet from './components/Wallet';
+import MyLab from './components/MyLab';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -40,6 +43,9 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/biolinker" element={<BioLinker />} />
+            <Route path="/upload" element={<Upload />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/mylab" element={<MyLab />} />
           </Route>
 
           {/* Default redirect */}

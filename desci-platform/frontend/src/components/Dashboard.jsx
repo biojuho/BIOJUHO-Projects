@@ -115,12 +115,18 @@ export default function Dashboard() {
                             >
                                 <span>🧬</span> BioLinker 과제 매칭
                             </a>
-                            <div className="flex items-center gap-2 text-gray-400 p-3">
-                                <span>📄</span> 연구 논문 업로드 (Coming Soon)
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-400 p-3">
-                                <span>💰</span> 토큰 보상 시스템 (Coming Soon)
-                            </div>
+                            <a
+                                href="/upload"
+                                className="flex items-center gap-2 text-cyan-300 hover:text-cyan-100 transition-colors p-3 bg-white/5 rounded-lg hover:bg-white/10"
+                            >
+                                <span>📄</span> 연구 논문 업로드
+                            </a>
+                            <a
+                                href="/mylab"
+                                className="flex items-center gap-2 text-purple-300 hover:text-purple-100 transition-colors p-3 bg-white/5 rounded-lg hover:bg-white/10"
+                            >
+                                <span>🧪</span> 내 연구실 (My Lab)
+                            </a>
                         </div>
                     </div>
                 </div>

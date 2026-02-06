@@ -63,3 +63,15 @@ class AnalyzeResponse(BaseModel):
     """분석 응답"""
     rfp: RFPDocument
     result: AnalysisResult
+
+
+class Paper(BaseModel):
+    """사용자가 업로드한 논문"""
+    id: str = Field(..., description="논문 ID")
+    title: str = Field(..., description="논문 제목")
+    abstract: Optional[str] = Field(None, description="초록")
+    cid: str = Field(..., description="IPFS CID")
+    ipfs_url: str = Field(..., description="IPFS Gateway URL")
+    uploaded_at: datetime = Field(default_factory=datetime.now)
+    reward_claimed: bool = Field(False, description="보상 수령 여부")
+

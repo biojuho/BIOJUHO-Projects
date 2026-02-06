@@ -12,8 +12,12 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import RFPDocument
 
-from kddf_crawler import get_kddf_crawler
-from ntis_crawler import get_ntis_crawler
+try:
+    from .kddf_crawler import get_kddf_crawler
+    from .ntis_crawler import get_ntis_crawler
+except ImportError:
+    from kddf_crawler import get_kddf_crawler
+    from ntis_crawler import get_ntis_crawler
 
 
 class NoticeScheduler:

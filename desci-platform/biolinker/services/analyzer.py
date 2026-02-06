@@ -11,18 +11,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# LLM Imports (OpenAI fallback to mock for MVP)
+# LLM Imports
 try:
     from langchain_openai import ChatOpenAI
-    from langchain.prompts import ChatPromptTemplate
-    LLM_AVAILABLE = True
+    OPENAI_AVAILABLE = True
 except ImportError:
-    LLM_AVAILABLE = False
+    OPENAI_AVAILABLE = False
+
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+
+try:
+    from langchain_core.prompts import ChatPromptTemplate
+except ImportError:
+    from langchain.prompts import ChatPromptTemplate
 
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import RFPDocument, UserProfile, AnalysisResult, FitGrade
-
 
 # System Prompt for LLM
 ANALYZER_SYSTEM_PROMPT = """당신은 바이오 의약품 분야 정부 과제 매칭 전문가입니다.
@@ -46,14 +55,14 @@ ANALYZER_SYSTEM_PROMPT = """당신은 바이오 의약품 분야 정부 과제 �
 
 ## 출력 형식
 반드시 아래 JSON 스키마를 따르세요. 추가 텍스트 없이 JSON만 출력하세요.
-{
+{{
   "fit_score": <0~100 정수>,
   "fit_grade": "<S/A/B/C/D>",
   "match_summary": ["<근거1>", "<근거2>", "<근거3>"],
   "required_docs": ["<서류1>", "<서류2>"],
   "risk_flags": ["<리스크1>"],
   "recommended_actions": ["<액션1>", "<액션2>"]
-}
+}}
 
 ## 주의사항
 - 점수에 대한 근거를 반드시 match_summary에 구체적으로 명시하세요
@@ -83,15 +92,31 @@ USER_PROMPT_TEMPLATE = """## 회사 프로필
 class RFPAnalyzer:
     """정부 과제 적합도 분석기"""
     
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+    def __init__(self):
         self.llm = None
         
-        if self.api_key and LLM_AVAILABLE:
+        # 1. Google Gemini (Priority)
+        google_key = os.getenv("GOOGLE_API_KEY")
+        print(f"[DEBUG] Google Key: {'Found' if google_key else 'Missing'}, Available: {GOOGLE_AVAILABLE}")
+        
+        if google_key and GOOGLE_AVAILABLE:
+            try:
+                self.llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash",
+                    temperature=0.2,
+                    google_api_key=google_key,
+                    convert_system_message_to_human=True
+                )
+                print("[DEBUG] Gemini Pro initialized")
+            except Exception as e:
+                print(f"[DEBUG] Gemini init failed: {e}")
+        
+        # 2. OpenAI (Fallback)
+        elif os.getenv("OPENAI_API_KEY") and OPENAI_AVAILABLE:
             self.llm = ChatOpenAI(
                 model="gpt-4-turbo-preview",
                 temperature=0.2,
-                openai_api_key=self.api_key
+                openai_api_key=os.getenv("OPENAI_API_KEY")
             )
     
     def _score_to_grade(self, score: int) -> FitGrade:

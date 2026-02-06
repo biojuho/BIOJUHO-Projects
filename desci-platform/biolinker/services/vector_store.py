@@ -13,10 +13,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import RFPDocument
 
-# ChromaDB & OpenAI imports
+# ChromaDB, OpenAI, Google imports
 try:
     import chromadb
-    from chromadb.config import Settings
+    import chromadb.utils.embedding_functions as embedding_functions
     CHROMADB_AVAILABLE = True
 except ImportError:
     CHROMADB_AVAILABLE = False
@@ -27,23 +27,39 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
+try:
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+
 
 class VectorStore:
     """공고 벡터 저장소 (ChromaDB)"""
     
     COLLECTION_NAME = "rfp_notices"
-    EMBEDDING_MODEL = "text-embedding-3-small"
     
     def __init__(self, persist_dir: str = "./chroma_db"):
         self.persist_dir = persist_dir
         self.client = None
         self.collection = None
-        self.openai_client = None
+        self.embedding_fn = None
         
-        # OpenAI 클라이언트 초기화
-        api_key = os.getenv("OPENAI_API_KEY")
-        if api_key and OPENAI_AVAILABLE:
-            self.openai_client = OpenAI(api_key=api_key)
+        # 1. Google Embeddings (Priority)
+        google_key = os.getenv("GOOGLE_API_KEY")
+        if google_key and GOOGLE_AVAILABLE:
+            # Langchain wrapper for embeddings
+            self.embedding_model = GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-001",
+                google_api_key=google_key
+            )
+            # Custom function wrapper for ChromaDB
+            self.embedding_fn = self._google_embedding_fn
+            
+        # 2. OpenAI Embeddings (Fallback)
+        elif os.getenv("OPENAI_API_KEY") and OPENAI_AVAILABLE:
+            self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            self.embedding_fn = self._openai_embedding_fn
         
         # ChromaDB 초기화
         if CHROMADB_AVAILABLE:
@@ -53,25 +69,38 @@ class VectorStore:
                 metadata={"description": "BioLinker RFP Notice Embeddings"}
             )
     
+    def _google_embedding_fn(self, input):
+        """Wrapper for Google Embeddings for ChromaDB"""
+        if isinstance(input, str):
+            input = [input]
+        return self.embedding_model.embed_documents(input)
+
+    def _openai_embedding_fn(self, input):
+        """Wrapper for OpenAI Embeddings"""
+        if isinstance(input, str):
+            input = [input]
+        data = []
+        for text in input:
+            response = self.openai_client.embeddings.create(
+                model="text-embedding-3-small",
+                input=text[:8000]
+            )
+            data.append(response.data[0].embedding)
+        return data
+
+    
     def _get_embedding(self, text: str) -> list[float]:
-        """OpenAI 임베딩 생성"""
-        if not self.openai_client:
-            # OpenAI 없으면 간단한 해시 기반 임베딩 (테스트용)
-            import hashlib
-            hash_val = hashlib.md5(text.encode()).hexdigest()
-            return [float(int(hash_val[i:i+2], 16)) / 255 for i in range(0, 32, 2)]
+        """단일 텍스트 임베딩 생성"""
+        if self.embedding_fn:
+            return self.embedding_fn([text])[0]
         
-        response = self.openai_client.embeddings.create(
-            model=self.EMBEDDING_MODEL,
-            input=text[:8000]  # 토큰 제한
-        )
-        return response.data[0].embedding
+        # Mock embedding
+        import hashlib
+        hash_val = hashlib.md5(text.encode()).hexdigest()
+        return [float(int(hash_val[i:i+2], 16)) / 255 for i in range(0, 32, 2)]
     
     def add_notice(self, rfp: RFPDocument) -> str:
         """공고 저장"""
-        if not CHROMADB_AVAILABLE or not self.collection:
-            raise RuntimeError("ChromaDB가 설치되어 있지 않습니다")
-        
         # 임베딩 생성
         embed_text = f"{rfp.title}\n{rfp.body_text[:2000]}"
         embedding = self._get_embedding(embed_text)
@@ -86,18 +115,21 @@ class VectorStore:
             "created_at": datetime.now().isoformat()
         }
         
-        # 저장
-        self.collection.add(
-            ids=[rfp.id],
-            embeddings=[embedding],
-            metadatas=[metadata],
-            documents=[rfp.body_text[:5000]]
-        )
+        if CHROMADB_AVAILABLE and self.collection:
+            # ChromaDB 저장
+            self.collection.add(
+                ids=[rfp.id],
+                embeddings=[embedding],
+                metadatas=[metadata],
+                documents=[rfp.body_text[:5000]]
+            )
+        else:
+            # Simple In-Memory JSON 저장
+            self._save_to_json(rfp.id, embedding, metadata, rfp.body_text[:5000])
         
         return rfp.id
     
     def add_notices(self, rfps: list[RFPDocument]) -> list[str]:
-        """여러 공고 일괄 저장"""
         ids = []
         for rfp in rfps:
             try:
@@ -114,92 +146,168 @@ class VectorStore:
         source_filter: Optional[str] = None
     ) -> list[dict]:
         """유사 공고 검색"""
-        if not CHROMADB_AVAILABLE or not self.collection:
-            return []
-        
-        # 쿼리 임베딩
         query_embedding = self._get_embedding(query)
         
-        # 필터 조건
-        where = None
-        if source_filter:
-            where = {"source": source_filter}
-        
-        # 검색
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results,
-            where=where,
-            include=["metadatas", "documents", "distances"]
-        )
-        
-        # 결과 포맷
-        notices = []
-        for i, doc_id in enumerate(results['ids'][0]):
-            notices.append({
-                'id': doc_id,
-                'metadata': results['metadatas'][0][i],
-                'document': results['documents'][0][i][:500],
-                'similarity': 1 - results['distances'][0][i]  # distance to similarity
-            })
-        
-        return notices
+        if CHROMADB_AVAILABLE and self.collection:
+            # ChromaDB 검색
+            where = {"source": source_filter} if source_filter else None
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=n_results,
+                where=where,
+                include=["metadatas", "documents", "distances"]
+            )
+            notices = []
+            for i, doc_id in enumerate(results['ids'][0]):
+                notices.append({
+                    'id': doc_id,
+                    'metadata': results['metadatas'][0][i],
+                    'document': results['documents'][0][i][:500],
+                    'similarity': 1 - results['distances'][0][i]
+                })
+            return notices
+        else:
+            # Simple In-Memory 검색
+            return self._search_in_memory(query_embedding, n_results, source_filter)
     
+    def _save_to_json(self, doc_id, embedding, metadata, document):
+        """In-Memory 저장 (JSON)"""
+        import json
+        import numpy as np
+        
+        db_path = os.path.join(self.persist_dir, "db.json")
+        os.makedirs(self.persist_dir, exist_ok=True)
+        
+        data = {}
+        if os.path.exists(db_path):
+            with open(db_path, 'r', encoding='utf-8') as f:
+                try:
+                    data = json.load(f)
+                except:
+                    pass
+        
+        data[doc_id] = {
+            "embedding": embedding,
+            "metadata": metadata,
+            "document": document
+        }
+        
+        with open(db_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+
+    def _search_in_memory(self, query_embedding, n_results, source_filter):
+        """In-Memory 코사인 유사도 검색"""
+        import json
+        import numpy as np
+        
+        db_path = os.path.join(self.persist_dir, "db.json")
+        if not os.path.exists(db_path):
+            return []
+            
+        with open(db_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        results = []
+        q_vec = np.array(query_embedding)
+        q_norm = np.linalg.norm(q_vec)
+        
+        for doc_id, item in data.items():
+            if source_filter and item['metadata'].get('source') != source_filter:
+                continue
+                
+            d_vec = np.array(item['embedding'])
+            d_norm = np.linalg.norm(d_vec)
+            
+            if q_norm == 0 or d_norm == 0:
+                sim = 0
+            else:
+                sim = np.dot(q_vec, d_vec) / (q_norm * d_norm)
+                
+            results.append({
+                'id': doc_id,
+                'metadata': item['metadata'],
+                'document': item['document'],
+                'similarity': float(sim)
+            })
+            
+        results.sort(key=lambda x: x['similarity'], reverse=True)
+        return results[:n_results]
+
     def search_by_profile(
         self,
         tech_keywords: list[str],
         tech_description: str,
         n_results: int = 10
     ) -> list[dict]:
-        """사용자 프로필 기반 공고 추천"""
         query = f"기술 키워드: {', '.join(tech_keywords)}\n역량: {tech_description}"
         return self.search_similar(query, n_results)
     
     def get_notice(self, notice_id: str) -> Optional[dict]:
         """ID로 공고 조회"""
-        if not CHROMADB_AVAILABLE or not self.collection:
-            return None
-        
-        try:
-            result = self.collection.get(
-                ids=[notice_id],
-                include=["metadatas", "documents"]
-            )
-            if result['ids']:
-                return {
-                    'id': notice_id,
-                    'metadata': result['metadatas'][0],
-                    'document': result['documents'][0]
-                }
-        except Exception:
-            pass
+        if CHROMADB_AVAILABLE and self.collection:
+            try:
+                result = self.collection.get(ids=[notice_id], include=["metadatas", "documents"])
+                if result['ids']:
+                    return {
+                        'id': notice_id,
+                        'metadata': result['metadatas'][0],
+                        'document': result['documents'][0]
+                    }
+            except:
+                pass
+        else:
+            # Check JSON
+            import json
+            db_path = os.path.join(self.persist_dir, "db.json")
+            if os.path.exists(db_path):
+                with open(db_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if notice_id in data:
+                        return {
+                            'id': notice_id,
+                            'metadata': data[notice_id]['metadata'],
+                            'document': data[notice_id]['document']
+                        }
         return None
     
     def delete_notice(self, notice_id: str):
-        """공고 삭제"""
-        if self.collection:
+        if CHROMADB_AVAILABLE and self.collection:
             self.collection.delete(ids=[notice_id])
-    
+        else:
+            import json
+            db_path = os.path.join(self.persist_dir, "db.json")
+            if os.path.exists(db_path):
+                with open(db_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if notice_id in data:
+                    del data[notice_id]
+                    with open(db_path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, ensure_ascii=False)
+
     def count(self) -> int:
-        """저장된 공고 수"""
-        if self.collection:
+        if CHROMADB_AVAILABLE and self.collection:
             return self.collection.count()
-        return 0
+        else:
+            import json
+            db_path = os.path.join(self.persist_dir, "db.json")
+            if os.path.exists(db_path):
+                with open(db_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return len(data)
+            return 0
     
     def list_all(self, limit: int = 100) -> list[dict]:
-        """모든 공고 목록"""
-        if not self.collection:
+        if CHROMADB_AVAILABLE and self.collection:
+            result = self.collection.get(limit=limit, include=["metadatas"])
+            return [{'id': id_, 'metadata': meta} for id_, meta in zip(result['ids'], result['metadatas'])]
+        else:
+            import json
+            db_path = os.path.join(self.persist_dir, "db.json")
+            if os.path.exists(db_path):
+                with open(db_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return [{'id': k, 'metadata': v['metadata']} for k, v in list(data.items())[:limit]]
             return []
-        
-        result = self.collection.get(
-            limit=limit,
-            include=["metadatas"]
-        )
-        
-        return [
-            {'id': id_, 'metadata': meta}
-            for id_, meta in zip(result['ids'], result['metadatas'])
-        ]
 
 
 # Singleton

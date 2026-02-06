@@ -127,6 +127,51 @@ async def upload_to_notion(category: str, analysis: dict, notion: AsyncClient):
     insight_text = analysis.get("insight", "")
     description = f"[Summary]\n{summary_text}\n\n[Insight]\n{insight_text}"
     
+    # Notion 본문 블록 생성
+    children = [
+        {
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {"rich_text": [{"text": {"content": "✨ 3-Line Summary"}}]}
+        }
+    ]
+    
+    for item in analysis.get("summary", []):
+        children.append({
+            "object": "block",
+            "type": "bulleted_list_item",
+            "bulleted_list_item": {"rich_text": [{"text": {"content": item}}]}
+        })
+        
+    children.append({
+        "object": "block",
+        "type": "heading_2",
+        "heading_2": {"rich_text": [{"text": {"content": "💡 Insight"}}]}
+    })
+    
+    children.append({
+        "object": "block",
+        "type": "paragraph",
+        "paragraph": {"rich_text": [{"text": {"content": insight_text}}]}
+    })
+
+    # X Post 추가
+    x_post_text = analysis.get("x_post", "")
+    if x_post_text:
+        children.append({
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {"rich_text": [{"text": {"content": "🐦 X Post (Ready to Tweet)"}}]}
+        })
+        children.append({
+            "object": "block",
+            "type": "code",
+            "code": {
+                "rich_text": [{"text": {"content": x_post_text}}],
+                "language": "plain text"
+            }
+        })
+    
     # Notion 페이지 생성
     try:
         await notion.pages.create(
@@ -136,7 +181,8 @@ async def upload_to_notion(category: str, analysis: dict, notion: AsyncClient):
                 "Date": {"date": {"start": today_str}},
                 "Description": {"rich_text": [{"text": {"content": description[:2000]}}]},
                 "Source": {"select": {"name": "Mixed"}},
-            }
+            },
+            children=children
         )
         print(f"  [Upload] Notion report saved for '{category}'")
     except Exception as e:
