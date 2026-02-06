@@ -39,7 +39,7 @@ export default function Dashboard() {
                 <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <span className="text-3xl">🧬</span>
-                        <h1 className="text-xl font-bold text-white">DeSci Platform</h1>
+                        <h1 className="text-xl font-bold text-white">DSCI-DecentBio</h1>
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-gray-300">

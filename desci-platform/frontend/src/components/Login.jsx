@@ -66,7 +66,7 @@ export default function Login() {
                 <div className="text-center mb-8">
                     <span className="text-5xl">🧬</span>
                     <h1 className="text-2xl font-bold text-white mt-4">
-                        BioJuho DeSci Platform
+                        DSCI-DecentBio
                     </h1>
                     <p className="text-gray-300 mt-2">
                         {isSignUp ? '새 계정 만들기' : '로그인하여 시작하세요'}

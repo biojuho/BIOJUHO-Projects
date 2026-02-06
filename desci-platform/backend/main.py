@@ -11,7 +11,7 @@ from auth import get_current_user
 load_dotenv()
 
 app = FastAPI(
-    title="BioJuho DeSci Platform",
+    title="DSCI-DecentBio",
     description="Decentralized Science Platform API",
     version="0.1.0"
 )
