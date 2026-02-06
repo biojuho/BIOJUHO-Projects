@@ -1,10 +1,11 @@
 /**
- * DeSci Platform - Main App with Routing
+ * DSCI-DecentBio Platform - Main App with Routing
  */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
+import BioLinker from './components/BioLinker';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -38,6 +39,7 @@ function App() {
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/biolinker" element={<BioLinker />} />
           </Route>
 
           {/* Default redirect */}

@@ -105,18 +105,21 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Features Coming Soon */}
+                    {/* Features */}
                     <div className="mt-8 p-6 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-xl border border-cyan-500/30">
-                        <h3 className="text-xl font-semibold text-white mb-4">🚀 Coming Soon</h3>
-                        <div className="grid md:grid-cols-3 gap-4 text-gray-300">
-                            <div className="flex items-center gap-2">
-                                <span>📄</span> 연구 논문 업로드
+                        <h3 className="text-xl font-semibold text-white mb-4">🚀 Features</h3>
+                        <div className="grid md:grid-cols-3 gap-4">
+                            <a
+                                href="/biolinker"
+                                className="flex items-center gap-2 text-cyan-300 hover:text-cyan-100 transition-colors p-3 bg-white/5 rounded-lg hover:bg-white/10"
+                            >
+                                <span>🧬</span> BioLinker 과제 매칭
+                            </a>
+                            <div className="flex items-center gap-2 text-gray-400 p-3">
+                                <span>📄</span> 연구 논문 업로드 (Coming Soon)
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span>🔗</span> IPFS 탈중앙화 저장
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span>💰</span> 토큰 보상 시스템
+                            <div className="flex items-center gap-2 text-gray-400 p-3">
+                                <span>💰</span> 토큰 보상 시스템 (Coming Soon)
                             </div>
                         </div>
                     </div>
