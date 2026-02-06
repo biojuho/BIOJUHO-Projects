@@ -4,10 +4,16 @@ venv/
 __pycache__/
 *.pyc
 
-# Environment
+# Environment - NEVER COMMIT!
 .env
 .env.local
+.env.production
 .env.*.local
+
+# Firebase Secrets - CRITICAL!
+serviceAccountKey.json
+**/serviceAccountKey.json
+firebase-adminsdk*.json
 
 # Build
 dist/

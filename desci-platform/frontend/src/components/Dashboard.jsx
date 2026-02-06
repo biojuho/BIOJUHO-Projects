@@ -1,0 +1,127 @@
+/**
+ * Dashboard Component
+ * Main authenticated user page
+ */
+import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import client from '../api/client';
+
+export default function Dashboard() {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const [backendUser, setBackendUser] = useState(null);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        // Fetch user data from backend
+        const fetchUser = async () => {
+            try {
+                const response = await client.get('/me');
+                setBackendUser(response.data);
+            } catch (err) {
+                console.error('Failed to fetch user:', err);
+                setError('백엔드 연결 실패');
+            }
+        };
+        fetchUser();
+    }, []);
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login');
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800">
+            {/* Header */}
+            <header className="bg-white/10 backdrop-blur-lg border-b border-white/20">
+                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-3xl">🧬</span>
+                        <h1 className="text-xl font-bold text-white">DeSci Platform</h1>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <span className="text-gray-300">
+                            {user?.displayName || user?.email}
+                        </span>
+                        {user?.photoURL && (
+                            <img
+                                src={user.photoURL}
+                                alt="Profile"
+                                className="w-10 h-10 rounded-full border-2 border-cyan-400"
+                            />
+                        )}
+                        <button
+                            onClick={handleLogout}
+                            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all"
+                        >
+                            로그아웃
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-4 py-12">
+                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                        환영합니다! 👋
+                    </h2>
+                    <p className="text-cyan-400 text-xl mb-8">
+                        {user?.displayName || user?.email?.split('@')[0]}님
+                    </p>
+
+                    {/* User Info Cards */}
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {/* Firebase User Info */}
+                        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                🔥 Firebase 인증 정보
+                            </h3>
+                            <div className="space-y-2 text-gray-300">
+                                <p><span className="text-gray-500">UID:</span> {user?.uid?.slice(0, 20)}...</p>
+                                <p><span className="text-gray-500">Email:</span> {user?.email}</p>
+                                <p><span className="text-gray-500">Provider:</span> {user?.providerData?.[0]?.providerId}</p>
+                            </div>
+                        </div>
+
+                        {/* Backend User Info */}
+                        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                ⚡ 백엔드 연결 상태
+                            </h3>
+                            {error ? (
+                                <p className="text-red-400">{error}</p>
+                            ) : backendUser ? (
+                                <div className="space-y-2 text-gray-300">
+                                    <p><span className="text-gray-500">UID:</span> {backendUser.uid?.slice(0, 20)}...</p>
+                                    <p><span className="text-gray-500">Email:</span> {backendUser.email}</p>
+                                    <p className="text-green-400">✅ 토큰 검증 성공!</p>
+                                </div>
+                            ) : (
+                                <p className="text-gray-400">로딩 중...</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Features Coming Soon */}
+                    <div className="mt-8 p-6 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-xl border border-cyan-500/30">
+                        <h3 className="text-xl font-semibold text-white mb-4">🚀 Coming Soon</h3>
+                        <div className="grid md:grid-cols-3 gap-4 text-gray-300">
+                            <div className="flex items-center gap-2">
+                                <span>📄</span> 연구 논문 업로드
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span>🔗</span> IPFS 탈중앙화 저장
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span>💰</span> 토큰 보상 시스템
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
