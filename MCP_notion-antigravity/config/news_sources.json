@@ -1,0 +1,22 @@
+{
+    "Tech": [
+        {"name": "GeekNews", "url": "https://feeds.feedburner.com/geeknews-feed"},
+        {"name": "Hacker News", "url": "https://news.ycombinator.com/rss"}
+    ],
+    "Economy_KR": [
+        {"name": "Hankyung Economic", "url": "https://rss.hankyung.com/feed/economy.xml"},
+        {"name": "Maeil Economy", "url": "https://www.mk.co.kr/rss/30100041/"}
+    ],
+    "Economy_Global": [
+        {"name": "CNBC Top News", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"},
+        {"name": "Wall Street Journal World", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"}
+    ],
+    "Crypto": [
+        {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
+        {"name": "TokenPost", "url": "https://www.tokenpost.kr/rss"}
+    ],
+    "Global_Affairs": [
+        {"name": "BBC World", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
+        {"name": "Google News World (KR)", "url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWvfSkdnUVZOM1psZG5Sa2JHRXRlQW9BQ1AB?hl=ko&gl=KR&ceid=KR:ko"}
+    ]
+}

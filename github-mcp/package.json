@@ -1,0 +1,9 @@
+{
+    "name": "github-mcp",
+    "version": "1.0.0",
+    "description": "GitHub MCP Server for Antigravity",
+    "scripts": {
+        "start": "npx -y @modelcontextprotocol/server-github"
+    },
+    "dependencies": {}
+}

@@ -16,3 +16,9 @@ __pycache__/
 # Temp
 tmp/
 *.tmp
+
+# Secrets - NEVER commit these!
+credentials.json
+create_repo.py
+**/credentials.json
+**/token*.txt
