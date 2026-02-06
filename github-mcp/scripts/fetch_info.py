@@ -3,6 +3,21 @@ import json
 
 import os
 
+import os
+
+# Load .env from parent directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+env_path = os.path.join(parent_dir, '.env')
+
+if os.path.exists(env_path):
+    with open(env_path, 'r') as f:
+        for line in f:
+            if '=' in line and not line.startswith('#'):
+                key, value = line.strip().split('=', 1)
+                if not os.environ.get(key):  # Don't overwrite existing env vars
+                    os.environ[key] = value
+
 # GitHub PAT
 token = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN", "YOUR_GITHUB_PAT_HERE")
 

@@ -22,3 +22,4 @@ credentials.json
 create_repo.py
 **/credentials.json
 **/token*.txt
+**/create_repo.py
