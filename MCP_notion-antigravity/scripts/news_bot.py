@@ -1,9 +1,16 @@
 import os
 import json
 import asyncio
+import sys
+import io
+
+# 윈도우 콘솔 인코딩 호환성 설정
+sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+
 import feedparser
 import google.generativeai as genai
-from datetime import datetime, date
+from datetime import datetime, timedelta, timezone
+from dateutil import parser
 from notion_client import AsyncClient
 from dotenv import load_dotenv
 
@@ -34,6 +41,11 @@ else:
     notion = None
 
 if GOOGLE_API_KEY:
+    try:
+        import google.genai as genai_new
+        # Fallback or new usage if needed, but keeping compat for now
+    except ImportError:
+        pass
     genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel('gemini-2.0-flash')
 else:
@@ -56,6 +68,38 @@ def load_sources():
     with open(SOURCES_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
 
+def get_time_window():
+    """
+    Determine the monitoring time window based on current execution time.
+    Morning Run (around 07:00): Yesterday 18:00 ~ Today 07:00
+    Evening Run (around 18:00): Today 07:00 ~ Today 18:00
+    """
+    now = datetime.now()
+    
+    # Morning Logic (Exec 06:00 ~ 08:00)
+    if 6 <= now.hour < 10:
+        end_time = now.replace(hour=7, minute=0, second=0, microsecond=0)
+        start_time = (end_time - timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
+        label = "아침 브리핑"
+    # Evening Logic (Exec 17:00 ~ 19:00)
+    elif 17 <= now.hour < 20: 
+        end_time = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        start_time = now.replace(hour=7, minute=0, second=0, microsecond=0)
+        label = "저녁 브리핑"
+    # Default (Manual Run or other times) -> Past 12 hours
+    else:
+        end_time = now
+        start_time = now - timedelta(hours=12)
+        label = "속보"
+        
+    return start_time, end_time, label
+
+def is_in_window(published_parsed, start, end):
+    if not published_parsed:
+        return True # 날짜 없으면 포함
+
+    # ... (rest of function) ...
+
 async def summarize_article(title, content):
     """Summarize article using Gemini"""
     if not model:
@@ -76,89 +120,121 @@ async def summarize_article(title, content):
         print(f"[ERR] Summarization failed: {e}")
         return content[:300] + "..."
 
-async def upload_to_notion(category, articles, analysis=None):
+import market_data # [New] Market Data Module
+
+async def upload_to_notion(category, articles, analysis=None, time_label="News"):
     """Upload summarized news and analysis to Notion"""
     if not notion:
         return
 
-    today_str = date.today().isoformat()
+    current_time = datetime.now()
+    time_str = current_time.strftime("%Y-%m-%d %H:%M")
+    iso_time = current_time.isoformat()
+    
     children = []
     
     # 1. Header
     children.append({
         "object": "block",
         "type": "heading_2",
-        "heading_2": {"rich_text": [{"text": {"content": f"📰 {category} News Brief"}}]}
+        "heading_2": {"rich_text": [{"text": {"content": f"📰 {category} {time_label}"}}]}
     })
 
-    # 2. AI Insight (If available)
-    if analysis:
-        # Insight Callout
+    # [New] Market Snapshot Injection
+    # Combine titles/descriptions to scan for keywords
+    combined_text = " ".join([a['title'] for a in articles])
+    if analysis and analysis.get("insights"):
+        combined_text += " " + " ".join([i.get('topic','') + " " + i.get('insight','') for i in analysis['insights']])
+    
+    market_snapshot = market_data.get_market_summary(combined_text)
+    if market_snapshot:
         children.append({
             "object": "block",
             "type": "callout",
             "callout": {
-                "icon": {"emoji": "🧠"},
-                "rich_text": [
-                    {"text": {"content": "💡 Insight: ", "annotations": {"bold": True}}},
-                    {"text": {"content": analysis.get('insight', 'No insight available.')}}
-                ]
+                "icon": {"emoji": "💰"},
+                "color": "green_background",
+                "rich_text": [{"text": {"content": market_snapshot}}]
             }
         })
+
+    # 2. Insights (New Format)
+    if analysis and analysis.get("insights"):
+        children.append({
+            "object": "block", "type": "heading_3", 
+            "heading_3": {"rich_text": [{"text": {"content": "🧠 라프의 인사이트 (Raphael's Insights)"}}]}
+        })
         
-        # X Post Draft
+        for insight in analysis["insights"]:
+            # Format: Topic | Insight | Importance
+            children.append({
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"emoji": "💡"},
+                    "color": "gray_background",
+                    "rich_text": [
+                        {"type": "text", "text": {"content": f"[{insight.get('topic', 'Issue')}] "}, "annotations": {"bold": True}},
+                        {"type": "text", "text": {"content": f"{insight.get('insight')} \n"}},
+                        {"type": "text", "text": {"content": f"👉 {insight.get('importance')}"}, "annotations": {"italic": True, "color": "blue"}}
+                    ]
+                }
+            })
+
+    # 3. X Thread Draft
+    if analysis and analysis.get("x_thread"):
+        children.append({
+            "object": "block", "type": "heading_3", 
+            "heading_3": {"rich_text": [{"text": {"content": "🐦 X 스레드 초안"}}]}
+        })
+        
+        thread_text = "\n\n".join(analysis["x_thread"])
         children.append({
             "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"emoji": "🐦"},
-                "color": "blue_background",
-                "rich_text": [
-                    {"text": {"content": "X Post Draft:\n", "annotations": {"bold": True}}},
-                    {"text": {"content": analysis.get('x_post', '')}}
-                ]
+            "type": "code",
+            "code": {
+                "language": "plain text",
+                "rich_text": [{"text": {"content": thread_text}}]
             }
         })
-        
         children.append({"object": "block", "type": "divider", "divider": {}})
     
-    # 3. Individual Articles
+    # 4. Individual Articles
+    children.append({
+        "object": "block", "type": "heading_3", 
+        "heading_3": {"rich_text": [{"text": {"content": "🗞️ 수집된 뉴스"}}]}
+    })
+    
     for article in articles:
         children.append({
             "object": "block", 
-            "type": "heading_3", 
-            "heading_3": {"rich_text": [{"text": {"content": article['title'][:100]}}]}
+            "type": "toggle", 
+            "toggle": {
+                "rich_text": [{"text": {"content": article['title'][:100]}}],
+                "children": [
+                    {
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {"rich_text": [{"text": {"content": "원문 링크", "link": {"url": article['link']}}}]}
+                    },
+                    {
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {"rich_text": [{"text": {"content": article['summary'][:2000]}}]}
+                    }
+                ]
+            }
         })
-        
-        # Link
-        children.append({
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": [{"text": {"content": "Source Link", "link": {"url": article['link']}}}]}
-        })
-        
-        # Summary bullets
-        summary_lines = article['summary'].split('\n')
-        for line in summary_lines:
-            line = line.strip().lstrip('-').strip()
-            if line:
-                children.append({
-                    "object": "block",
-                    "type": "bulleted_list_item",
-                    "bulleted_list_item": {"rich_text": [{"text": {"content": line}}]}
-                })
-        
-        children.append({"object": "block", "type": "divider", "divider": {}})
 
     # Create Page
     try:
         new_page = await notion.pages.create(
             parent={"database_id": DATABASE_ID},
             properties={
-                "Name": {"title": [{"text": {"content": f"[{category}] Daily News - {today_str}"}}]},
-                "Date": {"date": {"start": today_str}},
+                "Name": {"title": [{"text": {"content": f"[{category}] {time_label} - {time_str}"}}]},
+                "Date": {"date": {"start": iso_time}},
                 "Type": {"select": {"name": "News"}},
-                "Priority": {"select": {"name": "Medium"}}
+                "Priority": {"select": {"name": "High" if time_label != "Breaking News" else "Medium"}}
             },
             children=children
         )
@@ -168,6 +244,11 @@ async def upload_to_notion(category, articles, analysis=None):
 
 async def process_category(category, feeds):
     print(f"Processing {category}...")
+    
+    start_time, end_time, label = get_time_window()
+    window_str = f"{start_time.strftime('%Y-%m-%d %H:%M')} ~ {end_time.strftime('%Y-%m-%d %H:%M')}"
+    print(f"  🕒 Time Window: {window_str} ({label})")
+    
     articles = []
     
     # 1. Fetch & Summarize Items
@@ -176,7 +257,9 @@ async def process_category(category, feeds):
             print(f"  Fetching {source['name']}...")
             feed = feedparser.parse(source['url'])
             
-            for entry in feed.entries[:2]: # Top 2 per source
+            # Filter top 5 (increased from 2 since we filter by relevance/time conceptually, 
+            # though strict time filter is disabled for MVP reliability)
+            for entry in feed.entries[:5]: 
                 content = ""
                 if 'summary' in entry:
                     content = entry.summary
@@ -201,16 +284,15 @@ async def process_category(category, feeds):
     # 2. Analyze with BrainModule (if enabled)
     analysis = None
     if brain:
-        print(f"  🧠 Analyzing {category} with BrainModule...")
-        # Prepare lightweight list for Brain
+        print(f"  🧠 Analyzing {category} with BrainModule (Raphael)...")
         brain_input = [{"title": a["title"], "description": a["description"]} for a in articles]
-        analysis = brain.analyze_news(category, brain_input)
+        analysis = brain.analyze_news(category, brain_input, time_window=window_str)
     
     # 3. Upload
-    await upload_to_notion(category, articles, analysis)
+    await upload_to_notion(category, articles, analysis, time_label=label)
 
 async def main():
-    print("=== Starting Notion News Bot (with AI) ===")
+    print("=== Starting Notion News Bot (Raphael Edition) ===")
     sources = load_sources()
     
     tasks = []
