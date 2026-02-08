@@ -1,0 +1,77 @@
+:root {
+  color-scheme: light;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f7f8fb;
+  color: #101828;
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+h1, h2 {
+  margin: 0 0 16px;
+}
+
+section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+input, textarea, select {
+  width: 100%;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+button {
+  background: #175cd3;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #eef4ff;
+  color: #175cd3;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.card {
+  background: #f9fafb;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.small {
+  font-size: 12px;
+  color: #667085;
+}
