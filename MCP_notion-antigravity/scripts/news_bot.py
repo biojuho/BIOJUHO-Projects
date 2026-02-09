@@ -3,6 +3,7 @@ import json
 import asyncio
 import sys
 import io
+print("Starting script...", flush=True)
 
 # 윈도우 콘솔 인코딩 호환성 설정
 sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
@@ -11,6 +12,7 @@ import feedparser
 import google.generativeai as genai
 from datetime import datetime, timedelta, timezone
 from dateutil import parser
+from collections import Counter
 from notion_client import AsyncClient
 from dotenv import load_dotenv
 
@@ -30,7 +32,7 @@ load_dotenv(os.path.join(parent_dir, ".env"))
 # Configurations
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 DATABASE_ID = "bb5cf3c8-d2bb-4b8b-a866-ba9ea86f16b7" 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # Initialize Clients
@@ -199,7 +201,33 @@ async def upload_to_notion(category, articles, analysis=None, time_label="News")
         })
         children.append({"object": "block", "type": "divider", "divider": {}})
     
-    # 4. Individual Articles
+    # 4. Source Distribution (Mermaid Chart)
+    # Calculate source stats
+    sources = [a.get('source', 'Unknown') for a in articles]
+    source_counts = Counter(sources)
+    
+    # Generate Mermaid Pie Chart Syntax
+    mermaid_code = "pie\n    title 뉴스 출처 분포\n"
+    for source, count in source_counts.most_common(10):
+        # Mermaid syntax clean up (remove quotes if possible, or keep simple)
+        safe_source = source.replace('"', '').replace(':', '')
+        mermaid_code += f'    "{safe_source}" : {count}\n'
+
+    children.append({
+        "object": "block", "type": "heading_3", 
+        "heading_3": {"rich_text": [{"text": {"content": "📊 뉴스 출처 분석"}}]}
+    })
+
+    children.append({
+        "object": "block",
+        "type": "code",
+        "code": {
+            "language": "mermaid",
+            "rich_text": [{"text": {"content": mermaid_code}}]
+        }
+    })
+
+    # 5. Individual Articles
     children.append({
         "object": "block", "type": "heading_3", 
         "heading_3": {"rich_text": [{"text": {"content": "🗞️ 수집된 뉴스"}}]}
@@ -283,10 +311,15 @@ async def process_category(category, feeds):
 
     # 2. Analyze with BrainModule (if enabled)
     analysis = None
+    analysis = None
     if brain:
-        print(f"  🧠 Analyzing {category} with BrainModule (Raphael)...")
-        brain_input = [{"title": a["title"], "description": a["description"]} for a in articles]
-        analysis = brain.analyze_news(category, brain_input, time_window=window_str)
+        try:
+            print(f"  🧠 Analyzing {category} with BrainModule (Raphael)...")
+            brain_input = [{"title": a["title"], "description": a["description"]} for a in articles]
+            analysis = brain.analyze_news(category, brain_input, time_window=window_str)
+        except Exception as e:
+            print(f"  [WARN] BrainModule analysis failed for {category}: {e}")
+            analysis = None
     
     # 3. Upload
     await upload_to_notion(category, articles, analysis, time_label=label)

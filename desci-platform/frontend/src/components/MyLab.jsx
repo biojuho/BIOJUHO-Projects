@@ -1,116 +1,150 @@
-/**
- * My Lab Component
- * Research Dashboard for managing papers and rewards
- */
 import { useState, useEffect } from 'react';
 import client from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
+import { Loader2, Upload, FileText } from 'lucide-react';
+import SuccessModal from './ui/SuccessModal';
 
 export default function MyLab() {
-    const { user } = useAuth();
+    const { user, walletAddress } = useAuth();
+    const { showToast } = useToast();
     const [papers, setPapers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [minting, setMinting] = useState({});
+
+    // Modal State
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [modalData, setModalData] = useState({ title: '', message: '', txHash: '' });
 
     useEffect(() => {
         const fetchPapers = async () => {
             try {
-                // In a real app, we would pass the user ID or token
                 const response = await client.get('/papers/me');
                 setPapers(response.data);
             } catch (err) {
                 console.error('Failed to fetch papers:', err);
+                showToast("연구 데이터를 불러오는데 실패했습니다.", 'error');
             } finally {
                 setLoading(false);
             }
         };
         fetchPapers();
-    }, []);
+    }, [showToast]);
+
+    const mintNFT = async (paper) => {
+        if (!walletAddress) {
+            showToast("지갑이 연결되지 않았습니다. 😢", 'warning');
+            return;
+        }
+
+        setMinting(prev => ({ ...prev, [paper.id]: true }));
+
+        try {
+            const res = await client.post('/nft/mint', {
+                user_address: walletAddress,
+                token_uri: paper.ipfs_url
+            });
+
+            if (res.data.success) {
+                setModalData({
+                    title: "NFT Minted Successfully! 💎",
+                    message: `Your IP-NFT for "${paper.title}" has been minted on the blockchain.`,
+                    txHash: res.data.tx_hash
+                });
+                setShowSuccessModal(true);
+            } else {
+                showToast("Minting failed: " + res.data.error, 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("Minting Error", 'error');
+        } finally {
+            setMinting(prev => ({ ...prev, [paper.id]: false }));
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-slate-50">
+                <Loader2 className="animate-spin text-blue-500" size={48} />
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 p-8">
-            <div className="max-w-6xl mx-auto">
-                {/* Header */}
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-                            🧪 My Lab
-                        </h2>
-                        <p className="text-gray-300 mt-2">
-                            {user?.displayName}님의 연구 아카이브
-                        </p>
-                    </div>
-                    <Link
-                        to="/upload"
-                        className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-bold hover:opacity-90 transition-all flex items-center gap-2"
-                    >
-                        <span>📤</span> 새 논문 등록
-                    </Link>
-                </div>
+        <div className="min-h-screen bg-slate-50 p-6">
+             <div className="max-w-6xl mx-auto">
+                <h1 className="text-3xl font-bold mb-8 text-slate-800 flex items-center gap-2">
+                  My Research Lab 🔬
+                </h1>
+                
+                <SuccessModal 
+                    isOpen={showSuccessModal} 
+                    onClose={() => setShowSuccessModal(false)}
+                    title={modalData.title}
+                    message={modalData.message}
+                    txHash={modalData.txHash}
+                />
 
-                {/* Stats Overview */}
-                <div className="grid md:grid-cols-3 gap-6 mb-10">
-                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 className="text-gray-400 text-sm font-medium uppercase">Total Research</h3>
-                        <p className="text-4xl font-bold text-white mt-1">{papers.length}</p>
+                {papers.length === 0 ? (
+                    <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                        <FileText size={64} className="mx-auto text-slate-300 mb-4" />
+                        <p className="text-xl text-slate-500 mb-6">No research papers yet.</p>
+                        <Link to="/upload" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold">
+                            <Upload size={20} className="mr-2" /> Upload Your First Paper
+                        </Link>
                     </div>
-                    <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 backdrop-blur-lg rounded-2xl p-6 border border-yellow-500/30">
-                        <h3 className="text-yellow-200 text-sm font-medium uppercase">Pending Rewards</h3>
-                        <p className="text-4xl font-bold text-yellow-400 mt-1">100.0 DSCI</p>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                        <h3 className="text-gray-400 text-sm font-medium uppercase">Impact Factor</h3>
-                        <p className="text-4xl font-bold text-cyan-400 mt-1">Mock</p>
-                    </div>
-                </div>
-
-                {/* Paper List */}
-                <h3 className="text-xl font-bold text-white mb-6">📂 내 논문 목록</h3>
-
-                {loading ? (
-                    <div className="text-center py-20">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cyan-400 mx-auto mb-4"></div>
-                        <p className="text-gray-400">연구 데이터를 불러오는 중...</p>
-                    </div>
-                ) : papers.length > 0 ? (
-                    <div className="grid gap-6">
-                        {papers.map((paper) => (
-                            <div key={paper.id} className="bg-white/5 hover:bg-white/10 transition-colors rounded-xl p-6 border border-white/10 relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-50 group-hover:opacity-100 transition-opacity">
-                                    {paper.reward_claimed ? (
-                                        <span className="bg-green-500/20 text-green-400 text-xs px-3 py-1 rounded-full font-bold">
-                                            보상 완료 ✅
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {papers.map(paper => (
+                            <div key={paper.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow">
+                                <div className="p-6">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full uppercase tracking-wide">
+                                            {paper.type || "Paper"}
                                         </span>
-                                    ) : (
-                                        <span className="bg-yellow-500/20 text-yellow-400 text-xs px-3 py-1 rounded-full font-bold">
-                                            심사 중 ⏳
+                                        <span className="text-xs text-slate-400">
+                                            {new Date(paper.created_at || Date.now()).toLocaleDateString()}
                                         </span>
-                                    )}
-                                </div>
-
-                                <h4 className="text-xl font-bold text-white mb-2">{paper.title}</h4>
-                                <p className="text-gray-400 text-sm line-clamp-2 mb-4">
-                                    {paper.abstract}
-                                </p>
-
-                                <div className="flex items-center gap-4 text-sm">
-                                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-900/30 px-3 py-1 rounded-lg">
-                                        <span>🔗</span>
-                                        <span className="font-mono">{paper.cid.slice(0, 10)}...</span>
                                     </div>
-                                    <span className="text-gray-500">
-                                        {new Date(paper.uploaded_at).toLocaleDateString()}
-                                    </span>
+                                    
+                                    <h3 className="text-xl font-bold text-slate-800 mb-3 line-clamp-2 min-h-[3.5rem]">
+                                        {paper.title}
+                                    </h3>
+                                    
+                                    <p className="text-slate-500 text-sm mb-6 line-clamp-3 min-h-[3.75rem]">
+                                        {paper.abstract || "No abstract available."}
+                                    </p>
+                                    
+                                    <div className="flex justify-between items-center pt-4 border-t border-slate-50">
+                                        <div className="flex space-x-2">
+                                        </div>
+                                        
+                                        <button
+                                            onClick={() => mintNFT(paper)}
+                                            disabled={minting[paper.id]}
+                                            className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all ${
+                                                minting[paper.id] 
+                                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                                    : "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5"
+                                            }`}
+                                        >
+                                            {minting[paper.id] ? (
+                                                <>
+                                                    <Loader2 size={18} className="animate-spin mr-2" />
+                                                    Minting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="mr-2">💎</span> Mint IP-NFT
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-20 bg-white/5 rounded-2xl border border-dashed border-white/20">
-                        <p className="text-gray-400 mb-4">등록된 연구 논문이 없습니다.</p>
-                        <Link to="/upload" className="text-cyan-400 underline hover:text-cyan-300">
-                            지금 첫 번째 연구를 등록해보세요!
-                        </Link>
                     </div>
                 )}
             </div>
