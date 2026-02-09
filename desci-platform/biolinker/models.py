@@ -75,3 +75,22 @@ class Paper(BaseModel):
     uploaded_at: datetime = Field(default_factory=datetime.now)
     reward_claimed: bool = Field(False, description="보상 수령 여부")
 
+
+# ============== 결제 모델 ==============
+
+class PaymentProvider(str, Enum):
+    KAKAO = "kakao"
+    TOSS = "toss"
+
+
+class PaymentReadyRequest(BaseModel):
+    """카카오페이 결제 준비 요청"""
+    product_id: str = Field(..., description="상품 ID (premium_analysis, token_1000 등)")
+
+
+class TossConfirmRequest(BaseModel):
+    """토스페이먼츠 결제 승인 요청"""
+    payment_key: str = Field(..., description="토스 paymentKey")
+    order_id: str = Field(..., description="주문 ID")
+    amount: int = Field(..., description="결제 금액")
+

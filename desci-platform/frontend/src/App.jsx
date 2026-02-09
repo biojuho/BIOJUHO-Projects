@@ -9,6 +9,7 @@ import BioLinker from './components/BioLinker';
 import Upload from './components/Upload';
 import Wallet from './components/Wallet';
 import MyLab from './components/MyLab';
+import Payment, { PaymentSuccess } from './components/Payment';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -45,6 +46,10 @@ function App() {
             <Route path="/biolinker" element={<BioLinker />} />
             <Route path="/upload" element={<Upload />} />
             <Route path="/wallet" element={<Wallet />} />
+            <Route path="/payment" element={<Payment />} />
+            <Route path="/payment/success" element={<PaymentSuccess />} />
+            <Route path="/payment/cancel" element={<Payment />} />
+            <Route path="/payment/fail" element={<Payment />} />
             <Route path="/mylab" element={<MyLab />} />
           </Route>
 

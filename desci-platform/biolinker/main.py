@@ -11,7 +11,10 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import firestore
 
-from models import AnalyzeRequest, AnalyzeResponse, UserProfile, RFPDocument, Paper
+from models import (
+    AnalyzeRequest, AnalyzeResponse, UserProfile, RFPDocument, Paper,
+    PaymentReadyRequest, TossConfirmRequest,
+)
 from services.analyzer import get_analyzer
 from services.crawler import get_crawler
 from services.kddf_crawler import get_kddf_crawler
@@ -20,6 +23,7 @@ from services.scheduler import get_scheduler
 from services.vector_store import get_vector_store
 from services.ipfs_service import get_ipfs_service
 from services.web3_service import get_web3_service
+from services.payment_service import get_payment_service
 
 load_dotenv()
 
@@ -64,8 +68,8 @@ async def root():
     return {
         "service": "BioLinker",
         "description": "AI 바이오 과제 매칭 에이전트",
-        "version": "0.2.0",
-        "features": ["RFP Analysis", "KDDF/NTIS Crawling", "ChromaDB Search", "IPFS Upload", "Token Rewards"]
+        "version": "0.3.0",
+        "features": ["RFP Analysis", "KDDF/NTIS Crawling", "ChromaDB Search", "IPFS Upload", "Token Rewards", "Kakao Pay", "Toss Payments"]
     }
 
 
@@ -74,13 +78,16 @@ async def health():
     vector_store = get_vector_store()
     web3 = get_web3_service()
     ipfs = get_ipfs_service()
-    
+    payment = get_payment_service()
+
     return {
         "status": "healthy",
         "llm_available": bool(os.getenv("OPENAI_API_KEY")),
         "chromadb_count": vector_store.count(),
         "web3_connected": web3.is_connected,
-        "ipfs_configured": ipfs.is_configured
+        "ipfs_configured": ipfs.is_configured,
+        "payment_kakao": bool(payment.kakao_secret_key),
+        "payment_toss": bool(payment.toss_secret_key),
     }
 
 
@@ -324,6 +331,63 @@ async def get_reward_amounts():
     """보상 금액 조회"""
     web3 = get_web3_service()
     return await web3.get_reward_amounts()
+
+
+# ============== 결제 (카카오페이 + 토스페이먼츠) ==============
+
+@app.get("/payment/products")
+async def get_products():
+    """결제 가능 상품 목록"""
+    payment = get_payment_service()
+    return payment.get_products()
+
+
+@app.get("/payment/toss/client-key")
+async def get_toss_client_key():
+    """토스페이먼츠 클라이언트 키 (프론트용)"""
+    payment = get_payment_service()
+    return {"client_key": payment.toss_get_client_key()}
+
+
+@app.post("/payment/kakao/ready")
+async def kakao_pay_ready(request: PaymentReadyRequest, user: dict = Depends(get_current_user)):
+    """카카오페이 결제 준비"""
+    user_id = user.get("uid", "anonymous")
+    payment = get_payment_service()
+    result = await payment.kakao_ready(user_id, request.product_id)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
+
+@app.post("/payment/kakao/approve")
+async def kakao_pay_approve(order_id: str, pg_token: str):
+    """카카오페이 결제 승인 (리다이렉트 콜백)"""
+    payment = get_payment_service()
+    result = await payment.kakao_approve(order_id, pg_token)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
+
+@app.post("/payment/toss/confirm")
+async def toss_confirm(request: TossConfirmRequest):
+    """토스페이먼츠 결제 승인"""
+    payment = get_payment_service()
+    result = await payment.toss_confirm(request.payment_key, request.order_id, request.amount)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
+
+@app.get("/payment/{order_id}")
+async def get_payment_status(order_id: str):
+    """결제 상태 조회"""
+    payment = get_payment_service()
+    result = payment.get_payment(order_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="결제 내역을 찾을 수 없습니다")
+    return result
 
 
 # ============== 데모 ==============

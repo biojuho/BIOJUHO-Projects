@@ -127,6 +127,12 @@ export default function Dashboard() {
                             >
                                 <span>🧪</span> 내 연구실 (My Lab)
                             </a>
+                            <a
+                                href="/payment"
+                                className="flex items-center gap-2 text-yellow-300 hover:text-yellow-100 transition-colors p-3 bg-white/5 rounded-lg hover:bg-white/10"
+                            >
+                                <span>💳</span> 결제 / 충전
+                            </a>
                         </div>
                     </div>
                 </div>
