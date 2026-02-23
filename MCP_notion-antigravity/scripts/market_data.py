@@ -9,7 +9,7 @@ import sys
 import io
 
 # Force UTF-8 for Windows Console
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+# sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
 
 # [Fix] Workaround for curl_cffi/yfinance failing with Unicode paths (e.g., "AI 프로젝트")
 # We copy the cert file to a temporary ASCII-safe path and point environment variables to it.

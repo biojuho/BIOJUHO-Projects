@@ -2,7 +2,7 @@
 REM Antigravity Daily News Runner
 REM 매일 오전 7시 Windows Task Scheduler로 실행
 
-cd /d "D:\AI 프로젝트\MCP_notion-antigravity"
+cd /d "%~dp0"
 call venv\Scripts\activate.bat
 REM 1. Notion News Archive 수집
 python scripts\collect_news.py
@@ -17,7 +17,7 @@ git push origin main
 
 
 REM 4. 노션 데일리 뉴스 요약 리포트 (시각화 포함)
-python scripts\news_bot.py
+python scripts\news_bot.py >> logs\news_bot.log 2>&1
 
 REM 5. NotebookLM용 마크다운 아카이브 생성
 python scripts\export_to_notebooklm.py

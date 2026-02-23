@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import anthropic
 from dotenv import load_dotenv
 
@@ -15,6 +16,25 @@ class BrainModule:
         if not ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY not found in .env")
         self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    def _robust_json_parse(self, text: str) -> dict:
+        try:
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            text = text.strip()
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        
+        try:
+            # Fix trailing commas
+            text = re.sub(r',(\s*[}\]])', r'\1', text)
+            return json.loads(text)
+        except json.JSONDecodeError:
+            print(f"[Brain Error] Failed to parse JSON: {text[:100]}...")
+            return None
 
     def analyze_news(self, category: str, articles: list, time_window: str = "") -> dict:
         """
@@ -78,42 +98,7 @@ Premium+ 사용자처럼 글자 제한 없이 자유롭게 긴 포스트를 작�
             
             # JSON 파싱
             text = message.content[0].text.strip()
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.replace("```", "")
-            
-            # Remove potential leading/trailing whitespace again
-            text = text.strip()
-
-            try:
-                return json.loads(text)
-            except json.JSONDecodeError:
-                # Fallback: Try to fix unescaped newlines in the JSON string
-                # This is a naive fix but often works for LLM output
-                import re
-                print("[Brain Warning] Parsing failed, attempting auto-fix (unescaped chars & trailing commas)...")
-                
-                # 1. Fix trailing commas before } or ]
-                text = re.sub(r',(\s*[}\]])', r'\1', text)
-                
-                # 2. Try strict=False (though python json is strict by default on control chars)
-                try:
-                    return json.loads(text, strict=False)
-                except json.JSONDecodeError:
-                    pass
-
-                # 3. Final attempt: Escape unescaped newlines within string values
-                # This is hard to do perfectly with regex without a parser, but basic attempt:
-                # (Skipping complex logic to avoid breaking valid JSON, relying on 1 & 2 for now)
-                
-                # Retry parsing after trailing comma fix
-                try:
-                    return json.loads(text)
-                except:
-                    pass
-
-                return None
+            return self._robust_json_parse(text)
 
         except Exception as e:
             print(f"[Brain Error] {e}")
