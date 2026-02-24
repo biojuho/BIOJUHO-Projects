@@ -2,6 +2,7 @@
 *.log
 .DS_Store
 Thumbs.db
+nul
 
 # Environment
 .env
@@ -15,11 +16,48 @@ __pycache__/
 
 # Temp
 tmp/
+.tmp/
 *.tmp
+
+# Claude agent internals
+.agent/
+.agents/
+**/.agent/
+
+# Build artifacts
+node_modules/
+dist/
+build/
+desci-platform/contracts/artifacts/
+desci-platform/contracts/cache/
+desci-platform/frontend/build_log*.txt
+desci-platform/frontend/lint.txt
+
+# Vector DB / data (large binary files)
+**/chroma_db/
+**/data/
+
+# SQLite databases
+*.db
+*.sqlite
+
+# Hardhat build artifacts
+AgriGuard/contracts/artifacts/
+AgriGuard/contracts/cache/
+AgriGuard/contracts/ignition/deployments/
+AgriGuard/contracts/compile_out.txt
+AgriGuard/contracts/deploy_out.txt
+AgriGuard/frontend/build_agri.out
+
+# Patch scripts (temporary)
+**/patch*.py
+desci-platform/patch_frontend.py
 
 # Secrets - NEVER commit these!
 credentials.json
+token.json
 create_repo.py
 **/credentials.json
 **/token*.txt
 **/create_repo.py
+serviceAccountKey.json

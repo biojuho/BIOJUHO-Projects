@@ -32,15 +32,16 @@ if BIOLINKER_DIR not in sys.path:
     sys.path.append(BIOLINKER_DIR)
 
 try:
-    from models import RFPDocument # type: ignore
+    from models import RFPDocument, VCFirm # type: ignore
 except ImportError:
     # 패키지 컨텍스트에서 실행될 경우 상대 임포트 시도
     try:
-        from ..models import RFPDocument # type: ignore
+        from ..models import RFPDocument, VCFirm # type: ignore
     except ImportError:
         # 최종 실패 시 로그 출력 및 Any 타입 할당 (크래시 방지)
         print("[경고] models.RFPDocument를 임포트할 수 없습니다. PYTHONPATH를 확인하세요.")
         RFPDocument = Any  # pylint: disable=invalid-name
+        VCFirm = Any
 
 # --- 조건부 임포트 (라이브러리 가용성 체크) ---
 CHROMADB_AVAILABLE = False  # pylint: disable=invalid-name
@@ -224,6 +225,68 @@ class VectorStore:
                 self._save_to_json(paper_id, embedding, metadata, full_text[:5000])
 
         return paper_id
+
+    
+    def add_company_asset(
+        self, asset_id: str, title: str, content: str, metadata: Dict[str, Any]
+    ) -> str:
+        """회사 자산(IR, 특허 등) 저장"""
+        # 메타데이터 보강
+        final_meta = metadata.copy()
+        final_meta.update({
+            "title": title,
+            "source": metadata.get("source", "CompanyAsset"),
+            "type": "company_asset", # Explicitly set type
+            "created_at": datetime.now().isoformat()
+        })
+
+        # 임베딩 생성
+        embed_text = f"{title}\n{content[:4000]}"
+        embedding = self._get_embedding(embed_text)
+
+        collection = self.collection
+        if CHROMADB_AVAILABLE and collection:
+            collection.add(
+                ids=[asset_id],
+                embeddings=[embedding],
+                metadatas=[final_meta],
+                documents=[content[:6000]]
+            )
+        else:
+            # 인메모리 저장
+            self._save_to_json(asset_id, embedding, final_meta, content[:6000])
+
+        return asset_id
+
+    def add_vc_firm(self, vc: VCFirm) -> str:
+        """VC 정보 저장"""
+        metadata = {
+            "title": vc.name,  # 검색 통일성을 위해 title 필드 사용
+            "name": vc.name,
+            "source": "VCFirm",
+            "type": "vc_firm",
+            "country": vc.country,
+            "stages": ",".join(vc.preferred_stages),
+            "keywords": ",".join(vc.portfolio_keywords),
+            "created_at": datetime.now().isoformat()
+        }
+
+        # 임베딩 생성 (Thesis가 가장 중요)
+        embed_text = f"{vc.name}\n{vc.investment_thesis}\nKeywords: {', '.join(vc.portfolio_keywords)}"
+        embedding = self._get_embedding(embed_text)
+
+        collection = self.collection
+        if CHROMADB_AVAILABLE and collection:
+            collection.add(
+                ids=[vc.id],
+                embeddings=[embedding],
+                metadatas=[metadata],
+                documents=[vc.investment_thesis]
+            )
+        else:
+            self._save_to_json(vc.id, embedding, metadata, vc.investment_thesis)
+
+        return vc.id
 
     def add_notices(self, rfps: List[RFPDocument]) -> List[str]:
         """다수의 RFP 공고 저장"""
@@ -504,17 +567,57 @@ class VectorStore:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"[오류] ChromaDB 전체 목록 조회 실패: {e}")
                 return []
-        else:
-            db_path = os.path.join(self.persist_dir, "db.json")
-            if os.path.exists(db_path):
-                try:
-                    with open(db_path, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                    # list slicing 대신 islice 사용 (Linter 호환성)
-                    return [{'id': k, 'metadata': v['metadata']} for k, v in itertools.islice(data.items(), limit)]
-                except Exception:  # pylint: disable=broad-exception-caught
-                    pass
-            return []
+
+        # ChromaDB 미사용 시 인메모리 JSON fallback
+        db_path = os.path.join(self.persist_dir, "db.json")
+        if os.path.exists(db_path):
+            try:
+                with open(db_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return [{'id': k, 'metadata': v['metadata']} for k, v in itertools.islice(data.items(), limit)]
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass
+        return []
+
+    def get_documents_by_metadata(self, key: str, value: Any) -> List[Dict[str, Any]]:
+        """메타데이터 키-값으로 문서 조회"""
+        collection = self.collection
+        if CHROMADB_AVAILABLE and collection:
+            try:
+                result = collection.get(where={key: value}, include=["metadatas", "documents"])
+                items = []
+                ids = result.get('ids', []) or []
+                metadatas = result.get('metadatas', []) or []
+                documents = result.get('documents', []) or []
+                
+                for i, id_ in enumerate(ids):
+                    items.append({
+                        'id': id_,
+                        'metadata': metadatas[i],
+                        'document': documents[i]
+                    })
+                return items
+            except Exception as e:
+                print(f"[오류] ChromaDB 메타데이터 조회 실패: {e}")
+                return []
+        
+        # In-memory fallback
+        db_path = os.path.join(self.persist_dir, "db.json")
+        items = []
+        if os.path.exists(db_path):
+            try:
+                with open(db_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for doc_id, val in data.items():
+                        if val.get('metadata', {}).get(key) == value:
+                            items.append({
+                                'id': doc_id,
+                                'metadata': val['metadata'],
+                                'document': val['document']
+                            })
+            except Exception:
+                pass
+        return items
 
 
 # 싱글톤 패턴 (Singleton Pattern)

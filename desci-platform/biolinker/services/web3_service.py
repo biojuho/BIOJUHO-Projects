@@ -78,18 +78,36 @@ DESCI_TOKEN_ABI = [
         "type": "function"
     }
 ]
-
+# ResearchPaperNFT ABI (Minting)
+RESEARCH_PAPER_NFT_ABI = [
+    {
+        "inputs": [{"name": "to", "type": "address"}, {"name": "uri", "type": "string"}],
+        "name": "mintPaper",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [{"name": "tokenId", "type": "uint256"}],
+        "name": "tokenURI",
+        "outputs": [{"name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
 
 class Web3Service:
-    """Web3 블록체인 서비스"""
+    """Web3 블록체인 서비스 (Token & NFT)"""
     
     def __init__(self):
         self.rpc_url = os.getenv("WEB3_RPC_URL", "https://sepolia.infura.io/v3/YOUR_KEY")
-        self.contract_address = os.getenv("DSCI_CONTRACT_ADDRESS")
+        self.token_address = os.getenv("DSCI_CONTRACT_ADDRESS")
+        self.nft_address = os.getenv("NFT_CONTRACT_ADDRESS")
         self.private_key = os.getenv("DISTRIBUTOR_PRIVATE_KEY")
         
         self.w3 = None
-        self.contract = None
+        self.token_contract = None
+        self.nft_contract = None
         self.account = None
         
         if WEB3_AVAILABLE:
@@ -100,10 +118,16 @@ class Web3Service:
         try:
             self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
             
-            if self.contract_address:
-                self.contract = self.w3.eth.contract(
-                    address=Web3.to_checksum_address(self.contract_address),
+            if self.token_address:
+                self.token_contract = self.w3.eth.contract(
+                    address=Web3.to_checksum_address(self.token_address),
                     abi=DESCI_TOKEN_ABI
+                )
+
+            if self.nft_address:
+                self.nft_contract = self.w3.eth.contract(
+                    address=Web3.to_checksum_address(self.nft_address),
+                    abi=RESEARCH_PAPER_NFT_ABI
                 )
             
             if self.private_key:
@@ -125,27 +149,21 @@ class Web3Service:
     @property
     def is_configured(self) -> bool:
         """설정 완료 여부"""
-        return bool(self.contract_address and self.private_key)
+        return bool((self.token_address or self.nft_address) and self.private_key)
     
     async def get_balance(self, address: str) -> dict:
         """
         사용자 DSCI 토큰 잔액 조회
-        
-        Args:
-            address: 지갑 주소
-            
-        Returns:
-            {'balance': '100.0', 'balance_wei': '100000000...'}
         """
         if not WEB3_AVAILABLE:
             return self._mock_balance(address)
         
-        if not self.contract:
+        if not self.token_contract:
             return self._mock_balance(address)
         
         try:
             checksum_addr = Web3.to_checksum_address(address)
-            balance_wei = self.contract.functions.balanceOf(checksum_addr).call()
+            balance_wei = self.token_contract.functions.balanceOf(checksum_addr).call()
             balance = Web3.from_wei(balance_wei, 'ether')
             
             return {
@@ -177,14 +195,14 @@ class Web3Service:
         reason: str
     ) -> dict:
         """커스텀 보상 지급"""
-        if not self.is_configured or not self.contract:
+        if not self.is_configured or not self.token_contract:
             return self._mock_reward(user_address, amount, reason)
         
         try:
             checksum_addr = Web3.to_checksum_address(user_address)
             amount_wei = Web3.to_wei(amount, 'ether')
             
-            tx = self.contract.functions.distributeReward(
+            tx = self.token_contract.functions.distributeReward(
                 checksum_addr, amount_wei, reason
             ).build_transaction({
                 'from': self.account.address,
@@ -209,12 +227,12 @@ class Web3Service:
     
     async def _send_reward_tx(self, function_name: str, user_address: str) -> dict:
         """보상 트랜잭션 전송"""
-        if not self.is_configured or not self.contract:
+        if not self.is_configured or not self.token_contract:
             return self._mock_reward(user_address, 100, function_name)
         
         try:
             checksum_addr = Web3.to_checksum_address(user_address)
-            func = getattr(self.contract.functions, function_name)
+            func = getattr(self.token_contract.functions, function_name)
             
             tx = func(checksum_addr).build_transaction({
                 'from': self.account.address,
@@ -238,7 +256,7 @@ class Web3Service:
     
     async def get_reward_amounts(self) -> dict:
         """보상 금액 조회"""
-        if not self.contract:
+        if not self.token_contract:
             return {
                 'paper_upload': '100',
                 'peer_review': '50',
@@ -248,7 +266,7 @@ class Web3Service:
             }
         
         try:
-            amounts = self.contract.functions.getRewardAmounts().call()
+            amounts = self.token_contract.functions.getRewardAmounts().call()
             return {
                 'paper_upload': str(Web3.from_wei(amounts[0], 'ether')),
                 'peer_review': str(Web3.from_wei(amounts[1], 'ether')),
@@ -258,6 +276,47 @@ class Web3Service:
         except Exception as e:
             return {'error': str(e)}
     
+    async def mint_paper_nft(self, user_address: str, token_uri: str) -> dict:
+        """ Research Paper NFT Minting """
+        if not self.is_configured or not self.nft_contract:
+            # Return Mock result if NFT contract is not ready
+            return {
+                'success': True,
+                'tx_hash': "0xMOCK_NFT_MINT_HASH",
+                'user': user_address,
+                'token_id': 0,
+                'token_uri': token_uri,
+                '_mock': True
+            }
+        
+        try:
+            checksum_addr = Web3.to_checksum_address(user_address)
+            
+            tx = self.nft_contract.functions.mintPaper(
+                checksum_addr, token_uri
+            ).build_transaction({
+                'from': self.account.address,
+                'nonce': self.w3.eth.get_transaction_count(self.account.address),
+                'gas': 200000, 
+                'gasPrice': self.w3.eth.gas_price
+            })
+            
+            signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            
+            # Wait for receipt to get Token ID? (Might take time, better return hash)
+            # For simplicity, returning hash. Frontend can check later.
+            
+            return {
+                'success': True,
+                'tx_hash': tx_hash.hex(),
+                'user': user_address,
+                'token_uri': token_uri
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
     def _mock_balance(self, address: str) -> dict:
         """개발용 Mock 잔액"""
         import hashlib

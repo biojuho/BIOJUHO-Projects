@@ -1,13 +1,17 @@
+
 import { useState, useEffect } from 'react';
-import client from '../api/client';
+import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
-import { Loader2, Upload, FileText } from 'lucide-react';
+import { Loader2, Upload, FileText, FlaskConical, ExternalLink, Sparkles } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 import SuccessModal from './ui/SuccessModal';
+import GlassCard from './ui/GlassCard';
 
 export default function MyLab() {
-    const { user, walletAddress } = useAuth();
+    const { walletAddress } = useAuth();
     const { showToast } = useToast();
     const [papers, setPapers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -64,90 +68,145 @@ export default function MyLab() {
         }
     };
 
+    const container = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const item = {
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0 }
+    };
+
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-screen bg-slate-50">
-                <Loader2 className="animate-spin text-blue-500" size={48} />
+            <div className="flex justify-center items-center min-h-[60vh]">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="animate-spin text-primary" size={48} />
+                    <p className="text-gray-400 text-sm">Loading your research...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 p-6">
-             <div className="max-w-6xl mx-auto">
-                <h1 className="text-3xl font-bold mb-8 text-slate-800 flex items-center gap-2">
-                  My Research Lab 🔬
-                </h1>
+        <motion.div
+            className="space-y-8"
+            variants={container}
+            initial="hidden"
+            animate="show"
+        >
+            {/* Header */}
+            <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
+                        <FlaskConical className="w-10 h-10 text-primary" />
+                        My Research Lab
+                    </h1>
+                    <p className="text-gray-400 mt-2">Manage your research papers and mint IP-NFTs</p>
+                </div>
+                <Link
+                    to="/upload"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:opacity-90 transition-all shadow-lg shadow-cyan-500/20 font-medium"
+                >
+                    <Upload size={18} /> Upload Paper
+                </Link>
+            </motion.div>
                 
-                <SuccessModal 
-                    isOpen={showSuccessModal} 
-                    onClose={() => setShowSuccessModal(false)}
-                    title={modalData.title}
-                    message={modalData.message}
-                    txHash={modalData.txHash}
-                />
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                title={modalData.title}
+                message={modalData.message}
+                txHash={modalData.txHash}
+            />
 
-                {papers.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                        <FileText size={64} className="mx-auto text-slate-300 mb-4" />
-                        <p className="text-xl text-slate-500 mb-6">No research papers yet.</p>
-                        <Link to="/upload" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold">
-                            <Upload size={20} className="mr-2" /> Upload Your First Paper
+            {papers.length === 0 ? (
+                <motion.div variants={item}>
+                    <GlassCard className="text-center py-16 px-8">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-white/5 flex items-center justify-center">
+                            <FileText size={40} className="text-gray-500" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-3">No Research Papers Yet</h3>
+                        <p className="text-gray-400 mb-8 max-w-md mx-auto">
+                            Start your DeSci journey by uploading your first research paper and mint it as an IP-NFT.
+                        </p>
+                        <Link
+                            to="/upload"
+                            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:opacity-90 transition-all shadow-lg shadow-cyan-500/20 font-semibold"
+                        >
+                            <Upload size={20} /> Upload Your First Paper
                         </Link>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {papers.map(paper => (
-                            <div key={paper.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow">
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full uppercase tracking-wide">
-                                            {paper.type || "Paper"}
-                                        </span>
-                                        <span className="text-xs text-slate-400">
-                                            {new Date(paper.created_at || Date.now()).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                    
-                                    <h3 className="text-xl font-bold text-slate-800 mb-3 line-clamp-2 min-h-[3.5rem]">
-                                        {paper.title}
-                                    </h3>
-                                    
-                                    <p className="text-slate-500 text-sm mb-6 line-clamp-3 min-h-[3.75rem]">
-                                        {paper.abstract || "No abstract available."}
-                                    </p>
-                                    
-                                    <div className="flex justify-between items-center pt-4 border-t border-slate-50">
-                                        <div className="flex space-x-2">
-                                        </div>
-                                        
-                                        <button
-                                            onClick={() => mintNFT(paper)}
-                                            disabled={minting[paper.id]}
-                                            className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all ${
-                                                minting[paper.id] 
-                                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                                    : "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-0.5"
-                                            }`}
-                                        >
-                                            {minting[paper.id] ? (
-                                                <>
-                                                    <Loader2 size={18} className="animate-spin mr-2" />
-                                                    Minting...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="mr-2">💎</span> Mint IP-NFT
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
+                    </GlassCard>
+                </motion.div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {papers.map((paper, index) => (
+                        <GlassCard
+                            key={paper.id}
+                            delay={index * 0.1}
+                            hoverEffect={true}
+                            className="flex flex-col"
+                        >
+                            <div className="flex justify-between items-start mb-4">
+                                <span className="px-3 py-1 bg-primary/20 text-primary text-xs font-bold rounded-full uppercase tracking-wide">
+                                    {paper.type || "Paper"}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                    {new Date(paper.created_at || Date.now()).toLocaleDateString()}
+                                </span>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
+
+                            <h3 className="text-lg font-bold text-white mb-3 line-clamp-2 min-h-[3rem]">
+                                {paper.title}
+                            </h3>
+
+                            <p className="text-gray-400 text-sm mb-6 line-clamp-3 flex-1">
+                                {paper.abstract || "No abstract available."}
+                            </p>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
+                                {paper.ipfs_url && (
+                                    <a
+                                        href={paper.ipfs_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-gray-400 hover:text-white flex items-center gap-1 transition-colors"
+                                        aria-label="View on IPFS"
+                                    >
+                                        <ExternalLink size={14} /> IPFS
+                                    </a>
+                                )}
+
+                                <button
+                                    onClick={() => mintNFT(paper)}
+                                    disabled={minting[paper.id]}
+                                    aria-label={minting[paper.id] ? "Minting in progress" : "Mint IP-NFT"}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all text-sm ${
+                                        minting[paper.id]
+                                            ? "bg-white/5 text-gray-500 cursor-not-allowed"
+                                            : "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/20 hover:-translate-y-0.5 hover:shadow-xl"
+                                    }`}
+                                >
+                                    {minting[paper.id] ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" />
+                                            Minting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles size={16} /> Mint IP-NFT
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </GlassCard>
+                    ))}
+                </div>
+            )}
+        </motion.div>
     );
 }

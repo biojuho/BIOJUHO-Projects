@@ -3,30 +3,43 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.19 <24",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:lts": "npx -y node@22 node_modules/vite/bin/vite.js build",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "axios": "^1.13.4",
+    "clsx": "^2.1.1",
     "firebase": "^12.9.0",
+    "framer-motion": "^12.33.0",
+    "html2pdf.js": "^0.14.0",
+    "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.13.0"
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.13.0",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@tailwindcss/vite": "^4.1.18",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.20",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "tailwindcss": "^4.1.18",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
     "vite": "^7.2.4"
   }
 }

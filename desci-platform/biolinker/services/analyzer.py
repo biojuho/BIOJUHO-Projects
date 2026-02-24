@@ -8,8 +8,16 @@ import re
 from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
+# 환경 변수 로드
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir))) # desci-platform
+env_path = os.path.join(project_root, ".env")
+load_dotenv(env_path)
 
-load_dotenv()
+# Fallback: Try loading from local directory if project root fails or for testing
+if not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
+    load_dotenv()
+
 
 # LLM Imports
 try:
@@ -96,7 +104,7 @@ class RFPAnalyzer:
         self.llm = None
         
         # 1. Google Gemini (Priority)
-        google_key = os.getenv("GOOGLE_API_KEY")
+        google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         print(f"[DEBUG] Google Key: {'Found' if google_key else 'Missing'}, Available: {GOOGLE_AVAILABLE}")
         
         if google_key and GOOGLE_AVAILABLE:
@@ -172,31 +180,36 @@ class RFPAnalyzer:
         chain = prompt | self.llm
         
         # 분석 실행
-        response = await chain.ainvoke({
-            "company_name": user_profile.company_name,
-            "tech_keywords": ", ".join(user_profile.tech_keywords),
-            "tech_description": user_profile.tech_description,
-            "company_size": user_profile.company_size or "미지정",
-            "current_trl": user_profile.current_trl or "미지정",
-            "rfp_title": rfp.title,
-            "rfp_source": rfp.source,
-            "rfp_deadline": rfp.deadline.strftime("%Y-%m-%d") if rfp.deadline else "미지정",
-            "rfp_budget": rfp.budget_range or "미지정",
-            "rfp_body": rfp.body_text[:4000]  # 토큰 제한
-        })
-        
-        # 응답 파싱
-        result_dict = self._parse_llm_response(response.content)
-        
-        if result_dict:
-            return AnalysisResult(
-                fit_score=result_dict.get("fit_score", 50),
-                fit_grade=FitGrade(result_dict.get("fit_grade", "B")),
-                match_summary=result_dict.get("match_summary", []),
-                required_docs=result_dict.get("required_docs", []),
-                risk_flags=result_dict.get("risk_flags", []),
-                recommended_actions=result_dict.get("recommended_actions", [])
-            )
+        try:
+            response = await chain.ainvoke({
+                "company_name": user_profile.company_name,
+                "tech_keywords": ", ".join(user_profile.tech_keywords),
+                "tech_description": user_profile.tech_description,
+                "company_size": user_profile.company_size or "미지정",
+                "current_trl": user_profile.current_trl or "미지정",
+                "rfp_title": rfp.title,
+                "rfp_source": rfp.source,
+                "rfp_deadline": rfp.deadline.strftime("%Y-%m-%d") if rfp.deadline else "미지정",
+                "rfp_budget": rfp.budget_range or "미지정",
+                "rfp_body": rfp.body_text[:4000]  # 토큰 제한
+            })
+            
+            # 응답 파싱
+            result_dict = self._parse_llm_response(response.content)
+            
+            if result_dict:
+                return AnalysisResult(
+                    fit_score=result_dict.get("fit_score", 50),
+                    fit_grade=FitGrade(result_dict.get("fit_grade", "B")),
+                    match_summary=result_dict.get("match_summary", []),
+                    required_docs=result_dict.get("required_docs", []),
+                    risk_flags=result_dict.get("risk_flags", []),
+                    recommended_actions=result_dict.get("recommended_actions", [])
+                )
+        except Exception as e:
+            print(f"[LLM Error] {e}")
+            # Fallback to mock if API fails (Quota or other)
+            return self._generate_mock_result(rfp, user_profile)
         
         # 파싱 실패 시 기본값
         return self._generate_mock_result(rfp, user_profile)
@@ -215,22 +228,26 @@ class RFPAnalyzer:
         overlap = len(rfp_keywords & user_keywords)
         base_score = min(50 + overlap * 10, 95)
         
+        # Warning for missing keys
+        print("[WARNING] LLM API Keys missing! Returning SIMULATED (Mock) results.")
+
         return AnalysisResult(
             fit_score=base_score,
             fit_grade=self._score_to_grade(base_score),
             match_summary=[
-                f"'{user_profile.company_name}'의 기술 키워드가 공고 요구사항과 부분 일치",
-                f"공고 출처 '{rfp.source}'는 바이오 분야 지원에 적합",
-                "상세 분석을 위해 OpenAI API 키 설정이 필요합니다"
+                f"⚠️ [SIMULATION] '{user_profile.company_name}'의 기술 키워드 기반 단순 매칭",
+                f"공고 출처 '{rfp.source}' 관련성 (키워드 매칭)",
+                "정확한 분석을 위해 OpenAI 또는 Google API 키가 필요합니다."
             ],
             required_docs=rfp.required_docs or ["사업계획서", "기술성 평가서"],
             risk_flags=[
-                "MVP 버전: 키워드 기반 단순 매칭 결과입니다",
-                "LLM 연동 후 정밀 분석이 가능합니다"
+                "🚨 [SIMULATION] 실제 AI 분석이 아닙니다.",
+                "MVP 버전: 단순 키워드 매칭 결과입니다.",
+                "LLM 연동 시 정밀 분석이 가능합니다."
             ],
             recommended_actions=[
-                "OpenAI API 키를 설정하여 LLM 분석 활성화",
-                "공고 상세 내용을 직접 검토하세요"
+                "OpenAI/Google API 키를 설정하여 AI 분석 활성화",
+                "공고 상세 내용을 반드시 직접 확인하세요"
             ]
         )
 

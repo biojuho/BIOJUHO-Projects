@@ -23,6 +23,22 @@ npm install
 npm run dev
 ```
 
+## Quality Gate
+
+### Backend smoke test (pytest)
+```bash
+cd biolinker
+python -m pytest tests/test_smoke_pipeline.py -q
+```
+
+### Frontend lint + production build (Node LTS)
+```bash
+cd frontend
+npm run lint
+npm run build:lts
+npm run check:bundle
+```
+
 ## Features
 - ✅ Google 소셜 로그인
 - ✅ Email/Password 인증

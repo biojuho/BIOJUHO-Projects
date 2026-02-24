@@ -7,6 +7,8 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 import json
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,19 +17,53 @@ from models import RFPDocument
 try:
     from .kddf_crawler import get_kddf_crawler
     from .ntis_crawler import get_ntis_crawler
+    from .vector_store import get_vector_store
 except ImportError:
     from kddf_crawler import get_kddf_crawler
     from ntis_crawler import get_ntis_crawler
+    from vector_store import get_vector_store
 
 
 class NoticeScheduler:
-    """공고 수집 스케줄러"""
+    """공고 수집 스케줄러 (APScheduler)"""
     
     def __init__(self, data_dir: str = "./data"):
         self.data_dir = data_dir
         self.notices_file = os.path.join(data_dir, "notices.json")
         self.last_run_file = os.path.join(data_dir, "last_run.txt")
         os.makedirs(data_dir, exist_ok=True)
+        
+        # Initialize Scheduler
+        self.scheduler = BackgroundScheduler()
+        self.scheduler.add_job(
+            self.run_collection_job,
+            CronTrigger(hour=2, minute=0),  # Run daily at 02:00 AM
+            id="daily_notice_collection",
+            replace_existing=True
+        )
+
+    def start(self):
+        """스케줄러 시작"""
+        if not self.scheduler.running:
+            self.scheduler.start()
+            print("[Scheduler] Started Background Scheduler (Daily 02:00 AM)")
+
+    def stop(self):
+        """스케줄러 중지"""
+        if self.scheduler.running:
+            self.scheduler.shutdown()
+            print("[Scheduler] Stopped Background Scheduler")
+            
+    def run_collection_job(self):
+        """스케줄러 잡 실행 래퍼 (Async function 호출)"""
+        print("[Scheduler] Triggering scheduled collection...")
+        try:
+            # Create a new event loop for the async task if necessary
+            # Or run in the main loop if possible. 
+            # safely run async in a thread:
+            asyncio.run(self.collect_all_notices())
+        except Exception as e:
+            print(f"[Scheduler] Job failed: {e}")
     
     async def collect_all_notices(self) -> list[dict]:
         """모든 소스에서 공고 수집"""
@@ -45,14 +81,14 @@ class NoticeScheduler:
             print(f"[KDDF] Error: {e}")
         
         # NTIS 수집
+        ntis = get_ntis_crawler()
         try:
-            ntis = get_ntis_crawler()
             ntis_notices = await ntis.fetch_notice_list("바이오")
             all_notices.extend(ntis_notices)
             print(f"[NTIS] Collected {len(ntis_notices)} notices")
         except Exception as e:
             print(f"[NTIS] Error: {e}")
-        
+
         # 추가 검색어로 NTIS 수집
         for keyword in ["신약", "의약품", "AI 헬스케어"]:
             try:
@@ -65,34 +101,74 @@ class NoticeScheduler:
             except Exception as e:
                 print(f"[NTIS:{keyword}] Error: {e}")
         
-        # 저장
-        self._save_notices(all_notices)
+        # 저장 & 신규 공고 추출
+        new_notices = self._save_notices(all_notices)
         self._update_last_run()
+        
+        # Vector Store Indexing
+        try:
+            vector_store = get_vector_store()
+            
+            if new_notices:
+                print(f"[Scheduler] Indexing {len(new_notices)} new notices to VectorDB...")
+                
+                # Crawlers should be accessed via their getters                
+                # Crawlers should be accessed via their getters
+                kddf = get_kddf_crawler()
+                ntis = get_ntis_crawler()
+
+                for notice in new_notices:
+                    try:
+                        rfp = None
+                        source = notice.get('source')
+                        url = notice.get('url')
+                        
+                        if source == 'KDDF':
+                            rfp = await kddf.fetch_notice_detail(url)
+                        elif source == 'NTIS':
+                            rfp = await ntis.fetch_notice_detail(url)
+                        
+                        if rfp:
+                            vector_store.add_notice(rfp)
+                            print(f"[Scheduler] Indexed: {rfp.title[:30]}...")
+                        else:
+                            print(f"[Scheduler] Failed to fetch details for {url}")
+                            
+                        # Random delay to be polite
+                        await asyncio.sleep(1)
+                        
+                    except Exception as e:
+                        print(f"[Scheduler] Failed to index {notice.get('url')}: {e}") 
+                
+        except Exception as e:
+            print(f"[Scheduler] Vector indexing error: {e}")
         
         print(f"[Scheduler] Total: {len(all_notices)} notices collected")
         return all_notices
     
-    def _save_notices(self, notices: list[dict]):
-        """공고 저장"""
+    def _save_notices(self, notices: list[dict]) -> list[dict]:
+        """공고 저장 (신규 공고 반환)"""
         # 기존 공고 로드
         existing = self._load_notices()
         existing_urls = {n['url'] for n in existing}
         
         # 신규 공고 추가
-        new_count = 0
+        new_items = []
         for notice in notices:
             if notice['url'] not in existing_urls:
                 notice['collected_at'] = datetime.now().isoformat()
                 notice['is_new'] = True
                 existing.append(notice)
-                new_count += 1
+                new_items.append(notice)
         
         # 저장
-        with open(self.notices_file, 'w', encoding='utf-8') as f:
-            json.dump(existing, f, ensure_ascii=False, indent=2)
-        
-        if new_count > 0:
-            print(f"[Scheduler] {new_count} new notices saved!")
+        if new_items:
+            with open(self.notices_file, 'w', encoding='utf-8') as f:
+                json.dump(existing, f, ensure_ascii=False, indent=2)
+            print(f"[Scheduler] {len(new_items)} new notices saved!")
+            
+        return new_items
+
     
     def _load_notices(self) -> list[dict]:
         """저장된 공고 로드"""

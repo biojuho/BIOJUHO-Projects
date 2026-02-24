@@ -3,15 +3,17 @@ BioLinker - FastAPI Main Application
 정부 과제 매칭 AI 에이전트 API
 """
 import os
+from datetime import datetime
 from typing import Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import firestore
 
 from models import AnalyzeRequest, AnalyzeResponse, UserProfile, RFPDocument, Paper
+from services.auth import get_current_user
 from services.analyzer import get_analyzer
 from services.crawler import get_crawler
 from services.kddf_crawler import get_kddf_crawler
@@ -20,15 +22,40 @@ from services.scheduler import get_scheduler
 from services.vector_store import get_vector_store
 from services.ipfs_service import get_ipfs_service
 from services.web3_service import get_web3_service
+from services.matcher import get_rfp_matcher
+from services.asset_manager import get_asset_manager
+from services.smart_matcher import get_smart_matcher
+from services.proposal_generator import get_proposal_generator
 
 load_dotenv()
+
+# Initialize Firestore
+try:
+    # Ensure Firebase is initialized (auth.py does it, but we double check or handle missing creds)
+    if not firebase_admin._apps:
+        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./serviceAccountKey.json")
+        if os.path.exists(cred_path):
+            cred = firebase_admin.credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+    
+    if firebase_admin._apps:
+        db = firestore.client()
+    else:
+        db = None
+        print("[WARNING] Firebase not initialized. Firestore disabled.")
+except Exception as e:
+    db = None
+    print(f"[ERROR] Firestore initialization failed: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    scheduler = get_scheduler()
+    scheduler.start()
     yield
     # Shutdown
+    scheduler.stop()
     crawler = get_crawler()
     await crawler.close()
     kddf = get_kddf_crawler()
@@ -47,7 +74,8 @@ app = FastAPI(
 )
 
 # CORS
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
+_default_origins = "http://localhost:5173,http://localhost:5174" if os.getenv("ENV", "development") != "production" else ""
+allowed_origins = os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -74,13 +102,38 @@ async def health():
     vector_store = get_vector_store()
     web3 = get_web3_service()
     ipfs = get_ipfs_service()
-    
+
+    chromadb_ok = True
+    chromadb_count = 0
+    try:
+        chromadb_count = vector_store.count()
+    except Exception as e:
+        chromadb_ok = False
+        print(f"[WARNING] Health check failed to read vector store count: {e}")
+
+    llm_available = bool(
+        os.getenv("OPENAI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+    )
+
     return {
-        "status": "healthy",
-        "llm_available": bool(os.getenv("OPENAI_API_KEY")),
-        "chromadb_count": vector_store.count(),
-        "web3_connected": web3.is_connected,
-        "ipfs_configured": ipfs.is_configured
+        "status": "healthy" if chromadb_ok else "degraded",
+        "llm_available": llm_available,
+        "chromadb_ok": chromadb_ok,
+        "chromadb_count": chromadb_count,
+        "web3_connected": bool(getattr(web3, "is_connected", False)),
+        "ipfs_configured": bool(getattr(ipfs, "is_configured", False))
+    }
+
+@app.get("/me")
+async def get_me(user: dict = Depends(get_current_user)):
+    """Authenticated user info for frontend bootstrap."""
+    return {
+        "authenticated": True,
+        "uid": user.get("uid"),
+        "email": user.get("email"),
+        "name": user.get("name")
     }
 
 
@@ -145,11 +198,71 @@ async def get_ntis_notices(keyword: str = "바이오", page: int = 1):
 
 # ============== 벡터 검색 ==============
 
-@app.get("/similar")
-async def search_similar(query: str, n_results: int = 5, source: Optional[str] = None):
-    """유사 공고 검색 (ChromaDB)"""
+@app.get("/match/rfp")
+async def match_rfp(
+    query: str = Query(..., description="Project description or keywords"),
+    limit: int = 5
+):
+    """
+    [Legacy] Search via text query
+    """
     vector_store = get_vector_store()
-    return vector_store.search_similar(query, n_results, source)
+    results = vector_store.search_similar(query, n_results=limit)
+    return results
+
+@app.post("/match/paper")
+async def match_paper_to_rfps(
+    request: dict = Body(..., example={"paper_id": "uuid"})
+):
+    """
+    Match a previously uploaded paper to relevant RFPs.
+    """
+    paper_id = request.get("paper_id")
+    if not paper_id:
+        raise HTTPException(status_code=400, detail="paper_id is required")
+        
+    try:
+        matcher = get_rfp_matcher()
+        results = await matcher.match_paper(paper_id, limit=5)
+        return {"matches": results}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f"Error matching paper: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/proposal/generate")
+async def generate_proposal_draft(
+    request: dict = Body(..., example={"paper_id": "uuid", "rfp_id": "uuid"})
+):
+    """
+    Generate a grant proposal draft based on a paper and an RFP.
+    """
+    paper_id = request.get("paper_id")
+    rfp_id = request.get("rfp_id")
+    
+    if not paper_id or not rfp_id:
+        raise HTTPException(status_code=400, detail="Both paper_id and rfp_id are required")
+        
+    vector_store = get_vector_store()
+    
+    # Fetch Data
+    paper = vector_store.get_notice(paper_id) # Using get_notice as generic fetch
+    rfp = vector_store.get_notice(rfp_id)
+    
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    if not rfp:
+        raise HTTPException(status_code=404, detail="RFP not found")
+        
+    try:
+        generator = get_proposal_generator()
+        draft = await generator.generate_draft(rfp, paper)
+        critique = await generator.review_draft(rfp, paper, draft)
+        return {"draft": draft, "critique": critique}
+    except Exception as e:
+        print(f"Error generating proposal: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/similar/profile")
@@ -181,6 +294,7 @@ async def upload_to_ipfs(
 ):
     """파일을 IPFS에 업로드하고 Firestore에 메타데이터 저장"""
     import tempfile
+    tmp_path: Optional[str] = None
     
     # User ID check for DB storage
     user_id = user.get("uid")
@@ -188,13 +302,30 @@ async def upload_to_ipfs(
          raise HTTPException(status_code=401, detail="User ID not found")
     
     try:
-        # 임시 파일 저장
+        # 1. Read File Content
+        content = await file.read()
+        
+        # 2. Parse PDF (Extract Text)
+        from services.pdf_parser import get_pdf_parser
+        parser = get_pdf_parser()
+        pdf_text = parser.parse(content)
+        
+        # Extract keywords (Mock or Simple extraction)
+        # In a real scenario, we would use LLM to extract keywords/summary from pdf_text
+        # For now, use provided abstract or simple parsing
+        extracted_keywords = ["Bio", "Research"] # Default
+        if pdf_text:
+             # Very simple keyword extraction (placeholder for LLM)
+             words = pdf_text.split()
+             if len(words) > 10:
+                 extracted_keywords = list(set([w for w in words if len(w) > 5]))[:5]
+
+        # 3. Save to Temp File for IPFS Upload
         with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as tmp:
-            content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
         
-        # IPFS 업로드
+        # 4. IPFS Upload
         ipfs = get_ipfs_service()
         result = await ipfs.upload_file(tmp_path, {
             "title": title or file.filename,
@@ -202,13 +333,25 @@ async def upload_to_ipfs(
             "original_filename": file.filename
         })
         
-        # 임시 파일 삭제
-        os.unlink(tmp_path)
+        # 5. Validate IPFS Result
+        cid = result.get("cid") or result.get("IpfsHash")
+        if not cid:
+            raise HTTPException(status_code=502, detail="IPFS upload succeeded but CID is missing")
+
+        ipfs_url = result.get("url") or f"https://gateway.pinata.cloud/ipfs/{cid}"
         
-        # IPFS Result
-        cid = result.get("IpfsHash")
-        ipfs_url = f"https://gateway.pinata.cloud/ipfs/{cid}"
+        # 6. Vector Store Indexing
+        vector_id = cid # Use CID as vector ID
+        vector_store = get_vector_store()
+        vector_store.add_paper(
+            paper_id=vector_id,
+            title=title or file.filename,
+            abstract=abstract or "",
+            full_text=pdf_text,
+            keywords=extracted_keywords
+        )
         
+        # 7. Firestore Save
         paper_data = {
             "id": cid,
             "title": title or file.filename,
@@ -218,7 +361,10 @@ async def upload_to_ipfs(
             "original_filename": file.filename,
             "uploaded_at": datetime.now().isoformat(),
             "reward_claimed": False,
-            "user_id": user_id
+            "user_id": user_id,
+            "vector_id": vector_id,
+            "keywords": extracted_keywords,
+            "analysis_status": "indexed"
         }
 
         # Save to Firestore if available
@@ -230,13 +376,27 @@ async def upload_to_ipfs(
                 print(f"Saved paper {cid} to Firestore for user {user_id}")
             except Exception as e:
                 print(f"Failed to save to Firestore: {e}")
-
-        # 임시 파일 삭제
-        os.unlink(tmp_path)
         
+        # Return extended result
+        result["cid"] = cid
+        result["url"] = ipfs_url
+        result["analysis"] = {
+            "keywords": extracted_keywords,
+            "text_length": len(pdf_text),
+            "status": "indexed"
+        }
         return result
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 @app.post("/upload/json")
@@ -326,6 +486,116 @@ async def get_reward_amounts():
     return await web3.get_reward_amounts()
 
 
+@app.get("/transactions/{address}")
+async def get_transactions(address: str, limit: int = 20):
+    """지갑 거래 내역 조회 (Firestore/Mock)"""
+    # Try Firestore first
+    if db:
+        try:
+            docs = db.collection("transactions").where("address", "==", address).order_by("timestamp", direction="DESCENDING").limit(limit).stream()
+            txns = [doc.to_dict() for doc in docs]
+            if txns:
+                return txns
+        except Exception as e:
+            print(f"Firestore transactions read error: {e}")
+
+    # Mock fallback
+    return [
+        {"id": "tx-001", "type": "reward", "description": "Paper Upload Reward", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-20T10:00:00", "address": address},
+        {"id": "tx-002", "type": "reward", "description": "Peer Review Reward", "amount": 50.0, "token": "DSCI", "timestamp": "2026-02-18T14:30:00", "address": address},
+        {"id": "tx-003", "type": "reward", "description": "Welcome Bonus", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-06T09:00:00", "address": address},
+    ]
+
+
+@app.post("/nft/mint")
+async def mint_nft(
+    request: dict = Body(..., example={"user_address": "0x...", "token_uri": "ipfs://..."})
+):
+    """Research Paper IP-NFT Minting"""
+    user_address = request.get("user_address")
+    token_uri = request.get("token_uri")
+    
+    if not user_address or not token_uri:
+         raise HTTPException(status_code=400, detail="user_address and token_uri are required")
+         
+    web3 = get_web3_service()
+    return await web3.mint_paper_nft(user_address, token_uri)
+
+
+# ============== 스마트 매칭 (Smart Matching) ==============
+
+@app.post("/assets/upload")
+async def upload_company_asset(
+    file: UploadFile = File(...),
+    asset_type: str = Form("general")
+):
+    """회사 자산(IR, 논문, 특허) 업로드 및 인덱싱"""
+    manager = get_asset_manager()
+    return await manager.upload_asset(file, asset_type)
+
+
+@app.get("/assets")
+async def list_company_assets():
+    """업로드된 회사 자산 목록"""
+    manager = get_asset_manager()
+    return manager.list_assets()
+
+
+@app.post("/match/smart")
+async def trigger_smart_match(notice: dict = Body(...)):
+    """(테스트용) 특정 공고에 대한 스마트 매칭 실행"""
+    matcher = get_smart_matcher()
+    result = await matcher.match_new_notice(notice)
+    if result:
+        return result
+    return {"message": "No significant match found (< 80 score)"}
+
+@app.get("/match/recommendations")
+async def get_smart_recommendations():
+    """자산 기반 스마트 추천 공고 목록"""
+    matcher = get_smart_matcher()
+    return await matcher.match_vcs_for_company()
+
+@app.get("/match/vc")
+async def get_vc_matches():
+    """자산 기반 VC 추천 목록"""
+    matcher = get_smart_matcher()
+    
+    # Ensure Mock VCs are indexed (Lazy Init)
+    # 실제로는 스케줄러가 해야하지만, 테스트 편의상 여기서 호출 check
+    from services.vector_store import get_vector_store
+    vs = get_vector_store()
+    # Check if any VC exists
+    vcs = vs.get_documents_by_metadata("type", "vc_firm")
+    if not vcs:
+        print("[System] Initializing Mock VC Database...")
+        from services.vc_crawler import get_vc_crawler
+        crawler = get_vc_crawler()
+        vc_list = crawler.fetch_vc_list()
+        for vc in vc_list:
+            vs.add_vc_firm(vc)
+            
+    return await matcher.match_vcs_for_company()
+
+
+
+# ============== VC Portal API ==============
+
+@app.get("/vc/list")
+async def get_vc_list():
+    """사용 가능한 VC 목록 조회 (Mock)"""
+    from services.vc_crawler import get_vc_crawler
+    crawler = get_vc_crawler()
+    return crawler.fetch_vc_list()
+
+
+@app.get("/vc/recommendations/{vc_id}")
+async def get_vc_matching_companies(vc_id: str):
+    """특정 VC를 위한 유망 기업/기술 추천"""
+    matcher = get_smart_matcher()
+    return await matcher.match_companies_for_vc(vc_id)
+
+
 # ============== 데모 ==============
 
 @app.get("/demo")
@@ -354,6 +624,88 @@ async def demo_analysis():
     result = await analyzer.analyze(sample_rfp, sample_profile)
     
     return AnalyzeResponse(rfp=sample_rfp, result=result)
+
+
+# ============== Agent API (AI Upgrade) ==============
+
+@app.post("/api/agent/research")
+async def agent_research(
+    request: dict = Body(..., example={"topic": "Agentic AI", "deep": True})
+):
+    """(Agent) Deep Research - 주제에 대한 심층 연구 리포트 생성"""
+    from services.agent_service import get_agent_service
+    
+    topic = request.get("topic")
+    deep = request.get("deep", False)
+    
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic required")
+        
+    service = get_agent_service()
+    
+    if deep:
+        report_data = await service.perform_deep_research(topic)
+        return {"result": report_data}
+    else:
+        # Legacy/Simple synthesis
+        results = request.get("results", [])
+        report = await service.synthesize_research(topic, results)
+        return {"report": report}
+
+@app.post("/api/agent/write")
+async def agent_write_content(
+    request: dict = Body(..., example={"topic": "Agentic AI", "raw_text": "...", "format_type": "blog_post"})
+):
+    """(Agent) Content Publisher - 다양한 형식의 콘텐츠 생성"""
+    from services.agent_service import get_agent_service
+    
+    topic = request.get("topic")
+    raw_text = request.get("raw_text")
+    format_type = request.get("format_type", "blog_post")
+    
+    if not topic or not raw_text:
+        raise HTTPException(status_code=400, detail="Topic and Raw Text required")
+        
+    service = get_agent_service()
+    content = await service.write_content(topic, raw_text, format_type)
+    return {"content": content}
+
+@app.post("/api/agent/youtube")
+async def agent_youtube_analysis(
+    request: dict = Body(..., example={"url": "https://youtu.be/...", "query": "Summarize this"})
+):
+    """(Agent) YouTube Intelligence - 영상 분석 및 질의응답"""
+    from services.agent_service import get_agent_service
+    
+    url = request.get("url")
+    query = request.get("query", "Summarize the video")
+    
+    if not url:
+        raise HTTPException(status_code=400, detail="Video URL required")
+        
+    service = get_agent_service()
+    result = await service.analyze_youtube_video(url, query)
+    return result
+
+@app.post("/api/agent/literature-review")
+@app.post("/agent/literature-review")
+async def agent_literature_review(
+    request: dict = Body(..., example={"topic": "CRISPR for SCD"})
+):
+    """(Agent) Literature Review - 지정된 주제에 대한 문헌 고찰(Review) 리포트 생성"""
+    from services.agent_service import get_agent_service
+    
+    topic = request.get("topic")
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic required")
+        
+    service = get_agent_service()
+    result = await service.conduct_literature_review(topic)
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+        
+    return result
 
 
 if __name__ == "__main__":

@@ -89,6 +89,10 @@ class KDDFCrawler:
         if not CRAWLING_AVAILABLE:
             return None
         
+        # Mock Data Support
+        if "mock" in url:
+            return self._get_mock_detail(url)
+        
         try:
             session = await self._get_session()
             async with session.get(url) as response:
@@ -165,6 +169,28 @@ class KDDFCrawler:
             }
         ]
     
+    
+    def _get_mock_detail(self, url: str) -> RFPDocument:
+        return RFPDocument(
+            id=str(uuid.uuid4()),
+            title="[KDDF] 2024년 바이오헬스 혁신기술 개발사업 공고 (Mock)",
+            source="KDDF",
+            body_text="""
+            본 공고는 바이오헬스 분야의 혁신적인 기술 개발을 지원하기 위한 사업입니다.
+            
+            1. 지원 분야: 신약, 의료기기, 디지털 헬스케어
+            2. 지원 규모: 과제당 최대 5억원
+            3. 지원 자격: 중소기업, 벤처기업, 대학, 연구소
+            4. 신청 기간: 2024년 4월 1일 ~ 4월 30일
+            
+            [키워드] 바이오, 신약, 임상, AI, 플랫폼
+            """,
+            url=url,
+            keywords=["바이오", "신약", "임상", "AI"],
+            deadline=datetime(2024, 4, 30),
+            budget_range="5억원"
+        )
+
     async def close(self):
         if self.session:
             await self.session.close()

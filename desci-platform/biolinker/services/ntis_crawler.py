@@ -101,6 +101,10 @@ class NTISCrawler:
         """공고 상세 내용"""
         if not CRAWLING_AVAILABLE:
             return None
+
+        # Mock Data Support
+        if "mock" in url:
+            return self._get_mock_detail(url)
         
         try:
             session = await self._get_session()
@@ -189,6 +193,27 @@ class NTISCrawler:
             }
         ]
     
+    def _get_mock_detail(self, url: str) -> RFPDocument:
+        return RFPDocument(
+            id=str(uuid.uuid4()),
+            title="[NTIS] 범부처 신약개발사업 2024 공고 (Mock)",
+            source="NTIS",
+            body_text="""
+            국가신약개발사업단에서는 2024년도 신규 지원 대상 과제를 다음과 같이 공고합니다.
+            
+            1. 사업 목적: 글로벌 경쟁력을 갖춘 블록버스터급 신약 개발
+            2. 지원 대상: 유효물질 단계부터 임상 2상 단계까지의 신약 개발 프로젝트
+            3. 지원 예산: 총 1,500억원 (과제당 연간 5~20억원)
+            4. 우대 사항: AI 기반 신약 개발 플랫폼 활용 과제 가산점 부여
+            
+            [문의처] 국가신약개발사업단 사업운영팀
+            """,
+            url=url,
+            keywords=["신약", "블록버스터", "임상", "AI"],
+            deadline=datetime(2024, 5, 20),
+            budget_range="5~20억원"
+        )
+
     async def close(self):
         if self.session:
             await self.session.close()

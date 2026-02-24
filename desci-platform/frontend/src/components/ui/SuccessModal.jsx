@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion"; // eslint-disable-line no-unused-vars
 import { X, CheckCircle, ExternalLink } from "lucide-react";
 
 const SuccessModal = ({ isOpen, onClose, title, message, txHash }) => {

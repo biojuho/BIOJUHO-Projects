@@ -1,16 +1,28 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
-const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/YOUR-PROJECT-ID";
-const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x0000000000000000000000000000000000000000000000000000000000000000";
+const AMOY_RPC_URL = process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology";
+const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+
+if (!PRIVATE_KEY && (process.argv.includes("--network") && !process.argv.includes("localhost"))) {
+    console.error("ERROR: PRIVATE_KEY environment variable is required for non-local deployments.");
+    console.error("Copy .env.example to .env and fill in your credentials.");
+    process.exit(1);
+}
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
     solidity: "0.8.20",
     networks: {
+        amoy: {
+            url: AMOY_RPC_URL,
+            accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+            chainId: 80002
+        },
         sepolia: {
-            url: SEPOLIA_RPC_URL,
-            accounts: [PRIVATE_KEY],
+            url: SEPOLIA_RPC_URL || "",
+            accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
             chainId: 11155111
         },
         localhost: {

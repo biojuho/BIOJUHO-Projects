@@ -3,96 +3,136 @@
  * Token Balance & Rewards Interface
  */
 import { useState, useEffect } from 'react';
-import client from '../api/client';
+import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import Button from './ui/Button';
 
 export default function Wallet() {
-    const { user } = useAuth();
+    const { walletAddress, connectWallet } = useAuth();
+    const { showToast } = useToast();
     const [balance, setBalance] = useState(null);
     const [rewards, setRewards] = useState(null);
+    const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    // Mock address generator (In real app, connect metamask)
-    const walletAddress = user?.uid ?\`0x\${user.uid.slice(0, 40).padEnd(40, '0')}\` : null;
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!walletAddress) return;
+            if (!walletAddress) {
+                setLoading(false);
+                return;
+            }
             try {
-                const [balanceRes, rewardsRes] = await Promise.all([
-                    client.get(\`/wallet/\${walletAddress}\`),
-                    client.get('/reward/amounts')
+                setLoading(true);
+                const [balanceRes, rewardsRes, txRes] = await Promise.allSettled([
+                    client.get(`/wallet/${walletAddress}`),
+                    client.get('/reward/amounts'),
+                    client.get(`/transactions/${walletAddress}`)
                 ]);
-                setBalance(balanceRes.data);
-                setRewards(rewardsRes.data);
+                if (balanceRes.status === 'fulfilled') setBalance(balanceRes.value.data);
+                if (rewardsRes.status === 'fulfilled') setRewards(rewardsRes.value.data);
+                if (txRes.status === 'fulfilled') setTransactions(txRes.value.data || []);
             } catch (err) {
                 console.error('Wallet fetch failed', err);
+                showToast("지갑 정보를 불러오는데 실패했습니다.", 'error');
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, [walletAddress]);
+    }, [walletAddress, showToast]);
+
+    if (!walletAddress) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="text-center bg-white/[0.03] backdrop-blur-xl p-10 rounded-2xl border border-white/[0.06]"
+                     style={{ boxShadow: '0 16px 48px rgba(0,0,0,0.4)' }}>
+                    <h2 className="font-display text-2xl font-bold text-white mb-5">💰 Wallet Connect</h2>
+                    <p className="text-white/40 mb-8">
+                        보상을 받고 자산을 관리하려면 지갑을 연결하세요.
+                    </p>
+                    <Button
+                        onClick={connectWallet}
+                        className="px-8 py-3 text-lg"
+                    >
+                        🦊 MetaMask / Rabby 연결
+                    </Button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 p-8">
+        <div className="p-2 sm:p-6">
             <div className="max-w-4xl mx-auto">
-                <h2 className="text-3xl font-bold text-white mb-8">💰 My DeSci Wallet</h2>
+                <h2 className="font-display text-2xl font-bold text-white mb-8">💰 My DeSci Wallet</h2>
 
                 <div className="grid md:grid-cols-2 gap-6">
                     {/* Balance Card */}
-                    <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 backdrop-blur-lg rounded-2xl p-8 border border-yellow-500/30">
-                        <h3 className="text-gray-300 font-medium mb-2">Total Balance</h3>
+                    <div className="backdrop-blur-xl rounded-2xl p-8 border gradient-border"
+                         style={{ background: 'linear-gradient(135deg, rgba(0,212,170,0.06), rgba(240,192,64,0.06))', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                        <h3 className="text-white/40 font-medium mb-2">Total Balance</h3>
                         <div className="flex items-baseline gap-3">
-                            <span className="text-5xl font-bold text-white">
+                            <span className="font-display text-5xl font-bold text-white">
                                 {loading ? '...' : parseFloat(balance?.balance || 0).toLocaleString()}
                             </span>
-                            <span className="text-xl text-yellow-400 font-bold">DSCI</span>
+                            <span className="text-xl text-highlight font-bold font-display">DSCI</span>
                         </div>
-                        <p className="text-gray-400 text-sm mt-4 font-mono break-all">
+                        <p className="text-white/20 text-sm mt-4 font-mono break-all">
                             {walletAddress}
                         </p>
                         {balance?._mock && (
-                            <span className="inline-block mt-2 bg-yellow-500/20 text-yellow-200 text-xs px-2 py-1 rounded">
+                            <span className="inline-block mt-2 badge-warning text-[10px]">
                                 TESTNET (Mock)
                             </span>
                         )}
                     </div>
 
                     {/* Rewards Info */}
-                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-                        <h3 className="text-white font-bold mb-4">현재 보상 정책</h3>
+                    <div className="bg-white/[0.03] backdrop-blur-xl rounded-2xl p-8 border border-white/[0.06]"
+                         style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                        <h3 className="font-display text-white font-bold mb-4">현재 보상 정책</h3>
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center text-gray-300">
+                            <div className="flex justify-between items-center text-white/50">
                                 <span>📄 논문 업로드</span>
-                                <span className="text-cyan-400 font-bold">+{rewards?.paper_upload || 100} DSCI</span>
+                                <span className="text-primary font-bold">+{rewards?.paper_upload || 100} DSCI</span>
                             </div>
-                            <div className="flex justify-between items-center text-gray-300">
+                            <div className="flex justify-between items-center text-white/50">
                                 <span>🔍 피어 리뷰</span>
-                                <span className="text-cyan-400 font-bold">+{rewards?.peer_review || 50} DSCI</span>
+                                <span className="text-primary font-bold">+{rewards?.peer_review || 50} DSCI</span>
                             </div>
-                            <div className="flex justify-between items-center text-gray-300">
+                            <div className="flex justify-between items-center text-white/50">
                                 <span>💾 데이터 공유</span>
-                                <span className="text-cyan-400 font-bold">+{rewards?.data_share || 200} DSCI</span>
+                                <span className="text-primary font-bold">+{rewards?.data_share || 200} DSCI</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Simulated Transaction History (Static for UI Demo) */}
-                <div className="mt-8 bg-white/5 rounded-2xl p-6 border border-white/10">
-                    <h3 className="text-xl font-bold text-white mb-4">Recent Transactions</h3>
+                {/* Transaction History */}
+                <div className="mt-8 bg-white/[0.02] rounded-2xl p-6 border border-white/[0.04]">
+                    <h3 className="font-display text-lg font-bold text-white mb-4">Recent Transactions</h3>
                     <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-500/20 rounded-lg text-green-400">⬇️</div>
-                                <div>
-                                    <p className="text-white font-medium">Welcome Bonus</p>
-                                    <p className="text-gray-400 text-sm">2026-02-06</p>
+                        {transactions.length > 0 ? transactions.map((tx, i) => (
+                            <div key={tx.id || i} className="flex items-center justify-between p-4 bg-white/[0.02] rounded-xl border border-white/[0.04] hover:bg-white/[0.03] transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg ${tx.amount > 0 ? 'bg-success/10 text-success-light' : 'bg-error/10 text-error-light'}`}>
+                                        {tx.amount > 0 ? '⬇️' : '⬆️'}
+                                    </div>
+                                    <div>
+                                        <p className="text-white/80 font-medium">{tx.description}</p>
+                                        <p className="text-white/25 text-sm">{tx.timestamp ? new Date(tx.timestamp).toLocaleDateString() : ''}</p>
+                                    </div>
                                 </div>
+                                <span className={`font-bold ${tx.amount > 0 ? 'text-success-light' : 'text-error-light'}`}>
+                                    {tx.amount > 0 ? '+' : ''}{parseFloat(tx.amount).toFixed(2)} {tx.token || 'DSCI'}
+                                </span>
                             </div>
-                            <span className="text-green-400 font-bold">+100.00 DSCI</span>
-                        </div>
+                        )) : (
+                            <div className="text-center py-8 text-white/20 text-sm">
+                                거래 내역이 없습니다.
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

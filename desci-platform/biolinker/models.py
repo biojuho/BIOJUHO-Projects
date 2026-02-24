@@ -23,6 +23,8 @@ class RFPDocument(BaseModel):
     source: str = Field(..., description="출처 (KDDF, TIPS, KEIT 등)")
     deadline: Optional[datetime] = Field(None, description="마감일")
     budget_range: Optional[str] = Field(None, description="지원 규모")
+    min_trl: Optional[int] = Field(None, description="최소 TRL")
+    max_trl: Optional[int] = Field(None, description="최대 TRL")
     body_text: str = Field(..., description="본문 전체")
     keywords: list[str] = Field(default_factory=list, description="자동 추출된 핵심 키워드")
     eligibility: list[str] = Field(default_factory=list, description="지원 자격 조건")
@@ -74,4 +76,16 @@ class Paper(BaseModel):
     ipfs_url: str = Field(..., description="IPFS Gateway URL")
     uploaded_at: datetime = Field(default_factory=datetime.now)
     reward_claimed: bool = Field(False, description="보상 수령 여부")
+
+
+class VCFirm(BaseModel):
+    """벤처 캐피탈(VC) 정보"""
+    id: str = Field(..., description="VC ID")
+    name: str = Field(..., description="VC 이름")
+    country: str = Field("KR", description="국가 (KR, US, Global)")
+    website: Optional[str] = Field(None, description="웹사이트 URL")
+    investment_thesis: str = Field(..., description="투자 철학 및 관심 분야 (AI 검색용)")
+    preferred_stages: list[str] = Field(default_factory=list, description="선호 투자 단계 (Seed, Series A 등)")
+    portfolio_keywords: list[str] = Field(default_factory=list, description="포트폴리오 키워드 (Bio, AI, SaaS 등)")
+    contact_email: Optional[str] = Field(None, description="연락처")
 
