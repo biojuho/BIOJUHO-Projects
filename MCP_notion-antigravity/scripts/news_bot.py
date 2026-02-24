@@ -254,21 +254,31 @@ async def upload_to_notion(category, articles, analysis=None, time_label="News")
             }
         })
 
-    # Create Page
-    try:
-        new_page = await notion.pages.create(
-            parent={"database_id": DATABASE_ID},
-            properties={
-                "Name": {"title": [{"text": {"content": f"[{category}] {time_label} - {time_str}"}}]},
-                "Date": {"date": {"start": iso_time}},
-                "Type": {"select": {"name": "News"}},
-                "Priority": {"select": {"name": "High" if time_label != "Breaking News" else "Medium"}}
-            },
-            children=children
-        )
-        print(f"[SUCCESS] Uploaded {category} news to Notion: {new_page['url']}")
-    except Exception as e:
-        print(f"[FAIL] Upload failed for {category}: {e}")
+    # Create Page with Retry Logic
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            new_page = await notion.pages.create(
+                parent={"database_id": DATABASE_ID},
+                properties={
+                    "Name": {"title": [{"text": {"content": f"[{category}] {time_label} - {time_str}"}}]},
+                    "Date": {"date": {"start": iso_time}},
+                    "Type": {"select": {"name": "News"}},
+                    "Priority": {"select": {"name": "High" if time_label != "Breaking News" else "Medium"}}
+                },
+                children=children
+            )
+            print(f"[SUCCESS] Uploaded {category} news to Notion: {new_page['url']}")
+            break # Success, exit retry loop
+        except Exception as e:
+            print(f"[WARN] Upload attempt {attempt + 1}/{max_retries} failed for {category}: {e}")
+            if attempt == max_retries - 1:
+                print(f"[FAIL] Final upload failed for {category}. Writing to alert log.")
+                # Fallback to scheduler.log as an alert mechanism
+                with open(os.path.join(parent_dir, "logs", "scheduler.log"), "a", encoding="utf-8") as f:
+                    f.write(f"[{time_str}] [ALERT] Notion Upload Failed for {category}. Error: {e}\n")
+            else:
+                await asyncio.sleep(2 ** attempt) # Exponential backoff
 
 async def process_category(category, feeds):
     print(f"Processing {category}...")
