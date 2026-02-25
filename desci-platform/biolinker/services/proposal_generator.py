@@ -244,33 +244,6 @@ class ProposalGenerator:
             print(f"[ProposalGenerator] Review LLM Error: {e}")
             return "### 🧐 AI Peer Review\nError generating review due to LLM failure."
 
-            
-    async def review_draft(self, rfp_data: dict, paper_data: dict, draft: str) -> str:
-        """
-        Acts as a second Agent to critique the generated draft.
-        """
-        if not self.llm:
-            return "### 🧐 AI Peer Review\n- **Strengths**: [Mock] Well structured.\n- **Weaknesses**: [Mock] Lacks deep technical integration details.\n- **Improvements**: [Mock] Elaborate on the experimental methodology."
-            
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", REVIEW_SYSTEM_PROMPT),
-            ("user", REVIEW_USER_PROMPT)
-        ])
-        
-        chain = prompt | self.llm | StrOutputParser()
-        
-        try:
-            response = await chain.ainvoke({
-                "rfp_title": rfp_data.get('title', 'Unknown RFP'),
-                "paper_abstract": paper_data.get('metadata', {}).get('abstract', ''), 
-                "draft": draft
-            })
-            return response
-        except Exception as e:
-            print(f"[ProposalGenerator] Review LLM Error: {e}")
-            return "### 🧐 AI Peer Review\nError generating review due to LLM failure."
-
-            
     def _generate_mock_draft(self, rfp_data: dict, paper_data: dict) -> str:
         """
         Generates a deterministic mock draft for testing/fallback.

@@ -252,6 +252,39 @@ class RFPAnalyzer:
         )
 
 
+    async def extract_keywords(self, title: str = '', abstract: str = '', text: str = '') -> list[str]:
+        """논문 텍스트에서 핵심 키워드 추출 (LLM 우선, 폴백 heuristic)"""
+        combined = f"{title}\n\n{abstract}\n\n{text[:3000]}".strip()
+        if not combined:
+            return ["Bio", "Research"]
+
+        if self.llm:
+            try:
+                prompt = ChatPromptTemplate.from_messages([
+                    ("system", "You are a biomedical keyword extractor. Extract 5-10 concise English keywords from the given text. Return ONLY a comma-separated list of keywords, no explanations."),
+                    ("human", f"Text:\n{combined[:2000]}")
+                ])
+                chain = prompt | self.llm
+                response = await chain.ainvoke({})
+                raw = response.content if hasattr(response, 'content') else str(response)
+                keywords = [kw.strip() for kw in raw.split(',') if kw.strip()]
+                return keywords[:10] if keywords else ["Bio", "Research"]
+            except Exception as e:
+                print(f"[Analyzer] Keyword extraction failed: {e}")
+
+        # Fallback: frequency-based extraction
+        import re as _re
+        words = _re.findall(r'\b[A-Za-z가-힣]{4,}\b', combined)
+        freq: dict = {}
+        stop = {'that', 'this', 'with', 'from', 'have', 'been', 'were', 'they', 'their', 'will', 'also', 'than', 'more'}
+        for w in words:
+            lw = w.lower()
+            if lw not in stop:
+                freq[lw] = freq.get(lw, 0) + 1
+        sorted_words = sorted(freq.items(), key=lambda x: -x[1])
+        return [w for w, _ in sorted_words[:8]] or ["Bio", "Research"]
+
+
 # Singleton instance
 _analyzer: Optional[RFPAnalyzer] = None
 

@@ -310,15 +310,18 @@ async def upload_to_ipfs(
         parser = get_pdf_parser()
         pdf_text = parser.parse(content)
         
-        # Extract keywords (Mock or Simple extraction)
-        # In a real scenario, we would use LLM to extract keywords/summary from pdf_text
-        # For now, use provided abstract or simple parsing
-        extracted_keywords = ["Bio", "Research"] # Default
-        if pdf_text:
-             # Very simple keyword extraction (placeholder for LLM)
-             words = pdf_text.split()
-             if len(words) > 10:
-                 extracted_keywords = list(set([w for w in words if len(w) > 5]))[:5]
+        # LLM 기반 키워드 추출 (폴백: 빈도 기반 heuristic)
+        try:
+            analyzer = get_analyzer()
+            extracted_keywords = await analyzer.extract_keywords(
+                title=title or file.filename,
+                abstract=abstract or '',
+                text=pdf_text or '',
+            )
+        except Exception as _ke:
+            print(f"[Upload] Keyword extraction failed: {_ke}")
+            words = (pdf_text or '').split()
+            extracted_keywords = list(set(w for w in words if len(w) > 5))[:8] or ["Bio", "Research"]
 
         # 3. Save to Temp File for IPFS Upload
         with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as tmp:
@@ -688,7 +691,6 @@ async def agent_youtube_analysis(
     return result
 
 @app.post("/api/agent/literature-review")
-@app.post("/agent/literature-review")
 async def agent_literature_review(
     request: dict = Body(..., example={"topic": "CRISPR for SCD"})
 ):
@@ -710,4 +712,4 @@ async def agent_literature_review(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
