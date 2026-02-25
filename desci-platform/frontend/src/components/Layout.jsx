@@ -21,11 +21,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
 
 export default function Layout({ children }) {
-    const { user, logout } = useAuth();
+    const { user, logout, walletAddress, connectWallet } = useAuth();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
-    const [walletAddress, setWalletAddress] = useState('');
     const MotionDiv = motion.div;
 
     const [notifications, setNotifications] = useState([
@@ -45,20 +44,12 @@ export default function Layout({ children }) {
         setNotifications(prev => [newNotif, ...prev]);
     }, []);
 
-    const connectWallet = async () => {
-        if (typeof window.ethereum !== 'undefined') {
-            try {
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                if (accounts.length > 0) {
-                    setWalletAddress(accounts[0]);
-                    addNotification('Wallet Connected', `Successfully linked wallet ${formatAddress(accounts[0])}`);
-                }
-            } catch (error) {
-                console.error("User denied account access or error occurred:", error);
-                alert("지갑 연결에 실패했습니다.");
-            }
+    const handleConnectWallet = async () => {
+        const result = await connectWallet();
+        if (result.success) {
+            addNotification('Wallet Connected', `Successfully linked wallet ${formatAddress(result.address)}`);
         } else {
-            alert("MetaMask 확장 프로그램이 설치되어 있지 않습니다. 설치 후 시도해주세요.");
+            alert(result.error || '지갑 연결에 실패했습니다.');
         }
     };
 
@@ -321,7 +312,7 @@ export default function Layout({ children }) {
 
                         {/* Wallet Connection */}
                         <button
-                            onClick={walletAddress ? () => setWalletAddress('') : connectWallet}
+                            onClick={walletAddress ? () => {} : handleConnectWallet}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
                                 walletAddress
                                   ? 'bg-primary/10 text-primary border border-primary/20 hover:border-primary/30'

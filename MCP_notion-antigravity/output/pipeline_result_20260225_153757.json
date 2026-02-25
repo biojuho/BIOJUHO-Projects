@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-02-25T15:36:51.268557",
+  "steps": {
+    "radar": {
+      "count": 5,
+      "keywords": [
+        "AI",
+        "Biotech",
+        "DeSci",
+        "Crypto",
+        "Startup"
+      ]
+    },
+    "content": {
+      "count": 15,
+      "top_score": 49
+    },
+    "sniper": {
+      "count": 0
+    },
+    "notion": {
+      "status": "success",
+      "notion_url": "https://www.notion.so/AI-AI-31290544c19881c8800cf905be1449e5",
+      "page_id": "31290544-c198-81c8-800c-f905be1449e5",
+      "message": "노션에 성공적으로 저장 (parent: page_id)"
+    },
+    "alert": {
+      "status": "skip",
+      "message": "Telegram 미설정 (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)"
+    }
+  },
+  "elapsed_seconds": 66.4,
+  "status": "failed",
+  "error": "I/O operation on closed file."
+}

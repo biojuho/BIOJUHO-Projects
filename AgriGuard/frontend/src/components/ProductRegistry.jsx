@@ -3,39 +3,40 @@ import { Sprout, QrCode, ClipboardCheck, Loader2 } from 'lucide-react';
 import { productApi } from '../services/api';
 
 export default function ProductRegistry() {
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(null);
-  const [formData, setFormData] = useState({
+  const EMPTY_FORM = {
     name: '',
     category: 'Vegetable',
     description: '',
-    location: 'Farm A-1',
-    origin: 'Unknown',
+    origin: '',
     harvest_date: '',
     requires_cold_chain: false,
-  });
+    owner_id: '',
+  };
+
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.owner_id.trim()) {
+      setSubmitError('Owner ID is required.');
+      return;
+    }
     setLoading(true);
     setSuccess(null);
+    setSubmitError(null);
     try {
       const res = await productApi.create({
         ...formData,
         harvest_date: formData.harvest_date ? new Date(formData.harvest_date).toISOString() : null,
       });
       setSuccess(res.data);
-      setFormData({ 
-        name: '', 
-        category: 'Vegetable', 
-        description: '', 
-        location: 'Farm A-1',
-        origin: 'Unknown',
-        harvest_date: '',
-        requires_cold_chain: false,
-      });
+      setFormData(EMPTY_FORM);
     } catch (error) {
       console.error("Failed to register product", error);
+      setSubmitError(error.response?.data?.detail || error.message || 'Registration failed.');
     } finally {
       setLoading(false);
     }
@@ -62,6 +63,18 @@ export default function ProductRegistry() {
             />
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Owner ID <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              required
+              value={formData.owner_id}
+              onChange={(e) => setFormData({ ...formData, owner_id: e.target.value })}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-green-500 outline-none transition-all"
+              placeholder="e.g. farmer-001"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300">Category</label>
@@ -82,7 +95,7 @@ export default function ProductRegistry() {
                 value={formData.origin}
                 onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-green-500 outline-none transition-all"
-                placeholder="e.g. California, General Farm"
+                placeholder="e.g. California, Jeolla-do"
               />
             </div>
           </div>
@@ -119,6 +132,12 @@ export default function ProductRegistry() {
               placeholder="Batch details..."
             />
           </div>
+
+          {submitError && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+              {submitError}
+            </div>
+          )}
 
           <button
             type="submit"

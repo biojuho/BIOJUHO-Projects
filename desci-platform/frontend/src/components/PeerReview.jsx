@@ -50,13 +50,26 @@ export default function PeerReview() {
             showToast('리뷰 내용을 입력해주세요.', 'warning');
             return;
         }
+        if (!expandedPaper) {
+            showToast('리뷰할 논문을 선택해주세요.', 'warning');
+            return;
+        }
 
         setSubmitting(true);
         try {
-            // Submit the review (would be a real endpoint in production)
-            // For now, we trigger the reward directly
+            // Submit review content + trigger reward
+            const params = new URLSearchParams({
+                paper_id: expandedPaper,
+                rating: String(rating),
+                ...(walletAddress && { user_address: walletAddress }),
+            });
+            await client.post(`/reward/review?${params.toString()}`, {
+                paper_id: expandedPaper,
+                review_text: reviewText,
+                rating,
+            });
+
             if (walletAddress) {
-                await client.post(`/reward/review?user_address=${walletAddress}`);
                 showToast('리뷰가 제출되었습니다! 50 DSCI 보상이 지급됩니다.', 'success');
             } else {
                 showToast('리뷰가 저장되었습니다. 지갑을 연결하면 보상을 받을 수 있습니다.', 'info');
@@ -64,6 +77,10 @@ export default function PeerReview() {
             setReviewText('');
             setRating(3);
             setExpandedPaper(null);
+            // 제출 완료된 논문 로컬 표시
+            setPapers(prev => prev.map(p =>
+                p.id === expandedPaper ? { ...p, reward_claimed: true } : p
+            ));
         } catch (err) {
             showToast('리뷰 제출 실패: ' + (err.response?.data?.detail || err.message), 'error');
         } finally {

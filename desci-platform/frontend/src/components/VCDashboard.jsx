@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
-// import { useAuth } from '../contexts/AuthContext';
-import Layout from './Layout';
-
 import api from '../services/api';
 
 const VCDashboard = () => {
-    // const { user } = useAuth(); // Unused for now
     const [vcList, setVcList] = useState([]);
     const [selectedVc, setSelectedVc] = useState(null);
     const [matches, setMatches] = useState([]);
-    // const [loading, setLoading] = useState(false); // Unused
     const [analyzing, setAnalyzing] = useState(false);
+    const [detailMatch, setDetailMatch] = useState(null);
 
     // 1. Fetch VC List on Mount
     useEffect(() => {
@@ -45,7 +41,7 @@ const VCDashboard = () => {
     }, [selectedVc]);
 
     return (
-        <Layout>
+        <React.Fragment>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
                 {/* Header Section */}
@@ -152,7 +148,7 @@ const VCDashboard = () => {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {matches.map((match) => (
-                                    <div key={match.asset_id} className="bg-white/5 backdrop-blur-lg rounded-xl overflow-hidden border border-white/10 hover:border-purple-500 transition-all duration-300 hover:shadow-[0_0_25px_rgba(168,85,247,0.2)] shadow-lg group flex flex-col cursor-pointer h-full transform hover:-translate-y-1">
+                                    <div key={match.asset_id} onClick={() => setDetailMatch(match)} className="bg-white/5 backdrop-blur-lg rounded-xl overflow-hidden border border-white/10 hover:border-purple-500 transition-all duration-300 hover:shadow-[0_0_25px_rgba(168,85,247,0.2)] shadow-lg group flex flex-col cursor-pointer h-full transform hover:-translate-y-1">
                                         <div className="p-6 flex-grow">
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="bg-gray-700 p-2 rounded-lg shadow-inner">
@@ -194,7 +190,10 @@ const VCDashboard = () => {
 
                                         <div className="px-6 py-4 bg-black/30 border-t border-white/10 flex justify-between items-center mt-auto">
                                             <span className="text-xs text-gray-500">Source: BioLinker DB</span>
-                                            <button className="text-sm text-purple-400 hover:text-white font-medium transition-colors group-hover:translate-x-1 duration-200 flex items-center">
+                                            <button
+                                                onClick={e => { e.stopPropagation(); setDetailMatch(match); }}
+                                                className="text-sm text-purple-400 hover:text-white font-medium transition-colors group-hover:translate-x-1 duration-200 flex items-center"
+                                            >
                                                 View Details
                                                 <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -209,7 +208,78 @@ const VCDashboard = () => {
                 )}
 
             </div>
-        </Layout>
+        {/* Detail Modal */}
+        {detailMatch && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+                onClick={() => setDetailMatch(null)}
+            >
+                <div
+                    className="bg-gray-900 border border-white/10 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Modal Header */}
+                    <div className="flex items-start justify-between p-6 border-b border-white/10">
+                        <div className="flex-1 pr-4">
+                            <div className={`inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-3 ${
+                                detailMatch.score >= 90 ? 'bg-green-900/80 text-green-300 border border-green-700' :
+                                detailMatch.score >= 80 ? 'bg-blue-900/80 text-blue-300 border border-blue-700' :
+                                'bg-yellow-900/80 text-yellow-300 border border-yellow-700'
+                            }`}>
+                                {detailMatch.score}% Fit Score
+                            </div>
+                            <h2 className="text-xl font-bold text-white leading-snug">{detailMatch.title}</h2>
+                        </div>
+                        <button
+                            onClick={() => setDetailMatch(null)}
+                            className="text-gray-500 hover:text-white transition-colors shrink-0 p-1"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div className="p-6 space-y-5">
+                        {/* Summary */}
+                        <div>
+                            <h3 className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">Summary</h3>
+                            <p className="text-gray-300 leading-relaxed text-sm">{detailMatch.summary}</p>
+                        </div>
+
+                        {/* Match Reason */}
+                        <div className="bg-purple-900/20 border border-purple-700/30 rounded-xl p-4">
+                            <h3 className="text-xs text-purple-300 font-semibold uppercase tracking-wider mb-2">Why It Matches This Thesis</h3>
+                            <p className="text-gray-300 text-sm leading-relaxed">{detailMatch.match_reason}</p>
+                        </div>
+
+                        {/* Keywords */}
+                        {detailMatch.keywords?.length > 0 && (
+                            <div>
+                                <h3 className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">Keywords</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {detailMatch.keywords.map(k => (
+                                        <span key={k} className="text-xs text-gray-300 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">
+                                            {k}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Source */}
+                        <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs text-gray-500">
+                            <span>Source: BioLinker DB</span>
+                            {detailMatch.asset_id && (
+                                <span className="font-mono">ID: {detailMatch.asset_id.slice(0, 12)}...</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+    </React.Fragment>
     );
 };
 

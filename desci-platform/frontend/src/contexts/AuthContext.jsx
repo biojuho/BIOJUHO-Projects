@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
             }
         });
         return () => unsubscribe();
-    }, [walletAddress]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Connect Wallet (MetaMask/Rabby)
     const connectWallet = async () => {

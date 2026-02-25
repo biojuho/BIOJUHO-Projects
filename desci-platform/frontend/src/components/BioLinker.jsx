@@ -4,7 +4,7 @@
  * Design: Bioluminescent Neural Network
  */
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import client from '../services/api';
 import MatchingResults from './MatchingResults';
 import { useToast } from '../contexts/ToastContext';
@@ -31,6 +31,7 @@ const gradeLabels = {
 
 export default function BioLinker() {
     const [searchParams] = useSearchParams();
+    const location = useLocation();
     const paperId = searchParams.get('paper_id');
     const paperTitle = searchParams.get('paper_title');
     const { showToast } = useToast();
@@ -73,6 +74,17 @@ export default function BioLinker() {
             setLoading(false);
         }
     }, [showToast]);
+
+    // Notices 페이지에서 공고 데이터를 state로 전달받은 경우
+    useEffect(() => {
+        if (location.state?.from_notice) {
+            setActiveTab('rfp_analysis');
+            if (location.state.rfp_text) setRfpText(location.state.rfp_text);
+            if (location.state.rfp_title) {
+                showToast(`'${location.state.rfp_title}' 공고가 로드됐습니다.`, 'info');
+            }
+        }
+    }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (paperId) {

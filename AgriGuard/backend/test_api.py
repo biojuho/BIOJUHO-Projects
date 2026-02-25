@@ -11,7 +11,7 @@ def run_manual_api_smoke() -> None:
         "requires_cold_chain": False,
     }
 
-    response = requests.post(url, json=data, timeout=10)
+    response = requests.post(url, json=data, params={"owner_id": "farmer-001"}, timeout=10)
     print("Create Product Status Code:", response.status_code)
     print("Response:", response.json())
 

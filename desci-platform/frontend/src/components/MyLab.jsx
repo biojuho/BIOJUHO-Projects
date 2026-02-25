@@ -38,7 +38,11 @@ export default function MyLab() {
 
     const mintNFT = async (paper) => {
         if (!walletAddress) {
-            showToast("지갑이 연결되지 않았습니다. 😢", 'warning');
+            showToast("지갑이 연결되지 않았습니다. Wallet 페이지에서 연결해주세요.", 'warning');
+            return;
+        }
+        if (!paper.ipfs_url) {
+            showToast("IPFS URL이 없습니다. 논문 업로드가 완전히 완료된 후 민팅하세요.", 'warning');
             return;
         }
 
@@ -50,19 +54,25 @@ export default function MyLab() {
                 token_uri: paper.ipfs_url
             });
 
-            if (res.data.success) {
+            const isSuccess = res.data?.success === true || !!res.data?.tx_hash;
+            if (isSuccess) {
                 setModalData({
                     title: "NFT Minted Successfully! 💎",
-                    message: `Your IP-NFT for "${paper.title}" has been minted on the blockchain.`,
-                    txHash: res.data.tx_hash
+                    message: `"${paper.title}"의 IP-NFT가 블록체인에 민팅되었습니다.`,
+                    txHash: res.data.tx_hash || ''
                 });
                 setShowSuccessModal(true);
+                setPapers(prev => prev.map(p =>
+                    p.id === paper.id ? { ...p, nft_minted: true } : p
+                ));
             } else {
-                showToast("Minting failed: " + res.data.error, 'error');
+                const reason = res.data?.error || res.data?.detail || '알 수 없는 오류';
+                showToast(`민팅 실패: ${reason}`, 'error');
             }
         } catch (err) {
-            console.error(err);
-            showToast("Minting Error", 'error');
+            const msg = err.response?.data?.detail || err.message || '서버 오류';
+            showToast(`민팅 오류: ${msg}`, 'error');
+            console.error('[mintNFT]', err);
         } finally {
             setMinting(prev => ({ ...prev, [paper.id]: false }));
         }
