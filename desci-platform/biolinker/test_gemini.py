@@ -1,56 +1,51 @@
-import requests
 import json
-import sys
 
-# Safe print function for Windows console
-def safe_print(text):
-    try:
-        print(text)
-    except UnicodeEncodeError:
-        print(text.encode('ascii', 'replace').decode('ascii'))
+import pytest
+import requests
 
-url = "http://localhost:8001/analyze"
 
-payload = {
+API_URL = "http://localhost:8001/analyze"
+
+PAYLOAD = {
     "user_profile": {
         "company_name": "Test Bio",
         "tech_keywords": ["Antibody", "ADC", "Cancer"],
         "tech_description": "Next-gen ADC development",
         "company_size": "Venture",
-        "current_trl": "TRL 3"
+        "current_trl": "TRL 3",
     },
     "rfp_text": """
     [Notice] 2024 Bio Health R&D
-    
+
     1. Field: Innovative Drug (Antibody, Cell Therapy)
     2. Target: Venture companies < 7 years
     3. Support: Pre-clinical/Clinical (Max 500M KRW)
     4. Preference: ADC, mRNA
     """,
-    "rfp_url": "http://example.com/rfp/123"
+    "rfp_url": "http://example.com/rfp/123",
 }
 
-safe_print("Sending request to BioLinker...")
-try:
-    response = requests.post(url, json=payload, timeout=120)
-    safe_print(f"Status Code: {response.status_code}")
-    
-    if response.status_code == 200:
-        data = response.json()
-        safe_print("\n=== Analysis Result ===")
-        safe_print(json.dumps(data['result'], indent=2, ensure_ascii=False))
-        
-        # Validation
-        score = data['result']['fit_score']
-        grade = data['result']['fit_grade']
-        safe_print(f"\nScore: {score}, Grade: {grade}")
-        
-        if score > 0:
-            safe_print("[SUCCESS] Gemini Pro Integration Successful!")
-        else:
-            safe_print("[WARNING] Score is 0 (Analysis might have failed or Mock used)")
-    else:
-        safe_print(f"[ERROR] Error: {response.text}")
 
-except Exception as e:
-    safe_print(f"[EXCEPTION] {e}")
+@pytest.mark.integration
+@pytest.mark.external
+def test_analyze_with_gemini() -> None:
+    try:
+        health = requests.get("http://localhost:8001/health", timeout=5)
+        if health.status_code >= 500:
+            pytest.skip(f"BioLinker service unhealthy: {health.status_code}")
+    except requests.RequestException as exc:
+        pytest.skip(f"BioLinker service is not reachable on :8001 ({exc})")
+
+    response = requests.post(API_URL, json=PAYLOAD, timeout=120)
+    assert response.status_code == 200, response.text
+
+    data = response.json()
+    assert "result" in data
+
+    print(json.dumps(data["result"], indent=2, ensure_ascii=False))
+
+    score = data["result"].get("fit_score", 0)
+    grade = data["result"].get("fit_grade", "")
+    assert score > 0
+    assert isinstance(grade, str)
+    assert grade
