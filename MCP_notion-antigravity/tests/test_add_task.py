@@ -8,7 +8,7 @@ load_dotenv()
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 ANTIGRAVITY_DB_ID = "0c959762-2880-4dc4-8c06-69bbaa8be183"
 
-async def test_add_task():
+async def run_add_task():
     if not NOTION_API_KEY:
         print("[FAIL] API Key missing")
         return
@@ -36,4 +36,4 @@ async def test_add_task():
         print(f"[FAIL] Error creating task: {str(e)}")
 
 if __name__ == "__main__":
-    asyncio.run(test_add_task())
+    asyncio.run(run_add_task())

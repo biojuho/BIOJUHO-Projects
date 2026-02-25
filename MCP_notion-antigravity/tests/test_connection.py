@@ -8,7 +8,7 @@ load_dotenv()
 
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 
-async def test_connection():
+async def run_connection():
     print(f"Testing with API Key: {NOTION_API_KEY[:4]}...{NOTION_API_KEY[-4:] if NOTION_API_KEY else 'None'}")
     
     if not NOTION_API_KEY:
@@ -37,4 +37,4 @@ async def test_connection():
         print(f"[FAIL] Connection failed: {str(e)}")
 
 if __name__ == "__main__":
-    asyncio.run(test_connection())
+    asyncio.run(run_connection())

@@ -10,11 +10,15 @@ BASE_URL = "http://127.0.0.1:8000"
 NFT_CONTRACT = os.getenv("NFT_CONTRACT_ADDRESS")
 
 import sys
-import io
 
-# Fix Unicode Output
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
+# Fix Unicode output without detaching streams (pytest capture safe)
+def _ensure_utf8_streams() -> None:
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+_ensure_utf8_streams()
 
 def test_minting():
     print(f"🚀 Starting Integration Test: Minting on {NFT_CONTRACT}")

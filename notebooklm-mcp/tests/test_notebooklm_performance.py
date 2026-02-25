@@ -4,9 +4,13 @@ import time
 from dotenv import load_dotenv
 
 # 윈도우 인코딩 설정
-import io
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
+def _ensure_utf8_streams() -> None:
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+_ensure_utf8_streams()
 
 # Google Credentials 환경변수 설정 (현재 디렉토리 기준)
 current_dir = os.path.dirname(os.path.abspath(__file__))

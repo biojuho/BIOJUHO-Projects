@@ -7,7 +7,7 @@ load_dotenv()
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 ANTIGRAVITY_DB_ID = "0c959762-2880-4dc4-8c06-69bbaa8be183"
 
-async def test_simple_create():
+async def run_simple_create():
     if not NOTION_API_KEY:
         print("API Key missing")
         return
@@ -28,4 +28,4 @@ async def test_simple_create():
         print(f"[FAIL] Error: {str(e)}")
 
 if __name__ == "__main__":
-    asyncio.run(test_simple_create())
+    asyncio.run(run_simple_create())

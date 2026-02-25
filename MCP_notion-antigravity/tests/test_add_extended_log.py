@@ -3,17 +3,17 @@ import asyncio
 from dotenv import load_dotenv
 from notion_client import AsyncClient
 import sys
-import io
 from datetime import date
 
 # 윈도우 인코딩 설정
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 load_dotenv()
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 ANTIGRAVITY_DB_ID = "bb5cf3c8-d2bb-4b8b-a866-ba9ea86f16b7"
 
-async def test_add_extended_log():
+async def run_add_extended_log():
     if not NOTION_API_KEY:
         print("[FAIL] API Key missing")
         return
@@ -71,4 +71,4 @@ async def test_add_extended_log():
         print(f"[FAIL] Error: {str(e)}")
 
 if __name__ == "__main__":
-    asyncio.run(test_add_extended_log())
+    asyncio.run(run_add_extended_log())
