@@ -212,7 +212,7 @@ class Web3Service:
             })
             
             signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
             
             return {
                 'success': True,
@@ -242,7 +242,7 @@ class Web3Service:
             })
             
             signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
             
             return {
                 'success': True,
@@ -302,7 +302,7 @@ class Web3Service:
             })
             
             signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
             
             # Wait for receipt to get Token ID? (Might take time, better return hash)
             # For simplicity, returning hash. Frontend can check later.

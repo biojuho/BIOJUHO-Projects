@@ -11,7 +11,12 @@ cd /d "D:\AI 프로젝트\MCP_notion-antigravity"
 REM 가상환경이 있다면 여기서 활성화
 REM call venv\Scripts\activate.bat
 
-REM Full pipeline (기본)
+REM 1. RLHF Engagement Tracker (Check yesterday's hooks)
+echo [RLHF] Tracking Engagement...
+python .agent\skills\rlhf_tracker\engagement_tracker.py
+
+REM 2. Full pipeline (기본)
+echo [Pipeline] Starting Daily Generation...
 python .agent\utils\daily_pipeline.py
 
 REM 다른 모드 사용 예시:
