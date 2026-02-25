@@ -3,6 +3,7 @@
  * Browse and filter KDDF/NTIS government grant notices
  */
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import client from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import {
@@ -19,6 +20,7 @@ import GlassCard from './ui/GlassCard';
 
 export default function Notices() {
     const { showToast } = useToast();
+    const navigate = useNavigate();
     const [notices, setNotices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [collecting, setCollecting] = useState(false);
@@ -216,12 +218,18 @@ export default function Notices() {
                                                 <ExternalLink className="w-3.5 h-3.5" /> 원문
                                             </a>
                                         )}
-                                        <a
-                                            href={`/biolinker?rfp_id=${notice.id || ''}`}
+                                        <button
+                                            onClick={() => navigate('/biolinker', {
+                                                state: {
+                                                    rfp_text: notice.body_text || notice.description || '',
+                                                    rfp_title: notice.title || '',
+                                                    from_notice: true,
+                                                }
+                                            })}
                                             className="px-3 py-2 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 transition-colors flex items-center gap-1.5"
                                         >
                                             <Search className="w-3.5 h-3.5" /> 적합도 분석
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </GlassCard>

@@ -17,7 +17,8 @@ import {
     Send,
     Loader2,
     Copy,
-    ChevronDown
+    ChevronDown,
+    RefreshCw
 } from 'lucide-react';
 
 const TOOLS = [
@@ -59,6 +60,7 @@ export default function AILab() {
     const [activeTool, setActiveTool] = useState('research');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState('');
+    const [agentError, setAgentError] = useState(null);
 
     // Research state
     const [researchTopic, setResearchTopic] = useState('');
@@ -80,6 +82,7 @@ export default function AILab() {
         }
         setLoading(true);
         setResult('');
+        setAgentError(null);
         try {
             const res = await client.post('/api/agent/research', {
                 topic: researchTopic,
@@ -88,7 +91,9 @@ export default function AILab() {
             setResult(res.data.result?.report || res.data.report || JSON.stringify(res.data, null, 2));
             showToast('연구 리포트 생성 완료!', 'success');
         } catch (err) {
-            showToast('연구 실패: ' + (err.response?.data?.detail || err.message), 'error');
+            const msg = err.response?.data?.detail || err.message;
+            setAgentError(msg);
+            showToast('연구 실패: ' + msg, 'error');
         } finally {
             setLoading(false);
         }
@@ -101,6 +106,7 @@ export default function AILab() {
         }
         setLoading(true);
         setResult('');
+        setAgentError(null);
         try {
             const res = await client.post('/api/agent/write', {
                 topic: writeTopic,
@@ -110,7 +116,9 @@ export default function AILab() {
             setResult(res.data.content || '');
             showToast('콘텐츠 생성 완료!', 'success');
         } catch (err) {
-            showToast('콘텐츠 생성 실패: ' + (err.response?.data?.detail || err.message), 'error');
+            const msg = err.response?.data?.detail || err.message;
+            setAgentError(msg);
+            showToast('콘텐츠 생성 실패: ' + msg, 'error');
         } finally {
             setLoading(false);
         }
@@ -123,6 +131,7 @@ export default function AILab() {
         }
         setLoading(true);
         setResult('');
+        setAgentError(null);
         try {
             const res = await client.post('/api/agent/youtube', {
                 url: youtubeUrl,
@@ -131,7 +140,9 @@ export default function AILab() {
             setResult(res.data.analysis || res.data.summary || JSON.stringify(res.data, null, 2));
             showToast('영상 분석 완료!', 'success');
         } catch (err) {
-            showToast('영상 분석 실패: ' + (err.response?.data?.detail || err.message), 'error');
+            const msg = err.response?.data?.detail || err.message;
+            setAgentError(msg);
+            showToast('영상 분석 실패: ' + msg, 'error');
         } finally {
             setLoading(false);
         }
@@ -178,7 +189,7 @@ export default function AILab() {
                     return (
                         <button
                             key={t.id}
-                            onClick={() => { setActiveTool(t.id); setResult(''); }}
+                            onClick={() => { setActiveTool(t.id); setResult(''); setAgentError(null); }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
                                 active
                                     ? `${tc.activeBg} ${tc.text} border ${tc.border}`
@@ -285,6 +296,24 @@ export default function AILab() {
                     <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-white/10 border-t-primary mb-4"></div>
                     <h3 className="font-display text-base font-semibold text-white">AI 에이전트가 작업 중입니다...</h3>
                     <p className="text-white/25 mt-2 text-sm">데이터 수집 및 분석에 10~60초 정도 소요될 수 있습니다.</p>
+                </GlassCard>
+            )}
+
+            {/* Error + Retry */}
+            {agentError && !loading && (
+                <GlassCard className="p-6 border-red-500/20 bg-red-500/[0.04]">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-semibold text-red-400 mb-1">에이전트 실행 실패</p>
+                            <p className="text-white/40 text-xs">{agentError}</p>
+                        </div>
+                        <button
+                            onClick={handleSubmit}
+                            className="glass-button px-4 py-2 text-sm font-semibold flex items-center gap-2 shrink-0"
+                        >
+                            <RefreshCw className="w-4 h-4" /> 재시도
+                        </button>
+                    </div>
                 </GlassCard>
             )}
 

@@ -24,7 +24,12 @@ const MatchingResults = ({ matches, onSelect, loading }) => {
 
     return (
         <div className="space-y-4">
-            <h2 className="font-display text-xl font-bold text-white mb-4">🎯 AI 매칭 결과</h2>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display text-xl font-bold text-white">🎯 AI 매칭 결과</h2>
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                    {matches.length}건 매칭
+                </span>
+            </div>
             <div className="grid gap-4">
                 {matches.map((match) => (
                     <div
@@ -54,7 +59,10 @@ const MatchingResults = ({ matches, onSelect, loading }) => {
 
                         <div className="flex justify-between items-center text-sm">
                             <div className="flex gap-2">
-                                {match.metadata.keywords.split(',').slice(0, 3).map((kw, i) => (
+                                {(Array.isArray(match.metadata.keywords)
+                                    ? match.metadata.keywords
+                                    : (match.metadata.keywords || '').split(',')
+                                ).slice(0, 3).map((kw, i) => (
                                     <span key={i} className="text-white/20">#{kw.trim()}</span>
                                 ))}
                             </div>
