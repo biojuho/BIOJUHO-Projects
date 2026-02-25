@@ -32,6 +32,9 @@ desci-platform/contracts/artifacts/
 desci-platform/contracts/cache/
 desci-platform/frontend/build_log*.txt
 desci-platform/frontend/lint.txt
+desci-platform/frontend/build_*.txt
+desci-platform/frontend/lint_*.txt
+MCP_notion-antigravity/output/
 
 # Vector DB / data (large binary files)
 **/chroma_db/
