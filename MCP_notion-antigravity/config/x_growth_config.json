@@ -1,0 +1,77 @@
+{
+  "project": "MCP_notion-antigravity",
+  "name": "x_growth_engine",
+  "version": "2.0",
+  "description": "X(Twitter) 인플루언서 성장 자동화 - 트렌드 분석, 바이럴 예측, 스마트 스케줄링",
+
+  "operator": {
+    "persona_name": "Antigravity Operator",
+    "persona_tone": "데이터 기반의 깊이 있는 통찰력을 갖춘 테크/바이오/AI 분석가",
+    "persona_style": "contrarian",
+    "voice_examples": [
+      "모두가 AI 버블이라 할 때, 진짜 버블은 AI를 무시하는 기업에 있다.",
+      "바이오텍 투자의 90%는 실패한다. 하지만 나머지 10%가 인류를 바꾼다.",
+      "DeSci가 아직 뜨지 않은 이유? 아직 인프라를 깔고 있으니까."
+    ]
+  },
+
+  "targeting": {
+    "niche_keywords": ["AI", "Biotech", "DeSci", "Crypto", "Startup"],
+    "secondary_keywords": ["AGI", "longevity", "synthetic biology", "web3", "funding"],
+    "tier1_influencers": ["@VitalikButerin", "@elonmusk", "@balaboris"],
+    "tier2_influencers": ["@jessepollak", "@punk6529", "@cdixon"],
+    "competitor_accounts": []
+  },
+
+  "content_strategy": {
+    "daily_tweet_target": 12,
+    "content_mix": {
+      "threads": 0.25,
+      "single_tweets": 0.25,
+      "jokes_memes": 0.166,
+      "quote_replies": 0.166,
+      "poll_tweets": 0.166
+    },
+    "min_viral_score": 50,
+    "languages": ["ko", "en"],
+    "hashtag_strategy": "none",
+    "max_hashtags": 3,
+    "avoid_patterns": [
+      "단순 링크 공유",
+      "Great point!",
+      "홍보성 멘트",
+      "이모지 남발"
+    ],
+    "hook_styles": ["contrarian", "data_driven", "future_prediction", "question", "story"]
+  },
+
+  "scheduling": {
+    "timezone": "Asia/Seoul",
+    "peak_hours": [8, 12, 18, 21],
+    "avoid_hours": [0, 1, 2, 3, 4, 5],
+    "min_gap_minutes": 90,
+    "weekend_adjustment": true
+  },
+
+  "analytics": {
+    "db_path": "data/analytics.db",
+    "engagement_refresh_hours": 6,
+    "trend_cache_hours": 4,
+    "performance_review_days": 30
+  },
+
+  "notifications": {
+    "telegram": true,
+    "discord_webhook": "",
+    "notify_on": ["pipeline_complete", "viral_score_above_80", "engagement_spike"]
+  },
+
+  "layers": [
+    {"layer": 1, "name": "The Antenna", "purpose": "트렌드 인테이크 및 우선순위 스코어링"},
+    {"layer": 2, "name": "The Radar", "purpose": "인게이지먼트 타겟팅 및 답글 작성"},
+    {"layer": 3, "name": "The Brain", "purpose": "오피니언/인사이트 생성 (So What? & 역발상 훅)"},
+    {"layer": 4, "name": "The Factory", "purpose": "콘텐츠 포맷 자동 생성 (이미지, 차트, 스레드 등)"},
+    {"layer": 5, "name": "The Speed Demon", "purpose": "실시간 트렌드 선점 및 즉각 반응"},
+    {"layer": 6, "name": "Dashboard", "purpose": "노션 통합 KPI 대시보드"}
+  ]
+}

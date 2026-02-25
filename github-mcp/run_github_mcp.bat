@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 chcp 65001 >nul
 echo [INFO] GitHub MCP 서버 실행 중...
 set /p GITHUB_TOKEN=<.env
