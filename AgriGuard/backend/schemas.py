@@ -61,4 +61,21 @@ class User(UserBase):
         orm_mode = True
         from_attributes = True
 
+class GrowthCycles(BaseModel):
+    active: int
+    completed: int
 
+class RecentActivity(BaseModel):
+    timestamp: str
+    event: str
+
+class DashboardData(BaseModel):
+    total_farms: int
+    active_sensors: int
+    critical_alerts: int
+    growth_cycles: GrowthCycles
+    recent_activity: List[RecentActivity]
+
+class DashboardResponse(BaseModel):
+    status: str
+    data: DashboardData

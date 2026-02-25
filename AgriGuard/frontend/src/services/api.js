@@ -11,7 +11,7 @@ const api = axios.create({
 
 export const productApi = {
   // Product Operations
-  create: (data) => api.post('/products/', data),
+  create: ({ owner_id, ...body }) => api.post('/products/', body, { params: { owner_id } }),
   getAll: () => api.get('/products/'),
   getById: (id) => api.get(`/products/${id}`),
   
