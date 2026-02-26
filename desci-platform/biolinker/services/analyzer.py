@@ -113,7 +113,6 @@ class RFPAnalyzer:
                     model="gemini-2.0-flash",
                     temperature=0.2,
                     google_api_key=google_key,
-                    convert_system_message_to_human=True
                 )
                 print("[DEBUG] Gemini Pro initialized")
             except Exception as e:

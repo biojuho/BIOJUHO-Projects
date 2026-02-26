@@ -5,7 +5,17 @@
       "mcp__x-agent__get_user_profile",
       "mcp__x-agent__health_check",
       "mcp__x-agent__grok_chat",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(python -m uvicorn:*)",
+      "Bash(ping:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(git -C \"d:/AI 프로젝트\" log --all --oneline -20)"
     ]
   }
 }

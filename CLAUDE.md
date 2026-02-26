@@ -87,7 +87,7 @@ Copy `.env.example` files before running. Key variables:
 
 ## Code Style & Conventions
 
-- **Python**: No type stubs required. Use `# type: ignore` for third-party libs. Singleton pattern via `get_*()` factory functions.
+- **Python**: Requirements pinned to Python 3.12 / 3.13 due to `langchain`/`google.genai` compatibility with 3.14+. No type stubs required. Use `# type: ignore` for third-party libs. Singleton pattern via `get_*()` factory functions.
 - **React**: Functional components only. Tailwind CSS for styling. Framer Motion for animations. `useId()` for generated IDs (not `Math.random()`).
 - **Solidity**: OpenZeppelin v5 contracts. Pragma `^0.8.20`. Hardhat for testing.
 - **Error handling**: FastAPI endpoints wrap DB ops in try/except with `db.rollback()`. Frontend uses ErrorBoundary + ToastContext.

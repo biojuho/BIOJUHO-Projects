@@ -10,6 +10,7 @@ if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
 import main as app_main
+import warnings
 
 
 def test_me_endpoint_with_test_token(monkeypatch):
@@ -72,7 +73,9 @@ def test_upload_returns_cid_and_index_status(monkeypatch):
     headers = {"Authorization": "Bearer test-token-bypass"}
 
     with TestClient(app_main.app) as client:
-        response = client.post("/upload", files=files, data=data, headers=headers)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            response = client.post("/upload", files=files, data=data, headers=headers)
 
     assert response.status_code == 200
     payload = response.json()

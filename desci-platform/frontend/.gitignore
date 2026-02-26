@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Build/lint log files (CI artifacts, not source)
+build_err.txt
+build_err_utf8.txt
+build_latest.txt
+lint_err.txt

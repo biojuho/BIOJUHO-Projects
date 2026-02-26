@@ -88,12 +88,12 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 @app.post("/products/", response_model=schemas.Product)
-def create_product(product: schemas.ProductCreate, owner_id: str = "demo-user", db: Session = Depends(get_db)):
+def create_product(product: schemas.ProductCreate, owner_id: str, db: Session = Depends(get_db)):
     product_id = str(uuid.uuid4())
     chain = get_chain()
     
     # Simulate blockchain registration
-    tx_hash = chain.log_event(product_id, {"action": "REGISTER", "owner": owner_id})
+    chain.log_event(product_id, {"action": "REGISTER", "owner": owner_id})
     
     db_product = models.Product(
         id=product_id,
@@ -201,6 +201,41 @@ def add_tracking_event(product_id: str, status: str, location: str, handler_id: 
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Tracking event failed: {str(e)}")
+
+@app.get("/dashboard/summary")
+def get_dashboard_summary(db: Session = Depends(get_db)):
+    """공급망 현황 요약 통계"""
+    products = db.query(models.Product).all()
+
+    total_products = len(products)
+    certified_count = sum(1 for p in products if len(p.certificates) > 0)
+    cold_chain_count = sum(1 for p in products if p.requires_cold_chain)
+
+    # 전체 추적 이벤트 수
+    total_events = sum(len(p.tracking_history) for p in products)
+
+    # 최신 상태 분포 (마지막 tracking event의 status)
+    status_counts: dict = {}
+    for p in products:
+        if p.tracking_history:
+            latest_status = sorted(p.tracking_history, key=lambda e: e.timestamp)[-1].status
+            status_counts[latest_status] = status_counts.get(latest_status, 0) + 1
+
+    # 원산지별 제품 수
+    origin_counts: dict = {}
+    for p in products:
+        origin = p.origin or "Unknown"
+        origin_counts[origin] = origin_counts.get(origin, 0) + 1
+
+    return {
+        "total_products": total_products,
+        "certified_products": certified_count,
+        "cold_chain_products": cold_chain_count,
+        "total_tracking_events": total_events,
+        "status_distribution": status_counts,
+        "origin_distribution": origin_counts,
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

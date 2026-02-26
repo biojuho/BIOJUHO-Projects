@@ -212,7 +212,7 @@ async def match_rfp(
 
 @app.post("/match/paper")
 async def match_paper_to_rfps(
-    request: dict = Body(..., example={"paper_id": "uuid"})
+    request: dict = Body(..., examples=[{"paper_id": "uuid"}])
 ):
     """
     Match a previously uploaded paper to relevant RFPs.
@@ -233,7 +233,7 @@ async def match_paper_to_rfps(
 
 @app.post("/proposal/generate")
 async def generate_proposal_draft(
-    request: dict = Body(..., example={"paper_id": "uuid", "rfp_id": "uuid"})
+    request: dict = Body(..., examples=[{"paper_id": "uuid", "rfp_id": "uuid"}])
 ):
     """
     Generate a grant proposal draft based on a paper and an RFP.
@@ -512,7 +512,7 @@ async def get_transactions(address: str, limit: int = 20):
 
 @app.post("/nft/mint")
 async def mint_nft(
-    request: dict = Body(..., example={"user_address": "0x...", "token_uri": "ipfs://..."})
+    request: dict = Body(..., examples=[{"user_address": "0x...", "token_uri": "ipfs://..."}])
 ):
     """Research Paper IP-NFT Minting"""
     user_address = request.get("user_address")
@@ -633,7 +633,7 @@ async def demo_analysis():
 
 @app.post("/api/agent/research")
 async def agent_research(
-    request: dict = Body(..., example={"topic": "Agentic AI", "deep": True})
+    request: dict = Body(..., examples=[{"topic": "Agentic AI", "deep": True}])
 ):
     """(Agent) Deep Research - 주제에 대한 심층 연구 리포트 생성"""
     from services.agent_service import get_agent_service
@@ -657,7 +657,7 @@ async def agent_research(
 
 @app.post("/api/agent/write")
 async def agent_write_content(
-    request: dict = Body(..., example={"topic": "Agentic AI", "raw_text": "...", "format_type": "blog_post"})
+    request: dict = Body(..., examples=[{"topic": "Agentic AI", "raw_text": "...", "format_type": "blog_post"}])
 ):
     """(Agent) Content Publisher - 다양한 형식의 콘텐츠 생성"""
     from services.agent_service import get_agent_service
@@ -675,7 +675,7 @@ async def agent_write_content(
 
 @app.post("/api/agent/youtube")
 async def agent_youtube_analysis(
-    request: dict = Body(..., example={"url": "https://youtu.be/...", "query": "Summarize this"})
+    request: dict = Body(..., examples=[{"url": "https://youtu.be/...", "query": "Summarize this"}])
 ):
     """(Agent) YouTube Intelligence - 영상 분석 및 질의응답"""
     from services.agent_service import get_agent_service
@@ -692,7 +692,7 @@ async def agent_youtube_analysis(
 
 @app.post("/api/agent/literature-review")
 async def agent_literature_review(
-    request: dict = Body(..., example={"topic": "CRISPR for SCD"})
+    request: dict = Body(..., examples=[{"topic": "CRISPR for SCD"}])
 ):
     """(Agent) Literature Review - 지정된 주제에 대한 문헌 고찰(Review) 리포트 생성"""
     from services.agent_service import get_agent_service

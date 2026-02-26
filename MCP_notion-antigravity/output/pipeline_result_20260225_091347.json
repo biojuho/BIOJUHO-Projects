@@ -1,0 +1,6 @@
+{
+  "timestamp": "2026-02-25T09:13:47.295187",
+  "steps": {},
+  "status": "failed",
+  "error": "unexpected indent (scraper.py, line 161)"
+}
