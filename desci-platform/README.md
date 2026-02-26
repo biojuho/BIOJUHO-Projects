@@ -25,6 +25,8 @@ npm run dev
 
 ## Quality Gate
 
+Workspace-wide policy and CI gate: [../QUALITY_GATE.md](../QUALITY_GATE.md)
+
 ### Backend smoke test (pytest)
 ```bash
 cd biolinker
