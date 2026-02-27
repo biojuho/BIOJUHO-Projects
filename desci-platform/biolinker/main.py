@@ -21,7 +21,7 @@ from services.ntis_crawler import get_ntis_crawler
 from services.scheduler import get_scheduler
 from services.vector_store import get_vector_store
 from services.ipfs_service import get_ipfs_service
-from services.web3_service import get_web3_service
+from services.web3_service import get_web3_service, MOCK_MODE
 from services.matcher import get_rfp_matcher
 from services.asset_manager import get_asset_manager
 from services.smart_matcher import get_smart_matcher
@@ -431,25 +431,27 @@ async def get_my_papers(user: dict = Depends(get_current_user)):
         except Exception as e:
             print(f"Firestore read error: {e}")
 
-    # 2. Fallback to Mock if DB empty or failed
-    return [
-        Paper(
-            id="p-001",
-            title="AI-Driven Drug Discovery Framework",
-            abstract="A novel framework for accelerating drug discovery using deep learning...",
-            cid="QmXyZ...",
-            ipfs_url="https://gateway.pinata.cloud/ipfs/QmXyZ...",
-            reward_claimed=True
-        ),
-        Paper(
-            id="p-002",
-            title="Decentralized Science: A New Era",
-            abstract="exploring the potential of blockchain in scientific research...",
-            cid="QmAbC...",
-            ipfs_url="https://gateway.pinata.cloud/ipfs/QmAbC...",
-            reward_claimed=False
-        )
-    ]
+    # 2. Fallback to Mock if DB empty or failed and MOCK_MODE is enabled
+    if MOCK_MODE:
+        return [
+            Paper(
+                id="p-001",
+                title="AI-Driven Drug Discovery Framework",
+                abstract="A novel framework for accelerating drug discovery using deep learning...",
+                cid="QmXyZ...",
+                ipfs_url="https://gateway.pinata.cloud/ipfs/QmXyZ...",
+                reward_claimed=True
+            ),
+            Paper(
+                id="p-002",
+                title="Decentralized Science: A New Era",
+                abstract="exploring the potential of blockchain in scientific research...",
+                cid="QmAbC...",
+                ipfs_url="https://gateway.pinata.cloud/ipfs/QmAbC...",
+                reward_claimed=False
+            )
+        ]
+    return []
 
 
 # ============== 토큰 보상 ==============
@@ -502,12 +504,14 @@ async def get_transactions(address: str, limit: int = 20):
         except Exception as e:
             print(f"Firestore transactions read error: {e}")
 
-    # Mock fallback
-    return [
-        {"id": "tx-001", "type": "reward", "description": "Paper Upload Reward", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-20T10:00:00", "address": address},
-        {"id": "tx-002", "type": "reward", "description": "Peer Review Reward", "amount": 50.0, "token": "DSCI", "timestamp": "2026-02-18T14:30:00", "address": address},
-        {"id": "tx-003", "type": "reward", "description": "Welcome Bonus", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-06T09:00:00", "address": address},
-    ]
+    # Mock fallback only in MOCK_MODE
+    if MOCK_MODE:
+        return [
+            {"id": "tx-001", "type": "reward", "description": "Paper Upload Reward", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-20T10:00:00", "address": address},
+            {"id": "tx-002", "type": "reward", "description": "Peer Review Reward", "amount": 50.0, "token": "DSCI", "timestamp": "2026-02-18T14:30:00", "address": address},
+            {"id": "tx-003", "type": "reward", "description": "Welcome Bonus", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-06T09:00:00", "address": address},
+        ]
+    return []
 
 
 @app.post("/nft/mint")

@@ -6,7 +6,7 @@ import io
 print("Starting script...", flush=True)
 
 # 윈도우 콘솔 인코딩 호환성 설정
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8', line_buffering=True)
 
 import feedparser
 import google.generativeai as genai
@@ -62,6 +62,16 @@ if HAS_BRAIN and ANTHROPIC_API_KEY:
         print("[INFO] BrainModule initialized successfully.")
     except Exception as e:
         print(f"[WARN] Failed to init BrainModule: {e}")
+
+# Load X Radar (Enhanced Trending)
+try:
+    sys.path.append(os.path.join(parent_dir, ".agent", "skills", "x_radar"))
+    import scraper as x_radar
+    HAS_X_RADAR = True
+    print("[INFO] X Radar module loaded.")
+except ImportError as e:
+    HAS_X_RADAR = False
+    print(f"[WARN] Failed to load X Radar: {e}")
 
 # Load Sources
 SOURCES_FILE = os.path.join(parent_dir, "config", "news_sources.json")
@@ -295,8 +305,7 @@ async def process_category(category, feeds):
             print(f"  Fetching {source['name']}...")
             feed = feedparser.parse(source['url'])
             
-            # Filter top 5 (increased from 2 since we filter by relevance/time conceptually, 
-            # though strict time filter is disabled for MVP reliability)
+            # Filter top 5
             for entry in feed.entries[:5]: 
                 content = ""
                 if 'summary' in entry:
@@ -319,6 +328,18 @@ async def process_category(category, feeds):
         print(f"  No articles found for {category}")
         return
 
+    # 1.5 Fetch X/Reddit Trends via x_radar
+    niche_trends = None
+    if HAS_X_RADAR:
+        try:
+            print(f"  📡 Scanning niche trends for {category} via x_radar...")
+            # We use the category name or top keywords as the search query
+            # A simple approach is to use the category name
+            trend_data_json = x_radar.fetch_niche_trends([category])
+            niche_trends = json.loads(trend_data_json)
+        except Exception as e:
+            print(f"  [WARN] x_radar fetch failed: {e}")
+
     # 2. Analyze with BrainModule (if enabled)
     analysis = None
     analysis = None
@@ -326,7 +347,7 @@ async def process_category(category, feeds):
         try:
             print(f"  🧠 Analyzing {category} with BrainModule (Raphael)...")
             brain_input = [{"title": a["title"], "description": a["description"]} for a in articles]
-            analysis = brain.analyze_news(category, brain_input, time_window=window_str)
+            analysis = brain.analyze_news(category, brain_input, time_window=window_str, niche_trends=niche_trends)
         except Exception as e:
             print(f"  [WARN] BrainModule analysis failed for {category}: {e}")
             analysis = None

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -6,64 +6,89 @@ import Button from './ui/Button';
 import Input from './ui/Input';
 import Terms from './Terms';
 
+// 정적 데이터는 외부로 분리하여 렌더링 시마다 재생성을 방지
+const PROGRESS_INFO = {
+    1: { text: "문서를 읽고 파싱하는 중...", percent: 25 },
+    2: { text: "IPFS 분산 저장소에 업로드 중...", percent: 50 },
+    3: { text: "AI 벡터 DB에 논문 지식 등록 중...", percent: 85 },
+    4: { text: "업로드 및 분석 완료!", percent: 100 },
+};
+
 export default function Upload() {
     const { walletAddress } = useAuth();
     const { showToast } = useToast();
-    const [file, setFile] = useState(null);
-    const [title, setTitle] = useState('');
-    const [abstract, setAbstract] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState(null);
-    const [error, setError] = useState('');
-    const [termsAccepted, setTermsAccepted] = useState(false);
-    const [showTerms, setShowTerms] = useState(false);
 
-    // 0: idle, 1: reading, 2: ipfs, 3: ai vectorizing, 4: complete
-    const [uploadStep, setUploadStep] = useState(0);
+    // 상태 1: 폼 데이터를 하나의 객체로 관리
+    const [formData, setFormData] = useState({
+        file: null,
+        title: '',
+        abstract: '',
+        termsAccepted: false
+    });
 
-    const handleFileChange = (e) => {
+    // 상태 2: UI 제어 상태를 하나의 객체로 통합하여 리렌더링 최소화
+    const [uiState, setUiState] = useState({
+        loading: false,
+        result: null,
+        error: '',
+        showTerms: false,
+        uploadStep: 0
+    });
+
+    // useCallback: 함수가 매 렌더링마다 재생성되는 것 방지
+    const handleFileChange = useCallback((e) => {
         if (e.target.files[0]) {
-            setFile(e.target.files[0]);
+            setFormData(prev => ({ ...prev, file: e.target.files[0] }));
         }
-    };
+    }, []);
 
-    const handleSubmit = async (e) => {
+    const handleChange = useCallback((field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    }, []);
+
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
+        const { file, title, abstract, termsAccepted } = formData;
+
         if (!file || !title) {
-            setError('파일과 제목을 모두 입력해주세요.');
+            setUiState(prev => ({ ...prev, error: '파일과 제목을 모두 입력해주세요.' }));
             return;
         }
 
         if (!termsAccepted) {
-            setError('이용약관 및 개인정보 처리방침에 동의해주세요.');
+            setUiState(prev => ({ ...prev, error: '이용약관 및 개인정보 처리방침에 동의해주세요.' }));
             showToast('약관 동의가 필요합니다.', 'warning');
             return;
         }
 
-        setLoading(true);
-        setUploadStep(1);
-        setError('');
-        setResult(null);
+        // 여러 연관 상태를 한 번에 업데이트 (배치 처리)
+        setUiState(prev => ({
+            ...prev,
+            loading: true,
+            uploadStep: 1,
+            error: '',
+            result: null
+        }));
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('title', title);
-        formData.append('abstract', abstract);
+        const submitData = new FormData();
+        submitData.append('file', file);
+        submitData.append('title', title);
+        submitData.append('abstract', abstract);
 
         try {
             await new Promise(r => setTimeout(r, 800));
-            setUploadStep(2);
+            setUiState(prev => ({ ...prev, uploadStep: 2 }));
 
-            await client.post('/upload', formData, {
+            await client.post('/upload', submitData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
             });
 
-            setUploadStep(3);
+            setUiState(prev => ({ ...prev, uploadStep: 3 }));
             await new Promise(r => setTimeout(r, 1200));
 
-            setUploadStep(4);
+            setUiState(prev => ({ ...prev, uploadStep: 4 }));
 
             try {
                 if (walletAddress) {
@@ -79,25 +104,26 @@ export default function Upload() {
 
         } catch (err) {
             console.error('Upload failed:', err);
-            setError(err.response?.data?.detail || '업로드 중 오류가 발생했습니다.');
+            setUiState(prev => ({
+                ...prev,
+                error: err.response?.data?.detail || '업로드 중 오류가 발생했습니다.',
+                loading: false,
+                uploadStep: 0
+            }));
             showToast('업로드에 실패했습니다.', 'error');
         } finally {
-            setLoading(false);
-            if(uploadStep !== 4) setUploadStep(0);
+            setUiState(prev => ({
+                ...prev,
+                loading: false,
+                ...(prev.uploadStep !== 4 && { uploadStep: 0 })
+            }));
         }
-    };
+    }, [formData, walletAddress, showToast]);
 
-    const getProgressInfo = () => {
-        switch(uploadStep) {
-            case 1: return { text: "문서를 읽고 파싱하는 중...", percent: 25 };
-            case 2: return { text: "IPFS 분산 저장소에 업로드 중...", percent: 50 };
-            case 3: return { text: "AI 벡터 DB에 논문 지식 등록 중...", percent: 85 };
-            case 4: return { text: "업로드 및 분석 완료!", percent: 100 };
-            default: return { text: "", percent: 0 };
-        }
-    };
-
-    const progress = getProgressInfo();
+    // useMemo: uploadStep이 변경될 때만 진행 정보 객체를 계산
+    const progress = useMemo(() => {
+        return PROGRESS_INFO[uiState.uploadStep] || { text: "", percent: 0 };
+    }, [uiState.uploadStep]);
 
     return (
         <div className="p-2 sm:p-6">
@@ -123,10 +149,10 @@ export default function Upload() {
                                 />
                                 <label htmlFor="file-upload" className="cursor-pointer block w-full h-full">
                                     <span className="text-5xl block mb-4 transform group-hover:scale-110 transition-transform duration-300">
-                                        {file ? '📄' : '📤'}
+                                        {formData.file ? '📄' : '📤'}
                                     </span>
                                     <span className="text-lg font-bold text-gradient font-display">
-                                        {file ? file.name : 'PDF 논문을 여기에 드롭하세요'}
+                                        {formData.file ? formData.file.name : 'PDF 논문을 여기에 드롭하세요'}
                                     </span>
                                     <p className="text-white/25 text-sm mt-3 font-medium">
                                         또는 클릭하여 파일 선택 (최대 10MB)
@@ -143,15 +169,15 @@ export default function Upload() {
                     {/* Metadata Inputs */}
                     <Input
                         label="논문 제목"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
+                        value={formData.title}
+                        onChange={(e) => handleChange('title', e.target.value)}
                         placeholder="논문 제목을 입력하세요"
                     />
 
                     <Input
                         label="초록 (Abstract)"
-                        value={abstract}
-                        onChange={(e) => setAbstract(e.target.value)}
+                        value={formData.abstract}
+                        onChange={(e) => handleChange('abstract', e.target.value)}
                         placeholder="논문 요약을 입력하세요"
                         textarea
                         rows="4"
@@ -162,14 +188,14 @@ export default function Upload() {
                         <input
                             type="checkbox"
                             id="terms"
-                            checked={termsAccepted}
-                            onChange={(e) => setTermsAccepted(e.target.checked)}
+                            checked={formData.termsAccepted}
+                            onChange={(e) => handleChange('termsAccepted', e.target.checked)}
                             className="w-5 h-5 rounded border-white/20 text-primary focus:ring-primary/50 bg-white/[0.04]"
                         />
                         <label htmlFor="terms" className="text-white/50 text-sm select-none cursor-pointer">
                             <button
                                 type="button"
-                                onClick={() => setShowTerms(true)}
+                                onClick={() => setUiState(prev => ({ ...prev, showTerms: true }))}
                                 className="text-primary hover:text-primary-300 underline underline-offset-2 font-semibold mr-1"
                             >
                                 이용약관 및 개인정보 처리방침
@@ -179,14 +205,14 @@ export default function Upload() {
                     </div>
 
                     {/* Error Message */}
-                    {error && (
+                    {uiState.error && (
                         <div className="bg-error/[0.08] text-error-light p-4 rounded-xl border border-error/15">
-                            ⚠️ {error}
+                            ⚠️ {uiState.error}
                         </div>
                     )}
 
                     {/* Progress Bar UI */}
-                    {loading && uploadStep > 0 && uploadStep < 4 && (
+                    {uiState.loading && uiState.uploadStep > 0 && uiState.uploadStep < 4 && (
                         <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-6 animate-fade-in">
                             <div className="flex justify-between items-center mb-3">
                                 <span className="text-sm font-medium text-white/60">
@@ -209,31 +235,31 @@ export default function Upload() {
                             </div>
 
                             <div className="flex justify-between mt-4 text-xs font-medium text-white/20">
-                                <span className={uploadStep >= 1 ? "text-primary" : ""}>1. 파일 읽기</span>
-                                <span className={uploadStep >= 2 ? "text-accent-light" : ""}>2. IPFS 저장</span>
-                                <span className={uploadStep >= 3 ? "text-highlight" : ""}>3. AI 벡터화</span>
+                                <span className={uiState.uploadStep >= 1 ? "text-primary" : ""}>1. 파일 읽기</span>
+                                <span className={uiState.uploadStep >= 2 ? "text-accent-light" : ""}>2. IPFS 저장</span>
+                                <span className={uiState.uploadStep >= 3 ? "text-highlight" : ""}>3. AI 벡터화</span>
                             </div>
                         </div>
                     )}
 
                     {/* Success Message */}
-                    {result && (
+                    {uiState.result && (
                         <div className="bg-success/[0.08] text-success-light p-6 rounded-xl border border-success/15">
                             <h3 className="font-display font-bold text-lg mb-2">✅ 업로드 및 분석 성공!</h3>
                             <div className="space-y-2 text-sm opacity-90 break-all">
                                 <div>
-                                    <p><strong>IPFS CID:</strong> <span className="font-mono bg-black/20 px-1 rounded">{result.cid}</span></p>
-                                    <p><strong>Gateway:</strong> <a href={result.url} target="_blank" rel="noreferrer" className="underline hover:text-white transition-colors">{result.url}</a></p>
+                                    <p><strong>IPFS CID:</strong> <span className="font-mono bg-black/20 px-1 rounded">{uiState.result.cid}</span></p>
+                                    <p><strong>Gateway:</strong> <a href={uiState.result.url} target="_blank" rel="noreferrer" className="underline hover:text-white transition-colors">{uiState.result.url}</a></p>
                                 </div>
-                                {result.analysis && (
+                                {uiState.result.analysis && (
                                     <div className="mt-4 pt-4 border-t border-success/20">
                                         <h4 className="font-display font-semibold text-success-light mb-2">🧬 BioLinker AI 분석 결과</h4>
-                                        <p><strong>상태:</strong> {result.analysis.status} (Vector Indexed)</p>
-                                        <p><strong>추출 텍스트:</strong> {result.analysis.text_length}자</p>
+                                        <p><strong>상태:</strong> {uiState.result.analysis.status} (Vector Indexed)</p>
+                                        <p><strong>추출 텍스트:</strong> {uiState.result.analysis.text_length}자</p>
                                         <div className="mt-2">
                                             <strong>핵심 키워드:</strong>
                                             <div className="flex flex-wrap gap-2 mt-1">
-                                                {result.analysis.keywords?.map((kw, i) => (
+                                                {uiState.result.analysis.keywords?.map((kw, i) => (
                                                     <span key={i} className="badge-primary text-[10px]">
                                                         #{kw}
                                                     </span>
@@ -246,12 +272,12 @@ export default function Upload() {
                         </div>
                     )}
 
-                    {result && result.cid && (
+                    {uiState.result && uiState.result.cid && (
                         <div className="animate-fade-in">
                             <Button
                                 type="button"
                                 variant="secondary"
-                                onClick={() => window.location.href = `/biolinker?paper_id=${result.cid}&paper_title=${encodeURIComponent(title)}`}
+                                onClick={() => window.location.href = `/biolinker?paper_id=${uiState.result.cid}&paper_title=${encodeURIComponent(formData.title)}`}
                                 className="w-full"
                             >
                                 <span>🚀 이 논문에 맞는 과제 찾기</span>
@@ -261,15 +287,15 @@ export default function Upload() {
 
                     <Button
                         type="submit"
-                        loading={loading}
-                        disabled={!termsAccepted}
+                        loading={uiState.loading}
+                        disabled={!formData.termsAccepted}
                         className="w-full"
                     >
                         논문 등록하기
                     </Button>
                 </form>
 
-                <Terms isOpen={showTerms} onClose={() => setShowTerms(false)} />
+                <Terms isOpen={uiState.showTerms} onClose={() => setUiState(prev => ({ ...prev, showTerms: false }))} />
             </div>
         </div>
     );

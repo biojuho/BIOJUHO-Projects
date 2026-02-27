@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -8,9 +8,7 @@ class TrackingEvent(BaseModel):
     location: str
     handler_id: str
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Certificate(BaseModel):
     cert_id: str
@@ -18,9 +16,7 @@ class Certificate(BaseModel):
     issue_date: datetime
     cert_type: str  # e.g., "Organic", "GAP"
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductBase(BaseModel):
     name: str
@@ -41,9 +37,7 @@ class Product(ProductBase):
     is_verified: bool = False
     qr_code: str  # Simulation string
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserBase(BaseModel):
     role: str # Farmer, Distributor, Retailer, Consumer
@@ -57,9 +51,7 @@ class User(UserBase):
     id: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GrowthCycles(BaseModel):
     active: int

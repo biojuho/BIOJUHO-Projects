@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Sprout, Loader2, ArrowLeft, ThermometerSnowflake, MapPin, Calendar, CheckCircle, Plus, ShieldCheck, Truck } from 'lucide-react';
 import { productApi } from '../services/api';
@@ -6,72 +6,102 @@ import ProductTimeline from './ProductTimeline';
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const [product, setProduct] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Data State
+  const [data, setData] = useState({
+    product: null,
+    history: [],
+    loading: true
+  });
 
   // Tracking form state
-  const [showTrackingForm, setShowTrackingForm] = useState(false);
-  const [trackingData, setTrackingData] = useState({ status: 'IN_TRANSIT', location: '', handler_id: '' });
-  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingState, setTrackingState] = useState({
+    showForm: false,
+    loading: false,
+    data: { status: 'IN_TRANSIT', location: '', handler_id: '' }
+  });
 
   // Certification form state
-  const [showCertForm, setShowCertForm] = useState(false);
-  const [certData, setCertData] = useState({ cert_type: '', issued_by: '' });
-  const [certLoading, setCertLoading] = useState(false);
+  const [certState, setCertState] = useState({
+    showForm: false,
+    loading: false,
+    data: { cert_type: '', issued_by: '' }
+  });
 
-  const fetchProductDetails = async () => {
+  const fetchProductDetails = useCallback(async () => {
     try {
       const [prodRes, histRes] = await Promise.all([
         productApi.getById(id),
         productApi.getHistory(id)
       ]);
-      setProduct(prodRes.data);
-      setHistory(histRes.data.history);
+      setData({
+        product: prodRes.data,
+        history: histRes.data.history,
+        loading: false
+      });
     } catch (err) {
       console.error("Failed to load product details", err);
-    } finally {
-      setLoading(false);
+      setData(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchProductDetails();
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchProductDetails]);
 
-  const handleAddTracking = async (e) => {
+  const handleTrackingChange = useCallback((field, value) => {
+    setTrackingState(prev => ({
+      ...prev,
+      data: { ...prev.data, [field]: value }
+    }));
+  }, []);
+
+  const handleCertChange = useCallback((field, value) => {
+    setCertState(prev => ({
+      ...prev,
+      data: { ...prev.data, [field]: value }
+    }));
+  }, []);
+
+  const handleAddTracking = useCallback(async (e) => {
     e.preventDefault();
-    if (!trackingData.location || !trackingData.handler_id) return;
-    setTrackingLoading(true);
+    if (!trackingState.data.location || !trackingState.data.handler_id) return;
+    
+    setTrackingState(prev => ({ ...prev, loading: true }));
     try {
-      await productApi.addTracking(id, trackingData);
+      await productApi.addTracking(id, trackingState.data);
       await fetchProductDetails();
-      setShowTrackingForm(false);
-      setTrackingData({ status: 'IN_TRANSIT', location: '', handler_id: '' });
+      setTrackingState({
+        showForm: false,
+        loading: false,
+        data: { status: 'IN_TRANSIT', location: '', handler_id: '' }
+      });
     } catch (err) {
       console.error('Failed to add tracking event', err);
-    } finally {
-      setTrackingLoading(false);
+      setTrackingState(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, [id, trackingState.data, fetchProductDetails]);
 
-  const handleAddCert = async (e) => {
+  const handleAddCert = useCallback(async (e) => {
     e.preventDefault();
-    if (!certData.cert_type || !certData.issued_by) return;
-    setCertLoading(true);
+    if (!certState.data.cert_type || !certState.data.issued_by) return;
+    
+    setCertState(prev => ({ ...prev, loading: true }));
     try {
-      await productApi.addCertification(id, certData);
+      await productApi.addCertification(id, certState.data);
       await fetchProductDetails();
-      setShowCertForm(false);
-      setCertData({ cert_type: '', issued_by: '' });
+      setCertState({
+        showForm: false,
+        loading: false,
+        data: { cert_type: '', issued_by: '' }
+      });
     } catch (err) {
       console.error('Failed to add certification', err);
-    } finally {
-      setCertLoading(false);
+      setCertState(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, [id, certState.data, fetchProductDetails]);
 
-  if (loading) {
+  if (data.loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
@@ -79,7 +109,7 @@ export default function ProductDetail() {
     );
   }
 
-  if (!product) {
+  if (!data.product) {
     return (
       <div className="text-center text-white p-8">
         <h2 className="text-2xl font-bold mb-4">Product Not Found</h2>
@@ -89,6 +119,8 @@ export default function ProductDetail() {
       </div>
     );
   }
+
+  const { product, history } = data;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
@@ -163,13 +195,13 @@ export default function ProductDetail() {
       {/* Action Buttons */}
       <div className="flex gap-3">
         <button
-          onClick={() => setShowTrackingForm(!showTrackingForm)}
+          onClick={() => setTrackingState(prev => ({ ...prev, showForm: !prev.showForm }))}
           className="flex items-center gap-2 px-4 py-2.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-xl hover:bg-orange-500/30 transition-colors font-semibold text-sm"
         >
           <Truck className="w-4 h-4" /> Add Tracking Event
         </button>
         <button
-          onClick={() => setShowCertForm(!showCertForm)}
+          onClick={() => setCertState(prev => ({ ...prev, showForm: !prev.showForm }))}
           className="flex items-center gap-2 px-4 py-2.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-xl hover:bg-yellow-500/30 transition-colors font-semibold text-sm"
         >
           <ShieldCheck className="w-4 h-4" /> Add Certification
@@ -177,15 +209,15 @@ export default function ProductDetail() {
       </div>
 
       {/* Tracking Form */}
-      {showTrackingForm && (
+      {trackingState.showForm && (
         <div className="glass p-6 rounded-2xl border border-orange-500/20 animate-fade-in">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Truck className="w-5 h-5 text-orange-400" /> New Tracking Event
           </h3>
           <form onSubmit={handleAddTracking} className="space-y-3">
             <select
-              value={trackingData.status}
-              onChange={e => setTrackingData({ ...trackingData, status: e.target.value })}
+              value={trackingState.data.status}
+              onChange={e => handleTrackingChange('status', e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-orange-500"
             >
               <option value="REGISTERED">Registered (Farm)</option>
@@ -196,29 +228,29 @@ export default function ProductDetail() {
             <input
               type="text"
               placeholder="Location (e.g. Seoul Distribution Center)"
-              value={trackingData.location}
-              onChange={e => setTrackingData({ ...trackingData, location: e.target.value })}
+              value={trackingState.data.location}
+              onChange={e => handleTrackingChange('location', e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
               required
             />
             <input
               type="text"
               placeholder="Handler ID (e.g. HANDLER-001)"
-              value={trackingData.handler_id}
-              onChange={e => setTrackingData({ ...trackingData, handler_id: e.target.value })}
+              value={trackingState.data.handler_id}
+              onChange={e => handleTrackingChange('handler_id', e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
               required
             />
             <div className="flex gap-2">
               <button
                 type="submit"
-                disabled={trackingLoading}
+                disabled={trackingState.loading}
                 className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-semibold disabled:opacity-50"
               >
-                {trackingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                {trackingLoading ? 'Submitting...' : 'Add Event'}
+                {trackingState.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {trackingState.loading ? 'Submitting...' : 'Add Event'}
               </button>
-              <button type="button" onClick={() => setShowTrackingForm(false)} className="px-4 py-2.5 text-gray-400 hover:text-white transition-colors">
+              <button type="button" onClick={() => setTrackingState(prev => ({ ...prev, showForm: false }))} className="px-4 py-2.5 text-gray-400 hover:text-white transition-colors">
                 Cancel
               </button>
             </div>
@@ -227,7 +259,7 @@ export default function ProductDetail() {
       )}
 
       {/* Certification Form */}
-      {showCertForm && (
+      {certState.showForm && (
         <div className="glass p-6 rounded-2xl border border-yellow-500/20 animate-fade-in">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-yellow-400" /> New Certification
@@ -236,29 +268,29 @@ export default function ProductDetail() {
             <input
               type="text"
               placeholder="Certification Type (e.g. GAP, Organic, HACCP)"
-              value={certData.cert_type}
-              onChange={e => setCertData({ ...certData, cert_type: e.target.value })}
+              value={certState.data.cert_type}
+              onChange={e => handleCertChange('cert_type', e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-yellow-500"
               required
             />
             <input
               type="text"
               placeholder="Issued By (e.g. Korean Food Safety Authority)"
-              value={certData.issued_by}
-              onChange={e => setCertData({ ...certData, issued_by: e.target.value })}
+              value={certState.data.issued_by}
+              onChange={e => handleCertChange('issued_by', e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-yellow-500"
               required
             />
             <div className="flex gap-2">
               <button
                 type="submit"
-                disabled={certLoading}
+                disabled={certState.loading}
                 className="flex items-center gap-2 px-5 py-2.5 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition-colors font-semibold disabled:opacity-50"
               >
-                {certLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                {certLoading ? 'Submitting...' : 'Add Certificate'}
+                {certState.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {certState.loading ? 'Submitting...' : 'Add Certificate'}
               </button>
-              <button type="button" onClick={() => setShowCertForm(false)} className="px-4 py-2.5 text-gray-400 hover:text-white transition-colors">
+              <button type="button" onClick={() => setCertState(prev => ({ ...prev, showForm: false }))} className="px-4 py-2.5 text-gray-400 hover:text-white transition-colors">
                 Cancel
               </button>
             </div>

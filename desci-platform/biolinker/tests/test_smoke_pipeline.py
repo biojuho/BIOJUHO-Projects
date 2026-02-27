@@ -187,3 +187,111 @@ def test_proposal_generator_fallback_without_llm():
     )
 
     assert draft.startswith("# Proposal:")
+
+
+def test_papers_me_returns_empty_when_mock_mode_off_and_db_unavailable(monkeypatch):
+    monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
+    monkeypatch.setattr(app_main, "MOCK_MODE", False)
+    monkeypatch.setattr(app_main, "db", None)
+
+    with TestClient(app_main.app) as client:
+        response = client.get(
+            "/papers/me",
+            headers={"Authorization": "Bearer test-token-bypass"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_papers_me_returns_mock_seed_when_mock_mode_on(monkeypatch):
+    monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
+    monkeypatch.setattr(app_main, "MOCK_MODE", True)
+    monkeypatch.setattr(app_main, "db", None)
+
+    with TestClient(app_main.app) as client:
+        response = client.get(
+            "/papers/me",
+            headers={"Authorization": "Bearer test-token-bypass"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 2
+    assert any(item.get("title") == "AI-Driven Drug Discovery Framework" for item in payload)
+    assert any(item.get("cid") == "QmXyZ..." for item in payload)
+
+
+def test_transactions_returns_empty_when_mock_mode_off_and_db_unavailable(monkeypatch):
+    address = "0x1111111111111111111111111111111111111111"
+    monkeypatch.setattr(app_main, "MOCK_MODE", False)
+    monkeypatch.setattr(app_main, "db", None)
+
+    with TestClient(app_main.app) as client:
+        response = client.get(f"/transactions/{address}")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_transactions_returns_mock_seed_when_mock_mode_on(monkeypatch):
+    address = "0x2222222222222222222222222222222222222222"
+    monkeypatch.setattr(app_main, "MOCK_MODE", True)
+    monkeypatch.setattr(app_main, "db", None)
+
+    with TestClient(app_main.app) as client:
+        response = client.get(f"/transactions/{address}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 3
+    assert all(item.get("address") == address for item in payload)
+
+
+def test_wallet_balance_contract_when_mock_mode_off_returns_error_payload(monkeypatch):
+    class StubWeb3:
+        async def get_balance(self, address: str):  # noqa: ARG002
+            return {"error": "Web3 service not available or token contract not configured"}
+
+    monkeypatch.setattr(app_main, "MOCK_MODE", False)
+    monkeypatch.setattr(app_main, "get_web3_service", lambda: StubWeb3())
+
+    with TestClient(app_main.app) as client:
+        response = client.get("/wallet/0x3333333333333333333333333333333333333333")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "error" in payload
+
+
+def test_wallet_balance_contract_when_mock_mode_on_returns_mock_payload(monkeypatch):
+    class StubWeb3:
+        async def get_balance(self, address: str):
+            return {
+                "address": address,
+                "balance": "123",
+                "balance_wei": str(123 * 10**18),
+                "symbol": "DSCI",
+                "_mock": True,
+            }
+
+    monkeypatch.setattr(app_main, "MOCK_MODE", True)
+    monkeypatch.setattr(app_main, "get_web3_service", lambda: StubWeb3())
+
+    with TestClient(app_main.app) as client:
+        response = client.get("/wallet/0x4444444444444444444444444444444444444444")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload.get("_mock") is True
+
+
+def test_web3_service_reward_amounts_returns_error_when_mock_mode_off(monkeypatch):
+    import services.web3_service as web3_module
+
+    monkeypatch.setattr(web3_module, "MOCK_MODE", False)
+    service = web3_module.Web3Service()
+    service.token_contract = None
+
+    result = asyncio.run(service.get_reward_amounts())
+    assert "error" in result

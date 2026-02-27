@@ -1,97 +1,24 @@
-
-import { useState, useEffect } from 'react';
-import client from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
 import { Loader2, Upload, FileText, FlaskConical, ExternalLink, Sparkles } from 'lucide-react';
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import SuccessModal from './ui/SuccessModal';
 import GlassCard from './ui/GlassCard';
+import { useMyLab } from '../hooks/useMyLab';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 },
+};
 
 export default function MyLab() {
-    const { walletAddress } = useAuth();
-    const { showToast } = useToast();
-    const [papers, setPapers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [minting, setMinting] = useState({});
+    const { papers, isLoading, mintingIds, isSuccessModalOpen, mintResult, mintNFT, closeSuccessModal } = useMyLab();
 
-    // Modal State
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [modalData, setModalData] = useState({ title: '', message: '', txHash: '' });
-
-    useEffect(() => {
-        const fetchPapers = async () => {
-            try {
-                const response = await client.get('/papers/me');
-                setPapers(response.data);
-            } catch (err) {
-                console.error('Failed to fetch papers:', err);
-                showToast("연구 데이터를 불러오는데 실패했습니다.", 'error');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchPapers();
-    }, [showToast]);
-
-    const mintNFT = async (paper) => {
-        if (!walletAddress) {
-            showToast("지갑이 연결되지 않았습니다. Wallet 페이지에서 연결해주세요.", 'warning');
-            return;
-        }
-        if (!paper.ipfs_url) {
-            showToast("IPFS URL이 없습니다. 논문 업로드가 완전히 완료된 후 민팅하세요.", 'warning');
-            return;
-        }
-
-        setMinting(prev => ({ ...prev, [paper.id]: true }));
-
-        try {
-            const res = await client.post('/nft/mint', {
-                user_address: walletAddress,
-                token_uri: paper.ipfs_url
-            });
-
-            const isSuccess = res.data?.success === true || !!res.data?.tx_hash;
-            if (isSuccess) {
-                setModalData({
-                    title: "NFT Minted Successfully! 💎",
-                    message: `"${paper.title}"의 IP-NFT가 블록체인에 민팅되었습니다.`,
-                    txHash: res.data.tx_hash || ''
-                });
-                setShowSuccessModal(true);
-                setPapers(prev => prev.map(p =>
-                    p.id === paper.id ? { ...p, nft_minted: true } : p
-                ));
-            } else {
-                const reason = res.data?.error || res.data?.detail || '알 수 없는 오류';
-                showToast(`민팅 실패: ${reason}`, 'error');
-            }
-        } catch (err) {
-            const msg = err.response?.data?.detail || err.message || '서버 오류';
-            showToast(`민팅 오류: ${msg}`, 'error');
-            console.error('[mintNFT]', err);
-        } finally {
-            setMinting(prev => ({ ...prev, [paper.id]: false }));
-        }
-    };
-
-    const container = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0 }
-    };
-
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="flex justify-center items-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
@@ -103,14 +30,9 @@ export default function MyLab() {
     }
 
     return (
-        <motion.div
-            className="space-y-8"
-            variants={container}
-            initial="hidden"
-            animate="show"
-        >
+        <motion.div className="space-y-8" variants={containerVariants} initial="hidden" animate="show">
             {/* Header */}
-            <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
                         <FlaskConical className="w-10 h-10 text-primary" />
@@ -125,17 +47,17 @@ export default function MyLab() {
                     <Upload size={18} /> Upload Paper
                 </Link>
             </motion.div>
-                
+
             <SuccessModal
-                isOpen={showSuccessModal}
-                onClose={() => setShowSuccessModal(false)}
-                title={modalData.title}
-                message={modalData.message}
-                txHash={modalData.txHash}
+                isOpen={isSuccessModalOpen}
+                onClose={closeSuccessModal}
+                title={mintResult.title}
+                message={mintResult.message}
+                txHash={mintResult.txHash}
             />
 
             {papers.length === 0 ? (
-                <motion.div variants={item}>
+                <motion.div variants={itemVariants}>
                     <GlassCard className="text-center py-16 px-8">
                         <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-white/5 flex items-center justify-center">
                             <FileText size={40} className="text-gray-500" />
@@ -155,12 +77,7 @@ export default function MyLab() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {papers.map((paper, index) => (
-                        <GlassCard
-                            key={paper.id}
-                            delay={index * 0.1}
-                            hoverEffect={true}
-                            className="flex flex-col"
-                        >
+                        <GlassCard key={paper.id} delay={index * 0.1} hoverEffect={true} className="flex flex-col">
                             <div className="flex justify-between items-start mb-4">
                                 <span className="px-3 py-1 bg-primary/20 text-primary text-xs font-bold rounded-full uppercase tracking-wide">
                                     {paper.type || "Paper"}
@@ -173,7 +90,6 @@ export default function MyLab() {
                             <h3 className="text-lg font-bold text-white mb-3 line-clamp-2 min-h-[3rem]">
                                 {paper.title}
                             </h3>
-
                             <p className="text-gray-400 text-sm mb-6 line-clamp-3 flex-1">
                                 {paper.abstract || "No abstract available."}
                             </p>
@@ -190,26 +106,20 @@ export default function MyLab() {
                                         <ExternalLink size={14} /> IPFS
                                     </a>
                                 )}
-
                                 <button
                                     onClick={() => mintNFT(paper)}
-                                    disabled={minting[paper.id]}
-                                    aria-label={minting[paper.id] ? "Minting in progress" : "Mint IP-NFT"}
+                                    disabled={mintingIds[paper.id]}
+                                    aria-label={mintingIds[paper.id] ? "Minting in progress" : "Mint IP-NFT"}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all text-sm ${
-                                        minting[paper.id]
+                                        mintingIds[paper.id]
                                             ? "bg-white/5 text-gray-500 cursor-not-allowed"
                                             : "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/20 hover:-translate-y-0.5 hover:shadow-xl"
                                     }`}
                                 >
-                                    {minting[paper.id] ? (
-                                        <>
-                                            <Loader2 size={16} className="animate-spin" />
-                                            Minting...
-                                        </>
+                                    {mintingIds[paper.id] ? (
+                                        <><Loader2 size={16} className="animate-spin" /> Minting...</>
                                     ) : (
-                                        <>
-                                            <Sparkles size={16} /> Mint IP-NFT
-                                        </>
+                                        <><Sparkles size={16} /> Mint IP-NFT</>
                                     )}
                                 </button>
                             </div>

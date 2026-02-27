@@ -1,92 +1,16 @@
-/**
- * Peer Review Workflow Page
- * Browse available papers and submit reviews for token rewards
- */
-import { useState, useEffect } from 'react';
-import client from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import { useToast } from '../contexts/ToastContext';
 import GlassCard from './ui/GlassCard';
 import ReactMarkdown from 'react-markdown';
+import { usePeerReview } from '../hooks/usePeerReview';
 import {
-    FileText,
-    Star,
-    Send,
-    Loader2,
-    Award,
-    ChevronDown,
-    ChevronUp,
-    ExternalLink
+    FileText, Star, Send, Loader2, Award, ChevronDown, ChevronUp, ExternalLink,
 } from 'lucide-react';
 
 export default function PeerReview() {
-    const { walletAddress } = useAuth();
-    const { showToast } = useToast();
-    const [papers, setPapers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [expandedPaper, setExpandedPaper] = useState(null);
-    const [reviewText, setReviewText] = useState('');
-    const [rating, setRating] = useState(3);
-    const [submitting, setSubmitting] = useState(false);
-
-    useEffect(() => {
-        fetchPapers();
-    }, []);
-
-    const fetchPapers = async () => {
-        try {
-            // Use papers/me for now - in production this would be a separate endpoint for reviewable papers
-            const res = await client.get('/papers/me');
-            setPapers(res.data || []);
-        } catch (err) {
-            console.error('Failed to fetch papers:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmitReview = async () => {
-        if (!reviewText.trim()) {
-            showToast('리뷰 내용을 입력해주세요.', 'warning');
-            return;
-        }
-        if (!expandedPaper) {
-            showToast('리뷰할 논문을 선택해주세요.', 'warning');
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            // Submit review content + trigger reward
-            const params = new URLSearchParams({
-                paper_id: expandedPaper,
-                rating: String(rating),
-                ...(walletAddress && { user_address: walletAddress }),
-            });
-            await client.post(`/reward/review?${params.toString()}`, {
-                paper_id: expandedPaper,
-                review_text: reviewText,
-                rating,
-            });
-
-            if (walletAddress) {
-                showToast('리뷰가 제출되었습니다! 50 DSCI 보상이 지급됩니다.', 'success');
-            } else {
-                showToast('리뷰가 저장되었습니다. 지갑을 연결하면 보상을 받을 수 있습니다.', 'info');
-            }
-            setReviewText('');
-            setRating(3);
-            setExpandedPaper(null);
-            // 제출 완료된 논문 로컬 표시
-            setPapers(prev => prev.map(p =>
-                p.id === expandedPaper ? { ...p, reward_claimed: true } : p
-            ));
-        } catch (err) {
-            showToast('리뷰 제출 실패: ' + (err.response?.data?.detail || err.message), 'error');
-        } finally {
-            setSubmitting(false);
-        }
-    };
+    const {
+        papers, isLoading,
+        expandedPaperId, reviewText, rating, isSubmitting,
+        togglePaper, setReviewText, setRating, submitReview,
+    } = usePeerReview();
 
     return (
         <div className="space-y-6">
@@ -106,7 +30,7 @@ export default function PeerReview() {
             </div>
 
             {/* Papers List */}
-            {loading ? (
+            {isLoading ? (
                 <div className="flex items-center justify-center py-20">
                     <div className="animate-spin rounded-full h-10 w-10 border-2 border-white/10 border-t-primary"></div>
                 </div>
@@ -123,7 +47,7 @@ export default function PeerReview() {
                             {/* Paper Header */}
                             <div
                                 className="p-5 cursor-pointer hover:bg-white/[0.02] transition-colors"
-                                onClick={() => setExpandedPaper(expandedPaper === paper.id ? null : paper.id)}
+                                onClick={() => togglePaper(paper.id)}
                             >
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex-1 min-w-0">
@@ -156,17 +80,15 @@ export default function PeerReview() {
                                         </div>
                                     </div>
                                     <div className="text-white/20">
-                                        {expandedPaper === paper.id ? (
-                                            <ChevronUp className="w-5 h-5" />
-                                        ) : (
-                                            <ChevronDown className="w-5 h-5" />
-                                        )}
+                                        {expandedPaperId === paper.id
+                                            ? <ChevronUp className="w-5 h-5" />
+                                            : <ChevronDown className="w-5 h-5" />}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Review Form (Expanded) */}
-                            {expandedPaper === paper.id && (
+                            {/* Review Form */}
+                            {expandedPaperId === paper.id && (
                                 <div className="border-t border-white/[0.06] p-5 bg-white/[0.01] animate-fade-in">
                                     <h4 className="font-display text-sm font-semibold text-white mb-4">Write Your Review</h4>
 
@@ -175,15 +97,8 @@ export default function PeerReview() {
                                         <label className="text-xs text-white/30 uppercase tracking-wider mb-2 block">Quality Rating</label>
                                         <div className="flex gap-1">
                                             {[1, 2, 3, 4, 5].map(n => (
-                                                <button
-                                                    key={n}
-                                                    type="button"
-                                                    onClick={() => setRating(n)}
-                                                    className="p-1 transition-colors"
-                                                >
-                                                    <Star
-                                                        className={`w-6 h-6 ${n <= rating ? 'text-highlight fill-highlight' : 'text-white/10'}`}
-                                                    />
+                                                <button key={n} type="button" onClick={() => setRating(n)} className="p-1 transition-colors">
+                                                    <Star className={`w-6 h-6 ${n <= rating ? 'text-highlight fill-highlight' : 'text-white/10'}`} />
                                                 </button>
                                             ))}
                                             <span className="ml-2 text-sm text-white/40 self-center">{rating}/5</span>
@@ -198,7 +113,7 @@ export default function PeerReview() {
                                         onChange={e => setReviewText(e.target.value)}
                                     />
 
-                                    {/* Preview */}
+                                    {/* Markdown Preview */}
                                     {reviewText && (
                                         <div className="mb-4 p-4 bg-white/[0.02] rounded-xl border border-white/[0.04]">
                                             <p className="text-[11px] text-white/20 uppercase tracking-wider mb-2">Preview</p>
@@ -213,11 +128,11 @@ export default function PeerReview() {
                                             리뷰 제출 시 <span className="text-highlight font-semibold">+50 DSCI</span> 보상 지급
                                         </p>
                                         <button
-                                            onClick={() => handleSubmitReview(paper.id)}
-                                            disabled={submitting || !reviewText.trim()}
+                                            onClick={submitReview}
+                                            disabled={isSubmitting || !reviewText.trim()}
                                             className="glass-button px-5 py-2.5 font-semibold flex items-center gap-2 disabled:opacity-40"
                                         >
-                                            {submitting ? (
+                                            {isSubmitting ? (
                                                 <><Loader2 className="w-4 h-4 animate-spin" /> 제출 중...</>
                                             ) : (
                                                 <><Send className="w-4 h-4" /> 리뷰 제출</>

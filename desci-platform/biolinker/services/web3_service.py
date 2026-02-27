@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Explicit Mock Mode for Testing without Web3 infrastructure
+MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
+
 try:
     from web3 import Web3
     from eth_account import Account
@@ -155,11 +158,10 @@ class Web3Service:
         """
         사용자 DSCI 토큰 잔액 조회
         """
-        if not WEB3_AVAILABLE:
-            return self._mock_balance(address)
-        
-        if not self.token_contract:
-            return self._mock_balance(address)
+        if not WEB3_AVAILABLE or not self.token_contract:
+            if MOCK_MODE:
+                return self._mock_balance(address)
+            return {"error": "Web3 service not available or token contract not configured"}
         
         try:
             checksum_addr = Web3.to_checksum_address(address)
@@ -196,7 +198,9 @@ class Web3Service:
     ) -> dict:
         """커스텀 보상 지급"""
         if not self.is_configured or not self.token_contract:
-            return self._mock_reward(user_address, amount, reason)
+            if MOCK_MODE:
+                return self._mock_reward(user_address, amount, reason)
+            return {"success": False, "error": "Web3 service not configured for rewards"}
         
         try:
             checksum_addr = Web3.to_checksum_address(user_address)
@@ -228,7 +232,9 @@ class Web3Service:
     async def _send_reward_tx(self, function_name: str, user_address: str) -> dict:
         """보상 트랜잭션 전송"""
         if not self.is_configured or not self.token_contract:
-            return self._mock_reward(user_address, 100, function_name)
+            if MOCK_MODE:
+                return self._mock_reward(user_address, 100, function_name)
+            return {"success": False, "error": f"Web3 service not configured for {function_name}"}
         
         try:
             checksum_addr = Web3.to_checksum_address(user_address)
@@ -257,13 +263,15 @@ class Web3Service:
     async def get_reward_amounts(self) -> dict:
         """보상 금액 조회"""
         if not self.token_contract:
-            return {
-                'paper_upload': '100',
-                'peer_review': '50',
-                'data_share': '200',
-                'research_participation': '300',
-                '_mock': True
-            }
+            if MOCK_MODE:
+                return {
+                    'paper_upload': '100',
+                    'peer_review': '50',
+                    'data_share': '200',
+                    'research_participation': '300',
+                    '_mock': True
+                }
+            return {"error": "Token contract not configured"}
         
         try:
             amounts = self.token_contract.functions.getRewardAmounts().call()
@@ -279,15 +287,17 @@ class Web3Service:
     async def mint_paper_nft(self, user_address: str, token_uri: str) -> dict:
         """ Research Paper NFT Minting """
         if not self.is_configured or not self.nft_contract:
-            # Return Mock result if NFT contract is not ready
-            return {
-                'success': True,
-                'tx_hash': "0xMOCK_NFT_MINT_HASH",
-                'user': user_address,
-                'token_id': 0,
-                'token_uri': token_uri,
-                '_mock': True
-            }
+            if MOCK_MODE:
+                # Return Mock result if NFT contract is not ready
+                return {
+                    'success': True,
+                    'tx_hash': "0xMOCK_NFT_MINT_HASH",
+                    'user': user_address,
+                    'token_id': 0,
+                    'token_uri': token_uri,
+                    '_mock': True
+                }
+            return {"success": False, "error": "Web3 service not configured for NFT minting"}
         
         try:
             checksum_addr = Web3.to_checksum_address(user_address)

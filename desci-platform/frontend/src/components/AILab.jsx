@@ -1,24 +1,8 @@
-/**
- * AI Lab Page
- * Interface for AI Research Agent endpoints:
- * - Deep Research
- * - Content Writer
- * - YouTube Intelligence
- */
-import { useState } from 'react';
-import client from '../services/api';
-import { useToast } from '../contexts/ToastContext';
 import ReactMarkdown from 'react-markdown';
 import GlassCard from './ui/GlassCard';
+import { useAgentTools } from '../hooks/useAgentTools';
 import {
-    Microscope,
-    PenTool,
-    Youtube,
-    Send,
-    Loader2,
-    Copy,
-    ChevronDown,
-    RefreshCw
+    Microscope, PenTool, Youtube, Send, Loader2, Copy, ChevronDown, RefreshCw,
 } from 'lucide-react';
 
 const TOOLS = [
@@ -55,119 +39,21 @@ const FORMAT_TYPES = [
     { value: 'presentation', label: 'Presentation Script' },
 ];
 
+const COLOR_MAP = {
+    primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', activeBg: 'bg-primary/15' },
+    accent: { bg: 'bg-accent/10', text: 'text-accent-light', border: 'border-accent/20', activeBg: 'bg-accent/15' },
+    highlight: { bg: 'bg-highlight/10', text: 'text-highlight', border: 'border-highlight/20', activeBg: 'bg-highlight/15' },
+};
+
 export default function AILab() {
-    const { showToast } = useToast();
-    const [activeTool, setActiveTool] = useState('research');
-    const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState('');
-    const [agentError, setAgentError] = useState(null);
+    const {
+        activeTool, isLoading, result, agentError,
+        changeTool, submit, copyResult,
+        research, write, youtube,
+    } = useAgentTools();
 
-    // Research state
-    const [researchTopic, setResearchTopic] = useState('');
-    const [deepMode, setDeepMode] = useState(true);
-
-    // Writer state
-    const [writeTopic, setWriteTopic] = useState('');
-    const [writeRawText, setWriteRawText] = useState('');
-    const [formatType, setFormatType] = useState('blog_post');
-
-    // YouTube state
-    const [youtubeUrl, setYoutubeUrl] = useState('');
-    const [youtubeQuery, setYoutubeQuery] = useState('');
-
-    const handleResearch = async () => {
-        if (!researchTopic.trim()) {
-            showToast('연구 주제를 입력해주세요.', 'warning');
-            return;
-        }
-        setLoading(true);
-        setResult('');
-        setAgentError(null);
-        try {
-            const res = await client.post('/api/agent/research', {
-                topic: researchTopic,
-                deep: deepMode,
-            });
-            setResult(res.data.result?.report || res.data.report || JSON.stringify(res.data, null, 2));
-            showToast('연구 리포트 생성 완료!', 'success');
-        } catch (err) {
-            const msg = err.response?.data?.detail || err.message;
-            setAgentError(msg);
-            showToast('연구 실패: ' + msg, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleWrite = async () => {
-        if (!writeTopic.trim() || !writeRawText.trim()) {
-            showToast('주제와 원본 텍스트를 모두 입력해주세요.', 'warning');
-            return;
-        }
-        setLoading(true);
-        setResult('');
-        setAgentError(null);
-        try {
-            const res = await client.post('/api/agent/write', {
-                topic: writeTopic,
-                raw_text: writeRawText,
-                format_type: formatType,
-            });
-            setResult(res.data.content || '');
-            showToast('콘텐츠 생성 완료!', 'success');
-        } catch (err) {
-            const msg = err.response?.data?.detail || err.message;
-            setAgentError(msg);
-            showToast('콘텐츠 생성 실패: ' + msg, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleYoutube = async () => {
-        if (!youtubeUrl.trim()) {
-            showToast('YouTube URL을 입력해주세요.', 'warning');
-            return;
-        }
-        setLoading(true);
-        setResult('');
-        setAgentError(null);
-        try {
-            const res = await client.post('/api/agent/youtube', {
-                url: youtubeUrl,
-                query: youtubeQuery || 'Summarize the video',
-            });
-            setResult(res.data.analysis || res.data.summary || JSON.stringify(res.data, null, 2));
-            showToast('영상 분석 완료!', 'success');
-        } catch (err) {
-            const msg = err.response?.data?.detail || err.message;
-            setAgentError(msg);
-            showToast('영상 분석 실패: ' + msg, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = () => {
-        switch (activeTool) {
-            case 'research': return handleResearch();
-            case 'write': return handleWrite();
-            case 'youtube': return handleYoutube();
-        }
-    };
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(result);
-        showToast('클립보드에 복사되었습니다!', 'success');
-    };
-
-    const tool = TOOLS.find(t => t.id === activeTool) || TOOLS[0];
-    const colorMap = {
-        primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', activeBg: 'bg-primary/15' },
-        accent: { bg: 'bg-accent/10', text: 'text-accent-light', border: 'border-accent/20', activeBg: 'bg-accent/15' },
-        highlight: { bg: 'bg-highlight/10', text: 'text-highlight', border: 'border-highlight/20', activeBg: 'bg-highlight/15' },
-    };
-    const colors = colorMap[tool.color];
+    const tool = TOOLS.find(t => t.id === activeTool) ?? TOOLS[0];
+    const colors = COLOR_MAP[tool.color];
 
     return (
         <div className="space-y-6">
@@ -184,14 +70,14 @@ export default function AILab() {
             <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.06] w-fit">
                 {TOOLS.map(t => {
                     const Icon = t.icon;
-                    const active = activeTool === t.id;
-                    const tc = colorMap[t.color];
+                    const isActive = activeTool === t.id;
+                    const tc = COLOR_MAP[t.color];
                     return (
                         <button
                             key={t.id}
-                            onClick={() => { setActiveTool(t.id); setResult(''); setAgentError(null); }}
+                            onClick={() => changeTool(t.id)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-                                active
+                                isActive
                                     ? `${tc.activeBg} ${tc.text} border ${tc.border}`
                                     : 'text-white/35 hover:text-white/60 border border-transparent'
                             }`}
@@ -212,15 +98,15 @@ export default function AILab() {
                         <input
                             className="glass-input w-full"
                             placeholder={tool.placeholder}
-                            value={researchTopic}
-                            onChange={e => setResearchTopic(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                            value={research.researchTopic}
+                            onChange={e => research.setResearchTopic(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && submit()}
                         />
                         <label className="flex items-center gap-2 text-sm text-white/50 cursor-pointer select-none">
                             <input
                                 type="checkbox"
-                                checked={deepMode}
-                                onChange={e => setDeepMode(e.target.checked)}
+                                checked={research.deepMode}
+                                onChange={e => research.setDeepMode(e.target.checked)}
                                 className="rounded border-white/20 bg-white/[0.04] text-primary focus:ring-primary/30"
                             />
                             Deep Research Mode (더 심층적인 분석, 시간 더 소요)
@@ -234,13 +120,13 @@ export default function AILab() {
                             <input
                                 className="glass-input flex-1"
                                 placeholder="주제"
-                                value={writeTopic}
-                                onChange={e => setWriteTopic(e.target.value)}
+                                value={write.writeTopic}
+                                onChange={e => write.setWriteTopic(e.target.value)}
                             />
                             <div className="relative">
                                 <select
-                                    value={formatType}
-                                    onChange={e => setFormatType(e.target.value)}
+                                    value={write.formatType}
+                                    onChange={e => write.setFormatType(e.target.value)}
                                     className="glass-input appearance-none cursor-pointer pr-8 min-w-[160px]"
                                 >
                                     {FORMAT_TYPES.map(f => (
@@ -253,8 +139,8 @@ export default function AILab() {
                         <textarea
                             className="glass-input w-full h-32 resize-none"
                             placeholder="원본 연구 텍스트를 붙여넣으세요..."
-                            value={writeRawText}
-                            onChange={e => setWriteRawText(e.target.value)}
+                            value={write.writeRawText}
+                            onChange={e => write.setWriteRawText(e.target.value)}
                         />
                     </div>
                 )}
@@ -264,25 +150,25 @@ export default function AILab() {
                         <input
                             className="glass-input w-full"
                             placeholder="https://youtube.com/watch?v=..."
-                            value={youtubeUrl}
-                            onChange={e => setYoutubeUrl(e.target.value)}
+                            value={youtube.youtubeUrl}
+                            onChange={e => youtube.setYoutubeUrl(e.target.value)}
                         />
                         <input
                             className="glass-input w-full"
                             placeholder="질문 (선택) 예: 핵심 기술을 요약해줘"
-                            value={youtubeQuery}
-                            onChange={e => setYoutubeQuery(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                            value={youtube.youtubeQuery}
+                            onChange={e => youtube.setYoutubeQuery(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && submit()}
                         />
                     </div>
                 )}
 
                 <button
-                    onClick={handleSubmit}
-                    disabled={loading}
+                    onClick={submit}
+                    disabled={isLoading}
                     className="glass-button mt-4 px-6 py-2.5 font-semibold flex items-center gap-2 disabled:opacity-40"
                 >
-                    {loading ? (
+                    {isLoading ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> 처리 중...</>
                     ) : (
                         <><Send className="w-4 h-4" /> 실행</>
@@ -291,7 +177,7 @@ export default function AILab() {
             </GlassCard>
 
             {/* Loading */}
-            {loading && !result && (
+            {isLoading && !result && (
                 <GlassCard className="p-10 text-center">
                     <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-white/10 border-t-primary mb-4"></div>
                     <h3 className="font-display text-base font-semibold text-white">AI 에이전트가 작업 중입니다...</h3>
@@ -300,7 +186,7 @@ export default function AILab() {
             )}
 
             {/* Error + Retry */}
-            {agentError && !loading && (
+            {agentError && !isLoading && (
                 <GlassCard className="p-6 border-red-500/20 bg-red-500/[0.04]">
                     <div className="flex items-start justify-between gap-4">
                         <div>
@@ -308,7 +194,7 @@ export default function AILab() {
                             <p className="text-white/40 text-xs">{agentError}</p>
                         </div>
                         <button
-                            onClick={handleSubmit}
+                            onClick={submit}
                             className="glass-button px-4 py-2 text-sm font-semibold flex items-center gap-2 shrink-0"
                         >
                             <RefreshCw className="w-4 h-4" /> 재시도
@@ -328,7 +214,7 @@ export default function AILab() {
                             Result
                         </h3>
                         <button
-                            onClick={handleCopy}
+                            onClick={copyResult}
                             className="text-xs text-white/30 hover:text-white/60 flex items-center gap-1.5 transition-colors"
                         >
                             <Copy className="w-3.5 h-3.5" /> 복사
