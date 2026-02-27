@@ -1,0 +1,215 @@
+"""
+getdaytrends v2.0 - Viral Scoring & Trend Analysis
+Claude를 활용한 바이럴 포텐셜 스코어링 + 히스토리 패턴 감지.
+"""
+
+import json
+import logging
+import re
+import sqlite3
+import time
+from datetime import datetime, timedelta
+
+import anthropic
+
+from config import AppConfig
+from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
+
+log = logging.getLogger(__name__)
+
+
+def _robust_json_parse(text: str) -> dict | None:
+    """마크다운 코드블록 제거 + trailing comma 수정 후 JSON 파싱."""
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+
+    # JSON 객체 추출
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return None
+
+
+SCORING_PROMPT_TEMPLATE = """당신은 X(Twitter) 트렌드 분석기입니다.
+
+키워드: {keyword}
+현재 볼륨: {volume}
+
+수집된 실시간 데이터:
+{context}
+
+분석 요구사항:
+1. 24시간 추정 볼륨과 트렌드 가속도
+2. 바이럴 가능성이 가장 높은 핵심 이슈
+3. X에서 반직관적으로 해석할 수 있는 3가지 앵글
+
+JSON으로만 응답하세요 (반드시 쌍따옴표 사용, 마크다운 백틱 없이):
+{{
+    "keyword": "{keyword}",
+    "volume_last_24h": 1000,
+    "trend_acceleration": "+10%",
+    "viral_potential": 85,
+    "top_insight": "가장 뜨거운 이슈 1문장",
+    "suggested_angles": [
+        "반직관적 앵글",
+        "데이터 기반 앵글",
+        "미래 예측 앵글"
+    ],
+    "best_hook_starter": "이 트렌드로 트윗을 시작할 최고의 한 문장"
+}}"""
+
+
+def score_trend(
+    keyword: str,
+    context: MultiSourceContext,
+    volume: str,
+    client: anthropic.Anthropic,
+    model: str = "claude-3-haiku-20240307",
+) -> ScoredTrend:
+    """Claude로 단일 트렌드 바이럴 스코어링."""
+    prompt = SCORING_PROMPT_TEMPLATE.format(
+        keyword=keyword,
+        volume=volume,
+        context=context.to_combined_text(),
+    )
+
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw_text = response.content[0].text
+        parsed = _robust_json_parse(raw_text)
+
+        if not parsed:
+            log.warning(f"스코어링 JSON 파싱 실패: {keyword}")
+            return _default_scored_trend(keyword, context)
+
+        return ScoredTrend(
+            keyword=keyword,
+            rank=0,
+            volume_last_24h=parsed.get("volume_last_24h", 0),
+            trend_acceleration=parsed.get("trend_acceleration", "+0%"),
+            viral_potential=min(max(parsed.get("viral_potential", 0), 0), 100),
+            top_insight=parsed.get("top_insight", ""),
+            suggested_angles=parsed.get("suggested_angles", []),
+            best_hook_starter=parsed.get("best_hook_starter", ""),
+            context=context,
+            sources=[TrendSource.GETDAYTRENDS],
+        )
+
+    except Exception as e:
+        log.error(f"스코어링 실패 ({keyword}): {e}")
+        return _default_scored_trend(keyword, context)
+
+
+def _default_scored_trend(keyword: str, context: MultiSourceContext) -> ScoredTrend:
+    """스코어링 실패 시 기본값."""
+    return ScoredTrend(
+        keyword=keyword,
+        rank=0,
+        context=context,
+        sources=[TrendSource.GETDAYTRENDS],
+    )
+
+
+def analyze_trends(
+    raw_trends: list[RawTrend],
+    contexts: dict[str, MultiSourceContext],
+    config: AppConfig,
+) -> list[ScoredTrend]:
+    """
+    전체 트렌드 스코어링 후 viral_potential 내림차순 정렬.
+    저비용 모델(Haiku) 사용.
+    """
+    client = anthropic.Anthropic(api_key=config.anthropic_api_key)
+    scored: list[ScoredTrend] = []
+
+    for i, trend in enumerate(raw_trends):
+        keyword = trend.name
+        context = contexts.get(keyword, MultiSourceContext())
+
+        log.info(f"  스코어링 [{i + 1}/{len(raw_trends)}]: '{keyword}'")
+        result = score_trend(
+            keyword=keyword,
+            context=context,
+            volume=trend.volume,
+            client=client,
+            model=config.claude_model_scoring,
+        )
+        result.rank = trend.volume_numeric  # 원본 볼륨 기반 순위 참고용
+        result.country = trend.country or config.country
+
+        # 소스 정보 보강
+        sources = [TrendSource.GETDAYTRENDS]
+        if context.twitter_insight and "미설정" not in context.twitter_insight:
+            sources.append(TrendSource.TWITTER)
+        if context.reddit_insight and "없음" not in context.reddit_insight:
+            sources.append(TrendSource.REDDIT)
+        if context.news_insight and "없음" not in context.news_insight:
+            sources.append(TrendSource.GOOGLE_NEWS)
+        result.sources = sources
+
+        scored.append(result)
+
+        # API rate limit 방지
+        if i < len(raw_trends) - 1:
+            time.sleep(2)
+
+    # viral_potential 내림차순 정렬
+    scored.sort(key=lambda x: x.viral_potential, reverse=True)
+
+    # 순위 재할당
+    for i, s in enumerate(scored):
+        s.rank = i + 1
+
+    log.info(f"스코어링 완료: {len(scored)}개 (최고 점수: {scored[0].viral_potential if scored else 0})")
+    return scored
+
+
+def detect_trend_patterns(
+    conn: sqlite3.Connection, keyword: str, days: int = 7
+) -> dict:
+    """SQLite 히스토리 기반 반복 트렌드 감지."""
+    from db import get_trend_history
+
+    history = get_trend_history(conn, keyword, days)
+
+    if not history:
+        return {
+            "seen_count": 0,
+            "avg_score": 0.0,
+            "is_recurring": False,
+            "score_trend": "new",
+        }
+
+    scores = [h["viral_potential"] for h in history]
+    avg_score = sum(scores) / len(scores) if scores else 0
+
+    # 점수 추세 판단
+    if len(scores) >= 2:
+        recent_avg = sum(scores[: len(scores) // 2]) / max(len(scores) // 2, 1)
+        older_avg = sum(scores[len(scores) // 2 :]) / max(len(scores) - len(scores) // 2, 1)
+        if recent_avg > older_avg + 5:
+            score_trend = "rising"
+        elif recent_avg < older_avg - 5:
+            score_trend = "falling"
+        else:
+            score_trend = "stable"
+    else:
+        score_trend = "new"
+
+    return {
+        "seen_count": len(history),
+        "avg_score": round(avg_score, 1),
+        "first_seen": history[-1]["scored_at"] if history else None,
+        "last_seen": history[0]["scored_at"] if history else None,
+        "is_recurring": len(history) >= 3,
+        "score_trend": score_trend,
+    }

@@ -1,486 +1,311 @@
 """
 =======================================================
-  X(Twitter) 트렌드 자동 트윗 생성기
-  - 2시간마다 한국 실시간 트렌드 수집
-  - Claude AI로 5종 트윗 시안 생성
-  - Notion 또는 Google Sheets에 자동 저장
+  X(Twitter) 트렌드 자동 트윗 생성기 v2.0
+  - 멀티소스 트렌드 수집 (getdaytrends + X API + Reddit + News)
+  - Claude AI 바이럴 스코어링 + 5종 트윗/쓰레드 생성
+  - Notion / Google Sheets / SQLite 자동 저장
+  - Telegram / Discord 고바이럴 트렌드 알림
 =======================================================
 """
 
-import os
-import time
-import json
+import argparse
+import io
 import logging
-import schedule
-import requests
+import sys
+import time
+import uuid
 from datetime import datetime
-from dotenv import load_dotenv
-from bs4 import BeautifulSoup
+
+# Windows stdout UTF-8 설정
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 import anthropic
+import schedule
 
-# 저장 방식별 임포트
-try:
-    from notion_client import Client as NotionClient
-    NOTION_AVAILABLE = True
-except ImportError:
-    NOTION_AVAILABLE = False
+from alerts import check_and_alert
+from analyzer import analyze_trends, detect_trend_patterns
+from config import AppConfig
+from db import get_connection, get_trend_stats, init_db, save_run, update_run
+from generator import generate_for_trend
+from models import RunResult
+from scraper import collect_trends
+from storage import save
 
-try:
-    import gspread
-    from google.oauth2.service_account import Credentials
-    GSPREAD_AVAILABLE = True
-except ImportError:
-    GSPREAD_AVAILABLE = False
-
-try:
-    from colorama import Fore, Style, init as colorama_init
-    colorama_init(autoreset=True)
-    COLOR = True
-except ImportError:
-    COLOR = False
-
-# ── 로깅 설정 ──────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("tweet_bot.log", encoding="utf-8"),
-        logging.StreamHandler()
-    ]
-)
 log = logging.getLogger(__name__)
 
-# ── 환경변수 로드 ───────────────────────────────────────
-load_dotenv()
 
-ANTHROPIC_API_KEY       = os.getenv("ANTHROPIC_API_KEY", "")
-NOTION_TOKEN            = os.getenv("NOTION_TOKEN", "")
-NOTION_DATABASE_ID      = os.getenv("NOTION_DATABASE_ID", "")
-GOOGLE_SERVICE_JSON     = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "credentials.json")
-GOOGLE_SHEET_ID         = os.getenv("GOOGLE_SHEET_ID", "")
-STORAGE_TYPE            = os.getenv("STORAGE_TYPE", "notion").lower()
-SCHEDULE_MINUTES        = int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "120"))
-TONE                    = os.getenv("TONE", "친근하고 위트 있는 동네 친구")
+# ══════════════════════════════════════════════════════
+#  CLI
+# ══════════════════════════════════════════════════════
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="X 트렌드 자동 트윗 생성기 v2.0",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--country", default=None, help="국가 코드 (korea, us, japan 등)")
+    parser.add_argument("--limit", type=int, default=None, help="처리할 트렌드 수")
+    parser.add_argument("--one-shot", action="store_true", help="1회 실행 후 종료")
+    parser.add_argument("--dry-run", action="store_true", help="수집+분석만 (저장 안 함)")
+    parser.add_argument("--verbose", action="store_true", help="상세 로그 출력")
+    parser.add_argument("--no-alerts", action="store_true", help="알림 전송 안 함")
+    parser.add_argument("--schedule-min", type=int, default=None, help="스케줄 간격(분) 오버라이드")
+    parser.add_argument("--stats", action="store_true", help="히스토리 통계만 출력 후 종료")
+    return parser.parse_args()
 
 
 # ══════════════════════════════════════════════════════
-#  1. 트렌드 수집 모듈
+#  Logging
 # ══════════════════════════════════════════════════════
 
-def fetch_trending_topics(max_topics: int = 5) -> list[dict]:
-    """
-    getdaytrends.com에서 한국 X 실시간 트렌드 TOP N을 수집합니다.
-    Returns: [{"rank": 1, "topic": "봄동비빔밥"}, ...]
-    """
-    url = "https://getdaytrends.com/korea/"
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/121.0.0.0 Safari/537.36"
-        )
-    }
-    try:
-        resp = requests.get(url, headers=headers, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        trends = []
-        # 테이블 행에서 트렌드 텍스트 추출
-        rows = soup.select("table tr")
-        for row in rows:
-            link = row.select_one("a")
-            if link:
-                topic = link.get_text(strip=True)
-                # 해시태그 기호 정리
-                topic = topic.lstrip("#").strip()
-                if topic:
-                    trends.append(topic)
-            if len(trends) >= max_topics:
-                break
-
-        if not trends:
-            log.warning("트렌드를 파싱하지 못했습니다. 대체 트렌드를 사용합니다.")
-            return _fallback_trends()
-
-        result = [{"rank": i + 1, "topic": t} for i, t in enumerate(trends)]
-        log.info(f"✅ 트렌드 수집 완료: {[r['topic'] for r in result]}")
-        return result
-
-    except Exception as e:
-        log.error(f"트렌드 수집 실패: {e} → 대체 트렌드 사용")
-        return _fallback_trends()
-
-
-def _fallback_trends() -> list[dict]:
-    """스크래핑 실패 시 사용하는 일반적인 대체 주제들"""
-    fallbacks = ["주말 계획", "점심 메뉴", "날씨", "커피", "퇴근"]
-    return [{"rank": i + 1, "topic": t} for i, t in enumerate(fallbacks)]
+def setup_logging(verbose: bool = False) -> None:
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("tweet_bot.log", encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
+    )
 
 
 # ══════════════════════════════════════════════════════
-#  2. Claude AI 트윗 생성 모듈
-# ══════════════════════════════════════════════════════
-
-SYSTEM_PROMPT = """
-당신은 X(트위터) 트렌드에 민감하며, 팔로워들과의 티키타카(소통)에 능한
-'소셜 커뮤니티 매니저 겸 카피라이터'입니다.
-
-팔로워들이 무의식적으로 답글을 달고 싶게 만드는, 280자 이내의 임팩트 있는 트윗을 작성합니다.
-
-[작성 가이드라인]
-1. 공감과 논쟁: 누구나 공감할 수 있는 일상적 이야기나 가벼운 찬반 주제
-2. 트렌드 결합: 밈(Meme)이나 X 특유의 텍스트 포맷 활용
-3. 질문형 구조: 문장 끝을 질문으로 맺어 독자가 자신의 이야기를 꺼내도록 유도
-4. 각 트윗은 반드시 280자 이내
-
-[출력 형식 - 반드시 JSON으로만 응답]
-{
-  "topic": "주제명",
-  "tweets": [
-    {"type": "공감 유도형", "content": "트윗 내용"},
-    {"type": "가벼운 꿀팁형", "content": "트윗 내용"},
-    {"type": "찬반 질문형", "content": "트윗 내용"},
-    {"type": "동기부여/명언형", "content": "트윗 내용"},
-    {"type": "유머/밈 활용형", "content": "트윗 내용"}
-  ]
-}
-"""
-
-
-def generate_tweets(topic: str, tone: str = TONE) -> dict | None:
-    """
-    Claude API를 호출해 주어진 트렌드 주제로 5종 트윗 시안을 생성합니다.
-    Returns: {"topic": ..., "tweets": [...]}
-    """
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
-    user_message = f"""
-오늘 다룰 주제/상황: {topic}
-화자의 톤앤매너: {tone}
-
-위 주제로 5가지 유형의 트윗 시안을 JSON 형식으로만 작성해주세요.
-반드시 JSON만 출력하고 다른 설명은 일절 없어야 합니다.
-"""
-
-    try:
-        response = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=1500,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}]
-        )
-        raw = response.content[0].text.strip()
-
-        # JSON 파싱 (마크다운 코드블록 제거)
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        data = json.loads(raw)
-
-        log.info(f"✅ 트윗 생성 완료: 주제 '{topic}'")
-        return data
-
-    except json.JSONDecodeError as e:
-        log.error(f"JSON 파싱 실패 (주제: {topic}): {e}\n원문: {raw[:200]}")
-        return None
-    except Exception as e:
-        log.error(f"Claude API 호출 실패: {e}")
-        return None
-
-
-# ══════════════════════════════════════════════════════
-#  3. Notion 저장 모듈
-# ══════════════════════════════════════════════════════
-
-def save_to_notion(tweets_data: dict, trend_rank: int) -> bool:
-    """
-    생성된 트윗을 Notion 데이터베이스에 저장합니다.
-    
-    필요한 Notion DB 속성:
-    - 제목 (title)
-    - 주제 (rich_text)
-    - 순위 (number)
-    - 생성시각 (date)
-    - 공감유도형 (rich_text)
-    - 꿀팁형 (rich_text)
-    - 찬반질문형 (rich_text)
-    - 명언형 (rich_text)
-    - 유머밈형 (rich_text)
-    - 상태 (select): 대기중 / 게시완료
-    """
-    if not NOTION_AVAILABLE:
-        log.error("notion-client 패키지가 설치되지 않았습니다: pip install notion-client")
-        return False
-
-    notion = NotionClient(auth=NOTION_TOKEN)
-    now = datetime.now()
-    topic = tweets_data.get("topic", "Unknown")
-    tweets = tweets_data.get("tweets", [])
-
-    # 트윗 유형별로 딕셔너리 구성
-    tweet_map = {t["type"]: t["content"] for t in tweets}
-
-    title = f"[트렌드 #{trend_rank}] {topic} — {now.strftime('%Y-%m-%d %H:%M')}"
-
-    properties = {
-        "제목": {
-            "title": [{"text": {"content": title}}]
-        },
-        "주제": {
-            "rich_text": [{"text": {"content": topic}}]
-        },
-        "순위": {
-            "number": trend_rank
-        },
-        "생성시각": {
-            "date": {"start": now.isoformat()}
-        },
-        "공감유도형": {
-            "rich_text": [{"text": {"content": tweet_map.get("공감 유도형", "")}}]
-        },
-        "꿀팁형": {
-            "rich_text": [{"text": {"content": tweet_map.get("가벼운 꿀팁형", "")}}]
-        },
-        "찬반질문형": {
-            "rich_text": [{"text": {"content": tweet_map.get("찬반 질문형", "")}}]
-        },
-        "명언형": {
-            "rich_text": [{"text": {"content": tweet_map.get("동기부여/명언형", "")}}]
-        },
-        "유머밈형": {
-            "rich_text": [{"text": {"content": tweet_map.get("유머/밈 활용형", "")}}]
-        },
-        "상태": {
-            "select": {"name": "대기중"}
-        }
-    }
-
-    try:
-        notion.pages.create(
-            parent={"database_id": NOTION_DATABASE_ID},
-            properties=properties
-        )
-        log.info(f"✅ Notion 저장 완료: '{title}'")
-        return True
-    except Exception as e:
-        log.error(f"Notion 저장 실패: {e}")
-        return False
-
-
-# ══════════════════════════════════════════════════════
-#  4. Google Sheets 저장 모듈
-# ══════════════════════════════════════════════════════
-
-def save_to_google_sheets(tweets_data: dict, trend_rank: int) -> bool:
-    """
-    생성된 트윗을 Google Sheets에 저장합니다.
-    """
-    if not GSPREAD_AVAILABLE:
-        log.error("gspread 패키지가 설치되지 않았습니다: pip install gspread google-auth")
-        return False
-
-    try:
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        creds = Credentials.from_service_account_file(GOOGLE_SERVICE_JSON, scopes=scopes)
-        gc = gspread.authorize(creds)
-        sheet = gc.open_by_key(GOOGLE_SHEET_ID).sheet1
-
-        # 헤더가 없으면 첫 행에 헤더 추가
-        existing = sheet.get_all_values()
-        if not existing:
-            headers = [
-                "생성시각", "순위", "주제",
-                "공감유도형", "꿀팁형", "찬반질문형", "명언형", "유머밈형", "상태"
-            ]
-            sheet.append_row(headers, value_input_option="USER_ENTERED")
-
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        topic = tweets_data.get("topic", "Unknown")
-        tweets = tweets_data.get("tweets", [])
-        tweet_map = {t["type"]: t["content"] for t in tweets}
-
-        row = [
-            now,
-            trend_rank,
-            topic,
-            tweet_map.get("공감 유도형", ""),
-            tweet_map.get("가벼운 꿀팁형", ""),
-            tweet_map.get("찬반 질문형", ""),
-            tweet_map.get("동기부여/명언형", ""),
-            tweet_map.get("유머/밈 활용형", ""),
-            "대기중"
-        ]
-        sheet.append_row(row, value_input_option="USER_ENTERED")
-
-        log.info(f"✅ Google Sheets 저장 완료: 주제 '{topic}'")
-        return True
-
-    except FileNotFoundError:
-        log.error(f"서비스 계정 JSON 파일을 찾을 수 없습니다: {GOOGLE_SERVICE_JSON}")
-        return False
-    except Exception as e:
-        log.error(f"Google Sheets 저장 실패: {e}")
-        return False
-
-
-# ══════════════════════════════════════════════════════
-#  5. 저장 라우터 (Notion / Google Sheets 분기)
-# ══════════════════════════════════════════════════════
-
-def save_tweets(tweets_data: dict, trend_rank: int) -> bool:
-    if STORAGE_TYPE == "notion":
-        return save_to_notion(tweets_data, trend_rank)
-    elif STORAGE_TYPE == "google_sheets":
-        return save_to_google_sheets(tweets_data, trend_rank)
-    else:
-        log.error(f"알 수 없는 STORAGE_TYPE: '{STORAGE_TYPE}'. 'notion' 또는 'google_sheets'를 사용하세요.")
-        return False
-
-
-# ══════════════════════════════════════════════════════
-#  6. 메인 작업 함수 (2시간마다 실행)
+#  Banner
 # ══════════════════════════════════════════════════════
 
 def print_banner():
-    banner = """
-╔═══════════════════════════════════════════════════╗
-║     X 트렌드 자동 트윗 생성기 v1.0               ║
-║     Claude AI × Getdaytrends × Auto Save          ║
-╚═══════════════════════════════════════════════════╝
-"""
-    print(banner)
+    print("""
+╔═══════════════════════════════════════════════════════╗
+║  X 트렌드 자동 트윗 생성기 v2.0                      ║
+║  Multi-Source × Viral Scoring × Claude AI × Auto Save ║
+╚═══════════════════════════════════════════════════════╝
+""")
 
 
-def run_job():
-    """
-    전체 파이프라인 실행:
-    1. 트렌드 수집 → 2. 트윗 생성 → 3. 저장
-    """
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    separator = "=" * 55
-    print(f"\n{separator}")
-    print(f"  🚀 작업 시작: {now_str}")
-    print(separator)
+def print_config_summary(config: AppConfig):
+    sources = ["getdaytrends.com"]
+    if config.twitter_bearer_token:
+        sources.append("X API")
+    sources.extend(["Reddit", "Google News"])
 
-    # Step 1: 트렌드 수집
-    print("\n📡 [1/3] 실시간 트렌드 수집 중...")
-    trends = fetch_trending_topics(max_topics=3)  # 상위 3개 주제 처리
-
-    success_count = 0
-
-    for trend in trends:
-        rank  = trend["rank"]
-        topic = trend["topic"]
-
-        print(f"\n🔥 트렌드 #{rank}: [{topic}]")
-
-        # Step 2: 트윗 생성
-        print(f"   ✍️  [2/3] Claude AI 트윗 생성 중...")
-        tweets_data = generate_tweets(topic)
-        if not tweets_data:
-            print(f"   ❌ 생성 실패, 다음 트렌드로 넘어갑니다.")
-            continue
-
-        # 콘솔 미리보기
-        _print_tweet_preview(tweets_data)
-
-        # Step 3: 저장
-        print(f"   💾 [3/3] {STORAGE_TYPE.upper()}에 저장 중...")
-        ok = save_tweets(tweets_data, rank)
-        if ok:
-            success_count += 1
-        
-        # API rate limit 방지용 짧은 대기
-        time.sleep(3)
-
-    print(f"\n{separator}")
-    print(f"  ✅ 완료: {success_count}/{len(trends)}개 저장 성공")
-    print(f"  ⏰ 다음 실행: {SCHEDULE_MINUTES}분 후")
-    print(separator)
-
-
-def _print_tweet_preview(tweets_data: dict):
-    """콘솔에 트윗 시안 미리보기 출력"""
-    topic = tweets_data.get("topic", "")
-    tweets = tweets_data.get("tweets", [])
-    print(f"\n   ── 트윗 미리보기: [{topic}] ──")
-    for t in tweets:
-        label   = t.get("type", "")
-        content = t.get("content", "")
-        # 길면 줄여서 표시
-        preview = content[:60] + "..." if len(content) > 60 else content
-        print(f"   [{label}] {preview}")
-
-
-# ══════════════════════════════════════════════════════
-#  7. 설정 유효성 검사
-# ══════════════════════════════════════════════════════
-
-def validate_config() -> bool:
-    errors = []
-
-    if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
-        errors.append("❌ ANTHROPIC_API_KEY가 설정되지 않았습니다.")
-
-    if STORAGE_TYPE == "notion":
-        if not NOTION_TOKEN or NOTION_TOKEN == "your_notion_integration_token_here":
-            errors.append("❌ NOTION_TOKEN이 설정되지 않았습니다.")
-        if not NOTION_DATABASE_ID or NOTION_DATABASE_ID == "your_notion_database_id_here":
-            errors.append("❌ NOTION_DATABASE_ID가 설정되지 않았습니다.")
-        if not NOTION_AVAILABLE:
-            errors.append("❌ notion-client 패키지가 없습니다: pip install notion-client")
-
-    elif STORAGE_TYPE == "google_sheets":
-        if not GOOGLE_SHEET_ID or GOOGLE_SHEET_ID == "your_google_sheet_id_here":
-            errors.append("❌ GOOGLE_SHEET_ID가 설정되지 않았습니다.")
-        if not os.path.exists(GOOGLE_SERVICE_JSON):
-            errors.append(f"❌ Google 서비스 계정 JSON이 없습니다: {GOOGLE_SERVICE_JSON}")
-        if not GSPREAD_AVAILABLE:
-            errors.append("❌ gspread 패키지가 없습니다: pip install gspread google-auth")
-
-    if errors:
-        print("\n⚠️  설정 오류가 있습니다:")
-        for e in errors:
-            print(f"  {e}")
-        print("\n  → .env 파일을 확인해주세요 (.env.example 참고)\n")
-        return False
+    alerts_info = []
+    if config.telegram_bot_token and config.telegram_chat_id:
+        alerts_info.append("Telegram")
+    if config.discord_webhook_url:
+        alerts_info.append("Discord")
 
     print(f"""
-✅ 설정 확인 완료
-   저장 방식    : {STORAGE_TYPE.upper()}
-   실행 간격    : {SCHEDULE_MINUTES}분 (= {SCHEDULE_MINUTES // 60}시간)
-   톤앤매너     : {TONE}
+  설정 요약
+  ─────────────────────────────────
+  국가         : {config.country}
+  트렌드 수    : {config.limit}개
+  저장 방식    : {config.storage_type.upper()}
+  실행 간격    : {config.schedule_minutes}분
+  톤앤매너     : {config.tone}
+  데이터 소스  : {', '.join(sources)}
+  알림 채널    : {', '.join(alerts_info) or '없음'}
+  알림 임계값  : {config.alert_threshold}점
+  스코어링 모델: {config.claude_model_scoring}
+  생성 모델    : {config.claude_model}
 """)
-    return True
 
 
 # ══════════════════════════════════════════════════════
-#  8. 진입점
+#  Pipeline
 # ══════════════════════════════════════════════════════
 
-if __name__ == "__main__":
+def run_pipeline(config: AppConfig, conn) -> RunResult:
+    """전체 파이프라인: 수집 → 스코어링 → 알림 → 생성 → 저장."""
+    run = RunResult(run_id=str(uuid.uuid4()), country=config.country)
+    run_row_id = save_run(conn, run)
+
+    separator = "=" * 55
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"\n{separator}")
+    print(f"  작업 시작: {now_str}")
+    print(separator)
+
+    # Step 1: 멀티소스 트렌드 수집
+    print("\n[1/4] 멀티소스 트렌드 수집 중...")
+    raw_trends, contexts = collect_trends(config)
+    run.trends_collected = len(raw_trends)
+    print(f"  수집 완료: {len(raw_trends)}개 트렌드")
+
+    if not raw_trends:
+        run.errors.append("트렌드 수집 실패")
+        run.finished_at = datetime.now()
+        update_run(conn, run, run_row_id)
+        return run
+
+    # Step 2: 바이럴 스코어링
+    print("\n[2/4] 바이럴 스코어링 중...")
+    scored_trends = analyze_trends(raw_trends, contexts, config)
+    run.trends_scored = len(scored_trends)
+
+    # 스코어 미리보기
+    for st in scored_trends:
+        score_bar = "█" * (st.viral_potential // 10) + "░" * (10 - st.viral_potential // 10)
+        print(f"  #{st.rank} [{score_bar}] {st.viral_potential:3d}점 | {st.keyword}")
+
+        # 히스토리 패턴 정보
+        if config.verbose:
+            pattern = detect_trend_patterns(conn, st.keyword)
+            if pattern["seen_count"] > 0:
+                print(f"       ↳ 히스토리: {pattern['seen_count']}회 등장, 평균 {pattern['avg_score']}점, 추세: {pattern['score_trend']}")
+
+    # Step 3: 알림 전송 (스코어링 직후, 생성 전)
+    if not config.no_alerts:
+        alerts_sent = check_and_alert(scored_trends, config)
+        run.alerts_sent = alerts_sent
+        if alerts_sent:
+            print(f"\n  알림 전송: {alerts_sent}건")
+
+    # Step 4: 트윗/쓰레드 생성 + 저장
+    print("\n[3/4] 트윗 생성 중...")
+    client = anthropic.Anthropic(api_key=config.anthropic_api_key)
+    success_count = 0
+
+    for i, trend in enumerate(scored_trends):
+        print(f"\n  [{i + 1}/{len(scored_trends)}] '{trend.keyword}' (바이럴: {trend.viral_potential}점)")
+
+        batch = generate_for_trend(trend, config, client)
+        if not batch:
+            run.errors.append(f"생성 실패: {trend.keyword}")
+            continue
+
+        run.tweets_generated += len(batch.tweets)
+
+        # 미리보기
+        for t in batch.tweets:
+            preview = t.content[:50] + "..." if len(t.content) > 50 else t.content
+            print(f"    [{t.tweet_type}] {preview}")
+        if batch.thread:
+            print(f"    [쓰레드] {len(batch.thread.tweets)}개 트윗")
+
+        # 저장
+        print(f"  [4/4] 저장 중...")
+        ok = save(batch, trend, run_row_id, config, conn)
+        if ok:
+            success_count += 1
+            run.tweets_saved += len(batch.tweets)
+
+        # API rate limit 방지
+        if i < len(scored_trends) - 1:
+            time.sleep(3)
+
+    run.finished_at = datetime.now()
+    update_run(conn, run, run_row_id)
+
+    elapsed = (run.finished_at - run.started_at).total_seconds()
+    print(f"\n{separator}")
+    print(f"  완료: {success_count}/{len(scored_trends)}개 저장")
+    print(f"  소요: {elapsed:.1f}초")
+    if not config.one_shot:
+        print(f"  다음 실행: {config.schedule_minutes}분 후")
+    print(separator)
+
+    return run
+
+
+# ══════════════════════════════════════════════════════
+#  Stats
+# ══════════════════════════════════════════════════════
+
+def print_stats(conn):
+    """히스토리 통계 출력."""
+    stats = get_trend_stats(conn)
+    print(f"""
+  히스토리 통계
+  ─────────────────────────────────
+  총 실행 수      : {stats['total_runs']}회
+  총 트렌드 수    : {stats['total_trends']}개
+  평균 바이럴 점수: {stats['avg_viral_score']}점
+  총 생성 트윗 수 : {stats['total_tweets']}개
+""")
+
+
+# ══════════════════════════════════════════════════════
+#  Entry Point
+# ══════════════════════════════════════════════════════
+
+def main():
+    args = parse_args()
+
+    # 설정 로드
+    config = AppConfig.from_env()
+
+    # CLI 오버라이드
+    if args.country:
+        config.country = args.country
+    if args.limit:
+        config.limit = args.limit
+    if args.one_shot:
+        config.one_shot = True
+    if args.dry_run:
+        config.dry_run = True
+    if args.verbose:
+        config.verbose = True
+    if args.no_alerts:
+        config.no_alerts = True
+    if args.schedule_min:
+        config.schedule_minutes = args.schedule_min
+
+    setup_logging(config.verbose)
     print_banner()
 
-    # 설정 검사
-    if not validate_config():
-        exit(1)
+    # DB 초기화
+    conn = get_connection(config.db_path)
+    init_db(conn)
+
+    # --stats 모드
+    if args.stats:
+        print_stats(conn)
+        conn.close()
+        return
+
+    # 설정 검증 (dry-run이면 storage 키 없어도 허용)
+    if config.dry_run:
+        if not config.anthropic_api_key or "your_" in config.anthropic_api_key:
+            print("\n  설정 오류:\n    ANTHROPIC_API_KEY가 설정되지 않았습니다.\n  → .env 파일을 확인해주세요\n")
+            conn.close()
+            return
+    else:
+        errors = config.validate()
+        if errors:
+            print("\n  설정 오류:")
+            for e in errors:
+                print(f"    {e}")
+            print("\n  → .env 파일을 확인해주세요\n")
+            conn.close()
+            return
+
+    print_config_summary(config)
 
     # 즉시 1회 실행
-    print("⚡ 첫 번째 실행을 즉시 시작합니다...\n")
-    run_job()
+    run_pipeline(config, conn)
 
-    # 스케줄 등록 (N분마다 반복)
-    schedule.every(SCHEDULE_MINUTES).minutes.do(run_job)
+    # one-shot이면 여기서 종료
+    if config.one_shot:
+        conn.close()
+        print("\n(one-shot 모드: 종료)")
+        return
 
-    print(f"\n⏱️  스케줄러 가동 중... ({SCHEDULE_MINUTES}분마다 자동 실행)")
-    print("   중단하려면 Ctrl+C 를 누르세요.\n")
+    # 스케줄 등록
+    schedule.every(config.schedule_minutes).minutes.do(run_pipeline, config, conn)
+    print(f"\n  스케줄러 가동 중... ({config.schedule_minutes}분마다)")
+    print("  중단: Ctrl+C\n")
 
     try:
         while True:
             schedule.run_pending()
-            time.sleep(30)  # 30초마다 스케줄 체크
+            time.sleep(30)
     except KeyboardInterrupt:
-        print("\n\n👋 스케줄러를 종료합니다. 수고하셨습니다!")
+        conn.close()
+        print("\n\n  스케줄러 종료. 수고하셨습니다!")
+
+
+if __name__ == "__main__":
+    main()
