@@ -1,0 +1,85 @@
+name: getdaytrends - Auto Tweet Generator
+
+on:
+  schedule:
+    # 4시간마다 실행 (UTC 기준: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00)
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      country:
+        description: '국가 코드 (korea, us, japan, global)'
+        required: false
+        default: 'korea'
+      limit:
+        description: '처리할 트렌드 수'
+        required: false
+        default: '5'
+      dry_run:
+        description: 'Dry-run 모드 (외부 저장 안 함)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  generate-tweets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'getdaytrends/requirements.txt'
+
+      - name: Install dependencies
+        run: pip install -r getdaytrends/requirements.txt
+
+      - name: Create .env file
+        working-directory: getdaytrends
+        run: |
+          cat <<EOF > .env
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          STORAGE_TYPE=${{ secrets.STORAGE_TYPE || 'notion' }}
+          NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}
+          GOOGLE_SERVICE_JSON=${{ secrets.GOOGLE_SERVICE_JSON || '' }}
+          GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID || '' }}
+          TWITTER_BEARER_TOKEN=${{ secrets.TWITTER_BEARER_TOKEN || '' }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
+          DEFAULT_COUNTRY=${{ github.event.inputs.country || 'korea' }}
+          DEFAULT_LIMIT=${{ github.event.inputs.limit || '5' }}
+          SCHEDULE_INTERVAL_MINUTES=240
+          EOF
+
+      - name: Create data directory
+        run: mkdir -p getdaytrends/data
+
+      - name: Run getdaytrends
+        working-directory: getdaytrends
+        run: |
+          FLAGS="--one-shot --verbose"
+          if [ "${{ github.event.inputs.country }}" != "" ]; then
+            FLAGS="$FLAGS --country ${{ github.event.inputs.country }}"
+          fi
+          if [ "${{ github.event.inputs.limit }}" != "" ]; then
+            FLAGS="$FLAGS --limit ${{ github.event.inputs.limit }}"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          python main.py $FLAGS
+
+      - name: Upload log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tweet-bot-log-${{ github.run_number }}
+          path: getdaytrends/tweet_bot.log
+          retention-days: 7
