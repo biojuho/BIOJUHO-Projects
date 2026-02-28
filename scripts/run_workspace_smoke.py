@@ -115,9 +115,17 @@ def default_checks(python_exe: str) -> list[Check]:
             "workspace",
             "workspace regression tests",
             ".",
-            [python_exe, "-m", "pytest", "tests/test_workspace_regressions.py", "-q"],
+            [
+                python_exe,
+                "-m",
+                "pytest",
+                "tests/test_workspace_regressions.py",
+                "tests/test_workspace_smoke.py",
+                "-q",
+            ],
         ),
         Check("desci", "desci frontend lint", "desci-platform/frontend", [npm_exe, "run", "lint"]),
+        Check("desci", "desci frontend unit tests", "desci-platform/frontend", [npm_exe, "run", "test"]),
         Check("desci", "desci frontend build", "desci-platform/frontend", [npm_exe, "run", "build:lts"]),
         Check("desci", "desci bundle budget", "desci-platform/frontend", [npm_exe, "run", "check:bundle"]),
         Check(
@@ -146,6 +154,12 @@ def default_checks(python_exe: str) -> list[Check]:
                 "MCP_notion-antigravity/scripts",
                 "MCP_notion-antigravity/tests",
             ),
+        ),
+        Check(
+            "mcp",
+            "mcp notion tests",
+            ".",
+            [python_exe, "-m", "pytest", "MCP_notion-antigravity/tests", "-q"],
         ),
         Check(
             "mcp",

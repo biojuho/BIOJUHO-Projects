@@ -64,3 +64,4 @@ create_repo.py
 **/token*.txt
 **/create_repo.py
 serviceAccountKey.json
+**/canva_url.txt

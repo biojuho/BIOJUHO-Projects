@@ -25,15 +25,16 @@ python scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 The PR gate includes only checks that are deterministic and reproducible without external credentials:
 
 - `desci`
-  - frontend: lint, `build:lts`, bundle budget
+  - frontend: lint, unit tests, `build:lts`, bundle budget
   - biolinker: smoke pytest
 - `workspace`
-  - regression tests: `tests/test_workspace_regressions.py`
+  - regression tests: `tests/test_workspace_regressions.py`, `tests/test_workspace_smoke.py`
 - `agriguard`
   - frontend: lint, `build:lts`
   - backend: python compile smoke
 - `mcp`
   - python compile smoke for tracked MCP code paths
+  - `MCP_notion-antigravity/tests` pytest suite
 
 Python compile checks explicitly exclude these directories:
 

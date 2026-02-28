@@ -4,6 +4,10 @@ from datetime import date
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from notion_client import AsyncClient
+import asyncio
+import logging
+
+logger = logging.getLogger("NotionMCP")
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, ".env")
@@ -62,11 +66,30 @@ def _line_to_block(line: str) -> dict:
     }
 
 
+async def _execute_with_backoff(coro_func, *args, max_retries=3, base_delay=1.0, **kwargs):
+    """Executes a coroutine function with exponential backoff for 429 / Rate Limit errors."""
+    for attempt in range(max_retries):
+        try:
+            return await coro_func(*args, **kwargs)
+        except Exception as e:
+            error_str = str(e).lower()
+            if "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+                if attempt == max_retries - 1:
+                    logger.error(f"Rate limit backoff exhausted after {max_retries} attempts.")
+                    raise
+                delay = base_delay * (2 ** attempt)
+                logger.warning(f"Notion API rate limit hit. Retrying in {delay} seconds...")
+                await asyncio.sleep(delay)
+            else:
+                raise
+
+
+
 @mcp.tool()
 async def search_notion(query: str) -> str:
     """Search pages in Notion and return compact text output."""
     try:
-        response = await notion.search(query=query, page_size=5)
+        response = await _execute_with_backoff(notion.search, query=query, page_size=5)
         results = []
         for page in response.get("results", []):
             page_id = page.get("id", "")
@@ -86,7 +109,7 @@ async def search_notion(query: str) -> str:
 async def read_page(page_id: str) -> str:
     """Read a Notion page and return plain text/markdown-like output."""
     try:
-        blocks = await notion.blocks.children.list(block_id=page_id)
+        blocks = await _execute_with_backoff(notion.blocks.children.list, block_id=page_id)
         content = []
 
         for block in blocks.get("results", []):
@@ -169,7 +192,8 @@ async def add_task(
         properties["Achievement"] = {"rich_text": [{"text": {"content": achievement}}]}
 
     try:
-        new_page = await notion.pages.create(
+        new_page = await _execute_with_backoff(
+            notion.pages.create,
             parent={"database_id": ANTIGRAVITY_DB_ID},
             properties=properties,
             children=children_blocks,
@@ -195,7 +219,8 @@ async def create_page(parent_page_id: str, title: str, content: str = "") -> str
                 if line:
                     children_blocks.append(_line_to_block(line))
 
-        new_page = await notion.pages.create(
+        new_page = await _execute_with_backoff(
+            notion.pages.create,
             parent={"page_id": parent_page_id},
             properties={
                 "title": {
@@ -222,7 +247,8 @@ async def append_block(page_id: str, content: str) -> str:
         if not children_blocks:
             return "No content to append."
 
-        await notion.blocks.children.append(
+        await _execute_with_backoff(
+            notion.blocks.children.append,
             block_id=page_id,
             children=children_blocks
         )

@@ -17,6 +17,7 @@ from runtime import (
     get_logger,
 )
 from settings import ANTIGRAVITY_TASKS_DB_ID, NOTION_API_KEY
+from telegram_notifier import send_telegram_message
 
 
 def chunk_text(text: str, limit: int = 1900) -> list[str]:
@@ -33,14 +34,17 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
     if not NOTION_API_KEY:
         logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
         state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
+        send_telegram_message("❌ <b>Content Publisher Failed</b>\nNOTION_API_KEY is missing in `.env`.")
         return 1
     if not ANTIGRAVITY_TASKS_DB_ID:
         logger.error("bootstrap", "failed", "ANTIGRAVITY_TASKS_DB_ID missing")
         state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_TASKS_DB_ID missing")
+        send_telegram_message("❌ <b>Content Publisher Failed</b>\nANTIGRAVITY_TASKS_DB_ID is missing in `.env`.")
         return 1
     if not file_path.exists():
         logger.error("input", "failed", "report file missing", path=file_path)
         state.record_job_finish(run_id, status="failed", error_text=f"report file missing: {file_path}")
+        send_telegram_message(f"❌ <b>Content Publisher Failed</b>\nInput file not found: <code>{file_path.name}</code>")
         return 1
 
     notion = AsyncClient(auth=NOTION_API_KEY)
@@ -72,6 +76,17 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
             )
             state.record_job_finish(run_id, status="success", summary={"blocks": len(children), "page_id": page.get("id")})
             logger.info("complete", "success", "content published", page_id=page.get("id"), blocks=len(children))
+            
+            # Send Success Telegram Notification
+            page_url = page.get("url", "No URL available")
+            success_msg = (
+                f"✅ <b>Content Published Successfully</b>\n\n"
+                f"<b>Title:</b> {title}\n"
+                f"<b>Blocks:</b> {len(children)}\n"
+                f"<a href='{page_url}'>View on Notion</a>"
+            )
+            send_telegram_message(success_msg)
+            
             return 0
     except AlreadyRunningError:
         logger.warning("lock", "skipped", "job already running")
@@ -80,6 +95,7 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
     except Exception as exc:
         logger.error("complete", "failed", "content publishing failed", error=str(exc))
         state.record_job_finish(run_id, status="failed", error_text=str(exc))
+        send_telegram_message(f"❌ <b>Content Publisher Failed</b>\nAn exception occurred:\n<code>{str(exc)}</code>")
         return 1
 
 

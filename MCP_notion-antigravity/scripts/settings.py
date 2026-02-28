@@ -60,6 +60,13 @@ PIPELINE_LOG_LEVEL = os.getenv("PIPELINE_LOG_LEVEL", "INFO").strip().upper()
 AUTO_PUSH_ENABLED = _env_bool("AUTO_PUSH_ENABLED", False)
 DEFAULT_RESEARCH_TOPIC = os.getenv("DEFAULT_RESEARCH_TOPIC", "Agentic AI Trends").strip()
 
+# Canva Connect API
+CANVA_CLIENT_ID = os.getenv("CANVA_CLIENT_ID", "").strip()
+CANVA_CLIENT_SECRET = os.getenv("CANVA_CLIENT_SECRET", "").strip()
+CANVA_REFRESH_TOKEN = os.getenv("CANVA_REFRESH_TOKEN", "").strip()
+CANVA_REDIRECT_URI = os.getenv("CANVA_REDIRECT_URI", "http://127.0.0.1:8080/oauth/callback").strip()
+CANVA_ENABLED = _env_bool("CANVA_ENABLED", bool(CANVA_CLIENT_ID and CANVA_CLIENT_SECRET))
+
 PIPELINE_STATE_DB = DATA_DIR / "pipeline_state.db"
 SCHEDULER_LOG_PATH = LOG_DIR / "scheduler.log"
 NEWS_SOURCES_FILE = CONFIG_DIR / "news_sources.json"

@@ -25,9 +25,11 @@ from runtime import (
 )
 from settings import (
     ANTIGRAVITY_TASKS_DB_ID,
+    CANVA_ENABLED,
     GOOGLE_API_KEY,
     NEWS_SOURCES_FILE,
     NOTION_API_KEY,
+    OUTPUT_DIR,
     PIPELINE_MAX_CONCURRENCY,
     PROJECT_ROOT,
 )
@@ -116,6 +118,21 @@ def load_market_data(logger):
         return None
 
 
+def load_canva(logger):
+    if not CANVA_ENABLED:
+        logger.info("bootstrap", "skipped", "canva disabled or not configured")
+        return None
+    try:
+        import canva_generator
+
+        canva_generator.get_access_token()
+        logger.info("bootstrap", "success", "canva generator initialized")
+        return canva_generator
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "canva unavailable", error=str(exc))
+        return None
+
+
 async def summarize_article(title: str, content: str, model: Any, logger) -> str:
     if model is None:
         return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
@@ -142,6 +159,7 @@ def build_children(
     analysis: dict[str, Any] | None,
     time_label: str,
     market_snapshot: str | None,
+    canva_result: dict | None = None,
 ) -> list[dict[str, Any]]:
     children: list[dict[str, Any]] = [
         {
@@ -150,6 +168,22 @@ def build_children(
             "heading_2": {"rich_text": [{"text": {"content": f"{category} {time_label}"}}]},
         }
     ]
+
+    if canva_result and canva_result.get("edit_url"):
+        children.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"emoji": "🎨"},
+                    "color": "purple_background",
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Canva 인포그래픽: "}, "annotations": {"bold": True}},
+                        {"type": "text", "text": {"content": "Canva에서 편집하기", "link": {"url": canva_result["edit_url"]}}},
+                    ],
+                },
+            }
+        )
 
     if market_snapshot:
         children.append(
@@ -274,6 +308,7 @@ async def process_category(
     brain: Any,
     x_radar: Any,
     market_data: Any,
+    canva: Any,
     state: PipelineStateStore,
     logger,
     run_id: str,
@@ -354,12 +389,52 @@ async def process_category(
             except Exception as exc:
                 logger.warning("market", "failed", "market snapshot failed", category=category, error=str(exc))
 
+        # Canva infographic: PIL -> PDF import -> Canva design + PNG export
+        canva_result = None
+        if canva is not None:
+            try:
+                from PIL import Image, ImageDraw
+                ts = datetime.now().strftime("%Y%m%d_%H%M")
+                infographic_path = OUTPUT_DIR / f"infographic_{category}_{ts}.png"
+                infographic_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Generate simple infographic with PIL
+                img = Image.new("RGB", (1080, 1080), "#1a1a2e")
+                draw = ImageDraw.Draw(img)
+                draw.rectangle([(0, 0), (1080, 180)], fill="#16213e")
+                draw.text((50, 70), f"{category.upper()} NEWS", fill="#e94560")
+                draw.text((50, 110), datetime.now().strftime("%Y-%m-%d"), fill="#aaaaaa")
+                y_pos = 220
+                for idx, a in enumerate(articles[:5]):
+                    draw.rectangle([(30, y_pos), (1050, y_pos + 130)], fill="#0f3460", outline="#e94560")
+                    draw.text((60, y_pos + 25), f"{idx+1}. {a['title'][:60]}", fill="white")
+                    draw.text((60, y_pos + 75), f"   [{a.get('source', 'Unknown')}]", fill="#888888")
+                    y_pos += 160
+                img.save(infographic_path)
+
+                # Import to Canva
+                title = f"[{category}] News {datetime.now().strftime('%Y-%m-%d')}"
+                canva_result = await run_with_timeout(
+                    canva.async_import_and_export(
+                        image_path=infographic_path,
+                        title=title,
+                    ),
+                    90,
+                )
+                if canva_result:
+                    logger.info("canva", "success", "design imported", category=category, design_id=canva_result.get("design_id"))
+                else:
+                    logger.warning("canva", "skipped", "import failed", category=category)
+            except Exception as exc:
+                logger.warning("canva", "failed", "canva pipeline failed", category=category, error=str(exc))
+
         children = build_children(
             category=category,
             articles=articles,
             analysis=analysis,
             time_label=label,
             market_snapshot=market_snapshot,
+            canva_result=canva_result,
         )
 
         page = await create_notion_page_with_retry(
@@ -381,7 +456,13 @@ async def process_category(
             state.record_article(link=article["link"], source=article["source"], notion_page_id=page_id, run_id=run_id)
 
         logger.info("category", "success", "category uploaded", category=category, articles=len(articles), page_id=page_id)
-        return {"category": category, "status": "success", "articles": len(articles)}
+        result: dict[str, Any] = {"category": category, "status": "success", "articles": len(articles)}
+        if canva_result:
+            result["canva_design_id"] = canva_result.get("design_id")
+            result["canva_edit_url"] = canva_result.get("edit_url")
+            if canva_result.get("png_path"):
+                result["canva_image"] = str(canva_result["png_path"])
+        return result
 
 
 async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
@@ -405,6 +486,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
     brain = load_brain(logger)
     x_radar = load_x_radar(logger)
     market_data = load_market_data(logger)
+    canva = load_canva(logger)
     summary = {"categories_success": 0, "categories_failed": 0, "categories_skipped": 0, "articles": 0}
 
     try:
@@ -420,6 +502,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
                     brain=brain,
                     x_radar=x_radar,
                     market_data=market_data,
+                    canva=canva,
                     state=state,
                     logger=logger,
                     run_id=run_id,

@@ -90,6 +90,7 @@ async def upload_to_notion(
     notion: AsyncClient,
     logger,
     today_str: str,
+    canva_result: dict | None = None,
 ) -> dict[str, Any]:
     summary, insight_text, x_posts = normalize_analysis(analysis)
     description = f"[Summary]\n" + "\n".join(summary[:3])
@@ -103,6 +104,20 @@ async def upload_to_notion(
             "heading_2": {"rich_text": [{"text": {"content": "3-Line Summary"}}]},
         }
     ]
+
+    if canva_result and canva_result.get("edit_url"):
+        children.insert(0, {
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "icon": {"emoji": "🎨"},
+                "color": "purple_background",
+                "rich_text": [
+                    {"type": "text", "text": {"content": "Canva 인포그래픽: "}, "annotations": {"bold": True}},
+                    {"type": "text", "text": {"content": "Canva에서 편집하기", "link": {"url": canva_result["edit_url"]}}},
+                ],
+            },
+        })
 
     for item in summary:
         children.append(
@@ -171,6 +186,7 @@ async def process_category(
     max_items: int,
     notion: AsyncClient,
     brain: Any,
+    canva: Any,
     logger,
     today_str: str,
     window_name: str,
@@ -258,6 +274,23 @@ async def process_category(
         logger.info("image", "success", "infographic created", category=category, path=image_path)
     except Exception as exc:
         logger.warning("image", "failed", "infographic generation failed", category=category, error=str(exc))
+        image_path = None
+
+    # Canva: import the infographic as an editable Canva design
+    canva_result = None
+    if canva is not None and image_path and image_path.exists():
+        try:
+            title = f"[{category}] News {today_str}"
+            canva_result = await run_with_timeout(
+                canva.async_import_and_export(image_path=image_path, title=title),
+                90,
+            )
+            if canva_result:
+                logger.info("canva", "success", "design imported", category=category, design_id=canva_result.get("design_id"))
+            else:
+                logger.warning("canva", "skipped", "import returned no result", category=category)
+        except Exception as exc:
+            logger.warning("canva", "failed", "canva import failed", category=category, error=str(exc))
 
     try:
         await upload_to_notion(
@@ -266,6 +299,7 @@ async def process_category(
             notion=notion,
             logger=logger,
             today_str=today_str,
+            canva_result=canva_result,
         )
     except Exception as exc:
         return {"category": category, "status": "failed", "articles": len(all_articles), "error": str(exc)}
@@ -313,6 +347,20 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
         brain = None
         logger.warning("bootstrap", "degraded", "brain module unavailable", error=str(exc))
 
+    try:
+        from settings import CANVA_CLIENT_ID, CANVA_REFRESH_TOKEN
+        if CANVA_CLIENT_ID and CANVA_REFRESH_TOKEN:
+            import canva_generator
+            canva_generator.get_access_token()
+            canva = canva_generator
+            logger.info("bootstrap", "success", "canva generator initialized")
+        else:
+            canva = None
+            logger.info("bootstrap", "skipped", "canva not configured")
+    except Exception as exc:
+        canva = None
+        logger.warning("bootstrap", "degraded", "canva unavailable", error=str(exc))
+
     notion = AsyncClient(auth=NOTION_API_KEY)
     today_str = date.today().isoformat()
     summary: dict[str, Any] = {
@@ -345,6 +393,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                         max_items=max_items,
                         notion=notion,
                         brain=brain,
+                        canva=canva,
                         logger=logger,
                         today_str=today_str,
                         window_name=window_name,
