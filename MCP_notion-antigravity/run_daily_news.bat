@@ -1,29 +1,37 @@
 @echo off
-REM Antigravity Daily News Runner
-REM 매일 오전 7시 Windows Task Scheduler로 실행
+setlocal
 
 cd /d "%~dp0"
-call venv\Scripts\activate.bat
-REM 1. Notion News Archive 수집
-python scripts\collect_news.py
+call venv\Scripts\activate.bat || goto :fail
 
-REM 2. 데이터 시각화 생성
+python scripts\collect_news.py --max-items 10
+if errorlevel 1 goto :fail
+
 python scripts\visualization.py
+if errorlevel 1 goto :fail
 
-REM 3. GitHub에 이미지 업로드 (자동 커밋/푸시)
+python scripts\news_bot.py --max-items 5
+if errorlevel 1 goto :fail
+
+python scripts\export_to_notebooklm.py
+if errorlevel 1 goto :fail
+
+python scripts\update_dashboard.py
+if errorlevel 1 goto :fail
+
+python -c "import os,sys; from dotenv import load_dotenv; load_dotenv('.env'); sys.exit(0 if os.getenv('AUTO_PUSH_ENABLED','0').strip().lower() in ('1','true','yes','on') else 1)"
+if errorlevel 1 goto :skip_push
+
 git add output\*.png
 git commit -m "Auto-update visualization charts [%date% %time%]"
+if errorlevel 1 goto :fail
 git push origin main
+if errorlevel 1 goto :fail
 
+:skip_push
+echo [%date% %time%] Daily news completed>>logs\scheduler.log
+exit /b 0
 
-REM 4. 노션 데일리 뉴스 요약 리포트 (시각화 포함)
-python scripts\news_bot.py >> logs\news_bot.log 2>&1
-
-REM 5. NotebookLM용 마크다운 아카이브 생성
-python scripts\export_to_notebooklm.py
-
-REM 6. Notion 뉴스룸 대시보드 업데이트
-python scripts\update_dashboard.py
-
-REM 로그 저장
-echo [%date% %time%] Daily news completed >> logs\scheduler.log
+:fail
+echo [%date% %time%] Daily news failed with errorlevel %errorlevel%>>logs\scheduler.log
+exit /b 1

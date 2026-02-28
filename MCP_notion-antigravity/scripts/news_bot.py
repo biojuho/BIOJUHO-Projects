@@ -1,370 +1,474 @@
-import os
-import json
+from __future__ import annotations
+
+import argparse
 import asyncio
+import json
 import sys
-import io
-print("Starting script...", flush=True)
-
-# 윈도우 콘솔 인코딩 호환성 설정
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8', line_buffering=True)
-
-import feedparser
-import google.generativeai as genai
-from datetime import datetime, timedelta, timezone
-from dateutil import parser
 from collections import Counter
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
+
 from notion_client import AsyncClient
-from dotenv import load_dotenv
 
-# Import BrainModule
-try:
-    from brain_module import BrainModule
-    HAS_BRAIN = True
-except ImportError:
-    HAS_BRAIN = False
-    print("[WARN] BrainModule not found. Skipping AI Insights.")
+from runtime import (
+    AlreadyRunningError,
+    JobLock,
+    PipelineStateStore,
+    configure_stdout_utf8,
+    create_notion_page_with_retry,
+    fetch_feed_entries,
+    generate_run_id,
+    get_logger,
+    run_with_timeout,
+    safe_gather,
+)
+from settings import (
+    ANTIGRAVITY_TASKS_DB_ID,
+    GOOGLE_API_KEY,
+    NEWS_SOURCES_FILE,
+    NOTION_API_KEY,
+    PIPELINE_MAX_CONCURRENCY,
+    PROJECT_ROOT,
+)
 
-# Load Environment Variables
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-load_dotenv(os.path.join(parent_dir, ".env"))
 
-# Configurations
-NOTION_API_KEY = os.getenv("NOTION_API_KEY")
-DATABASE_ID = "bb5cf3c8-d2bb-4b8b-a866-ba9ea86f16b7" 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+def load_sources() -> dict[str, list[dict[str, str]]]:
+    with NEWS_SOURCES_FILE.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
 
-# Initialize Clients
-if NOTION_API_KEY:
-    notion = AsyncClient(auth=NOTION_API_KEY)
-else:
-    print("[WARN] Notion API Key missing!")
-    notion = None
 
-if GOOGLE_API_KEY:
-    try:
-        import google.genai as genai_new
-        # Fallback or new usage if needed, but keeping compat for now
-    except ImportError:
-        pass
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel('gemini-2.0-flash')
-else:
-    print("[WARN] Google API Key missing! Summarization will be disabled.")
-    model = None
-
-# Initialize Brain
-brain = None
-if HAS_BRAIN and ANTHROPIC_API_KEY:
-    try:
-        brain = BrainModule()
-        print("[INFO] BrainModule initialized successfully.")
-    except Exception as e:
-        print(f"[WARN] Failed to init BrainModule: {e}")
-
-# Load X Radar (Enhanced Trending)
-try:
-    sys.path.append(os.path.join(parent_dir, ".agent", "skills", "x_radar"))
-    import scraper as x_radar
-    HAS_X_RADAR = True
-    print("[INFO] X Radar module loaded.")
-except ImportError as e:
-    HAS_X_RADAR = False
-    print(f"[WARN] Failed to load X Radar: {e}")
-
-# Load Sources
-SOURCES_FILE = os.path.join(parent_dir, "config", "news_sources.json")
-
-def load_sources():
-    with open(SOURCES_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-def get_time_window():
-    """
-    Determine the monitoring time window based on current execution time.
-    Morning Run (around 07:00): Yesterday 18:00 ~ Today 07:00
-    Evening Run (around 18:00): Today 07:00 ~ Today 18:00
-    """
+def get_time_window() -> tuple[datetime, datetime, str]:
     now = datetime.now()
-    
-    # Morning Logic (Exec 06:00 ~ 08:00)
     if 6 <= now.hour < 10:
         end_time = now.replace(hour=7, minute=0, second=0, microsecond=0)
         start_time = (end_time - timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
-        label = "아침 브리핑"
-    # Evening Logic (Exec 17:00 ~ 19:00)
-    elif 17 <= now.hour < 20: 
+        label = "Morning Brief"
+    elif 17 <= now.hour < 20:
         end_time = now.replace(hour=18, minute=0, second=0, microsecond=0)
         start_time = now.replace(hour=7, minute=0, second=0, microsecond=0)
-        label = "저녁 브리핑"
-    # Default (Manual Run or other times) -> Past 12 hours
+        label = "Evening Brief"
     else:
         end_time = now
         start_time = now - timedelta(hours=12)
-        label = "속보"
-        
+        label = "Manual Brief"
     return start_time, end_time, label
 
-def is_in_window(published_parsed, start, end):
-    if not published_parsed:
-        return True # 날짜 없으면 포함
 
-    # ... (rest of function) ...
-
-async def summarize_article(title, content):
-    """Summarize article using Gemini"""
-    if not model:
-        return content[:300] + "..."
-    
-    prompt = f"""
-    Summarize the following tech/economic news article in 3 bullet points (Korean).
-    Focus on facts and impact.
-    
-    Title: {title}
-    Content: {content[:2000]}
-    """
-    
+def in_time_window(entry: Any, start: datetime, end: datetime) -> bool:
+    published = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
+    if not published:
+        return True
     try:
-        response = await model.generate_content_async(prompt)
-        return response.text
-    except Exception as e:
-        print(f"[ERR] Summarization failed: {e}")
-        return content[:300] + "..."
+        published_dt = datetime(*published[:6])
+    except Exception:
+        return True
+    return start <= published_dt <= end
 
-import market_data # [New] Market Data Module
 
-async def upload_to_notion(category, articles, analysis=None, time_label="News"):
-    """Upload summarized news and analysis to Notion"""
-    if not notion:
-        return
+def load_summarizer():
+    if not GOOGLE_API_KEY:
+        return None
+    try:
+        import google.generativeai as genai
 
-    current_time = datetime.now()
-    time_str = current_time.strftime("%Y-%m-%d %H:%M")
-    iso_time = current_time.isoformat()
-    
-    children = []
-    
-    # 1. Header
-    children.append({
-        "object": "block",
-        "type": "heading_2",
-        "heading_2": {"rich_text": [{"text": {"content": f"📰 {category} {time_label}"}}]}
-    })
+        genai.configure(api_key=GOOGLE_API_KEY)
+        return genai.GenerativeModel("gemini-2.0-flash")
+    except Exception:
+        return None
 
-    # [New] Market Snapshot Injection
-    # Combine titles/descriptions to scan for keywords
-    combined_text = " ".join([a['title'] for a in articles])
-    if analysis and analysis.get("insights"):
-        combined_text += " " + " ".join([i.get('topic','') + " " + i.get('insight','') for i in analysis['insights']])
-    
-    market_snapshot = market_data.get_market_summary(combined_text)
-    if market_snapshot:
-        children.append({
+
+def load_brain(logger):
+    try:
+        from brain_module import BrainModule
+
+        brain = BrainModule()
+        logger.info("bootstrap", "success", "brain module initialized")
+        return brain
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "brain module unavailable", error=str(exc))
+        return None
+
+
+def load_x_radar(logger):
+    skill_path = PROJECT_ROOT / ".agent" / "skills" / "x_radar"
+    if not skill_path.exists():
+        return None
+    if str(skill_path) not in sys.path:
+        sys.path.append(str(skill_path))
+    try:
+        import scraper as x_radar
+
+        logger.info("bootstrap", "success", "x_radar loaded")
+        return x_radar
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "x_radar unavailable", error=str(exc))
+        return None
+
+
+def load_market_data(logger):
+    try:
+        import market_data
+
+        return market_data
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "market_data unavailable", error=str(exc))
+        return None
+
+
+async def summarize_article(title: str, content: str, model: Any, logger) -> str:
+    if model is None:
+        return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
+
+    prompt = (
+        "Summarize the following tech/economic news article in 3 bullet points (Korean).\n"
+        "Focus on facts and impact.\n\n"
+        f"Title: {title}\n"
+        f"Content: {(content or '')[:2000]}"
+    )
+
+    try:
+        response = await run_with_timeout(model.generate_content_async(prompt), 20)
+        return getattr(response, "text", None) or (content or "")[:300]
+    except Exception as exc:
+        logger.warning("summary", "failed", "summarization failed; using fallback", error=str(exc), title=title[:80])
+        return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
+
+
+def build_children(
+    *,
+    category: str,
+    articles: list[dict[str, Any]],
+    analysis: dict[str, Any] | None,
+    time_label: str,
+    market_snapshot: str | None,
+) -> list[dict[str, Any]]:
+    children: list[dict[str, Any]] = [
+        {
             "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"emoji": "💰"},
-                "color": "green_background",
-                "rich_text": [{"text": {"content": market_snapshot}}]
-            }
-        })
+            "type": "heading_2",
+            "heading_2": {"rich_text": [{"text": {"content": f"{category} {time_label}"}}]},
+        }
+    ]
 
-    # 2. Insights (New Format)
-    if analysis and analysis.get("insights"):
-        children.append({
-            "object": "block", "type": "heading_3", 
-            "heading_3": {"rich_text": [{"text": {"content": "🧠 라프의 인사이트 (Raphael's Insights)"}}]}
-        })
-        
-        for insight in analysis["insights"]:
-            # Format: Topic | Insight | Importance
-            children.append({
+    if market_snapshot:
+        children.append(
+            {
                 "object": "block",
                 "type": "callout",
                 "callout": {
-                    "icon": {"emoji": "💡"},
-                    "color": "gray_background",
-                    "rich_text": [
-                        {"type": "text", "text": {"content": f"[{insight.get('topic', 'Issue')}] "}, "annotations": {"bold": True}},
-                        {"type": "text", "text": {"content": f"{insight.get('insight')} \n"}},
-                        {"type": "text", "text": {"content": f"👉 {insight.get('importance')}"}, "annotations": {"italic": True, "color": "blue"}}
-                    ]
-                }
-            })
-
-    # 3. X Thread Draft
-    if analysis and analysis.get("x_thread"):
-        children.append({
-            "object": "block", "type": "heading_3", 
-            "heading_3": {"rich_text": [{"text": {"content": "🐦 X 스레드 초안"}}]}
-        })
-        
-        thread_text = "\n\n".join(analysis["x_thread"])
-        children.append({
-            "object": "block",
-            "type": "code",
-            "code": {
-                "language": "plain text",
-                "rich_text": [{"text": {"content": thread_text}}]
+                    "icon": {"emoji": "📈"},
+                    "color": "green_background",
+                    "rich_text": [{"text": {"content": market_snapshot}}],
+                },
             }
-        })
+        )
+
+    insights = (analysis or {}).get("insights") or []
+    if insights:
+        children.append(
+            {
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {"rich_text": [{"text": {"content": "Insights"}}]},
+            }
+        )
+        for insight in insights[:5]:
+            children.append(
+                {
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "icon": {"emoji": "💡"},
+                        "color": "gray_background",
+                        "rich_text": [
+                            {"type": "text", "text": {"content": f"[{insight.get('topic', 'Issue')}] "}, "annotations": {"bold": True}},
+                            {"type": "text", "text": {"content": str(insight.get('insight', ''))}},
+                        ],
+                    },
+                }
+            )
+
+    x_thread = (analysis or {}).get("x_thread") or []
+    if x_thread:
+        children.append(
+            {
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {"rich_text": [{"text": {"content": "X Thread Draft"}}]},
+            }
+        )
+        children.append(
+            {
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "language": "plain text",
+                    "rich_text": [{"text": {"content": "\n\n".join(str(item) for item in x_thread)}}],
+                },
+            }
+        )
         children.append({"object": "block", "type": "divider", "divider": {}})
-    
-    # 4. Source Distribution (Mermaid Chart)
-    # Calculate source stats
-    sources = [a.get('source', 'Unknown') for a in articles]
-    source_counts = Counter(sources)
-    
-    # Generate Mermaid Pie Chart Syntax
-    mermaid_code = "pie\n    title 뉴스 출처 분포\n"
-    for source, count in source_counts.most_common(10):
-        # Mermaid syntax clean up (remove quotes if possible, or keep simple)
-        safe_source = source.replace('"', '').replace(':', '')
+
+    sources = Counter(article.get("source", "Unknown") for article in articles)
+    mermaid_code = "pie\n    title News Source Distribution\n"
+    for source, count in sources.most_common(10):
+        safe_source = source.replace('"', "").replace(":", "")
         mermaid_code += f'    "{safe_source}" : {count}\n'
 
-    children.append({
-        "object": "block", "type": "heading_3", 
-        "heading_3": {"rich_text": [{"text": {"content": "📊 뉴스 출처 분석"}}]}
-    })
-
-    children.append({
-        "object": "block",
-        "type": "code",
-        "code": {
-            "language": "mermaid",
-            "rich_text": [{"text": {"content": mermaid_code}}]
-        }
-    })
-
-    # 5. Individual Articles
-    children.append({
-        "object": "block", "type": "heading_3", 
-        "heading_3": {"rich_text": [{"text": {"content": "🗞️ 수집된 뉴스"}}]}
-    })
-    
-    for article in articles:
-        children.append({
-            "object": "block", 
-            "type": "toggle", 
-            "toggle": {
-                "rich_text": [{"text": {"content": article['title'][:100]}}],
-                "children": [
-                    {
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {"rich_text": [{"text": {"content": "원문 링크", "link": {"url": article['link']}}}]}
-                    },
-                    {
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {"rich_text": [{"text": {"content": article['summary'][:2000]}}]}
-                    }
-                ]
-            }
-        })
-
-    # Create Page with Retry Logic
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            new_page = await notion.pages.create(
-                parent={"database_id": DATABASE_ID},
-                properties={
-                    "Name": {"title": [{"text": {"content": f"[{category}] {time_label} - {time_str}"}}]},
-                    "Date": {"date": {"start": iso_time}},
-                    "Type": {"select": {"name": "News"}},
-                    "Priority": {"select": {"name": "High" if time_label != "Breaking News" else "Medium"}}
+    children.extend(
+        [
+            {
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {"rich_text": [{"text": {"content": "Source Distribution"}}]},
+            },
+            {
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "language": "mermaid",
+                    "rich_text": [{"text": {"content": mermaid_code}}],
                 },
-                children=children
-            )
-            print(f"[SUCCESS] Uploaded {category} news to Notion: {new_page['url']}")
-            break # Success, exit retry loop
-        except Exception as e:
-            print(f"[WARN] Upload attempt {attempt + 1}/{max_retries} failed for {category}: {e}")
-            if attempt == max_retries - 1:
-                print(f"[FAIL] Final upload failed for {category}. Writing to alert log.")
-                # Fallback to scheduler.log as an alert mechanism
-                with open(os.path.join(parent_dir, "logs", "scheduler.log"), "a", encoding="utf-8") as f:
-                    f.write(f"[{time_str}] [ALERT] Notion Upload Failed for {category}. Error: {e}\n")
-            else:
-                await asyncio.sleep(2 ** attempt) # Exponential backoff
+            },
+            {
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {"rich_text": [{"text": {"content": "Collected News"}}]},
+            },
+        ]
+    )
 
-async def process_category(category, feeds):
-    print(f"Processing {category}...")
-    
-    start_time, end_time, label = get_time_window()
-    window_str = f"{start_time.strftime('%Y-%m-%d %H:%M')} ~ {end_time.strftime('%Y-%m-%d %H:%M')}"
-    print(f"  🕒 Time Window: {window_str} ({label})")
-    
-    articles = []
-    
-    # 1. Fetch & Summarize Items
-    for source in feeds:
-        try:
-            print(f"  Fetching {source['name']}...")
-            feed = feedparser.parse(source['url'])
-            
-            # Filter top 5
-            for entry in feed.entries[:5]: 
-                content = ""
-                if 'summary' in entry:
-                    content = entry.summary
-                elif 'description' in entry:
-                    content = entry.description
-                
-                summary = await summarize_article(entry.title, content)
-                
-                articles.append({
-                    "title": entry.title,
-                    "link": entry.link,
-                    "description": content[:200], # For BrainModule
-                    "summary": summary # For Notion Display
-                })
-        except Exception as e:
-            print(f"  Error fetching {source['name']}: {e}")
+    for article in articles:
+        children.append(
+            {
+                "object": "block",
+                "type": "toggle",
+                "toggle": {
+                    "rich_text": [{"text": {"content": article["title"][:100]}}],
+                    "children": [
+                        {
+                            "object": "block",
+                            "type": "paragraph",
+                            "paragraph": {"rich_text": [{"text": {"content": "Original Link", "link": {"url": article["link"]}}}]},
+                        },
+                        {
+                            "object": "block",
+                            "type": "paragraph",
+                            "paragraph": {"rich_text": [{"text": {"content": article["summary"][:2000]}}]},
+                        },
+                    ],
+                },
+            }
+        )
 
-    if not articles:
-        print(f"  No articles found for {category}")
-        return
+    return children
 
-    # 1.5 Fetch X/Reddit Trends via x_radar
-    niche_trends = None
-    if HAS_X_RADAR:
-        try:
-            print(f"  📡 Scanning niche trends for {category} via x_radar...")
-            # We use the category name or top keywords as the search query
-            # A simple approach is to use the category name
-            trend_data_json = x_radar.fetch_niche_trends([category])
-            niche_trends = json.loads(trend_data_json)
-        except Exception as e:
-            print(f"  [WARN] x_radar fetch failed: {e}")
 
-    # 2. Analyze with BrainModule (if enabled)
-    analysis = None
-    analysis = None
-    if brain:
-        try:
-            print(f"  🧠 Analyzing {category} with BrainModule (Raphael)...")
-            brain_input = [{"title": a["title"], "description": a["description"]} for a in articles]
-            analysis = brain.analyze_news(category, brain_input, time_window=window_str, niche_trends=niche_trends)
-        except Exception as e:
-            print(f"  [WARN] BrainModule analysis failed for {category}: {e}")
-            analysis = None
-    
-    # 3. Upload
-    await upload_to_notion(category, articles, analysis, time_label=label)
+async def process_category(
+    *,
+    category: str,
+    feeds: list[dict[str, str]],
+    notion: AsyncClient,
+    model: Any,
+    brain: Any,
+    x_radar: Any,
+    market_data: Any,
+    state: PipelineStateStore,
+    logger,
+    run_id: str,
+    max_items: int,
+    semaphore: asyncio.Semaphore,
+) -> dict[str, Any]:
+    async with semaphore:
+        start_time, end_time, label = get_time_window()
+        window_str = f"{start_time.strftime('%Y-%m-%d %H:%M')} ~ {end_time.strftime('%Y-%m-%d %H:%M')}"
+        logger.info("category", "start", "processing category", category=category, window=window_str)
 
-async def main():
-    print("=== Starting Notion News Bot (Raphael Edition) ===")
-    sources = load_sources()
-    
-    tasks = []
-    for category, feeds in sources.items():
-        tasks.append(process_category(category, feeds))
-    
-    await asyncio.gather(*tasks)
-    print("=== Completed ===")
+        articles: list[dict[str, Any]] = []
+        seen_links: set[str] = set()
+
+        for source in feeds:
+            source_name = source["name"]
+            source_url = source["url"]
+            try:
+                entries = await fetch_feed_entries(source_url)
+            except Exception as exc:
+                logger.error("fetch", "failed", "feed fetch failed", category=category, source=source_name, error=str(exc))
+                continue
+
+            for entry in entries:
+                if not in_time_window(entry, start_time, end_time):
+                    continue
+
+                link = getattr(entry, "link", "")
+                if not link or link in seen_links or state.has_article(link):
+                    continue
+
+                content = getattr(entry, "summary", "") or getattr(entry, "description", "") or ""
+                summary = await summarize_article(getattr(entry, "title", "Untitled"), content, model, logger)
+                articles.append(
+                    {
+                        "title": getattr(entry, "title", "Untitled"),
+                        "link": link,
+                        "description": content[:200],
+                        "summary": summary,
+                        "source": source_name,
+                    }
+                )
+                seen_links.add(link)
+                if len(articles) >= max_items:
+                    break
+
+        if not articles:
+            logger.warning("category", "skipped", "no articles collected", category=category)
+            return {"category": category, "status": "skipped", "articles": 0}
+
+        niche_trends = None
+        if x_radar is not None:
+            try:
+                trend_json = await run_with_timeout(asyncio.to_thread(x_radar.fetch_niche_trends, [category]), 20)
+                niche_trends = json.loads(trend_json)
+            except Exception as exc:
+                logger.warning("trends", "failed", "x_radar fetch failed", category=category, error=str(exc))
+
+        analysis = None
+        if brain is not None:
+            try:
+                brain_input = [{"title": item["title"], "description": item["description"]} for item in articles]
+                analysis = await run_with_timeout(
+                    asyncio.to_thread(brain.analyze_news, category, brain_input, window_str, niche_trends),
+                    60,
+                )
+            except Exception as exc:
+                logger.warning("analysis", "failed", "brain analysis failed", category=category, error=str(exc))
+
+        market_snapshot = None
+        if market_data is not None:
+            combined_text = " ".join(article["title"] for article in articles)
+            try:
+                market_snapshot = await run_with_timeout(
+                    asyncio.to_thread(market_data.get_market_summary, combined_text),
+                    15,
+                )
+            except Exception as exc:
+                logger.warning("market", "failed", "market snapshot failed", category=category, error=str(exc))
+
+        children = build_children(
+            category=category,
+            articles=articles,
+            analysis=analysis,
+            time_label=label,
+            market_snapshot=market_snapshot,
+        )
+
+        page = await create_notion_page_with_retry(
+            notion_client=notion,
+            parent={"database_id": ANTIGRAVITY_TASKS_DB_ID},
+            properties={
+                "Name": {"title": [{"text": {"content": f"[{category}] {label} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"}}]},
+                "Date": {"date": {"start": datetime.now().isoformat()}},
+                "Type": {"select": {"name": "News"}},
+                "Priority": {"select": {"name": "High"}},
+            },
+            children=children,
+            logger=logger,
+            step=f"upload:{category}",
+        )
+
+        page_id = page.get("id")
+        for article in articles:
+            state.record_article(link=article["link"], source=article["source"], notion_page_id=page_id, run_id=run_id)
+
+        logger.info("category", "success", "category uploaded", category=category, articles=len(articles), page_id=page_id)
+        return {"category": category, "status": "success", "articles": len(articles)}
+
+
+async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
+    configure_stdout_utf8()
+    run_id = run_id or generate_run_id("news_bot")
+    logger = get_logger("news_bot", run_id)
+    state = PipelineStateStore()
+    state.record_job_start(run_id, "news_bot")
+
+    if not NOTION_API_KEY:
+        logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
+        state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
+        return 1
+    if not ANTIGRAVITY_TASKS_DB_ID:
+        logger.error("bootstrap", "failed", "ANTIGRAVITY_TASKS_DB_ID missing")
+        state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_TASKS_DB_ID missing")
+        return 1
+
+    notion = AsyncClient(auth=NOTION_API_KEY)
+    model = load_summarizer()
+    brain = load_brain(logger)
+    x_radar = load_x_radar(logger)
+    market_data = load_market_data(logger)
+    summary = {"categories_success": 0, "categories_failed": 0, "categories_skipped": 0, "articles": 0}
+
+    try:
+        with JobLock("news_bot", run_id):
+            sources = load_sources()
+            semaphore = asyncio.Semaphore(max(1, PIPELINE_MAX_CONCURRENCY))
+            tasks = [
+                process_category(
+                    category=category,
+                    feeds=feeds,
+                    notion=notion,
+                    model=model,
+                    brain=brain,
+                    x_radar=x_radar,
+                    market_data=market_data,
+                    state=state,
+                    logger=logger,
+                    run_id=run_id,
+                    max_items=max_items,
+                    semaphore=semaphore,
+                )
+                for category, feeds in sources.items()
+            ]
+
+            results = await safe_gather(tasks)
+            for result in results:
+                if isinstance(result, Exception):
+                    summary["categories_failed"] += 1
+                    logger.error("category", "failed", "unhandled category task failure", error=str(result))
+                    continue
+
+                summary["articles"] += int(result.get("articles", 0))
+                status = result.get("status")
+                if status == "success":
+                    summary["categories_success"] += 1
+                elif status == "failed":
+                    summary["categories_failed"] += 1
+                else:
+                    summary["categories_skipped"] += 1
+
+            state.record_job_finish(run_id, status="success", summary=summary)
+            logger.info("complete", "success", "news_bot finished", **summary)
+            return 0
+    except AlreadyRunningError:
+        logger.warning("lock", "skipped", "job already running")
+        state.record_job_finish(run_id, status="skipped", error_text="already running")
+        return 2
+    except Exception as exc:
+        logger.error("complete", "failed", "news_bot failed", error=str(exc))
+        state.record_job_finish(run_id, status="failed", summary=summary, error_text=str(exc))
+        return 1
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the Notion news bot pipeline.")
+    parser.add_argument("--max-items", type=int, default=5, help="Maximum articles to summarize per category")
+    parser.add_argument("--run-id", help="Optional run identifier for logs and state tracking")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    return asyncio.run(run_news_bot(max_items=args.max_items, run_id=args.run_id))
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(main())

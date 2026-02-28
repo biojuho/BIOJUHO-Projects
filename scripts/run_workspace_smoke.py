@@ -64,9 +64,59 @@ def compile_command(python_exe: str, *targets: str) -> list[str]:
     return [python_exe, "-m", "compileall", "-q", "-x", EXCLUDE_REGEX, *targets]
 
 
+def has_module(python_exe: str, module_name: str) -> bool:
+    try:
+        proc = subprocess.run(
+            [python_exe, "-c", f"import {module_name}"],
+            capture_output=True,
+            text=False,
+            shell=False,
+            check=False,
+        )
+    except OSError:
+        return False
+    return proc.returncode == 0
+
+
+def resolve_python_executable(root: Path) -> str:
+    venv_python = "Scripts/python.exe" if os.name == "nt" else "bin/python"
+    candidates = [
+        Path(sys.executable),
+        root / ".venv" / venv_python,
+        root / "venv" / venv_python,
+    ]
+
+    existing: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        value = str(candidate)
+        dedupe_key = value.lower() if os.name == "nt" else value
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        existing.append(value)
+
+    if not existing:
+        return sys.executable
+
+    for candidate in existing:
+        if has_module(candidate, "pytest"):
+            return candidate
+
+    return existing[0]
+
+
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
     return [
+        Check(
+            "workspace",
+            "workspace regression tests",
+            ".",
+            [python_exe, "-m", "pytest", "tests/test_workspace_regressions.py", "-q"],
+        ),
         Check("desci", "desci frontend lint", "desci-platform/frontend", [npm_exe, "run", "lint"]),
         Check("desci", "desci frontend build", "desci-platform/frontend", [npm_exe, "run", "build:lts"]),
         Check("desci", "desci bundle budget", "desci-platform/frontend", [npm_exe, "run", "check:bundle"]),
@@ -152,18 +202,23 @@ def run_one(root: Path, item: Check) -> Result:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
-    parser.add_argument("--scope", default="all", choices=["all", "desci", "agriguard", "mcp"])
+    parser.add_argument("--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp"])
     parser.add_argument("--json-out", help="Optional JSON output file")
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parent.parent
-    checks = default_checks(sys.executable)
+    python_exe = resolve_python_executable(root)
+    checks = default_checks(python_exe)
     if args.scope != "all":
         checks = [check for check in checks if check.scope == args.scope]
 
     if not checks:
         print("[smoke] no checks to run")
         return 1
+
+    print(f"[smoke] using python executable: {python_exe}")
+    if not has_module(python_exe, "pytest"):
+        print("[smoke] warning: pytest is not installed for selected Python; pytest-based checks may fail")
 
     print("[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output")
 

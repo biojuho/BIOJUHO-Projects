@@ -15,6 +15,8 @@ const itemVariants = {
     show: { opacity: 1, y: 0 },
 };
 
+const MotionDiv = motion.div;
+
 export default function MyLab() {
     const { papers, isLoading, mintingIds, isSuccessModalOpen, mintResult, mintNFT, closeSuccessModal } = useMyLab();
 
@@ -30,9 +32,9 @@ export default function MyLab() {
     }
 
     return (
-        <motion.div className="space-y-8" variants={containerVariants} initial="hidden" animate="show">
+        <MotionDiv className="space-y-8" variants={containerVariants} initial="hidden" animate="show">
             {/* Header */}
-            <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <MotionDiv variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
                         <FlaskConical className="w-10 h-10 text-primary" />
@@ -46,7 +48,7 @@ export default function MyLab() {
                 >
                     <Upload size={18} /> Upload Paper
                 </Link>
-            </motion.div>
+            </MotionDiv>
 
             <SuccessModal
                 isOpen={isSuccessModalOpen}
@@ -57,7 +59,7 @@ export default function MyLab() {
             />
 
             {papers.length === 0 ? (
-                <motion.div variants={itemVariants}>
+                <MotionDiv variants={itemVariants}>
                     <GlassCard className="text-center py-16 px-8">
                         <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-white/5 flex items-center justify-center">
                             <FileText size={40} className="text-gray-500" />
@@ -73,7 +75,7 @@ export default function MyLab() {
                             <Upload size={20} /> Upload Your First Paper
                         </Link>
                     </GlassCard>
-                </motion.div>
+                </MotionDiv>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {papers.map((paper, index) => (
@@ -83,7 +85,7 @@ export default function MyLab() {
                                     {paper.type || "Paper"}
                                 </span>
                                 <span className="text-xs text-gray-500">
-                                    {new Date(paper.created_at || Date.now()).toLocaleDateString()}
+                                    {paper.created_at ? new Date(paper.created_at).toLocaleDateString() : "Unknown date"}
                                 </span>
                             </div>
 
@@ -127,6 +129,6 @@ export default function MyLab() {
                     ))}
                 </div>
             )}
-        </motion.div>
+        </MotionDiv>
     );
 }

@@ -1,39 +1,49 @@
 # DSCI-DecentBio
 
-탈중앙화 과학(Decentralized Science) 플랫폼
+탈중앙화 과학(Decentralized Science) 플랫폼  
+Decentralized Science (DeSci) Platform
 
-## Tech Stack
+## 🛠 기술 스택 (Tech Stack)
+
 - **Backend:** Python (FastAPI) + Firebase Admin
 - **Frontend:** React (Vite) + Tailwind CSS
-- **Auth:** Firebase Authentication (Google + Email/PW)
+- **Auth(인증):** Firebase Authentication (Google + Email/PW)
 
-## Quick Start
+---
 
-### Backend
+## 🚀 빠른 시작 (Quick Start)
+
+### 백엔드 (Backend)
+
 ```bash
 cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-### Frontend
+### 프론트엔드 (Frontend)
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## Quality Gate
+---
 
-Workspace-wide policy and CI gate: [../QUALITY_GATE.md](../QUALITY_GATE.md)
+## 🛡 품질 게이트 (Quality Gate)
 
-### Backend smoke test (pytest)
+작업 공간 통합 정책 및 CI 게이트 (Workspace-wide policy and CI gate): [../QUALITY_GATE.md](../QUALITY_GATE.md)
+
+### 백엔드 스모크 테스트 (Backend smoke test - pytest)
+
 ```bash
 cd biolinker
 python -m pytest tests/test_smoke_pipeline.py -q
 ```
 
-### Frontend lint + production build (Node LTS)
+### 프론트엔드 린트 + 프로덕션 빌드 (Frontend lint + production build - Node LTS)
+
 ```bash
 cd frontend
 npm run lint
@@ -41,13 +51,19 @@ npm run build:lts
 npm run check:bundle
 ```
 
-## Features
-- ✅ Google 소셜 로그인
-- ✅ Email/Password 인증
-- ✅ Firebase Token 검증
-- 🔜 연구 논문 업로드
-- 🔜 IPFS 탈중앙화 저장
-- 🔜 토큰 보상 시스템
+---
 
-## Authors
+## ✨ 주요 기능 (Features)
+
+- ✅ Google 소셜 로그인 (Google Social Login)
+- ✅ Email/Password 인증 (Email/Password Authentication)
+- ✅ Firebase Token 검증 (Firebase Token Verification)
+- 🔜 연구 논문 업로드 (Research Paper Upload)
+- 🔜 IPFS 탈중앙화 저장 (IPFS Decentralized Storage)
+- 🔜 토큰 보상 시스템 (Token Reward System)
+
+---
+
+## 👨‍💻 작성자 (Authors)
+
 - Built by Raph & JuPark © 2026

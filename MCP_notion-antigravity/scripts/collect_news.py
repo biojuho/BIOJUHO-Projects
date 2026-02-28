@@ -1,142 +1,169 @@
-import os
+from __future__ import annotations
+
+import argparse
 import asyncio
-import feedparser
-import sys
-import io
 from datetime import date
-from dotenv import load_dotenv
+from typing import Any
+
+import httpx
 from notion_client import AsyncClient
 
-# 윈도우 인코딩 설정
-sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+from runtime import (
+    AlreadyRunningError,
+    JobLock,
+    PipelineStateStore,
+    configure_stdout_utf8,
+    create_notion_page_with_retry,
+    fetch_feed_entries,
+    generate_run_id,
+    get_logger,
+)
+from settings import ANTIGRAVITY_NEWS_DB_ID, NOTION_API_KEY, PIPELINE_HTTP_TIMEOUT_SEC
 
-# 환경 변수 로드
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-load_dotenv(os.path.join(parent_dir, ".env"))
-
-NOTION_API_KEY = os.getenv("NOTION_API_KEY")
-# Antigravity News Archive ID (V3)
-NEWS_DB_ID = "9a372e84-8883-421f-8725-d90a494aca5a"
 
 RSS_FEEDS = {
     "GeekNews": "https://feeds.feedburner.com/geeknews-feed",
     "Hacker News (Top)": "https://news.ycombinator.com/rss",
-    "IT World Korea": "https://www.itworld.co.kr/rss/feed/index.php"
+    "IT World Korea": "https://www.itworld.co.kr/rss/feed/index.php",
 }
 
-import httpx
 
-async def get_existing_urls(notion_client_unused):
-    """Fetch all existing URLs from the database to prevent duplicates."""
-    existing_urls = set()
+async def get_existing_urls(database_id: str, api_key: str, logger) -> set[str]:
+    existing_urls: set[str] = set()
     has_more = True
-    next_cursor = None
-    
-    # Direct API Endpoint
-    url = f"https://api.notion.com/v1/databases/{NEWS_DB_ID}/query"
+    next_cursor: str | None = None
+    url = f"https://api.notion.com/v1/databases/{database_id}/query"
     headers = {
-        "Authorization": f"Bearer {NOTION_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
-    print("🔍 Checking existing articles for deduplication (via httpx)...")
-    
-    async with httpx.AsyncClient() as client:
+    logger.info("dedupe", "start", "loading existing notion links")
+
+    async with httpx.AsyncClient(timeout=PIPELINE_HTTP_TIMEOUT_SEC) as client:
         while has_more:
-            try:
-                payload = {
-                    "page_size": 100,
-                    "sorts": [{"property": "Date", "direction": "descending"}]
-                }
-                if next_cursor:
-                    payload["start_cursor"] = next_cursor
+            payload: dict[str, Any] = {
+                "page_size": 100,
+                "sorts": [{"property": "Date", "direction": "descending"}],
+            }
+            if next_cursor:
+                payload["start_cursor"] = next_cursor
 
-                response = await client.post(url, headers=headers, json=payload)
-                
-                if response.status_code != 200:
-                    print(f"[WARN] API Error: {response.text}")
-                    break
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            for page in data.get("results", []):
+                link_value = page.get("properties", {}).get("Link", {}).get("url")
+                if link_value:
+                    existing_urls.add(link_value)
 
-                data = response.json()
-                
-                for page in data.get("results", []):
-                    # Handle potential missing properties strictly
-                    state = page.get("properties", {}).get("Link", {})
-                    url_val = state.get("url")
-                    if url_val:
-                        existing_urls.add(url_val)
-                
-                has_more = data.get("has_more", False)
-                next_cursor = data.get("next_cursor")
-                
-                # print(f"DEBUG: Fetched {len(data.get('results', []))} items. Total urls: {len(existing_urls)}")
-                
-            except Exception as e:
-                print(f"[WARN] Failed to fetch existing URLs: {e}")
-                break
-            
-    print(f"📋 Found {len(existing_urls)} existing articles.")
+            has_more = data.get("has_more", False)
+            next_cursor = data.get("next_cursor")
+
+    logger.info("dedupe", "success", "loaded notion links", count=len(existing_urls))
     return existing_urls
 
-async def collect_and_upload_news():
+
+def _entry_description(entry: Any) -> str:
+    if hasattr(entry, "description") and entry.description:
+        return str(entry.description)[:200]
+    if hasattr(entry, "summary") and entry.summary:
+        return str(entry.summary)[:200]
+    return ""
+
+
+async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) -> int:
+    configure_stdout_utf8()
+    run_id = run_id or generate_run_id("collect_news")
+    logger = get_logger("collect_news", run_id)
+    state = PipelineStateStore()
+    state.record_job_start(run_id, "collect_news")
+
     if not NOTION_API_KEY:
-        print("[FAIL] API Key missing")
-        return
+        logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
+        state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
+        return 1
+    if not ANTIGRAVITY_NEWS_DB_ID:
+        logger.error("bootstrap", "failed", "ANTIGRAVITY_NEWS_DB_ID missing")
+        state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_NEWS_DB_ID missing")
+        return 1
 
-    print("🔍 뉴스를 수집하여 아카이브에 저장합니다...")
-    
-    today_str = date.today().isoformat()
+    summary = {"saved": 0, "skipped": 0, "sources_failed": 0}
     notion = AsyncClient(auth=NOTION_API_KEY)
-    
-    # 1. Get Existing URLs
-    existing_urls = await get_existing_urls(notion)
-    
-    total_articles = 0
-    skipped_articles = 0
-    
-    for source_name, url in RSS_FEEDS.items():
-        try:
-            print(f"  - Fetching: {source_name}...")
-            feed = feedparser.parse(url)
-            
-            # 상위 10개 기사만 추출 (범위 확대)
-            for entry in feed.entries[:10]:
-                title = entry.title
-                link = entry.link
-                description = getattr(entry, 'description', '')[:200]  # 요약 내용은 200자 제한
-                
-                # Deduplication Check
-                if link in existing_urls:
-                    print(f"    -> [Skip] Duplicate: {title[:30]}...")
-                    skipped_articles += 1
-                    continue
-                
-                try:
-                    properties = {
-                        "Name": {"title": [{"text": {"content": title}}]},
-                        "Date": {"date": {"start": today_str}},
-                        "Source": {"select": {"name": source_name}},
-                        "Link": {"url": link},
-                        "Description": {"rich_text": [{"text": {"content": description}}]}
-                    }
-                    
-                    await notion.pages.create(
-                        parent={"database_id": NEWS_DB_ID},
-                        properties=properties
-                    )
-                    print(f"    -> [Saved] {title[:30]}...")
-                    existing_urls.add(link) # Add to set to prevent dups within same run
-                    total_articles += 1
-                    
-                except Exception as e:
-                    print(f"    -> [Error] Upload failed: {e}")
-            
-        except Exception as e:
-            print(f"  [ERROR] {source_name} 수집 실패: {e}")
 
-    print(f"✅ 총 {total_articles}개 저장, {skipped_articles}개 중복 제외.")
+    try:
+        with JobLock("collect_news", run_id):
+            existing_urls = await get_existing_urls(ANTIGRAVITY_NEWS_DB_ID, NOTION_API_KEY, logger)
+            today_str = date.today().isoformat()
+
+            for source_name, feed_url in RSS_FEEDS.items():
+                logger.info("fetch", "start", "fetching feed", source=source_name, url=feed_url)
+                try:
+                    entries = await fetch_feed_entries(feed_url)
+                except Exception as exc:
+                    summary["sources_failed"] += 1
+                    logger.error("fetch", "failed", "feed fetch failed", source=source_name, error=str(exc))
+                    continue
+
+                for entry in entries[:max_items]:
+                    title = getattr(entry, "title", "Untitled")
+                    link = getattr(entry, "link", "")
+                    if not link:
+                        summary["skipped"] += 1
+                        logger.warning("dedupe", "skipped", "entry missing link", source=source_name, title=title[:80])
+                        continue
+                    if link in existing_urls or state.has_article(link):
+                        summary["skipped"] += 1
+                        logger.info("dedupe", "skipped", "duplicate article", source=source_name, link=link)
+                        continue
+
+                    description = _entry_description(entry)
+                    page = await create_notion_page_with_retry(
+                        notion_client=notion,
+                        parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
+                        properties={
+                            "Name": {"title": [{"text": {"content": title}}]},
+                            "Date": {"date": {"start": today_str}},
+                            "Source": {"select": {"name": source_name}},
+                            "Link": {"url": link},
+                            "Description": {"rich_text": [{"text": {"content": description}}]},
+                        },
+                        children=[],
+                        logger=logger,
+                        step="upload",
+                    )
+
+                    page_id = page.get("id")
+                    state.record_article(link=link, source=source_name, notion_page_id=page_id, run_id=run_id)
+                    existing_urls.add(link)
+                    summary["saved"] += 1
+                    logger.info("upload", "success", "article saved", source=source_name, link=link, page_id=page_id)
+
+            state.record_job_finish(run_id, status="success", summary=summary)
+            logger.info("complete", "success", "collect_news finished", **summary)
+            return 0
+    except AlreadyRunningError:
+        logger.warning("lock", "skipped", "job already running")
+        state.record_job_finish(run_id, status="skipped", error_text="already running")
+        return 2
+    except Exception as exc:
+        logger.error("complete", "failed", "collect_news failed", error=str(exc))
+        state.record_job_finish(run_id, status="failed", summary=summary, error_text=str(exc))
+        return 1
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Collect RSS news and upload non-duplicates to Notion.")
+    parser.add_argument("--max-items", type=int, default=10, help="Maximum items to upload per feed")
+    parser.add_argument("--run-id", help="Optional run identifier for logs and state tracking")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    return asyncio.run(collect_and_upload_news(max_items=args.max_items, run_id=args.run_id))
+
 
 if __name__ == "__main__":
-    asyncio.run(collect_and_upload_news())
+    raise SystemExit(main())

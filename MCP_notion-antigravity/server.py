@@ -184,6 +184,51 @@ async def add_task(
     except Exception as e:
         return f"Create task failed: {str(e)}"
 
+@mcp.tool()
+async def create_page(parent_page_id: str, title: str, content: str = "") -> str:
+    """Create a new page as a child of an existing Notion page."""
+    try:
+        children_blocks = []
+        if content:
+            for raw_line in content.split("\n"):
+                line = raw_line.strip()
+                if line:
+                    children_blocks.append(_line_to_block(line))
+
+        new_page = await notion.pages.create(
+            parent={"page_id": parent_page_id},
+            properties={
+                "title": {
+                    "title": [{"text": {"content": title}}]
+                }
+            },
+            children=children_blocks
+        )
+        return f"Page '{title}' created successfully.\nURL: {new_page.get('url', '')}\nID: {new_page.get('id', '')}"
+    except Exception as e:
+        return f"Create page failed: {str(e)}"
+
+
+@mcp.tool()
+async def append_block(page_id: str, content: str) -> str:
+    """Append text blocks to an existing Notion page."""
+    try:
+        children_blocks = []
+        for raw_line in content.split("\n"):
+            line = raw_line.strip()
+            if line:
+                children_blocks.append(_line_to_block(line))
+
+        if not children_blocks:
+            return "No content to append."
+
+        await notion.blocks.children.append(
+            block_id=page_id,
+            children=children_blocks
+        )
+        return f"Successfully appended {len(children_blocks)} blocks to page {page_id}."
+    except Exception as e:
+        return f"Append block failed: {str(e)}"
 
 if __name__ == "__main__":
     mcp.run()

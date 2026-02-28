@@ -1,25 +1,31 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
+
 cd /d "%~dp0"
+call venv\Scripts\activate.bat || goto :fail
 
-:: 설정 환경
-set TOPIC="Agentic AI Trends https://www.youtube.com/watch?v=0hW2xO7nO9k"
-set OUTDIR="output"
-set VENV_DIR=venv
+if not "%~1"=="" (
+    set "TOPIC=%~1"
+) else (
+    for /f "usebackq delims=" %%i in (`python -c "import os; from dotenv import load_dotenv; load_dotenv('.env'); print(os.getenv('DEFAULT_RESEARCH_TOPIC','Agentic AI Trends'))"`) do set "TOPIC=%%i"
+)
 
-echo [INFO] Starting Content Publisher Pipeline...
+if "%TOPIC%"=="" goto :fail
 
-:: 1. Deep Research 실행 (Track 1 - Step 1)
-echo [PROCESS] Running deep-research module...
-call %VENV_DIR%\Scripts\activate
-python scripts\new_deep_research.py --topic %TOPIC% --outd %OUTDIR%
+python scripts\new_deep_research.py --topic "%TOPIC%" --outd output
+if errorlevel 1 goto :fail
 
-:: 2. 리서치 결과를 노션에 게시 (Track 1 - Step 2)
-echo [PROCESS] Publishing content to Notion...
-set /p LATEST_REPORT=<%OUTDIR%\latest_report.txt
-python scripts\content_publisher.py --title %TOPIC% --file "%LATEST_REPORT%"
+if not exist output\latest_report.txt goto :fail
+set /p LATEST_REPORT=<output\latest_report.txt
+if "%LATEST_REPORT%"=="" goto :fail
+if not exist "%LATEST_REPORT%" goto :fail
 
-echo [SUCCESS] Articles successfully published!
+python scripts\content_publisher.py --title "%TOPIC%" --file "%LATEST_REPORT%"
+if errorlevel 1 goto :fail
 
-endlocal
-pause
+echo [%date% %time%] Content publisher completed>>logs\scheduler.log
+exit /b 0
+
+:fail
+echo [%date% %time%] Content publisher failed with errorlevel %errorlevel%>>logs\scheduler.log
+exit /b 1

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Sprout, ShieldCheck, Truck, Menu, X } from 'lucide-react';
+import { Sprout, ShieldCheck, Truck, Menu, X, Scan } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Layout() {
@@ -11,6 +11,7 @@ export default function Layout() {
     { name: 'Dashboard', path: '/', icon: Sprout },
     { name: 'Registry', path: '/registry', icon: ShieldCheck },
     { name: 'Supply Chain', path: '/supply-chain', icon: Truck },
+    { name: 'Scanner', path: '/scan', icon: Scan },
   ];
 
   return (

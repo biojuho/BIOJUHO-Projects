@@ -1,6 +1,8 @@
 python-dotenv
 notion-client
 feedparser
+httpx
+python-dateutil
 google-generativeai
 anthropic
 pytrends
@@ -10,3 +12,4 @@ tweepy
 matplotlib
 seaborn
 numpy
+yfinance

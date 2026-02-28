@@ -28,26 +28,57 @@ export default function ProductDetail() {
     data: { cert_type: '', issued_by: '' }
   });
 
-  const fetchProductDetails = useCallback(async () => {
+  const loadProductDetails = useCallback(async (productId) => {
+    const [prodRes, histRes] = await Promise.all([
+      productApi.getById(productId),
+      productApi.getHistory(productId)
+    ]);
+
+    return {
+      product: prodRes.data,
+      history: histRes.data.history
+    };
+  }, []);
+
+  const refreshProductDetails = useCallback(async (productId) => {
     try {
-      const [prodRes, histRes] = await Promise.all([
-        productApi.getById(id),
-        productApi.getHistory(id)
-      ]);
+      const nextData = await loadProductDetails(productId);
       setData({
-        product: prodRes.data,
-        history: histRes.data.history,
+        product: nextData.product,
+        history: nextData.history,
         loading: false
       });
     } catch (err) {
-      console.error("Failed to load product details", err);
+      console.error('Failed to refresh product details', err);
       setData(prev => ({ ...prev, loading: false }));
     }
-  }, [id]);
+  }, [loadProductDetails]);
 
   useEffect(() => {
-    fetchProductDetails();
-  }, [fetchProductDetails]);
+    let isCancelled = false;
+
+    const run = async () => {
+      try {
+        const nextData = await loadProductDetails(id);
+        if (isCancelled) return;
+        setData({
+          product: nextData.product,
+          history: nextData.history,
+          loading: false
+        });
+      } catch (err) {
+        if (isCancelled) return;
+        console.error("Failed to load product details", err);
+        setData(prev => ({ ...prev, loading: false }));
+      }
+    };
+
+    run();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [id, loadProductDetails]);
 
   const handleTrackingChange = useCallback((field, value) => {
     setTrackingState(prev => ({
@@ -70,7 +101,7 @@ export default function ProductDetail() {
     setTrackingState(prev => ({ ...prev, loading: true }));
     try {
       await productApi.addTracking(id, trackingState.data);
-      await fetchProductDetails();
+      await refreshProductDetails(id);
       setTrackingState({
         showForm: false,
         loading: false,
@@ -80,7 +111,7 @@ export default function ProductDetail() {
       console.error('Failed to add tracking event', err);
       setTrackingState(prev => ({ ...prev, loading: false }));
     }
-  }, [id, trackingState.data, fetchProductDetails]);
+  }, [id, trackingState.data, refreshProductDetails]);
 
   const handleAddCert = useCallback(async (e) => {
     e.preventDefault();
@@ -89,7 +120,7 @@ export default function ProductDetail() {
     setCertState(prev => ({ ...prev, loading: true }));
     try {
       await productApi.addCertification(id, certState.data);
-      await fetchProductDetails();
+      await refreshProductDetails(id);
       setCertState({
         showForm: false,
         loading: false,
@@ -99,7 +130,7 @@ export default function ProductDetail() {
       console.error('Failed to add certification', err);
       setCertState(prev => ({ ...prev, loading: false }));
     }
-  }, [id, certState.data, fetchProductDetails]);
+  }, [id, certState.data, refreshProductDetails]);
 
   if (data.loading) {
     return (
@@ -123,7 +154,7 @@ export default function ProductDetail() {
   const { product, history } = data;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-8">
       <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
         <ArrowLeft className="w-4 h-4" /> Back
       </Link>
@@ -210,7 +241,7 @@ export default function ProductDetail() {
 
       {/* Tracking Form */}
       {trackingState.showForm && (
-        <div className="glass p-6 rounded-2xl border border-orange-500/20 animate-fade-in">
+        <div className="glass p-6 rounded-2xl border border-orange-500/20 overflow-hidden">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Truck className="w-5 h-5 text-orange-400" /> New Tracking Event
           </h3>
@@ -260,7 +291,7 @@ export default function ProductDetail() {
 
       {/* Certification Form */}
       {certState.showForm && (
-        <div className="glass p-6 rounded-2xl border border-yellow-500/20 animate-fade-in">
+        <div className="glass p-6 rounded-2xl border border-yellow-500/20 overflow-hidden">
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-yellow-400" /> New Certification
           </h3>

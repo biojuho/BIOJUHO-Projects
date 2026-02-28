@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../services/api';
 
 /**
@@ -28,7 +28,7 @@ import api from '../services/api';
  * @property {DealMatch[]} matches
  * @property {boolean} isLoadingMatches
  * @property {DealMatch | null} activeDetail
- * @property {(vc: VCFirm) => void} selectVc
+ * @property {(vc: VCFirm | null) => void} selectVc
  * @property {(match: DealMatch) => void} openDetail
  * @property {() => void} closeDetail
  */
@@ -40,6 +40,7 @@ export function useVCDashboard() {
     const [matches, setMatches] = useState(/** @type {DealMatch[]} */ ([]));
     const [isLoadingMatches, setIsLoadingMatches] = useState(false);
     const [activeDetail, setActiveDetail] = useState(/** @type {DealMatch | null} */ (null));
+    const lastRequestId = useRef(0);
 
     useEffect(() => {
         api.get('/vc/list')
@@ -47,15 +48,31 @@ export function useVCDashboard() {
             .catch(err => console.error('Failed to fetch VC list:', err));
     }, []);
 
-    useEffect(() => {
-        if (!selectedVc) return;
+    const selectVc = useCallback((vc) => {
+        setSelectedVc(vc);
+        const requestId = lastRequestId.current + 1;
+        lastRequestId.current = requestId;
+
+        if (!vc) {
+            setMatches([]);
+            setIsLoadingMatches(false);
+            return;
+        }
 
         setIsLoadingMatches(true);
-        api.get(`/vc/recommendations/${selectedVc.id}`)
-            .then(res => setMatches(res.data))
+        api.get(`/vc/recommendations/${vc.id}`)
+            .then(res => {
+                if (lastRequestId.current === requestId) {
+                    setMatches(res.data);
+                }
+            })
             .catch(err => console.error('Failed to fetch VC matches:', err))
-            .finally(() => setIsLoadingMatches(false));
-    }, [selectedVc]);
+            .finally(() => {
+                if (lastRequestId.current === requestId) {
+                    setIsLoadingMatches(false);
+                }
+            });
+    }, []);
 
     return {
         vcList,
@@ -63,7 +80,7 @@ export function useVCDashboard() {
         matches,
         isLoadingMatches,
         activeDetail,
-        selectVc: setSelectedVc,
+        selectVc,
         openDetail: setActiveDetail,
         closeDetail: () => setActiveDetail(null),
     };

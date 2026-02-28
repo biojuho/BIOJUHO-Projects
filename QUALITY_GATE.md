@@ -13,6 +13,7 @@ Run from repository root:
 
 ```bash
 python scripts/run_workspace_smoke.py --scope all
+python scripts/run_workspace_smoke.py --scope workspace
 python scripts/run_workspace_smoke.py --scope desci
 python scripts/run_workspace_smoke.py --scope agriguard
 python scripts/run_workspace_smoke.py --scope mcp
@@ -26,6 +27,8 @@ The PR gate includes only checks that are deterministic and reproducible without
 - `desci`
   - frontend: lint, `build:lts`, bundle budget
   - biolinker: smoke pytest
+- `workspace`
+  - regression tests: `tests/test_workspace_regressions.py`
 - `agriguard`
   - frontend: lint, `build:lts`
   - backend: python compile smoke

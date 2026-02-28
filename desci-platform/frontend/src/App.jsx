@@ -20,6 +20,7 @@ const VCDashboard = lazy(() => import('./components/VCDashboard'));
 const Notices = lazy(() => import('./components/Notices'));
 const AILab = lazy(() => import('./components/AILab'));
 const PeerReview = lazy(() => import('./components/PeerReview'));
+const UploadPaper = lazy(() => import('./components/UploadPaper'));
 
 function RouteFallback() {
   return (
@@ -95,13 +96,14 @@ function AnimatedRoutes() {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<PageTransition><Dashboard /></PageTransition>} />
             <Route path="/biolinker" element={<PageTransition><BioLinker /></PageTransition>} />
-            <Route path="/upload" element={<PageTransition><AssetManager /></PageTransition>} />
+            <Route path="/upload" element={<PageTransition><UploadPaper /></PageTransition>} />
             <Route path="/wallet" element={<PageTransition><Wallet /></PageTransition>} />
             <Route path="/mylab" element={<PageTransition><MyLab /></PageTransition>} />
             <Route path="/vc-portal" element={<PageTransition><VCDashboard /></PageTransition>} />
             <Route path="/notices" element={<PageTransition><Notices /></PageTransition>} />
             <Route path="/ai-lab" element={<PageTransition><AILab /></PageTransition>} />
             <Route path="/peer-review" element={<PageTransition><PeerReview /></PageTransition>} />
+            <Route path="/assets" element={<PageTransition><AssetManager /></PageTransition>} />
           </Route>
 
           {/* Default redirect */}

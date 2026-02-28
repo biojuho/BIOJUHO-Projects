@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Activity, Package, ShieldCheck, Thermometer, AlertTriangle, CheckCircle2, TrendingUp, MapPin } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import api from '../../services/api';
 
 export default function Dashboard() {
@@ -36,8 +37,12 @@ export default function Dashboard() {
   const originDist = data?.origin_distribution || {};
   const statusEntries = Object.entries(statusDist).sort((a, b) => b[1] - a[1]);
   const originEntries = Object.entries(originDist).sort((a, b) => b[1] - a[1]);
-  const maxStatus = Math.max(...statusEntries.map(([, v]) => v), 1);
-  const maxOrigin = Math.max(...originEntries.map(([, v]) => v), 1);
+  // Data mapping for Recharts
+  const statusChartData = statusEntries.map(([name, value]) => ({ name, value }));
+  const originChartData = originEntries.map(([name, value]) => ({ name, value }));
+  
+  // Aesthetically pleasing color palette for PieChart
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#f43f5e'];
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -100,21 +105,28 @@ export default function Dashboard() {
               추적 이벤트가 없습니다
             </div>
           ) : (
-            <div className="space-y-3">
-              {statusEntries.map(([status, count]) => (
-                <div key={status}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-slate-600">{status}</span>
-                    <span className="text-slate-400">{count}건</span>
-                  </div>
-                  <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-700"
-                      style={{ width: `${(count / maxStatus) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+            <div className="h-64 mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusChartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13 }} width={80} />
+                  <Tooltip 
+                    cursor={{fill: '#f8fafc'}}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Bar dataKey="value" fill="#10b981" radius={[0, 6, 6, 0]} barSize={24}>
+                    {statusChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={'url(#colorGradient)'} />
+                    ))}
+                  </Bar>
+                  <defs>
+                    <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#34d399" />
+                      <stop offset="100%" stopColor="#14b8a6" />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )}
         </div>
@@ -130,21 +142,29 @@ export default function Dashboard() {
               제품이 없습니다
             </div>
           ) : (
-            <div className="space-y-3">
-              {originEntries.map(([origin, count]) => (
-                <div key={origin}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-slate-600">{origin}</span>
-                    <span className="text-slate-400">{count}개</span>
-                  </div>
-                  <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full transition-all duration-700"
-                      style={{ width: `${(count / maxOrigin) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+            <div className="h-64 mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={originChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {originChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
+                    itemStyle={{ color: '#334155', fontWeight: 500 }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           )}
         </div>
