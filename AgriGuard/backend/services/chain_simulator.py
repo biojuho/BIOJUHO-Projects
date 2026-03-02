@@ -22,6 +22,7 @@ class ChainSimulator:
         self.account = self.w3.eth.account.from_key(LOCAL_PRIVATE_KEY)
 
         self.contract_abi = [
+            # logEvent(string, string) - backward compatible
             {
                 "inputs": [
                     { "internalType": "string", "name": "_productId", "type": "string" },
@@ -32,6 +33,30 @@ class ChainSimulator:
                 "stateMutability": "nonpayable",
                 "type": "function"
             },
+            # logEventWithHandler(string, string, address)
+            {
+                "inputs": [
+                    { "internalType": "string", "name": "_productId", "type": "string" },
+                    { "internalType": "string", "name": "_dataHash", "type": "string" },
+                    { "internalType": "address", "name": "_handler", "type": "address" }
+                ],
+                "name": "logEventWithHandler",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            # batchLogEvents(string[], string[])
+            {
+                "inputs": [
+                    { "internalType": "string[]", "name": "_productIds", "type": "string[]" },
+                    { "internalType": "string[]", "name": "_dataHashes", "type": "string[]" }
+                ],
+                "name": "batchLogEvents",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            # getProduct(string) returns Product - now includes handler field
             {
                 "inputs": [
                     { "internalType": "string", "name": "_productId", "type": "string" }
@@ -43,7 +68,8 @@ class ChainSimulator:
                             { "internalType": "string", "name": "productId", "type": "string" },
                             { "internalType": "address", "name": "owner", "type": "address" },
                             { "internalType": "string", "name": "dataHash", "type": "string" },
-                            { "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+                            { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+                            { "internalType": "address", "name": "handler", "type": "address" }
                         ],
                         "internalType": "struct AgriGuard.Product",
                         "name": "",
@@ -53,6 +79,7 @@ class ChainSimulator:
                 "stateMutability": "view",
                 "type": "function"
             },
+            # ProductVerified event (legacy, backward compatible)
             {
                 "anonymous": False,
                 "inputs": [
@@ -62,6 +89,29 @@ class ChainSimulator:
                     { "indexed": False, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
                 ],
                 "name": "ProductVerified",
+                "type": "event"
+            },
+            # ProductTracked event (new, with indexed fields)
+            {
+                "anonymous": False,
+                "inputs": [
+                    { "indexed": True, "internalType": "string", "name": "productId", "type": "string" },
+                    { "indexed": True, "internalType": "address", "name": "owner", "type": "address" },
+                    { "indexed": False, "internalType": "address", "name": "handler", "type": "address" },
+                    { "indexed": False, "internalType": "string", "name": "dataHash", "type": "string" },
+                    { "indexed": False, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+                ],
+                "name": "ProductTracked",
+                "type": "event"
+            },
+            # BatchLogged event
+            {
+                "anonymous": False,
+                "inputs": [
+                    { "indexed": True, "internalType": "address", "name": "caller", "type": "address" },
+                    { "indexed": False, "internalType": "uint256", "name": "count", "type": "uint256" }
+                ],
+                "name": "BatchLogged",
                 "type": "event"
             }
         ]
@@ -118,7 +168,7 @@ class ChainSimulator:
         if self.is_web3_active:
             try:
                 prod = self.contract.functions.getProduct(product_id).call()
-                # prod = (productId, owner, dataHash, timestamp)
+                # prod = (productId, owner, dataHash, timestamp, handler)
                 # If timestamp > 0, we consider it verified
                 return prod[3] > 0
             except Exception as e:

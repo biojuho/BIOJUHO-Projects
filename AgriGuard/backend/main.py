@@ -10,6 +10,7 @@ import models
 import schemas
 from database import SessionLocal, engine
 from services.chain_simulator import get_chain
+from auth import get_current_user
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -130,7 +131,7 @@ def get_supply_chain_summary(db: Session = Depends(get_db)):
 
 
 @app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     db_user = models.User(
         id=str(uuid.uuid4()),
         created_at=datetime.utcnow(),
@@ -145,7 +146,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/products/", response_model=schemas.Product)
-def create_product(product: schemas.ProductCreate, owner_id: str, db: Session = Depends(get_db)):
+def create_product(product: schemas.ProductCreate, owner_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     product_id = str(uuid.uuid4())
     get_chain().log_event(product_id, {"action": "REGISTER", "owner": owner_id})
 
@@ -190,7 +191,7 @@ def get_product_history(product_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/products/{product_id}/certifications", response_model=schemas.Product)
-def add_certification(product_id: str, cert_type: str, issued_by: str, db: Session = Depends(get_db)):
+def add_certification(product_id: str, cert_type: str, issued_by: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -220,7 +221,7 @@ def add_certification(product_id: str, cert_type: str, issued_by: str, db: Sessi
 
 
 @app.post("/products/{product_id}/track")
-def add_tracking_event(product_id: str, status: str, location: str, handler_id: str, db: Session = Depends(get_db)):
+def add_tracking_event(product_id: str, status: str, location: str, handler_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
