@@ -291,7 +291,10 @@ class PipelineStateStore:
 
 
 def _notion_error_details(exc: BaseException) -> str:
-    return f"{type(exc).__name__}: {exc}"
+    details = f"{type(exc).__name__}: {exc}"
+    if hasattr(exc, "body"):
+        details += f" | Body: {exc.body}"
+    return details
 
 
 async def create_notion_page_with_retry(

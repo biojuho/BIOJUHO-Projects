@@ -3,7 +3,7 @@ notion-client
 feedparser
 httpx
 python-dateutil
-google-generativeai
+google-genai
 anthropic
 pytrends
 pandas

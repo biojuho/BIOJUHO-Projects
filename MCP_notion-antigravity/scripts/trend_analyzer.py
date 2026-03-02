@@ -4,7 +4,7 @@ import asyncio
 import requests
 import feedparser
 from datetime import datetime
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 # Load Environment Variables
@@ -12,17 +12,17 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Configuration
-REGION = "KR" 
+REGION = "KR"
+MODEL_NAME = "gemini-2.0-flash"
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "trends")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Initialize Gemini
 if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    client = genai.Client(api_key=GOOGLE_API_KEY)
 else:
     print("[ERR] GOOGLE_API_KEY missing. AI filtering disabled.")
-    model = None
+    client = None
 
 def fetch_google_trends_rss():
     """Fetch trending searches using Google Trends RSS (No pandas required)"""
@@ -50,31 +50,33 @@ def fetch_google_trends_rss():
 
 async def filter_trends(keywords):
     """Filter out people/entertainment, keep only Business/Tech/Economy"""
-    if not model or not keywords:
+    if not client or not keywords:
         return keywords
 
     print(f"AI Filtering {len(keywords)} trends...")
     prompt = f"""
-    Analyze the following list of search terms. 
+    Analyze the following list of search terms.
     Filter OUT any terms related to:
     - Specific Celebrities / Entertainers / K-Pop
     - Politicians / Scandals
     - Sports players
     - TV Shows / Movies / Games
-    
+
     KEEP only terms related to:
     - Business / Corporate News
     - Economy / Finance / Crypto
     - Technology / IT / Science
     - Industry Trends / Policies
-    
+
     Input List: {json.dumps(keywords)}
-    
+
     Return ONLY a JSON array of kept keywords. Example: ["Bitcoin", "Samsung"]
     """
-    
+
     try:
-        response = await model.generate_content_async(prompt)
+        response = await client.aio.models.generate_content(
+            model=MODEL_NAME, contents=prompt
+        )
         text = response.text.strip()
         # Clean markdown code blocks if present
         if text.startswith("```"):

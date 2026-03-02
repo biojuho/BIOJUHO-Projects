@@ -67,6 +67,9 @@ CANVA_REFRESH_TOKEN = os.getenv("CANVA_REFRESH_TOKEN", "").strip()
 CANVA_REDIRECT_URI = os.getenv("CANVA_REDIRECT_URI", "http://127.0.0.1:8080/oauth/callback").strip()
 CANVA_ENABLED = _env_bool("CANVA_ENABLED", bool(CANVA_CLIENT_ID and CANVA_CLIENT_SECRET))
 
+# Agent Skill Integration (X Radar + Opinion Generator -> X post drafts)
+SKILL_INTEGRATION_ENABLED = _env_bool("SKILL_INTEGRATION_ENABLED", False)
+
 PIPELINE_STATE_DB = DATA_DIR / "pipeline_state.db"
 SCHEDULER_LOG_PATH = LOG_DIR / "scheduler.log"
 NEWS_SOURCES_FILE = CONFIG_DIR / "news_sources.json"

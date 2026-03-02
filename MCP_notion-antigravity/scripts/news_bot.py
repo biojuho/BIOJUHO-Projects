@@ -32,6 +32,7 @@ from settings import (
     OUTPUT_DIR,
     PIPELINE_MAX_CONCURRENCY,
     PROJECT_ROOT,
+    SKILL_INTEGRATION_ENABLED,
 )
 
 
@@ -72,10 +73,9 @@ def load_summarizer():
     if not GOOGLE_API_KEY:
         return None
     try:
-        import google.generativeai as genai
+        from google import genai
 
-        genai.configure(api_key=GOOGLE_API_KEY)
-        return genai.GenerativeModel("gemini-2.0-flash")
+        return genai.Client(api_key=GOOGLE_API_KEY)
     except Exception:
         return None
 
@@ -145,19 +145,38 @@ def load_sentiment_analyzer(logger):
         return None
 
 
-async def summarize_article(title: str, content: str, model: Any, logger) -> str:
-    if model is None:
+def load_skill_integrator(logger):
+    if not SKILL_INTEGRATION_ENABLED:
+        logger.info("bootstrap", "skipped", "skill integration disabled (set SKILL_INTEGRATION_ENABLED=true to enable)")
+        return None
+    try:
+        import skill_integrator
+        logger.info("bootstrap", "success", "skill integrator loaded")
+        return skill_integrator
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "skill integrator unavailable", error=str(exc))
+        return None
+
+
+async def summarize_article(title: str, content: str, client: Any, logger) -> str:
+    if client is None:
         return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
 
     prompt = (
-        "Summarize the following tech/economic news article in 3 bullet points (Korean).\n"
-        "Focus on facts and impact.\n\n"
+        "Analyze the following tech/economic news article and provide a structured summary in Korean.\n"
+        "Format your summary exactly as follows (use bullet points):\n"
+        "- [핵심 사실]: (A concise 1-2 sentence summary of the main event/fact)\n"
+        "- [시장 파급력]: (How this impacts the market, industry, or consumers)\n"
+        "- [미래 전망]: (What to watch out for next or future implications)\n\n"
         f"Title: {title}\n"
         f"Content: {(content or '')[:2000]}"
     )
 
     try:
-        response = await run_with_timeout(model.generate_content_async(prompt), 20)
+        response = await run_with_timeout(
+            client.aio.models.generate_content(model="gemini-2.0-flash", contents=prompt),
+            30,
+        )
         return getattr(response, "text", None) or (content or "")[:300]
     except Exception as exc:
         logger.warning("summary", "failed", "summarization failed; using fallback", error=str(exc), title=title[:80])
@@ -301,7 +320,15 @@ def build_children(
                         {
                             "object": "block",
                             "type": "paragraph",
-                            "paragraph": {"rich_text": [{"text": {"content": f"[{article.get('sentiment', 'NEUTRAL')}] Topics: {', '.join(article.get('topics', []))}", "annotations": {"code": True, "color": "blue"}}}]},
+                            "paragraph": {
+                                "rich_text": [
+                                    {
+                                        "type": "text",
+                                        "text": {"content": f"[{article.get('sentiment', 'NEUTRAL')}] Topics: {', '.join(article.get('topics', []))}"},
+                                        "annotations": {"bold": True}
+                                    }
+                                ]
+                            },
                         },
                         {
                             "object": "block",
@@ -321,12 +348,13 @@ async def process_category(
     category: str,
     feeds: list[dict[str, str]],
     notion: AsyncClient,
-    model: Any,
+    genai_client: Any,
     brain: Any,
     x_radar: Any,
     market_data: Any,
     canva: Any,
     sentiment_analyzer: Any,
+    skill_integrator: Any,
     state: PipelineStateStore,
     logger,
     run_id: str,
@@ -359,7 +387,7 @@ async def process_category(
                     continue
 
                 content = getattr(entry, "summary", "") or getattr(entry, "description", "") or ""
-                summary = await summarize_article(getattr(entry, "title", "Untitled"), content, model, logger)
+                summary = await summarize_article(getattr(entry, "title", "Untitled"), content, genai_client, logger)
 
                 sentiment_label = "NEUTRAL"
                 topics = []
@@ -469,6 +497,25 @@ async def process_category(
             canva_result=canva_result,
         )
 
+        # Aggregate sentiments and topics across the collected articles
+        # This will be stored at the Notion Page level metadata.
+        all_topics = []
+        sentiments = []
+        for article in articles:
+            all_topics.extend(article.get("topics", []))
+            sent_val = article.get("sentiment", "NEUTRAL")
+            if sent_val not in ["NEUTRAL", "Unknown"]:
+                sentiments.append(sent_val)
+
+        # Basic majority vote for overall page sentiment
+        overall_sentiment = "NEUTRAL"
+        if sentiments:
+            from collections import Counter
+            overall_sentiment = Counter(sentiments).most_common(1)[0][0]
+
+        # Deduplicate entities (top 5 max for Notion multi-select limit)
+        top_entities = list(set([t for t in all_topics if t != "Unknown"]))[:5]
+
         page = await create_notion_page_with_retry(
             notion_client=notion,
             parent={"database_id": ANTIGRAVITY_TASKS_DB_ID},
@@ -477,6 +524,8 @@ async def process_category(
                 "Date": {"date": {"start": datetime.now().isoformat()}},
                 "Type": {"select": {"name": "News"}},
                 "Priority": {"select": {"name": "High"}},
+                "Sentiment": {"select": {"name": overall_sentiment}},
+                "Entities": {"multi_select": [{"name": entity} for entity in top_entities]},
             },
             children=children,
             logger=logger,
@@ -486,6 +535,25 @@ async def process_category(
         page_id = page.get("id")
         for article in articles:
             state.record_article(link=article["link"], source=article["source"], notion_page_id=page_id, run_id=run_id)
+
+        # --- Skill Integration: auto-generate X post drafts ---
+        if skill_integrator is not None and page_id and analysis:
+            try:
+                opinion_result = await run_with_timeout(
+                    skill_integrator.generate_opinion_post(analysis, category),
+                    60,
+                )
+                x_draft_blocks = skill_integrator.build_x_draft_blocks(opinion_result)
+                if x_draft_blocks:
+                    await run_with_timeout(
+                        notion.blocks.children.append(block_id=page_id, children=x_draft_blocks),
+                        15,
+                    )
+                    logger.info("skills", "success", "x post draft appended to notion page", category=category)
+                else:
+                    logger.info("skills", "skipped", "opinion generator returned no usable content", category=category)
+            except Exception as exc:
+                logger.warning("skills", "failed", "x post draft generation failed (non-blocking)", category=category, error=str(exc))
 
         logger.info("category", "success", "category uploaded", category=category, articles=len(articles), page_id=page_id)
         result: dict[str, Any] = {"category": category, "status": "success", "articles": len(articles)}
@@ -514,12 +582,13 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
         return 1
 
     notion = AsyncClient(auth=NOTION_API_KEY)
-    model = load_summarizer()
+    genai_client = load_summarizer()
     brain = load_brain(logger)
     x_radar = load_x_radar(logger)
     market_data = load_market_data(logger)
     canva = load_canva(logger)
     sentiment_analyzer = load_sentiment_analyzer(logger)
+    skill_integrator_mod = load_skill_integrator(logger)
     summary = {"categories_success": 0, "categories_failed": 0, "categories_skipped": 0, "articles": 0}
 
     try:
@@ -531,12 +600,13 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
                     category=category,
                     feeds=feeds,
                     notion=notion,
-                    model=model,
+                    genai_client=genai_client,
                     brain=brain,
                     x_radar=x_radar,
                     market_data=market_data,
                     canva=canva,
                     sentiment_analyzer=sentiment_analyzer,
+                    skill_integrator=skill_integrator_mod,
                     state=state,
                     logger=logger,
                     run_id=run_id,
