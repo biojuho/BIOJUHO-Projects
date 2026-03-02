@@ -27,8 +27,11 @@ COUNTRY_MAP = {
 
 @dataclass
 class AppConfig:
-    # Claude API
+    # LLM API (fallback 순서: Anthropic → Gemini → Grok → OpenAI)
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
+    grok_api_key: str = ""
+    openai_api_key: str = ""
     claude_model: str = "claude-sonnet-4-20250514"
     claude_model_scoring: str = "claude-3-haiku-20240307"
 
@@ -83,6 +86,9 @@ class AppConfig:
     def from_env(cls) -> "AppConfig":
         return cls(
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
+            gemini_api_key=os.getenv("GOOGLE_API_KEY", os.getenv("GEMINI_API_KEY", "")),
+            grok_api_key=os.getenv("XAI_API_KEY", ""),
+            openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             claude_model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
             claude_model_scoring=os.getenv("CLAUDE_MODEL_SCORING", "claude-3-haiku-20240307"),
             notion_token=os.getenv("NOTION_TOKEN", ""),

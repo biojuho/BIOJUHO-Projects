@@ -10,16 +10,17 @@ import sqlite3
 import time
 from datetime import datetime, timedelta
 
-import anthropic
-
 from config import AppConfig
+from llm_client import LLMClient
 from models import MultiSourceContext, RawTrend, ScoredTrend, TrendCluster, TrendSource
 
 log = logging.getLogger(__name__)
 
 
-def _robust_json_parse(text: str) -> dict | None:
+def _robust_json_parse(text: str | None) -> dict | None:
     """마크다운 코드블록 제거 + trailing comma 수정 후 JSON 파싱."""
+    if not text:
+        return None
     text = text.strip()
     text = re.sub(r"^```(?:json)?\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
@@ -68,10 +69,10 @@ def score_trend(
     keyword: str,
     context: MultiSourceContext,
     volume: str,
-    client: anthropic.Anthropic,
+    client: LLMClient,
     model: str = "claude-3-haiku-20240307",
 ) -> ScoredTrend:
-    """Claude로 단일 트렌드 바이럴 스코어링."""
+    """LLM 기반 단일 트렌드 바이럴 스코어링."""
     prompt = SCORING_PROMPT_TEMPLATE.format(
         keyword=keyword,
         volume=volume,
@@ -79,12 +80,12 @@ def score_trend(
     )
 
     try:
-        response = client.messages.create(
+        response = client.create(
             model=model,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         )
-        raw_text = response.content[0].text
+        raw_text = response.text
         parsed = _robust_json_parse(raw_text)
 
         if not parsed:
@@ -151,7 +152,7 @@ def _parse_json_array(text: str) -> list | None:
 def cluster_trends(
     raw_trends: list[RawTrend],
     contexts: dict[str, MultiSourceContext],
-    client: anthropic.Anthropic,
+    client: LLMClient,
     model: str = "claude-3-haiku-20240307",
 ) -> tuple[list[RawTrend], dict[str, MultiSourceContext], list[TrendCluster]]:
     """
@@ -166,12 +167,12 @@ def cluster_trends(
     prompt = CLUSTERING_PROMPT.format(keywords="\n".join(f"- {k}" for k in keywords))
 
     try:
-        response = client.messages.create(
+        response = client.create(
             model=model,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         )
-        parsed = _parse_json_array(response.content[0].text)
+        parsed = _parse_json_array(response.text)
     except Exception as e:
         log.warning(f"클러스터링 API 실패, 스킵: {e}")
         parsed = None
@@ -244,7 +245,12 @@ def analyze_trends(
     전체 트렌드 스코어링 후 viral_potential 내림차순 정렬.
     enable_clustering이면 유사 트렌드를 먼저 그루핑.
     """
-    client = anthropic.Anthropic(api_key=config.anthropic_api_key)
+    client = LLMClient(
+        anthropic_key=config.anthropic_api_key,
+        gemini_key=config.gemini_api_key,
+        grok_key=config.grok_api_key,
+        openai_key=config.openai_api_key,
+    )
 
     # 클러스터링
     clusters = []

@@ -292,8 +292,9 @@ def save_to_notion(
 
     if batch.thread:
         thread_text = "\n---\n".join(batch.thread.tweets)
+        # Notion은 UTF-16 코드 유닛 기준 2000자 제한 (이모지=2유닛)
         properties["쓰레드"] = {
-            "rich_text": [{"text": {"content": thread_text[:2000]}}]
+            "rich_text": [{"text": {"content": thread_text[:1900]}}]
         }
 
     # 이미지 가져오기

@@ -22,7 +22,6 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-import anthropic
 import schedule
 
 from alerts import check_and_alert
@@ -30,6 +29,7 @@ from analyzer import analyze_trends, detect_trend_patterns
 from config import AppConfig
 from db import get_connection, get_trend_stats, init_db, save_run, update_run
 from generator import generate_for_trend
+from llm_client import LLMClient
 from models import RunResult
 from scraper import collect_trends
 from storage import save
@@ -181,7 +181,12 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
 
     # Step 4: 트윗/쓰레드 생성 + 저장
     print("\n[3/4] 트윗 생성 중...")
-    client = anthropic.Anthropic(api_key=config.anthropic_api_key)
+    client = LLMClient(
+        anthropic_key=config.anthropic_api_key,
+        gemini_key=getattr(config, 'gemini_api_key', ''),
+        grok_key=getattr(config, 'grok_api_key', ''),
+        openai_key=getattr(config, 'openai_api_key', ''),
+    )
     success_count = 0
 
     for i, trend in enumerate(scored_trends):
