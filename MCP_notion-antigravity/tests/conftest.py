@@ -9,12 +9,18 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
+SRC_DIR = PROJECT_ROOT / "src"
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+
+from antigravity_mcp.config import get_settings
 
 
 @pytest.fixture
@@ -36,3 +42,10 @@ def load_script_module(monkeypatch, tmp_path):
         return module, runtime
 
     return _load
+
+
+@pytest.fixture(autouse=True)
+def reset_cached_settings():
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()

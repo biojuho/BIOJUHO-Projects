@@ -186,7 +186,7 @@ async def process_category(
     max_items: int,
     notion: AsyncClient,
     brain: Any,
-    canva: Any,
+    canva: Any = None,
     logger,
     today_str: str,
     window_name: str,

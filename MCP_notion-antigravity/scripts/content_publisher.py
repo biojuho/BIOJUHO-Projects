@@ -16,7 +16,7 @@ from runtime import (
     generate_run_id,
     get_logger,
 )
-from settings import ANTIGRAVITY_TASKS_DB_ID, NOTION_API_KEY
+from settings import NOTION_API_KEY, NOTION_REPORTS_DATABASE_ID
 from telegram_notifier import send_telegram_message
 
 
@@ -36,10 +36,10 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
         state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
         send_telegram_message("❌ <b>Content Publisher Failed</b>\nNOTION_API_KEY is missing in `.env`.")
         return 1
-    if not ANTIGRAVITY_TASKS_DB_ID:
-        logger.error("bootstrap", "failed", "ANTIGRAVITY_TASKS_DB_ID missing")
-        state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_TASKS_DB_ID missing")
-        send_telegram_message("❌ <b>Content Publisher Failed</b>\nANTIGRAVITY_TASKS_DB_ID is missing in `.env`.")
+    if not NOTION_REPORTS_DATABASE_ID:
+        logger.error("bootstrap", "failed", "NOTION_REPORTS_DATABASE_ID missing")
+        state.record_job_finish(run_id, status="failed", error_text="NOTION_REPORTS_DATABASE_ID missing")
+        send_telegram_message("❌ <b>Content Publisher Failed</b>\nNOTION_REPORTS_DATABASE_ID is missing in `.env`.")
         return 1
     if not file_path.exists():
         logger.error("input", "failed", "report file missing", path=file_path)
@@ -63,12 +63,10 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
 
             page = await create_notion_page_with_retry(
                 notion_client=notion,
-                parent={"database_id": ANTIGRAVITY_TASKS_DB_ID},
+                parent={"database_id": NOTION_REPORTS_DATABASE_ID},
                 properties={
                     "Name": {"title": [{"text": {"content": title}}]},
-                    "Date": {"date": {"start": datetime.now().isoformat()}},
-                    "Type": {"select": {"name": "News"}},
-                    "Priority": {"select": {"name": "High"}},
+                    "Date": {"date": {"start": datetime.now().date().isoformat()}},
                 },
                 children=children[:100],
                 logger=logger,
@@ -76,8 +74,7 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
             )
             state.record_job_finish(run_id, status="success", summary={"blocks": len(children), "page_id": page.get("id")})
             logger.info("complete", "success", "content published", page_id=page.get("id"), blocks=len(children))
-            
-            # Send Success Telegram Notification
+
             page_url = page.get("url", "No URL available")
             success_msg = (
                 f"✅ <b>Content Published Successfully</b>\n\n"
@@ -86,7 +83,6 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
                 f"<a href='{page_url}'>View on Notion</a>"
             )
             send_telegram_message(success_msg)
-            
             return 0
     except AlreadyRunningError:
         logger.warning("lock", "skipped", "job already running")

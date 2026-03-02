@@ -1,0 +1,17 @@
+{
+  "x": {
+    "enabled": true,
+    "approval_required": true,
+    "mode": "draft"
+  },
+  "canva": {
+    "enabled": true,
+    "approval_required": true,
+    "mode": "draft"
+  },
+  "telegram": {
+    "enabled": false,
+    "approval_required": false,
+    "mode": "notify"
+  }
+}

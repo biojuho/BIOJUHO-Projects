@@ -1,76 +1,60 @@
 from __future__ import annotations
 
-import os
+import sys
 from pathlib import Path
-
-from dotenv import load_dotenv
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-DATA_DIR = PROJECT_ROOT / "data"
-LOG_DIR = PROJECT_ROOT / "logs"
-OUTPUT_DIR = PROJECT_ROOT / "output"
-CONFIG_DIR = PROJECT_ROOT / "config"
-ENV_PATH = PROJECT_ROOT / ".env"
+SRC_DIR = PROJECT_ROOT / "src"
 
-load_dotenv(ENV_PATH)
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-for directory in (DATA_DIR, LOG_DIR, OUTPUT_DIR, CONFIG_DIR):
-    directory.mkdir(parents=True, exist_ok=True)
+from antigravity_mcp.config import get_settings
 
 
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
+_SETTINGS = get_settings()
 
+DATA_DIR = _SETTINGS.data_dir
+LOG_DIR = _SETTINGS.log_dir
+OUTPUT_DIR = _SETTINGS.output_dir
+CONFIG_DIR = _SETTINGS.config_dir
+ENV_PATH = _SETTINGS.env_path
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+NOTION_API_KEY = _SETTINGS.notion_api_key
+NOTION_API_VERSION = _SETTINGS.notion_api_version
+NOTION_TASKS_DATABASE_ID = _SETTINGS.notion_tasks_database_id
+NOTION_TASKS_DATA_SOURCE_ID = _SETTINGS.notion_tasks_data_source_id
+NOTION_REPORTS_DATABASE_ID = _SETTINGS.notion_reports_database_id
+NOTION_REPORTS_DATA_SOURCE_ID = _SETTINGS.notion_reports_data_source_id
+NOTION_DASHBOARD_PAGE_ID = _SETTINGS.notion_dashboard_page_id
 
+GOOGLE_API_KEY = _SETTINGS.google_api_key
+ANTHROPIC_API_KEY = _SETTINGS.anthropic_api_key
+OPENAI_API_KEY = _SETTINGS.openai_api_key
 
-NOTION_API_KEY = os.getenv("NOTION_API_KEY", "").strip()
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-GOOGLE_API_KEY = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+ANTIGRAVITY_TASKS_DB_ID = NOTION_TASKS_DATABASE_ID
+ANTIGRAVITY_NEWS_DB_ID = NOTION_REPORTS_DATABASE_ID
+DASHBOARD_PAGE_ID = NOTION_DASHBOARD_PAGE_ID
 
-ANTIGRAVITY_TASKS_DB_ID = (
-    os.getenv("ANTIGRAVITY_TASKS_DB_ID")
-    or os.getenv("ANTIGRAVITY_DB_ID")
-    or "bb5cf3c8-d2bb-4b8b-a866-ba9ea86f16b7"
-).strip()
-ANTIGRAVITY_NEWS_DB_ID = (
-    os.getenv("ANTIGRAVITY_NEWS_DB_ID")
-    or "9a372e84-8883-421f-8725-d90a494aca5a"
-).strip()
-DASHBOARD_PAGE_ID = os.getenv("DASHBOARD_PAGE_ID", "").strip()
+PIPELINE_HTTP_TIMEOUT_SEC = _SETTINGS.pipeline_http_timeout_sec
+PIPELINE_MAX_RETRIES = _SETTINGS.pipeline_max_retries
+PIPELINE_MAX_CONCURRENCY = _SETTINGS.pipeline_max_concurrency
+PIPELINE_LOCK_TIMEOUT_SEC = _SETTINGS.pipeline_lock_timeout_sec
+PIPELINE_LOG_LEVEL = _SETTINGS.pipeline_log_level
+AUTO_PUSH_ENABLED = _SETTINGS.auto_push_enabled
+DEFAULT_RESEARCH_TOPIC = "Agentic AI Trends"
 
-PIPELINE_HTTP_TIMEOUT_SEC = _env_int("PIPELINE_HTTP_TIMEOUT_SEC", 15)
-PIPELINE_MAX_RETRIES = _env_int("PIPELINE_MAX_RETRIES", 3)
-PIPELINE_MAX_CONCURRENCY = _env_int("PIPELINE_MAX_CONCURRENCY", 3)
-PIPELINE_LOCK_TIMEOUT_SEC = _env_int("PIPELINE_LOCK_TIMEOUT_SEC", 7200)
-PIPELINE_LOG_LEVEL = os.getenv("PIPELINE_LOG_LEVEL", "INFO").strip().upper()
-AUTO_PUSH_ENABLED = _env_bool("AUTO_PUSH_ENABLED", False)
-DEFAULT_RESEARCH_TOPIC = os.getenv("DEFAULT_RESEARCH_TOPIC", "Agentic AI Trends").strip()
+CANVA_CLIENT_ID = _SETTINGS.canva_client_id
+CANVA_CLIENT_SECRET = _SETTINGS.canva_client_secret
+CANVA_REFRESH_TOKEN = _SETTINGS.canva_refresh_token
+CANVA_REDIRECT_URI = "http://127.0.0.1:8080/oauth/callback"
+CANVA_ENABLED = bool(CANVA_CLIENT_ID and CANVA_CLIENT_SECRET)
 
-# Canva Connect API
-CANVA_CLIENT_ID = os.getenv("CANVA_CLIENT_ID", "").strip()
-CANVA_CLIENT_SECRET = os.getenv("CANVA_CLIENT_SECRET", "").strip()
-CANVA_REFRESH_TOKEN = os.getenv("CANVA_REFRESH_TOKEN", "").strip()
-CANVA_REDIRECT_URI = os.getenv("CANVA_REDIRECT_URI", "http://127.0.0.1:8080/oauth/callback").strip()
-CANVA_ENABLED = _env_bool("CANVA_ENABLED", bool(CANVA_CLIENT_ID and CANVA_CLIENT_SECRET))
+SKILL_INTEGRATION_ENABLED = False
 
-# Agent Skill Integration (X Radar + Opinion Generator -> X post drafts)
-SKILL_INTEGRATION_ENABLED = _env_bool("SKILL_INTEGRATION_ENABLED", False)
-
-PIPELINE_STATE_DB = DATA_DIR / "pipeline_state.db"
+PIPELINE_STATE_DB = _SETTINGS.pipeline_state_db
 SCHEDULER_LOG_PATH = LOG_DIR / "scheduler.log"
-NEWS_SOURCES_FILE = CONFIG_DIR / "news_sources.json"
+NEWS_SOURCES_FILE = _SETTINGS.news_sources_file
 DASHBOARD_CONFIG_FILE = CONFIG_DIR / "dashboard_config.json"

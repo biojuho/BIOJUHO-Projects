@@ -5,7 +5,6 @@ import asyncio
 import json
 import re
 from datetime import date
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -25,6 +24,8 @@ from settings import (
     DASHBOARD_CONFIG_FILE,
     DASHBOARD_PAGE_ID,
     NOTION_API_KEY,
+    NOTION_API_VERSION,
+    NOTION_TASKS_DATA_SOURCE_ID,
     PIPELINE_HTTP_TIMEOUT_SEC,
 )
 
@@ -63,7 +64,7 @@ async def get_or_create_dashboard(notion: AsyncClient, logger) -> str:
             "Type": {"select": {"name": "Dashboard"}},
             "Date": {"date": {"start": date.today().isoformat()}},
         },
-        icon={"emoji": "📰"},
+        icon={"emoji": "🛰"},
     )
     page_id = new_page["id"]
     save_config(page_id)
@@ -73,10 +74,12 @@ async def get_or_create_dashboard(notion: AsyncClient, logger) -> str:
 
 async def query_todays_articles(logger) -> list[dict[str, Any]]:
     today_str = date.today().isoformat()
-    url = f"https://api.notion.com/v1/databases/{ANTIGRAVITY_TASKS_DB_ID}/query"
+    query_id = NOTION_TASKS_DATA_SOURCE_ID or ANTIGRAVITY_TASKS_DB_ID
+    query_kind = "data_sources" if NOTION_TASKS_DATA_SOURCE_ID else "databases"
+    url = f"https://api.notion.com/v1/{query_kind}/{query_id}/query"
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
-        "Notion-Version": "2022-06-28",
+        "Notion-Version": NOTION_API_VERSION,
         "Content-Type": "application/json",
     }
     payload = {
@@ -105,7 +108,6 @@ def summarize_categories(articles: list[dict[str, Any]]) -> tuple[int, str]:
         match = re.search(r"\[(.*?)\]", title)
         category = match.group(1) if match else "Uncategorized"
         categories[category] = categories.get(category, 0) + 1
-
     summary = " | ".join(f"{name}: {count}" for name, count in sorted(categories.items()))
     return len(articles), summary or "No category data"
 

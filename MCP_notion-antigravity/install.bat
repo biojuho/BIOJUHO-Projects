@@ -1,11 +1,28 @@
 @echo off
-echo [INFO] Antigravity Notion MCP 설치를 시작합니다...
-echo [STEP 1] 가상환경(venv) 생성 중...
-python -m venv venv
+setlocal
 
-echo [STEP 2] 필수 라이브러리 설치 중...
-venv\Scripts\pip install -r requirements.txt
+cd /d "%~dp0"
 
-echo [SUCCESS] 설치가 완료되었습니다! 
-echo 이제 'run_server.bat'를 실행하거나 Claude Desktop에 등록하세요.
-pause
+echo [INFO] Preparing Antigravity Content Engine environment...
+
+if not exist venv (
+    echo [STEP 1] Creating virtual environment...
+    python -m venv venv
+) else (
+    echo [STEP 1] Reusing existing virtual environment...
+)
+
+call venv\Scripts\activate
+
+if exist requirements-dev.txt (
+    echo [STEP 2] Installing project and development dependencies...
+    pip install -r requirements-dev.txt
+) else (
+    echo [STEP 2] Installing runtime dependencies...
+    pip install -r requirements.txt
+)
+
+echo [SUCCESS] Environment is ready.
+echo Use "run_server.bat" to start the MCP server.
+
+endlocal

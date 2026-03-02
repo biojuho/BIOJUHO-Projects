@@ -18,7 +18,13 @@ from runtime import (
     generate_run_id,
     get_logger,
 )
-from settings import ANTIGRAVITY_NEWS_DB_ID, NOTION_API_KEY, PIPELINE_HTTP_TIMEOUT_SEC
+from settings import (
+    ANTIGRAVITY_NEWS_DB_ID,
+    NOTION_API_KEY,
+    NOTION_API_VERSION,
+    NOTION_REPORTS_DATA_SOURCE_ID,
+    PIPELINE_HTTP_TIMEOUT_SEC,
+)
 
 
 RSS_FEEDS = {
@@ -32,10 +38,12 @@ async def get_existing_urls(database_id: str, api_key: str, logger) -> set[str]:
     existing_urls: set[str] = set()
     has_more = True
     next_cursor: str | None = None
-    url = f"https://api.notion.com/v1/databases/{database_id}/query"
+    query_id = NOTION_REPORTS_DATA_SOURCE_ID or database_id
+    query_kind = "data_sources" if NOTION_REPORTS_DATA_SOURCE_ID else "databases"
+    url = f"https://api.notion.com/v1/{query_kind}/{query_id}/query"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Notion-Version": "2022-06-28",
+        "Notion-Version": NOTION_API_VERSION,
         "Content-Type": "application/json",
     }
 

@@ -1,5 +1,6 @@
 python-dotenv
 notion-client
+mcp
 feedparser
 httpx
 python-dateutil
@@ -12,4 +13,7 @@ tweepy
 matplotlib
 seaborn
 numpy
+wordcloud
 yfinance
+streamlit
+plotly
