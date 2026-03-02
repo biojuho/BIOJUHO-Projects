@@ -1,5 +1,5 @@
 """
-getdaytrends v2.0 - Data Models
+getdaytrends v2.1 - Data Models
 모든 모듈에서 사용하는 공유 데이터 구조 정의.
 """
 
@@ -71,10 +71,19 @@ class ScoredTrend:
 
 
 @dataclass
+class TrendCluster:
+    """의미적으로 유사한 트렌드 그룹."""
+    representative: str
+    members: list[str] = field(default_factory=list)
+    merged_context: Optional[MultiSourceContext] = None
+
+
+@dataclass
 class GeneratedTweet:
-    """생성된 단일 트윗."""
+    """생성된 단일 트윗/포스트."""
     tweet_type: str
     content: str
+    content_type: str = "short"  # "short" (280자) | "long" (X Premium+) | "threads" (Meta Threads)
     char_count: int = 0
 
     def __post_init__(self):
@@ -93,6 +102,8 @@ class TweetBatch:
     """하나의 트렌드에 대한 전체 생성 결과."""
     topic: str
     tweets: list[GeneratedTweet] = field(default_factory=list)
+    long_posts: list[GeneratedTweet] = field(default_factory=list)
+    threads_posts: list[GeneratedTweet] = field(default_factory=list)
     thread: Optional[GeneratedThread] = None
     viral_score: int = 0
     generated_at: datetime = field(default_factory=datetime.now)

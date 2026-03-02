@@ -205,6 +205,57 @@ def _build_notion_body(
                 },
             })
 
+    # X Premium+ 장문 포스트
+    if batch.long_posts:
+        blocks.append({"object": "block", "type": "divider", "divider": {}})
+        blocks.append({
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {
+                "rich_text": [{"type": "text", "text": {"content": "📝 X Premium+ 장문 포스트"}}],
+            },
+        })
+        for post in batch.long_posts:
+            blocks.append({
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {
+                    "rich_text": [{"type": "text", "text": {"content": f"📄 {post.tweet_type} ({post.char_count}자)"}}],
+                },
+            })
+            # Notion 블록은 2000자 제한 → 분할
+            content = post.content
+            while content:
+                chunk, content = content[:2000], content[2000:]
+                blocks.append({
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": chunk}}],
+                    },
+                })
+
+    # Meta Threads 콘텐츠
+    if batch.threads_posts:
+        blocks.append({"object": "block", "type": "divider", "divider": {}})
+        blocks.append({
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {
+                "rich_text": [{"type": "text", "text": {"content": "🧵 Threads 콘텐츠"}}],
+            },
+        })
+        for post in batch.threads_posts:
+            blocks.append({
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "📱"},
+                    "rich_text": [{"type": "text", "text": {"content": f"[{post.tweet_type}]\n{post.content}"}}],
+                    "color": "purple_background",
+                },
+            })
+
     return blocks
 
 
@@ -345,10 +396,18 @@ def save_to_sqlite(
         for tweet in batch.tweets:
             save_tweet(conn, tweet, trend_row_id, run_id, saved_to_list)
 
+        # 장문 포스트 저장
+        for post in batch.long_posts:
+            save_tweet(conn, post, trend_row_id, run_id, saved_to_list)
+
+        # Threads 포스트 저장
+        for post in batch.threads_posts:
+            save_tweet(conn, post, trend_row_id, run_id, saved_to_list)
+
         if batch.thread:
             save_thread(conn, batch.thread, trend_row_id, run_id)
 
-        log.info(f"SQLite 저장 완료: '{batch.topic}' (트윗 {len(batch.tweets)}개)")
+        log.info(f"SQLite 저장 완료: '{batch.topic}' (단문 {len(batch.tweets)} + 장문 {len(batch.long_posts)} + Threads {len(batch.threads_posts)})")
         return True
     except Exception as e:
         log.error(f"SQLite 저장 실패: {e}")

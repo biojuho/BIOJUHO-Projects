@@ -1,10 +1,11 @@
 """
 =======================================================
-  X(Twitter) 트렌드 자동 트윗 생성기 v2.0
-  - 멀티소스 트렌드 수집 (getdaytrends + X API + Reddit + News)
-  - Claude AI 바이럴 스코어링 + 5종 트윗/쓰레드 생성
+  X(Twitter) 트렌드 자동 트윗 생성기 v2.1
+  - 멀티소스 트렌드 병렬 수집 + 클러스터링
+  - Claude AI 바이럴 스코어링
+  - 5종 단문 + Premium+ 장문 + Threads + 강화 쓰레드
   - Notion / Google Sheets / SQLite 자동 저장
-  - Telegram / Discord 고바이럴 트렌드 알림
+  - 스마트 스케줄링 + 야간 슬립
 =======================================================
 """
 
@@ -42,7 +43,7 @@ log = logging.getLogger(__name__)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="X 트렌드 자동 트윗 생성기 v2.0",
+        description="X 트렌드 자동 트윗 생성기 v2.1",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--country", default=None, help="국가 코드 (korea, us, japan 등)")
@@ -78,10 +79,10 @@ def setup_logging(verbose: bool = False) -> None:
 
 def print_banner():
     print("""
-╔═══════════════════════════════════════════════════════╗
-║  X 트렌드 자동 트윗 생성기 v2.0                      ║
-║  Multi-Source × Viral Scoring × Claude AI × Auto Save ║
-╚═══════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════╗
+║  X 트렌드 자동 트윗 생성기 v2.1                          ║
+║  Parallel × Clustering × Premium+ × Threads × Smart Sched ║
+╚═══════════════════════════════════════════════════════════╝
 """)
 
 
@@ -97,19 +98,34 @@ def print_config_summary(config: AppConfig):
     if config.discord_webhook_url:
         alerts_info.append("Discord")
 
+    features = []
+    if config.enable_clustering:
+        features.append("클러스터링")
+    if config.enable_long_form:
+        features.append(f"Premium+ 장문(≥{config.long_form_min_score}점)")
+    if config.enable_threads:
+        features.append("Threads")
+    if config.smart_schedule:
+        features.append("스마트 스케줄")
+    if config.night_mode:
+        features.append("야간 슬립(02-07시)")
+
     print(f"""
   설정 요약
   ─────────────────────────────────
   국가         : {config.country}
   트렌드 수    : {config.limit}개
+  중복 제외    : {config.dedupe_window_hours}시간 이내 처리 키워드
   저장 방식    : {config.storage_type.upper()}
   실행 간격    : {config.schedule_minutes}분
   톤앤매너     : {config.tone}
   데이터 소스  : {', '.join(sources)}
+  병렬 워커    : {config.max_workers}개
   알림 채널    : {', '.join(alerts_info) or '없음'}
   알림 임계값  : {config.alert_threshold}점
   스코어링 모델: {config.claude_model_scoring}
   생성 모델    : {config.claude_model}
+  v2.1 기능    : {', '.join(features) or '없음'}
 """)
 
 
@@ -130,7 +146,7 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
 
     # Step 1: 멀티소스 트렌드 수집
     print("\n[1/4] 멀티소스 트렌드 수집 중...")
-    raw_trends, contexts = collect_trends(config)
+    raw_trends, contexts = collect_trends(config, conn)
     run.trends_collected = len(raw_trends)
     print(f"  수집 완료: {len(raw_trends)}개 트렌드")
 
@@ -176,12 +192,16 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
             run.errors.append(f"생성 실패: {trend.keyword}")
             continue
 
-        run.tweets_generated += len(batch.tweets)
+        run.tweets_generated += len(batch.tweets) + len(batch.long_posts) + len(batch.threads_posts)
 
         # 미리보기
         for t in batch.tweets:
             preview = t.content[:50] + "..." if len(t.content) > 50 else t.content
             print(f"    [{t.tweet_type}] {preview}")
+        if batch.long_posts:
+            print(f"    [Premium+ 장문] {len(batch.long_posts)}편")
+        if batch.threads_posts:
+            print(f"    [Threads] {len(batch.threads_posts)}편")
         if batch.thread:
             print(f"    [쓰레드] {len(batch.thread.tweets)}개 트윗")
 
@@ -190,7 +210,7 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
         ok = save(batch, trend, run_row_id, config, conn)
         if ok:
             success_count += 1
-            run.tweets_saved += len(batch.tweets)
+            run.tweets_saved += len(batch.tweets) + len(batch.long_posts) + len(batch.threads_posts)
 
         # API rate limit 방지
         if i < len(scored_trends) - 1:
@@ -203,8 +223,25 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
     print(f"\n{separator}")
     print(f"  완료: {success_count}/{len(scored_trends)}개 저장")
     print(f"  소요: {elapsed:.1f}초")
-    if not config.one_shot:
+
+    # 스마트 스케줄링: 핫 트렌드 감지 시 다음 실행 앞당김
+    if config.smart_schedule and not config.one_shot:
+        hot = [t for t in scored_trends
+               if t.viral_potential >= 90
+               and any(c in t.trend_acceleration for c in ("+3", "+4", "+5", "급상승"))]
+        if hot:
+            fast_interval = max(config.schedule_minutes // 4, 15)
+            print(f"  핫 트렌드 {len(hot)}건 감지 → 다음 실행 {fast_interval}분 후")
+            schedule.clear()
+            schedule.every(fast_interval).minutes.do(run_pipeline, config, conn)
+        else:
+            # 핫 트렌드 없으면 기본 간격으로 복원
+            schedule.clear()
+            schedule.every(config.schedule_minutes).minutes.do(run_pipeline, config, conn)
+            print(f"  다음 실행: {config.schedule_minutes}분 후")
+    elif not config.one_shot:
         print(f"  다음 실행: {config.schedule_minutes}분 후")
+
     print(separator)
 
     return run
@@ -296,10 +333,24 @@ def main():
     # 스케줄 등록
     schedule.every(config.schedule_minutes).minutes.do(run_pipeline, config, conn)
     print(f"\n  스케줄러 가동 중... ({config.schedule_minutes}분마다)")
+    if config.night_mode:
+        print("  야간 슬립: 02:00~07:00 자동 대기")
     print("  중단: Ctrl+C\n")
 
     try:
         while True:
+            # 야간 슬립: 02:00~07:00 사이 실행 건너뜀
+            if config.night_mode:
+                now_hour = datetime.now().hour
+                if 2 <= now_hour < 7:
+                    wake_at = datetime.now().replace(hour=7, minute=0, second=0, microsecond=0)
+                    sleep_seconds = (wake_at - datetime.now()).total_seconds()
+                    if sleep_seconds > 0:
+                        log.info(f"야간 슬립: 07:00까지 {sleep_seconds/60:.0f}분 대기")
+                        print(f"  야간 슬립 중... (07:00 기상, {sleep_seconds/60:.0f}분 후)")
+                        time.sleep(sleep_seconds)
+                        continue
+
             schedule.run_pending()
             time.sleep(30)
     except KeyboardInterrupt:

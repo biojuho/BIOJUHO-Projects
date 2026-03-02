@@ -1,6 +1,7 @@
 """
-getdaytrends v2.0 - Multi-Source Trend Collection
+getdaytrends v2.1 - Multi-Source Trend Collection
 getdaytrends.com + Twitter API + Reddit + Google News RSS.
+병렬 수집 지원 (ThreadPoolExecutor).
 """
 
 import json
@@ -9,6 +10,7 @@ import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from bs4 import BeautifulSoup
@@ -227,30 +229,94 @@ def fetch_google_news_trends(keyword: str) -> str:
 
 def collect_trends(
     config: AppConfig,
+    conn=None,
 ) -> tuple[list[RawTrend], dict[str, MultiSourceContext]]:
     """
     전체 수집 파이프라인:
-    1. getdaytrends.com 스크래핑 → 트렌드 이름 + 볼륨
-    2. 각 트렌드에 대해 Twitter, Reddit, Google News 컨텍스트 수집
+    1. getdaytrends.com 스크래핑 → 트렌드 이름 + 볼륨 (여유 수집)
+    2. 최근 N시간 처리된 중복 키워드 제거
+    3. 각 트렌드에 대해 Twitter, Reddit, Google News 컨텍스트 수집
     """
+    from db import get_recently_processed_keywords
+
     country_slug = config.resolve_country_slug()
-    raw_trends = fetch_getdaytrends(country_slug, limit=config.limit)
 
-    contexts: dict[str, MultiSourceContext] = {}
+    # 여유 있게 수집한 뒤 중복 제거 후 limit 개 확보
+    fetch_size = config.limit + 10
+    all_trends = fetch_getdaytrends(country_slug, limit=fetch_size)
 
-    for trend in raw_trends:
-        keyword = trend.name
-        log.info(f"  멀티소스 수집: '{keyword}'")
+    # 중복 필터: DB가 연결된 경우에만 적용
+    if conn is not None:
+        seen = get_recently_processed_keywords(conn, hours=config.dedupe_window_hours)
+        fresh = [t for t in all_trends if t.name not in seen]
+        # 필터 후 0개면 중복 허용 (빈 실행 방지)
+        if fresh:
+            log.info(f"중복 제거: {len(all_trends)}개 → {len(fresh)}개 (제외: {len(all_trends) - len(fresh)}개)")
+            all_trends = fresh
+        else:
+            log.warning(f"모든 트렌드가 {config.dedupe_window_hours}시간 내 처리됨 → 중복 허용")
 
-        twitter = fetch_twitter_trends(keyword, config.twitter_bearer_token)
-        reddit = fetch_reddit_trends(keyword)
-        news = fetch_google_news_trends(keyword)
+    raw_trends = all_trends[: config.limit]
 
-        contexts[keyword] = MultiSourceContext(
-            twitter_insight=twitter,
-            reddit_insight=reddit,
-            news_insight=news,
-        )
+    contexts = _collect_contexts_parallel(raw_trends, config)
 
     log.info(f"멀티소스 수집 완료: {len(raw_trends)}개 트렌드, {len(contexts)}개 컨텍스트")
     return raw_trends, contexts
+
+
+# ══════════════════════════════════════════════════════
+#  Parallel Context Collection
+# ══════════════════════════════════════════════════════
+
+def _fetch_single_source(
+    keyword: str,
+    source_name: str,
+    bearer_token: str = "",
+) -> tuple[str, str, str]:
+    """단일 소스 수집. (keyword, source_name, result_text) 반환."""
+    try:
+        if source_name == "twitter":
+            return keyword, source_name, fetch_twitter_trends(keyword, bearer_token)
+        elif source_name == "reddit":
+            return keyword, source_name, fetch_reddit_trends(keyword)
+        else:
+            return keyword, source_name, fetch_google_news_trends(keyword)
+    except Exception as e:
+        log.warning(f"소스 수집 실패 ({source_name}/{keyword}): {e}")
+        return keyword, source_name, f"[{source_name} 오류] {keyword}"
+
+
+def _collect_contexts_parallel(
+    raw_trends: list[RawTrend],
+    config: AppConfig,
+) -> dict[str, MultiSourceContext]:
+    """ThreadPoolExecutor로 전체 트렌드 × 3소스 병렬 수집."""
+    sources = ["twitter", "reddit", "news"]
+    results: dict[str, dict[str, str]] = {t.name: {} for t in raw_trends}
+
+    with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
+        futures = {}
+        for trend in raw_trends:
+            for source in sources:
+                future = executor.submit(
+                    _fetch_single_source,
+                    trend.name,
+                    source,
+                    config.twitter_bearer_token,
+                )
+                futures[future] = (trend.name, source)
+
+        for future in as_completed(futures):
+            keyword, source, text = future.result()
+            results[keyword][source] = text
+            log.debug(f"  병렬 수집 완료: '{keyword}' [{source}]")
+
+    contexts: dict[str, MultiSourceContext] = {}
+    for keyword, source_data in results.items():
+        contexts[keyword] = MultiSourceContext(
+            twitter_insight=source_data.get("twitter", ""),
+            reddit_insight=source_data.get("reddit", ""),
+            news_insight=source_data.get("news", ""),
+        )
+
+    return contexts

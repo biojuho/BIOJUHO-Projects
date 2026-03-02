@@ -1,6 +1,6 @@
 """
-getdaytrends v2.0 - Viral Scoring & Trend Analysis
-Claude를 활용한 바이럴 포텐셜 스코어링 + 히스토리 패턴 감지.
+getdaytrends v2.1 - Viral Scoring & Trend Analysis
+Claude를 활용한 바이럴 포텐셜 스코어링 + 히스토리 패턴 감지 + 트렌드 클러스터링.
 """
 
 import json
@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import anthropic
 
 from config import AppConfig
-from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
+from models import MultiSourceContext, RawTrend, ScoredTrend, TrendCluster, TrendSource
 
 log = logging.getLogger(__name__)
 
@@ -119,6 +119,122 @@ def _default_scored_trend(keyword: str, context: MultiSourceContext) -> ScoredTr
     )
 
 
+CLUSTERING_PROMPT = """다음 트렌드 키워드 목록에서 의미적으로 유사한 키워드를 그루핑해주세요.
+각 그룹에서 가장 대표적인 키워드 하나를 representative로 선택하세요.
+단독 키워드는 자기 자신만 members에 넣으세요.
+
+키워드 목록:
+{keywords}
+
+JSON 배열로만 응답 (마크다운 백틱 없이):
+[
+  {{"representative": "대표 키워드", "members": ["키워드1", "키워드2"]}},
+  {{"representative": "단독 키워드", "members": ["단독 키워드"]}}
+]"""
+
+
+def _parse_json_array(text: str) -> list | None:
+    """JSON 배열 파싱 (마크다운 코드블록 제거)."""
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+    m = re.search(r"\[.*\]", text, re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return None
+
+
+def cluster_trends(
+    raw_trends: list[RawTrend],
+    contexts: dict[str, MultiSourceContext],
+    client: anthropic.Anthropic,
+    model: str = "claude-3-haiku-20240307",
+) -> tuple[list[RawTrend], dict[str, MultiSourceContext], list[TrendCluster]]:
+    """
+    트렌드 클러스터링: 유사 키워드 그루핑 후 대표만 남김.
+    대표 키워드의 컨텍스트에 멤버 컨텍스트 병합.
+    """
+    if len(raw_trends) <= 2:
+        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
+        return raw_trends, contexts, clusters
+
+    keywords = [t.name for t in raw_trends]
+    prompt = CLUSTERING_PROMPT.format(keywords="\n".join(f"- {k}" for k in keywords))
+
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        parsed = _parse_json_array(response.content[0].text)
+    except Exception as e:
+        log.warning(f"클러스터링 API 실패, 스킵: {e}")
+        parsed = None
+
+    if not parsed:
+        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
+        return raw_trends, contexts, clusters
+
+    # 클러스터 구성
+    clusters: list[TrendCluster] = []
+    representative_names: set[str] = set()
+    trend_map = {t.name: t for t in raw_trends}
+
+    for group in parsed:
+        rep = group.get("representative", "")
+        members = group.get("members", [rep])
+        # 대표가 실제 키워드에 있는지 확인
+        if rep not in trend_map:
+            valid = [m for m in members if m in trend_map]
+            rep = valid[0] if valid else ""
+        if not rep:
+            continue
+
+        # 멤버 컨텍스트 병합
+        merged_twitter, merged_reddit, merged_news = [], [], []
+        for m in members:
+            ctx = contexts.get(m, MultiSourceContext())
+            if ctx.twitter_insight and "오류" not in ctx.twitter_insight:
+                merged_twitter.append(ctx.twitter_insight)
+            if ctx.reddit_insight and "없음" not in ctx.reddit_insight:
+                merged_reddit.append(ctx.reddit_insight)
+            if ctx.news_insight and "없음" not in ctx.news_insight:
+                merged_news.append(ctx.news_insight)
+
+        merged_ctx = MultiSourceContext(
+            twitter_insight="\n".join(merged_twitter) if merged_twitter else contexts.get(rep, MultiSourceContext()).twitter_insight,
+            reddit_insight="\n".join(merged_reddit) if merged_reddit else contexts.get(rep, MultiSourceContext()).reddit_insight,
+            news_insight="\n".join(merged_news) if merged_news else contexts.get(rep, MultiSourceContext()).news_insight,
+        )
+        contexts[rep] = merged_ctx
+
+        clusters.append(TrendCluster(representative=rep, members=members, merged_context=merged_ctx))
+        representative_names.add(rep)
+
+    # 대표 키워드만 남긴 raw_trends 재구성
+    filtered = [t for t in raw_trends if t.name in representative_names]
+
+    # 클러스터에 포함 안 된 키워드도 보존
+    clustered_all = set()
+    for c in clusters:
+        clustered_all.update(c.members)
+    for t in raw_trends:
+        if t.name not in clustered_all:
+            filtered.append(t)
+            clusters.append(TrendCluster(representative=t.name, members=[t.name]))
+
+    merged_count = sum(len(c.members) for c in clusters if len(c.members) > 1)
+    if merged_count:
+        log.info(f"클러스터링: {len(raw_trends)}개 → {len(filtered)}개 (병합 {merged_count}개 키워드)")
+
+    return filtered, contexts, clusters
+
+
 def analyze_trends(
     raw_trends: list[RawTrend],
     contexts: dict[str, MultiSourceContext],
@@ -126,9 +242,17 @@ def analyze_trends(
 ) -> list[ScoredTrend]:
     """
     전체 트렌드 스코어링 후 viral_potential 내림차순 정렬.
-    저비용 모델(Haiku) 사용.
+    enable_clustering이면 유사 트렌드를 먼저 그루핑.
     """
     client = anthropic.Anthropic(api_key=config.anthropic_api_key)
+
+    # 클러스터링
+    clusters = []
+    if config.enable_clustering:
+        raw_trends, contexts, clusters = cluster_trends(
+            raw_trends, contexts, client, config.claude_model_scoring,
+        )
+
     scored: list[ScoredTrend] = []
 
     for i, trend in enumerate(raw_trends):

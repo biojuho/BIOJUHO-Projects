@@ -61,9 +61,19 @@ class AppConfig:
     discord_webhook_url: str = ""
     alert_threshold: int = 70
 
+    # v2.1 기능 플래그
+    enable_clustering: bool = True
+    enable_long_form: bool = True
+    enable_threads: bool = True
+    smart_schedule: bool = True
+    night_mode: bool = True
+    long_form_min_score: int = 70
+    max_workers: int = 6
+
     # Runtime options (CLI overrides)
     country: str = "korea"
-    limit: int = 5
+    limit: int = 10
+    dedupe_window_hours: int = 3
     one_shot: bool = False
     dry_run: bool = False
     verbose: bool = False
@@ -88,8 +98,16 @@ class AppConfig:
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
             discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL", ""),
             alert_threshold=int(os.getenv("ALERT_THRESHOLD", "70")),
+            enable_clustering=os.getenv("ENABLE_CLUSTERING", "true").lower() == "true",
+            enable_long_form=os.getenv("ENABLE_LONG_FORM", "true").lower() == "true",
+            enable_threads=os.getenv("ENABLE_THREADS", "true").lower() == "true",
+            smart_schedule=os.getenv("SMART_SCHEDULE", "true").lower() == "true",
+            night_mode=os.getenv("NIGHT_MODE", "true").lower() == "true",
+            long_form_min_score=int(os.getenv("LONG_FORM_MIN_SCORE", "70")),
+            max_workers=int(os.getenv("MAX_WORKERS", "6")),
             country=os.getenv("DEFAULT_COUNTRY", "korea"),
-            limit=int(os.getenv("DEFAULT_LIMIT", "5")),
+            limit=int(os.getenv("DEFAULT_LIMIT", "10")),
+            dedupe_window_hours=int(os.getenv("DEDUPE_WINDOW_HOURS", "3")),
         )
 
     def validate(self) -> list[str]:
