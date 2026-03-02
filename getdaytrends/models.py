@@ -14,6 +14,7 @@ class TrendSource(Enum):
     TWITTER = "twitter"
     REDDIT = "reddit"
     GOOGLE_NEWS = "google_news"
+    GOOGLE_TRENDS = "google_trends"
 
 
 class TweetStatus(Enum):
