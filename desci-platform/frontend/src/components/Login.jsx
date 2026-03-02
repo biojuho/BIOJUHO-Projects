@@ -9,9 +9,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import Button from './ui/Button';
 import Input from './ui/Input';
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { Dna, ArrowRight } from 'lucide-react';
+
+const MotionDiv = motion.div;
+const MotionButton = motion.button;
+const MotionForm = motion.form;
+const MotionP = motion.p;
 
 export default function Login() {
     const [isSignUp, setIsSignUp] = useState(false);
@@ -77,7 +81,7 @@ export default function Login() {
             </div>
 
             {/* Login Card */}
-            <motion.div
+            <MotionDiv
                 initial={{ opacity: 0, y: 30, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
@@ -92,7 +96,7 @@ export default function Login() {
 
                         {/* Header */}
                         <header className="text-center mb-10">
-                            <motion.div
+                            <MotionDiv
                                 initial={{ scale: 0.5, opacity: 0, rotate: -180 }}
                                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
                                 transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
@@ -102,9 +106,9 @@ export default function Login() {
                                 <div className="absolute inset-0 rounded-2xl animate-glow-pulse"
                                      style={{ background: 'radial-gradient(circle, rgba(0, 212, 170, 0.2), transparent 70%)' }} />
                                 <Dna className="w-10 h-10 text-primary relative z-10" aria-hidden="true" />
-                            </motion.div>
+                            </MotionDiv>
 
-                            <motion.div
+                            <MotionDiv
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.3, duration: 0.5 }}
@@ -118,11 +122,11 @@ export default function Login() {
                                         ? 'Join the decentralized science network'
                                         : 'Welcome back to the future of science'}
                                 </p>
-                            </motion.div>
+                            </MotionDiv>
                         </header>
 
                         {/* Google Login */}
-                        <motion.button
+                        <MotionButton
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.4 }}
@@ -144,10 +148,10 @@ export default function Login() {
                             </svg>
                             <span>Continue with Google</span>
                             <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-60 group-hover:translate-x-0 transition-all duration-300" />
-                        </motion.button>
+                        </MotionButton>
 
                         {/* Divider */}
-                        <motion.div
+                        <MotionDiv
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.5 }}
@@ -157,10 +161,10 @@ export default function Login() {
                             <div className="flex-1 neural-line"></div>
                             <span className="px-4 text-secondary text-xs uppercase tracking-[0.15em] font-medium">Or with email</span>
                             <div className="flex-1 neural-line"></div>
-                        </motion.div>
+                        </MotionDiv>
 
                         {/* Email Form */}
-                        <motion.form
+                        <MotionForm
                             initial={{ y: 20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.6 }}
@@ -197,10 +201,10 @@ export default function Login() {
                             >
                                 {isSignUp ? 'Create Account' : 'Sign In'}
                             </Button>
-                        </motion.form>
+                        </MotionForm>
 
                         {/* Toggle Sign Up / Login */}
-                        <motion.p
+                        <MotionP
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.7 }}
@@ -214,20 +218,20 @@ export default function Login() {
                             >
                                 {isSignUp ? 'Sign In' : 'Sign Up'}
                             </button>
-                        </motion.p>
+                        </MotionP>
                     </div>
                 </div>
 
                 {/* Tagline below card */}
-                <motion.p
+                <MotionP
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1, duration: 1 }}
                     className="text-center text-white/20 text-xs mt-6 tracking-widest uppercase font-display"
                 >
                     Decentralized Science Protocol
-                </motion.p>
-            </motion.div>
+                </MotionP>
+            </MotionDiv>
         </div>
     );
 }

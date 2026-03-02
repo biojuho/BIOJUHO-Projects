@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, Globe, TrendingUp, ChevronRight } from 'lucide-react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api'; // Ensure this path is correct based on project structure
+
+const MotionDiv = motion.div;
 
 export default function VCMatchList() {
     const [matches, setMatches] = useState([]);
@@ -50,7 +51,7 @@ export default function VCMatchList() {
         <div className="space-y-4">
             <AnimatePresence>
                 {matches.map((vc, index) => (
-                    <motion.div
+                    <MotionDiv
                         key={vc.id || index}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -100,7 +101,7 @@ export default function VCMatchList() {
                                 </button>
                             </div>
                         </div>
-                    </motion.div>
+                    </MotionDiv>
                 ))}
             </AnimatePresence>
         </div>

@@ -1,5 +1,7 @@
-import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+
+const MotionDiv = motion.div;
 import { useEffect, useCallback } from 'react';
 
 const toastVariants = {
@@ -75,7 +77,7 @@ export default function Toast({
     return (
         <AnimatePresence>
             {message && (
-                <motion.div
+                <MotionDiv
                     role="alert"
                     aria-live={type === 'error' ? 'assertive' : 'polite'}
                     aria-atomic="true"
@@ -125,7 +127,7 @@ export default function Toast({
                     >
                         <X className="w-4 h-4 text-white/70" aria-hidden="true" />
                     </button>
-                </motion.div>
+                </MotionDiv>
             )}
         </AnimatePresence>
     );

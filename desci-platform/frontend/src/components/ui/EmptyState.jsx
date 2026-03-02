@@ -2,9 +2,10 @@
  * EmptyState Component
  * Reusable empty state with icon, title, description, and action
  */
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { FileX, Search, Inbox, AlertCircle, Plus } from 'lucide-react';
+
+const MotionDiv = motion.div;
 import GlassCard from './GlassCard';
 import Button from './Button';
 
@@ -34,7 +35,7 @@ const EmptyState = ({
 
   return (
     <GlassCard className={`text-center ${compact ? 'py-8 px-6' : 'py-16 px-8'} ${className}`}>
-      <motion.div
+      <MotionDiv
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
@@ -84,7 +85,7 @@ const EmptyState = ({
             )}
           </div>
         )}
-      </motion.div>
+      </MotionDiv>
     </GlassCard>
   );
 };

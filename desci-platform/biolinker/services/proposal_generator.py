@@ -71,56 +71,6 @@ Critically analyze the draft above. Provide your response in the following forma
 Language: Korean (Use professional R&D terminology).
 """
 
-REVIEW_SYSTEM_PROMPT = """You are an expert Scientific Grant Reviewer.
-Your task is to critically analyze a grant proposal draft based on the original Request for Proposal (RFP) and the Research Paper submitted.
-Provide a concise, constructive critique consisting of strengths, weaknesses, and actionable improvements.
-"""
-
-REVIEW_USER_PROMPT = """
-[RFP Title]
-{rfp_title}
-
-[Research Paper Abstract]
-{paper_abstract}
-
-[Draft Proposal to Review]
-{draft}
-
-[Task]
-Critically analyze the draft above. Provide your response in the following format:
-### 🧐 AI Peer Review (비판적 검토)
-- **Strengths (강점)**: ...
-- **Weaknesses (약점)**: ...
-- **Actionable Improvements (개선 방향)**: ...
-
-Language: Korean (Use professional R&D terminology).
-"""
-
-REVIEW_SYSTEM_PROMPT = """You are an expert Scientific Grant Reviewer.
-Your task is to critically analyze a grant proposal draft based on the original Request for Proposal (RFP) and the Research Paper submitted.
-Provide a concise, constructive critique consisting of strengths, weaknesses, and actionable improvements.
-"""
-
-REVIEW_USER_PROMPT = """
-[RFP Title]
-{rfp_title}
-
-[Research Paper Abstract]
-{paper_abstract}
-
-[Draft Proposal to Review]
-{draft}
-
-[Task]
-Critically analyze the draft above. Provide your response in the following format:
-### 🧐 AI Peer Review (비판적 검토)
-- **Strengths (강점)**: ...
-- **Weaknesses (약점)**: ...
-- **Actionable Improvements (개선 방향)**: ...
-
-Language: Korean (Use professional R&D terminology).
-"""
-
 
 LIT_REVIEW_SYSTEM_PROMPT = """You are an expert Literature Reviewer.
 Your task is to synthesize a compelling literature review abstract based on a provided research paper and an RFP.

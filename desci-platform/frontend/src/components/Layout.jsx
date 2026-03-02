@@ -72,10 +72,9 @@ export default function Layout({ children }) {
 
     const isActive = (path) => location.pathname === path;
 
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+    const closeMobileMenu = useCallback(() => {
         setIsMobileMenuOpen(false);
-    }, [location.pathname]);
+    }, []);
 
     const handleKeyDown = useCallback((e) => {
         if (e.key === 'Escape' && isMobileMenuOpen) {
@@ -165,6 +164,7 @@ export default function Layout({ children }) {
                                     <Link
                                         key={item.name}
                                         to={item.href}
+                                        onClick={closeMobileMenu}
                                         aria-current={active ? 'page' : undefined}
                                         className={`
                                             flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden group

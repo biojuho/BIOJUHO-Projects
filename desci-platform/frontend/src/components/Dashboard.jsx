@@ -22,8 +22,9 @@ import {
     ArrowRight,
     Zap
 } from 'lucide-react';
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
+
+const MotionDiv = motion.div;
 
 export default function Dashboard() {
     const { user, walletAddress } = useAuth();
@@ -90,14 +91,14 @@ export default function Dashboard() {
     };
 
     return (
-        <motion.div
+        <MotionDiv
             className="space-y-8"
             variants={container}
             initial="hidden"
             animate="show"
         >
             {/* Header Section */}
-            <motion.div variants={item} className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <MotionDiv variants={item} className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-medium mb-2">Overview</p>
                     <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
@@ -111,7 +112,7 @@ export default function Dashboard() {
                         Network Active
                     </span>
                 </div>
-            </motion.div>
+            </MotionDiv>
 
             {/* KPI Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -247,6 +248,6 @@ export default function Dashboard() {
                 </h3>
                 <VCMatchList />
             </GlassCard>
-        </motion.div>
+        </MotionDiv>
     );
 }
