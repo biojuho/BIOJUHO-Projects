@@ -1,4 +1,5 @@
 import axios from "axios";
+import { auth } from '../firebase';
 
 // Create an Axios instance with default configuration
 const api = axios.create({
@@ -8,7 +9,17 @@ const api = axios.create({
   },
 });
 
-import { auth } from '../firebase';
+function setAuthorizationHeader(headers, token) {
+  if (typeof headers?.set === "function") {
+    headers.set("Authorization", `Bearer ${token}`);
+    return headers;
+  }
+
+  return {
+    ...(headers ?? {}),
+    Authorization: `Bearer ${token}`,
+  };
+}
 
 // Add a request interceptor (useful for auth tokens later)
 api.interceptors.request.use(
@@ -17,7 +28,7 @@ api.interceptors.request.use(
     if (user) {
       try {
         const token = await user.getIdToken();
-        config.headers.Authorization = `Bearer ${token}`;
+        config.headers = setAuthorizationHeader(config.headers, token);
       } catch (error) {
         console.error('Failed to get ID token:', error);
       }

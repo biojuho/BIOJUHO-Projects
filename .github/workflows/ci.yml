@@ -40,4 +40,4 @@ jobs:
           npm install -D @playwright/test
           npx playwright install --with-deps
       - name: Run Playwright tests
-        run: npx playwright test tests/e2e/test_scenarios.spec.js || echo "Assuming successful execution for CI check"
+        run: npx playwright test tests/e2e/test_scenarios.spec.js

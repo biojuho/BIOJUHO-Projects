@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Upload, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
 export default function UploadPaper() {
@@ -9,7 +10,20 @@ export default function UploadPaper() {
   const [authors, setAuthors] = useState('');
   const [abstract, setAbstract] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState('업로드 처리 중...');
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const abortControllerRef = useRef(null);
   const { showToast } = useToast();
+  const { walletAddress } = useAuth();
+
+  useEffect(() => {
+    // Cleanup function to abort any pending requests when component unmounts
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -23,8 +37,15 @@ export default function UploadPaper() {
       showToast('필수 항목을 모두 입력해주세요.', 'warning');
       return;
     }
+    if (!termsAgreed) {
+      showToast('저작권 및 오픈액세스 정책에 동의해주세요.', 'warning');
+      return;
+    }
 
     setIsUploading(true);
+    setUploadStatusText('IPFS 분산 저장소에 논문 업로드 중...');
+    abortControllerRef.current = new AbortController();
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', title);
@@ -32,15 +53,41 @@ export default function UploadPaper() {
     formData.append('authors', authors);
 
     try {
-      await api.post('/upload', formData, {
+      const response = await api.post('/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        signal: abortControllerRef.current.signal
       });
-      showToast('논문이 성공적으로 업로드되었습니다!', 'success');
+      const result = response.data;
+      
+      let rewardMessage = '';
+      if (walletAddress && result.cid) {
+        try {
+          setUploadStatusText('Research Paper IP-NFT 스마트 컨트랙트 민팅 중...');
+          await api.post('/nft/mint', { user_address: walletAddress, token_uri: `ipfs://${result.cid}` });
+          
+          setUploadStatusText('DeSci 보상 토큰(DSCI) 스마트 컨트랙트 분배 중...');
+          await api.post(`/reward/paper?user_address=${walletAddress}`);
+          
+          rewardMessage = ' 분산 저장, NFT 민팅 및 보상 지급이 완료되었습니다! 💰';
+        } catch (web3Err) {
+          console.warn('Web3 Transaction failed:', web3Err);
+          rewardMessage = ' 지갑 연동에 오류가 있어 Web3 보상 트랜잭션(NFT/DSCI) 처리에 실패하거나 지연되었습니다.';
+        }
+      } else if (!walletAddress) {
+          rewardMessage = ' (지갑 미연결로 보상 획득 생략)';
+      }
+
+      showToast(`논문이 성공적으로 업로드되었습니다!${rewardMessage}`, 'success');
       setFile(null);
       setTitle('');
       setAuthors('');
       setAbstract('');
+      setTermsAgreed(false);
     } catch (err) {
+      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+        console.log('Upload request was cancelled (component unmounted).');
+        return;
+      }
       console.error('Upload failed:', err);
       showToast(err.response?.data?.detail || '업로드 중 오류가 발생했습니다.', 'error');
     } finally {
@@ -123,16 +170,37 @@ export default function UploadPaper() {
             </div>
           </div>
 
+          {/* Legal/Compliance Agreement */}
+          <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl">
+            <div className="flex-shrink-0 mt-0.5">
+              <input 
+                type="checkbox" 
+                id="terms"
+                checked={termsAgreed}
+                onChange={(e) => setTermsAgreed(e.target.checked)}
+                className="w-5 h-5 rounded border-white/20 bg-black/20 text-primary-500 focus:ring-primary-500/50"
+              />
+            </div>
+            <div>
+              <label htmlFor="terms" className="text-sm font-medium text-white/90 block cursor-pointer">
+                [필수] 크리에이티브 커먼즈 (CC) 라이선스 및 오픈액세스 동의
+              </label>
+              <p className="text-xs text-white/50 mt-1">
+                본 논문을 DeSci 네트워크에 업로드함으로써, 귀하는 해당 저작물이 탈중앙화 저장소(IPFS)에 영구적으로 보존되며 누구나 접근할 수 있는 오픈액세스(Open Access) 정책에 동의하는 것으로 간주됩니다.
+              </p>
+            </div>
+          </div>
+
           <div className="pt-4 flex justify-end">
             <button 
               type="submit" 
-              disabled={isUploading || !file}
+              disabled={isUploading || !file || !termsAgreed}
               className="glass-button px-8 py-3 bg-primary/20 hover:bg-primary/30 text-primary-300 font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  업로드 처리 중...
+                  {uploadStatusText}
                 </>
               ) : (
                 <>

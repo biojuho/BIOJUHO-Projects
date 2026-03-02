@@ -3,8 +3,11 @@ from __future__ import annotations
 import argparse
 import random
 import sqlite3
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 def ensure_schema(connection: sqlite3.Connection) -> None:
@@ -88,6 +91,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+
+    # Load environment variables for safe testing
+    load_dotenv()
+    mock_db_id = os.getenv("NOTION_MOCK_DB_ID")
+    if mock_db_id:
+        print(f"INFO: Running with isolated Notion Mock DB ID: {mock_db_id}")
+    else:
+        print("WARNING: NOTION_MOCK_DB_ID not found in environment. Proceeding with local SQLite isolation only.")
+
     db_path = Path(args.db_path)
     if not db_path.is_absolute():
         db_path = Path(__file__).resolve().parent / db_path

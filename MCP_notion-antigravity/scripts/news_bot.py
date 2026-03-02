@@ -133,6 +133,18 @@ def load_canva(logger):
         return None
 
 
+def load_sentiment_analyzer(logger):
+    try:
+        sys.path.append(str(PROJECT_ROOT / ".agent" / "skills" / "sentiment_analyzer"))
+        from analyze import SentimentAnalyzer
+        analyzer = SentimentAnalyzer()
+        logger.info("bootstrap", "success", "sentiment analyzer loaded")
+        return analyzer
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "sentiment analyzer unavailable", error=str(exc))
+        return None
+
+
 async def summarize_article(title: str, content: str, model: Any, logger) -> str:
     if model is None:
         return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
@@ -289,6 +301,11 @@ def build_children(
                         {
                             "object": "block",
                             "type": "paragraph",
+                            "paragraph": {"rich_text": [{"text": {"content": f"[{article.get('sentiment', 'NEUTRAL')}] Topics: {', '.join(article.get('topics', []))}", "annotations": {"code": True, "color": "blue"}}}]},
+                        },
+                        {
+                            "object": "block",
+                            "type": "paragraph",
                             "paragraph": {"rich_text": [{"text": {"content": article["summary"][:2000]}}]},
                         },
                     ],
@@ -309,6 +326,7 @@ async def process_category(
     x_radar: Any,
     market_data: Any,
     canva: Any,
+    sentiment_analyzer: Any,
     state: PipelineStateStore,
     logger,
     run_id: str,
@@ -342,6 +360,18 @@ async def process_category(
 
                 content = getattr(entry, "summary", "") or getattr(entry, "description", "") or ""
                 summary = await summarize_article(getattr(entry, "title", "Untitled"), content, model, logger)
+
+                sentiment_label = "NEUTRAL"
+                topics = []
+                if sentiment_analyzer:
+                    try:
+                        sentiment_res = await asyncio.to_thread(sentiment_analyzer.analyze_texts, [getattr(entry, "title", "Untitled")])
+                        if sentiment_res:
+                            sentiment_label = sentiment_res[0].get("sentiment", "NEUTRAL")
+                            topics = sentiment_res[0].get("topics", [])
+                    except Exception as exc:
+                        logger.warning("sentiment", "failed", "sentiment analysis failed", error=str(exc))
+
                 articles.append(
                     {
                         "title": getattr(entry, "title", "Untitled"),
@@ -349,6 +379,8 @@ async def process_category(
                         "description": content[:200],
                         "summary": summary,
                         "source": source_name,
+                        "sentiment": sentiment_label,
+                        "topics": topics,
                     }
                 )
                 seen_links.add(link)
@@ -487,6 +519,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
     x_radar = load_x_radar(logger)
     market_data = load_market_data(logger)
     canva = load_canva(logger)
+    sentiment_analyzer = load_sentiment_analyzer(logger)
     summary = {"categories_success": 0, "categories_failed": 0, "categories_skipped": 0, "articles": 0}
 
     try:
@@ -503,6 +536,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
                     x_radar=x_radar,
                     market_data=market_data,
                     canva=canva,
+                    sentiment_analyzer=sentiment_analyzer,
                     state=state,
                     logger=logger,
                     run_id=run_id,
@@ -552,6 +586,6 @@ def main() -> int:
     args = parse_args()
     return asyncio.run(run_news_bot(max_items=args.max_items, run_id=args.run_id))
 
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import os
+    os._exit(main())

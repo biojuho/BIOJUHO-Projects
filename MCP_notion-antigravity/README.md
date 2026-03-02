@@ -54,6 +54,18 @@ NOTION_API_KEY=secret_your_notion_api_key_here
 ./run_server.sh
 ```
 
+### 5. 테스트 및 모의 DB 구축 (Mock DB Setup for Testing)
+안전한 모의 환경에서 에이전트를 테스트하고 싶다면, 제공되는 모의 데이터베이스 파이프라인을 사용하세요.
+If you want to test agents in a safe sandbox, use the provided mock database pipeline.
+
+1. `.env.example` 파일을 복사하여 새로운 테스트용 `.env` 파일을 구성합니다.
+   Copy `.env.example` and set `NOTION_MOCK_DB_ID` to your test database.
+2. 로컬 SQLite 상태 확인용 DB를 초기화합니다.
+   Run the initialization script.
+```bash
+python init_mock_db.py --reset --posts 25 --trends 8
+```
+
 ---
 
 ## 🔌 Antigravity 연동 (Antigravity Integration)
