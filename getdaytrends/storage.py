@@ -3,7 +3,6 @@ getdaytrends v2.0 - Storage Module
 Notion + Google Sheets + SQLite 저장 라우터.
 """
 
-import json
 import logging
 import sqlite3
 import urllib.parse
@@ -96,7 +95,7 @@ def _build_notion_body(
         "object": "block",
         "type": "heading_2",
         "heading_2": {
-            "rich_text": [{"type": "text", "text": {"content": "✍️ 트윗 시안 (5종)"}}],
+            "rich_text": [{"type": "text", "text": {"content": "✍️ 트윗 시안 (3종)"}}],
         },
     })
 
