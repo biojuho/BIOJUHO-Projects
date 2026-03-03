@@ -516,17 +516,35 @@ async def get_transactions(address: str, limit: int = 20):
 
 @app.post("/nft/mint")
 async def mint_nft(
-    request: dict = Body(..., examples=[{"user_address": "0x...", "token_uri": "ipfs://..."}])
+    request: dict = Body(..., examples=[{"user_address": "0x...", "token_uri": "ipfs://...", "consent_hash": "0x...", "consent_timestamp": "2026-03-03T10:00:00Z"}])
 ):
-    """Research Paper IP-NFT Minting"""
+    """Research Paper IP-NFT Minting with Legal Consent Audit Trail"""
     user_address = request.get("user_address")
     token_uri = request.get("token_uri")
+    consent_hash = request.get("consent_hash")
+    consent_timestamp = request.get("consent_timestamp")
     
     if not user_address or not token_uri:
          raise HTTPException(status_code=400, detail="user_address and token_uri are required")
          
     web3 = get_web3_service()
-    return await web3.mint_paper_nft(user_address, token_uri)
+    result = await web3.mint_paper_nft(user_address, token_uri, consent_hash=consent_hash)
+
+    # Record consent audit trail in Firestore
+    if db and consent_hash:
+        try:
+            db.collection("consent_audit").add({
+                "user_address": user_address,
+                "token_uri": token_uri,
+                "consent_hash": consent_hash,
+                "consent_timestamp": consent_timestamp,
+                "minted_at": datetime.now().isoformat(),
+                "tx_hash": result.get("tx_hash", ""),
+            })
+        except Exception as e:
+            print(f"[WARNING] Consent audit log failed: {e}")
+
+    return result
 
 
 # ============== 스마트 매칭 (Smart Matching) ==============
@@ -714,6 +732,118 @@ async def agent_literature_review(
     return result
 
 
+# ============== DAO Governance ==============
+
+@app.get("/governance/proposals")
+async def list_proposals():
+    """List all governance proposals."""
+    if db:
+        try:
+            docs = db.collection("governance_proposals").order_by("created_at", direction="DESCENDING").stream()
+            return [doc.to_dict() for doc in docs]
+        except Exception as e:
+            print(f"[governance] Firestore read error: {e}")
+
+    # Mock fallback
+    if MOCK_MODE:
+        return [
+            {
+                "id": "prop-001",
+                "title": "Fund Open-Source Drug Discovery Dataset",
+                "description": "Allocate 5,000 DSCI from the treasury to fund the curation of an open-source drug interaction dataset.",
+                "proposer": "0xMockProposer1",
+                "for_votes": 3200,
+                "against_votes": 800,
+                "state": 1,
+                "end_time": "2026-03-06T12:00:00",
+                "created_at": "2026-03-03T12:00:00",
+            },
+            {
+                "id": "prop-002",
+                "title": "Add Peer Review Incentive Multiplier",
+                "description": "Double the DSCI reward for peer reviews during the first quarter to bootstrap review activity.",
+                "proposer": "0xMockProposer2",
+                "for_votes": 5000,
+                "against_votes": 1200,
+                "state": 2,
+                "end_time": "2026-03-01T12:00:00",
+                "created_at": "2026-02-26T12:00:00",
+            },
+        ]
+    return []
+
+
+@app.post("/governance/proposals")
+async def create_proposal(request: dict = Body(...)):
+    """Create a new governance proposal."""
+    title = request.get("title")
+    description = request.get("description")
+    proposer = request.get("proposer")
+
+    if not title or not description:
+        raise HTTPException(status_code=400, detail="Title and description are required")
+
+    proposal_data = {
+        "id": f"prop-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "title": title,
+        "description": description,
+        "proposer": proposer or "anonymous",
+        "for_votes": 0,
+        "against_votes": 0,
+        "state": 1,  # Active
+        "end_time": (datetime.now() + __import__('datetime').timedelta(days=3)).isoformat(),
+        "created_at": datetime.now().isoformat(),
+    }
+
+    if db:
+        try:
+            db.collection("governance_proposals").document(proposal_data["id"]).set(proposal_data)
+        except Exception as e:
+            print(f"[governance] Firestore write error: {e}")
+
+    return proposal_data
+
+
+@app.post("/governance/proposals/{proposal_id}/vote")
+async def vote_on_proposal(proposal_id: str, request: dict = Body(...)):
+    """Vote on a governance proposal."""
+    voter = request.get("voter")
+    support = request.get("support", True)
+
+    if not voter:
+        raise HTTPException(status_code=400, detail="Voter address required")
+
+    if db:
+        try:
+            ref = db.collection("governance_proposals").document(proposal_id)
+            doc = ref.get()
+            if not doc.exists:
+                raise HTTPException(status_code=404, detail="Proposal not found")
+
+            data = doc.to_dict()
+            # Simple weight: 100 DSCI per vote (in production, query token balance)
+            weight = 100
+            if support:
+                data["for_votes"] = data.get("for_votes", 0) + weight
+            else:
+                data["against_votes"] = data.get("against_votes", 0) + weight
+
+            ref.update({
+                "for_votes": data["for_votes"],
+                "against_votes": data["against_votes"],
+            })
+
+            return {"success": True, "proposal_id": proposal_id, "voter": voter, "support": support}
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[governance] Vote error: {e}")
+
+    # Mock
+    return {"success": True, "proposal_id": proposal_id, "voter": voter, "support": support, "_mock": True}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

@@ -99,12 +99,29 @@ def _refresh_access_token() -> str:
 
 
 def get_access_token() -> str:
-    """Return a valid access token, refreshing if needed."""
+    """Return a valid access token, refreshing if needed.
+
+    Retries up to 2 times on transient failures (server errors, network issues)
+    before raising. This prevents a single Canva 500 from killing the pipeline.
+    """
     cached = _token_cache.get("access_token")
     expires_at = _token_cache.get("expires_at", 0)
     if cached and time.time() < expires_at - 300:
         return cached
-    return _refresh_access_token()
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            return _refresh_access_token()
+        except CanvaAuthError:
+            raise  # credentials missing — no point retrying
+        except Exception as exc:
+            if attempt < max_retries:
+                wait = 3 * (attempt + 1)
+                print(f"[canva_generator] Token refresh attempt {attempt + 1} failed, retrying in {wait}s: {exc}")
+                time.sleep(wait)
+            else:
+                raise
 
 
 def _api_request(

@@ -1,5 +1,6 @@
 import os
 import hashlib
+import threading
 from datetime import datetime
 from web3 import Web3
 
@@ -13,6 +14,7 @@ class ChainSimulator:
     """
     def __init__(self):
         self.chain = []
+        self.lock = threading.Lock()
         provider_url = os.getenv("WEB3_PROVIDER_URI", "http://127.0.0.1:8545")
         self.w3 = Web3(Web3.HTTPProvider(provider_url))
         
@@ -130,38 +132,40 @@ class ChainSimulator:
         data_hash = hashlib.sha256(payload.encode()).hexdigest()
 
         if self.is_web3_active:
-            try:
-                nonce = self.w3.eth.get_transaction_count(self.account.address)
-                tx = self.contract.functions.logEvent(product_id, data_hash).build_transaction({
-                    'chainId': 31337,
-                    'gas': 300000,
-                    'gasPrice': self.w3.eth.gas_price,
-                    'nonce': nonce,
-                })
-                signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=LOCAL_PRIVATE_KEY)
-                tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction) # Use raw_transaction instead of rawTransaction for Web3 v6
-                
-                # We also append to local memory for easy retrieve in mock API endpoints if not fully converted
-                self.chain.append({
-                    "tx_hash": tx_hash.hex(),
-                    "product_id": product_id,
-                    "data": event_data,
-                    "timestamp": datetime.now().isoformat(),
-                    "block": "web3"
-                })
-                return tx_hash.hex()
-            except Exception as e:
-                print(f"Web3 log_event error: {e}")
+            with self.lock:
+                try:
+                    nonce = self.w3.eth.get_transaction_count(self.account.address)
+                    tx = self.contract.functions.logEvent(product_id, data_hash).build_transaction({
+                        'chainId': 31337,
+                        'gas': 300000,
+                        'gasPrice': self.w3.eth.gas_price,
+                        'nonce': nonce,
+                    })
+                    signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=LOCAL_PRIVATE_KEY)
+                    tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction) # Use raw_transaction instead of rawTransaction for Web3 v6
+                    
+                    # We also append to local memory for easy retrieve in mock API endpoints if not fully converted
+                    self.chain.append({
+                        "tx_hash": tx_hash.hex(),
+                        "product_id": product_id,
+                        "data": event_data,
+                        "timestamp": datetime.now().isoformat(),
+                        "block": "web3"
+                    })
+                    return tx_hash.hex()
+                except Exception as e:
+                    print(f"Web3 log_event error: {e}")
 
         # Simulator fallback
         tx_hash = data_hash
-        self.chain.append({
-            "tx_hash": tx_hash,
-            "product_id": product_id,
-            "data": event_data,
-            "timestamp": datetime.now().isoformat(),
-            "block": len(self.chain) + 1
-        })
+        with self.lock:
+            self.chain.append({
+                "tx_hash": tx_hash,
+                "product_id": product_id,
+                "data": event_data,
+                "timestamp": datetime.now().isoformat(),
+                "block": len(self.chain) + 1
+            })
         return f"0x{tx_hash}"
 
     def verify_product(self, product_id: str) -> bool:

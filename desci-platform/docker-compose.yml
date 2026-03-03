@@ -1,10 +1,22 @@
-version: '3.8'
-
 services:
-  biolinker:
-    build: ./biolinker
+  nginx:
+    build:
+      context: ../nginx
+      dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - biolinker
+    networks:
+      - desci-net
+    restart: unless-stopped
+
+  biolinker:
+    container_name: desci-biolinker
+    build: ./biolinker
+    expose:
+      - "8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - CHROMA_DB_PATH=/app/chroma_db
@@ -12,13 +24,22 @@ services:
       - ./biolinker/chroma_db:/app/chroma_db
     depends_on:
       - chromadb
+    networks:
+      - desci-net
 
   chromadb:
     image: chromadb/chroma:latest
-    ports:
-      - "8001:8000"
+    expose:
+      - "8000"
     volumes:
       - chroma-data:/chroma/chroma
+    networks:
+      - desci-net
+
+networks:
+  desci-net:
+    driver: bridge
 
 volumes:
   chroma-data:
+

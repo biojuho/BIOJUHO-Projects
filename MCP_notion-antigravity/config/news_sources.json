@@ -17,6 +17,6 @@
     ],
     "Global_Affairs": [
         {"name": "BBC World", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
-        {"name": "Google News World (KR)", "url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWvfSkdnUVZOM1psZG5Sa2JHRXRlQW9BQ1AB?hl=ko&gl=KR&ceid=KR:ko"}
+        {"name": "AP News International", "url": "https://feeds.apnews.com/rss/apf-intlnews"}
     ]
 }

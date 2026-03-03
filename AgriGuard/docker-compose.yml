@@ -1,5 +1,22 @@
 services:
+  nginx:
+    build:
+      context: ../nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - agriguard-net
+    restart: unless-stopped
+
   backend:
+    container_name: agriguard-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -22,11 +39,12 @@ services:
       start_period: 15s
 
   frontend:
+    container_name: agriguard-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:80"
+    expose:
+      - "80"
     depends_on:
       backend:
         condition: service_healthy
@@ -40,3 +58,4 @@ networks:
 
 volumes:
   backend-data:
+

@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { Card, CardContent } from './ui/Card';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Badge } from './ui/Badge';
 
 export default function UploadPaper() {
   const [file, setFile] = useState(null);
@@ -62,8 +67,20 @@ export default function UploadPaper() {
       let rewardMessage = '';
       if (walletAddress && result.cid) {
         try {
+          // Legal Consent Hashing: create immutable audit trail
+          const consentTimestamp = new Date().toISOString();
+          const consentPayload = `consent:${consentTimestamp}|wallet:${walletAddress}|cid:${result.cid}|terms:CC-BY-4.0`;
+          const encoder = new TextEncoder();
+          const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(consentPayload));
+          const consentHash = '0x' + Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
           setUploadStatusText('Research Paper IP-NFT 스마트 컨트랙트 민팅 중...');
-          await api.post('/nft/mint', { user_address: walletAddress, token_uri: `ipfs://${result.cid}` });
+          await api.post('/nft/mint', {
+            user_address: walletAddress,
+            token_uri: `ipfs://${result.cid}`,
+            consent_hash: consentHash,
+            consent_timestamp: consentTimestamp,
+          });
           
           setUploadStatusText('DeSci 보상 토큰(DSCI) 스마트 컨트랙트 분배 중...');
           await api.post(`/reward/paper?user_address=${walletAddress}`);
@@ -107,7 +124,8 @@ export default function UploadPaper() {
         <p className="text-white/40 mt-2 ml-14">새로운 연구 논문을 DeSci 생태계에 등록하고 기여도를 증명하세요.</p>
       </div>
 
-      <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6 sm:p-8 shadow-2xl">
+      <Card glass className="shadow-2xl">
+        <CardContent className="p-6 sm:p-8">
         <form onSubmit={handleUpload} className="space-y-6">
           
           {/* File Dropzone */}
@@ -139,22 +157,22 @@ export default function UploadPaper() {
           <div className="grid gap-6">
             <div>
               <label className="block text-sm font-medium text-white/70 mb-2">논문 제목 (Title)</label>
-              <input 
+              <Input 
                 type="text" 
+                variant="glass"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="glass-input w-full" 
                 placeholder="Ex) A novel approach to targeted CRISPR-Cas9..."
               />
             </div>
             
             <div>
               <label className="block text-sm font-medium text-white/70 mb-2">저자 (Authors)</label>
-              <input 
+              <Input 
                 type="text" 
+                variant="glass"
                 value={authors}
                 onChange={(e) => setAuthors(e.target.value)}
-                className="glass-input w-full" 
                 placeholder="Ex) John Doe, Jane Smith (쉼표로 구분)"
               />
             </div>
@@ -192,27 +210,44 @@ export default function UploadPaper() {
           </div>
 
           <div className="pt-4 flex justify-end">
-            <button 
+            <Button 
               type="submit" 
               disabled={isUploading || !file || !termsAgreed}
-              className="glass-button px-8 py-3 bg-primary/20 hover:bg-primary/30 text-primary-300 font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              variant="ghost"
+              size="lg"
+              className="bg-primary/20 hover:bg-primary/30 text-primary-300 font-semibold px-8"
             >
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {uploadStatusText}
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4" />
-                  IPFS에 분산 저장 및 논문 등록
-                </>
-              )}
-            </button>
+              <AnimatePresence mode="wait">
+                {isUploading ? (
+                  <motion.div
+                    key={uploadStatusText}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{uploadStatusText}</span>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="upload-btn"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>IPFS에 분산 저장 및 논문 등록</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Button>
           </div>
 
         </form>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

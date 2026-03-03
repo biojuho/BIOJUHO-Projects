@@ -9,6 +9,7 @@ import client from '../services/api';
 import RecommendationList from './dashboard/RecommendationList';
 import VCMatchList from './dashboard/VCMatchList';
 import GlassCard from './ui/GlassCard';
+import { Badge } from './ui/Badge';
 import {
     FileText,
     Activity,
@@ -107,10 +108,10 @@ export default function Dashboard() {
                     </h1>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border border-primary/20 text-primary bg-primary/[0.06]">
+                    <Badge variant="default" className="gap-2">
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
                         Network Active
-                    </span>
+                    </Badge>
                 </div>
             </MotionDiv>
 
@@ -161,7 +162,7 @@ export default function Dashboard() {
                             <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">Identity</h4>
                             <div className="space-y-3">
                                 <p className="flex justify-between text-sm"><span className="text-white/30">Email</span> <span className="text-white/80 font-medium">{user?.email}</span></p>
-                                <p className="flex justify-between text-sm"><span className="text-white/30">Provider</span> <span className="capitalize badge-primary text-xs px-2 py-0.5 rounded-md">{user?.providerData?.[0]?.providerId}</span></p>
+                                <p className="flex justify-between items-center text-sm"><span className="text-white/30">Provider</span> <Badge variant="default" className="capitalize text-xs">{user?.providerData?.[0]?.providerId}</Badge></p>
                                 <p className="flex justify-between text-sm"><span className="text-white/30">UID</span> <span className="text-white/40 font-mono text-xs">{user?.uid?.slice(0, 8)}...</span></p>
                             </div>
                         </div>
@@ -244,7 +245,7 @@ export default function Dashboard() {
                         <Building2 className="w-4 h-4 text-accent-light" />
                     </div>
                     Strategic VC Partners
-                    <span className="badge-primary text-[10px] ml-1">Beta</span>
+                    <Badge variant="accent" className="text-[10px] ml-1">Beta</Badge>
                 </h3>
                 <VCMatchList />
             </GlassCard>

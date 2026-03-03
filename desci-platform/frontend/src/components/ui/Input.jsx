@@ -1,122 +1,35 @@
-import { forwardRef, useState, useId } from 'react';
-import { AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { forwardRef } from 'react';
+import { cva } from 'class-variance-authority';
+import { cn } from '../../lib/utils';
 
-const Input = forwardRef(({
-    label,
-    error,
-    helperText,
-    type = 'text',
-    className = '',
-    textarea = false,
-    leftIcon,
-    rightIcon,
-    size = 'md',
-    required = false,
-    disabled = false,
-    id,
-    ...props
-}, ref) => {
-    const [showPassword, setShowPassword] = useState(false);
-    const isPassword = type === 'password';
-    const generatedId = useId();
-    const inputId = id || generatedId;
-    const errorId = `${inputId}-error`;
-    const helperId = `${inputId}-helper`;
+const inputVariants = cva(
+  'flex w-full text-sm transition-all duration-300 ease-[cubic-bezier(.16,1,.3,1)] file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+  {
+    variants: {
+      variant: {
+        default:
+          'h-10 rounded-md border border-input bg-transparent px-3 py-1 text-foreground shadow-sm focus-visible:ring-1 focus-visible:ring-ring',
+        glass:
+          'rounded-xl px-4 py-3 text-white bg-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)] focus:border-primary/40 focus:bg-white/[0.06] focus:shadow-[0_0_0_3px_rgba(0,212,170,0.1),inset_0_1px_0_0_rgba(255,255,255,0.04)]',
+      },
+    },
+    defaultVariants: {
+      variant: 'glass',
+    },
+  }
+);
 
-    const Component = textarea ? 'textarea' : 'input';
-
-    const sizes = {
-        sm: 'px-3 py-2 text-sm',
-        md: 'px-4 py-3 text-base',
-        lg: 'px-5 py-4 text-lg',
-    };
-
-    const inputStyles = `
-        w-full bg-white/5 border rounded-xl text-white
-        placeholder-white/40
-        transition-all duration-200
-        focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50
-        disabled:opacity-50 disabled:cursor-not-allowed
-        ${error ? 'border-error/50 focus:ring-error/50 focus:border-error/50' : 'border-white/20 hover:border-white/30'}
-        ${leftIcon ? 'pl-11' : ''}
-        ${rightIcon || isPassword ? 'pr-11' : ''}
-        ${sizes[size]}
-    `.trim().replace(/\s+/g, ' ');
-
-    return (
-        <div className={`space-y-2 ${className}`}>
-            {label && (
-                <label
-                    htmlFor={inputId}
-                    className="flex items-center gap-1 text-sm font-medium text-gray-300"
-                >
-                    {label}
-                    {required && (
-                        <span className="text-error" aria-hidden="true">*</span>
-                    )}
-                </label>
-            )}
-
-            <div className="relative">
-                {leftIcon && (
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                        {leftIcon}
-                    </div>
-                )}
-
-                <Component
-                    ref={ref}
-                    id={inputId}
-                    type={isPassword && showPassword ? 'text' : type}
-                    disabled={disabled}
-                    className={inputStyles}
-                    aria-invalid={!!error}
-                    aria-describedby={error ? errorId : helperText ? helperId : undefined}
-                    aria-required={required}
-                    {...props}
-                />
-
-                {isPassword && (
-                    <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                )}
-
-                {rightIcon && !isPassword && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                        {rightIcon}
-                    </div>
-                )}
-            </div>
-
-            {error && (
-                <p
-                    id={errorId}
-                    role="alert"
-                    className="flex items-center gap-1.5 text-sm text-error-light"
-                >
-                    <AlertCircle size={14} className="flex-shrink-0" aria-hidden="true" />
-                    {error}
-                </p>
-            )}
-
-            {helperText && !error && (
-                <p
-                    id={helperId}
-                    className="text-sm text-gray-500"
-                >
-                    {helperText}
-                </p>
-            )}
-        </div>
-    );
+const Input = forwardRef(({ className, type, variant, ...props }, ref) => {
+  return (
+    <input
+      type={type}
+      className={cn(inputVariants({ variant, className }))}
+      ref={ref}
+      {...props}
+    />
+  );
 });
-
 Input.displayName = 'Input';
 
+export { Input, inputVariants };
 export default Input;

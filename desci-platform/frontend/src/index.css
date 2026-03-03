@@ -4,31 +4,60 @@
 
 /* ═══════════════════════════════════════════════════════
    DSCI DecentBio — Bioluminescent Neural Network Theme
+   (shadcn/ui CSS variable integration)
    ═══════════════════════════════════════════════════════ */
 
-:root {
-  --font-display: "Sora", system-ui, sans-serif;
-  --font-body: "Lexend", system-ui, sans-serif;
-
-  /* Core palette */
-  --color-bg: #040811;
-  --color-surface: #0a1628;
-  --color-surface-raised: #111d35;
-  --color-primary: #00d4aa;
-  --color-accent: #6366f1;
-  --color-highlight: #f0c040;
-
-  /* Radius & transitions */
-  --radius-lg: 1rem;
-  --radius-md: 0.75rem;
-  --radius-sm: 0.5rem;
-  --radius-xl: 1.5rem;
-  --transition-fast: 150ms;
-  --transition-normal: 300ms;
-  --transition-slow: 500ms;
-}
-
 @layer base {
+  :root {
+    /* shadcn/ui standard tokens */
+    --background: 220 65% 3%;
+    --foreground: 215 25% 88%;
+
+    --card: 218 55% 10%;
+    --card-foreground: 215 25% 88%;
+
+    --popover: 218 55% 10%;
+    --popover-foreground: 215 25% 88%;
+
+    --primary: 166 100% 42%;
+    --primary-foreground: 166 100% 6%;
+
+    --secondary: 214 18% 46%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 218 40% 14%;
+    --muted-foreground: 215 16% 55%;
+
+    --accent: 239 84% 67%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 100% / 0.06;
+    --input: 0 0% 100% / 0.08;
+    --ring: 166 100% 42%;
+
+    --radius: 1rem;
+
+    /* DeSci-specific extended tokens */
+    --font-display: "Sora", system-ui, sans-serif;
+    --font-body: "Lexend", system-ui, sans-serif;
+    --color-bg: #040811;
+    --color-surface: #0a1628;
+    --color-surface-raised: #111d35;
+    --color-primary: #00d4aa;
+    --color-accent: #6366f1;
+    --color-highlight: #f0c040;
+    --transition-fast: 150ms;
+    --transition-normal: 300ms;
+    --transition-slow: 500ms;
+  }
+
+  * {
+    @apply border-border;
+  }
+
   body {
     background-color: var(--color-bg);
     color: #e2e8f0;
@@ -70,15 +99,18 @@
 
   /* Bioluminescent text gradient */
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-400 to-primary-200 bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(to right, #4debb8, #8df8d2);
   }
 
   .text-gradient-accent {
-    @apply bg-gradient-to-r from-accent-light to-primary-400 bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(to right, #818cf8, #4debb8);
   }
 
   .text-gradient-highlight {
-    @apply bg-gradient-to-r from-highlight to-primary-400 bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(to right, #f0c040, #4debb8);
   }
 
   /* Skeleton loading */
@@ -176,7 +208,9 @@
     box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.02);
   }
   .glass-input:focus {
-    @apply outline-none border-primary/40 bg-white/[0.06];
+    @apply outline-none;
+    border-color: hsl(var(--primary) / 0.4);
+    background: rgba(255, 255, 255, 0.06);
     box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
   }
 

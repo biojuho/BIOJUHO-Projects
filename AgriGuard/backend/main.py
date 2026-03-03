@@ -1,5 +1,7 @@
 import os
-from fastapi import FastAPI, HTTPException, Depends
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Depends, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
@@ -11,10 +13,17 @@ import schemas
 from database import SessionLocal, engine
 from services.chain_simulator import get_chain
 from auth import get_current_user
+from iot_service import sensor_simulation_loop, get_current_status, get_latest_readings, handle_ws_connection
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="AgriGuard API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app):
+    task = asyncio.create_task(sensor_simulation_loop())
+    yield
+    task.cancel()
+
+app = FastAPI(title="AgriGuard API", version="0.2.0", lifespan=lifespan)
 
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
 app.add_middleware(
@@ -247,6 +256,24 @@ def add_tracking_event(product_id: str, status: str, location: str, handler_id: 
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Tracking event failed: {str(e)}")
+
+
+# ============== IoT Cold-Chain ==============
+
+@app.get("/iot/status")
+async def iot_status():
+    """현재 IoT 센서 상태 집계"""
+    return get_current_status()
+
+@app.get("/iot/readings")
+async def iot_readings(hours: int = 24):
+    """최근 N시간 센서 데이터"""
+    return get_latest_readings(hours)
+
+@app.websocket("/ws/iot")
+async def ws_iot(websocket: WebSocket):
+    """실시간 IoT WebSocket 피드"""
+    await handle_ws_connection(websocket)
 
 
 if __name__ == "__main__":

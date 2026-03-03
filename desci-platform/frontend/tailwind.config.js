@@ -7,36 +7,62 @@ export default {
   theme: {
     extend: {
       colors: {
-        /* Bioluminescent Neural Network Palette */
-        background: "#040811",
-        surface: {
-          DEFAULT: "#0a1628",
-          raised: "#111d35",
-          overlay: "#162444",
-        },
+        /* shadcn/ui CSS variable-based color system */
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#00d4aa",
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+          /* Extended Bioluminescent scale (backward compat) */
           50: "#ecfdf7",
           100: "#c6fce8",
           200: "#8df8d2",
           300: "#4debb8",
-          400: "#00d4aa",
+          400: "hsl(var(--primary))",
           500: "#00b894",
           600: "#009476",
           700: "#00755d",
         },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
         accent: {
-          DEFAULT: "#6366f1",
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
           light: "#818cf8",
           dark: "#4f46e5",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        /* DeSci-specific extended colors */
+        surface: {
+          DEFAULT: "#0a1628",
+          raised: "#111d35",
+          overlay: "#162444",
         },
         highlight: {
           DEFAULT: "#f0c040",
           light: "#fcd34d",
           dark: "#d4a017",
         },
-        secondary: "#64748b",
-        /* Semantic colors */
         success: {
           DEFAULT: "#10b981",
           light: "#34d399",
@@ -57,6 +83,12 @@ export default {
           light: "#60a5fa",
           dark: "#2563eb",
         },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+        "4xl": "2rem",
       },
       fontFamily: {
         display: ["Sora", "system-ui", "sans-serif"],
@@ -84,6 +116,9 @@ export default {
         "spin-slow": "spin 4s linear infinite",
         "glow-pulse": "glowPulse 3s ease-in-out infinite",
         "float": "float 6s ease-in-out infinite",
+        /* shadcn/ui standard animations */
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
       keyframes: {
         blob: {
@@ -120,6 +155,15 @@ export default {
           "0%, 100%": { transform: "translateY(0px)" },
           "50%": { transform: "translateY(-12px)" },
         },
+        /* shadcn/ui standard keyframes */
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
       },
       boxShadow: {
         "glass": "0 8px 32px rgba(0, 0, 0, 0.5)",
@@ -133,10 +177,9 @@ export default {
       backdropBlur: {
         xs: "2px",
       },
-      borderRadius: {
-        "4xl": "2rem",
-      },
     },
   },
-  plugins: [],
+  plugins: [
+    require("tailwindcss-animate"),
+  ],
 }

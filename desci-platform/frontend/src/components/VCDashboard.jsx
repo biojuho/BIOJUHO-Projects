@@ -1,5 +1,7 @@
 import React from 'react';
 import { useVCDashboard } from '../hooks/useVCDashboard';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
 
 const VCDashboard = () => {
     const {
@@ -64,9 +66,9 @@ const VCDashboard = () => {
                                 <h2 className="text-2xl font-bold text-white mb-2">{selectedVc.name}</h2>
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     {selectedVc.preferred_stages.map(stage => (
-                                        <span key={stage} className="px-2 py-1 text-xs font-semibold bg-blue-900 text-blue-200 rounded-full border border-blue-700">
+                                        <Badge key={stage} variant="info" className="text-xs">
                                             {stage}
-                                        </span>
+                                        </Badge>
                                     ))}
                                 </div>
                                 <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 mb-4">
@@ -76,9 +78,9 @@ const VCDashboard = () => {
                                 <div className="flex flex-wrap gap-2">
                                     <span className="text-sm text-gray-500 py-1">Focus Areas:</span>
                                     {selectedVc.portfolio_keywords.map(kw => (
-                                        <span key={kw} className="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded border border-gray-600">
+                                        <Badge key={kw} variant="outline" className="text-xs">
                                             #{kw}
-                                        </span>
+                                        </Badge>
                                     ))}
                                 </div>
                             </div>
@@ -130,13 +132,9 @@ const VCDashboard = () => {
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                                                     </svg>
                                                 </div>
-                                                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm ${
-                                                    match.score >= 90 ? 'bg-green-900/80 text-green-300 border border-green-700' :
-                                                    match.score >= 80 ? 'bg-blue-900/80 text-blue-300 border border-blue-700' :
-                                                    'bg-yellow-900/80 text-yellow-300 border border-yellow-700'
-                                                }`}>
+                                                <Badge variant={match.score >= 90 ? 'success' : match.score >= 80 ? 'info' : 'warning'} className="text-xs uppercase tracking-wide">
                                                     {match.score}% Fit
-                                                </div>
+                                                </Badge>
                                             </div>
 
                                             <h4 className="text-xl font-bold text-white mb-2 group-hover:text-purple-400 transition-colors line-clamp-2">
@@ -153,9 +151,9 @@ const VCDashboard = () => {
                                                 </div>
                                                 <div className="flex flex-wrap gap-1">
                                                     {match.keywords?.slice(0, 3).map(k => (
-                                                        <span key={k} className="text-xs text-gray-500 bg-gray-900 px-2 py-1 rounded border border-gray-700">
+                                                        <Badge key={k} variant="outline" className="text-xs">
                                                             {k}
-                                                        </span>
+                                                        </Badge>
                                                     ))}
                                                 </div>
                                             </div>
@@ -193,13 +191,9 @@ const VCDashboard = () => {
                     >
                         <div className="flex items-start justify-between p-6 border-b border-white/10">
                             <div className="flex-1 pr-4">
-                                <div className={`inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-3 ${
-                                    activeDetail.score >= 90 ? 'bg-green-900/80 text-green-300 border border-green-700' :
-                                    activeDetail.score >= 80 ? 'bg-blue-900/80 text-blue-300 border border-blue-700' :
-                                    'bg-yellow-900/80 text-yellow-300 border border-yellow-700'
-                                }`}>
+                                <Badge variant={activeDetail.score >= 90 ? 'success' : activeDetail.score >= 80 ? 'info' : 'warning'} className="text-xs uppercase tracking-wide mb-3">
                                     {activeDetail.score}% Fit Score
-                                </div>
+                                </Badge>
                                 <h2 className="text-xl font-bold text-white leading-snug">{activeDetail.title}</h2>
                             </div>
                             <button onClick={closeDetail} className="text-gray-500 hover:text-white transition-colors shrink-0 p-1">
@@ -223,9 +217,9 @@ const VCDashboard = () => {
                                     <h3 className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">Keywords</h3>
                                     <div className="flex flex-wrap gap-2">
                                         {activeDetail.keywords.map(k => (
-                                            <span key={k} className="text-xs text-gray-300 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">
+                                            <Badge key={k} variant="outline" className="text-xs">
                                                 {k}
-                                            </span>
+                                            </Badge>
                                         ))}
                                     </div>
                                 </div>

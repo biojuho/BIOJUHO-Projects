@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import SuccessModal from './ui/SuccessModal';
 import GlassCard from './ui/GlassCard';
 import { useMyLab } from '../hooks/useMyLab';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -81,9 +83,9 @@ export default function MyLab() {
                     {papers.map((paper, index) => (
                         <GlassCard key={paper.id} delay={index * 0.1} hoverEffect={true} className="flex flex-col">
                             <div className="flex justify-between items-start mb-4">
-                                <span className="px-3 py-1 bg-primary/20 text-primary text-xs font-bold rounded-full uppercase tracking-wide">
+                                <Badge variant="default" className="uppercase tracking-wide">
                                     {paper.type || "Paper"}
-                                </span>
+                                </Badge>
                                 <span className="text-xs text-gray-500">
                                     {paper.created_at ? new Date(paper.created_at).toLocaleDateString() : "Unknown date"}
                                 </span>
@@ -108,22 +110,22 @@ export default function MyLab() {
                                         <ExternalLink size={14} /> IPFS
                                     </a>
                                 )}
-                                <button
+                                <Button
                                     onClick={() => mintNFT(paper)}
                                     disabled={mintingIds[paper.id]}
                                     aria-label={mintingIds[paper.id] ? "Minting in progress" : "Mint IP-NFT"}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all text-sm ${
-                                        mintingIds[paper.id]
-                                            ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                                            : "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/20 hover:-translate-y-0.5 hover:shadow-xl"
-                                    }`}
+                                    size="sm"
+                                    className={mintingIds[paper.id]
+                                        ? "bg-white/5 text-gray-500"
+                                        : "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/20 hover:-translate-y-0.5 hover:shadow-xl"
+                                    }
                                 >
                                     {mintingIds[paper.id] ? (
                                         <><Loader2 size={16} className="animate-spin" /> Minting...</>
                                     ) : (
                                         <><Sparkles size={16} /> Mint IP-NFT</>
                                     )}
-                                </button>
+                                </Button>
                             </div>
                         </GlassCard>
                     ))}

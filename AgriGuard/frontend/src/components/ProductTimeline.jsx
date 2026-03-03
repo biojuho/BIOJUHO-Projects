@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Package, Truck, CheckCircle, Award } from 'lucide-react';
 
 const EventIcon = ({ action }) => {
@@ -26,17 +27,42 @@ export default function ProductTimeline({ history = [] }) {
     );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, x: -25, y: 10 },
+    show: { 
+      opacity: 1, 
+      x: 0, 
+      y: 0,
+      transition: { type: "spring", stiffness: 100, damping: 15 } 
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-bold text-white mb-6">Blockchain Tracking History</h3>
-      <div className="relative border-l border-white/20 ml-4 space-y-8">
+      <motion.div 
+        variants={containerVariants} 
+        initial="hidden" 
+        animate="show" 
+        className="relative border-l border-white/20 ml-4 space-y-8"
+      >
         {history.map((block, idx) => {
           const isLatest = idx === history.length - 1;
           const { data, timestamp, tx_hash } = block;
           const dateStr = new Date(timestamp).toLocaleString();
 
           return (
-            <div key={tx_hash} className="relative pl-8">
+            <motion.div key={tx_hash} variants={itemVariants} className="relative pl-8">
               {/* Timeline dot */}
               <div className={`absolute -left-[18px] top-1 rounded-full p-1.5 border-4 border-gray-900 ${isLatest ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-white/20'}`}>
                  <EventIcon action={data?.action} />
@@ -73,10 +99,10 @@ export default function ProductTimeline({ history = [] }) {
                   </p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
     </div>
   );
 }

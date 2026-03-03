@@ -3,6 +3,7 @@ BioLinker - Web3 Service
 이더리움 블록체인 연동 및 토큰 보상
 """
 import os
+import asyncio
 from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
@@ -112,6 +113,7 @@ class Web3Service:
         self.token_contract = None
         self.nft_contract = None
         self.account = None
+        self.lock = asyncio.Lock()
         
         if WEB3_AVAILABLE:
             self._initialize()
@@ -203,20 +205,21 @@ class Web3Service:
             return {"success": False, "error": "Web3 service not configured for rewards"}
         
         try:
-            checksum_addr = Web3.to_checksum_address(user_address)
-            amount_wei = Web3.to_wei(amount, 'ether')
-            
-            tx = self.token_contract.functions.distributeReward(
-                checksum_addr, amount_wei, reason
-            ).build_transaction({
-                'from': self.account.address,
-                'nonce': self.w3.eth.get_transaction_count(self.account.address),
-                'gas': 100000,
-                'gasPrice': self.w3.eth.gas_price
-            })
-            
-            signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            async with self.lock:
+                checksum_addr = Web3.to_checksum_address(user_address)
+                amount_wei = Web3.to_wei(amount, 'ether')
+                
+                tx = self.token_contract.functions.distributeReward(
+                    checksum_addr, amount_wei, reason
+                ).build_transaction({
+                    'from': self.account.address,
+                    'nonce': self.w3.eth.get_transaction_count(self.account.address),
+                    'gas': 100000,
+                    'gasPrice': self.w3.eth.gas_price
+                })
+                
+                signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
+                tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
             
             return {
                 'success': True,
@@ -237,18 +240,19 @@ class Web3Service:
             return {"success": False, "error": f"Web3 service not configured for {function_name}"}
         
         try:
-            checksum_addr = Web3.to_checksum_address(user_address)
-            func = getattr(self.token_contract.functions, function_name)
-            
-            tx = func(checksum_addr).build_transaction({
-                'from': self.account.address,
-                'nonce': self.w3.eth.get_transaction_count(self.account.address),
-                'gas': 100000,
-                'gasPrice': self.w3.eth.gas_price
-            })
-            
-            signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            async with self.lock:
+                checksum_addr = Web3.to_checksum_address(user_address)
+                func = getattr(self.token_contract.functions, function_name)
+                
+                tx = func(checksum_addr).build_transaction({
+                    'from': self.account.address,
+                    'nonce': self.w3.eth.get_transaction_count(self.account.address),
+                    'gas': 100000,
+                    'gasPrice': self.w3.eth.gas_price
+                })
+                
+                signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
+                tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
             
             return {
                 'success': True,
@@ -284,8 +288,8 @@ class Web3Service:
         except Exception as e:
             return {'error': str(e)}
     
-    async def mint_paper_nft(self, user_address: str, token_uri: str) -> dict:
-        """ Research Paper NFT Minting """
+    async def mint_paper_nft(self, user_address: str, token_uri: str, consent_hash: str = None) -> dict:
+        """ Research Paper NFT Minting with optional Legal Consent Hash """
         if not self.is_configured or not self.nft_contract:
             if MOCK_MODE:
                 # Return Mock result if NFT contract is not ready
@@ -295,24 +299,26 @@ class Web3Service:
                     'user': user_address,
                     'token_id': 0,
                     'token_uri': token_uri,
+                    'consent_hash': consent_hash,
                     '_mock': True
                 }
             return {"success": False, "error": "Web3 service not configured for NFT minting"}
         
         try:
-            checksum_addr = Web3.to_checksum_address(user_address)
-            
-            tx = self.nft_contract.functions.mintPaper(
-                checksum_addr, token_uri
-            ).build_transaction({
-                'from': self.account.address,
-                'nonce': self.w3.eth.get_transaction_count(self.account.address),
-                'gas': 200000, 
-                'gasPrice': self.w3.eth.gas_price
-            })
-            
-            signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
-            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            async with self.lock:
+                checksum_addr = Web3.to_checksum_address(user_address)
+                
+                tx = self.nft_contract.functions.mintPaper(
+                    checksum_addr, token_uri
+                ).build_transaction({
+                    'from': self.account.address,
+                    'nonce': self.w3.eth.get_transaction_count(self.account.address),
+                    'gas': 200000, 
+                    'gasPrice': self.w3.eth.gas_price
+                })
+                
+                signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
+                tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
             
             # Wait for receipt to get Token ID? (Might take time, better return hash)
             # For simplicity, returning hash. Frontend can check later.
@@ -321,7 +327,8 @@ class Web3Service:
                 'success': True,
                 'tx_hash': tx_hash.hex(),
                 'user': user_address,
-                'token_uri': token_uri
+                'token_uri': token_uri,
+                'consent_hash': consent_hash,
             }
             
         except Exception as e:

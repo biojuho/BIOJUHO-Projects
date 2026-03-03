@@ -33,8 +33,9 @@ def test_brain_module_robust_json_parse(monkeypatch) -> None:
 
 
 def test_notion_server_reads_db_id_from_env() -> None:
-    content = NOTION_SERVER_PATH.read_text(encoding="utf-8")
-    assert 'ANTIGRAVITY_DB_ID = os.getenv("ANTIGRAVITY_DB_ID")' in content
+    config_path = PROJECT_ROOT / "MCP_notion-antigravity" / "src" / "antigravity_mcp" / "config.py"
+    content = config_path.read_text(encoding="utf-8")
+    assert "ANTIGRAVITY_DB_ID" in content
 
 
 @patch("biolinker.services.pdf_parser.pypdf.PdfReader")

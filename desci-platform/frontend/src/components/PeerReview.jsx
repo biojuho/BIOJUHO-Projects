@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { FileCheck, ShieldAlert, Award, ChevronRight, Beaker, Zap } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
+import { Card, CardContent } from './ui/Card';
 
 // Hardcoded dummy papers for the MVP demo
 const DUMMY_PAPERS = [
@@ -63,9 +66,9 @@ export default function PeerReview() {
               <div className={`absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl -mr-16 -mt-16 transition-opacity duration-500 ${selectedPaper?.id === paper.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
               
               <div className="flex justify-between items-start mb-3 relative z-10">
-                <span className={`text-xs px-2.5 py-1 rounded-md font-medium tracking-wide ${selectedPaper?.id === paper.id ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}>
+                <Badge variant={selectedPaper?.id === paper.id ? 'success' : 'outline'} className="text-xs tracking-wide">
                    {paper.category}
-                </span>
+                </Badge>
                 <ChevronRight className={`w-5 h-5 transition-transform duration-300 ${selectedPaper?.id === paper.id ? 'text-emerald-400 translate-x-1' : 'text-slate-600 group-hover:text-slate-400 group-hover:translate-x-0.5'}`} />
               </div>
               <h3 className={`font-semibold line-clamp-2 leading-snug relative z-10 ${selectedPaper?.id === paper.id ? 'text-white' : 'text-slate-300'}`}>
@@ -88,9 +91,9 @@ export default function PeerReview() {
             <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
 
             <div className="mb-10 border-b border-white/10 pb-8 relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-4">
-                 <Zap className="w-4 h-4" /> Actively Reviewing
-              </div>
+              <Badge variant="success" className="gap-2 mb-4">
+                 <Zap className="w-3.5 h-3.5" /> Actively Reviewing
+              </Badge>
               <h2 className="text-3xl font-bold text-white mb-3 leading-tight">{selectedPaper.title}</h2>
               <p className="text-emerald-400/80 font-medium text-lg flex items-center gap-2">
                  <span className="w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center text-sm border border-emerald-500/20">👨‍🔬</span>
@@ -144,10 +147,11 @@ export default function PeerReview() {
               </div>
 
               <div className="flex justify-end pt-2">
-                <button 
+                <Button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-w-[240px] group"
+                  size="lg"
+                  className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-2xl font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] w-full sm:w-auto min-w-[240px] group"
                 >
                   {isSubmitting ? (
                     <>
@@ -160,7 +164,7 @@ export default function PeerReview() {
                       <span className="text-lg">제출 및 보상 청구</span>
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

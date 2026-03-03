@@ -4,12 +4,91 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: "Inter", sans-serif;
-  @apply bg-gray-900 text-white;
+/* ═══════════════════════════════════════════════════════
+   AgriGuard — Agricultural Guardian Theme (shadcn/ui)
+   ═══════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    --background: 215 28% 7%;
+    --foreground: 210 20% 92%;
+
+    --card: 215 28% 11%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 215 28% 11%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 142 69% 58%;
+    --primary-foreground: 142 100% 6%;
+
+    --secondary: 48 96% 53%;
+    --secondary-foreground: 48 100% 10%;
+
+    --muted: 215 14% 20%;
+    --muted-foreground: 215 14% 60%;
+
+    --accent: 215 14% 16%;
+    --accent-foreground: 210 20% 92%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 20% 18%;
+    --input: 215 20% 18%;
+    --ring: 142 69% 58%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Focus visible for accessibility */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
 }
 
-/* Custom Utilities */
-.glass {
-  @apply bg-white/10 backdrop-blur-md border border-white/10 shadow-xl;
+@layer components {
+  /* Legacy glass utilities (preserved for backward compatibility) */
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/10 shadow-xl;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

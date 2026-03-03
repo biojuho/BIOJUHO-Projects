@@ -1,0 +1,50 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "search": "Search",
+    "noData": "No data available"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "registry": "Registry",
+    "supplyChain": "Supply Chain",
+    "coldChain": "Cold-Chain",
+    "scanner": "QR Scanner"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalProducts": "Total Products",
+    "verifiedProducts": "Verified Products",
+    "totalEvents": "Tracking Events",
+    "activeFarms": "Active Farms",
+    "backendError": "Backend connection failed: please check port 8002 server."
+  },
+  "registry": {
+    "title": "Product Registry",
+    "addProduct": "Add Product",
+    "productName": "Product Name",
+    "category": "Category",
+    "origin": "Origin"
+  },
+  "coldChain": {
+    "title": "Cold-Chain Monitor",
+    "subtitle": "Real-time Temperature & Humidity IoT Monitoring",
+    "temperature": "Temperature",
+    "humidity": "Humidity",
+    "zone": "Zone",
+    "alerts": "Alerts",
+    "live": "Live",
+    "disconnected": "Disconnected"
+  },
+  "scanner": {
+    "title": "QR Scanner",
+    "scanPrompt": "Scan a product QR code",
+    "scanSuccess": "Scan successful!",
+    "scanError": "Recognition failed"
+  }
+}

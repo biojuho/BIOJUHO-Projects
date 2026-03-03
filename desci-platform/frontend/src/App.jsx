@@ -21,6 +21,7 @@ const Notices = lazy(() => import('./components/Notices'));
 const AILab = lazy(() => import('./components/AILab'));
 const PeerReview = lazy(() => import('./components/PeerReview'));
 const UploadPaper = lazy(() => import('./components/UploadPaper'));
+const Governance = lazy(() => import('./components/Governance'));
 
 function RouteFallback() {
   return (
@@ -104,6 +105,7 @@ function AnimatedRoutes() {
             <Route path="/ai-lab" element={<PageTransition><AILab /></PageTransition>} />
             <Route path="/peer-review" element={<PageTransition><PeerReview /></PageTransition>} />
             <Route path="/assets" element={<PageTransition><AssetManager /></PageTransition>} />
+            <Route path="/governance" element={<PageTransition><Governance /></PageTransition>} />
           </Route>
 
           {/* Default redirect */}

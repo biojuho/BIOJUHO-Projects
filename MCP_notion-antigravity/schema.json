@@ -1,0 +1,44 @@
+{
+  "object": "database",
+  "id": "bb5cf3c8-d2bb-4b8b-a866-ba9ea86f16b7",
+  "title": [
+    {
+      "type": "text",
+      "text": {
+        "content": "Antigravity Tasks & Logs V2 (Full Schema)",
+        "link": null
+      },
+      "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+      },
+      "plain_text": "Antigravity Tasks & Logs V2 (Full Schema)",
+      "href": null
+    }
+  ],
+  "description": [],
+  "parent": {
+    "type": "page_id",
+    "page_id": "2fe90544-c198-802a-92c2-f918fdc7a431"
+  },
+  "is_inline": false,
+  "in_trash": false,
+  "is_locked": false,
+  "created_time": "2026-02-05T06:04:21.719+00:00",
+  "last_edited_time": "2026-02-23T23:41:51.717+00:00",
+  "data_sources": [
+    {
+      "id": "27a87180-0f22-4b46-9569-50dacdc58794",
+      "name": "Antigravity Tasks & Logs V2 (Full Schema)"
+    }
+  ],
+  "icon": null,
+  "cover": null,
+  "url": "https://www.notion.so/bb5cf3c8d2bb4b8ba866ba9ea86f16b7",
+  "public_url": null,
+  "request_id": "5ed9c089-c66e-4ba1-964b-8fc59240626c"
+}

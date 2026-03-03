@@ -1,37 +1,34 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { useNavigate } from 'react-router-dom';
-import { Camera, AlertCircle, ScanLine } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, AlertCircle, ScanLine, CheckCircle } from 'lucide-react';
+import { Card, CardContent } from './ui/Card';
 
 export default function QRReader() {
   const [error, setError] = useState('');
   const [isScanning, setIsScanning] = useState(true);
+  const [scanSuccess, setScanSuccess] = useState(false);
   const navigate = useNavigate();
 
   const handleScan = (detectedCodes) => {
     if (detectedCodes && detectedCodes.length > 0) {
       const code = detectedCodes[0].rawValue;
-      
-      // Stop scanning to prevent multiple triggers
       setIsScanning(false);
 
       try {
-        // We expect URLs formatted as: http://domain.com/product/{productId}
         const url = new URL(code);
         const pathSegments = url.pathname.split('/');
-        
-        // Find 'product' in the path and get the next segment as ID
         const productIndex = pathSegments.indexOf('product');
         if (productIndex !== -1 && pathSegments.length > productIndex + 1) {
           const productId = pathSegments[productIndex + 1];
-          // Navigate to the correct internal Product Detail relative path
-          navigate(`/product/${productId}`);
+          setScanSuccess(true);
+          setTimeout(() => navigate(`/product/${productId}`), 1200);
         } else {
           throw new Error('AgriGuard 제품 URL 형식이 아닙니다.');
         }
       } catch {
         setError('유효하지 않은 QR 코드입니다. AgriGuard 제품 QR을 스캔해주세요.');
-        // Resume scanning after a brief error timeout so user can try again
         setTimeout(() => {
           setIsScanning(true);
           setError('');
@@ -42,22 +39,22 @@ export default function QRReader() {
 
   return (
     <div className="max-w-md mx-auto mt-8 animate-in fade-in duration-500">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden">
+      <Card className="shadow-xl overflow-hidden">
         
         {/* Header Section */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-500 p-6 text-center">
+        <div className="bg-gradient-to-r from-primary to-emerald-600 p-6 text-center">
           <div className="mx-auto bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mb-4">
             <ScanLine className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-white">제품 스캔하기</h2>
-          <p className="text-emerald-50 mt-2 text-sm">
+          <p className="text-white/80 mt-2 text-sm">
             카메라를 사용하여 제품에 부착된 QR 코드를 스캔하세요.
           </p>
         </div>
 
         {/* Camera Scanner Viewport */}
-        <div className="p-6">
-          <div className="relative aspect-square w-full rounded-xl overflow-hidden border-2 border-slate-200 bg-slate-50 flex items-center justify-center">
+        <CardContent className="p-6">
+          <div className="relative aspect-square w-full rounded-xl overflow-hidden border-2 border-border bg-muted flex items-center justify-center">
             {isScanning ? (
                <Scanner
                   onScan={handleScan}
@@ -74,8 +71,24 @@ export default function QRReader() {
                     video: { objectFit: 'cover' }
                   }}
                />
+            ) : scanSuccess ? (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                className="text-center"
+              >
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                >
+                  <CheckCircle className="w-16 h-16 mx-auto mb-3 text-primary" />
+                </motion.div>
+                <p className="text-lg font-bold text-primary">스캔 성공!</p>
+                <p className="text-sm text-muted-foreground mt-1">제품 정보를 불러오는 중...</p>
+              </motion.div>
             ) : (
-              <div className="text-center text-slate-500">
+              <div className="text-center text-muted-foreground">
                 <Camera className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm font-medium">스캔 처리 중...</p>
               </div>
@@ -83,21 +96,28 @@ export default function QRReader() {
           </div>
 
           {/* Feedback/Error State */}
-          {error && (
-            <div className="mt-4 p-4 rounded-lg bg-red-50 flex items-start gap-3 border border-red-100">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 font-medium">{error}</p>
-            </div>
-          )}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-4 p-4 rounded-lg bg-destructive/10 flex items-start gap-3 border border-destructive/20"
+              >
+                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive font-medium">{error}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="mt-6 text-center pb-2">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               어두운 곳에서는 화면 우측 하단의 <br/>플래시 버튼을 활용해 보세요.
             </p>
           </div>
-        </div>
+        </CardContent>
 
-      </div>
+      </Card>
     </div>
   );
 }

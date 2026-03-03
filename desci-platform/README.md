@@ -58,9 +58,12 @@ npm run check:bundle
 - ✅ Google 소셜 로그인 (Google Social Login)
 - ✅ Email/Password 인증 (Email/Password Authentication)
 - ✅ Firebase Token 검증 (Firebase Token Verification)
-- 🔜 연구 논문 업로드 (Research Paper Upload)
-- 🔜 IPFS 탈중앙화 저장 (IPFS Decentralized Storage)
-- 🔜 토큰 보상 시스템 (Token Reward System)
+- ✅ 연구 논문 업로드 (Research Paper Upload)
+- ✅ IPFS 탈중앙화 저장 (IPFS Decentralized Storage)
+- ✅ 토큰 보상 시스템 (Token Reward System)
+- ✅ Peer Review 시스템 (Peer Review & DSCI Rewards)
+- ✅ IP-NFT 민팅 (Research Paper NFT Minting)
+- ✅ Framer Motion 마이크로 인터랙션
 
 ---
 

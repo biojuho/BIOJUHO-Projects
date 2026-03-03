@@ -6,7 +6,6 @@ import json
 import sys
 from collections import Counter
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 from notion_client import AsyncClient
@@ -158,6 +157,18 @@ def load_skill_integrator(logger):
         return None
 
 
+def load_proofreader(logger):
+    try:
+        sys.path.append(str(PROJECT_ROOT / ".agent" / "skills" / "proofreader"))
+        from proofread import Proofreader
+        proofreader = Proofreader()
+        logger.info("bootstrap", "success", "proofreader loaded")
+        return proofreader
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "proofreader unavailable", error=str(exc))
+        return None
+
+
 async def summarize_article(title: str, content: str, client: Any, logger) -> str:
     if client is None:
         return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
@@ -215,6 +226,16 @@ def build_children(
                 },
             }
         )
+        if canva_result.get("view_url"):
+            children.append(
+                {
+                    "object": "block",
+                    "type": "embed",
+                    "embed": {
+                        "url": canva_result["view_url"]
+                    }
+                }
+            )
 
     if market_snapshot:
         children.append(
@@ -355,6 +376,7 @@ async def process_category(
     canva: Any,
     sentiment_analyzer: Any,
     skill_integrator: Any,
+    proofreader: Any,
     state: PipelineStateStore,
     logger,
     run_id: str,
@@ -388,6 +410,14 @@ async def process_category(
 
                 content = getattr(entry, "summary", "") or getattr(entry, "description", "") or ""
                 summary = await summarize_article(getattr(entry, "title", "Untitled"), content, genai_client, logger)
+                
+                if proofreader:
+                    try:
+                        logger.info("category", "in_progress", "proofreading summary", category=category)
+                        summary = await proofreader.proofread_text_async(summary)
+                        summary = "✓ [Corrected by AI Editor]\n" + summary
+                    except Exception as exc:
+                        logger.warning("proofread", "failed", "proofreading failed; using original", error=str(exc))
 
                 sentiment_label = "NEUTRAL"
                 topics = []
@@ -453,23 +483,37 @@ async def process_category(
         canva_result = None
         if canva is not None:
             try:
-                from PIL import Image, ImageDraw
+                from PIL import Image, ImageDraw, ImageFont
                 ts = datetime.now().strftime("%Y%m%d_%H%M")
                 infographic_path = OUTPUT_DIR / f"infographic_{category}_{ts}.png"
                 infographic_path.parent.mkdir(parents=True, exist_ok=True)
+
+                try:
+                    font_title = ImageFont.truetype("malgunbd.ttf", 60)
+                    font_date = ImageFont.truetype("malgun.ttf", 30)
+                    font_body_bold = ImageFont.truetype("malgunbd.ttf", 35)
+                    font_body = ImageFont.truetype("malgun.ttf", 28)
+                except Exception:
+                    font_title = ImageFont.load_default()
+                    font_date = ImageFont.load_default()
+                    font_body_bold = ImageFont.load_default()
+                    font_body = ImageFont.load_default()
 
                 # Generate simple infographic with PIL
                 img = Image.new("RGB", (1080, 1080), "#1a1a2e")
                 draw = ImageDraw.Draw(img)
                 draw.rectangle([(0, 0), (1080, 180)], fill="#16213e")
-                draw.text((50, 70), f"{category.upper()} NEWS", fill="#e94560")
-                draw.text((50, 110), datetime.now().strftime("%Y-%m-%d"), fill="#aaaaaa")
+                draw.text((60, 45), f"{category.upper()} NEWS", font=font_title, fill="#e94560")
+                draw.text((60, 125), datetime.now().strftime("%Y-%m-%d"), font=font_date, fill="#aaaaaa")
+                
                 y_pos = 220
                 for idx, a in enumerate(articles[:5]):
-                    draw.rectangle([(30, y_pos), (1050, y_pos + 130)], fill="#0f3460", outline="#e94560")
-                    draw.text((60, y_pos + 25), f"{idx+1}. {a['title'][:60]}", fill="white")
-                    draw.text((60, y_pos + 75), f"   [{a.get('source', 'Unknown')}]", fill="#888888")
+                    draw.rectangle([(40, y_pos), (1040, y_pos + 140)], fill="#0f3460", outline="#e94560")
+                    title_text = a['title'][:40] + "..." if len(a['title']) > 40 else a['title']
+                    draw.text((70, y_pos + 30), f"{idx+1}. {title_text}", font=font_body_bold, fill="white")
+                    draw.text((70, y_pos + 90), f"    출처: {a.get('source', 'Unknown')} | 감성: {a.get('sentiment', 'NEUTRAL')}", font=font_body, fill="#b5b5c3")
                     y_pos += 160
+                    
                 img.save(infographic_path)
 
                 # Import to Canva
@@ -589,6 +633,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
     canva = load_canva(logger)
     sentiment_analyzer = load_sentiment_analyzer(logger)
     skill_integrator_mod = load_skill_integrator(logger)
+    proofreader = load_proofreader(logger)
     summary = {"categories_success": 0, "categories_failed": 0, "categories_skipped": 0, "articles": 0}
 
     try:
@@ -607,6 +652,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
                     canva=canva,
                     sentiment_analyzer=sentiment_analyzer,
                     skill_integrator=skill_integrator_mod,
+                    proofreader=proofreader,
                     state=state,
                     logger=logger,
                     run_id=run_id,

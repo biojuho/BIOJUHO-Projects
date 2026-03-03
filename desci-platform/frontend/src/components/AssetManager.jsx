@@ -11,18 +11,6 @@ const ASSET_TYPES = [
     { value: 'general', label: 'Other' },
 ];
 
-// Helper to generate a deterministic mock IPFS CID
-const generateMockCID = (filename) => {
-    if (!filename) return "QmHashPlaCeHolDeR...";
-    let hash = 0;
-    for (let i = 0; i < filename.length; i++) {
-        hash = ((hash << 5) - hash) + filename.charCodeAt(i);
-        hash |= 0;
-    }
-    // 'Qm' + base58-like fake string
-    return `Qm${Math.abs(hash).toString(16).padStart(44, 'a1B2c3D4e5F6g7H8i9J0kL')}`;
-};
-
 export default function AssetManager() {
     const [assets, setAssets] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -159,7 +147,7 @@ export default function AssetManager() {
                                     <p className="text-xs text-gray-400">{asset.path}</p>
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                         <span className="px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-md border border-green-500/20 font-mono truncate max-w-[200px] sm:max-w-none">
-                                            IPFS: {generateMockCID(asset.filename)}
+                                            IPFS: {asset.cid || 'Pending...'}
                                         </span>
                                         <span className="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-md border border-blue-500/20 tracking-wide">
                                             Pinned 📌

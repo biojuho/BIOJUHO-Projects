@@ -1,0 +1,247 @@
+﻿python : D:\AI ?꾨줈?앺듃\MCP_n
+otion-antigravity\scripts\n
+ews_bot.py:75: FutureWarnin
+g: 
+위치 줄:1 문자:1
++ python scripts\news_bot.p
+y 2>&1 | Out-File -Encoding
+ utf8 run_output. ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (D:\  
+  AI ?꾨줈?앺듃\MC...FutureW   
+ arning: :String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+
+All support for the `google
+.generativeai` package has 
+ended. It will no longer be
+ receiving 
+updates or bug fixes. Pleas
+e switch to the `google.gen
+ai` package as soon as poss
+ible.
+See README for more details
+:
+
+https://github.com/google-g
+emini/deprecated-generative
+-ai-python/blob/main/README
+.md
+
+  import google.generativea
+i as genai
+ts=2026-03-02T01:49:17.649961+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=bootstrap status=success message="brain module initialized"
+ts=2026-03-02T01:49:17.657624+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=bootstrap status=success message="x_radar loaded"
+ts=2026-03-02T01:49:20.529996+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=bootstrap status=success message="canva generator initialized"
+2026-03-02 10:49:20,534 [WA
+RNING] transformers ?⑦궎吏媛
+ ?ㅼ튂?섏? ?딆븯?듬땲?? (pip insta
+ll transformers torch) Fall
+back 紐⑤뱶濡??숈옉?⑸땲??
+ts=2026-03-02T01:49:20.534344+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=bootstrap status=success message="sentiment analyzer loaded"
+ts=2026-03-02T01:49:20.538199+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=start message="processing category" category=Tech window="2026-03-01 22:49 ~ 2026-03-02 10:49"
+ts=2026-03-02T01:49:21.512451+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=start message="processing category" category=Economy_KR window="2026-03-01 22:49 ~ 2026-03-02 10:49"
+ts=2026-03-02T01:49:22.379370+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=start message="processing category" category=Economy_Global window="2026-03-01 22:49 ~ 2026-03-02 10:49"
+2026-03-02 10:49:23,358 [IN
+FO] HTTP Request: GET https
+://rss.hankyung.com/feed/ec
+onomy.xml "HTTP/1.1 301 Mov
+ed Permanently"
+2026-03-02 10:49:23,403 [IN
+FO] HTTP Request: GET https
+://www.hankyung.com/feed "H
+TTP/1.1 200 OK"
+2026-03-02 10:49:24,378 [IN
+FO] HTTP Request: GET https
+://www.cnbc.com/id/10000311
+4/device/rss/rss.html "HTTP
+/1.1 200 OK"
+2026-03-02 10:49:24,474 [IN
+FO] HTTP Request: GET https
+://www.mk.co.kr/rss/3010004
+1/ "HTTP/1.1 200 OK"
+2026-03-02 10:49:25,405 [IN
+FO] HTTP Request: GET https
+://feeds.feedburner.com/gee
+knews-feed "HTTP/1.1 200 OK
+"
+2026-03-02 10:49:31,417 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+2026-03-02 10:49:33,575 [IN
+FO] HTTP Request: GET https
+://news.ycombinator.com/rss
+ "HTTP/1.1 200 OK"
+2026-03-02 10:49:36,307 [IN
+FO] HTTP Request: GET https
+://feeds.a.dj.com/rss/RSSWo
+rldNews.xml "HTTP/1.1 200 O
+K"
+2026-03-02 10:49:38,234 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+2026-03-02 10:49:39,365 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+[canva_generator] CanvaAPIError: Canva API GET /imports/3638761e-d5dc-4e30-869f-73d85f00bac3 failed (500): {"statusCode":500,"error":"server error"}
+ts=2026-03-02T01:49:40.953902+00:00 level=WARN job=news_bot run_id=news_bot-20260302T014912Z-57676 step=canva status=skipped message="import failed" category=Economy_KR
+2026-03-02 10:49:41,505 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:49:41,518 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+2026-03-02 10:49:43,204 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:49:46,390 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+ts=2026-03-02T01:49:46.391067+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=upload:Economy_KR status=failed message="notion page create failed" error="APIResponseError: body failed validation: body.children[9].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:49:46.393792+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=start message="processing category" category=Crypto window="2026-03-01 22:49 ~ 2026-03-02 10:49"
+2026-03-02 10:49:47,356 [IN
+FO] HTTP Request: GET https
+://www.coindesk.com/arc/out
+boundfeeds/rss/ "HTTP/1.1 3
+08 Permanent Redirect"
+2026-03-02 10:49:47,409 [IN
+FO] HTTP Request: GET https
+://www.coindesk.com/arc/out
+boundfeeds/rss "HTTP/1.1 20
+0 OK"
+2026-03-02 10:49:49,080 [IN
+FO] HTTP Request: GET https
+://www.tokenpost.kr/rss "HT
+TP/1.1 200 OK"
+2026-03-02 10:49:50,298 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+2026-03-02 10:49:51,520 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+ts=2026-03-02T01:49:57.419729+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=canva status=success message="design imported" category=Tech design_id=DAHCwSo13AY
+2026-03-02 10:49:57,645 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+ts=2026-03-02T01:49:58.846848+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=canva status=success message="design imported" category=Economy_Global design_id=DAHCwVLvBUI
+2026-03-02 10:49:59,373 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:49:59,556 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:50:01,406 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:50:02,605 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+ts=2026-03-02T01:50:02.606665+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=upload:Tech status=failed message="notion page create failed" error="APIResponseError: body failed validation: body.children[10].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:50:02.609013+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=start message="processing category" category=Global_Affairs window="2026-03-01 22:50 ~ 2026-03-02 10:50"
+2026-03-02 10:50:03,583 [IN
+FO] HTTP Request: GET http:
+//feeds.bbci.co.uk/news/wor
+ld/rss.xml "HTTP/1.1 302 Mo
+ved Temporarily"
+2026-03-02 10:50:03,717 [IN
+FO] HTTP Request: GET https
+://feeds.bbci.co.uk/news/wo
+rld/rss.xml "HTTP/1.1 200 O
+K"
+2026-03-02 10:50:04,855 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+ts=2026-03-02T01:50:04.856367+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=upload:Economy_Global status=failed message="notion page create failed" error="APIResponseError: body failed validation: body.children[10].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+2026-03-02 10:50:05,382 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+2026-03-02 10:50:12,540 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+2026-03-02 10:50:14,795 [IN
+FO] HTTP Request: GET https
+://news.google.com/rss/topi
+cs/CAAqJggKIiBDQkFTRWvfSkdn
+UVZOM1psZG5Sa2JHRXRlQW9BQ1A
+B?hl=ko&gl=KR&ceid=KR:ko "H
+TTP/1.1 400 Bad Request"
+2026-03-02 10:50:17,527 [IN
+FO] HTTP Request: GET https
+://news.google.com/rss/topi
+cs/CAAqJggKIiBDQkFTRWvfSkdn
+UVZOM1psZG5Sa2JHRXRlQW9BQ1A
+B?hl=ko&gl=KR&ceid=KR:ko "H
+TTP/1.1 400 Bad Request"
+ts=2026-03-02T01:50:21.641954+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=canva status=success message="design imported" category=Crypto design_id=DAHCwa9pnak
+2026-03-02 10:50:21,899 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:50:22,268 [IN
+FO] HTTP Request: GET https
+://news.google.com/rss/topi
+cs/CAAqJggKIiBDQkFTRWvfSkdn
+UVZOM1psZG5Sa2JHRXRlQW9BQ1A
+B?hl=ko&gl=KR&ceid=KR:ko "H
+TTP/1.1 400 Bad Request"
+ts=2026-03-02T01:50:22.271255+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=fetch status=failed message="feed fetch failed" category=Global_Affairs source="Google News World (KR)" error="Client error '400 Bad Request' for url 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWvfSkdnUVZOM1psZG5Sa2JHRXRlQW9BQ1AB?hl=ko&gl=KR&ceid=KR:ko'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+2026-03-02 10:50:23,630 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:50:26,817 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+ts=2026-03-02T01:50:26.818006+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=upload:Crypto status=failed message="notion page create failed" error="APIResponseError: body failed validation: body.children[11].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+2026-03-02 10:50:29,469 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+2026-03-02 10:50:38,692 [IN
+FO] HTTP Request: POST http
+s://api.anthropic.com/v1/me
+ssages "HTTP/1.1 200 OK"
+ts=2026-03-02T01:50:49.204155+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=canva status=success message="design imported" category=Global_Affairs design_id=DAHCwaczCVY
+2026-03-02 10:50:49,631 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:50:51,366 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+2026-03-02 10:50:57,149 [IN
+FO] HTTP Request: POST http
+s://api.notion.com/v1/pages
+ "HTTP/1.1 400 Bad Request"
+ts=2026-03-02T01:50:57.150662+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=upload:Global_Affairs status=failed message="notion page create failed" error="APIResponseError: body failed validation: body.children[10].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:50:57.153122+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=failed message="unhandled category task failure" error="body failed validation: body.children[10].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:50:57.154172+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=failed message="unhandled category task failure" error="body failed validation: body.children[9].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:50:57.155146+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=failed message="unhandled category task failure" error="body failed validation: body.children[10].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:50:57.156145+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=failed message="unhandled category task failure" error="body failed validation: body.children[11].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:50:57.157235+00:00 level=ERROR job=news_bot run_id=news_bot-20260302T014912Z-57676 step=category status=failed message="unhandled category task failure" error="body failed validation: body.children[10].toggle.children[1].paragraph.rich_text[0].text.annotations should be not present, instead was `{"code":true,"color":"blue"}`."
+ts=2026-03-02T01:50:57.298617+00:00 level=INFO job=news_bot run_id=news_bot-20260302T014912Z-57676 step=complete status=success message="news_bot finished" categories_success=0 categories_failed=5 categories_skipped=0 articles=0
