@@ -95,7 +95,7 @@ def _build_notion_body(
         "object": "block",
         "type": "heading_2",
         "heading_2": {
-            "rich_text": [{"type": "text", "text": {"content": "✍️ 트윗 시안 (3종)"}}],
+            "rich_text": [{"type": "text", "text": {"content": "✍️ 트윗 시안 (5종)"}}],
         },
     })
 
