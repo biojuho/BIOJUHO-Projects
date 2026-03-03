@@ -153,6 +153,7 @@ def _build_notion_body(
         })
         for i, text in enumerate(batch.thread.tweets):
             label = "🪝 Hook" if i == 0 else f"📌 {i + 1}/{len(batch.thread.tweets)}"
+            callout_text = f"{label}\n{text}"[:1900]
             blocks.append({
                 "object": "block",
                 "type": "callout",
@@ -160,7 +161,7 @@ def _build_notion_body(
                     "icon": {"type": "emoji", "emoji": "🧵" if i > 0 else "🪝"},
                     "rich_text": [{
                         "type": "text",
-                        "text": {"content": f"{label}\n{text}"},
+                        "text": {"content": callout_text},
                     }],
                     "color": "yellow_background" if i == 0 else "default",
                 },
@@ -180,7 +181,7 @@ def _build_notion_body(
                         "object": "block",
                         "type": "paragraph",
                         "paragraph": {
-                            "rich_text": [{"type": "text", "text": {"content": combined[:2000]}}],
+                            "rich_text": [{"type": "text", "text": {"content": combined[:1900]}}],
                         },
                     }],
                 },
@@ -226,7 +227,7 @@ def _build_notion_body(
             # Notion 블록은 2000자 제한 → 분할
             content = post.content
             while content:
-                chunk, content = content[:2000], content[2000:]
+                chunk, content = content[:1900], content[1900:]
                 blocks.append({
                     "object": "block",
                     "type": "paragraph",
@@ -251,7 +252,7 @@ def _build_notion_body(
                 "type": "callout",
                 "callout": {
                     "icon": {"type": "emoji", "emoji": "📱"},
-                    "rich_text": [{"type": "text", "text": {"content": f"[{post.tweet_type}]\n{post.content}"}}],
+                    "rich_text": [{"type": "text", "text": {"content": f"[{post.tweet_type}]\n{post.content}"[:1900]}}],
                     "color": "purple_background",
                 },
             })
