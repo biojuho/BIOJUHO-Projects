@@ -6,11 +6,18 @@ import os
 from datetime import datetime
 from typing import Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Body, Query
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Body, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import firestore
+
+from services.logging_config import setup_logging, get_logger
+
+# Initialize structured logging before anything else
+_is_production = os.getenv("ENV", "development") == "production"
+setup_logging(json_output=_is_production, log_level=os.getenv("LOG_LEVEL", "INFO"))
+log = get_logger("biolinker.main")
 
 from models import AnalyzeRequest, AnalyzeResponse, UserProfile, RFPDocument, Paper
 from services.auth import get_current_user
@@ -42,10 +49,10 @@ try:
         db = firestore.client()
     else:
         db = None
-        print("[WARNING] Firebase not initialized. Firestore disabled.")
+        log.warning("firebase_not_initialized", detail="Firestore disabled")
 except Exception as e:
     db = None
-    print(f"[ERROR] Firestore initialization failed: {e}")
+    log.error("firestore_init_failed", error=str(e))
 
 
 @asynccontextmanager
@@ -85,6 +92,23 @@ app.add_middleware(
 )
 
 
+def get_request_locale_context(
+    user_locale: str | None = Header(default=None, alias="X-User-Locale"),
+    output_language: str | None = Header(default=None, alias="X-Output-Language"),
+):
+    from services.agent_service import RequestLocaleContext
+
+    locale = (user_locale or "ko-KR").strip() or "ko-KR"
+    normalized_output = (output_language or "ko").strip().lower() or "ko"
+    if normalized_output != "ko":
+        normalized_output = "ko"
+    return RequestLocaleContext(
+        locale=locale,
+        output_language=normalized_output,
+        input_language="auto",
+    )
+
+
 # ============== 기본 엔드포인트 ==============
 
 @app.get("/")
@@ -97,8 +121,34 @@ async def root():
     }
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Service health check",
+    response_description="Current status of all subsystems",
+    responses={
+        200: {
+            "description": "Health status returned successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "healthy",
+                        "llm_available": True,
+                        "chromadb_ok": True,
+                        "chromadb_count": 42,
+                        "web3_connected": False,
+                        "ipfs_configured": True,
+                    }
+                }
+            },
+        }
+    },
+)
 async def health():
+    """Return aggregated health status for all BioLinker subsystems.
+
+    Checks: ChromaDB vector store, LLM API key availability,
+    Web3 provider connection, and IPFS (Pinata) configuration.
+    """
     vector_store = get_vector_store()
     web3 = get_web3_service()
     ipfs = get_ipfs_service()
@@ -109,10 +159,12 @@ async def health():
         chromadb_count = vector_store.count()
     except Exception as e:
         chromadb_ok = False
-        print(f"[WARNING] Health check failed to read vector store count: {e}")
+        log.warning("health_check_vector_store_error", error=str(e))
 
     llm_available = bool(
-        os.getenv("OPENAI_API_KEY")
+        os.getenv("DEEPSEEK_API_KEY")
+        or os.getenv("ANTHROPIC_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
         or os.getenv("GOOGLE_API_KEY")
         or os.getenv("GEMINI_API_KEY")
     )
@@ -139,16 +191,56 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 # ============== RFP 분석 ==============
 
-@app.post("/analyze", response_model=AnalyzeResponse)
+@app.post(
+    "/analyze",
+    response_model=AnalyzeResponse,
+    summary="Analyze RFP fitness",
+    response_description="Fitness score, grade, and actionable recommendations",
+    responses={
+        200: {
+            "description": "Analysis completed successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "rfp": {
+                            "id": "rfp-001",
+                            "title": "2024 BioHealth Innovation R&D Program",
+                            "source": "KDDF",
+                            "body_text": "...",
+                            "keywords": ["bio", "drug", "AI"],
+                        },
+                        "result": {
+                            "fit_score": 82,
+                            "fit_grade": "A",
+                            "match_summary": [
+                                "Core AI drug-discovery capability aligns with RFP focus",
+                                "TRL 4 meets the RFP minimum requirement",
+                                "Company is an eligible SME",
+                            ],
+                            "risk_flags": ["Budget cap may limit scope"],
+                            "recommended_actions": ["Prepare partnership letter"],
+                        },
+                    }
+                }
+            },
+        },
+        500: {"description": "LLM analysis or parsing failure"},
+    },
+)
 async def analyze_rfp(request: AnalyzeRequest):
-    """RFP 공고문 적합도 분석"""
+    """Analyze an RFP announcement against a user's technology profile.
+
+    The LLM evaluates tech-field alignment (40%), TRL fit (20%),
+    eligibility (20%), strategic synergy (10%), and budget match (10%)
+    to produce a 0-100 score and an S/A/B/C/D grade.
+    """
     try:
         crawler = get_crawler()
         rfp = await crawler.parse_text(request.rfp_text, request.rfp_url)
-        
+
         analyzer = get_analyzer()
         result = await analyzer.analyze(rfp, request.user_profile)
-        
+
         return AnalyzeResponse(rfp=rfp, result=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -167,9 +259,35 @@ async def parse_rfp(rfp_text: str, rfp_url: Optional[str] = None):
 
 # ============== 공고 크롤링 ==============
 
-@app.get("/notices")
+@app.get(
+    "/notices",
+    summary="List collected RFP notices",
+    response_description="Array of RFP notice objects",
+    responses={
+        200: {
+            "description": "Notices returned successfully",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {
+                            "id": "kddf-001",
+                            "title": "2024 Drug Development Support Program",
+                            "source": "KDDF",
+                            "deadline": "2024-12-31T23:59:59",
+                            "keywords": ["drug", "clinical trial"],
+                        }
+                    ]
+                }
+            },
+        }
+    },
+)
 async def get_notices(source: Optional[str] = None, limit: int = 30):
-    """저장된 공고 목록 조회"""
+    """Return previously collected government RFP notices.
+
+    Optionally filter by ``source`` (e.g. KDDF, NTIS) and cap the
+    result count with ``limit``.
+    """
     scheduler = get_scheduler()
     return scheduler.get_notices(source=source, limit=limit)
 
@@ -198,13 +316,34 @@ async def get_ntis_notices(keyword: str = "바이오", page: int = 1):
 
 # ============== 벡터 검색 ==============
 
-@app.get("/match/rfp")
+@app.get(
+    "/match/rfp",
+    summary="Vector-search RFP notices by text query",
+    response_description="Ranked list of matching RFP documents with similarity scores",
+    responses={
+        200: {
+            "description": "Matching RFPs returned",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {
+                            "document": {"id": "rfp-001", "title": "AI Drug Discovery Fund"},
+                            "score": 0.91,
+                        }
+                    ]
+                }
+            },
+        }
+    },
+)
 async def match_rfp(
     query: str = Query(..., description="Project description or keywords"),
-    limit: int = 5
+    limit: int = Query(5, ge=1, le=50, description="Max results to return"),
 ):
-    """
-    [Legacy] Search via text query
+    """Perform a ChromaDB vector-similarity search over indexed RFP notices.
+
+    Provide a free-text project description or comma-separated keywords.
+    Returns up to ``limit`` notices ranked by cosine similarity.
     """
     vector_store = get_vector_store()
     results = vector_store.search_similar(query, n_results=limit)
@@ -228,7 +367,7 @@ async def match_paper_to_rfps(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        print(f"Error matching paper: {e}")
+        log.error("paper_matching_error", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/proposal/generate")
@@ -261,7 +400,7 @@ async def generate_proposal_draft(
         critique = await generator.review_draft(rfp, paper, draft)
         return {"draft": draft, "critique": critique}
     except Exception as e:
-        print(f"Error generating proposal: {e}")
+        log.error("proposal_generation_error", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -285,14 +424,39 @@ async def get_vector_count():
 
 # ============== IPFS 업로드 ==============
 
-@app.post("/upload")
+@app.post(
+    "/upload",
+    summary="Upload a paper to IPFS",
+    response_description="IPFS CID, gateway URL, and extracted analysis metadata",
+    responses={
+        200: {
+            "description": "Upload and indexing successful",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "cid": "QmXyZ123...",
+                        "url": "https://gateway.pinata.cloud/ipfs/QmXyZ123...",
+                        "analysis": {
+                            "keywords": ["antibody", "AI", "drug discovery"],
+                            "text_length": 12345,
+                            "status": "indexed",
+                        },
+                    }
+                }
+            },
+        },
+        401: {"description": "Authentication required"},
+        502: {"description": "IPFS upload succeeded but CID is missing"},
+    },
+)
 async def upload_to_ipfs(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
     abstract: Optional[str] = Form(None),
     user: dict = Depends(get_current_user)  # Require Auth
 ):
-    """파일을 IPFS에 업로드하고 Firestore에 메타데이터 저장"""
+    """Upload a research paper PDF to IPFS (Pinata), extract keywords
+    via LLM, index in ChromaDB, and persist metadata to Firestore."""
     import tempfile
     tmp_path: Optional[str] = None
     
@@ -319,7 +483,7 @@ async def upload_to_ipfs(
                 text=pdf_text or '',
             )
         except Exception as _ke:
-            print(f"[Upload] Keyword extraction failed: {_ke}")
+            log.warning("keyword_extraction_failed", error=str(_ke))
             words = (pdf_text or '').split()
             extracted_keywords = list(set(w for w in words if len(w) > 5))[:8] or ["Bio", "Research"]
 
@@ -376,9 +540,9 @@ async def upload_to_ipfs(
                 # Save to users/{uid}/papers/{cid}
                 doc_ref = db.collection("users").document(user_id).collection("papers").document(cid)
                 doc_ref.set(paper_data)
-                print(f"Saved paper {cid} to Firestore for user {user_id}")
+                log.info("paper_saved_to_firestore", cid=cid, user_id=user_id)
             except Exception as e:
-                print(f"Failed to save to Firestore: {e}")
+                log.error("firestore_save_failed", error=str(e), cid=cid)
         
         # Return extended result
         result["cid"] = cid
@@ -429,7 +593,7 @@ async def get_my_papers(user: dict = Depends(get_current_user)):
             if papers:
                 return papers
         except Exception as e:
-            print(f"Firestore read error: {e}")
+            log.error("firestore_read_error", error=str(e), user_id=user_id)
 
     # 2. Fallback to Mock if DB empty or failed and MOCK_MODE is enabled
     if MOCK_MODE:
@@ -502,7 +666,7 @@ async def get_transactions(address: str, limit: int = 20):
             if txns:
                 return txns
         except Exception as e:
-            print(f"Firestore transactions read error: {e}")
+            log.error("firestore_transactions_read_error", error=str(e), address=address)
 
     # Mock fallback only in MOCK_MODE
     if MOCK_MODE:
@@ -542,7 +706,7 @@ async def mint_nft(
                 "tx_hash": result.get("tx_hash", ""),
             })
         except Exception as e:
-            print(f"[WARNING] Consent audit log failed: {e}")
+            log.warning("consent_audit_log_failed", error=str(e))
 
     return result
 
@@ -593,7 +757,7 @@ async def get_vc_matches():
     # Check if any VC exists
     vcs = vs.get_documents_by_metadata("type", "vc_firm")
     if not vcs:
-        print("[System] Initializing Mock VC Database...")
+        log.info("initializing_mock_vc_database")
         from services.vc_crawler import get_vc_crawler
         crawler = get_vc_crawler()
         vc_list = crawler.fetch_vc_list()
@@ -655,7 +819,8 @@ async def demo_analysis():
 
 @app.post("/api/agent/research")
 async def agent_research(
-    request: dict = Body(..., examples=[{"topic": "Agentic AI", "deep": True}])
+    request: dict = Body(..., examples=[{"topic": "Agentic AI", "deep": True}]),
+    locale_context = Depends(get_request_locale_context),
 ):
     """(Agent) Deep Research - 주제에 대한 심층 연구 리포트 생성"""
     from services.agent_service import get_agent_service
@@ -664,22 +829,23 @@ async def agent_research(
     deep = request.get("deep", False)
     
     if not topic:
-        raise HTTPException(status_code=400, detail="Topic required")
+        raise HTTPException(status_code=400, detail="주제가 필요합니다.")
         
     service = get_agent_service()
     
     if deep:
-        report_data = await service.perform_deep_research(topic)
-        return {"result": report_data}
+        report_data = await service.perform_deep_research(topic, locale_context)
+        return {"result": report_data, "meta": report_data.get("meta", {})}
     else:
         # Legacy/Simple synthesis
         results = request.get("results", [])
-        report = await service.synthesize_research(topic, results)
-        return {"report": report}
+        report_data = await service.synthesize_research(topic, results, locale_context)
+        return {"report": report_data["report"], "meta": report_data["meta"]}
 
 @app.post("/api/agent/write")
 async def agent_write_content(
-    request: dict = Body(..., examples=[{"topic": "Agentic AI", "raw_text": "...", "format_type": "blog_post"}])
+    request: dict = Body(..., examples=[{"topic": "Agentic AI", "raw_text": "...", "format_type": "blog_post"}]),
+    locale_context = Depends(get_request_locale_context),
 ):
     """(Agent) Content Publisher - 다양한 형식의 콘텐츠 생성"""
     from services.agent_service import get_agent_service
@@ -689,42 +855,44 @@ async def agent_write_content(
     format_type = request.get("format_type", "blog_post")
     
     if not topic or not raw_text:
-        raise HTTPException(status_code=400, detail="Topic and Raw Text required")
+        raise HTTPException(status_code=400, detail="주제와 원문 텍스트가 필요합니다.")
         
     service = get_agent_service()
-    content = await service.write_content(topic, raw_text, format_type)
-    return {"content": content}
+    result = await service.write_content(topic, raw_text, locale_context, format_type)
+    return result
 
 @app.post("/api/agent/youtube")
 async def agent_youtube_analysis(
-    request: dict = Body(..., examples=[{"url": "https://youtu.be/...", "query": "Summarize this"}])
+    request: dict = Body(..., examples=[{"url": "https://youtu.be/...", "query": "Summarize this"}]),
+    locale_context = Depends(get_request_locale_context),
 ):
     """(Agent) YouTube Intelligence - 영상 분석 및 질의응답"""
     from services.agent_service import get_agent_service
     
     url = request.get("url")
-    query = request.get("query", "Summarize the video")
+    query = request.get("query", "영상 내용을 요약해줘")
     
     if not url:
-        raise HTTPException(status_code=400, detail="Video URL required")
+        raise HTTPException(status_code=400, detail="영상 URL이 필요합니다.")
         
     service = get_agent_service()
-    result = await service.analyze_youtube_video(url, query)
+    result = await service.analyze_youtube_video(url, locale_context, query)
     return result
 
 @app.post("/api/agent/literature-review")
 async def agent_literature_review(
-    request: dict = Body(..., examples=[{"topic": "CRISPR for SCD"}])
+    request: dict = Body(..., examples=[{"topic": "CRISPR for SCD"}]),
+    locale_context = Depends(get_request_locale_context),
 ):
     """(Agent) Literature Review - 지정된 주제에 대한 문헌 고찰(Review) 리포트 생성"""
     from services.agent_service import get_agent_service
     
     topic = request.get("topic")
     if not topic:
-        raise HTTPException(status_code=400, detail="Topic required")
+        raise HTTPException(status_code=400, detail="주제가 필요합니다.")
         
     service = get_agent_service()
-    result = await service.conduct_literature_review(topic)
+    result = await service.conduct_literature_review(topic, locale_context)
     
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -742,7 +910,7 @@ async def list_proposals():
             docs = db.collection("governance_proposals").order_by("created_at", direction="DESCENDING").stream()
             return [doc.to_dict() for doc in docs]
         except Exception as e:
-            print(f"[governance] Firestore read error: {e}")
+            log.error("governance_firestore_read_error", error=str(e))
 
     # Mock fallback
     if MOCK_MODE:
@@ -799,7 +967,7 @@ async def create_proposal(request: dict = Body(...)):
         try:
             db.collection("governance_proposals").document(proposal_data["id"]).set(proposal_data)
         except Exception as e:
-            print(f"[governance] Firestore write error: {e}")
+            log.error("governance_firestore_write_error", error=str(e))
 
     return proposal_data
 
@@ -837,7 +1005,7 @@ async def vote_on_proposal(proposal_id: str, request: dict = Body(...)):
         except HTTPException:
             raise
         except Exception as e:
-            print(f"[governance] Vote error: {e}")
+            log.error("governance_vote_error", error=str(e), proposal_id=proposal_id)
 
     # Mock
     return {"success": True, "proposal_id": proposal_id, "voter": voter, "support": support, "_mock": True}

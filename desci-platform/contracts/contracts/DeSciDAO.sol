@@ -14,7 +14,7 @@ interface IERC20 {
 
 contract DeSciDAO {
     // ── Types ──────────────────────────────────
-    enum ProposalState { Pending, Active, Passed, Rejected, Executed }
+    enum ProposalState { Pending, Active, Passed, Rejected, Queued, Executed }
 
     struct Proposal {
         uint256 id;
@@ -33,6 +33,7 @@ contract DeSciDAO {
     IERC20 public dsciToken;
     uint256 public proposalCount;
     uint256 public constant VOTING_PERIOD = 3 days;
+    uint256 public constant EXECUTION_DELAY = 2 days;
     uint256 public constant MIN_PROPOSAL_TOKENS = 100 * 1e18; // 100 DSCI
     uint256 public constant QUORUM_PERCENTAGE = 10; // 10% of total supply
 
@@ -51,6 +52,15 @@ contract DeSciDAO {
     // ── Modifiers ──────────────────────────────
     modifier onlyTokenHolder(uint256 minBalance) {
         require(dsciToken.balanceOf(msg.sender) >= minBalance, "Insufficient DSCI tokens");
+        _;
+    }
+
+    modifier executeAfterDelay(uint256 _proposalId) {
+        Proposal storage p = proposals[_proposalId];
+        require(
+            block.timestamp >= p.endTime + EXECUTION_DELAY,
+            "Timelock: execution delay not met"
+        );
         _;
     }
 
@@ -94,7 +104,7 @@ contract DeSciDAO {
     }
 
     // ── Execute ────────────────────────────────
-    function executeProposal(uint256 _proposalId) external {
+    function executeProposal(uint256 _proposalId) external executeAfterDelay(_proposalId) {
         Proposal storage p = proposals[_proposalId];
         require(p.id != 0, "Proposal does not exist");
         require(block.timestamp > p.endTime, "Voting period not ended");
@@ -114,8 +124,10 @@ contract DeSciDAO {
         if (p.id == 0) revert("Proposal does not exist");
         if (p.executed) return ProposalState.Executed;
         if (block.timestamp <= p.endTime) return ProposalState.Active;
-        if (p.forVotes > p.againstVotes) return ProposalState.Passed;
-        return ProposalState.Rejected;
+        if (p.forVotes <= p.againstVotes) return ProposalState.Rejected;
+        // Passed but within timelock delay → Queued
+        if (block.timestamp < p.endTime + EXECUTION_DELAY) return ProposalState.Queued;
+        return ProposalState.Passed;
     }
 
     function getVotes(uint256 _proposalId) external view returns (uint256 forVotes, uint256 againstVotes) {

@@ -1,4 +1,37 @@
 services:
+  # --- Dev profile (default) ---
+  biolinker:
+    container_name: desci-biolinker
+    build: ./biolinker
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - CHROMA_DB_PATH=/app/chroma_db
+      - ENV=${ENV:-development}
+    volumes:
+      - ./biolinker/chroma_db:/app/chroma_db
+    depends_on:
+      - chromadb
+    networks:
+      - desci-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  chromadb:
+    image: chromadb/chroma:latest
+    expose:
+      - "8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - desci-net
+
+  # --- Production profile ---
   nginx:
     build:
       context: ../nginx
@@ -11,30 +44,8 @@ services:
     networks:
       - desci-net
     restart: unless-stopped
-
-  biolinker:
-    container_name: desci-biolinker
-    build: ./biolinker
-    expose:
-      - "8000"
-    environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - CHROMA_DB_PATH=/app/chroma_db
-    volumes:
-      - ./biolinker/chroma_db:/app/chroma_db
-    depends_on:
-      - chromadb
-    networks:
-      - desci-net
-
-  chromadb:
-    image: chromadb/chroma:latest
-    expose:
-      - "8000"
-    volumes:
-      - chroma-data:/chroma/chroma
-    networks:
-      - desci-net
+    profiles:
+      - prod
 
 networks:
   desci-net:
@@ -42,4 +53,3 @@ networks:
 
 volumes:
   chroma-data:
-

@@ -29,6 +29,16 @@ npm install
 npm run dev
 ```
 
+### UTF-8 테스트 실행 (Windows)
+
+Windows 터미널에서 한글이 깨져 보여도 파일 자체가 손상된 것은 아닐 수 있습니다. 로컬 테스트는 UTF-8 강제 실행을 기본으로 사용하세요.
+
+```bash
+set PYTHONUTF8=1
+cd ..\tests
+..\.venv\Scripts\python.exe -m pytest test_shared_llm.py -q
+```
+
 ---
 
 ## 🛡 품질 게이트 (Quality Gate)
