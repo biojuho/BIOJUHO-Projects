@@ -176,7 +176,7 @@ export default function Dashboard() {
                             <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">{t('dashboard.identity')}</h4>
                             <div className="space-y-3">
                                 <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.email')}</span> <span className="text-white/80 font-medium">{user?.email}</span></p>
-                                <p className="flex justify-between items-center text-sm"><span className="text-white/30">{t('dashboard.provider')}</span> <Badge variant="default" className="capitalize text-xs">{user?.providerData?.[0]?.providerId}</Badge></p>
+                                <div className="flex justify-between items-center text-sm"><span className="text-white/30">{t('dashboard.provider')}</span> <Badge variant="default" className="capitalize text-xs">{user?.providerData?.[0]?.providerId}</Badge></div>
                                 <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.uid')}</span> <span className="text-white/40 font-mono text-xs">{user?.uid?.slice(0, 8)}...</span></p>
                             </div>
                         </div>
