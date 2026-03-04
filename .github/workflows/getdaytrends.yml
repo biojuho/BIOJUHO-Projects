@@ -1,9 +1,9 @@
 name: getdaytrends - Auto Tweet Generator
 
 on:
-  schedule:
-    # 4시간마다 실행 (UTC 기준: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00)
-    - cron: '0 */4 * * *'
+  # 이번 달은 로컬에서 실행하기로 결정하여 GitHub Actions 스케줄을 비활성화합니다.
+  # schedule:
+  #   - cron: '0 */4 * * *'
   workflow_dispatch:
     inputs:
       country:
