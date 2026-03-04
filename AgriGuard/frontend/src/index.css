@@ -1,69 +1,112 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════
-   AgriGuard — Agricultural Guardian Theme (shadcn/ui)
+   AgriGuard — Tailwind v4 CSS-first Theme (shadcn/ui)
    ═══════════════════════════════════════════════════════ */
 
-@layer base {
-  :root {
-    --background: 215 28% 7%;
-    --foreground: 210 20% 92%;
+@theme {
+  /* Font */
+  --font-sans: "Inter", system-ui, sans-serif;
 
-    --card: 215 28% 11%;
-    --card-foreground: 210 20% 92%;
+  /* Border Radius */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 
-    --popover: 215 28% 11%;
-    --popover-foreground: 210 20% 92%;
+  /* Colors — reference CSS vars from :root */
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
 
-    --primary: 142 69% 58%;
-    --primary-foreground: 142 100% 6%;
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
 
-    --secondary: 48 96% 53%;
-    --secondary-foreground: 48 100% 10%;
-
-    --muted: 215 14% 20%;
-    --muted-foreground: 215 14% 60%;
-
-    --accent: 215 14% 16%;
-    --accent-foreground: 210 20% 92%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 215 20% 18%;
-    --input: 215 20% 18%;
-    --ring: 142 69% 58%;
-
-    --radius: 0.75rem;
-  }
-
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-family: "Inter", system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Focus visible for accessibility */
-  :focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
-  }
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
 }
 
-@layer components {
-  /* Legacy glass utilities (preserved for backward compatibility) */
-  .glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/10 shadow-xl;
-  }
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+/* ── Design Tokens ─────────────────────────────────────── */
+
+:root {
+  --background: 215 28% 7%;
+  --foreground: 210 20% 92%;
+
+  --card: 215 28% 11%;
+  --card-foreground: 210 20% 92%;
+
+  --popover: 215 28% 11%;
+  --popover-foreground: 210 20% 92%;
+
+  --primary: 142 69% 58%;
+  --primary-foreground: 142 100% 6%;
+
+  --secondary: 48 96% 53%;
+  --secondary-foreground: 48 100% 10%;
+
+  --muted: 215 14% 20%;
+  --muted-foreground: 215 14% 60%;
+
+  --accent: 215 14% 16%;
+  --accent-foreground: 210 20% 92%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 215 20% 18%;
+  --input: 215 20% 18%;
+  --ring: 142 69% 58%;
+
+  --radius: 0.75rem;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+}
+
+/* Glass utility */
+.glass {
+  background: rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
 }
 
 /* Custom Scrollbar */

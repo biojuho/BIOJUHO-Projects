@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, Float, ForeignKey, Index
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
@@ -15,6 +15,9 @@ class User(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        Index("ix_products_qr_code", "qr_code", unique=True),
+    )
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, index=True)
@@ -33,6 +36,9 @@ class Product(Base):
 
 class TrackingEvent(Base):
     __tablename__ = "tracking_events"
+    __table_args__ = (
+        Index("ix_tracking_events_product_id", "product_id"),
+    )
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     product_id = Column(String, ForeignKey("products.id"))
@@ -45,6 +51,9 @@ class TrackingEvent(Base):
 
 class Certificate(Base):
     __tablename__ = "certificates"
+    __table_args__ = (
+        Index("ix_certificates_product_id", "product_id"),
+    )
 
     cert_id = Column(String, primary_key=True, index=True)
     product_id = Column(String, ForeignKey("products.id"))
@@ -53,3 +62,20 @@ class Certificate(Base):
     cert_type = Column(String)
 
     product = relationship("Product", back_populates="certificates")
+
+class SensorReading(Base):
+    __tablename__ = "sensor_readings"
+    __table_args__ = (
+        Index("ix_sensor_readings_sensor_id", "sensor_id"),
+        Index("ix_sensor_readings_timestamp", "timestamp"),
+        Index("ix_sensor_readings_zone", "zone"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    sensor_id = Column(String, nullable=False)
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
+    temperature = Column(Float, nullable=False)
+    humidity = Column(Float, nullable=False)
+    battery = Column(Float)
+    zone = Column(String)
+    status = Column(String, default="normal")

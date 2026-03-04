@@ -4,12 +4,18 @@ Simulates IoT sensor data (mock) and provides WebSocket + REST endpoints.
 """
 import asyncio
 import json
+import logging
 import random
 import time
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import WebSocket
+
+from database import SessionLocal
+from models import SensorReading
+
+logger = logging.getLogger(__name__)
 
 # In-memory storage for sensor readings
 _sensor_history: list[dict] = []
@@ -21,8 +27,9 @@ _ALERT_THRESHOLDS = {
     "humidity_max": 85.0,
 }
 
-# Active WebSocket connections
+# Active WebSocket connections — guarded by _ws_lock
 _ws_clients: list[WebSocket] = []
+_ws_lock = asyncio.Lock()
 
 
 def _generate_mock_reading() -> dict:
@@ -59,6 +66,28 @@ def _generate_mock_reading() -> dict:
     reading["alerts"] = alerts
     reading["status"] = "alert" if alerts else "normal"
     return reading
+
+
+def _persist_reading(reading: dict) -> None:
+    """Persist a sensor reading to the database."""
+    db = SessionLocal()
+    try:
+        sensor_reading = SensorReading(
+            sensor_id=reading["sensor_id"],
+            timestamp=datetime.fromisoformat(reading["timestamp"]),
+            temperature=reading["temperature"],
+            humidity=reading["humidity"],
+            battery=reading["battery"],
+            zone=reading["zone"],
+            status=reading["status"],
+        )
+        db.add(sensor_reading)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to persist sensor reading")
+    finally:
+        db.close()
 
 
 def get_latest_readings(hours: int = 24) -> list[dict]:
@@ -106,13 +135,14 @@ def get_current_status() -> dict:
 async def broadcast_reading(reading: dict):
     """Broadcast a sensor reading to all connected WebSocket clients."""
     dead = []
-    for ws in _ws_clients:
-        try:
-            await ws.send_json(reading)
-        except Exception:
-            dead.append(ws)
-    for ws in dead:
-        _ws_clients.remove(ws)
+    async with _ws_lock:
+        for ws in _ws_clients:
+            try:
+                await ws.send_json(reading)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            _ws_clients.remove(ws)
 
 
 async def sensor_simulation_loop():
@@ -125,6 +155,10 @@ async def sensor_simulation_loop():
         if len(_sensor_history) > _MAX_HISTORY:
             _sensor_history[:] = _sensor_history[-_MAX_HISTORY:]
 
+        # Persist to database (run in thread to avoid blocking the event loop)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _persist_reading, reading)
+
         # Broadcast to WebSocket clients
         await broadcast_reading(reading)
         await asyncio.sleep(5)
@@ -133,7 +167,8 @@ async def sensor_simulation_loop():
 async def handle_ws_connection(websocket: WebSocket):
     """Handle a WebSocket client connection for live IoT data."""
     await websocket.accept()
-    _ws_clients.append(websocket)
+    async with _ws_lock:
+        _ws_clients.append(websocket)
     try:
         # Send recent history on connect
         recent = get_latest_readings(hours=1)[-20:]
@@ -145,5 +180,6 @@ async def handle_ws_connection(websocket: WebSocket):
     except Exception:
         pass
     finally:
-        if websocket in _ws_clients:
-            _ws_clients.remove(websocket)
+        async with _ws_lock:
+            if websocket in _ws_clients:
+                _ws_clients.remove(websocket)

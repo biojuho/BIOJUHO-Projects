@@ -1,4 +1,25 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agriguard-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: agriguard
+      POSTGRES_PASSWORD: agriguard_secret
+      POSTGRES_DB: agriguard
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - agriguard-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agriguard -d agriguard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   nginx:
     build:
       context: ../nginx
@@ -24,10 +45,14 @@ services:
       - "8002:8002"
     environment:
       - ENV=production
+      - DATABASE_URL=postgresql://agriguard:agriguard_secret@postgres:5432/agriguard
     env_file:
       - ./backend/.env
     volumes:
       - backend-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - agriguard-net
     restart: unless-stopped
@@ -58,4 +83,4 @@ networks:
 
 volumes:
   backend-data:
-
+  postgres-data:
