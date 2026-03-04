@@ -27,13 +27,7 @@ COUNTRY_MAP = {
 
 @dataclass
 class AppConfig:
-    # LLM API (fallback 순서: Anthropic → Gemini → Grok → OpenAI)
-    anthropic_api_key: str = ""
-    gemini_api_key: str = ""
-    grok_api_key: str = ""
-    openai_api_key: str = ""
-    claude_model: str = "claude-sonnet-4-20250514"
-    claude_model_scoring: str = "claude-3-haiku-20240307"
+    # LLM은 shared.llm 모듈에서 관리 (루트 .env에서 키 로딩)
 
     # Storage: Notion
     notion_token: str = ""
@@ -85,12 +79,6 @@ class AppConfig:
     @classmethod
     def from_env(cls) -> "AppConfig":
         return cls(
-            anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-            gemini_api_key=os.getenv("GOOGLE_API_KEY", os.getenv("GEMINI_API_KEY", "")),
-            grok_api_key=os.getenv("XAI_API_KEY", ""),
-            openai_api_key=os.getenv("OPENAI_API_KEY", ""),
-            claude_model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
-            claude_model_scoring=os.getenv("CLAUDE_MODEL_SCORING", "claude-3-haiku-20240307"),
             notion_token=os.getenv("NOTION_TOKEN", ""),
             notion_database_id=os.getenv("NOTION_DATABASE_ID", ""),
             google_service_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "credentials.json"),
@@ -118,9 +106,15 @@ class AppConfig:
 
     def validate(self) -> list[str]:
         """오류 목록 반환. 빈 리스트이면 유효."""
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from shared.llm.config import load_keys
+
         errors = []
-        if not self.anthropic_api_key or "your_" in self.anthropic_api_key:
-            errors.append("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+        keys = load_keys()
+        if not any(keys.values()):
+            errors.append("LLM API 키가 설정되지 않았습니다 (루트 .env 확인).")
 
         if self.storage_type in ("notion", "both"):
             if not self.notion_token or "your_" in self.notion_token:

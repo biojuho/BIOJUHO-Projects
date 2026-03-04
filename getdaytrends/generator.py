@@ -6,10 +6,15 @@ getdaytrends v2.1 - Tweet & Thread & Long-form & Threads Generation
 import json
 import logging
 import re
+import sys
+from pathlib import Path
+
+# shared.llm 모듈 경로 추가
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import AppConfig
-from llm_client import LLMClient
 from models import GeneratedThread, GeneratedTweet, ScoredTrend, TweetBatch
+from shared.llm import LLMClient, TaskTier
 
 log = logging.getLogger(__name__)
 
@@ -121,7 +126,7 @@ def generate_tweets(
 
     try:
         response = client.create(
-            model=config.claude_model,
+            tier=TaskTier.HEAVY,
             max_tokens=1500,
             system=SYSTEM_PROMPT_TWEETS,
             messages=[{"role": "user", "content": user_message}],
@@ -201,7 +206,7 @@ def generate_long_form(
 
     try:
         response = client.create(
-            model=config.claude_model,
+            tier=TaskTier.HEAVY,
             max_tokens=6000,
             system=SYSTEM_PROMPT_LONG_FORM,
             messages=[{"role": "user", "content": user_message}],
@@ -273,7 +278,7 @@ def generate_threads_content(
 
     try:
         response = client.create(
-            model=config.claude_model,
+            tier=TaskTier.HEAVY,
             max_tokens=4000,
             system=SYSTEM_PROMPT_THREADS,
             messages=[{"role": "user", "content": user_message}],
@@ -352,11 +357,11 @@ def generate_thread(
 
 위 데이터를 기반으로 정확히 2개 트윗의 바이럴 쓰레드를 JSON 형식으로 작성해주세요.
 첫 트윗(훅)은 최대 2,500자까지 충분히 길게 작성 가능합니다.
-나머지 트윗도 각 500~1,000자로 깊이 있게 작성해주세요.
+나머지 트윗도 각 500~1,000자로 깊이 있게 작성해주세요."""
 
     try:
         response = client.create(
-            model=config.claude_model,
+            tier=TaskTier.HEAVY,
             max_tokens=8000,
             system=SYSTEM_PROMPT_THREAD,
             messages=[{"role": "user", "content": user_message}],

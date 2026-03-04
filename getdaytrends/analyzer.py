@@ -7,12 +7,17 @@ import json
 import logging
 import re
 import sqlite3
+import sys
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
+
+# shared.llm 모듈 경로 추가
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import AppConfig
-from llm_client import LLMClient
 from models import MultiSourceContext, RawTrend, ScoredTrend, TrendCluster, TrendSource
+from shared.llm import LLMClient, TaskTier, get_client
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +75,6 @@ def score_trend(
     context: MultiSourceContext,
     volume: str,
     client: LLMClient,
-    model: str = "claude-3-haiku-20240307",
 ) -> ScoredTrend:
     """LLM 기반 단일 트렌드 바이럴 스코어링."""
     prompt = SCORING_PROMPT_TEMPLATE.format(
@@ -81,7 +85,7 @@ def score_trend(
 
     try:
         response = client.create(
-            model=model,
+            tier=TaskTier.LIGHTWEIGHT,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -153,7 +157,6 @@ def cluster_trends(
     raw_trends: list[RawTrend],
     contexts: dict[str, MultiSourceContext],
     client: LLMClient,
-    model: str = "claude-3-haiku-20240307",
 ) -> tuple[list[RawTrend], dict[str, MultiSourceContext], list[TrendCluster]]:
     """
     트렌드 클러스터링: 유사 키워드 그루핑 후 대표만 남김.
@@ -168,7 +171,7 @@ def cluster_trends(
 
     try:
         response = client.create(
-            model=model,
+            tier=TaskTier.LIGHTWEIGHT,
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -245,18 +248,13 @@ def analyze_trends(
     전체 트렌드 스코어링 후 viral_potential 내림차순 정렬.
     enable_clustering이면 유사 트렌드를 먼저 그루핑.
     """
-    client = LLMClient(
-        anthropic_key=config.anthropic_api_key,
-        gemini_key=config.gemini_api_key,
-        grok_key=config.grok_api_key,
-        openai_key=config.openai_api_key,
-    )
+    client = get_client()
 
     # 클러스터링
     clusters = []
     if config.enable_clustering:
         raw_trends, contexts, clusters = cluster_trends(
-            raw_trends, contexts, client, config.claude_model_scoring,
+            raw_trends, contexts, client,
         )
 
     scored: list[ScoredTrend] = []
@@ -271,7 +269,6 @@ def analyze_trends(
             context=context,
             volume=trend.volume,
             client=client,
-            model=config.claude_model_scoring,
         )
         result.rank = trend.volume_numeric  # 원본 볼륨 기반 순위 참고용
         result.country = trend.country or config.country

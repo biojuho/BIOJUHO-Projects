@@ -6,6 +6,7 @@ import json
 import sys
 from collections import Counter
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from notion_client import AsyncClient
@@ -25,7 +26,6 @@ from runtime import (
 from settings import (
     ANTIGRAVITY_TASKS_DB_ID,
     CANVA_ENABLED,
-    GOOGLE_API_KEY,
     NEWS_SOURCES_FILE,
     NOTION_API_KEY,
     OUTPUT_DIR,
@@ -33,6 +33,11 @@ from settings import (
     PROJECT_ROOT,
     SKILL_INTEGRATION_ENABLED,
 )
+
+# shared.llm 모듈
+_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_ROOT))
+from shared.llm import TaskTier, get_client as _get_llm_client
 
 
 def load_sources() -> dict[str, list[dict[str, str]]]:
@@ -69,12 +74,8 @@ def in_time_window(entry: Any, start: datetime, end: datetime) -> bool:
 
 
 def load_summarizer():
-    if not GOOGLE_API_KEY:
-        return None
     try:
-        from google import genai
-
-        return genai.Client(api_key=GOOGLE_API_KEY)
+        return _get_llm_client()
     except Exception:
         return None
 
@@ -173,22 +174,40 @@ async def summarize_article(title: str, content: str, client: Any, logger) -> st
     if client is None:
         return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
 
-    prompt = (
-        "Analyze the following tech/economic news article and provide a structured summary in Korean.\n"
-        "Format your summary exactly as follows (use bullet points):\n"
-        "- [핵심 사실]: (A concise 1-2 sentence summary of the main event/fact)\n"
-        "- [시장 파급력]: (How this impacts the market, industry, or consumers)\n"
-        "- [미래 전망]: (What to watch out for next or future implications)\n\n"
-        f"Title: {title}\n"
-        f"Content: {(content or '')[:2000]}"
-    )
+    has_content = bool(content and content.strip() and len(content.strip()) > 50)
+
+    if has_content:
+        prompt = (
+            "Analyze the following tech/economic news article and provide a structured summary in Korean.\n"
+            "Format your summary exactly as follows (use bullet points):\n"
+            "- [핵심 사실]: (A concise 1-2 sentence summary of the main event/fact)\n"
+            "- [시장 파급력]: (How this impacts the market, industry, or consumers)\n"
+            "- [미래 전망]: (What to watch out for next or future implications)\n\n"
+            f"Title: {title}\n"
+            f"Content: {content[:2000]}"
+        )
+    else:
+        prompt = (
+            "Based ONLY on the following news headline, provide a brief structured summary in Korean.\n"
+            "Do NOT say you lack information. Do NOT generate hypothetical content.\n"
+            "Write a concise factual analysis based on what the headline tells you.\n"
+            "Format (use bullet points):\n"
+            "- [핵심 사실]: (1 sentence about the main fact from the headline)\n"
+            "- [시장 파급력]: (1 sentence about potential market/industry impact)\n"
+            "- [미래 전망]: (1 sentence about what to watch next)\n\n"
+            f"Headline: {title}"
+        )
 
     try:
         response = await run_with_timeout(
-            client.aio.models.generate_content(model="gemini-2.0-flash", contents=prompt),
+            client.acreate(
+                tier=TaskTier.MEDIUM,
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}],
+            ),
             30,
         )
-        return getattr(response, "text", None) or (content or "")[:300]
+        return response.text or (content or "")[:300]
     except Exception as exc:
         logger.warning("summary", "failed", "summarization failed; using fallback", error=str(exc), title=title[:80])
         return (content or "")[:300] + ("..." if len(content or "") > 300 else "")
@@ -369,7 +388,7 @@ async def process_category(
     category: str,
     feeds: list[dict[str, str]],
     notion: AsyncClient,
-    genai_client: Any,
+    llm_client: Any,
     brain: Any,
     x_radar: Any,
     market_data: Any,
@@ -409,7 +428,7 @@ async def process_category(
                     continue
 
                 content = getattr(entry, "summary", "") or getattr(entry, "description", "") or ""
-                summary = await summarize_article(getattr(entry, "title", "Untitled"), content, genai_client, logger)
+                summary = await summarize_article(getattr(entry, "title", "Untitled"), content, llm_client, logger)
                 
                 if proofreader:
                     try:
@@ -626,7 +645,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
         return 1
 
     notion = AsyncClient(auth=NOTION_API_KEY)
-    genai_client = load_summarizer()
+    llm_client = load_summarizer()
     brain = load_brain(logger)
     x_radar = load_x_radar(logger)
     market_data = load_market_data(logger)
@@ -645,7 +664,7 @@ async def run_news_bot(*, max_items: int, run_id: str | None = None) -> int:
                     category=category,
                     feeds=feeds,
                     notion=notion,
-                    genai_client=genai_client,
+                    llm_client=llm_client,
                     brain=brain,
                     x_radar=x_radar,
                     market_data=market_data,

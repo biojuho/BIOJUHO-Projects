@@ -7,16 +7,12 @@ import json
 import re
 from datetime import datetime
 from typing import Optional
+from pathlib import Path
 from dotenv import load_dotenv
-# 환경 변수 로드
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir))) # desci-platform
-env_path = os.path.join(project_root, ".env")
-load_dotenv(env_path)
 
-# Fallback: Try loading from local directory if project root fails or for testing
-if not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-    load_dotenv()
+# 환경 변수 로드 (워크스페이스 루트 .env)
+_workspace_root = Path(__file__).resolve().parents[3]  # d:\AI 프로젝트
+load_dotenv(_workspace_root / ".env")
 
 
 # LLM Imports

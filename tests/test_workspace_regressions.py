@@ -18,18 +18,17 @@ for candidate in (DESCI_PATH, NOTION_SCRIPTS_PATH):
 
 
 def test_brain_module_robust_json_parse(monkeypatch) -> None:
+    from shared.llm import reset_client
+
+    reset_client()
     brain_module = importlib.import_module("brain_module")
 
-    class DummyAnthropic:
-        def __init__(self, api_key: str):
-            self.api_key = api_key
-
-    monkeypatch.setattr(brain_module.anthropic, "Anthropic", DummyAnthropic)
-    monkeypatch.setattr(brain_module, "ANTHROPIC_API_KEY", "test-key")
-
+    # get_client()에 더미 키 전달하여 ValueError 방지
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key-for-unit-test")
     module = brain_module.BrainModule()
     assert module._robust_json_parse('```json\n{"key":"value"}\n```') == {"key": "value"}
     assert module._robust_json_parse('{"key":"value", }') == {"key": "value"}
+    reset_client()
 
 
 def test_notion_server_reads_db_id_from_env() -> None:

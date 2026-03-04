@@ -1,27 +1,32 @@
-import os
 import json
 import asyncio
+import os
+import sys
 import requests
 import feedparser
 from datetime import datetime
-from google import genai
-from dotenv import load_dotenv
+from pathlib import Path
 
-# Load Environment Variables
-load_dotenv()
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# 프로젝트 .env 로드 (shared.llm import 전에 실행)
+from dotenv import load_dotenv
+_PROJECT_ENV = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(_PROJECT_ENV)
+
+# shared.llm 모듈
+_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_ROOT))
+from shared.llm import TaskTier, get_client
 
 # Configuration
 REGION = "KR"
-MODEL_NAME = "gemini-2.0-flash"
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "trends")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Initialize Gemini
-if GOOGLE_API_KEY:
-    client = genai.Client(api_key=GOOGLE_API_KEY)
-else:
-    print("[ERR] GOOGLE_API_KEY missing. AI filtering disabled.")
+# Initialize shared LLM client
+try:
+    client = get_client()
+except Exception:
+    print("[ERR] LLM client init failed. AI filtering disabled.")
     client = None
 
 def fetch_google_trends_rss():
@@ -74,8 +79,10 @@ async def filter_trends(keywords):
     """
 
     try:
-        response = await client.aio.models.generate_content(
-            model=MODEL_NAME, contents=prompt
+        response = await client.acreate(
+            tier=TaskTier.LIGHTWEIGHT,
+            max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}],
         )
         text = response.text.strip()
         # Clean markdown code blocks if present

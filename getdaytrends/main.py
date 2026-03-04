@@ -16,11 +16,15 @@ import sys
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 # Windows stdout UTF-8 설정
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+# shared.llm 모듈 경로 추가
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import schedule
 
@@ -29,9 +33,9 @@ from analyzer import analyze_trends, detect_trend_patterns
 from config import AppConfig
 from db import get_connection, get_trend_stats, init_db, save_run, update_run
 from generator import generate_for_trend
-from llm_client import LLMClient
 from models import RunResult
 from scraper import collect_trends
+from shared.llm import get_client
 from storage import save
 
 log = logging.getLogger(__name__)
@@ -123,8 +127,7 @@ def print_config_summary(config: AppConfig):
   병렬 워커    : {config.max_workers}개
   알림 채널    : {', '.join(alerts_info) or '없음'}
   알림 임계값  : {config.alert_threshold}점
-  스코어링 모델: {config.claude_model_scoring}
-  생성 모델    : {config.claude_model}
+  LLM 라우팅   : shared.llm (티어 기반 자동 폴백)
   v2.1 기능    : {', '.join(features) or '없음'}
 """)
 
@@ -181,12 +184,7 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
 
     # Step 4: 트윗/쓰레드 생성 + 저장
     print("\n[3/4] 트윗 생성 중...")
-    client = LLMClient(
-        anthropic_key=config.anthropic_api_key,
-        gemini_key=getattr(config, 'gemini_api_key', ''),
-        grok_key=getattr(config, 'grok_api_key', ''),
-        openai_key=getattr(config, 'openai_api_key', ''),
-    )
+    client = get_client()
     success_count = 0
 
     for i, trend in enumerate(scored_trends):
@@ -310,8 +308,10 @@ def main():
 
     # 설정 검증 (dry-run이면 storage 키 없어도 허용)
     if config.dry_run:
-        if not config.anthropic_api_key or "your_" in config.anthropic_api_key:
-            print("\n  설정 오류:\n    ANTHROPIC_API_KEY가 설정되지 않았습니다.\n  → .env 파일을 확인해주세요\n")
+        from shared.llm.config import load_keys
+        keys = load_keys()
+        if not any(keys.values()):
+            print("\n  설정 오류:\n    LLM API 키가 설정되지 않았습니다.\n  → 루트 .env 파일을 확인해주세요\n")
             conn.close()
             return
     else:

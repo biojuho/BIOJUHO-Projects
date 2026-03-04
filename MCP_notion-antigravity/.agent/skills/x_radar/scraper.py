@@ -4,28 +4,31 @@ X Niche Radar v2.0 (Layer 1 - The Antenna)
 """
 import sys
 import json
+import re
 import argparse
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
 import os
 
-import anthropic
 
 def _load_env():
     try:
         from dotenv import load_dotenv
-        env_path = r"D:\AI 프로젝트\MCP_notion-antigravity\.env"
-        load_dotenv(env_path)
+        _here = os.path.dirname(os.path.abspath(__file__))
+        env_path = os.path.join(_here, "..", "..", "..", "..", ".env")
+        load_dotenv(os.path.normpath(env_path))
     except ImportError:
         pass
 
-def get_anthropic_client():
+
+def get_gemini_client():
     _load_env()
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not found in environment.")
-    return anthropic.Anthropic(api_key=api_key)
+        raise ValueError("GOOGLE_API_KEY not found in environment.")
+    from google import genai
+    return genai.Client(api_key=api_key)
 
 
 def fetch_google_news_trends(keyw):
@@ -105,9 +108,9 @@ def fetch_niche_trends(keywords):
     client = None
     results = []
     try:
-        client = get_anthropic_client()
+        client = get_gemini_client()
     except Exception as e:
-        print(f"[WARN] Anthropic client init failed: {e}")
+        print(f"[WARN] Gemini client init failed: {e}")
 
     for kw in keywords:
         twitter_insight = fetch_twitter_trends(kw)
@@ -127,7 +130,7 @@ def fetch_niche_trends(keywords):
 2. 바이럴 가능성이 가장 높은 핵심 이슈
 3. X에서 반직관적으로 해석할 수 있는 3가지 앵글
 
-JSON 응답 (반드시 쌍따옴표만 사용하는 유효한 JSON 배열 형식, 다른 말이나 마크다운 백틱 없이):
+JSON 응답 (반드시 쌍따옴표만 사용하는 유효한 JSON 객체, 다른 말이나 마크다운 백틱 없이):
 {{
     "keyword": "{kw}",
     "volume_last_24h": 1000,
@@ -142,26 +145,20 @@ JSON 응답 (반드시 쌍따옴표만 사용하는 유효한 JSON 배열 형식
     "best_hook_starter": "이 트렌드로 트윗을 시작할 최고의 한 문장"
 }}"""
 
-        def _analyze_trend():
+        try:
             if not client:
-                raise ValueError("Anthropic client is not initialized.")
-            
-            message = client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=1500,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+                raise ValueError("Gemini client is not initialized.")
+
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
             )
-            response = message.content[0].text
-            import re
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            text = getattr(response, "text", None)
+            if not text:
+                raise ValueError("Empty response from Gemini")
+            json_match = re.search(r'\{.*\}', text, re.DOTALL)
             if not json_match:
                 raise ValueError("Failed to parse JSON")
-            return response, json_match
-
-        try:
-            response, json_match = _analyze_trend()
             parsed = json.loads(json_match.group(0))
             results.append(parsed)
         except Exception as e:
@@ -184,9 +181,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(fetch_niche_trends(args.keywords))
-
-    if args.include_history:
-        history = get_trending_keywords(days=7)
-        if history:
-            print("\n--- 최근 7일 트렌드 히스토리 ---")
-            print(json.dumps(history, ensure_ascii=False, indent=2))

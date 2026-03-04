@@ -1,13 +1,18 @@
 """
 BioLinker - Agent Service
-LLM 기반 연구 분석 및 콘텐츠 작성 서비스 (Python 3.14 호환 지원 - LangChain 제거)
+LLM 기반 연구 분석 및 콘텐츠 작성 서비스 (shared.llm 통합)
 """
-import os
 import re
 import json
 import asyncio
-import aiohttp
+import sys
+from pathlib import Path
 from typing import Optional, List, Dict, Any
+
+# shared.llm 모듈
+_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_ROOT))
+from shared.llm import TaskTier, get_client as _get_llm_client
 
 from services.search_service import get_search_service
 
@@ -55,68 +60,25 @@ CONTENT_PUBLISHER_PROMPT = """당신은 전문 콘텐츠 퍼블리셔입니다.
 """
 
 class AgentService:
-    """Agentic AI Service Provider (Raw HTTP for Python 3.14 compat)"""
-    
+    """Agentic AI Service Provider (shared.llm 통합, 자동 폴백 + 비용 추적)"""
+
     def __init__(self):
         self.search_service = get_search_service()
-        self.google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-        self.openai_key = os.getenv("OPENAI_API_KEY")
+        self._client = _get_llm_client()
+        print("[AgentService] Initialized with shared.llm (tier-based routing)")
 
-        if self.google_key:
-            print("[AgentService] Initialized with Gemini API via HTTP")
-        elif self.openai_key:
-            print("[AgentService] Initialized with OpenAI API via HTTP")
-        else:
-            print("[AgentService] WARNING: No LLM API Key found!")
-
-    async def _call_llm(self, system_instruction: str, user_prompt: str) -> str:
-        """Raw HTTP API Call to avoid Langchain/Pydantic v1 Python 3.14 incompatibility"""
-        if self.google_key:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.google_key}"
-            payload = {
-                "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-                "systemInstruction": {"role": "system", "parts": [{"text": system_instruction}]},
-                "generationConfig": {"temperature": 0.3}
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=payload) as resp:
-                        data = await resp.json()
-                        if "candidates" in data and len(data["candidates"]) > 0:
-                            return data["candidates"][0]["content"]["parts"][0]["text"]
-                        else:
-                            print(f"[Agent Error] Gemini Response: {data}")
-                            return "Error: Cannot generate content from Gemini."
-            except Exception as e:
-                return f"Error connecting to Gemini API: {str(e)}"
-
-        elif self.openai_key:
-            url = "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {self.openai_key}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": user_prompt}
-                ],
-                "temperature": 0.3
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=payload) as resp:
-                        data = await resp.json()
-                        if "choices" in data and len(data["choices"]) > 0:
-                            return data["choices"][0]["message"]["content"]
-                        else:
-                            print(f"[Agent Error] OpenAI Response: {data}")
-                            return "Error: Cannot generate content from OpenAI."
-            except Exception as e:
-                return f"Error connecting to OpenAI API: {str(e)}"
-        
-        return "Error: No API key configured for LLM."
+    async def _call_llm(self, system_instruction: str, user_prompt: str, tier: TaskTier = TaskTier.MEDIUM) -> str:
+        """shared.llm 통합 LLM 호출 (자동 폴백 + 비용 최적화)"""
+        try:
+            response = await self._client.acreate(
+                tier=tier,
+                max_tokens=4000,
+                system=system_instruction,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            return response.text
+        except Exception as e:
+            return f"Error: LLM call failed: {str(e)}"
 
     async def perform_deep_research(self, topic: str, max_depth: int = 2) -> Dict[str, Any]:
         """Deep Research Skill Execution"""
@@ -149,7 +111,7 @@ class AgentService:
         sys_prompt = "You are a research assistant. Output ONLY a valid JSON array of 3-5 search queries."
         user_prompt = f"주제 '{topic}'에 대한 심층 조사를 위해 필요한 영어/한국어 섞인 검색 쿼리 3개를 JSON 리스트형식으로 생성해줘. 예: [\"query1\", \"query2\"]"
         
-        response = await self._call_llm(sys_prompt, user_prompt)
+        response = await self._call_llm(sys_prompt, user_prompt, tier=TaskTier.LIGHTWEIGHT)
         try:
             match = re.search(r'\[.*\]', response, re.DOTALL)
             if match:
@@ -174,7 +136,7 @@ class AgentService:
             context_str += f"[{i}] {item.get('title', 'No Title')}\nURL: {item.get('href', 'N/A')}\nSummary: {item.get('body', '')}\n\n"
             
         user_prompt = f"주제: {topic}\n\n수집된 검색 자료:\n{context_str}"
-        return await self._call_llm(RESEARCH_SYSTEM_PROMPT, user_prompt)
+        return await self._call_llm(RESEARCH_SYSTEM_PROMPT, user_prompt, tier=TaskTier.HEAVY)
 
     async def write_content(self, topic: str, raw_text: str, format_type: str = "blog_post") -> str:
         """Content Publisher Skill Execution"""

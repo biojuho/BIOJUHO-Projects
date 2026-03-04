@@ -1,24 +1,26 @@
 from __future__ import annotations
 
-import asyncio
+import sys
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ChannelDraft, ContentItem
 
+# shared.llm 모듈
+_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(_ROOT))
+from shared.llm import TaskTier, get_client as _get_llm_client
+
 
 class LLMAdapter:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self._google_client: Any | None = None
-        if self.settings.google_api_key:
-            try:
-                from google import genai
-
-                self._google_client = genai.Client(api_key=self.settings.google_api_key)
-            except Exception:
-                self._google_client = None
+        try:
+            self._llm_client = _get_llm_client()
+        except Exception:
+            self._llm_client = None
 
     async def build_report_payload(
         self,
@@ -30,21 +32,21 @@ class LLMAdapter:
         warnings: list[str] = []
         if not items:
             return ([], [], []), ["No content items were available."]
-        if self._google_client is None:
-            warnings.append("Google LLM unavailable; using deterministic fallback summary.")
+        if self._llm_client is None:
+            warnings.append("LLM unavailable; using deterministic fallback summary.")
             return self._fallback_report(category=category, items=items, window_name=window_name), warnings
 
         prompt = self._build_prompt(category=category, items=items, window_name=window_name)
         try:
-            response = await asyncio.to_thread(
-                self._google_client.models.generate_content,
-                model="gemini-2.0-flash",
-                contents=prompt,
+            response = await self._llm_client.acreate(
+                tier=TaskTier.MEDIUM,
+                max_tokens=1500,
+                messages=[{"role": "user", "content": prompt}],
             )
-            text = getattr(response, "text", "") or ""
+            text = response.text or ""
             return self._parse_response(category=category, text=text, items=items, window_name=window_name), warnings
         except Exception as exc:
-            warnings.append(f"Google LLM failed ({type(exc).__name__}); using fallback summary.")
+            warnings.append(f"LLM failed ({type(exc).__name__}); using fallback summary.")
             return self._fallback_report(category=category, items=items, window_name=window_name), warnings
 
     def _build_prompt(self, *, category: str, items: list[ContentItem], window_name: str) -> str:

@@ -1,7 +1,13 @@
 import os
+from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+
+# 루트 .env 로드
+_workspace_root = Path(__file__).resolve().parents[3]
+load_dotenv(_workspace_root / ".env")
 
 # LLM Imports
 try:
@@ -99,7 +105,7 @@ class ProposalGenerator:
         self.llm = None
         
         # 1. Google Gemini (Priority)
-        google_key = os.getenv("GOOGLE_API_KEY")
+        google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if google_key and GOOGLE_AVAILABLE:
             self.llm = ChatGoogleGenerativeAI(
                 model="gemini-1.5-flash",
