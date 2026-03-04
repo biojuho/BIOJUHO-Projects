@@ -1,59 +1,21 @@
 import { useState } from 'react';
 import client from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useLocale } from '../contexts/LocaleContext';
 
 /**
  * @typedef {'research' | 'write' | 'youtube'} ToolId
  */
 
-/**
- * @typedef {Object} ResearchInputs
- * @property {string} researchTopic
- * @property {boolean} deepMode
- * @property {(v: string) => void} setResearchTopic
- * @property {(v: boolean) => void} setDeepMode
- */
-
-/**
- * @typedef {Object} WriteInputs
- * @property {string} writeTopic
- * @property {string} writeRawText
- * @property {string} formatType
- * @property {(v: string) => void} setWriteTopic
- * @property {(v: string) => void} setWriteRawText
- * @property {(v: string) => void} setFormatType
- */
-
-/**
- * @typedef {Object} YoutubeInputs
- * @property {string} youtubeUrl
- * @property {string} youtubeQuery
- * @property {(v: string) => void} setYoutubeUrl
- * @property {(v: string) => void} setYoutubeQuery
- */
-
-/**
- * @typedef {Object} UseAgentToolsReturn
- * @property {ToolId} activeTool
- * @property {boolean} isLoading
- * @property {string} result
- * @property {string | null} agentError
- * @property {(id: ToolId) => void} changeTool
- * @property {() => void} submit
- * @property {() => void} copyResult
- * @property {ResearchInputs} research
- * @property {WriteInputs} write
- * @property {YoutubeInputs} youtube
- */
-
-/** @returns {UseAgentToolsReturn} */
 export function useAgentTools() {
     const { showToast } = useToast();
+    const { t } = useLocale();
 
     const [activeTool, setActiveTool] = useState(/** @type {ToolId} */ ('research'));
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState('');
     const [agentError, setAgentError] = useState(/** @type {string | null} */ (null));
+    const [agentMeta, setAgentMeta] = useState(null);
 
     const [researchTopic, setResearchTopic] = useState('');
     const [deepMode, setDeepMode] = useState(true);
@@ -69,22 +31,24 @@ export function useAgentTools() {
         setIsLoading(true);
         setResult('');
         setAgentError(null);
+        setAgentMeta(null);
     };
 
     const handleResearch = async () => {
         if (!researchTopic.trim()) {
-            showToast('연구 주제를 입력해주세요.', 'warning');
+            showToast({ key: 'agent.researchTopicRequired' }, 'warning');
             return;
         }
         beginRequest();
         try {
             const res = await client.post('/api/agent/research', { topic: researchTopic, deep: deepMode });
             setResult(res.data.result?.report || res.data.report || JSON.stringify(res.data, null, 2));
-            showToast('연구 리포트 생성 완료!', 'success');
+            setAgentMeta(res.data.meta || res.data.result?.meta || null);
+            showToast({ key: 'agent.researchComplete' }, 'success');
         } catch (err) {
             const msg = err.response?.data?.detail || err.message;
             setAgentError(msg);
-            showToast(`연구 실패: ${msg}`, 'error');
+            showToast({ key: 'agent.researchFailed', values: { message: msg } }, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -92,7 +56,7 @@ export function useAgentTools() {
 
     const handleWrite = async () => {
         if (!writeTopic.trim() || !writeRawText.trim()) {
-            showToast('주제와 원본 텍스트를 모두 입력해주세요.', 'warning');
+            showToast({ key: 'agent.writeInputRequired' }, 'warning');
             return;
         }
         beginRequest();
@@ -103,11 +67,12 @@ export function useAgentTools() {
                 format_type: formatType,
             });
             setResult(res.data.content || '');
-            showToast('콘텐츠 생성 완료!', 'success');
+            setAgentMeta(res.data.meta || null);
+            showToast({ key: 'agent.writeComplete' }, 'success');
         } catch (err) {
             const msg = err.response?.data?.detail || err.message;
             setAgentError(msg);
-            showToast(`콘텐츠 생성 실패: ${msg}`, 'error');
+            showToast({ key: 'agent.writeFailed', values: { message: msg } }, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -115,21 +80,22 @@ export function useAgentTools() {
 
     const handleYoutube = async () => {
         if (!youtubeUrl.trim()) {
-            showToast('YouTube URL을 입력해주세요.', 'warning');
+            showToast({ key: 'agent.youtubeUrlRequired' }, 'warning');
             return;
         }
         beginRequest();
         try {
             const res = await client.post('/api/agent/youtube', {
                 url: youtubeUrl,
-                query: youtubeQuery || 'Summarize the video',
+                query: youtubeQuery || '영상 내용을 요약해줘',
             });
             setResult(res.data.analysis || res.data.summary || JSON.stringify(res.data, null, 2));
-            showToast('영상 분석 완료!', 'success');
+            setAgentMeta(res.data.meta || null);
+            showToast({ key: 'agent.youtubeComplete' }, 'success');
         } catch (err) {
             const msg = err.response?.data?.detail || err.message;
             setAgentError(msg);
-            showToast(`영상 분석 실패: ${msg}`, 'error');
+            showToast({ key: 'agent.youtubeFailed', values: { message: msg } }, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -142,11 +108,13 @@ export function useAgentTools() {
         isLoading,
         result,
         agentError,
-        changeTool: (id) => { setActiveTool(id); setResult(''); setAgentError(null); },
+        agentMeta,
+        changeTool: (id) => { setActiveTool(id); setResult(''); setAgentError(null); setAgentMeta(null); },
         submit: () => TOOL_HANDLERS[activeTool]?.(),
-        copyResult: () => { navigator.clipboard.writeText(result); showToast('클립보드에 복사되었습니다!', 'success'); },
+        copyResult: () => { navigator.clipboard.writeText(result); showToast({ key: 'agent.clipboardCopied' }, 'success'); },
         research: { researchTopic, deepMode, setResearchTopic, setDeepMode },
         write: { writeTopic, writeRawText, formatType, setWriteTopic, setWriteRawText, setFormatType },
         youtube: { youtubeUrl, youtubeQuery, setYoutubeUrl, setYoutubeQuery },
+        t,
     };
 }

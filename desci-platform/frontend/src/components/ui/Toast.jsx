@@ -1,8 +1,8 @@
+import { useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
 const MotionDiv = motion.div;
-import { useEffect, useCallback } from 'react';
 
 const toastVariants = {
     initial: { opacity: 0, y: -20, scale: 0.95 },
@@ -48,6 +48,7 @@ export default function Toast({
     action,
     actionLabel = 'Undo',
     onAction,
+    closeLabel = 'Dismiss notification',
 }) {
     const handleClose = useCallback(() => {
         onClose?.();
@@ -123,7 +124,7 @@ export default function Toast({
                     <button
                         onClick={handleClose}
                         className="p-1.5 -mr-1 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
-                        aria-label="Dismiss notification"
+                        aria-label={closeLabel}
                     >
                         <X className="w-4 h-4 text-white/70" aria-hidden="true" />
                     </button>

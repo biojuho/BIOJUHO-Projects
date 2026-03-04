@@ -19,18 +19,20 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
+import { useLocale } from '../contexts/LocaleContext';
 
 export default function Layout({ children }) {
     const { user, logout, walletAddress, connectWallet } = useAuth();
+    const { t } = useLocale();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const MotionDiv = motion.div;
 
     const [notifications, setNotifications] = useState([
-        { id: 1, title: 'Funding Approved', desc: 'Your research DAO "GenCore" received 150 USDC', time: '1h ago', unread: true },
-        { id: 2, title: 'New Peer Review', desc: 'Dr. Smith reviewed your latest submission', time: '3h ago', unread: true },
-        { id: 3, title: 'Token Airdrop', desc: 'Claim your early researcher SCI tokens', time: '2d ago', unread: false },
+        { id: 1, title: '연구 지원 승인', desc: '연구 DAO "GenCore"가 150 USDC를 수령했습니다.', time: '1시간 전', unread: true },
+        { id: 2, title: '새로운 피어 리뷰', desc: '최신 제출물에 대한 리뷰가 도착했습니다.', time: '3시간 전', unread: true },
+        { id: 3, title: '토큰 에어드롭', desc: '초기 연구자 보상을 확인하세요.', time: '2일 전', unread: false },
     ]);
 
     const addNotification = useCallback((title, desc) => {
@@ -38,7 +40,7 @@ export default function Layout({ children }) {
             id: Date.now(),
             title,
             desc,
-            time: 'Just now',
+            time: '방금',
             unread: true
         };
         setNotifications(prev => [newNotif, ...prev]);
@@ -47,9 +49,12 @@ export default function Layout({ children }) {
     const handleConnectWallet = async () => {
         const result = await connectWallet();
         if (result.success) {
-            addNotification('Wallet Connected', `Successfully linked wallet ${formatAddress(result.address)}`);
+            addNotification(
+                t('layout.walletConnectedTitle'),
+                t('layout.walletConnectedDesc', { address: formatAddress(result.address) }),
+            );
         } else {
-            alert(result.error || '지갑 연결에 실패했습니다.');
+            alert(result.error || t('layout.walletConnectFailed'));
         }
     };
 
@@ -59,15 +64,15 @@ export default function Layout({ children }) {
     };
 
     const navigation = [
-        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-        { name: 'BioLinker', href: '/biolinker', icon: Dna },
-        { name: 'Paper Upload', href: '/upload', icon: Upload },
-        { name: 'My Lab', href: '/mylab', icon: FlaskConical },
-        { name: 'Notices', href: '/notices', icon: Newspaper },
-        { name: 'VC Portal', href: '/vc-portal', icon: Building2 },
-        { name: 'AI Lab', href: '/ai-lab', icon: Cpu },
-        { name: 'Peer Review', href: '/peer-review', icon: MessageSquare },
-        { name: 'Wallet', href: '/wallet', icon: Wallet },
+        { name: t('layout.dashboard'), href: '/dashboard', icon: LayoutDashboard },
+        { name: t('layout.biolinker'), href: '/biolinker', icon: Dna },
+        { name: t('layout.paperUpload'), href: '/upload', icon: Upload },
+        { name: t('layout.myLab'), href: '/mylab', icon: FlaskConical },
+        { name: t('layout.notices'), href: '/notices', icon: Newspaper },
+        { name: t('layout.vcPortal'), href: '/vc-portal', icon: Building2 },
+        { name: t('layout.aiLab'), href: '/ai-lab', icon: Cpu },
+        { name: t('layout.peerReview'), href: '/peer-review', icon: MessageSquare },
+        { name: t('layout.wallet'), href: '/wallet', icon: Wallet },
     ];
 
     const isActive = (path) => location.pathname === path;
@@ -123,7 +128,7 @@ export default function Layout({ children }) {
                     className="p-2 text-white/70 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
                     aria-expanded={isMobileMenuOpen}
                     aria-controls="mobile-menu"
-                    aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+                    aria-label={isMobileMenuOpen ? t('layout.closeMenu') : t('layout.openMenu')}
                 >
                     {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
                 </button>
@@ -226,7 +231,7 @@ export default function Layout({ children }) {
                             )}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-white/80 truncate">
-                                    {user?.displayName || 'Researcher'}
+                                    {user?.displayName || t('layout.researcher')}
                                 </p>
                                 <p className="text-[11px] text-white/30 truncate">{user?.email}</p>
                             </div>
@@ -235,10 +240,10 @@ export default function Layout({ children }) {
                         <button
                             onClick={logout}
                             className="w-full flex items-center gap-3 px-3 py-2.5 text-white/30 hover:text-red-400 hover:bg-red-500/[0.06] rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-                            aria-label="Sign out of your account"
+                            aria-label={t('layout.signOutAria')}
                         >
                             <LogOut className="w-[18px] h-[18px]" aria-hidden="true" />
-                            <span className="text-sm font-medium">Sign Out</span>
+                            <span className="text-sm font-medium">{t('layout.signOut')}</span>
                         </button>
                     </div>
                 </aside>
@@ -288,8 +293,8 @@ export default function Layout({ children }) {
                                       style={{ boxShadow: '0 24px 48px rgba(0,0,0,0.6)' }}
                                     >
                                         <div className="px-4 py-3 border-b border-white/[0.06] flex justify-between items-center">
-                                            <h3 className="text-sm font-display font-semibold text-white">Notifications</h3>
-                                            <span className="text-xs text-primary cursor-pointer hover:underline underline-offset-2">Mark all read</span>
+                                            <h3 className="text-sm font-display font-semibold text-white">{t('layout.notifications')}</h3>
+                                            <span className="text-xs text-primary cursor-pointer hover:underline underline-offset-2">{t('layout.markAllRead')}</span>
                                         </div>
                                         <div className="max-h-64 overflow-y-auto">
                                             {notifications.map(n => (
@@ -303,7 +308,7 @@ export default function Layout({ children }) {
                                             ))}
                                         </div>
                                         <div className="p-2.5 text-center text-xs text-white/30 hover:text-white/60 cursor-pointer transition-colors border-t border-white/[0.04]">
-                                            View all notifications
+                                            {t('layout.viewAllNotifications')}
                                         </div>
                                     </MotionDiv>
                                 )}
@@ -320,7 +325,7 @@ export default function Layout({ children }) {
                             }`}
                         >
                             <Wallet className="w-4 h-4" />
-                            {walletAddress ? formatAddress(walletAddress) : 'Connect Wallet'}
+                            {walletAddress ? formatAddress(walletAddress) : t('layout.connectWallet')}
                             {walletAddress && <ChevronDown className="w-3 h-3 ml-1" />}
                         </button>
                     </div>

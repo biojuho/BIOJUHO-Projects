@@ -8,6 +8,11 @@ vi.mock('../firebase', () => ({
   auth: authMock,
 }));
 
+vi.mock('../contexts/LocaleContext', () => ({
+  getStoredLocale: () => 'ko-KR',
+  getStoredOutputLanguage: () => 'ko',
+}));
+
 const { default: api } = await import('./api');
 
 describe('api interceptors', () => {
@@ -26,6 +31,8 @@ describe('api interceptors', () => {
     const config = await requestHandler({ headers: {} });
 
     expect(config.headers.Authorization).toBe('Bearer token-123');
+    expect(config.headers['X-User-Locale']).toBe('ko-KR');
+    expect(config.headers['X-Output-Language']).toBe('ko');
   });
 
   it('uses header.set when axios headers object is provided', async () => {
@@ -38,6 +45,8 @@ describe('api interceptors', () => {
     const headers = { set: setHeader };
     const config = await requestHandler({ headers });
 
+    expect(setHeader).toHaveBeenCalledWith('X-User-Locale', 'ko-KR');
+    expect(setHeader).toHaveBeenCalledWith('X-Output-Language', 'ko');
     expect(setHeader).toHaveBeenCalledWith('Authorization', 'Bearer token-456');
     expect(config.headers).toBe(headers);
   });
@@ -52,6 +61,8 @@ describe('api interceptors', () => {
     const config = await requestHandler({ headers: {} });
 
     expect(config.headers.Authorization).toBeUndefined();
+    expect(config.headers['X-User-Locale']).toBe('ko-KR');
+    expect(config.headers['X-Output-Language']).toBe('ko');
     expect(console.error).toHaveBeenCalledWith('Failed to get ID token:', tokenError);
   });
 

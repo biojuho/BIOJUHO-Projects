@@ -1,5 +1,6 @@
 import axios from "axios";
 import { auth } from '../firebase';
+import { getStoredLocale, getStoredOutputLanguage } from "../contexts/LocaleContext";
 
 // Create an Axios instance with default configuration
 const api = axios.create({
@@ -21,10 +22,26 @@ function setAuthorizationHeader(headers, token) {
   };
 }
 
+function setRequestHeader(headers, name, value) {
+  if (typeof headers?.set === "function") {
+    headers.set(name, value);
+    return headers;
+  }
+
+  return {
+    ...(headers ?? {}),
+    [name]: value,
+  };
+}
+
 // Add a request interceptor (useful for auth tokens later)
 api.interceptors.request.use(
   async (config) => {
     const user = auth.currentUser;
+    const locale = getStoredLocale();
+    const outputLanguage = getStoredOutputLanguage();
+    config.headers = setRequestHeader(config.headers, "X-User-Locale", locale);
+    config.headers = setRequestHeader(config.headers, "X-Output-Language", outputLanguage);
     if (user) {
       try {
         const token = await user.getIdToken();

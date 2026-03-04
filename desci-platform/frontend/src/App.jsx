@@ -1,12 +1,14 @@
 /**
  * DSCI-DecentBio Platform - Main App with Routing
  */
-import { Component, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LocaleProvider } from './contexts/LocaleContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { AnimatePresence } from 'framer-motion';
 import ProtectedRoute from './components/ProtectedRoute';
+import AppErrorBoundary from './components/ErrorBoundary';
 import PageTransition from './components/ui/PageTransition';
 import './App.css';
 
@@ -29,35 +31,6 @@ function RouteFallback() {
       <div className="animate-spin rounded-full h-14 w-14 border-2 border-white/10 border-t-primary"></div>
     </div>
   );
-}
-
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-[#040811] flex items-center justify-center">
-          <div className="text-center text-white p-8">
-            <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
-            <p className="text-white/70 mb-6">{this.state.error?.message}</p>
-            <button
-              onClick={() => { this.setState({ hasError: false, error: null }); window.location.href = '/dashboard'; }}
-              className="px-6 py-3 bg-primary rounded-xl hover:bg-primary-600 transition-colors font-medium"
-            >
-              Go to Dashboard
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 // Redirect authenticated users away from login
@@ -118,15 +91,17 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <ErrorBoundary>
+    <AppErrorBoundary>
       <BrowserRouter>
-        <AuthProvider>
-          <ToastProvider>
-            <AnimatedRoutes />
-          </ToastProvider>
-        </AuthProvider>
+        <LocaleProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <AnimatedRoutes />
+            </ToastProvider>
+          </AuthProvider>
+        </LocaleProvider>
       </BrowserRouter>
-    </ErrorBoundary>
+    </AppErrorBoundary>
   );
 }
 
