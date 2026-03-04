@@ -3,14 +3,15 @@ BioLinker - FastAPI Main Application
 정부 과제 매칭 AI 에이전트 API
 """
 import os
-from datetime import datetime
-from typing import Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Body, Query, Header
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.requests import Request
 from dotenv import load_dotenv
-import firebase_admin
-from firebase_admin import firestore
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from services.logging_config import setup_logging, get_logger
 
@@ -19,9 +20,7 @@ _is_production = os.getenv("ENV", "development") == "production"
 setup_logging(json_output=_is_production, log_level=os.getenv("LOG_LEVEL", "INFO"))
 log = get_logger("biolinker.main")
 
-from models import AnalyzeRequest, AnalyzeResponse, UserProfile, RFPDocument, Paper
 from services.auth import get_current_user
-from services.analyzer import get_analyzer
 from services.crawler import get_crawler
 from services.kddf_crawler import get_kddf_crawler
 from services.ntis_crawler import get_ntis_crawler
@@ -29,30 +28,12 @@ from services.scheduler import get_scheduler
 from services.vector_store import get_vector_store
 from services.ipfs_service import get_ipfs_service
 from services.web3_service import get_web3_service, MOCK_MODE
-from services.matcher import get_rfp_matcher
-from services.asset_manager import get_asset_manager
-from services.smart_matcher import get_smart_matcher
-from services.proposal_generator import get_proposal_generator
+from limiter import limiter
 
 load_dotenv()
 
-# Initialize Firestore
-try:
-    # Ensure Firebase is initialized (auth.py does it, but we double check or handle missing creds)
-    if not firebase_admin._apps:
-        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./serviceAccountKey.json")
-        if os.path.exists(cred_path):
-            cred = firebase_admin.credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
-    
-    if firebase_admin._apps:
-        db = firestore.client()
-    else:
-        db = None
-        log.warning("firebase_not_initialized", detail="Firestore disabled")
-except Exception as e:
-    db = None
-    log.error("firestore_init_failed", error=str(e))
+# Firestore DB (singleton managed in firestore_db.py)
+from firestore_db import db  # noqa: E402 — after load_dotenv
 
 
 @asynccontextmanager
@@ -77,11 +58,19 @@ app = FastAPI(
     title="BioLinker",
     description="AI 바이오 과제 매칭 에이전트 - 정부 과제 RFP 적합도 분석",
     version="0.2.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS
-_default_origins = "http://localhost:5173,http://localhost:5174" if os.getenv("ENV", "development") != "production" else ""
+_default_origins = (
+    "http://localhost:5173,http://localhost:5174"
+    if os.getenv("ENV", "development") != "production"
+    else ""
+)
 allowed_origins = os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -91,22 +80,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============== Routers ==============
+from routers import rfp, crawl, web3, agent, governance  # noqa: E402
 
-def get_request_locale_context(
-    user_locale: str | None = Header(default=None, alias="X-User-Locale"),
-    output_language: str | None = Header(default=None, alias="X-Output-Language"),
-):
-    from services.agent_service import RequestLocaleContext
-
-    locale = (user_locale or "ko-KR").strip() or "ko-KR"
-    normalized_output = (output_language or "ko").strip().lower() or "ko"
-    if normalized_output != "ko":
-        normalized_output = "ko"
-    return RequestLocaleContext(
-        locale=locale,
-        output_language=normalized_output,
-        input_language="auto",
-    )
+app.include_router(rfp.router, tags=["RFP"])
+app.include_router(crawl.router, tags=["Crawling"])
+app.include_router(web3.router, tags=["Web3"])
+app.include_router(agent.router, tags=["Agent"])
+app.include_router(governance.router, tags=["Governance"])
 
 
 # ============== 기본 엔드포인트 ==============
@@ -117,7 +98,7 @@ async def root():
         "service": "BioLinker",
         "description": "AI 바이오 과제 매칭 에이전트",
         "version": "0.2.0",
-        "features": ["RFP Analysis", "KDDF/NTIS Crawling", "ChromaDB Search", "IPFS Upload", "Token Rewards"]
+        "features": ["RFP Analysis", "KDDF/NTIS Crawling", "ChromaDB Search", "IPFS Upload", "Token Rewards"],
     }
 
 
@@ -175,8 +156,9 @@ async def health():
         "chromadb_ok": chromadb_ok,
         "chromadb_count": chromadb_count,
         "web3_connected": bool(getattr(web3, "is_connected", False)),
-        "ipfs_configured": bool(getattr(ipfs, "is_configured", False))
+        "ipfs_configured": bool(getattr(ipfs, "is_configured", False)),
     }
+
 
 @app.get("/me")
 async def get_me(user: dict = Depends(get_current_user)):
@@ -185,833 +167,10 @@ async def get_me(user: dict = Depends(get_current_user)):
         "authenticated": True,
         "uid": user.get("uid"),
         "email": user.get("email"),
-        "name": user.get("name")
+        "name": user.get("name"),
     }
-
-
-# ============== RFP 분석 ==============
-
-@app.post(
-    "/analyze",
-    response_model=AnalyzeResponse,
-    summary="Analyze RFP fitness",
-    response_description="Fitness score, grade, and actionable recommendations",
-    responses={
-        200: {
-            "description": "Analysis completed successfully",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "rfp": {
-                            "id": "rfp-001",
-                            "title": "2024 BioHealth Innovation R&D Program",
-                            "source": "KDDF",
-                            "body_text": "...",
-                            "keywords": ["bio", "drug", "AI"],
-                        },
-                        "result": {
-                            "fit_score": 82,
-                            "fit_grade": "A",
-                            "match_summary": [
-                                "Core AI drug-discovery capability aligns with RFP focus",
-                                "TRL 4 meets the RFP minimum requirement",
-                                "Company is an eligible SME",
-                            ],
-                            "risk_flags": ["Budget cap may limit scope"],
-                            "recommended_actions": ["Prepare partnership letter"],
-                        },
-                    }
-                }
-            },
-        },
-        500: {"description": "LLM analysis or parsing failure"},
-    },
-)
-async def analyze_rfp(request: AnalyzeRequest):
-    """Analyze an RFP announcement against a user's technology profile.
-
-    The LLM evaluates tech-field alignment (40%), TRL fit (20%),
-    eligibility (20%), strategic synergy (10%), and budget match (10%)
-    to produce a 0-100 score and an S/A/B/C/D grade.
-    """
-    try:
-        crawler = get_crawler()
-        rfp = await crawler.parse_text(request.rfp_text, request.rfp_url)
-
-        analyzer = get_analyzer()
-        result = await analyzer.analyze(rfp, request.user_profile)
-
-        return AnalyzeResponse(rfp=rfp, result=result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/parse")
-async def parse_rfp(rfp_text: str, rfp_url: Optional[str] = None):
-    """공고문 파싱"""
-    try:
-        crawler = get_crawler()
-        rfp = await crawler.parse_text(rfp_text, rfp_url)
-        return rfp
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============== 공고 크롤링 ==============
-
-@app.get(
-    "/notices",
-    summary="List collected RFP notices",
-    response_description="Array of RFP notice objects",
-    responses={
-        200: {
-            "description": "Notices returned successfully",
-            "content": {
-                "application/json": {
-                    "example": [
-                        {
-                            "id": "kddf-001",
-                            "title": "2024 Drug Development Support Program",
-                            "source": "KDDF",
-                            "deadline": "2024-12-31T23:59:59",
-                            "keywords": ["drug", "clinical trial"],
-                        }
-                    ]
-                }
-            },
-        }
-    },
-)
-async def get_notices(source: Optional[str] = None, limit: int = 30):
-    """Return previously collected government RFP notices.
-
-    Optionally filter by ``source`` (e.g. KDDF, NTIS) and cap the
-    result count with ``limit``.
-    """
-    scheduler = get_scheduler()
-    return scheduler.get_notices(source=source, limit=limit)
-
-
-@app.post("/notices/collect")
-async def collect_notices():
-    """KDDF/NTIS 공고 수집 실행"""
-    scheduler = get_scheduler()
-    notices = await scheduler.collect_all_notices()
-    return {"collected": len(notices), "notices": notices[:10]}
-
-
-@app.get("/notices/kddf")
-async def get_kddf_notices(page: int = 1):
-    """KDDF 공고 크롤링"""
-    crawler = get_kddf_crawler()
-    return await crawler.fetch_notice_list(page)
-
-
-@app.get("/notices/ntis")
-async def get_ntis_notices(keyword: str = "바이오", page: int = 1):
-    """NTIS 공고 크롤링"""
-    crawler = get_ntis_crawler()
-    return await crawler.fetch_notice_list(keyword, page)
-
-
-# ============== 벡터 검색 ==============
-
-@app.get(
-    "/match/rfp",
-    summary="Vector-search RFP notices by text query",
-    response_description="Ranked list of matching RFP documents with similarity scores",
-    responses={
-        200: {
-            "description": "Matching RFPs returned",
-            "content": {
-                "application/json": {
-                    "example": [
-                        {
-                            "document": {"id": "rfp-001", "title": "AI Drug Discovery Fund"},
-                            "score": 0.91,
-                        }
-                    ]
-                }
-            },
-        }
-    },
-)
-async def match_rfp(
-    query: str = Query(..., description="Project description or keywords"),
-    limit: int = Query(5, ge=1, le=50, description="Max results to return"),
-):
-    """Perform a ChromaDB vector-similarity search over indexed RFP notices.
-
-    Provide a free-text project description or comma-separated keywords.
-    Returns up to ``limit`` notices ranked by cosine similarity.
-    """
-    vector_store = get_vector_store()
-    results = vector_store.search_similar(query, n_results=limit)
-    return results
-
-@app.post("/match/paper")
-async def match_paper_to_rfps(
-    request: dict = Body(..., examples=[{"paper_id": "uuid"}])
-):
-    """
-    Match a previously uploaded paper to relevant RFPs.
-    """
-    paper_id = request.get("paper_id")
-    if not paper_id:
-        raise HTTPException(status_code=400, detail="paper_id is required")
-        
-    try:
-        matcher = get_rfp_matcher()
-        results = await matcher.match_paper(paper_id, limit=5)
-        return {"matches": results}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        log.error("paper_matching_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/proposal/generate")
-async def generate_proposal_draft(
-    request: dict = Body(..., examples=[{"paper_id": "uuid", "rfp_id": "uuid"}])
-):
-    """
-    Generate a grant proposal draft based on a paper and an RFP.
-    """
-    paper_id = request.get("paper_id")
-    rfp_id = request.get("rfp_id")
-    
-    if not paper_id or not rfp_id:
-        raise HTTPException(status_code=400, detail="Both paper_id and rfp_id are required")
-        
-    vector_store = get_vector_store()
-    
-    # Fetch Data
-    paper = vector_store.get_notice(paper_id) # Using get_notice as generic fetch
-    rfp = vector_store.get_notice(rfp_id)
-    
-    if not paper:
-        raise HTTPException(status_code=404, detail="Paper not found")
-    if not rfp:
-        raise HTTPException(status_code=404, detail="RFP not found")
-        
-    try:
-        generator = get_proposal_generator()
-        draft = await generator.generate_draft(rfp, paper)
-        critique = await generator.review_draft(rfp, paper, draft)
-        return {"draft": draft, "critique": critique}
-    except Exception as e:
-        log.error("proposal_generation_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/similar/profile")
-async def search_by_profile(profile: UserProfile, n_results: int = 10):
-    """프로필 기반 공고 추천"""
-    vector_store = get_vector_store()
-    return vector_store.search_by_profile(
-        profile.tech_keywords,
-        profile.tech_description,
-        n_results
-    )
-
-
-@app.get("/vector/count")
-async def get_vector_count():
-    """저장된 벡터 수"""
-    vector_store = get_vector_store()
-    return {"count": vector_store.count()}
-
-
-# ============== IPFS 업로드 ==============
-
-@app.post(
-    "/upload",
-    summary="Upload a paper to IPFS",
-    response_description="IPFS CID, gateway URL, and extracted analysis metadata",
-    responses={
-        200: {
-            "description": "Upload and indexing successful",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "cid": "QmXyZ123...",
-                        "url": "https://gateway.pinata.cloud/ipfs/QmXyZ123...",
-                        "analysis": {
-                            "keywords": ["antibody", "AI", "drug discovery"],
-                            "text_length": 12345,
-                            "status": "indexed",
-                        },
-                    }
-                }
-            },
-        },
-        401: {"description": "Authentication required"},
-        502: {"description": "IPFS upload succeeded but CID is missing"},
-    },
-)
-async def upload_to_ipfs(
-    file: UploadFile = File(...),
-    title: Optional[str] = Form(None),
-    abstract: Optional[str] = Form(None),
-    user: dict = Depends(get_current_user)  # Require Auth
-):
-    """Upload a research paper PDF to IPFS (Pinata), extract keywords
-    via LLM, index in ChromaDB, and persist metadata to Firestore."""
-    import tempfile
-    tmp_path: Optional[str] = None
-    
-    # User ID check for DB storage
-    user_id = user.get("uid")
-    if not user_id:
-         raise HTTPException(status_code=401, detail="User ID not found")
-    
-    try:
-        # 1. Read File Content
-        content = await file.read()
-        
-        # 2. Parse PDF (Extract Text)
-        from services.pdf_parser import get_pdf_parser
-        parser = get_pdf_parser()
-        pdf_text = parser.parse(content)
-        
-        # LLM 기반 키워드 추출 (폴백: 빈도 기반 heuristic)
-        try:
-            analyzer = get_analyzer()
-            extracted_keywords = await analyzer.extract_keywords(
-                title=title or file.filename,
-                abstract=abstract or '',
-                text=pdf_text or '',
-            )
-        except Exception as _ke:
-            log.warning("keyword_extraction_failed", error=str(_ke))
-            words = (pdf_text or '').split()
-            extracted_keywords = list(set(w for w in words if len(w) > 5))[:8] or ["Bio", "Research"]
-
-        # 3. Save to Temp File for IPFS Upload
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-        
-        # 4. IPFS Upload
-        ipfs = get_ipfs_service()
-        result = await ipfs.upload_file(tmp_path, {
-            "title": title or file.filename,
-            "abstract": abstract or "",
-            "original_filename": file.filename
-        })
-        
-        # 5. Validate IPFS Result
-        cid = result.get("cid") or result.get("IpfsHash")
-        if not cid:
-            raise HTTPException(status_code=502, detail="IPFS upload succeeded but CID is missing")
-
-        ipfs_url = result.get("url") or f"https://gateway.pinata.cloud/ipfs/{cid}"
-        
-        # 6. Vector Store Indexing
-        vector_id = cid # Use CID as vector ID
-        vector_store = get_vector_store()
-        vector_store.add_paper(
-            paper_id=vector_id,
-            title=title or file.filename,
-            abstract=abstract or "",
-            full_text=pdf_text,
-            keywords=extracted_keywords
-        )
-        
-        # 7. Firestore Save
-        paper_data = {
-            "id": cid,
-            "title": title or file.filename,
-            "abstract": abstract or "",
-            "cid": cid,
-            "ipfs_url": ipfs_url,
-            "original_filename": file.filename,
-            "uploaded_at": datetime.now().isoformat(),
-            "reward_claimed": False,
-            "user_id": user_id,
-            "vector_id": vector_id,
-            "keywords": extracted_keywords,
-            "analysis_status": "indexed"
-        }
-
-        # Save to Firestore if available
-        if db:
-            try:
-                # Save to users/{uid}/papers/{cid}
-                doc_ref = db.collection("users").document(user_id).collection("papers").document(cid)
-                doc_ref.set(paper_data)
-                log.info("paper_saved_to_firestore", cid=cid, user_id=user_id)
-            except Exception as e:
-                log.error("firestore_save_failed", error=str(e), cid=cid)
-        
-        # Return extended result
-        result["cid"] = cid
-        result["url"] = ipfs_url
-        result["analysis"] = {
-            "keywords": extracted_keywords,
-            "text_length": len(pdf_text),
-            "status": "indexed"
-        }
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-
-
-@app.post("/upload/json")
-async def upload_json_to_ipfs(data: dict, name: str = "metadata.json"):
-    """JSON 데이터를 IPFS에 업로드"""
-    ipfs = get_ipfs_service()
-    return await ipfs.upload_json(data, name)
-
-
-@app.get("/papers/me", response_model=list[Paper])
-async def get_my_papers(user: dict = Depends(get_current_user)):
-    """내 논문 목록 조회 (Firestore/Mock)"""
-    user_id = user.get("uid")
-    
-    # 1. Try Firestore
-    if db and user_id:
-        try:
-            docs = db.collection("users").document(user_id).collection("papers").stream()
-            papers = []
-            for doc in docs:
-                data = doc.to_dict()
-                # Ensure id exists (if missing in data, use doc.id)
-                if "id" not in data: 
-                    data["id"] = doc.id
-                papers.append(Paper(**data))
-            
-            if papers:
-                return papers
-        except Exception as e:
-            log.error("firestore_read_error", error=str(e), user_id=user_id)
-
-    # 2. Fallback to Mock if DB empty or failed and MOCK_MODE is enabled
-    if MOCK_MODE:
-        return [
-            Paper(
-                id="p-001",
-                title="AI-Driven Drug Discovery Framework",
-                abstract="A novel framework for accelerating drug discovery using deep learning...",
-                cid="QmXyZ...",
-                ipfs_url="https://gateway.pinata.cloud/ipfs/QmXyZ...",
-                reward_claimed=True
-            ),
-            Paper(
-                id="p-002",
-                title="Decentralized Science: A New Era",
-                abstract="exploring the potential of blockchain in scientific research...",
-                cid="QmAbC...",
-                ipfs_url="https://gateway.pinata.cloud/ipfs/QmAbC...",
-                reward_claimed=False
-            )
-        ]
-    return []
-
-
-# ============== 토큰 보상 ==============
-
-@app.get("/wallet/{address}")
-async def get_wallet_balance(address: str):
-    """지갑 DSCI 토큰 잔액 조회"""
-    web3 = get_web3_service()
-    return await web3.get_balance(address)
-
-
-@app.post("/reward/paper")
-async def reward_paper_upload(user_address: str):
-    """논문 업로드 보상 (100 DSCI)"""
-    web3 = get_web3_service()
-    return await web3.reward_paper_upload(user_address)
-
-
-@app.post("/reward/review")
-async def reward_peer_review(user_address: str):
-    """피어 리뷰 보상 (50 DSCI)"""
-    web3 = get_web3_service()
-    return await web3.reward_peer_review(user_address)
-
-
-@app.post("/reward/share")
-async def reward_data_share(user_address: str):
-    """데이터 공유 보상 (200 DSCI)"""
-    web3 = get_web3_service()
-    return await web3.reward_data_share(user_address)
-
-
-@app.get("/reward/amounts")
-async def get_reward_amounts():
-    """보상 금액 조회"""
-    web3 = get_web3_service()
-    return await web3.get_reward_amounts()
-
-
-@app.get("/transactions/{address}")
-async def get_transactions(address: str, limit: int = 20):
-    """지갑 거래 내역 조회 (Firestore/Mock)"""
-    # Try Firestore first
-    if db:
-        try:
-            docs = db.collection("transactions").where("address", "==", address).order_by("timestamp", direction="DESCENDING").limit(limit).stream()
-            txns = [doc.to_dict() for doc in docs]
-            if txns:
-                return txns
-        except Exception as e:
-            log.error("firestore_transactions_read_error", error=str(e), address=address)
-
-    # Mock fallback only in MOCK_MODE
-    if MOCK_MODE:
-        return [
-            {"id": "tx-001", "type": "reward", "description": "Paper Upload Reward", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-20T10:00:00", "address": address},
-            {"id": "tx-002", "type": "reward", "description": "Peer Review Reward", "amount": 50.0, "token": "DSCI", "timestamp": "2026-02-18T14:30:00", "address": address},
-            {"id": "tx-003", "type": "reward", "description": "Welcome Bonus", "amount": 100.0, "token": "DSCI", "timestamp": "2026-02-06T09:00:00", "address": address},
-        ]
-    return []
-
-
-@app.post("/nft/mint")
-async def mint_nft(
-    request: dict = Body(..., examples=[{"user_address": "0x...", "token_uri": "ipfs://...", "consent_hash": "0x...", "consent_timestamp": "2026-03-03T10:00:00Z"}])
-):
-    """Research Paper IP-NFT Minting with Legal Consent Audit Trail"""
-    user_address = request.get("user_address")
-    token_uri = request.get("token_uri")
-    consent_hash = request.get("consent_hash")
-    consent_timestamp = request.get("consent_timestamp")
-    
-    if not user_address or not token_uri:
-         raise HTTPException(status_code=400, detail="user_address and token_uri are required")
-         
-    web3 = get_web3_service()
-    result = await web3.mint_paper_nft(user_address, token_uri, consent_hash=consent_hash)
-
-    # Record consent audit trail in Firestore
-    if db and consent_hash:
-        try:
-            db.collection("consent_audit").add({
-                "user_address": user_address,
-                "token_uri": token_uri,
-                "consent_hash": consent_hash,
-                "consent_timestamp": consent_timestamp,
-                "minted_at": datetime.now().isoformat(),
-                "tx_hash": result.get("tx_hash", ""),
-            })
-        except Exception as e:
-            log.warning("consent_audit_log_failed", error=str(e))
-
-    return result
-
-
-# ============== 스마트 매칭 (Smart Matching) ==============
-
-@app.post("/assets/upload")
-async def upload_company_asset(
-    file: UploadFile = File(...),
-    asset_type: str = Form("general")
-):
-    """회사 자산(IR, 논문, 특허) 업로드 및 인덱싱"""
-    manager = get_asset_manager()
-    return await manager.upload_asset(file, asset_type)
-
-
-@app.get("/assets")
-async def list_company_assets():
-    """업로드된 회사 자산 목록"""
-    manager = get_asset_manager()
-    return manager.list_assets()
-
-
-@app.post("/match/smart")
-async def trigger_smart_match(notice: dict = Body(...)):
-    """(테스트용) 특정 공고에 대한 스마트 매칭 실행"""
-    matcher = get_smart_matcher()
-    result = await matcher.match_new_notice(notice)
-    if result:
-        return result
-    return {"message": "No significant match found (< 80 score)"}
-
-@app.get("/match/recommendations")
-async def get_smart_recommendations():
-    """자산 기반 스마트 추천 공고 목록"""
-    matcher = get_smart_matcher()
-    return await matcher.match_vcs_for_company()
-
-@app.get("/match/vc")
-async def get_vc_matches():
-    """자산 기반 VC 추천 목록"""
-    matcher = get_smart_matcher()
-    
-    # Ensure Mock VCs are indexed (Lazy Init)
-    # 실제로는 스케줄러가 해야하지만, 테스트 편의상 여기서 호출 check
-    from services.vector_store import get_vector_store
-    vs = get_vector_store()
-    # Check if any VC exists
-    vcs = vs.get_documents_by_metadata("type", "vc_firm")
-    if not vcs:
-        log.info("initializing_mock_vc_database")
-        from services.vc_crawler import get_vc_crawler
-        crawler = get_vc_crawler()
-        vc_list = crawler.fetch_vc_list()
-        for vc in vc_list:
-            vs.add_vc_firm(vc)
-            
-    return await matcher.match_vcs_for_company()
-
-
-
-# ============== VC Portal API ==============
-
-@app.get("/vc/list")
-async def get_vc_list():
-    """사용 가능한 VC 목록 조회 (Mock)"""
-    from services.vc_crawler import get_vc_crawler
-    crawler = get_vc_crawler()
-    return crawler.fetch_vc_list()
-
-
-@app.get("/vc/recommendations/{vc_id}")
-async def get_vc_matching_companies(vc_id: str):
-    """특정 VC를 위한 유망 기업/기술 추천"""
-    matcher = get_smart_matcher()
-    return await matcher.match_companies_for_vc(vc_id)
-
-
-# ============== 데모 ==============
-
-@app.get("/demo")
-async def demo_analysis():
-    """데모용 샘플 분석"""
-    sample_rfp = RFPDocument(
-        id="demo-001",
-        title="2024년 바이오헬스 혁신기술 개발사업 공고",
-        source="KDDF",
-        budget_range="과제당 최대 10억원",
-        body_text="바이오헬스 분야 혁신 기술 개발을 위한 정부 지원 사업입니다.",
-        keywords=["바이오", "신약", "디지털헬스", "AI"],
-        eligibility=["중소기업", "벤처기업"],
-        required_docs=["사업계획서", "기술성 평가서"]
-    )
-    
-    sample_profile = UserProfile(
-        company_name="데모 바이오텍",
-        tech_keywords=["항체", "신약", "AI", "임상"],
-        tech_description="AI 기반 항체 신약 개발 전문 기업",
-        company_size="벤처기업",
-        current_trl="TRL 4"
-    )
-    
-    analyzer = get_analyzer()
-    result = await analyzer.analyze(sample_rfp, sample_profile)
-    
-    return AnalyzeResponse(rfp=sample_rfp, result=result)
-
-
-# ============== Agent API (AI Upgrade) ==============
-
-@app.post("/api/agent/research")
-async def agent_research(
-    request: dict = Body(..., examples=[{"topic": "Agentic AI", "deep": True}]),
-    locale_context = Depends(get_request_locale_context),
-):
-    """(Agent) Deep Research - 주제에 대한 심층 연구 리포트 생성"""
-    from services.agent_service import get_agent_service
-    
-    topic = request.get("topic")
-    deep = request.get("deep", False)
-    
-    if not topic:
-        raise HTTPException(status_code=400, detail="주제가 필요합니다.")
-        
-    service = get_agent_service()
-    
-    if deep:
-        report_data = await service.perform_deep_research(topic, locale_context)
-        return {"result": report_data, "meta": report_data.get("meta", {})}
-    else:
-        # Legacy/Simple synthesis
-        results = request.get("results", [])
-        report_data = await service.synthesize_research(topic, results, locale_context)
-        return {"report": report_data["report"], "meta": report_data["meta"]}
-
-@app.post("/api/agent/write")
-async def agent_write_content(
-    request: dict = Body(..., examples=[{"topic": "Agentic AI", "raw_text": "...", "format_type": "blog_post"}]),
-    locale_context = Depends(get_request_locale_context),
-):
-    """(Agent) Content Publisher - 다양한 형식의 콘텐츠 생성"""
-    from services.agent_service import get_agent_service
-    
-    topic = request.get("topic")
-    raw_text = request.get("raw_text")
-    format_type = request.get("format_type", "blog_post")
-    
-    if not topic or not raw_text:
-        raise HTTPException(status_code=400, detail="주제와 원문 텍스트가 필요합니다.")
-        
-    service = get_agent_service()
-    result = await service.write_content(topic, raw_text, locale_context, format_type)
-    return result
-
-@app.post("/api/agent/youtube")
-async def agent_youtube_analysis(
-    request: dict = Body(..., examples=[{"url": "https://youtu.be/...", "query": "Summarize this"}]),
-    locale_context = Depends(get_request_locale_context),
-):
-    """(Agent) YouTube Intelligence - 영상 분석 및 질의응답"""
-    from services.agent_service import get_agent_service
-    
-    url = request.get("url")
-    query = request.get("query", "영상 내용을 요약해줘")
-    
-    if not url:
-        raise HTTPException(status_code=400, detail="영상 URL이 필요합니다.")
-        
-    service = get_agent_service()
-    result = await service.analyze_youtube_video(url, locale_context, query)
-    return result
-
-@app.post("/api/agent/literature-review")
-async def agent_literature_review(
-    request: dict = Body(..., examples=[{"topic": "CRISPR for SCD"}]),
-    locale_context = Depends(get_request_locale_context),
-):
-    """(Agent) Literature Review - 지정된 주제에 대한 문헌 고찰(Review) 리포트 생성"""
-    from services.agent_service import get_agent_service
-    
-    topic = request.get("topic")
-    if not topic:
-        raise HTTPException(status_code=400, detail="주제가 필요합니다.")
-        
-    service = get_agent_service()
-    result = await service.conduct_literature_review(topic, locale_context)
-    
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
-        
-    return result
-
-
-# ============== DAO Governance ==============
-
-@app.get("/governance/proposals")
-async def list_proposals():
-    """List all governance proposals."""
-    if db:
-        try:
-            docs = db.collection("governance_proposals").order_by("created_at", direction="DESCENDING").stream()
-            return [doc.to_dict() for doc in docs]
-        except Exception as e:
-            log.error("governance_firestore_read_error", error=str(e))
-
-    # Mock fallback
-    if MOCK_MODE:
-        return [
-            {
-                "id": "prop-001",
-                "title": "Fund Open-Source Drug Discovery Dataset",
-                "description": "Allocate 5,000 DSCI from the treasury to fund the curation of an open-source drug interaction dataset.",
-                "proposer": "0xMockProposer1",
-                "for_votes": 3200,
-                "against_votes": 800,
-                "state": 1,
-                "end_time": "2026-03-06T12:00:00",
-                "created_at": "2026-03-03T12:00:00",
-            },
-            {
-                "id": "prop-002",
-                "title": "Add Peer Review Incentive Multiplier",
-                "description": "Double the DSCI reward for peer reviews during the first quarter to bootstrap review activity.",
-                "proposer": "0xMockProposer2",
-                "for_votes": 5000,
-                "against_votes": 1200,
-                "state": 2,
-                "end_time": "2026-03-01T12:00:00",
-                "created_at": "2026-02-26T12:00:00",
-            },
-        ]
-    return []
-
-
-@app.post("/governance/proposals")
-async def create_proposal(request: dict = Body(...)):
-    """Create a new governance proposal."""
-    title = request.get("title")
-    description = request.get("description")
-    proposer = request.get("proposer")
-
-    if not title or not description:
-        raise HTTPException(status_code=400, detail="Title and description are required")
-
-    proposal_data = {
-        "id": f"prop-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-        "title": title,
-        "description": description,
-        "proposer": proposer or "anonymous",
-        "for_votes": 0,
-        "against_votes": 0,
-        "state": 1,  # Active
-        "end_time": (datetime.now() + __import__('datetime').timedelta(days=3)).isoformat(),
-        "created_at": datetime.now().isoformat(),
-    }
-
-    if db:
-        try:
-            db.collection("governance_proposals").document(proposal_data["id"]).set(proposal_data)
-        except Exception as e:
-            log.error("governance_firestore_write_error", error=str(e))
-
-    return proposal_data
-
-
-@app.post("/governance/proposals/{proposal_id}/vote")
-async def vote_on_proposal(proposal_id: str, request: dict = Body(...)):
-    """Vote on a governance proposal."""
-    voter = request.get("voter")
-    support = request.get("support", True)
-
-    if not voter:
-        raise HTTPException(status_code=400, detail="Voter address required")
-
-    if db:
-        try:
-            ref = db.collection("governance_proposals").document(proposal_id)
-            doc = ref.get()
-            if not doc.exists:
-                raise HTTPException(status_code=404, detail="Proposal not found")
-
-            data = doc.to_dict()
-            # Simple weight: 100 DSCI per vote (in production, query token balance)
-            weight = 100
-            if support:
-                data["for_votes"] = data.get("for_votes", 0) + weight
-            else:
-                data["against_votes"] = data.get("against_votes", 0) + weight
-
-            ref.update({
-                "for_votes": data["for_votes"],
-                "against_votes": data["against_votes"],
-            })
-
-            return {"success": True, "proposal_id": proposal_id, "voter": voter, "support": support}
-        except HTTPException:
-            raise
-        except Exception as e:
-            log.error("governance_vote_error", error=str(e), proposal_id=proposal_id)
-
-    # Mock
-    return {"success": True, "proposal_id": proposal_id, "voter": voter, "support": support, "_mock": True}
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
