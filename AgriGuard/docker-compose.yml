@@ -20,9 +20,19 @@ services:
       retries: 5
       start_period: 10s
 
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - agriguard-net
+    restart: unless-stopped
+
   nginx:
     build:
-      context: ../nginx
+      context: ./nginx
       dockerfile: Dockerfile
     ports:
       - "80:80"
@@ -46,6 +56,8 @@ services:
     environment:
       - ENV=production
       - DATABASE_URL=postgresql://agriguard:agriguard_secret@postgres:5432/agriguard
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
     env_file:
       - ./backend/.env
     volumes:
@@ -53,6 +65,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
     networks:
       - agriguard-net
     restart: unless-stopped

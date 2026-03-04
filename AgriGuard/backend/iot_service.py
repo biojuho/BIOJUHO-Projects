@@ -8,7 +8,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import WebSocket
 
@@ -162,6 +162,49 @@ async def sensor_simulation_loop():
         # Broadcast to WebSocket clients
         await broadcast_reading(reading)
         await asyncio.sleep(5)
+
+
+async def add_reading_from_mqtt(sensor_msg: Any) -> None:
+    """Ingest a SensorMessage from the MQTT service into the IoT pipeline.
+
+    Accepts a mqtt_service.SensorMessage dataclass, converts it to the
+    standard reading dict, persists it to the DB, and broadcasts it to all
+    connected WebSocket clients.
+    """
+    # Determine alert status using the same thresholds as the simulator
+    alerts: list[str] = []
+    if sensor_msg.temperature < _ALERT_THRESHOLDS["temp_min"]:
+        alerts.append(f"Temperature too low: {sensor_msg.temperature}°C")
+    elif sensor_msg.temperature > _ALERT_THRESHOLDS["temp_max"]:
+        alerts.append(f"Temperature too high: {sensor_msg.temperature}°C")
+    if sensor_msg.humidity < _ALERT_THRESHOLDS["humidity_min"]:
+        alerts.append(f"Humidity too low: {sensor_msg.humidity}%")
+    elif sensor_msg.humidity > _ALERT_THRESHOLDS["humidity_max"]:
+        alerts.append(f"Humidity too high: {sensor_msg.humidity}%")
+
+    reading: dict = {
+        "sensor_id": sensor_msg.sensor_id,
+        "timestamp": sensor_msg.timestamp.isoformat(),
+        "temperature": sensor_msg.temperature,
+        "humidity": sensor_msg.humidity,
+        "battery": sensor_msg.battery,
+        "zone": sensor_msg.zone,
+        "alerts": alerts,
+        "status": "alert" if alerts else "normal",
+    }
+
+    _sensor_history.append(reading)
+
+    # Trim history
+    if len(_sensor_history) > _MAX_HISTORY:
+        _sensor_history[:] = _sensor_history[-_MAX_HISTORY:]
+
+    # Persist to DB without blocking the event loop
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _persist_reading, reading)
+
+    # Broadcast to WebSocket clients
+    await broadcast_reading(reading)
 
 
 async def handle_ws_connection(websocket: WebSocket):

@@ -19,9 +19,27 @@ models.Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app):
-    task = asyncio.create_task(sensor_simulation_loop())
+    # Start IoT simulation
+    sim_task = asyncio.create_task(sensor_simulation_loop())
+
+    # Start MQTT if broker is configured
+    mqtt_host = os.environ.get("MQTT_BROKER_HOST", "")
+    mqtt_task = None
+    if mqtt_host:
+        from mqtt_service import MQTTSensorService
+        from iot_service import add_reading_from_mqtt
+        mqtt_service = MQTTSensorService(
+            broker_host=mqtt_host,
+            broker_port=int(os.environ.get("MQTT_BROKER_PORT", "1883")),
+            on_reading=add_reading_from_mqtt,
+        )
+        mqtt_task = asyncio.create_task(mqtt_service.start())
+
     yield
-    task.cancel()
+
+    sim_task.cancel()
+    if mqtt_task:
+        mqtt_task.cancel()
 
 app = FastAPI(title="AgriGuard API", version="0.2.0", lifespan=lifespan)
 
