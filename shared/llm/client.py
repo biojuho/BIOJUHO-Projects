@@ -23,7 +23,11 @@ from .stats import CostTracker
 log = logging.getLogger("shared.llm")
 
 _FAIL_TTL = 300
-_CACHE_TTL = 300
+_CACHE_TTL: dict[str, int] = {
+    "lightweight": 60,   # real-time data like trends — short TTL
+    "medium": 180,
+    "heavy": 600,        # deep analysis — worth reusing longer
+}
 _CACHE_MAX = 128
 
 _failed_backends: dict[TaskTier, dict[str, float]] = {
@@ -82,12 +86,16 @@ def _make_cache_key(
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
-def _get_cached(key: str) -> LLMResponse | None:
+def _get_cache_ttl(tier: TaskTier) -> int:
+    return _CACHE_TTL.get(tier.value, 180)
+
+
+def _get_cached(key: str, tier: TaskTier) -> LLMResponse | None:
     entry = _response_cache.get(key)
     if entry is None:
         return None
     resp, ts = entry
-    if time.monotonic() - ts > _CACHE_TTL:
+    if time.monotonic() - ts > _get_cache_ttl(tier):
         del _response_cache[key]
         return None
     log.debug("Cache HIT: %s...", key[:8])
@@ -146,7 +154,7 @@ class LLMClient:
         resolved_tier = self._resolve_tier(tier, model)
         resolved_policy = normalize_policy(policy)
         cache_key = _make_cache_key(resolved_tier, messages, system, resolved_policy)
-        cached = _get_cached(cache_key)
+        cached = _get_cached(cache_key, resolved_tier)
         if cached is not None:
             return cached
 

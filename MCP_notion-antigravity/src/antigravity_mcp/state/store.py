@@ -88,6 +88,24 @@ class PipelineStateStore:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_article_cache_category_window
+                ON article_cache(category, window_name)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_article_cache_link
+                ON article_cache(link)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_content_reports_fingerprint
+                ON content_reports(fingerprint)
+                """
+            )
 
     def record_job_start(self, run_id: str, job_name: str, summary: dict[str, Any] | None = None) -> None:
         with self._connect() as connection:

@@ -155,8 +155,7 @@ def load_canva(logger):
 
 def load_sentiment_analyzer(logger):
     try:
-        sys.path.append(str(PROJECT_ROOT / ".agent" / "skills" / "sentiment_analyzer"))
-        from analyze import SentimentAnalyzer
+        from sentiment_analyzer import SentimentAnalyzer
         analyzer = SentimentAnalyzer()
         logger.info("bootstrap", "success", "sentiment analyzer loaded")
         return analyzer
@@ -180,8 +179,7 @@ def load_skill_integrator(logger):
 
 def load_proofreader(logger):
     try:
-        sys.path.append(str(PROJECT_ROOT / ".agent" / "skills" / "proofreader"))
-        from proofread import Proofreader
+        from proofreader import Proofreader
         proofreader = Proofreader()
         logger.info("bootstrap", "success", "proofreader loaded")
         return proofreader
