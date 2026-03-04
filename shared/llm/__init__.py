@@ -9,7 +9,8 @@ Usage:
 """
 
 from .client import LLMClient
-from .models import LLMResponse, TaskTier
+from .models import BridgeMeta, LLMPolicy, LLMResponse, TaskTier
+from .stats import CostTracker
 
 _client: LLMClient | None = None
 
@@ -30,10 +31,29 @@ def reset_client() -> None:
     _client = None
 
 
+def export_usage_csv(days: int = 30):
+    """Export LLM usage to CSV. Returns path or None."""
+    if _client is not None:
+        return _client._tracker.export_csv(days)
+    return None
+
+
+def get_daily_stats(days: int = 30) -> list[dict]:
+    """Get daily aggregated stats from persistent storage."""
+    if _client is not None:
+        return _client._tracker.get_daily_stats(days)
+    return []
+
+
 __all__ = [
     "LLMClient",
+    "BridgeMeta",
+    "CostTracker",
+    "LLMPolicy",
     "LLMResponse",
     "TaskTier",
     "get_client",
     "reset_client",
+    "export_usage_csv",
+    "get_daily_stats",
 ]

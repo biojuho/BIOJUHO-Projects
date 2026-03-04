@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .models import TaskTier
+from .models import LLMPolicy, TaskTier
 
 # ---------------------------------------------------------------------------
 # Load root .env (the single source of truth for LLM keys)
@@ -39,23 +39,30 @@ def load_keys() -> dict[str, str]:
 TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.HEAVY: [
         ("anthropic", "claude-sonnet-4-20250514"),
-        ("gemini", "gemini-2.5-pro"),
+        ("gemini", "gemini-2.5-pro-preview-03-25"),
         ("grok", "grok-3"),
         ("openai", "gpt-4o"),
     ],
     TaskTier.MEDIUM: [
-        ("gemini", "gemini-2.5-flash"),
-        ("anthropic", "claude-3-5-haiku-20241022"),
+        ("gemini", "gemini-2.5-flash-preview-04-17"),
+        ("anthropic", "claude-haiku-4-5-20251001"),
         ("grok", "grok-3-mini-fast"),
         ("openai", "gpt-4o-mini"),
     ],
     TaskTier.LIGHTWEIGHT: [
+        ("deepseek", "deepseek-chat"),
         ("gemini", "gemini-2.0-flash"),
         ("grok", "grok-3-mini-fast"),
-        ("deepseek", "deepseek-chat"),
         ("openai", "gpt-4o-mini"),
     ],
 }
+
+STRUCTURED_TASK_KINDS = frozenset(
+    {"classification", "keyword_extraction", "search_query_generation", "json_extraction"}
+)
+LONGFORM_TASK_KINDS = frozenset(
+    {"summary", "analysis", "literature_review", "grant_writing", "youtube_longform"}
+)
 
 # ---------------------------------------------------------------------------
 # Backward-compatible: Anthropic model name → TaskTier
@@ -63,6 +70,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
 MODEL_TO_TIER: dict[str, TaskTier] = {
     "claude-3-haiku-20240307": TaskTier.LIGHTWEIGHT,
     "claude-3-5-haiku-20241022": TaskTier.MEDIUM,
+    "claude-haiku-4-5-20251001": TaskTier.MEDIUM,
     "claude-sonnet-4-20250514": TaskTier.HEAVY,
     "claude-3-5-sonnet-20241022": TaskTier.HEAVY,
 }
@@ -73,9 +81,12 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
 MODEL_COSTS: dict[str, tuple[float, float]] = {
     "claude-sonnet-4-20250514": (3.0, 15.0),
     "claude-3-5-sonnet-20241022": (3.0, 15.0),
+    "claude-haiku-4-5-20251001": (0.8, 4.0),
     "claude-3-5-haiku-20241022": (0.8, 4.0),
     "claude-3-haiku-20240307": (0.25, 1.25),
+    "gemini-2.5-pro-preview-03-25": (1.25, 10.0),
     "gemini-2.5-pro": (1.25, 10.0),
+    "gemini-2.5-flash-preview-04-17": (0.0, 0.0),
     "gemini-2.5-flash": (0.0, 0.0),
     "gemini-2.0-flash": (0.0, 0.0),
     "gpt-4o": (2.5, 10.0),
@@ -102,3 +113,44 @@ FALLBACK_ERRORS: tuple[str, ...] = (
     "invalid api key",
     "invalid_api_key",
 )
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = _key(name)
+    if not value:
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def is_deepseek_longform_enabled() -> bool:
+    """Feature flag for DeepSeek Korean long-form generation."""
+    return _env_flag("ENABLE_DEEPSEEK_KO_LONGFORM", default=False)
+
+
+def get_routing_chain(tier: TaskTier, policy: LLMPolicy | None = None) -> list[tuple[str, str]]:
+    """Return the backend chain for the given tier and task policy."""
+    chain = list(TIER_CHAINS[tier])
+    task_kind = (policy.task_kind if policy else "generic") or "generic"
+
+    if task_kind in STRUCTURED_TASK_KINDS:
+        chain = _dedupe_chain([("deepseek", "deepseek-chat"), *chain])
+    elif task_kind in LONGFORM_TASK_KINDS and not is_deepseek_longform_enabled():
+        chain = [entry for entry in chain if entry[0] != "deepseek"]
+    elif task_kind in LONGFORM_TASK_KINDS and is_deepseek_longform_enabled():
+        chain = _dedupe_chain([*chain, ("deepseek", "deepseek-chat")])
+
+    if tier == TaskTier.LIGHTWEIGHT:
+        chain = _dedupe_chain([("deepseek", "deepseek-chat"), *chain])
+
+    return chain
+
+
+def _dedupe_chain(chain: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    deduped: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in chain:
+        if item in seen:
+            continue
+        deduped.append(item)
+        seen.add(item)
+    return deduped

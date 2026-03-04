@@ -88,14 +88,15 @@ class BackendManager:
         max_tokens: int,
         system: str,
         tier: TaskTier,
+        response_mode: str = "text",
     ) -> LLMResponse:
         """Dispatch a sync LLM call to the given backend."""
         if backend == "anthropic":
             return self._call_anthropic(model, messages, max_tokens, system, tier)
         elif backend == "gemini":
-            return self._call_gemini(model, messages, max_tokens, system, tier)
+            return self._call_gemini(model, messages, max_tokens, system, tier, response_mode)
         else:
-            return self._call_openai_compat(backend, model, messages, max_tokens, system, tier)
+            return self._call_openai_compat(backend, model, messages, max_tokens, system, tier, response_mode)
 
     def _call_anthropic(
         self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
@@ -115,7 +116,8 @@ class BackendManager:
         )
 
     def _call_gemini(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
+        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+        response_mode: str = "text",
     ) -> LLMResponse:
         client = self._get_gemini()
         parts = []
@@ -127,10 +129,13 @@ class BackendManager:
 
         # Gemini 2.5+ thinking mode consumes extra tokens
         gemini_max = max(max_tokens * 4, 8192)
+        config: dict[str, Any] = {"max_output_tokens": gemini_max}
+        if response_mode == "json":
+            config["response_mime_type"] = "application/json"
         resp = client.models.generate_content(
             model=model,
             contents=prompt,
-            config={"max_output_tokens": gemini_max},
+            config=config,
         )
         text = resp.text
         if text is None:
@@ -152,6 +157,7 @@ class BackendManager:
         max_tokens: int,
         system: str,
         tier: TaskTier,
+        response_mode: str = "text",
     ) -> LLMResponse:
         """OpenAI-compatible API call (OpenAI, Grok, DeepSeek, Moonshot)."""
         getter = {
@@ -167,11 +173,14 @@ class BackendManager:
         for m in messages:
             oai_messages.append({"role": m["role"], "content": m["content"]})
 
-        resp = client.chat.completions.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=oai_messages,
-        )
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": oai_messages,
+        }
+        if response_mode == "json":
+            kwargs["response_format"] = {"type": "json_object"}
+        resp = client.chat.completions.create(**kwargs)
         usage = resp.usage
         return LLMResponse(
             text=resp.choices[0].message.content,
@@ -192,14 +201,18 @@ class BackendManager:
         max_tokens: int,
         system: str,
         tier: TaskTier,
+        response_mode: str = "text",
     ) -> LLMResponse:
         """Dispatch an async LLM call. Gemini uses native async; others use to_thread."""
         if backend == "gemini":
-            return await self._acall_gemini(model, messages, max_tokens, system, tier)
-        return await asyncio.to_thread(self.call, backend, model, messages, max_tokens, system, tier)
+            return await self._acall_gemini(model, messages, max_tokens, system, tier, response_mode)
+        return await asyncio.to_thread(
+            self.call, backend, model, messages, max_tokens, system, tier, response_mode
+        )
 
     async def _acall_gemini(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
+        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+        response_mode: str = "text",
     ) -> LLMResponse:
         client = self._get_gemini()
         parts = []
@@ -209,11 +222,14 @@ class BackendManager:
             parts.append(m["content"])
         prompt = "\n".join(parts)
         gemini_max = max(max_tokens * 4, 8192)
+        config: dict[str, Any] = {"max_output_tokens": gemini_max}
+        if response_mode == "json":
+            config["response_mime_type"] = "application/json"
 
         resp = await client.aio.models.generate_content(
             model=model,
             contents=prompt,
-            config={"max_output_tokens": gemini_max},
+            config=config,
         )
         text = resp.text
         if text is None:
