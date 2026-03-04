@@ -1,13 +1,16 @@
 """
-getdaytrends v2.0 - Storage Module
+getdaytrends v2.1 - Storage Module
 Notion + Google Sheets + SQLite 저장 라우터.
+Notion API 재시도 로직 (지수 백오프) 포함.
 """
 
 import logging
 import sqlite3
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime
+from typing import Any, Callable
 
 from config import AppConfig
 from db import save_thread, save_trend, save_tweet
@@ -18,9 +21,92 @@ log = logging.getLogger(__name__)
 # 저장 방식별 임포트
 try:
     from notion_client import Client as NotionClient
+    from notion_client.errors import APIResponseError
     NOTION_AVAILABLE = True
 except ImportError:
     NOTION_AVAILABLE = False
+    APIResponseError = None  # type: ignore
+
+# Notion API 재시도 대상 HTTP 상태 코드
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
+_MAX_RETRIES = 4
+_BASE_DELAY = 1.0  # 초 (1s → 2s → 4s → 8s)
+
+
+def _retry_notion_call(
+    fn: Callable[..., Any],
+    *args: Any,
+    max_retries: int = _MAX_RETRIES,
+    base_delay: float = _BASE_DELAY,
+    **kwargs: Any,
+) -> Any:
+    """
+    Notion API 호출을 지수 백오프로 재시도.
+
+    429 (Rate Limit), 500, 502, 503 에러 발생 시 최대 max_retries 회 재시도.
+    429인 경우 Retry-After 헤더가 있으면 해당 시간만큼 대기.
+    그 외 에러는 즉시 raise.
+
+    Args:
+        fn: 호출할 Notion API 함수 (예: notion.pages.create)
+        *args: 위치 인자
+        max_retries: 최대 재시도 횟수 (기본 4)
+        base_delay: 기본 대기 시간 (기본 1초, 지수 증가)
+        **kwargs: 키워드 인자
+
+    Returns:
+        Notion API 응답
+
+    Raises:
+        APIResponseError: 재시도 횟수 초과 또는 재시도 불가능한 에러
+        Exception: Notion API 외의 예외
+    """
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            # notion-client 가 없거나 APIResponseError가 아닌 경우 즉시 raise
+            if APIResponseError is None or not isinstance(e, APIResponseError):
+                raise
+
+            status = getattr(e, "status", None)
+            if status not in _RETRYABLE_STATUS_CODES:
+                raise  # 재시도 불가능한 에러 (400, 401, 404 등)
+
+            last_exception = e
+
+            if attempt >= max_retries:
+                log.error(
+                    f"Notion API 재시도 한도 초과 (HTTP {status}): "
+                    f"{max_retries + 1}회 시도 후 실패"
+                )
+                raise
+
+            # 429인 경우 Retry-After 헤더 확인
+            retry_after = None
+            if status == 429:
+                # notion-client의 APIResponseError에는 headers가 없을 수 있음
+                # body에 retry_after가 있을 수 있음
+                body = getattr(e, "body", None)
+                if isinstance(body, dict):
+                    retry_after = body.get("retry_after")
+
+            if retry_after and isinstance(retry_after, (int, float)):
+                delay = float(retry_after)
+            else:
+                delay = base_delay * (2 ** attempt)
+
+            log.warning(
+                f"Notion API 에러 (HTTP {status}), "
+                f"{delay:.1f}초 후 재시도 ({attempt + 1}/{max_retries})..."
+            )
+            time.sleep(delay)
+
+    # 이론적으로 도달 불가, 안전장치
+    if last_exception:
+        raise last_exception
 
 try:
     import gspread
@@ -317,7 +403,7 @@ def save_to_notion(
         if cover:
             create_args["cover"] = cover
 
-        notion.pages.create(**create_args)
+        _retry_notion_call(notion.pages.create, **create_args)
         log.info(f"Notion 저장 완료: '{title}' (본문 {len(body_blocks)}블록)")
         return True
     except Exception as e:

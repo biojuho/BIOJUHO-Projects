@@ -164,10 +164,18 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
     scored_trends = analyze_trends(raw_trends, contexts, config)
     run.trends_scored = len(scored_trends)
 
-    # 스코어 미리보기
+    # 최소 바이럴 점수 필터 (저품질 트렌드 제외)
+    MIN_VIRAL_SCORE = 55
+    quality_trends = [t for t in scored_trends if t.viral_potential >= MIN_VIRAL_SCORE]
+    filtered_count = len(scored_trends) - len(quality_trends)
+    if filtered_count:
+        print(f"\n  ⚡ 품질 필터: {filtered_count}개 제외 (바이럴 {MIN_VIRAL_SCORE}점 미만)")
+
+    # 스코어 미리보기 (전체)
     for st in scored_trends:
+        marker = " ✓" if st.viral_potential >= MIN_VIRAL_SCORE else " ✗"
         score_bar = "█" * (st.viral_potential // 10) + "░" * (10 - st.viral_potential // 10)
-        print(f"  #{st.rank} [{score_bar}] {st.viral_potential:3d}점 | {st.keyword}")
+        print(f"  #{st.rank} [{score_bar}] {st.viral_potential:3d}점 | {st.keyword}{marker}")
 
         # 히스토리 패턴 정보
         if config.verbose:
@@ -182,13 +190,13 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
         if alerts_sent:
             print(f"\n  알림 전송: {alerts_sent}건")
 
-    # Step 4: 트윗/쓰레드 생성 + 저장
-    print("\n[3/4] 트윗 생성 중...")
+    # Step 4: 트윗/쓰레드 생성 + 저장 (품질 필터 통과분만)
+    print(f"\n[3/4] 트윗 생성 중... ({len(quality_trends)}개 대상)")
     client = get_client()
     success_count = 0
 
-    for i, trend in enumerate(scored_trends):
-        print(f"\n  [{i + 1}/{len(scored_trends)}] '{trend.keyword}' (바이럴: {trend.viral_potential}점)")
+    for i, trend in enumerate(quality_trends):
+        print(f"\n  [{i + 1}/{len(quality_trends)}] '{trend.keyword}' (바이럴: {trend.viral_potential}점)")
 
         batch = generate_for_trend(trend, config, client)
         if not batch:
@@ -216,7 +224,7 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
             run.tweets_saved += len(batch.tweets) + len(batch.long_posts) + len(batch.threads_posts)
 
         # API rate limit 방지
-        if i < len(scored_trends) - 1:
+        if i < len(quality_trends) - 1:
             time.sleep(3)
 
     run.finished_at = datetime.now()
@@ -224,7 +232,7 @@ def run_pipeline(config: AppConfig, conn) -> RunResult:
 
     elapsed = (run.finished_at - run.started_at).total_seconds()
     print(f"\n{separator}")
-    print(f"  완료: {success_count}/{len(scored_trends)}개 저장")
+    print(f"  완료: {success_count}/{len(quality_trends)}개 저장")
     print(f"  소요: {elapsed:.1f}초")
 
     # 스마트 스케줄링: 핫 트렌드 감지 시 다음 실행 앞당김

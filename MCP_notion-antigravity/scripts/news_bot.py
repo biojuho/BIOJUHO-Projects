@@ -1,3 +1,23 @@
+# =============================================================================
+# PARTIAL LEGACY: news_bot.py
+# =============================================================================
+# The core collect -> analyze -> publish workflow has been migrated to
+#   src/antigravity_mcp/pipelines/{collect,analyze,publish,dashboard}.py
+#
+# However, the following features in this script are STILL ACTIVE and have
+# NOT yet been ported to the new pipeline architecture:
+#   - load_sentiment_analyzer / per-article sentiment tagging
+#   - load_market_data / market snapshot embedding in Notion pages
+#   - load_proofreader / AI proofreading pass on summaries
+#   - load_skill_integrator / auto-generated X opinion post drafts
+#   - load_brain / BrainModule cross-article analysis with niche trends
+#   - PIL infographic generation + Canva import/export (inline in process_category)
+#
+# Until these features are ported, this script remains the full-featured
+# standalone entry point. Run it via:
+#   python news_bot.py --max-items 5
+# =============================================================================
+
 from __future__ import annotations
 
 import argparse

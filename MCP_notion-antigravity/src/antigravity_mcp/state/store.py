@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -303,6 +304,72 @@ class PipelineStateStore:
             "reports": int(total_reports),
             "runs": int(total_runs),
             "cached_articles": int(total_cached),
+        }
+
+    def get_pipeline_health(self) -> dict[str, Any]:
+        """Return health metrics for pipeline runs in the last 24 hours.
+
+        Returns a dict with:
+          - last_run_at: ISO timestamp of the most recent run (or None)
+          - last_run_status: status of the most recent run (or None)
+          - success_count_24h: successful runs in the last 24h
+          - failure_count_24h: failed runs in the last 24h
+          - total_runs_24h: total runs in the last 24h
+          - avg_latency_seconds: average duration of completed runs in 24h (or None)
+          - error_rate: fraction of failed runs in 24h (0.0 - 1.0)
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        with self._connect() as connection:
+            # Most recent run overall
+            last_row = connection.execute(
+                "SELECT started_at, status FROM job_runs ORDER BY started_at DESC LIMIT 1"
+            ).fetchone()
+
+            # Counts by status in the last 24h
+            rows_24h = connection.execute(
+                """
+                SELECT status, COUNT(*) AS cnt
+                FROM job_runs
+                WHERE started_at >= ?
+                GROUP BY status
+                """,
+                (cutoff,),
+            ).fetchall()
+
+            # Average latency for runs that have both started_at and finished_at
+            latency_row = connection.execute(
+                """
+                SELECT AVG(
+                    (julianday(finished_at) - julianday(started_at)) * 86400.0
+                ) AS avg_seconds
+                FROM job_runs
+                WHERE started_at >= ? AND finished_at IS NOT NULL AND finished_at != ''
+                """,
+                (cutoff,),
+            ).fetchone()
+
+        # Parse counts
+        status_counts: dict[str, int] = {}
+        for row in rows_24h:
+            status_counts[row["status"]] = row["cnt"]
+
+        success_count = status_counts.get("success", 0) + status_counts.get("partial", 0)
+        failure_count = status_counts.get("failed", 0)
+        total_runs = sum(status_counts.values())
+        error_rate = (failure_count / total_runs) if total_runs > 0 else 0.0
+
+        avg_latency = latency_row["avg_seconds"] if latency_row and latency_row["avg_seconds"] is not None else None
+        if avg_latency is not None:
+            avg_latency = round(avg_latency, 2)
+
+        return {
+            "last_run_at": last_row["started_at"] if last_row else None,
+            "last_run_status": last_row["status"] if last_row else None,
+            "success_count_24h": success_count,
+            "failure_count_24h": failure_count,
+            "total_runs_24h": total_runs,
+            "avg_latency_seconds": avg_latency,
+            "error_rate": round(error_rate, 4),
         }
 
     def _row_to_report(self, row: sqlite3.Row | None) -> ContentReport | None:

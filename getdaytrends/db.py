@@ -1,12 +1,16 @@
 """
-getdaytrends v2.0 - SQLite Database
+getdaytrends v2.1 - SQLite Database
 트렌드 히스토리 저장, CRUD 헬퍼 함수.
+콘텐츠 핑거프린트 기반 중복 제거 지원.
 """
 
+import hashlib
 import json
 import logging
 import os
+import re
 import sqlite3
+import unicodedata
 from datetime import datetime, timedelta
 
 from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
@@ -90,8 +94,89 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.commit()
         log.info("DB 마이그레이션: tweets.content_type 컬럼 추가")
 
+    # v2.2 마이그레이션: fingerprint 컬럼 추가 (콘텐츠 핑거프린트 중복 제거)
+    try:
+        conn.execute("SELECT fingerprint FROM trends LIMIT 1")
+    except sqlite3.OperationalError:
+        conn.execute("ALTER TABLE trends ADD COLUMN fingerprint TEXT DEFAULT ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_trends_fingerprint ON trends(fingerprint)")
+        conn.commit()
+        log.info("DB 마이그레이션: trends.fingerprint 컬럼 + 인덱스 추가")
+        # 기존 데이터에 핑거프린트 역산 적용
+        _backfill_fingerprints(conn)
+
 
 log = logging.getLogger(__name__)
+
+
+def _backfill_fingerprints(conn: sqlite3.Connection) -> None:
+    """기존 트렌드 데이터에 핑거프린트를 역산하여 채움."""
+    rows = conn.execute(
+        "SELECT id, keyword, volume_numeric FROM trends WHERE fingerprint = '' OR fingerprint IS NULL"
+    ).fetchall()
+    if not rows:
+        return
+    for row in rows:
+        fp = compute_fingerprint(row["keyword"], row["volume_numeric"])
+        conn.execute("UPDATE trends SET fingerprint = ? WHERE id = ?", (fp, row["id"]))
+    conn.commit()
+    log.info(f"핑거프린트 역산 완료: {len(rows)}개 트렌드")
+
+
+# ══════════════════════════════════════════════════════
+#  Content Fingerprint (중복 제거용)
+# ══════════════════════════════════════════════════════
+
+def _normalize_name(name: str) -> str:
+    """
+    키워드 이름 정규화: 소문자 변환, 공백/특수문자 제거, 유니코드 정규화.
+    예: "AI Agent" → "aiagent", "  #BTS  " → "bts"
+    """
+    # 유니코드 NFC 정규화 (한글 자모 결합 등)
+    name = unicodedata.normalize("NFC", name)
+    # 소문자
+    name = name.lower()
+    # #, @, 공백, 특수문자 제거 (한글/영숫자만 유지)
+    name = re.sub(r"[^a-z0-9\uAC00-\uD7A3\u1100-\u11FF]", "", name)
+    return name
+
+
+def _normalize_volume(volume: int) -> int:
+    """
+    볼륨을 1000 단위 구간으로 정규화.
+    동일 트렌드가 미세하게 다른 볼륨으로 재수집되어도
+    같은 핑거프린트를 생성하도록 구간화.
+    예: 12345 → 12000, 99500 → 99000, 500 → 0
+    """
+    return (volume // 1000) * 1000
+
+
+def compute_fingerprint(name: str, volume: int) -> str:
+    """
+    트렌드 콘텐츠 핑거프린트 생성.
+
+    정규화된 키워드 이름 + 구간화된 볼륨을 기반으로
+    SHA-256 해시의 앞 16자를 반환.
+    동일 트렌드의 미세한 변형(대소문자, 공백, 볼륨 오차)을
+    같은 핑거프린트로 묶어 중복을 방지.
+
+    Args:
+        name: 트렌드 키워드 (원본)
+        volume: 수집된 볼륨 (정수)
+
+    Returns:
+        16자 hex 핑거프린트 문자열
+
+    Examples:
+        >>> compute_fingerprint("AI Agent", 50000)
+        'a1b2c3d4e5f67890'
+        >>> compute_fingerprint("ai agent", 50500)  # 같은 결과
+        'a1b2c3d4e5f67890'
+    """
+    normalized_name = _normalize_name(name)
+    normalized_volume = _normalize_volume(volume)
+    raw = f"{normalized_name}:{normalized_volume}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def save_run(conn: sqlite3.Connection, run: RunResult) -> int:
@@ -138,12 +223,13 @@ def update_run(conn: sqlite3.Connection, run: RunResult, row_id: int) -> None:
 
 def save_trend(conn: sqlite3.Connection, trend: ScoredTrend, run_id: int) -> int:
     """스코어링된 트렌드 저장. trend row id 반환."""
+    fingerprint = compute_fingerprint(trend.keyword, trend.volume_last_24h)
     cursor = conn.execute(
         """INSERT INTO trends (run_id, keyword, rank, volume_raw, volume_numeric,
            viral_potential, trend_acceleration, top_insight, suggested_angles,
            best_hook_starter, country, sources, twitter_context, reddit_context,
-           news_context, scored_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           news_context, scored_at, fingerprint)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             run_id,
             trend.keyword,
@@ -161,6 +247,7 @@ def save_trend(conn: sqlite3.Connection, trend: ScoredTrend, run_id: int) -> int
             trend.context.reddit_insight if trend.context else "",
             trend.context.news_insight if trend.context else "",
             trend.scored_at.isoformat(),
+            fingerprint,
         ),
     )
     conn.commit()
@@ -254,6 +341,37 @@ def get_recently_processed_keywords(
         (cutoff,),
     ).fetchall()
     return {row["keyword"] for row in rows}
+
+
+def get_recently_processed_fingerprints(
+    conn: sqlite3.Connection, hours: int = 3
+) -> set[str]:
+    """최근 N시간 이내 처리된 핑거프린트 목록 반환 (콘텐츠 기반 중복 필터)."""
+    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    rows = conn.execute(
+        "SELECT DISTINCT fingerprint FROM trends WHERE scored_at >= ? AND fingerprint != ''",
+        (cutoff,),
+    ).fetchall()
+    return {row["fingerprint"] for row in rows}
+
+
+def is_duplicate_trend(
+    conn: sqlite3.Connection,
+    name: str,
+    volume: int,
+    hours: int = 3,
+) -> bool:
+    """
+    콘텐츠 핑거프린트 기반 중복 체크.
+    키워드 이름 + 볼륨을 정규화한 해시가 최근 N시간 이내에 존재하는지 확인.
+    """
+    fp = compute_fingerprint(name, volume)
+    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    row = conn.execute(
+        "SELECT 1 FROM trends WHERE fingerprint = ? AND scored_at >= ? LIMIT 1",
+        (fp, cutoff),
+    ).fetchone()
+    return row is not None
 
 
 def get_trend_stats(conn: sqlite3.Connection) -> dict:

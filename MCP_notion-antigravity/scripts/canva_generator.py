@@ -5,7 +5,9 @@ Workflow:
    creating an editable Canva design the user can further customise.
 2. Export the Canva design as a PNG for embedding in Notion pages.
 
-OAuth2 tokens are managed via rotating refresh_token stored in .env.
+OAuth2 tokens are managed via rotating refresh_token stored in
+``data/canva_tokens.json`` (encrypted when ``cryptography`` is installed)
+with a fallback to .env via ``token_store`` module.
 """
 
 from __future__ import annotations
@@ -18,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from dotenv import set_key
 
 from settings import (
     CANVA_CLIENT_ID,
@@ -27,12 +28,11 @@ from settings import (
     CANVA_REFRESH_TOKEN,
     OUTPUT_DIR,
 )
+from token_store import load_token, save_token
 
-# .env path for persisting rotating refresh tokens
-_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
-
-# Mutable holder for refresh token (Canva rotates on each use)
-_current_refresh_token = CANVA_REFRESH_TOKEN
+# Mutable holder for refresh token (Canva rotates on each use).
+# On startup, prefer the token_store value; fall back to settings/.env.
+_current_refresh_token = load_token("CANVA_REFRESH_TOKEN") or CANVA_REFRESH_TOKEN
 
 CANVA_API_BASE = "https://api.canva.com/rest/v1"
 
@@ -56,8 +56,8 @@ def _refresh_access_token() -> str:
     """Exchange a refresh token for a new access token.
 
     IMPORTANT: Canva uses rotating refresh tokens. Each refresh returns a NEW
-    refresh token and invalidates the old one. We must persist the new token
-    to .env and update the in-memory variable for subsequent calls.
+    refresh token and invalidates the old one. We persist the new token via
+    token_store and update the in-memory variable for subsequent calls.
     """
     global _current_refresh_token
 
@@ -86,14 +86,11 @@ def _refresh_access_token() -> str:
     _token_cache["access_token"] = data["access_token"]
     _token_cache["expires_at"] = time.time() + data.get("expires_in", 3600)
 
-    # Canva rotating refresh token: save the new one
+    # Canva rotating refresh token: persist the new one via token_store
     new_refresh = data.get("refresh_token")
     if new_refresh:
         _current_refresh_token = new_refresh
-        try:
-            set_key(str(_ENV_PATH), "CANVA_REFRESH_TOKEN", new_refresh)
-        except Exception:
-            pass  # non-fatal: token is still in memory for this session
+        save_token("CANVA_REFRESH_TOKEN", new_refresh)
 
     return data["access_token"]
 

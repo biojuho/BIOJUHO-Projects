@@ -1,6 +1,9 @@
 # Environment Variables (Secrets)
 .env
 
+# Token store (may contain encrypted Canva OAuth tokens)
+data/canva_tokens.json
+
 # Python Virtual Environment
 venv/
 env/

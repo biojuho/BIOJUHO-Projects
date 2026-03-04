@@ -4,6 +4,7 @@ import base64
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dotenv import load_dotenv, set_key
+from token_store import save_token
 
 # 설정 로드
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -81,10 +82,15 @@ def exchange_code_for_token(code):
         refresh_tok = token_data.get('refresh_token', '')
         print(f"Refresh Token: {refresh_tok[:15]}... (생략됨)")
 
-        # .env 파일에 자동으로 기록 시도 (set_key 메서드가 python-dotenv에 있음)
+        # Save to token_store (encrypted JSON) and .env (fallback)
+        try:
+            save_token("CANVA_REFRESH_TOKEN", refresh_tok)
+            print("[SAVED] token_store에 CANVA_REFRESH_TOKEN 이 성공적으로 저장되었습니다.")
+        except Exception:
+            pass
         try:
             set_key(env_path, "CANVA_REFRESH_TOKEN", refresh_tok)
-            print("[SAVED] .env 파일에 CANVA_REFRESH_TOKEN 이 성공적으로 자동 저장되었습니다.")
+            print("[SAVED] .env 파일에도 CANVA_REFRESH_TOKEN 이 백업 저장되었습니다.")
         except Exception as e:
             print("[WARN] .env 자동 저장에 실패했습니다. 아래 토큰을 수동으로 복사해서 .env 파일에 추가해 주세요:")
             print(f"CANVA_REFRESH_TOKEN={refresh_tok}")

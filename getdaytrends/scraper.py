@@ -1,24 +1,34 @@
 """
-getdaytrends v2.2 - Multi-Source Trend Collection
+getdaytrends v2.3 - Multi-Source Trend Collection (asyncio)
 getdaytrends.com + Google Trends RSS + Twitter API + Reddit + Google News RSS.
-병렬 수집 지원 (ThreadPoolExecutor).
+비동기 병렬 수집 지원 (aiohttp + asyncio.gather).
 """
 
+import asyncio
 import json
 import logging
 import re
 import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 
-import requests
-from bs4 import BeautifulSoup
+import aiohttp
 
 from config import AppConfig
 from models import MultiSourceContext, RawTrend, TrendSource
 
 log = logging.getLogger(__name__)
+
+# 기본 타임아웃 설정 (초)
+_DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=20, connect=8)
+_SHORT_TIMEOUT = aiohttp.ClientTimeout(total=12, connect=5)
+
+_COMMON_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/121.0.0.0 Safari/537.36"
+    )
+}
 
 
 # ══════════════════════════════════════════════════════
@@ -43,24 +53,21 @@ def _parse_volume_text(text: str) -> int:
     return result
 
 
-def fetch_getdaytrends(country_slug: str, limit: int = 50) -> list[RawTrend]:
-    """
-    getdaytrends.com에서 트렌드 수집 (볼륨 + 링크 포함).
-    """
+async def _async_fetch_getdaytrends(
+    session: aiohttp.ClientSession, country_slug: str, limit: int = 50
+) -> list[RawTrend]:
+    """getdaytrends.com에서 트렌드 수집 (비동기)."""
+    from bs4 import BeautifulSoup
+
     base_url = "https://getdaytrends.com"
     url = f"{base_url}/{country_slug}/" if country_slug else f"{base_url}/"
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/121.0.0.0 Safari/537.36"
-        )
-    }
 
     try:
-        resp = requests.get(url, headers=headers, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
+        async with session.get(url, headers=_COMMON_HEADERS, timeout=_DEFAULT_TIMEOUT) as resp:
+            resp.raise_for_status()
+            html = await resp.text()
+
+        soup = BeautifulSoup(html, "html.parser")
 
         trends = []
         rows = soup.select("table.trends tbody tr")
@@ -106,6 +113,19 @@ def fetch_getdaytrends(country_slug: str, limit: int = 50) -> list[RawTrend]:
         return _fallback_trends()
 
 
+def fetch_getdaytrends(country_slug: str, limit: int = 50) -> list[RawTrend]:
+    """getdaytrends.com에서 트렌드 수집 (동기 호환 래퍼)."""
+    return _run_async(_async_fetch_getdaytrends_standalone(country_slug, limit))
+
+
+async def _async_fetch_getdaytrends_standalone(
+    country_slug: str, limit: int = 50
+) -> list[RawTrend]:
+    """독립 세션으로 getdaytrends 수집 (단독 호출용)."""
+    async with aiohttp.ClientSession() as session:
+        return await _async_fetch_getdaytrends(session, country_slug, limit)
+
+
 def _fallback_trends() -> list[RawTrend]:
     """스크래핑 실패 시 대체 주제."""
     fallbacks = ["주말 계획", "점심 메뉴", "날씨", "커피", "퇴근"]
@@ -143,21 +163,17 @@ def _is_korean_trend(name: str, country_slug: str) -> bool:
     return has_hangul or is_ascii
 
 
-def fetch_google_trends_rss(country_slug: str, limit: int = 20) -> list[RawTrend]:
-    """
-    Google Trends RSS에서 실시간 트렌딩 토픽 수집.
-    URL: https://trends.google.com/trending/rss?geo=KR
-    API 키 불필요, 시간당 업데이트.
-    한국 대상일 때 한글/영어 외 언어 필터링.
-    """
+async def _async_fetch_google_trends_rss(
+    session: aiohttp.ClientSession, country_slug: str, limit: int = 20
+) -> list[RawTrend]:
+    """Google Trends RSS에서 실시간 트렌딩 토픽 수집 (비동기)."""
     geo = _GEO_MAP.get(country_slug, "KR") if country_slug else "KR"
     url = f"https://trends.google.com/trending/rss?geo={geo}"
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; TrendBot/2.2)"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; TrendBot/2.3)"}
 
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as response:
-            raw = response.read()
+        async with session.get(url, headers=headers, timeout=_SHORT_TIMEOUT) as resp:
+            raw = await resp.read()
 
         root = ET.fromstring(raw)
         ns = {"ht": "https://trends.google.com/trending/rss"}
@@ -211,16 +227,68 @@ def fetch_google_trends_rss(country_slug: str, limit: int = 20) -> list[RawTrend
         return []
 
 
+def fetch_google_trends_rss(country_slug: str, limit: int = 20) -> list[RawTrend]:
+    """Google Trends RSS 수집 (동기 호환 래퍼)."""
+    return _run_async(_async_fetch_google_trends_rss_standalone(country_slug, limit))
+
+
+async def _async_fetch_google_trends_rss_standalone(
+    country_slug: str, limit: int = 20
+) -> list[RawTrend]:
+    """독립 세션으로 Google Trends RSS 수집 (단독 호출용)."""
+    async with aiohttp.ClientSession() as session:
+        return await _async_fetch_google_trends_rss(session, country_slug, limit)
+
+
 # ══════════════════════════════════════════════════════
 #  Source 3: X (Twitter) API v2
 # ══════════════════════════════════════════════════════
 
-def fetch_twitter_trends(keyword: str, bearer_token: str = "") -> str:
-    """
-    X API v2 최신 트윗 검색 (인게이지먼트 메트릭 포함).
-    """
+def _is_similar_keyword(new_keyword: str, existing: set[str]) -> bool:
+    """키워드 유사도 비교: 부분 문자열 매칭으로 중복 판단."""
+    new_lower = new_keyword.lower().strip()
+    if new_lower in existing:  # 정확 일치
+        return True
+    for kw in existing:
+        kw_lower = kw.lower().strip()
+        # 길이가 3자 이상인 경우만 부분 매칭 (너무 짧으면 오탐)
+        if len(new_lower) >= 3 and len(kw_lower) >= 3:
+            if new_lower in kw_lower or kw_lower in new_lower:
+                log.debug(f"  유사 키워드 감지: '{new_keyword}' ≈ '{kw}'")
+                return True
+    return False
+
+
+async def _async_fetch_x_via_jina(
+    session: aiohttp.ClientSession, keyword: str
+) -> str:
+    """Jina AI Reader로 X 검색 결과 무료 스크래핑 (비동기)."""
+    encoded = urllib.parse.quote(f"{keyword} lang:ko")
+    jina_url = f"https://r.jina.ai/https://x.com/search?q={encoded}&f=live"
+    headers = {
+        "User-Agent": "GetDayTrends/2.3",
+        "Accept": "text/plain",
+    }
+    try:
+        async with session.get(jina_url, headers=headers, timeout=_SHORT_TIMEOUT) as resp:
+            resp.raise_for_status()
+            text = await resp.text()
+            text = text.strip()
+        # 의미 있는 내용만 추출 (첫 500자)
+        if len(text) > 50:
+            return text[:500]
+        return f"[X 검색] {keyword} 관련 실시간 데이터 부족"
+    except Exception as e:
+        log.debug(f"Jina X 스크래핑 실패 ({keyword}): {e}")
+        return f"[X 데이터 없음] {keyword}"
+
+
+async def _async_fetch_twitter_trends(
+    session: aiohttp.ClientSession, keyword: str, bearer_token: str = ""
+) -> str:
+    """X API v2 최신 트윗 검색 (비동기). Bearer Token 미설정 시 Jina 폴백."""
     if not bearer_token:
-        return f"[X API 미설정] {keyword} 관련 실시간 데이터 없음"
+        return await _async_fetch_x_via_jina(session, keyword)
 
     encoded_query = urllib.parse.quote(f"{keyword} -is:retweet lang:ko OR lang:en")
     url = (
@@ -230,13 +298,12 @@ def fetch_twitter_trends(keyword: str, bearer_token: str = "") -> str:
     )
     headers = {
         "Authorization": f"Bearer {bearer_token}",
-        "User-Agent": "GetDayTrends/2.2",
+        "User-Agent": "GetDayTrends/2.3",
     }
 
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=8) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        async with session.get(url, headers=headers, timeout=_SHORT_TIMEOUT) as resp:
+            data = await resp.json()
 
         if "data" not in data:
             return "최근 관련 트윗 없음"
@@ -260,20 +327,34 @@ def fetch_twitter_trends(keyword: str, bearer_token: str = "") -> str:
         return f"[X API 오류] {keyword} 트렌드 감지 실패"
 
 
+def fetch_twitter_trends(keyword: str, bearer_token: str = "") -> str:
+    """X API v2 최신 트윗 검색 (동기 호환 래퍼)."""
+    return _run_async(_async_fetch_twitter_trends_standalone(keyword, bearer_token))
+
+
+async def _async_fetch_twitter_trends_standalone(
+    keyword: str, bearer_token: str = ""
+) -> str:
+    """독립 세션으로 X 트렌드 수집 (단독 호출용)."""
+    async with aiohttp.ClientSession() as session:
+        return await _async_fetch_twitter_trends(session, keyword, bearer_token)
+
+
 # ══════════════════════════════════════════════════════
 #  Source 4: Reddit (Public JSON API)
 # ══════════════════════════════════════════════════════
 
-def fetch_reddit_trends(keyword: str) -> str:
-    """Reddit 핫 포스트 수집."""
+async def _async_fetch_reddit_trends(
+    session: aiohttp.ClientSession, keyword: str
+) -> str:
+    """Reddit 핫 포스트 수집 (비동기)."""
     encoded_query = urllib.parse.quote(keyword)
     url = f"https://www.reddit.com/search.json?q={encoded_query}&sort=hot&limit=5&t=day"
-    headers = {"User-Agent": "GetDayTrends/2.2"}
+    headers = {"User-Agent": "GetDayTrends/2.3"}
 
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=8) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        async with session.get(url, headers=headers, timeout=_SHORT_TIMEOUT) as resp:
+            data = await resp.json()
 
         posts = []
         for item in data.get("data", {}).get("children", []):
@@ -287,21 +368,38 @@ def fetch_reddit_trends(keyword: str) -> str:
         return f"[Reddit 접근 제한] {keyword} 데이터 없음"
 
 
+def fetch_reddit_trends(keyword: str) -> str:
+    """Reddit 핫 포스트 수집 (동기 호환 래퍼)."""
+    return _run_async(_async_fetch_reddit_trends_standalone(keyword))
+
+
+async def _async_fetch_reddit_trends_standalone(keyword: str) -> str:
+    """독립 세션으로 Reddit 수집 (단독 호출용)."""
+    async with aiohttp.ClientSession() as session:
+        return await _async_fetch_reddit_trends(session, keyword)
+
+
 # ══════════════════════════════════════════════════════
 #  Source 5: Google News RSS (컨텍스트용)
 # ══════════════════════════════════════════════════════
 
-def fetch_google_news_trends(keyword: str) -> str:
-    """Google News RSS 기반 헤드라인 수집."""
+async def _async_fetch_google_news_trends(
+    session: aiohttp.ClientSession, keyword: str
+) -> str:
+    """Google News RSS 기반 헤드라인 수집 (비동기)."""
     encoded_topic = urllib.parse.quote(keyword)
     insights = []
 
     for hl, gl, ceid in [("ko", "KR", "KR:ko"), ("en-US", "US", "US:en")]:
         url = f"https://news.google.com/rss/search?q={encoded_topic}&hl={hl}&gl={gl}&ceid={ceid}"
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=10) as response:
-                root = ET.fromstring(response.read())
+            async with session.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=_SHORT_TIMEOUT,
+            ) as resp:
+                raw = await resp.read()
+            root = ET.fromstring(raw)
             for item in root.findall(".//item")[:3]:
                 title = item.find("title")
                 if title is not None and title.text:
@@ -310,6 +408,17 @@ def fetch_google_news_trends(keyword: str) -> str:
             continue
 
     return " | ".join(insights) if insights else "관련 뉴스 없음"
+
+
+def fetch_google_news_trends(keyword: str) -> str:
+    """Google News RSS 수집 (동기 호환 래퍼)."""
+    return _run_async(_async_fetch_google_news_trends_standalone(keyword))
+
+
+async def _async_fetch_google_news_trends_standalone(keyword: str) -> str:
+    """독립 세션으로 Google News 수집 (단독 호출용)."""
+    async with aiohttp.ClientSession() as session:
+        return await _async_fetch_google_news_trends(session, keyword)
 
 
 # ══════════════════════════════════════════════════════
@@ -348,39 +457,38 @@ def _merge_trends(
 
 
 # ══════════════════════════════════════════════════════
-#  Orchestrator
+#  Async Orchestrator
 # ══════════════════════════════════════════════════════
 
-def collect_trends(
+async def _async_collect_trends(
     config: AppConfig,
     conn=None,
 ) -> tuple[list[RawTrend], dict[str, MultiSourceContext]]:
     """
-    전체 수집 파이프라인:
+    전체 수집 파이프라인 (비동기):
     1. getdaytrends.com + Google Trends RSS 병렬 수집
     2. 최근 N시간 처리된 중복 키워드 제거
-    3. 각 트렌드에 대해 Twitter, Reddit, Google News 컨텍스트 수집
+    3. 각 트렌드에 대해 Twitter, Reddit, Google News 컨텍스트 병렬 수집
     """
     from db import get_recently_processed_keywords
 
     country_slug = config.resolve_country_slug()
     fetch_size = config.limit + 10  # 여유 있게 수집
 
-    # ── 1단계: 두 소스 병렬 수집 ──────────────────────
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        f_gdt = ex.submit(fetch_getdaytrends, country_slug, fetch_size)
-        f_gtr = ex.submit(fetch_google_trends_rss, country_slug, fetch_size)
-        gdt_trends = f_gdt.result()
-        gtr_trends = f_gtr.result()
+    # ── 1단계: 두 소스 병렬 수집 (단일 세션 공유) ──
+    async with aiohttp.ClientSession() as session:
+        gdt_task = _async_fetch_getdaytrends(session, country_slug, fetch_size)
+        gtr_task = _async_fetch_google_trends_rss(session, country_slug, fetch_size)
+        gdt_trends, gtr_trends = await asyncio.gather(gdt_task, gtr_task)
 
     # ── 2단계: 병합 (getdaytrends 우선) ───────────────
     all_trends = _merge_trends(gdt_trends, gtr_trends, limit=fetch_size)
     log.info(f"병합 완료: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)} → {len(all_trends)}개")
 
-    # ── 3단계: 중복 필터 ──────────────────────────────
+    # ── 3단계: 중복 필터 (유사도 기반) ────────────────
     if conn is not None:
         seen = get_recently_processed_keywords(conn, hours=config.dedupe_window_hours)
-        fresh = [t for t in all_trends if t.name not in seen]
+        fresh = [t for t in all_trends if not _is_similar_keyword(t.name, seen)]
         if fresh:
             log.info(f"중복 제거: {len(all_trends)}개 → {len(fresh)}개 (제외: {len(all_trends) - len(fresh)}개)")
             all_trends = fresh
@@ -389,45 +497,42 @@ def collect_trends(
 
     raw_trends = all_trends[: config.limit]
 
-    # ── 4단계: 컨텍스트 수집 (Google Trends 내장 헤드라인 활용) ──
-    contexts = _collect_contexts_parallel(raw_trends, config)
+    # ── 4단계: 컨텍스트 수집 (비동기 병렬) ──
+    contexts = await _async_collect_contexts(raw_trends, config)
 
     log.info(f"멀티소스 수집 완료: {len(raw_trends)}개 트렌드, {len(contexts)}개 컨텍스트")
     return raw_trends, contexts
 
 
-# ══════════════════════════════════════════════════════
-#  Parallel Context Collection
-# ══════════════════════════════════════════════════════
-
-def _fetch_single_source(
+async def _async_fetch_single_source(
+    session: aiohttp.ClientSession,
     keyword: str,
     source_name: str,
     bearer_token: str = "",
     extra_news: str = "",
 ) -> tuple[str, str, str]:
-    """단일 소스 수집. (keyword, source_name, result_text) 반환."""
+    """단일 소스 수집 (비동기). (keyword, source_name, result_text) 반환."""
     try:
         if source_name == "twitter":
-            return keyword, source_name, fetch_twitter_trends(keyword, bearer_token)
+            result = await _async_fetch_twitter_trends(session, keyword, bearer_token)
         elif source_name == "reddit":
-            return keyword, source_name, fetch_reddit_trends(keyword)
+            result = await _async_fetch_reddit_trends(session, keyword)
         else:
-            result = fetch_google_news_trends(keyword)
+            result = await _async_fetch_google_news_trends(session, keyword)
             # Google Trends RSS에서 가져온 헤드라인이 있으면 앞에 붙임
             if extra_news:
                 result = f"{extra_news} | {result}" if result != "관련 뉴스 없음" else extra_news
-            return keyword, source_name, result
+        return keyword, source_name, result
     except Exception as e:
         log.warning(f"소스 수집 실패 ({source_name}/{keyword}): {e}")
         return keyword, source_name, f"[{source_name} 오류] {keyword}"
 
 
-def _collect_contexts_parallel(
+async def _async_collect_contexts(
     raw_trends: list[RawTrend],
     config: AppConfig,
 ) -> dict[str, MultiSourceContext]:
-    """ThreadPoolExecutor로 전체 트렌드 × 3소스 병렬 수집."""
+    """asyncio.gather로 전체 트렌드 x 3소스 병렬 수집."""
     sources = ["twitter", "reddit", "news"]
     results: dict[str, dict[str, str]] = {t.name: {} for t in raw_trends}
 
@@ -439,33 +544,45 @@ def _collect_contexts_parallel(
             if headlines:
                 extra_news_map[t.name] = " | ".join(headlines)
 
-    with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
-        futures: dict = {}
+    # 동시 요청 수 제한을 위한 세마포어
+    semaphore = asyncio.Semaphore(config.max_workers)
+
+    async def _limited_fetch(
+        session: aiohttp.ClientSession,
+        keyword: str,
+        source: str,
+        bearer_token: str,
+        extra_news: str,
+    ) -> tuple[str, str, str]:
+        async with semaphore:
+            return await _async_fetch_single_source(
+                session, keyword, source, bearer_token, extra_news
+            )
+
+    # 단일 세션에서 모든 요청을 병렬 수행
+    async with aiohttp.ClientSession() as session:
+        tasks = []
         for trend in raw_trends:
             extra_news = extra_news_map.get(trend.name, "")
             for source in sources:
-                future = executor.submit(
-                    _fetch_single_source,
+                tasks.append(_limited_fetch(
+                    session,
                     trend.name,
                     source,
                     config.twitter_bearer_token,
                     extra_news if source == "news" else "",
-                )
-                futures[future] = (trend.name, source)
+                ))
 
-        for future in as_completed(futures):
-            try:
-                keyword, source, text = future.result(timeout=15)
-                results[keyword][source] = text
-                log.debug(f"  병렬 수집 완료: '{keyword}' [{source}]")
-            except FuturesTimeoutError:
-                keyword, source = futures[future]
-                results[keyword][source] = f"[{source} 타임아웃]"
-                log.warning(f"  병렬 수집 타임아웃: '{keyword}' [{source}]")
-            except Exception as e:
-                keyword, source = futures[future]
-                results[keyword][source] = f"[{source} 오류]"
-                log.warning(f"  병렬 수집 오류 ({source}/{keyword}): {e}")
+        gathered = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for item in gathered:
+        if isinstance(item, Exception):
+            log.warning(f"컨텍스트 수집 예외: {item}")
+            continue
+        keyword, source, text = item
+        if keyword in results:
+            results[keyword][source] = text
+            log.debug(f"  비동기 수집 완료: '{keyword}' [{source}]")
 
     contexts: dict[str, MultiSourceContext] = {}
     for keyword, source_data in results.items():
@@ -476,3 +593,34 @@ def _collect_contexts_parallel(
         )
 
     return contexts
+
+
+# ══════════════════════════════════════════════════════
+#  Sync Public API (하위 호환)
+# ══════════════════════════════════════════════════════
+
+def _run_async(coro):
+    """이벤트 루프가 이미 실행 중이면 nest, 아니면 asyncio.run() 사용."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        # 이미 이벤트 루프가 돌고 있는 환경 (Jupyter 등)
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+    else:
+        return asyncio.run(coro)
+
+
+def collect_trends(
+    config: AppConfig,
+    conn=None,
+) -> tuple[list[RawTrend], dict[str, MultiSourceContext]]:
+    """
+    전체 수집 파이프라인 (동기 호환 공개 API).
+    내부적으로 asyncio 비동기 파이프라인을 실행.
+    """
+    return _run_async(_async_collect_trends(config, conn))
