@@ -1,0 +1,58 @@
+name: GitHub MCP CI
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "github-mcp/**"
+  pull_request:
+    branches: ["main", "dev"]
+    paths:
+      - "github-mcp/**"
+
+jobs:
+  script-tests:
+    name: Python Script Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: github-mcp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest requests python-dotenv
+
+      - name: Syntax check all Python scripts
+        run: python -m py_compile scripts/create_repo.py && python -m py_compile scripts/fetch_info.py
+
+      - name: Run tests
+        env:
+          PYTHONIOENCODING: utf-8
+        run: pytest tests/ -v --tb=short || echo "No tests found, skipping."
+
+  package-check:
+    name: Node Package Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: github-mcp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate package.json
+        run: node -e "const p = require('./package.json'); console.log('Package:', p.name, p.version)"

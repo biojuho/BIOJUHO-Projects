@@ -12,7 +12,7 @@ on:
 
 jobs:
   backend-test:
-    name: Backend (Python 3.12)
+    name: Backend (Python 3.14)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Install dependencies
         run: |
@@ -44,7 +44,7 @@ jobs:
           pytest -v --tb=short || echo "No pytest tests found, skipping."
 
   frontend-test:
-    name: Frontend (Node 20)
+    name: Frontend (Node 22)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,7 +56,7 @@ jobs:
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: AgriGuard/frontend/package-lock.json
 

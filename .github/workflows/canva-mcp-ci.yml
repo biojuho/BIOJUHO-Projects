@@ -1,0 +1,36 @@
+name: Canva MCP CI
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "canva-mcp/**"
+  pull_request:
+    branches: ["main", "dev"]
+    paths:
+      - "canva-mcp/**"
+
+jobs:
+  typecheck-and-build:
+    name: TypeScript Check & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: canva-mcp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Build server
+        run: npm run build:server

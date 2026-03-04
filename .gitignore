@@ -41,6 +41,7 @@ MCP_notion-antigravity/output/
 # Vector DB / data (large binary files)
 **/chroma_db/
 **/data/
+!**/data/.gitkeep
 
 # SQLite databases
 *.db
