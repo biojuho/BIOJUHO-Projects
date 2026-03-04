@@ -5,6 +5,9 @@ import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import client from '../services/api';
 import MatchingResults from './MatchingResults';
+import RFPInputPanel from './RFPInputPanel';
+import AnalysisResultsPanel from './AnalysisResultsPanel';
+import MatchResultsPanel from './MatchResultsPanel';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
 import ReactMarkdown from 'react-markdown';
@@ -177,9 +180,14 @@ export default function BioLinker() {
         }
     }, [reviewState.topic, showToast, updateUi, updateReview]);
 
+    // Derive paper/VC lists from analysisResult for MatchResultsPanel
+    const analysisPapers = rfpState.analysisResult?.result?.papers ?? [];
+    const analysisVCs = rfpState.analysisResult?.result?.vcs ?? [];
+
     return (
         <div className="p-2 sm:p-6">
             <div className="max-w-7xl mx-auto">
+                {/* Header + tab navigation */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(99,102,241,0.12))' }}>
@@ -208,6 +216,7 @@ export default function BioLinker() {
                     </div>
                 </div>
 
+                {/* Literature review tab */}
                 {uiState.activeTab === 'literature_review' ? (
                     <div className="space-y-6 animate-fade-in">
                         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
@@ -254,6 +263,8 @@ export default function BioLinker() {
                             </div>
                         )}
                     </div>
+
+                {/* Paper match tab */}
                 ) : uiState.activeTab === 'paper_match' ? (
                     <div className="space-y-6 animate-fade-in">
                         {paperTitle && (
@@ -269,56 +280,47 @@ export default function BioLinker() {
                             loading={uiState.loading && !matchState.proposalDraft}
                         />
                     </div>
+
+                {/* RFP analysis tab */}
                 ) : (
                     <div className="grid lg:grid-cols-2 gap-6 animate-fade-in">
-                        <div className="space-y-5">
-                            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-                                <h2 className="font-display text-lg font-semibold text-white mb-4">{t('biolinker.companyProfile')}</h2>
-                                <input
-                                    className="glass-input w-full mb-3"
-                                    placeholder={t('biolinker.companyName')}
-                                    value={rfpState.profile.company_name}
-                                    onChange={(event) => handleProfileChange('company_name', event.target.value)}
-                                />
-                                <input
-                                    className="glass-input w-full"
-                                    placeholder={t('biolinker.techKeywords')}
-                                    value={rfpState.profile.tech_keywords}
-                                    onChange={(event) => handleProfileChange('tech_keywords', event.target.value)}
-                                />
-                            </div>
-                            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl p-6" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-                                <h2 className="font-display text-lg font-semibold text-white mb-4">{t('biolinker.rfpInput')}</h2>
-                                <textarea
-                                    className="glass-input w-full h-40 resize-none"
-                                    placeholder={t('biolinker.rfpPlaceholder')}
-                                    value={rfpState.text}
-                                    onChange={(event) => updateRfp({ text: event.target.value })}
-                                />
-                                <button
-                                    onClick={handleAnalyze}
-                                    disabled={uiState.loading}
-                                    className="glass-button mt-4 w-full py-3 font-semibold disabled:opacity-40"
-                                >
-                                    {uiState.loading ? t('biolinker.analyzing') : t('biolinker.analyze')}
-                                </button>
-                            </div>
-                        </div>
+                        {/* Left column: profile + RFP input */}
+                        <RFPInputPanel
+                            profile={rfpState.profile}
+                            onProfileChange={handleProfileChange}
+                            rfpText={rfpState.text}
+                            onRfpChange={(value) => updateRfp({ text: value })}
+                            onAnalyze={handleAnalyze}
+                            loading={uiState.loading}
+                            t={t}
+                        />
 
+                        {/* Right column: analysis results + match results */}
                         <div className="space-y-6">
                             {rfpState.analysisResult && (
-                                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 text-white" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-                                    <h3 className="font-display text-lg font-bold mb-4">
-                                        {t('biolinker.analysisResult')}: <span className="text-primary">{rfpState.analysisResult.result.fit_grade}</span> {t('biolinker.gradeSuffix')}
-                                    </h3>
-                                    <p className="font-display text-4xl font-bold mb-2 text-gradient">{rfpState.analysisResult.result.fit_score}점</p>
-                                    <p className="text-white/50">{gradeLabels[rfpState.analysisResult.result.fit_grade]}</p>
-                                </div>
+                                <>
+                                    <AnalysisResultsPanel
+                                        fitScore={rfpState.analysisResult.result.fit_score}
+                                        fitGrade={rfpState.analysisResult.result.fit_grade}
+                                        summary={rfpState.analysisResult.result.summary}
+                                        strengths={rfpState.analysisResult.result.strengths ?? []}
+                                        weaknesses={rfpState.analysisResult.result.weaknesses ?? []}
+                                        gradeLabel={gradeLabels[rfpState.analysisResult.result.fit_grade]}
+                                        t={t}
+                                    />
+                                    <MatchResultsPanel
+                                        papers={analysisPapers}
+                                        vcs={analysisVCs}
+                                        loading={false}
+                                        t={t}
+                                    />
+                                </>
                             )}
                         </div>
                     </div>
                 )}
 
+                {/* Proposal modal (lazy-loaded) */}
                 {uiState.showProposal && matchState.selectedRFP && (
                     <Suspense
                         fallback={(

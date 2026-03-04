@@ -81,18 +81,22 @@ export const SkeletonTableRow = ({ columns = 4, className = '' }) => (
 );
 
 // Skeleton List Component
-export const SkeletonList = ({ items = 3, className = '' }) => (
-  <div className={`space-y-4 ${className}`}>
-    {Array.from({ length: items }).map((_, i) => (
-      <div key={i} className="flex items-center gap-4">
-        <Skeleton variant="avatar" />
-        <div className="flex-1 space-y-2">
-          <Skeleton variant="title" width="40%" />
-          <Skeleton width="70%" />
+// Accepts `items` (legacy) or `count` for number of rows
+export const SkeletonList = ({ items, count, className = '' }) => {
+  const rowCount = count ?? items ?? 3;
+  return (
+    <div className={`space-y-4 ${className}`}>
+      {Array.from({ length: rowCount }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4">
+          <Skeleton variant="avatar" />
+          <div className="flex-1 space-y-2">
+            <Skeleton variant="title" width="40%" />
+            <Skeleton width="70%" />
+          </div>
         </div>
-      </div>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
 export default Skeleton;
