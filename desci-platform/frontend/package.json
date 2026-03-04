@@ -14,6 +14,7 @@
     "check:bundle": "node scripts/check-bundle-size.mjs",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:lts": "npx -y node@22 node_modules/vitest/vitest.mjs run",
     "preview": "vite preview"
   },
   "dependencies": {

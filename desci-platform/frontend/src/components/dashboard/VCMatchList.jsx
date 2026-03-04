@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Building2, Globe, TrendingUp, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api'; // Ensure this path is correct based on project structure
+import { useLocale } from '../../contexts/LocaleContext';
 
 const MotionDiv = motion.div;
 
@@ -9,6 +10,7 @@ export default function VCMatchList() {
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const { t } = useLocale();
 
     useEffect(() => {
         const fetchMatches = async () => {
@@ -18,14 +20,14 @@ export default function VCMatchList() {
                 setMatches(response.data);
             } catch (err) {
                 console.error("VC Match Error:", err);
-                setError("Failed to load investment pairs.");
+                setError(t('vcMatch.loadFailed'));
             } finally {
                 setLoading(false);
             }
         };
 
         fetchMatches();
-    }, []);
+    }, [t]);
 
     if (loading) return (
         <div className="flex justify-center p-8">
@@ -42,8 +44,8 @@ export default function VCMatchList() {
     if (matches.length === 0) return (
         <div className="p-8 text-center text-gray-400">
             <Building2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p>No investment matches found yet.</p>
-            <p className="text-sm">Upload your IR deck to get started.</p>
+            <p>{t('vcMatch.emptyTitle')}</p>
+            <p className="text-sm">{t('vcMatch.emptyDescription')}</p>
         </div>
     );
 
@@ -68,7 +70,7 @@ export default function VCMatchList() {
                                 `}>
                                     {vc.score}
                                 </div>
-                                <span className="text-[10px] text-gray-500 mt-1">MATCH</span>
+                                <span className="text-[10px] text-gray-500 mt-1">{t('vcMatch.matchLabel')}</span>
                             </div>
 
                             {/* Content */}
@@ -80,7 +82,7 @@ export default function VCMatchList() {
                                     {/* Country Badge */}
                                     <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-white/5 text-gray-400 border border-white/5">
                                         <Globe className="w-3 h-3" />
-                                        {vc.country || "Global"}
+                                        {vc.country || t('vcMatch.global')}
                                     </span>
                                 </div>
                                 

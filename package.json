@@ -1,5 +1,15 @@
 {
+  "name": "biojuho-projects",
+  "version": "1.0.0",
+  "private": true,
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@playwright/test": "^1.58.2",
+    "turbo": "^2.5.0"
+  },
+  "scripts": {
+    "build:all": "npx turbo run build",
+    "test:all": "npx turbo run test",
+    "lint:all": "npx turbo run lint",
+    "typecheck:all": "npx turbo run typecheck"
   }
 }

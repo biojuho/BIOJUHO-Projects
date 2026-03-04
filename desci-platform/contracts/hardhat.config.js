@@ -13,23 +13,36 @@ if (!PRIVATE_KEY && (process.argv.includes("--network") && !process.argv.include
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-    solidity: "0.8.20",
+    solidity: {
+        version: "0.8.24",
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 200,
+            },
+            viaIR: true,
+        },
+    },
     networks: {
         amoy: {
             url: AMOY_RPC_URL,
             accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
-            chainId: 80002
+            chainId: 80002,
         },
         sepolia: {
             url: SEPOLIA_RPC_URL || "",
             accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
-            chainId: 11155111
+            chainId: 11155111,
         },
         localhost: {
-            url: "http://127.0.0.1:8545"
-        }
+            url: "http://127.0.0.1:8545",
+        },
     },
     etherscan: {
-        apiKey: process.env.ETHERSCAN_API_KEY
-    }
+        apiKey: process.env.ETHERSCAN_API_KEY,
+    },
+    gasReporter: {
+        enabled: process.env.REPORT_GAS === "true",
+        currency: "USD",
+    },
 };

@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocale } from '../contexts/LocaleContext';
 import client from '../services/api';
 import RecommendationList from './dashboard/RecommendationList';
 import VCMatchList from './dashboard/VCMatchList';
@@ -29,13 +30,14 @@ const MotionDiv = motion.div;
 
 export default function Dashboard() {
     const { user, walletAddress } = useAuth();
+    const { t } = useLocale();
     const [backendUser, setBackendUser] = useState(null);
     const [error, setError] = useState('');
     const [stats, setStats] = useState([
-        { label: 'Papers Uploaded', value: '...', icon: FileText, color: 'text-primary', bgColor: 'from-primary/10 to-primary/5', trend: 'Loading' },
-        { label: 'Vector Index', value: '...', icon: Activity, color: 'text-success-light', bgColor: 'from-success/10 to-success/5', trend: 'Documents' },
-        { label: 'Pending Reviews', value: '0', icon: Clock, color: 'text-highlight', bgColor: 'from-highlight/10 to-highlight/5', trend: 'Coming soon' },
-        { label: 'Token Balance', value: '...', icon: TrendingUp, color: 'text-accent-light', bgColor: 'from-accent/10 to-accent/5', trend: 'DSCI' },
+        { id: 'papersUploaded', value: '...', icon: FileText, color: 'text-primary', bgColor: 'from-primary/10 to-primary/5', trend: t('dashboard.statLoading') },
+        { id: 'vectorIndex', value: '...', icon: Activity, color: 'text-success-light', bgColor: 'from-success/10 to-success/5', trend: t('dashboard.statDocuments') },
+        { id: 'pendingReviews', value: '0', icon: Clock, color: 'text-highlight', bgColor: 'from-highlight/10 to-highlight/5', trend: t('dashboard.statComingSoon') },
+        { id: 'tokenBalance', value: '...', icon: TrendingUp, color: 'text-accent-light', bgColor: 'from-accent/10 to-accent/5', trend: 'DSCI' },
     ]);
 
     useEffect(() => {
@@ -48,7 +50,7 @@ export default function Dashboard() {
                 ]);
 
                 if (userRes.status === 'fulfilled') setBackendUser(userRes.value.data);
-                else setError('Backend connection failed');
+                else setError(t('dashboard.backendConnectionFailed'));
 
                 const paperCount = papersRes.status === 'fulfilled' ? papersRes.value.data.length : 0;
                 const vectorCount = vectorRes.status === 'fulfilled' ? (vectorRes.value.data.count || 0) : 0;
@@ -62,18 +64,30 @@ export default function Dashboard() {
                 }
 
                 setStats(prev => prev.map(s => {
-                    if (s.label === 'Papers Uploaded') return { ...s, value: String(paperCount), trend: paperCount > 0 ? `${paperCount} indexed` : 'Upload to start' };
-                    if (s.label === 'Vector Index') return { ...s, value: String(vectorCount), trend: 'Documents indexed' };
-                    if (s.label === 'Token Balance') return { ...s, value: balance, trend: 'DSCI' };
+                    if (s.id === 'papersUploaded') {
+                        return {
+                            ...s,
+                            value: String(paperCount),
+                            trend: paperCount > 0
+                                ? t('dashboard.statIndexed', { count: paperCount })
+                                : t('dashboard.statUploadToStart'),
+                        };
+                    }
+                    if (s.id === 'vectorIndex') {
+                        return { ...s, value: String(vectorCount), trend: t('dashboard.statDocuments') };
+                    }
+                    if (s.id === 'tokenBalance') {
+                        return { ...s, value: balance, trend: 'DSCI' };
+                    }
                     return s;
                 }));
             } catch (err) {
                 console.error('Dashboard data fetch failed:', err);
-                setError('Backend connection failed');
+                setError(t('dashboard.backendConnectionFailed'));
             }
         };
         fetchDashboardData();
-    }, [walletAddress]);
+    }, [t, walletAddress]);
 
     const container = {
         hidden: { opacity: 0 },
@@ -101,16 +115,16 @@ export default function Dashboard() {
             {/* Header Section */}
             <MotionDiv variants={item} className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-medium mb-2">Overview</p>
+                    <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-medium mb-2">{t('dashboard.overview')}</p>
                     <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
-                        Welcome back
-                        <span className="text-gradient block sm:inline">, {user?.displayName?.split(' ')[0] || 'Researcher'}</span>
+                        {t('dashboard.welcomeBack')}
+                        <span className="text-gradient block sm:inline">, {user?.displayName?.split(' ')[0] || t('dashboard.researcherFallback')}</span>
                     </h1>
                 </div>
                 <div className="flex items-center gap-3">
                     <Badge variant="default" className="gap-2">
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-                        Network Active
+                        {t('dashboard.networkActive')}
                     </Badge>
                 </div>
             </MotionDiv>
@@ -128,7 +142,7 @@ export default function Dashboard() {
                         >
                             <div className="flex items-start justify-between mb-4">
                                 <div>
-                                    <p className="text-xs font-medium text-white/30 uppercase tracking-wider">{stat.label}</p>
+                                    <p className="text-xs font-medium text-white/30 uppercase tracking-wider">{t(`dashboard.${stat.id}`)}</p>
                                     <h3 className="font-display text-3xl font-bold text-white mt-1.5 tracking-tight">{stat.value}</h3>
                                 </div>
                                 <div className={`p-2.5 rounded-xl bg-gradient-to-br ${stat.bgColor} ${stat.color}`}>
@@ -154,21 +168,21 @@ export default function Dashboard() {
                         <div className="p-1.5 rounded-lg bg-primary/10">
                             <ShieldCheck className="w-4 h-4 text-primary" />
                         </div>
-                        Account Status
+                        {t('dashboard.accountStatus')}
                     </h3>
 
                     <div className="grid md:grid-cols-2 gap-5">
                         <div className="bg-white/[0.02] rounded-xl p-5 border border-white/[0.04] hover:border-white/[0.08] transition-colors">
-                            <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">Identity</h4>
+                            <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">{t('dashboard.identity')}</h4>
                             <div className="space-y-3">
-                                <p className="flex justify-between text-sm"><span className="text-white/30">Email</span> <span className="text-white/80 font-medium">{user?.email}</span></p>
-                                <p className="flex justify-between items-center text-sm"><span className="text-white/30">Provider</span> <Badge variant="default" className="capitalize text-xs">{user?.providerData?.[0]?.providerId}</Badge></p>
-                                <p className="flex justify-between text-sm"><span className="text-white/30">UID</span> <span className="text-white/40 font-mono text-xs">{user?.uid?.slice(0, 8)}...</span></p>
+                                <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.email')}</span> <span className="text-white/80 font-medium">{user?.email}</span></p>
+                                <p className="flex justify-between items-center text-sm"><span className="text-white/30">{t('dashboard.provider')}</span> <Badge variant="default" className="capitalize text-xs">{user?.providerData?.[0]?.providerId}</Badge></p>
+                                <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.uid')}</span> <span className="text-white/40 font-mono text-xs">{user?.uid?.slice(0, 8)}...</span></p>
                             </div>
                         </div>
 
                         <div className="bg-white/[0.02] rounded-xl p-5 border border-white/[0.04] hover:border-white/[0.08] transition-colors">
-                            <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">System Status</h4>
+                            <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">{t('dashboard.systemStatus')}</h4>
                             {error ? (
                                 <div className="flex items-center gap-3 text-error-light bg-error/[0.08] p-3 rounded-lg border border-error/10">
                                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -176,9 +190,9 @@ export default function Dashboard() {
                                 </div>
                             ) : backendUser ? (
                                 <div className="space-y-3">
-                                    <p className="flex justify-between text-sm"><span className="text-white/30">Node</span> <span className="text-primary font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-primary rounded-full"></span> Online</span></p>
-                                    <p className="flex justify-between text-sm"><span className="text-white/30">Role</span> <span className="text-white/80 font-medium">Principal Investigator</span></p>
-                                    <p className="flex justify-between text-sm"><span className="text-white/30">Sync</span> <span className="text-white/40 font-mono text-xs">Automated</span></p>
+                                    <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.node')}</span> <span className="text-primary font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-primary rounded-full"></span> {t('dashboard.online')}</span></p>
+                                    <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.role')}</span> <span className="text-white/80 font-medium">{t('dashboard.rolePrincipalInvestigator')}</span></p>
+                                    <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.sync')}</span> <span className="text-white/40 font-mono text-xs">{t('dashboard.automated')}</span></p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -193,7 +207,7 @@ export default function Dashboard() {
 
                 {/* Quick Actions */}
                 <GlassCard className="p-7" delay={0.5}>
-                    <h3 className="font-display text-lg font-semibold text-white mb-5">Quick Actions</h3>
+                    <h3 className="font-display text-lg font-semibold text-white mb-5">{t('dashboard.quickActions')}</h3>
                     <div className="space-y-3">
                         <a href="/upload" className="group block w-full text-left px-4 py-3.5 bg-white/[0.02] hover:bg-white/[0.05] rounded-xl transition-all duration-300 border border-white/[0.04] hover:border-primary/20">
                             <div className="flex items-center gap-3">
@@ -201,8 +215,8 @@ export default function Dashboard() {
                                     <Upload className="w-4 h-4" />
                                 </div>
                                 <div className="flex-1">
-                                    <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">Upload Paper</span>
-                                    <span className="text-[11px] text-white/25">Mint IP-NFT</span>
+                                    <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">{t('dashboard.quickUploadTitle')}</span>
+                                    <span className="text-[11px] text-white/25">{t('dashboard.quickUploadSubtitle')}</span>
                                 </div>
                                 <ArrowRight className="w-3.5 h-3.5 text-white/10 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                             </div>
@@ -213,8 +227,8 @@ export default function Dashboard() {
                                     <Search className="w-4 h-4" />
                                 </div>
                                 <div className="flex-1">
-                                    <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">Find Grants</span>
-                                    <span className="text-[11px] text-white/25">AI Matching</span>
+                                    <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">{t('dashboard.quickGrantTitle')}</span>
+                                    <span className="text-[11px] text-white/25">{t('dashboard.quickGrantSubtitle')}</span>
                                 </div>
                                 <ArrowRight className="w-3.5 h-3.5 text-white/10 group-hover:text-accent-light group-hover:translate-x-1 transition-all" />
                             </div>
@@ -227,8 +241,8 @@ export default function Dashboard() {
                                         <Building2 className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">VC Portal</span>
-                                        <span className="text-[11px] text-white/25">Strategic Partners</span>
+                                        <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">{t('dashboard.quickVcTitle')}</span>
+                                        <span className="text-[11px] text-white/25">{t('dashboard.quickVcSubtitle')}</span>
                                     </div>
                                 </div>
                                 <ArrowRight className="w-3.5 h-3.5 text-white/10 group-hover:text-highlight group-hover:translate-x-1 transition-all" />
@@ -244,8 +258,8 @@ export default function Dashboard() {
                     <div className="p-1.5 rounded-lg bg-accent/10">
                         <Building2 className="w-4 h-4 text-accent-light" />
                     </div>
-                    Strategic VC Partners
-                    <Badge variant="accent" className="text-[10px] ml-1">Beta</Badge>
+                    {t('dashboard.strategicPartners')}
+                    <Badge variant="accent" className="text-[10px] ml-1">{t('dashboard.beta')}</Badge>
                 </h3>
                 <VCMatchList />
             </GlassCard>

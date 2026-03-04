@@ -1,11 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, ArrowRight, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Sparkles, ExternalLink } from 'lucide-react';
 import api from '../../services/api';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function RecommendationList() {
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(false);
+    const { t } = useLocale();
 
     const fetchRecommendations = async () => {
         setLoading(true);
@@ -26,14 +28,14 @@ export default function RecommendationList() {
     if (loading) return (
         <div className="p-6 text-center text-gray-400">
             <Sparkles className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
-            <p>Analyzing company assets for best matches...</p>
+            <p>{t('recommendation.loading')}</p>
         </div>
     );
 
     if (matches.length === 0) return (
         <div className="p-6 text-center text-gray-500 bg-black/20 rounded-xl border border-white/5">
-            <p>No high-confidence matches found yet.</p>
-            <p className="text-sm mt-2">Upload more IR/Paper assets to get better recommendations.</p>
+            <p>{t('recommendation.emptyTitle')}</p>
+            <p className="text-sm mt-2">{t('recommendation.emptyDescription')}</p>
         </div>
     );
 
@@ -45,7 +47,7 @@ export default function RecommendationList() {
                         <span className={`px-2 py-1 rounded text-xs font-bold ${
                             match.score >= 90 ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
                         }`}>
-                            {match.score}% Match
+                            {match.score}% {t('recommendation.matchSuffix')}
                         </span>
                         <span className="text-xs text-gray-500 border border-white/10 px-2 py-1 rounded">
                             {match.source}
@@ -66,7 +68,7 @@ export default function RecommendationList() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 text-sm font-medium text-white hover:text-primary transition-colors"
                     >
-                        View Details <ExternalLink className="w-4 h-4" />
+                        {t('recommendation.viewDetails')} <ExternalLink className="w-4 h-4" />
                     </a>
                 </div>
             ))}

@@ -238,3 +238,73 @@ class BackendManager:
                 block_reason = str(resp.prompt_feedback)
             raise ValueError(f"Gemini empty response (safety filter?): {block_reason}")
         return LLMResponse(text=text, model=model, backend="gemini", tier=tier)
+
+    # -- Streaming calls ---------------------------------------------------
+
+    def stream_call(
+        self,
+        backend: str,
+        model: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
+    ):
+        """Dispatch a streaming LLM call. Yields text chunks as they arrive."""
+        if backend == "anthropic":
+            yield from self._stream_anthropic(model, messages, max_tokens, system, tier)
+        elif backend == "gemini":
+            yield from self._stream_gemini(model, messages, max_tokens, system, tier)
+        else:
+            yield from self._stream_openai_compat(backend, model, messages, max_tokens, system, tier)
+
+    def _stream_anthropic(
+        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
+    ):
+        client = self._get_anthropic()
+        kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "messages": messages}
+        if system:
+            kwargs["system"] = system
+        with client.messages.stream(**kwargs) as stream:
+            for text in stream.text_stream:
+                yield text
+
+    def _stream_gemini(
+        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
+    ):
+        client = self._get_gemini()
+        parts = []
+        if system:
+            parts.append(f"[System]\n{system}\n\n")
+        for m in messages:
+            parts.append(m["content"])
+        prompt = "\n".join(parts)
+        gemini_max = max(max_tokens * 4, 8192)
+        config: dict[str, Any] = {"max_output_tokens": gemini_max}
+        for chunk in client.models.generate_content_stream(
+            model=model, contents=prompt, config=config,
+        ):
+            if chunk.text:
+                yield chunk.text
+
+    def _stream_openai_compat(
+        self, backend: str, model: str, messages: list[dict],
+        max_tokens: int, system: str, tier: TaskTier,
+    ):
+        getters = {
+            "openai": self._get_openai,
+            "grok": self._get_grok,
+            "deepseek": self._get_deepseek,
+            "moonshot": self._get_moonshot,
+        }
+        client = getters[backend]()
+        api_messages = []
+        if system:
+            api_messages.append({"role": "system", "content": system})
+        api_messages.extend(messages)
+        stream = client.chat.completions.create(
+            model=model, messages=api_messages, max_tokens=max_tokens, stream=True,
+        )
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
