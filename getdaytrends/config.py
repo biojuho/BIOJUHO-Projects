@@ -128,7 +128,7 @@ class AppConfig:
     # ===================================================
     # [v5.0] 소스 품질 피드백 + YouTube
     # ===================================================
-    enable_youtube_trending: bool = True           # YouTube Trending RSS 소스 활성화
+    enable_youtube_trending: bool = False          # YouTube Trending RSS (폐기됨, 기본 비활성)
     enable_source_quality_tracking: bool = True    # 소스 품질 DB 기록 활성화
     news_rss_max_items: int = 5                    # Google News RSS 최대 수집 수
 
@@ -263,7 +263,7 @@ class AppConfig:
             enable_history_correction=os.getenv("ENABLE_HISTORY_CORRECTION", "true").lower() == "true",
             joongyeon_kick_long_form_threshold=int(os.getenv("JOONGYEON_KICK_LONG_FORM_THRESHOLD", "75")),
             # v5.0
-            enable_youtube_trending=os.getenv("ENABLE_YOUTUBE_TRENDING", "true").lower() == "true",
+            enable_youtube_trending=os.getenv("ENABLE_YOUTUBE_TRENDING", "false").lower() == "true",
             enable_source_quality_tracking=os.getenv("ENABLE_SOURCE_QUALITY_TRACKING", "true").lower() == "true",
             news_rss_max_items=int(os.getenv("NEWS_RSS_MAX_ITEMS", "5")),
             # v6.0

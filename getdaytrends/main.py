@@ -872,7 +872,7 @@ async def _async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunR
             )
 
         # Post: 적응형 스케줄링
-        _adjust_schedule(scored_trends, config, schedule_callback)
+        await _adjust_schedule(scored_trends, config, schedule_callback)
 
         # [C3] 일일 비용 알림 (예산 70%+ 도달 시)
         try:

@@ -766,7 +766,7 @@ async def _async_collect_trends(
             _async_fetch_getdaytrends(session, country_slug, fetch_size),
             _async_fetch_google_trends_rss(session, country_slug, fetch_size),
         ]
-        if getattr(config, "enable_youtube_trending", True):
+        if getattr(config, "enable_youtube_trending", False):
             fetch_tasks.append(
                 _async_fetch_youtube_trending(session, country_slug, limit=10)
             )
@@ -791,7 +791,7 @@ async def _async_collect_trends(
                                         min(len(gdt_trends) / max(fetch_size, 1), 1.0))
             await record_source_quality(conn, "google_trends", bool(gtr_trends), 0, len(gtr_trends),
                                         min(len(gtr_trends) / 20, 1.0))
-            if getattr(config, "enable_youtube_trending", True):
+            if getattr(config, "enable_youtube_trending", False):
                 await record_source_quality(conn, "youtube", bool(yt_trends), 0, len(yt_trends),
                                             min(len(yt_trends) / 10, 1.0))
 
