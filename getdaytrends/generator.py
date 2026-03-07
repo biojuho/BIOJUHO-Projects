@@ -165,6 +165,20 @@ def _build_scoring_section(trend: ScoredTrend) -> str:
 """
 
 
+def _build_category_tone_hint(trend: ScoredTrend) -> str:
+    """[v11] 카테고리별 글쓰기 기법 우선순위 힌트."""
+    category = getattr(trend, "category", "") or ""
+    hints = {
+        "정치": "기법 우선: 대조법 + 반전. 팩트 기반으로만 때릴 것",
+        "경제": "기법 우선: 숫자 강조 + 비유법. 체감 가능한 비유로 풀어줄 것",
+        "테크": "기법 우선: 비유법 + 질문 전환. 비전공자도 '오' 하게 설명",
+        "사회": "기법 우선: 공감 + 반전. 개인 일상과 연결",
+        "스포츠": "기법 우선: 숫자 강조 + 대조법. 기록/통계로 임팩트",
+    }
+    hint = hints.get(category, "")
+    return f"\n[카테고리 톤 힌트: {category}]\n{hint}\n" if hint else ""
+
+
 # ══════════════════════════════════════════════════════
 #  JSON Parser
 # ══════════════════════════════════════════════════════
@@ -249,12 +263,24 @@ def _system_long_form_joongyeon() -> str:
     """중연 페르소나 전용 장문 포스트 시스템 프롬프트 (Premium+)."""
     return (
         _JOONGYEON_RULES + "\n\n"
-        "장문 포스트 규칙:\n"
-        "- 스레드 형식으로 깊이 있는 스토리텔링\n"
-        "- 데이터/사례 인용으로 설득력 강화\n"
-        "- 이모지 장문 전체에서 최대 2개\n"
-        "- 해시태그 절대 금지\n"
-        "- 딥다이브: 1500~3000자 / 핫테이크: 1000~2000자\n\n"
+        "[장문 글쓰기 원칙]\n"
+        "- 첫 3줄이 전부: 스크롤 멈추게 하는 훅 → 바로 핵심 주장\n"
+        "- '뉴스 기사 같은 설명'이 아니라 '내 분석/해석'이 담긴 글\n"
+        "- 소제목 없이 흐르는 텍스트. 단, 숫자/데이터는 강조 배치\n"
+        "- 마지막 3줄: 독자의 생각을 흔드는 반전/질문으로 마무리\n\n"
+        "[유형별 전략]\n"
+        "1. 딥다이브 시리즈 (1500~3000자):\n"
+        "   - 남들이 놓친 '진짜 포인트' 3가지를 파고드는 구조\n"
+        "   - 각 포인트마다: 팩트 → 해석 → '근데 여기서 진짜 중요한 건'\n"
+        "   - 마무리: '결론'이 아니라 '이게 의미하는 것'\n\n"
+        "2. 핫테이크 오피니언 (1000~2000자):\n"
+        "   - 첫 줄에 불편한 소신 선언. 바로 때리기\n"
+        "   - 근거 2~3개로 설득하되 반론도 인정\n"
+        "   - 마무리: '그래서 어쩔 건데?' 식 도발적 질문\n\n"
+        "[절대 금지]\n"
+        "- 이모지 장문 전체에서 최대 2개. 해시태그 금지\n"
+        "- 소제목에 넘버링/이모지 나열하는 '블로그체'\n"
+        "- '~에 대해 알아보겠습니다' 식 강의체\n\n"
         "[JSON만 출력]\n"
         '{"posts":[{"type":"딥다이브 시리즈","content":"1500~3000자"},'
         '{"type":"핫테이크 오피니언","content":"1000~2000자"}]}'
@@ -265,10 +291,16 @@ def _system_threads_joongyeon() -> str:
     """중연 페르소나 전용 Threads 콘텐츠 시스템 프롬프트."""
     return (
         _JOONGYEON_RULES + "\n\n"
-        "Threads 포스트 규칙:\n"
-        "- 500자 이내. 더 캐주얼한 구어체\n"
-        "- 훅 포스트: 스크롤 멈추게 하는 첫 줄\n"
-        "- 참여형: 공감+질문으로 댓글 유도\n\n"
+        "[Threads 특성 — X보다 더 '친구한테 하는 말']\n"
+        "- 500자 이내. 줄바꿈으로 리듬감. 한 문장이 한 호흡\n"
+        "- X보다 감정 표현 한 단계 더 솔직. '나' 관점 필수\n\n"
+        "[유형별 전략]\n"
+        "1. 훅 포스트: 첫 줄에 '어? 이거 뭔데' 하게 만드는 반전/수치\n"
+        "   기법: 상식 뒤집기 or 충격적 숫자로 시작\n"
+        "   예시 패턴: '[충격적 팩트 한줄].\\n\\n근데 진짜 문제는 [반전]'\n\n"
+        "2. 참여형 포스트: 읽고 나서 댓글 안 달 수 없는 글\n"
+        "   기법: 공감 스토리 → 마지막에 양자택일 질문\n"
+        "   예시 패턴: '[공감 상황].\\n\\n나만 이런 건지 진짜 궁금한데'\n\n"
         "[JSON만 출력]\n"
         '{"posts":[{"type":"훅 포스트","content":"500자 이내"},'
         '{"type":"참여형 포스트","content":"500자 이내"}]}'
@@ -322,9 +354,16 @@ def _system_thread(tone: str) -> str:
     if tone == "joongyeon":
         return (
             _JOONGYEON_RULES + "\n\n"
-            "X 쓰레드 규칙:\n"
-            "- 정확히 2개 트윗. 훅(~2500자) + 마무리(500~1000자)\n"
-            "- 해시태그 절대 금지. 이모지 전체 최대 2개\n\n"
+            "[X 쓰레드 전략]\n"
+            "정확히 2개 트윗으로 구성된 바이럴 쓰레드.\n\n"
+            "1번 트윗 (훅, ~2500자):\n"
+            "   - 첫 2줄: 타임라인에서 '더 보기' 누르게 하는 훅\n"
+            "   - 본문: 남들이 안 하는 각도로 주제를 파고드는 분석\n"
+            "   - 데이터/수치를 임팩트 있게 배치. '근데 진짜는' 전환\n\n"
+            "2번 트윗 (마무리, 500~1000자):\n"
+            "   - '그래서 뭐?'에 대한 답. 실용적 인사이트 or 도발적 결론\n"
+            "   - 마지막 줄: RT하고 싶게 만드는 킥 한 줄\n\n"
+            "[금지] 해시태그 절대 금지. 이모지 전체 최대 2개\n\n"
             '[JSON만 출력]\n'
             '{"hook":"첫 트윗","tweets":["훅","마무리"]}'
         )
@@ -393,12 +432,13 @@ async def generate_tweets_async(
     scoring_section = _build_scoring_section(trend)
     identity_section = _build_account_identity_section(config)
     diversity_section = _build_diversity_section(recent_tweets or [])
+    category_hint = _build_category_tone_hint(trend)
     safe_keyword = sanitize_keyword(trend.keyword)
 
     user_message = (
         f"주제: {safe_keyword}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{identity_section}{context_section}{scoring_section}{diversity_section}\n"
+        f"{identity_section}{context_section}{scoring_section}{category_hint}{diversity_section}\n"
         "위 컨텍스트와 분석 데이터를 깊이 소화한 뒤,\n"
         "각 트윗이 타임라인에서 '멈추고 읽게 만드는' 콘텐츠가 되도록 작성.\n"
         "핵심: 뉴스 요약이 아니라 '내 생각/시각'이 담긴 글.\n"
@@ -466,7 +506,9 @@ async def generate_long_form_async(
         f"주제: {safe_keyword}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
         f"{context_section}{scoring_section}\n"
-        "위 데이터를 기반으로 X Premium+ 장문 포스트 2종을 JSON으로 작성해주세요.\n"
+        "위 컨텍스트의 데이터/수치/반응을 깊이 소화한 뒤,\n"
+        "읽는 사람이 '이건 저장해야 돼' 하는 장문 2종을 작성.\n"
+        "핵심: 뉴스 요약 아님. 당신만의 분석과 해석이 담긴 글.\n"
         "1) 딥다이브 분석 (1,500~2,500자): 데이터 기반 구조화된 분석\n"
         "2) 핫테이크 오피니언 (1,000~2,000자): 논쟁적이고 감정을 자극하는 의견\n\n"
         "반드시 JSON만 출력하세요."
@@ -522,7 +564,8 @@ async def generate_threads_content_async(
         f"주제: {safe_keyword}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
         f"{context_section}{scoring_section}\n"
-        "위 데이터를 기반으로 Meta Threads 콘텐츠를 JSON으로 작성해주세요.\n"
+        "위 컨텍스트를 소화한 뒤, Threads에서 '친구한테 공유' 하고 싶은 글 작성.\n"
+        "핵심: 뉴스 전달이 아니라 '이 주제에 대한 내 생각'.\n"
         "1) 훅 포스트: 타임라인에서 스크롤을 멈추게 하는 강렬한 도입\n"
         "2) 참여형 포스트: 공감 + 질문으로 댓글 유도\n\n"
         "각 포스트 500자 이내. 반드시 JSON만 출력하세요."
@@ -634,12 +677,13 @@ async def generate_tweets_and_threads_async(
     context_section = _build_context_section(trend)
     scoring_section = _build_scoring_section(trend)
     diversity_section = _build_diversity_section(recent_tweets or [])
+    category_hint = _build_category_tone_hint(trend)
     safe_keyword = sanitize_keyword(trend.keyword)
 
     user_message = (
         f"주제: {safe_keyword}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{context_section}{scoring_section}{diversity_section}\n"
+        f"{context_section}{scoring_section}{category_hint}{diversity_section}\n"
         "위 컨텍스트를 깊이 소화한 뒤, 타임라인에서 멈추고 읽게 만들 콘텐츠 작성.\n"
         "핵심: 뉴스 요약이 아니라 '내 생각/시각'이 담긴 글.\n"
         "X 트윗 5종(각 200자 내외) + Threads 포스트 2종(각 500자 이내).\n"
@@ -945,27 +989,39 @@ async def generate_for_trend_multilang_async(
 
 
 # ══════════════════════════════════════════════════════
-#  v6.0: Content Quality Audit (생성 후 품질 피드백)
+#  v11.0: Content Quality Audit — 5축 채점 시스템
 # ══════════════════════════════════════════════════════
 
-_CONTENT_QA_PROMPT = """아래 X 멘션 초안을 게시 전에 검수해.
+_CONTENT_QA_SYSTEM = """콘텐츠 품질 심사관. 5개 축으로 0~20점씩 채점 (총 100점).
 
-[검수 기준]
-1. 사실 오류가 없는가? (트렌드 "{keyword}" 맥락과 일치하는지)
-2. 논란을 유발할 수 있는 표현이 없는가?
-3. 자연스러운 사람의 글처럼 읽히는가? (AI 냄새 제거)
-4. 타겟 오디언스({target_audience})에게 가치를 제공하는가?
-5. X 커뮤니티 가이드라인을 위반하지 않는가?
+[채점 축]
+1. hook (훅 임팩트): 첫 문장이 타임라인에서 스크롤을 멈추게 하는가
+   - 20점: 반전/수치/감정으로 즉각 주목. "뭐야 이거" 반응
+   - 10점: 관심은 가지만 '더 보기'까지는 아님
+   - 0점: "오늘 XX 이슈가..." 식 뉴스 요약 시작
 
-[원본 멘션 목록]
-{tweets_text}
+2. fact (팩트 일관성): 제공된 컨텍스트의 데이터/사실과 일치하는가
+   - 20점: 컨텍스트 수치/팩트를 정확히 활용
+   - 10점: 대체로 맞지만 구체성 부족
+   - 0점: 사실과 다르거나 근거 없는 주장
 
-[트렌드 원본 데이터]
-키워드: {keyword} / 카테고리: {category}
+3. tone (톤 일관성): 페르소나(시크한 MZ 구어체)를 유지하는가
+   - 20점: "~인 거임" "솔직히" 등 자연스러운 구어체
+   - 10점: 구어체이나 가끔 기자체/강의체 혼재
+   - 0점: "화제가 되고 있다" "여러분" 등 금지 패턴 사용
 
-위반 항목이 있으면 corrected_tweets에 수정본을 제시할 것.
-반드시 다음 JSON만 출력 (avg_score < 70이면 corrected_tweets 필수):
-{{"avg_score": 75, "worst_tweet_type": "유머/밈형", "reason": "개선 필요 사유 한 줄", "corrected_tweets": []}}"""
+4. kick (킥 품질): 마무리가 '와 이 사람 찐이다' 하게 만드는가
+   - 20점: 뼈때리는 펀치라인, 공유/캡처 욕구
+   - 10점: 마무리는 있으나 임팩트 약함
+   - 0점: 그냥 끝나거나 "~했으면 좋겠다" 식 희망 사항
+
+5. angle (유니크 앵글): 뻔한 뉴스 요약이 아닌 독자적 시각이 있는가
+   - 20점: "이런 각도는 처음이다" 싶은 해석
+   - 10점: 약간의 시각 차별화 시도
+   - 0점: 누구나 쓸 수 있는 뉴스 재탕
+
+[JSON만 출력]
+{"hook":N,"fact":N,"tone":N,"kick":N,"angle":N,"total":N,"worst":"축이름","reason":"1줄 피드백"}"""
 
 
 async def audit_generated_content(
@@ -975,10 +1031,10 @@ async def audit_generated_content(
     client: "LLMClient",
 ) -> dict | None:
     """
-    생성된 트윗 배치를 LLM으로 품질 심사 (프롬프트 ③).
-    LIGHTWEIGHT 티어. avg_score < 70이면 corrected_tweets 포함.
-    Returns: {"avg_score": int, "worst_tweet_type": str, "reason": str,
-              "corrected_tweets": list[{"type": str, "content": str}]} or None.
+    [v11] 생성된 트윗 배치를 5축 품질 심사.
+    LIGHTWEIGHT 티어. total < qa_min_score이면 재생성 트리거 권장.
+    Returns: {"hook": int, "fact": int, "tone": int, "kick": int, "angle": int,
+              "total": int, "worst": str, "reason": str} or None.
     """
     if not batch or not batch.tweets:
         return None
@@ -986,32 +1042,37 @@ async def audit_generated_content(
     tweets_text = "\n".join(
         f"[{t.tweet_type}] {t.content}" for t in batch.tweets[:5]
     )
-    category = getattr(trend, "category", "기타") or "기타"
-    safe_keyword = sanitize_keyword(trend.keyword)
-    target_audience = getattr(config, "target_audience", "일반 독자")
+    context_text = ""
+    if trend.context:
+        context_text = trend.context.to_combined_text() or ""
 
-    prompt = _CONTENT_QA_PROMPT.format(
-        keyword=safe_keyword,
-        category=category,
-        tweets_text=tweets_text,
-        target_audience=target_audience,
+    safe_keyword = sanitize_keyword(trend.keyword)
+
+    user_msg = (
+        f"[트렌드] {safe_keyword}\n\n"
+        f"[원본 컨텍스트]\n{context_text[:1500] if context_text else '없음'}\n\n"
+        f"[생성된 콘텐츠]\n{tweets_text}"
     )
 
     try:
         response = await client.acreate(
             tier=TaskTier.LIGHTWEIGHT,
-            max_tokens=600,
+            max_tokens=300,
             policy=_JSON_POLICY,
-            messages=[{"role": "user", "content": prompt}],
+            system=_CONTENT_QA_SYSTEM,
+            messages=[{"role": "user", "content": user_msg}],
         )
         result = _parse_json(response.text)
-        if result and "avg_score" in result:
-            corrected = result.get("corrected_tweets", [])
+        if result and "total" in result:
             log.info(
-                f"  [QA] '{trend.keyword}' → {result['avg_score']}점"
-                f" (worst: {result.get('worst_tweet_type', '-')}"
-                f"{', 교정본 ' + str(len(corrected)) + '개' if corrected else ''})"
+                f"  [QA] '{trend.keyword}' → {result['total']}/100 "
+                f"(H:{result.get('hook','?')} F:{result.get('fact','?')} "
+                f"T:{result.get('tone','?')} K:{result.get('kick','?')} "
+                f"A:{result.get('angle','?')}) "
+                f"worst: {result.get('worst', '?')}"
             )
+            # Legacy compat: also expose as avg_score
+            result["avg_score"] = result["total"]
             return result
         log.debug(f"  [QA] 파싱 실패: {trend.keyword}")
         return None
