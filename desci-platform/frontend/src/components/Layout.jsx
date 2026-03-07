@@ -141,7 +141,7 @@ export default function Layout({ children }) {
                     role="navigation"
                     aria-label="Main navigation"
                     className={`
-                        fixed lg:static inset-y-0 left-0 z-50 w-[260px] transform transition-transform duration-300 ease-[cubic-bezier(.16,1,.3,1)]
+                        fixed lg:static inset-y-0 left-0 z-50 w-[260px] transform transition-transform duration-300 ease-smooth
                         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                         bg-[#040811]/90 backdrop-blur-2xl border-r border-white/[0.04] p-5 flex flex-col justify-between
                     `}

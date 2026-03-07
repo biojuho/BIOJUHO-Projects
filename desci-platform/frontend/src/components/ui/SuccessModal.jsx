@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion"; // eslint-disable-line no-unused-vars
+import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle, ExternalLink } from "lucide-react";
 
 const SuccessModal = ({ isOpen, onClose, title, message, txHash }) => {
@@ -86,7 +86,7 @@ const SuccessModal = ({ isOpen, onClose, title, message, txHash }) => {
                     </div>
                     <ExternalLink
                       size={16}
-                      className="text-slate-400 group-hover:text-white transition-colors flex-shrink-0 ml-2"
+                      className="text-slate-400 group-hover:text-white transition-colors shrink-0 ml-2"
                     />
                   </div>
                 </motion.div>
@@ -100,7 +100,7 @@ const SuccessModal = ({ isOpen, onClose, title, message, txHash }) => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onClose}
-                className="w-full py-3.5 px-6 font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg hover:shadow-indigo-500/25 transition-all duration-300"
+                className="w-full py-3.5 px-6 font-semibold text-white bg-linear-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg hover:shadow-indigo-500/25 transition-all duration-300"
               >
                 확인
               </motion.button>

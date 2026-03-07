@@ -263,9 +263,8 @@ export default function BioLinker() {
                             </div>
                         )}
                     </div>
-
-                {/* Paper match tab */}
                 ) : uiState.activeTab === 'paper_match' ? (
+                    /* Paper match tab */
                     <div className="space-y-6 animate-fade-in">
                         {paperTitle && (
                             <div className="bg-primary/[0.06] border border-primary/15 p-4 rounded-xl text-white/60 mb-6 flex items-center gap-2">
@@ -280,9 +279,8 @@ export default function BioLinker() {
                             loading={uiState.loading && !matchState.proposalDraft}
                         />
                     </div>
-
-                {/* RFP analysis tab */}
                 ) : (
+                    /* RFP analysis tab */
                     <div className="grid lg:grid-cols-2 gap-6 animate-fade-in">
                         {/* Left column: profile + RFP input */}
                         <RFPInputPanel

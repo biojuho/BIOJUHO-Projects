@@ -90,7 +90,7 @@ export function useFetch(url, options = {}) {
     const key = getCacheKey(url, params);
     cache.delete(key);
     return fetchData();
-  }, [fetchData, url, params]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchData, url, params]);
 
   return { data, error, loading, refetch };
 }

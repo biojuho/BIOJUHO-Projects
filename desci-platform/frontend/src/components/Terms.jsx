@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Terms = ({ isOpen, onClose }) => {
     if (!isOpen) return null;

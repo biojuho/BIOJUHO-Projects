@@ -111,8 +111,9 @@ function renderDashboard() {
 describe('Dashboard', () => {
   it('renders the welcome heading with user first name', () => {
     renderDashboard();
-    expect(screen.getByText(/Welcome back/i)).toBeDefined();
-    expect(screen.getByText(/Alice/i)).toBeDefined();
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading).toHaveTextContent(/Welcome back/i);
+    expect(heading).toHaveTextContent(/Alice/i);
   });
 
   it('renders all four KPI stat cards', () => {

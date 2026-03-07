@@ -44,15 +44,16 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
         ("openai", "gpt-4o"),
     ],
     TaskTier.MEDIUM: [
-        ("gemini", "gemini-2.5-flash-preview-04-17"),
+        ("gemini", "gemini-2.0-flash"),
         ("anthropic", "claude-haiku-4-5-20251001"),
         ("grok", "grok-3-mini-fast"),
         ("openai", "gpt-4o-mini"),
     ],
     TaskTier.LIGHTWEIGHT: [
-        ("deepseek", "deepseek-chat"),
-        ("gemini", "gemini-2.0-flash"),
-        ("grok", "grok-3-mini-fast"),
+        ("gemini", "gemini-2.0-flash"),              # Free tier 15RPM, 한국어 최강
+        ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
+        ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
+        ("deepseek", "deepseek-chat"),               # 4순위: 구조화 JSON에서만 우선
         ("openai", "gpt-4o-mini"),
     ],
 }
@@ -112,6 +113,9 @@ FALLBACK_ERRORS: tuple[str, ...] = (
     "model not found",
     "invalid api key",
     "invalid_api_key",
+    # DeepSeek 한국어 프롬프트 오류 → 즉시 폴백 (KI: resilient_llm_operations)
+    "invalid_request_error",
+    "invalid request",
 )
 
 
@@ -139,8 +143,8 @@ def get_routing_chain(tier: TaskTier, policy: LLMPolicy | None = None) -> list[t
     elif task_kind in LONGFORM_TASK_KINDS and is_deepseek_longform_enabled():
         chain = _dedupe_chain([*chain, ("deepseek", "deepseek-chat")])
 
-    if tier == TaskTier.LIGHTWEIGHT:
-        chain = _dedupe_chain([("deepseek", "deepseek-chat"), *chain])
+    # NOTE: LIGHTWEIGHT 티어는 TIER_CHAINS 정의 순서를 그대로 따릅니다.
+    # gemini 선두 체인 (DeepSeek 한국어 오류 회피 움직) — 2026-03
 
     return chain
 

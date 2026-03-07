@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 
 const inputVariants = cva(
-  'flex w-full text-sm transition-all duration-300 ease-[cubic-bezier(.16,1,.3,1)] file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+  'flex w-full text-sm transition-all duration-300 ease-smooth file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-white/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
   {
     variants: {
       variant: {
@@ -31,5 +31,6 @@ const Input = forwardRef(({ className, type, variant, ...props }, ref) => {
 });
 Input.displayName = 'Input';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { Input, inputVariants };
 export default Input;

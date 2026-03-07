@@ -92,22 +92,41 @@ class BackendManager:
     ) -> LLMResponse:
         """Dispatch a sync LLM call to the given backend."""
         if backend == "anthropic":
-            return self._call_anthropic(model, messages, max_tokens, system, tier)
+            return self._call_anthropic(model, messages, max_tokens, system, tier, response_mode)
         elif backend == "gemini":
             return self._call_gemini(model, messages, max_tokens, system, tier, response_mode)
         else:
             return self._call_openai_compat(backend, model, messages, max_tokens, system, tier, response_mode)
 
     def _call_anthropic(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
+        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+        response_mode: str = "text",
     ) -> LLMResponse:
         client = self._get_anthropic()
-        kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "messages": messages}
+        # JSON mode: assistant prefill forces valid JSON output without markdown wrappers
+        _messages = list(messages)
+        if response_mode == "json" and (not _messages or _messages[-1].get("role") != "assistant"):
+            _messages = _messages + [{"role": "assistant", "content": "{"}]
+        kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "messages": _messages}
         if system:
-            kwargs["system"] = system
-        resp = client.messages.create(**kwargs)
+            # Claude Prompt Caching 적용: system 메시지를 array 형태로 전달
+            kwargs["system"] = [
+                {
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        resp = client.messages.create(
+            **kwargs,
+            extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
+        )
+        text = resp.content[0].text
+        # Prepend the prefill character back to reconstruct the full JSON
+        if response_mode == "json":
+            text = "{" + text
         return LLMResponse(
-            text=resp.content[0].text,
+            text=text,
             model=model,
             backend="anthropic",
             tier=tier,
@@ -264,8 +283,17 @@ class BackendManager:
         client = self._get_anthropic()
         kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "messages": messages}
         if system:
-            kwargs["system"] = system
-        with client.messages.stream(**kwargs) as stream:
+            kwargs["system"] = [
+                {
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        with client.messages.stream(
+            **kwargs,
+            extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
+        ) as stream:
             for text in stream.text_stream:
                 yield text
 

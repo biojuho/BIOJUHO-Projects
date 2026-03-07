@@ -10,7 +10,7 @@ Multi-project monorepo: DeSci platform, AgriGuard, MCP automation tools.
 | `desci-platform/frontend` | React 19 + Vite 7 + Tailwind | 5173 | DeSci platform web UI |
 | `desci-platform/contracts` | Hardhat + Solidity 0.8.20 | - | ERC20 (DeSciToken) + ERC721 (ResearchPaperNFT) |
 | `AgriGuard/backend` | FastAPI + SQLAlchemy + Web3 | 8002 | Agricultural supply chain tracking |
-| `MCP_notion-antigravity` | Python + Notion API + LLM | - | X Growth Engine + Notion automation |
+| `DailyNews` | Python + Notion API + LLM | - | X Growth Engine + Notion automation |
 
 ## Commands
 
@@ -97,6 +97,6 @@ Copy `.env.example` files before running. Key variables:
 - `vector_store.py` `search_similar()` returns `List[Tuple[RFPDocument, float]]` - always unpack as `for doc, score in results`
 - biolinker CORS defaults to localhost in dev; set `ENV=production` + `ALLOWED_ORIGINS` for deployment
 - `DeSciToken.sol` lives in `contracts/` root (not `contracts/contracts/`) due to prior move
-- MCP_notion-antigravity `.env` has real API keys - never commit. `.gitignore` covers `.env` globally
+- DailyNews `.env` has real API keys - never commit. `.gitignore` covers `.env` globally
 - Frontend uses React 19 + React Router 7 - check compatibility when updating deps
 - AgriGuard uses SQLite (`agriguard.db`) - not suitable for production concurrency

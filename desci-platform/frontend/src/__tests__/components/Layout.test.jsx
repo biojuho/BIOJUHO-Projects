@@ -160,7 +160,6 @@ describe('Layout', () => {
 
   it('renders the footer content', () => {
     renderLayout();
-    // Footer renders company info
-    expect(screen.getByText(/Joolife/i)).toBeDefined();
+    expect(screen.getAllByText(/Joolife/i).length).toBeGreaterThan(0);
   });
 });

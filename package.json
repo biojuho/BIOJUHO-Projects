@@ -11,5 +11,8 @@
     "test:all": "npx turbo run test",
     "lint:all": "npx turbo run lint",
     "typecheck:all": "npx turbo run typecheck"
+  },
+  "dependencies": {
+    "playwright": "^1.58.2"
   }
 }

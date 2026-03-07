@@ -5,7 +5,7 @@ const Card = forwardRef(({ className, glass = false, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      'rounded-2xl border text-card-foreground transition-all duration-400 ease-[cubic-bezier(.16,1,.3,1)]',
+      'rounded-2xl border text-card-foreground transition-all duration-400 ease-smooth',
       glass
         ? 'glass-card'
         : 'bg-card border-border shadow-glass p-6',

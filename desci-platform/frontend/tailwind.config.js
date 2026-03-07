@@ -90,6 +90,9 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         "4xl": "2rem",
       },
+      transitionTimingFunction: {
+        smooth: "cubic-bezier(.16,1,.3,1)",
+      },
       fontFamily: {
         display: ["Sora", "system-ui", "sans-serif"],
         sans: ["Lexend", "system-ui", "sans-serif"],
