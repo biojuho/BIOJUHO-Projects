@@ -4,8 +4,7 @@ This document defines the deterministic quality gate for this workspace.
 
 ## Scope
 
-- Included now: `desci-platform`, `AgriGuard`, `MCP_notion-antigravity`, `notebooklm-mcp`, `github-mcp`
-- Excluded for this round: `getdaytrends`
+- Included: `desci-platform`, `AgriGuard`, `DailyNews`, `notebooklm-mcp`, `github-mcp`, `getdaytrends`
 
 ## Local Commands
 
@@ -17,6 +16,7 @@ python scripts/run_workspace_smoke.py --scope workspace
 python scripts/run_workspace_smoke.py --scope desci
 python scripts/run_workspace_smoke.py --scope agriguard
 python scripts/run_workspace_smoke.py --scope mcp
+python scripts/run_workspace_smoke.py --scope getdaytrends
 python scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 ```
 
@@ -34,7 +34,10 @@ The PR gate includes only checks that are deterministic and reproducible without
   - backend: python compile smoke
 - `mcp`
   - python compile smoke for tracked MCP code paths
-  - `MCP_notion-antigravity/tests` pytest suite
+  - `DailyNews/tests` pytest suite
+- `getdaytrends`
+  - python compile smoke
+  - `getdaytrends/tests` pytest suite (129 tests)
 
 Python compile checks explicitly exclude these directories:
 

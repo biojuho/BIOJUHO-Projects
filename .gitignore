@@ -26,6 +26,11 @@ tmp/
 .agents/
 **/.agent/
 
+# Test / smoke outputs
+smoke-all.json
+test-results/
+.pytest_cache/
+
 # Build artifacts
 node_modules/
 dist/
