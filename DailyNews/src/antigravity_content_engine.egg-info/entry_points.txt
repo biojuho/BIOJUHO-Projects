@@ -1,0 +1,2 @@
+[console_scripts]
+antigravity-mcp = antigravity_mcp.cli:main

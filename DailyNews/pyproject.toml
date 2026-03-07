@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "antigravity-content-engine"
+version = "0.1.0"
+description = "Notion-native AI content engine with MCP, pipelines, and operations tooling."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "anthropic",
+  "feedparser",
+  "google-genai",
+  "httpx",
+  "mcp",
+  "notion-client",
+  "openai",
+  "python-dateutil",
+  "python-dotenv",
+  "tenacity>=8.0.0,<10.0",
+]
+
+[project.optional-dependencies]
+dashboard = [
+  "pandas",
+  "plotly",
+  "streamlit",
+]
+market = [
+  "yfinance",
+]
+social = [
+  "tweepy",
+]
+viz = [
+  "matplotlib",
+  "numpy",
+  "Pillow",
+  "seaborn",
+  "wordcloud",
+]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24",
+  "respx>=0.21.0",
+]
+
+[project.scripts]
+antigravity-mcp = "antigravity_mcp.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]

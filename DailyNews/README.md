@@ -1,0 +1,181 @@
+# DailyNews — Antigravity Content Engine
+
+AI 뉴스 자동 수집·분석·발행 플랫폼 (Notion + MCP + LLM)
+
+Antigravity Content Engine is a Notion-native AI content platform that combines:
+
+- an MCP server for AI agents,
+- content collection and briefing pipelines,
+- draft publishing workflows for X and Canva,
+- operational dashboards backed by local state and Notion.
+
+This repository keeps the original compatibility entrypoints, but the active implementation now lives under [`src/antigravity_mcp`](./src/antigravity_mcp).
+
+## Product Scope
+
+The platform is optimized for internal content operations:
+
+- collect curated sources from RSS and market feeds,
+- summarize and package them into report drafts,
+- store report state locally and sync approved outputs to Notion,
+- expose search, authoring, and operational status through MCP tools,
+- monitor run health and report readiness in Streamlit and Notion dashboards.
+
+## Project Layout
+
+```text
+src/antigravity_mcp/
+  config.py
+  server.py
+  tooling/
+  domain/
+  integrations/
+  pipelines/
+  state/
+apps/
+  streamlit_dashboard.py
+config/
+  news_sources.json
+  channels.json
+docs/
+  product/
+  runbooks/
+```
+
+## Canonical Environment Variables
+
+Use the canonical names below for all new deployments:
+
+- `NOTION_API_KEY`
+- `NOTION_TASKS_DATABASE_ID`
+- `NOTION_TASKS_DATA_SOURCE_ID`
+- `NOTION_REPORTS_DATABASE_ID`
+- `NOTION_REPORTS_DATA_SOURCE_ID`
+- `NOTION_DASHBOARD_PAGE_ID`
+- `GOOGLE_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `CANVA_CLIENT_ID`
+- `CANVA_CLIENT_SECRET`
+- `CANVA_REFRESH_TOKEN`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `PIPELINE_MAX_CONCURRENCY`
+- `PIPELINE_HTTP_TIMEOUT_SEC`
+- `PIPELINE_MAX_RETRIES`
+- `CONTENT_APPROVAL_MODE`
+
+Legacy aliases such as `ANTIGRAVITY_DB_ID`, `ANTIGRAVITY_TASKS_DB_ID`, `ANTIGRAVITY_NEWS_DB_ID`, and `DASHBOARD_PAGE_ID` are still accepted for one release and generate warnings.
+
+## Installation
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .[dev]
+```
+
+If you prefer a runtime-only installation:
+
+```bash
+pip install -e .
+```
+
+Optional extras:
+
+```bash
+pip install -e .[dashboard]
+pip install -e .[viz]
+pip install -e .[market]
+pip install -e .[social]
+```
+
+The runtime will auto-discover the workspace-level `shared.llm` package when this repository is used inside the
+`AI 프로젝트` monorepo. Outside the monorepo, make sure `shared` is installed or exposed on `PYTHONPATH`.
+
+## Commands
+
+Run the MCP server:
+
+```bash
+python -m antigravity_mcp serve
+```
+
+Generate briefs:
+
+```bash
+python -m antigravity_mcp jobs generate-brief --window morning --max-items 5
+```
+
+Publish a stored report draft:
+
+```bash
+python -m antigravity_mcp jobs publish-report --report-id report-tech-20260302T010000Z
+```
+
+Refresh the dashboard:
+
+```bash
+python -m antigravity_mcp ops refresh-dashboard
+```
+
+Replay a supported run:
+
+```bash
+python -m antigravity_mcp ops replay-run --run-id generate_brief-20260302T010000Z
+```
+
+Compatibility entrypoints still exist:
+
+- `python server.py`
+- `python admin_dashboard.py`
+- `run_server.bat`
+- `run_server.sh`
+
+## MCP Tooling
+
+Canonical MCP tools:
+
+- `notion_search`
+- `notion_get_page`
+- `notion_create_page`
+- `notion_append_blocks`
+- `notion_create_record`
+- `content_generate_brief`
+- `content_publish_report`
+- `ops_get_run_status`
+- `ops_list_runs`
+- `ops_refresh_dashboard`
+
+Legacy MCP tools are still available with deprecation warnings:
+
+- `search_notion`
+- `read_page`
+- `add_task`
+- `create_page`
+- `append_block`
+
+All canonical tools now return a structured response envelope:
+
+```json
+{
+  "status": "ok",
+  "data": {},
+  "meta": {
+    "warnings": []
+  },
+  "error": null
+}
+```
+
+## Testing
+
+```bash
+python -m pytest -q
+```
+
+## Notes
+
+- Notion remains the system of record for curated report output.
+- Local SQLite state in `data/pipeline_state.db` is used for run tracking, deduplication, and report lifecycle management.
+- External publishing stays in manual approval mode by default.
