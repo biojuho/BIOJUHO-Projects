@@ -1,0 +1,58 @@
+[project]
+name = "getdaytrends"
+version = "4.0.0"
+description = "X/Threads Trend Auto-Content Generator with Multi-Source Collection & Hybrid Scoring"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # bugbear
+    "SIM",   # simplify
+    "RUF",   # ruff-specific
+    "ASYNC", # async
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default arg
+    "RUF001", # ambiguous unicode (한글 사용)
+    "RUF003", # ambiguous unicode comment
+    "SIM108", # ternary operator
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "models", "scraper", "analyzer", "generator", "storage", "db", "alerts", "utils", "dashboard"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+addopts = "-m 'not integration' -v --tb=short"
+markers = [
+    "integration: tests requiring live network or API keys",
+    "slow: tests that take more than 5 seconds",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

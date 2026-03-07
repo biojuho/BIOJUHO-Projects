@@ -1,7 +1,8 @@
 """db.py 테스트: SQLite 스키마, CRUD 헬퍼 함수."""
 
 import os
-import sqlite3
+import aiosqlite
+import pytest
 import sys
 import unittest
 from datetime import datetime
@@ -9,6 +10,9 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from db import (
+    compute_fingerprint,
+    get_cached_content,
+    get_recent_avg_viral_score,
     get_recently_processed_keywords,
     get_trend_stats,
     init_db,
@@ -28,87 +32,97 @@ from models import (
 )
 
 
-class TestInitDb(unittest.TestCase):
+class TestInitDb(unittest.IsolatedAsyncioTestCase):
     """DB 초기화 및 스키마 검증."""
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
 
-    def tearDown(self):
-        self.conn.close()
+    async def asyncTearDown(self):
+        await self.conn.close()
 
-    def test_tables_created(self):
-        init_db(self.conn)
-        tables = self.conn.execute(
+    @pytest.mark.asyncio
+    async def test_tables_created(self):
+        await init_db(self.conn)
+        cursor = await self.conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        )
+        tables = await cursor.fetchall()
         table_names = {row["name"] for row in tables}
         self.assertIn("runs", table_names)
         self.assertIn("trends", table_names)
         self.assertIn("tweets", table_names)
 
-    def test_idempotent(self):
+    @pytest.mark.asyncio
+    async def test_idempotent(self):
         """두 번 호출해도 오류 없어야 함."""
-        init_db(self.conn)
-        init_db(self.conn)  # 두 번째 호출
+        await init_db(self.conn)
+        await init_db(self.conn)  # 두 번째 호출
 
-    def test_content_type_column_exists(self):
-        init_db(self.conn)
-        row = self.conn.execute("PRAGMA table_info(tweets)").fetchall()
+    @pytest.mark.asyncio
+    async def test_content_type_column_exists(self):
+        await init_db(self.conn)
+        cursor = await self.conn.execute("PRAGMA table_info(tweets)")
+        row = await cursor.fetchall()
         columns = {r["name"] for r in row}
         self.assertIn("content_type", columns)
 
 
-class TestSaveRun(unittest.TestCase):
+class TestSaveRun(unittest.IsolatedAsyncioTestCase):
     """실행 기록 저장/업데이트."""
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        init_db(self.conn)
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
 
-    def tearDown(self):
-        self.conn.close()
+    async def asyncTearDown(self):
+        await self.conn.close()
 
-    def test_save_and_retrieve(self):
+    @pytest.mark.asyncio
+    async def test_save_and_retrieve(self):
         run = RunResult(run_id="test-uuid-123", country="korea")
-        row_id = save_run(self.conn, run)
+        row_id = await save_run(self.conn, run)
         self.assertGreater(row_id, 0)
 
-        row = self.conn.execute("SELECT * FROM runs WHERE id=?", (row_id,)).fetchone()
+        cursor = await self.conn.execute("SELECT * FROM runs WHERE id=?", (row_id,))
+        row = await cursor.fetchone()
         self.assertEqual(row["run_uuid"], "test-uuid-123")
         self.assertEqual(row["country"], "korea")
 
-    def test_update_run(self):
+    @pytest.mark.asyncio
+    async def test_update_run(self):
         run = RunResult(run_id="test-update", country="korea")
-        row_id = save_run(self.conn, run)
+        row_id = await save_run(self.conn, run)
 
         run.trends_collected = 5
         run.tweets_generated = 10
         run.finished_at = datetime.now()
-        update_run(self.conn, run, row_id)
+        await update_run(self.conn, run, row_id)
 
-        row = self.conn.execute("SELECT * FROM runs WHERE id=?", (row_id,)).fetchone()
+        cursor = await self.conn.execute("SELECT * FROM runs WHERE id=?", (row_id,))
+        row = await cursor.fetchone()
         self.assertEqual(row["trends_collected"], 5)
         self.assertEqual(row["tweets_generated"], 10)
         self.assertIsNotNone(row["finished_at"])
 
 
-class TestSaveTrend(unittest.TestCase):
+class TestSaveTrend(unittest.IsolatedAsyncioTestCase):
     """트렌드 저장."""
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        init_db(self.conn)
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
         run = RunResult(run_id="trend-test")
-        self.run_id = save_run(self.conn, run)
+        self.run_id = await save_run(self.conn, run)
 
-    def tearDown(self):
-        self.conn.close()
+    async def asyncTearDown(self):
+        await self.conn.close()
 
-    def test_save_trend(self):
+    @pytest.mark.asyncio
+    async def test_save_trend(self):
         trend = ScoredTrend(
             keyword="AI 규제",
             rank=1,
@@ -117,130 +131,244 @@ class TestSaveTrend(unittest.TestCase):
             sources=[TrendSource.GETDAYTRENDS, TrendSource.REDDIT],
             context=MultiSourceContext(twitter_insight="hot topic"),
         )
-        trend_id = save_trend(self.conn, trend, self.run_id)
+        trend_id = await save_trend(self.conn, trend, self.run_id)
         self.assertGreater(trend_id, 0)
 
-        row = self.conn.execute("SELECT * FROM trends WHERE id=?", (trend_id,)).fetchone()
+        cursor = await self.conn.execute("SELECT * FROM trends WHERE id=?", (trend_id,))
+        row = await cursor.fetchone()
         self.assertEqual(row["keyword"], "AI 규제")
         self.assertEqual(row["viral_potential"], 85)
 
 
-class TestSaveTweet(unittest.TestCase):
+class TestSaveTweet(unittest.IsolatedAsyncioTestCase):
     """트윗 저장."""
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        init_db(self.conn)
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
         run = RunResult(run_id="tweet-test")
-        self.run_id = save_run(self.conn, run)
+        self.run_id = await save_run(self.conn, run)
         trend = ScoredTrend(keyword="test", rank=1, sources=[TrendSource.GETDAYTRENDS])
-        self.trend_id = save_trend(self.conn, trend, self.run_id)
+        self.trend_id = await save_trend(self.conn, trend, self.run_id)
 
-    def tearDown(self):
-        self.conn.close()
+    async def asyncTearDown(self):
+        await self.conn.close()
 
-    def test_save_short_tweet(self):
+    @pytest.mark.asyncio
+    async def test_save_short_tweet(self):
         tweet = GeneratedTweet(tweet_type="공감 유도형", content="테스트 트윗입니다")
-        tweet_id = save_tweet(self.conn, tweet, self.trend_id, self.run_id)
+        tweet_id = await save_tweet(self.conn, tweet, self.trend_id, self.run_id)
         self.assertGreater(tweet_id, 0)
 
-        row = self.conn.execute("SELECT * FROM tweets WHERE id=?", (tweet_id,)).fetchone()
+        cursor = await self.conn.execute("SELECT * FROM tweets WHERE id=?", (tweet_id,))
+        row = await cursor.fetchone()
         self.assertEqual(row["tweet_type"], "공감 유도형")
         self.assertEqual(row["content_type"], "short")
 
-    def test_save_long_tweet(self):
+    @pytest.mark.asyncio
+    async def test_save_long_tweet(self):
         tweet = GeneratedTweet(tweet_type="딥다이브", content="장문 포스트" * 100, content_type="long")
-        tweet_id = save_tweet(self.conn, tweet, self.trend_id, self.run_id)
+        tweet_id = await save_tweet(self.conn, tweet, self.trend_id, self.run_id)
 
-        row = self.conn.execute("SELECT * FROM tweets WHERE id=?", (tweet_id,)).fetchone()
+        cursor = await self.conn.execute("SELECT * FROM tweets WHERE id=?", (tweet_id,))
+        row = await cursor.fetchone()
         self.assertEqual(row["content_type"], "long")
 
 
-class TestSaveThread(unittest.TestCase):
+class TestSaveThread(unittest.IsolatedAsyncioTestCase):
     """쓰레드 저장."""
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        init_db(self.conn)
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
         run = RunResult(run_id="thread-test")
-        self.run_id = save_run(self.conn, run)
+        self.run_id = await save_run(self.conn, run)
         trend = ScoredTrend(keyword="thread-test", rank=1, sources=[TrendSource.GETDAYTRENDS])
-        self.trend_id = save_trend(self.conn, trend, self.run_id)
+        self.trend_id = await save_trend(self.conn, trend, self.run_id)
 
-    def tearDown(self):
-        self.conn.close()
+    async def asyncTearDown(self):
+        await self.conn.close()
 
-    def test_save_thread(self):
+    @pytest.mark.asyncio
+    async def test_save_thread(self):
         thread = GeneratedThread(tweets=["훅 트윗", "본문 1", "본문 2", "마무리"])
-        ids = save_thread(self.conn, thread, self.trend_id, self.run_id)
+        ids = await save_thread(self.conn, thread, self.trend_id, self.run_id)
         self.assertEqual(len(ids), 4)
 
-        rows = self.conn.execute(
+        cursor = await self.conn.execute(
             "SELECT * FROM tweets WHERE trend_id=? AND is_thread=1 ORDER BY thread_order",
             (self.trend_id,),
-        ).fetchall()
+        )
+        rows = await cursor.fetchall()
         self.assertEqual(len(rows), 4)
         self.assertEqual(rows[0]["content"], "훅 트윗")
         self.assertEqual(rows[3]["thread_order"], 3)
 
 
-class TestGetRecentlyProcessed(unittest.TestCase):
+class TestGetRecentlyProcessed(unittest.IsolatedAsyncioTestCase):
     """중복 필터 함수."""
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        init_db(self.conn)
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
         run = RunResult(run_id="dedup-test")
-        self.run_id = save_run(self.conn, run)
+        self.run_id = await save_run(self.conn, run)
 
-    def tearDown(self):
-        self.conn.close()
+    async def asyncTearDown(self):
+        await self.conn.close()
 
-    def test_empty_db(self):
-        keywords = get_recently_processed_keywords(self.conn, hours=3)
+    @pytest.mark.asyncio
+    async def test_empty_db(self):
+        keywords = await get_recently_processed_keywords(self.conn, hours=3)
         self.assertEqual(keywords, set())
 
-    def test_finds_recent(self):
+    @pytest.mark.asyncio
+    async def test_finds_recent(self):
         trend = ScoredTrend(keyword="최근키워드", rank=1, sources=[TrendSource.GETDAYTRENDS])
-        save_trend(self.conn, trend, self.run_id)
+        await save_trend(self.conn, trend, self.run_id)
 
-        keywords = get_recently_processed_keywords(self.conn, hours=3)
+        keywords = await get_recently_processed_keywords(self.conn, hours=3)
         self.assertIn("최근키워드", keywords)
 
 
-class TestGetTrendStats(unittest.TestCase):
+class TestGetTrendStats(unittest.IsolatedAsyncioTestCase):
     """통계 함수."""
 
-    def setUp(self):
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        init_db(self.conn)
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
 
-    def tearDown(self):
-        self.conn.close()
+    async def asyncTearDown(self):
+        await self.conn.close()
 
-    def test_empty_stats(self):
-        stats = get_trend_stats(self.conn)
+    @pytest.mark.asyncio
+    async def test_empty_stats(self):
+        stats = await get_trend_stats(self.conn)
         self.assertEqual(stats["total_runs"], 0)
         self.assertEqual(stats["total_trends"], 0)
         self.assertEqual(stats["total_tweets"], 0)
 
-    def test_with_data(self):
+    @pytest.mark.asyncio
+    async def test_with_data(self):
         run = RunResult(run_id="stats-test")
-        run_id = save_run(self.conn, run)
+        run_id = await save_run(self.conn, run)
         trend = ScoredTrend(keyword="stat", rank=1, viral_potential=80, sources=[TrendSource.GETDAYTRENDS])
-        trend_id = save_trend(self.conn, trend, run_id)
+        trend_id = await save_trend(self.conn, trend, run_id)
         tweet = GeneratedTweet(tweet_type="test", content="hello")
-        save_tweet(self.conn, tweet, trend_id, run_id)
+        await save_tweet(self.conn, tweet, trend_id, run_id)
 
-        stats = get_trend_stats(self.conn)
+        stats = await get_trend_stats(self.conn)
         self.assertEqual(stats["total_runs"], 1)
         self.assertEqual(stats["total_trends"], 1)
         self.assertEqual(stats["total_tweets"], 1)
         self.assertEqual(stats["avg_viral_score"], 80.0)
+
+
+class TestGetCachedContent(unittest.IsolatedAsyncioTestCase):
+    """C2: 콘텐츠 캐시 조회."""
+
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
+        run = RunResult(run_id="cache-test")
+        self.run_id = await save_run(self.conn, run)
+
+    async def asyncTearDown(self):
+        await self.conn.close()
+
+    @pytest.mark.asyncio
+    async def test_no_cache_returns_none(self):
+        fp = compute_fingerprint("없는키워드", 0)
+        result = await get_cached_content(self.conn, fp)
+        self.assertIsNone(result)
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_returns_rows(self):
+        trend = ScoredTrend(keyword="AI 트렌드", rank=1, volume_last_24h=50000,
+                            sources=[TrendSource.GETDAYTRENDS])
+        trend_id = await save_trend(self.conn, trend, self.run_id)
+        tweet = GeneratedTweet(tweet_type="공감 유도형", content="캐시 테스트 트윗")
+        await save_tweet(self.conn, tweet, trend_id, self.run_id)
+
+        fp = compute_fingerprint("AI 트렌드", 50000)
+        result = await get_cached_content(self.conn, fp, max_age_hours=24)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["tweet_type"], "공감 유도형")
+
+    @pytest.mark.asyncio
+    async def test_expired_cache_returns_none(self):
+        """max_age_hours=0 이면 캐시 미스."""
+        trend = ScoredTrend(keyword="AI 트렌드", rank=1, volume_last_24h=50000,
+                            sources=[TrendSource.GETDAYTRENDS])
+        trend_id = await save_trend(self.conn, trend, self.run_id)
+        tweet = GeneratedTweet(tweet_type="공감 유도형", content="캐시 테스트")
+        await save_tweet(self.conn, tweet, trend_id, self.run_id)
+
+        fp = compute_fingerprint("AI 트렌드", 50000)
+        result = await get_cached_content(self.conn, fp, max_age_hours=0)
+        self.assertIsNone(result)
+
+
+class TestGetRecentAvgViralScore(unittest.IsolatedAsyncioTestCase):
+    """C4: 평균 바이럴 점수 조회."""
+
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
+        run = RunResult(run_id="avg-test")
+        self.run_id = await save_run(self.conn, run)
+
+    async def asyncTearDown(self):
+        await self.conn.close()
+
+    @pytest.mark.asyncio
+    async def test_empty_returns_none(self):
+        result = await get_recent_avg_viral_score(self.conn, lookback_hours=3)
+        self.assertIsNone(result)
+
+    @pytest.mark.asyncio
+    async def test_avg_score_calculated(self):
+        for kw, score in [("A", 60), ("B", 80), ("C", 100)]:
+            trend = ScoredTrend(keyword=kw, rank=1, viral_potential=score,
+                                sources=[TrendSource.GETDAYTRENDS])
+            await save_trend(self.conn, trend, self.run_id)
+
+        result = await get_recent_avg_viral_score(self.conn, lookback_hours=3)
+        self.assertIsNotNone(result)
+        self.assertAlmostEqual(result, 80.0, places=1)
+
+
+class TestPerformanceTrackingColumns(unittest.IsolatedAsyncioTestCase):
+    """P2-1: 성과 추적 컬럼 존재 확인."""
+
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
+
+    async def asyncTearDown(self):
+        await self.conn.close()
+
+    @pytest.mark.asyncio
+    async def test_performance_columns_exist(self):
+        cursor = await self.conn.execute("PRAGMA table_info(tweets)")
+        rows = await cursor.fetchall()
+        cols = {r["name"] for r in rows}
+        for col in ("posted_at", "impressions", "engagements", "engagement_rate"):
+            self.assertIn(col, cols, f"missing column: {col}")
+
+    @pytest.mark.asyncio
+    async def test_migration_idempotent(self):
+        """두 번 호출해도 오류 없어야 함."""
+        await init_db(self.conn)
+        await init_db(self.conn)
 
 
 if __name__ == "__main__":

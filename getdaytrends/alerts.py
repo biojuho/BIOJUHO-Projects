@@ -4,14 +4,20 @@ Telegram + Discord 웹훅 알림. trend_monitor/webhook.py에서 포팅.
 """
 
 import json
-import logging
+import sys
 import urllib.parse
 import urllib.request
+from pathlib import Path
+
+# shared.llm 모듈 경로 (단일 추가)
+_SHARED_PATH = str(Path(__file__).resolve().parents[1])
+if _SHARED_PATH not in sys.path:
+    sys.path.insert(0, _SHARED_PATH)
 
 from config import AppConfig
 from models import ScoredTrend
 
-log = logging.getLogger(__name__)
+from loguru import logger as log
 
 
 def format_trend_alert(trend: ScoredTrend) -> str:
@@ -93,6 +99,107 @@ def send_alert(message: str, config: AppConfig) -> dict:
     return results
 
 
+def send_weekly_cost_report(config: AppConfig) -> bool:
+    """
+    주간 LLM 비용 리포트를 Telegram으로 전송.
+    shared.llm.stats.CostTracker에서 7일 집계 데이터를 읽어 포맷.
+    전송 성공 여부 반환.
+    """
+    try:
+        from shared.llm.stats import CostTracker
+        from shared.llm.stats import _DB_PATH as llm_db_path
+
+        if not llm_db_path.exists():
+            return False
+
+        tracker = CostTracker(persist=True)
+        daily = tracker.get_daily_stats(7)
+        tracker.close()
+
+        if not daily:
+            return False
+
+        # 일별 집계
+        by_day: dict = {}
+        for row in daily:
+            d = row["date"]
+            by_day.setdefault(d, {"cost": 0.0, "calls": 0})
+            by_day[d]["cost"] += row["cost_usd"]
+            by_day[d]["calls"] += row["calls"]
+
+        total_7d = sum(v["cost"] for v in by_day.values())
+        monthly_est = total_7d / 7 * 30
+
+        lines = ["📊 *주간 LLM 비용 리포트*\n"]
+        for day in sorted(by_day.keys(), reverse=True):
+            v = by_day[day]
+            bar = "█" * min(int(v["cost"] * 100), 10)
+            lines.append(f"  `{day}` {bar} ${v['cost']:.4f} ({v['calls']}콜)")
+        lines.append(f"\n💰 7일 합계: *${total_7d:.4f}*")
+        lines.append(f"📈 월 추정: *${monthly_est:.2f}*")
+
+        message = "\n".join(lines)
+        result = send_telegram_alert(message, config)
+        if result.get("ok"):
+            log.info("주간 비용 리포트 Telegram 전송 완료")
+            return True
+        return False
+
+    except Exception as e:
+        log.warning(f"주간 비용 리포트 전송 실패: {e}")
+        return False
+
+
+def check_watchlist(
+    trends: list[ScoredTrend],
+    config: AppConfig,
+    conn=None,
+) -> int:
+    """
+    [v9.0] Watchlist 키워드가 트렌드에 등장하면 즉시 알림.
+    conn이 주어지면 watchlist_hits 테이블에 기록.
+    반환: 감지된 Watchlist 항목 수
+    """
+    if not config.watchlist_keywords or config.no_alerts:
+        return 0
+
+    detected: list[tuple[ScoredTrend, str]] = []
+    for trend in trends:
+        for wk in config.watchlist_keywords:
+            if wk.lower() in trend.keyword.lower():
+                detected.append((trend, wk))
+                break
+
+    if not detected:
+        return 0
+
+    # 알림 메시지
+    lines = ["*[WATCHLIST] 관심 키워드 등장!*\n"]
+    for trend, wk in detected:
+        lines.append(
+            f"  - *{trend.keyword}* (감지어: `{wk}`)"
+            f" | 바이럴 {trend.viral_potential}점"
+            f" | {trend.trend_acceleration}"
+        )
+    message = "\n".join(lines)
+    send_alert(message, config)
+
+    # DB 기록 (비동기 conn이므로 asyncio 없이 별도 코루틴으로 처리)
+    if conn is not None:
+        import asyncio
+        from db import record_watchlist_hit
+        for trend, wk in detected:
+            try:
+                asyncio.get_event_loop().run_until_complete(
+                    record_watchlist_hit(conn, trend.keyword, wk, trend.viral_potential)
+                )
+            except Exception as _e:
+                log.debug(f"watchlist_hit 기록 실패 (무시): {_e}")
+
+    log.info(f"[Watchlist] {len(detected)}건 감지: {[t.keyword for t, _ in detected]}")
+    return len(detected)
+
+
 def check_and_alert(
     trends: list[ScoredTrend],
     config: AppConfig,
@@ -118,3 +225,69 @@ def check_and_alert(
                 log.info(f"알림 전송: '{trend.keyword}' (점수: {trend.viral_potential})")
 
     return sent
+
+
+def format_cost_summary(daily_cost: float, daily_budget: float) -> str:
+    """[C3] 비용 요약 문자열 생성."""
+    pct = (daily_cost / daily_budget * 100) if daily_budget > 0 else 0
+    bar_len = min(int(pct / 10), 10)
+    bar = "█" * bar_len + "░" * (10 - bar_len)
+    status = "🟢" if pct < 70 else ("🟡" if pct < 90 else "🔴")
+    return f"{status} ${daily_cost:.4f}/${daily_budget:.2f} ({pct:.0f}%) [{bar}]"
+
+
+def send_daily_cost_alert(config: AppConfig) -> bool:
+    """
+    [C3] 일일 비용 알림 전송.
+    오늘 누적 비용이 예산의 70% 이상이면 경고, 90% 이상이면 긴급 알림.
+    """
+    if config.daily_budget_usd <= 0:
+        return False
+
+    try:
+        from datetime import date as _date
+
+        from shared.llm.stats import CostTracker
+        from shared.llm.stats import _DB_PATH as llm_db_path
+
+        if not llm_db_path.exists():
+            return False
+
+        tracker = CostTracker(persist=True)
+        daily = tracker.get_daily_stats(1)
+        tracker.close()
+
+        today = str(_date.today())
+        today_cost = sum(r["cost_usd"] for r in daily if r.get("date") == today)
+
+        pct = today_cost / config.daily_budget_usd * 100
+
+        if pct < 70:
+            return False  # 정상 범위 → 알림 불필요
+
+        summary = format_cost_summary(today_cost, config.daily_budget_usd)
+        today_calls = sum(r["calls"] for r in daily if r.get("date") == today)
+
+        if pct >= 90:
+            message = (
+                f"🔴 *일일 예산 임박!*\n"
+                f"{summary}\n"
+                f"📞 호출: {today_calls}회\n"
+                f"⚠️ Sonnet 비활성화 임계 도달"
+            )
+        else:
+            message = (
+                f"🟡 *일일 비용 경고*\n"
+                f"{summary}\n"
+                f"📞 호출: {today_calls}회"
+            )
+
+        result = send_alert(message, config)
+        if any(r.get("ok") for r in result.values()):
+            log.info(f"일일 비용 알림 전송: {summary}")
+            return True
+        return False
+
+    except Exception as e:
+        log.debug(f"일일 비용 알림 실패: {e}")
+        return False

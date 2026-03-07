@@ -77,10 +77,10 @@ class TestTweetBatch(unittest.TestCase):
 
     def test_batch_with_all_types(self):
         batch = TweetBatch(
-            topic="AI",
-            tweets=[GeneratedTweet("공감", "내용1")],
-            long_posts=[GeneratedTweet("딥다이브", "긴글", content_type="long")],
-            threads_posts=[GeneratedTweet("훅", "Threads글", content_type="threads")],
+            topic="테스트 키워드",
+            tweets=[GeneratedTweet(tweet_type="공감", content="내용1")],
+            long_posts=[GeneratedTweet(tweet_type="딥다이브", content="긴글", content_type="long")],
+            threads_posts=[GeneratedTweet(tweet_type="훅", content="Threads글", content_type="threads")],
             thread=GeneratedThread(tweets=["1", "2", "3"]),
         )
         self.assertEqual(len(batch.tweets), 1)

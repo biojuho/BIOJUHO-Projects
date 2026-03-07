@@ -1,22 +1,18 @@
 """
-getdaytrends v2.1 - Storage Module
+getdaytrends v2.4 - Storage Module
 Notion + Google Sheets + SQLite 저장 라우터.
 Notion API 재시도 로직 (지수 백오프) 포함.
 """
 
-import logging
 import sqlite3
 import time
-import urllib.parse
-import urllib.request
 from datetime import datetime
 from typing import Any, Callable
 
 from config import AppConfig
-from db import save_thread, save_trend, save_tweet
 from models import ScoredTrend, TweetBatch
 
-log = logging.getLogger(__name__)
+from loguru import logger as log
 
 # 저장 방식별 임포트
 try:
@@ -116,16 +112,30 @@ except ImportError:
     GSPREAD_AVAILABLE = False
 
 
-def _fetch_unsplash_image(keyword: str) -> str:
-    """Unsplash에서 키워드 관련 무료 이미지 URL 가져오기."""
+def _notion_page_exists(
+    notion,
+    database_id: str,
+    keyword: str,
+    date_str: str,
+) -> bool:
+    """
+    동일 키워드 + 오늘 날짜의 Notion 페이지가 이미 존재하는지 확인.
+    중복 저장 방지용 멱등성 체크.
+    """
     try:
-        encoded = urllib.parse.quote(keyword)
-        url = f"https://source.unsplash.com/1200x630/?{encoded}"
-        req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            return resp.url  # 리다이렉트된 실제 이미지 URL
+        results = notion.databases.query(
+            database_id=database_id,
+            filter={
+                "and": [
+                    {"property": "주제", "rich_text": {"contains": keyword}},
+                    {"property": "생성시각", "date": {"on_or_after": f"{date_str}T00:00:00"}},
+                ]
+            },
+            page_size=1,
+        )
+        return bool(results.get("results"))
     except Exception:
-        return ""
+        return False  # 조회 실패 시 저장 허용 (안전 방향)
 
 
 def _build_notion_body(
@@ -133,8 +143,38 @@ def _build_notion_body(
     trend: ScoredTrend,
     image_url: str = "",
 ) -> list[dict]:
-    """Notion 페이지 본문 블록 생성."""
+    """노션 페이지 본문 블록 생성.
+    중연 포스팅 큐 지원: 상단 큐 섹션 + 코드블록 복사 + 킥 하이라이트.
+    """
     blocks: list[dict] = []
+    now = datetime.now()
+
+    # ──────────────────────
+    # 중연 포스팅 큐 (포스팅 안하면 포포알니까 좌엱하지말고 복붙)
+    # ──────────────────────
+    hour = now.hour
+    if 6 <= hour < 10:
+        posting_tip = "오전 질주 골든타임 — 지금 올리면 노출 좋음 ⏰"
+    elif 11 <= hour < 14:
+        posting_tip = "점심 골든타임 — 직장인 라이브 피크 ⏰"
+    elif 19 <= hour < 23:
+        posting_tip = "저녁 골든타임 — 돌아오는 직장인 널릶리기 ⏰"
+    else:
+        posting_tip = "최적 포스팅 시간: 오전 7-9시 / 점심 12-13시 / 저녁 20-22시"
+
+    blocks.append({
+        "object": "block",
+        "type": "callout",
+        "callout": {
+            "icon": {"type": "emoji", "emoji": "🎯"},
+            "rich_text": [{"type": "text", "text": {"content":
+                f"오늘의 중연 포스팅 큐 — {batch.topic}\n"
+                f"{posting_tip}\n"
+                f"아래 초안에서 마음에 드는 것을 복사해서 X에 직접 올리세요"
+            }}],
+            "color": "green_background",
+        },
+    })
 
     # 커버 이미지
     if image_url:
@@ -163,14 +203,19 @@ def _build_notion_body(
         },
     })
 
-    # 핵심 인사이트
+    # 킥(Kick) 하이라이트 섹션
     if trend.top_insight:
         blocks.append({
             "object": "block",
-            "type": "quote",
-            "quote": {
-                "rich_text": [{"type": "text", "text": {"content": f"💡 {trend.top_insight}"}}],
-                "color": "default",
+            "type": "callout",
+            "callout": {
+                "icon": {"type": "emoji", "emoji": "💥"},
+                "rich_text": [{
+                    "type": "text",
+                    "text": {"content": f"이 트렌드의 킥(Kick)\n{trend.top_insight}"},
+                    "annotations": {"bold": True},
+                }],
+                "color": "yellow_background",
             },
         })
 
@@ -181,15 +226,23 @@ def _build_notion_body(
         "object": "block",
         "type": "heading_2",
         "heading_2": {
-            "rich_text": [{"type": "text", "text": {"content": "✍️ 트윗 시안 (5종)"}}],
+            "rich_text": [{"type": "text", "text": {"content": "✍️ 트윗 시안 (5종) — 아래에서 선택 후 X에 복붙"}}],
         },
     })
 
+    # 중연 타입 + 기존 타입 모두 커버
     tweet_icons = {
+        # 중연 전용
         "공감 유도형": "💬",
-        "가벼운 꿀팁형": "💡",
+        "꿀팁형": "💡",
         "찬반 질문형": "⚖️",
+        "시크한 관찰형": "🔍",
+        "핫테이크형": "🔥",
+        # 기존 타입
+        "가벼운 꿀팁형": "💡",
+        "동기부여형": "🔥",
         "동기부여/명언형": "🔥",
+        "유머/밈형": "😂",
         "유머/밈 활용형": "😂",
     }
 
@@ -200,33 +253,20 @@ def _build_notion_body(
             "object": "block",
             "type": "heading_3",
             "heading_3": {
-                "rich_text": [{"type": "text", "text": {"content": f"{icon} {tweet.tweet_type}"}}],
+                "rich_text": [{"type": "text", "text": {"content": f"{icon} {tweet.tweet_type} ({tweet.char_count}자)"}}],
             },
         })
-        # 트윗 내용 (코드블록으로 복사하기 쉽게)
+        # 트윗 내용 — code 블록으로 복사 편의성 제공
         blocks.append({
             "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "🐦"},
+            "type": "code",
+            "code": {
+                "language": "plain text",
                 "rich_text": [{"type": "text", "text": {"content": tweet.content}}],
-                "color": "default",
-            },
-        })
-        # 글자수
-        blocks.append({
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {
-                "rich_text": [{
-                    "type": "text",
-                    "text": {"content": f"📏 {tweet.char_count}자"},
-                    "annotations": {"color": "gray"},
-                }],
             },
         })
 
-    # 쓰레드 섹션
+    # 쓰레드 섹선
     if batch.thread and batch.thread.tweets:
         blocks.append({"object": "block", "type": "divider", "divider": {}})
         blocks.append({
@@ -237,22 +277,20 @@ def _build_notion_body(
             },
         })
         for i, text in enumerate(batch.thread.tweets):
-            label = "🪝 Hook" if i == 0 else f"📌 {i + 1}/{len(batch.thread.tweets)}"
-            callout_text = f"{label}\n{text}"[:1900]
+            label = "🪧 Hook" if i == 0 else f"📌 {i + 1}/{len(batch.thread.tweets)}"
             blocks.append({
                 "object": "block",
-                "type": "callout",
-                "callout": {
-                    "icon": {"type": "emoji", "emoji": "🧵" if i > 0 else "🪝"},
+                "type": "code",
+                "code": {
+                    "language": "plain text",
                     "rich_text": [{
                         "type": "text",
-                        "text": {"content": callout_text},
+                        "text": {"content": f"{label}\n{text}"[:1900]},
                     }],
-                    "color": "yellow_background" if i == 0 else "default",
                 },
             })
 
-    # 컨텍스트 데이터 섹션
+    # 콘텍스트 데이터 섹선
     if trend.context:
         combined = trend.context.to_combined_text()
         if combined:
@@ -279,7 +317,7 @@ def _build_notion_body(
             "object": "block",
             "type": "heading_2",
             "heading_2": {
-                "rich_text": [{"type": "text", "text": {"content": "🎯 추천 앵글"}}],
+                "rich_text": [{"type": "text", "text": {"content": "🎯 추청 앵글 (다음 포스트 아이디어)"}}],
             },
         })
         for angle in trend.suggested_angles:
@@ -334,11 +372,10 @@ def _build_notion_body(
         for post in batch.threads_posts:
             blocks.append({
                 "object": "block",
-                "type": "callout",
-                "callout": {
-                    "icon": {"type": "emoji", "emoji": "📱"},
+                "type": "code",
+                "code": {
+                    "language": "plain text",
                     "rich_text": [{"type": "text", "text": {"content": f"[{post.tweet_type}]\n{post.content}"[:1900]}}],
-                    "color": "purple_background",
                 },
             })
 
@@ -357,9 +394,16 @@ def save_to_notion(
 
     notion = NotionClient(auth=config.notion_token)
     now = datetime.now()
-    tweet_map = {t.tweet_type: t.content for t in batch.tweets}
 
+    # 멱등성 체크: 오늘 날짜에 동일 키워드가 이미 저장된 경우 스킵
+    today_str = now.strftime("%Y-%m-%d")
+    if _notion_page_exists(notion, config.notion_database_id, batch.topic, today_str):
+        log.info(f"Notion 중복 스킵: '{batch.topic}' (오늘 이미 저장됨)")
+        return True
+
+    tweet_map = {t.tweet_type: t.content for t in batch.tweets}
     title = f"[트렌드 #{trend.rank}] {batch.topic} — {now.strftime('%Y-%m-%d %H:%M')}"
+    image_url = ""  # Unsplash deprecated — 이미지 없이 저장
 
     properties = {
         "제목": {"title": [{"text": {"content": title}}]},
@@ -383,27 +427,16 @@ def save_to_notion(
             "rich_text": [{"text": {"content": thread_text[:1900]}}]
         }
 
-    # 이미지 가져오기
-    image_url = _fetch_unsplash_image(batch.topic)
-
     # 본문 블록 생성
     body_blocks = _build_notion_body(batch, trend, image_url)
 
-    # 커버 이미지 설정
-    cover = None
-    if image_url:
-        cover = {"type": "external", "external": {"url": image_url}}
-
     try:
-        create_args = {
-            "parent": {"database_id": config.notion_database_id},
-            "properties": properties,
-            "children": body_blocks,
-        }
-        if cover:
-            create_args["cover"] = cover
-
-        _retry_notion_call(notion.pages.create, **create_args)
+        _retry_notion_call(
+            notion.pages.create,
+            parent={"database_id": config.notion_database_id},
+            properties=properties,
+            children=body_blocks,
+        )
         log.info(f"Notion 저장 완료: '{title}' (본문 {len(body_blocks)}블록)")
         return True
     except Exception as e:
@@ -430,8 +463,7 @@ def save_to_google_sheets(
         gc = gspread.authorize(creds)
         sheet = gc.open_by_key(config.google_sheet_id).sheet1
 
-        existing = sheet.get_all_values()
-        if not existing:
+        if sheet.row_count == 0 or not sheet.cell(1, 1).value:
             headers = [
                 "생성시각", "순위", "주제",
                 "공감유도형", "꿀팁형", "찬반질문형", "명언형", "유머밈형",
@@ -469,60 +501,3 @@ def save_to_google_sheets(
         return False
 
 
-def save_to_sqlite(
-    batch: TweetBatch,
-    trend: ScoredTrend,
-    run_id: int,
-    conn: sqlite3.Connection,
-) -> bool:
-    """SQLite 히스토리 DB에 저장 (항상 활성)."""
-    try:
-        trend_row_id = save_trend(conn, trend, run_id)
-
-        saved_to_list = ["sqlite"]
-        for tweet in batch.tweets:
-            save_tweet(conn, tweet, trend_row_id, run_id, saved_to_list)
-
-        # 장문 포스트 저장
-        for post in batch.long_posts:
-            save_tweet(conn, post, trend_row_id, run_id, saved_to_list)
-
-        # Threads 포스트 저장
-        for post in batch.threads_posts:
-            save_tweet(conn, post, trend_row_id, run_id, saved_to_list)
-
-        if batch.thread:
-            save_thread(conn, batch.thread, trend_row_id, run_id)
-
-        log.info(f"SQLite 저장 완료: '{batch.topic}' (단문 {len(batch.tweets)} + 장문 {len(batch.long_posts)} + Threads {len(batch.threads_posts)})")
-        return True
-    except Exception as e:
-        log.error(f"SQLite 저장 실패: {e}")
-        return False
-
-
-def save(
-    batch: TweetBatch,
-    trend: ScoredTrend,
-    run_id: int,
-    config: AppConfig,
-    conn: sqlite3.Connection,
-) -> bool:
-    """
-    저장 라우터. SQLite는 항상 저장.
-    storage_type에 따라 Notion/Sheets 추가 저장.
-    """
-    # SQLite는 항상 저장
-    sqlite_ok = save_to_sqlite(batch, trend, run_id, conn)
-
-    if config.dry_run:
-        log.info("(dry-run 모드: 외부 저장 건너뜀)")
-        return sqlite_ok
-
-    external_ok = True
-    if config.storage_type in ("notion", "both"):
-        external_ok = save_to_notion(batch, trend, config) and external_ok
-    if config.storage_type in ("google_sheets", "both"):
-        external_ok = save_to_google_sheets(batch, trend, config) and external_ok
-
-    return sqlite_ok and external_ok
