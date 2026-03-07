@@ -7,6 +7,8 @@ def test_settings_support_legacy_aliases(monkeypatch):
     get_settings.cache_clear()
     monkeypatch.setenv("NOTION_API_KEY", "secret-test")
     monkeypatch.delenv("NOTION_TASKS_DATABASE_ID", raising=False)
+    monkeypatch.delenv("NOTION_REPORTS_DATABASE_ID", raising=False)
+    monkeypatch.delenv("NOTION_DASHBOARD_PAGE_ID", raising=False)
     monkeypatch.setenv("ANTIGRAVITY_TASKS_DB_ID", "legacy-tasks-db")
     monkeypatch.setenv("ANTIGRAVITY_NEWS_DB_ID", "legacy-reports-db")
     monkeypatch.setenv("DASHBOARD_PAGE_ID", "legacy-dashboard")
