@@ -1,0 +1,45 @@
+name: AgriGuard Quality Gate
+
+on:
+  push:
+    paths:
+      - 'AgriGuard/**'
+  pull_request:
+    paths:
+      - 'AgriGuard/**'
+
+defaults:
+  run:
+    working-directory: AgriGuard/frontend
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: AgriGuard/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit Tests
+        run: npm run test
+
+      - name: Build (LTS)
+        run: npm run build:lts
+
+      - name: Bundle Budget Check
+        run: npm run check:bundle
