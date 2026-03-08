@@ -1,0 +1,262 @@
+{
+  "timestamp": "2026-03-08T09:42:29.108080",
+  "version": "2.0",
+  "workspace": "D:\\AI 프로젝트",
+  "projects": [
+    {
+      "name": "getdaytrends",
+      "type": "python",
+      "checks": [
+        {
+          "name": "config",
+          "ok": true,
+          "message": "✅ getdaytrends/config.py"
+        },
+        {
+          "name": "main",
+          "ok": true,
+          "message": "✅ getdaytrends/main.py"
+        },
+        {
+          "name": "db_dir",
+          "ok": true,
+          "message": "✅ getdaytrends/data"
+        }
+      ],
+      "imports": [
+        {
+          "package": "anthropic",
+          "ok": true,
+          "message": "✅ anthropic"
+        },
+        {
+          "package": "httpx",
+          "ok": true,
+          "message": "✅ httpx"
+        },
+        {
+          "package": "aiosqlite",
+          "ok": true,
+          "message": "✅ aiosqlite"
+        }
+      ],
+      "drift": [
+        {
+          "package": "selectolax",
+          "required": "any",
+          "installed": "NOT FOUND",
+          "drift": "MISSING"
+        }
+      ],
+      "healthy": true
+    },
+    {
+      "name": "DailyNews",
+      "type": "python",
+      "checks": [
+        {
+          "name": "server",
+          "ok": true,
+          "message": "✅ DailyNews/server.py"
+        },
+        {
+          "name": "config",
+          "ok": true,
+          "message": "✅ DailyNews/config"
+        }
+      ],
+      "imports": [
+        {
+          "package": "notion_client",
+          "ok": true,
+          "message": "✅ notion_client"
+        }
+      ],
+      "drift": [],
+      "healthy": true
+    },
+    {
+      "name": "desci-backend",
+      "type": "python",
+      "checks": [
+        {
+          "name": "main",
+          "ok": true,
+          "message": "✅ desci-platform/biolinker/main.py"
+        },
+        {
+          "name": "requirements",
+          "ok": true,
+          "message": "✅ desci-platform/biolinker/requirements.txt"
+        }
+      ],
+      "imports": [
+        {
+          "package": "fastapi",
+          "ok": true,
+          "message": "✅ fastapi"
+        },
+        {
+          "package": "uvicorn",
+          "ok": true,
+          "message": "✅ uvicorn"
+        }
+      ],
+      "drift": [],
+      "healthy": true
+    },
+    {
+      "name": "desci-frontend",
+      "type": "node",
+      "checks": [
+        {
+          "name": "package",
+          "ok": true,
+          "message": "✅ desci-platform/frontend/package.json"
+        },
+        {
+          "name": "src",
+          "ok": true,
+          "message": "✅ desci-platform/frontend/src"
+        }
+      ],
+      "imports": [],
+      "drift": [],
+      "healthy": true
+    },
+    {
+      "name": "AgriGuard-backend",
+      "type": "python",
+      "checks": [
+        {
+          "name": "main",
+          "ok": true,
+          "message": "✅ AgriGuard/backend/main.py"
+        },
+        {
+          "name": "requirements",
+          "ok": true,
+          "message": "✅ AgriGuard/backend/requirements.txt"
+        }
+      ],
+      "imports": [
+        {
+          "package": "fastapi",
+          "ok": true,
+          "message": "✅ fastapi"
+        },
+        {
+          "package": "sqlalchemy",
+          "ok": true,
+          "message": "✅ sqlalchemy"
+        }
+      ],
+      "drift": [
+        {
+          "package": "psycopg2_binary",
+          "required": "any",
+          "installed": "NOT FOUND",
+          "drift": "MISSING"
+        },
+        {
+          "package": "alembic",
+          "required": "any",
+          "installed": "NOT FOUND",
+          "drift": "MISSING"
+        },
+        {
+          "package": "aiomqtt",
+          "required": "any",
+          "installed": "NOT FOUND",
+          "drift": "MISSING"
+        }
+      ],
+      "healthy": true
+    },
+    {
+      "name": "AgriGuard-frontend",
+      "type": "node",
+      "checks": [
+        {
+          "name": "package",
+          "ok": true,
+          "message": "✅ AgriGuard/frontend/package.json"
+        },
+        {
+          "name": "src",
+          "ok": true,
+          "message": "✅ AgriGuard/frontend/src"
+        }
+      ],
+      "imports": [],
+      "drift": [],
+      "healthy": true
+    }
+  ],
+  "git": {
+    "uncommitted_changes": 25,
+    "files": [
+      "M .pre-commit-config.yaml",
+      " M DailyNews/config/news_sources.json",
+      " M DailyNews/output/daily_tweets_2026-03-07_test.txt",
+      " M DailyNews/scripts/news_bot.py",
+      " M DailyNews/src/antigravity_mcp/pipelines/collect.py",
+      " m canva-mcp",
+      " M pytest.ini",
+      "?? .coverage",
+      "?? .env.example",
+      "?? .github/CODEOWNERS"
+    ]
+  },
+  "env_files": [
+    {
+      "example": ".env.example",
+      "env_exists": true
+    },
+    {
+      "example": "AgriGuard\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "canva-mcp\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "DailyNews\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "desci-platform\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "getdaytrends\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "desci-platform\\backend\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "desci-platform\\biolinker\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "desci-platform\\contracts\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "desci-platform\\frontend\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "AgriGuard\\backend\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "AgriGuard\\frontend\\.env.example",
+      "env_exists": false
+    }
+  ],
+  "status_changes": []
+}

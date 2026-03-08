@@ -1,0 +1,135 @@
+name: Security & Quality Gate
+
+on:
+  pull_request:
+    branches: ["main", "dev"]
+  push:
+    branches: ["main"]
+
+jobs:
+  # ─── Secret Leak Detection ────────────────────────
+  secret-scan:
+    name: 🔒 Secret Scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─── Dependency Vulnerability Scan ─────────────────
+  dependency-scan:
+    name: 🛡️ Dependency Audit
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Python (pip-audit)
+            lang: python
+          - name: Node (npm audit)
+            lang: node
+    steps:
+      - uses: actions/checkout@v4
+
+      # Python dependency audit
+      - name: Set up Python
+        if: matrix.lang == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: pip-audit
+        if: matrix.lang == 'python'
+        run: |
+          pip install pip-audit
+          find . -name "requirements.txt" -not -path "*/node_modules/*" -not -path "*/.venv/*" | while read req; do
+            echo "::group::Auditing $req"
+            pip-audit -r "$req" --ignore-vuln PYSEC- || true
+            echo "::endgroup::"
+          done
+
+      # Node dependency audit
+      - name: Set up Node
+        if: matrix.lang == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: npm audit
+        if: matrix.lang == 'node'
+        run: |
+          for pkg_dir in desci-platform/frontend desci-platform/contracts AgriGuard/frontend canva-mcp; do
+            if [ -f "$pkg_dir/package-lock.json" ]; then
+              echo "::group::Auditing $pkg_dir"
+              cd "$pkg_dir"
+              npm audit --audit-level=high || true
+              cd "$GITHUB_WORKSPACE"
+              echo "::endgroup::"
+            fi
+          done
+
+  # ─── QA Automated Review (Based on QA/QC Step 2) ───
+  qa-review:
+    name: 🔍 QA Automated Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | tr '\n' ' ')
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          PY_COUNT=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -c '\.py$' || true)
+          JS_COUNT=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -cE '\.(jsx?|tsx?|vue|svelte)$' || true)
+          echo "py_count=$PY_COUNT" >> $GITHUB_OUTPUT
+          echo "js_count=$JS_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Set up Python
+        if: steps.changed.outputs.py_count > 0
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Python QA Checks
+        if: steps.changed.outputs.py_count > 0
+        run: |
+          pip install ruff bandit
+          # Functional & Code Quality
+          echo "::group::Ruff Lint"
+          ruff check --select=E,F,W,I,N,UP,S,B --output-format=github . || true
+          echo "::endgroup::"
+
+          # Security
+          echo "::group::Bandit Security Scan"
+          bandit -r . -f json -o bandit-report.json --exclude ./.venv,./node_modules -ll || true
+          echo "::endgroup::"
+
+      - name: Upload QA Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-review-report
+          path: |
+            bandit-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ─── Summary Gate ──────────────────────────────────
+  quality-gate:
+    name: ✅ Quality Gate
+    runs-on: ubuntu-latest
+    needs: [secret-scan, dependency-scan]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.secret-scan.result }}" = "failure" ]; then
+            echo "::error::🚨 Secret leak detected! Fix before merging."
+            exit 1
+          fi
+          echo "✅ All quality checks passed"

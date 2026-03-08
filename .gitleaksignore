@@ -1,0 +1,19 @@
+# .gitleaksignore - 허용된 시크릿 패턴
+# .env 파일은 .gitignore에 의해 추적되지 않으므로 스캔 제외
+# .venv, node_modules 등 서드파티 패키지도 제외
+
+# 서드파티 패키지의 테스트 픽스처
+.venv/
+
+# node_modules
+node_modules/
+
+# 빌드 아티팩트
+**/dist/
+
+# 스킬 문서의 예시 토큰 (실제 키 아님)
+.agents/skills/whatsmolt/SKILL.md
+.agents/skills/clawshot/README.md
+
+# chain_simulator의 테스트용 고정 주소 (Hardhat 테스트 키)
+AgriGuard/backend/services/chain_simulator.py

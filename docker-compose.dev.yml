@@ -1,0 +1,103 @@
+# ===================================================
+# 로컬 개발 통합 환경 (Docker Compose)
+# 전 프로젝트를 한 번에 실행하는 개발용 Compose 파일
+# 사용법: docker compose -f docker-compose.dev.yml up
+# ===================================================
+
+services:
+  # ─── DeSci Backend (BioLinker) ─────────────────────
+  desci-backend:
+    build:
+      context: ./desci-platform/biolinker
+      dockerfile: Dockerfile
+    container_name: desci-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+      - desci-platform/biolinker/.env
+    environment:
+      - ENV=development
+      - ALLOW_TEST_BYPASS=true
+    volumes:
+      - ./desci-platform/biolinker:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── DeSci Frontend ────────────────────────────────
+  desci-frontend:
+    build:
+      context: ./desci-platform/frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: desci-frontend
+    ports:
+      - "5173:5173"
+    env_file:
+      - desci-platform/frontend/.env
+    environment:
+      - VITE_API_BASE_URL=http://desci-backend:8000
+    volumes:
+      - ./desci-platform/frontend/src:/app/src
+    depends_on:
+      desci-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── AgriGuard Backend ─────────────────────────────
+  agriguard-backend:
+    build:
+      context: ./AgriGuard/backend
+      dockerfile: Dockerfile
+    container_name: agriguard-backend
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+      - AgriGuard/backend/.env
+    environment:
+      - ENV=development
+      - ALLOW_TEST_BYPASS=true
+    volumes:
+      - ./AgriGuard/backend:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── AgriGuard Frontend ────────────────────────────
+  agriguard-frontend:
+    build:
+      context: ./AgriGuard/frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: agriguard-frontend
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./AgriGuard/frontend/src:/app/src
+    depends_on:
+      agriguard-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Nginx Reverse Proxy (Optional) ────────────────
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: dev-proxy
+    ports:
+      - "80:80"
+    depends_on:
+      - desci-frontend
+      - agriguard-frontend
+    restart: unless-stopped
+    profiles:
+      - full  # docker compose --profile full up 으로만 실행

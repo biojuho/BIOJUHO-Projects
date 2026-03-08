@@ -1,0 +1,27 @@
+# CODEOWNERS - GitHub Pull Request 자동 리뷰어 지정
+# 각 프로젝트 영역별 코드 오너를 지정하여 관련 변경 시 자동으로 리뷰 요청
+
+# ─── 전체 워크스페이스 ───────────────────────────────
+*                           @biojuho
+
+# ─── DeSci Platform ─────────────────────────────────
+/desci-platform/biolinker/  @biojuho
+/desci-platform/frontend/   @biojuho
+/desci-platform/contracts/  @biojuho
+
+# ─── AgriGuard ───────────────────────────────────────
+/AgriGuard/                 @biojuho
+
+# ─── Automation Projects ─────────────────────────────
+/getdaytrends/              @biojuho
+/DailyNews/                 @biojuho
+
+# ─── Infrastructure & CI ─────────────────────────────
+/.github/                   @biojuho
+/.pre-commit-config.yaml    @biojuho
+/shared/                    @biojuho
+
+# ─── MCP Tools ───────────────────────────────────────
+/canva-mcp/                 @biojuho
+/github-mcp/                @biojuho
+/notebooklm-mcp/            @biojuho
