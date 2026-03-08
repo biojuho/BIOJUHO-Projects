@@ -379,6 +379,87 @@ def _build_notion_body(
                 },
             })
 
+    # [v12.0] 네이버 블로그 글감
+    if batch.blog_posts:
+        blocks.append({"object": "block", "type": "divider", "divider": {}})
+        blocks.append({
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {
+                "rich_text": [{"type": "text", "text": {"content": "📝 네이버 블로그 글감"}}],
+            },
+        })
+        for post in batch.blog_posts:
+            # SEO 키워드 정보
+            seo_kws = getattr(post, "seo_keywords", [])
+            if seo_kws:
+                blocks.append({
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "icon": {"type": "emoji", "emoji": "🔑"},
+                        "rich_text": [{"type": "text", "text": {"content":
+                            f"SEO 키워드: {', '.join(seo_kws)}\n"
+                            f"글자 수: {post.char_count:,}자"
+                        }}],
+                        "color": "purple_background",
+                    },
+                })
+            # 블로그 본문 (마크다운 → 줄별 파싱)
+            content = post.content
+            lines = content.split("\n")
+            for line in lines:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                # 마크다운 헤딩 변환
+                if stripped.startswith("# "):
+                    blocks.append({
+                        "object": "block",
+                        "type": "heading_1",
+                        "heading_1": {
+                            "rich_text": [{"type": "text", "text": {"content": stripped[2:]}}],
+                        },
+                    })
+                elif stripped.startswith("## "):
+                    blocks.append({
+                        "object": "block",
+                        "type": "heading_2",
+                        "heading_2": {
+                            "rich_text": [{"type": "text", "text": {"content": stripped[3:]}}],
+                        },
+                    })
+                elif stripped.startswith("### "):
+                    blocks.append({
+                        "object": "block",
+                        "type": "heading_3",
+                        "heading_3": {
+                            "rich_text": [{"type": "text", "text": {"content": stripped[4:]}}],
+                        },
+                    })
+                elif stripped.startswith("- "):
+                    blocks.append({
+                        "object": "block",
+                        "type": "bulleted_list_item",
+                        "bulleted_list_item": {
+                            "rich_text": [{"type": "text", "text": {"content": stripped[2:][:1900]}}],
+                        },
+                    })
+                elif stripped.startswith("---"):
+                    blocks.append({"object": "block", "type": "divider", "divider": {}})
+                else:
+                    # 일반 단락 (2000자 제한 분할)
+                    text = stripped
+                    while text:
+                        chunk, text = text[:1900], text[1900:]
+                        blocks.append({
+                            "object": "block",
+                            "type": "paragraph",
+                            "paragraph": {
+                                "rich_text": [{"type": "text", "text": {"content": chunk}}],
+                            },
+                        })
+
     return blocks
 
 
@@ -420,6 +501,18 @@ def save_to_notion(
 
     properties["바이럴점수"] = {"number": trend.viral_potential}
 
+    # [v12.0] 플랫폼 태그
+    platforms = getattr(config, "target_platforms", ["x"])
+    platform_tags = []
+    if "x" in platforms:
+        platform_tags.append({"name": "X"})
+    if "threads" in platforms and batch.threads_posts:
+        platform_tags.append({"name": "Threads"})
+    if "naver_blog" in platforms and batch.blog_posts:
+        platform_tags.append({"name": "NaverBlog"})
+    if platform_tags:
+        properties["플랫폼"] = {"multi_select": platform_tags}
+
     if batch.thread:
         thread_text = "\n---\n".join(batch.thread.tweets)
         # Notion은 UTF-16 코드 유닛 기준 2000자 제한 (이모지=2유닛)
@@ -441,6 +534,184 @@ def save_to_notion(
         return True
     except Exception as e:
         log.error(f"Notion 저장 실패: {e}")
+        return False
+
+
+def save_to_content_hub(
+    batch: TweetBatch,
+    trend: ScoredTrend,
+    config: AppConfig,
+    platform: str = "x",
+) -> bool:
+    """[v12.0] Content Hub DB에 플랫폼별 글감 저장.
+
+    하나의 트렌드에서 플랫폼별로 개별 Notion 페이지를 생성.
+    Content Hub DB는 통합 뷰를 제공하며, 각 페이지는 플랫폼별로 태깅됨.
+
+    Args:
+        batch: 생성된 콘텐츠 배치
+        trend: 분석된 트렌드
+        config: 앱 설정
+        platform: 대상 플랫폼 ("x" | "threads" | "naver_blog")
+    """
+    hub_db_id = getattr(config, "content_hub_database_id", "")
+    if not hub_db_id:
+        return False  # Content Hub 미설정 시 건너뜀
+
+    if not NOTION_AVAILABLE:
+        log.error("notion-client 패키지가 설치되지 않았습니다")
+        return False
+
+    notion = NotionClient(auth=config.notion_token)
+    now = datetime.now()
+
+    # 플랫폼별 제목 포맷
+    platform_emoji = {"x": "🐦", "threads": "🧵", "naver_blog": "📝"}.get(platform, "📋")
+    platform_label = {"x": "X", "threads": "Threads", "naver_blog": "NaverBlog"}.get(platform, platform)
+    title = f"{platform_emoji} [{platform_label}] {batch.topic} — {now.strftime('%m/%d %H:%M')}"
+
+    # 플랫폼별 상태: 블로그는 'Draft'(구조화 필요), 나머지는 'Ready'
+    status = "Draft" if platform == "naver_blog" else "Ready"
+    category = getattr(trend, "category", "기타") or "기타"
+
+    # Notion API v2: 기본 Name 속성만 사용, 메타데이터는 본문에 포함
+    properties = {
+        "Name": {"title": [{"text": {"content": title}}]},
+    }
+
+    # 플랫폼별 바디 빌드 — 메타데이터 callout을 항상 맨 위에 추가
+    blocks: list[dict] = []
+
+    # 공통 메타데이터 callout
+    meta_text = (
+        f"Platform: {platform_label} | Status: {status}\n"
+        f"Category: {category} | Viral: {trend.viral_potential}/100\n"
+        f"Source: {batch.topic[:60]}\n"
+        f"Pipeline: run-{now.strftime('%Y%m%d-%H%M')}"
+    )
+    if batch.viral_score > 0:
+        meta_text += f" | QA: {batch.viral_score}"
+    blocks.append({
+        "object": "block",
+        "type": "callout",
+        "callout": {
+            "icon": {"type": "emoji", "emoji": platform_emoji},
+            "rich_text": [{"type": "text", "text": {"content": meta_text}}],
+            "color": {"x": "blue_background", "threads": "purple_background",
+                       "naver_blog": "green_background"}.get(platform, "gray_background"),
+        },
+    })
+
+    if platform == "x":
+        # X 콘텐츠: 트윗 5종 + 장문 + 쓰레드
+        blocks.extend(_build_notion_body(batch, trend))
+
+    elif platform == "threads":
+        # Threads 전용 바디
+        blocks.append({
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "icon": {"type": "emoji", "emoji": "🧵"},
+                "rich_text": [{"type": "text", "text": {"content":
+                    f"Threads 글감 — {batch.topic}\n"
+                    f"톤: friend-to-friend | 바이럴 점수: {trend.viral_potential}/100\n"
+                    "아래 포스트에서 마음에 드는 것을 복사해서 Threads에 올리세요"
+                }}],
+                "color": "purple_background",
+            },
+        })
+        for post in batch.threads_posts:
+            blocks.append({
+                "object": "block",
+                "type": "heading_3",
+                "heading_3": {
+                    "rich_text": [{"type": "text", "text": {"content": f"💜 {post.tweet_type}"}}],
+                },
+            })
+            blocks.append({
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "language": "plain text",
+                    "rich_text": [{"type": "text", "text": {"content": post.content[:1900]}}],
+                },
+            })
+
+    elif platform == "naver_blog":
+        # 블로그 전용 바디 (이미 _build_notion_body에 포함되지만 독립 페이지 시 전용 구성)
+        blocks.append({
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "icon": {"type": "emoji", "emoji": "📝"},
+                "rich_text": [{"type": "text", "text": {"content":
+                    f"네이버 블로그용 글감 — {batch.topic}\n"
+                    f"바이럴 점수: {trend.viral_potential}/100 | 카테고리: {getattr(trend, 'category', '기타')}\n"
+                    "아래 글감을 네이버 블로그에 복사하여 발행하세요"
+                }}],
+                "color": "green_background",
+            },
+        })
+        for post in batch.blog_posts:
+            seo_kws = getattr(post, "seo_keywords", [])
+            if seo_kws:
+                blocks.append({
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "icon": {"type": "emoji", "emoji": "🔑"},
+                        "rich_text": [{"type": "text", "text": {"content":
+                            f"SEO 키워드: {', '.join(seo_kws)}\n글자 수: {post.char_count:,}자"
+                        }}],
+                        "color": "purple_background",
+                    },
+                })
+            # 블로그 본문 렌더링
+            for line in post.content.split("\n"):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                if stripped.startswith("# "):
+                    blocks.append({"object": "block", "type": "heading_1",
+                        "heading_1": {"rich_text": [{"type": "text", "text": {"content": stripped[2:]}}]}})
+                elif stripped.startswith("## "):
+                    blocks.append({"object": "block", "type": "heading_2",
+                        "heading_2": {"rich_text": [{"type": "text", "text": {"content": stripped[3:]}}]}})
+                elif stripped.startswith("- "):
+                    blocks.append({"object": "block", "type": "bulleted_list_item",
+                        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": stripped[2:][:1900]}}]}})
+                elif stripped.startswith("---"):
+                    blocks.append({"object": "block", "type": "divider", "divider": {}})
+                else:
+                    text = stripped
+                    while text:
+                        chunk, text = text[:1900], text[1900:]
+                        blocks.append({"object": "block", "type": "paragraph",
+                            "paragraph": {"rich_text": [{"type": "text", "text": {"content": chunk}}]}})
+
+    # Notion 100블록 제한 방지
+    if len(blocks) > 100:
+        blocks = blocks[:99]
+        blocks.append({
+            "object": "block",
+            "type": "paragraph",
+            "paragraph": {
+                "rich_text": [{"type": "text", "text": {"content": "⚠️ 100블록 제한으로 일부 내용 생략"}}],
+            },
+        })
+
+    try:
+        _retry_notion_call(
+            notion.pages.create,
+            parent={"database_id": hub_db_id},
+            properties=properties,
+            children=blocks,
+        )
+        log.info(f"Content Hub 저장: [{platform_label}] '{batch.topic}' ({len(blocks)}블록)")
+        return True
+    except Exception as e:
+        log.error(f"Content Hub 저장 실패 [{platform_label}]: {e}")
         return False
 
 

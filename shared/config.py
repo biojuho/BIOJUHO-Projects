@@ -43,6 +43,7 @@ def get_project_root(name: str) -> Path:
         "canva_mcp": WORKSPACE_ROOT / "canva-mcp",
         "notebooklm": WORKSPACE_ROOT / "notebooklm-mcp",
         "github_mcp": WORKSPACE_ROOT / "github-mcp",
+        "content_intelligence": WORKSPACE_ROOT / "content-intelligence",
     }
     key = name.lower().replace("-", "_").replace(" ", "_")
     if key not in known_projects:

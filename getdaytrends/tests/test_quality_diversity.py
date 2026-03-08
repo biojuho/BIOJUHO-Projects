@@ -93,8 +93,10 @@ def test_ensure_min_article_count(config):
     ]
 
     result = _ensure_quality_and_diversity(trends, config)
-    assert len(result) >= 5
-    assert len(result) <= 6
+    # floor_score = 60 * 0.75 = 45, viral 45 이상만 보충 가능
+    # 트렌드1(55), 트렌드2(50), 트렌드3(45)가 floor 이상
+    assert len(result) >= 3
+    assert len(result) <= 5
 
 
 def test_ensure_min_with_sufficient_trends(config):
@@ -110,7 +112,7 @@ def test_ensure_min_with_sufficient_trends(config):
     ]
 
     result = _ensure_quality_and_diversity(trends, config)
-    assert len(result) == 4
+    assert len(result) == 4  # 29점은 floor_score(45) 미만으로 여전히 제외
 
 
 def test_category_diversity(config):
@@ -274,6 +276,26 @@ def test_exclude_all_leaves_empty(config):
 
     result = _ensure_quality_and_diversity(trends, config)
     assert result == []
+
+
+def test_publishable_false_excluded(config):
+    """[v13.0] publishable=false 트렌드는 결과에서 제외."""
+    from main import _ensure_quality_and_diversity
+
+    trends = [
+        _make_trend("정상트렌드", viral=90, category="테크"),
+        _make_trend("문장조각", viral=85, category="기타"),
+        _make_trend("오타키워드", viral=80, category="연예"),
+    ]
+    # publishable=false 설정
+    trends[1].publishable = False
+    trends[1].publishability_reason = "문장 조각"
+
+    result = _ensure_quality_and_diversity(trends, config)
+    result_keywords = [t.keyword for t in result]
+    assert "문장조각" not in result_keywords
+    assert "정상트렌드" in result_keywords
+    assert "오타키워드" in result_keywords
 
 
 # ══════════════════════════════════════════════════════
@@ -520,7 +542,7 @@ async def test_record_content_feedback_regenerated(conn):
 def test_v6_config_defaults():
     """v6.0 설정 기본값 확인."""
     cfg = AppConfig()
-    assert cfg.min_article_count == 5
+    assert cfg.min_article_count == 3  # [v13.0] 5→3으로 변경
     assert cfg.max_same_category == 2
     assert cfg.enable_quality_feedback is True
     assert cfg.quality_feedback_min_score == 50

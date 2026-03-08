@@ -77,7 +77,7 @@ class AppConfig:
     threads_min_score: int = 65     # 이상만 Meta Threads 생성
     min_viral_score: int = 60       # 품질 필터: 미만이면 콘텐츠 생성 건너뜀 [기존 55 → 60]
     max_workers: int = 10           # 동시 HTTP 요청 수 [기존 6 → 10]
-    daily_budget_usd: float = 2.0   # 일 예산 상한 ($). 초과 시 Sonnet 자동 비활성화
+    daily_budget_usd: float = 3.0   # 일 예산 상한 ($). 초과 시 Sonnet 자동 비활성화 [v13.0: $2→$3]
     # 카테고리별 LLM 티어 라우팅: 해당 카테고리만 Sonnet(HEAVY) 사용, 나머지는 Haiku
     heavy_categories: list = field(default_factory=lambda: [
         "정치", "경제", "테크", "사회", "국제", "과학", "의학", "법률"
@@ -135,7 +135,7 @@ class AppConfig:
     # ===================================================
     # [v6.0] 품질 피드백 루프 + 카테고리 다양성
     # ===================================================
-    min_article_count: int = 5                     # 파이프라인 최소 기사 수 보장
+    min_article_count: int = 3                     # 파이프라인 최소 기사 수 보장 [v13.0: 5→3, 저품질 강제포함 방지]
     max_same_category: int = 2                     # 동일 카테고리 최대 기사 수
     enable_quality_feedback: bool = True            # 생성 후 LLM 품질 검증 활성화
     quality_feedback_min_score: int = 50            # QA 점수 이 미만이면 재생성
@@ -171,6 +171,15 @@ class AppConfig:
     generation_mode_override: str = ""        # "" = auto | "full" = 장문 포함 | "lite" = 단문만
 
     # ===================================================
+    # [v10.0] Phase 1: 컨텍스트 강화
+    # ===================================================
+    require_context: bool = True             # True=컨텍스트 없으면 생성 안 함 (필수화)
+    cache_ttl_rising: int = 2                # 상승중 트렌드 캐시 TTL (시간)
+    cache_ttl_peak: int = 6                  # 정점 트렌드 캐시 TTL (시간)
+    cache_ttl_falling: int = 18              # 하락중 트렌드 캐시 TTL (시간)
+    cache_ttl_default: int = 12              # 미분류 캐시 TTL (시간)
+
+    # ===================================================
     # [v9.0] Phase B: 품질 최적화
     # ===================================================
     watchlist_keywords: list[str] = field(default_factory=list)  # 관심 키워드 (쉼표 구분)
@@ -184,6 +193,16 @@ class AppConfig:
     enable_emerging_detection: bool = True    # 저볼륨+고벨로시티 이머징 감지 활성화
     emerging_velocity_threshold: float = 2.0  # 이 배율 이상이면 이머징 후보
     emerging_volume_cap: int = 5000           # 이 볼륨 이하만 이머징 후보
+
+    # ===================================================
+    # [v12.0] 멀티플랫폼 콘텐츠 운영
+    # ===================================================
+    target_platforms: list[str] = field(default_factory=lambda: ["x", "threads"])  # [v13.0] naver_blog 제거 (X/Threads만)
+    content_hub_database_id: str = ""   # 멀티플랫폼 Content Hub 노션 DB ID
+    blog_min_score: int = 70            # 이 점수 이상만 네이버 블로그 글감 생성
+    blog_min_words: int = 2000          # 네이버 블로그 최소 글자 수
+    blog_max_words: int = 5000          # 네이버 블로그 최대 글자 수
+    blog_seo_keywords_count: int = 5    # SEO 키워드 추천 수
 
     # Runtime options (CLI overrides)
     country: str = "korea"
@@ -229,7 +248,7 @@ class AppConfig:
             threads_min_score=int(os.getenv("THREADS_MIN_SCORE", "65")),
             min_viral_score=int(os.getenv("MIN_VIRAL_SCORE", "60")),
             max_workers=int(os.getenv("MAX_WORKERS", "10")),
-            daily_budget_usd=float(os.getenv("DAILY_BUDGET_USD", "2.0")),
+            daily_budget_usd=float(os.getenv("DAILY_BUDGET_USD", "3.0")),
             heavy_categories=[
                 c.strip()
                 for c in os.getenv("HEAVY_CATEGORIES", "정치,경제,테크,사회,국제,과학,의학,법률").split(",")
@@ -267,7 +286,7 @@ class AppConfig:
             enable_source_quality_tracking=os.getenv("ENABLE_SOURCE_QUALITY_TRACKING", "true").lower() == "true",
             news_rss_max_items=int(os.getenv("NEWS_RSS_MAX_ITEMS", "5")),
             # v6.0
-            min_article_count=int(os.getenv("MIN_ARTICLE_COUNT", "5")),
+            min_article_count=int(os.getenv("MIN_ARTICLE_COUNT", "3")),
             max_same_category=int(os.getenv("MAX_SAME_CATEGORY", "2")),
             enable_quality_feedback=os.getenv("ENABLE_QUALITY_FEEDBACK", "true").lower() == "true",
             quality_feedback_min_score=int(os.getenv("QUALITY_FEEDBACK_MIN_SCORE", "50")),
@@ -295,6 +314,12 @@ class AppConfig:
                 if c.strip()
             ],
             generation_mode_override=os.getenv("GENERATION_MODE", ""),
+            # v10.0 Phase 1
+            require_context=os.getenv("REQUIRE_CONTEXT", "true").lower() == "true",
+            cache_ttl_rising=int(os.getenv("CACHE_TTL_RISING", "2")),
+            cache_ttl_peak=int(os.getenv("CACHE_TTL_PEAK", "6")),
+            cache_ttl_falling=int(os.getenv("CACHE_TTL_FALLING", "18")),
+            cache_ttl_default=int(os.getenv("CACHE_TTL_DEFAULT", "12")),
             # v9.0 Phase B
             watchlist_keywords=[
                 k.strip()
@@ -308,6 +333,17 @@ class AppConfig:
             enable_emerging_detection=os.getenv("ENABLE_EMERGING_DETECTION", "true").lower() == "true",
             emerging_velocity_threshold=float(os.getenv("EMERGING_VELOCITY_THRESHOLD", "2.0")),
             emerging_volume_cap=int(os.getenv("EMERGING_VOLUME_CAP", "5000")),
+            # v12.0 멀티플랫폼
+            target_platforms=[
+                p.strip()
+                for p in os.getenv("TARGET_PLATFORMS", "x").split(",")
+                if p.strip()
+            ],
+            content_hub_database_id=os.getenv("CONTENT_HUB_DATABASE_ID", ""),
+            blog_min_score=int(os.getenv("BLOG_MIN_SCORE", "70")),
+            blog_min_words=int(os.getenv("BLOG_MIN_WORDS", "2000")),
+            blog_max_words=int(os.getenv("BLOG_MAX_WORDS", "5000")),
+            blog_seo_keywords_count=int(os.getenv("BLOG_SEO_KEYWORDS_COUNT", "5")),
         )
 
     def validate(self) -> list[str]:
@@ -370,6 +406,14 @@ class AppConfig:
             return self.daily_budget_usd * self.peak_budget_multiplier
         return self.daily_budget_usd
 
+    def get_cache_ttl(self, peak_status: str = "") -> int:
+        """[v10.0] peak_status 기반 동적 캐시 TTL (시간) 반환."""
+        return {
+            "상승중": self.cache_ttl_rising,
+            "정점": self.cache_ttl_peak,
+            "하락중": self.cache_ttl_falling,
+        }.get(peak_status, self.cache_ttl_default)
+
     def get_generation_mode(self) -> str:
         """[v9.0] 시간대 기반 생성 모드 반환.
         'full': 장문 포함 전체 생성 (피크 시간)
@@ -405,4 +449,5 @@ class AppConfig:
                 "smart_schedule": self.smart_schedule,
                 "night_mode": self.night_mode,
             },
+            "target_platforms": self.target_platforms,
         }

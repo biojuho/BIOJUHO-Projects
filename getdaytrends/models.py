@@ -39,6 +39,31 @@ class RawTrend(BaseModel):
     published_at: Optional[datetime] = None  # [v6.1] 소스 콘텐츠 발행 시점 (RSS pubDate)
 
 
+class TrendContext(BaseModel):
+    """[v10.0] 구조화된 트렌드 배경 분석 — '왜 지금 이게 터졌는지' 인과관계 체인."""
+    trigger_event: str = ""       # "OO장관의 XX 발언 (3시간 전)"
+    chain_reaction: str = ""      # "해당 발언 → 커뮤니티 확산 → 언론 보도"
+    why_now: str = ""             # "총선 D-30과 맞물려 정치적 프레임 전쟁으로 확대"
+    key_positions: list[str] = Field(default_factory=list)  # 찬/반 주요 입장 2-3개
+    real_tweets_summary: str = "" # 실제 X 반응 핵심 요약
+
+    def to_prompt_text(self) -> str:
+        """생성 프롬프트에 주입할 구조화된 배경 텍스트."""
+        parts = []
+        if self.trigger_event:
+            parts.append(f"[발단] {self.trigger_event}")
+        if self.chain_reaction:
+            parts.append(f"[전개] {self.chain_reaction}")
+        if self.why_now:
+            parts.append(f"[지금 터진 이유] {self.why_now}")
+        if self.key_positions:
+            positions = " / ".join(self.key_positions)
+            parts.append(f"[쟁점] {positions}")
+        if self.real_tweets_summary:
+            parts.append(f"[실제 반응] {self.real_tweets_summary}")
+        return "\n".join(parts)
+
+
 class MultiSourceContext(BaseModel):
     """하나의 키워드에 대한 멀티소스 컨텍스트."""
     twitter_insight: str = ""
@@ -85,9 +110,15 @@ class ScoredTrend(BaseModel):
     why_trending: str = ""              # 왜 지금 뜨는지 원인 1-2문장 추론
     peak_status: str = ""              # 상승중|정점|하락중
     relevance_score: int = 0           # 1-10: X에서 활발히 논의하기 적합한 정도
+    # [v10.0] 구조화된 트렌드 배경 (Deep Why)
+    trend_context: Optional[TrendContext] = None
     # [v9.0] 벨로시티 + 이머징 트렌드
     velocity: float = 0.0               # 런 간 볼륨 증가율 (B-1)
     is_emerging: bool = False            # 저볼륨 + 고벨로시티 이머징 트렌드 (C-6)
+    # [v13.0] 게시 가능성 게이트 (Publishability Gate)
+    publishable: bool = True             # False면 콘텐츠 생성 스킵 (의미없는 키워드, 문장 조각 등)
+    publishability_reason: str = ""      # publishable=false 사유 (예: "문장 조각", "오타 키워드")
+    corrected_keyword: str = ""          # 오타 키워드의 교정된 원본 (예: "카이로류" → "아카이로 류")
 
 
 class TrendCluster(BaseModel):
@@ -110,6 +141,9 @@ class GeneratedTweet(BaseModel):
     best_posting_time: str = ""        # 추천 게시 시간 (예: 오전 8-10시)
     expected_engagement: str = ""      # 높음|보통|낮음
     reasoning: str = ""                # 이 멘션이 효과적인 이유 한 문장
+    # [v12.0] 멀티플랫폼
+    platform: str = "x"               # 대상 플랫폼: "x" | "threads" | "naver_blog"
+    seo_keywords: list[str] = Field(default_factory=list)  # SEO 키워드 (블로그용)
 
     @model_validator(mode="after")
     def _compute_char_count(self) -> "GeneratedTweet":
@@ -130,6 +164,7 @@ class TweetBatch(BaseModel):
     tweets: list[GeneratedTweet] = Field(default_factory=list)
     long_posts: list[GeneratedTweet] = Field(default_factory=list)
     threads_posts: list[GeneratedTweet] = Field(default_factory=list)
+    blog_posts: list[GeneratedTweet] = Field(default_factory=list)  # [v12.0] 네이버 블로그 글감
     thread: Optional[GeneratedThread] = None
     viral_score: int = 0
     language: str = ""          # [v3.0] 멀티언어 배치 언어 코드 (예: "en", "ja"). 기본값 "" = 기본 언어

@@ -51,9 +51,9 @@ from generator import (
     generate_for_trend_multilang_async,
 )
 from models import GeneratedTweet, RunResult, TweetBatch
-from scraper import collect_trends
+from scraper import collect_contexts, collect_trends
 from shared.llm import get_client
-from storage import save_to_google_sheets, save_to_notion
+from storage import save_to_google_sheets, save_to_notion, save_to_content_hub
 from utils import run_async
 
 from loguru import logger as log
@@ -309,11 +309,39 @@ async def _check_budget_and_adjust_limit(config: AppConfig, conn) -> tuple[AppCo
 
 
 def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
-    """Step 1: 멀티소스 트렌드 수집."""
+    """Step 1: 멀티소스 트렌드 수집 + [v10.0] 심층 컨텍스트 필수 수집."""
     print("\n[1/4] 멀티소스 트렌드 수집 중...")
     raw_trends, contexts = collect_trends(config, conn)
     run.trends_collected = len(raw_trends)
     print(f"  수집 완료: {len(raw_trends)}개 트렌드")
+
+    # [v10.0] 심층 컨텍스트 필수 수집 (X/Reddit/News 병렬)
+    if raw_trends:
+        print("  심층 컨텍스트 수집 중 (X, Reddit, News 병렬)...")
+        deep_contexts = collect_contexts(raw_trends, config, conn)
+        # 기존 기본 컨텍스트에 심층 데이터 병합
+        for name, deep_ctx in deep_contexts.items():
+            base = contexts.get(name)
+            if base:
+                # 심층 데이터가 기본보다 풍부하면 대체, 아니면 병합
+                if deep_ctx.twitter_insight and len(deep_ctx.twitter_insight) > len(base.twitter_insight):
+                    base.twitter_insight = deep_ctx.twitter_insight
+                if deep_ctx.reddit_insight and len(deep_ctx.reddit_insight) > len(base.reddit_insight):
+                    base.reddit_insight = deep_ctx.reddit_insight
+                if deep_ctx.news_insight and len(deep_ctx.news_insight) > len(base.news_insight):
+                    base.news_insight = deep_ctx.news_insight
+            else:
+                contexts[name] = deep_ctx
+
+        # [v10.0] 컨텍스트 필수화: 컨텍스트가 비어있는 트렌드 경고
+        if getattr(config, "require_context", True):
+            empty_ctx = [
+                t.name for t in raw_trends
+                if not contexts.get(t.name) or not contexts[t.name].to_combined_text().strip()
+            ]
+            if empty_ctx:
+                log.warning(f"  [컨텍스트 부족] {len(empty_ctx)}개 트렌드 컨텍스트 비어있음: {', '.join(empty_ctx[:3])}")
+
     return raw_trends, contexts
 
 
@@ -339,22 +367,32 @@ def _ensure_quality_and_diversity(
         if not (config.enable_sentiment_filter and getattr(t, "safety_flag", False))
     ]
 
+    # [v13.0] publishable=false 트렌드 사전 제거 (의미 없는 문장 조각, 컨텍스트 부족 등)
+    before_pub = len(safe_trends)
+    safe_trends = [
+        t for t in safe_trends
+        if getattr(t, "publishable", True)
+    ]
+    pub_filtered = before_pub - len(safe_trends)
+    if pub_filtered:
+        log.warning(
+            f"  [게시불가 필터] {pub_filtered}개 제거 "
+            f"(의미 없는 키워드/문장 조각)"
+        )
+
     # [v7.0] 제외 카테고리 필터 + [v9.1] 가변형 카테고리 필터링(Dynamic Filtering)
     excluded_cats = set(getattr(config, "exclude_categories", []))
     if excluded_cats:
         before = len(safe_trends)
-        filtered_trends = [
+        safe_trends = [
             t for t in safe_trends
             if (getattr(t, "category", "기타") or "기타") not in excluded_cats
         ]
-        
-        if len(filtered_trends) < getattr(config, "limit", min_count):
-            log.warning(f"  [가변 필터] 트렌드 풀({len(filtered_trends)}개)이 부족. exclude_categories 조건 일시 해제 (부분 성공 허용).")
-        else:
-            safe_trends = filtered_trends
-            excluded_count = before - len(safe_trends)
-            if excluded_count:
-                log.info(f"  [카테고리 제외] {excluded_count}개 제거 ({', '.join(excluded_cats)})")
+        excluded_count = before - len(safe_trends)
+        if excluded_count:
+            log.info(f"  [카테고리 제외] {excluded_count}개 제거 ({', '.join(excluded_cats)})")
+        if not safe_trends:
+            log.warning(f"  [카테고리 제외] 모든 트렌드가 제외됨 — 빈 결과 반환")
 
     # 제외 후 남은 트렌드에 맞게 min_count 동적 축소
     min_count = min(min_count, len(safe_trends))
@@ -438,7 +476,7 @@ def _ensure_quality_and_diversity(
 
     # ── Pass 3: 최소 기사 수 보장 (동적 기준 하향) ──
     if len(selected) < min_count:
-        floor_score = int(min_score * 0.5)
+        floor_score = int(min_score * 0.75)
         log.info(
             f"  [최소 기사] {len(selected)}개 < {min_count}개 → 기준 {min_score}점 → {floor_score}점 하향"
         )
@@ -546,8 +584,14 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
         """C2: 콘텐츠 캐시 히트 시 LLM 건너뜀. 가속도 기반 TTL 차등화."""
         fp = compute_fingerprint(trend.keyword, trend.volume_last_24h,
                                  bucket=config.cache_volume_bucket)
-        acc = getattr(trend, "trend_acceleration", "+0%")
-        cache_ttl = 48 if (acc.startswith("-") or acc == "+0%") else 24
+        # [v13.0] corrected_keyword 적용: 오타 키워드의 교정된 원본 사용
+        effective_keyword = getattr(trend, "corrected_keyword", "") or trend.keyword
+        if effective_keyword != trend.keyword:
+            log.info(f"  [키워드 교정 적용] '{trend.keyword}' → '{effective_keyword}'")
+            trend.keyword = effective_keyword
+        # [v10.0] 동적 캐시 TTL: peak_status 기반 (상승중=2h, 정점=6h, 하락중=18h)
+        peak_status = getattr(trend, "peak_status", "")
+        cache_ttl = config.get_cache_ttl(peak_status)
         cached = await get_cached_content(conn, fp, max_age_hours=cache_ttl)
         is_cached = bool(cached)
 
@@ -575,12 +619,23 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
         if primary is None:
             return primary
 
-        # [v9.0] QA 조건부 스킵
+        # [v9.0] QA 조건부 스킵 + [v12.0] 규제 위반 강제 재생성
         if not _should_skip_qa(trend, is_cached, config):
             from generator import audit_generated_content
             qa = await audit_generated_content(primary, trend, config, client)
             qa_min = getattr(config, "quality_feedback_min_score", 50)
-            if qa and qa.get("avg_score", 100) < qa_min:
+
+            # [v12.0] 규제 위반 즉시 재생성 (regulation ≤ 3은 계정 위험)
+            reg_score = qa.get("regulation", 10) if qa else 10
+            needs_regen = False
+
+            if qa and reg_score <= 3:
+                log.warning(
+                    f"  [규제 위반] '{trend.keyword}' regulation={reg_score}/10 "
+                    f"→ 강제 재생성 ({qa.get('reason', '-')})"
+                )
+                needs_regen = True
+            elif qa and qa.get("avg_score", 100) < qa_min:
                 corrected = qa.get("corrected_tweets", [])
                 if corrected and primary.tweets:
                     corrected_map = {c.get("type", ""): c.get("content", "") for c in corrected}
@@ -596,13 +651,16 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
                         f"교정본 {applied}개 적용 (재생성 건너뜀)"
                     )
                 else:
+                    needs_regen = True
                     log.warning(
                         f"  [QA 미달] '{trend.keyword}' {qa['avg_score']}점 < {qa_min}점"
                         f" (사유: {qa.get('reason', '-')}) → 재생성"
                     )
-                    primary = await generate_for_trend_async(trend, effective_config, client, recent_tweets)
-                    if primary is None:
-                        return primary
+
+            if needs_regen:
+                primary = await generate_for_trend_async(trend, effective_config, client, recent_tweets)
+                if primary is None:
+                    return primary
         else:
             log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
 
@@ -665,7 +723,10 @@ async def _step_save(
             run.errors.append(f"생성 실패: {trend.keyword}")
             continue
 
-        run.tweets_generated += len(batch.tweets) + len(batch.long_posts) + len(batch.threads_posts)
+        run.tweets_generated += (
+            len(batch.tweets) + len(batch.long_posts)
+            + len(batch.threads_posts) + len(getattr(batch, 'blog_posts', []))
+        )
 
         for t in batch.tweets:
             preview = t.content[:50] + "..." if len(t.content) > 50 else t.content
@@ -682,6 +743,8 @@ async def _step_save(
             print(f"    [Premium+ 장문] {len(batch.long_posts)}편")
         if batch.threads_posts:
             print(f"    [Threads] {len(batch.threads_posts)}편")
+        if getattr(batch, 'blog_posts', []):
+            print(f"    [블로그] {len(batch.blog_posts)}편 ({sum(p.char_count for p in batch.blog_posts):,}자)")
         if batch.thread:
             print(f"    [쓰레드] {len(batch.thread.tweets)}개 트윗")
 
@@ -712,6 +775,11 @@ async def _step_save(
                         is_thread=True, saved_to=saved_to,
                     )
                     run.tweets_saved += len(batch.thread.tweets)
+
+                # [v12.0] 블로그 글감 저장
+                if getattr(batch, "blog_posts", []):
+                    await save_tweets_batch(conn, batch.blog_posts, trend_id, run_row_id, saved_to=saved_to)
+                    run.tweets_saved += len(batch.blog_posts)
         except Exception as e:
             log.error(f"SQLite 저장 실패 ({trend.keyword}): {e}")
             run.errors.append(f"DB 저장 실패: {trend.keyword}")
@@ -747,6 +815,24 @@ async def _step_save(
 
         if ext_failed:
             print(f"\n  외부 저장 실패 {len(ext_failed)}건: {', '.join(ext_failed)}")
+
+        # [v12.0] Content Hub 멀티플랫폼 저장
+        hub_db_id = getattr(config, "content_hub_database_id", "")
+        if hub_db_id:
+            platforms = getattr(config, "target_platforms", ["x"])
+            for b, t in ext_pairs:
+                for plat in platforms:
+                    # 해당 플랫폼에 콘텐츠가 있을 때만 저장
+                    has_content = (
+                        (plat == "x" and b.tweets) or
+                        (plat == "threads" and b.threads_posts) or
+                        (plat == "naver_blog" and getattr(b, 'blog_posts', []))
+                    )
+                    if has_content:
+                        try:
+                            await asyncio.to_thread(save_to_content_hub, b, t, config, plat)
+                        except Exception as hub_err:
+                            log.warning(f"Content Hub 저장 실패 [{plat}]: {hub_err}")  # [QA 수정]
 
     if failed_saves:
         print(f"\n  DB 저장 실패 {len(failed_saves)}건: {', '.join(failed_saves)}")

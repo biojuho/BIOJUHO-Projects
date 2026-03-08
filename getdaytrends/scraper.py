@@ -574,7 +574,15 @@ async def _async_fetch_google_news_trends(
                 pub_date = item.find("pubDate")
                 if title is not None and title.text:
                     age_str = _format_news_age(pub_date.text if pub_date is not None else None)
-                    headline = f"{title.text.strip()} ({age_str})" if age_str else title.text.strip()
+                    # [v10.0] 발행 시각을 날짜+시간으로 포함 (LLM이 시점 파악 가능)
+                    dt = _parse_rss_date(pub_date.text if pub_date is not None else None)
+                    time_label = dt.strftime("%m/%d %H:%M") if dt else ""
+                    if age_str and time_label:
+                        headline = f"[{time_label}, {age_str}] {title.text.strip()}"
+                    elif age_str:
+                        headline = f"[{age_str}] {title.text.strip()}"
+                    else:
+                        headline = title.text.strip()
                     insights.append(headline)
         except Exception:
             continue
