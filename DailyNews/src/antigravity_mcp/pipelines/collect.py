@@ -20,16 +20,29 @@ def load_sources() -> dict[str, list[dict[str, str]]]:
 
 
 def get_window(window_name: str) -> tuple[datetime, datetime]:
-    now = datetime.now(timezone.utc)
+    """Return time window boundaries in UTC.
+
+    Schedules are defined in KST (UTC+9). feedparser normalizes dates
+    to UTC, so the window must also be in UTC for consistent comparison.
+
+    - morning: KST 18:00 (prev day) ~ KST 07:00 (today)  → UTC 09:00 (prev day) ~ 22:00 (prev day)
+    - evening: KST 07:00 ~ KST 18:00 (today)              → UTC 22:00 (prev day) ~ 09:00 (today)
+    """
+    KST_OFFSET = timedelta(hours=9)
+    now_utc = datetime.now(timezone.utc)
+    now_kst = now_utc + KST_OFFSET  # aware KST
+
     if window_name == "morning":
-        end = now.replace(hour=7, minute=0, second=0, microsecond=0)
-        start = (end - timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
-        return start, end
+        # KST 18:00 (prev day) ~ KST 07:00 (today)
+        end_kst = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
+        start_kst = (end_kst - timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
+        return start_kst - KST_OFFSET, end_kst - KST_OFFSET
     if window_name == "evening":
-        start = now.replace(hour=7, minute=0, second=0, microsecond=0)
-        end = now.replace(hour=18, minute=0, second=0, microsecond=0)
-        return start, end
-    return now - timedelta(hours=24), now
+        # KST 07:00 ~ KST 18:00 (today)
+        start_kst = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
+        end_kst = now_kst.replace(hour=18, minute=0, second=0, microsecond=0)
+        return start_kst - KST_OFFSET, end_kst - KST_OFFSET
+    return now_utc - timedelta(hours=24), now_utc
 
 
 def is_within_window(value: Any, start: datetime, end: datetime) -> bool:
@@ -84,13 +97,22 @@ async def collect_content_items(
 
         fetch_results = await asyncio.gather(*[_fetch_one(s) for s in sources])
 
+        # ── Per-source cap for diverse coverage ──
+        import math
+        max_per_source = max(1, math.ceil(max_items / max(1, len(sources))))
+
         collected_for_category = 0
         for source_name, entries, exc in fetch_results:
             if exc is not None:
                 warnings.append(f"{category}/{source_name} fetch failed: {type(exc).__name__}")
                 continue
 
+            source_count = 0
             for entry in entries:
+                if collected_for_category >= max_items:
+                    break
+                if source_count >= max_per_source:
+                    break
                 published = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
                 if not is_within_window(published, start, end):
                     continue
@@ -110,8 +132,7 @@ async def collect_content_items(
                     )
                 )
                 collected_for_category += 1
-                if collected_for_category >= max_items:
-                    break
+                source_count += 1
             if collected_for_category >= max_items:
                 break
     return items, warnings

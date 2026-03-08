@@ -24,9 +24,9 @@ class TestConfig:
             assert tier in TIER_CHAINS
             assert TIER_CHAINS[tier]
 
-    def test_lightweight_chain_starts_with_deepseek(self):
+    def test_lightweight_chain_starts_with_gemini(self):
         first_backend, _ = TIER_CHAINS[TaskTier.LIGHTWEIGHT][0]
-        assert first_backend == "deepseek"
+        assert first_backend == "gemini"
 
     def test_structured_tasks_prioritize_deepseek(self):
         chain = get_routing_chain(

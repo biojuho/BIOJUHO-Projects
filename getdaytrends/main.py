@@ -339,17 +339,22 @@ def _ensure_quality_and_diversity(
         if not (config.enable_sentiment_filter and getattr(t, "safety_flag", False))
     ]
 
-    # [v7.0] 제외 카테고리 필터
+    # [v7.0] 제외 카테고리 필터 + [v9.1] 가변형 카테고리 필터링(Dynamic Filtering)
     excluded_cats = set(getattr(config, "exclude_categories", []))
     if excluded_cats:
         before = len(safe_trends)
-        safe_trends = [
+        filtered_trends = [
             t for t in safe_trends
             if (getattr(t, "category", "기타") or "기타") not in excluded_cats
         ]
-        excluded_count = before - len(safe_trends)
-        if excluded_count:
-            log.info(f"  [카테고리 제외] {excluded_count}개 제거 ({', '.join(excluded_cats)})")
+        
+        if len(filtered_trends) < getattr(config, "limit", min_count):
+            log.warning(f"  [가변 필터] 트렌드 풀({len(filtered_trends)}개)이 부족. exclude_categories 조건 일시 해제 (부분 성공 허용).")
+        else:
+            safe_trends = filtered_trends
+            excluded_count = before - len(safe_trends)
+            if excluded_count:
+                log.info(f"  [카테고리 제외] {excluded_count}개 제거 ({', '.join(excluded_cats)})")
 
     # 제외 후 남은 트렌드에 맞게 min_count 동적 축소
     min_count = min(min_count, len(safe_trends))

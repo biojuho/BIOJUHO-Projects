@@ -599,17 +599,31 @@ _YOUTUBE_GEO_MAP = {
 async def _async_fetch_youtube_trending(
     session: httpx.AsyncClient, country_slug: str = "korea", limit: int = 10
 ) -> list[RawTrend]:
-    """YouTube 인기 동영상 RSS에서 트렌드 키워드 추출 (비동기)."""
+    """YouTube 인기 동영상 RSS에서 트렌드 키워드 추출 (비동기). [v9.1] 적응형 타임아웃 & 백오프 적용"""
     country_code = _YOUTUBE_GEO_MAP.get(country_slug, "KR")
     # YouTube RSS trending feed (chart=mostviewed 폐기 대응)
     url = f"https://www.youtube.com/feeds/videos.xml?gl={country_code}&hl=ko"
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; TrendBot/4.0)"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; TrendBot/4.1)"}
+
+    raw = None
+    for attempt in range(1, 4):
+        try:
+            resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+            resp.raise_for_status()
+            raw = resp.read()
+            break
+        except Exception as e:
+            if attempt == 3:
+                log.debug(f"YouTube Trending 수집 최종 실패 (3회 초과): {e}")
+                return []
+            backoff = 2 ** attempt
+            log.warning(f"YouTube API 에러({e}), {backoff}초 후 재시도 ({attempt}/3)")
+            await asyncio.sleep(backoff)
+            
+    if not isinstance(raw, bytes):
+        return []
 
     try:
-        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
-        resp.raise_for_status()
-        raw = resp.read()
-
         root = ET.fromstring(raw)
         # YouTube Atom feed namespace
         ns = {
@@ -783,6 +797,18 @@ async def _async_collect_trends(
         if len(fetch_results) > 2 and isinstance(fetch_results[2], Exception):
             log.warning(f"YouTube Trending 수집 실패: {fetch_results[2]}")
 
+        # [v9.1] 부분 성공(Partial Success) 허용 및 전체 실패 시 우회(Fallback) 아키텍처
+        total_sources = 2 + (1 if getattr(config, "enable_youtube_trending", False) else 0)
+        success_sources = sum(1 for t_list in (gdt_trends, gtr_trends, yt_trends) if t_list)
+
+        if success_sources == 0:
+            log.error("[장애] 모든 트렌드 소스 수집 실패! Fallback 트렌드로 우회합니다.")
+            gdt_trends = _fallback_trends()  # 실패 시 모의 트렌드 사용
+        elif success_sources / total_sources < 0.5:
+            log.warning(f"[부분 성공] 데이터 소스 수집 성공률 50% 미만 ({success_sources}/{total_sources}). 파이프라인 강행.")
+        else:
+            log.info(f"[부분 성공] 수집 성공: {success_sources}/{total_sources} 개 소스 가동 중.")
+
         # 소스 품질 기록 (v5.0)
         if getattr(config, "enable_source_quality_tracking", True) and conn is not None:
             from db import record_source_quality
@@ -801,7 +827,7 @@ async def _async_collect_trends(
             all_trends = _merge_trends(all_trends, yt_trends, limit=fetch_size)
         log.info(
             f"병합 완료: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)}, "
-            f"youtube={len(yt_trends)} → {len(all_trends)}개"
+            f"youtube={len(yt_trends)} → 총 {len(all_trends)}개"
         )
 
         # 3단계: 중복 필터 (유사도 기반)

@@ -1,0 +1,162 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\bioju\AppData\Local\Programs\Python\Python314\python.exe
+cachedir: .pytest_cache
+rootdir: D:\AI ?꾨줈?앺듃
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: anyio-4.12.1, langsmith-0.6.9, asyncio-1.3.0, cov-7.0.0, respx-0.22.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 99 items / 4 deselected / 95 selected
+
+AgriGuard/backend/tests/test_smoke.py::test_imports FAILED               [  1%]
+AgriGuard/backend/tests/test_smoke.py::test_seed_db_creates_data FAILED  [  2%]
+AgriGuard/backend/tests/test_smoke.py::test_dashboard_summary_data_shape FAILED [  3%]
+DailyNews/tests/contract/test_response_envelope.py::test_ok_response_matches_envelope_shape PASSED [  4%]
+DailyNews/tests/contract/test_response_envelope.py::test_partial_and_error_responses_are_schema_compatible PASSED [  5%]
+DailyNews/tests/integration/test_content_workflow.py::test_generate_briefs_saves_report_and_records_articles PASSED [  6%]
+DailyNews/tests/integration/test_content_workflow.py::test_publish_report_returns_partial_when_notion_not_configured PASSED [  7%]
+DailyNews/tests/integration/test_feed_adapter.py::test_fetch_entries_returns_parsed_entries PASSED [  8%]
+DailyNews/tests/integration/test_feed_adapter.py::test_fetch_entries_304_returns_empty PASSED [  9%]
+DailyNews/tests/integration/test_feed_adapter.py::test_fetch_entries_retries_on_network_error PASSED [ 10%]
+DailyNews/tests/integration/test_feed_adapter.py::test_fetch_entries_raises_after_max_retries PASSED [ 11%]
+DailyNews/tests/integration/test_feed_adapter.py::test_fetch_entries_sends_etag_header PASSED [ 12%]
+DailyNews/tests/integration/test_full_pipeline.py::TestCollectAnalyzePipeline::test_end_to_end_collect_then_analyze PASSED [ 13%]
+DailyNews/tests/integration/test_full_pipeline.py::TestCollectAnalyzePipeline::test_failed_feed_does_not_block_pipeline PASSED [ 14%]
+DailyNews/tests/integration/test_full_pipeline.py::TestCollectAnalyzePipeline::test_duplicate_articles_excluded PASSED [ 15%]
+DailyNews/tests/integration/test_full_pipeline.py::TestPublishPipeline::test_publish_creates_notion_page PASSED [ 16%]
+DailyNews/tests/integration/test_full_pipeline.py::TestPublishPipeline::test_publish_telegram_failure_is_non_fatal PASSED [ 17%]
+DailyNews/tests/integration/test_full_pipeline.py::TestOpsTools::test_ops_cleanup_dry_run_returns_no_deletions PASSED [ 18%]
+DailyNews/tests/integration/test_full_pipeline.py::TestOpsTools::test_ops_cleanup_prunes_expired_cache PASSED [ 20%]
+DailyNews/tests/integration/test_full_pipeline.py::TestOpsTools::test_ops_check_health_returns_healthy_on_empty_db PASSED [ 21%]
+DailyNews/tests/integration/test_full_pipeline.py::TestSkillAdapter::test_invoke_unknown_skill_returns_error PASSED [ 22%]
+DailyNews/tests/integration/test_full_pipeline.py::TestSkillAdapter::test_list_skills_returns_all_builtins PASSED [ 23%]
+DailyNews/tests/integration/test_full_pipeline.py::TestSkillAdapter::test_invoke_summarize_category_requires_category PASSED [ 24%]
+DailyNews/tests/integration/test_full_pipeline.py::TestSkillAdapter::test_register_custom_skill PASSED [ 25%]
+DailyNews/tests/integration/test_full_pipeline.py::TestSkillAdapter::test_invoke_skill_error_is_caught PASSED [ 26%]
+DailyNews/tests/integration/test_x_adapter.py::test_publish_manual_mode_returns_draft PASSED [ 27%]
+DailyNews/tests/integration/test_x_adapter.py::test_publish_auto_mode_blocked_when_push_disabled PASSED [ 28%]
+DailyNews/tests/integration/test_x_adapter.py::test_publish_auto_without_credentials_returns_error PASSED [ 29%]
+DailyNews/tests/integration/test_x_adapter.py::test_publish_auto_posts_tweet PASSED [ 30%]
+DailyNews/tests/integration/test_x_adapter.py::test_publish_truncates_content_to_280 PASSED [ 31%]
+DailyNews/tests/integration/test_x_adapter.py::test_daily_limit_blocks_after_cap PASSED [ 32%]
+DailyNews/tests/test_collect_news.py::test_collect_news_skips_duplicates_and_saves_new_articles PASSED [ 33%]
+DailyNews/tests/test_collect_news.py::test_collect_news_continues_after_source_failure PASSED [ 34%]
+DailyNews/tests/test_init_mock_db.py::test_init_mock_db_appends_without_reset PASSED [ 35%]
+DailyNews/tests/test_init_mock_db.py::test_init_mock_db_reset_reseeds_tables PASSED [ 36%]
+DailyNews/tests/test_news_bot.py::test_news_bot_continues_when_one_category_upload_fails PASSED [ 37%]
+DailyNews/tests/test_news_bot.py::test_news_bot_skips_links_already_seen PASSED [ 38%]
+DailyNews/tests/test_run_daily_news.py::test_process_category_survives_source_failure_and_awaits_sleep PASSED [ 40%]
+DailyNews/tests/test_run_daily_news.py::test_run_daily_news_continues_after_category_failure PASSED [ 41%]
+DailyNews/tests/test_update_dashboard.py::test_clear_auto_dashboard_sections_removes_only_auto_blocks PASSED [ 42%]
+DailyNews/tests/test_update_dashboard.py::test_update_dashboard_replaces_auto_section PASSED [ 43%]
+DailyNews/tests/unit/test_config_aliases.py::test_settings_support_legacy_aliases PASSED [ 44%]
+DailyNews/tests/unit/test_llm_cache_and_packaging.py::test_llm_adapter_reuses_persistent_cache PASSED [ 45%]
+DailyNews/tests/unit/test_llm_cache_and_packaging.py::test_collect_default_feed_adapter_receives_state_store PASSED [ 46%]
+DailyNews/tests/unit/test_llm_cache_and_packaging.py::test_publish_forces_manual_approval_when_policy_requires_it PASSED [ 47%]
+DailyNews/tests/unit/test_markdown_blocks.py::test_markdown_to_blocks_handles_headings_lists_and_paragraphs PASSED [ 48%]
+DailyNews/tests/unit/test_pipelines.py::TestCollectPipeline::test_collect_deduplicates_seen_articles PASSED [ 49%]
+DailyNews/tests/unit/test_pipelines.py::TestCollectPipeline::test_collect_handles_feed_failure_gracefully PASSED [ 50%]
+DailyNews/tests/unit/test_pipelines.py::TestCollectPipeline::test_collect_parallel_fetches_multiple_sources PASSED [ 51%]
+DailyNews/tests/unit/test_pipelines.py::TestAnalyzePipeline::test_generate_briefs_creates_reports PASSED [ 52%]
+DailyNews/tests/unit/test_pipelines.py::TestAnalyzePipeline::test_generate_briefs_reuses_existing_fingerprint PASSED [ 53%]
+DailyNews/tests/unit/test_pipelines.py::TestPublishPipeline::test_publish_unknown_report_returns_error PASSED [ 54%]
+DailyNews/tests/unit/test_pipelines.py::TestPublishPipeline::test_publish_without_notion_stores_locally PASSED [ 55%]
+DailyNews/tests/unit/test_pipelines.py::TestDashboardPipeline::test_refresh_dashboard_without_notion PASSED [ 56%]
+DailyNews/tests/unit/test_pipelines.py::TestStateStore::test_wal_mode_enabled PASSED [ 57%]
+DailyNews/tests/unit/test_pipelines.py::TestStateStore::test_pipeline_health_empty_db PASSED [ 58%]
+DailyNews/tests/unit/test_pipelines.py::TestStateStore::test_job_lifecycle PASSED [ 60%]
+DailyNews/tests/unit/test_pipelines.py::TestStateStore::test_report_fingerprint_dedup PASSED [ 61%]
+DailyNews/tests/unit/test_pipelines.py::TestStateStore::test_article_dedup PASSED [ 62%]
+github-mcp/tests/test_github_mcp.py::test_fetch_info_imports PASSED      [ 63%]
+github-mcp/tests/test_github_mcp.py::test_create_repo_imports PASSED     [ 64%]
+github-mcp/tests/test_github_mcp.py::test_env_file_exists PASSED         [ 65%]
+github-mcp/tests/test_github_mcp.py::test_package_json_valid PASSED      [ 66%]
+github-mcp/tests/test_github_mcp.py::test_no_hardcoded_tokens_in_fetch_info PASSED [ 67%]
+tests/test_shared_llm.py::TestConfig::test_load_keys_returns_all_providers PASSED [ 68%]
+tests/test_shared_llm.py::TestConfig::test_tier_chains_exist_for_all_tiers PASSED [ 69%]
+tests/test_shared_llm.py::TestConfig::test_lightweight_chain_starts_with_gemini PASSED [ 70%]
+tests/test_shared_llm.py::TestConfig::test_structured_tasks_prioritize_deepseek PASSED [ 71%]
+tests/test_shared_llm.py::TestConfig::test_longform_chain_excludes_deepseek_by_default PASSED [ 72%]
+tests/test_shared_llm.py::TestConfig::test_longform_chain_can_include_deepseek_with_flag PASSED [ 73%]
+tests/test_shared_llm.py::TestConfig::test_model_to_tier_mapping PASSED  [ 74%]
+tests/test_shared_llm.py::TestCostTracker::test_record_and_get_stats PASSED [ 75%]
+tests/test_shared_llm.py::TestCostTracker::test_reset PASSED             [ 76%]
+tests/test_shared_llm.py::TestLLMClient::test_no_keys_raises_value_error PASSED [ 77%]
+tests/test_shared_llm.py::TestLLMClient::test_resolve_tier_from_explicit PASSED [ 78%]
+tests/test_shared_llm.py::TestLLMClient::test_resolve_tier_from_model_name PASSED [ 80%]
+tests/test_shared_llm.py::TestLLMClient::test_resolve_tier_defaults_to_medium PASSED [ 81%]
+tests/test_shared_llm.py::TestLLMClient::test_create_attaches_policy_and_meta PASSED [ 82%]
+tests/test_shared_llm.py::TestLLMClient::test_fallback_on_quota_error PASSED [ 83%]
+tests/test_shared_llm.py::TestLLMClient::test_quality_gate_repairs_deepseek_output PASSED [ 84%]
+tests/test_shared_llm.py::TestLLMClient::test_non_fallback_error_raises PASSED [ 85%]
+tests/test_shared_llm.py::TestLLMClient::test_stats_include_bridge_metrics PASSED [ 86%]
+tests/test_shared_llm.py::TestModels::test_llm_response_defaults PASSED  [ 87%]
+tests/test_shared_llm.py::TestModels::test_cost_record_fields PASSED     [ 88%]
+tests/test_workspace_regressions.py::test_brain_module_robust_json_parse PASSED [ 89%]
+tests/test_workspace_regressions.py::test_notion_server_reads_db_id_from_env PASSED [ 90%]
+tests/test_workspace_regressions.py::test_pdf_parser_extracts_page_text PASSED [ 91%]
+tests/test_workspace_regressions.py::test_pdf_parser_returns_empty_string_on_error PASSED [ 92%]
+tests/test_workspace_smoke.py::test_quality_gate_documents_all_supported_scopes PASSED [ 93%]
+tests/test_workspace_smoke.py::test_default_checks_cover_expected_scopes_and_existing_paths PASSED [ 94%]
+tests/test_workspace_smoke.py::test_run_one_reports_missing_working_directory PASSED [ 95%]
+tests/test_workspace_smoke.py::test_main_writes_json_report_for_selected_scope PASSED [ 96%]
+x-article-publisher-skill/tests/test_parse_markdown.py::ParseMarkdownTests::test_global_search_can_be_disabled PASSED [ 97%]
+x-article-publisher-skill/tests/test_parse_markdown.py::ParseMarkdownTests::test_parse_markdown_file_returns_validation_metadata PASSED [ 98%]
+x-article-publisher-skill/tests/test_validate_article.py::ValidateArticleTests::test_build_dry_run_report_includes_selector_manifest_and_sorted_steps PASSED [100%]
+
+================================== FAILURES ===================================
+________________________________ test_imports _________________________________
+AgriGuard\backend\tests\test_smoke.py:17: in test_imports
+    import seed_db
+AgriGuard\backend\seed_db.py:9: in <module>
+    models.Base.metadata.create_all(bind=engine)
+    ^^^^^^^^^^^
+E   AttributeError: module 'models' has no attribute 'Base'
+__________________________ test_seed_db_creates_data __________________________
+AgriGuard\backend\tests\test_smoke.py:31: in test_seed_db_creates_data
+    models.Base.metadata.create_all(bind=engine)
+    ^^^^^^^^^^^
+E   AttributeError: module 'models' has no attribute 'Base'
+______________________ test_dashboard_summary_data_shape ______________________
+AgriGuard\backend\tests\test_smoke.py:56: in test_dashboard_summary_data_shape
+    total_products = db.query(models.Product).count()
+                              ^^^^^^^^^^^^^^
+E   AttributeError: module 'models' has no attribute 'Product'
+============================== warnings summary ===============================
+desci-platform\tests\integration_test.py:26
+  D:\AI ?꾨줈?앺듃\desci-platform\tests\integration_test.py:26: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.integration
+
+desci-platform\tests\integration_test.py:27
+  D:\AI ?꾨줈?앺듃\desci-platform\tests\integration_test.py:27: PytestUnknownMarkWarning: Unknown pytest.mark.external - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.external
+
+notebooklm-mcp\tests\test_notebooklm_performance.py:7
+  D:\AI ?꾨줈?앺듃\notebooklm-mcp\tests\test_notebooklm_performance.py:7: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.integration
+
+notebooklm-mcp\tests\test_notebooklm_performance.py:8
+  D:\AI ?꾨줈?앺듃\notebooklm-mcp\tests\test_notebooklm_performance.py:8: PytestUnknownMarkWarning: Unknown pytest.mark.external - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.external
+
+tests\test_ddg.py:4
+  D:\AI ?꾨줈?앺듃\tests\test_ddg.py:4: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.integration
+
+tests\test_ddg.py:5
+  D:\AI ?꾨줈?앺듃\tests\test_ddg.py:5: PytestUnknownMarkWarning: Unknown pytest.mark.external - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.external
+
+tests\test_youtube_skill.py:9
+  D:\AI ?꾨줈?앺듃\tests\test_youtube_skill.py:9: PytestUnknownMarkWarning: Unknown pytest.mark.integration - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.integration
+
+tests\test_youtube_skill.py:10
+  D:\AI ?꾨줈?앺듃\tests\test_youtube_skill.py:10: PytestUnknownMarkWarning: Unknown pytest.mark.external - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.external
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED AgriGuard/backend/tests/test_smoke.py::test_imports - AttributeError: ...
+FAILED AgriGuard/backend/tests/test_smoke.py::test_seed_db_creates_data - Att...
+FAILED AgriGuard/backend/tests/test_smoke.py::test_dashboard_summary_data_shape
+=========== 3 failed, 92 passed, 4 deselected, 8 warnings in 23.78s ===========

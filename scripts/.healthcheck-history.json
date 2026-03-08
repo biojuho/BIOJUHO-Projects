@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-08T09:42:29.108080",
+  "timestamp": "2026-03-08T10:17:50.003598",
   "version": "2.0",
   "workspace": "D:\\AI 프로젝트",
   "projects": [
@@ -186,6 +186,11 @@
           "name": "src",
           "ok": true,
           "message": "✅ AgriGuard/frontend/src"
+        },
+        {
+          "name": "build_check",
+          "ok": true,
+          "message": "✅ 빌드 체크 성공"
         }
       ],
       "imports": [],
@@ -194,18 +199,18 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 25,
+    "uncommitted_changes": 20,
     "files": [
-      "M .pre-commit-config.yaml",
+      "M AgriGuard/backend/tests/test_smoke.py",
+      " M AgriGuard/frontend/package.json",
       " M DailyNews/config/news_sources.json",
       " M DailyNews/output/daily_tweets_2026-03-07_test.txt",
       " M DailyNews/scripts/news_bot.py",
       " M DailyNews/src/antigravity_mcp/pipelines/collect.py",
       " m canva-mcp",
-      " M pytest.ini",
-      "?? .coverage",
-      "?? .env.example",
-      "?? .github/CODEOWNERS"
+      " M getdaytrends/main.py",
+      " M getdaytrends/scraper.py",
+      " M scripts/healthcheck.py"
     ]
   },
   "env_files": [

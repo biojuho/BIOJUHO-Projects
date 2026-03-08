@@ -1,19 +1,31 @@
 {
     "Tech": [
         {"name": "GeekNews", "url": "https://feeds.feedburner.com/geeknews-feed"},
-        {"name": "Hacker News", "url": "https://news.ycombinator.com/rss"}
+        {"name": "Hacker News", "url": "https://news.ycombinator.com/rss"},
+        {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
+        {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml"},
+        {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index"},
+        {"name": "Wired", "url": "https://www.wired.com/feed/rss"},
+        {"name": "MIT Tech Review", "url": "https://www.technologyreview.com/feed/"},
+        {"name": "전자신문 IT", "url": "https://rss.etnews.com/Section901.xml"}
     ],
     "Economy_KR": [
         {"name": "Hankyung Economic", "url": "https://rss.hankyung.com/feed/economy.xml"},
-        {"name": "Maeil Economy", "url": "https://www.mk.co.kr/rss/30100041/"}
+        {"name": "Maeil Economy", "url": "https://www.mk.co.kr/rss/30100041/"},
+        {"name": "서울경제", "url": "https://www.sedaily.com/RSS/Economy"}
     ],
     "Economy_Global": [
         {"name": "CNBC Top News", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"},
-        {"name": "Wall Street Journal World", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"}
+        {"name": "Wall Street Journal World", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"},
+        {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/markets/news.rss"},
+        {"name": "MarketWatch", "url": "https://feeds.marketwatch.com/marketwatch/topstories/"}
     ],
     "Crypto": [
         {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
-        {"name": "TokenPost", "url": "https://www.tokenpost.kr/rss"}
+        {"name": "TokenPost", "url": "https://www.tokenpost.kr/rss"},
+        {"name": "CoinTelegraph", "url": "https://cointelegraph.com/rss"},
+        {"name": "The Block", "url": "https://www.theblock.co/rss.xml"},
+        {"name": "Decrypt", "url": "https://decrypt.co/feed"}
     ],
     "Global_Affairs": [
         {"name": "BBC World", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},

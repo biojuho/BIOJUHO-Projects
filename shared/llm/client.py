@@ -151,6 +151,11 @@ class LLMClient:
         system: str = "",
         policy: Optional[LLMPolicy] = None,
     ) -> LLMResponse:
+        from pathlib import Path
+        lock_file = Path(__file__).resolve().parents[0] / "data" / "RATE_LIMIT.lock"
+        if lock_file.exists():
+            raise RuntimeError("Rate Limit Exceeded: Daily budget reached. API request blocked by FinOps Dashboard.")
+
         resolved_tier = self._resolve_tier(tier, model)
         resolved_policy = normalize_policy(policy)
         cache_key = _make_cache_key(resolved_tier, messages, system, resolved_policy)
@@ -179,6 +184,11 @@ class LLMClient:
         system: str = "",
         policy: Optional[LLMPolicy] = None,
     ) -> LLMResponse:
+        from pathlib import Path
+        lock_file = Path(__file__).resolve().parents[0] / "data" / "RATE_LIMIT.lock"
+        if lock_file.exists():
+            raise RuntimeError("Rate Limit Exceeded: Daily budget reached. API request blocked by FinOps Dashboard.")
+
         resolved_tier = self._resolve_tier(tier, model)
         resolved_policy = normalize_policy(policy)
         return await self._dispatch(
@@ -275,12 +285,16 @@ class LLMClient:
         elapsed_ms: float,
         error: Exception,
     ) -> Exception:
+        from shared.telemetry.cost_tracker import detect_project_context
+        project_name = detect_project_context()
+
         self._tracker.record(
             backend=backend_name,
             model=default_model,
             tier=resolved_tier,
             success=False,
             error=str(error),
+            project=project_name,
         )
         if _should_fallback(error):
             _mark_failed(resolved_tier, backend_name)
@@ -298,6 +312,9 @@ class LLMClient:
         default_model: str,
         response: LLMResponse,
     ) -> None:
+        from shared.telemetry.cost_tracker import detect_project_context
+        project_name = detect_project_context()
+
         rec = self._tracker.record(
             backend=backend_name,
             model=default_model,
@@ -305,6 +322,7 @@ class LLMClient:
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
             success=True,
+            project=project_name,
         )
         response.cost_usd = rec.cost_usd
 

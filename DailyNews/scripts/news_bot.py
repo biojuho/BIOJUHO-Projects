@@ -64,20 +64,38 @@ def load_sources() -> dict[str, list[dict[str, str]]]:
 
 
 def get_time_window() -> tuple[datetime, datetime, str]:
-    now = datetime.now()
-    if 6 <= now.hour < 10:
-        end_time = now.replace(hour=7, minute=0, second=0, microsecond=0)
-        start_time = (end_time - timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
+    """Return (start, end, label) in UTC.
+
+    feedparser normalizes ``published_parsed`` to UTC ``struct_time``, so
+    the window boundaries MUST also be in UTC to ensure correct comparison.
+
+    Schedule runs at KST 07:00 (morning) and KST 17:00 (evening).
+    KST = UTC+9, so we subtract 9 hours from KST boundaries.
+    """
+    from datetime import timezone as _tz
+
+    KST_OFFSET = timedelta(hours=9)
+    now_kst = datetime.now()  # local KST on this machine
+
+    if 6 <= now_kst.hour < 10:
+        # Morning Brief: KST 18:00 (prev day) ~ KST 07:00 (today)
+        end_kst = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
+        start_kst = (end_kst - timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
         label = "Morning Brief"
-    elif 17 <= now.hour < 20:
-        end_time = now.replace(hour=18, minute=0, second=0, microsecond=0)
-        start_time = now.replace(hour=7, minute=0, second=0, microsecond=0)
+    elif 17 <= now_kst.hour < 20:
+        # Evening Brief: KST 07:00 ~ KST 18:00 (today)
+        start_kst = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
+        end_kst = now_kst.replace(hour=18, minute=0, second=0, microsecond=0)
         label = "Evening Brief"
     else:
-        end_time = now
-        start_time = now - timedelta(hours=12)
+        end_kst = now_kst
+        start_kst = now_kst - timedelta(hours=12)
         label = "Manual Brief"
-    return start_time, end_time, label
+
+    # Convert KST → UTC (naive) for comparison with feedparser's UTC struct_time
+    start_utc = start_kst - KST_OFFSET
+    end_utc = end_kst - KST_OFFSET
+    return start_utc, end_utc, label
 
 
 def in_time_window(entry: Any, start: datetime, end: datetime) -> bool:
@@ -420,11 +438,19 @@ async def process_category(
 ) -> dict[str, Any]:
     async with semaphore:
         start_time, end_time, label = get_time_window()
-        window_str = f"{start_time.strftime('%Y-%m-%d %H:%M')} ~ {end_time.strftime('%Y-%m-%d %H:%M')}"
+        # Display in KST for log readability (window is internally UTC)
+        _KST = timedelta(hours=9)
+        window_str = f"{(start_time + _KST).strftime('%Y-%m-%d %H:%M')} ~ {(end_time + _KST).strftime('%Y-%m-%d %H:%M')}"
         logger.info("category", "start", "processing category", category=category, window=window_str)
 
         articles: list[dict[str, Any]] = []
         seen_links: set[str] = set()
+
+        # ── Per-source cap for diverse coverage ──
+        # Instead of letting the first source exhaust max_items,
+        # each source contributes at most ceil(max_items / num_sources) articles.
+        import math
+        max_per_source = max(1, math.ceil(max_items / max(1, len(feeds))))
 
         for source in feeds:
             source_name = source["name"]
@@ -435,7 +461,12 @@ async def process_category(
                 logger.error("fetch", "failed", "feed fetch failed", category=category, source=source_name, error=str(exc))
                 continue
 
+            source_count = 0
             for entry in entries:
+                if len(articles) >= max_items:
+                    break
+                if source_count >= max_per_source:
+                    break
                 if not in_time_window(entry, start_time, end_time):
                     continue
 
@@ -477,8 +508,9 @@ async def process_category(
                     }
                 )
                 seen_links.add(link)
-                if len(articles) >= max_items:
-                    break
+                source_count += 1
+            if len(articles) >= max_items:
+                break
 
         if not articles:
             logger.warning("category", "skipped", "no articles collected", category=category)

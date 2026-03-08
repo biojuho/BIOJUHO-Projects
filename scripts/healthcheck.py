@@ -88,6 +88,7 @@ CHECKS = [
         ],
         "key_imports": [],
         "requirements": None,
+        "build_check": "AgriGuard/frontend",
     },
 ]
 
@@ -197,6 +198,34 @@ def check_dependency_drift(req_path: str) -> list[dict]:
     return results
 
 
+def check_npm_build(rel_path: str) -> dict:
+    """프론트엔드 빌드 건전성(Sanity Check) 검증 (Dry-run)."""
+    full_path = WORKSPACE / rel_path
+    if not full_path.exists():
+        return {"ok": False, "message": f"❌ {rel_path} 없음"}
+
+    try:
+        npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
+        # package.json에 선언된 build:dry 태스크 실행
+        proc = subprocess.run(
+            [npm_cmd, "run", "build:dry"],
+            cwd=full_path, capture_output=True, text=True, timeout=45
+        )
+        if proc.returncode == 0:
+            return {"ok": True, "message": f"✅ 빌드 체크 성공"}
+        else:
+            err_msg = ""
+            for line in proc.stderr.splitlines():
+                if "error" in line.lower() or "failed" in line.lower():
+                    err_msg = line.strip()
+                    break
+            if not err_msg:
+                err_msg = "빌드 실패 (원인 불분명)"
+            return {"ok": False, "message": f"❌ 빌드 체크 실패: {err_msg}"}
+    except Exception as e:
+        return {"ok": False, "message": f"❌ 빌드 체크 오류: {e}"}
+
+
 def run_healthcheck() -> dict:
     """전체 헬스체크 실행."""
     report = {
@@ -236,6 +265,17 @@ def run_healthcheck() -> dict:
         # 의존성 drift 감지
         if project.get("requirements"):
             proj_result["drift"] = check_dependency_drift(project["requirements"])
+
+        # 프론트엔드 빌드 체크
+        if project.get("build_check"):
+            b_res = check_npm_build(project["build_check"])
+            proj_result["checks"].append({
+                "name": "build_check",
+                "ok": b_res["ok"],
+                "message": b_res["message"]
+            })
+            if not b_res["ok"]:
+                proj_result["healthy"] = False
 
         report["projects"].append(proj_result)
 

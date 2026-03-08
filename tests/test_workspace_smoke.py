@@ -8,7 +8,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SMOKE_SCRIPT_PATH = PROJECT_ROOT / "scripts" / "run_workspace_smoke.py"
-QUALITY_GATE_PATH = PROJECT_ROOT / "QUALITY_GATE.md"
+QUALITY_GATE_PATH = PROJECT_ROOT / "docs" / "QUALITY_GATE.md"
 
 
 def load_smoke_module():

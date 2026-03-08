@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DESCI_PATH = PROJECT_ROOT / "desci-platform"
-NOTION_SCRIPTS_PATH = PROJECT_ROOT / "MCP_notion-antigravity" / "scripts"
-NOTION_SERVER_PATH = PROJECT_ROOT / "MCP_notion-antigravity" / "server.py"
+NOTION_SCRIPTS_PATH = PROJECT_ROOT / "DailyNews" / "scripts"
+NOTION_SERVER_PATH = PROJECT_ROOT / "DailyNews" / "server.py"
 
 for candidate in (DESCI_PATH, NOTION_SCRIPTS_PATH):
     candidate_text = str(candidate)
@@ -32,7 +32,7 @@ def test_brain_module_robust_json_parse(monkeypatch) -> None:
 
 
 def test_notion_server_reads_db_id_from_env() -> None:
-    config_path = PROJECT_ROOT / "MCP_notion-antigravity" / "src" / "antigravity_mcp" / "config.py"
+    config_path = PROJECT_ROOT / "DailyNews" / "src" / "antigravity_mcp" / "config.py"
     content = config_path.read_text(encoding="utf-8")
     assert "ANTIGRAVITY_DB_ID" in content
 

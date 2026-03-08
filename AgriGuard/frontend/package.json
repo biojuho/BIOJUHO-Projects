@@ -4,12 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=20.19 <24",
+    "node": ">=22.0.0",
     "npm": ">=10"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:dry": "vite build --emptyOutDir=false",
     "build:lts": "npx -y node@22 node_modules/vite/bin/vite.js build",
     "check:bundle": "node scripts/check-bundle-size.mjs",
     "lint": "eslint .",
