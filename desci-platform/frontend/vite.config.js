@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
     environment: "jsdom",
-    setupFiles: ["src/__tests__/setup.js"],
+    setupFiles: ["src/__tests__/setup.jsx"],
     exclude: ["tests/e2e/**", "node_modules/**"],
     pool: "forks",
     fileParallelism: false,

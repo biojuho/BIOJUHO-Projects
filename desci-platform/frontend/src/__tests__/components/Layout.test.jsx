@@ -2,26 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-// Mocks must come before component imports
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }) => {
-      const {
-        variants: _variants,
-        initial: _initial,
-        animate: _animate,
-        exit: _exit,
-        transition: _transition,
-        whileHover: _whileHover,
-        whileTap: _whileTap,
-        layoutId: _layoutId,
-        ...rest
-      } = props;
-      return <div {...rest}>{children}</div>;
-    },
-  },
-  AnimatePresence: ({ children }) => <>{children}</>,
-}));
+// framer-motion and ToastContext — provided by global setup.jsx
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
@@ -36,40 +17,10 @@ vi.mock('../../contexts/AuthContext', () => ({
   }),
 }));
 
-vi.mock('../../contexts/ToastContext', () => ({
-  useToast: () => ({ showToast: vi.fn() }),
-}));
-
-vi.mock('../../contexts/LocaleContext', () => ({
-  useLocale: () => ({
-    t: (key, values = {}) => {
-      const messages = {
-        'layout.dashboard': 'Dashboard',
-        'layout.biolinker': 'BioLinker',
-        'layout.paperUpload': 'Paper Upload',
-        'layout.myLab': 'My Lab',
-        'layout.notices': 'Notices',
-        'layout.vcPortal': 'VC Portal',
-        'layout.aiLab': 'AI Lab',
-        'layout.peerReview': 'Peer Review',
-        'layout.wallet': 'Wallet',
-        'layout.closeMenu': 'Close menu',
-        'layout.openMenu': 'Open menu',
-        'layout.researcher': 'Researcher',
-        'layout.signOut': 'Sign Out',
-        'layout.signOutAria': 'Sign Out',
-        'layout.notifications': 'Notifications',
-        'layout.markAllRead': 'Mark all read',
-        'layout.viewAllNotifications': 'View all notifications',
-        'layout.connectWallet': 'Connect Wallet',
-        'layout.walletConnectedTitle': 'Wallet connected',
-        'layout.walletConnectedDesc': `Connected wallet ${values.address ?? ''}`.trim(),
-        'layout.walletConnectFailed': 'Wallet connection failed',
-      };
-      return messages[key] || key;
-    },
-  }),
-}));
+vi.mock('../../contexts/LocaleContext', async () => {
+  const { LAYOUT_MESSAGES, createLocaleMock } = await import('../mocks/locale-messages.js');
+  return createLocaleMock(LAYOUT_MESSAGES);
+});
 
 import Layout from '../../components/Layout';
 

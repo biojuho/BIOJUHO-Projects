@@ -1,29 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-// Mocks must come before component imports
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }) => {
-      // Strip framer-motion-specific props to avoid React warnings
-      const {
-        variants: _variants,
-        initial: _initial,
-        animate: _animate,
-        exit: _exit,
-        transition: _transition,
-        whileHover: _whileHover,
-        whileTap: _whileTap,
-        layoutId: _layoutId,
-        ...rest
-      } = props;
-      return <div {...rest}>{children}</div>;
-    },
-  },
-  AnimatePresence: ({ children }) => <>{children}</>,
-}));
+// framer-motion, ToastContext, jest-dom matchers — provided by global setup.jsx
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
@@ -34,54 +13,10 @@ vi.mock('../../contexts/AuthContext', () => ({
   }),
 }));
 
-vi.mock('../../contexts/ToastContext', () => ({
-  useToast: () => ({ showToast: vi.fn() }),
-}));
-
-vi.mock('../../contexts/LocaleContext', () => ({
-  useLocale: () => ({
-    t: (key, values = {}) => {
-      const messages = {
-        'dashboard.overview': 'Overview',
-        'dashboard.welcomeBack': 'Welcome back',
-        'dashboard.researcherFallback': 'Researcher',
-        'dashboard.networkActive': 'Network Active',
-        'dashboard.papersUploaded': 'Papers Uploaded',
-        'dashboard.vectorIndex': 'Vector Index',
-        'dashboard.pendingReviews': 'Pending Reviews',
-        'dashboard.tokenBalance': 'Token Balance',
-        'dashboard.statLoading': 'Loading',
-        'dashboard.statDocuments': 'Documents',
-        'dashboard.statComingSoon': 'Coming soon',
-        'dashboard.statIndexed': `${values.count} indexed`,
-        'dashboard.statUploadToStart': 'Upload to start',
-        'dashboard.accountStatus': 'Account Status',
-        'dashboard.identity': 'Identity',
-        'dashboard.email': 'Email',
-        'dashboard.provider': 'Provider',
-        'dashboard.uid': 'UID',
-        'dashboard.systemStatus': 'System Status',
-        'dashboard.backendConnectionFailed': 'Backend connection failed',
-        'dashboard.node': 'Node',
-        'dashboard.online': 'Online',
-        'dashboard.role': 'Role',
-        'dashboard.rolePrincipalInvestigator': 'Principal Investigator',
-        'dashboard.sync': 'Sync',
-        'dashboard.automated': 'Automated',
-        'dashboard.quickActions': 'Quick Actions',
-        'dashboard.quickUploadTitle': 'Upload Paper',
-        'dashboard.quickUploadSubtitle': 'Mint IP-NFT',
-        'dashboard.quickGrantTitle': 'Find Grants',
-        'dashboard.quickGrantSubtitle': 'AI Matching',
-        'dashboard.quickVcTitle': 'VC Portal',
-        'dashboard.quickVcSubtitle': 'Strategic Partners',
-        'dashboard.strategicPartners': 'Strategic VC Partners',
-        'dashboard.beta': 'Beta',
-      };
-      return messages[key] || key;
-    },
-  }),
-}));
+vi.mock('../../contexts/LocaleContext', async () => {
+  const { DASHBOARD_MESSAGES, createLocaleMock } = await import('../mocks/locale-messages.js');
+  return createLocaleMock(DASHBOARD_MESSAGES);
+});
 
 vi.mock('../../services/api', () => ({
   default: {

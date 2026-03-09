@@ -32,5 +32,13 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/setupTests.js',
+    exclude: ['tests/e2e/**', 'node_modules/**'],
+    pool: 'forks',
+    fileParallelism: false,
+    minWorkers: 1,
+    maxWorkers: 1,
+    isolate: false,
+    testTimeout: 30000,
+    hookTimeout: 30000,
   },
 })
