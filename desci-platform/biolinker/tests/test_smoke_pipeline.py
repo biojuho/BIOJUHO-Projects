@@ -1,25 +1,30 @@
-from pathlib import Path
-import sys
+"""
+BioLinker - Smoke / Integration Pipeline Tests
+
+Uses shared conftest.py fixtures for external service stubs.
+sync_client provides a TestClient with all services pre-mocked.
+"""
 import asyncio
-
-from fastapi.testclient import TestClient
-
-
-PROJECT_DIR = Path(__file__).resolve().parents[1]
-if str(PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(PROJECT_DIR))
-
-import main as app_main
 import warnings
 
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import MagicMock
 
-def test_me_endpoint_with_test_token(monkeypatch):
-    monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
-    with TestClient(app_main.app) as client:
-        response = client.get(
-            "/me",
-            headers={"Authorization": "Bearer test-token-bypass"},
-        )
+import main as app_main  # noqa: E402
+import routers.rfp as rfp_router  # noqa: E402
+import routers.web3 as web3_router  # noqa: E402
+
+
+# ─── Auth / basic endpoint tests ────────────────────────────────────────────
+
+
+def test_me_endpoint_with_test_token(sync_client):
+    """GET /me with test-bypass token should return authenticated user."""
+    response = sync_client.get(
+        "/me",
+        headers={"Authorization": "Bearer test-token-bypass"},
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -28,29 +33,37 @@ def test_me_endpoint_with_test_token(monkeypatch):
     assert data["email"] == "test@example.com"
 
 
-def test_upload_returns_cid_and_index_status(monkeypatch):
+# ─── Asset upload ────────────────────────────────────────────────────────────
+
+
+def test_upload_returns_cid_and_index_status(sync_client, monkeypatch):
+    """POST /assets/upload should return CID and analysis status."""
+
     class StubAssetManager:
         async def upload_asset(self, file, asset_type):
             return {"cid": "QmUnitTestCid123", "analysis": {"status": "indexed"}}
 
-    import routers.web3 as web3_router
     monkeypatch.setattr(web3_router, "get_asset_manager", lambda: StubAssetManager())
 
     files = {"file": ("paper.pdf", b"%PDF-1.4 test", "application/pdf")}
     data = {"asset_type": "general", "title": "Unit Test Paper", "abstract": "Test abstract"}
     headers = {"Authorization": "Bearer test-token-bypass"}
 
-    with TestClient(app_main.app) as client:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            response = client.post("/assets/upload", files=files, data=data, headers=headers)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        response = sync_client.post("/assets/upload", files=files, data=data, headers=headers)
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["analysis"]["status"] == "indexed"
 
 
-def test_match_to_proposal_flow(monkeypatch):
+# ─── Match → Proposal flow ──────────────────────────────────────────────────
+
+
+def test_match_to_proposal_flow(sync_client, monkeypatch):
+    """POST /match/paper → /proposal/generate should chain correctly."""
+
     class StubMatcher:
         async def match_paper(self, paper_id: str, limit: int = 5):  # noqa: ARG002
             if paper_id != "paper-1":
@@ -90,18 +103,15 @@ def test_match_to_proposal_flow(monkeypatch):
         async def review_draft(self, rfp_data: dict, paper_data: dict, draft: str) -> str:  # noqa: ARG002
             return "REVIEW_OK"
 
-    import routers.rfp as rfp_router
-
     monkeypatch.setattr(rfp_router, "get_rfp_matcher", lambda: StubMatcher())
     monkeypatch.setattr(rfp_router, "get_vector_store", lambda: StubVectorStore())
     monkeypatch.setattr(rfp_router, "get_proposal_generator", lambda: StubProposalGenerator())
 
-    with TestClient(app_main.app) as client:
-        match_res = client.post("/match/paper", json={"paper_id": "paper-1"})
-        proposal_res = client.post(
-            "/proposal/generate",
-            json={"paper_id": "paper-1", "rfp_id": "rfp-1"},
-        )
+    match_res = sync_client.post("/match/paper", json={"paper_id": "paper-1"})
+    proposal_res = sync_client.post(
+        "/proposal/generate",
+        json={"paper_id": "paper-1", "rfp_id": "rfp-1"},
+    )
 
     assert match_res.status_code == 200
     assert match_res.json()["matches"][0]["id"] == "rfp-1"
@@ -109,7 +119,12 @@ def test_match_to_proposal_flow(monkeypatch):
     assert proposal_res.json()["draft"] == "DRAFT::rfp-1::paper-1"
 
 
+# ─── Health degraded scenario ───────────────────────────────────────────────
+
+
 def test_health_degraded_when_vector_store_fails(monkeypatch):
+    """Health should report 'degraded' when vector store raises."""
+
     class BrokenVectorStore:
         def count(self):
             raise RuntimeError("simulated failure")
@@ -136,7 +151,11 @@ def test_health_degraded_when_vector_store_fails(monkeypatch):
     assert payload["chromadb_ok"] is False
 
 
+# ─── Proposal generator fallback ────────────────────────────────────────────
+
+
 def test_proposal_generator_fallback_without_llm():
+    """ProposalGenerator should produce a template draft when LLM is None."""
     import services.proposal_generator as proposal_module
 
     generator = proposal_module.ProposalGenerator()
@@ -156,12 +175,16 @@ def test_proposal_generator_fallback_without_llm():
     assert draft.startswith("# Proposal:")
 
 
+# ─── Wallet / Web3 contract tests ───────────────────────────────────────────
+
+
 def test_wallet_balance_contract_when_mock_mode_off_returns_error_payload(monkeypatch):
+    """get_balance should return error payload when service is not available."""
+
     class StubWeb3:
         async def get_balance(self, address: str):  # noqa: ARG002
             return {"error": "Web3 service not available or token contract not configured"}
 
-    import routers.web3 as web3_router
     monkeypatch.setattr(web3_router, "get_web3_service", lambda: StubWeb3())
 
     with TestClient(app_main.app) as client:
@@ -173,6 +196,8 @@ def test_wallet_balance_contract_when_mock_mode_off_returns_error_payload(monkey
 
 
 def test_wallet_balance_contract_when_mock_mode_on_returns_mock_payload(monkeypatch):
+    """get_balance should return mock data when mock mode is on."""
+
     class StubWeb3:
         async def get_balance(self, address: str):
             return {
@@ -183,7 +208,6 @@ def test_wallet_balance_contract_when_mock_mode_on_returns_mock_payload(monkeypa
                 "_mock": True,
             }
 
-    import routers.web3 as web3_router
     monkeypatch.setattr(web3_router, "get_web3_service", lambda: StubWeb3())
 
     with TestClient(app_main.app) as client:
@@ -195,6 +219,7 @@ def test_wallet_balance_contract_when_mock_mode_on_returns_mock_payload(monkeypa
 
 
 def test_web3_service_reward_amounts_returns_error_when_mock_mode_off(monkeypatch):
+    """Reward amounts should return error when mock mode is off and no contract."""
     import services.web3_service as web3_module
 
     monkeypatch.setattr(web3_module, "MOCK_MODE", False)

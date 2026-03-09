@@ -1,61 +1,22 @@
 """
 BioLinker - API Endpoint Tests
 Async tests for core endpoints using httpx AsyncClient and pytest-asyncio.
+
+External service stubs are provided by conftest.py fixtures:
+  - async_client: httpx AsyncClient with all services mocked
+  - mock_external_services: dict of stub objects for further customisation
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 
-# Ensure the biolinker package root is on sys.path
-PROJECT_DIR = Path(__file__).resolve().parents[1]
-if str(PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(PROJECT_DIR))
-
+# Module references for monkeypatching (imported via conftest sys.path setup)
 import main as app_main  # noqa: E402
-
-
-# ─── Fixtures ────────────────────────────────────────────────────────────────
-
-
-@pytest_asyncio.fixture
-async def async_client(monkeypatch):
-    """Provide an httpx AsyncClient wired to the FastAPI ASGI app.
-
-    External services (ChromaDB, Firebase, Web3, IPFS) are stubbed so tests
-    run without any real infrastructure.
-    """
-    # Stub vector store
-    stub_vector_store = MagicMock()
-    stub_vector_store.count.return_value = 5
-    stub_vector_store.search_similar.return_value = []
-    monkeypatch.setattr(app_main, "get_vector_store", lambda: stub_vector_store)
-
-    # Stub web3 service
-    stub_web3 = MagicMock()
-    stub_web3.is_connected = False
-    monkeypatch.setattr(app_main, "get_web3_service", lambda: stub_web3)
-
-    # Stub IPFS service
-    stub_ipfs = MagicMock()
-    stub_ipfs.is_configured = True
-    stub_ipfs.close = AsyncMock()
-    monkeypatch.setattr(app_main, "get_ipfs_service", lambda: stub_ipfs)
-
-    # Disable Firestore
-    monkeypatch.setattr(app_main, "db", None)
-
-    # Enable test auth bypass
-    monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
-
-    transport = ASGITransport(app=app_main.app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
+import routers.crawl as crawl_router  # noqa: E402
+import routers.rfp as rfp_router  # noqa: E402
 
 
 # ─── GET /health ─────────────────────────────────────────────────────────────
@@ -90,6 +51,8 @@ async def test_health_healthy_when_vector_store_ok(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_health_degraded_when_vector_store_fails(monkeypatch):
     """When vector store raises, status should be 'degraded'."""
+    from httpx import ASGITransport, AsyncClient as _AsyncClient
+
     broken_store = MagicMock()
     broken_store.count.side_effect = RuntimeError("connection refused")
     monkeypatch.setattr(app_main, "get_vector_store", lambda: broken_store)
@@ -105,7 +68,7 @@ async def test_health_degraded_when_vector_store_fails(monkeypatch):
     monkeypatch.setattr(app_main, "db", None)
 
     transport = ASGITransport(app=app_main.app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
+    async with _AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/health")
 
     data = response.json()
@@ -126,7 +89,7 @@ async def test_notices_returns_200(async_client: AsyncClient, monkeypatch):
 
     stub_scheduler = MagicMock()
     stub_scheduler.get_notices.return_value = mock_notices
-    monkeypatch.setattr(app_main, "get_scheduler", lambda: stub_scheduler)
+    monkeypatch.setattr(crawl_router, "get_scheduler", lambda: stub_scheduler)
 
     response = await async_client.get("/notices")
 
@@ -144,7 +107,7 @@ async def test_notices_filters_by_source(async_client: AsyncClient, monkeypatch)
     stub_scheduler.get_notices.return_value = [
         {"id": "k1", "title": "KDDF Notice", "source": "KDDF"},
     ]
-    monkeypatch.setattr(app_main, "get_scheduler", lambda: stub_scheduler)
+    monkeypatch.setattr(crawl_router, "get_scheduler", lambda: stub_scheduler)
 
     response = await async_client.get("/notices", params={"source": "KDDF", "limit": 10})
 
@@ -157,7 +120,7 @@ async def test_notices_empty_list(async_client: AsyncClient, monkeypatch):
     """GET /notices should return empty list when no notices exist."""
     stub_scheduler = MagicMock()
     stub_scheduler.get_notices.return_value = []
-    monkeypatch.setattr(app_main, "get_scheduler", lambda: stub_scheduler)
+    monkeypatch.setattr(crawl_router, "get_scheduler", lambda: stub_scheduler)
 
     response = await async_client.get("/notices")
 
@@ -184,7 +147,7 @@ async def test_analyze_returns_200_with_mocked_llm(async_client: AsyncClient, mo
 
     mock_crawler = MagicMock()
     mock_crawler.parse_text = AsyncMock(return_value=mock_rfp)
-    monkeypatch.setattr(app_main, "get_crawler", lambda: mock_crawler)
+    monkeypatch.setattr(rfp_router, "get_crawler", lambda: mock_crawler)
 
     # Mock analyzer.analyze
     mock_result = AnalysisResult(
@@ -202,7 +165,7 @@ async def test_analyze_returns_200_with_mocked_llm(async_client: AsyncClient, mo
 
     mock_analyzer = MagicMock()
     mock_analyzer.analyze = AsyncMock(return_value=mock_result)
-    monkeypatch.setattr(app_main, "get_analyzer", lambda: mock_analyzer)
+    monkeypatch.setattr(rfp_router, "get_analyzer", lambda: mock_analyzer)
 
     payload = {
         "rfp_text": "2024 BioHealth Innovation R&D funding announcement...",
@@ -235,7 +198,7 @@ async def test_analyze_returns_500_on_llm_failure(async_client: AsyncClient, mon
     """POST /analyze should return 500 if the LLM analysis raises."""
     mock_crawler = MagicMock()
     mock_crawler.parse_text = AsyncMock(side_effect=RuntimeError("LLM quota exceeded"))
-    monkeypatch.setattr(app_main, "get_crawler", lambda: mock_crawler)
+    monkeypatch.setattr(rfp_router, "get_crawler", lambda: mock_crawler)
 
     payload = {
         "rfp_text": "Some RFP text",
@@ -289,6 +252,7 @@ async def test_match_rfp_returns_results(async_client: AsyncClient, monkeypatch)
     stub_vector_store.search_similar.return_value = mock_results
     stub_vector_store.count.return_value = 10
     monkeypatch.setattr(app_main, "get_vector_store", lambda: stub_vector_store)
+    monkeypatch.setattr(rfp_router, "get_vector_store", lambda: stub_vector_store)
 
     response = await async_client.get("/match/rfp", params={"query": "AI drug discovery"})
 

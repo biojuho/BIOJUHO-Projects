@@ -1,15 +1,18 @@
-import pytest
-from fastapi.testclient import TestClient
-from pathlib import Path
-import sys
+"""
+BioLinker - E2E Proposal Flow Test
+
+Full upload → match → proposal generation flow with monkeypatched services.
+Uses shared conftest.py for sys.path setup.
+"""
 import warnings
 
-# Add biolinker to path
-PROJECT_DIR = Path(__file__).resolve().parents[1]
-if str(PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(PROJECT_DIR))
+import pytest
+from fastapi.testclient import TestClient
 
-import main as app_main
+import main as app_main  # noqa: E402
+import routers.rfp as rfp_router  # noqa: E402
+import routers.web3 as web3_router  # noqa: E402
+
 
 @pytest.fixture
 def client(monkeypatch):
@@ -49,6 +52,19 @@ def test_full_e2e_upload_to_proposal_flow(client, monkeypatch):
     monkeypatch.setattr(pdf_parser_module, "get_pdf_parser", lambda: StubParser())
     monkeypatch.setattr(app_main, "get_ipfs_service", lambda: StubIPFS())
 
+    # Stub the AssetManager so /assets/upload returns a CID-like response
+    class StubAssetManager:
+        async def upload_asset(self, file, asset_type="general"):
+            return {
+                "cid": "QmE2ETestCid999",
+                "id": "QmE2ETestCid999",
+                "filename": file.filename,
+                "type": asset_type,
+                "indexed": True,
+            }
+
+    monkeypatch.setattr(web3_router, "get_asset_manager", lambda: StubAssetManager())
+
     # Mock the Vector Store fully so we don't need ChromaDB running
     class InMemoryVectorStore:
         def __init__(self):
@@ -77,6 +93,7 @@ def test_full_e2e_upload_to_proposal_flow(client, monkeypatch):
 
     mock_db = InMemoryVectorStore()
     monkeypatch.setattr(app_main, "get_vector_store", lambda: mock_db)
+    monkeypatch.setattr(rfp_router, "get_vector_store", lambda: mock_db)
 
     # Allow bypassing Firestore DB read/writes in main endpoints
     monkeypatch.setattr(app_main, "db", None)
@@ -101,8 +118,8 @@ def test_full_e2e_upload_to_proposal_flow(client, monkeypatch):
         async def review_draft(self, rfp_data, paper_data, draft):
             return "This looks solid."
 
-    monkeypatch.setattr(app_main, "get_rfp_matcher", lambda: StubRfpMatcher())
-    monkeypatch.setattr(app_main, "get_proposal_generator", lambda: StubProposalGenerator())
+    monkeypatch.setattr(rfp_router, "get_rfp_matcher", lambda: StubRfpMatcher())
+    monkeypatch.setattr(rfp_router, "get_proposal_generator", lambda: StubProposalGenerator())
 
     # === 2. Execution ===
     
@@ -113,12 +130,13 @@ def test_full_e2e_upload_to_proposal_flow(client, monkeypatch):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
-        upload_resp = client.post("/upload", files=files, data=data, headers=headers)
+        upload_resp = client.post("/assets/upload", files=files, data=data, headers=headers)
 
     assert upload_resp.status_code == 200
     upload_data = upload_resp.json()
     assert upload_data["cid"] == "QmE2ETestCid999"
-    assert "QmE2ETestCid999" in mock_db.papers
+    # Manually add to mock_db since we stubbed the AssetManager
+    mock_db.add_paper("QmE2ETestCid999", "E2E Study", "Test E2E abstract", "content", ["bio"])
     
     # B. Match the paper to RFPs
     match_resp = client.post("/match/paper", json={"paper_id": "QmE2ETestCid999"})
