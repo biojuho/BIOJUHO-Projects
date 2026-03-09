@@ -1,9 +1,9 @@
 name: getdaytrends - Auto Tweet Generator
 
 on:
-  # 이번 달은 로컬에서 실행하기로 결정하여 GitHub Actions 스케줄을 비활성화합니다.
-  # schedule:
-  #   - cron: '0 */4 * * *'
+  schedule:
+    # UTC 기준 4시간마다 실행 (KST 01:00, 05:00, 09:00, 13:00, 17:00, 21:00)
+    - cron: '0 */4 * * *'
   workflow_dispatch:
     inputs:
       country:
@@ -83,3 +83,17 @@ jobs:
           name: tweet-bot-log-${{ github.run_number }}
           path: getdaytrends/tweet_bot.log
           retention-days: 7
+
+      - name: "🔔 Discord notification (failure)"
+        if: failure() && env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          curl -s -H "Content-Type: application/json" \
+            -d "{\"content\":\"❌ **GetDayTrends 실행 실패** (#${{ github.run_number }})\\n🔗 [로그 확인](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\"}" \
+            "$DISCORD_WEBHOOK_URL" || true
+
+      - name: "💚 Heartbeat ping (success)"
+        if: success()
+        run: |
+          echo "✅ GetDayTrends run #${{ github.run_number }} completed successfully at $(date -u +%FT%TZ)"

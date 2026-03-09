@@ -101,3 +101,25 @@ services:
     restart: unless-stopped
     profiles:
       - full  # docker compose --profile full up 으로만 실행
+
+  # ─── GetDayTrends (One-shot / Cron) ─────────────────
+  # 사용법:
+  #   docker compose -f docker-compose.dev.yml run --rm getdaytrends
+  #   docker compose -f docker-compose.dev.yml run --rm getdaytrends python main.py --country us --limit 10
+  getdaytrends:
+    build:
+      context: .
+      dockerfile: getdaytrends/Dockerfile
+    container_name: getdaytrends
+    env_file:
+      - .env
+      - getdaytrends/.env
+    environment:
+      - PYTHONPATH=/app
+      - DEFAULT_COUNTRY=korea
+      - DEFAULT_LIMIT=5
+    volumes:
+      - ./getdaytrends/data:/app/getdaytrends/data
+    profiles:
+      - tools  # docker compose --profile tools run --rm getdaytrends
+
