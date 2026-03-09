@@ -24,7 +24,7 @@ vi.mock('../components/ColdChainMonitor', () => ({
 }));
 
 // Helper that wraps render with MemoryRouter
-function renderApp(route = '/') {
+function renderApp() {
   // We need to render just the routes part, since App includes BrowserRouter
   // Instead, we test the App directly — BrowserRouter is internal
   return render(<App />);

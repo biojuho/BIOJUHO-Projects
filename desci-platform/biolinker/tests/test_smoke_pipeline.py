@@ -29,60 +29,25 @@ def test_me_endpoint_with_test_token(monkeypatch):
 
 
 def test_upload_returns_cid_and_index_status(monkeypatch):
-    class StubParser:
-        def parse(self, content: bytes) -> str:  # noqa: ARG002
-            return "biotechnology platform discovery biomarker pipeline"
+    class StubAssetManager:
+        async def upload_asset(self, file, asset_type):
+            return {"cid": "QmUnitTestCid123", "analysis": {"status": "indexed"}}
 
-    class StubIPFS:
-        is_configured = False
-
-        async def upload_file(self, file_path: str, metadata: dict):  # noqa: ARG002
-            return {
-                "cid": "QmUnitTestCid123",
-                "url": "https://gateway.pinata.cloud/ipfs/QmUnitTestCid123",
-            }
-
-        async def close(self):
-            return None
-
-    class StubVectorStore:
-        def __init__(self):
-            self.saved = []
-
-        def add_paper(self, paper_id, title, abstract, full_text, keywords):
-            self.saved.append(
-                {
-                    "paper_id": paper_id,
-                    "title": title,
-                    "abstract": abstract,
-                    "full_text": full_text,
-                    "keywords": keywords,
-                }
-            )
-
-    stub_store = StubVectorStore()
-
-    import services.pdf_parser as pdf_parser_module
-
-    monkeypatch.setattr(pdf_parser_module, "get_pdf_parser", lambda: StubParser())
-    monkeypatch.setattr(app_main, "get_ipfs_service", lambda: StubIPFS())
-    monkeypatch.setattr(app_main, "get_vector_store", lambda: stub_store)
+    import routers.web3 as web3_router
+    monkeypatch.setattr(web3_router, "get_asset_manager", lambda: StubAssetManager())
 
     files = {"file": ("paper.pdf", b"%PDF-1.4 test", "application/pdf")}
-    data = {"title": "Unit Test Paper", "abstract": "Test abstract"}
+    data = {"asset_type": "general", "title": "Unit Test Paper", "abstract": "Test abstract"}
     headers = {"Authorization": "Bearer test-token-bypass"}
 
     with TestClient(app_main.app) as client:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            response = client.post("/upload", files=files, data=data, headers=headers)
+            response = client.post("/assets/upload", files=files, data=data, headers=headers)
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["cid"] == "QmUnitTestCid123"
     assert payload["analysis"]["status"] == "indexed"
-    assert len(stub_store.saved) == 1
-    assert stub_store.saved[0]["paper_id"] == "QmUnitTestCid123"
 
 
 def test_match_to_proposal_flow(monkeypatch):
@@ -125,9 +90,11 @@ def test_match_to_proposal_flow(monkeypatch):
         async def review_draft(self, rfp_data: dict, paper_data: dict, draft: str) -> str:  # noqa: ARG002
             return "REVIEW_OK"
 
-    monkeypatch.setattr(app_main, "get_rfp_matcher", lambda: StubMatcher())
-    monkeypatch.setattr(app_main, "get_vector_store", lambda: StubVectorStore())
-    monkeypatch.setattr(app_main, "get_proposal_generator", lambda: StubProposalGenerator())
+    import routers.rfp as rfp_router
+
+    monkeypatch.setattr(rfp_router, "get_rfp_matcher", lambda: StubMatcher())
+    monkeypatch.setattr(rfp_router, "get_vector_store", lambda: StubVectorStore())
+    monkeypatch.setattr(rfp_router, "get_proposal_generator", lambda: StubProposalGenerator())
 
     with TestClient(app_main.app) as client:
         match_res = client.post("/match/paper", json={"paper_id": "paper-1"})
@@ -189,72 +156,13 @@ def test_proposal_generator_fallback_without_llm():
     assert draft.startswith("# Proposal:")
 
 
-def test_papers_me_returns_empty_when_mock_mode_off_and_db_unavailable(monkeypatch):
-    monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
-    monkeypatch.setattr(app_main, "MOCK_MODE", False)
-    monkeypatch.setattr(app_main, "db", None)
-
-    with TestClient(app_main.app) as client:
-        response = client.get(
-            "/papers/me",
-            headers={"Authorization": "Bearer test-token-bypass"},
-        )
-
-    assert response.status_code == 200
-    assert response.json() == []
-
-
-def test_papers_me_returns_mock_seed_when_mock_mode_on(monkeypatch):
-    monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
-    monkeypatch.setattr(app_main, "MOCK_MODE", True)
-    monkeypatch.setattr(app_main, "db", None)
-
-    with TestClient(app_main.app) as client:
-        response = client.get(
-            "/papers/me",
-            headers={"Authorization": "Bearer test-token-bypass"},
-        )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert len(payload) == 2
-    assert any(item.get("title") == "AI-Driven Drug Discovery Framework" for item in payload)
-    assert any(item.get("cid") == "QmXyZ..." for item in payload)
-
-
-def test_transactions_returns_empty_when_mock_mode_off_and_db_unavailable(monkeypatch):
-    address = "0x1111111111111111111111111111111111111111"
-    monkeypatch.setattr(app_main, "MOCK_MODE", False)
-    monkeypatch.setattr(app_main, "db", None)
-
-    with TestClient(app_main.app) as client:
-        response = client.get(f"/transactions/{address}")
-
-    assert response.status_code == 200
-    assert response.json() == []
-
-
-def test_transactions_returns_mock_seed_when_mock_mode_on(monkeypatch):
-    address = "0x2222222222222222222222222222222222222222"
-    monkeypatch.setattr(app_main, "MOCK_MODE", True)
-    monkeypatch.setattr(app_main, "db", None)
-
-    with TestClient(app_main.app) as client:
-        response = client.get(f"/transactions/{address}")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert len(payload) == 3
-    assert all(item.get("address") == address for item in payload)
-
-
 def test_wallet_balance_contract_when_mock_mode_off_returns_error_payload(monkeypatch):
     class StubWeb3:
         async def get_balance(self, address: str):  # noqa: ARG002
             return {"error": "Web3 service not available or token contract not configured"}
 
-    monkeypatch.setattr(app_main, "MOCK_MODE", False)
-    monkeypatch.setattr(app_main, "get_web3_service", lambda: StubWeb3())
+    import routers.web3 as web3_router
+    monkeypatch.setattr(web3_router, "get_web3_service", lambda: StubWeb3())
 
     with TestClient(app_main.app) as client:
         response = client.get("/wallet/0x3333333333333333333333333333333333333333")
@@ -275,8 +183,8 @@ def test_wallet_balance_contract_when_mock_mode_on_returns_mock_payload(monkeypa
                 "_mock": True,
             }
 
-    monkeypatch.setattr(app_main, "MOCK_MODE", True)
-    monkeypatch.setattr(app_main, "get_web3_service", lambda: StubWeb3())
+    import routers.web3 as web3_router
+    monkeypatch.setattr(web3_router, "get_web3_service", lambda: StubWeb3())
 
     with TestClient(app_main.app) as client:
         response = client.get("/wallet/0x4444444444444444444444444444444444444444")

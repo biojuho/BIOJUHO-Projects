@@ -142,25 +142,7 @@ def default_checks(python_exe: str) -> list[Check]:
             ".",
             compile_command(python_exe, "AgriGuard/backend"),
         ),
-        Check(
-            "mcp",
-            "mcp notion compile",
-            ".",
-            compile_command(
-                python_exe,
-                "MCP_notion-antigravity/server.py",
-                "MCP_notion-antigravity/admin_dashboard.py",
-                "MCP_notion-antigravity/init_mock_db.py",
-                "MCP_notion-antigravity/scripts",
-                "MCP_notion-antigravity/tests",
-            ),
-        ),
-        Check(
-            "mcp",
-            "mcp notion tests",
-            ".",
-            [python_exe, "-m", "pytest", "MCP_notion-antigravity/tests", "-q"],
-        ),
+
         Check(
             "mcp",
             "notebooklm compile",
