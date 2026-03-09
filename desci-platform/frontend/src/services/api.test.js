@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+/* global beforeEach, describe, expect, it, vi */
 
 const { authMock } = vi.hoisted(() => ({
   authMock: { currentUser: null },

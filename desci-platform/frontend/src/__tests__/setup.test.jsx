@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+/* global describe, it, expect */
 
 // framer-motion, ToastContext, jest-dom matchers — provided by global setup.jsx
 

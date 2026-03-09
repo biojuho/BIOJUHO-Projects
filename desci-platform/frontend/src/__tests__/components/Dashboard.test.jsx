@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+/* global describe, it, expect, vi */
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -48,8 +48,8 @@ describe('Dashboard', () => {
   it('renders the welcome heading with user first name', () => {
     renderDashboard();
     const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveTextContent(/Welcome back/i);
-    expect(heading).toHaveTextContent(/Alice/i);
+    expect(heading.textContent).toMatch(/Welcome back/i);
+    expect(heading.textContent).toMatch(/Alice/i);
   });
 
   it('renders all four KPI stat cards', () => {

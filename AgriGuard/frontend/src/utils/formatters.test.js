@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+/* global describe, it, expect */
 import { calculatePrice } from './formatters';
 
 // describe: 연관된 테스트들을 하나의 그룹으로 묶어주는 역할입니다. (예: calculatePrice 함수와 관련된 테스트 모음)

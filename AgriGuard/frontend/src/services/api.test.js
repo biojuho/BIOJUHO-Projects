@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
+/* global describe, it, expect, beforeAll, afterEach, afterAll */
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { productApi } from './api';

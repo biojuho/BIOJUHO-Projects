@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/* global describe, it, expect, vi, beforeEach */
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProductDetail from './ProductDetail';
 import { productApi } from '../services/api';

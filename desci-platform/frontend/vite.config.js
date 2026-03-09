@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
+    globals: true,
     environment: "jsdom",
     setupFiles: ["src/__tests__/setup.jsx"],
     exclude: ["tests/e2e/**", "node_modules/**"],
@@ -16,6 +17,19 @@ export default defineConfig({
     isolate: false,
     testTimeout: 30000,
     hookTimeout: 30000,
+    deps: {
+      optimizer: {
+        web: {
+          include: [
+            "@testing-library/react",
+            "@testing-library/jest-dom",
+            "react",
+            "react-dom",
+            "react-router-dom",
+          ],
+        },
+      },
+    },
   },
   build: {
     minify: "esbuild",

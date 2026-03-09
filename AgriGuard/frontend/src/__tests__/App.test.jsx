@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+/* global describe, it, expect, vi */
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
