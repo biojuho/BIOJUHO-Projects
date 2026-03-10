@@ -66,7 +66,10 @@ def send_discord(
         req = urllib.request.Request(
             webhook_url,
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "BIOJUHO-Notifier/1.0",
+            },
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             _ = resp.read()  # Discord returns 204 No Content on success
