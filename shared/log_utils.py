@@ -1,4 +1,4 @@
-"""shared.logging - Unified structured logging configuration."""
+"""shared.log_utils - Unified structured logging configuration."""
 
 from __future__ import annotations
 
