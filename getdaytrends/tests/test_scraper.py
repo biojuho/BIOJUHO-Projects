@@ -100,9 +100,21 @@ class TestMergeTrends(unittest.TestCase):
         self.assertEqual(sum(1 for t in merged if t.name.lower() == "bts"), 1)
 
     def test_limit_applied(self):
-        primary = [self._t(f"trend{i}") for i in range(20)]
-        merged = _merge_trends(primary, [], limit=5)
-        self.assertEqual(len(merged), 5)
+        # 임베딩 비활성화 (문자열 기반 limit 로직만 검증)
+        orig_key = os.environ.pop("GOOGLE_API_KEY", None)
+        try:
+            # shared.embeddings 내부 클라이언트 초기화 리셋
+            try:
+                import shared.embeddings.core as _ecore
+                _ecore._client = None
+            except ImportError:
+                pass
+            primary = [self._t(f"trend{i}") for i in range(20)]
+            merged = _merge_trends(primary, [], limit=5)
+            self.assertEqual(len(merged), 5)
+        finally:
+            if orig_key is not None:
+                os.environ["GOOGLE_API_KEY"] = orig_key
 
     def test_primary_preferred_over_secondary(self):
         primary = [self._t("AI Agent")]

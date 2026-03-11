@@ -487,6 +487,7 @@ _BATCH_SIZE = 5  # 한 번에 스코어링할 트렌드 수
 
 # ══════════════════════════════════════════════════════
 #  [v9.0] 로컬 Jaccard 클러스터링 (LLM 호출 없음)
+#  [v14.0] Gemini Embedding 2 기반 의미적 클러스터링 추가
 # ══════════════════════════════════════════════════════
 
 def _jaccard_similarity(a: str, b: str) -> float:
@@ -498,44 +499,47 @@ def _jaccard_similarity(a: str, b: str) -> float:
     return len(tokens_a & tokens_b) / len(tokens_a | tokens_b)
 
 
-def cluster_trends_local(
+def _compute_similarity_pairs_embedding(
+    names: list[str],
+    threshold: float,
+) -> list[tuple[int, int]] | None:
+    """
+    [v14.0] Gemini Embedding 2로 의미적 유사도 계산 후 threshold 이상 쌍 반환.
+    실패 시 None 반환 (Jaccard 폴백 트리거).
+    """
+    try:
+        from embeddings import embed_texts, compute_similarity_matrix
+
+        vectors = embed_texts(names)
+        if vectors is None or len(vectors) != len(names):
+            return None
+
+        sim_matrix = compute_similarity_matrix(vectors)
+        pairs = []
+        n = len(names)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if sim_matrix[i][j] >= threshold:
+                    pairs.append((i, j))
+                    log.debug(
+                        f"  [임베딩 유사] '{names[i]}' ↔ '{names[j]}' "
+                        f"= {sim_matrix[i][j]:.3f} ≥ {threshold}"
+                    )
+        return pairs
+
+    except Exception as e:
+        log.warning(f"[임베딩 클러스터링 실패] {e} → Jaccard 폴백")
+        return None
+
+
+def _merge_clusters(
     raw_trends: list["RawTrend"],
     contexts: dict[str, "MultiSourceContext"],
-    threshold: float = 0.35,
+    groups: dict[int, list[int]],
+    names: list[str],
+    method: str = "jaccard",
 ) -> tuple[list["RawTrend"], dict[str, "MultiSourceContext"], list["TrendCluster"]]:
-    """
-    [v9.0] LLM 없이 Jaccard 유사도 기반 로컬 클러스터링.
-    threshold 이상 유사도이면 같은 클러스터로 묶음.
-    대표 키워드 = 클러스터 내 최대 볼륨 트렌드.
-    """
-    if len(raw_trends) <= 2:
-        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
-        return raw_trends, contexts, clusters
-
-    names = [t.name for t in raw_trends]
-    n = len(names)
-    parent = list(range(n))
-
-    def find(x: int) -> int:
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(x: int, y: int) -> None:
-        parent[find(x)] = find(y)
-
-    for i in range(n):
-        for j in range(i + 1, n):
-            if _jaccard_similarity(names[i], names[j]) >= threshold:
-                union(i, j)
-
-    # 클러스터 그룹핑
-    groups: dict[int, list[int]] = {}
-    for i in range(n):
-        root = find(i)
-        groups.setdefault(root, []).append(i)
-
+    """Union-Find 그룹 결과 → 대표 선정 + 컨텍스트 병합 (공통 로직)."""
     trend_map = {t.name: t for t in raw_trends}
     clusters: list[TrendCluster] = []
     representatives: list["RawTrend"] = []
@@ -567,9 +571,80 @@ def cluster_trends_local(
 
     merged_count = sum(len(c.members) - 1 for c in clusters if len(c.members) > 1)
     if merged_count:
-        log.info(f"[로컬 클러스터링] {len(raw_trends)}개 → {len(representatives)}개 (병합 {merged_count}개)")
+        log.info(
+            f"[{method} 클러스터링] {len(raw_trends)}개 → {len(representatives)}개 "
+            f"(병합 {merged_count}개)"
+        )
 
     return representatives, contexts, clusters
+
+
+def cluster_trends_local(
+    raw_trends: list["RawTrend"],
+    contexts: dict[str, "MultiSourceContext"],
+    threshold: float = 0.35,
+    use_embedding: bool = True,
+    embedding_threshold: float = 0.75,
+) -> tuple[list["RawTrend"], dict[str, "MultiSourceContext"], list["TrendCluster"]]:
+    """
+    [v14.0] 하이브리드 의미적 클러스터링.
+
+    1차: Gemini Embedding 2 기반 의미적 유사도 (use_embedding=True)
+         → "BTS 컴백" ↔ "방탄소년단 신곡" 같은 의미적 중복 감지 가능
+    2차: 임베딩 실패 시 Jaccard 유사도 폴백 (기존 v9.0 방식)
+
+    Args:
+        raw_trends: 수집된 트렌드 목록
+        contexts: 트렌드별 멀티소스 컨텍스트
+        threshold: Jaccard 유사도 임계값 (기본 0.35)
+        use_embedding: Gemini Embedding 사용 여부 (기본 True)
+        embedding_threshold: 임베딩 코사인 유사도 임계값 (기본 0.75)
+    """
+    if len(raw_trends) <= 2:
+        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
+        return raw_trends, contexts, clusters
+
+    names = [t.name for t in raw_trends]
+    n = len(names)
+    parent = list(range(n))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x: int, y: int) -> None:
+        parent[find(x)] = find(y)
+
+    # [v14.0] 1차: 임베딩 기반 의미적 유사도 시도
+    used_embedding = False
+    if use_embedding:
+        embedding_pairs = _compute_similarity_pairs_embedding(names, embedding_threshold)
+        if embedding_pairs is not None:
+            for i, j in embedding_pairs:
+                union(i, j)
+            used_embedding = True
+            log.info(
+                f"[임베딩 클러스터링] {len(names)}개 키워드 → "
+                f"{len(embedding_pairs)}쌍 유사 감지 (threshold={embedding_threshold})"
+            )
+
+    # 2차: 임베딩 실패 시 Jaccard 폴백
+    if not used_embedding:
+        for i in range(n):
+            for j in range(i + 1, n):
+                if _jaccard_similarity(names[i], names[j]) >= threshold:
+                    union(i, j)
+
+    # 클러스터 그룹핑
+    groups: dict[int, list[int]] = {}
+    for i in range(n):
+        root = find(i)
+        groups.setdefault(root, []).append(i)
+
+    method = "임베딩" if used_embedding else "Jaccard"
+    return _merge_clusters(raw_trends, contexts, groups, names, method)
 
 
 async def _batch_score_async(
@@ -818,13 +893,90 @@ async def _analyze_trends_async(
     """
     client = get_client()
 
-    # [v9.0] 클러스터링: enable_llm_clustering=False면 로컬 Jaccard, True면 기존 LLM
+    # [v9.0] 클러스터링: enable_llm_clustering=False면 로컬, True면 기존 LLM
+    # [v14.0] 로컬 클러스터링에 Gemini Embedding 2 의미적 유사도 추가
+    clusters = []
     if config.enable_clustering:
         if getattr(config, "enable_llm_clustering", False):
-            raw_trends, contexts, _ = cluster_trends(raw_trends, contexts, client)
+            raw_trends, contexts, clusters = cluster_trends(raw_trends, contexts, client)
         else:
             threshold = getattr(config, "jaccard_cluster_threshold", 0.35)
-            raw_trends, contexts, _ = cluster_trends_local(raw_trends, contexts, threshold)
+            use_emb = getattr(config, "enable_embedding_clustering", True)
+            emb_threshold = getattr(config, "embedding_cluster_threshold", 0.75)
+            raw_trends, contexts, clusters = cluster_trends_local(
+                raw_trends, contexts, threshold,
+                use_embedding=use_emb,
+                embedding_threshold=emb_threshold,
+            )
+
+    # [v14.1] 클러스터 정보를 컨텍스트에 주입 (스코어링 정확도 향상)
+    if clusters:
+        cluster_map: dict[str, list[str]] = {}
+        for c in clusters:
+            if len(c.members) > 1:
+                cluster_map[c.representative] = [m for m in c.members if m != c.representative]
+        for rep, related in cluster_map.items():
+            ctx = contexts.get(rep, MultiSourceContext())
+            related_str = ", ".join(related[:5])
+            cluster_hint = f"\n[관련 트렌드 (의미적 클러스터)]: {related_str} → 이 주제가 여러 검색어로 확산 중"
+            # news_insight에 클러스터 힌트 추가
+            if ctx.news_insight:
+                ctx = MultiSourceContext(
+                    twitter_insight=ctx.twitter_insight,
+                    reddit_insight=ctx.reddit_insight,
+                    news_insight=ctx.news_insight + cluster_hint,
+                )
+            else:
+                ctx = MultiSourceContext(
+                    twitter_insight=ctx.twitter_insight,
+                    reddit_insight=ctx.reddit_insight,
+                    news_insight=cluster_hint,
+                )
+            contexts[rep] = ctx
+        log.info(f"[클러스터 힌트] {len(cluster_map)}개 대표 트렌드에 관련 키워드 정보 주입")
+
+    # [v14.1] 임베딩 기반 카테고리 사전 분류 힌트
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _root = str(_Path(__file__).resolve().parents[1])
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from shared.embeddings import embed_texts, cosine_similarity as _cos_sim
+
+        _CATEGORY_REFS = {
+            "정치": "국회 대통령 정당 선거 법안 정책",
+            "경제": "주가 환율 금리 GDP 실적 무역",
+            "테크": "AI 반도체 스마트폰 앱 서비스 소프트웨어",
+            "사회": "교육 범죄 사고 환경 복지 인구",
+            "스포츠": "축구 야구 농구 올림픽 경기 감독",
+            "연예": "드라마 영화 아이돌 가수 배우 컴백",
+            "국제": "외교 전쟁 유엔 미국 중국 정상회담",
+        }
+        ref_texts = list(_CATEGORY_REFS.values())
+        ref_keys = list(_CATEGORY_REFS.keys())
+        ref_vectors = embed_texts(ref_texts, task_type="SEMANTIC_SIMILARITY")
+
+        if ref_vectors:
+            trend_names = [t.name for t in raw_trends]
+            trend_vectors = embed_texts(trend_names, task_type="SEMANTIC_SIMILARITY")
+            if trend_vectors:
+                for i, t in enumerate(raw_trends):
+                    scores = {cat: _cos_sim(trend_vectors[i], ref_vectors[j])
+                              for j, cat in enumerate(ref_keys)}
+                    best_cat = max(scores, key=scores.get)
+                    best_score = scores[best_cat]
+                    if best_score >= 0.50:  # 최소 신뢰도
+                        ctx = contexts.get(t.name, MultiSourceContext())
+                        cat_hint = f"\n[카테고리 힌트 (임베딩)]: {best_cat} (신뢰도: {best_score:.2f})"
+                        contexts[t.name] = MultiSourceContext(
+                            twitter_insight=ctx.twitter_insight,
+                            reddit_insight=ctx.reddit_insight,
+                            news_insight=(ctx.news_insight or "") + cat_hint,
+                        )
+                log.info(f"[카테고리 사전분류] {len(raw_trends)}개 트렌드에 임베딩 기반 카테고리 힌트 주입")
+    except Exception as _e:
+        log.debug(f"[카테고리 사전분류] 사용 불가 (무시): {_e}")
 
     # 배치 분할 (5개씩)
     pairs = [(t, contexts.get(t.name, MultiSourceContext())) for t in raw_trends]

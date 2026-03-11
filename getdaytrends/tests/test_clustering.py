@@ -164,7 +164,7 @@ def test_cluster_volume_representative():
 
 
 def test_cluster_custom_threshold():
-    """높은 임계값으로 클러스터링하면 병합이 줄어듦."""
+    """높은 임계값으로 클러스터링하면 병합이 줄어듦 (Jaccard 전용)."""
     trends = [
         _make_raw("삼성전자 주가 상승", 5000),
         _make_raw("삼성전자 주가 하락", 3000),  # Jaccard = 0.5
@@ -173,9 +173,48 @@ def test_cluster_custom_threshold():
     contexts = {t.name: _make_ctx() for t in trends}
 
     # threshold=0.6 → Jaccard 0.5 < 0.6이므로 병합 안 됨 → 3개 모두 독립
-    reps, _, clusters = cluster_trends_local(trends, contexts, threshold=0.6)
+    reps, _, clusters = cluster_trends_local(trends, contexts, threshold=0.6, use_embedding=False)
     assert len(reps) == 3
 
     # threshold=0.4 → Jaccard 0.5 >= 0.4이므로 삼성전자 2개 병합 → 2개
-    reps2, _, clusters2 = cluster_trends_local(trends, contexts, threshold=0.4)
+    reps2, _, clusters2 = cluster_trends_local(trends, contexts, threshold=0.4, use_embedding=False)
     assert len(reps2) == 2
+
+
+# ══════════════════════════════════════════════════════
+#  [v14.0] 임베딩 클러스터링 관련 테스트
+# ══════════════════════════════════════════════════════
+
+def test_cluster_embedding_fallback_to_jaccard():
+    """임베딩 비활성화 시 Jaccard로 폴백되는지 확인."""
+    trends = [
+        _make_raw("삼성전자 주가 상승", 5000),
+        _make_raw("삼성전자 주가 하락", 3000),
+        _make_raw("날씨 예보 서울", 2000),
+    ]
+    contexts = {t.name: _make_ctx() for t in trends}
+
+    # use_embedding=False → Jaccard만 사용
+    reps, _, clusters = cluster_trends_local(
+        trends, contexts, threshold=0.35, use_embedding=False
+    )
+    assert len(reps) == 2  # Jaccard=0.5 >= 0.35 → 삼성전자 병합
+    rep_names = {r.name for r in reps}
+    assert "삼성전자 주가 상승" in rep_names
+
+
+def test_cluster_with_embedding_disabled_preserves_standalone():
+    """임베딩 비활성화 + 서로 다른 키워드 → 독립 유지."""
+    trends = [
+        _make_raw("AI 자율주행", 3000),
+        _make_raw("비트코인 가격", 2000),
+        _make_raw("날씨 예보 주말", 1000),
+    ]
+    contexts = {t.name: _make_ctx() for t in trends}
+
+    reps, _, clusters = cluster_trends_local(
+        trends, contexts, use_embedding=False
+    )
+    assert len(reps) == 3
+    assert len(clusters) == 3
+

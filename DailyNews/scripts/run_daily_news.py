@@ -237,6 +237,22 @@ async def process_category(
         logger.warning("category", "skipped", "no articles in time window", category=category)
         return {"category": category, "status": "skipped", "articles": 0}
 
+    # [v2.0] Gemini Embedding 2 기반 의미적 중복 제거
+    if len(all_articles) > 1:
+        try:
+            from shared.embeddings import deduplicate_texts
+            titles = [a["title"] for a in all_articles]
+            unique_indices = deduplicate_texts(titles, threshold=0.82)
+            removed = len(all_articles) - len(unique_indices)
+            if removed:
+                all_articles = [all_articles[i] for i in unique_indices]
+                logger.info(
+                    "dedup", "success", "semantic dedup applied",
+                    category=category, removed=removed, remaining=len(all_articles),
+                )
+        except Exception as exc:
+            logger.debug("dedup", "skipped", "embedding dedup unavailable", error=str(exc))
+
     if brain is None:
         logger.warning("analysis", "skipped", "brain module unavailable", category=category)
         return {"category": category, "status": "skipped", "articles": len(all_articles)}
@@ -414,6 +430,25 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
 
             state.record_job_finish(run_id, status="success", summary=summary)
             logger.info("complete", "success", "run_daily_news finished", **summary)
+
+            # [v2.0] Heartbeat: 파이프라인 성공 시 Discord/Telegram 알림
+            try:
+                from shared.notifications import Notifier
+                _notifier = Notifier.from_env()
+                if _notifier.has_channels:
+                    _notifier.send_heartbeat(
+                        "DailyNews",
+                        status="alive",
+                        details=(
+                            f"window={summary['window']} "
+                            f"성공={summary['categories_success']} "
+                            f"실패={summary['categories_failed']} "
+                            f"기사={summary['articles']}"
+                        ),
+                    )
+            except Exception:
+                pass
+
             return 0
     except AlreadyRunningError:
         logger.warning("lock", "skipped", "job already running")
@@ -422,6 +457,20 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
     except Exception as exc:
         logger.error("complete", "failed", "run_daily_news failed", error=str(exc))
         state.record_job_finish(run_id, status="failed", summary=summary, error_text=str(exc))
+
+        # [v2.0] 에러 알림: 파이프라인 실패 시 즉시 Discord/Telegram 전송
+        try:
+            from shared.notifications import Notifier
+            _notifier = Notifier.from_env()
+            if _notifier.has_channels:
+                _notifier.send_error(
+                    f"파이프라인 실패: {exc}",
+                    error=exc,
+                    source="DailyNews",
+                )
+        except Exception:
+            pass
+
         return 1
 
 

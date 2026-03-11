@@ -728,6 +728,30 @@ async def _step_save(
             + len(batch.threads_posts) + len(getattr(batch, 'blog_posts', []))
         )
 
+        # [v14.1] 생성물 다양성 QA: 트윗 5종 간 임베딩 유사도 검증
+        if len(batch.tweets) >= 2:
+            try:
+                from shared.embeddings import embed_texts as _qa_embed, cosine_similarity as _qa_cos
+                _qa_contents = [t.content for t in batch.tweets]
+                _qa_vectors = _qa_embed(_qa_contents, task_type="SEMANTIC_SIMILARITY")
+                if _qa_vectors:
+                    _dupes = []
+                    for _qi in range(len(_qa_vectors)):
+                        for _qj in range(_qi + 1, len(_qa_vectors)):
+                            _sim = _qa_cos(_qa_vectors[_qi], _qa_vectors[_qj])
+                            if _sim > 0.88:
+                                _dupes.append(
+                                    f"트윗{_qi+1}↔트윗{_qj+1} (유사도={_sim:.2f})"
+                                )
+                    if _dupes:
+                        log.warning(
+                            f"[다양성 QA] '{trend.keyword}' 생성물 유사도 높음: "
+                            + ", ".join(_dupes)
+                        )
+                        run.errors.append(f"다양성 경고: {trend.keyword} ({len(_dupes)}쌍)")
+            except Exception:
+                pass  # QA 실패는 파이프라인 차단하지 않음
+
         for t in batch.tweets:
             preview = t.content[:50] + "..." if len(t.content) > 50 else t.content
             print(f"    [{t.tweet_type}] {preview}")
@@ -973,7 +997,47 @@ async def _async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunR
             pass
 
         print(separator)
+
+        # [v14.0] Heartbeat: 파이프라인 성공 시 Discord/Telegram 알림
+        try:
+            from shared.notifications import Notifier
+            _notifier = Notifier.from_env()
+            if _notifier.has_channels:
+                _notifier.send_heartbeat(
+                    "GetDayTrends",
+                    status="alive",
+                    details=(
+                        f"수집={run.trends_collected} "
+                        f"스코어링={run.trends_scored} "
+                        f"생성={run.tweets_generated} "
+                        f"저장={run.tweets_saved} "
+                        f"소요={elapsed:.0f}초"
+                    ),
+                )
+                # 비용 경고 알림
+                if _total_cost > 0:
+                    _notifier.send_cost_alert(
+                        _total_cost,
+                        getattr(pipeline_config, 'daily_budget_usd', 2.0),
+                    )
+        except Exception as _hb_err:
+            log.debug(f"Heartbeat 전송 실패 (무시): {_hb_err}")
+
         return run
+    except Exception as _pipeline_err:
+        # [v14.0] 에러 알림: 파이프라인 실패 시 즉시 Discord/Telegram 전송
+        try:
+            from shared.notifications import Notifier
+            _notifier = Notifier.from_env()
+            if _notifier.has_channels:
+                _notifier.send_error(
+                    f"파이프라인 실패: {_pipeline_err}",
+                    error=_pipeline_err,
+                    source="GetDayTrends",
+                )
+        except Exception:
+            pass
+        raise
     finally:
         await conn.close()
 

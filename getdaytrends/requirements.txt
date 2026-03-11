@@ -9,6 +9,8 @@ gspread>=6.0.0,<7.0
 google-auth>=2.27.0,<3.0
 colorama>=0.4.6,<1.0
 aiohttp>=3.10.0,<4.0
+# [v14.0] Gemini Embedding 2 (의미적 클러스터링)
+google-genai>=1.0.0
 # Dashboard (선택)
 fastapi>=0.115.0,<1.0
 uvicorn[standard]>=0.30.0,<1.0

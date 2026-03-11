@@ -734,7 +734,7 @@ def _merge_trends(
     """
     두 소스 트렌드 병합 + 중복 제거.
     primary(getdaytrends) 우선, secondary(Google Trends) 보충.
-    동일 키워드(대소문자 무시)는 primary 쪽으로 병합.
+    [v14.1] 문자열 정확 매칭 + 임베딩 의미적 중복 감지.
     """
     seen: dict[str, RawTrend] = {}
 
@@ -753,8 +753,27 @@ def _merge_trends(
     if added_from_secondary:
         log.info(f"Google Trends에서 {added_from_secondary}개 추가 트렌드 병합")
 
-    merged = list(seen.values())[:limit]
-    return merged
+    merged = list(seen.values())
+
+    # [v14.1] 임베딩 기반 소스 간 의미적 중복 제거
+    if len(merged) > 1:
+        try:
+            import sys as _sys
+            from pathlib import Path as _Path
+            _root = str(_Path(__file__).resolve().parents[1])
+            if _root not in _sys.path:
+                _sys.path.insert(0, _root)
+            from shared.embeddings import deduplicate_texts
+            names = [t.name for t in merged]
+            unique_indices = deduplicate_texts(names, threshold=0.82)
+            removed = len(merged) - len(unique_indices)
+            if removed:
+                merged = [merged[i] for i in unique_indices]
+                log.info(f"[의미적 병합] 소스 간 중복 {removed}개 제거 → {len(merged)}개")
+        except Exception as _e:
+            log.debug(f"[의미적 병합] 임베딩 사용 불가 (무시): {_e}")
+
+    return merged[:limit]
 
 
 # ══════════════════════════════════════════════════════
@@ -851,6 +870,27 @@ async def _async_collect_trends(
                 all_trends = fresh
             else:
                 log.warning(f"모든 트렌드가 {config.dedupe_window_hours}시간 내 처리됨 → 중복 허용")
+
+        # [v14.1] 4단계 전 의미적 중복 제거 (임베딩 기반)
+        if len(all_trends) > 1 and getattr(config, 'enable_embedding_clustering', True):
+            try:
+                import sys as _sys
+                from pathlib import Path as _Path
+                _root = str(_Path(__file__).resolve().parents[1])
+                if _root not in _sys.path:
+                    _sys.path.insert(0, _root)
+                from shared.embeddings import deduplicate_texts
+                names = [t.name for t in all_trends]
+                unique_indices = deduplicate_texts(
+                    names,
+                    threshold=getattr(config, 'embedding_cluster_threshold', 0.75),
+                )
+                removed = len(all_trends) - len(unique_indices)
+                if removed:
+                    all_trends = [all_trends[i] for i in unique_indices]
+                    log.info(f"[수집 임베딩 중복] {removed}개 의미적 중복 제거 → {len(all_trends)}개")
+            except Exception as _e:
+                log.debug(f"[수집 임베딩 중복] 사용 불가: {_e}")
 
         raw_trends = all_trends[: config.limit]
 

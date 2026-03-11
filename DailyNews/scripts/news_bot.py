@@ -516,6 +516,22 @@ async def process_category(
             logger.warning("category", "skipped", "no articles collected", category=category)
             return {"category": category, "status": "skipped", "articles": 0}
 
+        # [v2.0] Gemini Embedding 2 의미적 중복 제거
+        if len(articles) > 1:
+            try:
+                from shared.embeddings import deduplicate_texts
+                titles = [a["title"] for a in articles]
+                unique_indices = deduplicate_texts(titles, threshold=0.82)
+                removed = len(articles) - len(unique_indices)
+                if removed:
+                    articles = [articles[i] for i in unique_indices]
+                    logger.info(
+                        "dedup", "success", "semantic dedup applied",
+                        category=category, removed=removed, remaining=len(articles),
+                    )
+            except Exception as exc:
+                logger.debug("dedup", "skipped", "embedding dedup unavailable", error=str(exc))
+
         niche_trends = None
         if x_radar is not None:
             try:

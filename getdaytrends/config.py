@@ -165,6 +165,9 @@ class AppConfig:
     # ===================================================
     enable_llm_clustering: bool = False        # False=로컬 Jaccard 클러스터링 (LLM 호출 절감)
     jaccard_cluster_threshold: float = 0.35   # 로컬 클러스터링 유사도 임계값
+    # [v14.0] Gemini Embedding 2 의미적 클러스터링
+    enable_embedding_clustering: bool = True   # True=Gemini Embedding 기반 의미적 유사도 (Jaccard 자동 폴백)
+    embedding_cluster_threshold: float = 0.75  # 코사인 유사도 임계값 (0.0~1.0, 높을수록 엄격)
     qa_skip_cached: bool = True               # 캐시 재사용 콘텐츠 QA 스킵
     qa_skip_high_score: int = 85              # 이 점수 이상 트렌드 QA 스킵
     qa_skip_categories: list[str] = field(default_factory=lambda: ["날씨", "음식", "스포츠"])
@@ -306,6 +309,9 @@ class AppConfig:
             # v9.0 Phase A
             enable_llm_clustering=os.getenv("ENABLE_LLM_CLUSTERING", "false").lower() == "true",
             jaccard_cluster_threshold=float(os.getenv("JACCARD_CLUSTER_THRESHOLD", "0.35")),
+            # v14.0
+            enable_embedding_clustering=os.getenv("ENABLE_EMBEDDING_CLUSTERING", "true").lower() == "true",
+            embedding_cluster_threshold=float(os.getenv("EMBEDDING_CLUSTER_THRESHOLD", "0.75")),
             qa_skip_cached=os.getenv("QA_SKIP_CACHED", "true").lower() == "true",
             qa_skip_high_score=int(os.getenv("QA_SKIP_HIGH_SCORE", "85")),
             qa_skip_categories=[
