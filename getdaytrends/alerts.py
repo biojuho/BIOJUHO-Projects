@@ -78,7 +78,10 @@ def send_discord_alert(message: str, config: AppConfig) -> dict:
         req = urllib.request.Request(
             config.discord_webhook_url,
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "BIOJUHO-Notifier/1.0",
+            },
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             pass  # Discord returns 204 No Content on success

@@ -501,17 +501,18 @@ def save_to_notion(
 
     properties["바이럴점수"] = {"number": trend.viral_potential}
 
-    # [v12.0] 플랫폼 태그
+    # [v12.0] 플랫폼 태그 — DB에 속성이 없으면 skip (에러 방지)
+    # NOTE: Notion DB에 "플랫폼" multi_select 속성이 없으면 저장 자체가 실패하므로
+    #       속성 존재 여부를 사전 체크할 수 없어 본문 callout으로 대체
     platforms = getattr(config, "target_platforms", ["x"])
-    platform_tags = []
+    platform_labels = []
     if "x" in platforms:
-        platform_tags.append({"name": "X"})
+        platform_labels.append("X")
     if "threads" in platforms and batch.threads_posts:
-        platform_tags.append({"name": "Threads"})
+        platform_labels.append("Threads")
     if "naver_blog" in platforms and batch.blog_posts:
-        platform_tags.append({"name": "NaverBlog"})
-    if platform_tags:
-        properties["플랫폼"] = {"multi_select": platform_tags}
+        platform_labels.append("NaverBlog")
+    # properties에 넣지 않음 — DB 스키마에 속성이 없을 수 있음
 
     if batch.thread:
         thread_text = "\n---\n".join(batch.thread.tweets)

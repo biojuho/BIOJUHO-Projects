@@ -11,9 +11,16 @@ scripts/cost_dashboard.py
 """
 
 import sys
+import io
 import argparse
 from pathlib import Path
 from datetime import datetime
+
+# Windows cp949 환경에서 이모지 출력을 위한 UTF-8 강제 설정
+if sys.stdout and hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if sys.stderr and hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 WORKSPACE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WORKSPACE))
