@@ -85,6 +85,9 @@ class PipelineLogger:
     def warning(self, step: str, status: str, message: str, **fields: Any) -> None:
         self._emit("WARN", step, status, message, **fields)
 
+    def debug(self, step: str, status: str, message: str, **fields: Any) -> None:
+        self._emit("DEBUG", step, status, message, **fields)
+
     def error(self, step: str, status: str, message: str, **fields: Any) -> None:
         self._emit("ERROR", step, status, message, **fields)
 

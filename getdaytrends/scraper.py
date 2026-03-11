@@ -431,7 +431,7 @@ async def _async_fetch_twitter_trends(
         return "\n".join(summaries)
 
     except httpx.HTTPStatusError as e:
-        log.debug(f"Twitter API HTTP 오류 ({keyword}): {e.status_code} → Jina 폴백")
+        log.debug(f"Twitter API HTTP 오류 ({keyword}): {e.response.status_code} → Jina 폴백")
         return await _async_fetch_x_via_jina(session, keyword)
     except Exception as e:
         log.debug(f"Twitter API 오류 ({keyword}): {e}")

@@ -20,7 +20,7 @@
   <Principals>
     <Principal id="Author">
       <UserId>JUHOPARK\bioju</UserId>
-      <LogonType>InteractiveToken</LogonType>
+      <LogonType>Password</LogonType>
       <RunLevel>HighestAvailable</RunLevel>
     </Principal>
   </Principals>
