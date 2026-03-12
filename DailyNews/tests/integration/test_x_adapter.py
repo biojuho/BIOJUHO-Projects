@@ -108,17 +108,17 @@ async def test_publish_truncates_content_to_280(sample_report):
 
 
 @pytest.mark.asyncio
-async def test_daily_limit_blocks_after_cap(sample_report):
-    from antigravity_mcp.integrations import x_adapter as _xa_mod
-    _xa_mod._daily_posts.clear()
+async def test_daily_limit_blocks_after_cap(sample_report, tmp_path):
+    from antigravity_mcp.state.store import PipelineStateStore
 
+    store = PipelineStateStore(path=tmp_path / "test_x_limit.db")
     mock_client = MagicMock()
     mock_client.create_tweet.return_value = SimpleNamespace(data={"id": "777"})
 
     with patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True), \
          patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True), \
          patch.object(XAdapter, "_build_client", return_value=mock_client):
-        adapter = XAdapter()
+        adapter = XAdapter(state_store=store)
         adapter.settings = _auto_settings(x_daily_post_limit=2)
 
         r1 = await adapter.publish(sample_report, "tweet 1", approval_mode="auto")
@@ -128,3 +128,4 @@ async def test_daily_limit_blocks_after_cap(sample_report):
     assert r1["status"] == "published"
     assert r2["status"] == "published"
     assert r3["status"] == "blocked"
+    store.close()

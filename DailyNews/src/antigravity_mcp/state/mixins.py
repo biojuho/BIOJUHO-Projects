@@ -498,3 +498,258 @@ class _CacheMixin:
             "estimated_cost_avoided_usd": round(avoided_cost, 6),
             "cost_by_model": {model: round(cost, 6) for model, cost in sorted(cost_by_model.items())},
         }
+
+
+# ── X daily post counter ─────────────────────────────────────────────────
+
+
+class _XPostMixin:
+    """Persistent daily post counter for X (Twitter) publishing."""
+
+    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
+        raise NotImplementedError
+
+    def get_x_post_count(self, post_date: str) -> int:
+        """Return the number of posts made on the given date (YYYY-MM-DD)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT post_count FROM x_daily_posts WHERE post_date = ?",
+                (post_date,),
+            ).fetchone()
+        return int(row["post_count"]) if row else 0
+
+    def increment_x_post_count(self, post_date: str) -> int:
+        """Increment and return the post count for the given date."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO x_daily_posts (post_date, post_count)
+                VALUES (?, 1)
+                ON CONFLICT(post_date) DO UPDATE SET post_count = post_count + 1
+                """,
+                (post_date,),
+            )
+            row = conn.execute(
+                "SELECT post_count FROM x_daily_posts WHERE post_date = ?",
+                (post_date,),
+            ).fetchone()
+        return int(row["post_count"]) if row else 1
+
+    def prune_old_x_posts(self, keep_days: int = 7) -> int:
+        """Remove post count entries older than *keep_days*."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).strftime("%Y-%m-%d")
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM x_daily_posts WHERE post_date < ?", (cutoff,))
+        return cursor.rowcount
+
+
+# ── Topic timeline tracking ───────────────────────────────────────────────
+
+
+class _TopicMixin:
+    """Persistent topic timeline for continuity tracking across briefs."""
+
+    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
+        raise NotImplementedError
+
+    def upsert_topic(
+        self,
+        *,
+        topic_id: str,
+        topic_label: str,
+        category: str,
+        report_id: str,
+        embedding: list[float] | None = None,
+    ) -> None:
+        """Insert a new topic or update an existing one with a new occurrence."""
+        now = utc_now_iso()
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT report_ids_json, occurrence_count FROM topic_timeline WHERE topic_id = ?",
+                (topic_id,),
+            ).fetchone()
+
+            if existing:
+                report_ids = json.loads(existing["report_ids_json"] or "[]")
+                if report_id not in report_ids:
+                    report_ids.append(report_id)
+                conn.execute(
+                    """
+                    UPDATE topic_timeline
+                    SET last_seen_at = ?, occurrence_count = occurrence_count + 1,
+                        report_ids_json = ?
+                    WHERE topic_id = ?
+                    """,
+                    (now, json.dumps(report_ids, ensure_ascii=False), topic_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO topic_timeline
+                        (topic_id, topic_label, category, first_seen_at, last_seen_at,
+                         occurrence_count, report_ids_json, embedding_json)
+                    VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+                    """,
+                    (
+                        topic_id,
+                        topic_label,
+                        category,
+                        now,
+                        now,
+                        json.dumps([report_id], ensure_ascii=False),
+                        json.dumps(embedding, ensure_ascii=False) if embedding else None,
+                    ),
+                )
+
+    def get_recent_topics(self, category: str, *, days: int = 7, limit: int = 20) -> list[dict[str, Any]]:
+        """Return recent topics for a category, sorted by last_seen_at desc."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT topic_id, topic_label, category, first_seen_at, last_seen_at,
+                       occurrence_count, report_ids_json
+                FROM topic_timeline
+                WHERE category = ? AND last_seen_at >= ?
+                ORDER BY last_seen_at DESC
+                LIMIT ?
+                """,
+                (category, cutoff, limit),
+            ).fetchall()
+        return [
+            {
+                "topic_id": row["topic_id"],
+                "topic_label": row["topic_label"],
+                "category": row["category"],
+                "first_seen_at": row["first_seen_at"],
+                "last_seen_at": row["last_seen_at"],
+                "occurrence_count": row["occurrence_count"],
+                "report_ids": json.loads(row["report_ids_json"] or "[]"),
+            }
+            for row in rows
+        ]
+
+    def find_continuing_topics(self, category: str, current_titles: list[str]) -> list[dict[str, Any]]:
+        """Find topics from previous briefs that appear to continue in current content.
+
+        Uses simple keyword overlap matching (embedding-based matching is done
+        at the adapter level when available).
+        """
+        recent = self.get_recent_topics(category, days=3)
+        continuing: list[dict[str, Any]] = []
+        current_words = set()
+        for title in current_titles:
+            current_words.update(w.lower() for w in title.split() if len(w) > 2)
+
+        for topic in recent:
+            topic_words = set(w.lower() for w in topic["topic_label"].split() if len(w) > 2)
+            overlap = current_words & topic_words
+            if len(overlap) >= 2:
+                topic["continuing_keywords"] = list(overlap)[:5]
+                continuing.append(topic)
+        return continuing
+
+
+# ── X tweet metrics ───────────────────────────────────────────────────────
+
+
+class _MetricsMixin:
+    """Methods for tracking X tweet performance metrics."""
+
+    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
+        raise NotImplementedError
+
+    def upsert_tweet_metrics(
+        self,
+        *,
+        tweet_id: str,
+        report_id: str = "",
+        content_preview: str = "",
+        impressions: int = 0,
+        likes: int = 0,
+        retweets: int = 0,
+        replies: int = 0,
+        quotes: int = 0,
+        bookmarks: int = 0,
+        published_at: str = "",
+    ) -> None:
+        """Insert or update tweet metrics."""
+        now = utc_now_iso()
+        published = published_at or now
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO x_tweet_metrics
+                    (tweet_id, report_id, content_preview, impressions, likes,
+                     retweets, replies, quotes, bookmarks, published_at, last_fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(tweet_id) DO UPDATE SET
+                    impressions = excluded.impressions,
+                    likes = excluded.likes,
+                    retweets = excluded.retweets,
+                    replies = excluded.replies,
+                    quotes = excluded.quotes,
+                    bookmarks = excluded.bookmarks,
+                    last_fetched_at = excluded.last_fetched_at
+                """,
+                (tweet_id, report_id, content_preview[:200], impressions, likes,
+                 retweets, replies, quotes, bookmarks, published, now),
+            )
+
+    def get_tweet_metrics(self, tweet_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM x_tweet_metrics WHERE tweet_id = ?", (tweet_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def get_top_tweets(self, *, days: int = 30, limit: int = 10, sort_by: str = "impressions") -> list[dict[str, Any]]:
+        """Return top-performing tweets sorted by a given metric."""
+        valid_sorts = {"impressions", "likes", "retweets", "replies", "quotes", "bookmarks"}
+        if sort_by not in valid_sorts:
+            sort_by = "impressions"
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM x_tweet_metrics
+                WHERE published_at >= ?
+                ORDER BY {sort_by} DESC
+                LIMIT ?
+                """,
+                (cutoff, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_metrics_summary(self, *, days: int = 7) -> dict[str, Any]:
+        """Aggregate tweet metrics over the given period."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS total_tweets,
+                       SUM(impressions) AS total_impressions,
+                       SUM(likes) AS total_likes,
+                       SUM(retweets) AS total_retweets,
+                       SUM(replies) AS total_replies,
+                       AVG(impressions) AS avg_impressions,
+                       AVG(likes) AS avg_likes
+                FROM x_tweet_metrics
+                WHERE published_at >= ?
+                """,
+                (cutoff,),
+            ).fetchone()
+        if row is None:
+            return {"period_days": days, "total_tweets": 0}
+        return {
+            "period_days": days,
+            "total_tweets": int(row["total_tweets"] or 0),
+            "total_impressions": int(row["total_impressions"] or 0),
+            "total_likes": int(row["total_likes"] or 0),
+            "total_retweets": int(row["total_retweets"] or 0),
+            "total_replies": int(row["total_replies"] or 0),
+            "avg_impressions": round(float(row["avg_impressions"] or 0), 1),
+            "avg_likes": round(float(row["avg_likes"] or 0), 1),
+        }

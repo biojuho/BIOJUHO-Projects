@@ -40,27 +40,12 @@ except ImportError:
     logger.debug("tweepy not installed; X posting disabled. Run: pip install tweepy")
 
 
-# ---------------------------------------------------------------------------
-# Simple in-memory daily post counter
-# ---------------------------------------------------------------------------
-
-_daily_posts: dict[date, int] = {}
-
-
-def _today_post_count() -> int:
-    return _daily_posts.get(date.today(), 0)
-
-
-def _increment_post_count() -> None:
-    today = date.today()
-    _daily_posts[today] = _daily_posts.get(today, 0) + 1
-
-
 class XAdapter:
     """Publishes content to X (Twitter) or returns a draft dict."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, state_store: Any | None = None) -> None:
         self.settings = get_settings()
+        self._state_store = state_store
 
     def _build_client(self) -> Any | None:
         """Build a tweepy.Client with OAuth 1.0a credentials. Returns None if unavailable."""
@@ -101,9 +86,15 @@ class XAdapter:
                 "message": "Draft prepared. Manual approval required before publishing.",
             }
 
-        # Auto mode: check daily limit
+        # Auto mode: check daily limit (persistent via SQLite)
         limit = self.settings.x_daily_post_limit
-        if _today_post_count() >= limit:
+        today_str = date.today().isoformat()
+        current_count = (
+            self._state_store.get_x_post_count(today_str)
+            if self._state_store is not None
+            else 0
+        )
+        if current_count >= limit:
             logger.warning("X daily post limit (%d) reached; skipping auto-publish.", limit)
             return {
                 "status": "blocked",
@@ -131,7 +122,8 @@ class XAdapter:
             response = client.create_tweet(text=tweet_text)
             tweet_id = response.data["id"]
             tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
-            _increment_post_count()
+            if self._state_store is not None:
+                self._state_store.increment_x_post_count(today_str)
             logger.info("Published tweet %s for report %s", tweet_id, report.report_id)
             return {
                 "status": "published",
@@ -172,9 +164,83 @@ class XAdapter:
                 response = client.create_tweet(**kwargs)
                 tweet_id = str(response.data["id"])
                 reply_to = tweet_id
-                _increment_post_count()
+                if self._state_store is not None:
+                    self._state_store.increment_x_post_count(date.today().isoformat())
                 results.append({"status": "published", "tweet_id": tweet_id})
             except Exception as exc:
                 results.append({"status": "error", "message": str(exc)})
                 break  # stop thread on first failure
         return results
+
+    @staticmethod
+    def split_to_thread(
+        content: str,
+        *,
+        max_chars: int = 270,
+        max_tweets: int = 5,
+        cta: str = "",
+    ) -> list[str]:
+        """Split long-form content into a numbered thread of tweets.
+
+        Each tweet is numbered (1/N format) and respects the character limit.
+        An optional CTA is appended to the final tweet.
+
+        Args:
+            content: The full text to split.
+            max_chars: Max characters per tweet (default 270, leaving room for numbering).
+            max_tweets: Maximum number of tweets in the thread.
+            cta: Optional call-to-action text for the last tweet.
+
+        Returns:
+            A list of tweet texts ready for ``post_thread()``.
+        """
+        if len(content) <= 280:
+            return [content]
+
+        # Split by paragraphs first, then sentences
+        paragraphs = [p.strip() for p in content.split("\n") if p.strip()]
+        chunks: list[str] = []
+        current_chunk = ""
+
+        for para in paragraphs:
+            # If a single paragraph fits, try to add it to current chunk
+            if len(current_chunk) + len(para) + 2 <= max_chars:
+                current_chunk = f"{current_chunk}\n{para}".strip() if current_chunk else para
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk)
+                # If paragraph itself is too long, split by sentences
+                if len(para) > max_chars:
+                    import re
+                    sentences = re.split(r"(?<=[.!?])\s+", para)
+                    sentence_chunk = ""
+                    for sentence in sentences:
+                        if len(sentence_chunk) + len(sentence) + 1 <= max_chars:
+                            sentence_chunk = f"{sentence_chunk} {sentence}".strip() if sentence_chunk else sentence
+                        else:
+                            if sentence_chunk:
+                                chunks.append(sentence_chunk)
+                            sentence_chunk = sentence[:max_chars]
+                    if sentence_chunk:
+                        chunks.append(sentence_chunk)
+                    current_chunk = ""
+                else:
+                    current_chunk = para
+
+        if current_chunk:
+            chunks.append(current_chunk)
+
+        # Limit to max_tweets
+        chunks = chunks[:max_tweets]
+        total = len(chunks)
+
+        # Number each tweet
+        tweets: list[str] = []
+        for i, chunk in enumerate(chunks, 1):
+            prefix = f"{i}/{total} "
+            tweet = f"{prefix}{chunk}"
+            if i == total and cta:
+                tweet = f"{tweet}\n\n{cta}"
+            tweets.append(tweet[:280])
+
+        return tweets

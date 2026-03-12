@@ -60,7 +60,7 @@ async def publish_report(
 ) -> tuple[str, dict[str, str], list[str], str]:
     settings = get_settings()
     notion_adapter = notion_adapter or NotionAdapter(settings=settings)
-    x_adapter = x_adapter or XAdapter()
+    x_adapter = x_adapter or XAdapter(state_store=state_store)
     canva_adapter = canva_adapter or CanvaAdapter()
     telegram_adapter = telegram_adapter or TelegramAdapter()
     run_id = run_id or generate_run_id("publish_report")
@@ -110,13 +110,29 @@ async def publish_report(
         if draft.channel not in channels:
             continue
         if draft.channel == "x":
-            x_result = await x_adapter.publish(report, draft.content, approval_mode=approval_mode)
-            state_store.set_channel_publication(report_id, draft.channel, x_result["status"])
-            publication[f"{draft.channel}_status"] = x_result["status"]
-            if x_result.get("tweet_url"):
-                publication["x_url"] = x_result["tweet_url"]
-            if x_result.get("message"):
-                warnings.append(x_result["message"])
+            # Auto-detect thread mode: if content > 280 chars, split into thread
+            if len(draft.content) > 280 and approval_mode == "auto":
+                thread_tweets = XAdapter.split_to_thread(draft.content)
+                thread_results = x_adapter.post_thread(thread_tweets)
+                published_ids = [r["tweet_id"] for r in thread_results if r.get("status") == "published"]
+                if published_ids:
+                    x_status = "published"
+                    publication["x_thread_ids"] = ",".join(published_ids)
+                    publication["x_url"] = f"https://twitter.com/i/web/status/{published_ids[0]}"
+                else:
+                    x_status = thread_results[0].get("status", "error") if thread_results else "error"
+                    if thread_results and thread_results[0].get("message"):
+                        warnings.append(thread_results[0]["message"])
+                state_store.set_channel_publication(report_id, draft.channel, x_status)
+                publication[f"{draft.channel}_status"] = x_status
+            else:
+                x_result = await x_adapter.publish(report, draft.content, approval_mode=approval_mode)
+                state_store.set_channel_publication(report_id, draft.channel, x_result["status"])
+                publication[f"{draft.channel}_status"] = x_result["status"]
+                if x_result.get("tweet_url"):
+                    publication["x_url"] = x_result["tweet_url"]
+                if x_result.get("message"):
+                    warnings.append(x_result["message"])
         else:
             state_store.set_channel_publication(report_id, draft.channel, "draft")
             publication[f"{draft.channel}_status"] = "draft"

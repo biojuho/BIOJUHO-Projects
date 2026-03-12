@@ -13,8 +13,76 @@ from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ChannelDraft, ContentItem
 from antigravity_mcp.state.store import PipelineStateStore
 
-
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Direct LLM provider fallback (when shared.llm is unavailable or fails)
+# ---------------------------------------------------------------------------
+
+async def _call_google_genai(prompt: str, api_key: str) -> str | None:
+    """Call Google Gemini API directly as fallback."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as exc:
+        logger.warning("Google Gemini fallback failed: %s", exc)
+    return None
+
+
+async def _call_anthropic(prompt: str, api_key: str) -> str | None:
+    """Call Anthropic Claude API directly as fallback."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 800,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["content"][0]["text"]
+    except Exception as exc:
+        logger.warning("Anthropic Claude fallback failed: %s", exc)
+    return None
+
+
+async def _call_openai(prompt: str, api_key: str) -> str | None:
+    """Call OpenAI API directly as fallback."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "max_tokens": 800,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["choices"][0]["message"]["content"]
+    except Exception as exc:
+        logger.warning("OpenAI fallback failed: %s", exc)
+    return None
 
 # ---------------------------------------------------------------------------
 # L1 in-memory LRU cache (process lifetime; complements L2 SQLite cache)
@@ -140,44 +208,70 @@ class LLMAdapter:
                 _l1_put(prompt_hash, result)
                 return result, warnings
 
-        if self._llm_client is None or self._task_tier is None:
-            if _SHARED_LLM_IMPORT_ERROR is not None:
-                warning = (
-                    f"shared.llm is unavailable (root cause: {_SHARED_LLM_IMPORT_ERROR}); "
-                    "using deterministic fallback summary. Configure PYTHONPATH to enable LLM analysis."
-                )
-            else:
-                warning = "LLM client not initialized; using deterministic fallback summary."
-            logger.error("LLM unavailable for category=%s window=%s: %s", category, window_name, warning)
-            warnings.append(warning)
+        # --- Primary path: shared.llm client ---
+        text = ""
+        model_name = ""
+        input_tokens = 0
+        output_tokens = 0
+
+        if self._llm_client is not None and self._task_tier is not None:
+            try:
+                request_kwargs: dict[str, Any] = {
+                    "tier": self._task_tier,
+                    "max_tokens": 800,
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+                policy = self._build_policy()
+                if policy is not None:
+                    request_kwargs["policy"] = policy
+
+                response = await self._llm_client.acreate(**request_kwargs)
+                text = response.text or ""
+                model_name = getattr(response, "model", "")
+                input_tokens = int(getattr(response, "input_tokens", 0) or 0)
+                output_tokens = int(getattr(response, "output_tokens", 0) or 0)
+            except Exception as exc:
+                warnings.append(f"shared.llm failed ({type(exc).__name__}); trying fallback providers.")
+                logger.warning("shared.llm failed for %s/%s: %s", category, window_name, exc)
+        else:
+            warnings.append("shared.llm unavailable; trying direct API fallback providers.")
+
+        # --- Fallback chain: Gemini → Claude → OpenAI ---
+        if not text:
+            settings = self.settings
+            fallback_providers: list[tuple[str, str, Any]] = [
+                ("gemini-2.5-flash", settings.google_api_key, _call_google_genai),
+                ("claude-haiku-4-5", settings.anthropic_api_key, _call_anthropic),
+                ("gpt-4o-mini", settings.openai_api_key, _call_openai),
+            ]
+            for provider_name, api_key, call_fn in fallback_providers:
+                if not api_key:
+                    continue
+                logger.info("Trying fallback LLM provider: %s", provider_name)
+                fallback_text = await call_fn(prompt, api_key)
+                if fallback_text:
+                    text = fallback_text
+                    model_name = provider_name
+                    warnings.append(f"Used fallback provider: {provider_name}")
+                    break
+
+        # --- Deterministic fallback if all providers fail ---
+        if not text:
+            warnings.append("All LLM providers failed; using deterministic fallback summary.")
             return self._fallback_report(category=category, items=items, window_name=window_name), warnings
 
-        try:
-            request_kwargs: dict[str, Any] = {
-                "tier": self._task_tier,
-                "max_tokens": 800,
-                "messages": [{"role": "user", "content": prompt}],
-            }
-            policy = self._build_policy()
-            if policy is not None:
-                request_kwargs["policy"] = policy
-
-            response = await self._llm_client.acreate(**request_kwargs)
-            text = response.text or ""
-            if text and self._state_store is not None:
-                self._state_store.put_llm_cache(
-                    prompt_hash,
-                    text,
-                    model_name=getattr(response, "model", ""),
-                    input_tokens=int(getattr(response, "input_tokens", 0) or 0),
-                    output_tokens=int(getattr(response, "output_tokens", 0) or 0),
-                )
-            result = self._parse_response(category=category, text=text, items=items, window_name=window_name)
-            _l1_put(prompt_hash, result)
-            return result, warnings
-        except Exception as exc:
-            warnings.append(f"LLM failed ({type(exc).__name__}); using fallback summary.")
-            return self._fallback_report(category=category, items=items, window_name=window_name), warnings
+        # Cache and parse result
+        if text and self._state_store is not None:
+            self._state_store.put_llm_cache(
+                prompt_hash,
+                text,
+                model_name=model_name,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+        result = self._parse_response(category=category, text=text, items=items, window_name=window_name)
+        _l1_put(prompt_hash, result)
+        return result, warnings
 
     def _build_prompt_hash(self, *, category: str, prompt: str, window_name: str) -> str:
         normalized_prompt = _normalize_for_hash(prompt)

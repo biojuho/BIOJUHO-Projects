@@ -4,6 +4,7 @@ import logging
 
 from antigravity_mcp.integrations.llm_adapter import _SHARED_LLM_IMPORT_ERROR, _get_llm_client
 from antigravity_mcp.integrations.telegram_adapter import TelegramAdapter
+from antigravity_mcp.integrations.x_metrics_adapter import XMetricsAdapter
 from antigravity_mcp.pipelines.dashboard import refresh_dashboard
 from antigravity_mcp.state.events import error_response, ok, partial
 from antigravity_mcp.state.store import PipelineStateStore
@@ -95,4 +96,31 @@ async def ops_check_health_tool(
         "llm_available": llm_available,
         "alerts": alerts,
         "status": "degraded" if alerts else "healthy",
+    })
+
+
+async def ops_collect_tweet_metrics_tool(tweet_ids: list[str], report_id: str = "") -> dict:
+    """Fetch and store engagement metrics for published tweets.
+
+    Requires X_BEARER_TOKEN to be configured.
+    """
+    store = PipelineStateStore()
+    adapter = XMetricsAdapter(state_store=store)
+    if not adapter.is_available:
+        return error_response(
+            "x_bearer_missing",
+            "X_BEARER_TOKEN not configured. Cannot fetch tweet metrics.",
+        )
+    count = await adapter.collect_and_store(tweet_ids, report_id=report_id)
+    return ok({"tweets_updated": count, "tweet_ids": tweet_ids})
+
+
+async def ops_get_tweet_performance_tool(days: int = 7, limit: int = 10, sort_by: str = "impressions") -> dict:
+    """Get top-performing tweets and aggregate metrics summary."""
+    store = PipelineStateStore()
+    top_tweets = store.get_top_tweets(days=days, limit=limit, sort_by=sort_by)
+    summary = store.get_metrics_summary(days=days)
+    return ok({
+        "summary": summary,
+        "top_tweets": top_tweets,
     })

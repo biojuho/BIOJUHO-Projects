@@ -16,12 +16,18 @@ from antigravity_mcp.config import get_settings
 from antigravity_mcp.state.mixins import (
     _ArticleMixin,
     _CacheMixin,
+    _MetricsMixin,
     _ReportMixin,
     _RunMixin,
+    _TopicMixin,
+    _XPostMixin,
 )
 
 
-class PipelineStateStore(_RunMixin, _ArticleMixin, _ReportMixin, _CacheMixin):
+class PipelineStateStore(
+    _RunMixin, _ArticleMixin, _ReportMixin, _CacheMixin,
+    _XPostMixin, _TopicMixin, _MetricsMixin,
+):
     """Facade that owns the SQLite connection and delegates domain logic to mixins."""
 
     def __init__(self, path: Path | None = None) -> None:
@@ -227,6 +233,60 @@ class PipelineStateStore(_RunMixin, _ArticleMixin, _ReportMixin, _CacheMixin):
                 """
                 CREATE INDEX IF NOT EXISTS idx_llm_cache_expires
                 ON llm_cache(expires_at)
+                """
+            )
+            # --- X daily post counter (persistent across restarts) ---
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS x_daily_posts (
+                    post_date TEXT PRIMARY KEY,
+                    post_count INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            # --- Topic timeline for continuity tracking ---
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS topic_timeline (
+                    topic_id TEXT PRIMARY KEY,
+                    topic_label TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    first_seen_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL,
+                    occurrence_count INTEGER NOT NULL DEFAULT 1,
+                    report_ids_json TEXT NOT NULL DEFAULT '[]',
+                    embedding_json TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_topic_timeline_category
+                ON topic_timeline(category, last_seen_at DESC)
+                """
+            )
+            # --- X tweet metrics tracking ---
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS x_tweet_metrics (
+                    tweet_id TEXT PRIMARY KEY,
+                    report_id TEXT,
+                    content_preview TEXT,
+                    impressions INTEGER DEFAULT 0,
+                    likes INTEGER DEFAULT 0,
+                    retweets INTEGER DEFAULT 0,
+                    replies INTEGER DEFAULT 0,
+                    quotes INTEGER DEFAULT 0,
+                    bookmarks INTEGER DEFAULT 0,
+                    published_at TEXT NOT NULL,
+                    last_fetched_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_x_tweet_metrics_report
+                ON x_tweet_metrics(report_id)
                 """
             )
             # --- Phase 4: Feed ETag/Last-Modified cache ---

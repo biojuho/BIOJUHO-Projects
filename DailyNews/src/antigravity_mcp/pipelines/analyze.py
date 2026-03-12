@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import Any
 
 from antigravity_mcp.domain.models import ContentItem, ContentReport
+from antigravity_mcp.integrations.embedding_adapter import ArticleCluster, EmbeddingAdapter
 from antigravity_mcp.integrations.llm_adapter import LLMAdapter
 from antigravity_mcp.state.events import generate_run_id, utc_now_iso
 from antigravity_mcp.state.store import PipelineStateStore
@@ -35,8 +36,10 @@ async def generate_briefs(
     sentiment_adapter: Any | None = None,
     brain_adapter: Any | None = None,
     proofreader_adapter: Any | None = None,
+    embedding_adapter: EmbeddingAdapter | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
     llm_adapter = llm_adapter or LLMAdapter(state_store=state_store)
+    embedding_adapter = embedding_adapter or EmbeddingAdapter()
     run_id = run_id or generate_run_id("generate_brief")
     grouped: dict[str, list[ContentItem]] = defaultdict(list)
     for item in items:
@@ -49,6 +52,22 @@ async def generate_briefs(
         "generate_brief",
         summary={"window_name": window_name, "categories": list(grouped), "max_items": len(items)},
     )
+
+    # --- Clustering: group similar articles within each category ---
+    cluster_meta: dict[str, list[ArticleCluster]] = {}
+    if embedding_adapter.is_available:
+        for category, category_items in grouped.items():
+            try:
+                clusters = await embedding_adapter.cluster_articles(category_items)
+                cluster_meta[category] = clusters
+                multi_source = [c for c in clusters if c.is_multi_source]
+                if multi_source:
+                    warnings.append(
+                        f"{category}: {len(multi_source)} multi-source topic(s) detected "
+                        f"({', '.join(c.topic_label[:40] for c in multi_source[:3])})"
+                    )
+            except Exception as exc:
+                logger.warning("Clustering failed for %s: %s", category, exc)
 
     for category, category_items in grouped.items():
         source_links = [item.link for item in category_items]
@@ -78,9 +97,20 @@ async def generate_briefs(
                 warnings.append(f"Sentiment analysis failed for {category}: {type(exc).__name__}")
 
         report_id = generate_run_id(f"report-{category.lower().replace(' ', '-')}")
+
+        # Enrich items with cluster context if available
+        enriched_items = category_items
+        clusters = cluster_meta.get(category)
+        if clusters:
+            # Re-order: put multi-source cluster articles first for higher priority
+            ordered: list[ContentItem] = []
+            for c in clusters:
+                ordered.extend(c.articles)
+            enriched_items = ordered if ordered else category_items
+
         payload, llm_warnings = await llm_adapter.build_report_payload(
             category=category,
-            items=category_items,
+            items=enriched_items,
             window_name=window_name,
         )
         summary_lines, insights, drafts = payload
@@ -114,6 +144,15 @@ async def generate_briefs(
             except Exception as exc:
                 warnings.append(f"Brain analysis failed for {category}: {type(exc).__name__}")
 
+        # --- Topic continuity detection ---
+        current_titles = [item.title for item in category_items]
+        continuing = state_store.find_continuing_topics(category, current_titles)
+        if continuing:
+            for ct in continuing[:2]:
+                insights.append(
+                    f"[Continuing] '{ct['topic_label'][:50]}' (seen {ct['occurrence_count']}x since {ct['first_seen_at'][:10]})"
+                )
+
         report = ContentReport(
             report_id=report_id,
             category=category,
@@ -132,6 +171,19 @@ async def generate_briefs(
             updated_at=utc_now_iso(),
         )
         state_store.save_report(report)
+
+        # Record topics from clusters for future continuity tracking
+        clusters = cluster_meta.get(category, [])
+        for cluster in clusters:
+            topic_id = hashlib.sha256(
+                f"{category}:{cluster.topic_label}".encode("utf-8")
+            ).hexdigest()[:16]
+            state_store.upsert_topic(
+                topic_id=topic_id,
+                topic_label=cluster.topic_label,
+                category=category,
+                report_id=report_id,
+            )
         for item in category_items:
             state_store.record_article(
                 link=item.link,

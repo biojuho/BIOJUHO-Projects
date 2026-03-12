@@ -25,18 +25,70 @@ def _health_markdown(health: dict[str, object]) -> str:
     )
 
 
-def _dashboard_markdown(counts: dict[str, int], runs: list[dict[str, str]], health: dict[str, object] | None = None) -> str:
+def _cost_markdown(cost_stats: dict[str, object]) -> str:
+    call_count = cost_stats.get("call_count", 0)
+    cache_hits = cost_stats.get("cache_hit_count", 0)
+    estimated = cost_stats.get("estimated_cost_usd", 0.0)
+    avoided = cost_stats.get("estimated_cost_avoided_usd", 0.0)
+    cost_by_model = cost_stats.get("cost_by_model", {})
+
+    model_lines = "\n".join(
+        f"  - {model}: ${cost:.6f}"
+        for model, cost in (cost_by_model.items() if isinstance(cost_by_model, dict) else [])
+    )
+    if model_lines:
+        model_lines = f"\n{model_lines}"
+
+    hit_rate = f"{cache_hits / max(call_count, 1) * 100:.0f}%" if call_count else "N/A"
+
+    return (
+        "### LLM Cost (24h)\n"
+        f"- API calls: {call_count} | Cache hits: {cache_hits} ({hit_rate})\n"
+        f"- Estimated cost: ${estimated:.4f}\n"
+        f"- Cost avoided (cache): ${avoided:.4f}{model_lines}\n"
+    )
+
+
+def _metrics_markdown(metrics_summary: dict[str, object]) -> str:
+    total = metrics_summary.get("total_tweets", 0)
+    if not total:
+        return ""
+    impressions = metrics_summary.get("total_impressions", 0)
+    likes = metrics_summary.get("total_likes", 0)
+    retweets = metrics_summary.get("total_retweets", 0)
+    avg_imp = metrics_summary.get("avg_impressions", 0)
+    avg_likes = metrics_summary.get("avg_likes", 0)
+    days = metrics_summary.get("period_days", 7)
+    return (
+        f"### X Performance ({days}d)\n"
+        f"- Tweets tracked: {total}\n"
+        f"- Impressions: {impressions:,} (avg {avg_imp:.0f}/tweet)\n"
+        f"- Likes: {likes:,} (avg {avg_likes:.1f}/tweet) | RT: {retweets:,}\n"
+    )
+
+
+def _dashboard_markdown(
+    counts: dict[str, int],
+    runs: list[dict[str, str]],
+    health: dict[str, object] | None = None,
+    cost_stats: dict[str, object] | None = None,
+    metrics_summary: dict[str, object] | None = None,
+) -> str:
     run_lines = "\n".join(
         f"- {run['job_name']} | {run['status']} | {run['started_at']}"
         for run in runs
     ) or "- No recent runs."
     health_section = _health_markdown(health) if health else ""
+    cost_section = _cost_markdown(cost_stats) if cost_stats else ""
+    metrics_section = _metrics_markdown(metrics_summary) if metrics_summary else ""
     return (
         "## [AUTO_DASHBOARD] Antigravity Content Engine\n"
         f"- Reports stored: {counts['reports']}\n"
         f"- Pipeline runs tracked: {counts['runs']}\n"
         f"- Deduplicated articles: {counts['cached_articles']}\n"
         f"{health_section}"
+        f"{cost_section}"
+        f"{metrics_section}"
         "### Recent Runs\n"
         f"{run_lines}\n"
         "### Governance\n"
@@ -60,6 +112,8 @@ async def refresh_dashboard(
     counts = state_store.report_counts()
     recent_runs = [run.to_dict() for run in state_store.list_runs(limit=5)]
     health = state_store.get_pipeline_health()
+    cost_stats = state_store.get_token_usage_stats(hours=24)
+    metrics_summary = state_store.get_metrics_summary(days=7)
     warnings: list[str] = []
     payload: dict[str, str | int | dict] = {
         "dashboard_page_id": settings.notion_dashboard_page_id,
@@ -67,12 +121,14 @@ async def refresh_dashboard(
         "runs": counts["runs"],
         "cached_articles": counts["cached_articles"],
         "health": health,
+        "cost_stats": cost_stats,
+        "metrics_summary": metrics_summary,
     }
 
     if settings.notion_dashboard_page_id and notion_adapter.is_configured():
         appended = await notion_adapter.replace_auto_dashboard_blocks(
             page_id=settings.notion_dashboard_page_id,
-            markdown=_dashboard_markdown(counts, recent_runs, health),
+            markdown=_dashboard_markdown(counts, recent_runs, health, cost_stats, metrics_summary),
         )
         payload["updated_blocks"] = appended
     else:

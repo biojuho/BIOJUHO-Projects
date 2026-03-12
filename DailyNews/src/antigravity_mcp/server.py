@@ -20,7 +20,9 @@ from antigravity_mcp.tooling.content_tools import content_invoke_skill_tool
 from antigravity_mcp.tooling.ops_tools import (
     ops_check_health_tool,
     ops_cleanup_tool,
+    ops_collect_tweet_metrics_tool,
     ops_get_run_status_tool,
+    ops_get_tweet_performance_tool,
     ops_list_runs_tool,
     ops_refresh_dashboard_tool,
 )
@@ -114,6 +116,18 @@ def build_server() -> FastMCP:
             error_rate_threshold=error_rate_threshold,
             alert_on_silence_hours=alert_on_silence_hours,
         )
+
+    # ── Phase 5: Tweet metrics & performance ───────────────────────────
+
+    @server.tool()
+    async def ops_collect_tweet_metrics(tweet_ids: list[str], report_id: str = "") -> dict:
+        """Fetch and store engagement metrics for published tweets from X API v2."""
+        return await ops_collect_tweet_metrics_tool(tweet_ids=tweet_ids, report_id=report_id)
+
+    @server.tool()
+    async def ops_get_tweet_performance(days: int = 7, limit: int = 10, sort_by: str = "impressions") -> dict:
+        """Get top-performing tweets and aggregate engagement summary."""
+        return await ops_get_tweet_performance_tool(days=days, limit=limit, sort_by=sort_by)
 
     # ── Phase 4: Cost monitoring ─────────────────────────────────────────
 
