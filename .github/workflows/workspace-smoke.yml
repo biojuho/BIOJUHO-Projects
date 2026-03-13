@@ -54,12 +54,19 @@ jobs:
         run: |
           python -m pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q --tb=short
 
-      - name: "🧪 GetDayTrends tests (215+)"
+      - name: "🧪 GetDayTrends tests (245+)"
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
         run: |
           python -m pytest getdaytrends/tests/ -q --tb=short
+
+      - name: "🧪 GetDayTrends v15.0 tests"
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: |
+          python -m pytest getdaytrends/tests/test_v15_zero_content.py getdaytrends/tests/test_v15_quality.py -v --tb=short
 
       - name: "🧪 BioLinker tests"
         env:
@@ -106,7 +113,8 @@ jobs:
           | Suite | Status |
           |:---|:---:|
           | Workspace regression tests | ${{ steps.*.outcome }} |
-          | GetDayTrends (215+ tests) | ✅ |
+          | GetDayTrends (245+ tests) | ✅ |
+          | GetDayTrends v15.0 (27 tests) | ✅ |
           | BioLinker tests | ✅ |
           | DeSci Frontend (lint + test + build) | ✅ |
           | AgriGuard Frontend (lint + build) | ✅ |

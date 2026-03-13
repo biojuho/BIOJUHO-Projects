@@ -1,0 +1,94 @@
+name: DailyNews Pipeline
+
+on:
+  schedule:
+    # KST 07:00 (UTC 22:00 전날) + KST 18:00 (UTC 09:00)
+    - cron: '0 22 * * *'   # KST 07:00
+    - cron: '0 9 * * *'    # KST 18:00
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode (morning/evening/full)'
+        required: false
+        default: 'full'
+
+jobs:
+  run-dailynews:
+    name: 📰 DailyNews Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: 'DailyNews/requirements.txt'
+
+      - name: Install dependencies
+        run: |
+          pip install -r DailyNews/requirements.txt
+          pip install -r shared/pyproject.toml 2>/dev/null || true
+
+      - name: Create .env file
+        working-directory: DailyNews
+        run: |
+          cat <<EOF > .env
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}
+          CONTENT_HUB_DATABASE_ID=${{ secrets.CONTENT_HUB_DATABASE_ID || '' }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
+          TARGET_PLATFORMS=x,threads,naver_blog
+          BLOG_MIN_SCORE=70
+          EOF
+
+      - name: Run DailyNews Pipeline
+        working-directory: DailyNews
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python scripts/run_daily_news.py --mode ${{ github.event.inputs.mode || 'full' }} 2>&1 | head -500
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailynews-log-${{ github.run_number }}
+          path: |
+            DailyNews/logs/
+            DailyNews/run_output*.log
+          retention-days: 7
+
+      - name: "📱 Telegram notification (failure)"
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] DailyNews #${{ github.run_number }} FAILED\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+          fi
+
+      - name: "💚 Heartbeat (success)"
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews #${{ github.run_number }} completed\"}" || true
+          fi

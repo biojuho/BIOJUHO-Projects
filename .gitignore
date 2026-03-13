@@ -28,8 +28,18 @@ tmp/
 
 # Test / smoke outputs
 smoke-all.json
+smoke_*.json
+final_smoke.json
 test-results/
 .pytest_cache/
+.coverage
+*_out.txt
+*_out_ascii.txt
+
+# Debug / run outputs
+**/run_output*.log
+**/run_output*.txt
+**/debug_log.txt
 
 # Build artifacts
 node_modules/

@@ -74,6 +74,37 @@ desci-platform/
     scripts/             # deploy.js, deploy_nft.js
 ```
 
+## MCP Servers & Skills
+
+| MCP Server | Path | Purpose |
+| ---------- | ---- | ------- |
+| `canva-mcp` | TS/Node | Canva Connect API design automation |
+| `github-mcp` | Python | Repo creation & metadata |
+| `notebooklm-mcp` | Python | Google NotebookLM research |
+| `telegram-mcp` | Python/FastMCP | Telegram notifications & approvals (7 tools) |
+| `desci-research-mcp` | Python/FastMCP | arXiv/Semantic Scholar academic search |
+| `DailyNews/src/antigravity_mcp` | Python/FastMCP | Content publishing pipeline (15 tools) |
+
+### Automation Scripts
+
+- `scripts/orchestrator.py` - Cross-project pipeline (collect→validate→generate→publish→track)
+- `scripts/cost_intelligence.py` - LLM cost analysis, forecasting, optimization suggestions
+- `scripts/linear_sync.py` - ROADMAP.md → Linear issue sync
+- `scripts/check_security.py` - Secret/API key scanner for pre-commit and Claude Code Hooks
+- `getdaytrends/firecrawl_bridge.py` - Firecrawl integration for enriched trend contexts
+- `getdaytrends/firecrawl_client.py` - Firecrawl API async client with rate limiting
+
+### Custom Skills (`.agent/skills/`)
+
+- `cost-intelligence` - LLM cost report & optimization
+- `content-performance` - Published content performance tracking & feedback loops
+- `content-publisher` - Notion/Markdown to Blog/Newsletter converter
+- `deep-research` - Multi-source deep research
+- `project-organizer` - Project folder organization & history
+- `web-auditor` - SEO and performance audits
+- `youtube-intelligence` - YouTube video transcript analysis
+
+
 ## Environment Variables
 
 Copy `.env.example` files before running. Key variables:
@@ -84,6 +115,10 @@ Copy `.env.example` files before running. Key variables:
 - `PRIVATE_KEY` - Wallet key for contract deployment (Hardhat test key OK for local)
 - `PINATA_API_KEY` / `PINATA_API_SECRET` - IPFS uploads
 - `ALLOW_TEST_BYPASS=true` - Dev only: enables test auth token
+- `SENTRY_DSN` - Error monitoring (Sentry)
+- `FIRECRAWL_API_KEY` - Web crawling for trend enrichment
+- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` - Telegram notifications
+- `LINEAR_API_KEY` - Linear project management sync
 
 ## Code Style & Conventions
 

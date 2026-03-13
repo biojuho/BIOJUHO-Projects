@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "python \"d:/AI 프로젝트/scripts/check_security.py\" \"$CLAUDE_FILE_PATH\"",
+        "description": "Scan for hardcoded secrets before editing files"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "python -m ruff check --fix --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0",
+        "description": "Auto-fix lint issues after Python file edits"
+      }
+    ]
+  }
+}

@@ -32,7 +32,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: 'getdaytrends/requirements.txt'
 
@@ -44,6 +44,8 @@ jobs:
         run: |
           cat <<EOF > .env
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
           STORAGE_TYPE=${{ secrets.STORAGE_TYPE || 'notion' }}
           NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}
@@ -53,6 +55,7 @@ jobs:
           TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
+          FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY || '' }}
           DEFAULT_COUNTRY=${{ github.event.inputs.country || 'korea' }}
           DEFAULT_LIMIT=${{ github.event.inputs.limit || '5' }}
           SCHEDULE_INTERVAL_MINUTES=240
@@ -93,7 +96,27 @@ jobs:
             -d "{\"content\":\"❌ **GetDayTrends 실행 실패** (#${{ github.run_number }})\\n🔗 [로그 확인](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\"}" \
             "$DISCORD_WEBHOOK_URL" || true
 
+      - name: "📱 Telegram notification (failure)"
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] GetDayTrends #${{ github.run_number }} FAILED\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",\"parse_mode\":\"Markdown\"}" || true
+          fi
+
       - name: "💚 Heartbeat ping (success)"
         if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          echo "✅ GetDayTrends run #${{ github.run_number }} completed successfully at $(date -u +%FT%TZ)"
+          echo "GetDayTrends run #${{ github.run_number }} completed successfully at $(date -u +%FT%TZ)"
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] GetDayTrends #${{ github.run_number }} completed\"}" || true
+          fi

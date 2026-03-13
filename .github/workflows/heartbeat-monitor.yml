@@ -66,6 +66,8 @@ jobs:
         if: steps.check.outputs.status != 'healthy'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           STATUS="${{ steps.check.outputs.status }}"
           MSG="${{ steps.check.outputs.message }}"
@@ -83,6 +85,12 @@ jobs:
             curl -s -H "Content-Type: application/json" \
               -d "{\"content\":\"${EMOJI} **${TITLE}**\n📊 24h 실행: ${RUNS}회\n📝 ${MSG}\n🔗 [Actions 대시보드](${{ github.server_url }}/${{ github.repository }}/actions)\"}" \
               "$DISCORD_WEBHOOK_URL" || true
+          fi
+
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"${TITLE}\n24h runs: ${RUNS}\n${MSG}\"}" || true
           fi
 
       - name: "📊 Heartbeat Summary"

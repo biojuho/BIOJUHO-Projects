@@ -1,3 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-projects-workspace"
+version = "1.0.0"
+description = "Multi-project AI workspace: DeSci, AgriGuard, GetDayTrends, DailyNews"
+requires-python = ">=3.12"
+dependencies = [
+    "python-dotenv",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shared*", "content_intelligence*"]
+
 [tool.ruff]
 target-version = "py314"
 line-length = 120
@@ -20,7 +37,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["shared"]
+known-first-party = ["shared", "getdaytrends", "content_intelligence"]
 
 [tool.ruff.format]
 quote-style = "double"

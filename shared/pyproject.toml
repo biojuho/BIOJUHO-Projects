@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "shared-llm"
-version = "0.1.0"
-description = "Unified LLM client with tier-based routing for AI Projects workspace"
+name = "shared"
+version = "0.2.0"
+description = "Shared utilities for AI Projects workspace: LLM client, embeddings, notifications, config"
 requires-python = ">=3.12"
 dependencies = [
     "python-dotenv",
@@ -18,5 +18,5 @@ openai = ["openai"]
 all = ["anthropic", "google-genai", "openai"]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["llm*"]
+where = [".."]
+include = ["shared*"]
