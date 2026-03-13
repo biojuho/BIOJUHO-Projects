@@ -8,10 +8,6 @@ v14.0: 독립 모듈 → shared/embeddings로 이전.
 import sys
 from pathlib import Path
 
-# shared 모듈 경로 보장
-_ROOT = Path(__file__).resolve().parents[1]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
 
 from shared.embeddings import (  # noqa: E402, F401
     compute_similarity_matrix,

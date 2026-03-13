@@ -9,10 +9,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-# shared.llm 모듈 경로 (단일 추가)
-_SHARED_PATH = str(Path(__file__).resolve().parents[1])
-if _SHARED_PATH not in sys.path:
-    sys.path.insert(0, _SHARED_PATH)
 
 from config import AppConfig
 from models import ScoredTrend

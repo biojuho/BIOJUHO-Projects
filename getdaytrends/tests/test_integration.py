@@ -7,7 +7,6 @@ import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from config import AppConfig
 from generator import _parse_json, generate_tweets_async

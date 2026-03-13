@@ -354,9 +354,6 @@ class AppConfig:
 
     def validate(self) -> list[str]:
         """오류 목록 반환. 빈 리스트이면 유효."""
-        import sys
-        from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         from shared.llm.config import load_keys
 
         errors = []

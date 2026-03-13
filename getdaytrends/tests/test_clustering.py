@@ -6,7 +6,6 @@ cluster_trends_local 함수의 유사도 기반 트렌드 병합 검증.
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from analyzer import _jaccard_similarity, cluster_trends_local
 from models import MultiSourceContext, RawTrend, TrendSource

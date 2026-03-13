@@ -16,8 +16,6 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
-# shared.llm 모듈 경로 추가
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import AppConfig
 from models import GeneratedThread, GeneratedTweet, ScoredTrend, TrendContext, TweetBatch

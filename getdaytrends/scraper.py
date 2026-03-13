@@ -758,11 +758,6 @@ def _merge_trends(
     # [v14.1] 임베딩 기반 소스 간 의미적 중복 제거
     if len(merged) > 1:
         try:
-            import sys as _sys
-            from pathlib import Path as _Path
-            _root = str(_Path(__file__).resolve().parents[1])
-            if _root not in _sys.path:
-                _sys.path.insert(0, _root)
             from shared.embeddings import deduplicate_texts
             names = [t.name for t in merged]
             unique_indices = deduplicate_texts(names, threshold=0.82)
@@ -874,11 +869,6 @@ async def _async_collect_trends(
         # [v14.1] 4단계 전 의미적 중복 제거 (임베딩 기반)
         if len(all_trends) > 1 and getattr(config, 'enable_embedding_clustering', True):
             try:
-                import sys as _sys
-                from pathlib import Path as _Path
-                _root = str(_Path(__file__).resolve().parents[1])
-                if _root not in _sys.path:
-                    _sys.path.insert(0, _root)
                 from shared.embeddings import deduplicate_texts
                 names = [t.name for t in all_trends]
                 unique_indices = deduplicate_texts(

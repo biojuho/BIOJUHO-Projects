@@ -7,7 +7,6 @@ DEPRECATED: getdaytrends/llm_client.py
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from shared.llm import LLMClient, LLMResponse, TaskTier, get_client, reset_client  # noqa: F401
 

@@ -26,8 +26,6 @@ if sys.platform == "win32" and "pytest" not in sys.modules and hasattr(sys.stdou
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# shared.llm 모듈 경로 추가
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import os
 import re

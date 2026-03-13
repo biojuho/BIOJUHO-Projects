@@ -13,8 +13,6 @@ import sqlite3
 from pathlib import Path
 import sys
 
-# shared.llm 모듈 경로 추가
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import AppConfig
 from db import compute_fingerprint, get_cached_score
@@ -937,11 +935,6 @@ async def _analyze_trends_async(
 
     # [v14.1] 임베딩 기반 카테고리 사전 분류 힌트
     try:
-        import sys as _sys
-        from pathlib import Path as _Path
-        _root = str(_Path(__file__).resolve().parents[1])
-        if _root not in _sys.path:
-            _sys.path.insert(0, _root)
         from shared.embeddings import embed_texts, cosine_similarity as _cos_sim
 
         _CATEGORY_REFS = {
