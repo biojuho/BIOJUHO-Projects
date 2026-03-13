@@ -1,4 +1,5 @@
-"""shared.llm 모듈 단위 테스트 - 라우팅, 언어 브릿지, 비용 추적."""
+# -*- coding: utf-8 -*-
+"""shared.llm module tests - fallback chain, bridge logic, cost tracking."""
 
 import sys
 from pathlib import Path
@@ -6,7 +7,6 @@ from unittest.mock import patch
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from shared.llm import BridgeMeta, LLMClient, LLMPolicy, TaskTier, reset_client
 from shared.llm.config import MODEL_TO_TIER, TIER_CHAINS, get_routing_chain, load_keys
@@ -89,6 +89,9 @@ class TestLLMClient:
         for var in ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
                     "OPENAI_API_KEY", "XAI_API_KEY", "DEEPSEEK_API_KEY", "MOONSHOT_API_KEY"):
             monkeypatch.delenv(var, raising=False)
+        # Also disable local backends (Ollama server + BitNet binary)
+        monkeypatch.setattr("shared.llm.backends._ollama_is_running", lambda: False)
+        monkeypatch.setattr("shared.llm.backends.bitnet_runner.is_available", lambda: False)
         with pytest.raises(ValueError, match="No LLM API keys configured"):
             LLMClient()
 
@@ -107,7 +110,7 @@ class TestLLMClient:
     @patch("shared.llm.backends.BackendManager.call")
     def test_create_attaches_policy_and_meta(self, mock_call):
         mock_call.return_value = LLMResponse(
-            text="이것은 한국어 응답입니다.",
+            text="한국어 정상 응답입니다",
             model="deepseek-chat",
             backend="deepseek",
             tier=TaskTier.LIGHTWEIGHT,
@@ -115,7 +118,7 @@ class TestLLMClient:
         client = LLMClient(**self._DUMMY_KEYS)
         resp = client.create(
             tier=TaskTier.LIGHTWEIGHT,
-            messages=[{"role": "user", "content": "CRISPR 연구를 요약해줘"}],
+            messages=[{"role": "user", "content": "CRISPR 논문을 요약해줘"}],
             policy=LLMPolicy(task_kind="classification", output_language="ko"),
         )
         assert resp.backend == "deepseek"
@@ -141,13 +144,13 @@ class TestLLMClient:
     @patch("shared.llm.backends.BackendManager.call")
     def test_quality_gate_repairs_deepseek_output(self, mock_call):
         mock_call.side_effect = [
-            LLMResponse(text="这是中文回答。", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT),
-            LLMResponse(text="이것은 한국어로 정리된 응답입니다.", model="gemini-2.0-flash", backend="gemini", tier=TaskTier.LIGHTWEIGHT),
+            LLMResponse(text="\u7627\u6ed8\u8a0e\u8bba\u6587\u6863", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT),
+            LLMResponse(text="한국어 정확하게 정리된 응답입니다", model="gemini-2.0-flash", backend="gemini", tier=TaskTier.LIGHTWEIGHT),
         ]
         client = LLMClient(**self._DUMMY_KEYS)
         resp = client.create(
             tier=TaskTier.LIGHTWEIGHT,
-            messages=[{"role": "user", "content": "이 주제를 분류해줘"}],
+            messages=[{"role": "user", "content": "이 주제를 분석해줘"}],
             policy=LLMPolicy(task_kind="classification", output_language="ko"),
         )
         assert resp.backend == "gemini"
@@ -168,19 +171,19 @@ class TestLLMClient:
     @patch("shared.llm.backends.BackendManager.call")
     def test_stats_include_bridge_metrics(self, mock_call):
         mock_call.side_effect = [
-            LLMResponse(text="이것은 한국어 응답입니다.", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
-            LLMResponse(text="这是中文回答。", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
-            LLMResponse(text="수정된 한국어 응답입니다.", model="gemini-2.0-flash", backend="gemini", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
+            LLMResponse(text="한국어 정상 응답입니다", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
+            LLMResponse(text="\u7627\u6ed8\u8a0e\u8bba\u6587\u6863", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
+            LLMResponse(text="수정된 정상 응답입니다", model="gemini-2.0-flash", backend="gemini", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
         ]
         client = LLMClient(**self._DUMMY_KEYS)
         client.create(
             tier=TaskTier.LIGHTWEIGHT,
-            messages=[{"role": "user", "content": "첫 번째 요청"}],
+            messages=[{"role": "user", "content": "첫번째 질문"}],
             policy=LLMPolicy(task_kind="classification", output_language="ko"),
         )
         client.create(
             tier=TaskTier.LIGHTWEIGHT,
-            messages=[{"role": "user", "content": "두 번째 요청"}],
+            messages=[{"role": "user", "content": "두번째 질문"}],
             policy=LLMPolicy(task_kind="classification", output_language="ko"),
         )
 
