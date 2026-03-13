@@ -1,1 +1,0 @@
-[WARN] Failed to fetch existing URLs: 'DatabasesEndpoint' object has no attribute 'query'
