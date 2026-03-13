@@ -47,6 +47,10 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests that require external service integration",
+    "external: marks tests that make real external API calls",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
