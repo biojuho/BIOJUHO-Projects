@@ -55,6 +55,8 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
         ("deepseek", "deepseek-chat"),               # 4순위: 구조화 JSON에서만 우선
         ("openai", "gpt-4o-mini"),
+        ("ollama", "phi3:3.8b"),                     # 로컬 Ollama 폴백 (API 비용 $0)
+        ("bitnet", "bitnet-b1.58-2b-4t"),            # 최후방 로컬 폴백 (API 비용 $0)
     ],
 }
 
@@ -95,6 +97,12 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "grok-3": (3.0, 15.0),
     "grok-3-mini-fast": (0.3, 0.5),
     "deepseek-chat": (0.14, 0.28),
+    # Local inference — no API cost
+    "bitnet-b1.58-2b-4t": (0.0, 0.0),
+    "phi3:3.8b": (0.0, 0.0),            # Ollama local
+    "qwen2.5:3b": (0.0, 0.0),           # Ollama local
+    "gemma:2b": (0.0, 0.0),             # Ollama local
+    "tinyllama:1.1b": (0.0, 0.0),       # Ollama local
 }
 
 # ---------------------------------------------------------------------------

@@ -4,11 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import urllib.request
 from typing import Any
 
 from .models import LLMResponse, TaskTier
+from . import bitnet_runner
 
 log = logging.getLogger("shared.llm")
+
+
+def _ollama_is_running() -> bool:
+    """Check if Ollama server is running on localhost:11434."""
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 
 class BackendManager:
@@ -19,11 +31,19 @@ class BackendManager:
         self._clients: dict[str, Any] = {}
 
     def has_key(self, backend: str) -> bool:
+        if backend == "bitnet":
+            return bitnet_runner.is_available()
+        if backend == "ollama":
+            return _ollama_is_running()
         return bool(self._keys.get(backend))
 
     def has_any_key(self) -> bool:
         """Check if at least one backend has a valid API key."""
-        return any(bool(v) for v in self._keys.values())
+        return (
+            any(bool(v) for v in self._keys.values())
+            or _ollama_is_running()
+            or bitnet_runner.is_available()
+        )
 
     # -- Client factories (lazy) ------------------------------------------
 
@@ -78,6 +98,16 @@ class BackendManager:
             )
         return self._clients["moonshot"]
 
+    def _get_ollama(self):
+        if "ollama" not in self._clients:
+            import openai
+
+            self._clients["ollama"] = openai.OpenAI(
+                api_key="ollama",  # Ollama ignores API key, but openai lib requires one
+                base_url="http://localhost:11434/v1",
+            )
+        return self._clients["ollama"]
+
     # -- Sync calls -------------------------------------------------------
 
     def call(
@@ -91,7 +121,9 @@ class BackendManager:
         response_mode: str = "text",
     ) -> LLMResponse:
         """Dispatch a sync LLM call to the given backend."""
-        if backend == "anthropic":
+        if backend == "bitnet":
+            return self._call_bitnet(model, messages, max_tokens, system, tier)
+        elif backend == "anthropic":
             return self._call_anthropic(model, messages, max_tokens, system, tier, response_mode)
         elif backend == "gemini":
             return self._call_gemini(model, messages, max_tokens, system, tier, response_mode)
@@ -178,12 +210,13 @@ class BackendManager:
         tier: TaskTier,
         response_mode: str = "text",
     ) -> LLMResponse:
-        """OpenAI-compatible API call (OpenAI, Grok, DeepSeek, Moonshot)."""
+        """OpenAI-compatible API call (OpenAI, Grok, DeepSeek, Moonshot, Ollama)."""
         getter = {
             "openai": self._get_openai,
             "grok": self._get_grok,
             "deepseek": self._get_deepseek,
             "moonshot": self._get_moonshot,
+            "ollama": self._get_ollama,
         }
         client = getter[backend]()
         oai_messages: list[dict] = []
@@ -208,6 +241,24 @@ class BackendManager:
             tier=tier,
             input_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
             output_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
+        )
+
+    def _call_bitnet(
+        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+    ) -> LLMResponse:
+        """Local BitNet inference via bitnet.cpp subprocess."""
+        result = bitnet_runner.run_inference(
+            system=system,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+        return LLMResponse(
+            text=result["text"],
+            model=result["model"],
+            backend="bitnet",
+            tier=tier,
+            input_tokens=0,   # local inference — no API token counting
+            output_tokens=result.get("tokens_generated", 0),
         )
 
     # -- Async calls ------------------------------------------------------
@@ -324,6 +375,7 @@ class BackendManager:
             "grok": self._get_grok,
             "deepseek": self._get_deepseek,
             "moonshot": self._get_moonshot,
+            "ollama": self._get_ollama,
         }
         client = getters[backend]()
         api_messages = []
