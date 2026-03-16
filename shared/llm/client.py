@@ -10,6 +10,7 @@ from typing import Optional
 
 from .backends import BackendManager
 from .config import FALLBACK_ERRORS, MODEL_TO_TIER, get_routing_chain, load_keys
+from .errors import classify_error, should_fallback_to_next_backend
 from .language_bridge import (
     inspect_response,
     merge_bridge_meta,
@@ -54,6 +55,10 @@ def _mark_failed(tier: TaskTier, backend: str) -> None:
 
 
 def _should_fallback(error: Exception) -> bool:
+    # Primary: structured error classification (GiniGen-inspired)
+    if should_fallback_to_next_backend(error):
+        return True
+    # Legacy fallback: string pattern matching (backward compat)
     msg = str(error).lower()
     return any(pattern in msg for pattern in FALLBACK_ERRORS)
 
@@ -288,6 +293,7 @@ class LLMClient:
         from shared.telemetry.cost_tracker import detect_project_context
         project_name = detect_project_context()
 
+        classified = classify_error(error)
         self._tracker.record(
             backend=backend_name,
             model=default_model,
@@ -300,8 +306,9 @@ class LLMClient:
             _mark_failed(resolved_tier, backend_name)
             log.warning(
                 f"[{resolved_tier.value}] {backend_name}/{default_model} failed "
-                f"({elapsed_ms:.0f}ms) -> fallback: {error}"
-        )
+                f"({elapsed_ms:.0f}ms, type={classified.error_type}, "
+                f"retryable={classified.retryable}) -> fallback: {error}"
+            )
         return error
 
     def _record_success_usage(

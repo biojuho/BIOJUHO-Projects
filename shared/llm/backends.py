@@ -8,6 +8,7 @@ import urllib.request
 from typing import Any
 
 from .models import LLMResponse, TaskTier
+from .model_patches import apply_model_patch
 from . import bitnet_runner
 
 log = logging.getLogger("shared.llm")
@@ -121,6 +122,11 @@ class BackendManager:
         response_mode: str = "text",
     ) -> LLMResponse:
         """Dispatch a sync LLM call to the given backend."""
+        # Apply model-specific parameter patches (GiniGen-inspired)
+        patch_kwargs = {"max_tokens": max_tokens, "response_mode": response_mode}
+        patch_kwargs = apply_model_patch(backend, model, patch_kwargs)
+        max_tokens = patch_kwargs.get("max_tokens", max_tokens)
+
         if backend == "bitnet":
             return self._call_bitnet(model, messages, max_tokens, system, tier)
         elif backend == "anthropic":

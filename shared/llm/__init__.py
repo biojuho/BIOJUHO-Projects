@@ -9,8 +9,23 @@ Usage:
 """
 
 from .client import LLMClient
+from .errors import (
+    AuthError,
+    ContentFilterError,
+    ContextLengthError,
+    LLMError,
+    ModelNotFoundError,
+    NetworkError,
+    QuotaExhaustedError,
+    RateLimitError,
+    ServerError,
+    classify_error,
+)
+from .marl import MARLConfig, MARLPipeline, MARLResult
+from .model_patches import apply_model_patch
 from .models import BridgeMeta, LLMPolicy, LLMResponse, TaskTier
 from .stats import CostTracker
+from .tool_schema import ToolDefinition, ToolRegistry, ToolResult
 
 _client: LLMClient | None = None
 
@@ -46,6 +61,7 @@ def get_daily_stats(days: int = 30) -> list[dict]:
 
 
 __all__ = [
+    # Core
     "LLMClient",
     "BridgeMeta",
     "CostTracker",
@@ -56,4 +72,26 @@ __all__ = [
     "reset_client",
     "export_usage_csv",
     "get_daily_stats",
+    # Phase 1: Error classification
+    "LLMError",
+    "AuthError",
+    "ContentFilterError",
+    "ContextLengthError",
+    "ModelNotFoundError",
+    "NetworkError",
+    "QuotaExhaustedError",
+    "RateLimitError",
+    "ServerError",
+    "classify_error",
+    # Phase 2: Model patches
+    "apply_model_patch",
+    # Phase 3: MARL pipeline
+    "MARLConfig",
+    "MARLPipeline",
+    "MARLResult",
+    # Phase 4: Tool schema
+    "ToolDefinition",
+    "ToolRegistry",
+    "ToolResult",
 ]
+
