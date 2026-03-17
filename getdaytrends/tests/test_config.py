@@ -44,6 +44,9 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_default_schedule(self):
         self.assertEqual(self.config.schedule_minutes, 360)
 
+    def test_default_editorial_profile(self):
+        self.assertEqual(self.config.editorial_profile, "report")
+
     def test_v21_feature_flags_default_true(self):
         self.assertTrue(self.config.enable_clustering)
         self.assertTrue(self.config.enable_long_form)
@@ -59,6 +62,12 @@ class TestAppConfigDefaults(unittest.TestCase):
 
     def test_default_dedupe_hours(self):
         self.assertEqual(self.config.dedupe_window_hours, 6)
+
+    def test_group_quality_threshold_defaults(self):
+        self.assertEqual(self.config.get_quality_threshold("tweets"), 50)
+        self.assertEqual(self.config.get_quality_threshold("threads_posts"), 65)
+        self.assertEqual(self.config.get_quality_threshold("long_posts"), 70)
+        self.assertEqual(self.config.get_quality_threshold("blog_posts"), 75)
 
 
 class TestAppConfigValidation(unittest.TestCase):

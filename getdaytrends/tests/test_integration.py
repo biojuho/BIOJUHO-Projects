@@ -209,5 +209,66 @@ class TestPipelineIntegration(unittest.TestCase):
         self.assertEqual(copy.limit, 5)  # 복사본만 변경
 
 
+class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
+    async def test_step_generate_regenerates_only_failed_blog_group(self):
+        from main import _step_generate
+
+        trend = _trend(viral=75)
+        trend.category = "테크"
+        cfg = _config()
+        cfg.enable_quality_feedback = True
+        cfg.qa_skip_high_score = 999
+        cfg.target_platforms = ["x", "naver_blog"]
+
+        initial_batch = TweetBatch(
+            topic="테스트",
+            tweets=[GeneratedTweet(tweet_type="공감형", content="정상 short", content_type="short")],
+            blog_posts=[GeneratedTweet(tweet_type="심층 분석", content="초기 블로그", content_type="naver_blog")],
+        )
+        regenerated_batch = TweetBatch(
+            topic="테스트",
+            tweets=[GeneratedTweet(tweet_type="공감형", content="정상 short", content_type="short")],
+            blog_posts=[GeneratedTweet(tweet_type="심층 분석", content="재생성 블로그", content_type="naver_blog")],
+        )
+        qa_fail = {
+            "failed_groups": ["blog_posts"],
+            "group_results": {
+                "tweets": {"total": 80, "threshold": 50},
+                "blog_posts": {"total": 60, "threshold": 75},
+            },
+            "reason": "blog_posts: 필수 섹션 누락",
+        }
+        qa_pass = {
+            "failed_groups": [],
+            "group_results": {
+                "tweets": {"total": 80, "threshold": 50},
+                "blog_posts": {"total": 82, "threshold": 75},
+            },
+            "reason": "통과",
+        }
+
+        with patch("main.get_cached_content", new_callable=AsyncMock) as mock_cached, \
+             patch("main.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent, \
+             patch("main.generate_for_trend_async", new_callable=AsyncMock) as mock_generate, \
+             patch("generator.audit_generated_content", new_callable=AsyncMock) as mock_audit, \
+             patch("main.regenerate_content_groups", new_callable=AsyncMock) as mock_regen, \
+             patch("main.get_client") as mock_client_factory:
+
+            mock_cached.return_value = None
+            mock_recent.return_value = []
+            mock_generate.return_value = initial_batch
+            mock_audit.side_effect = [qa_fail, qa_pass]
+            mock_regen.return_value = regenerated_batch
+            mock_client_factory.return_value = MagicMock()
+
+            results = await _step_generate([trend], cfg, conn=MagicMock())
+
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0].tweets[0].content, "정상 short")
+            self.assertEqual(results[0].blog_posts[0].content, "재생성 블로그")
+            mock_regen.assert_called_once()
+            self.assertEqual(mock_regen.call_args.args[4], ["blog_posts"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -47,6 +47,7 @@ from generator import (
     generate_ab_variant_async,
     generate_for_trend_async,
     generate_for_trend_multilang_async,
+    regenerate_content_groups,
 )
 from models import GeneratedTweet, RunResult, TweetBatch
 from scraper import collect_contexts, collect_trends
@@ -228,6 +229,7 @@ def _batch_from_cache(topic: str, rows: list[dict]) -> TweetBatch:
     tweets: list[GeneratedTweet] = []
     long_posts: list[GeneratedTweet] = []
     threads_posts: list[GeneratedTweet] = []
+    blog_posts: list[GeneratedTweet] = []
     seen: set[tuple[str, str]] = set()
 
     for row in rows:
@@ -246,10 +248,18 @@ def _batch_from_cache(topic: str, rows: list[dict]) -> TweetBatch:
             long_posts.append(t)
         elif ct == "threads":
             threads_posts.append(t)
+        elif ct == "naver_blog":
+            blog_posts.append(t)
         else:
             tweets.append(t)
 
-    return TweetBatch(topic=topic, tweets=tweets, long_posts=long_posts, threads_posts=threads_posts)
+    return TweetBatch(
+        topic=topic,
+        tweets=tweets,
+        long_posts=long_posts,
+        threads_posts=threads_posts,
+        blog_posts=blog_posts,
+    )
 
 
 # ══════════════════════════════════════════════════════
@@ -610,6 +620,30 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
     print(f"\n[3/4] 트윗 병렬 생성 중... ({len(quality_trends)}개 동시)")
     client = get_client()
 
+    # [v5.0 B] Adaptive Voice: 성과 기반 훅/킥 패턴 가중치 로드
+    golden_refs = None
+    pattern_weights = None
+    if getattr(config, "enable_adaptive_voice", False) or getattr(config, "enable_golden_reference_qa", False):
+        try:
+            from performance_tracker import PerformanceTracker
+            tracker = PerformanceTracker(
+                db_path=config.db_path,
+                bearer_token=config.twitter_bearer_token,
+            )
+            if getattr(config, "enable_adaptive_voice", False):
+                pattern_weights = tracker.get_optimal_pattern_weights(
+                    days=getattr(config, "pattern_weight_days", 30),
+                    min_samples=getattr(config, "pattern_weight_min_samples", 3),
+                )
+                log.info(f"  [Adaptive Voice] 패턴 가중치 로드 완료")
+            if getattr(config, "enable_golden_reference_qa", False):
+                golden_refs = tracker.get_golden_references(
+                    limit=getattr(config, "golden_reference_limit", 3),
+                )
+                log.info(f"  [Benchmark QA] 골든 레퍼런스 {len(golden_refs)}개 로드")
+        except Exception as _e:
+            log.debug(f"  성과 데이터 로드 실패 (무시): {_e}")
+
     # [v9.0] 시간대별 생성 모드 결정
     gen_mode = config.get_generation_mode()
     if gen_mode == "lite":
@@ -650,7 +684,7 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
             effective_config = dataclasses.replace(config, enable_long_form=False)
 
         # 기본 생성
-        primary = await generate_for_trend_async(trend, effective_config, client, recent_tweets)
+        primary = await generate_for_trend_async(trend, effective_config, client, recent_tweets, golden_refs, pattern_weights)
         if primary is None:
             return primary
 
@@ -658,44 +692,32 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
         if not _should_skip_qa(trend, is_cached, config):
             from generator import audit_generated_content
             qa = await audit_generated_content(primary, trend, config, client)
-            qa_min = getattr(config, "quality_feedback_min_score", 50)
-
-            # [v12.0] 규제 위반 즉시 재생성 (regulation ≤ 3은 계정 위험)
-            reg_score = qa.get("regulation", 10) if qa else 10
-            needs_regen = False
-
-            if qa and reg_score <= 3:
-                log.warning(
-                    f"  [규제 위반] '{trend.keyword}' regulation={reg_score}/10 "
-                    f"→ 강제 재생성 ({qa.get('reason', '-')})"
+            failed_groups = qa.get("failed_groups", []) if qa else []
+            if failed_groups:
+                details = qa.get("group_results", {})
+                failed_summary = ", ".join(
+                    f"{group}={details.get(group, {}).get('total', '?')}/{details.get(group, {}).get('threshold', '?')}"
+                    for group in failed_groups
                 )
-                needs_regen = True
-            elif qa and qa.get("avg_score", 100) < qa_min:
-                corrected = qa.get("corrected_tweets", [])
-                if corrected and primary.tweets:
-                    corrected_map = {c.get("type", ""): c.get("content", "") for c in corrected}
-                    applied = 0
-                    for tweet in primary.tweets:
-                        fixed = corrected_map.get(tweet.tweet_type, "")
-                        if fixed:
-                            tweet.content = fixed
-                            tweet.char_count = len(fixed)
-                            applied += 1
-                    log.info(
-                        f"  [QA 교정] '{trend.keyword}' {qa['avg_score']}점 → "
-                        f"교정본 {applied}개 적용 (재생성 건너뜀)"
-                    )
-                else:
-                    needs_regen = True
+                log.warning(
+                    f"  [QA 미달] '{trend.keyword}' → {failed_summary}"
+                    f" (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성"
+                )
+                primary = await regenerate_content_groups(
+                    primary,
+                    trend,
+                    effective_config,
+                    client,
+                    failed_groups,
+                    recent_tweets=recent_tweets,
+                )
+                qa_after = await audit_generated_content(primary, trend, config, client)
+                if qa_after and qa_after.get("failed_groups"):
                     log.warning(
-                        f"  [QA 미달] '{trend.keyword}' {qa['avg_score']}점 < {qa_min}점"
-                        f" (사유: {qa.get('reason', '-')}) → 재생성"
+                        f"  [QA 재검사 미달] '{trend.keyword}' "
+                        f"{', '.join(qa_after['failed_groups'])} "
+                        f"(사유: {qa_after.get('reason', '-')})"
                     )
-
-            if needs_regen:
-                primary = await generate_for_trend_async(trend, effective_config, client, recent_tweets)
-                if primary is None:
-                    return primary
         else:
             log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
 
@@ -972,6 +994,35 @@ async def _async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunR
         _t2 = time.time()
         log.info(f"  [타이밍] 스코어링+알림: {_t2 - _t1:.1f}초")
 
+        # Step 3.5: [A] Trend Genealogy — 트렌드 계보 분석 (선택적)
+        if getattr(pipeline_config, "enable_trend_genealogy", False) and quality_trends:
+            try:
+                from analyzer import analyze_trend_genealogy, enrich_trends_with_genealogy
+                from performance_tracker import PerformanceTracker
+                tracker = PerformanceTracker(db_path=pipeline_config.db_path)
+                history = tracker.get_trend_history(
+                    keyword="",  # 전체 히스토리
+                    hours=getattr(pipeline_config, "genealogy_history_hours", 72),
+                )
+                genealogy = await analyze_trend_genealogy(quality_trends, history, get_client(), pipeline_config)
+                if genealogy:
+                    quality_trends = enrich_trends_with_genealogy(quality_trends, genealogy)
+                    # 계보 DB 저장
+                    min_conf = getattr(pipeline_config, "genealogy_min_confidence", 0.5)
+                    for g in genealogy:
+                        if g.get("confidence", 0) >= min_conf:
+                            tracker.save_trend_genealogy(
+                                keyword=g["keyword"],
+                                parent_keyword=g.get("parent_keyword", ""),
+                                predicted_children=g.get("predicted_children", []),
+                                viral_score=next(
+                                    (t.viral_potential for t in quality_trends if t.keyword == g["keyword"]), 0
+                                ),
+                            )
+                    log.info(f"  [Genealogy] 계보 저장 완료 ({len(genealogy)}개)")
+            except Exception as _ge:
+                log.debug(f"  [Genealogy] 분석 실패 (무시): {_ge}")
+
         # Step 4: 생성
         batch_results = await _step_generate(quality_trends, pipeline_config, conn)
         _t3 = time.time()
@@ -992,6 +1043,25 @@ async def _async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunR
         print(f"\n{separator}")
         print(f"  완료: {success_count}/{len(quality_trends)}개 저장")
         print(f"  소요: {elapsed:.1f}초")
+
+        # [v5.0 D] 3단계 수집 + [E] 골든 레퍼런스 자동 갱신
+        if getattr(pipeline_config, "enable_tiered_collection", False) or \
+                getattr(pipeline_config, "enable_golden_reference_qa", False):
+            try:
+                from performance_tracker import PerformanceTracker
+                _pt = PerformanceTracker(
+                    db_path=pipeline_config.db_path,
+                    bearer_token=pipeline_config.twitter_bearer_token,
+                )
+                if getattr(pipeline_config, "enable_tiered_collection", False):
+                    _tier_result = await _pt.run_tiered_collection()
+                    log.info(f"  [Tiered Collection] {_tier_result}")
+                if getattr(pipeline_config, "enable_golden_reference_qa", False):
+                    _gr_days = getattr(pipeline_config, "golden_reference_auto_update_days", 7)
+                    _gr_count = _pt.auto_update_golden_references(days=_gr_days)
+                    log.info(f"  [Golden Ref] 자동 갱신: {_gr_count}건")
+            except Exception as _pt_e:
+                log.debug(f"  성과 수집/갱신 실패 (무시): {_pt_e}")
 
         # [v3.0 Phase 3] 구조화 메트릭 로깅
         if pipeline_config.enable_structured_metrics:

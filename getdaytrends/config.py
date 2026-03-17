@@ -52,6 +52,7 @@ class AppConfig:
 
     # Tone
     tone: str = "친근하고 위트 있는 동네 친구"
+    editorial_profile: str = "report"   # 장문/Threads/블로그용 편집 프로필
 
     # Multi-source API keys
     twitter_bearer_token: str = ""
@@ -139,6 +140,9 @@ class AppConfig:
     max_same_category: int = 2                     # 동일 카테고리 최대 기사 수
     enable_quality_feedback: bool = True            # 생성 후 LLM 품질 검증 활성화
     quality_feedback_min_score: int = 50            # QA 점수 이 미만이면 재생성
+    threads_quality_min_score: int = 65             # Threads QA 최소 점수
+    long_form_quality_min_score: int = 70           # X 장문 QA 최소 점수
+    blog_quality_min_score: int = 75                # 네이버 블로그 QA 최소 점수
 
     # ===================================================
     # [v6.1] 최신성 검증 (Freshness Validation)
@@ -230,6 +234,34 @@ class AppConfig:
     marl_stages: int = 3                           # MARL 파이프라인 단계 수 (3=생성+비평+수정, 5=전체)
     marl_daily_budget_cap_usd: float = 0.05        # MARL 일일 추가 예산 상한 ($)
 
+    # ===================================================
+    # [v5.0] B. Adaptive Voice — 성과 기반 패턴 가중치
+    # ===================================================
+    enable_adaptive_voice: bool = True             # 훅/킥 패턴별 성과 가중치 프롬프트 주입
+    pattern_weight_min_samples: int = 3            # 가중치 계산 최소 샘플 수
+    pattern_weight_days: int = 30                  # 가중치 계산 기간 (일)
+
+    # ===================================================
+    # [v5.0] D. Real-time Signal — 3단계 수집
+    # ===================================================
+    enable_tiered_collection: bool = True          # 3단계 수집 활성화 (1h/6h/48h)
+    early_signal_boost_threshold: float = 2.0      # 초기 ER이 평균의 N배 이상이면 후속 콘텐츠 트리거
+    early_signal_suppress_threshold: float = 0.3   # 초기 ER이 평균의 N배 이하이면 앵글 가중치 하향
+
+    # ===================================================
+    # [v5.0] E. Benchmark QA — 골든 레퍼런스
+    # ===================================================
+    enable_golden_reference_qa: bool = True        # 골든 레퍼런스 기반 비교 평가 QA
+    golden_reference_limit: int = 3                # QA 프롬프트에 주입할 레퍼런스 수
+    golden_reference_auto_update_days: int = 7     # 자동 갱신 조회 기간 (일)
+
+    # ===================================================
+    # [v5.0] A. Trend Genealogy — 트렌드 계보 분석
+    # ===================================================
+    enable_trend_genealogy: bool = True            # 트렌드 계보 분석 활성화
+    genealogy_history_hours: int = 72              # 계보 히스토리 조회 기간 (시간)
+    genealogy_min_confidence: float = 0.5          # 계보 연결 최소 확신도
+
     # Runtime options (CLI overrides)
     country: str = "korea"
     countries: list = field(default_factory=list)   # 다국가 실행 목록
@@ -256,6 +288,7 @@ class AppConfig:
             database_url=os.getenv("DATABASE_URL", ""),
             schedule_minutes=int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "360")),
             tone=os.getenv("TONE", "친근하고 위트 있는 동네 친구"),
+            editorial_profile=os.getenv("EDITORIAL_PROFILE", "report").lower(),
             twitter_bearer_token=os.getenv("TWITTER_BEARER_TOKEN", ""),
             x_access_token=os.getenv("X_ACCESS_TOKEN", ""),
             x_client_id=os.getenv("X_CLIENT_ID", ""),
@@ -316,6 +349,9 @@ class AppConfig:
             max_same_category=int(os.getenv("MAX_SAME_CATEGORY", "2")),
             enable_quality_feedback=os.getenv("ENABLE_QUALITY_FEEDBACK", "true").lower() == "true",
             quality_feedback_min_score=int(os.getenv("QUALITY_FEEDBACK_MIN_SCORE", "50")),
+            threads_quality_min_score=int(os.getenv("THREADS_QUALITY_MIN_SCORE", "65")),
+            long_form_quality_min_score=int(os.getenv("LONG_FORM_QUALITY_MIN_SCORE", "70")),
+            blog_quality_min_score=int(os.getenv("BLOG_QUALITY_MIN_SCORE", "75")),
             # v6.1
             max_content_age_hours=int(os.getenv("MAX_CONTENT_AGE_HOURS", "24")),
             freshness_penalty_stale=float(os.getenv("FRESHNESS_PENALTY_STALE", "0.85")),
@@ -395,6 +431,22 @@ class AppConfig:
             marl_min_viral_score=int(os.getenv("MARL_MIN_VIRAL_SCORE", "80")),
             marl_stages=int(os.getenv("MARL_STAGES", "3")),
             marl_daily_budget_cap_usd=float(os.getenv("MARL_DAILY_BUDGET_CAP_USD", "0.05")),
+            # v5.0 B. Adaptive Voice
+            enable_adaptive_voice=os.getenv("ENABLE_ADAPTIVE_VOICE", "true").lower() == "true",
+            pattern_weight_min_samples=int(os.getenv("PATTERN_WEIGHT_MIN_SAMPLES", "3")),
+            pattern_weight_days=int(os.getenv("PATTERN_WEIGHT_DAYS", "30")),
+            # v5.0 D. Real-time Signal
+            enable_tiered_collection=os.getenv("ENABLE_TIERED_COLLECTION", "true").lower() == "true",
+            early_signal_boost_threshold=float(os.getenv("EARLY_SIGNAL_BOOST_THRESHOLD", "2.0")),
+            early_signal_suppress_threshold=float(os.getenv("EARLY_SIGNAL_SUPPRESS_THRESHOLD", "0.3")),
+            # v5.0 E. Benchmark QA
+            enable_golden_reference_qa=os.getenv("ENABLE_GOLDEN_REFERENCE_QA", "true").lower() == "true",
+            golden_reference_limit=int(os.getenv("GOLDEN_REFERENCE_LIMIT", "3")),
+            golden_reference_auto_update_days=int(os.getenv("GOLDEN_REFERENCE_AUTO_UPDATE_DAYS", "7")),
+            # v5.0 A. Trend Genealogy
+            enable_trend_genealogy=os.getenv("ENABLE_TREND_GENEALOGY", "true").lower() == "true",
+            genealogy_history_hours=int(os.getenv("GENEALOGY_HISTORY_HOURS", "72")),
+            genealogy_min_confidence=float(os.getenv("GENEALOGY_MIN_CONFIDENCE", "0.5")),
         )
 
     def validate(self) -> list[str]:
@@ -420,8 +472,14 @@ class AppConfig:
 
         # 수치 범위 검증
         valid_storage = {"notion", "google_sheets", "both", "none"}
+        valid_editorial_profiles = {"report", "classic"}
         if self.storage_type not in valid_storage:
             errors.append(f"STORAGE_TYPE이 유효하지 않습니다: '{self.storage_type}' (허용: {valid_storage})")
+        if self.editorial_profile not in valid_editorial_profiles:
+            errors.append(
+                f"EDITORIAL_PROFILE이 유효하지 않습니다: '{self.editorial_profile}' "
+                f"(허용: {valid_editorial_profiles})"
+            )
         if not 1 <= self.schedule_minutes <= 1440:
             errors.append(f"SCHEDULE_INTERVAL_MINUTES 범위 초과: {self.schedule_minutes} (1~1440)")
         if self.daily_budget_usd < 0:
@@ -476,17 +534,30 @@ class AppConfig:
             return "full"
         return "lite"
 
+    def get_quality_threshold(self, content_group: str) -> int:
+        """콘텐츠 그룹별 QA 최소 점수 반환."""
+        return {
+            "tweets": self.quality_feedback_min_score,
+            "threads_posts": self.threads_quality_min_score,
+            "long_posts": self.long_form_quality_min_score,
+            "blog_posts": self.blog_quality_min_score,
+        }.get(content_group, self.quality_feedback_min_score)
+
     def export_stats(self) -> dict:
         """[O3] 대시보드용 설정 상태 내보내기."""
         return {
             "version": VERSION,
             "country": self.country,
             "limit": self.limit,
+            "editorial_profile": self.editorial_profile,
             "daily_budget_usd": self.daily_budget_usd,
             "effective_budget": self.get_effective_budget(),
             "long_form_min_score": self.long_form_min_score,
             "thread_min_score": self.thread_min_score,
             "threads_min_score": self.threads_min_score,
+            "threads_quality_min_score": self.threads_quality_min_score,
+            "long_form_quality_min_score": self.long_form_quality_min_score,
+            "blog_quality_min_score": self.blog_quality_min_score,
             "min_viral_score": self.min_viral_score,
             "max_workers": self.max_workers,
             "storage_type": self.storage_type,
@@ -497,6 +568,10 @@ class AppConfig:
                 "smart_schedule": self.smart_schedule,
                 "night_mode": self.night_mode,
                 "marl_generation": self.enable_marl_generation,
+                "adaptive_voice": self.enable_adaptive_voice,
+                "tiered_collection": self.enable_tiered_collection,
+                "golden_reference_qa": self.enable_golden_reference_qa,
+                "trend_genealogy": self.enable_trend_genealogy,
             },
             "target_platforms": self.target_platforms,
         }

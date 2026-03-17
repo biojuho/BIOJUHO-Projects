@@ -546,6 +546,10 @@ def test_v6_config_defaults():
     assert cfg.max_same_category == 2
     assert cfg.enable_quality_feedback is True
     assert cfg.quality_feedback_min_score == 50
+    assert cfg.editorial_profile == "report"
+    assert cfg.threads_quality_min_score == 65
+    assert cfg.long_form_quality_min_score == 70
+    assert cfg.blog_quality_min_score == 75
 
 
 def test_v61_config_defaults():
@@ -563,12 +567,20 @@ def test_v6_config_from_env():
         "MAX_SAME_CATEGORY": "3",
         "ENABLE_QUALITY_FEEDBACK": "false",
         "QUALITY_FEEDBACK_MIN_SCORE": "70",
+        "EDITORIAL_PROFILE": "classic",
+        "THREADS_QUALITY_MIN_SCORE": "68",
+        "LONG_FORM_QUALITY_MIN_SCORE": "72",
+        "BLOG_QUALITY_MIN_SCORE": "80",
     }):
         cfg = AppConfig.from_env()
         assert cfg.min_article_count == 5
         assert cfg.max_same_category == 3
         assert cfg.enable_quality_feedback is False
         assert cfg.quality_feedback_min_score == 70
+        assert cfg.editorial_profile == "classic"
+        assert cfg.threads_quality_min_score == 68
+        assert cfg.long_form_quality_min_score == 72
+        assert cfg.blog_quality_min_score == 80
 
 
 def test_v61_config_from_env():

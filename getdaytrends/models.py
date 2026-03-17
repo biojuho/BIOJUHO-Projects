@@ -119,6 +119,10 @@ class ScoredTrend(BaseModel):
     publishable: bool = True             # False면 콘텐츠 생성 스킵 (의미없는 키워드, 문장 조각 등)
     publishability_reason: str = ""      # publishable=false 사유 (예: "문장 조각", "오타 키워드")
     corrected_keyword: str = ""          # 오타 키워드의 교정된 원본 (예: "카이로류" → "아카이로 류")
+    # [v5.0] Trend Genealogy — 트렌드 계보 추적
+    parent_trends: list[str] = Field(default_factory=list)       # 이 트렌드의 원인이 된 상위 트렌드
+    predicted_children: list[str] = Field(default_factory=list)  # LLM이 예측한 파생 트렌드
+    genealogy_depth: int = 0             # 계보 깊이 (0=원본, 1=1차 파생, 2=2차 파생)
 
 
 class TrendCluster(BaseModel):
