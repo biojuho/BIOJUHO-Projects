@@ -60,7 +60,6 @@ class TestZeroContentPrevention:
             setattr(cfg, k, v)
         return cfg
 
-    @pytest.mark.skip(reason="Phase A: zero-content prevention not yet implemented in _ensure_quality_and_diversity")
     def test_all_excluded_returns_at_least_one(self):
         """Only entertainment trends x5 -> zero-content prevention returns >=1."""
         func = self._get_quality_func()
@@ -80,7 +79,6 @@ class TestZeroContentPrevention:
         for t in result:
             assert not t.safety_flag, f"safety_flag trend included: {t.keyword}"
 
-    @pytest.mark.skip(reason="Phase A: zero-content prevention step 2 relaxation not yet implemented")
     def test_all_excluded_with_low_scores_step2(self):
         """All excluded + all below min_viral_score -> step 2 relaxation (60% threshold)."""
         func = self._get_quality_func()
@@ -179,7 +177,6 @@ class TestNicheBonus:
         # hybrid_viral = 55 * 0.6 + signal * 0.4 + niche_bonus(10)
         assert result.viral_potential > 55 * 0.6, "Niche bonus not applied"
 
-    @pytest.mark.skip(reason="Phase A: niche_categories config not yet in AppConfig")
     def test_non_niche_no_bonus(self):
         """Non-niche category gets no bonus."""
         from analyzer import _parse_scored_trend_from_dict
@@ -248,7 +245,6 @@ class TestNicheBonus:
 #  A-3: Lazy Context Config Validation
 # ═══════════════════════════════════════════════
 
-@pytest.mark.skip(reason="Phase A: enable_lazy_context, niche_categories, niche_bonus_points not yet in AppConfig")
 class TestLazyContext:
     """enable_lazy_context config validation."""
 

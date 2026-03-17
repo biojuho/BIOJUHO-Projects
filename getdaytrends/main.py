@@ -380,6 +380,7 @@ def _ensure_quality_and_diversity(
 
     # [v7.0] 제외 카테고리 필터 + [v9.1] 가변형 카테고리 필터링(Dynamic Filtering)
     excluded_cats = set(getattr(config, "exclude_categories", []))
+    all_before_exclusion = list(safe_trends)  # [v15.0] 복원용 백업
     if excluded_cats:
         before = len(safe_trends)
         safe_trends = [
@@ -389,8 +390,44 @@ def _ensure_quality_and_diversity(
         excluded_count = before - len(safe_trends)
         if excluded_count:
             log.info(f"  [카테고리 제외] {excluded_count}개 제거 ({', '.join(excluded_cats)})")
-        if not safe_trends:
-            log.warning(f"  [카테고리 제외] 모든 트렌드가 제외됨 — 빈 결과 반환")
+
+    # [v15.0] Phase A: Zero Content Prevention
+    # 제외 카테고리 필터 후 0개가 된 경우, 최소 1개 복원
+    if not safe_trends and getattr(config, "enable_zero_content_prevention", True):
+        # 원본에서 safety_flag가 아닌 트렌드 중 바이럴 순 정렬
+        candidates = [
+            t for t in all_before_exclusion
+            if not (config.enable_sentiment_filter and getattr(t, "safety_flag", False))
+        ]
+        candidates.sort(key=lambda x: x.viral_potential, reverse=True)
+
+        # Step 1: min_viral_score 이상 트렌드 복원
+        restored = [t for t in candidates if t.viral_potential >= min_score]
+        if restored:
+            safe_trends = restored[:min_count or 1]
+            log.warning(
+                f"  [Zero Content Prevention] 모든 트렌드 제외됨 → "
+                f"{len(safe_trends)}개 복원 (바이럴≥{min_score})"
+            )
+        else:
+            # Step 2: min_viral_score 60%로 완화
+            floor_score = int(min_score * 0.6)
+            restored = [t for t in candidates if t.viral_potential >= floor_score]
+            if restored:
+                safe_trends = restored[:min_count or 1]
+                log.warning(
+                    f"  [Zero Content Prevention Step 2] 기준 완화 "
+                    f"{min_score}→{floor_score}점 → {len(safe_trends)}개 복원"
+                )
+            elif candidates:
+                # Step 3: 점수 무관 최소 1개
+                safe_trends = candidates[:1]
+                log.warning(
+                    f"  [Zero Content Prevention Step 3] 점수 무관 1개 복원: "
+                    f"'{safe_trends[0].keyword}' ({safe_trends[0].viral_potential}점)"
+                )
+    elif not safe_trends:
+        log.warning(f"  [카테고리 제외] 모든 트렌드가 제외됨 — 빈 결과 반환")
 
     # 제외 후 남은 트렌드에 맞게 min_count 동적 축소
     min_count = min(min_count, len(safe_trends))

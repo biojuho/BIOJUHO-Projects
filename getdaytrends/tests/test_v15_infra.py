@@ -14,7 +14,6 @@ from models import MultiSourceContext, RawTrend, TrendSource
 #  C-1: Google Trends Related Queries
 # ═══════════════════════════════════════════════
 
-@pytest.mark.skip(reason="Phase C not yet implemented: _async_fetch_google_trends_related")
 class TestGoogleTrendsRelated:
     """Google Trends related query extraction logic test."""
 
@@ -101,7 +100,6 @@ class TestSourceQualityDB:
 #  C-3: CI/CD Config Validation
 # ═══════════════════════════════════════════════
 
-@pytest.mark.skip(reason="Phase C not yet implemented: get_qa_summary, get_content_hashes, select_persona")
 class TestPhaseCSmokeConfig:
     """Phase C config basic validation + env variable loading."""
 

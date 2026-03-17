@@ -263,10 +263,11 @@ def test_exclude_categories_dynamic_min_count(config):
 
 
 def test_exclude_all_leaves_empty(config):
-    """모든 트렌드가 제외 카테고리면 빈 결과."""
+    """모든 트렌드가 제외 카테고리면 빈 결과 (zero-content prevention 비활성화 시)."""
     from main import _ensure_quality_and_diversity
 
     config.exclude_categories = ["정치", "연예"]
+    config.enable_zero_content_prevention = False  # [v15.0] 명시적 비활성화
 
     trends = [
         _make_trend("정치1", viral=95, category="정치"),

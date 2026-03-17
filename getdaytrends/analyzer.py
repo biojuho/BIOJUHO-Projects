@@ -407,6 +407,15 @@ def _parse_scored_trend_from_dict(
             f"→ {llm_viral}점 × 0.65 = {hybrid_viral}점"
         )
 
+    # [v15.0] Phase A: Niche Bonus — 니치 카테고리에 보너스 점수 부여
+    niche_cats = getattr(config, "niche_categories", []) if config else []
+    niche_bonus = getattr(config, "niche_bonus_points", 0) if config else 0
+    if niche_cats and niche_bonus and category in niche_cats:
+        hybrid_viral = min(hybrid_viral + niche_bonus, 100)
+        log.debug(
+            f"  [Niche Bonus] '{keyword}' ({category}) +{niche_bonus}점 → {hybrid_viral}점"
+        )
+
     # [v10.0] 구조화된 트렌드 배경 (Deep Why)
     trend_ctx = None
     trigger = parsed.get("trigger_event", "")

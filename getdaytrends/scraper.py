@@ -1066,3 +1066,62 @@ def collect_contexts(
     """
     return run_async(_async_collect_contexts(raw_trends, config, conn=conn))
 
+
+# ══════════════════════════════════════════════════════
+#  v15.0 Phase C: Google Trends Related Queries
+# ══════════════════════════════════════════════════════
+
+async def _async_fetch_google_trends_related(
+    session: httpx.AsyncClient,
+    trends: list[RawTrend],
+    country: str = "korea",
+) -> dict[str, list[str]]:
+    """
+    Google Trends 소스의 news_headlines를 related queries로 변환.
+    반환: {trend_name: [related_query_1, related_query_2, ...]}
+    """
+    result: dict[str, list[str]] = {}
+    
+    for trend in trends:
+        if trend.source != TrendSource.GOOGLE_TRENDS:
+            continue
+        
+        headlines = (trend.extra or {}).get("news_headlines", [])
+        if headlines:
+            result[trend.name] = list(headlines)
+    
+    return result
+
+
+async def _async_fetch_google_suggest(
+    query: str,
+    language: str = "ko",
+    country: str = "kr",
+) -> list[str]:
+    """
+    Google Suggest (자동완성) API로 연관 키워드 수집.
+    반환: 추천 검색어 리스트
+    """
+    encoded = urllib.parse.quote(query)
+    url = (
+        f"https://suggestqueries.google.com/complete/search"
+        f"?client=firefox&q={encoded}&hl={language}&gl={country}"
+    )
+    
+    try:
+        async with httpx.AsyncClient() as session:
+            resp = await session.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=_SHORT_TIMEOUT,
+            )
+            resp.raise_for_status()
+            import json
+            data = json.loads(resp.text)
+            # Firefox 형식: [query, [suggestion1, suggestion2, ...]]
+            if isinstance(data, list) and len(data) >= 2:
+                return [s for s in data[1] if isinstance(s, str)]
+            return []
+    except Exception as e:
+        log.debug(f"Google Suggest 수집 실패 ({query}): {e}")
+        return []

@@ -875,3 +875,73 @@ async def record_content_feedback(
         log.debug(f"content_feedback 기록 실패 (무시): {e}")
 
 
+async def get_qa_summary(conn, days: int = 7) -> dict:
+    """
+    v15.0 Phase B: QA 메트릭 요약.
+    반환: {total_feedbacks, avg_qa_score, regeneration_rate, by_category, recent_scores}
+    """
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
+    # 전체 집계
+    cursor = await conn.execute(
+        """SELECT COUNT(*) as total,
+                  COALESCE(AVG(qa_score), 0.0) as avg_score,
+                  COALESCE(SUM(regenerated), 0) as regen_count
+           FROM content_feedback
+           WHERE created_at >= ?""",
+        (cutoff,),
+    )
+    row = await cursor.fetchone()
+    total = dict(row).get("total", 0) if row else 0
+    avg_score = dict(row).get("avg_score", 0.0) if row else 0.0
+    regen_count = dict(row).get("regen_count", 0) if row else 0
+    regen_rate = regen_count / total if total > 0 else 0.0
+
+    # 카테고리별 분석
+    cursor = await conn.execute(
+        """SELECT category,
+                  COUNT(*) as count,
+                  ROUND(AVG(qa_score), 1) as avg_score
+           FROM content_feedback
+           WHERE created_at >= ? AND category != ''
+           GROUP BY category""",
+        (cutoff,),
+    )
+    cat_rows = await cursor.fetchall()
+    by_category = {
+        r["category"]: {"count": r["count"], "avg_score": r["avg_score"]}
+        for r in cat_rows
+    }
+
+    # 최근 점수 (최대 10건)
+    cursor = await conn.execute(
+        """SELECT qa_score FROM content_feedback
+           WHERE created_at >= ?
+           ORDER BY created_at DESC LIMIT 10""",
+        (cutoff,),
+    )
+    score_rows = await cursor.fetchall()
+    recent_scores = [r["qa_score"] for r in score_rows]
+
+    return {
+        "total_feedbacks": total,
+        "avg_qa_score": round(avg_score, 1),
+        "regeneration_rate": round(regen_rate, 4),
+        "by_category": by_category,
+        "recent_scores": recent_scores,
+    }
+
+
+async def get_content_hashes(conn, hours: int = 24) -> set[str]:
+    """
+    v15.0 Phase B: 최근 N시간 내 생성된 콘텐츠의 핑거프린트 해시 집합 반환.
+    콘텐츠 다양성 검증에 사용.
+    """
+    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    cursor = await conn.execute(
+        """SELECT DISTINCT fingerprint FROM trends
+           WHERE scored_at >= ? AND fingerprint != ''""",
+        (cutoff,),
+    )
+    rows = await cursor.fetchall()
+    return {r["fingerprint"] for r in rows}

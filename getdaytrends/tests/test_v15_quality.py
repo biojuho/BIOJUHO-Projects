@@ -7,7 +7,6 @@ v15.0 Phase B Tests
 """
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Phase B not yet implemented: get_qa_summary, select_persona, diversity_sim_threshold")
 
 from models import MultiSourceContext, ScoredTrend
 

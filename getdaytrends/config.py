@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-VERSION = "4.0"
+VERSION = "4.1"
 
 COUNTRY_MAP = {
     "korea": "korea",
@@ -207,6 +207,29 @@ class AppConfig:
     blog_max_words: int = 5000          # 네이버 블로그 최대 글자 수
     blog_seo_keywords_count: int = 5    # SEO 키워드 추천 수
 
+    # ===================================================
+    # [v15.0] Phase A: Zero Content Prevention + Niche Scoring
+    # ===================================================
+    enable_zero_content_prevention: bool = True   # 모든 트렌드가 제외 카테고리일 때 최소 1개 보장
+    niche_categories: list[str] = field(default_factory=lambda: ["테크", "경제"])  # 니치 보너스 대상 카테고리
+    niche_bonus_points: int = 10                  # 니치 카테고리 보너스 점수
+    enable_lazy_context: bool = True              # 지연 컨텍스트 로딩 활성화
+
+    # ===================================================
+    # [v15.0] Phase B: Content Diversity + Persona Rotation
+    # ===================================================
+    diversity_sim_threshold: float = 0.85         # 콘텐츠 유사도 임계값 (이상이면 중복 판정)
+    persona_rotation: str = "category"            # 퍼소나 선택 모드: category | round_robin | fixed
+    persona_pool: list[str] = field(default_factory=lambda: ["joongyeon", "analyst", "storyteller"])
+
+    # ===================================================
+    # [v16.0] MARL Pipeline Integration
+    # ===================================================
+    enable_marl_generation: bool = False           # MARL 강화 생성 활성화 (high-value 트렌드 전용)
+    marl_min_viral_score: int = 80                 # 이 점수 이상만 MARL 적용
+    marl_stages: int = 3                           # MARL 파이프라인 단계 수 (3=생성+비평+수정, 5=전체)
+    marl_daily_budget_cap_usd: float = 0.05        # MARL 일일 추가 예산 상한 ($)
+
     # Runtime options (CLI overrides)
     country: str = "korea"
     countries: list = field(default_factory=list)   # 다국가 실행 목록
@@ -350,6 +373,28 @@ class AppConfig:
             blog_min_words=int(os.getenv("BLOG_MIN_WORDS", "2000")),
             blog_max_words=int(os.getenv("BLOG_MAX_WORDS", "5000")),
             blog_seo_keywords_count=int(os.getenv("BLOG_SEO_KEYWORDS_COUNT", "5")),
+            # v15.0 Phase A
+            enable_zero_content_prevention=os.getenv("ENABLE_ZERO_CONTENT_PREVENTION", "true").lower() == "true",
+            niche_categories=[
+                c.strip()
+                for c in os.getenv("NICHE_CATEGORIES", "테크,경제").split(",")
+                if c.strip()
+            ],
+            niche_bonus_points=int(os.getenv("NICHE_BONUS_POINTS", "10")),
+            enable_lazy_context=os.getenv("ENABLE_LAZY_CONTEXT", "true").lower() == "true",
+            # v15.0 Phase B
+            diversity_sim_threshold=float(os.getenv("DIVERSITY_SIM_THRESHOLD", "0.85")),
+            persona_rotation=os.getenv("PERSONA_ROTATION", "category"),
+            persona_pool=[
+                p.strip()
+                for p in os.getenv("PERSONA_POOL", "joongyeon,analyst,storyteller").split(",")
+                if p.strip()
+            ],
+            # v16.0 MARL
+            enable_marl_generation=os.getenv("ENABLE_MARL_GENERATION", "false").lower() == "true",
+            marl_min_viral_score=int(os.getenv("MARL_MIN_VIRAL_SCORE", "80")),
+            marl_stages=int(os.getenv("MARL_STAGES", "3")),
+            marl_daily_budget_cap_usd=float(os.getenv("MARL_DAILY_BUDGET_CAP_USD", "0.05")),
         )
 
     def validate(self) -> list[str]:
@@ -451,6 +496,7 @@ class AppConfig:
                 "threads": self.enable_threads,
                 "smart_schedule": self.smart_schedule,
                 "night_mode": self.night_mode,
+                "marl_generation": self.enable_marl_generation,
             },
             "target_platforms": self.target_platforms,
         }
