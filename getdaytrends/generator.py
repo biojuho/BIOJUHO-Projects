@@ -229,11 +229,39 @@ def _build_available_facts_section(trend: ScoredTrend, limit: int = 10) -> str:
 
 def _build_fact_guardrail_section(trend: ScoredTrend) -> str:
     facts_section = _build_available_facts_section(trend)
+
+    # 소스 신뢰도 정보 포함
+    credibility_note = ""
+    cred = getattr(trend, "source_credibility", 0.0)
+    if cred > 0:
+        if cred >= 0.8:
+            credibility_note = "- [출처 신뢰도: 높음] 수집된 팩트를 적극 활용할 것.\n"
+        elif cred >= 0.5:
+            credibility_note = "- [출처 신뢰도: 보통] 수치와 인용은 한정어('약', '추정')를 부착할 것.\n"
+        else:
+            credibility_note = "- [출처 신뢰도: 낮음] 구체적 수치 사용을 최소화하고 일반적 서술에 집중할 것.\n"
+
+    # 소스 간 불일치 경고
+    consistency_note = ""
+    if not getattr(trend, "cross_source_consistent", True):
+        flags = getattr(trend, "hallucination_flags", [])
+        if flags:
+            conflict_info = "; ".join(flags[:2])
+            consistency_note = (
+                f"- [소스 간 불일치 감지: {conflict_info}] "
+                "수치가 소스마다 다를 수 있음. 확정적 표현 대신 '~로 알려졌다', '~라는 분석이 있다'를 사용할 것.\n"
+            )
+
     rules = (
-        "\n[사실 고정 규칙]\n"
+        "\n[사실 고정 규칙 — 위반 시 0점]\n"
         "- 아래 [사용 가능한 사실]과 입력 컨텍스트에 없는 기관명, 브랜드명, 통계, 도입 사례, 직접 인용은 새로 만들지 말 것.\n"
         "- 숫자나 기관명이 확인되지 않으면 일반화해서 서술할 것.\n"
         "- 고유명사는 입력에 실제로 등장한 경우에만 사용할 것.\n"
+        "- '전문가들은', '관계자에 따르면' 등 출처 불명 인용은 절대 금지.\n"
+        "- 날짜, 금액, 비율 등 수치는 컨텍스트 원문과 정확히 일치해야 함. 기억에 의존한 수치 사용 금지.\n"
+        "- 비교 주장('A보다 B가 크다')은 컨텍스트에 양쪽 데이터가 있을 때만 가능.\n"
+        f"{credibility_note}"
+        f"{consistency_note}"
     )
     return rules + facts_section
 
@@ -1764,6 +1792,36 @@ def _audit_content_group(
         issues.append(f"컨텍스트 밖 수치 추정: {', '.join(unknown_percentages[:2])}")
     if not allowed_lower.strip():
         fact = min(fact, 10)
+
+    # [v6.0] 강화된 팩트 체크 — 출처 불명 인용 감지
+    _UNVERIFIED_QUOTE_PATTERNS = [
+        "전문가들은", "관계자에 따르면", "업계 관계자",
+        "한 관계자는", "내부 소식통", "익명의 관계자",
+        "소식통에 따르면", "전문가는 분석",
+    ]
+    matched_unverified = [p for p in _UNVERIFIED_QUOTE_PATTERNS if p in combined]
+    if matched_unverified:
+        fact = max(0, fact - min(10, 5 * len(matched_unverified)))
+        fact_violation = True
+        issues.append(f"출처 불명 인용 감지: {', '.join(matched_unverified[:2])}")
+
+    # [v6.0] 숫자 일관성 검증 — 같은 대상에 대한 모순된 수치
+    content_numbers = re.findall(r"(\d{1,3}(?:[,.]?\d{3})*(?:\.\d+)?)\s*(만|억|조|%)", combined)
+    if len(content_numbers) >= 2:
+        # 같은 단위의 숫자가 크게 다르면 경고
+        by_unit: dict[str, list[float]] = {}
+        for num_str, unit in content_numbers:
+            try:
+                val = float(num_str.replace(",", ""))
+                by_unit.setdefault(unit, []).append(val)
+            except ValueError:
+                pass
+        for unit, vals in by_unit.items():
+            if len(vals) >= 2:
+                ratio = max(vals) / max(min(vals), 0.01)
+                if ratio > 100:  # 100배 이상 차이
+                    fact = max(0, fact - 3)
+                    issues.append(f"수치 불일치 의심: 같은 단위({unit})에서 {ratio:.0f}배 차이")
 
     kick = 12
     ending = combined.splitlines()[-1] if combined.splitlines() else combined

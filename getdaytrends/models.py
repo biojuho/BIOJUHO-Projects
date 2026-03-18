@@ -123,6 +123,11 @@ class ScoredTrend(BaseModel):
     parent_trends: list[str] = Field(default_factory=list)       # 이 트렌드의 원인이 된 상위 트렌드
     predicted_children: list[str] = Field(default_factory=list)  # LLM이 예측한 파생 트렌드
     genealogy_depth: int = 0             # 계보 깊이 (0=원본, 1=1차 파생, 2=2차 파생)
+    # [v6.0] 정보 정확성 검증
+    source_credibility: float = 0.0      # 0~1: 뉴스 출처 신뢰도 가중 평균
+    fact_check_score: float = 1.0        # 0~1: 생성 콘텐츠 팩트 체크 정확도
+    hallucination_flags: list[str] = Field(default_factory=list)  # 환각 감지된 항목 목록
+    cross_source_consistent: bool = True  # 소스 간 정보 일관성 여부
 
 
 class TrendCluster(BaseModel):

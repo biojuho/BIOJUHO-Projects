@@ -262,6 +262,18 @@ class AppConfig:
     genealogy_history_hours: int = 72              # 계보 히스토리 조회 기간 (시간)
     genealogy_min_confidence: float = 0.5          # 계보 연결 최소 확신도
 
+    # ===================================================
+    # [v6.0] 정보 정확성 검증
+    # ===================================================
+    enable_fact_checking: bool = True              # 생성 콘텐츠 팩트 체크 활성화
+    fact_check_min_accuracy: float = 0.6           # 팩트 체크 최소 정확도 (0~1, 미만이면 재생성)
+    fact_check_strict_mode: bool = False            # True면 인용/비교도 엄격 검증
+    enable_source_credibility: bool = True          # 출처 신뢰도 가중치 적용
+    credibility_penalty_threshold: float = 0.3      # 이 신뢰도 미만이면 viral_potential 패널티
+    credibility_penalty_factor: float = 0.85        # 저신뢰 출처 패널티 배율
+    enable_cross_source_consistency: bool = True     # 소스 간 일관성 검증 활성화
+    hallucination_zero_tolerance: bool = True        # True면 환각 감지 시 무조건 재생성
+
     # Runtime options (CLI overrides)
     country: str = "korea"
     countries: list = field(default_factory=list)   # 다국가 실행 목록

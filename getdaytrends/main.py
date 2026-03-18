@@ -721,6 +721,59 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
         else:
             log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
 
+        # [v6.0] 팩트 체크 — 생성 콘텐츠의 정보 정확성 검증
+        if getattr(effective_config, "enable_fact_checking", True) and not is_cached:
+            try:
+                from fact_checker import verify_batch as _fc_verify
+                fc_results = _fc_verify(
+                    primary, trend,
+                    strict_mode=getattr(effective_config, "fact_check_strict_mode", False),
+                    min_accuracy=getattr(effective_config, "fact_check_min_accuracy", 0.6),
+                )
+                any_failed = False
+                fc_issues: list[str] = []
+                for group_name, fc_result in fc_results.items():
+                    if not fc_result.passed:
+                        any_failed = True
+                        fc_issues.extend(fc_result.issues[:2])
+                        log.warning(
+                            f"  [FactCheck 실패] '{trend.keyword}' {group_name}: "
+                            f"{fc_result.summary}"
+                        )
+                    # 트렌드에 정확성 메트릭 기록
+                    trend.fact_check_score = min(
+                        trend.fact_check_score,
+                        fc_result.accuracy_score,
+                    )
+                    trend.source_credibility = max(
+                        trend.source_credibility,
+                        fc_result.source_credibility,
+                    )
+                    if fc_result.hallucination_flags:
+                        trend.hallucination_flags.extend(
+                            f"[{group_name}] {issue}"
+                            for issue in fc_result.issues
+                            if "환각" in issue
+                        )
+
+                # 환각 감지 시 재생성 (zero tolerance 모드)
+                if any_failed and getattr(effective_config, "hallucination_zero_tolerance", True):
+                    halluc_groups = [
+                        gn for gn, r in fc_results.items()
+                        if r.hallucinated_claims > 0
+                    ]
+                    if halluc_groups:
+                        log.warning(
+                            f"  [FactCheck 재생성] '{trend.keyword}' "
+                            f"환각 감지 그룹: {', '.join(halluc_groups)}"
+                        )
+                        primary = await regenerate_content_groups(
+                            primary, trend, effective_config, client,
+                            halluc_groups, recent_tweets=recent_tweets,
+                        )
+            except Exception as _fc_err:
+                log.debug(f"  [FactCheck] 실행 실패 (무시): {_fc_err}")
+
         # [v3.0 Phase 4] A/B 변형 병합
         if config.enable_ab_variants:
             ab = await generate_ab_variant_async(trend, config, client)
