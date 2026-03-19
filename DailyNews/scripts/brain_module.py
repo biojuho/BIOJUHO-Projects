@@ -10,6 +10,40 @@ sys.path.insert(0, str(_ROOT))
 from shared.llm import TaskTier, get_client
 
 
+_CATEGORY_PROMPT_HINTS: dict[str, dict[str, str]] = {
+    "Tech": {
+        "role": "기술/AI/소프트웨어 뉴스를 전문적으로 다루는",
+        "focus": "기술 트렌드, AI 혁신, 개발자 생태계, 빅테크 동향에 집중하세요.",
+        "tone": "캐주얼하고 신뢰감 있는 전문가 톤",
+    },
+    "Economy_KR": {
+        "role": "한국 경제/금융 뉴스를 전문적으로 분석하는",
+        "focus": "국내 증시, 금리, 환율, 부동산, 수출입 동향, 기업 실적에 집중하세요.",
+        "tone": "전문적이면서도 대중이 이해하기 쉬운 해설 톤",
+    },
+    "Economy_Global": {
+        "role": "글로벌 경제/금융 시장을 전문적으로 분석하는",
+        "focus": "미국 연준, 글로벌 증시, 원자재, 무역 정책, 거시경제 지표에 집중하세요.",
+        "tone": "글로벌 시각으로 분석하는 전문가 톤",
+    },
+    "Crypto": {
+        "role": "암호화폐/블록체인 시장을 전문적으로 다루는",
+        "focus": "비트코인/이더리움 가격, DeFi, 규제 동향, 온체인 데이터, 거래소 뉴스에 집중하세요.",
+        "tone": "크립토 커뮤니티에 맞는 캐주얼하면서도 날카로운 분석 톤",
+    },
+    "Global_Affairs": {
+        "role": "국제 정치/외교 뉴스를 전문적으로 분석하는",
+        "focus": "지정학적 갈등, 외교 협상, 선거/정권 변동, 국제기구 동향, 인도적 이슈에 집중하세요.",
+        "tone": "객관적이면서도 통찰력 있는 국제뉴스 해설 톤",
+    },
+    "AI_Deep": {
+        "role": "AI/ML 최신 기술과 연구 동향을 깊이 있게 분석하는",
+        "focus": "신규 모델 릴리스, 벤치마크 결과, 오픈소스 생태계, AI 안전성/정렬, 에이전트 아키텍처, 멀티모달, 추론 능력, 산업 적용 사례에 집중하세요.",
+        "tone": "기술적 깊이를 유지하면서도 실무 개발자가 바로 활용할 수 있는 인사이트를 제공하는 전문가 톤",
+    },
+}
+
+
 class BrainModule:
     def __init__(self):
         self.client = get_client()
@@ -59,8 +93,13 @@ class BrainModule:
                 trends_text += f"  - 바이럴 포텐셜 점수: {t.get('viral_potential')}/100\n"
                 trends_text += f"  - 추천 앵글: {', '.join(t.get('suggested_angles', []))}\n"
 
-        prompt = f"""당신은 X(트위터)에서 기술/경제 뉴스를 전문적으로 다루는 콘텐츠 크리에이터 "Raphael"입니다.
-Premium+ 사용자처럼 글자 제한 없이 자유롭게 긴 포스트를 작성할 수 있다고 가정하고, 하나의 긴 글(또는 자연스럽게 연결된 스레드) 형식으로 매우 가독성 높고 몰입감 있는 Tech 뉴스 요약을 작성해주세요.
+        hints = _CATEGORY_PROMPT_HINTS.get(category, _CATEGORY_PROMPT_HINTS["Tech"])
+
+        prompt = f"""당신은 X(트위터)에서 {hints["role"]} 콘텐츠 크리에이터 "Raphael"입니다.
+Premium+ 사용자처럼 글자 제한 없이 자유롭게 긴 포스트를 작성할 수 있다고 가정하고, 하나의 긴 글(또는 자연스럽게 연결된 스레드) 형식으로 매우 가독성 높고 몰입감 있는 {category} 뉴스 요약을 작성해주세요.
+
+[카테고리 집중 포인트]: {hints["focus"]}
+[톤앤매너]: {hints["tone"]}
 
 [분석 대상 기간]: {time_window}
 

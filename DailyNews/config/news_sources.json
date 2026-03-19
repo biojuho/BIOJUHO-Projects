@@ -2,36 +2,66 @@
     "Tech": [
         {"name": "GeekNews", "url": "https://feeds.feedburner.com/geeknews-feed"},
         {"name": "Hacker News", "url": "https://news.ycombinator.com/rss"},
+        {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/"},
         {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
-        {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml"},
         {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index"},
-        {"name": "Wired", "url": "https://www.wired.com/feed/rss"},
         {"name": "MIT Tech Review", "url": "https://www.technologyreview.com/feed/"},
-        {"name": "전자신문 IT", "url": "https://rss.etnews.com/Section901.xml"}
+        {"name": "전자신문 IT", "url": "https://rss.etnews.com/Section901.xml"},
+        {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml"},
+        {"name": "Wired", "url": "https://www.wired.com/feed/rss"},
+        {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/"},
+        {"name": "InfoQ", "url": "https://feed.infoq.com/"},
+        {"name": "ZDNet", "url": "https://www.zdnet.com/news/rss.xml"}
     ],
     "Economy_KR": [
         {"name": "Hankyung Economic", "url": "https://rss.hankyung.com/feed/economy.xml"},
         {"name": "Maeil Economy", "url": "https://www.mk.co.kr/rss/30100041/"},
-        {"name": "서울경제", "url": "https://www.sedaily.com/RSS/Economy"}
+        {"name": "서울경제", "url": "https://www.sedaily.com/RSS/Economy"},
+        {"name": "한경 증권", "url": "https://rss.hankyung.com/feed/stock.xml"},
+        {"name": "매경 증권", "url": "https://www.mk.co.kr/rss/30100228/"},
+        {"name": "연합뉴스 경제", "url": "https://www.yna.co.kr/rss/economy.xml"},
+        {"name": "한경 산업", "url": "https://rss.hankyung.com/feed/industry.xml"},
+        {"name": "매경 부동산", "url": "https://www.mk.co.kr/rss/30200030/"}
     ],
     "Economy_Global": [
-        {"name": "CNBC Top News", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"},
-        {"name": "Wall Street Journal World", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"},
-        {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/markets/news.rss"},
-        {"name": "MarketWatch", "url": "https://feeds.marketwatch.com/marketwatch/topstories/"}
+        {"name": "CNBC Economy", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258"},
+        {"name": "CNBC Business", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10001147"},
+        {"name": "WSJ Markets", "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"},
+        {"name": "MarketWatch", "url": "https://feeds.marketwatch.com/marketwatch/topstories/"},
+        {"name": "Bloomberg via Yahoo", "url": "https://finance.yahoo.com/news/rssindex"},
+        {"name": "FT Markets", "url": "https://www.ft.com/markets?format=rss"},
+        {"name": "Economist Finance", "url": "https://www.economist.com/finance-and-economics/rss.xml"},
+        {"name": "Yahoo Finance Top", "url": "https://finance.yahoo.com/rss/topstories"}
     ],
     "Crypto": [
         {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
         {"name": "TokenPost", "url": "https://www.tokenpost.kr/rss"},
         {"name": "CoinTelegraph", "url": "https://cointelegraph.com/rss"},
         {"name": "The Block", "url": "https://www.theblock.co/rss.xml"},
-        {"name": "Decrypt", "url": "https://decrypt.co/feed"}
+        {"name": "Decrypt", "url": "https://decrypt.co/feed"},
+        {"name": "CryptoSlate", "url": "https://cryptoslate.com/feed/"},
+        {"name": "Blockworks", "url": "https://blockworks.co/feed"},
+        {"name": "코인니스", "url": "https://coinness.com/feed"}
     ],
     "Global_Affairs": [
         {"name": "BBC World", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
         {"name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
         {"name": "NYT World", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
         {"name": "Guardian World", "url": "https://www.theguardian.com/world/rss"},
-        {"name": "Donga International", "url": "https://rss.donga.com/international.xml"}
+        {"name": "Donga International", "url": "https://rss.donga.com/international.xml"},
+        {"name": "Foreign Affairs", "url": "https://www.foreignaffairs.com/rss.xml"},
+        {"name": "연합뉴스 국제", "url": "https://www.yna.co.kr/rss/international.xml"},
+        {"name": "한겨레 국제", "url": "https://www.hani.co.kr/rss/international/"},
+        {"name": "NPR World", "url": "https://feeds.npr.org/1004/rss.xml"}
+    ],
+    "AI_Deep": [
+        {"name": "OpenAI Blog", "url": "https://openai.com/blog/rss.xml"},
+        {"name": "Google AI Blog", "url": "https://blog.research.google/feeds/posts/default?alt=rss"},
+        {"name": "HuggingFace Blog", "url": "https://huggingface.co/blog/feed.xml"},
+        {"name": "AI News", "url": "https://www.artificialintelligence-news.com/feed/"},
+        {"name": "Towards AI", "url": "https://pub.towardsai.net/feed"},
+        {"name": "Import AI Newsletter", "url": "https://jack-clark.net/feed/"},
+        {"name": "Sebastian Raschka", "url": "https://magazine.sebastianraschka.com/feed"},
+        {"name": "Latent Space", "url": "https://www.latent.space/feed"}
     ]
 }

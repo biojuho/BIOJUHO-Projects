@@ -37,6 +37,8 @@ async def generate_briefs(
     brain_adapter: Any | None = None,
     proofreader_adapter: Any | None = None,
     embedding_adapter: EmbeddingAdapter | None = None,
+    # --- Phase 4: NotebookLM deep research (optional) ---
+    notebooklm_adapter: Any | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
     llm_adapter = llm_adapter or LLMAdapter(state_store=state_store)
     embedding_adapter = embedding_adapter or EmbeddingAdapter()
@@ -144,6 +146,34 @@ async def generate_briefs(
             except Exception as exc:
                 warnings.append(f"Brain analysis failed for {category}: {type(exc).__name__}")
 
+        # --- NotebookLM deep research (optional) ---
+        notebooklm_meta: dict[str, Any] = {}
+        if notebooklm_adapter and hasattr(notebooklm_adapter, "research_category"):
+            try:
+                articles_data = [
+                    {"title": item.title, "description": item.summary[:200], "link": item.link}
+                    for item in category_items
+                ]
+                extra_ctx = "\n".join(insights) if insights else ""
+                nlm_result = await notebooklm_adapter.research_category(
+                    category=category,
+                    articles=articles_data,
+                    extra_context=extra_ctx,
+                )
+                notebooklm_meta = {
+                    "notebook_id": nlm_result.get("notebook_id", ""),
+                    "source_count": nlm_result.get("source_count", 0),
+                }
+                # Merge deep research insights into report
+                for ri in nlm_result.get("research_insights", [])[:2]:
+                    insights.append(f"[Deep Research] {ri[:300]}")
+                deep_summary = nlm_result.get("deep_summary", "")
+                if deep_summary:
+                    insights.append(f"[NLM Synthesis] {deep_summary[:300]}")
+                logger.info("NotebookLM enriched %s: %d insights", category, len(nlm_result.get("research_insights", [])))
+            except Exception as exc:
+                warnings.append(f"NotebookLM research failed for {category}: {type(exc).__name__}: {exc}")
+
         # --- Topic continuity detection ---
         current_titles = [item.title for item in category_items]
         continuing = state_store.find_continuing_topics(category, current_titles)
@@ -169,6 +199,7 @@ async def generate_briefs(
             fingerprint=fingerprint,
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
+            notebooklm_metadata=notebooklm_meta,
         )
         state_store.save_report(report)
 

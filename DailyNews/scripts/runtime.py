@@ -170,27 +170,47 @@ class JobLock:
         self.timeout_sec = timeout_sec
         self.path = DATA_DIR / f"{job_name}.lock"
 
+    def _try_expire_stale_lock(self) -> bool:
+        """Remove lock file if it's older than timeout_sec. Returns True if removed."""
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, FileNotFoundError):
+            return True  # broken or gone → treat as available
+        started_at = payload.get("started_at")
+        if started_at:
+            try:
+                age_sec = time.time() - datetime.fromisoformat(started_at).timestamp()
+                if age_sec > self.timeout_sec:
+                    self.path.unlink(missing_ok=True)
+                    return True
+            except ValueError:
+                pass
+        return False
+
     def __enter__(self) -> "JobLock":
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        if self.path.exists():
-            try:
-                payload = json.loads(self.path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
-                payload = {}
-            started_at = payload.get("started_at")
-            age_sec = None
-            if started_at:
+        payload = json.dumps(
+            {"pid": os.getpid(), "run_id": self.run_id, "started_at": utc_now_iso()},
+            indent=2,
+        )
+        try:
+            # Atomic create: O_CREAT | O_EXCL guarantees only one process wins
+            fd = os.open(str(self.path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, payload.encode("utf-8"))
+            os.close(fd)
+            return self
+        except FileExistsError:
+            # Lock file exists — check if it's stale
+            if self._try_expire_stale_lock():
+                # Stale lock removed, retry once
                 try:
-                    age_sec = time.time() - datetime.fromisoformat(started_at).timestamp()
-                except ValueError:
-                    age_sec = None
-            if age_sec is not None and age_sec > self.timeout_sec:
-                self.path.unlink(missing_ok=True)
-            else:
-                raise AlreadyRunningError(f"{self.job_name} is already running")
-        payload = {"pid": os.getpid(), "run_id": self.run_id, "started_at": utc_now_iso()}
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        return self
+                    fd = os.open(str(self.path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                    os.write(fd, payload.encode("utf-8"))
+                    os.close(fd)
+                    return self
+                except FileExistsError:
+                    pass
+            raise AlreadyRunningError(f"{self.job_name} is already running")
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.path.unlink(missing_ok=True)

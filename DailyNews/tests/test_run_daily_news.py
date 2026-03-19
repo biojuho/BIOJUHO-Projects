@@ -14,8 +14,8 @@ class FakeBrain:
         }
 
 
-def make_entry(title: str, link: str) -> SimpleNamespace:
-    return SimpleNamespace(title=title, link=link, description="desc", published_parsed=None, updated_parsed=None)
+def make_entry(title: str, link: str, description: str = "desc") -> SimpleNamespace:
+    return SimpleNamespace(title=title, link=link, description=description, published_parsed=None, updated_parsed=None)
 
 
 def test_process_category_survives_source_failure_and_awaits_sleep(load_script_module, monkeypatch, tmp_path):
@@ -30,7 +30,7 @@ def test_process_category_survives_source_failure_and_awaits_sleep(load_script_m
     async def fake_fetch(url: str):
         if "bad" in url:
             raise TimeoutError("timeout")
-        return [make_entry("Fresh", "https://fresh.example.com/article")]
+        return [make_entry("Fresh AI startup launches cloud platform", "https://fresh.example.com/article", "new software tech startup")]
 
     async def fake_upload(**kwargs):
         return {"id": "page-1"}

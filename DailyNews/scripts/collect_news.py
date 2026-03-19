@@ -20,18 +20,21 @@ from runtime import (
 )
 from settings import (
     ANTIGRAVITY_NEWS_DB_ID,
+    NEWS_SOURCES_FILE,
     NOTION_API_KEY,
     NOTION_API_VERSION,
     NOTION_REPORTS_DATA_SOURCE_ID,
     PIPELINE_HTTP_TIMEOUT_SEC,
 )
+from news_bot import _is_relevant_to_category
 
 
-RSS_FEEDS = {
-    "GeekNews": "https://feeds.feedburner.com/geeknews-feed",
-    "Hacker News (Top)": "https://news.ycombinator.com/rss",
-    "IT World Korea": "https://www.itworld.co.kr/rss/feed/index.php",
-}
+def _load_all_feeds() -> dict[str, list[dict[str, str]]]:
+    """Load feeds from news_sources.json (single source of truth)."""
+    import json
+
+    with NEWS_SOURCES_FILE.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 async def get_existing_urls(database_id: str, api_key: str, logger) -> set[str]:
@@ -104,49 +107,56 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
         with JobLock("collect_news", run_id):
             existing_urls = await get_existing_urls(ANTIGRAVITY_NEWS_DB_ID, NOTION_API_KEY, logger)
             today_str = date.today().isoformat()
+            all_sources = _load_all_feeds()
 
-            for source_name, feed_url in RSS_FEEDS.items():
-                logger.info("fetch", "start", "fetching feed", source=source_name, url=feed_url)
-                try:
-                    entries = await fetch_feed_entries(feed_url)
-                except Exception as exc:
-                    summary["sources_failed"] += 1
-                    logger.error("fetch", "failed", "feed fetch failed", source=source_name, error=str(exc))
-                    continue
-
-                for entry in entries[:max_items]:
-                    title = getattr(entry, "title", "Untitled")
-                    link = getattr(entry, "link", "")
-                    if not link:
-                        summary["skipped"] += 1
-                        logger.warning("dedupe", "skipped", "entry missing link", source=source_name, title=title[:80])
-                        continue
-                    if link in existing_urls or state.has_article(link):
-                        summary["skipped"] += 1
-                        logger.info("dedupe", "skipped", "duplicate article", source=source_name, link=link)
+            for category, sources in all_sources.items():
+                for source in sources:
+                    source_name = source["name"]
+                    feed_url = source["url"]
+                    logger.info("fetch", "start", "fetching feed", category=category, source=source_name, url=feed_url)
+                    try:
+                        entries = await fetch_feed_entries(feed_url)
+                    except Exception as exc:
+                        summary["sources_failed"] += 1
+                        logger.error("fetch", "failed", "feed fetch failed", source=source_name, error=str(exc))
                         continue
 
-                    description = _entry_description(entry)
-                    page = await create_notion_page_with_retry(
-                        notion_client=notion,
-                        parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
-                        properties={
-                            "Name": {"title": [{"text": {"content": title}}]},
-                            "Date": {"date": {"start": today_str}},
-                            "Source": {"select": {"name": source_name}},
-                            "Link": {"url": link},
-                            "Description": {"rich_text": [{"text": {"content": description}}]},
-                        },
-                        children=[],
-                        logger=logger,
-                        step="upload",
-                    )
+                    for entry in entries[:max_items]:
+                        title = getattr(entry, "title", "Untitled")
+                        link = getattr(entry, "link", "")
+                        if not link:
+                            summary["skipped"] += 1
+                            logger.warning("dedupe", "skipped", "entry missing link", source=source_name, title=title[:80])
+                            continue
+                        if link in existing_urls or state.has_article(link):
+                            summary["skipped"] += 1
+                            continue
 
-                    page_id = page.get("id")
-                    state.record_article(link=link, source=source_name, notion_page_id=page_id, run_id=run_id)
-                    existing_urls.add(link)
-                    summary["saved"] += 1
-                    logger.info("upload", "success", "article saved", source=source_name, link=link, page_id=page_id)
+                        description = _entry_description(entry)
+                        if not _is_relevant_to_category(title, description, category):
+                            summary["skipped"] += 1
+                            continue
+
+                        page = await create_notion_page_with_retry(
+                            notion_client=notion,
+                            parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
+                            properties={
+                                "Name": {"title": [{"text": {"content": title}}]},
+                                "Date": {"date": {"start": today_str}},
+                                "Source": {"select": {"name": category}},
+                                "Link": {"url": link},
+                                "Description": {"rich_text": [{"text": {"content": description}}]},
+                            },
+                            children=[],
+                            logger=logger,
+                            step="upload",
+                        )
+
+                        page_id = page.get("id")
+                        state.record_article(link=link, source=source_name, notion_page_id=page_id, run_id=run_id)
+                        existing_urls.add(link)
+                        summary["saved"] += 1
+                        logger.info("upload", "success", "article saved", category=category, source=source_name, link=link, page_id=page_id)
 
             state.record_job_finish(run_id, status="success", summary=summary)
             logger.info("complete", "success", "collect_news finished", **summary)

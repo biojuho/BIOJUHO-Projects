@@ -60,6 +60,9 @@ def load_news_sources() -> dict[str, list[dict[str, str]]]:
         return json.load(handle)
 
 
+from news_bot import _is_relevant_to_category
+
+
 def normalize_analysis(analysis: dict[str, Any]) -> tuple[list[str], str, list[str]]:
     summary = [str(item) for item in analysis.get("summary", []) if item]
     insights = analysis.get("insights") or []
@@ -91,6 +94,7 @@ async def upload_to_notion(
     logger,
     today_str: str,
     canva_result: dict | None = None,
+    nlm_result: dict | None = None,
 ) -> dict[str, Any]:
     summary, insight_text, x_posts = normalize_analysis(analysis)
     description = f"[Summary]\n" + "\n".join(summary[:3])
@@ -162,14 +166,66 @@ async def upload_to_notion(
             }
         )
 
+    # [v3.0] NotebookLM Deep Research section
+    if nlm_result and nlm_result.get("notebook_id"):
+        children.append(
+            {
+                "object": "block",
+                "type": "heading_2",
+                "heading_2": {"rich_text": [{"text": {"content": "Deep Research (NotebookLM)"}}]},
+            }
+        )
+        nlm_notebook_id = nlm_result["notebook_id"]
+        nlm_url = f"https://notebooklm.google.com/notebook/{nlm_notebook_id}"
+        children.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"emoji": "\U0001f9e0"},
+                    "color": "blue_background",
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "NotebookLM: "}, "annotations": {"bold": True}},
+                        {"type": "text", "text": {"content": "Open Notebook", "link": {"url": nlm_url}}},
+                        {"type": "text", "text": {"content": f" ({nlm_result.get('source_count', 0)} sources)"}},
+                    ],
+                },
+            }
+        )
+        # Deep summary
+        deep_summary = nlm_result.get("deep_summary", "")
+        if deep_summary:
+            children.append(
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"text": {"content": deep_summary[:2000]}}]},
+                }
+            )
+        # Research insights as toggle blocks
+        for idx, ri in enumerate(nlm_result.get("research_insights", [])[:3], 1):
+            children.append(
+                {
+                    "object": "block",
+                    "type": "toggle",
+                    "toggle": {
+                        "rich_text": [{"text": {"content": f"Research Insight #{idx}"}}],
+                        "children": [
+                            {
+                                "object": "block",
+                                "type": "paragraph",
+                                "paragraph": {"rich_text": [{"text": {"content": ri[:2000]}}]},
+                            }
+                        ],
+                    },
+                }
+            )
+
     return await create_notion_page_with_retry(
         notion_client=notion,
         parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
         properties={
-            "Name": {"title": [{"text": {"content": f"{category} Daily Report - {today_str}"}}]},
-            "Date": {"date": {"start": today_str}},
-            "Description": {"rich_text": [{"text": {"content": description[:1900]}}]},
-            "Source": {"select": {"name": "Mixed"}},
+            "Name": {"title": [{"text": {"content": f"[{category}] Daily Report - {today_str}"}}]},
         },
         children=children,
         logger=logger,
@@ -187,6 +243,7 @@ async def process_category(
     notion: AsyncClient,
     brain: Any,
     canva: Any = None,
+    notebooklm: Any = None,
     logger,
     today_str: str,
     window_name: str,
@@ -213,9 +270,14 @@ async def process_category(
             if not link or link in seen_links:
                 continue
 
+            entry_title = getattr(entry, "title", "Untitled")
+            entry_desc = (getattr(entry, "description", "") or getattr(entry, "summary", ""))[:300]
+            if not _is_relevant_to_category(entry_title, entry_desc, category):
+                continue
+
             article = {
-                "title": getattr(entry, "title", "Untitled"),
-                "description": (getattr(entry, "description", "") or getattr(entry, "summary", ""))[:300],
+                "title": entry_title,
+                "description": entry_desc,
                 "link": link,
                 "published": published,
             }
@@ -270,6 +332,46 @@ async def process_category(
         logger.warning("analysis", "skipped", "analysis returned no result", category=category)
         return {"category": category, "status": "skipped", "articles": len(all_articles)}
 
+    # [v3.0] NotebookLM deep research — enrich analysis with cross-source insights
+    nlm_result = None
+    if notebooklm is not None and all_articles:
+        try:
+            articles_for_nlm = [
+                {"title": a["title"], "description": a.get("description", ""), "link": a["link"]}
+                for a in all_articles[:max_items]
+            ]
+            extra_ctx = ""
+            if analysis:
+                _, insight_text, _ = normalize_analysis(analysis)
+                extra_ctx = insight_text
+            nlm_result = await run_with_timeout(
+                notebooklm.research_category(
+                    category=category,
+                    articles=articles_for_nlm,
+                    extra_context=extra_ctx,
+                ),
+                120,
+            )
+            if nlm_result:
+                logger.info(
+                    "notebooklm", "success", "deep research complete",
+                    category=category,
+                    notebook_id=nlm_result.get("notebook_id", "")[:8],
+                    insights=len(nlm_result.get("research_insights", [])),
+                )
+                # Merge deep insights into analysis
+                if analysis and nlm_result.get("research_insights"):
+                    existing_insights = analysis.get("insights") or []
+                    for ri in nlm_result["research_insights"][:2]:
+                        existing_insights.append({
+                            "topic": "Deep Research",
+                            "insight": ri[:300],
+                            "importance": "NotebookLM",
+                        })
+                    analysis["insights"] = existing_insights
+        except Exception as exc:
+            logger.warning("notebooklm", "failed", "deep research failed", category=category, error=str(exc))
+
     await asyncio.sleep(3)
 
     image_path = OUTPUT_DIR / f"infographic_{category}_{date.today()}_{window_name}.png"
@@ -316,6 +418,7 @@ async def process_category(
             logger=logger,
             today_str=today_str,
             canva_result=canva_result,
+            nlm_result=nlm_result,
         )
     except Exception as exc:
         return {"category": category, "status": "failed", "articles": len(all_articles), "error": str(exc)}
@@ -377,6 +480,23 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
         canva = None
         logger.warning("bootstrap", "degraded", "canva unavailable", error=str(exc))
 
+    # [v3.0] NotebookLM deep research adapter
+    notebooklm = None
+    try:
+        from antigravity_mcp.integrations.notebooklm_adapter import get_notebooklm_adapter
+        _nlm = get_notebooklm_adapter()
+        if _nlm.is_available:
+            nlm_ok = await _nlm.check_availability()
+            if nlm_ok:
+                notebooklm = _nlm
+                logger.info("bootstrap", "success", "notebooklm adapter initialized")
+            else:
+                logger.info("bootstrap", "skipped", "notebooklm auth failed")
+        else:
+            logger.info("bootstrap", "skipped", "notebooklm-py not installed")
+    except Exception as exc:
+        logger.warning("bootstrap", "degraded", "notebooklm unavailable", error=str(exc))
+
     notion = AsyncClient(auth=NOTION_API_KEY)
     today_str = date.today().isoformat()
     summary: dict[str, Any] = {
@@ -410,6 +530,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                         notion=notion,
                         brain=brain,
                         canva=canva,
+                        notebooklm=notebooklm,
                         logger=logger,
                         today_str=today_str,
                         window_name=window_name,

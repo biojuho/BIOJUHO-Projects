@@ -21,7 +21,15 @@ import os
 from functools import lru_cache
 from typing import Optional
 
-from loguru import logger as log
+try:
+    from loguru import logger as log
+except ImportError:
+    import logging as _logging
+
+    log = _logging.getLogger("shared.embeddings")
+    if not log.handlers:
+        log.addHandler(_logging.StreamHandler())
+        log.setLevel(_logging.DEBUG)
 
 
 # ══════════════════════════════════════════════════════

@@ -32,7 +32,8 @@ def test_collect_news_skips_duplicates_and_saves_new_articles(load_script_module
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
     monkeypatch.setattr(module, "ANTIGRAVITY_NEWS_DB_ID", "news-db")
     monkeypatch.setattr(module, "AsyncClient", FakeAsyncClient)
-    monkeypatch.setattr(module, "RSS_FEEDS", {"FeedA": "https://feed.example.com"})
+    monkeypatch.setattr(module, "_load_all_feeds", lambda: {"Tech": [{"name": "FeedA", "url": "https://feed.example.com"}]})
+    monkeypatch.setattr(module, "_is_relevant_to_category", lambda title, desc, cat: True)
     monkeypatch.setattr(module, "get_existing_urls", lambda database_id, api_key, logger: asyncio.sleep(0, result={"https://existing.example.com"}))
     monkeypatch.setattr(
         module,
@@ -42,7 +43,7 @@ def test_collect_news_skips_duplicates_and_saves_new_articles(load_script_module
             result=[
                 make_entry("Existing", "https://existing.example.com"),
                 make_entry("Cached", "https://cached.example.com"),
-                make_entry("Fresh", "https://fresh.example.com"),
+                make_entry("Fresh AI startup raises funding", "https://fresh.example.com"),
             ],
         ),
     )
@@ -62,16 +63,18 @@ def test_collect_news_continues_after_source_failure(load_script_module, monkeyp
     monkeypatch.setattr(module, "ANTIGRAVITY_NEWS_DB_ID", "news-db")
     monkeypatch.setattr(module, "AsyncClient", FakeAsyncClient)
     monkeypatch.setattr(module, "get_existing_urls", lambda database_id, api_key, logger: asyncio.sleep(0, result=set()))
-    monkeypatch.setattr(
-        module,
-        "RSS_FEEDS",
-        {"Broken": "https://broken.example.com", "Healthy": "https://healthy.example.com"},
-    )
+    monkeypatch.setattr(module, "_load_all_feeds", lambda: {
+        "Tech": [
+            {"name": "Broken", "url": "https://broken.example.com"},
+            {"name": "Healthy", "url": "https://healthy.example.com"},
+        ]
+    })
+    monkeypatch.setattr(module, "_is_relevant_to_category", lambda title, desc, cat: True)
 
     async def fake_fetch(url: str):
         if "broken" in url:
             raise TimeoutError("timeout")
-        return [make_entry("Healthy Article", "https://healthy.example.com/article")]
+        return [make_entry("Healthy AI Article", "https://healthy.example.com/article")]
 
     monkeypatch.setattr(module, "fetch_feed_entries", fake_fetch)
 
