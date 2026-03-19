@@ -37,9 +37,9 @@
 - 완료: 프로덕션 환경변수 템플릿(`.env.production.example`)
 
 ## 5. 다음 단계 (TODO)
-- [ ] Stripe Checkout Session 생성 + Webhook 실제 연동
-- [ ] Landing Page (Pricing 포함) 프론트엔드 컴포넌트 구축
-- [ ] SEO 메타데이터 및 `index.html` 최적화
+- [x] Stripe Checkout Session 생성 + Webhook 실제 연동 ✅ 2026-03-19
+- [x] Landing Page (Pricing 포함) 프론트엔드 컴포넌트 구축 ✅ 2026-03-19
+- [x] SEO 메타데이터 및 `index.html` 최적화 ✅ 2026-03-19
 - [ ] Vercel + Railway 실제 배포 및 도메인 연결
 - [ ] 한국 바이오 VC 50개사 DB 크롤링 활성화
 - [ ] Polygon Amoy Testnet에 DeSciToken 배포
