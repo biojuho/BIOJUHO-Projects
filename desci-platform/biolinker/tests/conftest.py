@@ -25,6 +25,7 @@ import main as app_main  # noqa: E402
 import routers.crawl as crawl_router  # noqa: E402
 import routers.rfp as rfp_router  # noqa: E402
 import routers.web3 as web3_router  # noqa: E402
+import services.usage_middleware as usage_mw  # noqa: E402
 
 
 # ── Warnings suppression ────────────────────────────────────────────────────
@@ -119,10 +120,25 @@ def mock_external_services(monkeypatch, stub_vector_store, stub_web3, stub_ipfs)
     monkeypatch.setattr(app_main, "db", None)
     monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
 
+    # UsageGuard / TierRequired mock — ENTERPRISE 티어로 모든 가드 통과
+    from services.user_tier import UserTier as _UserTier
+
+    stub_tier_mgr = MagicMock()
+    stub_tier_mgr.get_tier = AsyncMock(return_value=_UserTier.ENTERPRISE)
+    stub_tier_mgr.get_usage = AsyncMock(return_value=MagicMock(
+        usage_summary=lambda: {"tier": "enterprise", "usage": {}}
+    ))
+    stub_tier_mgr.check_and_increment = AsyncMock(return_value=(
+        True,
+        {"tier": "enterprise", "usage": {"rfp_analysis": {"used": 1, "limit": 999999, "remaining": 999998}}},
+    ))
+    monkeypatch.setattr(usage_mw, "get_tier_manager", lambda: stub_tier_mgr)
+
     return {
         "vector_store": stub_vector_store,
         "web3": stub_web3,
         "ipfs": stub_ipfs,
+        "tier_manager": stub_tier_mgr,
     }
 
 
@@ -130,6 +146,8 @@ def mock_external_services(monkeypatch, stub_vector_store, stub_web3, stub_ipfs)
 def sync_client(mock_external_services):
     """Synchronous TestClient with all external services stubbed."""
     with TestClient(app_main.app) as client:
+        # 인증 바이패스 헤더 기본 설정
+        client.headers["Authorization"] = "Bearer test-token-bypass"
         yield client
 
 
@@ -137,5 +155,9 @@ def sync_client(mock_external_services):
 async def async_client(mock_external_services):
     """Async httpx client with all external services stubbed."""
     transport = ASGITransport(app=app_main.app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": "Bearer test-token-bypass"},
+    ) as client:
         yield client

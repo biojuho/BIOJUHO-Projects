@@ -20,8 +20,23 @@ def client(monkeypatch):
     Setup TestClient with mock bypasses to simulate an authenticated E2E flow
     without requiring actual Firebase auth or a real Web3 connected environment.
     """
+    from unittest.mock import AsyncMock, MagicMock
+    import services.usage_middleware as _usage_mw
+    from services.user_tier import UserTier as _UserTier
+
     monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
+
+    # UsageGuard / TierRequired mock — ENTERPRISE 티어로 모든 가드 통과
+    stub_mgr = MagicMock()
+    stub_mgr.get_tier = AsyncMock(return_value=_UserTier.ENTERPRISE)
+    stub_mgr.check_and_increment = AsyncMock(return_value=(
+        True,
+        {"tier": "enterprise", "usage": {}},
+    ))
+    monkeypatch.setattr(_usage_mw, "get_tier_manager", lambda: stub_mgr)
+
     with TestClient(app_main.app) as test_client:
+        test_client.headers["Authorization"] = "Bearer test-token-bypass"
         yield test_client
 
 def test_full_e2e_upload_to_proposal_flow(client, monkeypatch):

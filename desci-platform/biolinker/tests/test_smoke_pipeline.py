@@ -107,11 +107,18 @@ def test_match_to_proposal_flow(sync_client, monkeypatch):
     monkeypatch.setattr(rfp_router, "get_vector_store", lambda: StubVectorStore())
     monkeypatch.setattr(rfp_router, "get_proposal_generator", lambda: StubProposalGenerator())
 
-    # [QA 수정] Tier manager mock — test user has Pro tier for /proposal/generate
-    from services.user_tier import UserTier, get_tier_manager
-    manager = get_tier_manager()
-    import asyncio
-    asyncio.run(manager.set_tier("test-user-id", UserTier.PRO))
+    # [QA 수정] Tier manager mock — ENTERPRISE 티어로 모든 가드 통과
+    from unittest.mock import AsyncMock as _AsyncMock
+    import services.usage_middleware as _usage_mw
+    from services.user_tier import UserTier as _UserTier
+
+    stub_mgr = MagicMock()
+    stub_mgr.get_tier = _AsyncMock(return_value=_UserTier.ENTERPRISE)
+    stub_mgr.check_and_increment = _AsyncMock(return_value=(
+        True,
+        {"tier": "enterprise", "usage": {"proposal_generation": {"used": 1, "limit": 999999, "remaining": 999998}}},
+    ))
+    monkeypatch.setattr(_usage_mw, "get_tier_manager", lambda: stub_mgr)
 
     auth_headers = {"Authorization": "Bearer test-token-bypass"}
 
