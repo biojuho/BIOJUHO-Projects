@@ -65,7 +65,7 @@ describe('AssetManager', () => {
         <AssetManager />
       </MemoryRouter>,
     );
-    expect(screen.getByText(/Asset Management/i)).toBeDefined();
+    expect(screen.getByText(/Asset Library/i)).toBeDefined();
   });
 
   it('renders file type selector', () => {

@@ -1,143 +1,163 @@
-/**
- * Shared i18n message maps for desci-frontend component tests.
- *
- * Centralises the large message objects that were previously duplicated
- * across every test file's vi.mock('LocaleContext') factory.
- *
- * Usage (async vi.mock pattern):
- *   vi.mock('../../contexts/LocaleContext', async () => {
- *     const { LAYOUT_MESSAGES, createLocaleMock } = await import('../mocks/locale-messages.js');
- *     return createLocaleMock(LAYOUT_MESSAGES);
- *   });
- */
-
-// ── Dashboard ──────────────────────────────────────────────────────────────
-
 export const DASHBOARD_MESSAGES = {
-  'dashboard.overview': 'Overview',
+  'dashboard.overview': 'Marketplace Overview',
   'dashboard.welcomeBack': 'Welcome back',
   'dashboard.researcherFallback': 'Researcher',
   'dashboard.networkActive': 'Network Active',
   'dashboard.papersUploaded': 'Papers Uploaded',
   'dashboard.vectorIndex': 'Vector Index',
   'dashboard.pendingReviews': 'Pending Reviews',
-  'dashboard.tokenBalance': 'Token Balance',
-  'dashboard.statLoading': 'Loading',
-  'dashboard.statDocuments': 'Documents',
+  'dashboard.tokenBalance': 'DSCI Balance',
+  'dashboard.statLoading': 'Syncing',
+  'dashboard.statDocuments': 'document basis',
   'dashboard.statComingSoon': 'Coming soon',
-  'dashboard.statIndexed': (v) => `${v.count} indexed`,
-  'dashboard.statUploadToStart': 'Upload to start',
+  'dashboard.statIndexed': '{count} indexed',
+  'dashboard.statUploadToStart': 'Upload your first paper to start',
   'dashboard.accountStatus': 'Account Status',
   'dashboard.identity': 'Identity',
   'dashboard.email': 'Email',
   'dashboard.provider': 'Provider',
   'dashboard.uid': 'UID',
   'dashboard.systemStatus': 'System Status',
-  'dashboard.backendConnectionFailed': 'Backend connection failed',
+  'dashboard.backendConnectionFailed': 'Backend connection status is unavailable.',
   'dashboard.node': 'Node',
   'dashboard.online': 'Online',
+  'dashboard.offline': 'Offline',
   'dashboard.role': 'Role',
   'dashboard.rolePrincipalInvestigator': 'Principal Investigator',
   'dashboard.sync': 'Sync',
   'dashboard.automated': 'Automated',
   'dashboard.quickActions': 'Quick Actions',
-  'dashboard.quickUploadTitle': 'Upload Paper',
-  'dashboard.quickUploadSubtitle': 'Mint IP-NFT',
-  'dashboard.quickGrantTitle': 'Find Grants',
-  'dashboard.quickGrantSubtitle': 'AI Matching',
-  'dashboard.quickVcTitle': 'VC Portal',
-  'dashboard.quickVcSubtitle': 'Strategic Partners',
-  'dashboard.strategicPartners': 'Strategic VC Partners',
+  'dashboard.quickUploadTitle': 'Submit new research',
+  'dashboard.quickUploadSubtitle': 'Register the paper, abstract, and rights package.',
+  'dashboard.quickGrantTitle': 'Open Funding Radar',
+  'dashboard.quickGrantSubtitle': 'Review active notices and deadlines quickly.',
+  'dashboard.quickVcTitle': 'Open Investor View',
+  'dashboard.quickVcSubtitle': 'Review VC fit and explainable deal flow.',
+  'dashboard.quickMatchTitle': 'Run Match Studio',
+  'dashboard.quickMatchSubtitle': 'Generate RFP fit scores and proposal drafts instantly.',
+  'dashboard.summary': 'Research submission, asset management, funding discovery, and investor matching are connected on one surface.',
+  'dashboard.researcherLane': 'Researcher lane',
+  'dashboard.funderLane': 'Funder lane',
+  'dashboard.laneResearcherBody': 'Manage paper uploads, review requests, asset minting, and AI-assisted writing from one place.',
+  'dashboard.laneFunderBody': 'Review opportunities, VC deal flow, matching rationale, and investment notes in one surface.',
+  'dashboard.strategicPartners': 'Strategic Investor Matches',
+  'dashboard.activityTitle': 'Today\'s flow',
+  'dashboard.activity1': 'Research submission and funding discovery are aligned in the same pipeline.',
+  'dashboard.activity2': 'Rewards, reviews, and notice responses are tracked in one operating feed.',
+  'dashboard.activity3': 'AI recommendations and investor matches are explained card by card.',
   'dashboard.beta': 'Beta',
+  'layout.biolinker': 'Match Studio',
 };
 
-// ── Layout ─────────────────────────────────────────────────────────────────
-
 export const LAYOUT_MESSAGES = {
-  'layout.dashboard': 'Dashboard',
-  'layout.biolinker': 'BioLinker',
-  'layout.paperUpload': 'Paper Upload',
-  'layout.myLab': 'My Lab',
-  'layout.notices': 'Notices',
-  'layout.vcPortal': 'VC Portal',
-  'layout.aiLab': 'AI Lab',
+  'layout.market': 'Market',
+  'layout.workspace': 'Workspace',
+  'layout.trust': 'Trust',
+  'layout.dashboard': 'Marketplace Overview',
+  'layout.biolinker': 'Match Studio',
+  'layout.paperUpload': 'Research Submission',
+  'layout.myLab': 'Research Vault',
+  'layout.notices': 'Funding Radar',
+  'layout.vcPortal': 'Investor View',
+  'layout.aiLab': 'AI Workbench',
   'layout.peerReview': 'Peer Review',
-  'layout.wallet': 'Wallet',
+  'layout.wallet': 'Rewards Wallet',
+  'layout.assets': 'Asset Library',
+  'layout.governance': 'Governance Hub',
   'layout.closeMenu': 'Close menu',
   'layout.openMenu': 'Open menu',
   'layout.researcher': 'Researcher',
-  'layout.signOut': 'Sign Out',
-  'layout.signOutAria': 'Sign Out',
+  'layout.signOut': 'Sign out',
   'layout.notifications': 'Notifications',
   'layout.markAllRead': 'Mark all read',
-  'layout.viewAllNotifications': 'View all notifications',
-  'layout.connectWallet': 'Connect Wallet',
-  'layout.walletConnectedTitle': 'Wallet connected',
-  'layout.walletConnectedDesc': (v) => `Connected wallet ${v.address ?? ''}`.trim(),
-  'layout.walletConnectFailed': 'Wallet connection failed',
+  'layout.connectWallet': 'Connect wallet',
+  'layout.walletConnectedDesc': 'Connected wallet {address}.',
+  'layout.walletConnectFailed': 'Wallet connection failed.',
+  'layout.brandSubtitle': 'The decentralized science marketplace',
+  'layout.headerTitle': 'DSCI Marketplace Command Center',
+  'layout.headerSubtitle': 'Operate research, capital, and governance from one surface.',
+  'layout.signedInAs': 'Signed in as',
+  'layout.notificationGrantTitle': 'New opportunity detected',
+  'layout.notificationGrantDesc': 'Three matched notices were added to the Match Studio queue.',
+  'layout.notificationReviewTitle': 'Review request received',
+  'layout.notificationReviewDesc': 'Two review-ready papers were added to the Peer Review board.',
+  'layout.notificationAirdropTitle': 'Reward settlement complete',
+  'layout.notificationAirdropDesc': 'Recent DSCI activity has been reflected in the connected wallet.',
+  'layout.timeNow': 'Now',
+  'layout.timeHourAgo': '1 hour ago',
+  'layout.timeDaysAgo': '{count} days ago',
+  'locale.shortKo': 'KO',
+  'locale.shortEn': 'EN',
+  'locale.switchLabel': 'Switch language',
+  'footer.tagline': 'DSCI is the decentralized science marketplace connecting researchers and funders.',
+  'footer.company': 'Operator',
+  'footer.address': '309-1312, 21, Gwanpyeong-ro 212beon-gil, Dongan-gu, Anyang-si, Gyeonggi-do',
+  'footer.rights': 'All rights reserved.',
 };
 
-// ── UploadPaper + AssetManager ─────────────────────────────────────────────
-
 export const UPLOAD_MESSAGES = {
-  'uploadPaper.statusPreparing': 'Upload processing...',
-  'uploadPaper.validationRequired': 'All required fields must be filled.',
-  'uploadPaper.validationTerms': 'Please agree to the copyright and open access policy.',
-  'uploadPaper.statusUploading': 'Uploading paper to IPFS...',
-  'uploadPaper.statusMinting': 'Minting IP-NFT...',
-  'uploadPaper.statusRewarding': 'Distributing DSCI rewards...',
-  'uploadPaper.rewardSuccess': ' Rewards delivered.',
-  'uploadPaper.rewardDelayed': ' Reward transaction delayed.',
-  'uploadPaper.rewardSkipped': ' Reward skipped.',
-  'uploadPaper.uploadSuccess': (v) => `Paper uploaded successfully!${v.rewardMessage ?? ''}`,
+  'layout.workspace': 'Workspace',
+  'layout.trust': 'Trust',
+  'uploadPaper.statusPreparing': 'Preparing upload...',
+  'uploadPaper.validationRequired': 'Please fill in all required fields.',
+  'uploadPaper.validationTerms': 'Please agree to the rights and open access policy.',
+  'uploadPaper.statusUploading': 'Uploading your paper...',
+  'uploadPaper.statusMinting': 'Minting the IP-NFT...',
+  'uploadPaper.statusRewarding': 'Settling DSCI rewards...',
+  'uploadPaper.rewardSuccess': ' Minting and rewards are complete.',
+  'uploadPaper.rewardDelayed': ' Web3 rewards need a little more time.',
+  'uploadPaper.rewardSkipped': ' Rewards were skipped because no wallet is connected.',
+  'uploadPaper.uploadSuccess': 'Research submission complete.{rewardMessage}',
   'uploadPaper.uploadFailed': 'Upload failed.',
-  'uploadPaper.title': 'Research Upload',
-  'uploadPaper.subtitle': 'Register a new research paper in the DeSci ecosystem.',
-  'uploadPaper.fileDropTitle': 'Click here or drag a PDF file to upload',
-  'uploadPaper.fileDropDescription': 'Up to 50MB, PDF only',
-  'uploadPaper.titleLabel': 'Paper Title',
-  'uploadPaper.titlePlaceholder': 'Ex) A novel approach to targeted CRISPR-Cas9...',
+  'uploadPaper.title': 'Research Submission',
+  'uploadPaper.subtitle': 'Register the paper, abstract, and rights package to start discovery and reward flows.',
+  'uploadPaper.fileDropTitle': 'Click or drag a PDF file to upload.',
+  'uploadPaper.fileDropDescription': 'Up to 50MB, PDF only.',
+  'uploadPaper.titleLabel': 'Paper title',
+  'uploadPaper.titlePlaceholder': 'Example: A novel approach to targeted CRISPR-Cas9...',
   'uploadPaper.authorsLabel': 'Authors',
-  'uploadPaper.authorsPlaceholder': 'Ex) John Doe, Jane Smith (comma separated)',
+  'uploadPaper.authorsPlaceholder': 'Example: John Doe, Jane Smith',
   'uploadPaper.abstractLabel': 'Abstract',
-  'uploadPaper.abstractPlaceholder': 'Summarize the key findings...',
-  'uploadPaper.agreementLabel': '[Required] Creative Commons (CC) license and open access agreement',
-  'uploadPaper.agreementDescription': 'Agree to permanent open access storage on IPFS.',
-  'uploadPaper.submit': 'Store on IPFS and register paper',
+  'uploadPaper.abstractPlaceholder': 'Summarize the key findings and why they matter.',
+  'uploadPaper.agreementLabel': '[Required] I agree to the Creative Commons license and open archive policy.',
+  'uploadPaper.agreementDescription': 'This enables IPFS storage, reward settlement, and proof of contribution.',
+  'uploadPaper.submit': 'Store on IPFS and register submission',
   'assetManager.loadFailed': 'Failed to load assets.',
   'assetManager.uploadSuccess': 'Asset uploaded successfully.',
   'assetManager.uploadFailed': 'Failed to upload asset.',
-  'assetManager.title': 'Asset Management',
-  'assetManager.uploadTitle': 'Upload Company Asset',
-  'assetManager.uploadDescription': 'PDF, TXT supported. Max 10MB.',
-  'assetManager.selectFile': 'Select File',
+  'assetManager.title': 'Asset Library',
+  'assetManager.uploadTitle': 'Upload team asset',
+  'assetManager.uploadDescription': 'Add decks, patents, and technical files that improve matching quality.',
+  'assetManager.selectFile': 'Select file',
   'assetManager.uploading': 'Uploading...',
-  'assetManager.myAssets': 'My Assets',
+  'assetManager.myAssets': 'Tracked assets',
   'assetManager.empty': 'No assets uploaded yet.',
   'assetManager.typeIr': 'IR Deck / Pitch',
   'assetManager.typePaper': 'Technical Paper',
   'assetManager.typePatent': 'Patent Doc',
-  'assetManager.typeGeneral': 'Other',
+  'assetManager.typeGeneral': 'General Asset',
   'assetManager.pinned': 'Pinned',
-  'assetManager.pending': 'Pending...',
+  'assetManager.pending': 'Processing',
+  'assetManager.refresh': 'Refresh',
+  'common.loading': 'Loading...',
 };
 
-// ── Factory helper ─────────────────────────────────────────────────────────
-
-/**
- * Create a `useLocale` mock from a message map.
- * Handles both plain string values and function values (for interpolation).
- *
- * @param {Record<string, string | ((v: object) => string)>} messages
- */
 export function createLocaleMock(messages) {
+  const t = (key, values = {}) => {
+    const entry = messages[key];
+    if (typeof entry !== 'string') return entry || key;
+    return entry.replace(/\{(\w+)\}/g, (_, token) => String(values[token] ?? ''));
+  };
+
+  const localeState = {
+    locale: 'en-US',
+    outputLanguage: 'en',
+    setLocale: () => {},
+    toggleLocale: () => {},
+    t,
+  };
+
   return {
-    useLocale: () => ({
-      t: (key, values = {}) => {
-        const entry = messages[key];
-        if (typeof entry === 'function') return entry(values);
-        return entry || key;
-      },
-    }),
+    useLocale: () => localeState,
   };
 }

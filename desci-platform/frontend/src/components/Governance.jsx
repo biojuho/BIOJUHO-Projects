@@ -1,21 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Vote, Plus, CheckCircle, XCircle, Clock, Zap, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Scale, Vote } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useLocale } from '../contexts/LocaleContext';
 import api from '../services/api';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import GlassCard from './ui/GlassCard';
 import { Input } from './ui/Input';
-import { Card, CardContent } from './ui/Card';
-
-const STATE_LABELS = {
-  0: { text: 'Pending', variant: 'warning' },
-  1: { text: 'Active', variant: 'info' },
-  2: { text: 'Passed', variant: 'success' },
-  3: { text: 'Rejected', variant: 'error' },
-  4: { text: 'Executed', variant: 'accent' },
-};
 
 export default function Governance() {
   const [proposals, setProposals] = useState([]);
@@ -25,18 +18,26 @@ export default function Governance() {
   const [newDesc, setNewDesc] = useState('');
   const { walletAddress } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLocale();
+
+  const stateLabels = useMemo(() => ({
+    0: { text: t('governance.statePending'), variant: 'warning' },
+    1: { text: t('governance.stateActive'), variant: 'info' },
+    2: { text: t('governance.statePassed'), variant: 'success' },
+    3: { text: t('governance.stateRejected'), variant: 'error' },
+    4: { text: t('governance.stateExecuted'), variant: 'accent' },
+  }), [t]);
 
   useEffect(() => {
     loadProposals();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProposals = async () => {
     try {
-      const res = await api.get('/governance/proposals');
-      setProposals(res.data);
+      const response = await api.get('/governance/proposals');
+      setProposals(response.data);
     } catch (_err) {
-      showToast('Failed to load proposals', 'error');
+      showToast(t('governance.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -44,180 +45,131 @@ export default function Governance() {
 
   const handleCreate = async () => {
     if (!newTitle.trim() || !newDesc.trim()) {
-      showToast('Title and description required', 'warning');
+      showToast(t('governance.validation'), 'warning');
       return;
     }
+
     try {
       await api.post('/governance/proposals', {
         title: newTitle,
         description: newDesc,
         proposer: walletAddress,
       });
-      showToast('Proposal created successfully!', 'success');
+      showToast(t('governance.createSuccess'), 'success');
       setNewTitle('');
       setNewDesc('');
       setShowCreate(false);
       loadProposals();
     } catch (err) {
-      showToast(err.response?.data?.detail || 'Failed to create proposal', 'error');
+      showToast(err.response?.data?.detail || t('governance.createFailed'), 'error');
     }
   };
 
   const handleVote = async (proposalId, support) => {
     try {
-      await api.post(`/governance/proposals/${proposalId}/vote`, {
-        voter: walletAddress,
-        support,
-      });
-      showToast(`Vote cast: ${support ? 'For' : 'Against'}`, 'success');
+      await api.post(`/governance/proposals/${proposalId}/vote`, { voter: walletAddress, support });
+      showToast(t(support ? 'governance.voteSuccessFor' : 'governance.voteSuccessAgainst'), 'success');
       loadProposals();
     } catch (err) {
-      showToast(err.response?.data?.detail || 'Vote failed', 'error');
+      showToast(err.response?.data?.detail || t('governance.voteFailed'), 'error');
     }
   };
 
   if (loading) {
     return (
-      <div className="animate-pulse space-y-4 p-8">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 rounded-2xl bg-white/5" />
+      <div className="space-y-4">
+        {[1, 2, 3].map((index) => (
+          <div key={index} className="glass-card h-28 animate-pulse" />
         ))}
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-            DAO Governance
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            DSCI 토큰 기반 탈중앙화 의사결정
-          </p>
+    <div className="space-y-6">
+      <GlassCard className="p-7">
+        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="clay-chip mb-4">{t('layout.trust')}</p>
+            <h1 className="font-display text-4xl font-semibold text-ink">{t('governance.title')}</h1>
+            <p className="mt-3 text-sm leading-7 text-ink-muted">{t('governance.subtitle')}</p>
+          </div>
+          <Button variant="outline" onClick={() => setShowCreate((value) => !value)}>
+            <Plus className="h-4 w-4" />
+            {t('governance.newProposal')}
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setShowCreate(!showCreate)}
-          className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
-        >
-          <Plus className="w-4 h-4" />
-          New Proposal
-        </Button>
-      </div>
+      </GlassCard>
 
-      {/* Create Form */}
       <AnimatePresence>
         {showCreate && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-8 p-6 rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-lg"
-          >
-            <h2 className="text-lg font-semibold text-purple-300 mb-4">Create Proposal</h2>
-            <input
-              type="text"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Proposal title..."
-              className="w-full mb-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
-            />
-            <textarea
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              placeholder="Describe your proposal in detail..."
-              rows={4}
-              className="w-full mb-4 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 resize-none"
-            />
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleCreate}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                Submit Proposal
-              </Button>
-              <span className="text-xs text-gray-500">Requires 100+ DSCI tokens</span>
-            </div>
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+            <GlassCard className="p-6">
+              <h2 className="mb-4 font-display text-2xl font-semibold text-ink">{t('governance.createTitle')}</h2>
+              <div className="space-y-3">
+                <Input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder={t('governance.proposalTitle')} />
+                <textarea value={newDesc} onChange={(event) => setNewDesc(event.target.value)} placeholder={t('governance.proposalDescription')} rows={5} className="clay-input resize-none" />
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <p className="text-sm text-ink-muted">{t('governance.requiresTokens')}</p>
+                  <Button onClick={handleCreate} className="justify-center text-white">{t('governance.submitProposal')}</Button>
+                </div>
+              </div>
+            </GlassCard>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Proposals List */}
       <div className="space-y-4">
         {proposals.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
-            <Vote className="w-12 h-12 mx-auto mb-4 opacity-30" />
-            <p className="text-lg">No proposals yet</p>
-            <p className="text-sm mt-1">Be the first to create a governance proposal!</p>
-          </div>
+          <GlassCard className="p-10 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white text-primary shadow-clay-soft">
+              <Vote className="h-10 w-10" />
+            </div>
+            <h3 className="font-display text-3xl font-semibold text-ink">{t('governance.noProposals')}</h3>
+            <p className="mt-3 text-sm text-ink-muted">{t('governance.noProposalsHint')}</p>
+          </GlassCard>
         ) : (
-          proposals.map((p, idx) => {
-            const state = STATE_LABELS[p.state] || STATE_LABELS[0];
-            const totalVotes = (p.for_votes || 0) + (p.against_votes || 0);
-            const forPct = totalVotes > 0 ? ((p.for_votes || 0) / totalVotes) * 100 : 0;
+          proposals.map((proposal, index) => {
+            const state = stateLabels[proposal.state] || stateLabels[0];
+            const totalVotes = (proposal.for_votes || 0) + (proposal.against_votes || 0);
+            const forPct = totalVotes > 0 ? ((proposal.for_votes || 0) / totalVotes) * 100 : 0;
 
             return (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-lg hover:border-white/20 transition-all"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">{p.title}</h3>
-                    <p className="text-sm text-gray-400 mt-1 line-clamp-2">{p.description}</p>
+              <motion.div key={proposal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06 }}>
+                <GlassCard className="p-6">
+                  <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="flex-1">
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-clay-soft">
+                          <Scale className="h-5 w-5" />
+                        </div>
+                        <Badge variant={state.variant}>{state.text}</Badge>
+                      </div>
+                      <h3 className="font-display text-2xl font-semibold text-ink">{proposal.title}</h3>
+                      <p className="mt-3 text-sm leading-7 text-ink-muted">{proposal.description}</p>
+                    </div>
                   </div>
-                  <Badge variant={state.variant}>
-                    {state.text}
-                  </Badge>
-                </div>
 
-                {/* Vote Bar */}
-                <div className="mt-4 mb-3">
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span className="text-green-400">For: {p.for_votes || 0} DSCI</span>
-                    <span className="text-red-400">Against: {p.against_votes || 0} DSCI</span>
+                  <div className="clay-panel-pressed rounded-[1.6rem] p-4">
+                    <div className="mb-2 flex justify-between text-sm text-ink-muted">
+                      <span>{t('governance.votesFor')}: {proposal.for_votes || 0}</span>
+                      <span>{t('governance.votesAgainst')}: {proposal.against_votes || 0}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/70">
+                      <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${forPct}%` }} />
+                    </div>
                   </div>
-                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all"
-                      style={{ width: `${forPct}%` }}
-                    />
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-3 mt-4">
-                  {p.state === 1 && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleVote(p.id, true)}
-                        className="bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20"
-                      >
-                        <CheckCircle className="w-4 h-4" /> For
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleVote(p.id, false)}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
-                      >
-                        <XCircle className="w-4 h-4" /> Against
-                      </Button>
-                    </>
-                  )}
-                  <div className="flex items-center gap-1 text-xs text-gray-500 ml-auto">
-                    <Clock className="w-3 h-3" />
-                    {new Date(p.end_time).toLocaleDateString()}
+                  <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <span className="text-sm text-ink-muted">{t('governance.endDate')}: {new Date(proposal.end_time).toLocaleDateString()}</span>
+                    {proposal.state === 1 && (
+                      <div className="flex gap-2">
+                        <Button variant="success" size="sm" onClick={() => handleVote(proposal.id, true)}>{t('governance.voteFor')}</Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleVote(proposal.id, false)}>{t('governance.voteAgainst')}</Button>
+                      </div>
+                    )}
                   </div>
-                </div>
+                </GlassCard>
               </motion.div>
             );
           })

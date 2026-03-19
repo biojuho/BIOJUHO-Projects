@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Loader2, Upload, FileText, FlaskConical, ExternalLink, Sparkles } from 'lucide-react';
+import { ExternalLink, FileText, FlaskConical, Loader2, Sparkles, Upload } from 'lucide-react';
 import { motion } from 'framer-motion';
 import SuccessModal from './ui/SuccessModal';
 import GlassCard from './ui/GlassCard';
@@ -7,50 +7,40 @@ import { useMyLab } from '../hooks/useMyLab';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-
-const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-};
-
 const MotionDiv = motion.div;
 
 export default function MyLab() {
-    const { papers, isLoading, mintingIds, isSuccessModalOpen, mintResult, mintNFT, closeSuccessModal } = useMyLab();
+    const { papers, isLoading, mintingIds, isSuccessModalOpen, mintResult, mintNFT, closeSuccessModal, t } = useMyLab();
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center min-h-[60vh]">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="animate-spin text-primary" size={48} />
-                    <p className="text-gray-400 text-sm">Loading your research...</p>
+            <div className="glass-card flex min-h-[50vh] items-center justify-center p-8">
+                <div className="text-center">
+                    <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-primary" />
+                    <p className="text-sm text-ink-muted">{t('myLab.loading')}</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <MotionDiv className="space-y-8" variants={containerVariants} initial="hidden" animate="show">
-            {/* Header */}
-            <MotionDiv variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
-                        <FlaskConical className="w-10 h-10 text-primary" />
-                        My Research Lab
-                    </h1>
-                    <p className="text-gray-400 mt-2">Manage your research papers and mint IP-NFTs</p>
+        <MotionDiv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="glass-card p-7">
+                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p className="clay-chip mb-4">{t('layout.workspace')}</p>
+                        <h1 className="flex items-center gap-3 font-display text-4xl font-semibold text-ink">
+                            <FlaskConical className="h-8 w-8 text-primary" />
+                            {t('myLab.title')}
+                        </h1>
+                        <p className="mt-3 text-sm leading-7 text-ink-muted">{t('myLab.subtitle')}</p>
+                    </div>
+                    <Link to="/upload" className="clay-button clay-button-primary justify-center text-white">
+                        <Upload className="h-4 w-4" />
+                        {papers.length ? t('myLab.uploadAnother') : t('myLab.uploadCta')}
+                    </Link>
                 </div>
-                <Link
-                    to="/upload"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:opacity-90 transition-all shadow-lg shadow-cyan-500/20 font-medium"
-                >
-                    <Upload size={18} /> Upload Paper
-                </Link>
-            </MotionDiv>
+            </div>
 
             <SuccessModal
                 isOpen={isSuccessModalOpen}
@@ -61,70 +51,49 @@ export default function MyLab() {
             />
 
             {papers.length === 0 ? (
-                <MotionDiv variants={itemVariants}>
-                    <GlassCard className="text-center py-16 px-8">
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-white/5 flex items-center justify-center">
-                            <FileText size={40} className="text-gray-500" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-white mb-3">No Research Papers Yet</h3>
-                        <p className="text-gray-400 mb-8 max-w-md mx-auto">
-                            Start your DeSci journey by uploading your first research paper and mint it as an IP-NFT.
-                        </p>
-                        <Link
-                            to="/upload"
-                            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:opacity-90 transition-all shadow-lg shadow-cyan-500/20 font-semibold"
-                        >
-                            <Upload size={20} /> Upload Your First Paper
-                        </Link>
-                    </GlassCard>
-                </MotionDiv>
+                <GlassCard className="p-10 text-center">
+                    <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white text-primary shadow-clay-soft">
+                        <FileText className="h-10 w-10" />
+                    </div>
+                    <h3 className="font-display text-3xl font-semibold text-ink">{t('myLab.emptyTitle')}</h3>
+                    <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-ink-muted">{t('myLab.emptyDescription')}</p>
+                    <Link to="/upload" className="clay-button clay-button-primary mt-6 inline-flex text-white">
+                        <Upload className="h-4 w-4" />
+                        {t('myLab.uploadCta')}
+                    </Link>
+                </GlassCard>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {papers.map((paper, index) => (
-                        <GlassCard key={paper.id} delay={index * 0.1} hoverEffect={true} className="flex flex-col">
-                            <div className="flex justify-between items-start mb-4">
-                                <Badge variant="default" className="uppercase tracking-wide">
-                                    {paper.type || "Paper"}
+                        <GlassCard key={paper.id} delay={index * 0.06} hoverEffect className="flex flex-col p-6">
+                            <div className="mb-4 flex items-start justify-between gap-3">
+                                <Badge variant={paper.nft_minted ? 'success' : 'default'}>
+                                    {paper.nft_minted ? t('myLab.minted') : (paper.type || t('myLab.paperFallback'))}
                                 </Badge>
-                                <span className="text-xs text-gray-500">
-                                    {paper.created_at ? new Date(paper.created_at).toLocaleDateString() : "Unknown date"}
-                                </span>
+                                <span className="text-xs text-ink-soft">{paper.created_at ? new Date(paper.created_at).toLocaleDateString() : t('myLab.unknownDate')}</span>
                             </div>
 
-                            <h3 className="text-lg font-bold text-white mb-3 line-clamp-2 min-h-[3rem]">
-                                {paper.title}
-                            </h3>
-                            <p className="text-gray-400 text-sm mb-6 line-clamp-3 flex-1">
-                                {paper.abstract || "No abstract available."}
-                            </p>
+                            <h3 className="line-clamp-2 font-display text-2xl font-semibold text-ink">{paper.title}</h3>
+                            <p className="mt-3 line-clamp-3 flex-1 text-sm leading-7 text-ink-muted">{paper.abstract || t('myLab.noAbstract')}</p>
 
-                            <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-auto">
-                                {paper.ipfs_url && (
-                                    <a
-                                        href={paper.ipfs_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-sm text-gray-400 hover:text-white flex items-center gap-1 transition-colors"
-                                        aria-label="View on IPFS"
-                                    >
-                                        <ExternalLink size={14} /> IPFS
+                            <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/60 pt-4">
+                                {paper.ipfs_url ? (
+                                    <a href={paper.ipfs_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-ink hover:text-primary">
+                                        <ExternalLink className="h-4 w-4" />
+                                        {t('myLab.ipfs')}
                                     </a>
+                                ) : (
+                                    <span className="text-sm text-ink-soft">{t('myLab.ipfs')}</span>
                                 )}
                                 <Button
                                     onClick={() => mintNFT(paper)}
-                                    disabled={mintingIds[paper.id]}
-                                    aria-label={mintingIds[paper.id] ? "Minting in progress" : "Mint IP-NFT"}
+                                    disabled={paper.nft_minted || mintingIds[paper.id]}
                                     size="sm"
-                                    className={mintingIds[paper.id]
-                                        ? "bg-white/5 text-gray-500"
-                                        : "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg shadow-purple-500/20 hover:-translate-y-0.5 hover:shadow-xl"
-                                    }
+                                    className="justify-center text-white"
                                 >
-                                    {mintingIds[paper.id] ? (
-                                        <><Loader2 size={16} className="animate-spin" /> Minting...</>
-                                    ) : (
-                                        <><Sparkles size={16} /> Mint IP-NFT</>
-                                    )}
+                                    {mintingIds[paper.id]
+                                        ? <><Loader2 className="h-4 w-4 animate-spin" />{t('myLab.minting')}</>
+                                        : <><Sparkles className="h-4 w-4" />{t('myLab.mintAction')}</>}
                                 </Button>
                             </div>
                         </GlassCard>

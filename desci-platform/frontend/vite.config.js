@@ -10,7 +10,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/__tests__/setup.jsx"],
     exclude: ["tests/e2e/**", "node_modules/**"],
-    pool: "forks",
+    // Windows worker startup was timing out with forks in this suite.
+    pool: "threads",
     fileParallelism: false,
     minWorkers: 1,
     maxWorkers: 1,

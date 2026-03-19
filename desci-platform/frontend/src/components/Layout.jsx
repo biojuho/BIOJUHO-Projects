@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
     LayoutDashboard,
-    Dna,
+    Sparkles,
     Upload,
     FlaskConical,
     Wallet,
@@ -11,337 +12,261 @@ import {
     X,
     Building2,
     Bell,
-    ChevronDown,
+    ChevronRight,
     Newspaper,
     Cpu,
-    MessageSquare
+    MessageSquare,
+    Library,
+    Scale,
 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Footer from './Footer';
+import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useToast } from '../contexts/ToastContext';
+import Footer from './Footer';
+import LocaleToggle from './ui/LocaleToggle';
+
+const MotionDiv = motion.div;
+
+function formatAddress(address) {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 export default function Layout({ children }) {
     const { user, logout, walletAddress, connectWallet } = useAuth();
     const { t } = useLocale();
+    const { showToast } = useToast();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
-    const MotionDiv = motion.div;
 
-    const [notifications, setNotifications] = useState([
-        { id: 1, title: '연구 지원 승인', desc: '연구 DAO "GenCore"가 150 USDC를 수령했습니다.', time: '1시간 전', unread: true },
-        { id: 2, title: '새로운 피어 리뷰', desc: '최신 제출물에 대한 리뷰가 도착했습니다.', time: '3시간 전', unread: true },
-        { id: 3, title: '토큰 에어드롭', desc: '초기 연구자 보상을 확인하세요.', time: '2일 전', unread: false },
-    ]);
+    const notifications = useMemo(() => ([
+        { id: 1, title: t('layout.notificationGrantTitle'), desc: t('layout.notificationGrantDesc'), time: t('layout.timeNow') },
+        { id: 2, title: t('layout.notificationReviewTitle'), desc: t('layout.notificationReviewDesc'), time: t('layout.timeHourAgo') },
+        { id: 3, title: t('layout.notificationAirdropTitle'), desc: t('layout.notificationAirdropDesc'), time: t('layout.timeDaysAgo', { count: 1 }) },
+    ]), [t]);
 
-    const addNotification = useCallback((title, desc) => {
-        const newNotif = {
-            id: Date.now(),
-            title,
-            desc,
-            time: '방금',
-            unread: true
-        };
-        setNotifications(prev => [newNotif, ...prev]);
-    }, []);
+    const navGroups = [
+        {
+            title: t('layout.market'),
+            items: [
+                { name: t('layout.dashboard'), href: '/dashboard', icon: LayoutDashboard },
+                { name: t('layout.notices'), href: '/notices', icon: Newspaper },
+                { name: t('layout.vcPortal'), href: '/vc-portal', icon: Building2 },
+                { name: t('layout.biolinker'), href: '/biolinker', icon: Sparkles },
+            ],
+        },
+        {
+            title: t('layout.workspace'),
+            items: [
+                { name: t('layout.paperUpload'), href: '/upload', icon: Upload },
+                { name: t('layout.myLab'), href: '/mylab', icon: FlaskConical },
+                { name: t('layout.aiLab'), href: '/ai-lab', icon: Cpu },
+                { name: t('layout.peerReview'), href: '/peer-review', icon: MessageSquare },
+            ],
+        },
+        {
+            title: t('layout.trust'),
+            items: [
+                { name: t('layout.wallet'), href: '/wallet', icon: Wallet },
+                { name: t('layout.assets'), href: '/assets', icon: Library },
+                { name: t('layout.governance'), href: '/governance', icon: Scale },
+            ],
+        },
+    ];
 
     const handleConnectWallet = async () => {
         const result = await connectWallet();
         if (result.success) {
-            addNotification(
-                t('layout.walletConnectedTitle'),
-                t('layout.walletConnectedDesc', { address: formatAddress(result.address) }),
-            );
-        } else {
-            alert(result.error || t('layout.walletConnectFailed'));
+            showToast({ key: 'layout.walletConnectedDesc', values: { address: formatAddress(result.address) } }, 'success');
+            return;
         }
+
+        alert(result.error || t('layout.walletConnectFailed'));
     };
-
-    const formatAddress = (address) => {
-        if (!address) return '';
-        return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-    };
-
-    const navigation = [
-        { name: t('layout.dashboard'), href: '/dashboard', icon: LayoutDashboard },
-        { name: t('layout.biolinker'), href: '/biolinker', icon: Dna },
-        { name: t('layout.paperUpload'), href: '/upload', icon: Upload },
-        { name: t('layout.myLab'), href: '/mylab', icon: FlaskConical },
-        { name: t('layout.notices'), href: '/notices', icon: Newspaper },
-        { name: t('layout.vcPortal'), href: '/vc-portal', icon: Building2 },
-        { name: t('layout.aiLab'), href: '/ai-lab', icon: Cpu },
-        { name: t('layout.peerReview'), href: '/peer-review', icon: MessageSquare },
-        { name: t('layout.wallet'), href: '/wallet', icon: Wallet },
-    ];
-
-    const isActive = (path) => location.pathname === path;
-
-    const closeMobileMenu = useCallback(() => {
-        setIsMobileMenuOpen(false);
-    }, []);
-
-    const handleKeyDown = useCallback((e) => {
-        if (e.key === 'Escape' && isMobileMenuOpen) {
-            setIsMobileMenuOpen(false);
-        }
-    }, [isMobileMenuOpen]);
-
-    useEffect(() => {
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [handleKeyDown]);
-
-    useEffect(() => {
-        if (isMobileMenuOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [isMobileMenuOpen]);
 
     return (
-        <div className="min-h-screen relative">
-            {/* Ambient background */}
+        <div className="relative min-h-screen">
             <div className="ambient-bg" aria-hidden="true" />
-
-            {/* Floating glow orbs */}
-            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-                <div className="glow-orb glow-orb-primary w-[600px] h-[600px] -top-60 left-[10%] animate-blob" />
-                <div className="glow-orb glow-orb-accent w-[500px] h-[500px] top-[40%] -right-40 animate-blob animation-delay-4000" />
-                <div className="glow-orb glow-orb-highlight w-[300px] h-[300px] bottom-[10%] left-[30%] animate-blob animation-delay-6000" />
+            <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+                <div className="hero-orb hero-orb-mint left-[6%] top-[10%] h-40 w-40 animate-float" />
+                <div className="hero-orb hero-orb-sky right-[10%] top-[8%] h-48 w-48 animate-float" />
+                <div className="hero-orb hero-orb-peach bottom-[12%] left-[28%] h-36 w-36 animate-float" />
             </div>
 
-            {/* Mobile Header */}
-            <header className="lg:hidden flex items-center justify-between p-4 glass border-b border-white/[0.06] sticky top-0 z-40">
-                <Link to="/dashboard" className="flex items-center gap-2.5">
-                    <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, rgba(0,212,170,0.15), rgba(99,102,241,0.15))' }}>
-                        <Dna className="w-5 h-5 text-primary" aria-hidden="true" />
-                    </div>
-                    <span className="font-display text-lg font-bold text-white tracking-tight">DSCI</span>
-                </Link>
-                <button
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="p-2 text-white/70 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
-                    aria-expanded={isMobileMenuOpen}
-                    aria-controls="mobile-menu"
-                    aria-label={isMobileMenuOpen ? t('layout.closeMenu') : t('layout.openMenu')}
-                >
-                    {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-                </button>
-            </header>
-
-            <div className="flex min-h-screen relative z-10">
-                {/* Sidebar */}
-                <aside
-                    id="mobile-menu"
-                    role="navigation"
-                    aria-label="Main navigation"
-                    className={`
-                        fixed lg:static inset-y-0 left-0 z-50 w-[260px] transform transition-transform duration-300 ease-smooth
-                        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                        bg-[#040811]/90 backdrop-blur-2xl border-r border-white/[0.04] p-5 flex flex-col justify-between
-                    `}
-                >
-                    <div>
-                        {/* Desktop Logo */}
-                        <Link
-                            to="/dashboard"
-                            className="hidden lg:flex items-center gap-3 mb-10 px-3 py-2 group"
-                        >
-                            <div className="p-2 rounded-xl relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(99,102,241,0.12))' }}>
-                                <Dna className="w-6 h-6 text-primary relative z-10 group-hover:scale-110 transition-transform" aria-hidden="true" />
-                            </div>
-                            <div>
-                                <h1 className="font-display font-bold text-lg leading-none text-white tracking-tight">DSCI</h1>
-                                <p className="text-[11px] text-white/30 mt-0.5 tracking-wider uppercase">DecentBio</p>
-                            </div>
-                        </Link>
-
-                        <nav className="space-y-1" aria-label="Sidebar navigation">
-                            {navigation.map((item) => {
-                                const Icon = item.icon;
-                                const active = isActive(item.href);
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        onClick={closeMobileMenu}
-                                        aria-current={active ? 'page' : undefined}
-                                        className={`
-                                            flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden group
-                                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#040811]
-                                            ${active
-                                                ? 'text-white'
-                                                : 'text-white/40 hover:text-white/80 hover:bg-white/[0.03]'}
-                                        `}
-                                    >
-                                        {active && (
-                                            <MotionDiv
-                                                layoutId="activeTab"
-                                                className="absolute inset-0 rounded-xl"
-                                                style={{
-                                                    background: 'linear-gradient(135deg, rgba(0,212,170,0.12), rgba(99,102,241,0.08))',
-                                                    border: '1px solid rgba(0,212,170,0.15)',
-                                                }}
-                                                initial={false}
-                                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                                aria-hidden="true"
-                                            />
-                                        )}
-                                        {active && (
-                                            <MotionDiv
-                                                layoutId="activeIndicator"
-                                                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-primary"
-                                                initial={false}
-                                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                                aria-hidden="true"
-                                            />
-                                        )}
-                                        <div className="relative z-10 flex items-center gap-3">
-                                            <Icon className={`w-[18px] h-[18px] ${active ? 'text-primary' : 'group-hover:text-white/60'}`} aria-hidden="true" />
-                                            <span className="text-sm font-medium">{item.name}</span>
-                                        </div>
-                                    </Link>
-                                );
-                            })}
-                        </nav>
-                    </div>
-
-                    {/* User section */}
-                    <div className="pt-5 border-t border-white/[0.04] mt-auto">
-                        <div className="flex items-center gap-3 px-3 mb-3">
-                            {user?.photoURL ? (
-                                <img
-                                    src={user.photoURL}
-                                    alt={`${user?.displayName || 'User'}'s profile`}
-                                    className="w-9 h-9 rounded-xl border border-white/10 object-cover"
-                                />
-                            ) : (
-                                <div
-                                    className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white"
-                                    style={{ background: 'linear-gradient(135deg, rgba(0,212,170,0.3), rgba(99,102,241,0.3))' }}
-                                    aria-hidden="true"
-                                >
-                                    {user?.email?.[0].toUpperCase()}
-                                </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-white/80 truncate">
-                                    {user?.displayName || t('layout.researcher')}
-                                </p>
-                                <p className="text-[11px] text-white/30 truncate">{user?.email}</p>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={logout}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-white/30 hover:text-red-400 hover:bg-red-500/[0.06] rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-                            aria-label={t('layout.signOutAria')}
-                        >
-                            <LogOut className="w-[18px] h-[18px]" aria-hidden="true" />
-                            <span className="text-sm font-medium">{t('layout.signOut')}</span>
-                        </button>
-                    </div>
-                </aside>
-
-                {/* Overlay for mobile */}
+            <div className="relative z-10 flex min-h-screen gap-5 px-3 pb-4 pt-3 lg:px-5 lg:pt-5">
                 <AnimatePresence>
-                    {isMobileMenuOpen && (
+                    {(isMobileMenuOpen || typeof window === 'undefined') && (
                         <MotionDiv
                             initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
+                            animate={{ opacity: isMobileMenuOpen ? 1 : 0 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
+                            className={`fixed inset-0 z-30 bg-[#d9cdbf]/35 backdrop-blur-sm lg:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`}
                             onClick={() => setIsMobileMenuOpen(false)}
-                            aria-hidden="true"
                         />
                     )}
                 </AnimatePresence>
 
-                {/* Main Content Area */}
-                <main
-                    id="main-content"
-                    className="flex-1 overflow-y-auto h-screen scrollbar-hide flex flex-col"
-                    role="main"
+                <aside
+                    className={[
+                        'glass-card fixed inset-y-3 left-3 z-40 flex w-[300px] flex-col p-5 lg:static lg:inset-auto lg:z-10 lg:w-[290px]',
+                        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-[120%] lg:translate-x-0',
+                        'transition-transform duration-300 ease-smooth',
+                    ].join(' ')}
                 >
-                    {/* Topbar (Desktop) */}
-                    <div className="hidden lg:flex items-center justify-end gap-x-5 px-6 py-3 border-b border-white/[0.04] bg-[#040811]/60 sticky top-0 z-30 backdrop-blur-xl">
-                        {/* Notifications */}
-                        <div className="relative">
-                            <button
-                              onClick={() => setNotificationsOpen(!notificationsOpen)}
-                              className="relative p-2 text-white/30 hover:text-white/60 transition-colors focus:outline-none rounded-lg hover:bg-white/[0.04]"
-                            >
-                                <Bell className="w-5 h-5" />
-                                {notifications.filter(n => n.unread).length > 0 && (
-                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full z-10 animate-pulse"></span>
-                                )}
-                            </button>
-
-                            <AnimatePresence>
-                                {notificationsOpen && (
-                                    <MotionDiv
-                                      initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                                      exit={{ opacity: 0, scale: 0.95, y: 8 }}
-                                      className="absolute right-0 mt-2 w-80 bg-surface-raised/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl py-1 z-50 overflow-hidden"
-                                      style={{ boxShadow: '0 24px 48px rgba(0,0,0,0.6)' }}
-                                    >
-                                        <div className="px-4 py-3 border-b border-white/[0.06] flex justify-between items-center">
-                                            <h3 className="text-sm font-display font-semibold text-white">{t('layout.notifications')}</h3>
-                                            <span className="text-xs text-primary cursor-pointer hover:underline underline-offset-2">{t('layout.markAllRead')}</span>
-                                        </div>
-                                        <div className="max-h-64 overflow-y-auto">
-                                            {notifications.map(n => (
-                                                <div key={n.id} className={`p-4 border-b border-white/[0.03] hover:bg-white/[0.03] cursor-pointer transition-colors ${n.unread ? 'bg-primary/[0.03]' : ''}`}>
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <h4 className="text-sm font-medium text-white/90">{n.title}</h4>
-                                                        <span className="text-[11px] text-white/25">{n.time}</span>
-                                                    </div>
-                                                    <p className="text-xs text-white/40 line-clamp-2">{n.desc}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="p-2.5 text-center text-xs text-white/30 hover:text-white/60 cursor-pointer transition-colors border-t border-white/[0.04]">
-                                            {t('layout.viewAllNotifications')}
-                                        </div>
-                                    </MotionDiv>
-                                )}
-                            </AnimatePresence>
-                        </div>
-
-                        {/* Wallet Connection */}
-                        <button
-                            onClick={walletAddress ? () => {} : handleConnectWallet}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                                walletAddress
-                                  ? 'bg-primary/10 text-primary border border-primary/20 hover:border-primary/30'
-                                  : 'bg-white/[0.04] text-white/50 hover:text-white/70 hover:bg-white/[0.06] border border-white/[0.06]'
-                            }`}
-                        >
-                            <Wallet className="w-4 h-4" />
-                            {walletAddress ? formatAddress(walletAddress) : t('layout.connectWallet')}
-                            {walletAddress && <ChevronDown className="w-3 h-3 ml-1" />}
+                    <div className="mb-6 flex items-center justify-between lg:hidden">
+                        <span className="font-display text-xl font-semibold text-ink">DSCI</span>
+                        <button className="clay-button h-10 w-10 !px-0" onClick={() => setIsMobileMenuOpen(false)} aria-label={t('layout.closeMenu')}>
+                            <X className="h-4 w-4" />
                         </button>
                     </div>
 
-                    <div className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
-                        <AnimatePresence mode="wait">
-                            <MotionDiv
-                                key={location.pathname}
-                                initial={{ opacity: 0, y: 16 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -16 }}
-                                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                    <Link to="/dashboard" className="mb-8 block">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-primary to-accent text-white shadow-clay-soft">
+                                <Sparkles className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h1 className="font-display text-[2rem] font-semibold leading-none text-ink">DSCI</h1>
+                                <p className="mt-2 text-sm leading-6 text-ink-muted">{t('layout.brandSubtitle')}</p>
+                            </div>
+                        </div>
+                    </Link>
+
+                    <div className="mb-6 flex items-center gap-3 rounded-[1.7rem] bg-white/65 p-4 shadow-clay-soft">
+                        {user?.photoURL ? (
+                            <img src={user.photoURL} alt={user?.displayName || 'user'} className="h-12 w-12 rounded-[1.2rem] object-cover" />
+                        ) : (
+                            <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] bg-gradient-to-br from-primary to-accent text-white">
+                                {(user?.displayName || user?.email || 'U').slice(0, 1).toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink-soft">{t('layout.signedInAs')}</p>
+                            <p className="truncate text-sm font-semibold text-ink">{user?.displayName || t('layout.researcher')}</p>
+                            <p className="truncate text-xs text-ink-muted">{user?.email}</p>
+                        </div>
+                    </div>
+
+                    <div className="scrollbar-hide flex-1 overflow-y-auto pr-1">
+                        {navGroups.map((group) => (
+                            <div key={group.title} className="mb-6">
+                                <p className="mb-3 px-2 text-[11px] font-bold uppercase tracking-[0.2em] text-ink-soft">
+                                    {group.title}
+                                </p>
+                                <div className="space-y-2">
+                                    {group.items.map((item) => {
+                                        const Icon = item.icon;
+                                        const active = location.pathname === item.href;
+                                        return (
+                                            <Link
+                                                key={item.href}
+                                                to={item.href}
+                                                onClick={() => setIsMobileMenuOpen(false)}
+                                                className={[
+                                                    'flex items-center justify-between rounded-[1.4rem] px-4 py-3 transition-all duration-300',
+                                                    active
+                                                        ? 'bg-white text-ink shadow-clay-soft'
+                                                        : 'text-ink-muted hover:bg-white/70 hover:text-ink',
+                                                ].join(' ')}
+                                            >
+                                                <span className="flex items-center gap-3">
+                                                    <span className={`flex h-10 w-10 items-center justify-center rounded-full ${active ? 'bg-primary/15 text-primary' : 'bg-surface-overlay/80 text-ink-soft'}`}>
+                                                        <Icon className="h-4 w-4" />
+                                                    </span>
+                                                    <span className="text-sm font-semibold">{item.name}</span>
+                                                </span>
+                                                <ChevronRight className={`h-4 w-4 ${active ? 'text-primary' : 'text-ink-soft'}`} />
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                        <LocaleToggle />
+                        <button onClick={logout} className="clay-button w-full justify-center">
+                            <LogOut className="h-4 w-4" />
+                            {t('layout.signOut')}
+                        </button>
+                    </div>
+                </aside>
+
+                <main className="flex min-h-screen flex-1 flex-col lg:min-w-0">
+                    <div className="glass-card mb-5 flex items-center justify-between gap-3 px-4 py-4 lg:px-6">
+                        <div className="flex items-center gap-3">
+                            <button className="clay-button h-11 w-11 !px-0 lg:hidden" onClick={() => setIsMobileMenuOpen(true)} aria-label={t('layout.openMenu')}>
+                                <Menu className="h-4 w-4" />
+                            </button>
+                            <div>
+                                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-soft">{t('layout.headerTitle')}</p>
+                                <h2 className="font-display text-2xl font-semibold text-ink">{t('layout.headerSubtitle')}</h2>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="hidden lg:block">
+                                <LocaleToggle />
+                            </div>
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setNotificationsOpen((open) => !open)}
+                                    className="clay-button h-11 w-11 !px-0"
+                                    aria-label={t('layout.notifications')}
+                                >
+                                    <Bell className="h-4 w-4" />
+                                </button>
+                                <AnimatePresence>
+                                    {notificationsOpen && (
+                                        <MotionDiv
+                                            initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.97 }}
+                                            className="glass-card absolute right-0 mt-3 w-[320px] p-4"
+                                        >
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-soft">{t('layout.notifications')}</p>
+                                                <span className="text-xs font-semibold text-primary">{t('layout.markAllRead')}</span>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {notifications.map((notification) => (
+                                                    <div key={notification.id} className="clay-panel-pressed rounded-[1.4rem] p-4">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-ink">{notification.title}</p>
+                                                                <p className="mt-1 text-xs leading-6 text-ink-muted">{notification.desc}</p>
+                                                            </div>
+                                                            <span className="text-[11px] font-semibold text-ink-soft">{notification.time}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </MotionDiv>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                            <button
+                                onClick={walletAddress ? undefined : handleConnectWallet}
+                                className={walletAddress ? 'clay-button clay-button-primary text-white' : 'clay-button'}
                             >
-                                {children}
-                            </MotionDiv>
-                        </AnimatePresence>
+                                <Wallet className="h-4 w-4" />
+                                {walletAddress ? formatAddress(walletAddress) : t('layout.connectWallet')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-1 lg:px-0">
+                        <MotionDiv
+                            key={location.pathname}
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.32, ease: [0.2, 0.9, 0.2, 1] }}
+                            className="flex-1"
+                        >
+                            {children}
+                        </MotionDiv>
                         <Footer />
                     </div>
                 </main>

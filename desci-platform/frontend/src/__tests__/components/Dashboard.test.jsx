@@ -1,5 +1,5 @@
 /* global describe, it, expect, vi */
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // framer-motion, ToastContext, jest-dom matchers — provided by global setup.jsx
@@ -35,66 +35,75 @@ vi.mock('../../components/dashboard/VCMatchList', () => ({
 }));
 
 import Dashboard from '../../components/Dashboard';
+import api from '../../services/api';
 
-function renderDashboard() {
-  return render(
+async function renderDashboard() {
+  const rendered = render(
     <MemoryRouter initialEntries={['/dashboard']}>
       <Dashboard />
     </MemoryRouter>
   );
+  await waitFor(() => {
+    expect(api.get.mock.calls.length).toBeGreaterThanOrEqual(4);
+  });
+  return rendered;
 }
 
 describe('Dashboard', () => {
-  it('renders the welcome heading with user first name', () => {
-    renderDashboard();
+  it('renders the welcome heading with user first name', async () => {
+    await renderDashboard();
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading.textContent).toMatch(/Welcome back/i);
     expect(heading.textContent).toMatch(/Alice/i);
   });
 
-  it('renders all four KPI stat cards', () => {
-    renderDashboard();
+  it('renders all four KPI stat cards', async () => {
+    await renderDashboard();
     expect(screen.getByText('Papers Uploaded')).toBeDefined();
     expect(screen.getByText('Vector Index')).toBeDefined();
     expect(screen.getByText('Pending Reviews')).toBeDefined();
-    expect(screen.getByText('Token Balance')).toBeDefined();
+    expect(screen.getByText('DSCI Balance')).toBeDefined();
   });
 
-  it('renders the Account Status section', () => {
-    renderDashboard();
+  it('renders the Account Status section', async () => {
+    await renderDashboard();
     expect(screen.getByText('Account Status')).toBeDefined();
   });
 
-  it('displays the user email in identity section', () => {
-    renderDashboard();
+  it('displays the user email in identity section', async () => {
+    await renderDashboard();
     expect(screen.getByText('alice@desci.io')).toBeDefined();
   });
 
-  it('renders Quick Actions links', () => {
-    renderDashboard();
-    expect(screen.getByText('Upload Paper')).toBeDefined();
-    expect(screen.getByText('Find Grants')).toBeDefined();
-    expect(screen.getByText('VC Portal')).toBeDefined();
+  it('renders Quick Actions links', async () => {
+    await renderDashboard();
+    expect(screen.getByText('Submit new research')).toBeDefined();
+    expect(screen.getByText('Open Funding Radar')).toBeDefined();
+    expect(screen.getByText('Open Investor View')).toBeDefined();
+    expect(screen.getByText('Run Match Studio')).toBeDefined();
   });
 
-  it('renders the Quick Actions links with correct hrefs', () => {
-    renderDashboard();
-    const uploadLink = screen.getByText('Upload Paper').closest('a');
+  it('renders the Quick Actions links with correct hrefs', async () => {
+    await renderDashboard();
+    const uploadLink = screen.getByText('Submit new research').closest('a');
     expect(uploadLink).toBeDefined();
     expect(uploadLink.getAttribute('href')).toBe('/upload');
 
-    const grantsLink = screen.getByText('Find Grants').closest('a');
-    expect(grantsLink.getAttribute('href')).toBe('/biolinker');
+    const grantsLink = screen.getByText('Open Funding Radar').closest('a');
+    expect(grantsLink.getAttribute('href')).toBe('/notices');
+
+    const matchLink = screen.getByText('Run Match Studio').closest('a');
+    expect(matchLink.getAttribute('href')).toBe('/biolinker');
   });
 
-  it('renders the VC Match section with child component', () => {
-    renderDashboard();
-    expect(screen.getByText('Strategic VC Partners')).toBeDefined();
+  it('renders the VC Match section with child component', async () => {
+    await renderDashboard();
+    expect(screen.getByText('Strategic Investor Matches')).toBeDefined();
     expect(screen.getByTestId('vc-match-list')).toBeDefined();
   });
 
-  it('displays the Network Active badge', () => {
-    renderDashboard();
+  it('displays the Network Active badge', async () => {
+    await renderDashboard();
     expect(screen.getByText('Network Active')).toBeDefined();
   });
 });

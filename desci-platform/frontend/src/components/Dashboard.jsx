@@ -1,9 +1,6 @@
-/**
- * Dashboard Component
- * Main authenticated user page
- * Design: Bioluminescent Neural Network
- */
 import { useEffect, useState } from 'react';
+import { Activity, ArrowRight, Clock, FileText, Sparkles, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
 import client from '../services/api';
@@ -11,20 +8,6 @@ import RecommendationList from './dashboard/RecommendationList';
 import VCMatchList from './dashboard/VCMatchList';
 import GlassCard from './ui/GlassCard';
 import { Badge } from './ui/Badge';
-import {
-    FileText,
-    Activity,
-    Clock,
-    TrendingUp,
-    ShieldCheck,
-    AlertCircle,
-    Building2,
-    Upload,
-    Search,
-    ArrowRight,
-    Zap
-} from 'lucide-react';
-import { motion } from 'framer-motion';
 
 const MotionDiv = motion.div;
 
@@ -34,10 +17,10 @@ export default function Dashboard() {
     const [backendUser, setBackendUser] = useState(null);
     const [error, setError] = useState('');
     const [stats, setStats] = useState([
-        { id: 'papersUploaded', value: '...', icon: FileText, color: 'text-primary', bgColor: 'from-primary/10 to-primary/5', trend: t('dashboard.statLoading') },
-        { id: 'vectorIndex', value: '...', icon: Activity, color: 'text-success-light', bgColor: 'from-success/10 to-success/5', trend: t('dashboard.statDocuments') },
-        { id: 'pendingReviews', value: '0', icon: Clock, color: 'text-highlight', bgColor: 'from-highlight/10 to-highlight/5', trend: t('dashboard.statComingSoon') },
-        { id: 'tokenBalance', value: '...', icon: TrendingUp, color: 'text-accent-light', bgColor: 'from-accent/10 to-accent/5', trend: 'DSCI' },
+        { id: 'papersUploaded', value: '...', icon: FileText, hint: t('dashboard.statLoading') },
+        { id: 'vectorIndex', value: '...', icon: Activity, hint: t('dashboard.statDocuments') },
+        { id: 'pendingReviews', value: '0', icon: Clock, hint: t('dashboard.statComingSoon') },
+        { id: 'tokenBalance', value: '...', icon: TrendingUp, hint: 'DSCI' },
     ]);
 
     useEffect(() => {
@@ -49,8 +32,11 @@ export default function Dashboard() {
                     client.get('/vector/count'),
                 ]);
 
-                if (userRes.status === 'fulfilled') setBackendUser(userRes.value.data);
-                else setError(t('dashboard.backendConnectionFailed'));
+                if (userRes.status === 'fulfilled') {
+                    setBackendUser(userRes.value.data);
+                } else {
+                    setError(t('dashboard.backendConnectionFailed'));
+                }
 
                 const paperCount = papersRes.status === 'fulfilled' ? papersRes.value.data.length : 0;
                 const vectorCount = vectorRes.status === 'fulfilled' ? (vectorRes.value.data.count || 0) : 0;
@@ -58,211 +44,153 @@ export default function Dashboard() {
                 let balance = '0';
                 if (walletAddress) {
                     try {
-                        const balRes = await client.get(`/wallet/${walletAddress}`);
-                        balance = parseFloat(balRes.data?.balance || 0).toLocaleString();
-                    } catch { /* use default */ }
+                        const walletRes = await client.get(`/wallet/${walletAddress}`);
+                        balance = parseFloat(walletRes.data?.balance || 0).toLocaleString();
+                    } catch {
+                        balance = '0';
+                    }
                 }
 
-                setStats(prev => prev.map(s => {
-                    if (s.id === 'papersUploaded') {
-                        return {
-                            ...s,
-                            value: String(paperCount),
-                            trend: paperCount > 0
-                                ? t('dashboard.statIndexed', { count: paperCount })
-                                : t('dashboard.statUploadToStart'),
-                        };
-                    }
-                    if (s.id === 'vectorIndex') {
-                        return { ...s, value: String(vectorCount), trend: t('dashboard.statDocuments') };
-                    }
-                    if (s.id === 'tokenBalance') {
-                        return { ...s, value: balance, trend: 'DSCI' };
-                    }
-                    return s;
-                }));
-            } catch (err) {
-                console.error('Dashboard data fetch failed:', err);
+                setStats([
+                    { id: 'papersUploaded', value: String(paperCount), icon: FileText, hint: paperCount ? t('dashboard.statIndexed', { count: paperCount }) : t('dashboard.statUploadToStart') },
+                    { id: 'vectorIndex', value: String(vectorCount), icon: Activity, hint: t('dashboard.statDocuments') },
+                    { id: 'pendingReviews', value: '0', icon: Clock, hint: t('dashboard.statComingSoon') },
+                    { id: 'tokenBalance', value: balance, icon: TrendingUp, hint: 'DSCI' },
+                ]);
+            } catch {
                 setError(t('dashboard.backendConnectionFailed'));
             }
         };
+
         fetchDashboardData();
     }, [t, walletAddress]);
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.08,
-                delayChildren: 0.1,
-            }
-        }
-    };
+    const firstName = user?.displayName?.split(' ')[0] || t('dashboard.researcherFallback');
 
-    const item = {
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
-    };
+    const actionCards = [
+        { href: '/upload', title: t('dashboard.quickUploadTitle'), body: t('dashboard.quickUploadSubtitle') },
+        { href: '/notices', title: t('dashboard.quickGrantTitle'), body: t('dashboard.quickGrantSubtitle') },
+        { href: '/vc-portal', title: t('dashboard.quickVcTitle'), body: t('dashboard.quickVcSubtitle') },
+        { href: '/biolinker', title: t('dashboard.quickMatchTitle'), body: t('dashboard.quickMatchSubtitle') },
+    ];
 
     return (
-        <MotionDiv
-            className="space-y-8"
-            variants={container}
-            initial="hidden"
-            animate="show"
-        >
-            {/* Header Section */}
-            <MotionDiv variants={item} className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-medium mb-2">{t('dashboard.overview')}</p>
-                    <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
-                        {t('dashboard.welcomeBack')}
-                        <span className="text-gradient block sm:inline">, {user?.displayName?.split(' ')[0] || t('dashboard.researcherFallback')}</span>
-                    </h1>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Badge variant="default" className="gap-2">
-                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-                        {t('dashboard.networkActive')}
-                    </Badge>
-                </div>
-            </MotionDiv>
+        <MotionDiv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <GlassCard className="overflow-hidden p-8">
+                <div className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
+                    <div>
+                        <p className="clay-chip mb-4">{t('dashboard.overview')}</p>
+                        <h1 className="font-display text-4xl font-semibold text-ink sm:text-5xl">
+                            {t('dashboard.welcomeBack')},{' '}
+                            <span className="text-gradient">{firstName}</span>
+                        </h1>
+                        <p className="mt-4 max-w-2xl text-base leading-8 text-ink-muted">{t('dashboard.summary')}</p>
 
-            {/* KPI Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                {stats.map((stat, index) => {
+                        <div className="mt-6 grid gap-4 md:grid-cols-2">
+                            <div className="clay-panel-pressed rounded-[1.8rem] p-5">
+                                <Badge variant="default" className="mb-3">{t('dashboard.researcherLane')}</Badge>
+                                <p className="text-sm leading-7 text-ink-muted">{t('dashboard.laneResearcherBody')}</p>
+                            </div>
+                            <div className="clay-panel-pressed rounded-[1.8rem] p-5">
+                                <Badge variant="accent" className="mb-3">{t('dashboard.funderLane')}</Badge>
+                                <p className="text-sm leading-7 text-ink-muted">{t('dashboard.laneFunderBody')}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="clay-panel-pressed rounded-[2rem] p-6">
+                        <div className="mb-4 flex items-center justify-between">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink-soft">{t('dashboard.activityTitle')}</p>
+                            <Badge variant="success">{t('dashboard.networkActive')}</Badge>
+                        </div>
+                        <div className="space-y-4 text-sm leading-7 text-ink-muted">
+                            <div className="rounded-[1.4rem] bg-white/55 p-4">{t('dashboard.activity1')}</div>
+                            <div className="rounded-[1.4rem] bg-white/55 p-4">{t('dashboard.activity2')}</div>
+                            <div className="rounded-[1.4rem] bg-white/55 p-4">{t('dashboard.activity3')}</div>
+                        </div>
+                    </div>
+                </div>
+            </GlassCard>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {stats.map((stat) => {
                     const Icon = stat.icon;
                     return (
-                        <GlassCard
-                            key={index}
-                            delay={0.1 + index * 0.06}
-                            hoverEffect={true}
-                            className="flex flex-col justify-between p-5"
-                        >
-                            <div className="flex items-start justify-between mb-4">
+                        <GlassCard key={stat.id} hoverEffect className="p-5">
+                            <div className="mb-4 flex items-start justify-between">
                                 <div>
-                                    <p className="text-xs font-medium text-white/30 uppercase tracking-wider">{t(`dashboard.${stat.id}`)}</p>
-                                    <h3 className="font-display text-3xl font-bold text-white mt-1.5 tracking-tight">{stat.value}</h3>
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink-soft">{t(`dashboard.${stat.id}`)}</p>
+                                    <h3 className="mt-2 font-display text-4xl font-semibold text-ink">{stat.value}</h3>
                                 </div>
-                                <div className={`p-2.5 rounded-xl bg-gradient-to-br ${stat.bgColor} ${stat.color}`}>
-                                    <Icon className="w-5 h-5" />
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-clay-soft">
+                                    <Icon className="h-5 w-5" />
                                 </div>
                             </div>
-                            <div className="neural-line mb-3" />
-                            <div className="flex items-center gap-1.5 text-xs text-white/25 font-medium">
-                                <Zap className={`w-3 h-3 ${stat.color}`} />
-                                <span className={stat.color}>{stat.trend}</span>
-                            </div>
+                            <p className="text-sm text-ink-muted">{stat.hint}</p>
                         </GlassCard>
                     );
                 })}
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* Account Status */}
-                <GlassCard className="lg:col-span-2 p-7" delay={0.4}>
-                    <h3 className="font-display text-lg font-semibold text-white mb-5 flex items-center gap-2.5">
-                        <div className="p-1.5 rounded-lg bg-primary/10">
-                            <ShieldCheck className="w-4 h-4 text-primary" />
-                        </div>
-                        {t('dashboard.accountStatus')}
-                    </h3>
-
-                    <div className="grid md:grid-cols-2 gap-5">
-                        <div className="bg-white/[0.02] rounded-xl p-5 border border-white/[0.04] hover:border-white/[0.08] transition-colors">
-                            <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">{t('dashboard.identity')}</h4>
-                            <div className="space-y-3">
-                                <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.email')}</span> <span className="text-white/80 font-medium">{user?.email}</span></p>
-                                <div className="flex justify-between items-center text-sm"><span className="text-white/30">{t('dashboard.provider')}</span> <Badge variant="default" className="capitalize text-xs">{user?.providerData?.[0]?.providerId}</Badge></div>
-                                <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.uid')}</span> <span className="text-white/40 font-mono text-xs">{user?.uid?.slice(0, 8)}...</span></p>
+            <div className="grid gap-6 xl:grid-cols-[1.4fr,1fr]">
+                <GlassCard className="p-7">
+                    <div className="mb-5 flex items-center justify-between">
+                        <h2 className="font-display text-2xl font-semibold text-ink">{t('dashboard.accountStatus')}</h2>
+                        <Badge variant={error ? 'warning' : 'success'}>{error ? t('dashboard.backendConnectionFailed') : t('dashboard.online')}</Badge>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="clay-panel-pressed rounded-[1.8rem] p-5">
+                            <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-ink-soft">{t('dashboard.identity')}</p>
+                            <div className="space-y-3 text-sm text-ink-muted">
+                                <p className="flex justify-between gap-3"><span>{t('dashboard.email')}</span><span className="font-semibold text-ink">{user?.email}</span></p>
+                                <p className="flex justify-between gap-3"><span>{t('dashboard.provider')}</span><span className="font-semibold text-ink">{user?.providerData?.[0]?.providerId || 'email'}</span></p>
+                                <p className="flex justify-between gap-3"><span>{t('dashboard.uid')}</span><span className="font-mono text-ink">{user?.uid?.slice(0, 8)}...</span></p>
                             </div>
                         </div>
-
-                        <div className="bg-white/[0.02] rounded-xl p-5 border border-white/[0.04] hover:border-white/[0.08] transition-colors">
-                            <h4 className="text-[11px] font-medium text-white/25 mb-4 uppercase tracking-[0.15em]">{t('dashboard.systemStatus')}</h4>
-                            {error ? (
-                                <div className="flex items-center gap-3 text-error-light bg-error/[0.08] p-3 rounded-lg border border-error/10">
-                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                    <span className="text-sm font-medium">{error}</span>
-                                </div>
-                            ) : backendUser ? (
-                                <div className="space-y-3">
-                                    <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.node')}</span> <span className="text-primary font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-primary rounded-full"></span> {t('dashboard.online')}</span></p>
-                                    <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.role')}</span> <span className="text-white/80 font-medium">{t('dashboard.rolePrincipalInvestigator')}</span></p>
-                                    <p className="flex justify-between text-sm"><span className="text-white/30">{t('dashboard.sync')}</span> <span className="text-white/40 font-mono text-xs">{t('dashboard.automated')}</span></p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="h-4 skeleton rounded w-3/4"></div>
-                                    <div className="h-4 skeleton rounded w-full"></div>
-                                    <div className="h-4 skeleton rounded w-1/2"></div>
-                                </div>
-                            )}
+                        <div className="clay-panel-pressed rounded-[1.8rem] p-5">
+                            <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-ink-soft">{t('dashboard.systemStatus')}</p>
+                            <div className="space-y-3 text-sm text-ink-muted">
+                                <p className="flex justify-between gap-3"><span>{t('dashboard.node')}</span><span className="font-semibold text-ink">{error ? t('dashboard.offline') : t('dashboard.online')}</span></p>
+                                <p className="flex justify-between gap-3"><span>{t('dashboard.role')}</span><span className="font-semibold text-ink">{t('dashboard.rolePrincipalInvestigator')}</span></p>
+                                <p className="flex justify-between gap-3"><span>{t('dashboard.sync')}</span><span className="font-semibold text-ink">{backendUser ? t('dashboard.automated') : t('dashboard.statLoading')}</span></p>
+                            </div>
                         </div>
                     </div>
                 </GlassCard>
 
-                {/* Quick Actions */}
-                <GlassCard className="p-7" delay={0.5}>
-                    <h3 className="font-display text-lg font-semibold text-white mb-5">{t('dashboard.quickActions')}</h3>
+                <GlassCard className="p-7">
+                    <h2 className="mb-5 font-display text-2xl font-semibold text-ink">{t('dashboard.quickActions')}</h2>
                     <div className="space-y-3">
-                        <a href="/upload" className="group block w-full text-left px-4 py-3.5 bg-white/[0.02] hover:bg-white/[0.05] rounded-xl transition-all duration-300 border border-white/[0.04] hover:border-primary/20">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-primary/10 text-primary rounded-lg group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                                    <Upload className="w-4 h-4" />
+                        {actionCards.map((action) => (
+                            <a key={action.href} href={action.href} className="clay-panel-pressed flex items-center justify-between rounded-[1.6rem] px-5 py-4 transition-all hover:-translate-y-1">
+                                <div>
+                                    <p className="text-sm font-semibold text-ink">{action.title}</p>
+                                    <p className="mt-1 text-sm text-ink-muted">{action.body}</p>
                                 </div>
-                                <div className="flex-1">
-                                    <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">{t('dashboard.quickUploadTitle')}</span>
-                                    <span className="text-[11px] text-white/25">{t('dashboard.quickUploadSubtitle')}</span>
-                                </div>
-                                <ArrowRight className="w-3.5 h-3.5 text-white/10 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                            </div>
-                        </a>
-                        <a href="/biolinker" className="group block w-full text-left px-4 py-3.5 bg-white/[0.02] hover:bg-white/[0.05] rounded-xl transition-all duration-300 border border-white/[0.04] hover:border-accent/20">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-accent/10 text-accent-light rounded-lg group-hover:bg-accent group-hover:text-white transition-all duration-300">
-                                    <Search className="w-4 h-4" />
-                                </div>
-                                <div className="flex-1">
-                                    <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">{t('dashboard.quickGrantTitle')}</span>
-                                    <span className="text-[11px] text-white/25">{t('dashboard.quickGrantSubtitle')}</span>
-                                </div>
-                                <ArrowRight className="w-3.5 h-3.5 text-white/10 group-hover:text-accent-light group-hover:translate-x-1 transition-all" />
-                            </div>
-                        </a>
-                        <a href="/vc-portal" className="group block w-full text-left px-4 py-3.5 rounded-xl transition-all duration-300 border border-accent/10 hover:border-accent/25 gradient-border"
-                           style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(0,212,170,0.04))' }}>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-highlight/10 text-highlight rounded-lg group-hover:bg-highlight group-hover:text-surface transition-all duration-300">
-                                        <Building2 className="w-4 h-4" />
-                                    </div>
-                                    <div>
-                                        <span className="block text-sm font-medium text-white/80 group-hover:text-white transition-colors">{t('dashboard.quickVcTitle')}</span>
-                                        <span className="text-[11px] text-white/25">{t('dashboard.quickVcSubtitle')}</span>
-                                    </div>
-                                </div>
-                                <ArrowRight className="w-3.5 h-3.5 text-white/10 group-hover:text-highlight group-hover:translate-x-1 transition-all" />
-                            </div>
-                        </a>
+                                <ArrowRight className="h-4 w-4 text-primary" />
+                            </a>
+                        ))}
                     </div>
                 </GlassCard>
             </div>
 
-            {/* VC Matches - Full Width Section */}
-            <GlassCard className="p-7" delay={0.6}>
-                <h3 className="font-display text-lg font-semibold text-white mb-5 flex items-center gap-2.5">
-                    <div className="p-1.5 rounded-lg bg-accent/10">
-                        <Building2 className="w-4 h-4 text-accent-light" />
+            <div className="grid gap-6 xl:grid-cols-2">
+                <GlassCard className="p-7">
+                    <div className="mb-5 flex items-center justify-between">
+                        <h2 className="font-display text-2xl font-semibold text-ink">{t('dashboard.strategicPartners')}</h2>
+                        <Badge variant="accent">{t('dashboard.beta')}</Badge>
                     </div>
-                    {t('dashboard.strategicPartners')}
-                    <Badge variant="accent" className="text-[10px] ml-1">{t('dashboard.beta')}</Badge>
-                </h3>
-                <VCMatchList />
-            </GlassCard>
+                    <VCMatchList />
+                </GlassCard>
+
+                <GlassCard className="p-7">
+                    <div className="mb-5 flex items-center justify-between">
+                        <h2 className="font-display text-2xl font-semibold text-ink">{t('layout.biolinker')}</h2>
+                        <Badge variant="default">AI</Badge>
+                    </div>
+                    <RecommendationList />
+                </GlassCard>
+            </div>
         </MotionDiv>
     );
 }

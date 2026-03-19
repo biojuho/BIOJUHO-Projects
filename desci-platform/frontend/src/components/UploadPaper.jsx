@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Upload, FileText, CheckCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, FileText, Loader2, Upload } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
@@ -31,12 +31,6 @@ export default function UploadPaper() {
             abortControllerRef.current.abort();
         }
     }, []);
-
-    const handleFileChange = (event) => {
-        if (event.target.files?.[0]) {
-            setFile(event.target.files[0]);
-        }
-    };
 
     const handleUpload = async (event) => {
         event.preventDefault();
@@ -86,19 +80,14 @@ export default function UploadPaper() {
                     setUploadStatusText(t('uploadPaper.statusRewarding'));
                     await api.post(`/reward/paper?user_address=${walletAddress}`);
                     rewardMessage = t('uploadPaper.rewardSuccess');
-                } catch (web3Err) {
-                    console.warn('Web3 Transaction failed:', web3Err);
+                } catch {
                     rewardMessage = t('uploadPaper.rewardDelayed');
                 }
             } else if (!walletAddress) {
                 rewardMessage = t('uploadPaper.rewardSkipped');
             }
 
-            showToast({
-                key: 'uploadPaper.uploadSuccess',
-                values: { rewardMessage },
-            }, 'success');
-
+            showToast({ key: 'uploadPaper.uploadSuccess', values: { rewardMessage } }, 'success');
             setFile(null);
             setTitle('');
             setAuthors('');
@@ -106,11 +95,7 @@ export default function UploadPaper() {
             setTermsAgreed(false);
             setUploadStatusText(t('uploadPaper.statusPreparing'));
         } catch (err) {
-            if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
-                console.log('Upload request was cancelled (component unmounted).');
-                return;
-            }
-            console.error('Upload failed:', err);
+            if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
             showToast(err.response?.data?.detail || t('uploadPaper.uploadFailed'), 'error');
         } finally {
             setIsUploading(false);
@@ -118,129 +103,75 @@ export default function UploadPaper() {
     };
 
     return (
-        <div className="p-4 sm:p-8 max-w-4xl mx-auto animate-fade-in">
-            <div className="mb-8">
-                <h1 className="text-3xl font-display font-bold text-white flex items-center gap-3">
-                    <span className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-blue-400">
-                        <Upload className="w-6 h-6" />
-                    </span>
-                    {t('uploadPaper.title')}
-                </h1>
-                <p className="text-white/40 mt-2 ml-14">{t('uploadPaper.subtitle')}</p>
-            </div>
+        <div className="space-y-6">
+            <Card glass className="p-7">
+                <CardContent className="p-0">
+                    <p className="clay-chip mb-4">{t('layout.workspace')}</p>
+                    <h1 className="font-display text-4xl font-semibold text-ink">{t('uploadPaper.title')}</h1>
+                    <p className="mt-3 text-sm leading-7 text-ink-muted">{t('uploadPaper.subtitle')}</p>
+                </CardContent>
+            </Card>
 
-            <Card glass className="shadow-2xl">
+            <Card glass className="shadow-clay p-0">
                 <CardContent className="p-6 sm:p-8">
                     <form onSubmit={handleUpload} className="space-y-6">
-                        <div className="border-2 border-dashed border-white/10 hover:border-primary/50 transition-colors rounded-xl p-8 text-center bg-black/20 relative">
-                            <input
-                                type="file"
-                                accept=".pdf"
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                onChange={handleFileChange}
-                            />
+                        <label className="glass-card block cursor-pointer p-8 text-center">
+                            <input type="file" accept=".pdf" className="hidden" onChange={(event) => setFile(event.target.files?.[0] || null)} />
                             {file ? (
                                 <div className="flex flex-col items-center gap-3">
-                                    <CheckCircle className="w-12 h-12 text-green-400" />
+                                    <CheckCircle className="h-12 w-12 text-success" />
                                     <div>
-                                        <p className="text-white font-medium">{file.name}</p>
-                                        <p className="text-white/40 text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                        <p className="font-semibold text-ink">{file.name}</p>
+                                        <p className="text-sm text-ink-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center gap-3 pointer-events-none">
-                                    <FileText className="w-12 h-12 text-white/30" />
-                                    <p className="text-white/60 font-medium">{t('uploadPaper.fileDropTitle')}</p>
-                                    <p className="text-white/30 text-sm">{t('uploadPaper.fileDropDescription')}</p>
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-primary shadow-clay-soft">
+                                        <FileText className="h-8 w-8" />
+                                    </div>
+                                    <p className="font-semibold text-ink">{t('uploadPaper.fileDropTitle')}</p>
+                                    <p className="text-sm text-ink-muted">{t('uploadPaper.fileDropDescription')}</p>
                                 </div>
                             )}
-                        </div>
+                        </label>
 
-                        <div className="grid gap-6">
+                        <div className="grid gap-5">
                             <div>
-                                <label className="block text-sm font-medium text-white/70 mb-2">{t('uploadPaper.titleLabel')}</label>
-                                <Input
-                                    type="text"
-                                    variant="glass"
-                                    value={title}
-                                    onChange={(event) => setTitle(event.target.value)}
-                                    placeholder={t('uploadPaper.titlePlaceholder')}
-                                />
+                                <label className="mb-2 block text-sm font-semibold text-ink">{t('uploadPaper.titleLabel')}</label>
+                                <Input type="text" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('uploadPaper.titlePlaceholder')} />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-white/70 mb-2">{t('uploadPaper.authorsLabel')}</label>
-                                <Input
-                                    type="text"
-                                    variant="glass"
-                                    value={authors}
-                                    onChange={(event) => setAuthors(event.target.value)}
-                                    placeholder={t('uploadPaper.authorsPlaceholder')}
-                                />
+                                <label className="mb-2 block text-sm font-semibold text-ink">{t('uploadPaper.authorsLabel')}</label>
+                                <Input type="text" value={authors} onChange={(event) => setAuthors(event.target.value)} placeholder={t('uploadPaper.authorsPlaceholder')} />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-white/70 mb-2">{t('uploadPaper.abstractLabel')}</label>
-                                <textarea
-                                    value={abstract}
-                                    onChange={(event) => setAbstract(event.target.value)}
-                                    className="glass-input w-full h-32 resize-none"
-                                    placeholder={t('uploadPaper.abstractPlaceholder')}
-                                />
+                                <label className="mb-2 block text-sm font-semibold text-ink">{t('uploadPaper.abstractLabel')}</label>
+                                <textarea value={abstract} onChange={(event) => setAbstract(event.target.value)} className="clay-input min-h-[180px] resize-none" placeholder={t('uploadPaper.abstractPlaceholder')} />
                             </div>
                         </div>
 
-                        <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                            <div className="flex-shrink-0 mt-0.5">
-                                <input
-                                    type="checkbox"
-                                    id="terms"
-                                    checked={termsAgreed}
-                                    onChange={(event) => setTermsAgreed(event.target.checked)}
-                                    className="w-5 h-5 rounded border-white/20 bg-black/20 text-primary-500 focus:ring-primary-500/50"
-                                />
-                            </div>
+                        <label className="clay-panel-pressed flex items-start gap-3 rounded-[1.6rem] p-4">
+                            <input type="checkbox" checked={termsAgreed} onChange={(event) => setTermsAgreed(event.target.checked)} className="mt-1" />
                             <div>
-                                <label htmlFor="terms" className="text-sm font-medium text-white/90 block cursor-pointer">
-                                    {t('uploadPaper.agreementLabel')}
-                                </label>
-                                <p className="text-xs text-white/50 mt-1">
-                                    {t('uploadPaper.agreementDescription')}
-                                </p>
+                                <span className="block text-sm font-semibold text-ink">{t('uploadPaper.agreementLabel')}</span>
+                                <span className="mt-1 block text-xs leading-6 text-ink-muted">{t('uploadPaper.agreementDescription')}</span>
                             </div>
-                        </div>
+                        </label>
 
-                        <div className="pt-4 flex justify-end">
-                            <Button
-                                type="submit"
-                                disabled={isUploading || !file || !termsAgreed}
-                                variant="ghost"
-                                size="lg"
-                                className="bg-primary/20 hover:bg-primary/30 text-primary-300 font-semibold px-8"
-                            >
+                        <div className="flex justify-end">
+                            <Button type="submit" disabled={isUploading || !file || !termsAgreed} size="lg" className="justify-center text-white">
                                 <AnimatePresence mode="wait">
                                     {isUploading ? (
-                                        <motion.div
-                                            key={uploadStatusText}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            <span>{uploadStatusText}</span>
-                                        </motion.div>
+                                        <motion.span key={uploadStatusText} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            {uploadStatusText}
+                                        </motion.span>
                                     ) : (
-                                        <motion.div
-                                            key="upload-btn"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <Upload className="w-4 h-4" />
-                                            <span>{t('uploadPaper.submit')}</span>
-                                        </motion.div>
+                                        <motion.span key="upload-label" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
+                                            <Upload className="h-4 w-4" />
+                                            {t('uploadPaper.submit')}
+                                        </motion.span>
                                     )}
                                 </AnimatePresence>
                             </Button>

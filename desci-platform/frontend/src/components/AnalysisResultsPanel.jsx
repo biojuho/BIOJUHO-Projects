@@ -1,14 +1,3 @@
-/**
- * AnalysisResultsPanel - Displays fit score, grade, strengths and weaknesses
- * Props:
- *   fitScore    number
- *   fitGrade    string  ('S' | 'A' | 'B' | 'C' | 'D')
- *   summary     string  (optional)
- *   strengths   string[] (optional)
- *   weaknesses  string[] (optional)
- *   gradeLabel  string  localised grade description
- *   t           translation function
- */
 export default function AnalysisResultsPanel({
     fitScore,
     fitGrade,
@@ -19,65 +8,46 @@ export default function AnalysisResultsPanel({
     t,
 }) {
     return (
-        <div
-            className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 text-white space-y-5"
-            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
-        >
-            {/* Score + grade header */}
-            <div>
-                <h3 className="font-display text-lg font-bold mb-4">
-                    {t('biolinker.analysisResult')}:{' '}
-                    <span className="text-primary">{fitGrade}</span>{' '}
-                    {t('biolinker.gradeSuffix')}
-                </h3>
-                <p className="font-display text-4xl font-bold mb-2 text-gradient">
-                    {fitScore}{t('biolinker.scoreSuffix') ?? '점'}
-                </p>
-                {gradeLabel && (
-                    <p className="text-white/50">{gradeLabel}</p>
-                )}
+        <div className="glass-card p-6">
+            <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                    <p className="clay-chip mb-3">{t('biolinker.analysisResult')}</p>
+                    <h3 className="font-display text-5xl font-semibold text-ink">
+                        {fitScore}
+                        <span className="ml-2 text-xl text-ink-soft">{t('biolinker.scoreSuffix')}</span>
+                    </h3>
+                </div>
+                <div className="clay-panel-pressed flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-primary">
+                    {fitGrade}
+                </div>
             </div>
 
-            {/* Summary */}
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-ink-soft">{gradeLabel} {t('biolinker.gradeSuffix')}</p>
+
             {summary && (
-                <p className="text-white/60 text-sm leading-relaxed border-t border-white/[0.06] pt-4">
+                <div className="clay-panel-pressed mb-5 rounded-[1.6rem] p-5 text-sm leading-7 text-ink-muted">
                     {summary}
-                </p>
-            )}
-
-            {/* Strengths */}
-            {strengths.length > 0 && (
-                <div className="border-t border-white/[0.06] pt-4">
-                    <h4 className="text-sm font-semibold text-primary mb-2">
-                        {t('biolinker.strengths') ?? 'Strengths'}
-                    </h4>
-                    <ul className="space-y-1">
-                        {strengths.map((item, i) => (
-                            <li key={i} className="text-white/60 text-sm flex items-start gap-2">
-                                <span className="text-primary mt-0.5">+</span>
-                                <span>{item}</span>
-                            </li>
-                        ))}
-                    </ul>
                 </div>
             )}
 
-            {/* Weaknesses */}
-            {weaknesses.length > 0 && (
-                <div className="border-t border-white/[0.06] pt-4">
-                    <h4 className="text-sm font-semibold text-white/40 mb-2">
-                        {t('biolinker.weaknesses') ?? 'Weaknesses'}
-                    </h4>
-                    <ul className="space-y-1">
-                        {weaknesses.map((item, i) => (
-                            <li key={i} className="text-white/50 text-sm flex items-start gap-2">
-                                <span className="text-white/30 mt-0.5">-</span>
-                                <span>{item}</span>
-                            </li>
-                        ))}
+            <div className="grid gap-4 md:grid-cols-2">
+                <div className="clay-panel-pressed rounded-[1.6rem] p-5">
+                    <p className="mb-3 text-sm font-semibold text-ink">{t('biolinker.strengths')}</p>
+                    <ul className="space-y-2 text-sm text-ink-muted">
+                        {strengths.length ? strengths.map((item, index) => (
+                            <li key={index}>• {item}</li>
+                        )) : <li>• {t('common.noData')}</li>}
                     </ul>
                 </div>
-            )}
+                <div className="clay-panel-pressed rounded-[1.6rem] p-5">
+                    <p className="mb-3 text-sm font-semibold text-ink">{t('biolinker.weaknesses')}</p>
+                    <ul className="space-y-2 text-sm text-ink-muted">
+                        {weaknesses.length ? weaknesses.map((item, index) => (
+                            <li key={index}>• {item}</li>
+                        )) : <li>• {t('common.noData')}</li>}
+                    </ul>
+                </div>
+            </div>
         </div>
     );
 }

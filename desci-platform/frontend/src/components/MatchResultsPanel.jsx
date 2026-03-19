@@ -1,19 +1,9 @@
-/**
- * MatchResultsPanel - Papers list with scores and VC firms list
- * Props:
- *   papers   array of paper match objects
- *   vcs      array of VC firm objects
- *   loading  boolean
- *   t        translation function
- */
 export default function MatchResultsPanel({ papers = [], vcs = [], loading, t }) {
     if (loading) {
         return (
-            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-10 text-center">
-                <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-white/10 border-t-primary mb-4" />
-                <p className="text-white/30 text-sm">
-                    {t('biolinker.matchLoading') ?? 'Finding matches…'}
-                </p>
+            <div className="glass-card p-8 text-center">
+                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/70 border-t-primary" />
+                <p className="text-sm text-ink-muted">{t('biolinker.matchLoading')}</p>
             </div>
         );
     }
@@ -23,36 +13,23 @@ export default function MatchResultsPanel({ papers = [], vcs = [], loading, t })
     }
 
     return (
-        <div className="space-y-6">
-            {/* Papers section */}
+        <div className="space-y-5">
             {papers.length > 0 && (
-                <div
-                    className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6"
-                    style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
-                >
-                    <h3 className="font-display text-base font-semibold text-white mb-4">
-                        {t('biolinker.paperMatches') ?? 'Paper Matches'}
-                    </h3>
+                <div className="glass-card p-6">
+                    <p className="clay-chip mb-4">{t('biolinker.paperMatches')}</p>
                     <div className="space-y-3">
-                        {papers.map((paper, i) => (
-                            <div
-                                key={paper.id ?? i}
-                                className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-white truncate">
-                                        {paper.title ?? paper.id}
-                                    </p>
+                        {papers.map((paper, index) => (
+                            <div key={paper.id ?? index} className="clay-panel-pressed flex items-center justify-between gap-4 rounded-[1.5rem] p-4">
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-ink">{paper.title ?? paper.id}</p>
                                     {paper.authors && (
-                                        <p className="text-xs text-white/35 truncate mt-0.5">
-                                            {Array.isArray(paper.authors)
-                                                ? paper.authors.join(', ')
-                                                : paper.authors}
+                                        <p className="mt-1 text-xs text-ink-muted truncate">
+                                            {Array.isArray(paper.authors) ? paper.authors.join(', ') : paper.authors}
                                         </p>
                                     )}
                                 </div>
                                 {paper.score != null && (
-                                    <span className="shrink-0 text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg">
+                                    <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-primary">
                                         {Math.round(paper.score * 100)}%
                                     </span>
                                 )}
@@ -62,33 +39,18 @@ export default function MatchResultsPanel({ papers = [], vcs = [], loading, t })
                 </div>
             )}
 
-            {/* VC firms section */}
             {vcs.length > 0 && (
-                <div
-                    className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6"
-                    style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
-                >
-                    <h3 className="font-display text-base font-semibold text-white mb-4">
-                        {t('biolinker.vcMatches') ?? 'VC Firms'}
-                    </h3>
+                <div className="glass-card p-6">
+                    <p className="clay-chip mb-4">{t('biolinker.vcMatches')}</p>
                     <div className="space-y-3">
-                        {vcs.map((vc, i) => (
-                            <div
-                                key={vc.id ?? i}
-                                className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]"
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-white truncate">
-                                        {vc.name ?? vc.id}
-                                    </p>
-                                    {vc.focus && (
-                                        <p className="text-xs text-white/35 truncate mt-0.5">
-                                            {vc.focus}
-                                        </p>
-                                    )}
+                        {vcs.map((vc, index) => (
+                            <div key={vc.id ?? index} className="clay-panel-pressed flex items-center justify-between gap-4 rounded-[1.5rem] p-4">
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-ink">{vc.name ?? vc.id}</p>
+                                    {vc.focus && <p className="mt-1 truncate text-xs text-ink-muted">{vc.focus}</p>}
                                 </div>
                                 {vc.score != null && (
-                                    <span className="shrink-0 text-xs font-bold text-accent-light bg-accent/10 border border-accent/20 px-2.5 py-1 rounded-lg">
+                                    <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-accent-dark">
                                         {Math.round(vc.score * 100)}%
                                     </span>
                                 )}

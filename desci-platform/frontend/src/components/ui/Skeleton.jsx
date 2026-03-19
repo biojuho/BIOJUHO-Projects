@@ -1,8 +1,3 @@
-/**
- * Skeleton Component
- * Reusable skeleton loading placeholder for content
- */
-
 const Skeleton = ({
   className = '',
   variant = 'text',
@@ -38,13 +33,13 @@ const Skeleton = ({
 
   return (
     <div
-      className={`
-        bg-white/10
-        ${animate ? 'animate-pulse' : ''}
-        ${variants[variant]}
-        ${roundedStyles[rounded]}
-        ${className}
-      `.trim().replace(/\s+/g, ' ')}
+      className={[
+        'bg-gradient-to-r from-white/65 via-white/35 to-white/65 bg-[length:200%_100%]',
+        animate ? 'animate-shimmer' : '',
+        variants[variant],
+        roundedStyles[rounded],
+        className,
+      ].join(' ')}
       style={style}
       aria-hidden="true"
       role="presentation"
@@ -52,9 +47,8 @@ const Skeleton = ({
   );
 };
 
-// Skeleton Card Component
 export const SkeletonCard = ({ className = '' }) => (
-  <div className={`glass-card space-y-4 ${className}`}>
+  <div className={`glass-card space-y-4 p-6 ${className}`}>
     <div className="flex items-start justify-between">
       <Skeleton variant="button" width={80} />
       <Skeleton width={60} />
@@ -65,29 +59,24 @@ export const SkeletonCard = ({ className = '' }) => (
       <Skeleton />
       <Skeleton width="60%" />
     </div>
-    <div className="flex justify-end pt-4 border-t border-white/10">
-      <Skeleton variant="button" width={120} />
-    </div>
   </div>
 );
 
-// Skeleton Table Row Component
 export const SkeletonTableRow = ({ columns = 4, className = '' }) => (
   <div className={`flex gap-4 py-4 ${className}`}>
-    {Array.from({ length: columns }).map((_, i) => (
-      <Skeleton key={i} className="flex-1" />
+    {Array.from({ length: columns }).map((_, index) => (
+      <Skeleton key={index} className="flex-1" />
     ))}
   </div>
 );
 
-// Skeleton List Component
-// Accepts `items` (legacy) or `count` for number of rows
 export const SkeletonList = ({ items, count, className = '' }) => {
   const rowCount = count ?? items ?? 3;
+
   return (
     <div className={`space-y-4 ${className}`}>
-      {Array.from({ length: rowCount }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4">
+      {Array.from({ length: rowCount }).map((_, index) => (
+        <div key={index} className="glass-card flex items-center gap-4 p-4">
           <Skeleton variant="avatar" />
           <div className="flex-1 space-y-2">
             <Skeleton variant="title" width="40%" />

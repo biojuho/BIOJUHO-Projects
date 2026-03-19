@@ -3,7 +3,7 @@ BioLinker - RFP Router
 RFP 분석, 파싱, 벡터 매칭, 제안서 생성 엔드포인트
 """
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, Body, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request
 
 from models import AnalyzeRequest, AnalyzeResponse, UserProfile
 from services.logging_config import get_logger
@@ -13,6 +13,8 @@ from services.vector_store import get_vector_store
 from services.matcher import get_rfp_matcher
 from services.smart_matcher import get_smart_matcher
 from services.proposal_generator import get_proposal_generator
+from services.usage_middleware import UsageGuard, TierRequired
+from services.user_tier import UserTier
 from limiter import limiter
 
 log = get_logger("biolinker.routers.rfp")
@@ -58,7 +60,11 @@ router = APIRouter()
     },
 )
 @limiter.limit("10/minute")
-async def analyze_rfp(request: Request, body: AnalyzeRequest):
+async def analyze_rfp(
+    request: Request,
+    body: AnalyzeRequest,
+    _usage=Depends(UsageGuard("rfp_analysis")),
+):
     """Analyze an RFP announcement against a user's technology profile.
 
     The LLM evaluates tech-field alignment (40%), TRL fit (20%),
@@ -114,6 +120,7 @@ async def match_rfp(
     request: Request,
     query: str = Query(..., description="Project description or keywords"),
     limit: int = Query(5, ge=1, le=50, description="Max results to return"),
+    _usage=Depends(UsageGuard("rfp_search")),
 ):
     """Perform a ChromaDB vector-similarity search over indexed RFP notices.
 
@@ -179,6 +186,8 @@ async def search_by_profile(profile: UserProfile, n_results: int = 10):
 async def generate_proposal_draft(
     request: Request,
     body: dict = Body(..., examples=[{"paper_id": "uuid", "rfp_id": "uuid"}]),
+    _tier=Depends(TierRequired(UserTier.PRO)),
+    _usage=Depends(UsageGuard("proposal_generation")),
 ):
     """
     Generate a grant proposal draft based on a paper and an RFP.

@@ -1,9 +1,9 @@
-
 import { motion } from 'framer-motion';
+import { cn } from '../../lib/utils';
 
 const GlassCard = ({
   children,
-  className = "",
+  className = '',
   hoverEffect = false,
   delay = 0,
   animate = true,
@@ -19,7 +19,7 @@ const GlassCard = ({
   const motionProps = animate ? {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.45, delay, ease: [0.2, 0.9, 0.2, 1] },
   } : {};
 
   const interactiveProps = onClick ? {
@@ -27,10 +27,10 @@ const GlassCard = ({
     role: role || 'button',
     tabIndex: tabIndex ?? 0,
     'aria-label': ariaLabel,
-    onKeyDown: (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onClick(e);
+    onKeyDown: (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onClick(event);
       }
     },
   } : {};
@@ -39,26 +39,15 @@ const GlassCard = ({
     <Component
       {...motionProps}
       {...interactiveProps}
-      className={`
-        relative overflow-hidden
-        bg-white/[0.03] backdrop-blur-xl border border-white/[0.06]
-        rounded-2xl
-        ${padding ? 'p-6' : ''}
-        ${hoverEffect ? 'hover:bg-white/[0.05] hover:border-white/[0.1] hover:-translate-y-1 transition-all duration-400 cursor-pointer' : ''}
-        ${onClick ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#040811] focus-visible:outline-none' : ''}
-        ${className}
-      `.trim().replace(/\s+/g, ' ')}
-      style={{
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.03)',
-      }}
+      className={cn(
+        'glass-card relative overflow-hidden',
+        padding && 'p-6',
+        hoverEffect && 'hover:-translate-y-1 hover:shadow-float',
+        onClick && 'cursor-pointer',
+        className
+      )}
     >
-      {/* Subtle top gradient highlight */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent pointer-events-none" aria-hidden="true" />
-
-      {/* Content */}
-      <div className="relative z-10">
-        {children}
-      </div>
+      <div className="relative z-10">{children}</div>
     </Component>
   );
 };

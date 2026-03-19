@@ -35,28 +35,29 @@ function renderLayout(children = <div>Test Content</div>) {
 describe('Layout', () => {
   it('renders the DSCI logo text', () => {
     renderLayout();
-    // The desktop logo renders "DSCI" as an h1
     const logos = screen.getAllByText('DSCI');
     expect(logos.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders the DecentBio subtitle', () => {
+  it('renders the marketplace subtitle', () => {
     renderLayout();
-    expect(screen.getByText('DecentBio')).toBeDefined();
+    expect(screen.getByText('The decentralized science marketplace')).toBeDefined();
   });
 
   it('renders all sidebar navigation links', () => {
     renderLayout();
     const navItems = [
-      'Dashboard',
-      'BioLinker',
-      'Paper Upload',
-      'My Lab',
-      'Notices',
-      'VC Portal',
-      'AI Lab',
+      'Marketplace Overview',
+      'Match Studio',
+      'Research Submission',
+      'Research Vault',
+      'Funding Radar',
+      'Investor View',
+      'AI Workbench',
       'Peer Review',
-      'Wallet',
+      'Rewards Wallet',
+      'Asset Library',
+      'Governance Hub',
     ];
     navItems.forEach((name) => {
       expect(screen.getByText(name)).toBeDefined();
@@ -65,22 +66,22 @@ describe('Layout', () => {
 
   it('renders navigation links with correct hrefs', () => {
     renderLayout();
-    const dashboardLink = screen.getByText('Dashboard').closest('a');
+    const dashboardLink = screen.getByText('Marketplace Overview').closest('a');
     expect(dashboardLink.getAttribute('href')).toBe('/dashboard');
 
-    const biolinkerLink = screen.getByText('BioLinker').closest('a');
+    const biolinkerLink = screen.getByText('Match Studio').closest('a');
     expect(biolinkerLink.getAttribute('href')).toBe('/biolinker');
 
-    const noticesLink = screen.getByText('Notices').closest('a');
+    const noticesLink = screen.getByText('Funding Radar').closest('a');
     expect(noticesLink.getAttribute('href')).toBe('/notices');
 
-    const walletLink = screen.getByText('Wallet').closest('a');
+    const walletLink = screen.getByText('Rewards Wallet').closest('a');
     expect(walletLink.getAttribute('href')).toBe('/wallet');
   });
 
   it('renders the Sign Out button', () => {
     renderLayout();
-    expect(screen.getByText('Sign Out')).toBeDefined();
+    expect(screen.getByText('Sign out')).toBeDefined();
   });
 
   it('renders the user display name', () => {
@@ -95,7 +96,7 @@ describe('Layout', () => {
 
   it('renders the Connect Wallet button when no wallet is connected', () => {
     renderLayout();
-    expect(screen.getByText('Connect Wallet')).toBeDefined();
+    expect(screen.getByText('Connect wallet')).toBeDefined();
   });
 
   it('renders children content', () => {

@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Sparkles, ExternalLink } from 'lucide-react';
+import { ExternalLink, Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import { useLocale } from '../../contexts/LocaleContext';
 
@@ -9,66 +8,58 @@ export default function RecommendationList() {
     const [loading, setLoading] = useState(false);
     const { t } = useLocale();
 
-    const fetchRecommendations = async () => {
-        setLoading(true);
-        try {
-            const res = await api.get('/match/recommendations');
-            setMatches(res.data);
-        } catch (error) {
-            console.error("Failed to load recommendations", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
+        const fetchRecommendations = async () => {
+            setLoading(true);
+            try {
+                const response = await api.get('/match/recommendations');
+                setMatches(response.data);
+            } catch (error) {
+                console.error('Failed to load recommendations', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchRecommendations();
     }, []);
 
-    if (loading) return (
-        <div className="p-6 text-center text-gray-400">
-            <Sparkles className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
-            <p>{t('recommendation.loading')}</p>
-        </div>
-    );
+    if (loading) {
+        return (
+            <div className="clay-panel-pressed rounded-[1.6rem] p-6 text-center text-ink-muted">
+                <Sparkles className="mx-auto mb-3 h-8 w-8 text-primary animate-pulseSoft" />
+                <p>{t('recommendation.loading')}</p>
+            </div>
+        );
+    }
 
-    if (matches.length === 0) return (
-        <div className="p-6 text-center text-gray-500 bg-black/20 rounded-xl border border-white/5">
-            <p>{t('recommendation.emptyTitle')}</p>
-            <p className="text-sm mt-2">{t('recommendation.emptyDescription')}</p>
-        </div>
-    );
+    if (matches.length === 0) {
+        return (
+            <div className="clay-panel-pressed rounded-[1.6rem] p-6 text-center">
+                <p className="font-semibold text-ink">{t('recommendation.emptyTitle')}</p>
+                <p className="mt-2 text-sm text-ink-muted">{t('recommendation.emptyDescription')}</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {matches.map((match) => (
-                <div key={match.id} className="group relative bg-gradient-to-br from-white/5 to-white/0 p-5 rounded-xl border border-white/10 hover:border-primary/50 transition-all">
-                    <div className="absolute top-4 right-4 flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            match.score >= 90 ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
-                        }`}>
+                <div key={match.id} className="clay-panel-pressed rounded-[1.6rem] p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold text-ink">{match.title}</span>
+                        <span className="rounded-full bg-primary/12 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-primary">
                             {match.score}% {t('recommendation.matchSuffix')}
                         </span>
-                        <span className="text-xs text-gray-500 border border-white/10 px-2 py-1 rounded">
-                            {match.source}
-                        </span>
                     </div>
-
-                    <h3 className="text-lg font-bold text-white mb-2 pr-20">{match.title}</h3>
-                    <p className="text-sm text-gray-400 mb-3 line-clamp-2">{match.summary}</p>
-                    
-                    <div className="flex items-center gap-2 text-xs text-primary mb-4">
-                        <Sparkles className="w-3 h-3" />
+                    <p className="mb-3 text-sm leading-7 text-ink-muted line-clamp-2">{match.summary}</p>
+                    <div className="mb-4 flex items-center gap-2 text-sm text-primary">
+                        <Sparkles className="h-4 w-4" />
                         <span>{match.match_reason}</span>
                     </div>
-
-                    <a 
-                        href={match.url || "#"} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm font-medium text-white hover:text-primary transition-colors"
-                    >
-                        {t('recommendation.viewDetails')} <ExternalLink className="w-4 h-4" />
+                    <a href={match.url || '#'} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-ink hover:text-primary">
+                        {t('recommendation.viewDetails')}
+                        <ExternalLink className="h-4 w-4" />
                     </a>
                 </div>
             ))}

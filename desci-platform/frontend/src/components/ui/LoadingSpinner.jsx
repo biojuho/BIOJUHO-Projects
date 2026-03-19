@@ -3,20 +3,23 @@
  * Consistent loading indicator across the app
  */
 import { Loader2 } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 const LoadingSpinner = ({
   size = 'md',
-  label = 'Loading...',
+  label,
   showLabel = true,
   className = '',
   fullScreen = false,
 }) => {
+  const { t } = useLocale();
   const sizes = {
     sm: { icon: 24, text: 'text-sm' },
     md: { icon: 40, text: 'text-base' },
     lg: { icon: 56, text: 'text-lg' },
     xl: { icon: 72, text: 'text-xl' },
   };
+  const resolvedLabel = label || t('common.loading');
 
   const content = (
     <div className={`flex flex-col items-center justify-center gap-4 ${className}`}>
@@ -27,7 +30,7 @@ const LoadingSpinner = ({
       />
       {showLabel && (
         <p className={`text-gray-400 ${sizes[size].text}`} role="status" aria-live="polite">
-          {label}
+          {resolvedLabel}
         </p>
       )}
     </div>
@@ -45,14 +48,14 @@ const LoadingSpinner = ({
 };
 
 // Page-level loading state
-export const PageLoading = ({ label = 'Loading...' }) => (
+export const PageLoading = ({ label }) => (
   <div className="flex items-center justify-center min-h-[60vh]">
     <LoadingSpinner size="lg" label={label} />
   </div>
 );
 
 // Inline loading for buttons or small areas
-export const InlineLoading = ({ label = 'Loading...' }) => (
+export const InlineLoading = ({ label }) => (
   <LoadingSpinner size="sm" label={label} showLabel={false} />
 );
 

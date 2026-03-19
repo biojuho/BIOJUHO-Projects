@@ -24,11 +24,14 @@ const AILab = lazy(() => import('./components/AILab'));
 const PeerReview = lazy(() => import('./components/PeerReview'));
 const UploadPaper = lazy(() => import('./components/UploadPaper'));
 const Governance = lazy(() => import('./components/Governance'));
+const PricingPage = lazy(() => import('./components/PricingPage'));
 
 function RouteFallback() {
   return (
-    <div className="min-h-screen bg-[#040811] flex items-center justify-center">
-      <div className="animate-spin rounded-full h-14 w-14 border-2 border-white/10 border-t-primary"></div>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="glass-card p-8">
+        <div className="animate-spin rounded-full h-14 w-14 border-4 border-white/70 border-t-primary"></div>
+      </div>
     </div>
   );
 }
@@ -39,8 +42,10 @@ function LoginRoute() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#040811] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-2 border-white/10 border-t-primary"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="glass-card p-8">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-white/70 border-t-primary"></div>
+        </div>
       </div>
     );
   }
@@ -65,6 +70,8 @@ function AnimatedRoutes() {
         <Routes location={location} key={location.pathname}>
           {/* Public routes */}
           <Route path="/login" element={<LoginRoute />} />
+          <Route path="/pricing" element={<PageTransition><PricingPage /></PageTransition>} />
+          <Route path="/subscription/success" element={<PageTransition><PricingPage /></PageTransition>} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>

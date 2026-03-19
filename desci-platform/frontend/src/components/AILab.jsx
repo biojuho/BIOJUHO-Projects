@@ -1,49 +1,8 @@
 import ReactMarkdown from 'react-markdown';
+import { ChevronDown, Copy, Loader2, Microscope, PenTool, RefreshCw, Send, Youtube } from 'lucide-react';
 import GlassCard from './ui/GlassCard';
+import { Button } from './ui/Button';
 import { useAgentTools } from '../hooks/useAgentTools';
-import {
-    Microscope, PenTool, Youtube, Send, Loader2, Copy, ChevronDown, RefreshCw,
-} from 'lucide-react';
-
-const TOOLS = [
-    {
-        id: 'research',
-        label: 'Deep Research',
-        icon: Microscope,
-        color: 'primary',
-        descriptionKey: 'ailab.researchDescription',
-        placeholder: '예: Agentic AI in Drug Discovery',
-    },
-    {
-        id: 'write',
-        label: 'Content Writer',
-        icon: PenTool,
-        color: 'accent',
-        descriptionKey: 'ailab.writeDescription',
-        placeholder: '예: CRISPR 유전자 편집 기술 동향',
-    },
-    {
-        id: 'youtube',
-        label: 'YouTube Intelligence',
-        icon: Youtube,
-        color: 'highlight',
-        descriptionKey: 'ailab.youtubeDescription',
-        placeholder: 'YouTube URL 입력',
-    },
-];
-
-const FORMAT_TYPES = [
-    { value: 'blog_post', label: 'Blog Post' },
-    { value: 'report', label: 'Research Report' },
-    { value: 'summary', label: 'Executive Summary' },
-    { value: 'presentation', label: 'Presentation Script' },
-];
-
-const COLOR_MAP = {
-    primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', activeBg: 'bg-primary/15' },
-    accent: { bg: 'bg-accent/10', text: 'text-accent-light', border: 'border-accent/20', activeBg: 'bg-accent/15' },
-    highlight: { bg: 'bg-highlight/10', text: 'text-highlight', border: 'border-highlight/20', activeBg: 'bg-highlight/15' },
-};
 
 export default function AILab() {
     const {
@@ -52,36 +11,45 @@ export default function AILab() {
         research, write, youtube, t,
     } = useAgentTools();
 
-    const tool = TOOLS.find((item) => item.id === activeTool) ?? TOOLS[0];
-    const colors = COLOR_MAP[tool.color];
+    const tools = [
+        { id: 'research', label: t('ailab.toolResearch'), icon: Microscope, descriptionKey: 'ailab.researchDescription', placeholder: t('ailab.researchPlaceholder') },
+        { id: 'write', label: t('ailab.toolWrite'), icon: PenTool, descriptionKey: 'ailab.writeDescription', placeholder: t('ailab.writePlaceholder') },
+        { id: 'youtube', label: t('ailab.toolYoutube'), icon: Youtube, descriptionKey: 'ailab.youtubeDescription', placeholder: t('ailab.youtubePlaceholder') },
+    ];
+
+    const formatTypes = [
+        { value: 'blog_post', label: t('ailab.formatBlogPost') },
+        { value: 'report', label: t('ailab.formatReport') },
+        { value: 'summary', label: t('ailab.formatSummary') },
+        { value: 'presentation', label: t('ailab.formatPresentation') },
+    ];
+
+    const tool = tools.find((item) => item.id === activeTool) ?? tools[0];
     const ToolIcon = tool.icon;
 
     return (
         <div className="space-y-6">
-            <div>
-                <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-medium mb-2">{t('ailab.experiment')}</p>
-                <h1 className="font-display text-3xl font-bold text-white tracking-tight">
-                    AI Research <span className="text-gradient">Lab</span>
-                </h1>
-                <p className="text-white/30 text-sm mt-1">{t('ailab.subtitle')}</p>
-            </div>
+            <GlassCard className="p-7">
+                <p className="clay-chip mb-4">{t('ailab.experiment')}</p>
+                <h1 className="font-display text-4xl font-semibold text-ink">{t('ailab.title')}</h1>
+                <p className="mt-3 text-sm leading-7 text-ink-muted">{t('ailab.subtitle')}</p>
+            </GlassCard>
 
-            <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.06] w-fit">
-                {TOOLS.map((item) => {
+            <div className="clay-panel-pressed inline-flex rounded-full p-1">
+                {tools.map((item) => {
                     const Icon = item.icon;
-                    const isActive = activeTool === item.id;
-                    const tc = COLOR_MAP[item.color];
+                    const active = activeTool === item.id;
                     return (
                         <button
                             key={item.id}
+                            type="button"
                             onClick={() => changeTool(item.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-                                isActive
-                                    ? `${tc.activeBg} ${tc.text} border ${tc.border}`
-                                    : 'text-white/35 hover:text-white/60 border border-transparent'
-                            }`}
+                            className={[
+                                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all',
+                                active ? 'bg-white text-ink shadow-clay-soft' : 'text-ink-soft hover:text-ink',
+                            ].join(' ')}
                         >
-                            <Icon className="w-4 h-4" />
+                            <Icon className="h-4 w-4" />
                             {item.label}
                         </button>
                     );
@@ -89,24 +57,19 @@ export default function AILab() {
             </div>
 
             <GlassCard className="p-6">
-                <p className="text-white/40 text-sm mb-4">{t(tool.descriptionKey)}</p>
+                <p className="mb-4 text-sm leading-7 text-ink-muted">{t(tool.descriptionKey)}</p>
 
                 {activeTool === 'research' && (
                     <div className="space-y-3">
                         <input
-                            className="glass-input w-full"
+                            className="clay-input w-full"
                             placeholder={tool.placeholder}
                             value={research.researchTopic}
                             onChange={(event) => research.setResearchTopic(event.target.value)}
                             onKeyDown={(event) => event.key === 'Enter' && submit()}
                         />
-                        <label className="flex items-center gap-2 text-sm text-white/50 cursor-pointer select-none">
-                            <input
-                                type="checkbox"
-                                checked={research.deepMode}
-                                onChange={(event) => research.setDeepMode(event.target.checked)}
-                                className="rounded border-white/20 bg-white/[0.04] text-primary focus:ring-primary/30"
-                            />
+                        <label className="inline-flex items-center gap-2 text-sm text-ink-muted">
+                            <input type="checkbox" checked={research.deepMode} onChange={(event) => research.setDeepMode(event.target.checked)} />
                             {t('ailab.deepResearchMode')}
                         </label>
                     </div>
@@ -114,115 +77,70 @@ export default function AILab() {
 
                 {activeTool === 'write' && (
                     <div className="space-y-3">
-                        <div className="flex gap-3">
-                            <input
-                                className="glass-input flex-1"
-                                placeholder={t('ailab.writeTopicPlaceholder')}
-                                value={write.writeTopic}
-                                onChange={(event) => write.setWriteTopic(event.target.value)}
-                            />
+                        <div className="grid gap-3 md:grid-cols-[1fr,220px]">
+                            <input className="clay-input w-full" placeholder={t('ailab.writeTopicPlaceholder')} value={write.writeTopic} onChange={(event) => write.setWriteTopic(event.target.value)} />
                             <div className="relative">
-                                <select
-                                    value={write.formatType}
-                                    onChange={(event) => write.setFormatType(event.target.value)}
-                                    className="glass-input appearance-none cursor-pointer pr-8 min-w-[160px]"
-                                >
-                                    {FORMAT_TYPES.map((format) => (
+                                <select value={write.formatType} onChange={(event) => write.setFormatType(event.target.value)} className="clay-input appearance-none pr-10">
+                                    {formatTypes.map((format) => (
                                         <option key={format.value} value={format.value}>{format.label}</option>
                                     ))}
                                 </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                             </div>
                         </div>
-                        <textarea
-                            className="glass-input w-full h-32 resize-none"
-                            placeholder={t('ailab.writePlaceholder')}
-                            value={write.writeRawText}
-                            onChange={(event) => write.setWriteRawText(event.target.value)}
-                        />
+                        <textarea className="clay-input min-h-[220px] resize-none" placeholder={t('ailab.writePlaceholder')} value={write.writeRawText} onChange={(event) => write.setWriteRawText(event.target.value)} />
                     </div>
                 )}
 
                 {activeTool === 'youtube' && (
                     <div className="space-y-3">
-                        <input
-                            className="glass-input w-full"
-                            placeholder="https://youtube.com/watch?v=..."
-                            value={youtube.youtubeUrl}
-                            onChange={(event) => youtube.setYoutubeUrl(event.target.value)}
-                        />
-                        <input
-                            className="glass-input w-full"
-                            placeholder={t('ailab.youtubeQuestionPlaceholder')}
-                            value={youtube.youtubeQuery}
-                            onChange={(event) => youtube.setYoutubeQuery(event.target.value)}
-                            onKeyDown={(event) => event.key === 'Enter' && submit()}
-                        />
+                        <input className="clay-input w-full" placeholder={tool.placeholder} value={youtube.youtubeUrl} onChange={(event) => youtube.setYoutubeUrl(event.target.value)} />
+                        <input className="clay-input w-full" placeholder={t('ailab.youtubeQuestionPlaceholder')} value={youtube.youtubeQuery} onChange={(event) => youtube.setYoutubeQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && submit()} />
                     </div>
                 )}
 
-                <button
-                    onClick={submit}
-                    disabled={isLoading}
-                    className="glass-button mt-4 px-6 py-2.5 font-semibold flex items-center gap-2 disabled:opacity-40"
-                >
-                    {isLoading ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> {t('common.processing')}</>
-                    ) : (
-                        <><Send className="w-4 h-4" /> {t('ailab.submit')}</>
-                    )}
-                </button>
+                <Button onClick={submit} disabled={isLoading} className="mt-4 justify-center text-white">
+                    {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" />{t('common.processing')}</> : <><Send className="h-4 w-4" />{t('ailab.submit')}</>}
+                </Button>
             </GlassCard>
 
             {isLoading && !result && (
                 <GlassCard className="p-10 text-center">
-                    <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-white/10 border-t-primary mb-4"></div>
-                    <h3 className="font-display text-base font-semibold text-white">{t('ailab.loadingTitle')}</h3>
-                    <p className="text-white/25 mt-2 text-sm">{t('ailab.loadingBody')}</p>
+                    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/70 border-t-primary" />
+                    <h3 className="font-display text-2xl font-semibold text-ink">{t('ailab.loadingTitle')}</h3>
+                    <p className="mt-3 text-sm text-ink-muted">{t('ailab.loadingBody')}</p>
                 </GlassCard>
             )}
 
             {agentError && !isLoading && (
-                <GlassCard className="p-6 border-red-500/20 bg-red-500/[0.04]">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className="text-sm font-semibold text-red-400 mb-1">{t('ailab.failedTitle')}</p>
-                            <p className="text-white/40 text-xs">{agentError}</p>
-                        </div>
-                        <button
-                            onClick={submit}
-                            className="glass-button px-4 py-2 text-sm font-semibold flex items-center gap-2 shrink-0"
-                        >
-                            <RefreshCw className="w-4 h-4" /> {t('common.retry')}
-                        </button>
-                    </div>
+                <GlassCard className="p-6">
+                    <p className="mb-2 text-sm font-semibold text-error-dark">{t('ailab.failedTitle')}</p>
+                    <p className="text-sm text-ink-muted">{agentError}</p>
+                    <Button onClick={submit} className="mt-4 justify-center text-white">
+                        <RefreshCw className="h-4 w-4" />
+                        {t('common.retry')}
+                    </Button>
                 </GlassCard>
             )}
 
             {result && (
                 <GlassCard className="p-0 overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+                    <div className="flex items-center justify-between border-b border-white/60 px-6 py-4">
                         <div className="flex items-center gap-3">
-                            <h3 className="font-display text-base font-semibold text-white flex items-center gap-2">
-                                <span className={`p-1.5 rounded-lg ${colors.bg}`}>
-                                    <ToolIcon className={`w-4 h-4 ${colors.text}`} />
-                                </span>
-                                {t('ailab.resultTitle')}
-                            </h3>
-                            {agentMeta?.bridge_applied && (
-                                <span className="text-[10px] uppercase tracking-[0.2em] px-2.5 py-1 rounded-full border border-primary/25 text-primary bg-primary/10">
-                                    {t('common.bridgeApplied')}
-                                </span>
-                            )}
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary shadow-clay-soft">
+                                <ToolIcon className="h-4 w-4" />
+                            </span>
+                            <div>
+                                <p className="text-sm font-semibold text-ink">{t('ailab.resultTitle')}</p>
+                                {agentMeta?.bridge_applied && <p className="text-xs uppercase tracking-[0.18em] text-primary">{t('common.bridgeApplied')}</p>}
+                            </div>
                         </div>
-                        <button
-                            onClick={copyResult}
-                            className="text-xs text-white/30 hover:text-white/60 flex items-center gap-1.5 transition-colors"
-                        >
-                            <Copy className="w-3.5 h-3.5" /> {t('common.copy')}
+                        <button onClick={copyResult} className="clay-button">
+                            <Copy className="h-4 w-4" />
+                            {t('common.copy')}
                         </button>
                     </div>
-                    <div className="p-6 prose prose-invert max-w-none prose-headings:font-display prose-headings:text-white prose-p:text-white/70 prose-a:text-primary prose-strong:text-white">
+                    <div className="p-6 prose max-w-none prose-headings:font-display prose-headings:text-ink prose-p:text-ink-muted prose-a:text-primary prose-strong:text-ink">
                         <ReactMarkdown>{result}</ReactMarkdown>
                     </div>
                 </GlassCard>

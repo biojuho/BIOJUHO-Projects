@@ -1,51 +1,39 @@
-/**
- * ErrorBoundary Component
- * Uses react-error-boundary for declarative error handling with retry support.
- */
 import { ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary';
 import { AlertTriangle, RotateCcw, Home } from 'lucide-react';
+import { formatMessage } from '../i18n/messages';
+import { getStoredLocale } from '../contexts/LocaleContext';
+
+function t(key) {
+  return formatMessage(getStoredLocale(), key);
+}
 
 function ErrorFallback({ error, resetErrorBoundary }) {
   return (
-    <div className="min-h-screen bg-[#040811] flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center">
-        {/* Icon */}
-        <div className="mx-auto mb-6 w-16 h-16 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/20">
-          <AlertTriangle className="w-8 h-8 text-red-400" />
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="glass-card max-w-lg p-10 text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-error/12 text-error shadow-clay-soft">
+          <AlertTriangle className="h-8 w-8" />
         </div>
-
-        {/* Heading */}
-        <h1 className="font-display text-2xl font-bold text-white mb-3">
-          Something went wrong
-        </h1>
-
-        {/* Error message */}
-        <p className="text-white/50 text-sm mb-2">
-          An unexpected error occurred. You can try again or return to the dashboard.
-        </p>
+        <h1 className="mb-3 font-display text-3xl font-semibold text-ink">{t('errors.title')}</h1>
+        <p className="mb-4 text-sm leading-7 text-ink-muted">{t('errors.body')}</p>
         {error?.message && (
-          <pre className="text-xs text-red-400/70 bg-red-500/5 border border-red-500/10 rounded-xl p-3 mb-6 max-h-24 overflow-auto text-left whitespace-pre-wrap break-words">
+          <pre className="clay-panel-pressed mb-6 max-h-28 overflow-auto rounded-[1.5rem] p-4 text-left text-xs text-error-dark whitespace-pre-wrap break-words">
             {error.message}
           </pre>
         )}
-
-        {/* Action buttons */}
-        <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={resetErrorBoundary}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary/20 transition-colors text-sm font-medium"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Try Again
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button onClick={resetErrorBoundary} className="clay-button clay-button-primary text-white">
+            <RotateCcw className="h-4 w-4" />
+            {t('errors.retry')}
           </button>
           <button
             onClick={() => {
               window.location.href = '/dashboard';
             }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white/[0.04] text-white/70 border border-white/[0.08] rounded-xl hover:bg-white/[0.08] transition-colors text-sm font-medium"
+            className="clay-button"
           >
-            <Home className="w-4 h-4" />
-            Go to Dashboard
+            <Home className="h-4 w-4" />
+            {t('errors.goHome')}
           </button>
         </div>
       </div>
@@ -54,28 +42,16 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 }
 
 function handleErrorLog(error, info) {
-  // Log to console in development; could send to monitoring service in production
   console.error('ErrorBoundary caught an error:', error);
   console.error('Component stack:', info?.componentStack);
 }
 
-/**
- * AppErrorBoundary - wraps children with react-error-boundary.
- * Usage: <AppErrorBoundary><App /></AppErrorBoundary>
- */
 export default function AppErrorBoundary({ children }) {
   return (
-    <ReactErrorBoundary
-      FallbackComponent={ErrorFallback}
-      onError={handleErrorLog}
-      onReset={() => {
-        // Reset any app-level state on retry if needed
-      }}
-    >
+    <ReactErrorBoundary FallbackComponent={ErrorFallback} onError={handleErrorLog}>
       {children}
     </ReactErrorBoundary>
   );
 }
 
-// Also export the fallback for use in granular error boundaries
 export { ErrorFallback };

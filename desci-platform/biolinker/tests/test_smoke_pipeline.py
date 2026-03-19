@@ -107,10 +107,19 @@ def test_match_to_proposal_flow(sync_client, monkeypatch):
     monkeypatch.setattr(rfp_router, "get_vector_store", lambda: StubVectorStore())
     monkeypatch.setattr(rfp_router, "get_proposal_generator", lambda: StubProposalGenerator())
 
+    # [QA 수정] Tier manager mock — test user has Pro tier for /proposal/generate
+    from services.user_tier import UserTier, get_tier_manager
+    manager = get_tier_manager()
+    import asyncio
+    asyncio.run(manager.set_tier("test-user-id", UserTier.PRO))
+
+    auth_headers = {"Authorization": "Bearer test-token-bypass"}
+
     match_res = sync_client.post("/match/paper", json={"paper_id": "paper-1"})
     proposal_res = sync_client.post(
         "/proposal/generate",
         json={"paper_id": "paper-1", "rfp_id": "rfp-1"},
+        headers=auth_headers,
     )
 
     assert match_res.status_code == 200
