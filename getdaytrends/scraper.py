@@ -426,7 +426,19 @@ async def _async_fetch_twitter_trends(
             m = t.get("public_metrics", {})
             eng = f"[{m.get('like_count', 0)}L/{m.get('retweet_count', 0)}RT]"
             text = t["text"].replace("\n", " ")[:200]
-            summaries.append(f"{eng} {text}")
+            # [v6.1] created_at 타임스탬프 주입 — LLM이 트윗 시점 파악 가능
+            time_label = ""
+            raw_ts = t.get("created_at", "")
+            if raw_ts:
+                try:
+                    from datetime import datetime, timedelta, timezone
+                    dt_utc = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+                    dt_local = dt_utc.astimezone(timezone(timedelta(hours=9)))  # KST
+                    time_label = dt_local.strftime("%m/%d %H:%M")
+                except Exception:
+                    pass
+            prefix = f"[{time_label}] " if time_label else ""
+            summaries.append(f"{prefix}{eng} {text}")
 
         return "\n".join(summaries)
 
@@ -482,18 +494,18 @@ async def post_to_x_async(
 
     async def _do_post(sess: httpx.AsyncClient) -> dict:
         try:
-            async with sess.post(
+            resp = await sess.post(
                 url, headers=headers, json=payload, timeout=_SHORT_TIMEOUT
-            ) as resp:
-                body = resp.json()
-                if resp.status_code in (200, 201):
-                    tweet_id = body.get("data", {}).get("id", "")
-                    log.info(f"[X 게시] 완료 (id={tweet_id}): {content[:50]}...")
-                    return {"ok": True, "tweet_id": tweet_id}
-                else:
-                    err = body.get("detail", body.get("title", str(body)))
-                    log.warning(f"[X 게시] 실패 {resp.status_code}: {err}")
-                    return {"ok": False, "error": err, "code": resp.status_code}
+            )
+            body = resp.json()
+            if resp.status_code in (200, 201):
+                tweet_id = body.get("data", {}).get("id", "")
+                log.info(f"[X 게시] 완료 (id={tweet_id}): {content[:50]}...")
+                return {"ok": True, "tweet_id": tweet_id}
+            else:
+                err = body.get("detail", body.get("title", str(body)))
+                log.warning(f"[X 게시] 실패 {resp.status_code}: {err}")
+                return {"ok": False, "error": err, "code": resp.status_code}
         except Exception as e:
             log.error(f"[X 게시] 예외: {e}")
             return {"ok": False, "error": str(e), "code": 0}

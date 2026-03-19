@@ -128,6 +128,7 @@ class ScoredTrend(BaseModel):
     fact_check_score: float = 1.0        # 0~1: 생성 콘텐츠 팩트 체크 정확도
     hallucination_flags: list[str] = Field(default_factory=list)  # 환각 감지된 항목 목록
     cross_source_consistent: bool = True  # 소스 간 정보 일관성 여부
+    cross_source_agreement: float = 0.5  # 0~1: 소스 간 엔터티 일치도 점수
 
 
 class TrendCluster(BaseModel):

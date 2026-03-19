@@ -1,0 +1,264 @@
+{
+  "name": "🚀 마스터 파이프라인 — 자동 트렌드 콘텐츠 생산 + X 발행",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "hoursInterval": 4}]
+        }
+      },
+      "id": "schedule",
+      "name": "⏰ 4시간 스케줄",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:8788/health",
+        "options": {"timeout": 15000}
+      },
+      "id": "health-check",
+      "name": "🔍 헬스체크",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "conditions": [
+                  {"id": "c-healthy", "leftValue": "={{ $json.status }}", "rightValue": "healthy", "operator": {"type": "string", "operation": "equals"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "healthy"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {"id": "c-degraded", "leftValue": "={{ $json.status }}", "rightValue": "degraded", "operator": {"type": "string", "operation": "equals"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "degraded"
+            }
+          ],
+          "fallbackOutput": {
+            "renameOutput": true,
+            "outputLabel": "down"
+          }
+        }
+      },
+      "id": "status-switch",
+      "name": "🔀 상태 분기",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/auth/proactive-refresh",
+        "options": {"timeout": 180000}
+      },
+      "id": "auth-refresh",
+      "name": "🔑 인증 갱신",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 400],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"id": "c-refreshed", "leftValue": "={{ $json.action }}", "rightValue": "failed", "operator": {"type": "string", "operation": "notEquals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "refresh-ok",
+      "name": "🔀 갱신 성공?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/content-factory",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ keyword: 'AI 에이전트', urls: [], category: '테크' }) }}",
+        "options": {"timeout": 300000}
+      },
+      "id": "content-factory",
+      "name": "🏭 콘텐츠 팩토리",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "t", "name": "tweet", "value": "={{ $json.tweet_draft || '' }}", "type": "string"},
+            {"id": "i", "name": "infographic", "value": "={{ $json.infographic_id || '' }}", "type": "string"},
+            {"id": "s", "name": "summary", "value": "={{ ($json.summary || '').substring(0, 500) }}", "type": "string"},
+            {"id": "n", "name": "notebook", "value": "=https://notebooklm.google.com/notebook/{{ $json.notebook_id }}", "type": "string"},
+            {"id": "sc", "name": "sources", "value": "={{ $json.source_count || 0 }}", "type": "number"},
+            {"id": "st", "name": "status", "value": "=success", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-result",
+      "name": "📊 결과 파싱",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1500, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"id": "c-tweet", "leftValue": "={{ $json.tweet }}", "rightValue": "", "operator": {"type": "string", "operation": "notEquals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-tweet",
+      "name": "🔀 트윗 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1750, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/publish-x",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tweet_text: $json.tweet }) }}",
+        "options": {"timeout": 30000}
+      },
+      "id": "publish-x",
+      "name": "🐦 X 발행",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 100],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=✅ *콘텐츠 생산 + X 발행 완료*\n📊 트윗: {{ $('📊 결과 파싱').item.json.tweet ? $('📊 결과 파싱').item.json.tweet.substring(0, 100) : 'N/A' }}\n🐦 X: {{ $json.ok ? '게시 완료 (' + ($json.tweet_url || '') + ')' : '발행 실패: ' + ($json.error || '') }}\n📎 소스: {{ $('📊 결과 파싱').item.json.sources }}개\n🔗 노트북: {{ $('📊 결과 파싱').item.json.notebook }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-success-x",
+      "name": "✅ 성공 (X 발행)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2250, 100]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=✅ *콘텐츠 생산 완료* (X 발행 스킵)\n📊 트윗 초안 없음\n📎 소스: {{ $json.sources }}개\n🔗 노트북: {{ $json.notebook }}\n📄 요약: {{ $json.summary.substring(0, 200) }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-success-no-x",
+      "name": "✅ 성공 (X 스킵)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=🔴 *NotebookLM 인증 갱신 실패*\n⚠️ 수동 갱신이 필요합니다.\n🔧 명령: `notebooklm auth login`\n📝 상태: {{ JSON.stringify($json) }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-auth-fail",
+      "name": "🚨 인증 실패 알림",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1250, 500]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=🔴 *NotebookLM 서비스 다운*\n⚠️ API 서버가 응답하지 않습니다.\n🔧 서버 재시작: `start_services.bat`\n📝 상태: {{ $json.status || 'unreachable' }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-down",
+      "name": "🚨 서비스 다운 알림",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [750, 600]
+    }
+  ],
+  "connections": {
+    "⏰ 4시간 스케줄": {
+      "main": [[{"node": "🔍 헬스체크", "type": "main", "index": 0}]]
+    },
+    "🔍 헬스체크": {
+      "main": [[{"node": "🔀 상태 분기", "type": "main", "index": 0}]]
+    },
+    "🔀 상태 분기": {
+      "main": [
+        [{"node": "🏭 콘텐츠 팩토리", "type": "main", "index": 0}],
+        [{"node": "🔑 인증 갱신", "type": "main", "index": 0}],
+        [{"node": "🚨 서비스 다운 알림", "type": "main", "index": 0}]
+      ]
+    },
+    "🔑 인증 갱신": {
+      "main": [[{"node": "🔀 갱신 성공?", "type": "main", "index": 0}]]
+    },
+    "🔀 갱신 성공?": {
+      "main": [
+        [{"node": "🏭 콘텐츠 팩토리", "type": "main", "index": 0}],
+        [{"node": "🚨 인증 실패 알림", "type": "main", "index": 0}]
+      ]
+    },
+    "🏭 콘텐츠 팩토리": {
+      "main": [[{"node": "📊 결과 파싱", "type": "main", "index": 0}]]
+    },
+    "📊 결과 파싱": {
+      "main": [[{"node": "🔀 트윗 있음?", "type": "main", "index": 0}]]
+    },
+    "🔀 트윗 있음?": {
+      "main": [
+        [{"node": "🐦 X 발행", "type": "main", "index": 0}],
+        [{"node": "✅ 성공 (X 스킵)", "type": "main", "index": 0}]
+      ]
+    },
+    "🐦 X 발행": {
+      "main": [[{"node": "✅ 성공 (X 발행)", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

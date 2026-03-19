@@ -1,0 +1,102 @@
+{
+  "name": "콘텐츠 팩토리 v3 — 자동 소스 수집 + 에러 핸들링",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "hoursInterval": 4}]
+        }
+      },
+      "id": "schedule",
+      "name": "⏰ 4시간 스케줄",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {"method": "GET", "url": "http://127.0.0.1:8788/health", "options": {"timeout": 15000}},
+      "id": "health",
+      "name": "🔍 상태",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [{"id": "c1", "leftValue": "={{ $json.status }}", "rightValue": "healthy", "operator": {"type": "string", "operation": "equals"}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ok",
+      "name": "✅ OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/content-factory",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ keyword: $('⏰ 4시간 스케줄').first().json.keyword || 'AI 에이전트', urls: [], category: '테크' }) }}",
+        "options": {"timeout": 300000}
+      },
+      "id": "factory",
+      "name": "🏭 콘텐츠 팩토리 (자동소스)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "t", "name": "tweet", "value": "={{ $json.tweet_draft || '' }}", "type": "string"},
+            {"id": "i", "name": "infographic", "value": "={{ $json.infographic_id || '' }}", "type": "string"},
+            {"id": "s", "name": "summary", "value": "={{ ($json.summary || '').substring(0, 500) }}", "type": "string"},
+            {"id": "n", "name": "notebook", "value": "=https://notebooklm.google.com/notebook/{{ $json.notebook_id }}", "type": "string"},
+            {"id": "sc", "name": "sources", "value": "={{ $json.source_count || 0 }}", "type": "number"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse",
+      "name": "📊 파싱",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "err", "name": "error_message", "value": "=⚠️ NotebookLM 서비스 이상 — 상태: {{ $json.status || 'unreachable' }}\n인증: {{ $json.authenticated || 'unknown' }}\n세션 나이: {{ $json.session_age_hours || 'N/A' }}h", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "error-alert",
+      "name": "🚨 에러 알림",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [750, 400]
+    }
+  ],
+  "connections": {
+    "⏰ 4시간 스케줄": {"main": [[{"node": "🔍 상태", "type": "main", "index": 0}]]},
+    "🔍 상태": {"main": [[{"node": "✅ OK?", "type": "main", "index": 0}]]},
+    "✅ OK?": {
+      "main": [
+        [{"node": "🏭 콘텐츠 팩토리 (자동소스)", "type": "main", "index": 0}],
+        [{"node": "🚨 에러 알림", "type": "main", "index": 0}]
+      ]
+    },
+    "🏭 콘텐츠 팩토리 (자동소스)": {"main": [[{"node": "📊 파싱", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

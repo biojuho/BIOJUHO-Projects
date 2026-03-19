@@ -1,0 +1,144 @@
+{
+  "name": "🔑 인증 자동 보호 — 6시간 주기",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "hoursInterval": 6}]
+        }
+      },
+      "id": "schedule",
+      "name": "⏰ 6시간 스케줄",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:8788/auth/status",
+        "options": {"timeout": 15000}
+      },
+      "id": "auth-status",
+      "name": "🔍 인증 상태",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"id": "c-needs", "leftValue": "={{ $json.needs_refresh }}", "rightValue": true, "operator": {"type": "boolean", "operation": "equals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "needs-refresh",
+      "name": "🔀 갱신 필요?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/auth/refresh",
+        "options": {"timeout": 180000}
+      },
+      "id": "refresh",
+      "name": "🔑 갱신 시도",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"id": "c-ok", "leftValue": "={{ $json.success }}", "rightValue": true, "operator": {"type": "boolean", "operation": "equals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "refresh-result",
+      "name": "🔀 결과?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "log", "name": "log", "value": "=✅ NotebookLM 인증 갱신 성공 (방법: {{ $json.method }})", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "success-log",
+      "name": "✅ 성공 로그",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1250, 100]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=🔴 *NotebookLM 인증 갱신 실패*\n⚠️ 자동 갱신이 실패했습니다.\n📝 오류: {{ $json.message || 'unknown' }}\n🔧 수동 갱신: `notebooklm auth login`", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "fail-alert",
+      "name": "🚨 실패 알림",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "log", "name": "log", "value": "=✅ NotebookLM 인증 정상 — 갱신 불필요 (나이: {{ $json.age_hours }}h)", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "skip-log",
+      "name": "✅ 스킵",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [750, 400]
+    }
+  ],
+  "connections": {
+    "⏰ 6시간 스케줄": {
+      "main": [[{"node": "🔍 인증 상태", "type": "main", "index": 0}]]
+    },
+    "🔍 인증 상태": {
+      "main": [[{"node": "🔀 갱신 필요?", "type": "main", "index": 0}]]
+    },
+    "🔀 갱신 필요?": {
+      "main": [
+        [{"node": "🔑 갱신 시도", "type": "main", "index": 0}],
+        [{"node": "✅ 스킵", "type": "main", "index": 0}]
+      ]
+    },
+    "🔑 갱신 시도": {
+      "main": [[{"node": "🔀 결과?", "type": "main", "index": 0}]]
+    },
+    "🔀 결과?": {
+      "main": [
+        [{"node": "✅ 성공 로그", "type": "main", "index": 0}],
+        [{"node": "🚨 실패 알림", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

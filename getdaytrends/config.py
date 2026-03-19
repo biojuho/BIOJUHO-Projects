@@ -235,6 +235,14 @@ class AppConfig:
     marl_daily_budget_cap_usd: float = 0.05        # MARL 일일 추가 예산 상한 ($)
 
     # ===================================================
+    # [v17.0] NotebookLM Integration
+    # ===================================================
+    enable_notebooklm: bool = False                # NotebookLM 자동 연동 활성화
+    notebooklm_min_viral_score: int = 75           # 이 점수 이상만 NotebookLM 노트북 생성
+    notebooklm_content_types: list[str] = field(default_factory=list)  # 생성 콘텐츠 유형 (빈값=AI분석만, audio/slide-deck/mind-map 등)
+    notebooklm_max_notebooks: int = 3              # 런당 최대 노트북 생성 수
+
+    # ===================================================
     # [v5.0] B. Adaptive Voice — 성과 기반 패턴 가중치
     # ===================================================
     enable_adaptive_voice: bool = True             # 훅/킥 패턴별 성과 가중치 프롬프트 주입
@@ -443,6 +451,15 @@ class AppConfig:
             marl_min_viral_score=int(os.getenv("MARL_MIN_VIRAL_SCORE", "80")),
             marl_stages=int(os.getenv("MARL_STAGES", "3")),
             marl_daily_budget_cap_usd=float(os.getenv("MARL_DAILY_BUDGET_CAP_USD", "0.05")),
+            # v17.0 NotebookLM
+            enable_notebooklm=os.getenv("ENABLE_NOTEBOOKLM", "false").lower() == "true",
+            notebooklm_min_viral_score=int(os.getenv("NOTEBOOKLM_MIN_VIRAL_SCORE", "75")),
+            notebooklm_content_types=[
+                t.strip()
+                for t in os.getenv("NOTEBOOKLM_CONTENT_TYPES", "audio").split(",")
+                if t.strip()
+            ],
+            notebooklm_max_notebooks=int(os.getenv("NOTEBOOKLM_MAX_NOTEBOOKS", "3")),
             # v5.0 B. Adaptive Voice
             enable_adaptive_voice=os.getenv("ENABLE_ADAPTIVE_VOICE", "true").lower() == "true",
             pattern_weight_min_samples=int(os.getenv("PATTERN_WEIGHT_MIN_SAMPLES", "3")),
@@ -584,6 +601,7 @@ class AppConfig:
                 "tiered_collection": self.enable_tiered_collection,
                 "golden_reference_qa": self.enable_golden_reference_qa,
                 "trend_genealogy": self.enable_trend_genealogy,
+                "notebooklm": self.enable_notebooklm,
             },
             "target_platforms": self.target_platforms,
         }

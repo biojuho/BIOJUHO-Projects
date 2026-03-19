@@ -721,6 +721,23 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
         else:
             log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
 
+        # [v6.1] 교차 출처 일관성 검증 — 생성 전 소스 간 충돌 탐지
+        if not is_cached and trend.context:
+            try:
+                from fact_checker import check_cross_source_consistency as _csc
+                csc = _csc(trend)
+                trend.cross_source_agreement = csc.get("agreement_score", 0.5)
+                trend.cross_source_consistent = csc.get("consistent", True)
+                if not csc.get("consistent", True):
+                    conflicts_str = "; ".join(csc.get("conflicts", [])[:3])
+                    log.warning(
+                        f"  [CrossSource 충돌] '{trend.keyword}' "
+                        f"agreement={trend.cross_source_agreement:.2f} "
+                        f"충돌: {conflicts_str}"
+                    )
+            except Exception as _csc_err:
+                log.debug(f"  [CrossSource] 실행 실패 (무시): {_csc_err}")
+
         # [v6.0] 팩트 체크 — 생성 콘텐츠의 정보 정확성 검증
         if getattr(effective_config, "enable_fact_checking", True) and not is_cached:
             try:
@@ -1075,6 +1092,22 @@ async def _async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunR
                     log.info(f"  [Genealogy] 계보 저장 완료 ({len(genealogy)}개)")
             except Exception as _ge:
                 log.debug(f"  [Genealogy] 분석 실패 (무시): {_ge}")
+
+        # Step 3.6: [v17.0] NotebookLM 자동 연동 (선택적)
+        if getattr(pipeline_config, "enable_notebooklm", False) and quality_trends:
+            try:
+                from notebooklm_bridge import enrich_trends_with_notebooklm
+                nlm_results = await enrich_trends_with_notebooklm(
+                    quality_trends,
+                    contexts,
+                    min_viral_score=pipeline_config.notebooklm_min_viral_score,
+                    content_types=pipeline_config.notebooklm_content_types,
+                    max_notebooks=pipeline_config.notebooklm_max_notebooks,
+                )
+                if nlm_results:
+                    log.info(f"  [NotebookLM] {len(nlm_results)}개 노트북 생성 완료")
+            except Exception as _nlm_err:
+                log.debug(f"  [NotebookLM] 연동 실패 (무시): {_nlm_err}")
 
         # Step 4: 생성
         batch_results = await _step_generate(quality_trends, pipeline_config, conn)

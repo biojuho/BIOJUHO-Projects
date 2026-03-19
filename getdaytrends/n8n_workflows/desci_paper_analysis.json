@@ -1,0 +1,121 @@
+{
+  "name": "DeSci 논문 리서치 자동화 v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "desci-analyze",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "📩 논문 수신",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "desci-analyze"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:8788/health",
+        "options": {"timeout": 15000}
+      },
+      "id": "health",
+      "name": "🔍 상태",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"id": "c1", "leftValue": "={{ $json.status }}", "rightValue": "down", "operator": {"type": "string", "operation": "notEquals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "health-ok",
+      "name": "✅ 서비스 가동?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/content-factory",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ keyword: $('📩 논문 수신').first().json.body.title || '논문 분석', urls: $('📩 논문 수신').first().json.body.urls || [$('📩 논문 수신').first().json.body.pdf_url], category: '연구', context_text: $('📩 논문 수신').first().json.body.abstract || '' }) }}",
+        "options": {"timeout": 300000}
+      },
+      "id": "analyze",
+      "name": "🧬 NotebookLM 분석",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "paper_analysis",
+              "value": "=논문: {{ $('📩 논문 수신').first().json.body.title || 'Untitled' }}\n인사이트: {{ ($json.summary || '').substring(0, 300) }}\n트윗: {{ $json.tweet_draft || '' }}\n인포그래픽: {{ $json.infographic_id || '' }}\n노트북: https://notebooklm.google.com/notebook/{{ $json.notebook_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "result",
+      "name": "📊 결과",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "err",
+              "name": "error",
+              "value": "=❌ NotebookLM 서비스 다운 — 분석 불가\n논문: {{ $('📩 논문 수신').first().json.body.title || 'Untitled' }}\n상태: {{ $json.status || 'unreachable' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "error-resp",
+      "name": "🚨 에러 응답",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [750, 400]
+    }
+  ],
+  "connections": {
+    "📩 논문 수신": {
+      "main": [[{"node": "🔍 상태", "type": "main", "index": 0}]]
+    },
+    "🔍 상태": {
+      "main": [[{"node": "✅ 서비스 가동?", "type": "main", "index": 0}]]
+    },
+    "✅ 서비스 가동?": {
+      "main": [
+        [{"node": "🧬 NotebookLM 분석", "type": "main", "index": 0}],
+        [{"node": "🚨 에러 응답", "type": "main", "index": 0}]
+      ]
+    },
+    "🧬 NotebookLM 분석": {
+      "main": [[{"node": "📊 결과", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}
