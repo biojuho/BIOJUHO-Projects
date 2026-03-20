@@ -1061,10 +1061,21 @@ async def _async_collect_contexts(
 
     contexts: dict[str, MultiSourceContext] = {}
     for keyword, source_data in results.items():
+        news_insight = source_data.get("news", "")
+
+        # [Phase 4] Scrapling 뉴스 보강 — RSS 인사이트가 부족하면 직접 스크래핑
+        try:
+            from news_scraper import enrich_news_context
+            news_insight = enrich_news_context(keyword, news_insight)
+        except ImportError:
+            pass  # Scrapling 미설치 시 기존 동작 유지
+        except Exception as _e:
+            log.debug(f"[Scrapling] 뉴스 보강 실패 '{keyword}': {_e}")
+
         contexts[keyword] = MultiSourceContext(
             twitter_insight=source_data.get("twitter", ""),
             reddit_insight=source_data.get("reddit", ""),
-            news_insight=source_data.get("news", ""),
+            news_insight=news_insight,
         )
 
     return contexts

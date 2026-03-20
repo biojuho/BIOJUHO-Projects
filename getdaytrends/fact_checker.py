@@ -592,6 +592,26 @@ def verify_content(
         and result.accuracy_score >= min_accuracy
     )
 
+    # [Phase 3] DeepEval 보조 평가 — 규칙 기반 검증을 LLM 기반으로 보완
+    try:
+        from quality_eval import evaluate_content as deepeval_check
+        source_context = _build_source_corpus(trend)
+        eval_result = deepeval_check(text, source_context, trend.keyword)
+        if not eval_result.passed:
+            for issue in eval_result.issues:
+                result.issues.append(f"[DeepEval] {issue}")
+            # DeepEval이 환각을 감지했으면 규칙 기반이 통과여도 실패 처리
+            if eval_result.hallucination_score > 0.7:
+                result.passed = False
+                log.warning(
+                    f"[DeepEval] '{trend.keyword}' 환각 점수 높음: "
+                    f"{eval_result.hallucination_score:.2f}"
+                )
+    except ImportError:
+        pass  # DeepEval 미설치 시 기존 동작 유지
+    except Exception as e:
+        log.debug(f"[DeepEval] 보조 평가 스킵: {e}")
+
     return result
 
 

@@ -21,3 +21,12 @@ asyncpg>=0.29.0,<1.0           # PostgreSQL 비동기 드라이버 (asyncpg Pool
 selectolax>=0.3.21,<1.0        # Lexbor 백엔드 CSS 셀렉터 파싱
 # X/Twitter 비공식 클라이언트 (선택: Jina 폴백 대안)
 twikit>=2.3.0,<3.0
+# [Phase 1] Instructor — Pydantic 기반 구조화된 LLM 출력 (JSON 파싱 안정화)
+instructor>=1.14.0
+# [Phase 2] Kiwipiepy — 한국어 형태소 분석 (AI어투 탐지 + 신조어 감지)
+# 주의: Windows 한글 경로에서 segfault 이슈. 문자열 패턴 폴백으로도 동작.
+# pip install kiwipiepy  # (선택 — Linux/WSL 권장)
+# [Phase 3] DeepEval — LLM 출력 품질 자동 평가 (환각/관련성/일관성)
+deepeval>=3.9.0
+# [Phase 4] Scrapling — 안티봇 우회 + 적응형 뉴스 스크래핑
+scrapling>=0.4.0

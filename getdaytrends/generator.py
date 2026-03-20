@@ -29,6 +29,17 @@ from utils import sanitize_keyword
 
 from loguru import logger as log
 
+# [Phase 1] Instructor 구조화된 출력 (선택 의존성)
+try:
+    from structured_output import (
+        TweetGenerationResponse,
+        TweetItem,
+        extract_structured,
+        INSTRUCTOR_AVAILABLE as _INST_OK,
+    )
+except ImportError:
+    _INST_OK = False
+
 _JSON_POLICY = LLMPolicy(response_mode="json")
 
 # ── 언어 코드 매핑 ────────────────────────────────────
@@ -902,45 +913,60 @@ async def generate_tweets_async(
         "반드시 JSON만 출력."
     )
 
-    try:
-        response = await client.acreate(
-            tier=TaskTier.LIGHTWEIGHT,
-            max_tokens=1500,
-            policy=_JSON_POLICY,
-            system=_system_tweets(config.tone),
-            messages=[{"role": "user", "content": user_message}],
-        )
-        data = _parse_json(response.text)
+    # [Phase 1] Instructor 우선 시도 → 실패 시 기존 JSON 파싱 폴백
+    data = None
+    if _INST_OK:
+        try:
+            full_prompt = f"[시스템]\n{_system_tweets(config.tone)}\n\n[사용자]\n{user_message}"
+            inst_result = await extract_structured(
+                full_prompt, TweetGenerationResponse,
+                tier="lightweight", max_tokens=1500,
+            )
+            if inst_result and inst_result.tweets:
+                data = inst_result.model_dump()
+                log.info(f"[Instructor] 트윗 생성 파싱 성공: '{trend.keyword}'")
+        except Exception as e:
+            log.debug(f"[Instructor] 트윗 생성 폴백: {e}")
 
-        if not data:
-            log.error(f"트윗 생성 JSON 파싱 실패: {trend.keyword}")
+    if data is None:
+        try:
+            response = await client.acreate(
+                tier=TaskTier.LIGHTWEIGHT,
+                max_tokens=1500,
+                policy=_JSON_POLICY,
+                system=_system_tweets(config.tone),
+                messages=[{"role": "user", "content": user_message}],
+            )
+            data = _parse_json(response.text)
+        except Exception as e:
+            log.error(f"트윗 생성 실패 ({trend.keyword}): {e}")
             return None
 
-        tweets = []
-        for t in data.get("tweets", []):
-            content = t.get("content", "")
-            if len(content) > 280:
-                content = content[:277] + "..."
-                log.warning(f"트윗 280자 초과 트리밍: {trend.keyword} [{t.get('type', '')}]")
-            tweets.append(GeneratedTweet(
-                tweet_type=t.get("type", ""),
-                content=content,
-                content_type="short",
-                best_posting_time=t.get("best_posting_time", ""),
-                expected_engagement=t.get("expected_engagement", ""),
-                reasoning=t.get("reasoning", ""),
-            ))
-
-        log.info(f"트윗 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
-        return TweetBatch(
-            topic=data.get("topic", trend.keyword),
-            tweets=tweets,
-            viral_score=trend.viral_potential,
-        )
-
-    except Exception as e:
-        log.error(f"트윗 생성 실패 ({trend.keyword}): {e}")
+    if not data:
+        log.error(f"트윗 생성 JSON 파싱 실패: {trend.keyword}")
         return None
+
+    tweets = []
+    for t in data.get("tweets", []):
+        content = t.get("content", "")
+        if len(content) > 280:
+            content = content[:277] + "..."
+            log.warning(f"트윗 280자 초과 트리밍: {trend.keyword} [{t.get('type', '')}]")
+        tweets.append(GeneratedTweet(
+            tweet_type=t.get("type", ""),
+            content=content,
+            content_type="short",
+            best_posting_time=t.get("best_posting_time", ""),
+            expected_engagement=t.get("expected_engagement", ""),
+            reasoning=t.get("reasoning", ""),
+        ))
+
+    log.info(f"트윗 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
+    return TweetBatch(
+        topic=data.get("topic", trend.keyword),
+        tweets=tweets,
+        viral_score=trend.viral_potential,
+    )
 
 
 # ══════════════════════════════════════════════════════
@@ -1763,6 +1789,26 @@ def _audit_content_group(
     if matched_cliches:
         tone = max(0, tone - min(15, 5 * len(matched_cliches)))
         issues.append(f"상투구 감지: {', '.join(matched_cliches[:3])}")
+
+    # [Phase 2] Kiwipiepy 형태소 기반 AI어투 심층 탐지
+    try:
+        from korean_nlp import detect_ai_voice, compute_quality_score
+        ai_flags = detect_ai_voice(combined)
+        if ai_flags:
+            # 기존 상투구와 중복되지 않는 새로운 AI어투만 추가 감점
+            new_flags = [f for f in ai_flags if not any(c in f for c in matched_cliches)]
+            if new_flags:
+                tone = max(0, tone - min(10, 3 * len(new_flags)))
+                issues.append(f"AI어투(형태소): {', '.join(new_flags[:2])}")
+        # 품질 점수가 낮으면 추가 감점
+        avg_quality = sum(
+            compute_quality_score(item.content) for item in items if item.content
+        ) / max(len(items), 1)
+        if avg_quality < 0.5:
+            tone = max(0, tone - 3)
+            issues.append(f"Kiwipiepy 품질 점수 낮음: {avg_quality:.2f}")
+    except ImportError:
+        pass  # Kiwipiepy 미설치 시 기존 동작 유지
 
     allowed_corpus = _build_allowed_fact_corpus(trend)
     allowed_lower = allowed_corpus.lower()

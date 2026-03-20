@@ -23,6 +23,13 @@ from utils import run_async, sanitize_keyword
 
 from loguru import logger as log
 
+# [Phase 1] Instructor 구조화된 출력 (선택 의존성)
+try:
+    from structured_output import ScoringResponseItem, extract_structured_list
+    INSTRUCTOR_AVAILABLE = True
+except ImportError:
+    INSTRUCTOR_AVAILABLE = False
+
 
 # ══════════════════════════════════════════════════════
 #  JSON Parser (simplified — structured output removes fragility)
@@ -45,6 +52,34 @@ def _parse_json_array(text: str | None) -> list | None:
     try:
         return json.loads(text.strip())
     except json.JSONDecodeError:
+        return None
+
+
+# ══════════════════════════════════════════════════════
+#  [Phase 1] Instructor 기반 배치 스코어링
+# ══════════════════════════════════════════════════════
+
+async def _score_batch_instructor(
+    prompt: str,
+    count: int,
+) -> list[dict] | None:
+    """Instructor로 배치 스코어링 수행. 실패 시 None (기존 경로 폴백)."""
+    if not INSTRUCTOR_AVAILABLE:
+        return None
+    try:
+        items = await extract_structured_list(
+            prompt,
+            ScoringResponseItem,
+            tier="lightweight",
+            max_tokens=600 * count,
+            expected_count=count,
+        )
+        if items and len(items) == count:
+            log.info(f"[Instructor] 배치 스코어링 성공 ({count}개)")
+            return [item.model_dump() for item in items]
+        return None
+    except Exception as e:
+        log.debug(f"[Instructor] 배치 스코어링 폴백: {e}")
         return None
 
 
@@ -777,27 +812,33 @@ async def _batch_score_async(
             trends_json=trends_json,
             current_time=current_time,
         )
-        parsed_list: list[dict] | None = None
-        for attempt in range(2):
-            try:
-                response = await client.acreate(
-                    tier=TaskTier.LIGHTWEIGHT,
-                    max_tokens=600 * len(need_llm),   # joongyeon_angle 필드용 토큰 증가
-                    policy=_JSON_POLICY,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                text = response.text.strip()
-                if text.startswith("{"):
-                    text = text[1:].lstrip()
-                parsed_list = _parse_json_array(text)
-                if parsed_list and len(parsed_list) == len(need_llm):
-                    break
-                log.warning(f"배치 스코어링 응답 길이 불일치: {len(parsed_list) if parsed_list else 0} vs {len(need_llm)}")
-                parsed_list = None
-            except Exception as e:
-                log.error(f"배치 스코어링 실패 ({attempt + 1}/2): {e}")
-                if attempt == 0:
-                    await asyncio.sleep(1)
+        # [Phase 1] Instructor 우선 시도 → 실패 시 기존 JSON 파싱 폴백
+        parsed_list: list[dict] | None = await _score_batch_instructor(
+            prompt, len(need_llm)
+        )
+
+        if parsed_list is None:
+            # 기존 경로: shared/llm 클라이언트 + 수동 JSON 파싱
+            for attempt in range(2):
+                try:
+                    response = await client.acreate(
+                        tier=TaskTier.LIGHTWEIGHT,
+                        max_tokens=600 * len(need_llm),
+                        policy=_JSON_POLICY,
+                        messages=[{"role": "user", "content": prompt}],
+                    )
+                    text = response.text.strip()
+                    if text.startswith("{"):
+                        text = text[1:].lstrip()
+                    parsed_list = _parse_json_array(text)
+                    if parsed_list and len(parsed_list) == len(need_llm):
+                        break
+                    log.warning(f"배치 스코어링 응답 길이 불일치: {len(parsed_list) if parsed_list else 0} vs {len(need_llm)}")
+                    parsed_list = None
+                except Exception as e:
+                    log.error(f"배치 스코어링 실패 ({attempt + 1}/2): {e}")
+                    if attempt == 0:
+                        await asyncio.sleep(1)
 
         if parsed_list:
             for (trend, ctx), item in zip(need_llm, parsed_list):
