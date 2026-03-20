@@ -43,3 +43,6 @@
 - [ ] Vercel + Railway 실제 배포 및 도메인 연결
 - [ ] 한국 바이오 VC 50개사 DB 크롤링 활성화
 - [ ] Polygon Amoy Testnet에 DeSciToken 배포
+
+## 6. GitHub OSS Adoption
+- 실행 로드맵: `GITHUB_ADOPTION_ROADMAP.md`

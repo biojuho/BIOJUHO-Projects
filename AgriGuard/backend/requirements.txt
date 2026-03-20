@@ -10,3 +10,6 @@ alembic>=1.13.0,<2.0
 web3>=7.0.0,<8.0
 firebase-admin>=6.0.0,<7.0
 aiomqtt>=2.0.0,<3.0
+# Admin panel
+sqladmin>=0.23.0,<1.0
+itsdangerous>=2.1.0,<3.0

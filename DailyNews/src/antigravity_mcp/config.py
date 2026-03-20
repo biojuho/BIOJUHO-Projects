@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -112,6 +114,37 @@ class AppSettings:
     @property
     def channels_file(self) -> Path:
         return self.config_dir / "channels.json"
+
+    def validate(self) -> list[str]:
+        """Validate configuration on startup. Returns list of critical issues."""
+        issues: list[str] = []
+        # At least one LLM key required
+        if not any([self.google_api_key, self.anthropic_api_key, self.openai_api_key]):
+            issues.append("No LLM API key configured (GOOGLE_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY).")
+        # news_sources.json must exist
+        if not self.news_sources_file.exists():
+            issues.append(f"News sources config not found: {self.news_sources_file}")
+        else:
+            try:
+                data = json.loads(self.news_sources_file.read_text(encoding="utf-8"))
+                if not data:
+                    issues.append("news_sources.json is empty.")
+            except (json.JSONDecodeError, OSError) as exc:
+                issues.append(f"news_sources.json is invalid: {exc}")
+        # DB path writable
+        try:
+            self.pipeline_state_db.parent.mkdir(parents=True, exist_ok=True)
+            test_file = self.pipeline_state_db.parent / ".write_test"
+            test_file.write_text("ok")
+            test_file.unlink()
+        except OSError as exc:
+            issues.append(f"Database path not writable: {exc}")
+        # Pipeline config sanity
+        if self.pipeline_max_concurrency < 1:
+            issues.append("PIPELINE_MAX_CONCURRENCY must be >= 1.")
+        if self.pipeline_http_timeout_sec < 1:
+            issues.append("PIPELINE_HTTP_TIMEOUT_SEC must be >= 1.")
+        return issues
 
     def public_summary(self) -> dict[str, str | int | bool | list[str]]:
         return {
@@ -239,3 +272,35 @@ def get_settings() -> AppSettings:
         auto_push_enabled=_env_bool("AUTO_PUSH_ENABLED", False),
         settings_warnings=tuple(warnings),
     )
+
+
+def configure_logging(settings: AppSettings | None = None) -> None:
+    """Configure structured JSON logging to logs/pipeline.jsonl."""
+    settings = settings or get_settings()
+    log_level = getattr(logging, settings.pipeline_log_level, logging.INFO)
+
+    # Console handler
+    logging.basicConfig(level=log_level, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+
+    # JSON file handler
+    jsonl_path = settings.log_dir / "pipeline.jsonl"
+    try:
+
+        class _JsonlFormatter(logging.Formatter):
+            def format(self, record: logging.LogRecord) -> str:
+                entry = {
+                    "timestamp": self.formatTime(record, self.datefmt),
+                    "level": record.levelname,
+                    "logger": record.name,
+                    "message": record.getMessage(),
+                }
+                if record.exc_info and record.exc_info[1]:
+                    entry["exception"] = str(record.exc_info[1])
+                return json.dumps(entry, ensure_ascii=False)
+
+        file_handler = logging.FileHandler(jsonl_path, encoding="utf-8")
+        file_handler.setLevel(log_level)
+        file_handler.setFormatter(_JsonlFormatter())
+        logging.getLogger().addHandler(file_handler)
+    except OSError:
+        pass  # Skip file logging if path not writable

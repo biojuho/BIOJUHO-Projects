@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  mcp-server:
+    build: .
+    container_name: dailynews-mcp
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./output:/app/output
+      - ./config:/app/config
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    command: ["antigravity-mcp", "serve"]
+
+  daily-pipeline:
+    build: .
+    container_name: dailynews-pipeline
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./output:/app/output
+      - ./config:/app/config
+    restart: "no"
+    command: ["python", "scripts/run_daily_news.py", "--force"]
+    profiles:
+      - pipeline

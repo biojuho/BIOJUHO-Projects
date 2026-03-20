@@ -723,6 +723,24 @@ class _MetricsMixin:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def record_published_tweet_id(self, report_id: str, tweet_id: str, content_preview: str = "") -> None:
+        """Record a published tweet ID for later metrics collection."""
+        self.upsert_tweet_metrics(
+            tweet_id=tweet_id,
+            report_id=report_id,
+            content_preview=content_preview,
+        )
+
+    def get_recent_tweet_ids(self, *, hours: int = 48) -> list[str]:
+        """Return tweet IDs published within the given time window."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT tweet_id FROM x_tweet_metrics WHERE published_at >= ? ORDER BY published_at DESC",
+                (cutoff,),
+            ).fetchall()
+        return [row["tweet_id"] for row in rows]
+
     def get_metrics_summary(self, *, days: int = 7) -> dict[str, Any]:
         """Aggregate tweet metrics over the given period."""
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()

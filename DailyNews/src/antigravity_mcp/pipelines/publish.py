@@ -119,6 +119,8 @@ async def publish_report(
                     x_status = "published"
                     publication["x_thread_ids"] = ",".join(published_ids)
                     publication["x_url"] = f"https://twitter.com/i/web/status/{published_ids[0]}"
+                    for tid in published_ids:
+                        state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
                 else:
                     x_status = thread_results[0].get("status", "error") if thread_results else "error"
                     if thread_results and thread_results[0].get("message"):
@@ -131,6 +133,11 @@ async def publish_report(
                 publication[f"{draft.channel}_status"] = x_result["status"]
                 if x_result.get("tweet_url"):
                     publication["x_url"] = x_result["tweet_url"]
+                    # Extract tweet ID from URL for metrics tracking
+                    tweet_url = x_result["tweet_url"]
+                    if "/status/" in tweet_url:
+                        tid = tweet_url.rsplit("/status/", 1)[-1].split("?")[0]
+                        state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
                 if x_result.get("message"):
                     warnings.append(x_result["message"])
         else:

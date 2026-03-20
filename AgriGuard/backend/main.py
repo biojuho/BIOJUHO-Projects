@@ -14,6 +14,7 @@ from database import SessionLocal, engine
 from services.chain_simulator import get_chain
 from auth import get_current_user
 from iot_service import sensor_simulation_loop, get_current_status, get_latest_readings, handle_ws_connection
+from starlette.middleware.sessions import SessionMiddleware
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -51,6 +52,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("SECRET_KEY", "agriguard-dev-secret-change-me"),
+)
+
+# ── Admin Panel (/admin) ────────────────────────────────────
+from admin import setup_admin
+setup_admin(app)
 
 # Fallback values used when the DB has no real data yet (demo mode)
 DEMO_TOTAL_FARMS = 142

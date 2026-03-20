@@ -78,15 +78,20 @@ async def collect_content_items(
     start, end = get_window(window_name)
     semaphore = asyncio.Semaphore(max(1, settings.pipeline_max_concurrency))
 
+    import math
+
     warnings: list[str] = []
     items: list[ContentItem] = []
 
-    for category in selected_categories:
+    async def _collect_category(category: str) -> tuple[list[ContentItem], list[str]]:
+        """Collect items for a single category (runs concurrently)."""
         sources = source_map.get(category, [])
         if not sources:
-            continue
+            return [], []
 
-        # --- Parallel feed fetching per category ---
+        cat_warnings: list[str] = []
+        cat_items: list[ContentItem] = []
+
         async def _fetch_one(source: dict[str, str]) -> tuple[str, list, Exception | None]:
             try:
                 async with semaphore:
@@ -97,14 +102,12 @@ async def collect_content_items(
 
         fetch_results = await asyncio.gather(*[_fetch_one(s) for s in sources])
 
-        # ── Per-source cap for diverse coverage ──
-        import math
         max_per_source = max(1, math.ceil(max_items / max(1, len(sources))))
 
         collected_for_category = 0
         for source_name, entries, exc in fetch_results:
             if exc is not None:
-                warnings.append(f"{category}/{source_name} fetch failed: {type(exc).__name__}")
+                cat_warnings.append(f"{category}/{source_name} fetch failed: {type(exc).__name__}")
                 continue
 
             source_count = 0
@@ -121,7 +124,7 @@ async def collect_content_items(
                     continue
                 if state_store.has_seen_article(link=link, category=category, window_name=window_name):
                     continue
-                items.append(
+                cat_items.append(
                     ContentItem(
                         source_name=source_name,
                         category=category,
@@ -135,4 +138,12 @@ async def collect_content_items(
                 source_count += 1
             if collected_for_category >= max_items:
                 break
+        return cat_items, cat_warnings
+
+    # Parallel category collection
+    results = await asyncio.gather(*[_collect_category(cat) for cat in selected_categories])
+    for cat_items, cat_warnings in results:
+        items.extend(cat_items)
+        warnings.extend(cat_warnings)
+
     return items, warnings

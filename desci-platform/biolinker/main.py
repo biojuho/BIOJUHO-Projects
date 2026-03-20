@@ -27,6 +27,7 @@ from services.ntis_crawler import get_ntis_crawler
 from services.scheduler import get_scheduler
 from services.vector_store import get_vector_store
 from services.ipfs_service import get_ipfs_service
+from services.pdf_parser import get_pdf_parser
 from services.web3_service import get_web3_service, MOCK_MODE
 from limiter import limiter
 
@@ -123,6 +124,8 @@ async def root():
                         "chromadb_count": 42,
                         "web3_connected": False,
                         "ipfs_configured": True,
+                        "grobid_configured": True,
+                        "grobid_available": True,
                     }
                 }
             },
@@ -138,6 +141,7 @@ async def health():
     vector_store = get_vector_store()
     web3 = get_web3_service()
     ipfs = get_ipfs_service()
+    pdf_parser = get_pdf_parser()
 
     chromadb_ok = True
     chromadb_count = 0
@@ -155,6 +159,15 @@ async def health():
         or os.getenv("GEMINI_API_KEY")
     )
 
+    grobid_parser = getattr(pdf_parser, "grobid_parser", None)
+    grobid_configured = bool(getattr(grobid_parser, "is_configured", False))
+    grobid_available = False
+    if grobid_configured and hasattr(grobid_parser, "health_check"):
+        try:
+            grobid_available = bool(grobid_parser.health_check())
+        except Exception as e:
+            log.warning("health_check_grobid_error", error=str(e))
+
     return {
         "status": "healthy" if chromadb_ok else "degraded",
         "llm_available": llm_available,
@@ -162,6 +175,8 @@ async def health():
         "chromadb_count": chromadb_count,
         "web3_connected": bool(getattr(web3, "is_connected", False)),
         "ipfs_configured": bool(getattr(ipfs, "is_configured", False)),
+        "grobid_configured": grobid_configured,
+        "grobid_available": grobid_available,
     }
 
 

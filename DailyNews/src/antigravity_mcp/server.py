@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from antigravity_mcp.config import get_settings
+from antigravity_mcp.config import configure_logging, get_settings
 from antigravity_mcp.state.events import json_dumps, ok
 from antigravity_mcp.state.store import PipelineStateStore
 from antigravity_mcp.tooling.content_tools import (
@@ -18,9 +18,13 @@ from antigravity_mcp.tooling.notion_tools import (
 )
 from antigravity_mcp.tooling.content_tools import content_invoke_skill_tool
 from antigravity_mcp.tooling.ops_tools import (
+    ops_auto_collect_metrics_tool,
     ops_check_health_tool,
     ops_cleanup_tool,
     ops_collect_tweet_metrics_tool,
+    ops_export_analytics_tool,
+    ops_get_content_calendar_tool,
+    ops_get_cost_report_tool,
     ops_get_run_status_tool,
     ops_get_tweet_performance_tool,
     ops_list_runs_tool,
@@ -32,6 +36,13 @@ _DEPRECATION_MSG = " This tool will be removed in v0.3.0."
 
 def build_server() -> FastMCP:
     settings = get_settings()
+    configure_logging(settings)
+    issues = settings.validate()
+    if issues:
+        import logging
+        _logger = logging.getLogger(__name__)
+        for issue in issues:
+            _logger.warning("Config validation: %s", issue)
     server = FastMCP("Antigravity Content Engine MCP")
 
     @server.tool()
@@ -120,6 +131,11 @@ def build_server() -> FastMCP:
     # ── Phase 5: Tweet metrics & performance ───────────────────────────
 
     @server.tool()
+    async def ops_auto_collect_metrics(hours: int = 48) -> dict:
+        """Automatically fetch metrics for all recently published tweets (no IDs needed)."""
+        return await ops_auto_collect_metrics_tool(hours=hours)
+
+    @server.tool()
     async def ops_collect_tweet_metrics(tweet_ids: list[str], report_id: str = "") -> dict:
         """Fetch and store engagement metrics for published tweets from X API v2."""
         return await ops_collect_tweet_metrics_tool(tweet_ids=tweet_ids, report_id=report_id)
@@ -128,6 +144,21 @@ def build_server() -> FastMCP:
     async def ops_get_tweet_performance(days: int = 7, limit: int = 10, sort_by: str = "impressions") -> dict:
         """Get top-performing tweets and aggregate engagement summary."""
         return await ops_get_tweet_performance_tool(days=days, limit=limit, sort_by=sort_by)
+
+    @server.tool()
+    async def ops_get_cost_report(days: int = 7) -> dict:
+        """Get LLM cost breakdown by model for the last N days."""
+        return await ops_get_cost_report_tool(days=days)
+
+    @server.tool()
+    async def ops_export_analytics(date: str = "", days: int = 30) -> dict:
+        """Export daily report JSON and tweet performance CSV."""
+        return await ops_export_analytics_tool(date=date, days=days)
+
+    @server.tool()
+    async def ops_get_content_calendar(days: int = 7) -> dict:
+        """Get optimal posting times based on historical engagement data."""
+        return await ops_get_content_calendar_tool(days=days)
 
     # ── Phase 4: Cost monitoring ─────────────────────────────────────────
 

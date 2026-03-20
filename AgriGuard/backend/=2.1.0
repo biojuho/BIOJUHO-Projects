@@ -1,0 +1,26 @@
+Collecting sqladmin
+  Downloading sqladmin-0.23.0-py3-none-any.whl.metadata (5.3 kB)
+Collecting itsdangerous
+  Downloading itsdangerous-2.2.0-py3-none-any.whl.metadata (1.9 kB)
+Requirement already satisfied: starlette in d:\AI 프로젝트\.venv\Lib\site-packages (from sqladmin) (0.52.1)
+Collecting wtforms<3.2,>=3.1 (from sqladmin)
+  Downloading wtforms-3.1.2-py3-none-any.whl.metadata (5.3 kB)
+Collecting jinja2 (from sqladmin)
+  Using cached jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+Requirement already satisfied: python-multipart in d:\AI 프로젝트\.venv\Lib\site-packages (from sqladmin) (0.0.22)
+Requirement already satisfied: sqlalchemy>=2.0 in d:\AI 프로젝트\.venv\Lib\site-packages (from sqladmin) (2.0.47)
+Collecting markupsafe (from wtforms<3.2,>=3.1->sqladmin)
+  Using cached markupsafe-3.0.3-cp314-cp314-win_amd64.whl.metadata (2.8 kB)
+Requirement already satisfied: greenlet>=1 in d:\AI 프로젝트\.venv\Lib\site-packages (from sqlalchemy>=2.0->sqladmin) (3.3.2)
+Requirement already satisfied: typing-extensions>=4.6.0 in d:\AI 프로젝트\.venv\Lib\site-packages (from sqlalchemy>=2.0->sqladmin) (4.15.0)
+Requirement already satisfied: anyio<5,>=3.6.2 in d:\AI 프로젝트\.venv\Lib\site-packages (from starlette->sqladmin) (4.12.1)
+Requirement already satisfied: idna>=2.8 in d:\AI 프로젝트\.venv\Lib\site-packages (from anyio<5,>=3.6.2->starlette->sqladmin) (3.11)
+Downloading sqladmin-0.23.0-py3-none-any.whl (1.5 MB)
+   ---------------------------------------- 1.5/1.5 MB 7.2 MB/s  0:00:00
+Downloading wtforms-3.1.2-py3-none-any.whl (145 kB)
+Downloading itsdangerous-2.2.0-py3-none-any.whl (16 kB)
+Using cached jinja2-3.1.6-py3-none-any.whl (134 kB)
+Using cached markupsafe-3.0.3-cp314-cp314-win_amd64.whl (15 kB)
+Installing collected packages: markupsafe, itsdangerous, wtforms, jinja2, sqladmin
+
+Successfully installed itsdangerous-2.2.0 jinja2-3.1.6 markupsafe-3.0.3 sqladmin-0.23.0 wtforms-3.1.2

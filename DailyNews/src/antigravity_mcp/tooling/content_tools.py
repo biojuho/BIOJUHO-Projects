@@ -51,6 +51,7 @@ async def content_generate_brief_tool(
         return ok({"reports": [], "report_ids": []})
 
     window_start, window_end = get_window(window)
+    skill = SkillAdapter(state_store=store)
     try:
         run_id, reports, llm_warnings, status = await generate_briefs(
             items=items,
@@ -58,6 +59,7 @@ async def content_generate_brief_tool(
             window_start=window_start.isoformat(),
             window_end=window_end.isoformat(),
             state_store=store,
+            skill_adapter=skill,
         )
     except Exception as exc:
         await _alert_on_error("analyze", type(exc).__name__, str(exc))

@@ -61,6 +61,11 @@ class AppConfig:
     x_client_id: str = ""           # X Developer App Client ID
     x_client_secret: str = ""       # X Developer App Client Secret
 
+    # Twikit (비공식 X 클라이언트 — 읽기 전용 폴백)
+    twikit_username: str = ""       # 전용 X 계정 사용자명
+    twikit_email: str = ""          # 전용 X 계정 이메일
+    twikit_password: str = ""       # 전용 X 계정 비밀번호
+
     # Alerts
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -313,6 +318,9 @@ class AppConfig:
             x_access_token=os.getenv("X_ACCESS_TOKEN", ""),
             x_client_id=os.getenv("X_CLIENT_ID", ""),
             x_client_secret=os.getenv("X_CLIENT_SECRET", ""),
+            twikit_username=os.getenv("TWIKIT_USERNAME", ""),
+            twikit_email=os.getenv("TWIKIT_EMAIL", ""),
+            twikit_password=os.getenv("TWIKIT_PASSWORD", ""),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
             discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL", ""),

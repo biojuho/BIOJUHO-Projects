@@ -3,10 +3,11 @@ BioLinker - Web3 Router
 지갑, 토큰 보상, NFT 민팅, 자산 관리 엔드포인트
 """
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Body
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 
 from services.web3_service import get_web3_service, MOCK_MODE
 from services.asset_manager import get_asset_manager
+from services.auth import get_current_user
 from services.logging_config import get_logger
 from firestore_db import db
 
@@ -99,6 +100,32 @@ async def upload_company_asset(
     """회사 자산(IR, 논문, 특허) 업로드 및 인덱싱"""
     manager = get_asset_manager()
     return await manager.upload_asset(file, asset_type)
+
+
+@router.post("/upload", tags=["Web3"])
+async def upload_paper(
+    file: UploadFile = File(...),
+    title: str = Form(""),
+    authors: str = Form(""),
+    abstract: str = Form(""),
+    user: dict = Depends(get_current_user),
+):
+    """Upload a paper, pin to IPFS, and index structured metadata."""
+    manager = get_asset_manager()
+    return await manager.upload_paper(
+        file=file,
+        user=user,
+        title=title,
+        authors=authors,
+        abstract=abstract,
+    )
+
+
+@router.get("/papers/me", tags=["Web3"])
+async def list_my_papers(user: dict = Depends(get_current_user)):
+    """Return uploaded papers for the current authenticated user."""
+    manager = get_asset_manager()
+    return manager.list_user_papers(user.get("uid", ""))
 
 
 @router.get("/assets", tags=["Web3"])

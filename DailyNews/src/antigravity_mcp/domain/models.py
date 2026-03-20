@@ -59,6 +59,7 @@ class ContentReport:
     created_at: str = ""
     updated_at: str = ""
     notebooklm_metadata: dict[str, Any] = field(default_factory=dict)
+    fact_check_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

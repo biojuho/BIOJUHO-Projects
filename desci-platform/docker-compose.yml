@@ -10,10 +10,14 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - CHROMA_DB_PATH=/app/chroma_db
       - ENV=${ENV:-development}
+      - GROBID_ENABLED=${GROBID_ENABLED:-true}
+      - GROBID_URL=${GROBID_URL:-http://grobid:8070/api}
+      - GROBID_TIMEOUT_SECONDS=${GROBID_TIMEOUT_SECONDS:-60}
     volumes:
       - ./biolinker/chroma_db:/app/chroma_db
     depends_on:
       - chromadb
+      - grobid
     networks:
       - desci-net
     healthcheck:
@@ -28,6 +32,14 @@ services:
       - "8000"
     volumes:
       - chroma-data:/chroma/chroma
+    networks:
+      - desci-net
+
+  grobid:
+    image: lfoppiano/grobid:0.8.2-crf
+    expose:
+      - "8070"
+      - "8071"
     networks:
       - desci-net
 

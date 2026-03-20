@@ -39,6 +39,8 @@ async def generate_briefs(
     embedding_adapter: EmbeddingAdapter | None = None,
     # --- Phase 4: NotebookLM deep research (optional) ---
     notebooklm_adapter: Any | None = None,
+    # --- Phase 5: Skill auto-invocation (optional) ---
+    skill_adapter: Any | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
     llm_adapter = llm_adapter or LLMAdapter(state_store=state_store)
     embedding_adapter = embedding_adapter or EmbeddingAdapter()
@@ -146,6 +148,37 @@ async def generate_briefs(
             except Exception as exc:
                 warnings.append(f"Brain analysis failed for {category}: {type(exc).__name__}")
 
+        # --- Skill auto-invocation (optional) ---
+        if skill_adapter and hasattr(skill_adapter, "invoke"):
+            _MARKET_CATEGORIES = {"Economy_KR", "Economy_Global", "Crypto"}
+            try:
+                if category in _MARKET_CATEGORIES:
+                    market_result = await skill_adapter.invoke(
+                        "market_snapshot",
+                        {"keywords": [item.title.split()[0] for item in category_items[:3]]},
+                    )
+                    if market_result.get("status") == "ok":
+                        snapshots = market_result.get("result", {}).get("snapshots", {})
+                        for ticker, snap in list(snapshots.items())[:2]:
+                            if isinstance(snap, dict) and snap.get("price"):
+                                insights.append(f"[Market] {ticker}: ${snap['price']}")
+            except Exception as exc:
+                warnings.append(f"Skill market_snapshot failed for {category}: {type(exc).__name__}")
+            try:
+                summary_text = " ".join(item.title for item in category_items[:5])
+                sentiment_result = await skill_adapter.invoke(
+                    "sentiment_classify",
+                    {"text": summary_text},
+                )
+                if sentiment_result.get("status") == "ok":
+                    skill_sentiment = sentiment_result.get("result", {})
+                    if isinstance(skill_sentiment, dict):
+                        label = skill_sentiment.get("sentiment") or skill_sentiment.get("label", "")
+                        if label:
+                            insights.append(f"[Skill Sentiment] {category}: {label}")
+            except Exception as exc:
+                warnings.append(f"Skill sentiment_classify failed for {category}: {type(exc).__name__}")
+
         # --- NotebookLM deep research (optional) ---
         notebooklm_meta: dict[str, Any] = {}
         if notebooklm_adapter and hasattr(notebooklm_adapter, "research_category"):
@@ -174,6 +207,31 @@ async def generate_briefs(
             except Exception as exc:
                 warnings.append(f"NotebookLM research failed for {category}: {type(exc).__name__}: {exc}")
 
+        # --- Fact-check verification (optional) ---
+        fact_check_score = 0.0
+        try:
+            from antigravity_mcp.integrations.fact_check_adapter import FactCheckAdapter
+            fc = FactCheckAdapter()
+            if fc.is_available():
+                drafts_text = "\n".join(d.content for d in drafts if d.content)
+                source_articles = [
+                    {"title": item.title, "description": item.summary[:200], "source_name": item.source_name}
+                    for item in category_items
+                ]
+                fc_result = await fc.check_report(
+                    summary_lines=summary_lines,
+                    insights=insights,
+                    drafts_text=drafts_text,
+                    source_articles=source_articles,
+                )
+                fact_check_score = fc_result.get("fact_check_score", 0.0)
+                if not fc_result.get("passed", True):
+                    fc_issues = fc_result.get("issues", [])
+                    for issue in fc_issues[:3]:
+                        warnings.append(f"[FactCheck] {issue}")
+        except Exception as exc:
+            logger.debug("Fact-check skipped for %s: %s", category, exc)
+
         # --- Topic continuity detection ---
         current_titles = [item.title for item in category_items]
         continuing = state_store.find_continuing_topics(category, current_titles)
@@ -200,6 +258,7 @@ async def generate_briefs(
             created_at=utc_now_iso(),
             updated_at=utc_now_iso(),
             notebooklm_metadata=notebooklm_meta,
+            fact_check_score=fact_check_score,
         )
         state_store.save_report(report)
 

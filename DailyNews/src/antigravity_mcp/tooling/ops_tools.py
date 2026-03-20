@@ -99,6 +99,21 @@ async def ops_check_health_tool(
     })
 
 
+async def ops_auto_collect_metrics_tool(hours: int = 48) -> dict:
+    """Automatically fetch and store metrics for all recently published tweets.
+
+    No tweet_ids needed — discovers them from the state store.
+    """
+    from antigravity_mcp.pipelines.metrics import collect_recent_metrics
+
+    store = PipelineStateStore()
+    run_id, count, warnings = await collect_recent_metrics(state_store=store, hours=hours)
+    payload = {"run_id": run_id, "tweets_updated": count, "hours_window": hours}
+    if warnings:
+        return partial(payload, warnings=warnings, meta={"run_id": run_id})
+    return ok(payload, meta={"run_id": run_id})
+
+
 async def ops_collect_tweet_metrics_tool(tweet_ids: list[str], report_id: str = "") -> dict:
     """Fetch and store engagement metrics for published tweets.
 
@@ -113,6 +128,48 @@ async def ops_collect_tweet_metrics_tool(tweet_ids: list[str], report_id: str = 
         )
     count = await adapter.collect_and_store(tweet_ids, report_id=report_id)
     return ok({"tweets_updated": count, "tweet_ids": tweet_ids})
+
+
+async def ops_get_cost_report_tool(days: int = 7) -> dict:
+    """Get LLM cost breakdown by model for the last N days."""
+    store = PipelineStateStore()
+    stats = store.get_token_usage_stats(hours=days * 24)
+    try:
+        from shared.llm import export_usage_csv, get_daily_stats
+        daily = get_daily_stats(days=days)
+        stats["daily_breakdown"] = daily
+    except ImportError:
+        pass
+    return ok(stats)
+
+
+async def ops_export_analytics_tool(date: str = "", days: int = 30) -> dict:
+    """Export daily report JSON and tweet performance CSV."""
+    from antigravity_mcp.pipelines.export import export_daily_report_json, export_performance_csv
+
+    store = PipelineStateStore()
+    json_result = export_daily_report_json(date=date, state_store=store)
+    csv_result = export_performance_csv(days=days, state_store=store)
+    return ok({
+        "json_export": json_result,
+        "csv_export": csv_result,
+    })
+
+
+async def ops_get_content_calendar_tool(days: int = 7) -> dict:
+    """Get optimal posting times for the next N days."""
+    from antigravity_mcp.integrations.scheduler_adapter import SchedulerAdapter
+
+    store = PipelineStateStore()
+    scheduler = SchedulerAdapter(state_store=store)
+    optimal = scheduler.get_optimal_hours(count=6)
+    should_post = scheduler.should_post_now()
+    next_slot = scheduler.get_next_posting_slot()
+    return ok({
+        "optimal_hours_today": optimal,
+        "should_post_now": should_post,
+        "next_slot": next_slot,
+    })
 
 
 async def ops_get_tweet_performance_tool(days: int = 7, limit: int = 10, sort_by: str = "impressions") -> dict:

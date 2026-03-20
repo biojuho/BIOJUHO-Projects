@@ -19,3 +19,5 @@ uvicorn[standard]>=0.30.0,<1.0
 asyncpg>=0.29.0,<1.0           # PostgreSQL 비동기 드라이버 (asyncpg Pool 사용 시)
 # HTML 파싱 가속 (선택: beautifulsoup4 대비 ~10배 빠름)
 selectolax>=0.3.21,<1.0        # Lexbor 백엔드 CSS 셀렉터 파싱
+# X/Twitter 비공식 클라이언트 (선택: Jina 폴백 대안)
+twikit>=2.3.0,<3.0

@@ -193,16 +193,47 @@ class VectorStore:
         return rfp.id
 
     def add_paper(  # pylint: disable=too-many-arguments, too-many-locals
-        self, paper_id: str, title: str, abstract: str, full_text: str, keywords: List[str]
+        self,
+        paper_id: str,
+        title: str,
+        abstract: str,
+        full_text: str,
+        keywords: List[str],
+        authors: Optional[List[str]] = None,
+        affiliations: Optional[List[str]] = None,
+        references: Optional[List[str]] = None,
+        doi: Optional[str] = None,
+        parser: Optional[str] = None,
+        owner_uid: Optional[str] = None,
+        owner_email: Optional[str] = None,
+        owner_name: Optional[str] = None,
+        cid: Optional[str] = None,
+        ipfs_url: Optional[str] = None,
+        created_at: Optional[str] = None,
+        nft_minted: bool = False,
     ) -> str:
         """사용자 논문 저장"""
         # 메타데이터 구성 (변수 수 감소를 위해 딕셔너리 바로 생성)
+        reference_items = [reference for reference in (references or []) if reference]
         metadata = {
             "title": title,
+            "abstract": abstract,
             "source": "Paper",
             "type": "paper",
             "keywords": ",".join(keywords),
-            "created_at": datetime.now().isoformat()
+            "authors": ", ".join(authors or []),
+            "affiliations": " | ".join(affiliations or []),
+            "references": " || ".join(reference_items[:25]),
+            "reference_count": len(reference_items),
+            "doi": doi or "",
+            "parser": parser or "",
+            "owner_uid": owner_uid or "",
+            "owner_email": owner_email or "",
+            "owner_name": owner_name or "",
+            "cid": cid or paper_id,
+            "ipfs_url": ipfs_url or "",
+            "nft_minted": str(nft_minted).lower(),
+            "created_at": created_at or datetime.now().isoformat()
         }
 
         # 임베딩 및 저장

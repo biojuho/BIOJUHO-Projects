@@ -17,6 +17,7 @@ from httpx import AsyncClient
 import main as app_main  # noqa: E402
 import routers.crawl as crawl_router  # noqa: E402
 import routers.rfp as rfp_router  # noqa: E402
+import routers.web3 as web3_router  # noqa: E402
 
 
 # ─── GET /health ─────────────────────────────────────────────────────────────
@@ -35,6 +36,8 @@ async def test_health_returns_200(async_client: AsyncClient):
     assert "chromadb_count" in data
     assert "web3_connected" in data
     assert "ipfs_configured" in data
+    assert "grobid_configured" in data
+    assert "grobid_available" in data
 
 
 @pytest.mark.asyncio
@@ -213,6 +216,71 @@ async def test_analyze_returns_500_on_llm_failure(async_client: AsyncClient, mon
 
     assert response.status_code == 500
     assert "LLM quota exceeded" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_upload_route_uses_authenticated_user(async_client: AsyncClient, monkeypatch):
+    """POST /upload should pass the authenticated user into the paper upload flow."""
+    captured = {}
+
+    class StubAssetManager:
+        async def upload_paper(self, file, user, title, authors, abstract):
+            captured["filename"] = file.filename
+            captured["user"] = user
+            captured["title"] = title
+            captured["authors"] = authors
+            captured["abstract"] = abstract
+            return {
+                "id": "QmPaper123",
+                "cid": "QmPaper123",
+                "title": title,
+                "abstract": abstract,
+                "authors": ["Jane Doe"],
+                "ipfs_url": "https://ipfs.io/ipfs/QmPaper123",
+                "analysis": {"status": "indexed"},
+            }
+
+    monkeypatch.setattr(web3_router, "get_asset_manager", lambda: StubAssetManager())
+
+    response = await async_client.post(
+        "/upload",
+        files={"file": ("paper.pdf", b"%PDF-1.4 test", "application/pdf")},
+        data={"title": "Uploaded Paper", "authors": "Jane Doe", "abstract": "Summary"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cid"] == "QmPaper123"
+    assert captured["filename"] == "paper.pdf"
+    assert captured["user"]["uid"] == "test-user-id"
+    assert captured["title"] == "Uploaded Paper"
+
+
+@pytest.mark.asyncio
+async def test_papers_me_returns_user_scoped_records(async_client: AsyncClient, monkeypatch):
+    """GET /papers/me should return papers only for the current authenticated user."""
+
+    class StubAssetManager:
+        def list_user_papers(self, user_id: str):
+            assert user_id == "test-user-id"
+            return [
+                {
+                    "id": "paper-1",
+                    "title": "Structured Paper",
+                    "abstract": "A structured abstract",
+                    "ipfs_url": "https://ipfs.io/ipfs/paper-1",
+                    "type": "paper",
+                    "created_at": "2026-03-20T10:00:00",
+                }
+            ]
+
+    monkeypatch.setattr(web3_router, "get_asset_manager", lambda: StubAssetManager())
+
+    response = await async_client.get("/papers/me")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["id"] == "paper-1"
 
 
 @pytest.mark.asyncio

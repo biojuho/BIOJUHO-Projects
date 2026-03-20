@@ -317,6 +317,25 @@ def _is_similar_keyword(new_keyword: str, existing: set[str]) -> bool:
     return False
 
 
+async def _async_fetch_x_via_twikit_or_jina(
+    session: httpx.AsyncClient, keyword: str
+) -> str:
+    """Twikit 우선 시도, 실패 시 Jina AI Reader 폴백."""
+    # Phase 1: Twikit (비공식 API — 무료, 구조화된 데이터)
+    try:
+        from x_client import is_available, search_tweets_formatted
+        if is_available():
+            result = await search_tweets_formatted(keyword, count=10)
+            if result and len(result) > 30:
+                log.debug(f"[Twikit] '{keyword}' 트윗 수집 성공")
+                return result
+    except Exception as e:
+        log.debug(f"[Twikit] '{keyword}' 수집 실패: {e}")
+
+    # Phase 2: Jina AI Reader 폴백
+    return await _async_fetch_x_via_twikit_or_jina(session, keyword)
+
+
 async def _async_fetch_x_via_jina(
     session: httpx.AsyncClient, keyword: str
 ) -> str:
@@ -370,7 +389,7 @@ async def _async_fetch_twitter_trends(
     - context_annotations로 카테고리 힌트 추출
     """
     if not bearer_token:
-        return await _async_fetch_x_via_jina(session, keyword)
+        return await _async_fetch_x_via_twikit_or_jina(session, keyword)
 
     # 품질 필터 강화: 리트윗/인용/스팸 제외, 좋아요 3개 이상
     query_str = (
@@ -396,11 +415,11 @@ async def _async_fetch_twitter_trends(
         if resp.status_code == 429:
             retry_after = resp.headers.get("retry-after", "60")
             log.warning(f"[X API] 레이트 리밋 초과. {retry_after}초 후 재시도 필요")
-            return await _async_fetch_x_via_jina(session, keyword)
+            return await _async_fetch_x_via_twikit_or_jina(session, keyword)
 
         if resp.status_code == 403:
             log.debug(f"[X API] 검색 권한 없음 (Basic 티어 미지원). Jina 폴백.")
-            return await _async_fetch_x_via_jina(session, keyword)
+            return await _async_fetch_x_via_twikit_or_jina(session, keyword)
 
         resp.raise_for_status()
         data = resp.json()
@@ -444,7 +463,7 @@ async def _async_fetch_twitter_trends(
 
     except httpx.HTTPStatusError as e:
         log.debug(f"Twitter API HTTP 오류 ({keyword}): {e.response.status_code} → Jina 폴백")
-        return await _async_fetch_x_via_jina(session, keyword)
+        return await _async_fetch_x_via_twikit_or_jina(session, keyword)
     except Exception as e:
         log.debug(f"Twitter API 오류 ({keyword}): {e}")
         return f"[X API 오류] {keyword} 트렌드 감지 실패"
