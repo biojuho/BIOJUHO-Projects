@@ -12,6 +12,7 @@ Usage in main.py:
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 try:
@@ -22,6 +23,34 @@ except ImportError:
 
 from firecrawl_client import FirecrawlClient, get_firecrawl_client
 
+# Crawl4AI 자동 감지 (설치되어 있으면 Firecrawl 대신 우선 사용)
+try:
+    import crawl4ai_adapter
+    _CRAWL4AI_AVAILABLE = crawl4ai_adapter.is_available()
+except ImportError:
+    _CRAWL4AI_AVAILABLE = False
+
+
+def _get_backend() -> str:
+    """사용할 크롤링 백엔드 결정.
+
+    우선순위: Firecrawl (API 키 있으면) > Crawl4AI (설치되어 있으면) > None
+    환경변수 CRAWL_BACKEND=crawl4ai 로 강제 지정 가능.
+    """
+    override = os.environ.get("CRAWL_BACKEND", "").lower()
+    if override == "crawl4ai" and _CRAWL4AI_AVAILABLE:
+        return "crawl4ai"
+    if override == "firecrawl" and get_firecrawl_client().available:
+        return "firecrawl"
+
+    # 자동 감지
+    firecrawl_client = get_firecrawl_client()
+    if firecrawl_client.available:
+        return "firecrawl"
+    if _CRAWL4AI_AVAILABLE:
+        return "crawl4ai"
+    return "none"
+
 
 async def enrich_contexts_with_firecrawl(
     quality_trends: list,
@@ -31,10 +60,10 @@ async def enrich_contexts_with_firecrawl(
     max_articles_per_trend: int = 3,
     min_score_for_enrichment: int = 60,
 ) -> dict[str, Any]:
-    """Enrich trend contexts with Firecrawl full-text article content.
+    """Enrich trend contexts with full-text article content.
 
-    Only enriches trends above `min_score_for_enrichment` to conserve
-    Firecrawl free tier credits (500 crawls/month).
+    자동으로 Firecrawl 또는 Crawl4AI 백엔드를 선택.
+    Firecrawl API 키 설정 시 Firecrawl 우선, 아니면 Crawl4AI 폴백.
 
     Args:
         quality_trends: List of ScoredTrend objects.
@@ -44,13 +73,17 @@ async def enrich_contexts_with_firecrawl(
         min_score_for_enrichment: Minimum viral_potential score.
 
     Returns:
-        Updated contexts dict with Firecrawl-enriched content.
+        Updated contexts dict with enriched content.
     """
-    client = get_firecrawl_client()
+    backend = _get_backend()
 
-    if not client.available:
-        log.info("[FirecrawlBridge] API key not configured, skipping enrichment")
+    if backend == "none":
+        log.info("[CrawlBridge] No crawl backend available, skipping enrichment")
         return contexts
+
+    log.info(f"[CrawlBridge] Using backend: {backend}")
+
+    client = get_firecrawl_client() if backend == "firecrawl" else None
 
     # Filter trends worth enriching
     eligible = [
@@ -59,12 +92,12 @@ async def enrich_contexts_with_firecrawl(
     ]
 
     if not eligible:
-        log.info("[FirecrawlBridge] No trends above enrichment threshold")
+        log.info("[CrawlBridge] No trends above enrichment threshold")
         return contexts
 
     log.info(
-        f"[FirecrawlBridge] Enriching {len(eligible)} trends "
-        f"(min_score={min_score_for_enrichment})"
+        f"[CrawlBridge] Enriching {len(eligible)} trends "
+        f"(min_score={min_score_for_enrichment}, backend={backend})"
     )
 
     for trend in eligible:
@@ -77,14 +110,19 @@ async def enrich_contexts_with_firecrawl(
         # Extract news URLs from existing context
         news_urls = _extract_news_urls(ctx)
         if not news_urls:
-            log.debug(f"[FirecrawlBridge] No news URLs for '{keyword}', skipping")
+            log.debug(f"[CrawlBridge] No news URLs for '{keyword}', skipping")
             continue
 
-        # Enrich with full-text articles
+        # Enrich with full-text articles (backend-aware)
         try:
-            enriched_text = await client.enrich_trend_context(
-                keyword, news_urls, max_articles=max_articles_per_trend
-            )
+            if backend == "crawl4ai":
+                enriched_text = await crawl4ai_adapter.enrich_trend_context(
+                    keyword, news_urls, max_articles=max_articles_per_trend
+                )
+            else:
+                enriched_text = await client.enrich_trend_context(
+                    keyword, news_urls, max_articles=max_articles_per_trend
+                )
 
             if enriched_text:
                 # Append enriched context to existing context
@@ -98,14 +136,18 @@ async def enrich_contexts_with_firecrawl(
                     if isinstance(combined, str):
                         ctx.combined_summary = f"{combined}\n\n{enriched_text}"
 
-                log.info(f"[FirecrawlBridge] Enriched '{keyword}' with {len(enriched_text)} chars")
+                log.info(f"[CrawlBridge] Enriched '{keyword}' with {len(enriched_text)} chars")
 
         except Exception as exc:
-            log.warning(f"[FirecrawlBridge] Error enriching '{keyword}': {exc}")
+            log.warning(f"[CrawlBridge] Error enriching '{keyword}': {exc}")
             continue
 
+    # Cleanup
     try:
-        await client.close()
+        if backend == "crawl4ai":
+            await crawl4ai_adapter.close()
+        elif client is not None:
+            await client.close()
     except Exception:
         pass
 

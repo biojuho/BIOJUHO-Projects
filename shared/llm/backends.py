@@ -1,4 +1,10 @@
-"""shared.llm.backends - Backend adapters for each LLM provider."""
+"""shared.llm.backends - Backend adapters for each LLM provider.
+
+LiteLLM 통합 (선택):
+  pip install litellm 설치 시 OpenAI-호환 백엔드(grok, deepseek, moonshot)를
+  LiteLLM unified API로 자동 전환. litellm.completion_cost()로 비용 교차 검증.
+  Anthropic/Gemini는 프롬프트 캐싱/네이티브 async 등 고유 기능 유지를 위해 직접 호출.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +18,27 @@ from .model_patches import apply_model_patch
 from . import bitnet_runner
 
 log = logging.getLogger("shared.llm")
+
+# LiteLLM 선택 의존성 — 설치되어 있으면 OpenAI-호환 백엔드를 통합
+try:
+    import litellm
+    litellm.suppress_debug_info = True  # 임포트 로그 억제
+    LITELLM_AVAILABLE = True
+except ImportError:
+    LITELLM_AVAILABLE = False
+
+# LiteLLM 모델 ID 매핑 (backend, model) → litellm model string
+_LITELLM_MODEL_MAP: dict[tuple[str, str], str] = {
+    ("grok", "grok-3"): "xai/grok-3",
+    ("grok", "grok-3-mini-fast"): "xai/grok-3-mini-fast",
+    ("deepseek", "deepseek-chat"): "deepseek/deepseek-chat",
+    ("deepseek", "deepseek-reasoner"): "deepseek/deepseek-reasoner",
+    ("moonshot", "moonshot-v1-8k"): "openai/moonshot-v1-8k",
+    ("moonshot", "moonshot-v1-32k"): "openai/moonshot-v1-32k",
+    ("openai", "gpt-4o"): "openai/gpt-4o",
+    ("openai", "gpt-4o-mini"): "openai/gpt-4o-mini",
+    ("mimo", "mimo-v2-pro"): "openai/mimo-v2-pro",
+}
 
 
 def _ollama_is_running() -> bool:
@@ -98,6 +125,16 @@ class BackendManager:
                 base_url="https://api.moonshot.cn/v1",
             )
         return self._clients["moonshot"]
+
+    def _get_mimo(self):
+        if "mimo" not in self._clients:
+            import openai
+
+            self._clients["mimo"] = openai.OpenAI(
+                api_key=self._keys["mimo"],
+                base_url="https://api.xiaomimimo.com/v1",
+            )
+        return self._clients["mimo"]
 
     def _get_ollama(self):
         if "ollama" not in self._clients:
@@ -216,12 +253,25 @@ class BackendManager:
         tier: TaskTier,
         response_mode: str = "text",
     ) -> LLMResponse:
-        """OpenAI-compatible API call (OpenAI, Grok, DeepSeek, Moonshot, Ollama)."""
+        """OpenAI-compatible API call (OpenAI, Grok, DeepSeek, Moonshot, Ollama).
+
+        LiteLLM 설치 시 자동으로 LiteLLM unified API 사용.
+        Ollama는 로컬이므로 항상 직접 호출.
+        """
+        # LiteLLM 경로: Ollama 제외한 원격 백엔드
+        litellm_model_id = _LITELLM_MODEL_MAP.get((backend, model))
+        if LITELLM_AVAILABLE and litellm_model_id and backend != "ollama":
+            return self._call_via_litellm(
+                backend, model, litellm_model_id, messages, max_tokens, system, tier, response_mode
+            )
+
+        # 기존 직접 호출 경로 (LiteLLM 미설치 또는 매핑 없는 모델)
         getter = {
             "openai": self._get_openai,
             "grok": self._get_grok,
             "deepseek": self._get_deepseek,
             "moonshot": self._get_moonshot,
+            "mimo": self._get_mimo,
             "ollama": self._get_ollama,
         }
         client = getter[backend]()
@@ -240,6 +290,67 @@ class BackendManager:
             kwargs["response_format"] = {"type": "json_object"}
         resp = client.chat.completions.create(**kwargs)
         usage = resp.usage
+        return LLMResponse(
+            text=resp.choices[0].message.content,
+            model=model,
+            backend=backend,
+            tier=tier,
+            input_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
+            output_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
+        )
+
+    def _call_via_litellm(
+        self,
+        backend: str,
+        model: str,
+        litellm_model_id: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
+        response_mode: str = "text",
+    ) -> LLMResponse:
+        """LiteLLM unified API를 통한 호출."""
+        oai_messages: list[dict] = []
+        if system:
+            oai_messages.append({"role": "system", "content": system})
+        for m in messages:
+            oai_messages.append({"role": m["role"], "content": m["content"]})
+
+        kwargs: dict[str, Any] = {
+            "model": litellm_model_id,
+            "max_tokens": max_tokens,
+            "messages": oai_messages,
+        }
+        if response_mode == "json":
+            kwargs["response_format"] = {"type": "json_object"}
+
+        # LiteLLM에 API 키 직접 전달 (환경변수 의존 회피)
+        key_map = {
+            "openai": "OPENAI_API_KEY",
+            "grok": "XAI_API_KEY",
+            "deepseek": "DEEPSEEK_API_KEY",
+            "moonshot": "MOONSHOT_API_KEY",
+        }
+        env_key = key_map.get(backend)
+        if env_key and self._keys.get(backend):
+            kwargs["api_key"] = self._keys[backend]
+
+        # Moonshot은 custom api_base 필요
+        if backend == "moonshot":
+            kwargs["api_base"] = "https://api.moonshot.cn/v1"
+
+        resp = litellm.completion(**kwargs)
+        usage = resp.usage
+
+        # LiteLLM 비용 교차 검증 (로깅용)
+        try:
+            litellm_cost = litellm.completion_cost(completion_response=resp)
+            if litellm_cost > 0:
+                log.debug(f"[LiteLLM] {backend}/{model} cost: ${litellm_cost:.6f}")
+        except Exception:
+            pass
+
         return LLMResponse(
             text=resp.choices[0].message.content,
             model=model,
@@ -279,11 +390,63 @@ class BackendManager:
         tier: TaskTier,
         response_mode: str = "text",
     ) -> LLMResponse:
-        """Dispatch an async LLM call. Gemini uses native async; others use to_thread."""
+        """Dispatch an async LLM call. Gemini uses native async; others use to_thread.
+
+        LiteLLM 설치 시 OpenAI-호환 백엔드는 litellm.acompletion() 네이티브 async 사용.
+        """
         if backend == "gemini":
             return await self._acall_gemini(model, messages, max_tokens, system, tier, response_mode)
+
+        # LiteLLM 네이티브 async (to_thread 불필요)
+        litellm_model_id = _LITELLM_MODEL_MAP.get((backend, model))
+        if LITELLM_AVAILABLE and litellm_model_id and backend != "ollama":
+            return await self._acall_via_litellm(
+                backend, model, litellm_model_id, messages, max_tokens, system, tier, response_mode
+            )
+
         return await asyncio.to_thread(
             self.call, backend, model, messages, max_tokens, system, tier, response_mode
+        )
+
+    async def _acall_via_litellm(
+        self,
+        backend: str,
+        model: str,
+        litellm_model_id: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
+        response_mode: str = "text",
+    ) -> LLMResponse:
+        """LiteLLM acompletion()을 통한 네이티브 async 호출."""
+        oai_messages: list[dict] = []
+        if system:
+            oai_messages.append({"role": "system", "content": system})
+        for m in messages:
+            oai_messages.append({"role": m["role"], "content": m["content"]})
+
+        kwargs: dict[str, Any] = {
+            "model": litellm_model_id,
+            "max_tokens": max_tokens,
+            "messages": oai_messages,
+        }
+        if response_mode == "json":
+            kwargs["response_format"] = {"type": "json_object"}
+        if self._keys.get(backend):
+            kwargs["api_key"] = self._keys[backend]
+        if backend == "moonshot":
+            kwargs["api_base"] = "https://api.moonshot.cn/v1"
+
+        resp = await litellm.acompletion(**kwargs)
+        usage = resp.usage
+        return LLMResponse(
+            text=resp.choices[0].message.content,
+            model=model,
+            backend=backend,
+            tier=tier,
+            input_tokens=getattr(usage, "prompt_tokens", 0) if usage else 0,
+            output_tokens=getattr(usage, "completion_tokens", 0) if usage else 0,
         )
 
     async def _acall_gemini(
@@ -381,6 +544,7 @@ class BackendManager:
             "grok": self._get_grok,
             "deepseek": self._get_deepseek,
             "moonshot": self._get_moonshot,
+            "mimo": self._get_mimo,
             "ollama": self._get_ollama,
         }
         client = getters[backend]()

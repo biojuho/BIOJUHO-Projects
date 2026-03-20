@@ -18,6 +18,15 @@ from starlette.middleware.sessions import SessionMiddleware
 
 models.Base.metadata.create_all(bind=engine)
 
+# ── Observability (Logfire) ─────────────────────────────────
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2]))
+try:
+    from shared.observability import setup_observability
+    _LOGFIRE_OK = True
+except ImportError:
+    _LOGFIRE_OK = False
+
 @asynccontextmanager
 async def lifespan(app):
     # Start IoT simulation
@@ -60,6 +69,13 @@ app.add_middleware(
 # ── Admin Panel (/admin) ────────────────────────────────────
 from admin import setup_admin
 setup_admin(app)
+
+# ── Logfire Observability ───────────────────────────────────
+if _LOGFIRE_OK:
+    setup_observability(
+        app,
+        service_name="agriguard",
+    )
 
 # Fallback values used when the DB has no real data yet (demo mode)
 DEMO_TOTAL_FARMS = 142
