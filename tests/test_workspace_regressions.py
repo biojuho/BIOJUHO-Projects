@@ -11,24 +11,19 @@ DESCI_PATH = PROJECT_ROOT / "desci-platform"
 NOTION_SCRIPTS_PATH = PROJECT_ROOT / "DailyNews" / "scripts"
 NOTION_SERVER_PATH = PROJECT_ROOT / "DailyNews" / "server.py"
 
-for candidate in (DESCI_PATH, NOTION_SCRIPTS_PATH):
+DAILYNEWS_SRC_PATH = PROJECT_ROOT / "DailyNews" / "src"
+
+for candidate in (DESCI_PATH, NOTION_SCRIPTS_PATH, DAILYNEWS_SRC_PATH):
     candidate_text = str(candidate)
     if candidate_text not in sys.path:
         sys.path.insert(0, candidate_text)
 
 
 def test_brain_module_robust_json_parse(monkeypatch) -> None:
-    from shared.llm import reset_client
+    from antigravity_mcp.integrations.brain_adapter import _robust_json_parse
 
-    reset_client()
-    brain_module = importlib.import_module("brain_module")
-
-    # get_client()에 더미 키 전달하여 ValueError 방지
-    monkeypatch.setenv("GOOGLE_API_KEY", "test-key-for-unit-test")
-    module = brain_module.BrainModule()
-    assert module._robust_json_parse('```json\n{"key":"value"}\n```') == {"key": "value"}
-    assert module._robust_json_parse('{"key":"value", }') == {"key": "value"}
-    reset_client()
+    assert _robust_json_parse('```json\n{"key":"value"}\n```') == {"key": "value"}
+    assert _robust_json_parse('{"key":"value", }') == {"key": "value"}
 
 
 def test_notion_server_reads_db_id_from_env() -> None:
@@ -49,7 +44,8 @@ def test_pdf_parser_extracts_page_text(mock_reader_class: MagicMock) -> None:
     mock_reader.pages = [page_1, page_2]
     mock_reader_class.return_value = mock_reader
 
-    result = PDFParser.parse(b"dummy pdf content")
+    parser = PDFParser()
+    result = parser.parse(b"dummy pdf content")
     assert result == "Page 1 Text\nPage 2 Text"
 
 
@@ -58,4 +54,5 @@ def test_pdf_parser_returns_empty_string_on_error(mock_reader_class: MagicMock) 
     from biolinker.services.pdf_parser import PDFParser
 
     mock_reader_class.side_effect = Exception("Invalid PDF")
-    assert PDFParser.parse(b"invalid content") == ""
+    parser = PDFParser()
+    assert parser.parse(b"invalid content") == ""

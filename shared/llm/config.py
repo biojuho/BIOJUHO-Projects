@@ -30,6 +30,7 @@ def load_keys() -> dict[str, str]:
         "grok": _key("XAI_API_KEY"),
         "deepseek": _key("DEEPSEEK_API_KEY"),
         "moonshot": _key("MOONSHOT_API_KEY"),
+        "mimo": _key("XIAOMI_MIMO_API_KEY"),
     }
 
 
@@ -40,20 +41,23 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.HEAVY: [
         ("anthropic", "claude-sonnet-4-20250514"),
         ("gemini", "gemini-2.5-pro-preview-03-25"),
+        ("mimo", "mimo-v2-pro"),                     # $0.09/1M, GPT-5급 성능
         ("grok", "grok-3"),
         ("openai", "gpt-4o"),
     ],
     TaskTier.MEDIUM: [
         ("gemini", "gemini-2.0-flash"),
+        ("mimo", "mimo-v2-pro"),                     # $0.09/1M, Haiku 대체 폴백
         ("anthropic", "claude-haiku-4-5-20251001"),
         ("grok", "grok-3-mini-fast"),
         ("openai", "gpt-4o-mini"),
     ],
     TaskTier.LIGHTWEIGHT: [
         ("gemini", "gemini-2.0-flash"),              # Free tier 15RPM, 한국어 최강
+        ("mimo", "mimo-v2-pro"),                     # $0.09/1M, 한국어 안정 + 초저비용
         ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
-        ("deepseek", "deepseek-chat"),               # 4순위: 구조화 JSON에서만 우선
+        ("deepseek", "deepseek-chat"),               # 5순위: 구조화 JSON에서만 우선
         ("openai", "gpt-4o-mini"),
         ("ollama", "phi3:3.8b"),                     # 로컬 Ollama 폴백 (API 비용 $0)
         ("bitnet", "bitnet-b1.58-2b-4t"),            # 최후방 로컬 폴백 (API 비용 $0)
@@ -97,6 +101,7 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "grok-3": (3.0, 15.0),
     "grok-3-mini-fast": (0.3, 0.5),
     "deepseek-chat": (0.14, 0.28),
+    "mimo-v2-pro": (0.09, 0.09),                 # Xiaomi MiMo-V2-Pro
     # Local inference — no API cost
     "bitnet-b1.58-2b-4t": (0.0, 0.0),
     "phi3:3.8b": (0.0, 0.0),            # Ollama local

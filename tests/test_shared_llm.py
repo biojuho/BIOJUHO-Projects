@@ -87,7 +87,8 @@ class TestLLMClient:
 
     def test_no_keys_raises_value_error(self, monkeypatch):
         for var in ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
-                    "OPENAI_API_KEY", "XAI_API_KEY", "DEEPSEEK_API_KEY", "MOONSHOT_API_KEY"):
+                    "OPENAI_API_KEY", "XAI_API_KEY", "DEEPSEEK_API_KEY", "MOONSHOT_API_KEY",
+                    "XIAOMI_MIMO_API_KEY"):
             monkeypatch.delenv(var, raising=False)
         # Also disable local backends (Ollama server + BitNet binary)
         monkeypatch.setattr("shared.llm.backends._ollama_is_running", lambda: False)
