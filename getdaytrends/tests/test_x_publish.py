@@ -4,6 +4,17 @@ X/Twitter 발행 엔드포인트 테스트
 import pytest
 from unittest.mock import AsyncMock, patch
 
+# notebooklm_api.py는 notebooklm_automation을 사용하므로 미설치 시 skip
+_nlm_available = True
+try:
+    import notebooklm_automation  # noqa: F401
+except ImportError:
+    _nlm_available = False
+
+_skip_nlm = pytest.mark.skipif(
+    not _nlm_available,
+    reason="notebooklm_automation 패키지 미설치 (notebooklm_api 의존)",
+)
 
 @pytest.fixture
 def x_publish_request():
@@ -13,6 +24,7 @@ def x_publish_request():
     }
 
 
+@_skip_nlm
 class TestXPublishEndpoint:
     """POST /publish-x 엔드포인트 테스트."""
 
@@ -70,6 +82,7 @@ class TestXPublishEndpoint:
             assert "Rate limit" in result.error
 
 
+@_skip_nlm
 class TestXPublishRequest:
     """XPublishRequest 모델 유효성 검사."""
 

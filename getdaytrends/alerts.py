@@ -290,3 +290,33 @@ def send_daily_cost_alert(config: AppConfig) -> bool:
     except Exception as e:
         log.debug(f"일일 비용 알림 실패: {e}")
         return False
+
+
+def send_heartbeat(
+    config: AppConfig,
+    *,
+    trends_collected: int = 0,
+    tweets_saved: int = 0,
+    elapsed_sec: float = 0,
+    cost_usd: float = 0,
+) -> bool:
+    """
+    [v18.0] 파이프라인 완료 시 하트비트 전송.
+    shared.notifications.Notifier가 없는 환경에서도 Telegram으로 직접 전송.
+    """
+    if not config.telegram_bot_token or not config.telegram_chat_id:
+        return False
+
+    from datetime import datetime as _dt
+    now = _dt.now().strftime("%Y-%m-%d %H:%M")
+    message = (
+        f"💚 *GetDayTrends 하트비트*\n"
+        f"⏰ {now}\n"
+        f"📊 수집: {trends_collected}개\n"
+        f"💾 저장: {tweets_saved}개\n"
+        f"⏱️ 소요: {elapsed_sec:.0f}초\n"
+        f"💰 비용: ${cost_usd:.4f}"
+    )
+    result = send_telegram_alert(message, config)
+    return result.get("ok", False)
+

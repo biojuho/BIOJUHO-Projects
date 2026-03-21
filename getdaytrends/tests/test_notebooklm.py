@@ -12,7 +12,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# notebooklm_automation 패키지 미설치 시 전체 skip
+_nlm_available = True
+try:
+    import notebooklm_automation  # noqa: F401
+except ImportError:
+    _nlm_available = False
 
+pytestmark = pytest.mark.skipif(
+    not _nlm_available,
+    reason="notebooklm_automation 패키지 미설치",
+)
 # ──────────────────────────────────────────────────
 #  check_auth_status 테스트
 # ──────────────────────────────────────────────────
@@ -24,7 +34,7 @@ class TestCheckAuthStatus:
     def test_no_storage_file(self, tmp_path):
         """storage_state.json이 없으면 미인증."""
         with patch("notebooklm_health.STORAGE_STATE_FILE", tmp_path / "nonexistent.json"):
-            from notebooklm_health import check_auth_status
+            from notebooklm_automation.health import check_auth_status
 
             result = check_auth_status()
             assert result["authenticated"] is False
@@ -42,7 +52,7 @@ class TestCheckAuthStatus:
         ):
             mock_run.return_value = MagicMock(returncode=0)
 
-            from notebooklm_health import check_auth_status
+            from notebooklm_automation.health import check_auth_status
 
             result = check_auth_status()
             assert result["storage_file_exists"] is True
@@ -68,7 +78,7 @@ class TestCheckAuthStatus:
         ):
             mock_run.return_value = MagicMock(returncode=0)
 
-            from notebooklm_health import check_auth_status
+            from notebooklm_automation.health import check_auth_status
 
             result = check_auth_status()
             assert result["needs_refresh"] is True
@@ -83,7 +93,7 @@ class TestCheckAuthStatus:
             patch("notebooklm_health.STORAGE_STATE_FILE", storage),
             patch("subprocess.run", side_effect=FileNotFoundError),
         ):
-            from notebooklm_health import check_auth_status
+            from notebooklm_automation.health import check_auth_status
 
             result = check_auth_status()
             assert result["authenticated"] is False
@@ -99,7 +109,7 @@ class TestGetSessionCookiesCount:
 
     def test_no_file(self, tmp_path):
         with patch("notebooklm_health.STORAGE_STATE_FILE", tmp_path / "none.json"):
-            from notebooklm_health import get_session_cookies_count
+            from notebooklm_automation.health import get_session_cookies_count
 
             assert get_session_cookies_count() == 0
 
@@ -111,7 +121,7 @@ class TestGetSessionCookiesCount:
         )
 
         with patch("notebooklm_health.STORAGE_STATE_FILE", storage):
-            from notebooklm_health import get_session_cookies_count
+            from notebooklm_automation.health import get_session_cookies_count
 
             assert get_session_cookies_count() == 3
 
@@ -132,7 +142,7 @@ class TestRefreshAuth:
         ):
             mock_run.return_value = MagicMock(returncode=0, stderr="")
 
-            from notebooklm_health import refresh_auth
+            from notebooklm_automation.health import refresh_auth
 
             result = refresh_auth()
             assert result["success"] is True
@@ -151,7 +161,7 @@ class TestRefreshAuth:
                 MagicMock(returncode=0, stderr=""),
             ]
 
-            from notebooklm_health import refresh_auth
+            from notebooklm_automation.health import refresh_auth
 
             result = refresh_auth()
             assert result["success"] is True
@@ -166,7 +176,7 @@ class TestRefreshAuth:
         ):
             mock_run.return_value = MagicMock(returncode=1, stderr="auth failed")
 
-            from notebooklm_health import refresh_auth
+            from notebooklm_automation.health import refresh_auth
 
             result = refresh_auth()
             assert result["success"] is False
@@ -178,7 +188,7 @@ class TestRefreshAuth:
             patch("notebooklm_health.REFRESH_HISTORY_FILE", tmp_path / "history.json"),
             patch("subprocess.run", side_effect=FileNotFoundError),
         ):
-            from notebooklm_health import refresh_auth
+            from notebooklm_automation.health import refresh_auth
 
             result = refresh_auth()
             assert result["success"] is False
@@ -194,7 +204,7 @@ class TestRefreshAuth:
         ):
             mock_run.return_value = MagicMock(returncode=0, stderr="")
 
-            from notebooklm_health import refresh_auth
+            from notebooklm_automation.health import refresh_auth
 
             refresh_auth()
             assert history_file.exists()
@@ -222,7 +232,7 @@ class TestProactiveRefresh:
         }
 
         with patch("notebooklm_health.check_auth_status", return_value=mock_auth):
-            from notebooklm_health import proactive_refresh
+            from notebooklm_automation.health import proactive_refresh
 
             result = proactive_refresh()
             assert result["action"] == "skipped"
@@ -248,7 +258,7 @@ class TestProactiveRefresh:
             patch("notebooklm_health.check_auth_status", return_value=mock_auth),
             patch("notebooklm_health.refresh_auth", return_value=mock_refresh),
         ):
-            from notebooklm_health import proactive_refresh
+            from notebooklm_automation.health import proactive_refresh
 
             result = proactive_refresh()
             assert result["action"] == "refreshed"
@@ -274,7 +284,7 @@ class TestProactiveRefresh:
             patch("notebooklm_health.refresh_auth", return_value=mock_refresh),
             patch("notebooklm_health.send_auth_alert", return_value=True) as mock_alert,
         ):
-            from notebooklm_health import proactive_refresh
+            from notebooklm_automation.health import proactive_refresh
 
             result = proactive_refresh()
             assert result["action"] == "failed"
@@ -301,7 +311,7 @@ class TestSendAuthAlert:
             patch("alerts.send_alert", return_value={"telegram": {"ok": True}}) as mock_send,
             patch("config.AppConfig.from_env", return_value=mock_config),
         ):
-            from notebooklm_health import send_auth_alert
+            from notebooklm_automation.health import send_auth_alert
 
             result = send_auth_alert("test error")
             assert result is True
@@ -311,7 +321,7 @@ class TestSendAuthAlert:
         with patch.dict("sys.modules", {"alerts": None}):
             # 모듈 임포트 실패 시뮬레이션은 복잡하므로
             # send_auth_alert 내부의 ImportError 처리를 간접 검증
-            from notebooklm_health import send_auth_alert
+            from notebooklm_automation.health import send_auth_alert
 
             # alerts가 없는 환경에서도 크래시 없이 False 반환
             # (실제 환경에서는 alerts가 있으므로 config.from_env 실패로 False)
@@ -329,7 +339,7 @@ class TestRefreshHistory:
 
     def test_empty_when_no_file(self, tmp_path):
         with patch("notebooklm_health.REFRESH_HISTORY_FILE", tmp_path / "none.json"):
-            from notebooklm_health import get_refresh_history
+            from notebooklm_automation.health import get_refresh_history
 
             assert get_refresh_history() == []
 
@@ -342,7 +352,7 @@ class TestRefreshHistory:
         history_file.write_text(json.dumps(records), encoding="utf-8")
 
         with patch("notebooklm_health.REFRESH_HISTORY_FILE", history_file):
-            from notebooklm_health import get_refresh_history
+            from notebooklm_automation.health import get_refresh_history
 
             recent = get_refresh_history(limit=5)
             assert len(recent) == 5
@@ -372,7 +382,7 @@ class TestHealthCheck:
             patch("notebooklm_health.check_auth_status", return_value=mock_auth),
             patch("notebooklm_health.HEALTH_LOG_FILE", tmp_path / "health.log"),
         ):
-            from notebooklm_health import health_check
+            from notebooklm_automation.health import health_check
 
             result = await health_check()
             assert result["status"] == "down"

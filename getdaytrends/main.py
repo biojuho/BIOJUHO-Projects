@@ -317,29 +317,39 @@ async def _check_budget_and_adjust_limit(config: AppConfig, conn) -> tuple[AppCo
 
 
 def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
-    """Step 1: 멀티소스 트렌드 수집 + [v10.0] 심층 컨텍스트 필수 수집."""
+    """Step 1: 멀티소스 트렌드 수집 + [v10.0] 심층 컨텍스트 조건부 수집."""
     print("\n[1/4] 멀티소스 트렌드 수집 중...")
     raw_trends, contexts = collect_trends(config, conn)
     run.trends_collected = len(raw_trends)
     print(f"  수집 완료: {len(raw_trends)}개 트렌드")
 
-    # [v10.0] 심층 컨텍스트 필수 수집 (X/Reddit/News 병렬)
+    # [v10.0+v18] 심층 컨텍스트 **조건부** 수집 — 기존 컨텍스트가 부족한 트렌드만
     if raw_trends:
-        print("  심층 컨텍스트 수집 중 (X, Reddit, News 병렬)...")
-        deep_contexts = collect_contexts(raw_trends, config, conn)
-        # 기존 기본 컨텍스트에 심층 데이터 병합
-        for name, deep_ctx in deep_contexts.items():
-            base = contexts.get(name)
-            if base:
-                # 심층 데이터가 기본보다 풍부하면 대체, 아니면 병합
-                if deep_ctx.twitter_insight and len(deep_ctx.twitter_insight) > len(base.twitter_insight):
-                    base.twitter_insight = deep_ctx.twitter_insight
-                if deep_ctx.reddit_insight and len(deep_ctx.reddit_insight) > len(base.reddit_insight):
-                    base.reddit_insight = deep_ctx.reddit_insight
-                if deep_ctx.news_insight and len(deep_ctx.news_insight) > len(base.news_insight):
-                    base.news_insight = deep_ctx.news_insight
-            else:
-                contexts[name] = deep_ctx
+        # 컨텍스트 품질 판정: combined_text 100자 미만이면 부족
+        _MIN_CTX_LEN = 100
+        needs_deep = [
+            t for t in raw_trends
+            if not contexts.get(t.name)
+            or len(contexts[t.name].to_combined_text().strip()) < _MIN_CTX_LEN
+        ]
+
+        if needs_deep:
+            print(f"  심층 컨텍스트 수집 중 ({len(needs_deep)}/{len(raw_trends)}개 부족)...")
+            deep_contexts = collect_contexts(needs_deep, config, conn)
+            # 부족한 항목에 대해서만 심층 데이터 병합
+            for name, deep_ctx in deep_contexts.items():
+                base = contexts.get(name)
+                if base:
+                    if deep_ctx.twitter_insight and len(deep_ctx.twitter_insight) > len(base.twitter_insight):
+                        base.twitter_insight = deep_ctx.twitter_insight
+                    if deep_ctx.reddit_insight and len(deep_ctx.reddit_insight) > len(base.reddit_insight):
+                        base.reddit_insight = deep_ctx.reddit_insight
+                    if deep_ctx.news_insight and len(deep_ctx.news_insight) > len(base.news_insight):
+                        base.news_insight = deep_ctx.news_insight
+                else:
+                    contexts[name] = deep_ctx
+        else:
+            log.info(f"  [Deep Research] 전체 {len(raw_trends)}개 컨텍스트 충분 → 재수집 스킵")
 
         # [v10.0] 컨텍스트 필수화: 컨텍스트가 비어있는 트렌드 경고
         if getattr(config, "require_context", True):
@@ -351,6 +361,7 @@ def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
                 log.warning(f"  [컨텍스트 부족] {len(empty_ctx)}개 트렌드 컨텍스트 비어있음: {', '.join(empty_ctx[:3])}")
 
     return raw_trends, contexts
+
 
 
 def _ensure_quality_and_diversity(
@@ -1096,7 +1107,7 @@ async def _async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunR
         # Step 3.6: [v17.0] NotebookLM 자동 연동 (선택적)
         if getattr(pipeline_config, "enable_notebooklm", False) and quality_trends:
             try:
-                from notebooklm_bridge import enrich_trends_with_notebooklm
+                from notebooklm_automation.bridge import enrich_trends_with_notebooklm
                 nlm_results = await enrich_trends_with_notebooklm(
                     quality_trends,
                     contexts,

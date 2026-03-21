@@ -12,24 +12,46 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from notebooklm_bridge import (
-    NOTEBOOKLM_AVAILABLE,
-    analyze_bio_company,
-    check_availability,
-    content_factory,
-    publish_to_notion,
-    research_tool,
-    trend_to_notebook,
-)
-from notebooklm_health import (
-    check_auth_status,
-    get_refresh_history,
-    health_check,
-    proactive_refresh,
-    refresh_auth,
-)
-from scraper import post_to_x_async
-from source_finder import auto_discover_sources
+try:
+    from notebooklm_automation.bridge import (
+        NOTEBOOKLM_AVAILABLE,
+        analyze_bio_company,
+        check_availability,
+        content_factory,
+        research_tool,
+        trend_to_notebook,
+    )
+    from notebooklm_automation.health import (
+        check_auth_status,
+        get_refresh_history,
+        health_check,
+        proactive_refresh,
+        refresh_auth,
+    )
+    from notebooklm_automation.publishers.notion import publish_to_notion
+    from notebooklm_automation.publishers.twitter import post_tweet
+    _NLM_AVAILABLE = True
+except ImportError:
+    NOTEBOOKLM_AVAILABLE = False
+    _NLM_AVAILABLE = False
+    analyze_bio_company = None  # type: ignore[assignment]
+    check_availability = None  # type: ignore[assignment]
+    content_factory = None  # type: ignore[assignment]
+    research_tool = None  # type: ignore[assignment]
+    trend_to_notebook = None  # type: ignore[assignment]
+    check_auth_status = None  # type: ignore[assignment]
+    get_refresh_history = None  # type: ignore[assignment]
+    health_check = None  # type: ignore[assignment]
+    proactive_refresh = None  # type: ignore[assignment]
+    refresh_auth = None  # type: ignore[assignment]
+    publish_to_notion = None  # type: ignore[assignment]
+    post_tweet = None  # type: ignore[assignment]
+
+# Fallback: source_finder may not be available
+try:
+    from source_finder import auto_discover_sources
+except ImportError:
+    auto_discover_sources = None  # type: ignore[assignment]
 
 
 # ──────────────────────────────────────────────────
@@ -249,8 +271,8 @@ async def run_content_factory(req: ContentFactoryRequest):
         tweet_url = ""
         if req.x_access_token and result.get("tweet_draft"):
             try:
-                x_result = await post_to_x_async(
-                    content=result["tweet_draft"],
+                x_result = await post_tweet(
+                    text=result["tweet_draft"],
                     access_token=req.x_access_token,
                 )
                 if x_result.get("ok"):
@@ -347,7 +369,7 @@ async def run_publish_x(req: XPublishRequest):
             error=f"트윗 280자 초과 ({len(req.tweet_text)}자)",
         )
 
-    result = await post_to_x_async(content=req.tweet_text, access_token=token)
+    result = await post_tweet(text=req.tweet_text, access_token=token)
 
     if result.get("ok"):
         tid = result.get("tweet_id", "")
