@@ -22,10 +22,17 @@ import pytest
 
 def pytest_configure(config):  # noqa: ARG001
     pkg_root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+    notebooklm_src = os.path.normpath(
+        os.path.join(pkg_root, "..", "notebooklm-automation", "src")
+    )
     # Remove any existing entry first, then insert at front
     while pkg_root in sys.path:
         sys.path.remove(pkg_root)
     sys.path.insert(0, pkg_root)
+    if os.path.isdir(notebooklm_src):
+        while notebooklm_src in sys.path:
+            sys.path.remove(notebooklm_src)
+        sys.path.insert(1, notebooklm_src)
 
     # loguru 기본 핸들러 제거 후 lambda sink 추가:
     # pytest stdout/stderr 캡처와 충돌로 발생하는
@@ -37,6 +44,19 @@ def pytest_configure(config):  # noqa: ARG001
         logger.add(lambda _: None, level="WARNING")  # no-op null sink
     except ImportError:
         pass
+
+
+@pytest.fixture(autouse=True)
+def reset_notebooklm_config():
+    try:
+        from notebooklm_automation.config import reset_config
+    except ImportError:
+        yield
+        return
+
+    reset_config()
+    yield
+    reset_config()
 
 
 # ── Lazy imports (after path is fixed) ──────────────────────────────────────

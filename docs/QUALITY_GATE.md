@@ -4,7 +4,7 @@ This document defines the deterministic quality gate for this workspace.
 
 ## Scope
 
-- Included: `desci-platform`, `AgriGuard`, `DailyNews`, `notebooklm-mcp`, `github-mcp`, `getdaytrends`
+- Included: `desci-platform`, `AgriGuard`, `DailyNews`, `notebooklm-mcp`, `github-mcp`, `notebooklm-automation`, `getdaytrends`
 
 ## Local Commands
 
@@ -35,6 +35,7 @@ The PR gate includes only checks that are deterministic and reproducible without
 - `mcp`
   - python compile smoke for tracked MCP code paths
   - `DailyNews/tests/unit` pytest suite
+  - `notebooklm-automation/tests` pytest suite
 - `getdaytrends`
   - python compile smoke
   - `getdaytrends/tests` pytest suite

@@ -37,6 +37,7 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
     assert any(check.name == "desci bundle budget" for check in checks)
     assert any(check.name == "notebooklm compile" for check in checks)
     assert any(check.name == "DailyNews unit tests" for check in checks)
+    assert any(check.name == "notebooklm-automation unit tests" for check in checks)
     assert any(check.name == "getdaytrends tests" for check in checks)
 
     for check in checks:

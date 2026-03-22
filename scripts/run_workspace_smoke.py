@@ -162,6 +162,12 @@ def default_checks(python_exe: str) -> list[Check]:
             [python_exe, "-m", "pytest", "tests/unit", "-q"],
         ),
         Check(
+            "mcp",
+            "notebooklm-automation unit tests",
+            "notebooklm-automation",
+            [python_exe, "-m", "pytest", "tests", "-q"],
+        ),
+        Check(
             "getdaytrends",
             "getdaytrends compile",
             ".",

@@ -1,229 +1,156 @@
-"""
-NotebookLM Health Check & Auth Refresh 단위 테스트
-==================================================
-notebooklm_health.py 모듈의 핵심 로직을 검증.
-"""
+from __future__ import annotations
 
 import json
-import subprocess
+import os
 from datetime import datetime, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# notebooklm_automation 패키지 미설치 시 전체 skip
-_nlm_available = True
-try:
-    import notebooklm_automation  # noqa: F401
-except ImportError:
-    _nlm_available = False
+pytest.importorskip("notebooklm_automation", reason="notebooklm_automation package unavailable")
 
-pytestmark = pytest.mark.skipif(
-    not _nlm_available,
-    reason="notebooklm_automation 패키지 미설치",
-)
-# ──────────────────────────────────────────────────
-#  check_auth_status 테스트
-# ──────────────────────────────────────────────────
+from notebooklm_automation import health as nlm_health
+from notebooklm_automation.config import reset_config
+
+
+@pytest.fixture
+def notebooklm_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOTEBOOKLM_HOME", str(tmp_path))
+    reset_config()
+    yield tmp_path
+    reset_config()
+
+
+def _write_storage(home_dir, cookies, age_hours: float | None = None):
+    storage_file = home_dir / "storage_state.json"
+    storage_file.write_text(json.dumps({"cookies": cookies}), encoding="utf-8")
+    if age_hours is not None:
+        old_time = (datetime.now() - timedelta(hours=age_hours)).timestamp()
+        os.utime(storage_file, (old_time, old_time))
+    return storage_file
 
 
 class TestCheckAuthStatus:
-    """check_auth_status() 함수 테스트."""
+    def test_no_storage_file(self, notebooklm_home):
+        result = nlm_health.check_auth_status()
 
-    def test_no_storage_file(self, tmp_path):
-        """storage_state.json이 없으면 미인증."""
-        with patch("notebooklm_health.STORAGE_STATE_FILE", tmp_path / "nonexistent.json"):
-            from notebooklm_automation.health import check_auth_status
+        assert result["authenticated"] is False
+        assert result["storage_file_exists"] is False
+        assert result["needs_refresh"] is True
 
-            result = check_auth_status()
-            assert result["authenticated"] is False
-            assert result["storage_file_exists"] is False
-            assert result["needs_refresh"] is True
+    def test_fresh_session(self, notebooklm_home):
+        _write_storage(notebooklm_home, [{"name": "c1"}, {"name": "c2"}])
 
-    def test_fresh_session(self, tmp_path):
-        """최근에 생성된 세션은 갱신 불필요."""
-        storage = tmp_path / "storage_state.json"
-        storage.write_text('{"cookies": [{"name": "c1"}, {"name": "c2"}]}', encoding="utf-8")
-
-        with (
-            patch("notebooklm_health.STORAGE_STATE_FILE", storage),
-            patch("subprocess.run") as mock_run,
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            return_value=MagicMock(returncode=0),
         ):
-            mock_run.return_value = MagicMock(returncode=0)
+            result = nlm_health.check_auth_status()
 
-            from notebooklm_automation.health import check_auth_status
+        assert result["storage_file_exists"] is True
+        assert result["authenticated"] is True
+        assert result["age_hours"] is not None
+        assert result["age_hours"] < 1
+        assert result["needs_refresh"] is False
 
-            result = check_auth_status()
-            assert result["storage_file_exists"] is True
-            assert result["authenticated"] is True
-            assert result["age_hours"] is not None
-            assert result["age_hours"] < 1  # 방금 생성됨
-            assert result["needs_refresh"] is False
+    def test_expired_session(self, notebooklm_home):
+        _write_storage(notebooklm_home, [], age_hours=22)
 
-    def test_expired_session(self, tmp_path):
-        """20시간 이상 된 세션은 갱신 필요."""
-        import os
-
-        storage = tmp_path / "storage_state.json"
-        storage.write_text('{"cookies": []}', encoding="utf-8")
-
-        # 파일 수정 시간을 22시간 전으로 조작
-        old_time = (datetime.now() - timedelta(hours=22)).timestamp()
-        os.utime(storage, (old_time, old_time))
-
-        with (
-            patch("notebooklm_health.STORAGE_STATE_FILE", storage),
-            patch("subprocess.run") as mock_run,
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            return_value=MagicMock(returncode=0),
         ):
-            mock_run.return_value = MagicMock(returncode=0)
+            result = nlm_health.check_auth_status()
 
-            from notebooklm_automation.health import check_auth_status
+        assert result["authenticated"] is True
+        assert result["needs_refresh"] is True
+        assert result["age_hours"] >= 20
 
-            result = check_auth_status()
-            assert result["needs_refresh"] is True
-            assert result["age_hours"] >= 20
+    def test_cli_not_found(self, notebooklm_home):
+        _write_storage(notebooklm_home, [])
 
-    def test_cli_not_found(self, tmp_path):
-        """CLI가 없으면 authenticated=False."""
-        storage = tmp_path / "storage_state.json"
-        storage.write_text('{"cookies": []}', encoding="utf-8")
-
-        with (
-            patch("notebooklm_health.STORAGE_STATE_FILE", storage),
-            patch("subprocess.run", side_effect=FileNotFoundError),
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            side_effect=FileNotFoundError,
         ):
-            from notebooklm_automation.health import check_auth_status
+            result = nlm_health.check_auth_status()
 
-            result = check_auth_status()
-            assert result["authenticated"] is False
-
-
-# ──────────────────────────────────────────────────
-#  get_session_cookies_count 테스트
-# ──────────────────────────────────────────────────
+        assert result["authenticated"] is False
 
 
 class TestGetSessionCookiesCount:
-    """get_session_cookies_count() 함수 테스트."""
+    def test_no_file(self, notebooklm_home):
+        assert nlm_health.get_session_cookies_count() == 0
 
-    def test_no_file(self, tmp_path):
-        with patch("notebooklm_health.STORAGE_STATE_FILE", tmp_path / "none.json"):
-            from notebooklm_automation.health import get_session_cookies_count
+    def test_with_cookies(self, notebooklm_home):
+        _write_storage(notebooklm_home, [{"name": "a"}, {"name": "b"}, {"name": "c"}])
 
-            assert get_session_cookies_count() == 0
-
-    def test_with_cookies(self, tmp_path):
-        storage = tmp_path / "storage_state.json"
-        storage.write_text(
-            json.dumps({"cookies": [{"name": "a"}, {"name": "b"}, {"name": "c"}]}),
-            encoding="utf-8",
-        )
-
-        with patch("notebooklm_health.STORAGE_STATE_FILE", storage):
-            from notebooklm_automation.health import get_session_cookies_count
-
-            assert get_session_cookies_count() == 3
-
-
-# ──────────────────────────────────────────────────
-#  refresh_auth 테스트
-# ──────────────────────────────────────────────────
+        assert nlm_health.get_session_cookies_count() == 3
 
 
 class TestRefreshAuth:
-    """refresh_auth() 함수 테스트."""
-
-    def test_reuse_session_success(self, tmp_path):
-        """1차 시도(reuse-session)에서 성공."""
-        with (
-            patch("notebooklm_health.REFRESH_HISTORY_FILE", tmp_path / "history.json"),
-            patch("subprocess.run") as mock_run,
+    def test_reuse_session_success(self, notebooklm_home):
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            return_value=MagicMock(returncode=0, stderr=""),
         ):
-            mock_run.return_value = MagicMock(returncode=0, stderr="")
+            result = nlm_health.refresh_auth()
 
-            from notebooklm_automation.health import refresh_auth
+        assert result["success"] is True
+        assert result["method"] == "reuse_session"
 
-            result = refresh_auth()
-            assert result["success"] is True
-            assert result["method"] == "reuse_session"
-            mock_run.assert_called_once()  # 1차만 호출
-
-    def test_fallback_to_new_session(self, tmp_path):
-        """1차 실패 → 2차(new session) 성공."""
-        with (
-            patch("notebooklm_health.REFRESH_HISTORY_FILE", tmp_path / "history.json"),
-            patch("subprocess.run") as mock_run,
-        ):
-            # 1차 실패, 2차 성공
-            mock_run.side_effect = [
+    def test_fallback_to_new_session(self, notebooklm_home):
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            side_effect=[
                 MagicMock(returncode=1, stderr="reuse failed"),
                 MagicMock(returncode=0, stderr=""),
-            ]
+            ],
+        ) as mock_run:
+            result = nlm_health.refresh_auth()
 
-            from notebooklm_automation.health import refresh_auth
+        assert result["success"] is True
+        assert result["method"] == "new_session"
+        assert mock_run.call_count == 2
 
-            result = refresh_auth()
-            assert result["success"] is True
-            assert result["method"] == "new_session"
-            assert mock_run.call_count == 2
-
-    def test_both_fail(self, tmp_path):
-        """양쪽 모두 실패."""
-        with (
-            patch("notebooklm_health.REFRESH_HISTORY_FILE", tmp_path / "history.json"),
-            patch("subprocess.run") as mock_run,
+    def test_both_fail(self, notebooklm_home):
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            return_value=MagicMock(returncode=1, stderr="auth failed"),
         ):
-            mock_run.return_value = MagicMock(returncode=1, stderr="auth failed")
+            result = nlm_health.refresh_auth()
 
-            from notebooklm_automation.health import refresh_auth
+        assert result["success"] is False
+        assert result["method"] == "none"
 
-            result = refresh_auth()
-            assert result["success"] is False
-            assert result["method"] == "none"
-
-    def test_cli_not_installed(self, tmp_path):
-        """CLI 미설치 시 즉시 실패."""
-        with (
-            patch("notebooklm_health.REFRESH_HISTORY_FILE", tmp_path / "history.json"),
-            patch("subprocess.run", side_effect=FileNotFoundError),
+    def test_cli_not_installed(self, notebooklm_home):
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            side_effect=FileNotFoundError,
         ):
-            from notebooklm_automation.health import refresh_auth
+            result = nlm_health.refresh_auth()
 
-            result = refresh_auth()
-            assert result["success"] is False
-            assert "설치" in result["message"]
+        assert result["success"] is False
+        assert "not installed" in result["message"]
 
-    def test_records_history(self, tmp_path):
-        """갱신 결과가 이력 파일에 기록됨."""
-        history_file = tmp_path / "history.json"
-
-        with (
-            patch("notebooklm_health.REFRESH_HISTORY_FILE", history_file),
-            patch("subprocess.run") as mock_run,
+    def test_records_history(self, notebooklm_home):
+        with patch(
+            "notebooklm_automation.health.subprocess.run",
+            return_value=MagicMock(returncode=0, stderr=""),
         ):
-            mock_run.return_value = MagicMock(returncode=0, stderr="")
+            nlm_health.refresh_auth()
 
-            from notebooklm_automation.health import refresh_auth
+        history_file = notebooklm_home / "refresh_history.json"
+        history = json.loads(history_file.read_text(encoding="utf-8"))
 
-            refresh_auth()
-            assert history_file.exists()
-            history = json.loads(history_file.read_text(encoding="utf-8"))
-            assert len(history) == 1
-            assert history[0]["success"] is True
-
-
-# ──────────────────────────────────────────────────
-#  proactive_refresh 테스트
-# ──────────────────────────────────────────────────
+        assert history_file.exists()
+        assert len(history) == 1
+        assert history[0]["success"] is True
 
 
 class TestProactiveRefresh:
-    """proactive_refresh() 함수 테스트."""
-
     def test_skip_when_healthy(self):
-        """세션이 정상이면 갱신 스킵."""
-        mock_auth = {
+        auth_status = {
             "authenticated": True,
             "needs_refresh": False,
             "age_hours": 5.0,
@@ -231,23 +158,25 @@ class TestProactiveRefresh:
             "last_modified": datetime.now().isoformat(),
         }
 
-        with patch("notebooklm_health.check_auth_status", return_value=mock_auth):
-            from notebooklm_automation.health import proactive_refresh
+        with (
+            patch("notebooklm_automation.health.check_auth_status", return_value=auth_status),
+            patch("notebooklm_automation.health.refresh_auth") as mock_refresh,
+        ):
+            result = nlm_health.proactive_refresh()
 
-            result = proactive_refresh()
-            assert result["action"] == "skipped"
-            assert result["refresh_result"] is None
+        assert result["action"] == "skipped"
+        assert result["refresh_result"] is None
+        mock_refresh.assert_not_called()
 
     def test_refresh_when_needed(self):
-        """갱신이 필요하면 시도."""
-        mock_auth = {
+        auth_status = {
             "authenticated": True,
             "needs_refresh": True,
             "age_hours": 21.0,
             "storage_file_exists": True,
             "last_modified": (datetime.now() - timedelta(hours=21)).isoformat(),
         }
-        mock_refresh = {
+        refresh_result = {
             "success": True,
             "method": "reuse_session",
             "message": "ok",
@@ -255,24 +184,22 @@ class TestProactiveRefresh:
         }
 
         with (
-            patch("notebooklm_health.check_auth_status", return_value=mock_auth),
-            patch("notebooklm_health.refresh_auth", return_value=mock_refresh),
+            patch("notebooklm_automation.health.check_auth_status", return_value=auth_status),
+            patch("notebooklm_automation.health.refresh_auth", return_value=refresh_result),
         ):
-            from notebooklm_automation.health import proactive_refresh
+            result = nlm_health.proactive_refresh()
 
-            result = proactive_refresh()
-            assert result["action"] == "refreshed"
+        assert result["action"] == "refreshed"
 
     def test_alert_on_failure(self):
-        """갱신 실패 시 알림 발송."""
-        mock_auth = {
+        auth_status = {
             "authenticated": False,
             "needs_refresh": True,
             "age_hours": 25.0,
             "storage_file_exists": True,
             "last_modified": (datetime.now() - timedelta(hours=25)).isoformat(),
         }
-        mock_refresh = {
+        refresh_result = {
             "success": False,
             "method": "none",
             "message": "timeout",
@@ -280,97 +207,66 @@ class TestProactiveRefresh:
         }
 
         with (
-            patch("notebooklm_health.check_auth_status", return_value=mock_auth),
-            patch("notebooklm_health.refresh_auth", return_value=mock_refresh),
-            patch("notebooklm_health.send_auth_alert", return_value=True) as mock_alert,
+            patch("notebooklm_automation.health.check_auth_status", return_value=auth_status),
+            patch("notebooklm_automation.health.refresh_auth", return_value=refresh_result),
+            patch("notebooklm_automation.health.send_auth_alert", return_value=True) as mock_alert,
         ):
-            from notebooklm_automation.health import proactive_refresh
+            result = nlm_health.proactive_refresh()
 
-            result = proactive_refresh()
-            assert result["action"] == "failed"
-            assert result["alert_sent"] is True
-            mock_alert.assert_called_once()
-
-
-# ──────────────────────────────────────────────────
-#  send_auth_alert 테스트
-# ──────────────────────────────────────────────────
+        assert result["action"] == "failed"
+        assert result["alert_sent"] is True
+        mock_alert.assert_called_once_with("timeout")
 
 
 class TestSendAuthAlert:
-    """send_auth_alert() 함수 테스트."""
-
-    def test_sends_alert(self):
-        """알림이 정상 발송되면 True."""
-        mock_config = MagicMock()
-        mock_config.telegram_bot_token = "token"
-        mock_config.telegram_chat_id = "123"
+    def test_sends_telegram_alert(self, notebooklm_home, monkeypatch):
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID", "123")
+        monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+        reset_config()
 
         with (
-            patch("notebooklm_health.check_auth_status", return_value={"age_hours": 22.0}),
-            patch("alerts.send_alert", return_value={"telegram": {"ok": True}}) as mock_send,
-            patch("config.AppConfig.from_env", return_value=mock_config),
+            patch(
+                "notebooklm_automation.health.check_auth_status",
+                return_value={"age_hours": 22.0},
+            ),
+            patch("httpx.post", return_value=MagicMock(status_code=200)) as mock_post,
         ):
-            from notebooklm_automation.health import send_auth_alert
+            result = nlm_health.send_auth_alert("test error")
 
-            result = send_auth_alert("test error")
-            assert result is True
+        assert result is True
+        mock_post.assert_called_once()
 
-    def test_import_error_graceful(self):
-        """alerts 모듈 없으면 False 반환 (예외 없음)."""
-        with patch.dict("sys.modules", {"alerts": None}):
-            # 모듈 임포트 실패 시뮬레이션은 복잡하므로
-            # send_auth_alert 내부의 ImportError 처리를 간접 검증
-            from notebooklm_automation.health import send_auth_alert
-
-            # alerts가 없는 환경에서도 크래시 없이 False 반환
-            # (실제 환경에서는 alerts가 있으므로 config.from_env 실패로 False)
-            result = send_auth_alert("test")
-            assert isinstance(result, bool)
-
-
-# ──────────────────────────────────────────────────
-#  refresh history 테스트
-# ──────────────────────────────────────────────────
+    def test_returns_false_without_configured_channels(self, notebooklm_home, monkeypatch):
+        monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+        monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+        monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+        reset_config()
+        assert nlm_health.send_auth_alert("test error") is False
 
 
 class TestRefreshHistory:
-    """get_refresh_history() 함수 테스트."""
+    def test_empty_when_no_file(self, notebooklm_home):
+        assert nlm_health.get_refresh_history() == []
 
-    def test_empty_when_no_file(self, tmp_path):
-        with patch("notebooklm_health.REFRESH_HISTORY_FILE", tmp_path / "none.json"):
-            from notebooklm_automation.health import get_refresh_history
-
-            assert get_refresh_history() == []
-
-    def test_returns_recent(self, tmp_path):
-        history_file = tmp_path / "history.json"
+    def test_returns_recent(self, notebooklm_home):
+        history_file = notebooklm_home / "refresh_history.json"
         records = [
-            {"success": True, "timestamp": f"2026-03-{i:02d}T00:00:00"}
-            for i in range(1, 21)
+            {"success": True, "timestamp": f"2026-03-{day:02d}T00:00:00"}
+            for day in range(1, 21)
         ]
         history_file.write_text(json.dumps(records), encoding="utf-8")
 
-        with patch("notebooklm_health.REFRESH_HISTORY_FILE", history_file):
-            from notebooklm_automation.health import get_refresh_history
+        recent = nlm_health.get_refresh_history(limit=5)
 
-            recent = get_refresh_history(limit=5)
-            assert len(recent) == 5
-            assert recent[-1]["timestamp"] == "2026-03-20T00:00:00"
-
-
-# ──────────────────────────────────────────────────
-#  health_check 테스트
-# ──────────────────────────────────────────────────
+        assert len(recent) == 5
+        assert recent[-1]["timestamp"] == "2026-03-20T00:00:00"
 
 
 class TestHealthCheck:
-    """health_check() 함수 테스트."""
-
     @pytest.mark.asyncio
-    async def test_down_when_not_authenticated(self, tmp_path):
-        """인증 실패 → status=down."""
-        mock_auth = {
+    async def test_down_when_not_authenticated(self, notebooklm_home):
+        auth_status = {
             "authenticated": False,
             "needs_refresh": True,
             "age_hours": None,
@@ -378,12 +274,8 @@ class TestHealthCheck:
             "last_modified": None,
         }
 
-        with (
-            patch("notebooklm_health.check_auth_status", return_value=mock_auth),
-            patch("notebooklm_health.HEALTH_LOG_FILE", tmp_path / "health.log"),
-        ):
-            from notebooklm_automation.health import health_check
+        with patch("notebooklm_automation.health.check_auth_status", return_value=auth_status):
+            result = await nlm_health.health_check()
 
-            result = await health_check()
-            assert result["status"] == "down"
-            assert result["api_reachable"] is False
+        assert result["status"] == "down"
+        assert result["api_reachable"] is False
