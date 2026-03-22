@@ -1,0 +1,44 @@
+56: async def _retry_generate(
+89: def _select_generation_tier(trend: ScoredTrend, config: AppConfig) -> "TaskTier":
+120: def _resolve_language(config: AppConfig) -> str:
+137: def _build_account_identity_section(config: AppConfig, *, include_tone: bool = True) -> str:
+155: def _build_diversity_section(recent_tweets: list[str]) -> str:
+163: def _build_deep_why_section(trend: ScoredTrend) -> str:
+174: def _build_context_section(trend: ScoredTrend) -> str:
+181: def _build_scoring_section(trend: ScoredTrend) -> str:
+195: def _use_report_profile(config: AppConfig) -> bool:
+199: def _clean_fact_line(line: str) -> str:
+205: def _build_available_facts_section(trend: ScoredTrend, limit: int = 10) -> str:
+241: def _build_fact_guardrail_section(trend: ScoredTrend) -> str:
+280: def _build_golden_reference_section(golden_refs: list | None) -> str:
+303: def _build_pattern_weights_section(pattern_weights: dict | None) -> str:
+337: def _build_category_tone_hint(trend: ScoredTrend) -> str:
+361: def _parse_json(raw: str | None) -> dict | None:
+467: def _system_tweets_joongyeon() -> str:
+581: def _system_long_form_joongyeon() -> str:
+619: def _system_threads_joongyeon() -> str:
+644: def _system_tweets(tone: str) -> str:
+661: def _system_long_form(tone: str, editorial_profile: str = "classic") -> str:
+675: def _system_threads(tone: str, editorial_profile: str = "classic") -> str:
+689: def _system_thread(tone: str) -> str:
+714: def _system_tweets_and_threads(tone: str) -> str:
+762: def _should_use_marl(trend: ScoredTrend, config: AppConfig) -> bool:
+774: async def generate_tweets_with_marl_async(
+876: async def generate_tweets_async(
+976: async def generate_long_form_async(
+1049: async def generate_threads_content_async(
+1168: def _system_blog_post(tone: str, editorial_profile: str = "classic") -> str:
+1191: async def generate_blog_async(
+1290: async def generate_thread_async(
+1346: async def generate_tweets_and_threads_async(
+1385: async def generate_for_trend_async(
+1497: def generate_for_trend(
+1513: async def generate_ab_variant_async(
+1573: async def generate_for_trend_multilang_async(
+1745: def _build_allowed_fact_corpus(trend: ScoredTrend) -> str:
+1757: def _extract_candidate_entities(text: str) -> set[str]:
+1764: def _first_nonempty_lines(text: str, limit: int = 3) -> list[str]:
+1768: def _audit_content_group(
+1948: async def audit_generated_content(
+2001: async def regenerate_content_groups(
+2068: def select_persona(trend: ScoredTrend, config: AppConfig) -> str:
