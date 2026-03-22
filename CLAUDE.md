@@ -122,10 +122,12 @@ Copy `.env.example` files before running. Key variables:
 
 ## Code Style & Conventions
 
-- **Python**: Requirements pinned to Python 3.12 / 3.13 due to `langchain`/`google.genai` compatibility with 3.14+. No type stubs required. Use `# type: ignore` for third-party libs. Singleton pattern via `get_*()` factory functions.
+- **Python**: **Standard: Python 3.13** (see `.python-version`). Canary testing on 3.14 via CI. Requirements managed via `uv` (preferred) or pip. Use `# type: ignore` for third-party libs. Singleton pattern via `get_*()` factory functions.
+- **Node.js**: **Standard: 22.12+** (see `.nvmrc`). Required for Vite 7 and future Hardhat 3 compatibility.
 - **React**: Functional components only. Tailwind CSS for styling. Framer Motion for animations. `useId()` for generated IDs (not `Math.random()`).
 - **Solidity**: OpenZeppelin v5 contracts. Pragma `^0.8.20`. Hardhat for testing.
 - **Error handling**: FastAPI endpoints wrap DB ops in try/except with `db.rollback()`. Frontend uses ErrorBoundary + ToastContext.
+- **Pre-commit**: All commits must pass Gitleaks, Ruff, and custom security checks (see `.pre-commit-config.yaml`).
 
 ## Gotchas
 
@@ -134,4 +136,28 @@ Copy `.env.example` files before running. Key variables:
 - `DeSciToken.sol` lives in `contracts/` root (not `contracts/contracts/`) due to prior move
 - DailyNews `.env` has real API keys - never commit. `.gitignore` covers `.env` globally
 - Frontend uses React 19 + React Router 7 - check compatibility when updating deps
-- AgriGuard uses SQLite (`agriguard.db`) - not suitable for production concurrency
+- **AgriGuard DB Migration**: Currently uses SQLite (`agriguard.db`), migration to PostgreSQL planned (see [docs/POSTGRESQL_MIGRATION_PLAN.md](docs/POSTGRESQL_MIGRATION_PLAN.md))
+- **Gemini 2.0 Flash REMOVED**: Deprecated model (EOL 2026-06-01) replaced with Gemini 2.5 Flash-Lite in all configs (2026-03-22)
+
+## Docker & Development
+
+### Quick Start with Docker Compose
+
+```bash
+# Copy environment template
+cp .env.example .env
+# Edit .env with your API keys
+
+# Start all services
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop all services
+docker compose down
+```
+
+### Local Development (without Docker)
+
+See individual project README files for specific setup instructions.

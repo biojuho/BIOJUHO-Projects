@@ -47,7 +47,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     ],
     TaskTier.MEDIUM: [
         ("gemini", "gemini-2.5-flash-lite"),          # Free 1,000RPD, 초저비용 $0.10/$0.40
-        ("gemini", "gemini-2.0-flash"),               # ⚠️ deprecated 2026-06, 레거시 폴백
+        ("gemini", "gemini-2.5-flash"),               # ✅ 2.5 Flash (2.0 deprecated 제거됨)
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, Haiku 대체 폴백
         ("anthropic", "claude-haiku-4-5-20251001"),
         ("grok", "grok-3-mini-fast"),
@@ -55,7 +55,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     ],
     TaskTier.LIGHTWEIGHT: [
         ("gemini", "gemini-2.5-flash-lite"),          # ★ 주력: Free 1,000RPD, $0.10/$0.40
-        ("gemini", "gemini-2.0-flash"),               # ⚠️ deprecated 2026-06, 레거시 폴백
+        ("gemini", "gemini-2.5-flash"),               # ✅ 2.5 Flash (2.0 deprecated 제거됨)
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, 한국어 안정 + 초저비용
         ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
@@ -96,7 +96,6 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "gemini-2.5-pro": (1.25, 10.0),
     "gemini-2.5-flash": (0.15, 3.50),               # Free tier에서는 $0, 유료 시 적용
     "gemini-2.5-flash-lite": (0.10, 0.40),           # Free 1,000RPD, 유료 시 초저비용
-    "gemini-2.0-flash": (0.0, 0.0),                  # ⚠️ deprecated 2026-06-01, Free tier
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
     "grok-3": (3.0, 15.0),

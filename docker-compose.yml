@@ -1,0 +1,132 @@
+# AI Projects Workspace - Docker Compose Configuration
+# Usage: docker compose up -d
+# Services: PostgreSQL, Biolinker API, AgriGuard API, Frontend
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database (shared by multiple services)
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-projects-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_projects}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ai-projects-network
+
+  # DeSci Platform - Biolinker API
+  biolinker:
+    build:
+      context: ./desci-platform/biolinker
+      dockerfile: Dockerfile
+    container_name: biolinker-api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/biolinker
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/firebase-key.json
+      ENV: ${ENV:-development}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./desci-platform/biolinker:/app
+      - ./shared:/app/shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ai-projects-network
+    restart: unless-stopped
+
+  # AgriGuard Backend API
+  agriguard:
+    build:
+      context: ./AgriGuard/backend
+      dockerfile: Dockerfile
+    container_name: agriguard-api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agriguard
+      WEB3_PROVIDER_URI: ${WEB3_PROVIDER_URI}
+      PRIVATE_KEY: ${AGRIGUARD_PRIVATE_KEY}
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./AgriGuard/backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ai-projects-network
+    restart: unless-stopped
+
+  # DeSci Platform - Frontend
+  frontend:
+    build:
+      context: ./desci-platform/frontend
+      dockerfile: Dockerfile
+    container_name: desci-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+      VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+      VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./desci-platform/frontend:/app
+      - /app/node_modules
+    depends_on:
+      - biolinker
+    networks:
+      - ai-projects-network
+    restart: unless-stopped
+
+  # Redis (for future caching)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: ai-projects-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - ai-projects-network
+  #   restart: unless-stopped
+
+  # Qdrant Vector Database (for future migration)
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   container_name: ai-projects-qdrant
+  #   ports:
+  #     - "6333:6333"
+  #     - "6334:6334"
+  #   volumes:
+  #     - qdrant-data:/qdrant/storage
+  #   networks:
+  #     - ai-projects-network
+  #   restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local
+  # redis-data:
+  #   driver: local
+  # qdrant-data:
+  #   driver: local
+
+networks:
+  ai-projects-network:
+    driver: bridge

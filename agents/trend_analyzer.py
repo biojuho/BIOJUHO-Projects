@@ -60,9 +60,10 @@ class BatchTrendScores(BaseModel):
 
 # ── 에이전트 정의 ───────────────────────────────────
 
-# 모델 선택: 환경변수 우선, 기본값 Gemini Flash (무료)
+# 모델 선택: 환경변수 우선, 기본값 Gemini 2.5 Flash-Lite (무료)
 # 테스트 환경에서는 'test' 모델 사용 (실제 API 호출 없음)
-_DEFAULT_MODEL = os.environ.get("PYDANTIC_AI_MODEL", "google-gla:gemini-2.0-flash")
+# 2026-03-22: gemini-2.0-flash deprecated (EOL 2026-06-01) → 2.5-flash-lite로 변경
+_DEFAULT_MODEL = os.environ.get("PYDANTIC_AI_MODEL", "google-gla:gemini-2.5-flash-lite")
 
 _SYSTEM_SINGLE = (
     "당신은 소셜 미디어 트렌드 분석 전문가입니다. "

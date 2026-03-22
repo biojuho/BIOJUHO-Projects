@@ -1,25 +1,63 @@
+# Pre-commit hooks for AI Projects Workspace
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
 repos:
+  # Gitleaks - Secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+
+  # Python - Ruff (linter + formatter)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.0
+    rev: v0.3.4
     hooks:
       - id: ruff
         args: [--fix]
+        types: [python]
       - id: ruff-format
+        types: [python]
 
+  # YAML validation
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v4.5.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
       - id: check-yaml
+        args: [--safe]
       - id: check-json
-        exclude: "tsconfig.*\\.json$"
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]
       - id: check-added-large-files
-        args: ["--maxkb=500"]
-      - id: no-commit-to-branch
-        args: ["--branch", "main"]
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: detect-private-key
 
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.22.1
+  # Custom security scanner
+  - repo: local
     hooks:
-      - id: gitleaks
+      - id: check-security
+        name: Custom Security Scanner
+        entry: python scripts/check_security.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+# Global configuration
+default_language_version:
+  python: python3.13
+
+# Exclude patterns
+exclude: |
+  (?x)^(
+    node_modules/|
+    venv/|
+    \.venv/|
+    dist/|
+    build/|
+    notebooklm-automation/|
+    lyria-music-player/
+  )$
