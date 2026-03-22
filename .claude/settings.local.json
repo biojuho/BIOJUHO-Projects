@@ -12,7 +12,19 @@
       "Bash(git add DailyNews/scripts/*.{bat,ps1,py,sql})",
       "Bash(git add docs/PROJECT-COMPLETION-REPORT.md docs/QC-REPORT-FINAL.md docs/scheduling/)",
       "Bash(git add scripts/run_evening_insights.bat scripts/run_morning_insights.bat scripts/setup_scheduled_tasks.ps1 scripts/test_insight_generation.bat)",
-      "Bash(git add .claude/settings.local.json shared/llm/config.py)"
+      "Bash(git add .claude/settings.local.json shared/llm/config.py)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: DailyNews v1.0 complete project documentation + insight generator\n\nDocumentation:\n- PROJECT-STATUS.md: comprehensive delivery report\n- FINAL-DELIVERY-REPORT: QC validation results\n- QUICK-START-GUIDE: setup instructions\n- Scheduling guides: monitoring, setup, summary\n\nScripts:\n- Insight generation automation (morning/evening)\n- LLM cache analyzer, monitoring dashboard\n- Database optimization tools\n- Windows Task Scheduler setup (PowerShell)\n\nConfiguration:\n- Claude Code settings: pre-approved commands\n- LLM config: DeepSeek fallback, Gemini 2.5 Flash pricing\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(python -m pytest tests/test_vector_store_backend.py -v)",
+      "Bash(python -m pytest tests/test_vector_store_search.py -v)",
+      "Bash(python -m pytest tests/test_api_endpoints.py -v -k \"test_\" --tb=short)",
+      "Bash(python -m pytest tests/test_workspace_smoke.py -v --tb=short)",
+      "Bash(git add desci-platform/biolinker/tests/test_vector_store_backend.py desci-platform/biolinker/tests/test_vector_store_search.py)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ntest: add vector store backend and search tests\n\nNew tests:\n- test_vector_store_backend.py: Qdrant/Chroma backend selection\n- test_vector_store_search.py: hybrid search + metadata filtering\n\nAll tests passing:\n- Vector store backend: 2/2 ✅\n- Vector store search: 2/2 ✅\n- API endpoints: 15/15 ✅\n- Workspace smoke: 4/4 ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(test -f lyria-music-player/README.md)",
+      "Bash(cat lyria-music-player/README.md)",
+      "Bash(test -f notebooklm-automation/README.md)",
+      "Bash(cat .gitignore)",
+      "Bash(git add .gitignore .claude/settings.local.json scripts/cost_intelligence.py shared/llm/config.py)"
     ],
     "deny": [],
     "ask": []

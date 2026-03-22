@@ -46,18 +46,20 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
         ("openai", "gpt-4o"),
     ],
     TaskTier.MEDIUM: [
-        ("gemini", "gemini-2.0-flash"),
+        ("gemini", "gemini-2.5-flash-lite"),          # Free 1,000RPD, 초저비용 $0.10/$0.40
+        ("gemini", "gemini-2.0-flash"),               # ⚠️ deprecated 2026-06, 레거시 폴백
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, Haiku 대체 폴백
         ("anthropic", "claude-haiku-4-5-20251001"),
         ("grok", "grok-3-mini-fast"),
         ("openai", "gpt-4o-mini"),
     ],
     TaskTier.LIGHTWEIGHT: [
-        ("gemini", "gemini-2.0-flash"),              # Free tier 15RPM, 한국어 최강
+        ("gemini", "gemini-2.5-flash-lite"),          # ★ 주력: Free 1,000RPD, $0.10/$0.40
+        ("gemini", "gemini-2.0-flash"),               # ⚠️ deprecated 2026-06, 레거시 폴백
+        ("deepseek", "deepseek-chat"),               # 저렴 $0.14/$0.28, 잔액 충전됨
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, 한국어 안정 + 초저비용
         ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
-        ("deepseek", "deepseek-chat"),               # 5순위: 잔액 부족 시 자동 스킵 (fallback)
         ("openai", "gpt-4o-mini"),
         ("ollama", "phi3:3.8b"),                     # 로컬 Ollama 폴백 (API 비용 $0)
         ("bitnet", "bitnet-b1.58-2b-4t"),            # 최후방 로컬 폴백 (API 비용 $0)
@@ -94,7 +96,8 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "gemini-2.5-pro-preview-03-25": (1.25, 10.0),
     "gemini-2.5-pro": (1.25, 10.0),
     "gemini-2.5-flash": (0.15, 3.50),               # Free tier에서는 $0, 유료 시 적용
-    "gemini-2.0-flash": (0.0, 0.0),                  # Free tier 15RPM 무료
+    "gemini-2.5-flash-lite": (0.10, 0.40),           # Free 1,000RPD, 유료 시 초저비용
+    "gemini-2.0-flash": (0.0, 0.0),                  # ⚠️ deprecated 2026-06-01, Free tier
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
     "grok-3": (3.0, 15.0),

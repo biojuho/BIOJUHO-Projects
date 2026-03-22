@@ -26,10 +26,11 @@ LLM_DB_PATH = WORKSPACE / "shared" / "llm" / "data" / "llm_costs.db"
 
 # 모델별 대체 후보 (비용 낮은 순)
 MODEL_ALTERNATIVES = {
-    "claude-sonnet-4-6": ["gemini-2.5-flash-preview-04-17", "claude-haiku-4-5-20251001"],
+    "claude-sonnet-4-6": ["gemini-2.5-flash", "gemini-2.5-flash-lite", "claude-haiku-4-5-20251001"],
     "claude-opus-4-6": ["claude-sonnet-4-6", "gemini-2.5-pro-preview-03-25"],
-    "gemini-2.5-pro-preview-03-25": ["gemini-2.5-flash-preview-04-17"],
-    "gpt-4o": ["gpt-4o-mini", "gemini-2.5-flash-preview-04-17"],
+    "gemini-2.5-pro-preview-03-25": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    "gemini-2.5-flash": ["gemini-2.5-flash-lite"],
+    "gpt-4o": ["gpt-4o-mini", "gemini-2.5-flash-lite"],
 }
 
 

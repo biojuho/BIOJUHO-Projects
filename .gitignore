@@ -83,3 +83,12 @@ create_repo.py
 **/create_repo.py
 serviceAccountKey.json
 **/canva_url.txt
+
+# Separate repositories (git submodules or independent projects)
+notebooklm-automation/
+lyria-music-player/
+
+# Temp outputs and test files
+sample_insight.json
+test_insight_output.json
+logs/
