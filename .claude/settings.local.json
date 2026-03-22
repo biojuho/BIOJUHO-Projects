@@ -24,7 +24,10 @@
       "Bash(cat lyria-music-player/README.md)",
       "Bash(test -f notebooklm-automation/README.md)",
       "Bash(cat .gitignore)",
-      "Bash(git add .gitignore .claude/settings.local.json scripts/cost_intelligence.py shared/llm/config.py)"
+      "Bash(git add .gitignore .claude/settings.local.json scripts/cost_intelligence.py shared/llm/config.py)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nchore: gitignore + LLM config updates\n\nChanges:\n- .gitignore: exclude separate repos (notebooklm-automation, lyria-music-player)\n- .gitignore: exclude temp outputs (logs/, sample files)\n- cost_intelligence.py: update model alternatives (gemini-2.5-flash-lite)\n- shared/llm/config.py: DeepSeek fallback, Gemini 2.5 pricing\n- .claude/settings.local.json: update pre-approved commands\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git add .claude/settings.local.json)",
+      "Bash(git commit -m \"chore: update Claude settings with latest commands\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
     "ask": []
