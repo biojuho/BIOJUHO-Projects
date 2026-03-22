@@ -167,10 +167,11 @@ class TestModelPatches:
         result = apply_model_patch("gemini", "gemini-2.5-pro-preview-03-25", kwargs)
         assert result["max_tokens"] == 8192  # max(1000*4, 8192)
 
-    def test_patch_gemini_20_no_expansion(self):
+    def test_patch_gemini_25_lite_token_expansion(self):
+        """Gemini 2.5 Flash-Lite also gets token expansion (2.5 family)."""
         kwargs = {"max_tokens": 1000}
-        result = apply_model_patch("gemini", "gemini-2.0-flash", kwargs)
-        assert result["max_tokens"] == 1000
+        result = apply_model_patch("gemini", "gemini-2.5-flash-lite", kwargs)
+        assert result["max_tokens"] == 8192  # Gemini 2.5 family gets expansion
 
     def test_patch_grok_json_mode(self):
         kwargs = {"response_mode": "json", "max_tokens": 1000}

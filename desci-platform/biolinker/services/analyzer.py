@@ -106,11 +106,11 @@ class RFPAnalyzer:
         if google_key and GOOGLE_AVAILABLE:
             try:
                 self.llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash",
+                    model="gemini-2.5-flash",
                     temperature=0.2,
                     google_api_key=google_key,
                 )
-                print("[DEBUG] Gemini Pro initialized")
+                print("[DEBUG] Gemini 2.5 Flash initialized")
             except Exception as e:
                 print(f"[DEBUG] Gemini init failed: {e}")
         

@@ -61,7 +61,7 @@ class TestCostTracker:
     def test_record_and_get_stats(self):
         tracker = CostTracker()
         tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY, 1000, 500, True)
-        tracker.record("gemini", "gemini-2.0-flash", TaskTier.LIGHTWEIGHT, 500, 200, True)
+        tracker.record("gemini", "gemini-2.5-flash-lite", TaskTier.LIGHTWEIGHT, 500, 200, True)
         tracker.record("deepseek", "deepseek-chat", TaskTier.LIGHTWEIGHT, 1000, 1000, False, "quota exceeded")
 
         stats = tracker.get_stats()
@@ -72,7 +72,7 @@ class TestCostTracker:
 
     def test_reset(self):
         tracker = CostTracker()
-        tracker.record("gemini", "gemini-2.0-flash", TaskTier.MEDIUM, 100, 100, True)
+        tracker.record("gemini", "gemini-2.5-flash-lite", TaskTier.MEDIUM, 100, 100, True)
         tracker.reset()
         stats = tracker.get_stats()
         assert stats.total_calls == 0
@@ -131,7 +131,7 @@ class TestLLMClient:
     def test_fallback_on_quota_error(self, mock_call):
         mock_call.side_effect = [
             Exception("credit balance is too low"),
-            LLMResponse(text="정상 응답", model="gemini-2.0-flash", backend="gemini", tier=TaskTier.LIGHTWEIGHT),
+            LLMResponse(text="정상 응답", model="gemini-2.5-flash-lite", backend="gemini", tier=TaskTier.LIGHTWEIGHT),
         ]
         client = LLMClient(**self._DUMMY_KEYS)
         resp = client.create(
@@ -146,7 +146,7 @@ class TestLLMClient:
     def test_quality_gate_repairs_deepseek_output(self, mock_call):
         mock_call.side_effect = [
             LLMResponse(text="\u7627\u6ed8\u8a0e\u8bba\u6587\u6863", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT),
-            LLMResponse(text="한국어 정확하게 정리된 응답입니다", model="gemini-2.0-flash", backend="gemini", tier=TaskTier.LIGHTWEIGHT),
+            LLMResponse(text="한국어 정확하게 정리된 응답입니다", model="gemini-2.5-flash-lite", backend="gemini", tier=TaskTier.LIGHTWEIGHT),
         ]
         client = LLMClient(**self._DUMMY_KEYS)
         resp = client.create(
@@ -174,7 +174,7 @@ class TestLLMClient:
         mock_call.side_effect = [
             LLMResponse(text="한국어 정상 응답입니다", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
             LLMResponse(text="\u7627\u6ed8\u8a0e\u8bba\u6587\u6863", model="deepseek-chat", backend="deepseek", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
-            LLMResponse(text="수정된 정상 응답입니다", model="gemini-2.0-flash", backend="gemini", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
+            LLMResponse(text="수정된 정상 응답입니다", model="gemini-2.5-flash-lite", backend="gemini", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
         ]
         client = LLMClient(**self._DUMMY_KEYS)
         client.create(
