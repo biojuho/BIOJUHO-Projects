@@ -28,6 +28,7 @@ _DEFAULT_MODEL_COSTS: dict[str, tuple[float, float]] = {
     "claude-sonnet-4-20250514": (3.0, 15.0),
     "deepseek-chat": (0.14, 0.28),
     "gemini-2.5-flash": (0.0, 0.0),
+    "gemini-2.5-flash-lite": (0.10, 0.40),           # Free 1,000RPD, 초저비용
     "gemini-2.5-flash-preview-04-17": (0.0, 0.0),
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
