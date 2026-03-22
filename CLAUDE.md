@@ -2,6 +2,25 @@
 
 Multi-project monorepo: DeSci platform, AgriGuard, MCP automation tools.
 
+## ⚠️ 필수 설정 (신규 팀원)
+
+프로젝트 클론 후 **반드시** 다음 명령을 실행하세요:
+
+```bash
+# 1. Pre-commit hooks 설치 (보안 검사 자동화)
+pip install pre-commit
+pre-commit install
+
+# 2. Python/Node 버전 확인
+python --version  # 3.13.3 필요
+node --version    # 22.12.0+ 필요
+
+# 3. 환경변수 파일 생성
+cp .env.example .env  # .env 파일을 열어 API 키 입력
+```
+
+📖 **상세 가이드**: [Pre-commit Hooks 설치 가이드](docs/PRE_COMMIT_SETUP.md)
+
 ## Projects
 
 | Project | Stack | Port | Purpose |
