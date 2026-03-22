@@ -1,0 +1,98 @@
+version: 2
+updates:
+  # Python dependencies (Root)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "biojuho"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Python dependencies (DailyNews)
+  - package-ecosystem: "pip"
+    directory: "/DailyNews"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "dailynews"
+
+  # Python dependencies (AgriGuard)
+  - package-ecosystem: "pip"
+    directory: "/AgriGuard/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "agriguard"
+
+  # Python dependencies (desci-platform biolinker)
+  - package-ecosystem: "pip"
+    directory: "/desci-platform/biolinker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "biolinker"
+
+  # npm dependencies (Frontend)
+  - package-ecosystem: "npm"
+    directory: "/desci-platform/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "biojuho"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "frontend"
+    versioning-strategy: increase
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore(dev)"
+
+  # npm dependencies (Contracts)
+  - package-ecosystem: "npm"
+    directory: "/desci-platform/contracts"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "contracts"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "11:00"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
