@@ -4,7 +4,15 @@
       "Bash(cmd.exe /c \"schtasks /query /fo LIST /v | findstr /C:DailyNews\")",
       "Bash(PYTHONPATH=src python -m antigravity_mcp.cli jobs generate-brief --window morning --max-items 3)",
       "Bash(git log -1 --format='%h %s')",
-      "Bash(git add .claude/settings.local.json DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py DailyNews/src/antigravity_mcp/pipelines/analyze.py desci-platform/.env.example desci-platform/biolinker/main.py desci-platform/biolinker/requirements.txt desci-platform/biolinker/routers/rfp.py desci-platform/biolinker/services/notebooklm_research.py desci-platform/biolinker/services/vector_store.py desci-platform/biolinker/tests/test_api_endpoints.py desci-platform/docker-compose.yml desci-platform/frontend/src/components/PricingPage.jsx docs/QUALITY_GATE.md pytest.ini scripts/run_workspace_smoke.py tests/test_workspace_smoke.py)"
+      "Bash(git add .claude/settings.local.json DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py DailyNews/src/antigravity_mcp/pipelines/analyze.py desci-platform/.env.example desci-platform/biolinker/main.py desci-platform/biolinker/requirements.txt desci-platform/biolinker/routers/rfp.py desci-platform/biolinker/services/notebooklm_research.py desci-platform/biolinker/services/vector_store.py desci-platform/biolinker/tests/test_api_endpoints.py desci-platform/docker-compose.yml desci-platform/frontend/src/components/PricingPage.jsx docs/QUALITY_GATE.md pytest.ini scripts/run_workspace_smoke.py tests/test_workspace_smoke.py)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: vector store backend upgrade + NotebookLM adapter refactor\n\nMajor improvements:\n- Vector store: Qdrant support, lazy loading, enhanced search (+755 lines)\n- NotebookLM: thin wrapper around notebooklm-automation package (-382 lines)\n- BioLinker: updated RFP routes, research service, API tests\n- Testing: improved smoke tests and pytest config\n- Docker: updated compose config with new services\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(ls -la DailyNews/scripts/*.{bat,ps1,py})",
+      "Bash(ls -la scripts/*.{bat,ps1})",
+      "Bash(git add DailyNews/.gitattributes DailyNews/PROJECT-STATUS.md DailyNews/docs/ DailyNews/output/SAMPLE-INSIGHT-OUTPUT.md DailyNews/prompts/insight_quality_check.md DailyNews/src/antigravity_mcp/integrations/insight_adapter.py)",
+      "Bash(git add DailyNews/scripts/*.{bat,ps1,py,sql})",
+      "Bash(git add docs/PROJECT-COMPLETION-REPORT.md docs/QC-REPORT-FINAL.md docs/scheduling/)",
+      "Bash(git add scripts/run_evening_insights.bat scripts/run_morning_insights.bat scripts/setup_scheduled_tasks.ps1 scripts/test_insight_generation.bat)",
+      "Bash(git add .claude/settings.local.json shared/llm/config.py)"
     ],
     "deny": [],
     "ask": []

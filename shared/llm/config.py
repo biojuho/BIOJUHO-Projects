@@ -57,7 +57,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, 한국어 안정 + 초저비용
         ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
-        ("deepseek", "deepseek-chat"),               # 5순위: 구조화 JSON에서만 우선
+        ("deepseek", "deepseek-chat"),               # 5순위: 잔액 부족 시 자동 스킵 (fallback)
         ("openai", "gpt-4o-mini"),
         ("ollama", "phi3:3.8b"),                     # 로컬 Ollama 폴백 (API 비용 $0)
         ("bitnet", "bitnet-b1.58-2b-4t"),            # 최후방 로컬 폴백 (API 비용 $0)
@@ -93,9 +93,8 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "claude-3-haiku-20240307": (0.25, 1.25),
     "gemini-2.5-pro-preview-03-25": (1.25, 10.0),
     "gemini-2.5-pro": (1.25, 10.0),
-    "gemini-2.5-flash-preview-04-17": (0.0, 0.0),
-    "gemini-2.5-flash": (0.0, 0.0),
-    "gemini-2.0-flash": (0.0, 0.0),
+    "gemini-2.5-flash": (0.15, 3.50),               # Free tier에서는 $0, 유료 시 적용
+    "gemini-2.0-flash": (0.0, 0.0),                  # Free tier 15RPM 무료
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
     "grok-3": (3.0, 15.0),
