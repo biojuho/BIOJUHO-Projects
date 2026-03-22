@@ -6,7 +6,7 @@ httpx>=0.27.0,<1.0
 python-dateutil>=2.9.0,<3.0
 google-genai>=1.0.0,<2.0
 anthropic>=0.40.0,<1.0
-openai>=1.0.0,<2.0
+openai>=1.0.0,<3.0
 tenacity>=8.0.0,<10.0
 # Optional extras now live in pyproject.toml:
 #   pip install -e .[dashboard]
