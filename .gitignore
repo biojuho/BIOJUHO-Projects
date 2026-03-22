@@ -26,6 +26,10 @@ tmp/
 .agents/
 **/.agent/
 
+# Claude Code local settings (NEVER commit - contains personal permissions/overrides)
+.claude/settings.local.json
+.claude/*.local.json
+
 # Test / smoke outputs
 smoke-all.json
 smoke_*.json
@@ -92,3 +96,8 @@ lyria-music-player/
 sample_insight.json
 test_insight_output.json
 logs/
+
+# DailyNews output files (generated content, test outputs)
+DailyNews/output/*.txt
+DailyNews/output/*.json
+!DailyNews/output/SAMPLE-INSIGHT-OUTPUT.md
