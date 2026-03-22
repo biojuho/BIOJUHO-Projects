@@ -61,7 +61,16 @@ class FakeNotebookLMClient:
             generate_report=AsyncMock(return_value=FakeArtifactStatus()),
             generate_mind_map=AsyncMock(return_value=FakeArtifactStatus()),
             generate_slide_deck=AsyncMock(return_value=FakeArtifactStatus()),
-            generate_infographic=AsyncMock(return_value=FakeArtifactStatus()),
+            generate_infographic=AsyncMock(return_value=SimpleNamespace(
+                task_id="task-infographic-001", status="pending",
+            )),
+            wait_for_completion=AsyncMock(return_value=SimpleNamespace(
+                is_complete=True, is_failed=False, status="completed", error=None,
+            )),
+            download_infographic=AsyncMock(return_value="output/infographics/test.png"),
+            list_infographics=AsyncMock(return_value=[
+                SimpleNamespace(url="https://notebooklm.google.com/infographic/test.png"),
+            ]),
         )
 
     @classmethod
@@ -80,7 +89,19 @@ def mock_notebooklm():
     """Patch notebooklm module so adapter uses our fake client."""
     fake_module = MagicMock()
     fake_module.NotebookLMClient = FakeNotebookLMClient
-    with patch.dict(sys.modules, {"notebooklm": fake_module}):
+    # Mock rpc.types for infographic generation
+    fake_types = MagicMock()
+    fake_types.InfographicDetail = SimpleNamespace(STANDARD=1, DETAILED=2, CONCISE=0)
+    fake_types.InfographicOrientation = SimpleNamespace(LANDSCAPE=0, PORTRAIT=1, SQUARE=2)
+    fake_types.InfographicStyle = SimpleNamespace(PROFESSIONAL=0, CREATIVE=1, MINIMALIST=2)
+    fake_rpc = MagicMock()
+    fake_rpc.types = fake_types
+    fake_module.rpc = fake_rpc
+    with patch.dict(sys.modules, {
+        "notebooklm": fake_module,
+        "notebooklm.rpc": fake_rpc,
+        "notebooklm.rpc.types": fake_types,
+    }):
         # Re-import adapter with mocked module
         import importlib
         import antigravity_mcp.integrations.notebooklm_adapter as adapter_mod
@@ -156,6 +177,39 @@ def test_research_category_uses_category_prompts(mock_notebooklm):
     result = asyncio.run(adapter.research_category("Crypto", articles))
     # Crypto has 2 specific prompts + 1 synthesis = at least 3 ask calls
     assert len(result["research_insights"]) >= 1
+
+
+# ──────────────────────────────────────────────
+#  Test: B2) Infographic generation
+# ──────────────────────────────────────────────
+
+def test_research_category_with_infographic(mock_notebooklm):
+    """research_category with generate_infographic=True should return infographic fields."""
+    adapter = mock_notebooklm.NotebookLMAdapter()
+    articles = [
+        {"title": "AI boom", "link": "https://example.com/1", "description": "AI"},
+    ]
+    result = asyncio.run(adapter.research_category(
+        "Tech", articles, generate_infographic=True,
+    ))
+
+    assert result["notebook_id"] == "nb-test-123"
+    assert "infographic_path" in result
+    assert "infographic_url" in result
+
+
+def test_research_category_without_infographic(mock_notebooklm):
+    """research_category without infographic returns empty infographic fields."""
+    adapter = mock_notebooklm.NotebookLMAdapter()
+    articles = [
+        {"title": "Market data", "link": "https://example.com/2", "description": "econ"},
+    ]
+    result = asyncio.run(adapter.research_category(
+        "Economy_KR", articles, generate_infographic=False,
+    ))
+
+    assert result["infographic_path"] == ""
+    assert result["infographic_url"] == ""
 
 
 # ──────────────────────────────────────────────
@@ -257,3 +311,25 @@ def test_content_report_default_empty_metadata():
         window_start="", window_end="",
     )
     assert report.notebooklm_metadata == {}
+
+
+# ──────────────────────────────────────────────
+#  Test: ContentReport with infographic metadata
+# ──────────────────────────────────────────────
+
+def test_content_report_infographic_metadata():
+    """Infographic path/url stored in notebooklm_metadata."""
+    from antigravity_mcp.domain.models import ContentReport
+    report = ContentReport(
+        report_id="r3", category="Tech", window_name="test",
+        window_start="", window_end="",
+        notebooklm_metadata={
+            "notebook_id": "nb-456",
+            "source_count": 3,
+            "infographic_path": "output/infographics/tech_2026-03-22.png",
+            "infographic_url": "https://notebooklm.google.com/infographic/xyz.png",
+        },
+    )
+    d = report.to_dict()
+    assert d["notebooklm_metadata"]["infographic_path"] == "output/infographics/tech_2026-03-22.png"
+    assert d["notebooklm_metadata"]["infographic_url"].startswith("https://")

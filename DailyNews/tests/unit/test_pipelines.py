@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -297,3 +297,74 @@ class TestStateStore:
         )
         assert state_store.has_seen_article(link="https://test.com/article", category="Tech", window_name="manual")
         assert not state_store.has_seen_article(link="https://test.com/other", category="Tech", window_name="manual")
+
+    def test_cleanup_stale_runs(self, state_store):
+        """Watchdog: runs stuck in 'running' > 30 min are auto-marked 'failed'."""
+        state_store.record_job_start("stale-run", "test_job")
+        conn = state_store._connect()
+        old_time = (datetime.now(timezone.utc) - timedelta(minutes=31)).isoformat()
+        conn.execute("UPDATE job_runs SET started_at = ? WHERE run_id = ?", (old_time, "stale-run"))
+        conn.commit()
+
+        cleaned = state_store.cleanup_stale_runs(max_age_minutes=30)
+        assert cleaned == 1
+
+        run = state_store.get_run("stale-run")
+        assert run.status == "failed"
+        assert "auto-cleaned" in run.error_text
+
+    def test_cleanup_stale_runs_ignores_recent(self, state_store):
+        """Watchdog should NOT clean runs that are still within timeout."""
+        state_store.record_job_start("recent-run", "test_job")
+        cleaned = state_store.cleanup_stale_runs(max_age_minutes=30)
+        assert cleaned == 0
+
+        run = state_store.get_run("recent-run")
+        assert run.status == "running"
+
+
+# ─── v2 prompt parser ────────────────────────────────────────────────────────
+
+class TestV2PromptParser:
+    def test_parse_v2_response_extracts_all_sections(self):
+        from antigravity_mcp.integrations.llm_adapter import LLMAdapter
+        adapter = LLMAdapter()
+        v2_text = """### 📌 Signal
+OpenAI's $40B raise at $340B valuation sets a new floor for frontier AI company valuations.
+
+### 🔗 Pattern
+This signal connects to rising GPU demand → because NVIDIA earnings beat estimates → which also explains the semiconductor supply crunch.
+
+### 🌊 Ripple Effects
+- 1st order: Competition for AI talent intensifies.
+- 2nd order: Mid-tier AI startups face higher funding bar within 6 months.
+- 3rd order: Regulatory pressure on AI monopoly risk increases by 2027.
+
+### ⚡ Counterpoint
+Despite the headline valuation, OpenAI's revenue-to-valuation ratio (2%) is historically low compared to tech IPOs of the 2010s.
+
+### ✅ Action Items
+- Startup founder: Begin building defensible data moats this week.
+- Investor: Monitor secondary market pricing for frontier AI lab equity before Q2.
+- Developer/Engineer: Evaluate open-weight alternatives (Llama 4, Mistral) within 30 days.
+
+### 📰 Draft Post (X/Twitter)
+OpenAI just raised $40B. But here's what nobody's talking about:
+Their revenue-to-valuation ratio is 2%. That's 5x worse than Google's IPO.
+If you're a developer, now is the time to bet on open-weight models.
+"""
+        items = [
+            ContentItem(
+                source_name="TechCrunch", category="Tech", title="OpenAI Raises $40B",
+                link="https://example.com/openai", published_at="", summary="OpenAI fundraise."
+            ),
+        ]
+        summary, insights, drafts = adapter._parse_v2_response(
+            category="Tech", text=v2_text, items=items, window_name="morning"
+        )
+        assert len(summary) >= 1
+        assert "OpenAI" in summary[0]
+        assert len(insights) >= 4  # pattern + ripple + counterpoint + action
+        assert any("Counterpoint" in i or "revenue-to-valuation" in i for i in insights)
+        assert any(d.channel == "x" for d in drafts)
+        assert any("$40B" in d.content for d in drafts)

@@ -53,6 +53,12 @@ async def generate_briefs(
 
     warnings: list[str] = []
     reports: list[ContentReport] = []
+
+    # Auto-clean zombie runs before starting new one (watchdog)
+    cleaned = state_store.cleanup_stale_runs(max_age_minutes=30)
+    if cleaned:
+        warnings.append(f"Auto-cleaned {cleaned} stale run(s) stuck in 'running' state.")
+
     state_store.record_job_start(
         run_id,
         "generate_brief",
@@ -194,10 +200,13 @@ async def generate_briefs(
                     category=category,
                     articles=articles_data,
                     extra_context=extra_ctx,
+                    generate_infographic=True,
                 )
                 notebooklm_meta = {
                     "notebook_id": nlm_result.get("notebook_id", ""),
                     "source_count": nlm_result.get("source_count", 0),
+                    "infographic_path": nlm_result.get("infographic_path", ""),
+                    "infographic_url": nlm_result.get("infographic_url", ""),
                 }
                 # Merge deep research insights into report
                 for ri in nlm_result.get("research_insights", [])[:2]:
@@ -208,6 +217,23 @@ async def generate_briefs(
                 logger.info("NotebookLM enriched %s: %d insights", category, len(nlm_result.get("research_insights", [])))
             except Exception as exc:
                 warnings.append(f"NotebookLM research failed for {category}: {type(exc).__name__}: {exc}")
+
+        # --- PIL fallback infographic (when NotebookLM infographic missing) ---
+        if not notebooklm_meta.get("infographic_path"):
+            try:
+                from antigravity_mcp.integrations.canva_adapter import CanvaAdapter
+                canva = CanvaAdapter()
+                if hasattr(canva, "generate_infographic"):
+                    fallback_path = canva.generate_infographic(
+                        category=category,
+                        summary_lines=summary_lines[:3],
+                        insight=insights[0] if insights else "",
+                    )
+                    if fallback_path:
+                        notebooklm_meta.setdefault("infographic_path", str(fallback_path))
+                        logger.info("PIL fallback infographic: %s", fallback_path)
+            except Exception as exc:
+                logger.debug("PIL fallback infographic skipped: %s", exc)
 
         # --- Fact-check verification (optional) ---
         fact_check_score = 0.0

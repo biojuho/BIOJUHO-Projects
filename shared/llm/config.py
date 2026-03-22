@@ -56,7 +56,6 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.LIGHTWEIGHT: [
         ("gemini", "gemini-2.5-flash-lite"),          # ★ 주력: Free 1,000RPD, $0.10/$0.40
         ("gemini", "gemini-2.0-flash"),               # ⚠️ deprecated 2026-06, 레거시 폴백
-        ("deepseek", "deepseek-chat"),               # 저렴 $0.14/$0.28, 잔액 충전됨
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, 한국어 안정 + 초저비용
         ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
@@ -147,20 +146,13 @@ def is_deepseek_longform_enabled() -> bool:
 
 
 def get_routing_chain(tier: TaskTier, policy: LLMPolicy | None = None) -> list[tuple[str, str]]:
-    """Return the backend chain for the given tier and task policy."""
+    """Return the backend chain for the given tier and task policy.
+
+    NOTE: DeepSeek removed from all chains (2026-03-22)
+    due to persistent Korean prompt errors and high error rate.
+    """
     chain = list(TIER_CHAINS[tier])
-    task_kind = (policy.task_kind if policy else "generic") or "generic"
-
-    if task_kind in STRUCTURED_TASK_KINDS:
-        chain = _dedupe_chain([("deepseek", "deepseek-chat"), *chain])
-    elif task_kind in LONGFORM_TASK_KINDS and not is_deepseek_longform_enabled():
-        chain = [entry for entry in chain if entry[0] != "deepseek"]
-    elif task_kind in LONGFORM_TASK_KINDS and is_deepseek_longform_enabled():
-        chain = _dedupe_chain([*chain, ("deepseek", "deepseek-chat")])
-
-    # NOTE: LIGHTWEIGHT 티어는 TIER_CHAINS 정의 순서를 그대로 따릅니다.
-    # gemini 선두 체인 (DeepSeek 한국어 오류 회피 움직) — 2026-03
-
+    # DeepSeek is no longer in any chain; no conditional logic needed.
     return chain
 
 

@@ -190,6 +190,37 @@ class _RunMixin:
             "error_rate": round(error_rate, 4),
         }
 
+    def cleanup_stale_runs(self, max_age_minutes: int = 30) -> int:
+        """Mark runs stuck in 'running' status for > max_age_minutes as 'failed'.
+
+        Call this at the start of each pipeline run to auto-clean zombie
+        processes left by previous crashes (e.g. Task Scheduler killed mid-run,
+        power loss, OOM). Returns the number of cleaned runs.
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)).isoformat()
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE job_runs
+                SET status = 'failed',
+                    finished_at = ?,
+                    error_text = ?
+                WHERE status = 'running' AND started_at < ?
+                """,
+                (
+                    utc_now_iso(),
+                    f"Stale run auto-cleaned (exceeded {max_age_minutes} min timeout)",
+                    cutoff,
+                ),
+            )
+        cleaned = cursor.rowcount
+        if cleaned > 0:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Cleaned %d stale runs (>%d min)", cleaned, max_age_minutes,
+            )
+        return cleaned
+
 
 # ── Article deduplication ─────────────────────────────────────────────────
 

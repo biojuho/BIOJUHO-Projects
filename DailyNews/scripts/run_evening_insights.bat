@@ -3,13 +3,17 @@ REM =========================================================================
 REM DailyNews - Evening Insight Generation (오후 6시 실행)
 REM =========================================================================
 REM
-REM 이 스크립트는 오후 6시에 실행되어 당일 7시 ~ 18시 뉴스를 수집하고
-REM 3대 품질 원칙을 충족하는 인사이트를 생성합니다.
+REM v2-multi 모드: Top 3 Signals 멀티토픽 커버리지
+REM 카테고리: Tech + AI_Deep, Economy_KR, Economy_Global, Crypto, Global_Affairs
+REM 수집 범위: 당일 7시 ~ 18시 (11시간)
 REM
-REM 작성일: 2026-03-21
+REM 업데이트: 2026-03-22 (v2 프롬프트 + 2회 통합 스케줄)
 REM =========================================================================
 
 setlocal enabledelayedexpansion
+
+REM 프롬프트 모드 설정
+set PROMPT_VERSION=v2-multi
 
 REM 로그 디렉토리 생성
 set LOG_DIR=d:\AI 프로젝트\DailyNews\logs\insights
@@ -22,6 +26,7 @@ set LOGFILE=%LOG_DIR%\evening_%DATE%_%TIME%.log
 
 echo ========================================= >> "%LOGFILE%" 2>&1
 echo Evening Insight Generation Started >> "%LOGFILE%" 2>&1
+echo Mode: %PROMPT_VERSION% (Top-3 Multi-Signal) >> "%LOGFILE%" 2>&1
 echo Date: %DATE% >> "%LOGFILE%" 2>&1
 echo Time: %TIME% >> "%LOGFILE%" 2>&1
 echo ========================================= >> "%LOGFILE%" 2>&1
@@ -45,13 +50,13 @@ python --version >> "%LOGFILE%" 2>&1
 REM Evening 인사이트 생성 실행
 echo. >> "%LOGFILE%" 2>&1
 echo ========================================= >> "%LOGFILE%" 2>&1
-echo Running Evening Brief Generation... >> "%LOGFILE%" 2>&1
+echo Running Evening Brief (v2-multi, 5 categories)... >> "%LOGFILE%" 2>&1
 echo ========================================= >> "%LOGFILE%" 2>&1
 
 python -m antigravity_mcp jobs generate-brief ^
     --window evening ^
     --max-items 10 ^
-    --categories Tech,Economy_KR,AI_Deep >> "%LOGFILE%" 2>&1
+    --categories Tech,AI_Deep,Economy_KR,Economy_Global,Crypto,Global_Affairs >> "%LOGFILE%" 2>&1
 
 set EXITCODE=%errorlevel%
 
