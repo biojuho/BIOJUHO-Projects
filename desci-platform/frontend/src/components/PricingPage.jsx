@@ -70,7 +70,7 @@ const TIERS = [
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function PricingPage() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const [billing, setBilling] = useState('monthly');
   const [loadingTier, setLoadingTier] = useState(null);
   const [currentTier, setCurrentTier] = useState('free');

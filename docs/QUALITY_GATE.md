@@ -34,10 +34,10 @@ The PR gate includes only checks that are deterministic and reproducible without
   - backend: python compile smoke
 - `mcp`
   - python compile smoke for tracked MCP code paths
-  - `DailyNews/tests` pytest suite
+  - `DailyNews/tests/unit` pytest suite
 - `getdaytrends`
   - python compile smoke
-  - `getdaytrends/tests` pytest suite (129 tests)
+  - `getdaytrends/tests` pytest suite
 
 Python compile checks explicitly exclude these directories:
 

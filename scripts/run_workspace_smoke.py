@@ -155,6 +155,24 @@ def default_checks(python_exe: str) -> list[Check]:
             ".",
             compile_command(python_exe, "github-mcp/scripts"),
         ),
+        Check(
+            "mcp",
+            "DailyNews unit tests",
+            "DailyNews",
+            [python_exe, "-m", "pytest", "tests/unit", "-q"],
+        ),
+        Check(
+            "getdaytrends",
+            "getdaytrends compile",
+            ".",
+            compile_command(python_exe, "getdaytrends"),
+        ),
+        Check(
+            "getdaytrends",
+            "getdaytrends tests",
+            "getdaytrends",
+            [python_exe, "-m", "pytest", "tests", "-q"],
+        ),
     ]
 
 
@@ -198,7 +216,7 @@ def run_one(root: Path, item: Check) -> Result:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
-    parser.add_argument("--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp"])
+    parser.add_argument("--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends"])
     parser.add_argument("--json-out", help="Optional JSON output file")
     args = parser.parse_args()
 

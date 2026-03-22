@@ -41,6 +41,8 @@ async def generate_briefs(
     notebooklm_adapter: Any | None = None,
     # --- Phase 5: Skill auto-invocation (optional) ---
     skill_adapter: Any | None = None,
+    # --- Phase 6: DailyNews Insight Generator (optional) ---
+    insight_adapter: Any | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
     llm_adapter = llm_adapter or LLMAdapter(state_store=state_store)
     embedding_adapter = embedding_adapter or EmbeddingAdapter()
@@ -231,6 +233,28 @@ async def generate_briefs(
                         warnings.append(f"[FactCheck] {issue}")
         except Exception as exc:
             logger.debug("Fact-check skipped for %s: %s", category, exc)
+
+        # --- DailyNews Insight Generator (optional) ---
+        insight_report_x_form = ""
+        if insight_adapter and hasattr(insight_adapter, "generate_insight_report"):
+            try:
+                articles_data = [
+                    {"title": item.title, "summary": item.summary[:200], "link": item.link}
+                    for item in category_items
+                ]
+                insight_summaries, insight_items, x_long_form = await insight_adapter.generate_insight_report(
+                    category=category,
+                    articles=articles_data,
+                    window_name=window_name,
+                )
+                # Merge DailyNews insights into report
+                for insight_item in insight_items[:3]:
+                    insights.append(insight_item)
+                # Store X long-form separately for later publishing
+                insight_report_x_form = x_long_form
+                logger.info("DailyNews Insight Generator enriched %s: %d insights", category, len(insight_items))
+            except Exception as exc:
+                warnings.append(f"DailyNews Insight Generator failed for {category}: {type(exc).__name__}: {exc}")
 
         # --- Topic continuity detection ---
         current_titles = [item.title for item in category_items]

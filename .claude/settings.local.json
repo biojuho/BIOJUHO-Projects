@@ -1,21 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "mcp__notebooklm-mcp__notebook_list",
-      "mcp__x-agent__get_user_profile",
-      "mcp__x-agent__health_check",
-      "mcp__x-agent__grok_chat",
-      "WebSearch",
-      "Bash(npm run dev:*)",
-      "Bash(timeout:*)",
-      "Bash(python -m uvicorn:*)",
-      "Bash(ping:*)",
-      "Bash(curl:*)",
-      "Bash(python:*)",
-      "Bash(wc:*)",
-      "Bash(find:*)",
-      "Bash(ls:*)",
-      "Bash(git -C \"d:/AI 프로젝트\" log --all --oneline -20)"
-    ]
+      "Bash(cmd.exe /c \"schtasks /query /fo LIST /v | findstr /C:DailyNews\")",
+      "Bash(PYTHONPATH=src python -m antigravity_mcp.cli jobs generate-brief --window morning --max-items 3)",
+      "Bash(git log -1 --format='%h %s')",
+      "Bash(git add .claude/settings.local.json DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py DailyNews/src/antigravity_mcp/pipelines/analyze.py desci-platform/.env.example desci-platform/biolinker/main.py desci-platform/biolinker/requirements.txt desci-platform/biolinker/routers/rfp.py desci-platform/biolinker/services/notebooklm_research.py desci-platform/biolinker/services/vector_store.py desci-platform/biolinker/tests/test_api_endpoints.py desci-platform/docker-compose.yml desci-platform/frontend/src/components/PricingPage.jsx docs/QUALITY_GATE.md pytest.ini scripts/run_workspace_smoke.py tests/test_workspace_smoke.py)"
+    ],
+    "deny": [],
+    "ask": []
   }
 }

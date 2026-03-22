@@ -120,6 +120,13 @@ async def match_rfp(
     request: Request,
     query: str = Query(..., description="Project description or keywords"),
     limit: int = Query(5, ge=1, le=50, description="Max results to return"),
+    source: Optional[str] = Query(None, description="Filter by source, e.g. KDDF"),
+    document_type: Optional[str] = Query(None, alias="document_type", description="Filter by indexed document type"),
+    keyword: Optional[str] = Query(None, description="Keyword substring filter"),
+    deadline_from: Optional[str] = Query(None, description="Include notices with deadline on/after this ISO date"),
+    deadline_to: Optional[str] = Query(None, description="Include notices with deadline on/before this ISO date"),
+    trl_min: Optional[int] = Query(None, ge=0, le=9, description="Minimum TRL overlap"),
+    trl_max: Optional[int] = Query(None, ge=0, le=9, description="Maximum TRL overlap"),
     _usage=Depends(UsageGuard("rfp_search")),
 ):
     """Perform a ChromaDB vector-similarity search over indexed RFP notices.
@@ -128,7 +135,20 @@ async def match_rfp(
     Returns up to ``limit`` notices ranked by cosine similarity.
     """
     vector_store = get_vector_store()
-    results = vector_store.search_similar(query, n_results=limit)
+    filters = {
+        key: value
+        for key, value in {
+            "source": source,
+            "type": document_type,
+            "keyword": keyword,
+            "deadline_from": deadline_from,
+            "deadline_to": deadline_to,
+            "trl_min": trl_min,
+            "trl_max": trl_max,
+        }.items()
+        if value not in (None, "")
+    }
+    results = vector_store.search_similar(query, n_results=limit, filters=filters or None)
     return results
 
 

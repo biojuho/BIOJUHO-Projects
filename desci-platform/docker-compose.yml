@@ -10,6 +10,10 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - CHROMA_DB_PATH=/app/chroma_db
       - ENV=${ENV:-development}
+      - VECTOR_STORE_BACKEND=${VECTOR_STORE_BACKEND:-chroma}
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+      - QDRANT_COLLECTION_NAME=${QDRANT_COLLECTION_NAME:-rfp_notices}
+      - QDRANT_TIMEOUT_SECONDS=${QDRANT_TIMEOUT_SECONDS:-10}
       - GROBID_ENABLED=${GROBID_ENABLED:-true}
       - GROBID_URL=${GROBID_URL:-http://grobid:8070/api}
       - GROBID_TIMEOUT_SECONDS=${GROBID_TIMEOUT_SECONDS:-60}
@@ -17,6 +21,7 @@ services:
       - ./biolinker/chroma_db:/app/chroma_db
     depends_on:
       - chromadb
+      - qdrant
       - grobid
     networks:
       - desci-net
@@ -32,6 +37,16 @@ services:
       - "8000"
     volumes:
       - chroma-data:/chroma/chroma
+    networks:
+      - desci-net
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    expose:
+      - "6333"
+      - "6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
     networks:
       - desci-net
 
@@ -65,3 +80,4 @@ networks:
 
 volumes:
   chroma-data:
+  qdrant-data:

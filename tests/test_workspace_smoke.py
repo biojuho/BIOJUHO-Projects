@@ -31,11 +31,13 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
     smoke = load_smoke_module()
     checks = smoke.default_checks("python")
 
-    assert {check.scope for check in checks} == {"workspace", "desci", "agriguard", "mcp"}
+    assert {check.scope for check in checks} == {"workspace", "desci", "agriguard", "mcp", "getdaytrends"}
     assert any(check.name == "workspace regression tests" for check in checks)
     assert any(check.name == "desci frontend unit tests" for check in checks)
     assert any(check.name == "desci bundle budget" for check in checks)
     assert any(check.name == "notebooklm compile" for check in checks)
+    assert any(check.name == "DailyNews unit tests" for check in checks)
+    assert any(check.name == "getdaytrends tests" for check in checks)
 
     for check in checks:
         assert (PROJECT_ROOT / check.cwd).exists()

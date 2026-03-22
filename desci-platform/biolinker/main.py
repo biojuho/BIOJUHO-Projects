@@ -119,6 +119,7 @@ async def root():
                 "application/json": {
                     "example": {
                         "status": "healthy",
+                        "vector_store_backend": "chroma",
                         "llm_available": True,
                         "chromadb_ok": True,
                         "chromadb_count": 42,
@@ -170,6 +171,7 @@ async def health():
 
     return {
         "status": "healthy" if chromadb_ok else "degraded",
+        "vector_store_backend": os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower(),
         "llm_available": llm_available,
         "chromadb_ok": chromadb_ok,
         "chromadb_count": chromadb_count,

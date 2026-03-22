@@ -5,6 +5,7 @@ ChromaDB 기반의 RFP 임베딩 저장 및 유사도 검색 기능을 제공합
 import os
 import sys
 import json
+import re
 import hashlib
 import itertools
 from datetime import datetime
@@ -53,18 +54,67 @@ except Exception:  # pylint: disable=broad-exception-caught
     pass
 
 OPENAI_AVAILABLE = False  # pylint: disable=invalid-name
-try:
-    from openai import OpenAI # type: ignore
-    OPENAI_AVAILABLE = True  # pylint: disable=invalid-name
-except Exception:  # pylint: disable=broad-exception-caught
-    pass
+OpenAI = None  # type: ignore
+_OPENAI_LOAD_ATTEMPTED = False  # pylint: disable=invalid-name
 
 _GOOGLE_AVAILABLE = False  # pylint: disable=invalid-name
-try:
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings # type: ignore
-    _GOOGLE_AVAILABLE = True  # pylint: disable=invalid-name
-except Exception:  # pylint: disable=broad-exception-caught
-    pass
+GoogleGenerativeAIEmbeddings = None  # type: ignore
+_GOOGLE_LOAD_ATTEMPTED = False  # pylint: disable=invalid-name
+
+QDRANT_AVAILABLE = False  # pylint: disable=invalid-name
+QdrantClient = None  # type: ignore
+qdrant_models = None  # type: ignore
+_QDRANT_LOAD_ATTEMPTED = False  # pylint: disable=invalid-name
+
+
+def _load_openai_support() -> bool:
+    global OPENAI_AVAILABLE, OpenAI, _OPENAI_LOAD_ATTEMPTED  # pylint: disable=global-statement
+    if _OPENAI_LOAD_ATTEMPTED:
+        return OPENAI_AVAILABLE
+
+    _OPENAI_LOAD_ATTEMPTED = True
+    try:
+        from openai import OpenAI as _OpenAI  # type: ignore
+        OpenAI = _OpenAI
+        OPENAI_AVAILABLE = True
+    except Exception:  # pylint: disable=broad-exception-caught
+        OPENAI_AVAILABLE = False
+    return OPENAI_AVAILABLE
+
+
+def _load_google_support() -> bool:
+    global _GOOGLE_AVAILABLE, GoogleGenerativeAIEmbeddings, _GOOGLE_LOAD_ATTEMPTED  # pylint: disable=global-statement
+    if _GOOGLE_LOAD_ATTEMPTED:
+        return _GOOGLE_AVAILABLE
+
+    _GOOGLE_LOAD_ATTEMPTED = True
+    try:
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings as _GoogleEmbeddings  # type: ignore
+        GoogleGenerativeAIEmbeddings = _GoogleEmbeddings
+        _GOOGLE_AVAILABLE = True
+    except Exception:  # pylint: disable=broad-exception-caught
+        _GOOGLE_AVAILABLE = False
+    return _GOOGLE_AVAILABLE
+
+
+def _load_qdrant_support() -> bool:
+    global QDRANT_AVAILABLE, QdrantClient, qdrant_models, _QDRANT_LOAD_ATTEMPTED  # pylint: disable=global-statement
+    if _QDRANT_LOAD_ATTEMPTED:
+        return QDRANT_AVAILABLE
+
+    _QDRANT_LOAD_ATTEMPTED = True
+    try:
+        from qdrant_client import QdrantClient as _QdrantClient  # type: ignore
+        QdrantClient = _QdrantClient
+        try:
+            from qdrant_client import models as _qdrant_models  # type: ignore
+        except Exception:  # pylint: disable=broad-exception-caught
+            from qdrant_client.http import models as _qdrant_models  # type: ignore
+        qdrant_models = _qdrant_models
+        QDRANT_AVAILABLE = True
+    except Exception:  # pylint: disable=broad-exception-caught
+        QDRANT_AVAILABLE = False
+    return QDRANT_AVAILABLE
 
 
 class VectorStore:
@@ -82,7 +132,7 @@ class VectorStore:
 
         # 1. Google Embeddings (우선 순위)
         google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-        if google_key and _GOOGLE_AVAILABLE:
+        if google_key and _load_google_support():
             # Langchain 임베딩 래퍼
             self.embedding_model = GoogleGenerativeAIEmbeddings(
                 model="models/gemini-embedding-001",
@@ -92,7 +142,7 @@ class VectorStore:
             self.embedding_fn = self._google_embedding_fn
 
         # 2. OpenAI Embeddings (대체 수단)
-        elif os.getenv("OPENAI_API_KEY") and OPENAI_AVAILABLE:
+        elif os.getenv("OPENAI_API_KEY") and _load_openai_support():
             self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             self.embedding_fn = self._openai_embedding_fn
 
@@ -150,6 +200,193 @@ class VectorStore:
         # MD5에서 16차원 의사(pseudo) 벡터 생성
         # Linter complaining about string slicing, suppressing error
         return [float(int(hash_val[i : i + 2], 16)) / 255.0 for i in range(0, 32, 2)] # type: ignore
+
+    @staticmethod
+    def _safe_int(value: Any) -> Optional[int]:
+        try:
+            if value in (None, "", "None"):
+                return None
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _parse_datetime(value: Any) -> Optional[datetime]:
+        if not value:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _tokenize_text(text: str) -> set[str]:
+        return {
+            token
+            for token in re.findall(r"[0-9A-Za-z가-힣]{2,}", (text or "").lower())
+            if token
+        }
+
+    @classmethod
+    def _backend_filters(cls, filters: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not filters:
+            return None
+
+        backend_filters = {}
+        for key in ("source", "type", "owner_uid"):
+            value = filters.get(key)
+            if value not in (None, ""):
+                backend_filters[key] = value
+        return backend_filters or None
+
+    @staticmethod
+    def _tokenize_text(text: str) -> set[str]:
+        return {
+            token
+            for token in re.findall("[0-9A-Za-z\\uac00-\\ud7a3]{2,}", (text or "").lower())
+            if token
+        }
+
+    @classmethod
+    def _metadata_matches(cls, metadata: Dict[str, Any], document: str, filters: Optional[Dict[str, Any]]) -> bool:
+        if not filters:
+            return True
+
+        source_filter = str(filters.get("source", "") or "").strip().lower()
+        if source_filter and str(metadata.get("source", "") or "").strip().lower() != source_filter:
+            return False
+
+        type_filter = str(filters.get("type", "") or "").strip().lower()
+        if type_filter and str(metadata.get("type", "") or "").strip().lower() != type_filter:
+            return False
+
+        keyword_filter = str(filters.get("keyword", "") or "").strip().lower()
+        if keyword_filter:
+            keyword_haystack = " ".join(
+                [
+                    str(metadata.get("title", "") or ""),
+                    str(metadata.get("keywords", "") or ""),
+                    str(metadata.get("source", "") or ""),
+                    document[:4000],
+                ]
+            ).lower()
+            if keyword_filter not in keyword_haystack:
+                return False
+
+        deadline_value = cls._parse_datetime(metadata.get("deadline"))
+        deadline_from = cls._parse_datetime(filters.get("deadline_from"))
+        deadline_to = cls._parse_datetime(filters.get("deadline_to"))
+        if deadline_from and (deadline_value is None or deadline_value < deadline_from):
+            return False
+        if deadline_to and (deadline_value is None or deadline_value > deadline_to):
+            return False
+
+        requested_trl_min = cls._safe_int(filters.get("trl_min"))
+        requested_trl_max = cls._safe_int(filters.get("trl_max"))
+        item_trl_min = cls._safe_int(metadata.get("min_trl"))
+        item_trl_max = cls._safe_int(metadata.get("max_trl"))
+        effective_item_min = item_trl_min if item_trl_min is not None else -1
+        effective_item_max = item_trl_max if item_trl_max is not None else 99
+
+        if requested_trl_min is not None and effective_item_max < requested_trl_min:
+            return False
+        if requested_trl_max is not None and effective_item_min > requested_trl_max:
+            return False
+
+        return True
+
+    @classmethod
+    def _lexical_score(cls, query: str, metadata: Dict[str, Any], document: str) -> float:
+        query_text = (query or "").strip().lower()
+        if not query_text:
+            return 0.0
+
+        query_terms = cls._tokenize_text(query_text)
+        title_text = str(metadata.get("title", "") or "")
+        keyword_text = str(metadata.get("keywords", "") or "")
+        source_text = str(metadata.get("source", "") or "")
+        combined_text = " ".join([title_text, keyword_text, source_text, document[:4000]])
+
+        if not query_terms:
+            return 1.0 if query_text in combined_text.lower() else 0.0
+
+        title_terms = cls._tokenize_text(title_text)
+        keyword_terms = cls._tokenize_text(keyword_text)
+        source_terms = cls._tokenize_text(source_text)
+        all_terms = cls._tokenize_text(combined_text)
+
+        def overlap(term_set: set[str]) -> float:
+            return len(query_terms & term_set) / max(len(query_terms), 1)
+
+        exact_bonus = 0.25 if query_text in combined_text.lower() else 0.0
+        return min(
+            1.0,
+            exact_bonus
+            + (0.35 * overlap(title_terms))
+            + (0.30 * overlap(keyword_terms))
+            + (0.25 * overlap(all_terms))
+            + (0.10 * overlap(source_terms)),
+        )
+
+    @classmethod
+    def _post_process_hit_items(
+        cls,
+        query: str,
+        items: List[Dict[str, Any]],
+        n_results: int,
+        filters: Optional[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        hybrid_weight = float(os.getenv("HYBRID_SEARCH_TEXT_WEIGHT", "0.2"))
+        hybrid_weight = max(0.0, min(1.0, hybrid_weight))
+
+        processed = []
+        for item in items:
+            metadata = cast(Dict[str, Any], item.get("metadata", {}) or {})
+            document = str(item.get("document", "") or "")
+            if not cls._metadata_matches(metadata, document, filters):
+                continue
+
+            vector_score = float(item.get("similarity", 0.0) or 0.0)
+            lexical_score = cls._lexical_score(query, metadata, document)
+            combined_score = ((1.0 - hybrid_weight) * vector_score) + (hybrid_weight * lexical_score)
+
+            processed.append({
+                **item,
+                "similarity": combined_score,
+                "vector_score": vector_score,
+                "lexical_score": lexical_score,
+            })
+
+        processed.sort(
+            key=lambda entry: (
+                float(entry.get("similarity", 0.0) or 0.0),
+                float(entry.get("lexical_score", 0.0) or 0.0),
+            ),
+            reverse=True,
+        )
+        return processed[:n_results]
+
+    @classmethod
+    def _item_to_document_result(cls, item: Dict[str, Any]) -> Optional[Tuple[RFPDocument, float]]:
+        metadata = cast(Dict[str, Any], item.get("metadata", {}) or {})
+        try:
+            document = RFPDocument(  # type: ignore
+                id=str(item.get("id", "")),
+                title=str(metadata.get("title", "제목없음")),
+                body_text=str(item.get("document", "") or ""),
+                source=str(metadata.get("source", "Unknown")),
+                deadline=cls._parse_datetime(metadata.get("deadline")),
+                keywords=str(metadata.get("keywords", "")).split(",") if metadata.get("keywords") else [],
+                url=str(metadata.get("url", "") or "") or None,
+                min_trl=cls._safe_int(metadata.get("min_trl")),
+                max_trl=cls._safe_int(metadata.get("max_trl")),
+            )
+            return document, float(item.get("similarity", 0.0) or 0.0)
+        except Exception:  # pylint: disable=broad-exception-caught
+            return None
 
     def add_notice(self, rfp: RFPDocument) -> str:
         """RFP 공고 저장"""
@@ -339,7 +576,58 @@ class VectorStore:
         # pylint: disable=too-many-locals
         """유사 공고 검색 (하이브리드 필터 지원)"""
         query_embedding = self._get_embedding(query)
-        found_docs: List[Tuple[RFPDocument, float]] = []
+        raw_hits: List[Dict[str, Any]] = []
+        fetch_limit = max(n_results * 4, n_results)
+
+        collection = self.collection
+        if CHROMADB_AVAILABLE and collection:
+            try:
+                results = collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=fetch_limit,
+                    where=backend_filters,
+                    include=["metadatas", "documents", "distances"]
+                )
+
+                if results and results.get("ids") and results["ids"][0]:
+                    ids = results["ids"][0]
+
+                    def get_result_item(key: str, idx: int, default: Any) -> Any:
+                        items = results.get(key)
+                        if items and len(items) > 0 and len(items[0]) > idx:
+                            return items[0][idx]
+                        return default
+
+                    for i, doc_id in enumerate(ids):
+                        raw_hits.append({
+                            "id": doc_id,
+                            "metadata": get_result_item("metadatas", i, {}) or {},
+                            "document": get_result_item("documents", i, "") or "",
+                            "similarity": 1.0 - float(get_result_item("distances", i, 0.999)),
+                        })
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                print(f"[오류] ChromaDB 검색 실패: {e}")
+
+            if raw_hits:
+                processed_hits = self._post_process_hit_items(query, raw_hits, n_results, filters)
+                converted_results = []
+                for item in processed_hits:
+                    converted = self._item_to_document_result(item)
+                    if converted:
+                        converted_results.append(converted)
+                if converted_results:
+                    return converted_results
+
+        print("[경고] ChromaDB 검색 실패 또는 미사용, 인메모리 검색을 시도합니다.")
+        in_memory_results = self._search_in_memory(query_embedding, fetch_limit, filters)
+        processed_hits = self._post_process_hit_items(query, in_memory_results, n_results, filters)
+
+        converted_results = []
+        for item in processed_hits:
+            converted = self._item_to_document_result(item)
+            if converted:
+                converted_results.append(converted)
+        return converted_results
 
         # Local variable narrowing
         collection = self.collection
@@ -348,7 +636,7 @@ class VectorStore:
             try:
                 results = collection.query(
                     query_embeddings=[query_embedding],
-                    n_results=n_results,
+                    n_results=fetch_limit,
                     where=filters, # filters가 None이면 where절 생략됨
                     include=["metadatas", "documents", "distances"]
                 )
@@ -457,8 +745,16 @@ class VectorStore:
         results = []
         q_vec = np.array(query_embedding)
         q_norm = np.linalg.norm(q_vec)
+        post_filters = filters
+        filters = None
 
         for doc_id, item in data.items():
+            if not self._metadata_matches(
+                cast(Dict[str, Any], item.get("metadata", {}) or {}),
+                str(item.get("document", "") or ""),
+                post_filters,
+            ):
+                continue
             # 필터 로직
             if filters:
                 current_filters: Dict[str, Any] = cast(Dict[str, Any], filters)
@@ -652,11 +948,440 @@ class VectorStore:
 
 
 # 싱글톤 패턴 (Singleton Pattern)
+class QdrantVectorStore(VectorStore):
+    """Qdrant-backed vector store adapter with the same public API."""
+
+    def __init__(self, persist_dir: str = "./chroma_db"):
+        self.persist_dir = persist_dir
+        self.client = None
+        self.collection = None
+        self.embedding_fn: Optional[Any] = None
+        self.embedding_model = None
+        self.openai_client = None
+
+        google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if google_key and _load_google_support():
+            self.embedding_model = GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-001",
+                google_api_key=google_key
+            )
+            self.embedding_fn = self._google_embedding_fn
+        elif os.getenv("OPENAI_API_KEY") and _load_openai_support():
+            self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            self.embedding_fn = self._openai_embedding_fn
+
+        if not _load_qdrant_support() or QdrantClient is None:
+            raise RuntimeError("qdrant-client is not installed")
+
+        self.collection_name = os.getenv("QDRANT_COLLECTION_NAME", self.COLLECTION_NAME)
+        self.qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        self.qdrant_api_key = os.getenv("QDRANT_API_KEY")
+        self.qdrant_timeout = float(os.getenv("QDRANT_TIMEOUT_SECONDS", "10"))
+        self._collection_ready = False
+        self.qdrant_client = QdrantClient(
+            url=self.qdrant_url,
+            api_key=self.qdrant_api_key or None,
+            timeout=self.qdrant_timeout,
+        )
+
+    def _ensure_collection(self, vector_size: int) -> None:
+        if self._collection_ready:
+            return
+
+        try:
+            self.qdrant_client.get_collection(self.collection_name)
+            self._collection_ready = True
+            return
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+
+        if qdrant_models is None:
+            raise RuntimeError("qdrant models are unavailable")
+
+        self.qdrant_client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=qdrant_models.VectorParams(
+                size=vector_size,
+                distance=qdrant_models.Distance.COSINE,
+            ),
+        )
+        self._collection_ready = True
+
+    @staticmethod
+    def _build_filter(filters: Optional[Dict[str, Any]]) -> Any:
+        backend_filters = VectorStore._backend_filters(filters)
+        if not backend_filters or qdrant_models is None:
+            return None
+
+        must_conditions = [
+            qdrant_models.FieldCondition(
+                key=str(key),
+                match=qdrant_models.MatchValue(value=value),
+            )
+            for key, value in backend_filters.items()
+        ]
+        return qdrant_models.Filter(must=must_conditions)
+
+    def _upsert_payload(
+        self,
+        doc_id: str,
+        embedding: List[float],
+        metadata: Dict[str, Any],
+        document: str,
+    ) -> None:
+        self._ensure_collection(len(embedding))
+        payload = metadata.copy()
+        payload["document"] = document
+        if qdrant_models is None:
+            raise RuntimeError("qdrant models are unavailable")
+
+        self.qdrant_client.upsert(
+            collection_name=self.collection_name,
+            wait=True,
+            points=[
+                qdrant_models.PointStruct(
+                    id=doc_id,
+                    vector=embedding,
+                    payload=payload,
+                )
+            ],
+        )
+
+    def add_notice(self, rfp: RFPDocument) -> str:
+        if not rfp.id:
+            rfp.id = hashlib.md5(rfp.title.encode()).hexdigest()
+
+        embed_text = f"{rfp.title}\n{rfp.body_text[:2000]}"  # type: ignore
+        embedding = self._get_embedding(embed_text)
+        metadata = {
+            "title": rfp.title,
+            "source": rfp.source,
+            "url": rfp.url or "",
+            "keywords": ",".join(rfp.keywords),
+            "deadline": rfp.deadline.isoformat() if rfp.deadline else "",
+            "budget": rfp.budget_range or "",
+            "min_trl": rfp.min_trl if rfp.min_trl is not None else -1,
+            "max_trl": rfp.max_trl if rfp.max_trl is not None else 99,
+            "created_at": datetime.now().isoformat()
+        }
+
+        try:
+            self._upsert_payload(rfp.id, embedding, metadata, rfp.body_text[:5000])  # type: ignore
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(f"[오류] Qdrant 저장 실패, JSON fallback 사용: {e}")
+            self._save_to_json(rfp.id, embedding, metadata, rfp.body_text[:5000])  # type: ignore
+
+        return rfp.id
+
+    def add_paper(  # pylint: disable=too-many-arguments, too-many-locals
+        self,
+        paper_id: str,
+        title: str,
+        abstract: str,
+        full_text: str,
+        keywords: List[str],
+        authors: Optional[List[str]] = None,
+        affiliations: Optional[List[str]] = None,
+        references: Optional[List[str]] = None,
+        doi: Optional[str] = None,
+        parser: Optional[str] = None,
+        owner_uid: Optional[str] = None,
+        owner_email: Optional[str] = None,
+        owner_name: Optional[str] = None,
+        cid: Optional[str] = None,
+        ipfs_url: Optional[str] = None,
+        created_at: Optional[str] = None,
+        nft_minted: bool = False,
+    ) -> str:
+        reference_items = [reference for reference in (references or []) if reference]
+        metadata = {
+            "title": title,
+            "abstract": abstract,
+            "source": "Paper",
+            "type": "paper",
+            "keywords": ",".join(keywords),
+            "authors": ", ".join(authors or []),
+            "affiliations": " | ".join(affiliations or []),
+            "references": " || ".join(reference_items[:25]),
+            "reference_count": len(reference_items),
+            "doi": doi or "",
+            "parser": parser or "",
+            "owner_uid": owner_uid or "",
+            "owner_email": owner_email or "",
+            "owner_name": owner_name or "",
+            "cid": cid or paper_id,
+            "ipfs_url": ipfs_url or "",
+            "nft_minted": str(nft_minted).lower(),
+            "created_at": created_at or datetime.now().isoformat(),
+        }
+        embed_text = f"{title}\n{abstract}\n{full_text[:3000]}"
+        embedding = self._get_embedding(embed_text)
+
+        try:
+            self._upsert_payload(paper_id, embedding, metadata, full_text[:5000])
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(f"[오류] Qdrant 논문 저장 실패, JSON fallback 사용: {e}")
+            self._save_to_json(paper_id, embedding, metadata, full_text[:5000])
+
+        return paper_id
+
+    def add_company_asset(
+        self, asset_id: str, title: str, content: str, metadata: Dict[str, Any]
+    ) -> str:
+        final_meta = metadata.copy()
+        final_meta.update({
+            "title": title,
+            "source": metadata.get("source", "CompanyAsset"),
+            "type": "company_asset",
+            "created_at": datetime.now().isoformat()
+        })
+        embed_text = f"{title}\n{content[:4000]}"
+        embedding = self._get_embedding(embed_text)
+
+        try:
+            self._upsert_payload(asset_id, embedding, final_meta, content[:6000])
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(f"[오류] Qdrant 자산 저장 실패, JSON fallback 사용: {e}")
+            self._save_to_json(asset_id, embedding, final_meta, content[:6000])
+
+        return asset_id
+
+    def add_vc_firm(self, vc: VCFirm) -> str:
+        metadata = {
+            "title": vc.name,
+            "name": vc.name,
+            "source": "VCFirm",
+            "type": "vc_firm",
+            "country": vc.country,
+            "stages": ",".join(vc.preferred_stages),
+            "keywords": ",".join(vc.portfolio_keywords),
+            "created_at": datetime.now().isoformat()
+        }
+        embed_text = f"{vc.name}\n{vc.investment_thesis}\nKeywords: {', '.join(vc.portfolio_keywords)}"
+        embedding = self._get_embedding(embed_text)
+
+        try:
+            self._upsert_payload(vc.id, embedding, metadata, vc.investment_thesis)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(f"[오류] Qdrant VC 저장 실패, JSON fallback 사용: {e}")
+            self._save_to_json(vc.id, embedding, metadata, vc.investment_thesis)
+
+        return vc.id
+
+    def search_similar(
+        self,
+        query: str,
+        n_results: int = 5,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[RFPDocument, float]]:
+        query_embedding = self._get_embedding(query)
+        raw_hits: List[Dict[str, Any]] = []
+        fetch_limit = max(n_results * 4, n_results)
+        backend_filters = self._backend_filters(filters)
+
+        try:
+            results = self.qdrant_client.query_points(
+                collection_name=self.collection_name,
+                query=query_embedding,
+                query_filter=self._build_filter(filters),
+                with_payload=True,
+                limit=fetch_limit,
+            ).points
+
+            for point in results:
+                payload = dict(getattr(point, "payload", {}) or {})
+                doc_text = str(payload.pop("document", "") or "")
+                try:
+                    doc = RFPDocument(  # type: ignore
+                        id=str(getattr(point, "id", "")),
+                        title=str(payload.get("title", "제목없음")),
+                        body_text=doc_text,
+                        source=str(payload.get("source", "Unknown")),
+                        deadline=None,
+                        keywords=str(payload.get("keywords", "")).split(",") if payload.get("keywords") else [],
+                        url=str(payload.get("url", "") or "") or None,
+                        min_trl=int(payload.get("min_trl")) if str(payload.get("min_trl", "")).strip() not in {"", "None"} else None,
+                        max_trl=int(payload.get("max_trl")) if str(payload.get("max_trl", "")).strip() not in {"", "None"} else None,
+                    )
+                    found_docs.append((doc, float(getattr(point, "score", 0.0) or 0.0)))
+                except Exception:  # pylint: disable=broad-exception-caught
+                    continue
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(f"[오류] Qdrant 검색 실패: {e}")
+
+        if found_docs:
+            return found_docs
+
+        print("[경고] Qdrant 검색 실패 또는 미사용, 인메모리 검색을 시도합니다.")
+        in_memory_results = self._search_in_memory(query_embedding, n_results, filters)
+        converted_results = []
+        for item in in_memory_results:
+            meta = item['metadata']
+            try:
+                doc = RFPDocument(  # type: ignore
+                    id=item['id'],
+                    title=str(meta.get("title", "제목없음")),
+                    body_text=item['document'],
+                    source=str(meta.get("source", "Unknown")),
+                    deadline=None,
+                    keywords=str(meta.get("keywords", "")).split(",") if meta.get("keywords") else []
+                )
+                converted_results.append((doc, item['similarity']))
+            except Exception:  # pylint: disable=broad-exception-caught
+                continue
+        return converted_results
+
+    def get_notice(self, notice_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            results = self.qdrant_client.retrieve(
+                collection_name=self.collection_name,
+                ids=[notice_id],
+                with_payload=True,
+                with_vectors=False,
+            )
+            if results:
+                point = results[0]
+                payload = dict(getattr(point, "payload", {}) or {})
+                document = str(payload.pop("document", "") or "")
+                return {
+                    "id": str(getattr(point, "id", notice_id)),
+                    "metadata": payload,
+                    "document": document,
+                }
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+        return super().get_notice(notice_id)
+
+    def delete_notice(self, notice_id: str) -> None:
+        try:
+            if qdrant_models is not None:
+                self.qdrant_client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=qdrant_models.PointIdsList(points=[notice_id]),
+                    wait=True,
+                )
+                return
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(f"[오류] Qdrant 삭제 실패 {notice_id}: {e}")
+        super().delete_notice(notice_id)
+
+    def count(self) -> int:
+        try:
+            result = self.qdrant_client.count(
+                collection_name=self.collection_name,
+                exact=True,
+            )
+            return int(getattr(result, "count", 0) or 0)
+        except Exception:  # pylint: disable=broad-exception-caught
+            return super().count()
+
+    def list_all(self, limit: int = 100) -> List[Dict[str, Any]]:
+        try:
+            records, _ = self.qdrant_client.scroll(
+                collection_name=self.collection_name,
+                limit=limit,
+                with_payload=True,
+                with_vectors=False,
+            )
+            items = []
+            for point in records:
+                payload = dict(getattr(point, "payload", {}) or {})
+                payload.pop("document", None)
+                items.append({"id": str(getattr(point, "id", "")), "metadata": payload})
+            return items
+        except Exception:  # pylint: disable=broad-exception-caught
+            return super().list_all(limit)
+
+    def get_documents_by_metadata(self, key: str, value: Any) -> List[Dict[str, Any]]:
+        try:
+            records, _ = self.qdrant_client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=self._build_filter({key: value}),
+                limit=100,
+                with_payload=True,
+                with_vectors=False,
+            )
+            items = []
+            for point in records:
+                payload = dict(getattr(point, "payload", {}) or {})
+                document = str(payload.pop("document", "") or "")
+                items.append({
+                    "id": str(getattr(point, "id", "")),
+                    "metadata": payload,
+                    "document": document,
+                })
+            return items
+        except Exception:  # pylint: disable=broad-exception-caught
+            return super().get_documents_by_metadata(key, value)
+
+    def search_similar(
+        self,
+        query: str,
+        n_results: int = 5,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[RFPDocument, float]]:
+        query_embedding = self._get_embedding(query)
+        raw_hits: List[Dict[str, Any]] = []
+        fetch_limit = max(n_results * 4, n_results)
+
+        try:
+            results = self.qdrant_client.query_points(
+                collection_name=self.collection_name,
+                query=query_embedding,
+                query_filter=self._build_filter(filters),
+                with_payload=True,
+                limit=fetch_limit,
+            ).points
+
+            for point in results:
+                payload = dict(getattr(point, "payload", {}) or {})
+                raw_hits.append({
+                    "id": str(getattr(point, "id", "")),
+                    "metadata": {k: v for k, v in payload.items() if k != "document"},
+                    "document": str(payload.get("document", "") or ""),
+                    "similarity": float(getattr(point, "score", 0.0) or 0.0),
+                })
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(f"[?ㅻ쪟] Qdrant 寃???ㅽ뙣: {e}")
+
+        if raw_hits:
+            processed_hits = self._post_process_hit_items(query, raw_hits, n_results, filters)
+            converted_results = []
+            for item in processed_hits:
+                converted = self._item_to_document_result(item)
+                if converted:
+                    converted_results.append(converted)
+            if converted_results:
+                return converted_results
+
+        print("[寃쎄퀬] Qdrant 寃???ㅽ뙣 ?먮뒗 誘몄궗?? ?몃찓紐⑤━ 寃?됱쓣 ?쒕룄?⑸땲??")
+        in_memory_results = self._search_in_memory(query_embedding, fetch_limit, filters)
+        processed_hits = self._post_process_hit_items(query, in_memory_results, n_results, filters)
+        converted_results = []
+        for item in processed_hits:
+            converted = self._item_to_document_result(item)
+            if converted:
+                converted_results.append(converted)
+        return converted_results
+
+
 _VECTOR_STORE: Optional[VectorStore] = None
 
 def get_vector_store() -> VectorStore:
     """VectorStore 싱글톤 인스턴스 반환"""
     global _VECTOR_STORE  # pylint: disable=global-statement
     if _VECTOR_STORE is None:
-        _VECTOR_STORE = VectorStore()
+        backend = os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower()
+        if backend == "qdrant":
+            if _load_qdrant_support():
+                try:
+                    _VECTOR_STORE = QdrantVectorStore()
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    print(f"[경고] Qdrant 초기화 실패, ChromaDB fallback 사용: {e}")
+                    _VECTOR_STORE = VectorStore()
+            else:
+                print("[경고] qdrant-client 미설치 상태입니다. ChromaDB fallback 사용")
+                _VECTOR_STORE = VectorStore()
+        else:
+            _VECTOR_STORE = VectorStore()
     return _VECTOR_STORE

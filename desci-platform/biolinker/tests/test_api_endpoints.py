@@ -31,6 +31,7 @@ async def test_health_returns_200(async_client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert "status" in data
+    assert "vector_store_backend" in data
     assert "llm_available" in data
     assert "chromadb_ok" in data
     assert "chromadb_count" in data
@@ -326,7 +327,47 @@ async def test_match_rfp_returns_results(async_client: AsyncClient, monkeypatch)
 
     assert response.status_code == 200
     stub_vector_store.search_similar.assert_called_once_with(
-        "AI drug discovery", n_results=5
+        "AI drug discovery", n_results=5, filters=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_match_rfp_passes_filters(async_client: AsyncClient, monkeypatch):
+    """GET /match/rfp should pass supported filter params through to the vector store."""
+    stub_vector_store = MagicMock()
+    stub_vector_store.search_similar.return_value = []
+    stub_vector_store.count.return_value = 10
+    monkeypatch.setattr(app_main, "get_vector_store", lambda: stub_vector_store)
+    monkeypatch.setattr(rfp_router, "get_vector_store", lambda: stub_vector_store)
+
+    response = await async_client.get(
+        "/match/rfp",
+        params={
+            "query": "AI drug discovery",
+            "source": "KDDF",
+            "document_type": "rfp",
+            "keyword": "drug",
+            "deadline_from": "2026-01-01",
+            "deadline_to": "2026-12-31",
+            "trl_min": 3,
+            "trl_max": 5,
+            "limit": 7,
+        },
+    )
+
+    assert response.status_code == 200
+    stub_vector_store.search_similar.assert_called_once_with(
+        "AI drug discovery",
+        n_results=7,
+        filters={
+            "source": "KDDF",
+            "type": "rfp",
+            "keyword": "drug",
+            "deadline_from": "2026-01-01",
+            "deadline_to": "2026-12-31",
+            "trl_min": 3,
+            "trl_max": 5,
+        },
     )
 
 
