@@ -25,34 +25,37 @@ from db_schema import (  # noqa: F401
     _normalize_name,
     _normalize_volume,
     _backfill_fingerprints,
+    sqlite_write_lock,
 )
 
 async def save_run(conn, run: RunResult) -> int:
-    cursor = await conn.execute(
-        """INSERT INTO runs (run_uuid, started_at, country, trends_collected,
-           trends_scored, tweets_generated, tweets_saved, alerts_sent, errors)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (
-            run.run_id, run.started_at.isoformat(), run.country, run.trends_collected,
-            run.trends_scored, run.tweets_generated, run.tweets_saved, run.alerts_sent,
-            json.dumps(run.errors, ensure_ascii=False)
+    async with sqlite_write_lock(conn):
+        cursor = await conn.execute(
+            """INSERT INTO runs (run_uuid, started_at, country, trends_collected,
+               trends_scored, tweets_generated, tweets_saved, alerts_sent, errors)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                run.run_id, run.started_at.isoformat(), run.country, run.trends_collected,
+                run.trends_scored, run.tweets_generated, run.tweets_saved, run.alerts_sent,
+                json.dumps(run.errors, ensure_ascii=False)
+            )
         )
-    )
-    await conn.commit()
-    return cursor.lastrowid
+        await conn.commit()
+        return cursor.lastrowid
 
 
 async def update_run(conn, run: RunResult, row_id: int) -> None:
-    await conn.execute(
-        """UPDATE runs SET finished_at=?, trends_collected=?, trends_scored=?,
-           tweets_generated=?, tweets_saved=?, alerts_sent=?, errors=? WHERE id=?""",
-        (
-            run.finished_at.isoformat() if run.finished_at else None,
-            run.trends_collected, run.trends_scored, run.tweets_generated,
-            run.tweets_saved, run.alerts_sent, json.dumps(run.errors, ensure_ascii=False), row_id
+    async with sqlite_write_lock(conn):
+        await conn.execute(
+            """UPDATE runs SET finished_at=?, trends_collected=?, trends_scored=?,
+               tweets_generated=?, tweets_saved=?, alerts_sent=?, errors=? WHERE id=?""",
+            (
+                run.finished_at.isoformat() if run.finished_at else None,
+                run.trends_collected, run.trends_scored, run.tweets_generated,
+                run.tweets_saved, run.alerts_sent, json.dumps(run.errors, ensure_ascii=False), row_id
+            )
         )
-    )
-    await conn.commit()
+        await conn.commit()
 
 
 async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) -> int:
@@ -82,7 +85,7 @@ async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) 
     return cursor.lastrowid
 
 
-async def save_tweet(conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None) -> int:
+async def _save_tweet_unlocked(conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None) -> int:
     cursor = await conn.execute(
         """INSERT INTO tweets (trend_id, run_id, tweet_type, content, char_count,
            is_thread, thread_order, status, saved_to, generated_at, content_type)
@@ -97,7 +100,12 @@ async def save_tweet(conn, tweet: GeneratedTweet, trend_id: int, run_id: int, sa
     return cursor.lastrowid
 
 
-async def save_thread(conn, thread: GeneratedThread, trend_id: int, run_id: int) -> list[int]:
+async def save_tweet(conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None) -> int:
+    async with sqlite_write_lock(conn):
+        return await _save_tweet_unlocked(conn, tweet, trend_id, run_id, saved_to=saved_to)
+
+
+async def _save_thread_unlocked(conn, thread: GeneratedThread, trend_id: int, run_id: int) -> list[int]:
     ids = []
     for i, text in enumerate(thread.tweets):
         cursor = await conn.execute(
@@ -109,6 +117,11 @@ async def save_thread(conn, thread: GeneratedThread, trend_id: int, run_id: int)
         ids.append(cursor.lastrowid)
     await conn.commit()
     return ids
+
+
+async def save_thread(conn, thread: GeneratedThread, trend_id: int, run_id: int) -> list[int]:
+    async with sqlite_write_lock(conn):
+        return await _save_thread_unlocked(conn, thread, trend_id, run_id)
 
 
 async def save_tweets_batch(
@@ -200,7 +213,7 @@ async def is_duplicate_trend(conn, name: str, volume: int, hours: int = 3) -> bo
     return row is not None
 
 
-async def cleanup_old_records(conn, days: int = 90) -> int:
+async def _cleanup_old_records_unlocked(conn, days: int = 90) -> int:
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute("DELETE FROM tweets WHERE generated_at < ?", (cutoff,))
     tweets_deleted = cursor.rowcount
@@ -212,6 +225,11 @@ async def cleanup_old_records(conn, days: int = 90) -> int:
     total = tweets_deleted + trends_deleted
     if total: log.info(f"DB 정리 완료: tweets {tweets_deleted}개 + trends {trends_deleted}개 삭제 ({days}일 초과)")
     return total
+
+
+async def cleanup_old_records(conn, days: int = 90) -> int:
+    async with sqlite_write_lock(conn):
+        return await _cleanup_old_records_unlocked(conn, days=days)
 
 
 async def get_trend_stats(conn) -> dict:
@@ -235,12 +253,17 @@ async def get_meta(conn, key: str) -> str | None:
     return row["value"] if row else None
 
 
-async def set_meta(conn, key: str, value: str) -> None:
+async def _set_meta_unlocked(conn, key: str, value: str) -> None:
     await conn.execute(
         "INSERT INTO meta (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
         (key, value, datetime.now().isoformat())
     )
     await conn.commit()
+
+
+async def set_meta(conn, key: str, value: str) -> None:
+    async with sqlite_write_lock(conn):
+        await _set_meta_unlocked(conn, key, value)
 
 
 async def get_cached_score(conn, fingerprint: str, max_age_hours: int = 6) -> dict | None:
@@ -287,7 +310,7 @@ async def get_trend_history_batch(conn, keywords: list[str], days: int = 7) -> d
     return result
 
 
-async def record_source_quality(
+async def _record_source_quality_unlocked(
     conn,
     source: str,
     success: bool,
@@ -309,6 +332,25 @@ async def record_source_quality(
         await conn.commit()
     except Exception as e:
         log.warning(f"source_quality 기록 실패: {e}")
+
+
+async def record_source_quality(
+    conn,
+    source: str,
+    success: bool,
+    latency_ms: float,
+    item_count: int = 0,
+    quality_score: float = 0.0,
+) -> None:
+    async with sqlite_write_lock(conn):
+        await _record_source_quality_unlocked(
+            conn,
+            source,
+            success,
+            latency_ms,
+            item_count=item_count,
+            quality_score=quality_score,
+        )
 
 
 async def get_source_quality_summary(conn, days: int = 7) -> dict:
@@ -367,7 +409,7 @@ async def get_recent_tweet_contents(conn, keyword: str, hours: int = 24, limit: 
     return [r["content"] for r in rows]
 
 
-async def record_posting_time_stat(
+async def _record_posting_time_stat_unlocked(
     conn, category: str, hour: int, engagement_label: str
 ) -> None:
     """
@@ -391,6 +433,13 @@ async def record_posting_time_stat(
         log.warning(f"posting_time_stat 기록 실패: {e}")
 
 
+async def record_posting_time_stat(
+    conn, category: str, hour: int, engagement_label: str
+) -> None:
+    async with sqlite_write_lock(conn):
+        await _record_posting_time_stat_unlocked(conn, category, hour, engagement_label)
+
+
 async def get_best_posting_hours(conn, category: str, top_n: int = 3) -> list[int]:
     """
     카테고리별 평균 참여도 기준 상위 N개 게시 시간대 반환.
@@ -407,7 +456,7 @@ async def get_best_posting_hours(conn, category: str, top_n: int = 3) -> list[in
     return [r["hour"] for r in rows]
 
 
-async def record_watchlist_hit(
+async def _record_watchlist_hit_unlocked(
     conn, keyword: str, watchlist_item: str, viral_potential: int
 ) -> None:
     """Watchlist 키워드 등장 기록."""
@@ -420,6 +469,13 @@ async def record_watchlist_hit(
         await conn.commit()
     except Exception as e:
         log.debug(f"watchlist_hit 기록 실패 (무시): {e}")
+
+
+async def record_watchlist_hit(
+    conn, keyword: str, watchlist_item: str, viral_potential: int
+) -> None:
+    async with sqlite_write_lock(conn):
+        await _record_watchlist_hit_unlocked(conn, keyword, watchlist_item, viral_potential)
 
 
 async def get_trend_history_patterns_batch(
@@ -473,7 +529,7 @@ async def get_trend_history_patterns_batch(
     return result
 
 
-async def record_content_feedback(
+async def _record_content_feedback_unlocked(
     conn,
     keyword: str,
     category: str = "",
@@ -493,6 +549,29 @@ async def record_content_feedback(
         await conn.commit()
     except Exception as e:
         log.debug(f"content_feedback 기록 실패 (무시): {e}")
+
+
+async def record_content_feedback(
+    conn,
+    keyword: str,
+    category: str = "",
+    qa_score: float = 0.0,
+    regenerated: bool = False,
+    reason: str = "",
+    content_age_hours: float = 0.0,
+    freshness_grade: str = "unknown",
+) -> None:
+    async with sqlite_write_lock(conn):
+        await _record_content_feedback_unlocked(
+            conn,
+            keyword,
+            category=category,
+            qa_score=qa_score,
+            regenerated=regenerated,
+            reason=reason,
+            content_age_hours=content_age_hours,
+            freshness_grade=freshness_grade,
+        )
 
 
 async def get_qa_summary(conn, days: int = 7) -> dict:

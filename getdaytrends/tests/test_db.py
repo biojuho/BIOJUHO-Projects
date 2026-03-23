@@ -1,6 +1,8 @@
 """db.py 테스트: SQLite 스키마, CRUD 헬퍼 함수."""
 
+import asyncio
 import os
+import tempfile
 import aiosqlite
 import pytest
 import sys
@@ -368,6 +370,41 @@ class TestPerformanceTrackingColumns(unittest.IsolatedAsyncioTestCase):
         """두 번 호출해도 오류 없어야 함."""
         await init_db(self.conn)
         await init_db(self.conn)
+
+class TestParallelSQLiteWrites(unittest.IsolatedAsyncioTestCase):
+    """Shared SQLite file should survive parallel init/save sequences."""
+
+    @pytest.mark.asyncio
+    async def test_parallel_init_and_save_run_on_shared_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "parallel-lock.db")
+
+            def worker(index: int) -> int:
+                async def _inner() -> int:
+                    conn = await aiosqlite.connect(db_path)
+                    conn.row_factory = aiosqlite.Row
+                    try:
+                        await init_db(conn)
+                        return await save_run(conn, RunResult(run_id=f"parallel-{index}", country="korea"))
+                    finally:
+                        await conn.close()
+
+                return asyncio.run(_inner())
+
+            row_ids = await asyncio.gather(
+                *(asyncio.to_thread(worker, index) for index in range(4))
+            )
+
+            self.assertEqual(len(row_ids), 4)
+
+            verify_conn = await aiosqlite.connect(db_path)
+            verify_conn.row_factory = aiosqlite.Row
+            try:
+                cursor = await verify_conn.execute("SELECT COUNT(*) AS cnt FROM runs")
+                row = await cursor.fetchone()
+                self.assertEqual(row["cnt"], 4)
+            finally:
+                await verify_conn.close()
 
 
 if __name__ == "__main__":

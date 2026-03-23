@@ -186,3 +186,54 @@ Claude Code (AI Agent)
 ### Status
 - QC passed
 - Recorded after validator run, targeted regression tests, and scheduler health verification
+
+## 2026-03-23 - Parallel Multi-Country SQLite Lock QC
+
+### Scope
+- Re-ran QC for the multi-country parallel execution path added in `main.py`
+- Investigated and fixed the SQLite `database is locked` failure reproduced by parallel `--countries` dry-run
+- Added a shared-file regression test for concurrent `init_db()` and `save_run()` startup flow
+
+### Files Checked
+- `main.py`
+- `config.py`
+- `db.py`
+- `db_schema.py`
+- `tests/test_main.py`
+- `tests/test_config.py`
+- `tests/test_db.py`
+
+### QC Checks
+- Syntax compile check:
+  - `python -X utf8 -m py_compile main.py config.py db.py db_schema.py tests/test_main.py tests/test_config.py tests/test_db.py`
+  - Result: passed
+- Targeted verification:
+  - `python -X utf8 -m pytest tests/test_main.py tests/test_config.py tests/test_db.py -q`
+  - Result: `46 passed`
+- Parallel dry-run smoke:
+  - `python -X utf8 main.py --one-shot --dry-run --countries korea,us --limit 1 --no-alerts`
+  - Result: passed
+
+### Review Notes
+- Root cause was concurrent SQLite write access during parallel country startup, mainly around schema init and auto-commit write helpers
+- `init_db()` is now serialized through the shared SQLite write lock, and startup/telemetry write helpers in `db.py` follow the same lock path
+- The reproduced `database is locked` failure no longer appears in the validated `korea,us` parallel dry-run
+
+### Residual Risks
+- `ruff` lint verification was skipped because `ruff` is not installed in the current environment
+- The validated smoke run still showed non-blocking content-quality warnings and `errors=1` on the Korea leg, but save completion and DB writes were successful
+- Parallel mode is now safe for SQLite writes, but very high country fan-out may still be better served by PostgreSQL for throughput
+
+### Status
+- QC passed
+- Recorded after lock fix, targeted tests, and real parallel dry-run verification
+
+## 2026-03-24 - QC Record Note
+
+### Note
+- The parallel multi-country SQLite lock QC executed on 2026-03-23 remains the latest validated QC entry for this change set
+- The validated scope covered the SQLite lock fix in `db.py` and `db_schema.py`, the shared-file regression test in `tests/test_db.py`, and the real `korea,us` parallel dry-run
+- No additional code changes were made on 2026-03-24 before this note; this section records the already-completed QC for continuity
+
+### Status
+- QC record carried forward on 2026-03-24

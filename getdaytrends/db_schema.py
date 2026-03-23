@@ -213,7 +213,7 @@ async def get_connection(
     return conn
 
 
-async def init_db(conn) -> None:
+async def _init_db_unlocked(conn) -> None:
     try:
         await conn.execute("PRAGMA journal_mode=WAL")
         await conn.execute("PRAGMA synchronous=NORMAL")
@@ -389,6 +389,11 @@ async def init_db(conn) -> None:
         except Exception:
             await conn.execute(f"ALTER TABLE trends ADD COLUMN {_col_name} {_col_def}")
             await conn.commit()
+
+
+async def init_db(conn) -> None:
+    async with sqlite_write_lock(conn):
+        await _init_db_unlocked(conn)
 
 
 async def _backfill_fingerprints(conn) -> None:
