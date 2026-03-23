@@ -8,7 +8,7 @@
 
 ## Current Status
 
-### Recently Completed (2026-03-23)
+### Recently Completed (2026-03-23 & 2026-03-24)
 - **instagram-automation Refactoring**: main.py 599 -> 193 lines (68% reduction), 9 routers, QC PASS
 - **getdaytrends Refactoring**: main.py reduced from 1,435 -> 305 lines
 - **Production Validation**: import paths verified, tests passed, deployment guide created
@@ -23,6 +23,8 @@
 - **🚀 getdaytrends Docker Deployment Complete**: docker-compose.yml updated, Dockerfile validated, DOCKER_DEPLOYMENT.md created
 - **🎉 v9.0 Sprint 1 Audit Complete**: A-1, A-3, A-4 already implemented! Benchmark: 23.2s for 5 trends (faster than target)
 - **📊 Benchmark Report Created**: Performance validated, all optimizations verified working
+- **✨ v9.0 Sprint 2 Complete**: C-2 (parallel countries), C-3 (dashboard enhancement) delivered and tested
+- **🧪 Test Stabilization**: Fixed 22 import breakages from refactoring, all 403 tests passing
 
 ### In Progress
 *No active work*
@@ -30,9 +32,10 @@
 ### Next Immediate Actions
 1. ✅ Docker deployment ready (docker-compose up -d getdaytrends)
 2. ✅ v9.0 Sprint 1 optimizations verified (already implemented)
-3. ⏭️ Sprint 2 planning: parallel multi-country, dashboard enhancement
-4. ⏭️ Optional: implement A-2 (QA Audit skip) when QA system is activated
-5. Optional monitoring: observe the next natural runs at 18:00 for `DailyNews_Evening_Insights` / `GetDayTrends_CurrentUser`
+3. ✅ Sprint 2 complete: C-2 (parallel countries), C-3 (dashboard enhancement)
+4. ⏭️ Optional: B-1 (velocity scoring) - already implemented, needs verification
+5. ⏭️ Optional: implement A-2 (QA Audit skip) when QA system is activated
+6. Optional monitoring: observe the next natural runs at 18:00 for `DailyNews_Evening_Insights` / `GetDayTrends_CurrentUser`
 
 ---
 
@@ -78,7 +81,7 @@ See [TASKS.md](TASKS.md) for full kanban board.
 **P2 - Important**
 - ✅ Deploy getdaytrends: Windows Scheduler + Docker both ready
 - ✅ v9.0 Sprint 1 audit: All optimizations already implemented
-- ⏭️ v9.0 Sprint 2: Parallel multi-country, dashboard enhancement
+- ✅ v9.0 Sprint 2: C-2 and C-3 delivered and tested (commits: 644a825, 11c35c7)
 
 **P3 - Nice to Have**
 - ✅ instagram-automation router separation: completed
@@ -91,4 +94,5 @@ See [TASKS.md](TASKS.md) for full kanban board.
 - See [getdaytrends/V9.0_IMPLEMENTATION_STATUS.md](getdaytrends/V9.0_IMPLEMENTATION_STATUS.md) for v9.0 audit
 - See [getdaytrends/BENCHMARK_2026-03-23.md](getdaytrends/BENCHMARK_2026-03-23.md) for performance data
 - Docker deployment: `docker compose up -d getdaytrends`
-- Sprint 2 candidates: C-2 (parallel countries), C-3 (dashboard), B-1 (velocity scoring)
+- Multi-country: `python getdaytrends/main.py --countries korea,us,japan --one-shot`
+- v9.0 Status: Sprint 1 & 2 complete, B-1 (velocity) optional verification needed
