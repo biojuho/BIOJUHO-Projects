@@ -12,39 +12,43 @@
 # 작성일: 2026-03-21
 # =========================================================================
 
+param(
+    [switch]$NonInteractive
+)
+
 # 관리자 권한 확인
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-if (-not $isAdmin) {
-    Write-Host "❌ ERROR: This script requires Administrator privileges." -ForegroundColor Red
-    Write-Host "Please run PowerShell as Administrator and try again." -ForegroundColor Yellow
-    exit 1
-}
 
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "DailyNews Task Scheduler Setup" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
 
+if ($isAdmin) {
+    Write-Host "✅ Administrator privileges detected" -ForegroundColor Green
+    Write-Host "   Tasks will be created with S4U logon (can run without user login)." -ForegroundColor Gray
+} else {
+    Write-Host "⚠️  Administrator privileges not detected" -ForegroundColor Yellow
+    Write-Host "   Falling back to Interactive logon for the current user." -ForegroundColor Gray
+    Write-Host "   Tasks will run when this user is logged in." -ForegroundColor Gray
+}
+
+Write-Host ""
+
 # 스크립트 경로 설정
-$ProjectRoot = "d:\AI 프로젝트\DailyNews"
-$MorningScript = "$ProjectRoot\scripts\run_morning_insights.bat"
-$EveningScript = "$ProjectRoot\scripts\run_evening_insights.bat"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$RunnerScript = "$ProjectRoot\scripts\run_scheduled_insights.ps1"
+$TaskUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 # 스크립트 파일 존재 확인
-if (-not (Test-Path $MorningScript)) {
-    Write-Host "❌ ERROR: Morning script not found: $MorningScript" -ForegroundColor Red
-    exit 1
-}
-if (-not (Test-Path $EveningScript)) {
-    Write-Host "❌ ERROR: Evening script not found: $EveningScript" -ForegroundColor Red
+if (-not (Test-Path $RunnerScript)) {
+    Write-Host "❌ ERROR: Runner script not found: $RunnerScript" -ForegroundColor Red
     exit 1
 }
 
 Write-Host "✅ Script files found" -ForegroundColor Green
-Write-Host "   Morning: $MorningScript" -ForegroundColor Gray
-Write-Host "   Evening: $EveningScript" -ForegroundColor Gray
+Write-Host "   Runner: $RunnerScript" -ForegroundColor Gray
 Write-Host ""
 
 # 기존 작업 삭제 (있는 경우)
@@ -67,8 +71,8 @@ Write-Host ""
 Write-Host "Creating Morning Task (7:00 AM)..." -ForegroundColor Cyan
 
 $MorningAction = New-ScheduledTaskAction `
-    -Execute "cmd.exe" `
-    -Argument "/c `"$MorningScript`"" `
+    -Execute "powershell.exe" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$RunnerScript`" -Window morning" `
     -WorkingDirectory $ProjectRoot
 
 $MorningTrigger = New-ScheduledTaskTrigger `
@@ -82,10 +86,17 @@ $MorningSettings = New-ScheduledTaskSettingsSet `
     -RunOnlyIfNetworkAvailable `
     -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 
-$MorningPrincipal = New-ScheduledTaskPrincipal `
-    -UserId $env:USERNAME `
-    -LogonType S4U `
-    -RunLevel Limited
+$MorningPrincipal = if ($isAdmin) {
+    New-ScheduledTaskPrincipal `
+        -UserId $TaskUser `
+        -LogonType S4U `
+        -RunLevel Limited
+} else {
+    New-ScheduledTaskPrincipal `
+        -UserId $TaskUser `
+        -LogonType Interactive `
+        -RunLevel Limited
+}
 
 try {
     Register-ScheduledTask `
@@ -115,8 +126,8 @@ Write-Host ""
 Write-Host "Creating Evening Task (6:00 PM)..." -ForegroundColor Cyan
 
 $EveningAction = New-ScheduledTaskAction `
-    -Execute "cmd.exe" `
-    -Argument "/c `"$EveningScript`"" `
+    -Execute "powershell.exe" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$RunnerScript`" -Window evening" `
     -WorkingDirectory $ProjectRoot
 
 $EveningTrigger = New-ScheduledTaskTrigger `
@@ -130,10 +141,17 @@ $EveningSettings = New-ScheduledTaskSettingsSet `
     -RunOnlyIfNetworkAvailable `
     -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 
-$EveningPrincipal = New-ScheduledTaskPrincipal `
-    -UserId $env:USERNAME `
-    -LogonType S4U `
-    -RunLevel Limited
+$EveningPrincipal = if ($isAdmin) {
+    New-ScheduledTaskPrincipal `
+        -UserId $TaskUser `
+        -LogonType S4U `
+        -RunLevel Limited
+} else {
+    New-ScheduledTaskPrincipal `
+        -UserId $TaskUser `
+        -LogonType Interactive `
+        -RunLevel Limited
+}
 
 try {
     Register-ScheduledTask `
@@ -162,6 +180,7 @@ Write-Host ""
 Write-Host "Scheduled tasks created:" -ForegroundColor White
 Write-Host "  1. DailyNews_Morning_Insights - Daily at 7:00 AM" -ForegroundColor White
 Write-Host "  2. DailyNews_Evening_Insights - Daily at 6:00 PM" -ForegroundColor White
+Write-Host "  3. User: $TaskUser" -ForegroundColor White
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Open Task Scheduler (taskschd.msc) to verify" -ForegroundColor Gray
@@ -174,10 +193,12 @@ Write-Host '  Unregister-ScheduledTask -TaskName "DailyNews_Evening_Insights" -C
 Write-Host ""
 
 # Task Scheduler 열기 (선택 사항)
-$openTaskScheduler = Read-Host "Open Task Scheduler now? (Y/N)"
-if ($openTaskScheduler -eq "Y" -or $openTaskScheduler -eq "y") {
-    Start-Process "taskschd.msc"
-}
+if (-not $NonInteractive) {
+    $openTaskScheduler = Read-Host "Open Task Scheduler now? (Y/N)"
+    if ($openTaskScheduler -eq "Y" -or $openTaskScheduler -eq "y") {
+        Start-Process "taskschd.msc"
+    }
 
-Write-Host "Press any key to exit..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    Write-Host "Press any key to exit..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}

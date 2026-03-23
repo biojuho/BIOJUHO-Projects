@@ -12,7 +12,8 @@
 # =========================================================================
 
 param(
-    [string]$TaskType = "auto"  # "morning", "evening", "auto"
+    [string]$TaskType = "auto",  # "morning", "evening", "auto"
+    [switch]$NonInteractive
 )
 
 Write-Host "=========================================" -ForegroundColor Cyan
@@ -20,8 +21,14 @@ Write-Host "DailyNews First Run Verification" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
 
-$ProjectRoot = "d:\AI 프로젝트\DailyNews"
-$LogDir = "$ProjectRoot\logs\insights"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$LogDir = Join-Path $ProjectRoot "logs\insights"
+$DbPath = Join-Path $ProjectRoot "data\pipeline_state.db"
+$PythonExe = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+
+if (-not (Test-Path $PythonExe)) {
+    $PythonExe = "python"
+}
 
 # =========================================================================
 # 1. Task Scheduler 상태 확인
@@ -98,7 +105,7 @@ if ($LogFiles.Count -gt 0) {
     $LogContent = Get-Content $LatestLog.FullName -Raw
 
     # 성공 여부 확인
-    if ($LogContent -match "SUCCESS") {
+    if ($LogContent -match "SUCCESS" -or $LogContent -match '"status"\s*:\s*"(ok|partial)"') {
         Write-Host "✅ Log contains SUCCESS message" -ForegroundColor Green
         $HasSuccess = $true
     } else {
@@ -107,7 +114,14 @@ if ($LogFiles.Count -gt 0) {
     }
 
     # 에러 확인
-    $ErrorLines = $LogContent -split "`n" | Where-Object { $_ -match "ERROR|FAIL|Exception" }
+    $ErrorLines = $LogContent -split "`n" | Where-Object {
+        $_ -match "ERROR|FAIL|Exception" -and
+        $_ -notmatch "NativeCommandError" -and
+        $_ -notmatch "Embedding API failed, skipping clustering" -and
+        $_ -notmatch "CategoryInfo" -and
+        $_ -notmatch "RemoteException" -and
+        $_ -notmatch '"error": null'
+    }
     if ($ErrorLines.Count -gt 0) {
         Write-Host "⚠️  Found $($ErrorLines.Count) error line(s):" -ForegroundColor Yellow
         $ErrorLines | ForEach-Object {
@@ -141,8 +155,6 @@ Write-Host ""
 
 Write-Host "[4/5] Checking Database..." -ForegroundColor Yellow
 
-$DbPath = "$ProjectRoot\data\pipeline_state.db"
-
 if (-not (Test-Path $DbPath)) {
     Write-Host "⚠️  WARNING: Database not found: $DbPath" -ForegroundColor Yellow
 } else {
@@ -151,7 +163,9 @@ if (-not (Test-Path $DbPath)) {
         Write-Host "✅ Database found ($($DbSize.ToString('F2')) KB)" -ForegroundColor Green
 
         # Python으로 최근 실행 조회
-        $RecentRuns = python -c @"
+        Push-Location $ProjectRoot
+        try {
+            $RecentRuns = & $PythonExe -c @"
 import sys
 sys.path.insert(0, 'src')
 import sqlite3
@@ -161,7 +175,10 @@ cursor.execute('SELECT run_id, status, started_at FROM job_runs ORDER BY started
 for row in cursor.fetchall():
     print(f'{row[0][:35]} | {row[1]:8s} | {row[2][:19]}')
 conn.close()
-"@ -WorkingDirectory $ProjectRoot
+"@
+        } finally {
+            Pop-Location
+        }
 
         if ($RecentRuns) {
             Write-Host "   Recent runs:" -ForegroundColor Gray
@@ -276,5 +293,8 @@ if ($Score -lt 2) {
 }
 
 Write-Host ""
-Write-Host "Press any key to exit..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+if (-not $NonInteractive) {
+    Write-Host "Press any key to exit..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}

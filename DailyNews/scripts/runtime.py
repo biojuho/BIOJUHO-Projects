@@ -147,7 +147,9 @@ async def fetch_feed_entries(
                 headers={"User-Agent": "AntigravityNewsBot/1.0 (+https://notion.so)"},
             )
             response.raise_for_status()
-        parsed = feedparser.parse(response.text)
+        # Use raw bytes so feedparser respects the XML encoding declaration
+        # (fixes mojibake with Korean RSS feeds like EUC-KR / CP949)
+        parsed = feedparser.parse(response.content)
         return list(parsed.entries)
 
     return await async_retry(_fetch, attempts=attempts, base_delay=1.5)

@@ -27,6 +27,13 @@ from settings import (
     PIPELINE_HTTP_TIMEOUT_SEC,
 )
 from news_bot import _is_relevant_to_category
+from deduplicator import NewsDeduplicator
+from credibility import CredibilityScorer
+
+# Pipeline quality gates
+_DEDUPLICATOR = NewsDeduplicator(threshold=0.85)
+_CREDIBILITY_SCORER = CredibilityScorer()
+_MIN_CREDIBILITY_SCORE = 4.0  # Filter clickbait / low-trust sources
 
 
 def _load_all_feeds() -> dict[str, list[dict[str, str]]]:
@@ -100,7 +107,7 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
         state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_NEWS_DB_ID missing")
         return 1
 
-    summary = {"saved": 0, "skipped": 0, "sources_failed": 0}
+    summary = {"saved": 0, "skipped": 0, "sources_failed": 0, "credibility_filtered": 0, "dedup_removed": 0}
     notion = AsyncClient(auth=NOTION_API_KEY)
 
     try:
@@ -110,6 +117,9 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
             all_sources = _load_all_feeds()
 
             for category, sources in all_sources.items():
+                # Collect all raw entries for this category first
+                category_entries: list[dict] = []
+
                 for source in sources:
                     source_name = source["name"]
                     feed_url = source["url"]
@@ -126,7 +136,6 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
                         link = getattr(entry, "link", "")
                         if not link:
                             summary["skipped"] += 1
-                            logger.warning("dedupe", "skipped", "entry missing link", source=source_name, title=title[:80])
                             continue
                         if link in existing_urls or state.has_article(link):
                             summary["skipped"] += 1
@@ -137,26 +146,69 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
                             summary["skipped"] += 1
                             continue
 
-                        page = await create_notion_page_with_retry(
-                            notion_client=notion,
-                            parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
-                            properties={
-                                "Name": {"title": [{"text": {"content": title}}]},
-                                "Date": {"date": {"start": today_str}},
-                                "Source": {"select": {"name": category}},
-                                "Link": {"url": link},
-                                "Description": {"rich_text": [{"text": {"content": description}}]},
-                            },
-                            children=[],
-                            logger=logger,
-                            step="upload",
-                        )
+                        category_entries.append({
+                            "title": title,
+                            "link": link,
+                            "source": source_name,
+                            "description": description,
+                            "category": category,
+                        })
 
-                        page_id = page.get("id")
-                        state.record_article(link=link, source=source_name, notion_page_id=page_id, run_id=run_id)
-                        existing_urls.add(link)
-                        summary["saved"] += 1
-                        logger.info("upload", "success", "article saved", category=category, source=source_name, link=link, page_id=page_id)
+                if not category_entries:
+                    continue
+
+                # [GATE 1] Credibility filter — remove clickbait and low-trust sources
+                credible_entries = _CREDIBILITY_SCORER.filter_articles(
+                    category_entries, min_score=_MIN_CREDIBILITY_SCORE
+                )
+                filtered_count = len(category_entries) - len(credible_entries)
+                if filtered_count:
+                    summary["credibility_filtered"] += filtered_count
+                    logger.info(
+                        "credibility", "filtered", f"{filtered_count} low-trust articles removed",
+                        category=category,
+                    )
+
+                # [GATE 2] Title-similarity dedup — merge near-duplicate headlines
+                deduped_entries = _DEDUPLICATOR.deduplicate(credible_entries)
+                dedup_removed = len(credible_entries) - len(deduped_entries)
+                if dedup_removed:
+                    summary["dedup_removed"] += dedup_removed
+                    logger.info(
+                        "dedup", "removed", f"{dedup_removed} near-duplicate articles merged",
+                        category=category,
+                    )
+
+                # Upload deduplicated, credible articles to Notion
+                for article in deduped_entries:
+                    title = article["title"]
+                    link = article["link"]
+                    source_name = article["source"]
+                    description = article["description"]
+
+                    # Build Notion properties with optional quality metadata
+                    properties: dict = {
+                        "Name": {"title": [{"text": {"content": title}}]},
+                        "Date": {"date": {"start": today_str}},
+                        "Source": {"select": {"name": category}},
+                        "Link": {"url": link},
+                        "Description": {"rich_text": [{"text": {"content": description}}]},
+                    }
+
+                    page = await create_notion_page_with_retry(
+                        notion_client=notion,
+                        parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
+                        properties=properties,
+                        children=[],
+                        logger=logger,
+                        step="upload",
+                    )
+
+                    page_id = page.get("id")
+                    state.record_article(link=link, source=source_name, notion_page_id=page_id, run_id=run_id)
+                    existing_urls.add(link)
+                    summary["saved"] += 1
+                    logger.info("upload", "success", "article saved", category=category, source=source_name, link=link, page_id=page_id)
 
             state.record_job_finish(run_id, status="success", summary=summary)
             logger.info("complete", "success", "collect_news finished", **summary)

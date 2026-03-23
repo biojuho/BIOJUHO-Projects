@@ -94,6 +94,45 @@ services:
       - ai-projects-network
     restart: unless-stopped
 
+  # getdaytrends - Automated Trend Analysis & Content Generation
+  getdaytrends:
+    build:
+      context: .
+      dockerfile: getdaytrends/Dockerfile
+    container_name: getdaytrends
+    environment:
+      # Storage
+      STORAGE_TYPE: ${GETDAYTRENDS_STORAGE_TYPE:-notion}
+      NOTION_TOKEN: ${NOTION_TOKEN}
+      NOTION_DATABASE_ID: ${GETDAYTRENDS_NOTION_DATABASE_ID}
+      # LLM API Keys (from shared)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # Schedule
+      SCHEDULE_INTERVAL_MINUTES: ${GETDAYTRENDS_SCHEDULE_INTERVAL:-240}
+      DEFAULT_COUNTRY: ${GETDAYTRENDS_COUNTRY:-korea}
+      DEFAULT_LIMIT: ${GETDAYTRENDS_LIMIT:-10}
+      # Features
+      ENABLE_CLUSTERING: ${GETDAYTRENDS_ENABLE_CLUSTERING:-true}
+      ENABLE_LONG_FORM: ${GETDAYTRENDS_ENABLE_LONG_FORM:-true}
+      MIN_VIRAL_SCORE: ${GETDAYTRENDS_MIN_VIRAL_SCORE:-60}
+      LONG_FORM_MIN_SCORE: ${GETDAYTRENDS_LONG_FORM_MIN_SCORE:-95}
+      # Alerts (optional)
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
+      # Timezone
+      TZ: Asia/Seoul
+    volumes:
+      - ./getdaytrends/data:/app/getdaytrends/data
+      - ./getdaytrends/logs:/app/getdaytrends/logs
+    networks:
+      - ai-projects-network
+    restart: unless-stopped
+    # Override CMD to run scheduler mode instead of one-shot
+    command: ["python", "main.py"]
+
   # Redis (for future caching)
   # redis:
   #   image: redis:7-alpine

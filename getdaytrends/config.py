@@ -116,8 +116,6 @@ class AppConfig:
 
     # Phase 4: 고도화
     enable_sentiment_filter: bool = True   # 유해 트렌드 자동 필터 (safety_flag=True 스킵)
-    enable_ab_variants: bool = False       # A/B 변형 생성 (tone 다양화, Haiku 추가 1회 호출)
-    enable_multilang: bool = False         # 멀티언어 생성 (target_languages 언어 수만큼 추가 생성)
 
     # ===================================================
     # [v4.0] 트렌드 검증 & 하이브리드 스코어링
@@ -134,7 +132,6 @@ class AppConfig:
     # ===================================================
     # [v5.0] 소스 품질 피드백 + YouTube
     # ===================================================
-    enable_youtube_trending: bool = False          # YouTube Trending RSS (폐기됨, 기본 비활성)
     enable_source_quality_tracking: bool = True    # 소스 품질 DB 기록 활성화
     news_rss_max_items: int = 5                    # Google News RSS 최대 수집 수
 
@@ -172,7 +169,6 @@ class AppConfig:
     # ===================================================
     # [v9.0] Phase A: 비용 최적화
     # ===================================================
-    enable_llm_clustering: bool = False        # False=로컬 Jaccard 클러스터링 (LLM 호출 절감)
     jaccard_cluster_threshold: float = 0.35   # 로컬 클러스터링 유사도 임계값
     # [v14.0] Gemini Embedding 2 의미적 클러스터링
     enable_embedding_clustering: bool = True   # True=Gemini Embedding 기반 의미적 유사도 (Jaccard 자동 폴백)
@@ -231,21 +227,6 @@ class AppConfig:
     persona_rotation: str = "category"            # 퍼소나 선택 모드: category | round_robin | fixed
     persona_pool: list[str] = field(default_factory=lambda: ["joongyeon", "analyst", "storyteller"])
 
-    # ===================================================
-    # [v16.0] MARL Pipeline Integration
-    # ===================================================
-    enable_marl_generation: bool = False           # MARL 강화 생성 활성화 (high-value 트렌드 전용)
-    marl_min_viral_score: int = 80                 # 이 점수 이상만 MARL 적용
-    marl_stages: int = 3                           # MARL 파이프라인 단계 수 (3=생성+비평+수정, 5=전체)
-    marl_daily_budget_cap_usd: float = 0.05        # MARL 일일 추가 예산 상한 ($)
-
-    # ===================================================
-    # [v17.0] NotebookLM Integration
-    # ===================================================
-    enable_notebooklm: bool = False                # NotebookLM 자동 연동 활성화
-    notebooklm_min_viral_score: int = 75           # 이 점수 이상만 NotebookLM 노트북 생성
-    notebooklm_content_types: list[str] = field(default_factory=list)  # 생성 콘텐츠 유형 (빈값=AI분석만, audio/slide-deck/mind-map 등)
-    notebooklm_max_notebooks: int = 3              # 런당 최대 노트북 생성 수
 
     # ===================================================
     # [v5.0] B. Adaptive Voice — 성과 기반 패턴 가중치
@@ -361,15 +342,12 @@ class AppConfig:
             notion_sem_limit=int(os.getenv("NOTION_SEM_LIMIT", "10")),
             enable_structured_metrics=os.getenv("ENABLE_STRUCTURED_METRICS", "true").lower() == "true",
             enable_sentiment_filter=os.getenv("ENABLE_SENTIMENT_FILTER", "true").lower() == "true",
-            enable_ab_variants=os.getenv("ENABLE_AB_VARIANTS", "false").lower() == "true",
-            enable_multilang=os.getenv("ENABLE_MULTILANG", "false").lower() == "true",
             # v4.0
             min_cross_source_confidence=int(os.getenv("MIN_CROSS_SOURCE_CONFIDENCE", "2")),
             viral_score_llm_weight=float(os.getenv("VIRAL_SCORE_LLM_WEIGHT", "0.6")),
             enable_history_correction=os.getenv("ENABLE_HISTORY_CORRECTION", "true").lower() == "true",
             joongyeon_kick_long_form_threshold=int(os.getenv("JOONGYEON_KICK_LONG_FORM_THRESHOLD", "75")),
             # v5.0
-            enable_youtube_trending=os.getenv("ENABLE_YOUTUBE_TRENDING", "false").lower() == "true",
             enable_source_quality_tracking=os.getenv("ENABLE_SOURCE_QUALITY_TRACKING", "true").lower() == "true",
             news_rss_max_items=int(os.getenv("NEWS_RSS_MAX_ITEMS", "5")),
             # v6.0
@@ -394,7 +372,6 @@ class AppConfig:
             account_niche=os.getenv("ACCOUNT_NICHE", "AI·테크·트렌드"),
             target_audience=os.getenv("TARGET_AUDIENCE", "IT 종사자, 스타트업 관계자, 테크 트렌드에 관심있는 직장인"),
             # v9.0 Phase A
-            enable_llm_clustering=os.getenv("ENABLE_LLM_CLUSTERING", "false").lower() == "true",
             jaccard_cluster_threshold=float(os.getenv("JACCARD_CLUSTER_THRESHOLD", "0.35")),
             # v14.0
             enable_embedding_clustering=os.getenv("ENABLE_EMBEDDING_CLUSTERING", "true").lower() == "true",
@@ -454,20 +431,6 @@ class AppConfig:
                 for p in os.getenv("PERSONA_POOL", "joongyeon,analyst,storyteller").split(",")
                 if p.strip()
             ],
-            # v16.0 MARL
-            enable_marl_generation=os.getenv("ENABLE_MARL_GENERATION", "false").lower() == "true",
-            marl_min_viral_score=int(os.getenv("MARL_MIN_VIRAL_SCORE", "80")),
-            marl_stages=int(os.getenv("MARL_STAGES", "3")),
-            marl_daily_budget_cap_usd=float(os.getenv("MARL_DAILY_BUDGET_CAP_USD", "0.05")),
-            # v17.0 NotebookLM
-            enable_notebooklm=os.getenv("ENABLE_NOTEBOOKLM", "false").lower() == "true",
-            notebooklm_min_viral_score=int(os.getenv("NOTEBOOKLM_MIN_VIRAL_SCORE", "75")),
-            notebooklm_content_types=[
-                t.strip()
-                for t in os.getenv("NOTEBOOKLM_CONTENT_TYPES", "audio").split(",")
-                if t.strip()
-            ],
-            notebooklm_max_notebooks=int(os.getenv("NOTEBOOKLM_MAX_NOTEBOOKS", "3")),
             # v5.0 B. Adaptive Voice
             enable_adaptive_voice=os.getenv("ENABLE_ADAPTIVE_VOICE", "true").lower() == "true",
             pattern_weight_min_samples=int(os.getenv("PATTERN_WEIGHT_MIN_SAMPLES", "3")),
@@ -480,6 +443,10 @@ class AppConfig:
             enable_golden_reference_qa=os.getenv("ENABLE_GOLDEN_REFERENCE_QA", "true").lower() == "true",
             golden_reference_limit=int(os.getenv("GOLDEN_REFERENCE_LIMIT", "3")),
             golden_reference_auto_update_days=int(os.getenv("GOLDEN_REFERENCE_AUTO_UPDATE_DAYS", "7")),
+            enable_fact_checking=os.getenv("ENABLE_FACT_CHECKING", "true").lower() == "true",
+            fact_check_min_accuracy=float(os.getenv("FACT_CHECK_MIN_ACCURACY", "0.6")),
+            fact_check_strict_mode=os.getenv("FACT_CHECK_STRICT_MODE", "false").lower() == "true",
+            hallucination_zero_tolerance=os.getenv("HALLUCINATION_ZERO_TOLERANCE", "true").lower() == "true",
             # v5.0 A. Trend Genealogy
             enable_trend_genealogy=os.getenv("ENABLE_TREND_GENEALOGY", "true").lower() == "true",
             genealogy_history_hours=int(os.getenv("GENEALOGY_HISTORY_HOURS", "72")),
@@ -604,12 +571,10 @@ class AppConfig:
                 "threads": self.enable_threads,
                 "smart_schedule": self.smart_schedule,
                 "night_mode": self.night_mode,
-                "marl_generation": self.enable_marl_generation,
                 "adaptive_voice": self.enable_adaptive_voice,
                 "tiered_collection": self.enable_tiered_collection,
                 "golden_reference_qa": self.enable_golden_reference_qa,
                 "trend_genealogy": self.enable_trend_genealogy,
-                "notebooklm": self.enable_notebooklm,
             },
             "target_platforms": self.target_platforms,
         }

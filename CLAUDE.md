@@ -68,6 +68,36 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8002 --reload
 
 ## Architecture
 
+### getdaytrends (X 트렌드 자동 생성기) — **리팩토링 완료**
+
+```
+getdaytrends/
+  main.py                # CLI + 스케줄러 (358줄, 75% 축소)
+  core/
+    pipeline.py          # 파이프라인 오케스트레이션 (1,200줄)
+  scraper.py             # 멀티소스 트렌드 수집 (1,157줄)
+  analyzer.py            # 바이럴 스코어링 + 클러스터링 (1,379줄)
+  generator.py           # 트윗/장문/쓰레드 생성 (2,053줄)
+  db.py                  # SQLite/PostgreSQL DB 트랜잭션 (949줄)
+  storage.py             # Notion/Sheets 저장 (775줄)
+  config.py              # 앱 설정 관리
+  models.py              # 데이터 모델 (Pydantic)
+  alerts.py              # Telegram/Discord 알림
+  performance_tracker.py # 성과 추적 + Adaptive Voice
+  fact_checker.py        # 팩트 체크 + 환각 탐지
+  generation/            # 생성 프롬프트 라이브러리
+    prompts.py           # Few-shot 예시 + 훅/킥 패턴
+    audit.py             # QA 검증 로직
+    persona.py           # 톤앤매너 프리셋
+```
+
+**주요 개선**:
+- main.py 1,435줄 → 358줄 (75% 축소)
+- 파이프라인 로직 `core/pipeline.py`로 분리 → 책임 분리 (SRP)
+- 각 모듈 명확한 단일 책임: 수집/분석/생성/저장
+
+### desci-platform
+
 ```
 desci-platform/
   biolinker/

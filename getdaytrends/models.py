@@ -178,6 +178,7 @@ class TweetBatch(BaseModel):
     thread: Optional[GeneratedThread] = None
     viral_score: int = 0
     language: str = ""          # [v3.0] 멀티언어 배치 언어 코드 (예: "en", "ja"). 기본값 "" = 기본 언어
+    metadata: dict = Field(default_factory=dict)  # [B-4] 런타임 메타 (best_posting_hours 등)
     generated_at: datetime = Field(default_factory=datetime.now)
 
 

@@ -1,11 +1,13 @@
 """utils.py 테스트: sanitize_keyword 프롬프트 인젝션 방어."""
 
+import asyncio
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 
-from utils import sanitize_keyword
+from utils import _run_coroutine_in_new_loop, run_async, sanitize_keyword
 
 
 class TestSanitizeKeyword(unittest.TestCase):
@@ -77,6 +79,32 @@ class TestSanitizeKeyword(unittest.TestCase):
         result = sanitize_keyword(keyword)
         self.assertIn("BTS", result)
         self.assertIn("컴백", result)
+
+
+class TestRunAsync(unittest.TestCase):
+    def test_run_async_executes_coroutine(self):
+        async def sample():
+            return "ok"
+
+        self.assertEqual(run_async(sample()), "ok")
+
+    def test_shutdown_default_executor_runtimeerror_is_ignored(self):
+        real_new_event_loop = asyncio.new_event_loop
+
+        def faulty_new_event_loop():
+            loop = real_new_event_loop()
+
+            async def faulty_shutdown_default_executor():
+                raise RuntimeError("Timeout should be used inside a task")
+
+            loop.shutdown_default_executor = faulty_shutdown_default_executor
+            return loop
+
+        async def sample():
+            return 42
+
+        with patch("utils.asyncio.new_event_loop", side_effect=faulty_new_event_loop):
+            self.assertEqual(_run_coroutine_in_new_loop(sample()), 42)
 
 
 if __name__ == "__main__":

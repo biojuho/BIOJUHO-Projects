@@ -43,12 +43,45 @@ def sanitize_keyword(keyword: str, max_len: int = 200) -> str:
 #  Async Helpers
 # ══════════════════════════════════════════════════════
 
+_PY314_SHUTDOWN_TIMEOUT_MSG = "Timeout should be used inside a task"
+
+
+def _run_coroutine_in_new_loop(coro):
+    """
+    새 이벤트 루프에서 코루틴 실행.
+
+    Python 3.14 환경에서 일부 라이브러리가 `nest_asyncio` 스타일로 루프를
+    패치한 경우 `shutdown_default_executor()` 정리 단계에서
+    `RuntimeError: Timeout should be used inside a task`가 발생할 수 있다.
+    실제 코루틴 실행이 끝난 뒤 이 종료 단계에서만 터지는 문제이므로,
+    해당 케이스는 무시하고 루프를 닫는다.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(coro)
+        loop.run_until_complete(loop.shutdown_asyncgens())
+
+        shutdown_default_executor = getattr(loop, "shutdown_default_executor", None)
+        if shutdown_default_executor is not None:
+            try:
+                loop.run_until_complete(shutdown_default_executor())
+            except RuntimeError as exc:
+                if _PY314_SHUTDOWN_TIMEOUT_MSG not in str(exc):
+                    raise
+
+        return result
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
+
+
 def run_async(coro):
     """
     코루틴을 동기 컨텍스트에서 실행.
 
     이벤트 루프가 이미 실행 중이면(Jupyter 등) 스레드풀을 통해 실행하고,
-    아니면 asyncio.run()을 사용한다.
+    아니면 전용 이벤트 루프에서 실행한다.
     """
     try:
         loop = asyncio.get_running_loop()
@@ -57,6 +90,6 @@ def run_async(coro):
 
     if loop and loop.is_running():
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, coro).result()
-    else:
-        return asyncio.run(coro)
+            return pool.submit(_run_coroutine_in_new_loop, coro).result()
+
+    return _run_coroutine_in_new_loop(coro)

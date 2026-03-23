@@ -5,6 +5,24 @@
 
 ---
 
+## Scheduler Update (2026-03-23)
+
+- Preferred runner: `run_scheduled_getdaytrends.ps1`
+- Preferred setup entrypoint: `setup_scheduled_task.ps1`
+- Legacy `run_getdaytrends.bat` and `register_scheduler.bat` now delegate to the PowerShell flow
+- Non-admin setup falls back to `GetDayTrends_CurrentUser` if the legacy `GetDayTrends` task cannot be replaced
+- Validation command:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\getdaytrends\run_scheduled_getdaytrends.ps1 -DryRun -Limit 1 -Country korea
+```
+
+- Successful validation writes UTF-8 detail logs to `getdaytrends\logs\scheduler\`
+- Live verification on 2026-03-23: `GetDayTrends_CurrentUser` completed with `LastTaskResult=0`
+- Latest confirmed metrics: `generated=7 saved=7 errors=0` from `logs\scheduler\run_2026-03-23_171527.log`
+
+---
+
 ## 1. 스케줄링 (3시간 주기)
 
 ### 1-1. Windows Task Scheduler

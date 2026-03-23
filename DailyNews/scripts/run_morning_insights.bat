@@ -12,11 +12,14 @@ REM =========================================================================
 
 setlocal enabledelayedexpansion
 
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
+
 REM 프롬프트 모드 설정
 set PROMPT_VERSION=v2-deep
 
 REM 로그 디렉토리 생성
-set LOG_DIR=d:\AI 프로젝트\DailyNews\logs\insights
+set "LOG_DIR=%PROJECT_ROOT%\logs\insights"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 REM 날짜 및 시간 설정 (로그 파일명용)
@@ -32,7 +35,7 @@ echo Time: %TIME% >> "%LOGFILE%" 2>&1
 echo ========================================= >> "%LOGFILE%" 2>&1
 
 REM 프로젝트 디렉토리로 이동
-cd /d "d:\AI 프로젝트\DailyNews"
+cd /d "%PROJECT_ROOT%"
 echo Current directory: %CD% >> "%LOGFILE%" 2>&1
 
 REM 가상환경 활성화
@@ -42,6 +45,9 @@ if errorlevel 1 (
     echo [ERROR] Failed to activate virtual environment >> "%LOGFILE%" 2>&1
     exit /b 1
 )
+
+set "PYTHONPATH=%PROJECT_ROOT%\src;%PYTHONPATH%"
+echo PYTHONPATH: %PYTHONPATH% >> "%LOGFILE%" 2>&1
 
 REM 파이썬 버전 확인
 echo Python version: >> "%LOGFILE%" 2>&1

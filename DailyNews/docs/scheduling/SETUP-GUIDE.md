@@ -21,10 +21,13 @@ DailyNews 인사이트 생성을 **하루 2회 자동 실행**하도록 Windows 
 
 ## 🚀 빠른 설정 (자동)
 
-### 1단계: PowerShell 관리자 권한으로 실행
+### 1단계: PowerShell 실행
+
+관리자 권한이 있으면 `S4U` 로그온으로 등록되어 사용자 로그온 없이도 실행할 수 있습니다.
+관리자 권한이 없어도 현재 사용자 기준의 Interactive 작업으로 자동 폴백됩니다.
 
 ```powershell
-# Windows 키 + X → "Windows PowerShell(관리자)" 선택
+# Windows 키 + X → "Windows PowerShell" 또는 "Windows PowerShell(관리자)" 선택
 ```
 
 ### 2단계: 스크립트 실행
