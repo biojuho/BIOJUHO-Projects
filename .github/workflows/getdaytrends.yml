@@ -46,12 +46,17 @@ jobs:
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          XAI_API_KEY=${{ secrets.XAI_API_KEY }}
           STORAGE_TYPE=${{ secrets.STORAGE_TYPE || 'notion' }}
           NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}
           GOOGLE_SERVICE_JSON=${{ secrets.GOOGLE_SERVICE_JSON || '' }}
           GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID || '' }}
           TWITTER_BEARER_TOKEN=${{ secrets.TWITTER_BEARER_TOKEN || '' }}
+          X_ACCESS_TOKEN=${{ secrets.X_ACCESS_TOKEN || '' }}
+          X_CLIENT_ID=${{ secrets.X_CLIENT_ID || '' }}
+          X_CLIENT_SECRET=${{ secrets.X_CLIENT_SECRET || '' }}
           TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
@@ -59,6 +64,7 @@ jobs:
           DEFAULT_COUNTRY=${{ github.event.inputs.country || 'korea' }}
           DEFAULT_LIMIT=${{ github.event.inputs.limit || '5' }}
           SCHEDULE_INTERVAL_MINUTES=240
+          ENABLE_PARALLEL_COUNTRIES=true
           EOF
 
       - name: Create data directory
