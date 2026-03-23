@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 import unicodedata
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -30,9 +31,24 @@ except ImportError:
 
 # asyncpg 커넥션 풀 (싱글턴)
 _PG_POOL: "asyncpg.Pool | None" = None
+_SQLITE_WRITE_LOCK = threading.RLock()
 
 
 # ── 트랜잭션 컨텍스트 매니저 ────────────────────────────
+
+@asynccontextmanager
+async def sqlite_write_lock(conn) -> AsyncIterator[None]:
+    """Serialize SQLite writes across worker threads while leaving Postgres untouched."""
+    if isinstance(conn, _PgAdapter):
+        yield
+        return
+
+    _SQLITE_WRITE_LOCK.acquire()
+    try:
+        yield
+    finally:
+        _SQLITE_WRITE_LOCK.release()
+
 
 @asynccontextmanager
 async def db_transaction(conn) -> AsyncIterator[None]:
@@ -45,15 +61,16 @@ async def db_transaction(conn) -> AsyncIterator[None]:
             trend_id = await save_trend(conn, trend, run_id)
             await save_tweets_batch(conn, tweets, trend_id, run_id)
     """
-    try:
-        yield
-        await conn.commit()
-    except Exception:
+    async with sqlite_write_lock(conn):
         try:
-            await conn.rollback()
-        except Exception as _rb_err:
-            log.debug(f"Rollback 실패 (무시): {_rb_err}")
-        raise
+            yield
+            await conn.commit()
+        except Exception:
+            try:
+                await conn.rollback()
+            except Exception as _rb_err:
+                log.debug(f"Rollback \uc2e4\ud328 (\ubb34\uc2dc): {_rb_err}")
+            raise
 
 
 class _PgAdapter:

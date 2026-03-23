@@ -144,7 +144,7 @@ async def test_db_transaction_rollback(conn):
 @pytest.mark.asyncio
 async def test_step_save_skips_safety_flagged(conn, config):
     """safety_flag=True 트렌드는 저장 없이 스킵되고 run.errors에 기록."""
-    from main import _step_save
+    from core.pipeline_steps import _step_save
 
     run = RunResult(run_id="test-run-3", country="korea")
     run_id = await save_run(conn, run)

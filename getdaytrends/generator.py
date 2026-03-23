@@ -60,6 +60,7 @@ from prompt_builder import (  # noqa: F401
     _build_scoring_section,
     _parse_json,
     _resolve_language,
+    _retry_generate,
     _select_generation_tier,
     _system_long_form,
     _system_thread,

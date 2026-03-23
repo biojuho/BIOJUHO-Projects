@@ -20,7 +20,7 @@ except ImportError:
     )
 
 from config import AppConfig, VERSION
-from db import get_connection, get_trend_stats, init_db
+from db import get_connection, get_source_quality_summary, get_trend_stats, init_db
 
 app = FastAPI(title="getdaytrends Dashboard", version=VERSION)
 
@@ -126,7 +126,7 @@ async function loadPipelineStatus() {{
     badge.textContent = stateMap[ps.state] || ps.state;
     badge.className = clsMap[ps.state] || '';
     badge.style.background = '#1e293b';
-    if (ps.last_run_at) badge.title = '마지막 실행: ' + ps.last_run_at.slice(0,16) + (ps.last_run_elapsed ? ` (${ps.last_run_elapsed}초)` : '');
+    if (ps.last_run_at) badge.title = '마지막 실행: ' + ps.last_run_at.slice(0,16) + (ps.last_run_elapsed ? ` (${{ps.last_run_elapsed}}초)` : '');
 
     // 예산 바
     const b = ps.budget || {{}};
@@ -336,3 +336,101 @@ def update_pipeline_status(state: str, error: str = "", trends: int = 0, tweets:
     if elapsed:
         _pipeline_status["last_run_elapsed"] = round(elapsed, 1)
     return {"ok": True}
+
+
+# ── C-3: 고도화 API Endpoints ────────────────────────────
+
+
+@app.get("/api/trends/today")
+async def api_trends_today(limit: int = Query(50, ge=1, le=200)):
+    """오늘 생성된 트렌드 + 연결 트윗 수."""
+    from datetime import date
+    conn = await _get_conn()
+    today = str(date.today())
+    cursor = await conn.execute(
+        """SELECT t.id, t.keyword, t.viral_potential, t.trend_acceleration,
+                  t.top_insight, t.country, t.scored_at,
+                  (SELECT COUNT(*) FROM tweets tw WHERE tw.trend_id = t.id) AS tweet_count
+           FROM trends t
+           WHERE t.scored_at >= ?
+           ORDER BY t.viral_potential DESC LIMIT ?""",
+        (today, limit)
+    )
+    rows = await cursor.fetchall()
+    await conn.close()
+    return JSONResponse([dict(r) for r in rows])
+
+
+@app.get("/api/trends/{keyword}/tweets")
+async def api_trend_tweets(
+    keyword: str,
+    limit: int = Query(30, ge=1, le=100),
+):
+    """특정 트렌드의 생성 트윗 전체."""
+    conn = await _get_conn()
+    cursor = await conn.execute(
+        """SELECT tw.tweet_type, tw.content, tw.content_type, tw.char_count,
+                  tw.status, tw.generated_at
+           FROM tweets tw JOIN trends tr ON tw.trend_id = tr.id
+           WHERE tr.keyword = ?
+           ORDER BY tw.generated_at DESC LIMIT ?""",
+        (keyword, limit)
+    )
+    rows = await cursor.fetchall()
+    await conn.close()
+    return JSONResponse([dict(r) for r in rows])
+
+
+@app.get("/api/source/quality")
+async def api_source_quality(days: int = Query(7, ge=1, le=30)):
+    """소스별 품질 통계 (success_rate, avg_latency, quality_score)."""
+    conn = await _get_conn()
+    try:
+        summary = await get_source_quality_summary(conn, days=days)
+        return JSONResponse(summary)
+    finally:
+        await conn.close()
+
+
+@app.get("/api/stats/categories")
+async def api_category_stats(days: int = Query(7, ge=1, le=90)):
+    """카테고리별 바이럴 점수 분포."""
+    from datetime import timedelta
+    conn = await _get_conn()
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    cursor = await conn.execute(
+        """SELECT
+                  COALESCE(category, '기타') AS category,
+                  COUNT(*) AS count,
+                  ROUND(AVG(viral_potential), 1) AS avg_score,
+                  MAX(viral_potential) AS max_score,
+                  MIN(viral_potential) AS min_score
+           FROM trends
+           WHERE scored_at >= ?
+           GROUP BY COALESCE(category, '기타')
+           ORDER BY count DESC""",
+        (cutoff,)
+    )
+    rows = await cursor.fetchall()
+    await conn.close()
+    return JSONResponse([dict(r) for r in rows])
+
+
+@app.get("/api/watchlist")
+async def api_watchlist(limit: int = Query(50, ge=1, le=200)):
+    """Watchlist 키워드 등장 히스토리."""
+    conn = await _get_conn()
+    try:
+        cursor = await conn.execute(
+            """SELECT keyword, watchlist_item, viral_potential, detected_at
+               FROM watchlist_hits
+               ORDER BY detected_at DESC LIMIT ?""",
+            (limit,)
+        )
+        rows = await cursor.fetchall()
+        return JSONResponse([dict(r) for r in rows])
+    except Exception:
+        # watchlist_hits 테이블 미존재 시 빈 배열 반환
+        return JSONResponse([])
+    finally:
+        await conn.close()

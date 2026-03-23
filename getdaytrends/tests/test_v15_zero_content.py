@@ -43,7 +43,7 @@ class TestZeroContentPrevention:
     """All trends are in exclude_categories -> return at least 1."""
 
     def _get_quality_func(self):
-        from main import _ensure_quality_and_diversity
+        from core.pipeline import _ensure_quality_and_diversity
         return _ensure_quality_and_diversity
 
     def _make_config(self, **overrides):

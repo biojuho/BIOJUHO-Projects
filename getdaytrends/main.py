@@ -138,6 +138,9 @@ def print_banner():
 
 
 def print_config_summary(config: AppConfig):
+    country_label = ", ".join(config.countries) if len(config.countries) > 1 else config.country
+    country_mode = "parallel" if len(config.countries) > 1 and config.enable_parallel_countries else "single"
+
     sources = ["getdaytrends.com"]
     if config.twitter_bearer_token:
         sources.append("X API")
@@ -165,7 +168,8 @@ def print_config_summary(config: AppConfig):
         f"""
   설정 요약
   ─────────────────────────────────
-  국가         : {config.country}
+  국가         : {country_label}
+  국가 실행    : {country_mode}
   트렌드 수    : {config.limit}개
   중복 제외    : {config.dedupe_window_hours}시간 이내 처리 키워드
   저장 방식    : {config.storage_type.upper()}
@@ -234,6 +238,76 @@ async def print_stats(config: AppConfig):
         log.debug(f"LLM 비용 통계 조회 실패: {e}")
 
 
+def _normalize_countries(countries: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for country in countries:
+        code = (country or "").strip().lower()
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        normalized.append(code)
+
+    return normalized
+
+
+async def _run_countries_parallel_job(config: AppConfig) -> list:
+    countries = _normalize_countries(config.countries)
+    if not countries:
+        return []
+
+    parallel_limit = min(config.country_parallel_limit, len(countries))
+    print(f"\n  Parallel countries: {', '.join(country.upper() for country in countries)}")
+    print(f"  Concurrency limit : {parallel_limit}")
+
+    if config.smart_schedule and not config.one_shot:
+        print(
+            "  Smart reschedule stays on the base interval "
+            f"({config.schedule_minutes} min) in parallel mode."
+        )
+
+    semaphore = asyncio.Semaphore(parallel_limit)
+
+    async def _run_single(country: str):
+        country_config = config.for_country(country)
+        country_config.smart_schedule = False
+
+        async with semaphore:
+            started_at = time.perf_counter()
+            try:
+                result = await asyncio.to_thread(run_pipeline, country_config)
+                elapsed = time.perf_counter() - started_at
+                return country, result, elapsed, None
+            except Exception as exc:  # pragma: no cover - exercised via tests
+                elapsed = time.perf_counter() - started_at
+                return country, None, elapsed, exc
+
+    country_results = await asyncio.gather(*[_run_single(country) for country in countries])
+    failures: list[tuple[str, Exception]] = []
+
+    for country, result, elapsed, error in country_results:
+        if error is not None:
+            failures.append((country, error))
+            print(f"  FAIL {country.upper()} ({elapsed:.1f}s): {error}")
+            continue
+
+        print(
+            f"  OK   {country.upper()} ({elapsed:.1f}s) "
+            f"collected={result.trends_collected} "
+            f"saved={result.tweets_saved} "
+            f"errors={len(result.errors)}"
+        )
+
+    if failures:
+        failed_countries = ", ".join(country.upper() for country, _ in failures)
+        log.error(f"Parallel country run failed: {failed_countries}")
+        if len(failures) == len(countries):
+            raise RuntimeError(f"All parallel country runs failed: {failed_countries}") from failures[0][1]
+
+    return [result for _, result, _, error in country_results if error is None]
+
+
 # ══════════════════════════════════════════════════════
 #  Entry Point
 # ══════════════════════════════════════════════════════
@@ -247,7 +321,7 @@ def main():
 
     # CLI 오버라이드
     if args.countries:
-        countries = [c.strip() for c in args.countries.split(",") if c.strip()]
+        countries = _normalize_countries(args.countries.split(","))
         config.country = countries[0]
         config.countries = countries
     elif args.country:
@@ -317,15 +391,22 @@ def main():
             print("\n  → .env 파일을 확인해주세요\n")
             return
 
+    config.countries = _normalize_countries(config.countries or [config.country])
+    config.country = config.countries[0]
+
     print_config_summary(config)
 
-    # 즉시 1회 실행 (다국가 지원)
+    # 즉시 1회 실행 (다국가 지원 — 병렬/순차 자동 선택)
     def _run_all_countries():
-        for country in config.countries:
-            country_config = config.for_country(country) if country != config.country else config
-            if len(config.countries) > 1:
-                print(f"\n  ═══ 국가: {country.upper()} ═══")
-            run_pipeline(country_config, schedule_callback=_run_all_countries)
+        if len(config.countries) > 1 and config.enable_parallel_countries:
+            run_async(_run_countries_parallel_job(config))
+        else:
+            for country in config.countries:
+                country_config = config.for_country(country) if country != config.country else config
+                if len(config.countries) > 1:
+                    print(f"\n  ═══ 국가: {country.upper()} ═══")
+                run_pipeline(country_config, schedule_callback=_run_all_countries)
+
 
     _run_all_countries()
 

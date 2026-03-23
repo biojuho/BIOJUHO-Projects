@@ -612,6 +612,7 @@ def collect_contexts(
 from context_collector import (  # noqa: F401
     _async_collect_contexts,
     _async_fetch_google_news_trends,
+    _async_fetch_google_trends_related,
     _async_fetch_reddit_trends,
     _async_fetch_twitter_trends,
     _async_fetch_google_suggest,

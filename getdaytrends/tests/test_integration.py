@@ -211,7 +211,7 @@ class TestPipelineIntegration(unittest.TestCase):
 
 class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
     async def test_step_generate_regenerates_only_failed_blog_group(self):
-        from main import _step_generate
+        from core.pipeline_steps import _step_generate
 
         trend = _trend(viral=75)
         trend.category = "테크"
@@ -247,12 +247,12 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             "reason": "통과",
         }
 
-        with patch("main.get_cached_content", new_callable=AsyncMock) as mock_cached, \
-             patch("main.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent, \
-             patch("main.generate_for_trend_async", new_callable=AsyncMock) as mock_generate, \
+        with patch("core.pipeline_steps.get_cached_content", new_callable=AsyncMock) as mock_cached, \
+             patch("core.pipeline_steps.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent, \
+             patch("core.pipeline_steps.generate_for_trend_async", new_callable=AsyncMock) as mock_generate, \
              patch("generator.audit_generated_content", new_callable=AsyncMock) as mock_audit, \
-             patch("main.regenerate_content_groups", new_callable=AsyncMock) as mock_regen, \
-             patch("main.get_client") as mock_client_factory:
+             patch("core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen, \
+             patch("core.pipeline_steps.get_client") as mock_client_factory:
 
             mock_cached.return_value = None
             mock_recent.return_value = []

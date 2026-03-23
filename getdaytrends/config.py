@@ -49,6 +49,8 @@ class AppConfig:
 
     # Schedule
     schedule_minutes: int = 360
+    enable_parallel_countries: bool = True
+    country_parallel_limit: int = 3
 
     # Tone
     tone: str = "친근하고 위트 있는 동네 친구"
@@ -270,7 +272,7 @@ class AppConfig:
 
     # Runtime options (CLI overrides)
     country: str = "korea"
-    countries: list = field(default_factory=list)   # 다국가 실행 목록
+    countries: list = field(default_factory=list)
     limit: int = 10
     dedupe_window_hours: int = 6
     one_shot: bool = False
@@ -293,6 +295,8 @@ class AppConfig:
             db_path=os.getenv("DB_PATH", "data/getdaytrends.db"),
             database_url=os.getenv("DATABASE_URL", ""),
             schedule_minutes=int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "360")),
+            enable_parallel_countries=os.getenv("ENABLE_PARALLEL_COUNTRIES", "true").lower() == "true",
+            country_parallel_limit=int(os.getenv("COUNTRY_PARALLEL_LIMIT", "3")),
             tone=os.getenv("TONE", "친근하고 위트 있는 동네 친구"),
             editorial_profile=os.getenv("EDITORIAL_PROFILE", "report").lower(),
             twitter_bearer_token=os.getenv("TWITTER_BEARER_TOKEN", ""),
@@ -486,6 +490,8 @@ class AppConfig:
             )
         if not 1 <= self.schedule_minutes <= 1440:
             errors.append(f"SCHEDULE_INTERVAL_MINUTES 범위 초과: {self.schedule_minutes} (1~1440)")
+        if not 1 <= self.country_parallel_limit <= 10:
+            errors.append(f"COUNTRY_PARALLEL_LIMIT out of range: {self.country_parallel_limit} (1~10)")
         if self.daily_budget_usd < 0:
             errors.append(f"DAILY_BUDGET_USD는 0 이상이어야 합니다: {self.daily_budget_usd}")
         if not 1 <= self.max_workers <= 50:
@@ -565,6 +571,11 @@ class AppConfig:
             "min_viral_score": self.min_viral_score,
             "max_workers": self.max_workers,
             "storage_type": self.storage_type,
+            "multi_country": {
+                "enabled": self.enable_parallel_countries,
+                "countries": self.countries,
+                "parallel_limit": self.country_parallel_limit,
+            },
             "features": {
                 "clustering": self.enable_clustering,
                 "long_form": self.enable_long_form,

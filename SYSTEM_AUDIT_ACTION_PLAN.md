@@ -21,7 +21,7 @@
 - **내용**: 환경 변수 기반 키 로딩 (`os.getenv`)
 - **비용 최적화 설정**:
   - ✅ Gemini 2.5 Flash-Lite 우선 사용 (Free 1,000RPD, $0.10/$0.40)
-  - ⚠️ Gemini 2.0 Flash deprecated (2026-06-01 종료 예정) - 레거시 폴백으로만 사용 중
+  - ✅ Gemini 2.0 Flash deprecated → **완전 제거됨** (2026-03-22, 2.5 Flash로 대체)
   - ✅ Xiaomi MiMo-V2-Pro ($0.09/1M) 저비용 폴백 체인 구축
   - ✅ Task Tier 기반 모델 라우팅 (HEAVY/MEDIUM/LIGHTWEIGHT)
   - ✅ DeepSeek 제거됨 (한국어 프롬프트 오류로 인한 높은 에러율)
@@ -55,7 +55,7 @@
 
 **⚠️ 개선 필요 영역**:
 1. `.claude/settings.local.json`이 Git에 추적됨 → 팀원별 동작 편차 가능
-2. Gemini 2.0 Flash deprecated 모델 사용 (2026-06-01 종료 예정)
+2. ~~Gemini 2.0 Flash deprecated 모델 사용~~ → ✅ **제거 완료** (2026-03-23)
 3. `ALLOW_TEST_BYPASS` 환경 변수 존재 여부 미확인 (프로덕션 노출 위험)
 4. AgriGuard SQLite 동시성 문제
 5. CI/CD 파이프라인 부재
@@ -79,10 +79,10 @@
 
 | # | 항목 | 상태 | 담당 | 목표일 |
 |---|------|------|------|--------|
-| 7 | Gemini 2.0 Flash 제거 및 2.5 Flash-Lite로 완전 전환 | 🔄 | Backend | 2026-03-29 |
-| 8 | GitHub Secret Scanning + Push Protection 활성화 | ⏳ | DevOps | 2026-03-29 |
-| 9 | Dependabot + Dependency Review + CodeQL 설정 | ⏳ | DevOps | 2026-03-29 |
-| 10 | `scripts/check_security.py` pre-commit hook 강제화 | ⏳ | DevOps | 2026-03-29 |
+| 7 | Gemini 2.0 Flash 제거 및 2.5 Flash-Lite로 완전 전환 | ✅ | Backend | 2026-03-23 |
+| 8 | GitHub Secret Scanning + Push Protection 활성화 | ⏳ (Repo Settings UI 필요) | DevOps | 2026-03-29 |
+| 9 | Dependabot + Dependency Review + CodeQL 설정 | ✅ | DevOps | 2026-03-23 |
+| 10 | `scripts/check_security.py` pre-commit hook 강제화 | ✅ | DevOps | 2026-03-23 |
 | 11 | AgriGuard SQLite → PostgreSQL 마이그레이션 계획 수립 | ⏳ | Backend | 2026-03-29 |
 | 12 | Python 런타임 기준 3.13 통일 + 3.14 canary CI 구축 | ⏳ | DevOps | 2026-03-29 |
 
@@ -116,6 +116,7 @@
 **현재 Tier 기반 모델 선택 전략**:
 
 ```python
+# ✅ 2026-03-23 현재 상태 (gemini-2.0-flash 완전 제거됨)
 TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.HEAVY: [
         ("anthropic", "claude-sonnet-4-20250514"),      # $3.0/$15.0
@@ -126,7 +127,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     ],
     TaskTier.MEDIUM: [
         ("gemini", "gemini-2.5-flash-lite"),            # $0.10/$0.40 ⭐
-        ("gemini", "gemini-2.0-flash"),                 # ⚠️ deprecated 2026-06
+        ("gemini", "gemini-2.5-flash"),                 # ✅ 2.0 → 2.5 대체 완료
         ("mimo", "mimo-v2-pro"),                        # $0.09/$0.09
         ("anthropic", "claude-haiku-4-5-20251001"),     # $0.8/$4.0
         ("grok", "grok-3-mini-fast"),                   # $0.3/$0.5
@@ -134,7 +135,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     ],
     TaskTier.LIGHTWEIGHT: [
         ("gemini", "gemini-2.5-flash-lite"),            # $0.10/$0.40 ⭐ Free 1,000RPD
-        ("gemini", "gemini-2.0-flash"),                 # ⚠️ deprecated 2026-06
+        ("gemini", "gemini-2.5-flash"),                 # ✅ 2.0 → 2.5 대체 완료
         ("mimo", "mimo-v2-pro"),                        # $0.09/$0.09
         ("grok", "grok-3-mini-fast"),                   # $0.3/$0.5
         ("anthropic", "claude-haiku-4-5-20251001"),     # $0.8/$4.0
@@ -156,12 +157,12 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
 **비용 관련 발견 사항**:
 1. ✅ **우수한 설계**: Task Tier 기반 라우팅으로 작업 복잡도에 따라 모델 선택
 2. ✅ **저비용 우선**: Gemini Flash-Lite (Free tier 1,000 RPD)를 최우선 사용
-3. ⚠️ **Deprecated 모델**: Gemini 2.0 Flash는 2026-06-01 종료 예정이지만 레거시 폴백으로 남아있음
+3. ✅ **Deprecated 모델 제거**: Gemini 2.0 Flash 완전 제거됨 (2026-03-23)
 4. ✅ **로컬 모델 폴백**: Ollama/BitNet로 API 비용 $0 옵션 보유
 5. ⚠️ **DeepSeek 제거**: 한국어 프롬프트 오류로 인해 모든 체인에서 제거됨 (line 151-156 주석)
 
 **권장 조치** (비용 최적화):
-1. **즉시**: Gemini 2.0 Flash 제거 (deprecated)
+1. ~~**즉시**: Gemini 2.0 Flash 제거~~ → ✅ **완료** (2026-03-23)
 2. **단기**: OpenAI Batch API 통합 (50% 비용 절감)
 3. **단기**: Gemini Batch API 통합 (50% 비용 절감)
 4. **중기**: Semantic caching (gptcache) 도입으로 중복 쿼리 비용 $0 전환
@@ -211,10 +212,10 @@ cached_text = self._state_store.get_cached_llm_response(prompt_hash)
 
 | 항목 | 우선순위 | 담당 | 상태 |
 |------|----------|------|------|
-| GitHub Secret Scanning + Push Protection 활성화 | Critical | DevOps | ⏳ |
-| Gitleaks pre-commit hook 추가 | High | DevOps | ⏳ |
-| Dependabot 자동 업데이트 설정 | High | DevOps | ⏳ |
-| CodeQL 정적 분석 (Python/JS/Solidity) | High | DevOps | ⏳ |
+| GitHub Secret Scanning + Push Protection 활성화 | Critical | DevOps | ⏳ (Repo Settings UI) |
+| Gitleaks pre-commit hook 추가 | High | DevOps | ✅ (2026-03-23) |
+| Dependabot 자동 업데이트 설정 | High | DevOps | ✅ (2026-03-23) |
+| CodeQL 정적 분석 (Python/JS/Solidity) | High | DevOps | ✅ (2026-03-23) |
 | Firebase 보안 규칙 검토 및 테스트 자동화 | High | Backend | ⏳ |
 | `ALLOW_TEST_BYPASS` 환경 변수 제거 | Critical | Backend | ⏳ |
 | 블록체인 `PRIVATE_KEY` 시크릿 매니저 이관 | Critical | DevOps | ⏳ |
@@ -223,8 +224,8 @@ cached_text = self._state_store.get_cached_llm_response(prompt_hash)
 
 | 항목 | 우선순위 | 담당 | 상태 |
 |------|----------|------|------|
-| Gemini 2.0 Flash 제거 (deprecated) | High | Backend | 🔄 |
-| Gemini 2.5 Flash-Lite Free tier 활용 극대화 | High | Backend | 🔄 |
+| Gemini 2.0 Flash 제거 (deprecated) | High | Backend | ✅ (2026-03-23) |
+| Gemini 2.5 Flash-Lite Free tier 활용 극대화 | High | Backend | ✅ (2026-03-23) |
 | OpenAI Batch API 통합 (50% 비용 절감) | Medium | Backend | ⏳ |
 | Gemini Batch API 통합 (50% 비용 절감) | Medium | Backend | ⏳ |
 | `cost_intelligence.py` 주간 리포트 자동화 | Medium | Backend | ⏳ |
@@ -307,7 +308,8 @@ cached_text = self._state_store.get_cached_llm_response(prompt_hash)
 **목표**: 보안·비용·안정성 기본기 확립
 
 - [x] `.claude/settings.local.json` Git 추적 해제
-- [ ] GitHub secret scanning + push protection + Dependabot + CodeQL 활성화
+- [x] Dependabot + CodeQL 활성화 (워크플로 생성 완료)
+- [ ] GitHub secret scanning + push protection 활성화 (Repo Settings UI)
 - [ ] AgriGuard PostgreSQL 마이그레이션
 - [ ] LLM Batch API 통합 (비용 50% 절감)
 - [ ] Docker Compose + CI/CD 파이프라인 구축
@@ -390,7 +392,7 @@ cached_text = self._state_store.get_cached_llm_response(prompt_hash)
 ### 비용
 
 - [x] `shared/llm/config.py` 현재 설정 검토 완료
-- [ ] Gemini 2.0 Flash 제거 일정 수립
+- [x] Gemini 2.0 Flash 제거 완료 (2026-03-23)
 - [ ] `cost_intelligence.py` 현재 월간 비용 리포트 생성
 
 ### 문서화
