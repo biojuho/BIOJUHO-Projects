@@ -9,6 +9,9 @@
 ## Current Status
 
 ### Recently Completed (2026-03-23 & 2026-03-24)
+- **Workspace QC Recovery Complete**: full smoke rerun passed `15/15` after targeted fixes; evidence saved to `logs/workspace-smoke-postfix-2026-03-24.json`
+- **NotebookLM MCP Auth Recovered**: token cache refreshed and notebook listing verified again (`87 notebooks` returned)
+- **desci Frontend Smoke Stabilized**: workspace smoke now uses `npm run test:lts` because project engine pins Node `<24`
 - **instagram-automation Refactoring**: main.py 599 -> 193 lines (68% reduction), 9 routers, QC PASS
 - **getdaytrends Refactoring**: main.py reduced from 1,435 -> 305 lines
 - **Production Validation**: import paths verified, tests passed, deployment guide created
@@ -30,11 +33,12 @@
 *No active work*
 
 ### Next Immediate Actions
-1. Docker deployment ready (`docker compose up -d getdaytrends`)
-2. v9.0 Sprint 1 optimizations verified
-3. v9.0 Sprint 2 verified in code and tests: C-2, B-1, C-3
-4. Optional: implement A-2 (QA Audit skip) when QA system is activated
-5. Optional monitoring: observe the next natural runs at 18:00 for `DailyNews_Evening_Insights` / `GetDayTrends_CurrentUser`
+1. Restart any MCP client sessions that should pick up refreshed NotebookLM auth
+2. Docker deployment ready (`docker compose up -d getdaytrends`)
+3. v9.0 Sprint 1 optimizations verified
+4. v9.0 Sprint 2 verified in code and tests: C-2, B-1, C-3
+5. Optional: implement A-2 (QA Audit skip) when QA system is activated
+6. Optional monitoring: observe the next natural runs at 18:00 for `DailyNews_Evening_Insights` / `GetDayTrends_CurrentUser`
 
 ---
 
@@ -56,6 +60,8 @@
 | `getdaytrends/DOCKER_DEPLOYMENT.md` | Created | Docker deployment guide |
 | `getdaytrends/V9.0_IMPLEMENTATION_STATUS.md` | Created | v9.0 audit report |
 | `getdaytrends/BENCHMARK_2026-03-23.md` | Created | Performance benchmark |
+| `scripts/run_workspace_smoke.py` | Updated | desci smoke test now uses `test:lts` |
+| `logs/workspace-smoke-postfix-2026-03-24.json` | Created | post-fix workspace QC evidence |
 | `TASKS.md` | Updated | task board |
 | `HANDOFF.md` | Updated | session relay |
 
