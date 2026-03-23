@@ -2,8 +2,6 @@
 # Usage: docker compose up -d
 # Services: PostgreSQL, Biolinker API, AgriGuard API, Frontend
 
-version: '3.8'
-
 services:
   # PostgreSQL Database (shared by multiple services)
   postgres:

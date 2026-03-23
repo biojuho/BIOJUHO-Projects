@@ -125,7 +125,8 @@ def default_checks(python_exe: str) -> list[Check]:
             ],
         ),
         Check("desci", "desci frontend lint", "desci-platform/frontend", [npm_exe, "run", "lint"]),
-        Check("desci", "desci frontend unit tests", "desci-platform/frontend", [npm_exe, "run", "test"]),
+        # desci frontend pins Node <24, so smoke tests should use the LTS runner.
+        Check("desci", "desci frontend unit tests", "desci-platform/frontend", [npm_exe, "run", "test:lts"]),
         Check("desci", "desci frontend build", "desci-platform/frontend", [npm_exe, "run", "build:lts"]),
         Check("desci", "desci bundle budget", "desci-platform/frontend", [npm_exe, "run", "check:bundle"]),
         Check(
