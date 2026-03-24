@@ -5,7 +5,7 @@ getdaytrends Core Pipeline Orchestrator
 
 import asyncio
 import dataclasses
-import re
+
 import sys
 import time
 import uuid
@@ -38,7 +38,7 @@ from db import (
     update_run,
 )
 from generator import generate_for_trend_async, regenerate_content_groups
-from models import GeneratedTweet, RunResult, TweetBatch
+from models import RunResult, TweetBatch
 from scraper import collect_contexts, collect_trends
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
@@ -51,81 +51,9 @@ from loguru import logger as log
 
 # ══════════════════════════════════════════════════════
 #  Helper Functions
+#  NOTE: _should_skip_qa, _is_accelerating, _batch_from_cache
+#        are defined in core/pipeline_steps.py (canonical location).
 # ══════════════════════════════════════════════════════
-
-
-def _should_skip_qa(trend, is_cached: bool, config: AppConfig) -> bool:
-    """[v9.0] QA Audit를 생략할 수 있는 조건.
-    - 캐시 재사용 콘텐츠: 이미 검증된 내용
-    - 고바이럴 트렌드: 품질 리스크 낮음
-    - 저위험 카테고리: 날씨/음식/스포츠 등
-    """
-    if not getattr(config, "enable_quality_feedback", True):
-        return True
-    if is_cached and getattr(config, "qa_skip_cached", True):
-        return True
-    skip_score = getattr(config, "qa_skip_high_score", 85)
-    if trend.viral_potential >= skip_score:
-        return True
-    skip_cats = set(getattr(config, "qa_skip_categories", []))
-    category = getattr(trend, "category", "") or ""
-    if category in skip_cats:
-        return True
-    return False
-
-
-def _is_accelerating(trend_acceleration: str) -> bool:
-    """
-    trend_acceleration 문자열이 급상승 상태인지 판별.
-    '+3%', '+30%', '급상승' 등을 처리.
-    """
-    if "급상승" in trend_acceleration:
-        return True
-    m = re.search(r"\+(\d+(?:\.\d+)?)\s*%?", trend_acceleration)
-    if m:
-        try:
-            return float(m.group(1)) >= 3.0
-        except ValueError:
-            pass
-    return False
-
-
-def _batch_from_cache(topic: str, rows: list[dict]) -> TweetBatch:
-    """캐시된 트윗 행 → TweetBatch 재구성. 중복 tweet_type 중 최신 1개만 사용."""
-    tweets: list[GeneratedTweet] = []
-    long_posts: list[GeneratedTweet] = []
-    threads_posts: list[GeneratedTweet] = []
-    blog_posts: list[GeneratedTweet] = []
-    seen: set[tuple[str, str]] = set()
-
-    for row in rows:
-        ct = row.get("content_type", "short")
-        tt = row.get("tweet_type", "")
-        if (tt, ct) in seen:
-            continue
-        seen.add((tt, ct))
-        t = GeneratedTweet(
-            tweet_type=tt,
-            content=row["content"],
-            content_type=ct,
-            char_count=row.get("char_count", len(row["content"])),
-        )
-        if ct == "long":
-            long_posts.append(t)
-        elif ct == "threads":
-            threads_posts.append(t)
-        elif ct == "naver_blog":
-            blog_posts.append(t)
-        else:
-            tweets.append(t)
-
-    return TweetBatch(
-        topic=topic,
-        tweets=tweets,
-        long_posts=long_posts,
-        threads_posts=threads_posts,
-        blog_posts=blog_posts,
-    )
 
 
 # ══════════════════════════════════════════════════════

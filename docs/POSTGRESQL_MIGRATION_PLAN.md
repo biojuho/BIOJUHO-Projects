@@ -21,7 +21,7 @@ AgriGuard currently uses SQLite (`agriguard.db`) which has concurrency limitatio
 | **Concurrent Writes** | 1 | Production requires 100+ |
 | **ORM** | SQLAlchemy | ✅ DB-agnostic (minimal code changes) |
 | **Port** | 8002 | |
-| **Data Size** | Unknown | Need assessment |
+| **Data Size** | 749,568 bytes / 2,126 rows | Baseline captured on 2026-03-24 |
 
 ---
 
@@ -29,12 +29,15 @@ AgriGuard currently uses SQLite (`agriguard.db`) which has concurrency limitatio
 
 ### Phase 1: Preparation (Week 1)
 
+**Status (2026-03-24)**: Complete
+Current deliverables are in place, including the Alembic helper runner, Postgres-ready env examples, and a one-time legacy SQLite baseline stamp path for databases that predate Alembic.
+
 **Tasks**:
-- [ ] Install Alembic migration tool
-- [ ] Generate initial migration from current schema
-- [ ] Set up PostgreSQL Docker container
-- [ ] Create `.env.example` with PostgreSQL URL
-- [ ] Document current data volume
+- [x] Install Alembic migration tool
+- [x] Generate initial migration from current schema
+- [x] Set up PostgreSQL Docker container
+- [x] Create `.env.example` with PostgreSQL URL
+- [x] Document current data volume
 
 **Deliverables**:
 ```bash
@@ -47,6 +50,12 @@ alembic init alembic
 
 # Generate initial migration
 alembic revision --autogenerate -m "initial schema"
+
+# Assess current SQLite footprint
+python scripts/assess_sqlite_data_volume.py --markdown-out ../SQLITE_DATA_VOLUME_REPORT.md
+
+# Stamp legacy SQLite DBs created before Alembic, then upgrade
+python scripts/run_migrations.py
 ```
 
 ### Phase 2: Parallel Testing (Week 2)
@@ -57,6 +66,20 @@ alembic revision --autogenerate -m "initial schema"
 - [ ] Run all tests against PostgreSQL
 - [ ] Performance benchmark (SQLite vs PostgreSQL)
 - [ ] Fix any compatibility issues
+
+**Validation Command**:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File AgriGuard/validate_postgres_week2.ps1
+```
+
+The validator loads `.env` files, starts the `postgres` service with Docker Compose,
+runs Alembic migrations, checks a live SQLAlchemy connection, and executes the
+backend smoke tests against PostgreSQL.
+
+If Docker Desktop fails with `Wsl/0x80070422`, treat that as a host-environment
+blocker rather than an AgriGuard code issue. Re-enable/start `WslService`,
+`vmcompute`, and `com.docker.service` from an elevated shell, then rerun the
+validator.
 
 **Docker Compose**:
 ```yaml

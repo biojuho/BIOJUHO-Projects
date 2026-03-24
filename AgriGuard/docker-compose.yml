@@ -5,9 +5,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: agriguard
-      POSTGRES_PASSWORD: agriguard_secret
-      POSTGRES_DB: agriguard
+      POSTGRES_USER: ${AGRIGUARD_DB_USER:-agriguard}
+      POSTGRES_PASSWORD: ${AGRIGUARD_DB_PASSWORD:-agriguard_secret}
+      POSTGRES_DB: ${AGRIGUARD_DB_NAME:-agriguard}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -54,8 +54,9 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - ENV=production
-      - DATABASE_URL=postgresql://agriguard:agriguard_secret@postgres:5432/agriguard
+      - ENV=${ENV:-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://agriguard:agriguard_secret@postgres:5432/agriguard}
+      - AUTO_CREATE_SCHEMA=${AUTO_CREATE_SCHEMA:-false}
       - MQTT_BROKER_HOST=mosquitto
       - MQTT_BROKER_PORT=1883
     env_file:

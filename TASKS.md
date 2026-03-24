@@ -11,12 +11,14 @@
 *No critical tasks at this time*
 
 ### P2 - Important
-- [ ] **AgriGuard PostgreSQL Migration Week 1**
-  - **Description**: Alembic setup, Docker Compose, initial migration
+- [ ] **AgriGuard PostgreSQL Migration Week 2**
+  - **Description**: Start PostgreSQL locally, apply migrations to PostgreSQL, and run backend smoke against Postgres
   - **Tool**: Manual / Claude Code
   - **Owner**: Backend Team
   - **Estimate**: 1 week
-  - **Blockers**: None
+  - **Blockers**: Docker Desktop cannot start its WSL engine on this machine because `WslService` is disabled (`Wsl/0x80070422`); elevated recovery is required before validation can proceed
+  - **Current Diagnosis**: `Docker Desktop Service` is stopped, `WslService` is disabled, `vmcompute` is stopped, and the current shell does not have elevation to start them
+  - **Helper**: `AgriGuard/validate_postgres_week2.ps1`
   - **Guide**: [docs/POSTGRESQL_MIGRATION_PLAN.md](docs/POSTGRESQL_MIGRATION_PLAN.md)
 
 ### P3 - Nice to Have
@@ -46,6 +48,18 @@
 ## 🟢 DONE (Last 7 Days)
 
 ### 2026-03-24
+- [x] **AgriGuard PostgreSQL Migration Week 1** ✅
+  - **Result**: Completed the Week 1 preparation work with migration-first startup, Postgres-ready env examples, SQLite data volume reporting, and legacy SQLite baseline stamping to Alembic revision `0001`
+  - **Tool**: Codex
+  - **Duration**: 1 hour
+  - **Files**: `AgriGuard/backend/database.py`, `AgriGuard/backend/main.py`, `AgriGuard/backend/seed_db.py`, `AgriGuard/backend/scripts/run_migrations.py`, `AgriGuard/backend/scripts/assess_sqlite_data_volume.py`, `AgriGuard/SQLITE_DATA_VOLUME_REPORT.md`
+  - **Validation**:
+    - `python AgriGuard/backend/scripts/assess_sqlite_data_volume.py --markdown-out AgriGuard/SQLITE_DATA_VOLUME_REPORT.md`
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_database_config.py -q -o addopts=''`
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_smoke.py -q -o addopts=''`
+    - `python scripts/run_migrations.py` -> legacy SQLite DB stamped to `0001`, repeat run became a no-op
+  - **Notes**: `docker compose -f AgriGuard/docker-compose.yml config` passed; live PostgreSQL container validation is pending because Docker Desktop was not running locally
+
 - [x] **workspace QC recovery + NotebookLM auth refresh**
   - **Result**: NotebookLM authentication recovered, desci smoke test stabilized to Node 22 LTS path, and full workspace smoke passed `15/15`
   - **Tool**: Codex + smoke runner + NotebookLM auth CLI
@@ -254,7 +268,7 @@ See [.agent/TOOL_CAPABILITIES.md](.agent/TOOL_CAPABILITIES.md) for full capabili
 
 - **Total Active Tasks**: 2 (1 P2, 1 P3)
 - **In Progress**: 0
-- **Completed (7 days)**: 27
+- **Completed (7 days)**: 28
 - **Open Tasks Remaining**: 2
 - **Average Task Duration**: 23.8 min
 - **Total Lines Written Today**: ~3,200+

@@ -10,13 +10,11 @@ from datetime import datetime
 
 import models
 import schemas
-from database import SessionLocal, engine
+from database import SessionLocal, initialize_database, verify_database_connection
 from services.chain_simulator import get_chain
 from auth import get_current_user
 from iot_service import sensor_simulation_loop, get_current_status, get_latest_readings, handle_ws_connection
 from starlette.middleware.sessions import SessionMiddleware
-
-models.Base.metadata.create_all(bind=engine)
 
 # ── Observability (Logfire) ─────────────────────────────────
 import sys
@@ -29,6 +27,9 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app):
+    initialize_database()
+    verify_database_connection()
+
     # Start IoT simulation
     sim_task = asyncio.create_task(sensor_simulation_loop())
 

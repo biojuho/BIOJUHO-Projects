@@ -2,11 +2,10 @@ import uuid
 from datetime import datetime, timedelta
 import random
 
-from database import SessionLocal, engine
+from database import SessionLocal, initialize_database
 import models
 
-# Create tables
-models.Base.metadata.create_all(bind=engine)
+initialize_database()
 
 def seed_db():
     db = SessionLocal()
