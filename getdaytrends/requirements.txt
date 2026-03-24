@@ -22,7 +22,7 @@ selectolax>=0.3.21,<1.0        # Lexbor 백엔드 CSS 셀렉터 파싱
 # X/Twitter 비공식 클라이언트 (선택: Jina 폴백 대안)
 twikit>=2.3.0,<3.0
 # [Phase 1] Instructor — Pydantic 기반 구조화된 LLM 출력 (JSON 파싱 안정화)
-instructor>=1.14.0
+instructor>=1.14.5
 # [Phase 2] Kiwipiepy — 한국어 형태소 분석 (AI어투 탐지 + 신조어 감지)
 # 주의: Windows 한글 경로에서 segfault 이슈. 문자열 패턴 폴백으로도 동작.
 # pip install kiwipiepy  # (선택 — Linux/WSL 권장)
