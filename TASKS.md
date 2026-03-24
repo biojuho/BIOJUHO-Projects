@@ -46,6 +46,16 @@
 ## 🟢 DONE (Last 7 Days)
 
 ### 2026-03-24
+- [x] **workspace QC recovery + NotebookLM auth refresh**
+  - **Result**: NotebookLM authentication recovered, desci smoke test stabilized to Node 22 LTS path, and full workspace smoke passed `15/15`
+  - **Tool**: Codex + smoke runner + NotebookLM auth CLI
+  - **Duration**: 20 min
+  - **Files**: `scripts/run_workspace_smoke.py`, `HANDOFF.md`, `TASKS.md`
+  - **Validation**:
+    - `venv\\Scripts\\python.exe scripts\\list_notebooks.py` -> notebooks listed successfully
+    - `python scripts/run_workspace_smoke.py --scope all --json-out logs/workspace-smoke-postfix-2026-03-24.json` -> all checks passed
+  - **Notes**: desci workspace smoke now uses `npm run test:lts` because `desci-platform/frontend/package.json` pins Node `<24`
+
 - [x] **getdaytrends v9.0 Sprint 2 verified complete** ✅
   - **Result**: All 3 Sprint 2 tasks (C-2, B-1, C-3) were already implemented in previous sessions
   - **Tool**: Claude Code + pytest
@@ -244,7 +254,7 @@ See [.agent/TOOL_CAPABILITIES.md](.agent/TOOL_CAPABILITIES.md) for full capabili
 
 - **Total Active Tasks**: 2 (1 P2, 1 P3)
 - **In Progress**: 0
-- **Completed (7 days)**: 26
+- **Completed (7 days)**: 27
 - **Open Tasks Remaining**: 2
 - **Average Task Duration**: 23.8 min
 - **Total Lines Written Today**: ~3,200+
