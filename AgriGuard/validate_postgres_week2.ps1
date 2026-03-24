@@ -120,7 +120,16 @@ function Get-RecentDockerBackendHint {
         return ""
     }
 
-    return ($lines -join [Environment]::NewLine)
+    $sanitizedLines = foreach ($line in $lines) {
+        if ($line -match "Wsl/0x80070422") {
+            "Docker backend log: WSL engine startup failed with Wsl/0x80070422 because a required Windows service is disabled."
+            continue
+        }
+
+        $line
+    }
+
+    return (($sanitizedLines | Select-Object -Unique) -join [Environment]::NewLine)
 }
 
 function Invoke-Utf8Command {
@@ -148,7 +157,7 @@ function Invoke-Utf8Command {
 }
 
 function Assert-DockerDaemon {
-    $dockerVersionOutput = (& docker version 2>&1 | Out-String).Trim()
+    $dockerVersionOutput = (cmd /c "docker version 2>&1" | Out-String).Trim()
     if ($LASTEXITCODE -eq 0) {
         return
     }

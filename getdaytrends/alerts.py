@@ -88,6 +88,68 @@ def send_discord_alert(message: str, config: AppConfig) -> dict:
         return {"ok": False, "error": str(e)}
 
 
+def send_slack_alert(message: str, config: AppConfig) -> dict:
+    """[C-5] Slack Incoming Webhook으로 메시지 전송."""
+    if not config.slack_webhook_url:
+        return {"ok": False, "error": "Slack 설정 없음"}
+
+    # Slack mrkdwn: *bold* 형식 그대로 사용 가능
+    payload = json.dumps({"text": message[:3000]}).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            config.slack_webhook_url,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "BIOJUHO-Notifier/1.0",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+        # Slack returns "ok" on success
+        log.info("Slack 알림 전송 완료")
+        return {"ok": True, "body": body}
+    except Exception as e:
+        log.error(f"Slack 전송 실패: {e}")
+        return {"ok": False, "error": str(e)}
+
+
+def send_email_alert(message: str, config: AppConfig) -> dict:
+    """[C-5] SMTP 기반 이메일 알림 전송."""
+    if not config.smtp_host or not config.alert_email:
+        return {"ok": False, "error": "SMTP/이메일 설정 없음"}
+
+    import smtplib
+    from email.mime.text import MIMEText
+
+    # Markdown 제거하여 플레인텍스트 이메일 생성
+    plain = message.replace("*", "").replace("`", "")
+
+    msg = MIMEText(plain, "plain", "utf-8")
+    msg["Subject"] = "[GetDayTrends] 트렌드 알림"
+    msg["From"] = config.smtp_user or config.alert_email
+    msg["To"] = config.alert_email
+
+    try:
+        if config.smtp_port == 465:
+            server = smtplib.SMTP_SSL(config.smtp_host, config.smtp_port, timeout=10)
+        else:
+            server = smtplib.SMTP(config.smtp_host, config.smtp_port, timeout=10)
+            server.starttls()
+
+        if config.smtp_user and config.smtp_password:
+            server.login(config.smtp_user, config.smtp_password)
+
+        server.send_message(msg)
+        server.quit()
+        log.info(f"이메일 알림 전송 완료 → {config.alert_email}")
+        return {"ok": True}
+    except Exception as e:
+        log.error(f"이메일 전송 실패: {e}")
+        return {"ok": False, "error": str(e)}
+
+
 def send_alert(message: str, config: AppConfig) -> dict:
     """모든 설정된 채널로 알림 전송."""
     results = {}
@@ -95,6 +157,10 @@ def send_alert(message: str, config: AppConfig) -> dict:
         results["telegram"] = send_telegram_alert(message, config)
     if config.discord_webhook_url:
         results["discord"] = send_discord_alert(message, config)
+    if config.slack_webhook_url:
+        results["slack"] = send_slack_alert(message, config)
+    if config.smtp_host and config.alert_email:
+        results["email"] = send_email_alert(message, config)
     return results
 
 

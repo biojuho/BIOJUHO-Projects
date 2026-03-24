@@ -31,15 +31,36 @@
 - **Test Stabilization**: Fixed 22 import breakages from refactoring, all 403 tests passing
 
 ### In Progress
-- **AgriGuard PostgreSQL Week 2**: validation runner added at `AgriGuard/validate_postgres_week2.ps1`; local failure is now diagnosed as Docker Desktop WSL engine startup failing with `Wsl/0x80070422` because `WslService` is disabled on this machine, and the current shell is not elevated to re-enable it
+- **AgriGuard PostgreSQL Week 2**: ⚠️ **Blocked** - WSL service disabled (`Wsl/0x80070422`)
+  - **Issue**: Docker Desktop cannot start because `WslService` is disabled
+  - **Solution Created**: Automated fix script at `scripts/fix_docker_wsl_service.ps1`
+  - **Documentation**: Full guide at `docs/DOCKER_WSL_SERVICE_FIX.md`
 
 ### Next Immediate Actions
-1. Open an elevated PowerShell or Windows Terminal and re-enable/start `WslService`, `vmcompute`, and `com.docker.service`
-2. Start Docker Desktop until `docker version` returns both client and server details
-3. Run AgriGuard Week 2 validator (`powershell -NoProfile -ExecutionPolicy Bypass -File AgriGuard/validate_postgres_week2.ps1`)
-4. If the validator reaches PostgreSQL but fails later, inspect the failing step and continue from the same command it prints
-5. Restart any MCP client sessions that should pick up refreshed NotebookLM auth
-6. Optional monitoring: observe the next natural runs at 18:00 for `DailyNews_Evening_Insights` / `GetDayTrends_CurrentUser`
+
+**Fix Docker WSL Service (Required for Week 2)**:
+
+1. **Option A - Automated Fix (Recommended)** ✅
+   ```powershell
+   # Run as Administrator
+   powershell -ExecutionPolicy Bypass -File scripts/fix_docker_wsl_service.ps1
+   ```
+
+2. **Option B - Manual Fix**
+   - Open PowerShell as Administrator
+   - Run: `Set-Service -Name WslService -StartupType Manual`
+   - Run: `Start-Service WslService,vmcompute,com.docker.service`
+   - Verify: `docker version` (should show both Client and Server)
+
+3. **Resume AgriGuard Week 2**
+   ```powershell
+   # After Docker is running
+   powershell -ExecutionPolicy Bypass -File AgriGuard/validate_postgres_week2.ps1
+   ```
+
+**Other Actions**:
+- Restart any MCP client sessions that should pick up refreshed NotebookLM auth
+- Optional monitoring: observe the next natural runs at 18:00 for `DailyNews_Evening_Insights` / `GetDayTrends_CurrentUser`
 
 ---
 
@@ -100,11 +121,15 @@ See [TASKS.md](TASKS.md) for full kanban board.
 ---
 
 **For Next Agent**:
-- AgriGuard Week 1 is complete; next step is live PostgreSQL validation once Docker Desktop is running, but the current machine first needs elevated recovery for `WslService` / Docker WSL startup (`Wsl/0x80070422`)
-- AgriGuard migration helpers: `AgriGuard/backend/scripts/run_migrations.py`, `AgriGuard/backend/scripts/assess_sqlite_data_volume.py`
-- `AgriGuard/validate_postgres_week2.ps1` now surfaces the specific WSL/Docker blocker instead of failing with a generic daemon message
-- See [getdaytrends/V9.0_IMPLEMENTATION_STATUS.md](getdaytrends/V9.0_IMPLEMENTATION_STATUS.md) for v9.0 audit
-- See [getdaytrends/BENCHMARK_2026-03-23.md](getdaytrends/BENCHMARK_2026-03-23.md) for performance data
-- Docker deployment: `docker compose up -d getdaytrends`
-- Multi-country: `python getdaytrends/main.py --countries korea,us,japan --one-shot`
-- v9.0 Status: Sprint 1 & 2 complete; next functional items are A-2, C-4, C-5
+- **AgriGuard Week 1**: ✅ Complete and committed
+- **AgriGuard Week 2**: ⚠️ Blocked by WSL service issue
+  - **Fix**: Use `scripts/fix_docker_wsl_service.ps1` (requires admin)
+  - **Docs**: `docs/DOCKER_WSL_SERVICE_FIX.md`
+  - **Validation**: `AgriGuard/validate_postgres_week2.ps1`
+  - **Helpers**: `AgriGuard/backend/scripts/run_migrations.py`, `assess_sqlite_data_volume.py`
+- **getdaytrends**: v9.0 Sprint 1 & 2 complete
+  - Status: [V9.0_IMPLEMENTATION_STATUS.md](getdaytrends/V9.0_IMPLEMENTATION_STATUS.md)
+  - Benchmark: [BENCHMARK_2026-03-23.md](getdaytrends/BENCHMARK_2026-03-23.md)
+  - Docker: `docker compose up -d getdaytrends`
+  - Multi-country: `python getdaytrends/main.py --countries korea,us,japan --one-shot`
+  - Next items: A-2, C-4, C-5

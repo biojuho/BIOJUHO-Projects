@@ -1,12 +1,13 @@
 """generation/ — Content Generation Package for getdaytrends.
 
-Phase 2.5 리펙토링: generator.py(2054줄)에서 점진적 추출 중.
+v9.0 리팩토링 완료: generator.py(984→519줄)에서 서브모듈 추출 완료.
 
 구조:
-- generator.py: 기존 모놀리식 파일 (핵심 로직)
-- generation/persona.py: 퍼소나 선택 로직 (추출 완료)
-- generation/prompts.py: 프롬프트 빌더 (마이그레이션 예정)
-- generation/audit.py: QA 감사 로직 (마이그레이션 예정)
+- generator.py: 핵심 오케스트레이션 (519줄)
+- generation/persona.py: 퍼소나 선택 로직
+- generation/long_form.py: 장문/블로그 생성 함수
+- generation/threads.py: Meta Threads 콘텐츠 생성
+- generation/marl.py: MARL 기반 멀티앵글 생성
 - generation/_common.py: 공통 유틸리티
 
 공개 API:

@@ -448,6 +448,23 @@ async def async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunRe
         _t3 = time.time()
         log.info(f"  [타이밍] 생성: {_t3 - _t2:.1f}초")
 
+        # Step 4.5: [C-4] Canva 비주얼 자동 생성 (조건부)
+        if getattr(pipeline_config, "enable_canva_visuals", False) and pipeline_config.canva_api_key:
+            try:
+                from canva import generate_visual_assets
+
+                canva_count = 0
+                for trend, batch in zip(quality_trends, batch_results):
+                    if trend.viral_potential >= getattr(pipeline_config, "canva_min_score", 90):
+                        visual_urls = await generate_visual_assets(trend, pipeline_config)
+                        if visual_urls:
+                            batch.visual_urls = visual_urls
+                            canva_count += 1
+                if canva_count:
+                    log.info(f"  [Canva] {canva_count}개 트렌드 비주얼 생성 완료")
+            except Exception as _canva_err:
+                log.debug(f"  [Canva] 비주얼 생성 실패 (무시): {_canva_err}")
+
         # Step 5: 저장
         success_count = await _step_save(quality_trends, batch_results, pipeline_config, conn, run, run_row_id)
         _t4 = time.time()

@@ -16,10 +16,14 @@
   - **Tool**: Manual / Claude Code
   - **Owner**: Backend Team
   - **Estimate**: 1 week
-  - **Blockers**: Docker Desktop cannot start its WSL engine on this machine because `WslService` is disabled (`Wsl/0x80070422`); elevated recovery is required before validation can proceed
-  - **Current Diagnosis**: `Docker Desktop Service` is stopped, `WslService` is disabled, `vmcompute` is stopped, and the current shell does not have elevation to start them
-  - **Helper**: `AgriGuard/validate_postgres_week2.ps1`
-  - **Guide**: [docs/POSTGRESQL_MIGRATION_PLAN.md](docs/POSTGRESQL_MIGRATION_PLAN.md)
+  - **Status**: ⚠️ **Blocked** - Waiting for WSL service fix
+  - **Blockers**: `WslService` is disabled (`Wsl/0x80070422`) - Docker Desktop cannot start
+  - **Solution**: Run `scripts/fix_docker_wsl_service.ps1` as Administrator
+  - **Guides**:
+    - [docs/DOCKER_WSL_SERVICE_FIX.md](docs/DOCKER_WSL_SERVICE_FIX.md) - Fix guide
+    - [docs/POSTGRESQL_MIGRATION_PLAN.md](docs/POSTGRESQL_MIGRATION_PLAN.md) - Migration plan
+    - [scripts/fix_docker_wsl_service.ps1](scripts/fix_docker_wsl_service.ps1) - Automated fix
+  - **Validation**: `AgriGuard/validate_postgres_week2.ps1`
 
 ### P3 - Nice to Have
 - [x] **instagram-automation router separation** ✅

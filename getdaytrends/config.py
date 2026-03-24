@@ -72,6 +72,12 @@ class AppConfig:
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     discord_webhook_url: str = ""
+    slack_webhook_url: str = ""           # [C-5] Slack Incoming Webhook URL
+    smtp_host: str = ""                   # [C-5] SMTP 서버 호스트
+    smtp_port: int = 587                  # [C-5] SMTP 포트 (587=STARTTLS, 465=SSL)
+    smtp_user: str = ""                   # [C-5] SMTP 인증 사용자
+    smtp_password: str = ""               # [C-5] SMTP 인증 비밀번호
+    alert_email: str = ""                 # [C-5] 알림 수신 이메일 주소
     alert_threshold: int = 70
 
     # v2.4 기능 플래그
@@ -104,6 +110,8 @@ class AppConfig:
     canva_client_id: str = ""
     canva_client_secret: str = ""
     canva_template_id: str = ""
+    enable_canva_visuals: bool = False     # [C-4] 고바이럴 트렌드 비주얼 자동 생성
+    canva_min_score: int = 90             # [C-4] 이 점수 이상에만 비주얼 생성
 
     # ===================================================
     # [v3.0] 품질·최적화·고도화
@@ -309,6 +317,12 @@ class AppConfig:
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
             discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL", ""),
+            slack_webhook_url=os.getenv("SLACK_WEBHOOK_URL", ""),
+            smtp_host=os.getenv("SMTP_HOST", ""),
+            smtp_port=int(os.getenv("SMTP_PORT", "587")),
+            smtp_user=os.getenv("SMTP_USER", ""),
+            smtp_password=os.getenv("SMTP_PASSWORD", ""),
+            alert_email=os.getenv("ALERT_EMAIL", ""),
             alert_threshold=int(os.getenv("ALERT_THRESHOLD", "70")),
             enable_clustering=os.getenv("ENABLE_CLUSTERING", "true").lower() == "true",
             enable_long_form=os.getenv("ENABLE_LONG_FORM", "true").lower() == "true",
@@ -340,6 +354,8 @@ class AppConfig:
             canva_client_id=os.getenv("CANVA_CLIENT_ID", ""),
             canva_client_secret=os.getenv("CANVA_CLIENT_SECRET", ""),
             canva_template_id=os.getenv("CANVA_TEMPLATE_ID", ""),
+            enable_canva_visuals=os.getenv("ENABLE_CANVA_VISUALS", "false").lower() == "true",
+            canva_min_score=int(os.getenv("CANVA_MIN_SCORE", "90")),
             # v3.0
             cache_volume_bucket=int(os.getenv("CACHE_VOLUME_BUCKET", "5000")),
             data_retention_days=int(os.getenv("DATA_RETENTION_DAYS", "90")),
