@@ -246,12 +246,12 @@ Invoke-Step "Migrations" {
 }
 
 Invoke-Step "Connection Smoke" {
-    Invoke-Utf8Command -Cwd $backendDir -Command 'python -c "from database import verify_database_connection; verify_database_connection(); print(''database-ok'')"'
+    Invoke-Utf8Command -Cwd $backendDir -Command "python scripts/check_database_connection.py"
 }
 
 if (-not $SkipTests) {
     Invoke-Step "Backend Smoke Tests" {
-        Invoke-Utf8Command -Cwd $backendDir -Command 'python -m pytest tests/test_database_config.py tests/test_smoke.py -q -o addopts=""'
+        Invoke-Utf8Command -Cwd $backendDir -Command "python -m pytest tests/test_database_config.py tests/test_smoke.py -q --override-ini addopts="
     }
 }
 

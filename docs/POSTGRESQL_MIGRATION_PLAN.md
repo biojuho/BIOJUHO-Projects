@@ -60,10 +60,16 @@ python scripts/run_migrations.py
 
 ### Phase 2: Parallel Testing (Week 2)
 
+**Status (2026-03-24)**: Local PostgreSQL validation complete
+The Docker Desktop blocker on this machine was resolved, Alembic migrations ran
+successfully against PostgreSQL, the SQLAlchemy connection smoke passed, and the
+targeted backend smoke suite passed (`6 passed`). Performance benchmarking is
+still optional follow-up work.
+
 **Tasks**:
-- [ ] Run PostgreSQL locally via Docker Compose
-- [ ] Apply migrations to PostgreSQL
-- [ ] Run all tests against PostgreSQL
+- [x] Run PostgreSQL locally via Docker Compose
+- [x] Apply migrations to PostgreSQL
+- [x] Run all tests against PostgreSQL
 - [ ] Performance benchmark (SQLite vs PostgreSQL)
 - [ ] Fix any compatibility issues
 
