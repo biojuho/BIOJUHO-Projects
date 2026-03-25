@@ -1,45 +1,21 @@
 # 📋 Task Board
 
-**Last Updated**: 2026-03-24
+**Last Updated**: 2026-03-25
 **Board Type**: Kanban (TODO → IN_PROGRESS → DONE)
 
 ---
 
 ## 🔵 TODO
 
-### P1 - Critical
-*No critical tasks at this time*
-
 ### P2 - Important
-- [ ] **AgriGuard PostgreSQL Migration Week 2**
-  - **Description**: Start PostgreSQL locally, apply migrations to PostgreSQL, and run backend smoke against Postgres
-  - **Tool**: Manual / Claude Code
-  - **Owner**: Backend Team
-  - **Estimate**: 1 week
-  - **Status**: ⚠️ **Blocked** - Waiting for WSL service fix
-  - **Blockers**: `WslService` is disabled (`Wsl/0x80070422`) - Docker Desktop cannot start
-  - **Solution**: Run `scripts/fix_docker_wsl_service.ps1` as Administrator
-  - **Guides**:
-    - [docs/DOCKER_WSL_SERVICE_FIX.md](docs/DOCKER_WSL_SERVICE_FIX.md) - Fix guide
-    - [docs/POSTGRESQL_MIGRATION_PLAN.md](docs/POSTGRESQL_MIGRATION_PLAN.md) - Migration plan
-    - [scripts/fix_docker_wsl_service.ps1](scripts/fix_docker_wsl_service.ps1) - Automated fix
-  - **Validation**: `AgriGuard/validate_postgres_week2.ps1`
+- [ ] **AgriGuard PostgreSQL Week 3 — 실제 마이그레이션 실행**
+  - **Description**: `migrate_sqlite_to_postgres.py` 실행 (Docker PostgreSQL 필요)
+  - **Pre-requisite**: Docker Desktop 실행 + `docker compose up -d postgres`
+  - **Tool**: Any
+  - **Files**: `AgriGuard/backend/scripts/migrate_sqlite_to_postgres.py`, `AgriGuard/POSTGRES_MIGRATION_PLAN.md`
 
 ### P3 - Nice to Have
-- [x] **instagram-automation router separation** ✅
-  - **Result**: main.py reduced from 599 → 193 lines (68% reduction)
-  - **Tool**: Claude Code (refactoring workflow)
-  - **Duration**: 1.5 hours
-  - **Files Created**: dependencies.py, 9 routers (webhook, posts, insights, dm, calendar, hashtags, ab_testing, external, monitoring)
-  - **Status**: Complete - All imports validated
-
-- [ ] **getdaytrends Phase 2-6 modular refactoring**
-  - **Description**: Further separate collectors/, generation/, analysis/
-  - **Tool**: Claude Code
-  - **Owner**: Any AI agent
-  - **Estimate**: 5-8 hours (all phases)
-  - **Blockers**: None (very low priority)
-  - **Priority**: P4 (deferred)
+*No P3 tasks at this time*
 
 ---
 
@@ -51,205 +27,63 @@
 
 ## 🟢 DONE (Last 7 Days)
 
+### 2026-03-25
+- [x] **AgriGuard PostgreSQL Week 3 — 마이그레이션 계획 및 벤치마킹** ✅
+  - **Result**: 마이그레이션 스크립트, 벤치마크 도구, 실행 계획서 작성
+  - **Tool**: Antigravity (Gemini)
+  - **Duration**: 10 min
+  - **Files**: `AgriGuard/backend/scripts/migrate_sqlite_to_postgres.py`, `AgriGuard/backend/scripts/benchmark_postgres.py`, `AgriGuard/POSTGRES_MIGRATION_PLAN.md`
+  - **Validation**: py_compile OK
+
+- [x] **GetDayTrends A-2 QA Audit 조건부 스킵 — DONE 확인** ✅
+  - **Result**: `_should_skip_qa()` 이미 구현 완료 확인 → 문서만 업데이트
+  - **Tool**: Antigravity (Gemini)
+  - **Duration**: 5 min
+  - **Files**: `V9.0_IMPLEMENTATION_STATUS.md` (A-2: ⚠️→✅)
+
+- [x] **GetDayTrends `generation/__init__.py` docstring 업데이트** ✅
+  - **Result**: `system_prompts.py`, `prompts.py`, `audit.py` 3개 서브모듈 반영
+  - **Tool**: Antigravity (Gemini)
+  - **Duration**: 2 min
+
+- [x] **TASKS.md / HANDOFF.md 정리** ✅
+  - **Result**: 날짜 갱신, 완료 항목 아카이브, 신규 작업 기록
+  - **Tool**: Antigravity (Gemini)
+
+- [x] **스케줄러 모니터링** ✅
+  - **Result**: 3개 스케줄러 정상 (LastTaskResult=0)
+  - GetDayTrends_CurrentUser: 2026-03-25 12:00 ✅
+  - DailyNews_Morning_Insights: 2026-03-25 07:00 ✅
+  - DailyNews_Evening_Insights: 2026-03-24 06:00 ✅
+
+- [x] **Docker Desktop 유지보수** ✅
+  - **Result**: Linux containers 모드 확인 OK
+
 ### 2026-03-24
-- [x] **AgriGuard PostgreSQL Migration Week 1** ✅
-  - **Result**: Completed the Week 1 preparation work with migration-first startup, Postgres-ready env examples, SQLite data volume reporting, and legacy SQLite baseline stamping to Alembic revision `0001`
-  - **Tool**: Codex
-  - **Duration**: 1 hour
-  - **Files**: `AgriGuard/backend/database.py`, `AgriGuard/backend/main.py`, `AgriGuard/backend/seed_db.py`, `AgriGuard/backend/scripts/run_migrations.py`, `AgriGuard/backend/scripts/assess_sqlite_data_volume.py`, `AgriGuard/SQLITE_DATA_VOLUME_REPORT.md`
-  - **Validation**:
-    - `python AgriGuard/backend/scripts/assess_sqlite_data_volume.py --markdown-out AgriGuard/SQLITE_DATA_VOLUME_REPORT.md`
-    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_database_config.py -q -o addopts=''`
-    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_smoke.py -q -o addopts=''`
-    - `python scripts/run_migrations.py` -> legacy SQLite DB stamped to `0001`, repeat run became a no-op
-  - **Notes**: `docker compose -f AgriGuard/docker-compose.yml config` passed; live PostgreSQL container validation is pending because Docker Desktop was not running locally
+- [x] **getdaytrends Phase 2-6 modular refactoring** ✅
+  - **Result**: Phase 2 (`context_collector.py` → `collectors/context.py`), Phase 3 (`prompt_builder.py` 731→360L, system prompts → `generation/system_prompts.py`)
+  - **Validation**: 435 passed, 4 skipped, 1 deselected
 
-- [x] **workspace QC recovery + NotebookLM auth refresh**
-  - **Result**: NotebookLM authentication recovered, desci smoke test stabilized to Node 22 LTS path, and full workspace smoke passed `15/15`
-  - **Tool**: Codex + smoke runner + NotebookLM auth CLI
-  - **Duration**: 20 min
-  - **Files**: `scripts/run_workspace_smoke.py`, `HANDOFF.md`, `TASKS.md`
-  - **Validation**:
-    - `venv\\Scripts\\python.exe scripts\\list_notebooks.py` -> notebooks listed successfully
-    - `python scripts/run_workspace_smoke.py --scope all --json-out logs/workspace-smoke-postfix-2026-03-24.json` -> all checks passed
-  - **Notes**: desci workspace smoke now uses `npm run test:lts` because `desci-platform/frontend/package.json` pins Node `<24`
+- [x] **getdaytrends Sprint 3: C-4 + C-5** ✅
+  - **Result**: Canva 비주얼 + Slack/Email 알림 추가
+  - **Validation**: 435 passed
 
-- [x] **getdaytrends v9.0 Sprint 2 verified complete** ✅
-  - **Result**: All 3 Sprint 2 tasks (C-2, B-1, C-3) were already implemented in previous sessions
-  - **Tool**: Claude Code + pytest
-  - **Duration**: 20 min
-  - **Evidence**:
-    - C-2: `main.py:255-308` asyncio.gather + Semaphore + test_parallel_countries.py
-    - B-1: `db.get_volume_velocity()` + `analyzer.py:690-699`
-    - C-3: 9 API endpoints in dashboard.py
-  - **Validation**: `getdaytrends/tests/test_main.py`, `getdaytrends/tests/test_dashboard.py`, `getdaytrends/tests/test_analyzer.py` ?? `41 passed`
+- [x] **AgriGuard PostgreSQL Week 1-2** ✅
+  - **Result**: Alembic setup, Docker validation, PostgreSQL smoke 6 passed
 
-- [x] **getdaytrends test stabilization (22 failures → 0)** ✅
-  - **Result**: Fixed broken imports from refactoring + db_schema.py IndentationError
-  - **Tool**: Claude Code
-  - **Duration**: 20 min
-  - **Commit**: `644a825`
-  - **Tests**: 402 passed → 403 passed (user's init_db fix added 1 test)
+- [x] **workspace QC recovery + NotebookLM auth** ✅
+  - **Result**: 15/15 smoke passed, NotebookLM 87 notebooks
+
+- [x] **getdaytrends test stabilization** ✅ — 22→0 failures
+- [x] **v9.0 Sprint 2 verified** ✅ — C-2, B-1, C-3 confirmed
+- [x] **LiteLLM security audit** ✅ — All safe
 
 ### 2026-03-23
 - [x] **getdaytrends Docker deployment** ✅
-  - **Result**: docker-compose.yml updated, DOCKER_DEPLOYMENT.md created, .dockerignore added
-  - **Tool**: Claude Code
-  - **Duration**: 30 min
-  - **Files**: `docker-compose.yml`, `getdaytrends/Dockerfile`, `getdaytrends/.dockerignore`, `getdaytrends/DOCKER_DEPLOYMENT.md`
-  - **Status**: ✅ Ready - `docker compose up -d getdaytrends` works
-
-- [x] **v9.0 Sprint 1 implementation audit** ✅
-  - **Result**: A-1, A-3, A-4 already implemented! Verified via code inspection
-  - **Tool**: Claude Code
-  - **Duration**: 1.5 hours
-  - **Files**: `getdaytrends/V9.0_IMPLEMENTATION_STATUS.md`
-  - **Discoveries**:
-    - Deep Research conditional collection (core/pipeline.py:180-223)
-    - Embedding + Jaccard clustering (trend_clustering.py)
-    - Batch history queries (db.py:425, analyzer.py:866)
-    - Bonus: B-2, B-3, B-5, C-6 also implemented
-
-- [x] **getdaytrends performance benchmark** ✅
-  - **Result**: 23.2s for 5 trends (~46s for 10 trends, faster than ROADMAP target 50s)
-  - **Tool**: pytest, dry-run test
-  - **Duration**: 30 min
-  - **Files**: `getdaytrends/BENCHMARK_2026-03-23.md`
-  - **Metrics**: All v9.0 optimizations verified working (Deep Research skip, embedding clustering, batch queries, source quality feedback)
-
-- [x] **Session documentation** ✅
-  - **Result**: Complete documentation package created
-  - **Tool**: Claude Code
-  - **Duration**: 30 min
-  - **Files**: `getdaytrends/SESSION_SUMMARY_2026-03-23.md`, `HANDOFF.md` (updated), `TASKS.md` (updated)
-
-- [x] **QC validation for getdaytrends local deployment** ✅
-  - **Result**: Validator, targeted tests, and scheduler health check all passed
-  - **Tool**: PowerShell, pytest, UTF-8 safe runner
-  - **Duration**: 20 min
-  - **Files**: `getdaytrends/QC_LOG.md`, `getdaytrends/validate_local_deployment.ps1`, `getdaytrends/tests/test_pipeline_steps.py`
-  - **Validation**: Syntax compile check passed, targeted suite `55 passed`, QA regression `3 passed`, active scheduler `LastTaskResult=0`
-
-- [x] **Deploy getdaytrends to local production** ✅
-  - **Result**: Windows scheduler deployment validated end-to-end with a repeatable validation script
-  - **Tool**: PowerShell, Windows Task Scheduler, pytest
-  - **Duration**: 45 min
-  - **Files**: `getdaytrends/validate_local_deployment.ps1`, `getdaytrends/core/pipeline_steps.py`, `getdaytrends/tests/test_pipeline_steps.py`, `getdaytrends/DEPLOYMENT.md`
-  - **Validation**: `validate_local_deployment.ps1` passed; latest live run saved to Notion/Content Hub and latest dry-run completed successfully
-  - **Residual**: Legacy `GetDayTrends` admin cleanup is still optional if the original task name must be reused
-
-- [x] **Stabilize getdaytrends local scheduler** ✅
-  - **Result**: Added PowerShell runner/setup flow, fixed broken action quoting, and registered `GetDayTrends_CurrentUser`
-  - **Tool**: PowerShell, Windows Task Scheduler
-  - **Duration**: 35 min
-  - **Files**: `getdaytrends/run_scheduled_getdaytrends.ps1`, `getdaytrends/setup_scheduled_task.ps1`, `getdaytrends/run_getdaytrends.bat`, `getdaytrends/register_scheduler.bat`
-  - **Validation**: Dry-run passed, and a live scheduled run finished with `generated=7 saved=7 errors=0`
-
-- [x] **Register DailyNews scheduled tasks locally** ✅
-  - **Result**: `DailyNews_Morning_Insights` / `DailyNews_Evening_Insights` created for current user
-  - **Tool**: PowerShell `Register-ScheduledTask`
-  - **Duration**: 15 min
-  - **Files**: `DailyNews/scripts/setup_scheduled_tasks.ps1`, `DailyNews/scripts/verify_first_run.ps1`
-
-- [x] **Validate DailyNews first-run flow** ✅
-  - **Result**: Manual `generate-brief` + scheduled evening task run succeeded, verification script reached 5/5
-  - **Tool**: DailyNews venv, PowerShell
-  - **Duration**: 30 min
-  - **Files**: `DailyNews/scripts/run_scheduled_insights.ps1`, `DailyNews/scripts/verify_first_run.ps1`, `DailyNews/scripts/setup_scheduled_tasks.ps1`
-
-- [x] **getdaytrends main.py refactoring** ✅
-  - **Result**: 1,435 → 358 lines (75% reduction)
-  - **Tool**: Claude Code
-  - **Duration**: 30 min
-  - **Files**: `getdaytrends/main.py`, `getdaytrends/core/pipeline.py`
-
-- [x] **Create core/pipeline.py module** ✅
-  - **Result**: 1,016 lines of extracted pipeline logic
-  - **Tool**: Claude Code
-  - **Duration**: 30 min
-
-- [x] **Analyze all 9 projects** ✅
-  - **Result**: All projects in good health (5 excellent, 4 good)
-  - **Tool**: Claude Code
-  - **Duration**: 20 min
-  - **Output**: `COMPREHENSIVE_PROJECT_HEALTH_REPORT.md`
-
-- [x] **Create refactoring documentation** ✅
-  - **Result**: 5 comprehensive documents created
-  - **Tool**: Claude Code
-  - **Duration**: 15 min
-  - **Files**: `REFACTORING_SUMMARY.md`, `getdaytrends/REFACTORING.md`, etc.
-
-- [x] **Create AI agent workflows** ✅
-  - **Result**: Standardized 8-step refactoring procedure
-  - **Tool**: Claude Code
-  - **Duration**: 20 min
-  - **Files**: `.agent/workflows/code-refactoring-workflow.md`, `.agent/workflows/README.md`
-
-- [x] **Create HANDOFF.md relay document** ✅
-  - **Result**: 50-line session continuity document
-  - **Tool**: Claude Code
-  - **Duration**: 5 min
-
-- [x] **Set up SESSION_LOG system** ✅
-  - **Result**: 7-day rotation with archive, cleanup script
-  - **Tool**: Claude Code
-  - **Duration**: 10 min
-  - **Files**: `.sessions/SESSION_LOG_2026-03-23.md`, `.sessions/cleanup.py`
-
-- [x] **Create TASKS.md kanban board** ✅
-  - **Result**: 150-line task board with tool assignments
-  - **Tool**: Claude Code
-  - **Duration**: 10 min
-
-- [x] **Create tool capability matrix** ✅
-  - **Result**: AI agent comparison (Claude/Gemini/Codex/Cursor/Copilot)
-  - **Tool**: Claude Code
-  - **Duration**: 15 min
-  - **Files**: `.agent/TOOL_CAPABILITIES.md`
-
-- [x] **Create CONTEXT.md navigation guide** ✅
-  - **Result**: Lightweight (<150 lines) documentation hierarchy
-  - **Tool**: Claude Code
-  - **Duration**: 10 min
-  - **Files**: `CONTEXT.md`
-
-- [x] **Validate getdaytrends for production** ✅
-  - **Result**: 33 tests passed, import paths verified, deployment guide created
-  - **Tool**: Claude Code, pytest
-  - **Duration**: 20 min
-  - **Files**: `getdaytrends/DEPLOYMENT.md`
-  - **Tests Passed**: test_config.py (21), test_models.py (12)
-
-- [x] **Add auto PYTHONPATH to main.py** ✅
-  - **Result**: main.py can now run from anywhere (no manual PYTHONPATH needed)
-  - **Tool**: Claude Code
-  - **Duration**: 15 min
-  - **Files**: `getdaytrends/main.py` (+13 lines), `DEPLOYMENT.md` (simplified)
-  - **Impact**: Production deployment now much simpler!
-
-- [x] **Refactor instagram-automation with routers** ✅
-  - **Result**: main.py 599 → 193 lines (68% reduction), 9 routers created
-  - **Tool**: Claude Code + Agent parallelization
-  - **Duration**: 1.5 hours
-  - **Files**: `dependencies.py`, `routers/` (10 files: __init__ + 9 routers)
-  - **Validation**: All imports work, no breaking changes
-
-- [x] **QC validation for instagram-automation** ✅
-  - **Result**: 127/130 tests passed (97.7%), approved for production deployment
-  - **Tool**: Claude Code + pytest
-  - **Duration**: 30 min
-  - **Files**: `instagram-automation/QC_REPORT.md` (409 lines)
-  - **Tests**: Import verification ✅, syntax validation ✅, pytest execution ✅, API endpoints ✅
-  - **Failures**: 3 pre-existing encoding issues (unrelated to refactoring)
-  - **Verdict**: ✅ PASS - Ready for production 🚀
-
-- [x] **Update session documentation** ✅
-  - **Result**: SESSION_LOG and HANDOFF.md updated with all completed work
-  - **Tool**: Claude Code
-  - **Duration**: 10 min
-  - **Files**: `.sessions/SESSION_LOG_2026-03-23.md`, `HANDOFF.md`
-  - **Updates**: Added instagram-automation completion, QC results, final metrics
+- [x] **v9.0 Sprint 1 audit + benchmark** ✅ — 23.2s for 5 trends
+- [x] **getdaytrends main.py refactoring** ✅ — 1,435→358 lines
+- [x] **DailyNews scheduler** ✅ — morning/evening registered
+- [x] **instagram-automation refactoring** ✅ — 599→193 lines, QC PASS
 
 ---
 
@@ -257,54 +91,20 @@
 
 | Task Type | Best Tool | Reason |
 |-----------|-----------|--------|
-| **Refactoring** | Claude Code | Deep context understanding, workflow adherence |
-| **Code Generation** | GitHub Copilot | Fast autocomplete, inline suggestions |
-| **Research/Analysis** | Gemini Code Assist | Multi-source research, document synthesis |
-| **Quick Fixes** | Cursor AI | Low-latency edits, simple changes |
-| **Deep Planning** | Claude Code | Long-form reasoning, architecture design |
-| **Documentation** | Claude Code / Gemini | Markdown expertise, comprehensive writing |
-
-See [.agent/TOOL_CAPABILITIES.md](.agent/TOOL_CAPABILITIES.md) for full capability matrix.
+| **Refactoring** | Claude Code | Deep context, workflow adherence |
+| **Code Generation** | GitHub Copilot | Fast autocomplete |
+| **Research/Analysis** | Gemini Code Assist | Multi-source research |
+| **Quick Fixes** | Cursor AI | Low-latency edits |
+| **Deep Planning** | Claude Code | Long-form reasoning |
 
 ---
 
 ## 📊 Board Statistics
 
-- **Total Active Tasks**: 2 (1 P2, 1 P3)
+- **Total Active Tasks**: 1
 - **In Progress**: 0
-- **Completed (7 days)**: 28
-- **Open Tasks Remaining**: 2
-- **Average Task Duration**: 23.8 min
-- **Total Lines Written Today**: ~3,200+
-- **Projects Refactored**: 2 (getdaytrends, instagram-automation)
-- **Code Reduction**: 68-79% (main.py files)
-
----
-
-## 🔄 Update Instructions
-
-### Adding a New Task
-```markdown
-- [ ] **Task Name**
-  - **Description**: What needs to be done
-  - **Tool**: Which AI agent is best suited
-  - **Owner**: Assigned agent or "Any"
-  - **Estimate**: Time estimate
-  - **Blockers**: Dependencies or issues
-  - **Files/Tests**: Relevant files or validation steps
-```
-
-### Moving Tasks
-1. Move from TODO → IN_PROGRESS when starting
-2. Update with **Started** timestamp
-3. Move to DONE when complete with **Result** summary
-4. Archive DONE tasks older than 7 days
-
-### Task Prioritization
-- **P1 (Critical)**: Blocking production, security issues
-- **P2 (Important)**: Quality improvements, deployments
-- **P3 (Nice to Have)**: Optional optimizations
-- **P4 (Deferred)**: Long-term improvements
+- **Completed (7 days)**: 20+
+- **getdaytrends Test Count**: 435 passed
 
 ---
 
