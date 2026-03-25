@@ -57,6 +57,59 @@ def test_run_one_reports_missing_working_directory() -> None:
     assert result.stderr_tail == "working directory missing"
 
 
+def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) -> None:
+    smoke = load_smoke_module()
+    check = smoke.Check("desci", "desci frontend unit tests", "desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
+    attempts = iter(
+        [
+            smoke.Result(
+                "desci",
+                "desci frontend unit tests",
+                "desci-platform/frontend",
+                "npm.cmd run test:lts",
+                1,
+                False,
+                "",
+                "Error: [vitest-pool]: Failed to start threads worker\nCaused by: Error: [vitest-pool-runner]: Timeout waiting for worker to respond",
+            ),
+            smoke.Result(
+                "desci",
+                "desci frontend unit tests",
+                "desci-platform/frontend",
+                "npm.cmd run test:lts",
+                0,
+                True,
+                "31 passed",
+                "",
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(smoke, "run_one", lambda root, item: next(attempts))
+
+    result = smoke.run_check(PROJECT_ROOT, check)
+
+    assert result.ok is True
+    assert result.stdout_tail == "31 passed"
+
+
+def test_should_retry_ignores_non_transient_failures() -> None:
+    smoke = load_smoke_module()
+    check = smoke.Check("desci", "desci frontend unit tests", "desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
+    result = smoke.Result(
+        "desci",
+        "desci frontend unit tests",
+        "desci-platform/frontend",
+        "npm.cmd run test:lts",
+        1,
+        False,
+        "",
+        "AssertionError: expected false to be true",
+    )
+
+    assert smoke.should_retry(check, result) is False
+
+
 def test_main_writes_json_report_for_selected_scope(tmp_path, monkeypatch) -> None:
     smoke = load_smoke_module()
     fake_check = smoke.Check("workspace", "fake check", ".", ["python", "-V"])

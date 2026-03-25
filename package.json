@@ -7,10 +7,10 @@
     "turbo": "^2.5.0"
   },
   "scripts": {
-    "build:all": "npx turbo run build",
-    "test:all": "npx turbo run test",
-    "lint:all": "npx turbo run lint",
-    "typecheck:all": "npx turbo run typecheck"
+    "build:all": "node scripts/run_workspace_package_script.mjs build",
+    "test:all": "node scripts/run_workspace_package_script.mjs test",
+    "lint:all": "node scripts/run_workspace_package_script.mjs lint",
+    "typecheck:all": "node scripts/run_workspace_package_script.mjs typecheck"
   },
   "dependencies": {
     "playwright": "^1.58.2"

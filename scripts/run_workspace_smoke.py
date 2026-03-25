@@ -12,6 +12,11 @@ from typing import Sequence
 
 EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output)([\\/]|$)"
 TAIL_LINE_COUNT = 20
+TRANSIENT_RETRY_CHECK = "desci frontend unit tests"
+TRANSIENT_RETRY_PATTERNS = (
+    "Failed to start threads worker",
+    "Timeout waiting for worker to respond",
+)
 
 
 @dataclass
@@ -221,6 +226,23 @@ def run_one(root: Path, item: Check) -> Result:
     )
 
 
+def should_retry(check: Check, result: Result) -> bool:
+    if result.ok or check.name != TRANSIENT_RETRY_CHECK:
+        return False
+
+    combined_output = "\n".join(part for part in (result.stdout_tail, result.stderr_tail) if part)
+    return any(pattern in combined_output for pattern in TRANSIENT_RETRY_PATTERNS)
+
+
+def run_check(root: Path, item: Check) -> Result:
+    result = run_one(root, item)
+    if not should_retry(item, result):
+        return result
+
+    print(f"[smoke] retrying: {item.name} after transient Vitest worker startup timeout")
+    return run_one(root, item)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
     parser.add_argument("--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends"])
@@ -246,7 +268,7 @@ def main() -> int:
     results: list[Result] = []
     for check in checks:
         print(f"[smoke] running: {check.name}")
-        results.append(run_one(root, check))
+        results.append(run_check(root, check))
 
     passed = sum(1 for result in results if result.ok)
     failed = len(results) - passed
