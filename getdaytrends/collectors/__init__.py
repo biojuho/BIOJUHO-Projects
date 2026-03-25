@@ -2,7 +2,7 @@
 
 멀티소스 트렌드 수집 패키지.
 실제 소스 수집 구현은 collectors/sources.py에 위치.
-컨텍스트 수집 구현은 context_collector.py에 위치.
+컨텍스트 수집 구현은 collectors/context.py에 위치.
 뉴스 강화는 news_scraper.py에 위치.
 
 공개 API (트렌드 수집):
@@ -52,8 +52,8 @@ def __getattr__(name):
         return getattr(_scraper, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-# ── Context Collection (context_collector.py) ──
-from context_collector import (  # noqa: F401
+# ── Context Collection (collectors/context.py) ──
+from collectors.context import (  # noqa: F401
     _async_collect_contexts,
     _async_fetch_google_news_trends,
     _async_fetch_google_suggest,
