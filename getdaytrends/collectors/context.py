@@ -29,6 +29,10 @@ _COMMON_HEADERS = {
     )
 }
 
+
+def _resolve_timeout(timeout: httpx.Timeout | float | None) -> httpx.Timeout | float:
+    return _SHORT_TIMEOUT if timeout is None else timeout
+
 # [v6.1] RSS pubDate 파싱 헬퍼
 def _parse_rss_date(date_str: str | None) -> "datetime | None":
     """RSS pubDate (RFC 2822) → datetime. 파싱 실패 시 None."""
@@ -90,7 +94,9 @@ def _is_similar_keyword(new_keyword: str, existing: set[str]) -> bool:
 
 
 async def _async_fetch_x_via_twikit_or_jina(
-    session: httpx.AsyncClient, keyword: str
+    session: httpx.AsyncClient,
+    keyword: str,
+    timeout: httpx.Timeout | float | None = None,
 ) -> str:
     """Twikit 우선 시도, 실패 시 Jina AI Reader 폴백."""
     # Phase 1: Twikit (비공식 API — 무료, 구조화된 데이터)
@@ -105,11 +111,13 @@ async def _async_fetch_x_via_twikit_or_jina(
         log.debug(f"[Twikit] '{keyword}' 수집 실패: {e}")
 
     # Phase 2: Jina AI Reader 폴백
-    return await _async_fetch_x_via_twikit_or_jina(session, keyword)
+    return await _async_fetch_x_via_jina(session, keyword, timeout=timeout)
 
 
 async def _async_fetch_x_via_jina(
-    session: httpx.AsyncClient, keyword: str
+    session: httpx.AsyncClient,
+    keyword: str,
+    timeout: httpx.Timeout | float | None = None,
 ) -> str:
     """Jina AI Reader로 X 검색 결과 무료 스크래핑 (비동기)."""
     encoded = urllib.parse.quote(f"{keyword} lang:ko")
@@ -119,7 +127,7 @@ async def _async_fetch_x_via_jina(
         "Accept": "text/plain",
     }
     try:
-        resp = await session.get(jina_url, headers=headers, timeout=_SHORT_TIMEOUT)
+        resp = await session.get(jina_url, headers=headers, timeout=_resolve_timeout(timeout))
         resp.raise_for_status()
         text = resp.text
         text = text.strip()
@@ -150,7 +158,10 @@ def _check_rate_limit(headers: "httpx.Headers") -> None:
 
 
 async def _async_fetch_twitter_trends(
-    session: httpx.AsyncClient, keyword: str, bearer_token: str = ""
+    session: httpx.AsyncClient,
+    keyword: str,
+    bearer_token: str = "",
+    timeout: httpx.Timeout | float | None = None,
 ) -> str:
     """X API v2 최신 트윗 검색 (비동기). Bearer Token 미설정 시 Jina 폴백.
 
@@ -161,7 +172,7 @@ async def _async_fetch_twitter_trends(
     - context_annotations로 카테고리 힌트 추출
     """
     if not bearer_token:
-        return await _async_fetch_x_via_twikit_or_jina(session, keyword)
+        return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
     # 품질 필터 강화: 리트윗/인용/스팸 제외, 좋아요 3개 이상
     query_str = (
@@ -181,17 +192,17 @@ async def _async_fetch_twitter_trends(
     }
 
     try:
-        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+        resp = await session.get(url, headers=headers, timeout=_resolve_timeout(timeout))
         _check_rate_limit(resp.headers)
 
         if resp.status_code == 429:
             retry_after = resp.headers.get("retry-after", "60")
             log.warning(f"[X API] 레이트 리밋 초과. {retry_after}초 후 재시도 필요")
-            return await _async_fetch_x_via_twikit_or_jina(session, keyword)
+            return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
         if resp.status_code == 403:
             log.debug(f"[X API] 검색 권한 없음 (Basic 티어 미지원). Jina 폴백.")
-            return await _async_fetch_x_via_twikit_or_jina(session, keyword)
+            return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
         resp.raise_for_status()
         data = resp.json()
@@ -235,7 +246,7 @@ async def _async_fetch_twitter_trends(
 
     except httpx.HTTPStatusError as e:
         log.debug(f"Twitter API HTTP 오류 ({keyword}): {e.response.status_code} → Jina 폴백")
-        return await _async_fetch_x_via_twikit_or_jina(session, keyword)
+        return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
     except Exception as e:
         log.debug(f"Twitter API 오류 ({keyword}): {e}")
         return f"[X API 오류] {keyword} 트렌드 감지 실패"
@@ -316,7 +327,9 @@ def post_to_x(content: str, access_token: str) -> dict:
 # ══════════════════════════════════════════════════════
 
 async def _async_fetch_reddit_trends(
-    session: httpx.AsyncClient, keyword: str
+    session: httpx.AsyncClient,
+    keyword: str,
+    timeout: httpx.Timeout | float | None = None,
 ) -> str:
     """Reddit 핫 포스트 수집 (비동기)."""
     encoded_query = urllib.parse.quote(keyword)
@@ -324,7 +337,7 @@ async def _async_fetch_reddit_trends(
     headers = {"User-Agent": "GetDayTrends/2.3"}
 
     try:
-        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+        resp = await session.get(url, headers=headers, timeout=_resolve_timeout(timeout))
         data = resp.json()
 
         posts = []
@@ -354,7 +367,9 @@ async def _async_fetch_reddit_trends_standalone(keyword: str) -> str:
 # ══════════════════════════════════════════════════════
 
 async def _async_fetch_google_news_trends(
-    session: httpx.AsyncClient, keyword: str
+    session: httpx.AsyncClient,
+    keyword: str,
+    timeout: httpx.Timeout | float | None = None,
 ) -> str:
     """Google News RSS 기반 헤드라인 수집 (비동기)."""
     encoded_topic = urllib.parse.quote(keyword)
@@ -366,7 +381,7 @@ async def _async_fetch_google_news_trends(
             resp = await session.get(
                 url,
                 headers={"User-Agent": "Mozilla/5.0"},
-                timeout=_SHORT_TIMEOUT,
+                timeout=_resolve_timeout(timeout),
             )
             raw = resp.read()
             root = ET.fromstring(raw)
@@ -422,7 +437,7 @@ async def _async_fetch_single_source(
     bearer_token: str = "",
     extra_news: str = "",
     conn=None,
-    timeout_override: float | None = None,
+    timeout_override: httpx.Timeout | float | None = None,
 ) -> tuple[str, str, str]:
     """단일 소스 수집 (비동기). 소스 품질 메트릭 기록 포함.
     
@@ -430,16 +445,21 @@ async def _async_fetch_single_source(
     """
     import time
     t0 = time.perf_counter()
-    effective_timeout = timeout_override or _SHORT_TIMEOUT
+    effective_timeout = _resolve_timeout(timeout_override)
     result_text = ""
     success = True
     try:
         if source_name == "twitter":
-            result_text = await _async_fetch_twitter_trends(session, keyword, bearer_token)
+            result_text = await _async_fetch_twitter_trends(
+                session,
+                keyword,
+                bearer_token,
+                timeout=effective_timeout,
+            )
         elif source_name == "reddit":
-            result_text = await _async_fetch_reddit_trends(session, keyword)
+            result_text = await _async_fetch_reddit_trends(session, keyword, timeout=effective_timeout)
         else:
-            result_text = await _async_fetch_google_news_trends(session, keyword)
+            result_text = await _async_fetch_google_news_trends(session, keyword, timeout=effective_timeout)
             if extra_news:
                 result_text = f"{extra_news} | {result_text}" if result_text != "관련 뉴스 없음" else extra_news
     except Exception as e:

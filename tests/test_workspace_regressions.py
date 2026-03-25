@@ -32,6 +32,14 @@ def test_notion_server_reads_db_id_from_env() -> None:
     assert "ANTIGRAVITY_DB_ID" in content
 
 
+def test_getdaytrends_package_imports_from_repo_root() -> None:
+    collectors = importlib.import_module("getdaytrends.collectors")
+    generation = importlib.import_module("getdaytrends.generation")
+
+    assert hasattr(collectors, "_async_collect_contexts")
+    assert callable(getattr(generation, "select_persona"))
+
+
 @patch("biolinker.services.pdf_parser.pypdf.PdfReader")
 def test_pdf_parser_extracts_page_text(mock_reader_class: MagicMock) -> None:
     from biolinker.services.pdf_parser import PDFParser
