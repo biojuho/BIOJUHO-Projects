@@ -119,7 +119,7 @@ class TechDebtAnalyzer:
             context = content.split(marker, 1)[1].strip(':- ').strip()
 
             # 우선순위 및 카테고리 자동 분류
-            priority = self._determine_priority(context)
+            priority = self._determine_priority(context, file_path)
             category = self._determine_category(context)
 
             item = TechDebtItem(
@@ -134,10 +134,24 @@ class TechDebtAnalyzer:
 
             self.items.append(item)
 
-    def _determine_priority(self, text: str) -> str:
-        """텍스트 내용으로 우선순위 결정"""
+    def _determine_priority(self, text: str, file_path: str) -> str:
+        """텍스트 내용 및 파일 경로로 우선순위 결정"""
         text_lower = text.lower()
 
+        # 1. 문서 파일은 기본 P3 (단, 보안 키워드는 예외)
+        if file_path.endswith(('.md', '.txt', '.rst')):
+            # 보안/취약점 키워드가 있으면 P0
+            if any(kw in text_lower for kw in ['security', 'vulnerability', 'critical', 'exploit']):
+                return 'P0'
+            # 그 외 문서는 모두 P3
+            return 'P3'
+
+        # 2. 세션 히스토리/워크플로우/QA 리포트는 제외 (P3)
+        excluded_patterns = ['.agent/', '.sessions/', 'qa-reports/', 'session-history/']
+        if any(pattern in file_path for pattern in excluded_patterns):
+            return 'P3'
+
+        # 3. 코드 파일 우선순위 분류
         for priority, keywords in self.PRIORITY_KEYWORDS.items():
             if any(kw in text_lower for kw in keywords):
                 return priority
