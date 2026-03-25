@@ -65,6 +65,9 @@ MCP_notion-antigravity/output/
 # SQLite databases
 *.db
 *.sqlite
+*.db.bak
+*.db.archived_*
+*.db-journal
 
 # Hardhat build artifacts
 AgriGuard/contracts/artifacts/
@@ -73,6 +76,7 @@ AgriGuard/contracts/ignition/deployments/
 AgriGuard/contracts/compile_out.txt
 AgriGuard/contracts/deploy_out.txt
 AgriGuard/frontend/build_agri.out
+AgriGuard/backend/benchmark_results.md
 
 # Patch scripts (temporary)
 **/patch*.py
