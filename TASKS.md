@@ -7,12 +7,7 @@
 
 ## TODO
 
-### P1 - Important
-- [ ] **AgriGuard sensor_readings resync investigation**
-  - **Description**: Latest QC rerun on 2026-03-25 failed the row-count gate because `sensor_readings` drift exceeded the allowed tolerance.
-  - **Observed state**: PostgreSQL has `14,102` rows, the archived SQLite snapshot has `14,696`, and the current backend SQLite file has `14,782`.
-  - **Next step**: Identify what is still writing to `AgriGuard/backend/agriguard.db`, decide whether PostgreSQL needs a controlled backfill, and rerun `qc_postgres_migration.py`.
-  - **Files**: `AgriGuard/backend/scripts/qc_postgres_migration.py`, `AgriGuard/backend/agriguard.db`, `AgriGuard/backend/agriguard.db.archived_20260325`
+*No tasks in TODO*
 
 ---
 
@@ -25,13 +20,30 @@
 ## DONE (Last 7 Days)
 
 ### 2026-03-25
+- [x] **AgriGuard sensor_readings resync investigation completed**
+  - **Root cause**: A long-running local `python -m uvicorn main:app --reload --port 8002` listener imported `database.py` before `.env` was loaded, so it silently fell back to SQLite and kept appending simulated `sensor_readings`.
+  - **Fix**: Backend entrypoints now load `AgriGuard/backend/.env` consistently through `AgriGuard/backend/env_loader.py`.
+  - **Resync**: PostgreSQL was intentionally rebuilt from `AgriGuard/backend/agriguard.db.resync_candidate_20260325_200555` with `--truncate`.
+  - **Validation**: `qc_postgres_migration.py` passed `5/5`, `agriguard-backend` is healthy on port `8002`, and the frozen SQLite snapshot timestamp remains unchanged while live sensor writes continue in PostgreSQL.
+
+- [x] **AgriGuard backend container startup fixed**
+  - **Root cause**: `main.py` assumed `Path(__file__).resolve().parents[2]`, which crashes inside the Docker image layout.
+  - **Fix**: Observability path discovery now scans available parents safely before extending `sys.path`.
+  - **Validation**: `docker compose -f AgriGuard/docker-compose.yml up -d backend --build` produced a healthy backend container.
+
+- [x] **AgriGuard backend env loading hardened**
+  - **Result**: Local backend entrypoints now load `backend/.env` before DB initialization, preventing accidental SQLite fallback during import order.
+  - **Validation**: `python -m pytest AgriGuard/backend/tests/test_database_config.py AgriGuard/backend/tests/test_env_loading.py -q`
+
+- [x] **Content Intelligence Engine v2.0 upgrade**
+  - **Result**: Content Intelligence workspace updates completed earlier on 2026-03-25.
+
 - [x] **AgriGuard PostgreSQL QC snapshot documented**
   - **Result**: Root-safe QC script and written QC report added for the initial cutover validation snapshot.
   - **Files**: `AgriGuard/POSTGRES_MIGRATION_QC_REPORT.md`, `AgriGuard/backend/scripts/qc_postgres_migration.py`
 
 - [x] **AgriGuard SQLite snapshot archived**
   - **Result**: Snapshot saved as `AgriGuard/backend/agriguard.db.archived_20260325` for later comparison during cutover monitoring.
-  - **Note**: Follow-up investigation is still open because the latest QC rerun exceeded the `sensor_readings` drift tolerance.
 
 - [x] **AgriGuard PostgreSQL benchmark completed**
   - **Result**: SQLite vs PostgreSQL benchmark captured in `AgriGuard/BENCHMARK_RESULTS.md`
@@ -67,12 +79,12 @@
 
 ## Board Statistics
 
-- **Total Active Tasks**: 1
+- **Total Active Tasks**: 0
 - **In Progress**: 0
-- **Completed (7 days)**: 9+
+- **Completed (7 days)**: 12+
 - **Workspace Smoke**: 15/15 passed
-- **AgriGuard QC**: latest rerun is 4/5 due to `sensor_readings` drift beyond tolerance
+- **AgriGuard QC**: frozen resync snapshot passes `5/5`; live PostgreSQL writes resumed after cutover
 
 ---
 
-**Note for agents**: Do not mark the AgriGuard migration fully closed until the `sensor_readings` gap is explained or reconciled. Do not rerun the live migration into a populated target without an intentional `--truncate` plan.
+**Note for agents**: AgriGuard cutover is now reconciled. Use `AgriGuard/backend/agriguard.db.resync_candidate_20260325_200555` as the preserved SQLite evidence snapshot, not as a live source.
