@@ -1,4 +1,4 @@
-"""CIE 설정 모듈 — 프로젝트·플랫폼·LLM·저장 설정 통합 관리."""
+"""CIE 설정 모듈 v2.0 — 프로젝트·플랫폼·LLM·저장·발행 설정 통합 관리."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def _csv(key: str, default: str = "") -> list[str]:
 
 @dataclass
 class CIEConfig:
-    """Content Intelligence Engine 설정."""
+    """Content Intelligence Engine v2.0 설정."""
 
     # ── 프로젝트 정보 ──
     project_name: str = os.getenv("CIE_PROJECT_NAME", "")
@@ -80,6 +80,21 @@ class CIEConfig:
         str(_CIE_DIR / "data" / "cie.db"),
     )
 
+    # ── v2.0: 발행 설정 ──
+    enable_notion_publish: bool = (
+        os.getenv("CIE_NOTION_PUBLISH", "false").lower() == "true"
+    )
+    enable_x_publish: bool = (
+        os.getenv("CIE_X_PUBLISH", "false").lower() == "true"
+    )
+    x_min_qa_score: int = int(os.getenv("CIE_X_MIN_QA_SCORE", "75"))
+    x_access_token: str = os.getenv("X_ACCESS_TOKEN", "")
+    x_client_id: str = os.getenv("X_CLIENT_ID", "")
+    x_client_secret: str = os.getenv("X_CLIENT_SECRET", "")
+
+    # ── v2.0: GetDayTrends DB 연동 ──
+    gdt_db_path: str = os.getenv("CIE_GDT_DB_PATH", "")
+
     # ── 경로 ──
     project_root: Path = _PROJECT_ROOT
     cie_dir: Path = _CIE_DIR
@@ -94,8 +109,32 @@ class CIEConfig:
         }
         return mapping.get(stage, "LIGHTWEIGHT")
 
+    @property
+    def can_publish_notion(self) -> bool:
+        """Notion 발행 가능 여부."""
+        return bool(
+            self.enable_notion_publish
+            and self.notion_database_id
+            and self.notion_token
+        )
+
+    @property
+    def can_publish_x(self) -> bool:
+        """X 발행 가능 여부."""
+        return bool(
+            self.enable_x_publish
+            and self.x_access_token
+        )
+
     def summary(self) -> str:
         """설정 요약 출력."""
+        publish_targets = []
+        if self.can_publish_notion:
+            publish_targets.append("Notion")
+        if self.can_publish_x:
+            publish_targets.append("X")
+        pub_str = ", ".join(publish_targets) if publish_targets else "없음"
+
         return (
             f"  프로젝트: {self.project_name or '(미설정)'}\n"
             f"  타겟:     {self.target_audience or '(미설정)'}\n"
@@ -103,5 +142,7 @@ class CIEConfig:
             f"  QA:       {'ON' if self.enable_qa_validation else 'OFF'} "
             f"(최소 {self.qa_min_score}점)\n"
             f"  스케줄:   {self.collection_schedule}\n"
-            f"  Notion:   {'연결됨' if self.notion_database_id else '미설정'}"
+            f"  Notion:   {'연결됨' if self.notion_database_id else '미설정'}\n"
+            f"  GDT DB:   {self.gdt_db_path or '자동 탐지'}\n"
+            f"  발행:     {pub_str}"
         )

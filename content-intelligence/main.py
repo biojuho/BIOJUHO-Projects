@@ -1,20 +1,24 @@
 """
 =======================================================
-  Content Intelligence Engine (CIE) v1.0
-  트렌드 & 플랫폼 규제 반영 콘텐츠 창작 시스템
+  Content Intelligence Engine (CIE) v2.0
+  트렌드 & 플랫폼 규제 반영 콘텐츠 창작 + 자동 발행 시스템
 
-  4단계 파이프라인:
-    1단계: 트렌드 수집 (X, Threads, 네이버)
+  5단계 파이프라인:
+    1단계: 트렌드 수집 (GDT Bridge + X, Threads, 네이버)
     2단계: 플랫폼 규제 & 알고리즘 점검
     3단계: 콘텐츠 생성 / 최적화 / QA 검증
+    4단계: 로컬 DB 저장
+    5단계: 발행 (Notion + X)
     보너스: 월간 회고 & 시스템 업데이트
 
   Usage:
-    python main.py --mode full          # 전체 파이프라인
-    python main.py --mode trend         # 트렌드 수집만
-    python main.py --mode regulation    # 규제 점검만
-    python main.py --mode review        # 월간 회고
-    python main.py --dry-run            # LLM 호출 없이 구조 검증
+    python main.py --mode full              # 전체 파이프라인 (발행 제외)
+    python main.py --mode full --publish    # 전체 + Notion/X 발행
+    python main.py --mode trend             # 트렌드 수집만
+    python main.py --mode regulation        # 규제 점검만
+    python main.py --mode review            # 월간 회고
+    python main.py --mode publish-only      # 미발행 콘텐츠 발행
+    python main.py --dry-run                # LLM 호출 없이 구조 검증
 =======================================================
 """
 
@@ -46,15 +50,16 @@ from storage.models import MergedTrendReport
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Content Intelligence Engine — 트렌드 반영 콘텐츠 창작 시스템"
+        description="Content Intelligence Engine v2.0 — 트렌드 반영 콘텐츠 창작 + 발행 시스템"
     )
     parser.add_argument(
         "--mode",
-        choices=["full", "trend", "regulation", "review"],
+        choices=["full", "trend", "regulation", "review", "publish-only"],
         default="full",
         help="실행 모드 (기본: full)",
     )
     parser.add_argument("--dry-run", action="store_true", help="LLM 호출 없이 구조 검증")
+    parser.add_argument("--publish", action="store_true", help="콘텐츠 자동 발행 (Notion + X)")
     parser.add_argument("--verbose", action="store_true", help="상세 로그")
     return parser.parse_args()
 
@@ -79,12 +84,12 @@ def setup_logging(verbose: bool = False) -> None:
 #  Banner
 # ══════════════════════════════════════════════════════
 
-def print_banner(config: CIEConfig, mode: str) -> None:
+def print_banner(config: CIEConfig, mode: str, publish: bool) -> None:
     log.info("═" * 55)
-    log.info("  Content Intelligence Engine (CIE) v1.0")
-    log.info("  트렌드 & 플랫폼 규제 반영 콘텐츠 창작 시스템")
+    log.info("  Content Intelligence Engine (CIE) v2.0")
+    log.info("  트렌드 & 플랫폼 규제 반영 콘텐츠 창작 + 발행")
     log.info("═" * 55)
-    log.info(f"  모드: {mode.upper()}")
+    log.info(f"  모드: {mode.upper()}" + (" + 발행" if publish else ""))
     log.info(config.summary())
     log.info("═" * 55)
 
@@ -208,11 +213,71 @@ async def step_save(config, trend_report=None, regulation_reports=None, batch=No
         conn.close()
 
 
+async def step_publish(config: CIEConfig, batch):
+    """Step 5: 콘텐츠 발행 (Notion + X)."""
+    log.info("\n" + "─" * 40)
+    log.info("🚀 STEP 5: 발행")
+    log.info("─" * 40)
+
+    all_results = []
+
+    # Notion 발행
+    if config.can_publish_notion:
+        from storage.notion_publisher import publish_batch_to_notion
+        notion_results = await publish_batch_to_notion(batch, config)
+        all_results.extend(notion_results)
+        success = sum(1 for r in notion_results if r.success)
+        log.info(f"  📒 Notion: {success}/{len(notion_results)} 발행 성공")
+    else:
+        log.info("  📒 Notion 발행: 비활성 (CIE_NOTION_PUBLISH=true 필요)")
+
+    # X 발행
+    if config.can_publish_x:
+        from storage.x_publisher import publish_batch_to_x
+        x_results = await publish_batch_to_x(batch, config)
+        all_results.extend(x_results)
+        success = sum(1 for r in x_results if r.success)
+        log.info(f"  🐦 X: {success}/{len(x_results)} 발행 성공")
+    else:
+        log.info("  🐦 X 발행: 비활성 (CIE_X_PUBLISH=true 필요)")
+
+    batch.publish_results = all_results
+    return all_results
+
+
+async def step_publish_only(config: CIEConfig):
+    """미발행 콘텐츠를 DB에서 읽어 발행한다."""
+    log.info("\n" + "─" * 40)
+    log.info("🚀 미발행 콘텐츠 발행")
+    log.info("─" * 40)
+
+    from storage.local_db import get_connection, load_unpublished_contents
+
+    conn = get_connection(config)
+    try:
+        contents = load_unpublished_contents(conn)
+        if not contents:
+            log.info("  ℹ️ 발행할 미발행 콘텐츠가 없습니다.")
+            return
+
+        log.info(f"  📦 미발행 콘텐츠 {len(contents)}건 발견")
+
+        from storage.models import ContentBatch
+        batch = ContentBatch(contents=contents)
+        await step_publish(config, batch)
+    finally:
+        conn.close()
+
+
 # ══════════════════════════════════════════════════════
 #  Main Pipeline
 # ══════════════════════════════════════════════════════
 
-async def run_pipeline(config: CIEConfig, mode: str = "full") -> None:
+async def run_pipeline(
+    config: CIEConfig,
+    mode: str = "full",
+    publish: bool = False,
+) -> None:
     """CIE 메인 파이프라인."""
     start = datetime.now()
 
@@ -236,12 +301,14 @@ async def run_pipeline(config: CIEConfig, mode: str = "full") -> None:
         finally:
             conn.close()
 
-        # 결과 출력
         log.info("\n📊 월간 회고 결과:")
         for s in review.next_month_strategy:
             log.info(f"  📌 {s}")
         for imp in review.system_improvements:
             log.info(f"  🔧 {imp}")
+
+    elif mode == "publish-only":
+        await step_publish_only(config)
 
     else:  # full
         # Step 1
@@ -256,6 +323,10 @@ async def run_pipeline(config: CIEConfig, mode: str = "full") -> None:
         # Step 4
         await step_save(config, trend_report, reports, batch)
 
+        # Step 5 (발행 — --publish 플래그 필요)
+        if publish:
+            await step_publish(config, batch)
+
         # 결과 요약
         log.info("\n" + "═" * 55)
         log.info("  📦 파이프라인 결과 요약")
@@ -263,7 +334,8 @@ async def run_pipeline(config: CIEConfig, mode: str = "full") -> None:
         log.info(f"  {batch.summary()}")
         for c in batch.contents:
             qa_str = c.qa_report.to_emoji_report() if c.qa_report else "(미검증)"
-            log.info(f"  [{c.platform.upper()}/{c.content_type}] {qa_str}")
+            pub_str = f" | 발행: {c.publish_target}" if c.is_published else ""
+            log.info(f"  [{c.platform.upper()}/{c.content_type}] {qa_str}{pub_str}")
             if c.body:
                 preview = c.body[:100].replace("\n", " ") + "..."
                 log.info(f"    📝 {preview}")
@@ -280,7 +352,7 @@ def main() -> None:
     args = parse_args()
     setup_logging(args.verbose)
     config = CIEConfig()
-    print_banner(config, args.mode)
+    print_banner(config, args.mode, args.publish)
 
     if args.dry_run:
         log.info("🧪 DRY RUN 모드 — LLM 호출 없이 구조 검증만 수행")
@@ -288,6 +360,13 @@ def main() -> None:
         log.info(f"  플랫폼: {config.platforms}")
         log.info(f"  DB 경로: {config.sqlite_path}")
         log.info(f"  Notion: {'연결됨' if config.notion_database_id else '미설정'}")
+        log.info(f"  Notion 발행: {'ON' if config.can_publish_notion else 'OFF'}")
+        log.info(f"  X 발행: {'ON' if config.can_publish_x else 'OFF'}")
+
+        # GDT Bridge 확인
+        from collectors.gdt_bridge import _find_gdt_db
+        gdt_path = _find_gdt_db(config)
+        log.info(f"  GDT DB: {'✅ ' + str(gdt_path) if gdt_path else '❌ 미발견'}")
 
         from storage.local_db import get_connection, ensure_schema
         conn = get_connection(config)
@@ -297,7 +376,7 @@ def main() -> None:
         log.info("🧪 DRY RUN 완료 — 모든 구조 정상")
         return
 
-    asyncio.run(run_pipeline(config, args.mode))
+    asyncio.run(run_pipeline(config, args.mode, args.publish))
 
 
 if __name__ == "__main__":

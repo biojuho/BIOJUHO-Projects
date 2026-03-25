@@ -1,4 +1,4 @@
-"""CIE 데이터 모델 — 트렌드, 규제, 콘텐츠, QA 리포트."""
+"""CIE 데이터 모델 v2.0 — 트렌드, 규제, 콘텐츠, QA 리포트, 발행."""
 
 from __future__ import annotations
 
@@ -19,6 +19,11 @@ class PlatformTrend:
     format_trend: str = ""          # 인기 포맷 (캐러셀, 쓰레드, 숏폼 등)
     tone_trend: str = ""            # 톤 경향 (유머, 진정성, 논쟁 등)
     project_connection: str = ""    # 프로젝트 접점 분석
+    # v2.0: GDT Bridge 확장 필드
+    sentiment: str = "neutral"      # positive / negative / neutral
+    confidence: int = 0             # cross_source_confidence (0~100)
+    hook_starter: str = ""          # 추천 Hook 문장
+    optimal_post_hour: int = -1     # 최적 게시 시간 (-1 = 미설정)
 
 
 @dataclass
@@ -50,6 +55,10 @@ class MergedTrendReport:
                     f"  - {t.keyword} (볼륨:{t.volume}) | "
                     f"포맷:{t.format_trend} | 톤:{t.tone_trend}"
                 )
+                if t.sentiment != "neutral":
+                    lines.append(f"    ↳ 감성: {t.sentiment} | 신뢰도: {t.confidence}%")
+                if t.hook_starter:
+                    lines.append(f"    ↳ 추천 Hook: {t.hook_starter}")
                 if t.project_connection:
                     lines.append(f"    → 프로젝트 접점: {t.project_connection}")
         if self.top_insights:
@@ -155,12 +164,32 @@ class GeneratedContent:
     regulation_compliant: bool = False
     algorithm_optimized: bool = False
     created_at: datetime = field(default_factory=datetime.now)
+    # v2.0: 발행 메타데이터
+    published_at: datetime | None = None
+    publish_target: str = ""        # "notion" | "x" | "naver" | "" (미발행)
+    notion_page_id: str = ""        # Notion 페이지 ID
+    publish_error: str = ""         # 발행 실패 시 에러 메시지
 
     @property
     def qa_passed(self) -> bool:
         if self.qa_report is None:
             return False
         return self.qa_report.pass_threshold
+
+    @property
+    def is_published(self) -> bool:
+        return self.published_at is not None
+
+
+@dataclass
+class PublishResult:
+    """발행 결과."""
+    platform: str
+    success: bool
+    target: str             # "notion" | "x"
+    page_id: str = ""       # Notion page ID
+    error: str = ""
+    published_at: datetime = field(default_factory=datetime.now)
 
 
 @dataclass
@@ -170,6 +199,8 @@ class ContentBatch:
     trend_report: MergedTrendReport | None = None
     checklist: UnifiedChecklist | None = None
     created_at: datetime = field(default_factory=datetime.now)
+    # v2.0: 발행 결과
+    publish_results: list[PublishResult] = field(default_factory=list)
 
     @property
     def all_passed(self) -> bool:
@@ -183,10 +214,12 @@ class ContentBatch:
             if c.qa_report
         ]
         avg = sum(scores) / len(scores) if scores else 0
+        published = sum(1 for c in self.contents if c.is_published)
+        pub_str = f" | 발행: {published}건" if published else ""
         return (
             f"콘텐츠 {len(self.contents)}건 | "
             f"플랫폼: {', '.join(sorted(platforms))} | "
-            f"평균 QA: {avg:.0f}/100"
+            f"평균 QA: {avg:.0f}/100{pub_str}"
         )
 
 
