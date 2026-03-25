@@ -67,6 +67,7 @@ MCP_notion-antigravity/output/
 *.sqlite
 *.db.bak
 *.db.archived_*
+*.db.resync_candidate_*
 *.db-journal
 
 # Hardhat build artifacts
