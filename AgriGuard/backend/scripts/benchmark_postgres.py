@@ -72,6 +72,13 @@ QUERIES = [
 
 WARMUP_ROUNDS = 2
 BENCH_ROUNDS = 5
+TOTAL_ROW_TABLES = [
+    "users",
+    "products",
+    "tracking_events",
+    "certificates",
+    "sensor_readings",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -156,6 +163,13 @@ def run_benchmark(engine, label: str, rounds: int) -> list[dict]:
     return results
 
 
+def fetch_total_rows(engine) -> int:
+    """Return the total row count across all AgriGuard tables."""
+    subqueries = " UNION ALL ".join(f'SELECT COUNT(*) AS cnt FROM "{table}"' for table in TOTAL_ROW_TABLES)
+    with engine.connect() as conn:
+        return conn.execute(text(f"SELECT SUM(cnt) FROM ({subqueries})")).scalar() or 0
+
+
 def render_markdown(sqlite_results: list[dict], pg_results: list[dict] | None, info: dict) -> str:
     lines = [
         "# AgriGuard Database Performance Benchmark",
@@ -181,7 +195,7 @@ def render_markdown(sqlite_results: list[dict], pg_results: list[dict] | None, i
         ])
         for sq, pq in zip(sqlite_results, pg_results):
             speedup = sq["avg_ms"] / pq["avg_ms"] if pq["avg_ms"] > 0 else float("inf")
-            sign = "🟢" if speedup > 1 else "🔴"
+            sign = "[+]" if speedup > 1 else "[-]"
             lines.append(
                 f"| {sq['query']} | {sq['category']} | {sq['avg_ms']:.2f} | {pq['avg_ms']:.2f} | {sign} {speedup:.1f}x |"
             )
@@ -209,7 +223,7 @@ def main() -> int:
     args = parse_args()
 
     if not args.sqlite_db.exists():
-        print(f"❌ SQLite database not found: {args.sqlite_db}")
+        print(f"[ERROR] SQLite database not found: {args.sqlite_db}")
         return 1
 
     print(f"\n{'='*60}")
@@ -220,26 +234,22 @@ def main() -> int:
     sqlite_url = f"sqlite:///{args.sqlite_db}"
     sqlite_engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
 
-    # Get row count for report
-    with sqlite_engine.connect() as conn:
-        total_rows = conn.execute(
-            text("SELECT SUM(cnt) FROM (SELECT COUNT(*) AS cnt FROM products UNION ALL SELECT COUNT(*) FROM tracking_events UNION ALL SELECT COUNT(*) FROM users)")
-        ).scalar() or 0
+    total_rows = fetch_total_rows(sqlite_engine)
 
-    print(f"📊 SQLite ({args.sqlite_db.name}, {total_rows:,} rows):")
+    print(f"[SQLite] ({args.sqlite_db.name}, {total_rows:,} rows):")
     sqlite_results = run_benchmark(sqlite_engine, "SQLite", args.rounds)
 
     # PostgreSQL benchmark (optional)
     pg_results = None
     if args.pg_url:
-        print(f"\n📊 PostgreSQL:")
+        print(f"\n[PostgreSQL]:")
         try:
             pg_engine = create_engine(args.pg_url, pool_pre_ping=True)
             with pg_engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
             pg_results = run_benchmark(pg_engine, "PostgreSQL", args.rounds)
         except Exception as e:
-            print(f"  ❌ PostgreSQL benchmark failed: {e}")
+            print(f"  [ERROR] PostgreSQL benchmark failed: {e}")
 
     # Build info
     pg_masked = ""
@@ -263,14 +273,14 @@ def main() -> int:
 
     if args.json_out:
         args.json_out.write_text(json.dumps(all_results, indent=2), encoding="utf-8")
-        print(f"\n💾 JSON saved: {args.json_out}")
+        print(f"\n[SAVE] JSON saved: {args.json_out}")
 
     if args.markdown_out:
         md = render_markdown(sqlite_results, pg_results, info)
         args.markdown_out.write_text(md, encoding="utf-8")
-        print(f"💾 Markdown saved: {args.markdown_out}")
+        print(f"[SAVE] Markdown saved: {args.markdown_out}")
 
-    print(f"\n✅ Benchmark complete ({args.rounds} rounds)")
+    print(f"\n[OK] Benchmark complete ({args.rounds} rounds)")
     return 0
 
 
