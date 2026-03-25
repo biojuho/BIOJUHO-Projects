@@ -9,7 +9,10 @@
 ## Current Status
 
 ### Recently Completed (2026-03-25)
-- **AgriGuard PostgreSQL Week 3 Plan**: Migration script (`migrate_sqlite_to_postgres.py`), benchmark tool (`benchmark_postgres.py`), and step-by-step plan (`POSTGRES_MIGRATION_PLAN.md`) created
+- **AgriGuard PostgreSQL 벤치마크 완료**: SQLite vs PostgreSQL 5개 쿼리 비교, `BENCHMARK_RESULTS.md` 저장
+- **AgriGuard `.env` 전환**: `DATABASE_URL` → PostgreSQL (smoke 3/3 PASS)
+- **AgriGuard PostgreSQL Week 3 — 마이그레이션 실행 완료**: 15,242 rows migrated (5 tables), 33.17s, 0 errors, smoke 3/3 PASS
+- **AgriGuard PostgreSQL Week 3 Plan**: Migration script, benchmark tool, step-by-step plan created
 - **GetDayTrends A-2 DONE**: `_should_skip_qa()` was already implemented in `core/pipeline_steps.py:38-50` — documentation updated
 - **generation/__init__.py docstring**: Added `system_prompts.py`, `prompts.py`, `audit.py` to package docs
 - **Scheduler Health**: All 3 schedulers healthy (LastTaskResult=0)
@@ -30,8 +33,9 @@
 
 ### Next Immediate Actions
 
-1. **AgriGuard PostgreSQL live migration**: Run `migrate_sqlite_to_postgres.py` after Docker PostgreSQL is up
-2. **Optional**: PostgreSQL performance benchmark vs SQLite
+1. **SQLite decommission**: 2026-03-26T17:36 KST 이후 `agriguard.db` → `agriguard.db.bak` 아카이브
+   - 24h PostgreSQL 운영 확인 후 진행
+   - 롤백: `.env`에서 SQLite URL 주석 해제
 
 ---
 
@@ -62,10 +66,11 @@
 
 See [TASKS.md](TASKS.md) for full kanban board.
 
-**P2 - Important**
-- AgriGuard PostgreSQL live migration (needs Docker)
+**All items**: Complete ✅ 🎉
 
-**All other items**: Complete ✅
+**Optional follow-ups**:
+- PostgreSQL benchmark (optional)
+- `.env` DATABASE_URL 전환 + 24h 모니터링 후 SQLite decommission
 
 ---
 
