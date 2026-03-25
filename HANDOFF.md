@@ -18,11 +18,13 @@
 - Static compose validation passed for the monitoring profile via `docker compose -f docker-compose.dev.yml --profile monitoring config --no-interpolate`.
 - `content-intelligence` v2.0 still passes smoke validation (`31 passed`) and `main.py --dry-run`.
 - Live Docker status/startup was **not** fully revalidated in this session because the local Docker Desktop Linux engine pipe (`dockerDesktopLinuxEngine`) was unavailable during the script run.
+- Root cause of that blocker is now confirmed: Windows `WslService` is configured as `START_TYPE: 4   DISABLED`. `vmcompute` and `com.docker.service` are both stopped, and starting them requires an elevated shell.
 
 ### Next Step
-1. Start or recover Docker Desktop's Linux engine.
-2. Re-run `powershell -ExecutionPolicy Bypass -File scripts/setup_dev_environment.ps1 -Status`.
-3. If healthy, run `powershell -ExecutionPolicy Bypass -File scripts/setup_dev_environment.ps1` or `docker compose -f docker-compose.dev.yml up -d` for full live verification.
+1. Open an elevated PowerShell session.
+2. Run `Set-Service -Name WslService -StartupType Manual`, then `Start-Service WslService`, `Start-Service vmcompute`, and `Start-Service com.docker.service`.
+3. Re-run `powershell -ExecutionPolicy Bypass -File scripts/setup_dev_environment.ps1 -Status`.
+4. If healthy, run `powershell -ExecutionPolicy Bypass -File scripts/setup_dev_environment.ps1` or `docker compose -f docker-compose.dev.yml up -d` for full live verification.
 
 ---
 

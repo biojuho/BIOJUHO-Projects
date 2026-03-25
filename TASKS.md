@@ -16,7 +16,7 @@
 - [ ] **Docker 개발 환경 라이브 검증**
   - **현재 상태**: `docker-compose.dev.yml` 정적 검증은 통과했고, `monitoring/` starter 설정과 `setup_dev_environment.ps1` 보강도 반영됨
   - **남은 확인**: Docker Desktop Linux engine이 정상 기동된 상태에서 `scripts/setup_dev_environment.ps1` 또는 `docker compose -f docker-compose.dev.yml up -d` 실구동 확인
-  - **현재 블로커**: 이 세션에서는 `dockerDesktopLinuxEngine` named pipe를 찾지 못해 라이브 상태 조회가 조기 실패함
+  - **현재 블로커**: 이 세션에서는 `dockerDesktopLinuxEngine` named pipe를 찾지 못했고, 확인 결과 Windows `WslService`가 `DISABLED` 상태라 일반 권한 셸에서는 서비스를 시작할 수 없었음
 
 ---
 
