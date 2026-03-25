@@ -3,16 +3,16 @@
 **Date:** 2026-03-25
 **Status:** PASSED (5/5 checks)
 **Environment:** PostgreSQL 16 via `AgriGuard/docker-compose.yml`
-**SQLite Source:** `AgriGuard/backend/agriguard.db`
+**SQLite Source:** `AgriGuard/backend/agriguard.db.resync_candidate_20260325_200555`
 **PostgreSQL Target:** `postgresql://agriguard:***@localhost:5432/agriguard`
 
 ---
 
 ## Summary
 
-AgriGuard is running against PostgreSQL and the latest quality-control pass succeeded from the repository root. Static tables match exactly between SQLite and PostgreSQL. The only expected variance is `sensor_readings`, which continues to change while the system is live and is therefore validated with a tolerance threshold.
+AgriGuard is running against PostgreSQL and the latest quality-control pass succeeded from the repository root. PostgreSQL was intentionally resynced from the frozen SQLite snapshot above, and the reconciled QC pass matched all managed tables exactly during the resync window.
 
-This document records the initial successful cutover-validation snapshot from 2026-03-25. If later QC reruns disagree, treat the newer rerun as the source of truth.
+This document records the reconciled cutover-validation snapshot from 2026-03-25. After the backend comes back up, live `sensor_readings` will continue to increase in PostgreSQL and should be interpreted as normal runtime activity rather than migration drift.
 
 This report should be read together with:
 - `AgriGuard/BENCHMARK_RESULTS.md`
@@ -34,9 +34,9 @@ The latest QC run completed with `5/5` checks passing:
 
 ### Row Count Outcome
 
-- `users`, `products`, `tracking_events`, and `certificates` matched exactly.
-- `sensor_readings` remained within the configured drift tolerance of `500` rows.
-- The drift is expected while live sensor ingestion continues.
+- `users`, `products`, `tracking_events`, `certificates`, and `sensor_readings` matched exactly during the final reconciled QC run.
+- The frozen SQLite snapshot is preserved as migration evidence.
+- After service restart, new sensor rows are expected to appear only in PostgreSQL.
 
 ### Foreign Key Outcome
 
@@ -68,11 +68,11 @@ Current interpretation:
 ### Safe to do now
 
 - Keep PostgreSQL as the active backend.
-- Re-run QC after the monitoring window:
+- Re-run QC against the frozen snapshot if you need to reconfirm the reconciled state:
 
 ```powershell
 $env:DATABASE_URL = "postgresql://agriguard:agriguard_secret@localhost:5432/agriguard"
-python AgriGuard/backend/scripts/qc_postgres_migration.py
+python AgriGuard/backend/scripts/qc_postgres_migration.py --sqlite-db AgriGuard/backend/agriguard.db.resync_candidate_20260325_200555
 ```
 
 ### Do not do blindly
@@ -88,8 +88,8 @@ python AgriGuard/backend/scripts/qc_postgres_migration.py
 
 ```powershell
 $env:DATABASE_URL = "postgresql://agriguard:agriguard_secret@localhost:5432/agriguard"
-python AgriGuard/backend/scripts/migrate_sqlite_to_postgres.py --truncate
-python AgriGuard/backend/scripts/qc_postgres_migration.py
+python AgriGuard/backend/scripts/migrate_sqlite_to_postgres.py --sqlite-db AgriGuard/backend/agriguard.db.resync_candidate_20260325_200555 --truncate
+python AgriGuard/backend/scripts/qc_postgres_migration.py --sqlite-db AgriGuard/backend/agriguard.db.resync_candidate_20260325_200555
 ```
 
 ---
@@ -105,4 +105,4 @@ python AgriGuard/backend/scripts/qc_postgres_migration.py
 
 ## Conclusion
 
-**Assessment:** PostgreSQL cutover validation is in good shape, with monitoring still recommended because live `sensor_readings` drift is normal in the current environment.
+**Assessment:** PostgreSQL cutover reconciliation is complete. Monitoring is still reasonable, but the migration mismatch that triggered the investigation has been resolved.

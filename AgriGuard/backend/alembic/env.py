@@ -8,11 +8,14 @@ from alembic import context
 # Ensure the backend directory is on sys.path so models can be imported
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from env_loader import load_backend_env  # noqa: E402
 from database import Base  # noqa: E402
 import models  # noqa: E402, F401  — registers all models with Base.metadata
 
 # Alembic Config object
 config = context.config
+
+load_backend_env(override=False)
 
 # Override sqlalchemy.url with DATABASE_URL from environment if set
 database_url = os.environ.get("DATABASE_URL")

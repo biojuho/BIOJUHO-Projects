@@ -1,6 +1,8 @@
 import os
+import sys
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Depends, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -17,8 +19,10 @@ from iot_service import sensor_simulation_loop, get_current_status, get_latest_r
 from starlette.middleware.sessions import SessionMiddleware
 
 # ── Observability (Logfire) ─────────────────────────────────
-import sys
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2]))
+for candidate in Path(__file__).resolve().parents:
+    if (candidate / "shared" / "observability.py").exists():
+        sys.path.insert(0, str(candidate))
+        break
 try:
     from shared.observability import setup_observability
     _LOGFIRE_OK = True

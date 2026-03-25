@@ -1,10 +1,18 @@
 import os
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DEFAULT_SQLITE_URL = "sqlite:///./agriguard.db"
+from env_loader import load_backend_env
+
+# Load the backend-local .env before resolving DATABASE_URL so local uvicorn runs
+# do not silently pin themselves to SQLite during module import.
+load_backend_env(override=False)
+
+DEFAULT_SQLITE_DB = Path(__file__).resolve().with_name("agriguard.db")
+DEFAULT_SQLITE_URL = f"sqlite:///{DEFAULT_SQLITE_DB.as_posix()}"
 
 
 def get_database_url() -> str:

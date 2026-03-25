@@ -7,6 +7,8 @@ import os
 from typing import Optional
 from fastapi import Header, HTTPException, status
 
+from env_loader import load_backend_env
+
 try:
     import firebase_admin
     from firebase_admin import credentials, auth
@@ -15,9 +17,7 @@ except ImportError:
     FIREBASE_AVAILABLE = False
     print("[WARNING] firebase-admin not installed. Auth will use mock user fallback.")
 
-from dotenv import load_dotenv
-
-load_dotenv()
+load_backend_env(override=False)
 
 # Initialize Firebase Admin SDK (only once)
 _firebase_initialized = False
