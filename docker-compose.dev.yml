@@ -1,125 +1,498 @@
 # ===================================================
-# 로컬 개발 통합 환경 (Docker Compose)
-# 전 프로젝트를 한 번에 실행하는 개발용 Compose 파일
-# 사용법: docker compose -f docker-compose.dev.yml up
+# AI Projects Workspace - 통합 개발 환경
+# 전체 프로젝트를 로컬에서 한 번에 실행하는 Docker Compose
+# ===================================================
+#
+# 사용법:
+#   docker compose -f docker-compose.dev.yml up -d              # 모든 서비스 실행
+#   docker compose -f docker-compose.dev.yml up desci-stack     # DeSci만 실행
+#   docker compose -f docker-compose.dev.yml up agriguard-stack # AgriGuard만 실행
+#   docker compose -f docker-compose.dev.yml ps                 # 상태 확인
+#   docker compose -f docker-compose.dev.yml logs -f biolinker  # 로그 확인
+#   docker compose -f docker-compose.dev.yml down               # 모든 서비스 중지
+#
+# 요구사항:
+#   - Docker Desktop (최신 버전)
+#   - .env 파일 설정 (루트 및 각 프로젝트)
+#   - 최소 8GB RAM, 20GB 디스크 여유 공간
+#
 # ===================================================
 
+# ─────────────────────────────────────────────────
+# 공유 인프라 (Databases, Message Queues, Vector Stores)
+# ─────────────────────────────────────────────────
+
 services:
-  # ─── DeSci Backend (BioLinker) ─────────────────────
-  desci-backend:
+  # PostgreSQL - 다중 데이터베이스 (DeSci, AgriGuard)
+  postgres:
+    image: postgres:16-alpine
+    container_name: dev-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # 다중 데이터베이스는 init script에서 생성
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ChromaDB - Vector Database (DeSci BioLinker)
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: dev-chromadb
+    restart: unless-stopped
+    expose:
+      - "8000"
+    ports:
+      - "8001:8000"  # 외부 포트 8001로 매핑 (biolinker와 충돌 방지)
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Qdrant - Alternative Vector Store (Optional, 미래 마이그레이션용)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: dev-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"  # REST API
+      - "6334:6334"  # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - dev-network
+    profiles:
+      - full  # --profile full로 실행 시에만 시작
+
+  # MQTT Mosquitto - IoT Message Broker (AgriGuard Sensors)
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: dev-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"  # MQTT
+      - "9001:9001"  # WebSocket (선택)
+    volumes:
+      - ./AgriGuard/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-logs:/mosquitto/log
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$SYS/#' -C 1 -i healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # Redis - Caching & Session Store (Future use)
+  redis:
+    image: redis:7-alpine
+    container_name: dev-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - dev-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    profiles:
+      - full
+
+  # GROBID - PDF Scientific Paper Parser (DeSci)
+  grobid:
+    image: lfoppiano/grobid:0.8.2-crf
+    container_name: dev-grobid
+    restart: unless-stopped
+    expose:
+      - "8070"
+    ports:
+      - "8070:8070"
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8070/api/isalive"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # GROBID 시작이 느림
+    profiles:
+      - desci
+      - full
+
+# ─────────────────────────────────────────────────
+# DeSci Platform
+# ─────────────────────────────────────────────────
+
+  # BioLinker API - Research Matching Engine
+  biolinker:
     build:
       context: ./desci-platform/biolinker
       dockerfile: Dockerfile
-    container_name: desci-backend
+      target: development  # Multi-stage build의 dev stage
+    container_name: dev-biolinker
+    restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - .env
-      - desci-platform/biolinker/.env
     environment:
       - ENV=development
       - ALLOW_TEST_BYPASS=true
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/biolinker
+      - CHROMA_URL=http://chromadb:8000
+      - GROBID_URL=http://grobid:8070/api
+      - QDRANT_URL=http://qdrant:6333
+      - VECTOR_STORE_BACKEND=${VECTOR_STORE_BACKEND:-chroma}
+      # LLM API Keys
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Firebase
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-key.json
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+    env_file:
+      - .env
+      - desci-platform/biolinker/.env
     volumes:
       - ./desci-platform/biolinker:/app
-    restart: unless-stopped
+      - ./shared:/app/shared:ro  # Shared libraries (read-only)
+      - biolinker-uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - dev-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
-  # ─── DeSci Frontend ────────────────────────────────
+  # DeSci Frontend - React UI
   desci-frontend:
     build:
       context: ./desci-platform/frontend
       dockerfile: Dockerfile
       target: development
-    container_name: desci-frontend
+    container_name: dev-desci-frontend
+    restart: unless-stopped
     ports:
       - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}
+      - VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}
+      - VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}
+      - VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET}
+      - VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}
+      - VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}
     env_file:
       - desci-platform/frontend/.env
-    environment:
-      - VITE_API_BASE_URL=http://desci-backend:8000
     volumes:
-      - ./desci-platform/frontend/src:/app/src
+      - ./desci-platform/frontend/src:/app/src:cached  # Hot reload
+      - /app/node_modules  # Prevent overwrite
     depends_on:
-      desci-backend:
+      biolinker:
         condition: service_healthy
-    restart: unless-stopped
+    networks:
+      - dev-network
+    stdin_open: true
+    tty: true
 
-  # ─── AgriGuard Backend ─────────────────────────────
+  # DeSci Stack Helper (논리적 그룹화)
+  desci-stack:
+    image: hello-world  # Dummy image
+    depends_on:
+      - postgres
+      - chromadb
+      - biolinker
+      - desci-frontend
+    profiles:
+      - desci
+
+# ─────────────────────────────────────────────────
+# AgriGuard Platform
+# ─────────────────────────────────────────────────
+
+  # AgriGuard Backend API
   agriguard-backend:
     build:
       context: ./AgriGuard/backend
       dockerfile: Dockerfile
-    container_name: agriguard-backend
+      target: development
+    container_name: dev-agriguard-backend
+    restart: unless-stopped
     ports:
       - "8002:8002"
-    env_file:
-      - .env
-      - AgriGuard/backend/.env
     environment:
       - ENV=development
       - ALLOW_TEST_BYPASS=true
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agriguard
+      - AUTO_CREATE_SCHEMA=false  # Use Alembic migrations
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      # Blockchain
+      - WEB3_PROVIDER_URI=${WEB3_PROVIDER_URI:-https://sepolia.infura.io/v3/${INFURA_PROJECT_ID}}
+      - AGRIGUARD_PRIVATE_KEY=${AGRIGUARD_PRIVATE_KEY}
+      - CONTRACT_ADDRESS=${AGRIGUARD_CONTRACT_ADDRESS}
+    env_file:
+      - .env
+      - AgriGuard/backend/.env
     volumes:
       - ./AgriGuard/backend:/app
-    restart: unless-stopped
+      - ./shared:/app/shared:ro
+      - agriguard-uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - dev-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/docs')"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
-  # ─── AgriGuard Frontend ────────────────────────────
+  # AgriGuard Frontend
   agriguard-frontend:
     build:
       context: ./AgriGuard/frontend
       dockerfile: Dockerfile
       target: development
-    container_name: agriguard-frontend
+    container_name: dev-agriguard-frontend
+    restart: unless-stopped
     ports:
       - "5174:5174"
+    environment:
+      - VITE_API_URL=http://localhost:8002
+      - VITE_MQTT_BROKER_URL=ws://localhost:9001
     volumes:
-      - ./AgriGuard/frontend/src:/app/src
+      - ./AgriGuard/frontend/src:/app/src:cached
+      - /app/node_modules
     depends_on:
       agriguard-backend:
         condition: service_healthy
-    restart: unless-stopped
+    networks:
+      - dev-network
 
-  # ─── Nginx Reverse Proxy (Optional) ────────────────
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: dev-proxy
-    ports:
-      - "80:80"
+  # AgriGuard Stack Helper
+  agriguard-stack:
+    image: hello-world
     depends_on:
-      - desci-frontend
+      - postgres
+      - mosquitto
+      - agriguard-backend
       - agriguard-frontend
-    restart: unless-stopped
     profiles:
-      - full  # docker compose --profile full up 으로만 실행
+      - agriguard
 
-  # ─── GetDayTrends (One-shot / Cron) ─────────────────
-  # 사용법:
-  #   docker compose -f docker-compose.dev.yml run --rm getdaytrends
-  #   docker compose -f docker-compose.dev.yml run --rm getdaytrends python main.py --country us --limit 10
+# ─────────────────────────────────────────────────
+# Content Intelligence (GetDayTrends, DailyNews)
+# ─────────────────────────────────────────────────
+
+  # GetDayTrends - Automated Trend Analysis
   getdaytrends:
     build:
       context: .
       dockerfile: getdaytrends/Dockerfile
-    container_name: getdaytrends
+    container_name: dev-getdaytrends
+    restart: "no"  # One-shot execution, no auto-restart
+    environment:
+      - PYTHONPATH=/app
+      - TZ=Asia/Seoul
+      # Storage
+      - STORAGE_TYPE=${GETDAYTRENDS_STORAGE_TYPE:-notion}
+      - NOTION_TOKEN=${NOTION_TOKEN}
+      - NOTION_DATABASE_ID=${GETDAYTRENDS_NOTION_DATABASE_ID}
+      # Database (optional PostgreSQL)
+      - DATABASE_URL=${GETDAYTRENDS_DATABASE_URL:-sqlite:///data/getdaytrends.db}
+      # LLM API Keys
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Schedule & Features
+      - SCHEDULE_INTERVAL_MINUTES=${GETDAYTRENDS_SCHEDULE_INTERVAL:-240}
+      - DEFAULT_COUNTRY=${GETDAYTRENDS_COUNTRY:-korea}
+      - DEFAULT_LIMIT=${GETDAYTRENDS_LIMIT:-10}
+      - ENABLE_CLUSTERING=${GETDAYTRENDS_ENABLE_CLUSTERING:-true}
+      - ENABLE_LONG_FORM=${GETDAYTRENDS_ENABLE_LONG_FORM:-true}
+      - MIN_VIRAL_SCORE=${GETDAYTRENDS_MIN_VIRAL_SCORE:-60}
+      - LONG_FORM_MIN_SCORE=${GETDAYTRENDS_LONG_FORM_MIN_SCORE:-95}
+      # Alerts
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     env_file:
       - .env
       - getdaytrends/.env
-    environment:
-      - PYTHONPATH=/app
-      - DEFAULT_COUNTRY=korea
-      - DEFAULT_LIMIT=5
     volumes:
       - ./getdaytrends/data:/app/getdaytrends/data
+      - ./getdaytrends/logs:/app/getdaytrends/logs
+    networks:
+      - dev-network
     profiles:
-      - tools  # docker compose --profile tools run --rm getdaytrends
+      - tools  # docker compose --profile tools up getdaytrends
+    # One-shot mode (default): docker compose run --rm getdaytrends
+    # Scheduler mode: docker compose up getdaytrends (main.py runs scheduler)
 
+  # DailyNews - News Aggregation & Insight Generation
+  dailynews:
+    build:
+      context: .
+      dockerfile: DailyNews/Dockerfile
+    container_name: dev-dailynews
+    restart: "no"
+    environment:
+      - PYTHONPATH=/app
+      - TZ=Asia/Seoul
+      - NOTION_TOKEN=${NOTION_TOKEN}
+      - NOTION_DATABASE_ID=${DAILYNEWS_NOTION_DATABASE_ID}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    env_file:
+      - .env
+      - DailyNews/.env
+    volumes:
+      - ./DailyNews/data:/app/DailyNews/data
+      - ./DailyNews/logs:/app/DailyNews/logs
+    networks:
+      - dev-network
+    profiles:
+      - tools
+
+# ─────────────────────────────────────────────────
+# Monitoring & Debugging (Optional)
+# ─────────────────────────────────────────────────
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dev-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - dev-network
+    profiles:
+      - monitoring
+      - full
+
+  # Grafana - Monitoring Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dev-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - dev-network
+    profiles:
+      - monitoring
+      - full
+
+  # pgAdmin - PostgreSQL Management UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dev-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@example.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+    profiles:
+      - tools
+      - full
+
+# ─────────────────────────────────────────────────
+# Networks & Volumes
+# ─────────────────────────────────────────────────
+
+networks:
+  dev-network:
+    name: ai-projects-dev-network
+    driver: bridge
+
+volumes:
+  # Databases
+  postgres-data:
+    name: dev-postgres-data
+  chroma-data:
+    name: dev-chroma-data
+  qdrant-data:
+    name: dev-qdrant-data
+  redis-data:
+    name: dev-redis-data
+
+  # Message Queue
+  mosquitto-data:
+    name: dev-mosquitto-data
+  mosquitto-logs:
+    name: dev-mosquitto-logs
+
+  # Application Data
+  biolinker-uploads:
+    name: dev-biolinker-uploads
+  agriguard-uploads:
+    name: dev-agriguard-uploads
+
+  # Monitoring
+  prometheus-data:
+    name: dev-prometheus-data
+  grafana-data:
+    name: dev-grafana-data
+  pgadmin-data:
+    name: dev-pgadmin-data
