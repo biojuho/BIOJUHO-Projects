@@ -6,6 +6,26 @@
 
 ---
 
+## Latest Follow-Up (2026-03-26)
+
+### Docker Dev Environment
+- `docker-compose.dev.yml` was hardened after the AgriGuard cutover work.
+- Fixed a Compose interpolation bug in the Mosquitto healthcheck so `$SYS/#` is preserved correctly at runtime.
+- Added starter monitoring assets under `monitoring/` so the `monitoring`/`full` profiles now have concrete Prometheus and Grafana config files to mount.
+- Fixed `scripts/setup_dev_environment.ps1` to resolve the workspace root correctly from `scripts/` and to fail fast when Docker/Compose commands return non-zero exit codes.
+
+### Validation Status
+- Static compose validation passed for the monitoring profile via `docker compose -f docker-compose.dev.yml --profile monitoring config --no-interpolate`.
+- `content-intelligence` v2.0 still passes smoke validation (`31 passed`) and `main.py --dry-run`.
+- Live Docker status/startup was **not** fully revalidated in this session because the local Docker Desktop Linux engine pipe (`dockerDesktopLinuxEngine`) was unavailable during the script run.
+
+### Next Step
+1. Start or recover Docker Desktop's Linux engine.
+2. Re-run `powershell -ExecutionPolicy Bypass -File scripts/setup_dev_environment.ps1 -Status`.
+3. If healthy, run `powershell -ExecutionPolicy Bypass -File scripts/setup_dev_environment.ps1` or `docker compose -f docker-compose.dev.yml up -d` for full live verification.
+
+---
+
 ## Current Status
 
 ### AgriGuard PostgreSQL

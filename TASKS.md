@@ -13,11 +13,20 @@
 
 ## IN_PROGRESS
 
-*No tasks in progress*
+- [ ] **Docker 개발 환경 라이브 검증**
+  - **현재 상태**: `docker-compose.dev.yml` 정적 검증은 통과했고, `monitoring/` starter 설정과 `setup_dev_environment.ps1` 보강도 반영됨
+  - **남은 확인**: Docker Desktop Linux engine이 정상 기동된 상태에서 `scripts/setup_dev_environment.ps1` 또는 `docker compose -f docker-compose.dev.yml up -d` 실구동 확인
+  - **현재 블로커**: 이 세션에서는 `dockerDesktopLinuxEngine` named pipe를 찾지 못해 라이브 상태 조회가 조기 실패함
 
 ---
 
 ## DONE (Last 7 Days)
+
+### 2026-03-26
+- [x] **Docker 개발 환경 구성 하드닝**
+  - **Result**: `mosquitto` healthcheck의 Compose 변수 치환 버그를 수정했고, Prometheus/Grafana starter 설정 파일을 추가해 `monitoring` 프로필이 파일 누락 없이 검증되도록 정리함
+  - **Script fix**: `scripts/setup_dev_environment.ps1`가 올바른 워크스페이스 루트를 사용하도록 수정했고, 외부 `docker` 명령 실패를 조기에 감지하도록 보강함
+  - **Validation**: `docker compose -f docker-compose.dev.yml --profile monitoring config --no-interpolate`, `python -X utf8 content-intelligence/main.py --dry-run`, `python -m pytest content-intelligence/tests/test_smoke.py -q`
 
 ### 2026-03-25
 - [x] **AgriGuard sensor_readings resync investigation completed**

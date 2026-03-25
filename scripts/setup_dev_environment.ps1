@@ -73,8 +73,16 @@ function Write-ErrorMsg {
     Write-ColorOutput "[x] $Message" "Red"
 }
 
+function Invoke-CheckedExpression {
+    param([string]$Command)
+    Invoke-Expression $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $Command"
+    }
+}
+
 # 워크스페이스 루트로 이동
-$WorkspaceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$WorkspaceRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $WorkspaceRoot
 
 Write-Header "AI Projects Workspace - Dev Environment Setup"
@@ -92,6 +100,9 @@ Write-Header "1. Checking Prerequisites"
 Write-Step "Checking Docker installation..."
 try {
     $dockerVersion = docker --version
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker --version failed with exit code $LASTEXITCODE"
+    }
     Write-Success "Docker found: $dockerVersion"
 } catch {
     Write-ErrorMsg "Docker is not installed or not in PATH"
@@ -103,6 +114,9 @@ try {
 Write-Step "Checking Docker Compose..."
 try {
     $composeVersion = docker compose version
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker compose version failed with exit code $LASTEXITCODE"
+    }
     Write-Success "Docker Compose found: $composeVersion"
 } catch {
     Write-ErrorMsg "Docker Compose is not available"
@@ -114,10 +128,28 @@ try {
 Write-Step "Checking Docker daemon..."
 try {
     docker ps | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker ps failed with exit code $LASTEXITCODE"
+    }
     Write-Success "Docker daemon is running"
 } catch {
     Write-ErrorMsg "Docker daemon is not running"
     Write-Warning "Please start Docker Desktop"
+    exit 1
+}
+
+# Docker Compose engine access 확인
+Write-Step "Checking Docker Compose engine access..."
+try {
+    docker compose ls | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker compose ls failed with exit code $LASTEXITCODE"
+    }
+    Write-Success "Docker Compose can reach the container engine"
+} catch {
+    Write-ErrorMsg "Docker Compose cannot reach the container engine"
+    Write-Warning "If Docker Desktop just started, wait a moment and retry."
+    Write-Warning "If you are on Windows, ensure the Linux container engine is running."
     exit 1
 }
 
@@ -153,10 +185,15 @@ if (Test-Path "docker-compose.dev.yml") {
 
 if ($Status) {
     Write-Header "2. Service Status"
-    docker compose -f docker-compose.dev.yml ps
-    Write-Host ""
-    Write-ColorOutput "Disk usage:" "Cyan"
-    docker system df
+    try {
+        Invoke-CheckedExpression "docker compose -f docker-compose.dev.yml ps"
+        Write-Host ""
+        Write-ColorOutput "Disk usage:" "Cyan"
+        Invoke-CheckedExpression "docker system df"
+    } catch {
+        Write-ErrorMsg "Failed to read service status: $_"
+        exit 1
+    }
     exit 0
 }
 
@@ -168,7 +205,12 @@ if ($Down -or $Clean) {
     Write-Header "2. Stopping Services"
 
     Write-Step "Stopping all containers..."
-    docker compose -f docker-compose.dev.yml down
+    try {
+        Invoke-CheckedExpression "docker compose -f docker-compose.dev.yml down"
+    } catch {
+        Write-ErrorMsg "Failed to stop services: $_"
+        exit 1
+    }
 
     if ($Clean) {
         Write-Warning "Cleaning mode: This will DELETE ALL DATA (volumes)!"
@@ -177,10 +219,10 @@ if ($Down -or $Clean) {
 
         if ($confirmation.Character -eq 'Y' -or $confirmation.Character -eq 'y') {
             Write-Step "Removing volumes..."
-            docker compose -f docker-compose.dev.yml down -v
+            Invoke-CheckedExpression "docker compose -f docker-compose.dev.yml down -v"
 
             Write-Step "Pruning Docker system..."
-            docker system prune -f
+            Invoke-CheckedExpression "docker system prune -f"
 
             Write-Success "Clean completed. All data removed."
         } else {
@@ -214,7 +256,7 @@ if ($Profile -ne "") {
 # 서비스 시작
 Write-Step "Starting services in detached mode..."
 try {
-    Invoke-Expression "$composeCmd up -d"
+    Invoke-CheckedExpression "$composeCmd up -d"
     Write-Success "Services started successfully"
 } catch {
     Write-ErrorMsg "Failed to start services: $_"
@@ -232,7 +274,12 @@ Start-Sleep -Seconds 3
 
 # 컨테이너 상태 출력
 Write-Step "Checking container status..."
-docker compose -f docker-compose.dev.yml ps
+try {
+    Invoke-CheckedExpression "docker compose -f docker-compose.dev.yml ps"
+} catch {
+    Write-ErrorMsg "Failed to read container status: $_"
+    exit 1
+}
 
 Write-Host ""
 
@@ -243,7 +290,15 @@ $waited = 0
 
 while ($waited -lt $maxWait) {
     $unhealthy = docker compose -f docker-compose.dev.yml ps --filter "health=unhealthy" --format "{{.Service}}"
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrorMsg "Failed to query unhealthy services."
+        exit 1
+    }
     $starting = docker compose -f docker-compose.dev.yml ps --filter "health=starting" --format "{{.Service}}"
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrorMsg "Failed to query starting services."
+        exit 1
+    }
 
     if (-not $unhealthy -and -not $starting) {
         Write-Success "All services are healthy!"
