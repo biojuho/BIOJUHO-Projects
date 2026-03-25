@@ -7,7 +7,12 @@
 
 ## TODO
 
-*No pending tasks* 🎉
+### P1 - Important
+- [ ] **AgriGuard sensor_readings resync investigation**
+  - **Description**: Latest QC rerun on 2026-03-25 failed the row-count gate because `sensor_readings` drift exceeded the allowed tolerance.
+  - **Observed state**: PostgreSQL has `14,102` rows, the archived SQLite snapshot has `14,696`, and the current backend SQLite file has `14,782`.
+  - **Next step**: Identify what is still writing to `AgriGuard/backend/agriguard.db`, decide whether PostgreSQL needs a controlled backfill, and rerun `qc_postgres_migration.py`.
+  - **Files**: `AgriGuard/backend/scripts/qc_postgres_migration.py`, `AgriGuard/backend/agriguard.db`, `AgriGuard/backend/agriguard.db.archived_20260325`
 
 ---
 
@@ -20,23 +25,13 @@
 ## DONE (Last 7 Days)
 
 ### 2026-03-25
-- [x] **AgriGuard PostgreSQL migration QC validation — PRODUCTION READY**
-  - **Result**: 5/5 checks PASSED (100%), 16,228 rows validated, migration complete (21.7s)
-  - **Quality Checks**:
-    - Row Count Comparison: ✅ Perfect match (sensor_readings +431 live data within tolerance)
-    - Boolean Type Verification: ✅ 502/502 products (100% valid)
-    - Foreign Key Integrity: ✅ 2 orphaned test users (acceptable)
-    - Sample Data Integrity: ✅ Random samples match perfectly
-    - Schema Structure: ✅ 34 columns aligned across 5 tables
-  - **Test Suite**: 6/6 PASSED (database config + smoke tests)
-  - **Performance**: JOIN queries 1.1x faster on PostgreSQL, simple queries faster on SQLite (expected)
+- [x] **AgriGuard PostgreSQL QC snapshot documented**
+  - **Result**: Root-safe QC script and written QC report added for the initial cutover validation snapshot.
   - **Files**: `AgriGuard/POSTGRES_MIGRATION_QC_REPORT.md`, `AgriGuard/backend/scripts/qc_postgres_migration.py`
-  - **Issues Resolved**: Windows encoding (emoji→ASCII), Boolean type conversion (INTEGER→BOOLEAN), live sensor data tolerance
 
-- [x] **AgriGuard PostgreSQL cutover monitoring — CLOSED**
-  - **Result**: QC 5/5 PASS after 21-hour monitoring window. SQLite archived as `agriguard.db.archived_20260325`
-  - **Validation**: Row counts match (sensor_readings 590-row drift within tolerance), boolean types OK, FK integrity OK, sample data OK, schema aligned
-  - **Files**: `AgriGuard/backend/scripts/qc_postgres_migration.py`, `AgriGuard/backend/.env`
+- [x] **AgriGuard SQLite snapshot archived**
+  - **Result**: Snapshot saved as `AgriGuard/backend/agriguard.db.archived_20260325` for later comparison during cutover monitoring.
+  - **Note**: Follow-up investigation is still open because the latest QC rerun exceeded the `sensor_readings` drift tolerance.
 
 - [x] **AgriGuard PostgreSQL benchmark completed**
   - **Result**: SQLite vs PostgreSQL benchmark captured in `AgriGuard/BENCHMARK_RESULTS.md`
@@ -72,12 +67,12 @@
 
 ## Board Statistics
 
-- **Total Active Tasks**: 0
+- **Total Active Tasks**: 1
 - **In Progress**: 0
 - **Completed (7 days)**: 9+
 - **Workspace Smoke**: 15/15 passed
-- **AgriGuard QC**: 5/5 checks passed — PostgreSQL migration CLOSED
+- **AgriGuard QC**: latest rerun is 4/5 due to `sensor_readings` drift beyond tolerance
 
 ---
 
-**Note for agents**: Check the current PostgreSQL QC status before marking the AgriGuard migration fully closed. Do not rerun the live migration into a populated target without an intentional `--truncate` plan.
+**Note for agents**: Do not mark the AgriGuard migration fully closed until the `sensor_readings` gap is explained or reconciled. Do not rerun the live migration into a populated target without an intentional `--truncate` plan.

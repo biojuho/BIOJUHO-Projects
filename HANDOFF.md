@@ -13,7 +13,12 @@
 - Alembic is applied on PostgreSQL with revision `0001`.
 - `AgriGuard/backend/.env` currently points to PostgreSQL.
 - The live migration should not be rerun blindly: the target database already contains data, and `migrate_sqlite_to_postgres.py` now refuses that path unless `--truncate` is explicitly provided.
-- Latest QC from the repository root passed `5/5` checks. The only warning is live `sensor_readings` drift during ingestion, which is currently within tolerance.
+- Latest QC rerun on 2026-03-25 failed the row-count gate (`4/5` overall) because `sensor_readings` drift exceeded the configured tolerance.
+- Current snapshot:
+  - PostgreSQL `sensor_readings`: `14,102`
+  - Archived SQLite snapshot `agriguard.db.archived_20260325`: `14,696`
+  - Current backend SQLite file `agriguard.db`: `14,782`
+- This means cutover monitoring is not actually closed yet. We need to find out why the backend SQLite file is still growing and whether PostgreSQL needs a controlled backfill.
 
 ### Recently Completed (2026-03-25)
 - AgriGuard benchmark captured in `AgriGuard/BENCHMARK_RESULTS.md`
@@ -30,9 +35,10 @@
 
 ## Next Immediate Actions
 
-1. Re-run `python AgriGuard/backend/scripts/qc_postgres_migration.py` after the monitoring window.
-2. If PostgreSQL remains stable and `sensor_readings` drift stays acceptable, archive `AgriGuard/backend/agriguard.db` to `agriguard.db.bak`.
-3. If a full resync is required, stop live writes first and rerun the migration intentionally with `--truncate`.
+1. Identify what is still writing to `AgriGuard/backend/agriguard.db`.
+2. Decide whether PostgreSQL should be backfilled from the archived SQLite snapshot or from the current backend SQLite file.
+3. Re-run `python AgriGuard/backend/scripts/qc_postgres_migration.py` after the resync decision.
+4. If a full resync is required, stop live writes first and rerun the migration intentionally with `--truncate`.
 
 ---
 
@@ -65,7 +71,8 @@
 ## Warnings / Gotchas
 
 - There is also a workspace-root `agriguard.db`. Operational scripts should use `AgriGuard/backend/agriguard.db`, not the root-level file.
-- `sensor_readings` continues to move while the application is live. Row-count equality is not expected unless writes are paused.
+- `sensor_readings` currently exceeds the QC drift tolerance, so the earlier "cutover closed" assumption is stale.
+- `AgriGuard/backend/agriguard.db` is still changing even though the backend `.env` points to PostgreSQL.
 - Do not trust older notes that say AgriGuard is "awaiting Docker PostgreSQL"; that prerequisite is already satisfied.
 
 ---

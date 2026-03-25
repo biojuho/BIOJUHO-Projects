@@ -12,6 +12,8 @@
 
 AgriGuard is running against PostgreSQL and the latest quality-control pass succeeded from the repository root. Static tables match exactly between SQLite and PostgreSQL. The only expected variance is `sensor_readings`, which continues to change while the system is live and is therefore validated with a tolerance threshold.
 
+This document records the initial successful cutover-validation snapshot from 2026-03-25. If later QC reruns disagree, treat the newer rerun as the source of truth.
+
 This report should be read together with:
 - `AgriGuard/BENCHMARK_RESULTS.md`
 - `AgriGuard/backend/scripts/qc_postgres_migration.py`
