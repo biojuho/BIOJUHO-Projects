@@ -29,9 +29,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # ── 경로 설정 ──
-WORKSPACE = Path(__file__).resolve().parents[1]  # d:\AI 프로젝트
+WORKSPACE = Path(__file__).resolve().parents[2]
 if str(WORKSPACE) not in sys.path:
     sys.path.insert(0, str(WORKSPACE))
+for candidate in (
+    WORKSPACE / "packages",
+    WORKSPACE / "automation",
+    WORKSPACE / "apps" / "desci-platform",
+):
+    candidate_text = str(candidate)
+    if candidate_text not in sys.path:
+        sys.path.insert(0, candidate_text)
 
 app = FastAPI(title="AI Projects Dashboard API", version="1.0")
 app.add_middleware(
@@ -42,9 +50,9 @@ app.add_middleware(
 )
 
 # ── DB 경로 ──
-GDT_DB = WORKSPACE / "getdaytrends" / "data" / "getdaytrends.db"
-CIE_DB = WORKSPACE / "content-intelligence" / "data" / "cie.db"
-DN_DB = WORKSPACE / "DailyNews" / "data" / "pipeline_state.db"
+GDT_DB = WORKSPACE / "automation" / "getdaytrends" / "data" / "getdaytrends.db"
+CIE_DB = WORKSPACE / "automation" / "content-intelligence" / "data" / "cie.db"
+DN_DB = WORKSPACE / "automation" / "DailyNews" / "data" / "pipeline_state.db"
 AG_PG_URL = os.environ.get(
     "AGRIGUARD_DATABASE_URL",
     "postgresql://agriguard:agriguard_secret@localhost:5432/agriguard",

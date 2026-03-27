@@ -86,7 +86,7 @@ echo Running %WINDOW% Brief Generation...
 echo =========================================
 echo.
 
-python -m antigravity_mcp jobs generate-brief ^
+call "%PROJECT_ROOT%\run_cli.bat" jobs generate-brief ^
     --window %WINDOW% ^
     --max-items 5 ^
     --categories Tech >> "%LOGFILE%" 2>&1

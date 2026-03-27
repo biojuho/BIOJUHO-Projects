@@ -21,33 +21,54 @@ if str(SRC_DIR) not in sys.path:
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from antigravity_mcp.integrations.notion_adapter import NotionAdapter
-from settings import NOTION_REPORTS_DATA_SOURCE_ID, OUTPUT_DIR
+from settings import OUTPUT_DIR, NOTION_API_KEY
 
 
 async def fetch_todays_pages() -> list[dict]:
-    if not NOTION_REPORTS_DATA_SOURCE_ID:
-        print("[ERROR] NOTION_REPORTS_DATA_SOURCE_ID is missing.")
-        return []
-
-    adapter = NotionAdapter()
-    if not adapter.is_configured():
+    if not NOTION_API_KEY:
         print("[ERROR] NOTION_API_KEY is missing.")
         return []
 
+    from notion_client import AsyncClient
+    notion = AsyncClient(auth=NOTION_API_KEY)
+
     today_str = date.today().isoformat()
     print(f"[INFO] Searching report pages for {today_str}", flush=True)
-    results, _ = await adapter.query_data_source(
-        data_source_id=NOTION_REPORTS_DATA_SOURCE_ID,
-        filter_payload={"property": "Date", "date": {"equals": today_str}},
-        limit=100,
-    )
-    return results
+
+    try:
+        # Use search endpoint — queries by page title containing today's date
+        response = await notion.search(
+            query=f"Brief {today_str}",
+            filter={"value": "page", "property": "object"},
+            page_size=20,
+        )
+        all_results = response.get("results", [])
+
+        # Filter to only News-type pages from today
+        pages = []
+        for p in all_results:
+            props = p.get("properties", {})
+            # Check Type property
+            type_sel = props.get("Type", {}).get("select", {})
+            if type_sel and type_sel.get("name") != "News":
+                continue
+            # Check Date property
+            date_prop = props.get("Date", {}).get("date", {})
+            if date_prop and date_prop.get("start", "").startswith(today_str):
+                pages.append(p)
+
+        print(f"[INFO] Found {len(pages)} report page(s)", flush=True)
+        return pages
+    except Exception as e:
+        print(f"[ERROR] Notion search failed: {e}")
+        return []
 
 
 async def export_markdown(pages: list[dict]) -> Path | None:
     """Export reports to a combined Markdown file."""
-    adapter = NotionAdapter()
+    from notion_client import AsyncClient
+    notion = AsyncClient(auth=NOTION_API_KEY)
+
     today_str = date.today().isoformat()
     full_md = f"# Antigravity Content Engine Briefing - {today_str}\n\n"
     full_md += f"**Source Count**: {len(pages)} reports\n"
@@ -57,9 +78,32 @@ async def export_markdown(pages: list[dict]) -> Path | None:
         title_items = page.get("properties", {}).get("Name", {}).get("title", [])
         title = title_items[0].get("plain_text", "Untitled") if title_items else "Untitled"
         print(f"  - Processing: {title}", flush=True)
-        payload = await adapter.get_page(page_id=page["id"], include_blocks=True, max_depth=1)
+
+        # Fetch blocks (children) for each page
+        blocks_resp = await notion.blocks.children.list(block_id=page["id"])
+        blocks = blocks_resp.get("results", [])
+
         full_md += f"\n# {title}\n"
-        full_md += payload.get("markdown", "") + "\n\n---\n"
+        for block in blocks:
+            btype = block.get("type", "")
+            if btype == "paragraph":
+                texts = block.get("paragraph", {}).get("rich_text", [])
+                full_md += "".join(t.get("plain_text", "") for t in texts) + "\n\n"
+            elif btype in ("heading_2", "heading_3"):
+                texts = block.get(btype, {}).get("rich_text", [])
+                prefix = "## " if btype == "heading_2" else "### "
+                full_md += prefix + "".join(t.get("plain_text", "") for t in texts) + "\n\n"
+            elif btype == "callout":
+                texts = block.get("callout", {}).get("rich_text", [])
+                icon = block.get("callout", {}).get("icon", {}).get("emoji", "💡")
+                full_md += f"> {icon} " + "".join(t.get("plain_text", "") for t in texts) + "\n\n"
+            elif btype == "code":
+                texts = block.get("code", {}).get("rich_text", [])
+                lang = block.get("code", {}).get("language", "")
+                full_md += f"```{lang}\n" + "".join(t.get("plain_text", "") for t in texts) + "\n```\n\n"
+            elif btype == "divider":
+                full_md += "---\n\n"
+        full_md += "\n---\n"
 
     output_dir = Path(OUTPUT_DIR) / "notebooklm_sources"
     output_dir.mkdir(parents=True, exist_ok=True)

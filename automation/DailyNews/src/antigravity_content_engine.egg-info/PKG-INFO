@@ -13,6 +13,7 @@ Requires-Dist: notion-client
 Requires-Dist: openai
 Requires-Dist: python-dateutil
 Requires-Dist: python-dotenv
+Requires-Dist: tenacity<10.0,>=8.0.0
 Provides-Extra: dashboard
 Requires-Dist: pandas; extra == "dashboard"
 Requires-Dist: plotly; extra == "dashboard"
@@ -30,8 +31,11 @@ Requires-Dist: wordcloud; extra == "viz"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24; extra == "dev"
+Requires-Dist: respx>=0.21.0; extra == "dev"
 
-# Antigravity Content Engine
+# DailyNews — Antigravity Content Engine
+
+AI 뉴스 자동 수집·분석·발행 플랫폼 (Notion + MCP + LLM)
 
 Antigravity Content Engine is a Notion-native AI content platform that combines:
 
@@ -41,6 +45,33 @@ Antigravity Content Engine is a Notion-native AI content platform that combines:
 - operational dashboards backed by local state and Notion.
 
 This repository keeps the original compatibility entrypoints, but the active implementation now lives under [`src/antigravity_mcp`](./src/antigravity_mcp).
+## Target Audience
+
+**Primary Persona**: "경제 인사이트 헌터" (Economic Insight Hunter)
+
+**Profile**: 20-40대 직장인, 소상공인, 1인 창업자 who need fast, actionable economic insights for daily decision-making.
+
+**Key Characteristics**:
+- Time-constrained professionals (5-10 minutes available for morning news)
+- High interest in personal finance, real estate, and stock markets
+- Value practicality over academic depth
+- Prefer data-driven, politically neutral content
+- Primary consumption: X (Twitter) longform posts during commute (7-9 AM)
+
+**What They Need**:
+- Quick daily economic briefings with concrete numbers and facts
+- Actionable insights for investment/financial decisions
+- Shareable content that makes them look informed
+- Mobile-optimized format (400-800 characters)
+
+**Success Metrics**:
+- X engagement rate >5% (likes + retweets + replies / views)
+- Notion page views >100/day
+- Average read time >2 minutes
+
+For detailed audience analysis, see [workspace-audience-profiles.md](../../.claude/skills/audience-first/references/workspace-audience-profiles.md#1-dailynews--antigravity-content-engine).
+
+
 
 ## Product Scope
 

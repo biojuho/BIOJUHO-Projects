@@ -1,8 +1,8 @@
-"""
+﻿"""
 getdaytrends Phase 3+ - Content Performance Tracker (Adaptive Feedback Loop)
 
-X/Twitter 게시 트윗의 참여 지표(impressions, likes, retweets, replies, quotes)를
-수집하고, 앵글 유형별 성과를 집계하여 최적 앵글 가중치를 피드백.
+X/Twitter 寃뚯떆 ?몄쐵??李몄뿬 吏??impressions, likes, retweets, replies, quotes)瑜?
+?섏쭛?섍퀬, ?듦? ?좏삎蹂??깃낵瑜?吏묎퀎?섏뿬 理쒖쟻 ?듦? 媛以묒튂瑜??쇰뱶諛?
 """
 
 import asyncio
@@ -24,7 +24,7 @@ from perf_models import (  # noqa: F401
     _ANGLE_ALIASES, _HOOK_ALIASES, _KICK_ALIASES,
 )
 
-# ── X API v2 Constants ───────────────────────────────────
+# ?? X API v2 Constants ???????????????????????????????????
 
 _X_API_BASE = "https://api.twitter.com/2"
 _TWEET_FIELDS = "public_metrics"
@@ -33,12 +33,12 @@ _RATE_LIMIT_DELAY = 1.0  # seconds between batch items (conservative)
 _BATCH_CHUNK_SIZE = 100  # X API max IDs per request
 
 
-# ── PerformanceTracker ───────────────────────────────────
+# ?? PerformanceTracker ???????????????????????????????????
 
 class PerformanceTracker:
     """
-    X/Twitter 게시 트윗의 성과 지표를 수집하고
-    앵글 유형별 가중치를 피드백하는 Phase 3 모듈.
+    X/Twitter 寃뚯떆 ?몄쐵???깃낵 吏?쒕? ?섏쭛?섍퀬
+    ?듦? ?좏삎蹂?媛以묒튂瑜??쇰뱶諛깊븯??Phase 3 紐⑤뱢.
     """
 
     def __init__(self, db_path: str = "data/getdaytrends.db", bearer_token: str = ""):
@@ -46,10 +46,10 @@ class PerformanceTracker:
         self.bearer_token = bearer_token
         self._initialized = False
 
-    # ── DB Setup ─────────────────────────────────────────
+    # ?? DB Setup ?????????????????????????????????????????
 
     def _get_conn(self) -> sqlite3.Connection:
-        """동기 SQLite 연결 (성과 테이블 전용)."""
+        """?숆린 SQLite ?곌껐 (?깃낵 ?뚯씠釉??꾩슜)."""
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -58,7 +58,7 @@ class PerformanceTracker:
         return conn
 
     def init_table(self) -> None:
-        """tweet_performance + golden_references + trend_genealogy 테이블 생성 (멱등)."""
+        """tweet_performance + golden_references + trend_genealogy ?뚯씠釉??앹꽦 (硫깅벑)."""
         if self._initialized:
             return
         conn = self._get_conn()
@@ -85,7 +85,7 @@ class PerformanceTracker:
                 CREATE INDEX IF NOT EXISTS idx_tp_hook ON tweet_performance(hook_pattern);
                 CREATE INDEX IF NOT EXISTS idx_tp_kick ON tweet_performance(kick_pattern);
 
-                -- [E] Golden References: 고성과 트윗 벤치마크
+                -- [E] Golden References: 怨좎꽦怨??몄쐵 踰ㅼ튂留덊겕
                 CREATE TABLE IF NOT EXISTS golden_references (
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
                     tweet_id        TEXT NOT NULL UNIQUE,
@@ -101,7 +101,7 @@ class PerformanceTracker:
                 CREATE INDEX IF NOT EXISTS idx_gr_angle ON golden_references(angle_type);
                 CREATE INDEX IF NOT EXISTS idx_gr_er ON golden_references(engagement_rate);
 
-                -- [A] Trend Genealogy: 트렌드 계보 추적
+                -- [A] Trend Genealogy: ?몃젋??怨꾨낫 異붿쟻
                 CREATE TABLE IF NOT EXISTS trend_genealogy (
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
                     keyword         TEXT NOT NULL,
@@ -118,22 +118,27 @@ class PerformanceTracker:
                 CREATE INDEX IF NOT EXISTS idx_tg_parent ON trend_genealogy(parent_keyword);
                 CREATE INDEX IF NOT EXISTS idx_tg_last_seen ON trend_genealogy(last_seen_at);
             """)
+            try:
+                conn.execute("SELECT x_tweet_id FROM tweets LIMIT 1")
+            except sqlite3.OperationalError:
+                conn.execute("ALTER TABLE tweets ADD COLUMN x_tweet_id TEXT DEFAULT ''")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_x_tweet_id ON tweets(x_tweet_id)")
             conn.commit()
             self._initialized = True
-            log.debug("tweet_performance + golden_references + trend_genealogy 테이블 초기화 완료")
+            log.debug("tweet_performance + golden_references + trend_genealogy ?뚯씠釉?珥덇린???꾨즺")
         finally:
             conn.close()
 
-    # ── X API v2 Metric Collection ───────────────────────
+    # ?? X API v2 Metric Collection ???????????????????????
 
     async def collect_metrics(self, tweet_id: str) -> TweetMetrics | None:
-        """단일 트윗의 public_metrics를 X API v2에서 수집.
+        """?⑥씪 ?몄쐵??public_metrics瑜?X API v2?먯꽌 ?섏쭛.
 
         Returns:
             TweetMetrics or None if API call fails.
         """
         if not self.bearer_token:
-            log.warning("bearer_token 미설정 - X API 호출 불가")
+            log.warning("bearer_token 誘몄꽕??- X API ?몄텧 遺덇?")
             return None
 
         url = f"{_X_API_BASE}/tweets/{tweet_id}"
@@ -164,20 +169,20 @@ class PerformanceTracker:
                 retry_after = int(e.response.headers.get("retry-after", "60"))
                 log.warning(f"X API rate limit hit - retry after {retry_after}s")
             else:
-                log.error(f"X API 오류 [{e.response.status_code}]: tweet_id={tweet_id}")
+                log.error(f"X API ?ㅻ쪟 [{e.response.status_code}]: tweet_id={tweet_id}")
             return None
         except Exception as e:
-            log.error(f"X API 요청 실패: tweet_id={tweet_id} - {type(e).__name__}: {e}")
+            log.error(f"X API ?붿껌 ?ㅽ뙣: tweet_id={tweet_id} - {type(e).__name__}: {e}")
             return None
 
     async def batch_collect(self, tweet_ids: list[str]) -> list[TweetMetrics]:
-        """여러 트윗의 메트릭을 배치 수집 (rate limit 준수).
+        """?щ윭 ?몄쐵??硫뷀듃由?쓣 諛곗튂 ?섏쭛 (rate limit 以??.
 
-        X API v2 GET /2/tweets는 최대 100개 ID를 한 번에 조회 가능.
-        100개 단위로 청크 분할 후 순차 호출.
+        X API v2 GET /2/tweets??理쒕? 100媛?ID瑜???踰덉뿉 議고쉶 媛??
+        100媛??⑥쐞濡?泥?겕 遺꾪븷 ???쒖감 ?몄텧.
         """
         if not self.bearer_token:
-            log.warning("bearer_token 미설정 - batch_collect 스킵")
+            log.warning("bearer_token 誘몄꽕??- batch_collect ?ㅽ궢")
             return []
 
         if not tweet_ids:
@@ -198,7 +203,7 @@ class PerformanceTracker:
 
                     if resp.status_code == 429:
                         retry_after = int(resp.headers.get("retry-after", "60"))
-                        log.warning(f"Rate limit - {retry_after}s 대기 후 재시도")
+                        log.warning(f"Rate limit - {retry_after}s, retrying batch request")
                         await asyncio.sleep(retry_after)
                         resp = await client.get(url, params=params, headers=headers)
 
@@ -220,16 +225,16 @@ class PerformanceTracker:
                         results.append(tm)
 
             except Exception as e:
-                log.error(f"batch_collect 청크 실패 (ids {i}~{i+len(chunk)}): {e}")
+                log.error(f"batch_collect 泥?겕 ?ㅽ뙣 (ids {i}~{i+len(chunk)}): {e}")
 
             # Rate limit spacing between chunks
             if i + _BATCH_CHUNK_SIZE < len(tweet_ids):
                 await asyncio.sleep(_RATE_LIMIT_DELAY)
 
-        log.info(f"batch_collect 완료: {len(results)}/{len(tweet_ids)} 트윗 수집")
+        log.info(f"batch_collect ?꾨즺: {len(results)}/{len(tweet_ids)} ?몄쐵 ?섏쭛")
         return results
 
-    # ── DB Persistence ───────────────────────────────────
+    # ?? DB Persistence ???????????????????????????????????
 
     _UPSERT_SQL = """INSERT INTO tweet_performance
            (tweet_id, impressions, likes, retweets, replies, quotes,
@@ -255,18 +260,45 @@ class PerformanceTracker:
             (m.collected_at or datetime.now(timezone.utc)).isoformat(),
         )
 
+    @staticmethod
+    def _total_engagements(m: TweetMetrics) -> int:
+        return int(m.likes + m.retweets + m.replies + m.quotes)
+
+    def _sync_tweet_summary(self, conn: sqlite3.Connection, metrics: TweetMetrics) -> None:
+        engagements = self._total_engagements(metrics)
+        cursor = conn.execute(
+            """UPDATE tweets
+               SET impressions = ?,
+                   engagements = ?,
+                   engagement_rate = ?
+               WHERE x_tweet_id = ?""",
+            (metrics.impressions, engagements, metrics.engagement_rate, metrics.tweet_id),
+        )
+        if cursor.rowcount:
+            return
+
+        if metrics.tweet_id.isdigit():
+            conn.execute(
+                """UPDATE tweets
+                   SET impressions = ?,
+                       engagements = ?,
+                       engagement_rate = ?
+                   WHERE id = ?""",
+                (metrics.impressions, engagements, metrics.engagement_rate, int(metrics.tweet_id)),
+            )
     def save_metrics(self, metrics: TweetMetrics) -> None:
-        """단일 TweetMetrics를 tweet_performance 테이블에 저장/갱신."""
+        """?⑥씪 TweetMetrics瑜?tweet_performance ?뚯씠釉붿뿉 ???媛깆떊."""
         self.init_table()
         conn = self._get_conn()
         try:
             conn.execute(self._UPSERT_SQL, self._metrics_to_tuple(metrics))
+            self._sync_tweet_summary(conn, metrics)
             conn.commit()
         finally:
             conn.close()
 
     def save_metrics_batch(self, metrics_list: list[TweetMetrics]) -> int:
-        """여러 TweetMetrics를 일괄 저장. 저장 건수 반환."""
+        """?щ윭 TweetMetrics瑜??쇨큵 ??? ???嫄댁닔 諛섑솚."""
         if not metrics_list:
             return 0
         self.init_table()
@@ -276,21 +308,22 @@ class PerformanceTracker:
             for m in metrics_list:
                 try:
                     conn.execute(self._UPSERT_SQL, self._metrics_to_tuple(m))
+                    self._sync_tweet_summary(conn, m)
                     saved += 1
                 except Exception as e:
-                    log.debug(f"save_metrics_batch 개별 실패 (무시): {m.tweet_id} - {e}")
+                    log.debug(f"save_metrics_batch 媛쒕퀎 ?ㅽ뙣 (臾댁떆): {m.tweet_id} - {e}")
             conn.commit()
         finally:
             conn.close()
         return saved
 
-    # ── Angle Performance Analytics ──────────────────────
+    # ?? Angle Performance Analytics ??????????????????????
 
     def get_angle_performance(self, days: int = 30) -> dict[str, AngleStats]:
-        """앵글 유형별 성과 집계.
+        """?듦? ?좏삎蹂??깃낵 吏묎퀎.
 
         Returns:
-            {angle_type: AngleStats} - 최근 N일간 앵글별 평균 임프레션/참여율.
+            {angle_type: AngleStats} - 理쒓렐 N?쇨컙 ?듦?蹂??됯퇏 ?꾪봽?덉뀡/李몄뿬??
         """
         self.init_table()
         conn = self._get_conn()
@@ -318,7 +351,7 @@ class PerformanceTracker:
                     avg_engagement_rate=round(row["avg_er"] or 0.0, 6),
                 )
 
-            # 데이터 없는 앵글도 기본값으로 포함
+            # ?곗씠???녿뒗 ?듦???湲곕낯媛믪쑝濡??ы븿
             for a in ANGLE_TYPES:
                 if a not in result:
                     result[a] = AngleStats(angle=a)
@@ -331,37 +364,37 @@ class PerformanceTracker:
         self, days: int = 30, min_samples: int = 5,
         _precomputed_stats: dict[str, AngleStats] | None = None,
     ) -> dict[str, float]:
-        """앵글 유형별 최적 가중치 계산.
+        """?듦? ?좏삎蹂?理쒖쟻 媛以묒튂 怨꾩궛.
 
-        engagement_rate 기반 소프트맥스 유사 정규화.
-        min_samples 미만인 앵글은 기본 가중치(1/N) 유지.
+        engagement_rate 湲곕컲 ?뚰봽?몃㎘???좎궗 ?뺢퇋??
+        min_samples 誘몃쭔???듦?? 湲곕낯 媛以묒튂(1/N) ?좎?.
 
         Returns:
-            {angle_type: weight} - 합계 1.0 (확률 분포).
+            {angle_type: weight} - ?⑷퀎 1.0 (?뺣쪧 遺꾪룷).
         """
         stats = _precomputed_stats or self.get_angle_performance(days)
         n = len(ANGLE_TYPES)
         default_weight = 1.0 / n
 
-        # 충분한 샘플이 있는 앵글만 가중치 계산 대상
+        # 異⑸텇???섑뵆???덈뒗 ?듦?留?媛以묒튂 怨꾩궛 ???
         scored: dict[str, float] = {}
         unscorable: list[str] = []
 
         for angle in ANGLE_TYPES:
             s = stats.get(angle)
             if s and s.total_tweets >= min_samples:
-                # engagement_rate를 점수로 사용 (0 이상 보장)
+                # engagement_rate瑜??먯닔濡??ъ슜 (0 ?댁긽 蹂댁옣)
                 scored[angle] = max(s.avg_engagement_rate, 1e-8)
             else:
                 unscorable.append(angle)
 
         if not scored:
-            # 데이터 불충분 - 균등 분배
+            # ?곗씠??遺덉땐遺?- 洹좊벑 遺꾨같
             return {a: default_weight for a in ANGLE_TYPES}
 
-        # 점수 비례 가중치 계산
+        # ?먯닔 鍮꾨? 媛以묒튂 怨꾩궛
         total_score = sum(scored.values())
-        # unscorable 앵글에 할당할 총 비중 (탐색 예산)
+        # unscorable ?듦????좊떦??珥?鍮꾩쨷 (?먯깋 ?덉궛)
         explore_budget = len(unscorable) * default_weight
         exploit_budget = 1.0 - explore_budget
 
@@ -372,47 +405,54 @@ class PerformanceTracker:
             else:
                 weights[angle] = round(default_weight, 4)
 
-        # 정규화 보정 (부동소수점 오차)
+        # ?뺢퇋??蹂댁젙 (遺?숈냼?섏젏 ?ㅼ감)
         total = sum(weights.values())
         if total > 0:
             weights = {k: round(v / total, 4) for k, v in weights.items()}
 
-        # AngleStats에 weight 반영
+        # AngleStats??weight 諛섏쁺
         for angle, w in weights.items():
             if angle in stats:
                 stats[angle].weight = w
 
         return weights
 
-    # ── Scheduler Integration ────────────────────────────
+    # ?? Scheduler Integration ????????????????????????????
 
     async def run_collection_cycle(self, lookback_hours: int = 48) -> int:
-        """스케줄러 호출용: 최근 게시되었으나 성과 미수집 트윗을 찾아 메트릭 수집.
+        """?ㅼ?以꾨윭 ?몄텧?? 理쒓렐 寃뚯떆?섏뿀?쇰굹 ?깃낵 誘몄닔吏??몄쐵??李얠븘 硫뷀듃由??섏쭛.
 
-        1. tweets 테이블에서 posted_at이 있고 tweet_performance에 없는 트윗 조회
-        2. X API로 메트릭 수집
-        3. angle_type 매핑 후 저장
+        1. tweets ?뚯씠釉붿뿉??posted_at???덇퀬 tweet_performance???녿뒗 ?몄쐵 議고쉶
+        2. X API濡?硫뷀듃由??섏쭛
+        3. angle_type 留ㅽ븨 ?????
 
         Returns:
-            수집 완료 건수.
+            ?섏쭛 ?꾨즺 嫄댁닔.
         """
         self.init_table()
         conn = self._get_conn()
         try:
             cutoff = (datetime.now() - timedelta(hours=lookback_hours)).isoformat()
 
-            # posted_at이 있고 아직 수집되지 않은 트윗 조회
-            # tweets.content에서 tweet_id를 추출하는 것이 아니라
-            # posted_at이 설정된 트윗의 DB id + tweet_type을 가져옴
+            # posted_at???덇퀬 ?꾩쭅 ?섏쭛?섏? ?딆? ?몄쐵 議고쉶
+            # tweets.content?먯꽌 tweet_id瑜?異붿텧?섎뒗 寃껋씠 ?꾨땲??
+            # posted_at???ㅼ젙???몄쐵??DB id + tweet_type??媛?몄샂
             rows = conn.execute(
-                """SELECT t.id, t.tweet_type, t.posted_at, t.content
+                """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id, t.content
                    FROM tweets t
                    WHERE t.posted_at IS NOT NULL
                      AND t.posted_at >= ?
-                     AND t.id NOT IN (
-                         SELECT CAST(tweet_id AS INTEGER)
-                         FROM tweet_performance
-                         WHERE tweet_id GLOB '[0-9]*'
+                     AND (
+                         (t.x_tweet_id IS NOT NULL AND t.x_tweet_id != '' AND t.x_tweet_id NOT IN (
+                             SELECT tweet_id
+                             FROM tweet_performance
+                         ))
+                         OR
+                         ((t.x_tweet_id IS NULL OR t.x_tweet_id = '') AND t.id NOT IN (
+                             SELECT CAST(tweet_id AS INTEGER)
+                             FROM tweet_performance
+                             WHERE tweet_id GLOB '[0-9]*'
+                         ))
                      )
                    ORDER BY t.posted_at DESC
                    LIMIT 200""",
@@ -422,34 +462,37 @@ class PerformanceTracker:
             conn.close()
 
         if not rows:
-            log.debug("run_collection_cycle: 미수집 트윗 없음")
+            log.debug("run_collection_cycle: 誘몄닔吏??몄쐵 ?놁쓬")
             return 0
 
-        log.info(f"run_collection_cycle: {len(rows)}개 미수집 트윗 발견")
+        log.info(f"run_collection_cycle: {len(rows)}媛?誘몄닔吏??몄쐵 諛쒓껄")
 
-        # posted_at 필드에 X tweet_id가 저장되어 있다고 가정하는 대신
-        # tweets 테이블의 id를 tweet_id로 사용 (로컬 DB 추적)
-        # 실제 X tweet_id가 별도 컬럼에 있다면 그 컬럼을 사용해야 함
-        # 여기서는 DB id 기준으로 로컬 성과 추적
+        # posted_at ?꾨뱶??X tweet_id媛 ??λ릺???덈떎怨?媛?뺥븯?????
+        # tweets ?뚯씠釉붿쓽 id瑜?tweet_id濡??ъ슜 (濡쒖뺄 DB 異붿쟻)
+        # ?ㅼ젣 X tweet_id媛 蹂꾨룄 而щ읆???덈떎硫?洹?而щ읆???ъ슜?댁빞 ??
+        # ?ш린?쒕뒗 DB id 湲곗??쇰줈 濡쒖뺄 ?깃낵 異붿쟻
 
-        # X API를 통한 실제 메트릭 수집 시도
-        # posted_at 필드 값이 실제 X tweet_id를 포함하는 경우를 처리
+        # X API瑜??듯븳 ?ㅼ젣 硫뷀듃由??섏쭛 ?쒕룄
+        # posted_at ?꾨뱶 媛믪씠 ?ㅼ젣 X tweet_id瑜??ы븿?섎뒗 寃쎌슦瑜?泥섎━
         tweet_id_map: dict[str, dict] = {}  # x_tweet_id -> row info
         local_only: list[dict] = []
 
         for row in rows:
             row_dict = dict(row)
-            posted_at = row_dict.get("posted_at", "")
-            # posted_at이 숫자로만 구성되면 X tweet ID로 간주
-            if posted_at and re.match(r"^\d{10,}$", posted_at.strip()):
-                x_id = posted_at.strip()
+            x_tweet_id = (row_dict.get("x_tweet_id", "") or "").strip()
+            posted_at = (row_dict.get("posted_at", "") or "").strip()
+            if x_tweet_id and re.match(r"^\d{10,}$", x_tweet_id):
+                x_id = x_tweet_id
+                tweet_id_map[x_id] = row_dict
+            elif posted_at and re.match(r"^\d{10,}$", posted_at):
+                x_id = posted_at
                 tweet_id_map[x_id] = row_dict
             else:
                 local_only.append(row_dict)
 
         collected_count = 0
 
-        # X API 배치 수집
+        # X API 諛곗튂 ?섏쭛
         all_metrics: list[TweetMetrics] = []
         if tweet_id_map and self.bearer_token:
             x_ids = list(tweet_id_map.keys())
@@ -460,7 +503,7 @@ class PerformanceTracker:
                 m.angle_type = normalize_angle(row_info.get("tweet_type", ""))
                 all_metrics.append(m)
 
-        # 로컬 트윗 (X API 없이 DB 기록만)
+        # 濡쒖뺄 ?몄쐵 (X API ?놁씠 DB 湲곕줉留?
         for row_dict in local_only:
             db_id = str(row_dict["id"])
             angle = normalize_angle(row_dict.get("tweet_type", ""))
@@ -470,19 +513,19 @@ class PerformanceTracker:
                 collected_at=datetime.now(timezone.utc),
             ))
 
-        # 일괄 저장 (N+1 방지)
+        # ?쇨큵 ???(N+1 諛⑹?)
         collected_count = self.save_metrics_batch(all_metrics)
 
         log.info(
-            f"run_collection_cycle 완료: {collected_count}건 수집 "
-            f"(X API: {len(tweet_id_map)}건, 로컬: {len(local_only)}건)"
+            f"run_collection_cycle ?꾨즺: {collected_count}嫄??섏쭛 "
+            f"(X API: {len(tweet_id_map)}嫄? 濡쒖뺄: {len(local_only)}嫄?"
         )
         return collected_count
 
-    # ── [B] Hook/Kick Pattern Analytics ──────────────────
+    # ?? [B] Hook/Kick Pattern Analytics ??????????????????
 
     def get_hook_performance(self, days: int = 30) -> dict[str, PatternStats]:
-        """[B] 훅 패턴별 성과 집계."""
+        """[B] ???⑦꽩蹂??깃낵 吏묎퀎."""
         self.init_table()
         conn = self._get_conn()
         try:
@@ -516,7 +559,7 @@ class PerformanceTracker:
             conn.close()
 
     def get_kick_performance(self, days: int = 30) -> dict[str, PatternStats]:
-        """[B] 킥 패턴별 성과 집계."""
+        """[B] ???⑦꽩蹂??깃낵 吏묎퀎."""
         self.init_table()
         conn = self._get_conn()
         try:
@@ -552,7 +595,7 @@ class PerformanceTracker:
     def get_optimal_pattern_weights(
         self, days: int = 30, min_samples: int = 3,
     ) -> dict[str, dict[str, float]]:
-        """[B] 훅/킥 패턴별 최적 가중치 계산 — 생성 프롬프트에 주입."""
+        """[B] ?????⑦꽩蹂?理쒖쟻 媛以묒튂 怨꾩궛 ???앹꽦 ?꾨＼?꾪듃??二쇱엯."""
         hook_stats = self.get_hook_performance(days)
         kick_stats = self.get_kick_performance(days)
 
@@ -586,17 +629,17 @@ class PerformanceTracker:
             "kick_weights": _compute_weights(kick_stats, KICK_PATTERNS),
         }
 
-    # ── [E] Golden Reference Management ────────────────
+    # ?? [E] Golden Reference Management ????????????????
 
     def save_golden_reference(self, ref: GoldenReference) -> None:
-        """[E] 골든 레퍼런스 저장. 최대 20개 유지 (낮은 ER 자동 교체)."""
+        """[E] 怨⑤뱺 ?덊띁?곗뒪 ??? 理쒕? 20媛??좎? (??? ER ?먮룞 援먯껜)."""
         self.init_table()
         conn = self._get_conn()
         try:
-            # 현재 개수 확인
+            # ?꾩옱 媛쒖닔 ?뺤씤
             count = conn.execute("SELECT COUNT(*) FROM golden_references").fetchone()[0]
             if count >= 20:
-                # 가장 낮은 engagement_rate 제거
+                # 媛????? engagement_rate ?쒓굅
                 conn.execute(
                     """DELETE FROM golden_references WHERE id = (
                         SELECT id FROM golden_references ORDER BY engagement_rate ASC LIMIT 1
@@ -616,12 +659,12 @@ class PerformanceTracker:
                  ref.category, (ref.saved_at or datetime.now(timezone.utc)).isoformat()),
             )
             conn.commit()
-            log.debug(f"골든 레퍼런스 저장: tweet_id={ref.tweet_id}, ER={ref.engagement_rate}")
+            log.debug(f"怨⑤뱺 ?덊띁?곗뒪 ??? tweet_id={ref.tweet_id}, ER={ref.engagement_rate}")
         finally:
             conn.close()
 
     def get_golden_references(self, limit: int = 5, category: str = "") -> list[GoldenReference]:
-        """[E] 상위 골든 레퍼런스 조회 (QA 벤치마크용)."""
+        """[E] ?곸쐞 怨⑤뱺 ?덊띁?곗뒪 議고쉶 (QA 踰ㅼ튂留덊겕??."""
         self.init_table()
         conn = self._get_conn()
         try:
@@ -656,9 +699,9 @@ class PerformanceTracker:
             conn.close()
 
     def auto_update_golden_references(self, days: int = 7, top_n: int = 10) -> int:
-        """[E] 최근 N일간 상위 트윗을 자동으로 골든 레퍼런스에 등록.
-        tweets 테이블에서 content를 조인하여 가져옴.
-        Returns: 새로 등록된 건수.
+        """[E] 理쒓렐 N?쇨컙 ?곸쐞 ?몄쐵???먮룞?쇰줈 怨⑤뱺 ?덊띁?곗뒪???깅줉.
+        tweets ?뚯씠釉붿뿉??content瑜?議곗씤?섏뿬 媛?몄샂.
+        Returns: ?덈줈 ?깅줉??嫄댁닔.
         """
         self.init_table()
         conn = self._get_conn()
@@ -696,15 +739,15 @@ class PerformanceTracker:
                 self.save_golden_reference(ref)
                 saved += 1
 
-            log.info(f"골든 레퍼런스 자동 갱신: {saved}/{len(rows)}건")
+            log.info(f"Golden references auto-updated: {saved}/{len(rows)}")
         finally:
             conn.close()
         return saved
 
-    # ── [D] Real-time Signal (3-Tier Collection) ───────
+    # ?? [D] Real-time Signal (3-Tier Collection) ???????
 
     async def collect_early_signal(self, tweet_ids: list[str], tier: str = "1h") -> list[TweetMetrics]:
-        """[D] 초기 시그널 수집 (발행 1시간 후). 높은 초기 ER → 후속 콘텐츠 트리거."""
+        """[D] 珥덇린 ?쒓렇???섏쭛 (諛쒗뻾 1?쒓컙 ??. ?믪? 珥덇린 ER ???꾩냽 肄섑뀗痢??몃━嫄?"""
         metrics = await self.batch_collect(tweet_ids)
         for m in metrics:
             m.collection_tier = tier
@@ -713,7 +756,7 @@ class PerformanceTracker:
         return metrics
 
     def get_early_signal_analysis(self, hours: int = 2) -> dict:
-        """[D] 최근 N시간 내 수집된 초기 시그널 분석.
+        """[D] 理쒓렐 N?쒓컙 ???섏쭛??珥덇린 ?쒓렇??遺꾩꽍.
         Returns: {boost_candidates: [...], suppress_candidates: [...], avg_metrics: {...}}
         """
         self.init_table()
@@ -750,10 +793,10 @@ class PerformanceTracker:
             conn.close()
 
     async def run_tiered_collection(self, lookback_hours: int = 48) -> dict:
-        """[D] 3단계 수집 오케스트레이터.
-        - 1h tier: 발행 후 45분~90분 된 트윗
-        - 6h tier: 발행 후 5~7시간 된 트윗
-        - 48h tier: 발행 후 24~72시간 된 트윗
+        """[D] 3?④퀎 ?섏쭛 ?ㅼ??ㅽ듃?덉씠??
+        - 1h tier: 諛쒗뻾 ??45遺?90遺????몄쐵
+        - 6h tier: 諛쒗뻾 ??5~7?쒓컙 ???몄쐵
+        - 48h tier: 諛쒗뻾 ??24~72?쒓컙 ???몄쐵
         Returns: {tier_1h: N, tier_6h: N, tier_48h: N}
         """
         self.init_table()
@@ -762,13 +805,13 @@ class PerformanceTracker:
 
         try:
             now = datetime.now()
-            # 1h tier: 45분~90분 전 발행
+            # 1h tier: 45遺?90遺???諛쒗뻾
             t1h_start = (now - timedelta(minutes=90)).isoformat()
             t1h_end = (now - timedelta(minutes=45)).isoformat()
-            # 6h tier: 5~7시간 전 발행
+            # 6h tier: 5~7?쒓컙 ??諛쒗뻾
             t6h_start = (now - timedelta(hours=7)).isoformat()
             t6h_end = (now - timedelta(hours=5)).isoformat()
-            # 48h tier: 24~72시간 전 발행 (기존 로직)
+            # 48h tier: 24~72?쒓컙 ??諛쒗뻾 (湲곗〈 濡쒖쭅)
             t48h_start = (now - timedelta(hours=72)).isoformat()
             t48h_end = (now - timedelta(hours=24)).isoformat()
 
@@ -778,17 +821,25 @@ class PerformanceTracker:
                 ("48h", t48h_start, t48h_end),
             ]:
                 rows = conn.execute(
-                    """SELECT t.id, t.tweet_type, t.posted_at
+                    """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id
                        FROM tweets t
                        WHERE t.posted_at IS NOT NULL
                          AND t.posted_at >= ? AND t.posted_at <= ?
-                         AND t.id NOT IN (
-                             SELECT CAST(tweet_id AS INTEGER)
-                             FROM tweet_performance
-                             WHERE collection_tier = ? AND tweet_id GLOB '[0-9]*'
+                         AND (
+                             (t.x_tweet_id IS NOT NULL AND t.x_tweet_id != '' AND t.x_tweet_id NOT IN (
+                                 SELECT tweet_id
+                                 FROM tweet_performance
+                                 WHERE collection_tier = ?
+                             ))
+                             OR
+                             ((t.x_tweet_id IS NULL OR t.x_tweet_id = '') AND t.id NOT IN (
+                                 SELECT CAST(tweet_id AS INTEGER)
+                                 FROM tweet_performance
+                                 WHERE collection_tier = ? AND tweet_id GLOB '[0-9]*'
+                             ))
                          )
                        LIMIT 100""",
-                    (start, end, tier),
+                    (start, end, tier, tier),
                 ).fetchall()
 
                 if not rows:
@@ -797,9 +848,14 @@ class PerformanceTracker:
                 tweet_ids = []
                 id_map: dict[str, dict] = {}
                 for r in rows:
-                    posted_at = r["posted_at"] or ""
-                    if posted_at and re.match(r"^\d{10,}$", posted_at.strip()):
-                        x_id = posted_at.strip()
+                    x_tweet_id = (r["x_tweet_id"] or "").strip()
+                    posted_at = (r["posted_at"] or "").strip()
+                    if x_tweet_id and re.match(r"^\d{10,}$", x_tweet_id):
+                        x_id = x_tweet_id
+                        tweet_ids.append(x_id)
+                        id_map[x_id] = dict(r)
+                    elif posted_at and re.match(r"^\d{10,}$", posted_at):
+                        x_id = posted_at
                         tweet_ids.append(x_id)
                         id_map[x_id] = dict(r)
 
@@ -812,20 +868,20 @@ class PerformanceTracker:
                     count = self.save_metrics_batch(metrics)
                     result[f"tier_{tier}"] = count
 
-            log.info(f"3단계 수집 완료: 1h={result['tier_1h']}, 6h={result['tier_6h']}, 48h={result['tier_48h']}")
+            log.info(f"3?④퀎 ?섏쭛 ?꾨즺: 1h={result['tier_1h']}, 6h={result['tier_6h']}, 48h={result['tier_48h']}")
         finally:
             conn.close()
 
         return result
 
-    # ── [A] Trend Genealogy ────────────────────────────
+    # ?? [A] Trend Genealogy ????????????????????????????
 
     def save_trend_genealogy(
         self, keyword: str, parent_keyword: str = "",
         predicted_children: list[str] | None = None,
         viral_score: int = 0,
     ) -> None:
-        """[A] 트렌드 계보 저장/갱신."""
+        """[A] ?몃젋??怨꾨낫 ???媛깆떊."""
         self.init_table()
         conn = self._get_conn()
         now = datetime.now(timezone.utc).isoformat()
@@ -865,7 +921,7 @@ class PerformanceTracker:
             conn.close()
 
     def get_trend_history(self, keyword: str, hours: int = 72) -> list[dict]:
-        """[A] 최근 N시간 이내 트렌드 히스토리 (계보 연결용)."""
+        """[A] 理쒓렐 N?쒓컙 ?대궡 ?몃젋???덉뒪?좊━ (怨꾨낫 ?곌껐??."""
         self.init_table()
         conn = self._get_conn()
         try:
@@ -884,7 +940,7 @@ class PerformanceTracker:
             conn.close()
 
     def get_predicted_children(self, keyword: str) -> list[str]:
-        """[A] 특정 트렌드의 예측된 파생 트렌드 목록."""
+        """[A] ?뱀젙 ?몃젋?쒖쓽 ?덉륫???뚯깮 ?몃젋??紐⑸줉."""
         self.init_table()
         conn = self._get_conn()
         try:
@@ -898,10 +954,10 @@ class PerformanceTracker:
         finally:
             conn.close()
 
-    # ── Utility ──────────────────────────────────────────
+    # ?? Utility ??????????????????????????????????????????
 
     def get_summary(self, days: int = 30) -> dict:
-        """대시보드/로깅용 성과 요약 (훅/킥 패턴 포함)."""
+        """??쒕낫??濡쒓퉭???깃낵 ?붿빟 (?????⑦꽩 ?ы븿)."""
         stats = self.get_angle_performance(days)
         weights = self.get_optimal_angle_weights(days, _precomputed_stats=stats)
         pattern_weights = self.get_optimal_pattern_weights(days)
@@ -938,3 +994,4 @@ class PerformanceTracker:
             "optimal_weights": weights,
             "pattern_weights": pattern_weights,
         }
+

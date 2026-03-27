@@ -7,27 +7,30 @@ on:
     branches: ["main", "dev"]
 
 concurrency:
-  group: smoke-${{ github.ref }}
+  group: workspace-smoke-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   smoke-test:
-    name: 🔥 Full Workspace Smoke Test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
 
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: |
-            getdaytrends/requirements.txt
-            desci-platform/biolinker/requirements.txt
+            automation/getdaytrends/requirements.txt
+            automation/DailyNews/requirements.txt
+            apps/desci-platform/biolinker/requirements.txt
 
       - uses: actions/setup-node@v4
         with:
@@ -35,88 +38,58 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install -r getdaytrends/requirements.txt
-          pip install -r desci-platform/biolinker/requirements.txt 2>/dev/null || true
+          pip install -r automation/getdaytrends/requirements.txt
+          pip install -r automation/DailyNews/requirements.txt
+          pip install -r apps/desci-platform/biolinker/requirements.txt
 
-      - name: Install Node dependencies (DeSci Frontend)
-        working-directory: desci-platform/frontend
-        run: npm ci
+      - name: Install Node dependencies
+        run: |
+          npm ci --prefix apps/desci-platform/frontend
+          npm ci --prefix apps/AgriGuard/frontend
+          npm ci --prefix apps/dashboard
 
-      - name: Install Node dependencies (AgriGuard Frontend)
-        working-directory: AgriGuard/frontend
-        run: npm ci
-
-      # ─── Python tests ────────────────────────────────────
-      - name: "🧪 Workspace regression tests"
+      - name: Run workspace smoke suite
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
         run: |
           python -m pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q --tb=short
+          python ops/scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 
-      - name: "🧪 GetDayTrends tests (245+)"
-        env:
-          PYTHONIOENCODING: utf-8
-          PYTHONUTF8: "1"
-        run: |
-          python -m pytest getdaytrends/tests/ -q --tb=short
-
-      - name: "🧪 GetDayTrends v15.0 tests"
-        env:
-          PYTHONIOENCODING: utf-8
-          PYTHONUTF8: "1"
-        run: |
-          python -m pytest getdaytrends/tests/test_v15_zero_content.py getdaytrends/tests/test_v15_quality.py -v --tb=short
-
-      - name: "🧪 BioLinker tests"
-        env:
-          PYTHONIOENCODING: utf-8
-          PYTHONUTF8: "1"
-          MOCK_MODE: "true"
-          ALLOW_TEST_BYPASS: "true"
-        run: |
-          python -m pytest desci-platform/biolinker/tests/ -q --tb=short
-
-      # ─── Frontend checks ─────────────────────────────────
-      - name: "🔍 DeSci Frontend lint"
-        working-directory: desci-platform/frontend
-        run: npm run lint
-
-      - name: "🧪 DeSci Frontend tests"
-        working-directory: desci-platform/frontend
-        run: npm test -- --run
-
-      - name: "🏗️ DeSci Frontend build"
-        working-directory: desci-platform/frontend
-        run: npm run build
-
-      - name: "🔍 AgriGuard Frontend lint"
-        working-directory: AgriGuard/frontend
-        run: npm run lint
-
-      - name: "🏗️ AgriGuard Frontend build"
-        working-directory: AgriGuard/frontend
-        run: npm run build
-
-      # ─── Python compile checks ───────────────────────────
-      - name: "🔧 Compile check (shared modules)"
-        run: |
-          python -m compileall -q shared/ AgriGuard/backend/ notebooklm-mcp/ github-mcp/ 2>&1 | head -50
-
-      # ─── Summary ──────────────────────────────────────────
-      - name: "📊 Smoke Test Summary"
+      - name: Append summary
         if: always()
         run: |
-          cat <<'EOF' >> $GITHUB_STEP_SUMMARY
-          ## 🔥 Workspace Smoke Test Results
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-          | Suite | Status |
-          |:---|:---:|
-          | Workspace regression tests | ${{ steps.*.outcome }} |
-          | GetDayTrends (245+ tests) | ✅ |
-          | GetDayTrends v15.0 (27 tests) | ✅ |
-          | BioLinker tests | ✅ |
-          | DeSci Frontend (lint + test + build) | ✅ |
-          | AgriGuard Frontend (lint + build) | ✅ |
-          | Compile checks | ✅ |
-          EOF
+          report = Path("smoke-all.json")
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+          if not report.exists():
+              summary_path.write_text("## Workspace smoke\n\nSmoke report was not generated.\n", encoding="utf-8")
+              raise SystemExit(0)
+
+          results = json.loads(report.read_text(encoding="utf-8"))
+          total = len(results)
+          passed = sum(1 for item in results if item.get("ok"))
+          failed = total - passed
+
+          lines = [
+              "## Workspace smoke",
+              "",
+              f"- Passed: {passed}",
+              f"- Failed: {failed}",
+              f"- Total: {total}",
+          ]
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-smoke-report
+          path: smoke-all.json
+          if-no-files-found: warn

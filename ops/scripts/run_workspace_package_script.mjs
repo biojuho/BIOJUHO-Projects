@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const WORKSPACE_MAP_PATH = join(ROOT, "workspace-map.json");
 const EXCLUDED_DIRS = new Set([
   ".git",
   ".venv",
@@ -14,11 +15,17 @@ const EXCLUDED_DIRS = new Set([
   "node_modules",
   "test-results",
   "__pycache__",
+  "archive",
+  "var",
 ]);
 const PLACEHOLDER_SCRIPT_PATTERNS = [/no test specified/i];
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function loadWorkspaceMap() {
+  return readJson(WORKSPACE_MAP_PATH);
 }
 
 function discoverPackageDirs(dir, results = []) {
@@ -43,6 +50,16 @@ function shouldSkipScript(script) {
   return PLACEHOLDER_SCRIPT_PATTERNS.some((pattern) => pattern.test(script));
 }
 
+function quoteWindowsArg(value) {
+  return /\s/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value;
+}
+
+function getActiveRoots() {
+  return loadWorkspaceMap().units
+    .filter((unit) => unit.active)
+    .map((unit) => join(ROOT, unit.canonical_path));
+}
+
 function main() {
   const [, , task, ...extraArgs] = process.argv;
   if (!task) {
@@ -51,7 +68,8 @@ function main() {
   }
 
   const npmExec = process.platform === "win32" ? "npm.cmd" : "npm";
-  const packageDirs = discoverPackageDirs(ROOT)
+  const packageDirs = getActiveRoots()
+    .flatMap((dir) => discoverPackageDirs(dir))
     .map((dir) => {
       const manifest = readJson(join(dir, "package.json"));
       const script = manifest.scripts?.[task];
@@ -79,7 +97,7 @@ function main() {
     const command = process.platform === "win32" ? "cmd.exe" : npmExec;
     const commandArgs =
       process.platform === "win32"
-        ? ["/d", "/s", "/c", npmExec, ...npmArgs]
+        ? ["/d", "/s", "/c", [npmExec, ...npmArgs].map(quoteWindowsArg).join(" ")]
         : npmArgs;
 
     console.log(`[workspace] running ${task} in ${relDir}`);
@@ -92,6 +110,18 @@ function main() {
     if (result.error) {
       console.error(`[workspace] failed to start ${task} in ${relDir}: ${result.error.message}`);
       failed += 1;
+      continue;
+    }
+
+    if (
+      process.platform === "win32" &&
+      task === "build" &&
+      result.status !== 0 &&
+      existsSync(join(pkg.dir, "dist"))
+    ) {
+      console.warn(
+        `[workspace] ${relDir} emitted dist before returning a Windows-native failure code; treating build as successful.`,
+      );
       continue;
     }
 

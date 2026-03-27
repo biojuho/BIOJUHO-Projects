@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SMOKE_SCRIPT_PATH = PROJECT_ROOT / "scripts" / "run_workspace_smoke.py"
+SMOKE_SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "run_workspace_smoke.py"
 QUALITY_GATE_PATH = PROJECT_ROOT / "docs" / "QUALITY_GATE.md"
 
 
@@ -33,17 +33,48 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
 
     assert {check.scope for check in checks} == {"workspace", "desci", "agriguard", "mcp", "getdaytrends"}
     assert any(check.name == "workspace regression tests" for check in checks)
+    assert any(check.name == "dashboard frontend build" for check in checks)
     assert any(check.name == "desci frontend unit tests" for check in checks)
     assert any(check.name == "desci bundle budget" for check in checks)
     assert any(check.name == "notebooklm compile" for check in checks)
     assert any(check.name == "DailyNews unit tests" for check in checks)
-    assert any(check.name == "notebooklm-automation unit tests" for check in checks)
     assert any(check.name == "getdaytrends tests" for check in checks)
 
     for check in checks:
         assert (PROJECT_ROOT / check.cwd).exists()
         if "compile" in check.name:
             assert smoke.EXCLUDE_REGEX in check.command
+
+
+def test_build_pythonpath_includes_canonical_workspace_entries() -> None:
+    smoke = load_smoke_module()
+    pythonpath = smoke.build_pythonpath(PROJECT_ROOT, {"PYTHONPATH": "custom-entry"})
+    entries = pythonpath.split(smoke.os.pathsep)
+
+    assert str(PROJECT_ROOT) in entries
+    assert str(PROJECT_ROOT / "packages") in entries
+    assert str(PROJECT_ROOT / "automation") in entries
+    assert str(PROJECT_ROOT / "apps" / "desci-platform") in entries
+    assert entries[-1] == "custom-entry"
+
+
+def test_runtime_temp_dir_stays_under_workspace_var_tmp() -> None:
+    smoke = load_smoke_module()
+    check = smoke.Check("workspace", "workspace regression tests", ".", ["python", "-m", "pytest", "-q"])
+    temp_dir = smoke.runtime_temp_dir(PROJECT_ROOT, check)
+
+    assert temp_dir.is_relative_to(PROJECT_ROOT / "var" / "tmp" / "workspace-smoke")
+    assert temp_dir.parts[-2] == "workspace"
+
+
+def test_command_for_check_appends_workspace_local_basetemp() -> None:
+    smoke = load_smoke_module()
+    check = smoke.Check("workspace", "workspace regression tests", ".", ["python", "-m", "pytest", "tests/test_workspace_smoke.py", "-q"])
+    temp_dir = smoke.runtime_temp_dir(PROJECT_ROOT, check)
+
+    command = smoke.command_for_check(check, temp_dir)
+
+    assert command[-2:] == ["--basetemp", str(temp_dir / "pytest")]
 
 
 def test_run_one_reports_missing_working_directory() -> None:
@@ -59,13 +90,13 @@ def test_run_one_reports_missing_working_directory() -> None:
 
 def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) -> None:
     smoke = load_smoke_module()
-    check = smoke.Check("desci", "desci frontend unit tests", "desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
+    check = smoke.Check("desci", "desci frontend unit tests", "apps/desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
     attempts = iter(
         [
             smoke.Result(
                 "desci",
                 "desci frontend unit tests",
-                "desci-platform/frontend",
+                "apps/desci-platform/frontend",
                 "npm.cmd run test:lts",
                 1,
                 False,
@@ -75,7 +106,7 @@ def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) ->
             smoke.Result(
                 "desci",
                 "desci frontend unit tests",
-                "desci-platform/frontend",
+                "apps/desci-platform/frontend",
                 "npm.cmd run test:lts",
                 0,
                 True,
@@ -95,11 +126,11 @@ def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) ->
 
 def test_should_retry_ignores_non_transient_failures() -> None:
     smoke = load_smoke_module()
-    check = smoke.Check("desci", "desci frontend unit tests", "desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
+    check = smoke.Check("desci", "desci frontend unit tests", "apps/desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
     result = smoke.Result(
         "desci",
         "desci frontend unit tests",
-        "desci-platform/frontend",
+        "apps/desci-platform/frontend",
         "npm.cmd run test:lts",
         1,
         False,

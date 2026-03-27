@@ -4,29 +4,31 @@ on:
   push:
     branches: ["main", "dev"]
     paths:
-      - "canva-mcp/**"
+      - "mcp/canva-mcp/**"
   pull_request:
     branches: ["main", "dev"]
     paths:
-      - "canva-mcp/**"
+      - "mcp/canva-mcp/**"
 
 jobs:
   typecheck-and-build:
-    name: TypeScript Check & Build
+    name: TypeScript Check and Build
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: canva-mcp
+        working-directory: mcp/canva-mcp
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: canva-mcp/package-lock.json
+          cache-dependency-path: mcp/canva-mcp/package-lock.json
 
       - name: Install dependencies
         run: npm ci

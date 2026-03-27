@@ -15,7 +15,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./ops/scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}"]
       interval: 5s
@@ -27,7 +27,7 @@ services:
   # DeSci Platform - Biolinker API
   biolinker:
     build:
-      context: ./desci-platform/biolinker
+      context: ./apps/desci-platform/biolinker
       dockerfile: Dockerfile
     container_name: biolinker-api
     environment:
@@ -40,8 +40,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./desci-platform/biolinker:/app
-      - ./shared:/app/shared
+      - ./apps/desci-platform/biolinker:/app
+      - ./packages/shared:/app/shared
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,7 +52,7 @@ services:
   # AgriGuard Backend API
   agriguard:
     build:
-      context: ./AgriGuard/backend
+      context: ./apps/AgriGuard/backend
       dockerfile: Dockerfile
     container_name: agriguard-api
     environment:
@@ -62,7 +62,7 @@ services:
     ports:
       - "8002:8002"
     volumes:
-      - ./AgriGuard/backend:/app
+      - ./apps/AgriGuard/backend:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,7 +73,7 @@ services:
   # DeSci Platform - Frontend
   frontend:
     build:
-      context: ./desci-platform/frontend
+      context: ./apps/desci-platform/frontend
       dockerfile: Dockerfile
     container_name: desci-frontend
     environment:
@@ -84,7 +84,7 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./desci-platform/frontend:/app
+      - ./apps/desci-platform/frontend:/app
       - /app/node_modules
     depends_on:
       - biolinker
@@ -96,7 +96,7 @@ services:
   getdaytrends:
     build:
       context: .
-      dockerfile: getdaytrends/Dockerfile
+      dockerfile: automation/getdaytrends/Dockerfile
     container_name: getdaytrends
     environment:
       # Storage
@@ -123,8 +123,8 @@ services:
       # Timezone
       TZ: Asia/Seoul
     volumes:
-      - ./getdaytrends/data:/app/getdaytrends/data
-      - ./getdaytrends/logs:/app/getdaytrends/logs
+      - ./automation/getdaytrends/data:/app/getdaytrends/data
+      - ./automation/getdaytrends/logs:/app/getdaytrends/logs
     networks:
       - ai-projects-network
     restart: unless-stopped

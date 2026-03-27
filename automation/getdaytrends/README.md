@@ -3,6 +3,35 @@
 > 멀티소스 트렌드 수집 + 바이럴 스코어링 + Claude AI 트윗/쓰레드 생성 + 자동 저장 + 알림
 
 ---
+## Target Audience
+
+**Primary Persona**: "트렌드 서퍼" (Trend Surfer)
+
+**Profile**: 20-35세 콘텐츠 크리에이터, 마케터, 1인 미디어 who need automated trend discovery and viral content generation.
+
+**Key Characteristics**:
+- Tech-savvy content creators with understanding of automation
+- Variable income dependent on viral hits (freelancers, ad revenue)
+- Value speed over perfection (ship 80% quality fast)
+- Data-driven decision making (scoring > gut feeling)
+- Primary workflow: CLI + Telegram/Discord alerts (daily 8-9 AM check)
+
+**What They Need**:
+- Automatic trend collection every 2 hours with viral scoring
+- 5 tweet variants auto-generated per trend
+- Multi-source integration (getdaytrends + X API + Reddit + Google News)
+- History DB to prevent duplicates and learn patterns
+- Decision time <10 seconds per trend (viral score 80+ = instant adopt)
+
+**Success Metrics**:
+- Viral scoring accuracy >70% (correlation with actual hit rate)
+- Trend collection success rate >95%
+- Tweet generation time <30 seconds per item
+- User viral hit rate +50% (vs before using tool)
+
+For detailed audience analysis, see [workspace-audience-profiles.md](../../.claude/skills/audience-first/references/workspace-audience-profiles.md#2-getdaytrends).
+
+
 
 ## v2.0 주요 변경사항
 

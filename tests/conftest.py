@@ -5,10 +5,20 @@ from pathlib import Path
 
 import pytest
 
-# Ensure workspace root is on sys.path
-_ROOT = str(Path(__file__).resolve().parents[1])
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
+# Ensure canonical workspace paths are importable without relying on legacy
+# junctions such as shared/ or DailyNews/.
+_ROOT = Path(__file__).resolve().parents[1]
+for candidate in (
+    _ROOT,
+    _ROOT / "packages",
+    _ROOT / "automation",
+    _ROOT / "apps" / "desci-platform",
+    _ROOT / "automation" / "DailyNews" / "src",
+    _ROOT / "automation" / "DailyNews" / "scripts",
+):
+    candidate_text = str(candidate)
+    if candidate.exists() and candidate_text not in sys.path:
+        sys.path.insert(0, candidate_text)
 
 
 @pytest.fixture(autouse=True)

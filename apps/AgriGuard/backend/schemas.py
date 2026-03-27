@@ -1,5 +1,5 @@
 ﻿from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional
+from typing import Any, List, Optional
 from datetime import datetime
 
 class TrackingEvent(BaseModel):
@@ -71,3 +71,22 @@ class DashboardData(BaseModel):
 class DashboardResponse(BaseModel):
     status: str
     data: DashboardData
+
+
+class QRScanEventCreate(BaseModel):
+    session_id: str
+    event_type: str
+    occurred_at: Optional[datetime] = None
+    product_id: Optional[str] = None
+    qr_value: Optional[str] = None
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+    recovery_method: Optional[str] = None
+    source: str = "qr_reader"
+    variant_id: str = "qr_page_v1"
+    event_payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class QRScanEventResponse(BaseModel):
+    status: str
+    event_id: str

@@ -48,9 +48,8 @@ async def get_existing_urls(database_id: str, api_key: str, logger) -> set[str]:
     existing_urls: set[str] = set()
     has_more = True
     next_cursor: str | None = None
-    query_id = NOTION_REPORTS_DATA_SOURCE_ID or database_id
-    query_kind = "data_sources" if NOTION_REPORTS_DATA_SOURCE_ID else "databases"
-    url = f"https://api.notion.com/v1/{query_kind}/{query_id}/query"
+    query_id = database_id or NOTION_REPORTS_DATA_SOURCE_ID
+    url = f"https://api.notion.com/v1/databases/{query_id}/query"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Notion-Version": NOTION_API_VERSION,

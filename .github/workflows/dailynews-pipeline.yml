@@ -2,38 +2,39 @@ name: DailyNews Pipeline
 
 on:
   schedule:
-    # KST 07:00 (UTC 22:00 전날) + KST 18:00 (UTC 09:00)
-    - cron: '0 22 * * *'   # KST 07:00
-    - cron: '0 9 * * *'    # KST 18:00
+    - cron: "0 22 * * *"
+    - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Run mode (morning/evening/full)'
+        description: "Run mode (morning/evening/full)"
         required: false
-        default: 'full'
+        default: "full"
 
 jobs:
   run-dailynews:
-    name: 📰 DailyNews Pipeline
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
-          cache: 'pip'
-          cache-dependency-path: 'DailyNews/requirements.txt'
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: automation/DailyNews/requirements.txt
 
       - name: Install dependencies
         run: |
-          pip install -r DailyNews/requirements.txt
-          pip install -r shared/pyproject.toml 2>/dev/null || true
+          pip install -r automation/DailyNews/requirements.txt
+          pip install -r packages/shared/pyproject.toml 2>/dev/null || true
 
       - name: Create .env file
-        working-directory: DailyNews
+        working-directory: automation/DailyNews
         run: |
           cat <<EOF > .env
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
@@ -50,8 +51,8 @@ jobs:
           BLOG_MIN_SCORE=70
           EOF
 
-      - name: Run DailyNews Pipeline
-        working-directory: DailyNews
+      - name: Run DailyNews pipeline
+        working-directory: automation/DailyNews
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
@@ -65,11 +66,11 @@ jobs:
         with:
           name: dailynews-log-${{ github.run_number }}
           path: |
-            DailyNews/logs/
-            DailyNews/run_output*.log
+            automation/DailyNews/logs/
+            automation/DailyNews/run_output*.log
           retention-days: 7
 
-      - name: "📱 Telegram notification (failure)"
+      - name: Telegram notification on failure
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -78,10 +79,10 @@ jobs:
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] DailyNews #${{ github.run_number }} FAILED\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] DailyNews #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
           fi
 
-      - name: "💚 Heartbeat (success)"
+      - name: Telegram heartbeat on success
         if: success()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

@@ -10,6 +10,33 @@ Antigravity Content Engine is a Notion-native AI content platform that combines:
 - operational dashboards backed by local state and Notion.
 
 This repository keeps the original compatibility entrypoints, but the active implementation now lives under [`src/antigravity_mcp`](./src/antigravity_mcp).
+## Target Audience
+
+**Primary Persona**: "경제 인사이트 헌터" (Economic Insight Hunter)
+
+**Profile**: 20-40대 직장인, 소상공인, 1인 창업자 who need fast, actionable economic insights for daily decision-making.
+
+**Key Characteristics**:
+- Time-constrained professionals (5-10 minutes available for morning news)
+- High interest in personal finance, real estate, and stock markets
+- Value practicality over academic depth
+- Prefer data-driven, politically neutral content
+- Primary consumption: X (Twitter) longform posts during commute (7-9 AM)
+
+**What They Need**:
+- Quick daily economic briefings with concrete numbers and facts
+- Actionable insights for investment/financial decisions
+- Shareable content that makes them look informed
+- Mobile-optimized format (400-800 characters)
+
+**Success Metrics**:
+- X engagement rate >5% (likes + retweets + replies / views)
+- Notion page views >100/day
+- Average read time >2 minutes
+
+For detailed audience analysis, see [workspace-audience-profiles.md](../../.claude/skills/audience-first/references/workspace-audience-profiles.md#1-dailynews--antigravity-content-engine).
+
+
 
 ## Product Scope
 
@@ -44,13 +71,13 @@ docs/
 
 ## Canonical Environment Variables
 
-Use the canonical names below for all new deployments:
+Use the canonical names below for all new deployments.
+
+Required for active Notion reads and writes:
 
 - `NOTION_API_KEY`
 - `NOTION_TASKS_DATABASE_ID`
-- `NOTION_TASKS_DATA_SOURCE_ID`
 - `NOTION_REPORTS_DATABASE_ID`
-- `NOTION_REPORTS_DATA_SOURCE_ID`
 - `NOTION_DASHBOARD_PAGE_ID`
 - `GOOGLE_API_KEY`
 - `ANTHROPIC_API_KEY`
@@ -64,6 +91,17 @@ Use the canonical names below for all new deployments:
 - `PIPELINE_HTTP_TIMEOUT_SEC`
 - `PIPELINE_MAX_RETRIES`
 - `CONTENT_APPROVAL_MODE`
+
+Optional legacy compatibility only:
+
+- `NOTION_TASKS_DATA_SOURCE_ID`
+- `NOTION_REPORTS_DATA_SOURCE_ID`
+
+DailyNews now queries Notion with the standard database endpoint:
+
+- `/v1/databases/{id}/query`
+
+For new setups, always provide the database IDs above and do not rely on data source IDs for query operations.
 
 Legacy aliases such as `ANTIGRAVITY_DB_ID`, `ANTIGRAVITY_TASKS_DB_ID`, `ANTIGRAVITY_NEWS_DB_ID`, and `DASHBOARD_PAGE_ID` are still accepted for one release and generate warnings.
 
@@ -101,10 +139,22 @@ Run the MCP server:
 python -m antigravity_mcp serve
 ```
 
+Windows without editable install:
+
+```bat
+run_cli.bat serve
+```
+
 Generate briefs:
 
 ```bash
 python -m antigravity_mcp jobs generate-brief --window morning --max-items 5
+```
+
+Windows without editable install:
+
+```bat
+run_cli.bat jobs generate-brief --window morning --max-items 5
 ```
 
 Publish a stored report draft:

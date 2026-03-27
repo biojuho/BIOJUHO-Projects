@@ -17,10 +17,12 @@ from db import (
     get_recently_processed_keywords,
     get_trend_stats,
     init_db,
+    mark_tweet_posted,
     save_run,
     save_thread,
     save_trend,
     save_tweet,
+    sync_tweet_metrics,
     update_run,
 )
 from models import (
@@ -362,8 +364,61 @@ class TestPerformanceTrackingColumns(unittest.IsolatedAsyncioTestCase):
         cursor = await self.conn.execute("PRAGMA table_info(tweets)")
         rows = await cursor.fetchall()
         cols = {r["name"] for r in rows}
-        for col in ("posted_at", "impressions", "engagements", "engagement_rate"):
+        for col in ("posted_at", "x_tweet_id", "impressions", "engagements", "engagement_rate"):
             self.assertIn(col, cols, f"missing column: {col}")
+
+    @pytest.mark.asyncio
+    async def test_mark_tweet_posted_and_sync_metrics(self):
+        run = RunResult(run_id="publish-sync-test", country="korea")
+        run_id = await save_run(self.conn, run)
+        trend = ScoredTrend(
+            keyword="실측 라벨 테스트",
+            rank=1,
+            volume_last_24h=12345,
+            viral_potential=88,
+            trend_acceleration="+12%",
+            top_insight="test insight",
+            suggested_angles=["angle"],
+            best_hook_starter="hook",
+            country="korea",
+            sources=[TrendSource.GETDAYTRENDS],
+            context=MultiSourceContext(),
+        )
+        trend_id = await save_trend(self.conn, trend, run_id)
+        tweet = GeneratedTweet(
+            tweet_type="short",
+            content="실제 게시 후 성과 수집 테스트",
+            char_count=18,
+            content_type="short",
+        )
+        tweet_row_id = await save_tweet(self.conn, tweet, trend_id, run_id)
+
+        resolved_row_id = await mark_tweet_posted(
+            self.conn,
+            x_tweet_id="1234567890123",
+            tweet_row_id=tweet_row_id,
+        )
+        self.assertEqual(resolved_row_id, tweet_row_id)
+
+        updated = await sync_tweet_metrics(
+            self.conn,
+            x_tweet_id="1234567890123",
+            impressions=1500,
+            engagements=105,
+            engagement_rate=0.07,
+        )
+        self.assertEqual(updated, 1)
+
+        cursor = await self.conn.execute(
+            "SELECT posted_at, x_tweet_id, impressions, engagements, engagement_rate FROM tweets WHERE id = ?",
+            (tweet_row_id,),
+        )
+        row = await cursor.fetchone()
+        self.assertEqual(row["x_tweet_id"], "1234567890123")
+        self.assertIsNotNone(row["posted_at"])
+        self.assertEqual(row["impressions"], 1500)
+        self.assertEqual(row["engagements"], 105)
+        self.assertAlmostEqual(row["engagement_rate"], 0.07, places=6)
 
     @pytest.mark.asyncio
     async def test_migration_idempotent(self):

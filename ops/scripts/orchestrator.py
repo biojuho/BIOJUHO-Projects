@@ -22,7 +22,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-WORKSPACE = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from workspace_paths import find_workspace_root, rel_unit_path, unit_path
+
+
+WORKSPACE = find_workspace_root()
 
 
 @dataclass
@@ -106,7 +113,7 @@ def _check_budget() -> tuple[bool, float]:
         # getdaytrends config?먯꽌 ?덉궛 濡쒕뱶
         budget = 3.0  # 湲곕낯媛?
         try:
-            sys.path.insert(0, str(WORKSPACE / "getdaytrends"))
+            sys.path.insert(0, str(unit_path("getdaytrends")))
             from config import AppConfig
 
             cfg = AppConfig.from_env()  # type: ignore[attr-defined]
@@ -138,7 +145,7 @@ def step_collect(dry_run: bool) -> StepResult:
         result.output = {"trends_count": 0, "message": "DRY-RUN: ?섏쭛 ?쒕??덉씠??}
         return result
     try:
-        sys.path.insert(0, str(WORKSPACE / "getdaytrends"))
+        sys.path.insert(0, str(unit_path("getdaytrends")))
         # main.py???섏쭛 濡쒖쭅 ?숈쟻 ?꾪룷??
         main_mod = importlib.import_module("main")
         if hasattr(main_mod, "collect_trends_sync"):
@@ -161,7 +168,7 @@ def step_validate(dry_run: bool) -> StepResult:
         result.output = {"message": "DRY-RUN: 洹쒖젣 寃�利??쒕??덉씠??}
         return result
     try:
-        cie_path = WORKSPACE / "content-intelligence"
+        cie_path = unit_path("content-intelligence")
         if cie_path.exists():
             sys.path.insert(0, str(cie_path))
             try:
@@ -212,7 +219,7 @@ def step_track(dry_run: bool) -> StepResult:
         result.output = {"message": "DRY-RUN: ?깃낵 異붿쟻 ?쒕??덉씠??}
         return result
     try:
-        tracker_path = WORKSPACE / "getdaytrends" / "performance_tracker.py"
+        tracker_path = unit_path("getdaytrends") / "performance_tracker.py"
         if tracker_path.exists():
             result.output = {"message": "PerformanceTracker ?ъ슜 媛�??}
         else:
@@ -302,11 +309,11 @@ def show_status() -> None:
 
     # ?꾨줈?앺듃 議댁옱 ?щ?
     projects = {
-        "GetDayTrends": WORKSPACE / "getdaytrends" / "main.py",
-        "Content-Intelligence": WORKSPACE / "content-intelligence" / "main.py",
-        "DailyNews": WORKSPACE / "DailyNews" / "src",
-        "Performance Tracker": WORKSPACE / "getdaytrends" / "performance_tracker.py",
-        "Firecrawl Client": WORKSPACE / "getdaytrends" / "firecrawl_client.py",
+        "GetDayTrends": WORKSPACE / rel_unit_path("getdaytrends", "main.py"),
+        "Content-Intelligence": WORKSPACE / rel_unit_path("content-intelligence", "main.py"),
+        "DailyNews": WORKSPACE / rel_unit_path("dailynews", "src"),
+        "Performance Tracker": WORKSPACE / rel_unit_path("getdaytrends", "performance_tracker.py"),
+        "Firecrawl Client": WORKSPACE / rel_unit_path("getdaytrends", "firecrawl_client.py"),
     }
     print("\nComponents:")
     for name, path in projects.items():

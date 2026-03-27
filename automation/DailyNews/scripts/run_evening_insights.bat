@@ -59,7 +59,7 @@ echo ========================================= >> "%LOGFILE%" 2>&1
 echo Running Evening Brief (v2-multi, 5 categories)... >> "%LOGFILE%" 2>&1
 echo ========================================= >> "%LOGFILE%" 2>&1
 
-python -m antigravity_mcp jobs generate-brief ^
+call "%PROJECT_ROOT%\run_cli.bat" jobs generate-brief ^
     --window evening ^
     --max-items 10 ^
     --categories Tech,AI_Deep,Economy_KR,Economy_Global,Crypto,Global_Affairs >> "%LOGFILE%" 2>&1
@@ -84,7 +84,7 @@ REM Notion 대시보드 업데이트 (선택 사항)
 if %EXITCODE% equ 0 (
     echo. >> "%LOGFILE%" 2>&1
     echo Updating Notion dashboard... >> "%LOGFILE%" 2>&1
-    python -m antigravity_mcp ops refresh-dashboard >> "%LOGFILE%" 2>&1
+    call "%PROJECT_ROOT%\run_cli.bat" ops refresh-dashboard >> "%LOGFILE%" 2>&1
 
     if errorlevel 1 (
         echo [WARNING] Dashboard update failed but insights were generated >> "%LOGFILE%" 2>&1

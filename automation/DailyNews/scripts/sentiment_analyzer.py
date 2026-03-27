@@ -8,7 +8,6 @@ Call-site contract (news_bot.py line 465):
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import sys
@@ -48,17 +47,11 @@ class SentimentAnalyzer:
         )
 
         try:
-            loop = asyncio.new_event_loop()
-            try:
-                resp = loop.run_until_complete(
-                    self._client.acreate(
-                        tier=TaskTier.LIGHTWEIGHT,
-                        messages=[{"role": "user", "content": prompt}],
-                        policy=LLMPolicy(task_kind="classification", response_mode="json"),
-                    )
-                )
-            finally:
-                loop.close()
+            resp = self._client.create(
+                tier=TaskTier.LIGHTWEIGHT,
+                messages=[{"role": "user", "content": prompt}],
+                policy=LLMPolicy(task_kind="classification", response_mode="json"),
+            )
 
             raw = resp.text.strip()
             # Strip markdown fences if present

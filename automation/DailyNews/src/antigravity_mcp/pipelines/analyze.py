@@ -43,6 +43,9 @@ async def generate_briefs(
     skill_adapter: Any | None = None,
     # --- Phase 6: DailyNews Insight Generator (optional) ---
     insight_adapter: Any | None = None,
+    # --- Phase 7: Inductive Reasoning & Digest (optional) ---
+    reasoning_adapter: Any | None = None,
+    digest_adapter: Any | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
     llm_adapter = llm_adapter or LLMAdapter(state_store=state_store)
     embedding_adapter = embedding_adapter or EmbeddingAdapter()
@@ -260,6 +263,29 @@ async def generate_briefs(
         except Exception as exc:
             logger.debug("Fact-check skipped for %s: %s", category, exc)
 
+        # --- Inductive Reasoning (optional) ---
+        reasoning_meta: dict[str, Any] = {}
+        if reasoning_adapter and hasattr(reasoning_adapter, "run_full_reasoning"):
+            try:
+                content_text = "\n".join(
+                    f"{item.title}: {item.summary[:200]}" for item in category_items
+                )
+                reasoning_result = await reasoning_adapter.run_full_reasoning(
+                    report_id=report_id,
+                    category=category,
+                    content_text=content_text,
+                    source_title=f"{category} brief",
+                )
+                reasoning_meta = reasoning_result
+                new_patterns = reasoning_result.get("new_patterns", [])
+                for pat in new_patterns[:2]:
+                    insights.append(f"[Reasoning] {pat[:200]}")
+                survived = reasoning_result.get("survived_count", 0)
+                if survived:
+                    logger.info("Reasoning enriched %s: %d patterns survived", category, survived)
+            except Exception as exc:
+                warnings.append(f"Reasoning failed for {category}: {type(exc).__name__}: {exc}")
+
         # --- DailyNews Insight Generator (optional) ---
         insight_report_x_form = ""
         if insight_adapter and hasattr(insight_adapter, "generate_insight_report"):
@@ -311,6 +337,13 @@ async def generate_briefs(
             fact_check_score=fact_check_score,
         )
         state_store.save_report(report)
+
+        # --- Digest queue (optional) ---
+        if digest_adapter and hasattr(digest_adapter, "enqueue"):
+            try:
+                digest_adapter.enqueue(report.report_id)
+            except Exception as exc:
+                warnings.append(f"Digest enqueue failed for {category}: {type(exc).__name__}")
 
         # Record topics from clusters for future continuity tracking
         clusters = cluster_meta.get(category, [])

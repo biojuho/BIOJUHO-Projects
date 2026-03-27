@@ -31,7 +31,14 @@ from typing import Any
 from prefect import flow, task, get_run_logger
 from prefect.tasks import exponential_backoff
 
-WORKSPACE = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from workspace_paths import find_workspace_root, rel_unit_path
+
+
+WORKSPACE = find_workspace_root()
 
 # Logfire 옵저버빌리티 (선택)
 sys.path.insert(0, str(WORKSPACE))
@@ -121,7 +128,7 @@ def collect_trends(dry_run: bool = False) -> dict[str, Any]:
         logger.info("DRY-RUN: 수집 시뮬레이션")
         return {"trends_count": 0, "dry_run": True}
 
-    _ensure_path("getdaytrends")
+    _ensure_path(rel_unit_path("getdaytrends"))
     try:
         main_mod = importlib.import_module("main")
         if hasattr(main_mod, "collect_trends_sync"):
@@ -150,7 +157,7 @@ def validate_content(dry_run: bool = False) -> dict[str, Any]:
         logger.info("DRY-RUN: 검증 시뮬레이션")
         return {"dry_run": True}
 
-    cie_path = WORKSPACE / "content-intelligence"
+    cie_path = WORKSPACE / rel_unit_path("content-intelligence")
     if not cie_path.exists():
         logger.info("content-intelligence 미설치, 스킵")
         return {"skipped": True, "reason": "module not installed"}
@@ -212,7 +219,7 @@ def track_performance(dry_run: bool = False) -> dict[str, Any]:
         logger.info("DRY-RUN: 추적 시뮬레이션")
         return {"dry_run": True}
 
-    tracker_path = WORKSPACE / "getdaytrends" / "performance_tracker.py"
+    tracker_path = WORKSPACE / rel_unit_path("getdaytrends", "performance_tracker.py")
     if tracker_path.exists():
         logger.info("PerformanceTracker 사용 가능")
         return {"tracker_available": True}
@@ -285,7 +292,7 @@ def content_pipeline(dry_run: bool = True) -> dict[str, Any]:
 def collect_notices() -> dict[str, Any]:
     """DeSci 공고 수집 (KDDF + NTIS)."""
     logger = get_run_logger()
-    _ensure_path("desci-platform/biolinker")
+    _ensure_path(rel_unit_path("desci-platform", "biolinker"))
     try:
         from services.scheduler import NoticeScheduler
         scheduler = NoticeScheduler.__new__(NoticeScheduler)

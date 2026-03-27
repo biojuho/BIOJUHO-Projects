@@ -19,17 +19,24 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-WORKSPACE = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from workspace_paths import find_workspace_root, rel_unit_path
+
+
+WORKSPACE = find_workspace_root()
 SESSION_HISTORY_DIR = WORKSPACE / ".agent" / "session-history"
 
 PROJECT_DIRS = [
-    "getdaytrends",
-    "desci-platform",
-    "AgriGuard",
-    "DailyNews",
-    "canva-mcp",
-    "shared",
-    "scripts",
+    rel_unit_path("getdaytrends"),
+    rel_unit_path("desci-platform"),
+    rel_unit_path("agriguard"),
+    rel_unit_path("dailynews"),
+    rel_unit_path("canva-mcp"),
+    rel_unit_path("shared"),
+    rel_unit_path("scripts"),
 ]
 
 STALE_THRESHOLD_DAYS = 3

@@ -41,8 +41,8 @@
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>d:\AI 프로젝트\getdaytrends\run_getdaytrends.bat</Command>
-      <WorkingDirectory>d:\AI 프로젝트\getdaytrends</WorkingDirectory>
+      <Command>d:\AI project\automation\getdaytrends\run_getdaytrends.bat</Command>
+      <WorkingDirectory>d:\AI project\automation\getdaytrends</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>

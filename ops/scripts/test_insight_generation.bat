@@ -1,16 +1,26 @@
 @echo off
-REM DailyNews Insight Generation - Manual Test Script
-REM For testing before scheduling
+setlocal
+
+for %%I in ("%~dp0..\..") do set "WORKSPACE_ROOT=%%~fI"
+set "PROJECT_ROOT=%WORKSPACE_ROOT%\automation\DailyNews"
+set "ACTIVATE_SCRIPT=%PROJECT_ROOT%\venv\Scripts\activate.bat"
+if not exist "%ACTIVATE_SCRIPT%" set "ACTIVATE_SCRIPT=%WORKSPACE_ROOT%\.venv\Scripts\activate.bat"
 
 echo ==========================================
 echo DailyNews Insight Generator - Test Mode
 echo ==========================================
 echo.
 
-cd /d "d:\AI 프로젝트\DailyNews"
+cd /d "%PROJECT_ROOT%" || exit /b 1
+
+if not exist "%ACTIVATE_SCRIPT%" (
+    echo ERROR: Failed to find a virtual environment.
+    pause
+    exit /b 1
+)
 
 echo Activating virtual environment...
-call venv\Scripts\activate.bat
+call "%ACTIVATE_SCRIPT%"
 if errorlevel 1 (
     echo ERROR: Failed to activate venv
     pause
@@ -30,7 +40,7 @@ echo Test Complete
 echo ==========================================
 echo.
 echo Check output at:
-echo - d:\AI 프로젝트\DailyNews\output\
+echo - %PROJECT_ROOT%\output\
 echo - Your Notion dashboard
 echo.
 pause

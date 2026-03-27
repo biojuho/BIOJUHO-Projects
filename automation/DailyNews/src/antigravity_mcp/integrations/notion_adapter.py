@@ -161,10 +161,10 @@ class NotionAdapter:
         return {"appended_blocks": len(blocks)}
 
     @retry_notion_call
-    async def query_data_source(
+    async def query_database(
         self,
         *,
-        data_source_id: str,
+        database_id: str,
         filter_payload: dict[str, Any] | None = None,
         limit: int = 20,
         cursor: str = "",
@@ -183,18 +183,40 @@ class NotionAdapter:
         }
         async with httpx.AsyncClient(timeout=self.settings.pipeline_http_timeout_sec) as client:
             response = await client.post(
-                f"https://api.notion.com/v1/data_sources/{data_source_id}/query",
+                f"https://api.notion.com/v1/databases/{database_id}/query",
                 headers=headers,
                 json=payload,
             )
         if response.status_code >= 400:
             raise NotionAdapterError(
                 "notion_query_failed",
-                f"Notion data source query failed with status {response.status_code}: {response.text}",
+                f"Notion database query failed with status {response.status_code}: {response.text}",
                 retryable=response.status_code >= 500 or response.status_code == 429,
             )
         body = response.json()
         return body.get("results", []), body.get("next_cursor", "") or ""
+
+    @retry_notion_call
+    async def query_data_source(
+        self,
+        *,
+        data_source_id: str,
+        filter_payload: dict[str, Any] | None = None,
+        limit: int = 20,
+        cursor: str = "",
+    ) -> tuple[list[dict[str, Any]], str]:
+        """Backward-compatible alias.
+
+        The Notion workspace in this project expects database query endpoints.
+        Keep the legacy method name so older call sites do not break, but route
+        the request through the standard database query path.
+        """
+        return await self.query_database(
+            database_id=data_source_id,
+            filter_payload=filter_payload,
+            limit=limit,
+            cursor=cursor,
+        )
 
     async def list_child_blocks(self, page_id: str) -> list[dict[str, Any]]:
         self._require_client()

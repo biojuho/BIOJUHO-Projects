@@ -11,7 +11,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # 환경 변수 로드 (워크스페이스 루트 .env)
-_workspace_root = Path(__file__).resolve().parents[3]  # d:\AI 프로젝트
+_workspace_root = Path(__file__).resolve().parents[4]
 load_dotenv(_workspace_root / ".env")
 
 
@@ -34,7 +34,14 @@ except ImportError:
     from langchain.prompts import ChatPromptTemplate
 
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+for candidate in (
+    _workspace_root / "packages",
+    Path(__file__).resolve().parents[1],
+):
+    candidate_text = str(candidate)
+    if candidate_text not in sys.path:
+        sys.path.append(candidate_text)
 from models import RFPDocument, UserProfile, AnalysisResult, FitGrade
 
 # System Prompt for LLM

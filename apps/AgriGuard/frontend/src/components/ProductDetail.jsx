@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { Sprout, Loader2, ArrowLeft, ThermometerSnowflake, MapPin, Calendar, CheckCircle, Plus, ShieldCheck, Truck } from 'lucide-react';
 import { productApi } from '../services/api';
+import { trackQrEvent } from '../services/qrAnalytics';
 import ProductTimeline from './ProductTimeline';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from './ui/Card';
@@ -11,6 +12,8 @@ import { Badge } from './ui/Badge';
 
 export default function ProductDetail() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const verificationTrackedRef = useRef(false);
   
   const [data, setData] = useState({
     product: null,
@@ -67,6 +70,36 @@ export default function ProductDetail() {
     run();
     return () => { isCancelled = true; };
   }, [id, loadProductDetails]);
+
+  useEffect(() => {
+    if (verificationTrackedRef.current) {
+      return;
+    }
+    if (!data.product) {
+      return;
+    }
+
+    const scanSource = searchParams.get('scan_source');
+    const scanSession = searchParams.get('scan_session');
+    const scanVariant = searchParams.get('scan_variant') || 'qr_page_v1';
+    if (scanSource !== 'qr_reader' || !scanSession) {
+      return;
+    }
+
+    verificationTrackedRef.current = true;
+    void trackQrEvent({
+      session_id: scanSession,
+      event_type: 'verification_complete',
+      product_id: id,
+      source: scanSource,
+      variant_id: scanVariant,
+      event_payload: {
+        product_name: data.product.name,
+        origin: data.product.origin,
+        requires_cold_chain: Boolean(data.product.requires_cold_chain),
+      },
+    });
+  }, [data.product, id, searchParams]);
 
   const handleTrackingChange = useCallback((field, value) => {
     setTrackingState(prev => ({ ...prev, data: { ...prev.data, [field]: value } }));

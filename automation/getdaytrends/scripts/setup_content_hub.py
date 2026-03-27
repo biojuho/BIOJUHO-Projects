@@ -26,8 +26,9 @@ from dotenv import load_dotenv
 
 # 프로젝트 .env + 루트 .env 순서대로 로드
 _project_root = Path(__file__).resolve().parents[1]
+_workspace_root = Path(__file__).resolve().parents[3]
 load_dotenv(_project_root / ".env")
-load_dotenv(_project_root.parent / ".env", override=True)
+load_dotenv(_workspace_root / ".env", override=True)
 
 
 def main():

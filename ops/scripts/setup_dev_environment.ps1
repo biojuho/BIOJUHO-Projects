@@ -82,7 +82,7 @@ function Invoke-CheckedExpression {
 }
 
 # 워크스페이스 루트로 이동
-$WorkspaceRoot = Split-Path -Parent $PSScriptRoot
+$WorkspaceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $WorkspaceRoot
 
 Write-Header "AI Projects Workspace - Dev Environment Setup"

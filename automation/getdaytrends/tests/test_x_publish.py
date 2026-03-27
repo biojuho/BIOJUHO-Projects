@@ -30,7 +30,11 @@ class TestXPublishEndpoint:
     async def test_publish_x_success(self, x_publish_request):
         mock_result = {"ok": True, "tweet_id": "1234567890"}
 
-        with patch("notebooklm_api.post_tweet", new_callable=AsyncMock, return_value=mock_result):
+        with patch("notebooklm_api.post_tweet", new_callable=AsyncMock, return_value=mock_result), patch(
+            "notebooklm_api._record_x_publish_result",
+            new_callable=AsyncMock,
+            return_value=(True, 77, ""),
+        ):
             from notebooklm_api import XPublishRequest, run_publish_x
 
             req = XPublishRequest(**x_publish_request)
@@ -39,6 +43,8 @@ class TestXPublishEndpoint:
         assert result.ok is True
         assert result.tweet_id == "1234567890"
         assert "1234567890" in result.tweet_url
+        assert result.publish_recorded is True
+        assert result.local_tweet_id == 77
 
     @pytest.mark.asyncio
     async def test_publish_x_no_token(self, monkeypatch):
@@ -84,6 +90,8 @@ class TestXPublishRequest:
 
         assert req.tweet_text == x_publish_request["tweet_text"]
         assert req.x_access_token == "test_token_12345"
+        assert req.local_tweet_id == 0
+        assert req.db_path == ""
 
     def test_token_optional(self):
         from notebooklm_api import XPublishRequest

@@ -41,6 +41,13 @@ _LITELLM_MODEL_MAP: dict[tuple[str, str], str] = {
 }
 
 
+import json as _json
+
+_ollama_models_cache: list[str] | None = None
+_ollama_cache_ts: float = 0.0
+_OLLAMA_CACHE_TTL = 60.0  # refresh model list every 60s
+
+
 def _ollama_is_running() -> bool:
     """Check if Ollama server is running on localhost:11434."""
     try:
@@ -49,6 +56,41 @@ def _ollama_is_running() -> bool:
             return resp.status == 200
     except Exception:
         return False
+
+
+def _ollama_list_models() -> list[str]:
+    """Fetch list of locally available Ollama models (cached)."""
+    import time as _time
+
+    global _ollama_models_cache, _ollama_cache_ts
+    now = _time.monotonic()
+    if _ollama_models_cache is not None and (now - _ollama_cache_ts) < _OLLAMA_CACHE_TTL:
+        return _ollama_models_cache
+
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+            models = [m.get("name", "") for m in data.get("models", [])]
+            _ollama_models_cache = models
+            _ollama_cache_ts = now
+            log.debug("Ollama models detected: %s", models)
+            return models
+    except Exception:
+        _ollama_models_cache = []
+        _ollama_cache_ts = now
+        return []
+
+
+def _ollama_has_model(model_name: str) -> bool:
+    """Check if a specific model is available in the local Ollama server."""
+    models = _ollama_list_models()
+    # Ollama model names may or may not include the tag (:latest)
+    base = model_name.split(":")[0] if ":" in model_name else model_name
+    for m in models:
+        if m == model_name or m.startswith(base):
+            return True
+    return False
 
 
 class BackendManager:

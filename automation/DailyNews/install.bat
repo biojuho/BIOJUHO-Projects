@@ -14,15 +14,27 @@ if not exist venv (
 
 call venv\Scripts\activate
 
-if exist requirements-dev.txt (
-    echo [STEP 2] Installing project and development dependencies...
-    pip install -r requirements-dev.txt
+if exist pyproject.toml (
+    echo [STEP 2] Installing project in editable mode...
+    pip install -e .[dev]
+    if errorlevel 1 (
+        echo [WARN] Editable install failed, falling back to requirements files...
+        if exist requirements-dev.txt (
+            pip install -r requirements-dev.txt
+        ) else (
+            pip install -r requirements.txt
+        )
+    )
 ) else (
     echo [STEP 2] Installing runtime dependencies...
-    pip install -r requirements.txt
+    if exist requirements-dev.txt (
+        pip install -r requirements-dev.txt
+    ) else (
+        pip install -r requirements.txt
+    )
 )
 
 echo [SUCCESS] Environment is ready.
-echo Use "run_server.bat" to start the MCP server.
+echo Use "run_cli.bat" or "run_server.bat" to start the CLI/server.
 
 endlocal

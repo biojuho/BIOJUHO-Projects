@@ -2,6 +2,38 @@
 
 탈중앙화 과학(Decentralized Science) 플랫폼  
 Decentralized Science (DeSci) Platform
+## Target Audience
+
+**Dual Persona Platform**: B2B Prosumer (Researchers + VCs)
+
+**Persona A**: "Research Funding Seeker" (박민지, 35세 박사후연구원)
+- PhD-level researchers at universities, institutes, or bio-startups
+- Pain point: Difficulty securing research funding, lack of VC network
+- Need: Auto-discovery of matching RFPs, AI-generated proposal drafts
+- Decision criteria: Matching accuracy >80%, time savings (3 days → 1 day)
+
+**Persona B**: "Bio Investment Scout" (김태준, 42세 VC 파트너)
+- VC partners/analysts managing bio funds
+- Pain point: Difficulty finding quality research, insufficient time for tech evaluation
+- Need: Early discovery of high-value projects, automated tech assessment
+- Decision criteria: Clear ROI, risk assessment, matching algorithm trustworthiness
+
+**What They Need**:
+- RFP crawling + vector search for accurate matching
+- AI proposal generator (save 100+ hours of funding search)
+- VC dashboard for investment opportunity visualization
+- IPFS permanent data storage (core DeSci value)
+- DAO governance for transparent decision-making
+
+**Success Metrics**:
+- Matching relevance satisfaction >80%
+- Proposal submission rate >60% (after matching)
+- VC project evaluation rate >40% (of recommendations)
+- Successful matches: >5/month (funding secured or investment closed)
+
+For detailed audience analysis, see [workspace-audience-profiles.md](../../../.claude/skills/audience-first/references/workspace-audience-profiles.md#3-desci-platform-biolinker).
+
+
 
 ## 🛠 기술 스택 (Tech Stack)
 

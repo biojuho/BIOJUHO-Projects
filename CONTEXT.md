@@ -1,140 +1,66 @@
-# 🧭 Context Guide
+# Context Guide
 
-**Purpose**: Lightweight context file for AI agents - avoids duplication with CLAUDE.md.
+Lightweight navigation file for agents and contributors.
 
-**Last Updated**: 2026-03-23
+## Read order
 
----
+1. `HANDOFF.md`
+2. `TASKS.md`
+3. `CLAUDE.md`
+4. `CONTEXT.md`
 
-## 📚 Documentation Hierarchy
+## Workspace shape
 
-**Use this hierarchy to find information**:
+- Active apps live under `apps/`
+- Automation pipelines live under `automation/`
+- MCP servers live under `mcp/`
+- Shared code lives under `packages/shared`
+- Operational scripts live under `ops/scripts`
+- Dated reports live under `docs/reports/`
+- Inactive or frozen material lives under `archive/`
+- Runtime data and logs live under `var/`
 
-1. **[HANDOFF.md](HANDOFF.md)** (50 lines) - Current session status, next actions
-2. **[TASKS.md](TASKS.md)** - Active task board (TODO/IN_PROGRESS/DONE)
-3. **[CLAUDE.md](CLAUDE.md)** - Full technical documentation (architecture, commands, gotchas)
-4. **[CONTEXT.md](CONTEXT.md)** (this file) - Navigation guide + AI agent instructions
-5. **[.agent/workflows/](\.agent\workflows\)** - Standardized workflows for AI agents
-6. **[.sessions/](\.sessions\)** - Session logs (7-day retention)
+## Quick commands
 
----
+```bash
+python bootstrap_legacy_paths.py
+python ops/scripts/run_workspace_smoke.py --scope workspace
+python ops/scripts/healthcheck.py
+npm run build:all
+```
 
-## 🤖 For AI Agents: Quick Start
+## Notes for agents
 
-### Before Starting Work
+- Prefer canonical paths in code and docs
+- Use `workspace-map.json` as the workspace source of truth
+- Only rely on legacy root paths after running bootstrap
+- Treat `archive/` and `var/` as excluded from normal discovery unless the task is explicitly about them
 
-1. **Read HANDOFF.md** - Get current status (30 seconds)
-2. **Check TASKS.md** - See what's in progress (1 minute)
-3. **Review relevant workflow** - Follow standardized procedure (if applicable)
-4. **Update TASKS.md** - Move task to IN_PROGRESS
+## Helpful docs
 
-### During Work
+- `QUICK_START.md`
+- `ONBOARDING.md`
+- `CONTRIBUTING.md`
+- `docs/QUALITY_GATE.md`
+- `docs/reports/2026-03/COMPREHENSIVE_PROJECT_HEALTH_REPORT.md`
 
-1. **Use TodoWrite tool** - Track progress in real-time
-2. **Follow workflow checklist** - Ensure quality and consistency
-3. **Update SESSION_LOG** - Document decisions and changes
+## Recent Sessions (2026-03-26)
 
-### After Completion
+### Audience-First Framework v2.0
 
-1. **Update TASKS.md** - Move to DONE with results
-2. **Update HANDOFF.md** - Summarize for next agent (keep under 50 lines)
-3. **Create/update SESSION_LOG** - Record session details
-4. **Run cleanup** - `python .sessions/cleanup.py` (optional)
+**Status**: ✅ Complete (QC passed 10/10)
 
----
+**What**: Full framework for audience-centric product/content development with A/B testing
 
-## 🎯 Common Tasks → Documentation Lookup
+**Deliverables**: 7 files (83.7 KB)
+- `.claude/skills/audience-first/SKILL.md` — Core framework with Phase 4 (KPIs), B2B/B2C distinction
+- `.claude/skills/audience-first/references/workspace-audience-profiles.md` — 4 project personas
+- `.claude/skills/audience-first/references/ab-testing-guide.md` — 5-step A/B testing framework
+- `automation/DailyNews/scripts/ab_test_economy_kr_v2.py` — Enhanced A/B test script
+- `docs/reports/2026-03/AUDIENCE_FIRST_IMPLEMENTATION_GUIDE.md` — 4-week roadmap
+- `AUDIENCE_FIRST_SUMMARY.md` — Quick start guide
+- `docs/reports/2026-03/QC_AUDIENCE_FIRST_FRAMEWORK.md` — QC report
 
-| What You Need | Where to Look | Estimated Read Time |
-|---------------|---------------|---------------------|
-| **Current work status** | [HANDOFF.md](HANDOFF.md) | 30 seconds |
-| **Active tasks** | [TASKS.md](TASKS.md) | 1 minute |
-| **Project architecture** | [CLAUDE.md](CLAUDE.md) - Architecture section | 5 minutes |
-| **Setup instructions** | [CLAUDE.md](CLAUDE.md) - Commands section | 3 minutes |
-| **Environment variables** | [CLAUDE.md](CLAUDE.md) - Environment Variables section | 2 minutes |
-| **Code style conventions** | [CLAUDE.md](CLAUDE.md) - Code Style section | 3 minutes |
-| **Gotchas/Known issues** | [CLAUDE.md](CLAUDE.md) - Gotchas section | 2 minutes |
-| **Refactoring procedure** | [.agent/workflows/code-refactoring-workflow.md](.agent/workflows/code-refactoring-workflow.md) | 10 minutes |
-| **Tool selection** | [.agent/TOOL_CAPABILITIES.md](.agent/TOOL_CAPABILITIES.md) | 5 minutes |
-| **Recent session history** | [.sessions/SESSION_LOG_*.md](.sessions/) | 3 minutes |
+**Entry Point**: [AUDIENCE_FIRST_SUMMARY.md](AUDIENCE_FIRST_SUMMARY.md)
 
----
-
-## 🗂️ Project Quick Reference
-
-**9 Projects in this Monorepo**:
-
-| Project | Status | Main File | Lines | Quality |
-|---------|--------|-----------|-------|---------|
-| `getdaytrends` | ⭐⭐⭐⭐⭐ | main.py | 358 | Refactored (2026-03-23) |
-| `desci-platform/biolinker` | ⭐⭐⭐⭐⭐ | main.py | 198 | Excellent |
-| `desci-platform/frontend` | ⭐⭐⭐⭐⭐ | - | - | React 19 |
-| `desci-platform/contracts` | ⭐⭐⭐⭐⭐ | - | - | Solidity 0.8.20 |
-| `content-intelligence` | ⭐⭐⭐⭐⭐ | main.py | 304 | Best practice |
-| `lyria-music-player` | ⭐⭐⭐⭐⭐ | main.py | 109 | Perfect CLI |
-| `DailyNews` | ⭐⭐⭐⭐ | src/antigravity_mcp/server.py | 255 | Good |
-| `AgriGuard` | ⭐⭐⭐⭐ | backend/main.py | 324 | Good |
-| `instagram-automation` | ⭐⭐⭐⭐ | main.py | 599 | Good (optional improvement) |
-
-**Details**: See [COMPREHENSIVE_PROJECT_HEALTH_REPORT.md](COMPREHENSIVE_PROJECT_HEALTH_REPORT.md)
-
----
-
-## 🛠️ AI Agent Tool Selection
-
-**Quick Reference** (See [.agent/TOOL_CAPABILITIES.md](.agent/TOOL_CAPABILITIES.md) for details):
-
-- **Deep Refactoring** → Claude Code
-- **Fast Edits** → Cursor AI / Copilot
-- **Research** → Gemini Code Assist
-- **Documentation** → Claude Code / Gemini
-- **Debugging** → Cursor AI
-
----
-
-## ⚠️ Important Notes
-
-### Don't Duplicate Information
-- **CLAUDE.md** has full technical details
-- **CONTEXT.md** (this file) is just a navigation guide
-- **HANDOFF.md** has current session status only
-
-### Update Frequency
-- **HANDOFF.md** - Every session
-- **TASKS.md** - Real-time during work
-- **SESSION_LOG** - Every session
-- **CONTEXT.md** - Only when structure changes
-- **CLAUDE.md** - When architecture changes
-
-### Cleanup Schedule
-- **Session logs** - 7 days (run `.sessions/cleanup.py`)
-- **TASKS.md DONE section** - Archive after 7 days
-- **Old refactoring reports** - Keep indefinitely (reference)
-
----
-
-## 🔗 External Resources
-
-- [FastAPI Best Practices](https://fastapi.tiangolo.com/tutorial/bigger-applications/)
-- [Python Code Quality Guide](https://docs.python-guide.org/writing/structure/)
-- [React 19 Documentation](https://react.dev/)
-- [Hardhat Documentation](https://hardhat.org/docs)
-
----
-
-## 📊 Monorepo Statistics
-
-**Last Updated**: 2026-03-23
-
-- **Total Projects**: 9
-- **Total Lines of Code**: ~15,000 (excluding node_modules, venv)
-- **Languages**: Python (70%), TypeScript (20%), Solidity (5%), Shell (5%)
-- **Average Project Health**: 4.67/5 stars
-- **Active Development**: Yes (daily commits)
-- **Test Coverage**: Varies by project (see individual READMEs)
-
----
-
-**🤖 For AI Agents**: This file is your starting point. Always read HANDOFF.md first, then follow the documentation hierarchy.
-
-**📝 Keep This File Light**: Target < 150 lines. For details, link to CLAUDE.md or other docs.
+**Next Steps**: Week 1 — Add "Target Audience" sections to all project READMEs

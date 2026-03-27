@@ -22,11 +22,14 @@ from antigravity_mcp.state.mixins import (
     _TopicMixin,
     _XPostMixin,
 )
+from antigravity_mcp.state.reasoning_mixin import _ReasoningMixin
+from antigravity_mcp.state.digest_mixin import _DigestMixin
 
 
 class PipelineStateStore(
     _RunMixin, _ArticleMixin, _ReportMixin, _CacheMixin,
     _XPostMixin, _TopicMixin, _MetricsMixin,
+    _ReasoningMixin, _DigestMixin,
 ):
     """Facade that owns the SQLite connection and delegates domain logic to mixins."""
 
@@ -298,5 +301,88 @@ class PipelineStateStore(
                     last_modified TEXT,
                     last_fetched_at TEXT NOT NULL
                 )
+                """
+            )
+            # --- Phase 7: Inductive Reasoning & Digest ---
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fact_fragments (
+                    fact_id TEXT PRIMARY KEY,
+                    report_id TEXT NOT NULL,
+                    fact_text TEXT NOT NULL,
+                    why_question TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    source_title TEXT,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_fact_fragments_report
+                ON fact_fragments(report_id)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_fact_fragments_category
+                ON fact_fragments(category, created_at DESC)
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS hypotheses (
+                    hypothesis_id TEXT PRIMARY KEY,
+                    hypothesis_text TEXT NOT NULL,
+                    based_on_facts_json TEXT NOT NULL DEFAULT '[]',
+                    related_pattern TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    counter_evidence TEXT,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_hypotheses_status
+                ON hypotheses(status)
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS reasoning_patterns (
+                    pattern_id TEXT PRIMARY KEY,
+                    pattern_text TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    evidence_facts_json TEXT NOT NULL DEFAULT '[]',
+                    survival_count INTEGER NOT NULL DEFAULT 1,
+                    strength TEXT NOT NULL DEFAULT 'emerging',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_reasoning_patterns_category
+                ON reasoning_patterns(category, survival_count DESC)
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS digest_queue (
+                    digest_id TEXT PRIMARY KEY,
+                    report_ids_json TEXT NOT NULL DEFAULT '[]',
+                    summary_text TEXT,
+                    serial_number TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_digest_queue_status
+                ON digest_queue(status)
                 """
             )

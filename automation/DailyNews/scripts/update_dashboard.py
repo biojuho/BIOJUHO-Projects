@@ -74,9 +74,8 @@ async def get_or_create_dashboard(notion: AsyncClient, logger) -> str:
 
 async def query_todays_articles(logger) -> list[dict[str, Any]]:
     today_str = date.today().isoformat()
-    query_id = NOTION_TASKS_DATA_SOURCE_ID or ANTIGRAVITY_TASKS_DB_ID
-    query_kind = "data_sources" if NOTION_TASKS_DATA_SOURCE_ID else "databases"
-    url = f"https://api.notion.com/v1/{query_kind}/{query_id}/query"
+    query_id = ANTIGRAVITY_TASKS_DB_ID or NOTION_TASKS_DATA_SOURCE_ID
+    url = f"https://api.notion.com/v1/databases/{query_id}/query"
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Notion-Version": NOTION_API_VERSION,

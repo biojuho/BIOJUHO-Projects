@@ -83,14 +83,29 @@ def _patch_grok(model: str, kwargs: dict[str, Any]) -> dict[str, Any]:
 def _patch_ollama(model: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Ollama local model adjustments.
 
-    - Clamp max_tokens to model-appropriate limits
-    - Small models struggle with large token counts
+    - Qwen3-Coder: allow higher token limits (30B model has larger capacity)
+    - DeepSeek-R1: moderate token limits for reasoning tasks
+    - Small models (phi3, tinyllama): clamp to conservative limits
     """
     max_tokens = kwargs.get("max_tokens", 1000)
-    # Local small models typically max at 4096 context
-    if max_tokens > 2048:
-        log.debug("Ollama patch: clamping max_tokens %d -> 2048", max_tokens)
-        kwargs["max_tokens"] = 2048
+    model_lower = model.lower()
+
+    if "qwen3-coder" in model_lower:
+        # Qwen3-Coder 30B: large model, allow up to 8192 tokens
+        if max_tokens > 8192:
+            log.debug("Ollama/Qwen3-Coder patch: clamping max_tokens %d -> 8192", max_tokens)
+            kwargs["max_tokens"] = 8192
+    elif "deepseek-r1" in model_lower:
+        # DeepSeek-R1 14B: moderate capacity
+        if max_tokens > 4096:
+            log.debug("Ollama/DeepSeek-R1 patch: clamping max_tokens %d -> 4096", max_tokens)
+            kwargs["max_tokens"] = 4096
+    else:
+        # Small models: conservative limits
+        if max_tokens > 2048:
+            log.debug("Ollama patch: clamping max_tokens %d -> 2048", max_tokens)
+            kwargs["max_tokens"] = 2048
+
     return kwargs
 
 
@@ -166,6 +181,8 @@ def get_model_info(backend: str, model: str) -> dict[str, Any]:
         info["family"] = "grok"
     elif "deepseek" in model_lower:
         info["family"] = "deepseek"
+    elif "qwen" in model_lower:
+        info["family"] = "qwen"
     else:
         info["family"] = "other"
 

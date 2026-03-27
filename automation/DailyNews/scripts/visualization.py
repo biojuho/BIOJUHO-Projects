@@ -19,12 +19,12 @@ if str(SRC_DIR) not in sys.path:
 
 from antigravity_mcp.integrations.notion_adapter import NotionAdapter
 from antigravity_mcp.state.events import json_dumps
-from settings import NOTION_REPORTS_DATA_SOURCE_ID, OUTPUT_DIR
+from settings import NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR
 
 
 async def fetch_todays_news() -> list[dict[str, str]]:
-    if not NOTION_REPORTS_DATA_SOURCE_ID:
-        print("[FAIL] NOTION_REPORTS_DATA_SOURCE_ID is missing.")
+    if not NOTION_REPORTS_DATABASE_ID:
+        print("[FAIL] NOTION_REPORTS_DATABASE_ID is missing.")
         return []
 
     adapter = NotionAdapter()
@@ -35,8 +35,8 @@ async def fetch_todays_news() -> list[dict[str, str]]:
     today_str = date.today().isoformat()
     print(f"[INFO] Fetching report records for {today_str}...")
 
-    results, _ = await adapter.query_data_source(
-        data_source_id=NOTION_REPORTS_DATA_SOURCE_ID,
+    results, _ = await adapter.query_database(
+        database_id=NOTION_REPORTS_DATABASE_ID,
         filter_payload={"property": "Date", "date": {"equals": today_str}},
         limit=100,
     )

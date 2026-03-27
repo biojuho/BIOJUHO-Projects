@@ -8,16 +8,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # ── 프로젝트 루트를 PYTHONPATH에 추가 ──
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]  # d:\AI 프로젝트
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+_AUTOMATION_ROOT = Path(__file__).resolve().parents[1]
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
+for candidate in (_AUTOMATION_ROOT, _WORKSPACE_ROOT, _WORKSPACE_ROOT / "packages"):
+    candidate_text = str(candidate)
+    if candidate_text not in sys.path:
+        sys.path.insert(0, candidate_text)
 
 from dotenv import load_dotenv
 
 # .env 로딩: 프로젝트별 → 워크스페이스 루트 (우선순위)
 _CIE_DIR = Path(__file__).resolve().parent
 _cie_env = _CIE_DIR / ".env"
-_root_env = _PROJECT_ROOT / ".env"
+_root_env = _WORKSPACE_ROOT / ".env"
 if _root_env.exists():
     load_dotenv(_root_env, override=False)
 if _cie_env.exists():
@@ -96,7 +99,7 @@ class CIEConfig:
     gdt_db_path: str = os.getenv("CIE_GDT_DB_PATH", "")
 
     # ── 경로 ──
-    project_root: Path = _PROJECT_ROOT
+    project_root: Path = _AUTOMATION_ROOT
     cie_dir: Path = _CIE_DIR
 
     def get_tier(self, stage: str) -> str:

@@ -47,13 +47,7 @@ def create_alias(link_path: Path, target_path: Path, force: bool) -> str:
     return "created"
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Create legacy workspace path aliases from workspace-map.json.")
-    parser.add_argument("--force", action="store_true", help="Replace existing aliases if present.")
-    args = parser.parse_args()
-
-    root = Path(__file__).resolve().parent
-    workspace_map = load_workspace_map(root)
+def bootstrap_unit_aliases(root: Path, workspace_map: dict, force: bool) -> tuple[int, int]:
     created = 0
     skipped = 0
 
@@ -69,12 +63,51 @@ def main() -> int:
             print(f"[bootstrap] missing target: {canonical}", file=sys.stderr)
             continue
 
-        result = create_alias(link_path, target_path, force=args.force)
+        result = create_alias(link_path, target_path, force=force)
         print(f"[bootstrap] {result}: {legacy} -> {canonical}")
         if result == "created":
             created += 1
         else:
             skipped += 1
+
+    return created, skipped
+
+
+def bootstrap_workspace_aliases(root: Path, workspace_map: dict, force: bool) -> tuple[int, int]:
+    created = 0
+    skipped = 0
+    parent = root.parent
+
+    for alias in workspace_map.get("workspace_aliases", []):
+        if not alias.get("active", True):
+            continue
+
+        legacy_name = alias["legacy_name"]
+        if legacy_name == root.name:
+            continue
+
+        link_path = parent / legacy_name
+        result = create_alias(link_path, root, force=force)
+        print(f"[bootstrap] {result}: {legacy_name} -> {root.name}")
+        if result == "created":
+            created += 1
+        else:
+            skipped += 1
+
+    return created, skipped
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Create legacy workspace path aliases from workspace-map.json.")
+    parser.add_argument("--force", action="store_true", help="Replace existing aliases if present.")
+    args = parser.parse_args()
+
+    root = Path(__file__).resolve().parent
+    workspace_map = load_workspace_map(root)
+    created, skipped = bootstrap_workspace_aliases(root, workspace_map, args.force)
+    unit_created, unit_skipped = bootstrap_unit_aliases(root, workspace_map, args.force)
+    created += unit_created
+    skipped += unit_skipped
 
     print(f"[bootstrap] summary: created={created}, skipped={skipped}")
     return 0

@@ -27,4 +27,8 @@ export const userApi = {
   create: (data) => api.post('/users/', data),
 };
 
+export const analyticsApi = {
+  trackQrEvent: (payload) => api.post('/qr-events', payload),
+};
+
 export default api;

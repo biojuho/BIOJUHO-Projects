@@ -15,6 +15,12 @@ import re
 import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from workspace_paths import find_workspace_root
+
 # Patterns that indicate hardcoded secrets
 SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("API Key assignment", re.compile(
@@ -113,7 +119,7 @@ def main() -> int:
 
     if target == "--scan-all":
         # Scan entire workspace
-        workspace = Path(__file__).resolve().parent.parent
+        workspace = find_workspace_root()
         issues = scan_directory(workspace)
     else:
         path = Path(target)

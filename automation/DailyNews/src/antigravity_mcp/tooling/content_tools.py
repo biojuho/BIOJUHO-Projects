@@ -13,6 +13,21 @@ from antigravity_mcp.state.store import PipelineStateStore
 logger = logging.getLogger(__name__)
 
 
+def _normalize_categories(categories: list[str] | None) -> list[str] | None:
+    if not categories:
+        return None
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in categories:
+        for category in (part.strip() for part in raw.split(",")):
+            if not category or category in seen:
+                continue
+            seen.add(category)
+            normalized.append(category)
+    return normalized or None
+
+
 async def _alert_on_error(stage: str, error_type: str, message: str, run_id: str = "") -> None:
     """Fire-and-forget Telegram error alert (never raises)."""
     try:
@@ -34,9 +49,10 @@ async def content_generate_brief_tool(
     max_items: int = 5,
 ) -> dict:
     store = PipelineStateStore()
+    normalized_categories = _normalize_categories(categories)
     try:
         items, warnings = await collect_content_items(
-            categories=categories,
+            categories=normalized_categories,
             window_name=window,
             max_items=max_items,
             state_store=store,

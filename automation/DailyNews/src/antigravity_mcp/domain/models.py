@@ -24,6 +24,7 @@ class ContentItem:
     link: str
     published_at: str = ""
     summary: str = ""
+    full_text: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -78,6 +79,53 @@ class PipelineRun:
     published_count: int = 0
     error_text: str = ""
     summary: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class FactFragment:
+    """Inductive reasoning Step 1: extracted fact fragment with 'why?' question."""
+
+    fact_id: str
+    report_id: str
+    fact_text: str
+    why_question: str
+    category: str
+    source_title: str = ""
+    created_at: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class Hypothesis:
+    """Inductive reasoning Step 2/3: hypothesis with falsification status."""
+
+    hypothesis_id: str
+    hypothesis_text: str
+    based_on_facts: list[str] = field(default_factory=list)
+    related_pattern: str = ""
+    status: str = "pending"  # pending → survived → falsified
+    counter_evidence: str = ""
+    created_at: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class DigestEntry:
+    """Digest queue entry — summarises multiple reports into one digest."""
+
+    digest_id: str
+    report_ids: list[str] = field(default_factory=list)
+    summary_text: str = ""
+    serial_number: str = ""  # "0001_260327"
+    status: str = "pending"  # pending → generated → pinned
+    created_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

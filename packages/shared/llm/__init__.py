@@ -26,6 +26,7 @@ from .model_patches import apply_model_patch
 from .models import BridgeMeta, LLMPolicy, LLMResponse, TaskTier
 from .stats import CostTracker
 from .tool_schema import ToolDefinition, ToolRegistry, ToolResult
+from .reasoning import SmartRouter, QueryComplexity
 
 _client: LLMClient | None = None
 
@@ -93,5 +94,8 @@ __all__ = [
     "ToolDefinition",
     "ToolRegistry",
     "ToolResult",
+    # Phase 5: Reasoning Engine
+    "SmartRouter",
+    "QueryComplexity",
 ]
 

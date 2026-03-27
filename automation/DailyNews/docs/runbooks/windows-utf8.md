@@ -16,8 +16,15 @@ $env:PYTHONPATH="$PWD\src"
 python -m antigravity_mcp jobs generate-brief --window manual --max-items 5
 ```
 
+Batch launcher alternative:
+
+```bat
+run_cli.bat jobs generate-brief --window manual --max-items 5
+```
+
 ## Notes
 
 - Repository docs and scripts are now stored in UTF-8.
-- `run_server.bat` sets `PYTHONPATH` to `src` before launching the MCP server.
+- `run_cli.bat` sets `PYTHONPATH` to `src` before launching the CLI.
+- `run_server.bat` delegates to `run_cli.bat`.
 - If mojibake still appears in the terminal, update the console font and verify `chcp 65001`.

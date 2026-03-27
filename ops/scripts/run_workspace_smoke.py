@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -10,7 +11,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Sequence
 
-EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output)([\\/]|$)"
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from workspace_paths import find_workspace_root, rel_unit_path
+
+
+EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output|archive|var)([\\/]|$)"
 TAIL_LINE_COUNT = 20
 TRANSIENT_RETRY_CHECK = "desci frontend unit tests"
 TRANSIENT_RETRY_PATTERNS = (
@@ -69,6 +77,44 @@ def compile_command(python_exe: str, *targets: str) -> list[str]:
     return [python_exe, "-m", "compileall", "-q", "-x", EXCLUDE_REGEX, *targets]
 
 
+def slugify_check_name(value: str) -> str:
+    cleaned = "".join(ch.lower() if ch.isalnum() else "-" for ch in value)
+    compact = "-".join(part for part in cleaned.split("-") if part) or "check"
+    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+    return f"{compact[:40]}-{digest}"
+
+
+def build_pythonpath(root: Path, env: dict[str, str] | None = None) -> str:
+    env_map = env or os.environ
+    existing_pythonpath = env_map.get("PYTHONPATH", "")
+    candidates = [
+        root,
+        root / "packages",
+        root / "automation",
+        root / "apps" / "desci-platform",
+        root / "apps" / "AgriGuard" / "backend",
+        root / "automation" / "DailyNews" / "src",
+        root / "automation" / "DailyNews" / "scripts",
+    ]
+
+    parts: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        value = str(candidate)
+        dedupe_key = value.lower() if os.name == "nt" else value
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        parts.append(value)
+
+    if existing_pythonpath:
+        parts.append(existing_pythonpath)
+
+    return os.pathsep.join(parts)
+
+
 def has_module(python_exe: str, module_name: str) -> bool:
     try:
         proc = subprocess.run(
@@ -115,92 +161,79 @@ def resolve_python_executable(root: Path) -> str:
 
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
+    desci_frontend = rel_unit_path("desci-platform", "frontend")
+    desci_biolinker = rel_unit_path("desci-platform", "biolinker")
+    agriguard_frontend = rel_unit_path("agriguard", "frontend")
+    agriguard_backend = rel_unit_path("agriguard", "backend")
+    github_mcp = rel_unit_path("github-mcp")
+    notebooklm_mcp = rel_unit_path("notebooklm-mcp")
+    dailynews = rel_unit_path("dailynews")
+    getdaytrends = rel_unit_path("getdaytrends")
+
     return [
         Check(
             "workspace",
             "workspace regression tests",
             ".",
-            [
-                python_exe,
-                "-m",
-                "pytest",
-                "tests/test_workspace_regressions.py",
-                "tests/test_workspace_smoke.py",
-                "-q",
-            ],
+            [python_exe, "-m", "pytest", "tests/test_workspace_regressions.py", "tests/test_workspace_smoke.py", "-q"],
         ),
-        Check("desci", "desci frontend lint", "desci-platform/frontend", [npm_exe, "run", "lint"]),
-        # desci frontend pins Node <24, so smoke tests should use the LTS runner.
-        Check("desci", "desci frontend unit tests", "desci-platform/frontend", [npm_exe, "run", "test:lts"]),
-        Check("desci", "desci frontend build", "desci-platform/frontend", [npm_exe, "run", "build:lts"]),
-        Check("desci", "desci bundle budget", "desci-platform/frontend", [npm_exe, "run", "check:bundle"]),
+        Check("workspace", "dashboard frontend build", rel_unit_path("dashboard"), [npm_exe, "run", "build"]),
+        Check("desci", "desci frontend lint", desci_frontend, [npm_exe, "run", "lint"]),
+        Check("desci", "desci frontend unit tests", desci_frontend, [npm_exe, "run", "test:lts"]),
+        Check("desci", "desci frontend build", desci_frontend, [npm_exe, "run", "build:lts"]),
+        Check("desci", "desci bundle budget", desci_frontend, [npm_exe, "run", "check:bundle"]),
         Check(
             "desci",
             "desci biolinker smoke",
             ".",
-            [python_exe, "-m", "pytest", "desci-platform/biolinker/tests/test_smoke_pipeline.py", "-q"],
+            [python_exe, "-m", "pytest", f"{desci_biolinker}/tests/test_smoke_pipeline.py", "-q"],
         ),
-        Check("agriguard", "agriguard frontend lint", "AgriGuard/frontend", [npm_exe, "run", "lint"]),
-        Check("agriguard", "agriguard frontend build", "AgriGuard/frontend", [npm_exe, "run", "build:lts"]),
-        Check(
-            "agriguard",
-            "agriguard backend compile",
-            ".",
-            compile_command(python_exe, "AgriGuard/backend"),
-        ),
-
-        Check(
-            "mcp",
-            "notebooklm compile",
-            ".",
-            compile_command(python_exe, "notebooklm-mcp/scripts", "notebooklm-mcp/tests"),
-        ),
-        Check(
-            "mcp",
-            "github-mcp compile",
-            ".",
-            compile_command(python_exe, "github-mcp/scripts"),
-        ),
-        Check(
-            "mcp",
-            "DailyNews unit tests",
-            "DailyNews",
-            [python_exe, "-m", "pytest", "tests/unit", "-q"],
-        ),
-        Check(
-            "mcp",
-            "notebooklm-automation unit tests",
-            "notebooklm-automation",
-            [python_exe, "-m", "pytest", "tests", "-q"],
-        ),
-        Check(
-            "getdaytrends",
-            "getdaytrends compile",
-            ".",
-            compile_command(python_exe, "getdaytrends"),
-        ),
-        Check(
-            "getdaytrends",
-            "getdaytrends tests",
-            "getdaytrends",
-            [python_exe, "-m", "pytest", "tests", "-q"],
-        ),
+        Check("agriguard", "agriguard frontend lint", agriguard_frontend, [npm_exe, "run", "lint"]),
+        Check("agriguard", "agriguard frontend build", agriguard_frontend, [npm_exe, "run", "build:lts"]),
+        Check("agriguard", "agriguard backend compile", ".", compile_command(python_exe, agriguard_backend)),
+        Check("mcp", "notebooklm compile", ".", compile_command(python_exe, f"{notebooklm_mcp}/scripts", f"{notebooklm_mcp}/tests")),
+        Check("mcp", "github-mcp compile", ".", compile_command(python_exe, f"{github_mcp}/scripts")),
+        Check("mcp", "DailyNews unit tests", dailynews, [python_exe, "-m", "pytest", "tests/unit", "-q"]),
+        Check("getdaytrends", "getdaytrends compile", ".", compile_command(python_exe, getdaytrends)),
+        Check("getdaytrends", "getdaytrends tests", getdaytrends, [python_exe, "-m", "pytest", "tests", "-q"]),
     ]
+
+
+def is_pytest_command(command: Sequence[str]) -> bool:
+    return len(command) >= 3 and command[1] == "-m" and command[2] == "pytest"
+
+
+def runtime_temp_dir(root: Path, item: Check) -> Path:
+    return root / "var" / "tmp" / "workspace-smoke" / item.scope / slugify_check_name(item.name)
+
+
+def command_for_check(item: Check, temp_dir: Path) -> list[str]:
+    command = list(item.command)
+    if is_pytest_command(command) and "--basetemp" not in command:
+        command.extend(["--basetemp", str(temp_dir / "pytest")])
+    return command
 
 
 def run_one(root: Path, item: Check) -> Result:
     cwd = (root / item.cwd).resolve()
-    command_text = format_command(item.command)
     if not cwd.exists():
-        return Result(item.scope, item.name, item.cwd, command_text, 2, False, "", "working directory missing")
+        return Result(item.scope, item.name, item.cwd, format_command(item.command), 2, False, "", "working directory missing")
 
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONPATH"] = build_pythonpath(root, env)
+    temp_dir = runtime_temp_dir(root, item)
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    env["TMP"] = str(temp_dir)
+    env["TEMP"] = str(temp_dir)
+    env["TMPDIR"] = str(temp_dir)
+    command = command_for_check(item, temp_dir)
+    command_text = format_command(command)
 
     try:
         proc = subprocess.run(
-            item.command,
+            command,
             cwd=str(cwd),
             capture_output=True,
             text=False,
@@ -208,11 +241,10 @@ def run_one(root: Path, item: Check) -> Result:
             shell=False,
             check=False,
         )
+        stdout_text = decode_output(proc.stdout)
+        stderr_text = decode_output(proc.stderr)
     except OSError as exc:
         return Result(item.scope, item.name, item.cwd, command_text, 2, False, "", str(exc))
-
-    stdout_text = decode_output(proc.stdout)
-    stderr_text = decode_output(proc.stderr)
 
     return Result(
         scope=item.scope,
@@ -249,7 +281,7 @@ def main() -> int:
     parser.add_argument("--json-out", help="Optional JSON output file")
     args = parser.parse_args()
 
-    root = Path(__file__).resolve().parent.parent
+    root = find_workspace_root()
     python_exe = resolve_python_executable(root)
     checks = default_checks(python_exe)
     if args.scope != "all":
@@ -263,7 +295,7 @@ def main() -> int:
     if not has_module(python_exe, "pytest"):
         print("[smoke] warning: pytest is not installed for selected Python; pytest-based checks may fail")
 
-    print("[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output")
+    print("[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var")
 
     results: list[Result] = []
     for check in checks:
@@ -282,9 +314,12 @@ def main() -> int:
         out_path = Path(args.json_out)
         if not out_path.is_absolute():
             out_path = Path.cwd() / out_path
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(json.dumps([asdict(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"[smoke] json written: {out_path}")
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(json.dumps([asdict(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"[smoke] json written: {out_path}")
+        except OSError as exc:
+            print(f"[smoke] warning: could not write json report to {out_path}: {exc}")
 
     return 0 if failed == 0 else 1
 

@@ -368,3 +368,26 @@ If you're a developer, now is the time to bet on open-weight models.
         assert any("Counterpoint" in i or "revenue-to-valuation" in i for i in insights)
         assert any(d.channel == "x" for d in drafts)
         assert any("$40B" in d.content for d in drafts)
+
+
+class TestContentTools:
+    @pytest.mark.asyncio
+    async def test_generate_brief_normalizes_comma_separated_categories(self, monkeypatch):
+        from antigravity_mcp.tooling import content_tools
+
+        captured = {}
+
+        async def fake_collect_content_items(*, categories, window_name, max_items, state_store):
+            captured["categories"] = categories
+            return [], []
+
+        monkeypatch.setattr(content_tools, "collect_content_items", fake_collect_content_items)
+
+        result = await content_tools.content_generate_brief_tool(
+            categories=["Tech,Economy_KR", "AI_Deep", "Tech"],
+            window="manual",
+            max_items=3,
+        )
+
+        assert captured["categories"] == ["Tech", "Economy_KR", "AI_Deep"]
+        assert result["status"] == "ok"

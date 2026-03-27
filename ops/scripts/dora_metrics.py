@@ -28,20 +28,27 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
-WORKSPACE = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from workspace_paths import find_workspace_root, rel_unit_path
+
+
+WORKSPACE = find_workspace_root()
 
 # 프로젝트 경로 매핑
 PROJECT_PATHS = {
-    "getdaytrends": "getdaytrends/",
-    "desci-backend": "desci-platform/biolinker/",
-    "desci-frontend": "desci-platform/frontend/",
-    "desci-contracts": "desci-platform/contracts/",
-    "AgriGuard-backend": "AgriGuard/backend/",
-    "AgriGuard-frontend": "AgriGuard/frontend/",
-    "DailyNews": "DailyNews/",
-    "canva-mcp": "canva-mcp/",
-    "shared": "shared/",
-    "scripts": "scripts/",
+    "getdaytrends": f"{rel_unit_path('getdaytrends')}/",
+    "desci-backend": f"{rel_unit_path('desci-platform', 'biolinker')}/",
+    "desci-frontend": f"{rel_unit_path('desci-platform', 'frontend')}/",
+    "desci-contracts": f"{rel_unit_path('desci-platform', 'contracts')}/",
+    "AgriGuard-backend": f"{rel_unit_path('agriguard', 'backend')}/",
+    "AgriGuard-frontend": f"{rel_unit_path('agriguard', 'frontend')}/",
+    "DailyNews": f"{rel_unit_path('dailynews')}/",
+    "canva-mcp": f"{rel_unit_path('canva-mcp')}/",
+    "shared": f"{rel_unit_path('shared')}/",
+    "scripts": f"{rel_unit_path('scripts')}/",
 }
 
 FIX_KEYWORDS = ["fix", "hotfix", "bugfix", "patch", "revert", "수정", "버그", "오류"]

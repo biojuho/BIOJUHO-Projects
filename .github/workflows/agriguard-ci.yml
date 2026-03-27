@@ -1,14 +1,14 @@
-name: AgriGuard CI
+﻿name: AgriGuard CI
 
 on:
   push:
     branches: ["main", "dev"]
     paths:
-      - "AgriGuard/**"
+      - "apps/AgriGuard/**"
   pull_request:
     branches: ["main", "dev"]
     paths:
-      - "AgriGuard/**"
+      - "apps/AgriGuard/**"
 
 jobs:
   backend-test:
@@ -16,10 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: AgriGuard/backend
+        working-directory: apps/AgriGuard/backend
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
 
       - name: Set up Python 3.14
         uses: actions/setup-python@v5
@@ -48,17 +51,20 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: AgriGuard/frontend
+        working-directory: apps/AgriGuard/frontend
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: AgriGuard/frontend/package-lock.json
+          cache-dependency-path: apps/AgriGuard/frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -80,8 +86,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
       - name: Build backend image
-        run: docker build -t agriguard-backend ./AgriGuard/backend
+        run: docker build -t agriguard-backend ./apps/AgriGuard/backend
 
       - name: Build frontend image
-        run: docker build -t agriguard-frontend ./AgriGuard/frontend
+        run: docker build -t agriguard-frontend ./apps/AgriGuard/frontend
+
+
+

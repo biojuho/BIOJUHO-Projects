@@ -4,8 +4,12 @@ param(
 )
 
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$WorkspaceRoot = (Resolve-Path (Join-Path $ProjectRoot "..\..")).Path
 $LogDir = Join-Path $ProjectRoot "logs\insights"
-$PythonExe = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+$PythonExe = Join-Path $WorkspaceRoot ".venv\Scripts\python.exe"
+if (-not (Test-Path $PythonExe)) {
+    $PythonExe = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+}
 $Timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
 $LogFile = Join-Path $LogDir ("{0}_{1}.log" -f $Window, $Timestamp)
 
@@ -29,6 +33,22 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $Message -Encoding utf8
 }
 
+function Invoke-PythonScriptText {
+    param(
+        [string]$ScriptText
+    )
+
+    $TempScript = Join-Path $env:TEMP ("dailynews_{0}.py" -f ([guid]::NewGuid().ToString("N")))
+    try {
+        Set-Content -Path $TempScript -Value $ScriptText -Encoding utf8
+        & $PythonExe -X utf8 $TempScript 2>&1
+        return
+    }
+    finally {
+        Remove-Item $TempScript -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Write-Log "========================================="
 Write-Log ("DailyNews {0} insight generation started" -f $Window)
 Write-Log ("Mode: {0}" -f $Config.PromptMode)
@@ -43,7 +63,7 @@ if (-not (Test-Path $PythonExe)) {
 
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
-$env:PYTHONPATH = "{0}\src;{1}" -f $ProjectRoot, $env:PYTHONPATH
+$env:PYTHONPATH = "{0}\src;{1};{2}" -f $ProjectRoot, $WorkspaceRoot, $env:PYTHONPATH
 
 # --- Step 0: Pre-run cleanup (stale locks) ---
 Write-Log "[STEP 0] Cleaning stale locks..."
@@ -65,7 +85,7 @@ conn.commit()
 conn.close()
 print(f'Cleaned {cleaned} stale DB lock(s)')
 "@
-& $PythonExe -c $CleanupScript 2>&1 | ForEach-Object { Write-Log "[CLEANUP] $_" }
+Invoke-PythonScriptText -ScriptText $CleanupScript | ForEach-Object { Write-Log "[CLEANUP] $_" }
 
 # --- Step 1: Generate briefs ---
 Write-Log "[STEP 1] Generating briefs..."
@@ -134,7 +154,7 @@ for rid, cat in drafts:
         print(f'  WARN: {cat} publish exit {r.returncode}')
         if r.stderr: print(f'  stderr: {r.stderr[:150]}')
 "@
-    & $PythonExe -X utf8 -c $PublishScript 2>&1 | ForEach-Object { Write-Log "[PUBLISH] $_" }
+    Invoke-PythonScriptText -ScriptText $PublishScript | ForEach-Object { Write-Log "[PUBLISH] $_" }
 
     # --- Step 3: Refresh dashboard ---
     Write-Log "[STEP 3] Refreshing dashboard..."
@@ -146,8 +166,18 @@ for rid, cat in drafts:
         Write-Log "[WARNING] Dashboard refresh failed"
     }
 
+    # --- Step 3.5: Export to NotebookLM ---
+    Write-Log "[STEP 3.5] Exporting to NotebookLM..."
+    $NlmArgs = @("-X", "utf8", (Join-Path $ProjectRoot "scripts\export_to_notebooklm.py"))
+    & $PythonExe @NlmArgs *>> $LogFile
+    if ($LASTEXITCODE -eq 0) {
+        Write-Log "[SUCCESS] NotebookLM export completed"
+    } else {
+        Write-Log "[WARNING] NotebookLM export failed (non-blocking)"
+    }
+
     # --- Step 4: Final stale lock cleanup ---
-    & $PythonExe -c $CleanupScript 2>&1 | ForEach-Object { Write-Log "[POST-CLEANUP] $_" }
+    Invoke-PythonScriptText -ScriptText $CleanupScript | ForEach-Object { Write-Log "[POST-CLEANUP] $_" }
 
     Write-Log ("Finished: {0}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
     exit 0
@@ -155,4 +185,3 @@ for rid, cat in drafts:
 finally {
     Pop-Location
 }
-

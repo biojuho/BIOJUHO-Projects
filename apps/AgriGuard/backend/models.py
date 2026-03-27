@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Float, ForeignKey, Index
+from sqlalchemy import Column, String, Boolean, DateTime, Float, ForeignKey, Index, Text
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
@@ -48,6 +48,28 @@ class TrackingEvent(Base):
     handler_id = Column(String)
 
     product = relationship("Product", back_populates="tracking_history")
+
+
+class QRScanEvent(Base):
+    __tablename__ = "qr_scan_events"
+    __table_args__ = (
+        Index("ix_qr_scan_events_session_id", "session_id"),
+        Index("ix_qr_scan_events_event_type", "event_type"),
+        Index("ix_qr_scan_events_occurred_at", "occurred_at"),
+    )
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String, nullable=False)
+    event_type = Column(String, nullable=False)
+    occurred_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    product_id = Column(String, nullable=True)
+    qr_value = Column(Text, nullable=True)
+    error_code = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+    recovery_method = Column(String, nullable=True)
+    source = Column(String, default="qr_reader", nullable=False)
+    variant_id = Column(String, default="qr_page_v1", nullable=False)
+    metadata_json = Column(Text, default="{}", nullable=False)
 
 class Certificate(Base):
     __tablename__ = "certificates"

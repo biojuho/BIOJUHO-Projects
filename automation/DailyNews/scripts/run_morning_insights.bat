@@ -56,13 +56,10 @@ python --version >> "%LOGFILE%" 2>&1
 REM Morning 인사이트 생성 실행
 echo. >> "%LOGFILE%" 2>&1
 echo ========================================= >> "%LOGFILE%" 2>&1
-echo Running Morning Brief (v2-deep, 3 categories)... >> "%LOGFILE%" 2>&1
+echo Running Morning Brief (v2-deep unified pipeline, 6 categories)... >> "%LOGFILE%" 2>&1
 echo ========================================= >> "%LOGFILE%" 2>&1
 
-python -m antigravity_mcp jobs generate-brief ^
-    --window morning ^
-    --max-items 10 ^
-    --categories Tech,AI_Deep,Economy_KR,Economy_Global >> "%LOGFILE%" 2>&1
+python "%PROJECT_ROOT%\scripts\run_v2_pipeline.py" >> "%LOGFILE%" 2>&1
 
 set EXITCODE=%errorlevel%
 
@@ -84,7 +81,7 @@ REM Notion 대시보드 업데이트 (선택 사항)
 if %EXITCODE% equ 0 (
     echo. >> "%LOGFILE%" 2>&1
     echo Updating Notion dashboard... >> "%LOGFILE%" 2>&1
-    python -m antigravity_mcp ops refresh-dashboard >> "%LOGFILE%" 2>&1
+    call "%PROJECT_ROOT%\run_cli.bat" ops refresh-dashboard >> "%LOGFILE%" 2>&1
 
     if errorlevel 1 (
         echo [WARNING] Dashboard update failed but insights were generated >> "%LOGFILE%" 2>&1

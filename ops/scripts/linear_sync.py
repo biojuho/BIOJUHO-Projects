@@ -15,10 +15,16 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+import sys
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
-WORKSPACE = Path(__file__).resolve().parents[1]
-ROADMAP_PATH = WORKSPACE / "getdaytrends" / "ROADMAP.md"
+from workspace_paths import find_workspace_root, rel_unit_path
+
+WORKSPACE = find_workspace_root()
+ROADMAP_PATH = WORKSPACE / rel_unit_path("getdaytrends", "ROADMAP.md")
 
 
 @dataclass

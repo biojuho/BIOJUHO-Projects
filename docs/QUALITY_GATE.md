@@ -1,64 +1,83 @@
 # Workspace Quality Gate
 
-This document defines the deterministic quality gate for this workspace.
+This document defines the deterministic quality gate for the active workspace.
 
-## Scope
+## Active scope
 
-- Included: `desci-platform`, `AgriGuard`, `DailyNews`, `notebooklm-mcp`, `github-mcp`, `notebooklm-automation`, `getdaytrends`
+Included units:
 
-## Local Commands
+- `apps/desci-platform`
+- `apps/AgriGuard`
+- `apps/dashboard`
+- `automation/DailyNews`
+- `automation/getdaytrends`
+- `mcp/notebooklm-mcp`
+- `mcp/github-mcp`
+- `packages/shared`
 
-Run from repository root:
+Excluded by default:
+
+- `archive/**`
+- `var/**`
+- inactive legacy projects
+
+## Root commands
+
+Canonical commands:
 
 ```bash
-python scripts/run_workspace_smoke.py --scope all
-python scripts/run_workspace_smoke.py --scope workspace
-python scripts/run_workspace_smoke.py --scope desci
-python scripts/run_workspace_smoke.py --scope agriguard
-python scripts/run_workspace_smoke.py --scope mcp
-python scripts/run_workspace_smoke.py --scope getdaytrends
-python scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
+python ops/scripts/run_workspace_smoke.py --scope all
+python ops/scripts/run_workspace_smoke.py --scope workspace
+python ops/scripts/run_workspace_smoke.py --scope desci
+python ops/scripts/run_workspace_smoke.py --scope agriguard
+python ops/scripts/run_workspace_smoke.py --scope mcp
+python ops/scripts/run_workspace_smoke.py --scope getdaytrends
+python ops/scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 ```
 
-## Deterministic PR Gate
+Legacy compatibility commands remain available after:
 
-The PR gate includes only checks that are deterministic and reproducible without external credentials:
+```bash
+python bootstrap_legacy_paths.py
+python scripts/run_workspace_smoke.py --scope all
+```
 
-- `desci`
-  - frontend: lint, unit tests, `build:lts`, bundle budget
-  - biolinker: smoke pytest
+## Deterministic gate contents
+
 - `workspace`
-  - regression tests: `tests/test_workspace_regressions.py`, `tests/test_workspace_smoke.py`
+  - `tests/test_workspace_regressions.py`
+  - `tests/test_workspace_smoke.py`
+  - dashboard frontend build
+- `desci`
+  - frontend lint, unit tests, build, bundle budget
+  - biolinker smoke pytest
 - `agriguard`
-  - frontend: lint, `build:lts`
-  - backend: python compile smoke
+  - frontend lint and build
+  - backend compile smoke
 - `mcp`
-  - python compile smoke for tracked MCP code paths
-  - `DailyNews/tests/unit` pytest suite
-  - `notebooklm-automation/tests` pytest suite
+  - compile smoke for tracked MCP paths
+  - `automation/DailyNews/tests/unit` pytest suite
 - `getdaytrends`
   - python compile smoke
-  - `getdaytrends/tests` pytest suite
+  - `automation/getdaytrends/tests` pytest suite
 
-Python compile checks explicitly exclude these directories:
+Python compile checks exclude:
 
 - `.agent`
 - `.agents`
-- `venv`
+- `.venv`
 - `__pycache__`
-- `output`
+- `archive`
+- `var`
+- generated output folders
 
-## External Integration Tests Policy
+## Policy
 
-Tests that require live services, credentials, or internet access are out of the default PR gate.
+External-service tests stay out of the default PR gate. Keep them manual, scheduled, or separately triggered so standard PRs stay deterministic.
 
-- Keep them tagged as integration and/or external.
-- Run them manually or in separate scheduled/on-demand workflows.
-- Do not block standard PR merges on external flakiness.
+## JSON report schema
 
-## JSON Report Schema
-
-`scripts/run_workspace_smoke.py --json-out <path>` writes an array of check results with:
+`run_workspace_smoke.py --json-out <path>` writes an array of objects containing:
 
 - `scope`
 - `name`

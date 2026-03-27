@@ -1,32 +1,40 @@
-name: workspace-quality
+name: Workspace Quality
 
 on:
   pull_request:
     paths:
-      - "desci-platform/**"
-      - "AgriGuard/**"
-      - "MCP_notion-antigravity/**"
-      - "notebooklm-mcp/**"
-      - "github-mcp/**"
-      - "getdaytrends/**"
+      - "apps/desci-platform/**"
+      - "apps/AgriGuard/**"
+      - "apps/dashboard/**"
+      - "automation/DailyNews/**"
+      - "automation/getdaytrends/**"
+      - "mcp/notebooklm-mcp/**"
+      - "mcp/github-mcp/**"
+      - "packages/shared/**"
       - "tests/**"
-      - "scripts/run_workspace_smoke.py"
-      - "QUALITY_GATE.md"
+      - "ops/scripts/run_workspace_smoke.py"
+      - "ops/scripts/workspace_paths.py"
+      - "workspace-map.json"
+      - "bootstrap_legacy_paths.py"
+      - "docs/QUALITY_GATE.md"
       - ".github/workflows/desci-platform-quality.yml"
   push:
-    branches:
-      - main
-      - master
+    branches: ["main", "master"]
     paths:
-      - "desci-platform/**"
-      - "AgriGuard/**"
-      - "MCP_notion-antigravity/**"
-      - "notebooklm-mcp/**"
-      - "github-mcp/**"
-      - "getdaytrends/**"
+      - "apps/desci-platform/**"
+      - "apps/AgriGuard/**"
+      - "apps/dashboard/**"
+      - "automation/DailyNews/**"
+      - "automation/getdaytrends/**"
+      - "mcp/notebooklm-mcp/**"
+      - "mcp/github-mcp/**"
+      - "packages/shared/**"
       - "tests/**"
-      - "scripts/run_workspace_smoke.py"
-      - "QUALITY_GATE.md"
+      - "ops/scripts/run_workspace_smoke.py"
+      - "ops/scripts/workspace_paths.py"
+      - "workspace-map.json"
+      - "bootstrap_legacy_paths.py"
+      - "docs/QUALITY_GATE.md"
       - ".github/workflows/desci-platform-quality.yml"
   workflow_dispatch:
 
@@ -37,70 +45,72 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scope:
-          - workspace
-          - desci
-          - agriguard
-          - mcp
-          - getdaytrends
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        scope: [workspace, desci, agriguard, mcp, getdaytrends]
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
+          cache: pip
           cache-dependency-path: |
-            desci-platform/biolinker/requirements.txt
-            MCP_notion-antigravity/requirements.txt
+            apps/desci-platform/biolinker/requirements.txt
+            automation/getdaytrends/requirements.txt
+            automation/DailyNews/requirements.txt
 
-      - name: Set up Node.js
-        if: matrix.scope == 'desci' || matrix.scope == 'agriguard'
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
+        if: matrix.scope == 'workspace' || matrix.scope == 'desci' || matrix.scope == 'agriguard'
         with:
           node-version: "22.12.0"
-          cache: "npm"
+          cache: npm
           cache-dependency-path: |
-            desci-platform/frontend/package-lock.json
-            AgriGuard/frontend/package-lock.json
+            apps/desci-platform/frontend/package-lock.json
+            apps/AgriGuard/frontend/package-lock.json
+            apps/dashboard/package-lock.json
 
       - name: Install dependencies (workspace)
         if: matrix.scope == 'workspace'
         run: |
           python -m pip install --upgrade pip
-          pip install -r desci-platform/biolinker/requirements.txt
-          pip install -r MCP_notion-antigravity/requirements.txt
+          pip install -r apps/desci-platform/biolinker/requirements.txt
+          pip install -r automation/getdaytrends/requirements.txt
+          pip install -r automation/DailyNews/requirements.txt
+          npm ci --prefix apps/desci-platform/frontend
+          npm ci --prefix apps/AgriGuard/frontend
+          npm ci --prefix apps/dashboard
 
       - name: Install dependencies (desci)
         if: matrix.scope == 'desci'
         run: |
           python -m pip install --upgrade pip
-          pip install -r desci-platform/biolinker/requirements.txt
-          npm ci --prefix desci-platform/frontend
+          pip install -r apps/desci-platform/biolinker/requirements.txt
+          npm ci --prefix apps/desci-platform/frontend
 
       - name: Install dependencies (agriguard)
         if: matrix.scope == 'agriguard'
-        run: npm ci --prefix AgriGuard/frontend
+        run: npm ci --prefix apps/AgriGuard/frontend
 
       - name: Install dependencies (mcp)
         if: matrix.scope == 'mcp'
         run: |
           python -m pip install --upgrade pip
-          pip install -r MCP_notion-antigravity/requirements.txt
+          pip install -r automation/DailyNews/requirements.txt
 
       - name: Install dependencies (getdaytrends)
         if: matrix.scope == 'getdaytrends'
         run: |
           python -m pip install --upgrade pip
-          pip install -r getdaytrends/requirements.txt
+          pip install -r automation/getdaytrends/requirements.txt
 
       - name: Run workspace smoke
         env:
           PYTHONUTF8: "1"
           PYTHONIOENCODING: "utf-8"
-        run: python scripts/run_workspace_smoke.py --scope "${{ matrix.scope }}" --json-out "smoke-${{ matrix.scope }}.json"
+        run: python ops/scripts/run_workspace_smoke.py --scope "${{ matrix.scope }}" --json-out "smoke-${{ matrix.scope }}.json"
 
       - name: Append summary
         if: always()

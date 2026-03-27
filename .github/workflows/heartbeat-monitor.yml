@@ -2,67 +2,67 @@ name: Scheduler Heartbeat Monitor
 
 on:
   schedule:
-    # 매일 KST 10:00 (UTC 01:00) 에 전날 스케줄러 실행 여부 확인
-    - cron: '0 1 * * *'
+    - cron: "0 1 * * *"
   workflow_dispatch:
 
 jobs:
   heartbeat-check:
-    name: 💓 Scheduler Heartbeat Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
       - name: Check GetDayTrends last run
         id: check
         uses: actions/github-script@v7
         with:
           script: |
-            // GetDayTrends 워크플로의 최근 실행 조회
             const runs = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'getdaytrends.yml',
+              workflow_id: "getdaytrends.yml",
               per_page: 6,
-              status: 'completed',
+              status: "completed",
             });
 
             const now = new Date();
             const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
 
-            // 최근 24시간 내 성공한 실행이 있는지 확인
             const recentSuccess = runs.data.workflow_runs.find(
-              r => r.conclusion === 'success' && new Date(r.updated_at) > oneDayAgo
+              (run) => run.conclusion === "success" && new Date(run.updated_at) > oneDayAgo,
             );
 
             const recentFailure = runs.data.workflow_runs.find(
-              r => r.conclusion === 'failure' && new Date(r.updated_at) > oneDayAgo
+              (run) => run.conclusion === "failure" && new Date(run.updated_at) > oneDayAgo,
             );
 
-            let status = 'healthy';
-            let message = '';
+            let status = "healthy";
+            let message = "";
 
             if (recentFailure && !recentSuccess) {
-              status = 'failing';
-              message = `최근 실행이 실패했습니다: ${recentFailure.html_url}`;
+              status = "failing";
+              message = `Recent workflow run failed: ${recentFailure.html_url}`;
             } else if (!recentSuccess && !recentFailure) {
-              status = 'silent';
-              message = `24시간 내 실행 기록이 없습니다.`;
+              status = "silent";
+              message = "No completed GetDayTrends run was recorded in the last 24 hours.";
               const lastRun = runs.data.workflow_runs[0];
               if (lastRun) {
-                message += ` 마지막 실행: ${lastRun.updated_at} (${lastRun.conclusion})`;
+                message += ` Last run: ${lastRun.updated_at} (${lastRun.conclusion}).`;
               }
             }
 
-            core.setOutput('status', status);
-            core.setOutput('message', message);
-            core.setOutput('total_runs_24h',
-              runs.data.workflow_runs.filter(r => new Date(r.updated_at) > oneDayAgo).length
+            core.setOutput("status", status);
+            core.setOutput("message", message);
+            core.setOutput(
+              "total_runs_24h",
+              runs.data.workflow_runs.filter((run) => new Date(run.updated_at) > oneDayAgo).length,
             );
 
-      - name: "🔔 Alert on heartbeat failure"
+      - name: Alert on heartbeat failure
         if: steps.check.outputs.status != 'healthy'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -74,16 +74,14 @@ jobs:
           RUNS="${{ steps.check.outputs.total_runs_24h }}"
 
           if [ "$STATUS" = "silent" ]; then
-            EMOJI="⚠️"
-            TITLE="스케줄러 무응답"
+            TITLE="Scheduler heartbeat missing"
           else
-            EMOJI="🔴"
-            TITLE="스케줄러 실패"
+            TITLE="Scheduler heartbeat failing"
           fi
 
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
             curl -s -H "Content-Type: application/json" \
-              -d "{\"content\":\"${EMOJI} **${TITLE}**\n📊 24h 실행: ${RUNS}회\n📝 ${MSG}\n🔗 [Actions 대시보드](${{ github.server_url }}/${{ github.repository }}/actions)\"}" \
+              -d "{\"content\":\"${TITLE}\\n24h runs: ${RUNS}\\n${MSG}\"}" \
               "$DISCORD_WEBHOOK_URL" || true
           fi
 
@@ -93,26 +91,16 @@ jobs:
               -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"${TITLE}\n24h runs: ${RUNS}\n${MSG}\"}" || true
           fi
 
-      - name: "📊 Heartbeat Summary"
+      - name: Heartbeat summary
         if: always()
         run: |
           STATUS="${{ steps.check.outputs.status }}"
           RUNS="${{ steps.check.outputs.total_runs_24h }}"
 
-          if [ "$STATUS" = "healthy" ]; then
-            EMOJI="💚"
-          elif [ "$STATUS" = "silent" ]; then
-            EMOJI="⚠️"
-          else
-            EMOJI="🔴"
-          fi
-
           cat <<EOF >> $GITHUB_STEP_SUMMARY
-          ### ${EMOJI} Scheduler Heartbeat — ${STATUS}
+          ### Scheduler Heartbeat
 
-          | 지표 | 값 |
-          |:---|:---|
-          | 상태 | ${STATUS} |
-          | 24h 실행 횟수 | ${RUNS} |
-          | 메시지 | ${{ steps.check.outputs.message || '정상' }} |
+          - Status: ${STATUS}
+          - Runs in last 24h: ${RUNS}
+          - Message: ${{ steps.check.outputs.message || 'healthy' }}
           EOF

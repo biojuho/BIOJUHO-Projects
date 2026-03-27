@@ -23,7 +23,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]  # d:\AI 프로젝트
+ROOT = Path(__file__).resolve().parents[2]
 BITNET_DIR = ROOT / "BitNet"
 MODEL_DIR = BITNET_DIR / "models" / "BitNet-b1.58-2B-4T"
 MODEL_GGUF = MODEL_DIR / "ggml-model-i2_s.gguf"

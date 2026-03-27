@@ -1,7 +1,7 @@
-"""
-getdaytrends — Database Schema & Connection Layer
-PostgreSQL 어댑터, DB 연결, 스키마 초기화, 마이그레이션.
-db.py에서 분리됨.
+﻿"""
+getdaytrends ??Database Schema & Connection Layer
+PostgreSQL ?대뙌?? DB ?곌껐, ?ㅽ궎留?珥덇린?? 留덉씠洹몃젅?댁뀡.
+db.py?먯꽌 遺꾨━??
 """
 
 
@@ -21,7 +21,7 @@ from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
 
 from loguru import logger as log
 
-# ── PostgreSQL 선택적 지원 ────────────────────────────
+# ?? PostgreSQL ?좏깮??吏??????????????????????????????
 try:
     import asyncpg
     _PG_AVAILABLE = True
@@ -29,12 +29,12 @@ except ImportError:
     asyncpg = None  # type: ignore[assignment]
     _PG_AVAILABLE = False
 
-# asyncpg 커넥션 풀 (싱글턴)
+# asyncpg 而ㅻ꽖??? (?깃???
 _PG_POOL: "asyncpg.Pool | None" = None
 _SQLITE_WRITE_LOCK = threading.RLock()
 
 
-# ── 트랜잭션 컨텍스트 매니저 ────────────────────────────
+# ?? ?몃옖??뀡 而⑦뀓?ㅽ듃 留ㅻ땲? ????????????????????????????
 
 @asynccontextmanager
 async def sqlite_write_lock(conn) -> AsyncIterator[None]:
@@ -53,10 +53,10 @@ async def sqlite_write_lock(conn) -> AsyncIterator[None]:
 @asynccontextmanager
 async def db_transaction(conn) -> AsyncIterator[None]:
     """
-    aiosqlite / asyncpg 공용 트랜잭션 컨텍스트 매니저.
-    예외 발생 시 자동 rollback, 정상 종료 시 commit.
+    aiosqlite / asyncpg 怨듭슜 ?몃옖??뀡 而⑦뀓?ㅽ듃 留ㅻ땲?.
+    ?덉쇅 諛쒖깮 ???먮룞 rollback, ?뺤긽 醫낅즺 ??commit.
 
-    사용 예::
+    ?ъ슜 ??:
         async with db_transaction(conn):
             trend_id = await save_trend(conn, trend, run_id)
             await save_tweets_batch(conn, tweets, trend_id, run_id)
@@ -75,7 +75,7 @@ async def db_transaction(conn) -> AsyncIterator[None]:
 
 class _PgAdapter:
     """
-    asyncpg 연결을 aiosqlite.Connection 인터페이스와 유사하게 래핑.
+    asyncpg ?곌껐??aiosqlite.Connection ?명꽣?섏씠?ㅼ? ?좎궗?섍쾶 ?섑븨.
     """
     def __init__(self, conn: "asyncpg.Connection") -> None:
         self._conn = conn
@@ -83,10 +83,10 @@ class _PgAdapter:
     @staticmethod
     def _ph(sql: str) -> str:
         """
-        ? → $1, $2 ... PostgreSQL 플레이스홀더 변환.
-        문자열 리터럴 내부의 ? 는 변환하지 않도록 정규식으로 처리.
+        ? ??$1, $2 ... PostgreSQL ?뚮젅?댁뒪???蹂??
+        臾몄옄??由ы꽣???대???? ??蹂?섑븯吏 ?딅룄濡??뺢퇋?앹쑝濡?泥섎━.
         """
-        # 문자열 밖에 있는 ? 만 순서대로 $N 으로 교체
+        # 臾몄옄??諛뽰뿉 ?덈뒗 ? 留??쒖꽌?濡?$N ?쇰줈 援먯껜
         result = []
         counter = 0
         in_str = False
@@ -157,7 +157,7 @@ class _PgAdapter:
                 await self._conn.execute(stmt)
             except Exception as e:
                 if "already exists" in str(e).lower():
-                    log.debug(f"PostgreSQL DDL 스킵 (이미 존재): {stmt[:60]}...")
+                    log.debug(f"PostgreSQL DDL ?ㅽ궢 (?대? 議댁옱): {stmt[:60]}...")
                 else:
                     raise
 
@@ -172,16 +172,16 @@ class _PgAdapter:
 
 
 async def get_pg_pool(url: str, min_size: int = 2, max_size: int = 10) -> "asyncpg.Pool":
-    """asyncpg 커넥션 풀 싱글턴 반환."""
+    """asyncpg 而ㅻ꽖??? ?깃???諛섑솚."""
     global _PG_POOL
     if _PG_POOL is None or _PG_POOL._closed:  # type: ignore[union-attr]
         _PG_POOL = await asyncpg.create_pool(url, min_size=min_size, max_size=max_size)
-        log.info(f"asyncpg Pool 생성: min={min_size} max={max_size} @ {url.split('@')[-1]}")
+        log.info(f"asyncpg Pool ?앹꽦: min={min_size} max={max_size} @ {url.split('@')[-1]}")
     return _PG_POOL
 
 
 async def close_pg_pool() -> None:
-    """앱 종료 시 asyncpg Pool 정리."""
+    """??醫낅즺 ??asyncpg Pool ?뺣━."""
     global _PG_POOL
     if _PG_POOL and not _PG_POOL._closed:  # type: ignore[union-attr]
         await _PG_POOL.close()
@@ -192,12 +192,12 @@ async def get_connection(
     db_path: str = "data/getdaytrends.db",
     database_url: str = "",
 ):
-    """DB 연결 반환. DATABASE_URL 설정 시 asyncpg Pool에서 연결 획득."""
+    """DB ?곌껐 諛섑솚. DATABASE_URL ?ㅼ젙 ??asyncpg Pool?먯꽌 ?곌껐 ?띾뱷."""
     url = database_url or os.getenv("DATABASE_URL", "")
     if url.startswith(("postgresql://", "postgres://")):
         if not _PG_AVAILABLE:
             raise ImportError(
-                "PostgreSQL 사용을 위해 asyncpg 설치 필요:\n"
+                "PostgreSQL ?ъ슜???꾪빐 asyncpg ?ㅼ튂 ?꾩슂:\n"
                 "  pip install asyncpg"
             )
         pool = await get_pg_pool(url)
@@ -277,11 +277,12 @@ async def _init_db_unlocked(conn) -> None:
             char_count    INTEGER DEFAULT 0,
             is_thread     INTEGER DEFAULT 0,
             thread_order  INTEGER DEFAULT 0,
-            status        TEXT DEFAULT '대기중',
+            status        TEXT DEFAULT '?湲곗쨷',
             saved_to      TEXT DEFAULT '[]',
             generated_at  TEXT NOT NULL,
             content_type  TEXT DEFAULT 'short',
             posted_at     TEXT DEFAULT NULL,
+            x_tweet_id    TEXT DEFAULT '',
             impressions   INTEGER DEFAULT 0,
             engagements   INTEGER DEFAULT 0,
             engagement_rate REAL DEFAULT 0.0
@@ -290,6 +291,7 @@ async def _init_db_unlocked(conn) -> None:
         CREATE INDEX IF NOT EXISTS idx_tweets_trend ON tweets(trend_id);
         CREATE INDEX IF NOT EXISTS idx_tweets_status ON tweets(status);
         CREATE INDEX IF NOT EXISTS idx_tweets_run_type ON tweets(run_id, content_type);
+        CREATE INDEX IF NOT EXISTS idx_tweets_x_tweet_id ON tweets(x_tweet_id);
 
         CREATE INDEX IF NOT EXISTS idx_trends_run_keyword ON trends(run_id, keyword);
         CREATE INDEX IF NOT EXISTS idx_trends_country_scored ON trends(country, scored_at);
@@ -344,7 +346,7 @@ async def _init_db_unlocked(conn) -> None:
     """)
     await conn.commit()
 
-    # 기존 런타임 호환성 (마이그레이션)
+    # 湲곗〈 ?고????명솚??(留덉씠洹몃젅?댁뀡)
     try:
         await conn.execute("SELECT content_type FROM tweets LIMIT 1")
     except Exception:
@@ -362,10 +364,11 @@ async def _init_db_unlocked(conn) -> None:
         
     for _col_name, _col_def in [
         ("posted_at", "TEXT DEFAULT NULL"),
+        ("x_tweet_id", "TEXT DEFAULT ''"),
         ("impressions", "INTEGER DEFAULT 0"),
         ("engagements", "INTEGER DEFAULT 0"),
         ("engagement_rate", "REAL DEFAULT 0.0"),
-        # v3.0: A/B 변형 + 멀티언어
+        # v3.0: A/B 蹂??+ 硫?곗뼵??
         ("variant_id", "TEXT DEFAULT ''"),
         ("language", "TEXT DEFAULT 'ko'"),
     ]:
@@ -374,12 +377,14 @@ async def _init_db_unlocked(conn) -> None:
         except Exception:
             await conn.execute(f"ALTER TABLE tweets ADD COLUMN {_col_name} {_col_def}")
             await conn.commit()
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_x_tweet_id ON tweets(x_tweet_id)")
+    await conn.commit()
 
-    # v3.0: trends 테이블에 sentiment, safety_flag 컬럼 추가
+    # v3.0: trends ?뚯씠釉붿뿉 sentiment, safety_flag 而щ읆 異붽?
     for _col_name, _col_def in [
         ("sentiment", "TEXT DEFAULT 'neutral'"),
         ("safety_flag", "INTEGER DEFAULT 0"),
-        # v4.0: 트렌드 교차검증 & 중연 킥 컬럼
+        # v4.0: ?몃젋??援먯감寃利?& 以묒뿰 ??而щ읆
         ("cross_source_confidence", "INTEGER DEFAULT 0"),
         ("joongyeon_kick", "INTEGER DEFAULT 0"),
         ("joongyeon_angle", "TEXT DEFAULT ''"),
@@ -413,7 +418,7 @@ def _normalize_name(name: str) -> str:
 
 
 def _normalize_volume(volume: int, bucket: int = 5000) -> int:
-    """볼륨을 bucket 크기로 버킷화. config.cache_volume_bucket으로 외부 제어 가능."""
+    """蹂쇰ⅷ??bucket ?ш린濡?踰꾪궥?? config.cache_volume_bucket?쇰줈 ?몃? ?쒖뼱 媛??"""
     if bucket <= 0:
         return volume
     return (volume // bucket) * bucket
@@ -421,12 +426,13 @@ def _normalize_volume(volume: int, bucket: int = 5000) -> int:
 
 def compute_fingerprint(name: str, volume: int, bucket: int = 5000) -> str:
     """
-    트렌드 핑거프린트 계산.
-    bucket: 볼륨 버킷 크기 (config.cache_volume_bucket). 작을수록 정밀.
+    ?몃젋???묎굅?꾨┛??怨꾩궛.
+    bucket: 蹂쇰ⅷ 踰꾪궥 ?ш린 (config.cache_volume_bucket). ?묒쓣?섎줉 ?뺣?.
     """
     normalized_name = _normalize_name(name)
     normalized_volume = _normalize_volume(volume, bucket)
     raw = f"{normalized_name}:{normalized_volume}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
 
 

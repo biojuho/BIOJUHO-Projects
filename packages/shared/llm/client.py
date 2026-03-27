@@ -239,6 +239,103 @@ class LLMClient:
             _failed_backends[tier].clear()
         _response_cache.clear()
 
+    def create_with_reasoning(
+        self,
+        *,
+        tier: Optional[TaskTier] = None,
+        messages: list[dict],
+        max_tokens: int = 2000,
+        system: str = "",
+        policy: Optional[LLMPolicy] = None,
+        force_strategy: str | None = None,
+    ) -> LLMResponse:
+        """Create a response with automatic reasoning strategy selection.
+
+        Uses SmartRouter to analyze query complexity and apply the
+        optimal reasoning strategy (direct, SAGE, CoT, or FoT).
+
+        This is the enhanced version of create() — use when the query
+        may benefit from deeper reasoning. For simple/known tasks,
+        continue using create() directly.
+
+        Args:
+            force_strategy: Override auto-routing. Options: "direct",
+                "sage", "cot", "fot". If None, auto-selects.
+
+        Returns:
+            LLMResponse with additional reasoning metadata in bridge_meta.
+        """
+        from .reasoning.smart_router import SmartRouter
+
+        router = SmartRouter(self)
+        result = router.route_and_reason(
+            messages=messages,
+            system=system,
+            policy=policy,
+            tier=tier,
+            max_tokens=max_tokens,
+            force_strategy=force_strategy,
+        )
+
+        # Wrap ReasoningResult back into an LLMResponse for compatibility
+        response = LLMResponse(
+            text=result.text,
+            model=f"reasoning:{result.strategy_used}",
+            backend=f"reasoning:{result.complexity.value}",
+            tier=tier or TaskTier.MEDIUM,
+            cost_usd=result.total_cost_usd,
+            latency_ms=result.total_latency_ms,
+        )
+        response.bridge_meta = BridgeMeta(
+            bridge_applied=True,
+            quality_flags=[],
+            fallback_reason=None,
+            detected_input_language="",
+            detected_output_language="",
+        )
+        return response
+
+    async def acreate_with_reasoning(
+        self,
+        *,
+        tier: Optional[TaskTier] = None,
+        messages: list[dict],
+        max_tokens: int = 2000,
+        system: str = "",
+        policy: Optional[LLMPolicy] = None,
+        force_strategy: str | None = None,
+    ) -> LLMResponse:
+        """Async version of create_with_reasoning()."""
+        from .reasoning.smart_router import SmartRouter
+
+        router = SmartRouter(self)
+        result = await router.aroute_and_reason(
+            messages=messages,
+            system=system,
+            policy=policy,
+            tier=tier,
+            max_tokens=max_tokens,
+            force_strategy=force_strategy,
+        )
+
+        response = LLMResponse(
+            text=result.text,
+            model=f"reasoning:{result.strategy_used}",
+            backend=f"reasoning:{result.complexity.value}",
+            tier=tier or TaskTier.MEDIUM,
+            cost_usd=result.total_cost_usd,
+            latency_ms=result.total_latency_ms,
+        )
+        response.bridge_meta = BridgeMeta(
+            bridge_applied=True,
+            quality_flags=[],
+            fallback_reason=None,
+            detected_input_language="",
+            detected_output_language="",
+        )
+        return response
+
+
     @property
     def backend(self) -> str:
         stats = self._tracker.get_stats()

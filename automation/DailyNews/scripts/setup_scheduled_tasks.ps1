@@ -6,7 +6,7 @@
 #
 # 실행 방법:
 #   1. PowerShell을 관리자 권한으로 실행
-#   2. cd "d:\AI 프로젝트\DailyNews\scripts"
+#   2. cd "<workspace>\automation\DailyNews\scripts"
 #   3. .\setup_scheduled_tasks.ps1
 #
 # 작성일: 2026-03-21
@@ -185,7 +185,7 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Open Task Scheduler (taskschd.msc) to verify" -ForegroundColor Gray
 Write-Host "  2. Test run: Right-click task > Run" -ForegroundColor Gray
-Write-Host "  3. Check logs: d:\AI 프로젝트\DailyNews\logs\insights\" -ForegroundColor Gray
+Write-Host "  3. Check logs: $ProjectRoot\logs\insights\" -ForegroundColor Gray
 Write-Host ""
 Write-Host "To remove tasks later, run:" -ForegroundColor Yellow
 Write-Host '  Unregister-ScheduledTask -TaskName "DailyNews_Morning_Insights" -Confirm:$false' -ForegroundColor Gray

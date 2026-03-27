@@ -74,6 +74,165 @@ class TestSkillAdapter:
         assert result["status"] == "ok"
         assert result["result"]["echo"] == "test"
 
+    @pytest.mark.asyncio
+    async def test_market_snapshot_uses_structured_market_adapter(self, monkeypatch):
+        from antigravity_mcp.integrations.skill_adapter import SkillAdapter
+
+        class FakeMarketAdapter:
+            def get_snapshot(self, ticker):
+                if ticker == "NVDA":
+                    return {"ticker": "NVDA", "price": 950.0, "change_pct": 2.5}
+                return None
+
+            def get_snapshot_by_keyword(self, keyword):
+                if keyword == "Nvidia":
+                    return {"ticker": "NVDA", "price": 950.0, "change_pct": 2.5}
+                return None
+
+        monkeypatch.setattr(
+            "antigravity_mcp.integrations.market_adapter.MarketAdapter",
+            FakeMarketAdapter,
+        )
+
+        adapter = SkillAdapter()
+        result = await adapter.invoke("market_snapshot", {"tickers": ["NVDA"], "keywords": ["Nvidia"]})
+
+        assert result["status"] == "ok"
+        snapshots = result["result"]["snapshots"]
+        assert snapshots["NVDA"]["price"] == 950.0
+        assert snapshots["Nvidia"]["ticker"] == "NVDA"
+
+
+class TestEmbeddingAdapter:
+    @pytest.mark.asyncio
+    async def test_get_embeddings_uses_supported_gemini_endpoint(self, monkeypatch):
+        from antigravity_mcp.integrations.embedding_adapter import EmbeddingAdapter
+
+        called = {}
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"embeddings": [{"values": [0.1, 0.2, 0.3]}]}
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, url, headers=None, json=None):
+                called["url"] = url
+                called["headers"] = headers
+                called["json"] = json
+                return FakeResponse()
+
+        monkeypatch.setattr(
+            "antigravity_mcp.integrations.embedding_adapter.httpx.AsyncClient",
+            FakeAsyncClient,
+        )
+
+        adapter = EmbeddingAdapter()
+        adapter._api_key = "test-key"
+        embeddings = await adapter.get_embeddings(["hello world"])
+
+        assert embeddings == [[0.1, 0.2, 0.3]]
+        assert called["url"].endswith("/v1beta/models/gemini-embedding-001:batchEmbedContents")
+        assert called["headers"]["x-goog-api-key"] == "test-key"
+        assert called["json"]["requests"][0]["model"] == "models/gemini-embedding-001"
+        assert called["json"]["requests"][0]["taskType"] == "CLUSTERING"
+
+
+class TestFactCheckAdapter:
+    @pytest.mark.asyncio
+    async def test_check_report_excludes_ctas_and_market_lines(self, monkeypatch):
+        from antigravity_mcp.integrations.fact_check_adapter import FactCheckAdapter
+
+        captured = {}
+
+        class FakeResult:
+            passed = True
+            accuracy_score = 1.0
+            source_credibility = 1.0
+            total_claims = 1
+            verified_claims = 1
+            hallucinated_claims = 0
+            issues = []
+
+        def fake_verify_text_against_sources(text, source_texts, **kwargs):
+            captured["text"] = text
+            captured["source_texts"] = source_texts
+            captured["kwargs"] = kwargs
+            return FakeResult()
+
+        monkeypatch.setattr(
+            "antigravity_mcp.integrations.fact_check_adapter.verify_text_against_sources",
+            fake_verify_text_against_sources,
+        )
+
+        adapter = FactCheckAdapter()
+        result = await adapter.check_report(
+            summary_lines=["## 정보 브리핑", "Bitcoin holds ground as liquidity tightens."],
+            insights=[
+                "[Market] Bitcoin: $68000",
+                "[Continuing] prior theme",
+                "**1차 파급 효과:** speculative forecast",
+                "**투자자:** 30일 내 재점검",
+                "Liquidity stress still matters for exchanges.",
+            ],
+            drafts_text="Stylized X draft that should not be fact-checked here.",
+            source_articles=[{"title": "Bitcoin holds ground", "description": "Liquidity tightens", "source_name": "CoinDesk"}],
+        )
+
+        assert result["passed"] is True
+        assert "Bitcoin holds ground as liquidity tightens." in captured["text"]
+        assert "Liquidity stress still matters for exchanges." in captured["text"]
+        assert "[Market] Bitcoin: $68000" not in captured["text"]
+        assert "**1차 파급 효과:** speculative forecast" not in captured["text"]
+        assert "**투자자:** 30일 내 재점검" not in captured["text"]
+        assert "Stylized X draft" not in captured["text"]
+        assert captured["kwargs"]["min_accuracy"] == 0.45
+
+    @pytest.mark.asyncio
+    async def test_check_report_filters_noise_issues(self, monkeypatch):
+        from antigravity_mcp.integrations.fact_check_adapter import FactCheckAdapter
+
+        class FakeResult:
+            passed = False
+            accuracy_score = 0.42
+            source_credibility = 0.9
+            total_claims = 5
+            verified_claims = 2
+            hallucinated_claims = 2
+            issues = [
+                "[Hallucination] entity: '정부'",
+                "[Unverified number] '6개'",
+                "[Hallucination] entity: '교란시'",
+                "[Hallucination] entity: 'OpenAI'",
+            ]
+
+        monkeypatch.setattr(
+            "antigravity_mcp.integrations.fact_check_adapter.verify_text_against_sources",
+            lambda *args, **kwargs: FakeResult(),
+        )
+
+        adapter = FactCheckAdapter()
+        result = await adapter.check_report(
+            summary_lines=["OpenAI announced a new model."],
+            insights=["OpenAI expanded distribution."],
+            drafts_text="",
+            source_articles=[{"title": "OpenAI announced a new model", "description": "", "source_name": "Reuters"}],
+        )
+
+        assert result["issues"] == ["[Hallucination] entity: 'OpenAI'"]
+        assert result["passed"] is False
+
 
 # ─── XMetricsAdapter ─────────────────────────────────────────────────────────
 

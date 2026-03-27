@@ -117,6 +117,10 @@
             {"id": "s", "name": "summary", "value": "={{ ($json.summary || '').substring(0, 500) }}", "type": "string"},
             {"id": "n", "name": "notebook", "value": "=https://notebooklm.google.com/notebook/{{ $json.notebook_id }}", "type": "string"},
             {"id": "sc", "name": "sources", "value": "={{ $json.source_count || 0 }}", "type": "number"},
+            {"id": "lt", "name": "local_tweet_id", "value": "={{ $json.local_tweet_id || 0 }}", "type": "number"},
+            {"id": "tr", "name": "trend_row_id", "value": "={{ $json.trend_row_id || 0 }}", "type": "number"},
+            {"id": "rr", "name": "run_row_id", "value": "={{ $json.run_row_id || 0 }}", "type": "number"},
+            {"id": "db", "name": "db_path", "value": "={{ $json.db_path || '' }}", "type": "string"},
             {"id": "st", "name": "status", "value": "=success", "type": "string"}
           ]
         },
@@ -150,7 +154,7 @@
         "url": "http://127.0.0.1:8788/publish-x",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tweet_text: $json.tweet }) }}",
+        "jsonBody": "={{ JSON.stringify({ tweet_text: $json.tweet, local_tweet_id: $json.local_tweet_id || 0, trend_row_id: $json.trend_row_id || 0, run_row_id: $json.run_row_id || 0, db_path: $json.db_path || '' }) }}",
         "options": {"timeout": 30000}
       },
       "id": "publish-x",

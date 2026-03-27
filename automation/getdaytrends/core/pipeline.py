@@ -465,6 +465,37 @@ async def async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunRe
             except Exception as _canva_err:
                 log.debug(f"  [Canva] 비주얼 생성 실패 (무시): {_canva_err}")
 
+        # Step 4.6: Cross-Trend Inductive Reasoning (optional)
+        reasoning_patterns: list[str] = []
+        try:
+            from trend_reasoning import TrendReasoningAdapter
+
+            reasoner = TrendReasoningAdapter()
+            if reasoner.is_available() and quality_trends:
+                trend_data_text = "\n".join(
+                    f"[{t.keyword}] viral={t.viral_potential} | "
+                    f"category={getattr(t, 'category', '기타')} | "
+                    f"why={getattr(t, 'why_trending', '')} | "
+                    f"insight={getattr(t, 'top_insight', '')}"
+                    for t in quality_trends
+                )
+                reasoning_result = await reasoner.run_full_reasoning(
+                    conn=conn,
+                    run_id=run.run_id[:8],
+                    category=config.country,
+                    trend_data=trend_data_text,
+                )
+                survived = reasoning_result.get("survived_count", 0)
+                reasoning_patterns = reasoning_result.get("new_patterns", [])
+                facts_count = len(reasoning_result.get("facts", []))
+                hyp_count = len(reasoning_result.get("hypotheses", []))
+                print(f"\n  🧠 Trend Reasoning: {facts_count} facts → {hyp_count} hyp → {survived} survived")
+                if reasoning_patterns:
+                    for p in reasoning_patterns[:3]:
+                        print(f"     → {p[:70]}...")
+        except Exception as _reason_err:
+            log.debug(f"  [Reasoning] 추론 실패 (무시): {_reason_err}")
+
         # Step 5: 저장
         success_count = await _step_save(quality_trends, batch_results, pipeline_config, conn, run, run_row_id)
         _t4 = time.time()

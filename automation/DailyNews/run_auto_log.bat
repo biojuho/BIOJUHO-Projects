@@ -1,10 +1,18 @@
 @echo off
-REM Antigravity Daily Project Log Runner
-REM 매일 오후 10시 Windows Task Scheduler로 실행
+setlocal
 
-cd /d "D:\AI 프로젝트\DailyNews"
-call venv\Scripts\activate.bat
+for %%I in ("%~dp0.") do set "PROJECT_ROOT=%%~fI"
+for %%I in ("%~dp0..\..") do set "WORKSPACE_ROOT=%%~fI"
+set "ACTIVATE_SCRIPT=%PROJECT_ROOT%\venv\Scripts\activate.bat"
+if not exist "%ACTIVATE_SCRIPT%" set "ACTIVATE_SCRIPT=%WORKSPACE_ROOT%\.venv\Scripts\activate.bat"
+
+cd /d "%PROJECT_ROOT%" || exit /b 1
+
+if not exist "%ACTIVATE_SCRIPT%" exit /b 1
+call "%ACTIVATE_SCRIPT%"
+if errorlevel 1 exit /b 1
+
 python scripts\auto_project_log.py
-
-REM 로그 저장
+set "EXITCODE=%errorlevel%"
 echo [%date% %time%] Daily project log completed >> logs\auto_log.log
+exit /b %EXITCODE%

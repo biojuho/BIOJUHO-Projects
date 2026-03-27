@@ -36,7 +36,7 @@ services:
       # 다중 데이터베이스는 init script에서 생성
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - ./ops/scripts/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     networks:
       - dev-network
     healthcheck:
@@ -89,7 +89,7 @@ services:
       - "1883:1883"  # MQTT
       - "9001:9001"  # WebSocket (선택)
     volumes:
-      - ./AgriGuard/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./apps/AgriGuard/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
       - mosquitto-logs:/mosquitto/log
     networks:
@@ -148,7 +148,7 @@ services:
   # BioLinker API - Research Matching Engine
   biolinker:
     build:
-      context: ./desci-platform/biolinker
+      context: ./apps/desci-platform/biolinker
       dockerfile: Dockerfile
       target: development  # Multi-stage build의 dev stage
     container_name: dev-biolinker
@@ -173,10 +173,10 @@ services:
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
     env_file:
       - .env
-      - desci-platform/biolinker/.env
+      - apps/desci-platform/biolinker/.env
     volumes:
-      - ./desci-platform/biolinker:/app
-      - ./shared:/app/shared:ro  # Shared libraries (read-only)
+      - ./apps/desci-platform/biolinker:/app
+      - ./packages/shared:/app/shared:ro  # Shared libraries (read-only)
       - biolinker-uploads:/app/uploads
     depends_on:
       postgres:
@@ -195,7 +195,7 @@ services:
   # DeSci Frontend - React UI
   desci-frontend:
     build:
-      context: ./desci-platform/frontend
+      context: ./apps/desci-platform/frontend
       dockerfile: Dockerfile
       target: development
     container_name: dev-desci-frontend
@@ -211,9 +211,9 @@ services:
       - VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}
       - VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}
     env_file:
-      - desci-platform/frontend/.env
+      - apps/desci-platform/frontend/.env
     volumes:
-      - ./desci-platform/frontend/src:/app/src:cached  # Hot reload
+      - ./apps/desci-platform/frontend/src:/app/src:cached  # Hot reload
       - /app/node_modules  # Prevent overwrite
     depends_on:
       biolinker:
@@ -241,7 +241,7 @@ services:
   # AgriGuard Backend API
   agriguard-backend:
     build:
-      context: ./AgriGuard/backend
+      context: ./apps/AgriGuard/backend
       dockerfile: Dockerfile
       target: development
     container_name: dev-agriguard-backend
@@ -261,10 +261,10 @@ services:
       - CONTRACT_ADDRESS=${AGRIGUARD_CONTRACT_ADDRESS}
     env_file:
       - .env
-      - AgriGuard/backend/.env
+      - apps/AgriGuard/backend/.env
     volumes:
-      - ./AgriGuard/backend:/app
-      - ./shared:/app/shared:ro
+      - ./apps/AgriGuard/backend:/app
+      - ./packages/shared:/app/shared:ro
       - agriguard-uploads:/app/uploads
     depends_on:
       postgres:
@@ -283,7 +283,7 @@ services:
   # AgriGuard Frontend
   agriguard-frontend:
     build:
-      context: ./AgriGuard/frontend
+      context: ./apps/AgriGuard/frontend
       dockerfile: Dockerfile
       target: development
     container_name: dev-agriguard-frontend
@@ -294,7 +294,7 @@ services:
       - VITE_API_URL=http://localhost:8002
       - VITE_MQTT_BROKER_URL=ws://localhost:9001
     volumes:
-      - ./AgriGuard/frontend/src:/app/src:cached
+      - ./apps/AgriGuard/frontend/src:/app/src:cached
       - /app/node_modules
     depends_on:
       agriguard-backend:
@@ -321,7 +321,7 @@ services:
   getdaytrends:
     build:
       context: .
-      dockerfile: getdaytrends/Dockerfile
+      dockerfile: automation/getdaytrends/Dockerfile
     container_name: dev-getdaytrends
     restart: "no"  # One-shot execution, no auto-restart
     environment:
@@ -351,10 +351,10 @@ services:
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     env_file:
       - .env
-      - getdaytrends/.env
+      - automation/getdaytrends/.env
     volumes:
-      - ./getdaytrends/data:/app/getdaytrends/data
-      - ./getdaytrends/logs:/app/getdaytrends/logs
+      - ./automation/getdaytrends/data:/app/getdaytrends/data
+      - ./automation/getdaytrends/logs:/app/getdaytrends/logs
     networks:
       - dev-network
     profiles:
@@ -366,7 +366,7 @@ services:
   dailynews:
     build:
       context: .
-      dockerfile: DailyNews/Dockerfile
+      dockerfile: automation/DailyNews/Dockerfile
     container_name: dev-dailynews
     restart: "no"
     environment:
@@ -379,10 +379,10 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     env_file:
       - .env
-      - DailyNews/.env
+      - automation/DailyNews/.env
     volumes:
-      - ./DailyNews/data:/app/DailyNews/data
-      - ./DailyNews/logs:/app/DailyNews/logs
+      - ./automation/DailyNews/data:/app/DailyNews/data
+      - ./automation/DailyNews/logs:/app/DailyNews/logs
     networks:
       - dev-network
     profiles:
@@ -400,7 +400,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -426,8 +426,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./ops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     networks:

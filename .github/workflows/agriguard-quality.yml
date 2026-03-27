@@ -1,16 +1,16 @@
-name: AgriGuard Quality Gate
+﻿name: AgriGuard Quality Gate
 
 on:
   push:
     paths:
-      - 'AgriGuard/**'
+      - 'apps/AgriGuard/**'
   pull_request:
     paths:
-      - 'AgriGuard/**'
+      - 'apps/AgriGuard/**'
 
 defaults:
   run:
-    working-directory: AgriGuard/frontend
+    working-directory: apps/AgriGuard/frontend
 
 jobs:
   quality:
@@ -22,12 +22,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: AgriGuard/frontend/package-lock.json
+          cache-dependency-path: apps/AgriGuard/frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -43,3 +46,6 @@ jobs:
 
       - name: Bundle Budget Check
         run: npm run check:bundle
+
+
+

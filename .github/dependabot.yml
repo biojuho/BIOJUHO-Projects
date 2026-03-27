@@ -1,6 +1,5 @@
 version: 2
 updates:
-  # Python dependencies (Root)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -17,49 +16,77 @@ updates:
       prefix: "chore"
       include: "scope"
 
-  # Python dependencies (DailyNews)
-  - package-ecosystem: "pip"
-    directory: "/DailyNews"
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "09:15"
+    labels:
+      - "dependencies"
+      - "javascript"
+
+  - package-ecosystem: "pip"
+    directory: "/automation/DailyNews"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
     labels:
       - "dependencies"
       - "python"
       - "dailynews"
 
-  # Python dependencies (AgriGuard)
   - package-ecosystem: "pip"
-    directory: "/AgriGuard/backend"
+    directory: "/automation/getdaytrends"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "09:45"
+    labels:
+      - "dependencies"
+      - "python"
+      - "getdaytrends"
+
+  - package-ecosystem: "pip"
+    directory: "/apps/AgriGuard/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
     labels:
       - "dependencies"
       - "python"
       - "agriguard"
 
-  # Python dependencies (desci-platform biolinker)
-  - package-ecosystem: "pip"
-    directory: "/desci-platform/biolinker"
+  - package-ecosystem: "npm"
+    directory: "/apps/AgriGuard/frontend"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "10:15"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "agriguard"
+
+  - package-ecosystem: "pip"
+    directory: "/apps/desci-platform/biolinker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:30"
     labels:
       - "dependencies"
       - "python"
       - "biolinker"
 
-  # npm dependencies (Frontend)
   - package-ecosystem: "npm"
-    directory: "/desci-platform/frontend"
+    directory: "/apps/desci-platform/frontend"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "10:00"
+      time: "10:45"
     open-pull-requests-limit: 10
     reviewers:
       - "biojuho"
@@ -72,25 +99,45 @@ updates:
       prefix: "chore"
       prefix-development: "chore(dev)"
 
-  # npm dependencies (Contracts)
   - package-ecosystem: "npm"
-    directory: "/desci-platform/contracts"
+    directory: "/apps/desci-platform/contracts"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "10:00"
+      time: "11:00"
     labels:
       - "dependencies"
       - "javascript"
       - "contracts"
 
-  # GitHub Actions
+  - package-ecosystem: "npm"
+    directory: "/apps/dashboard"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "11:15"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "dashboard"
+
+  - package-ecosystem: "npm"
+    directory: "/mcp/canva-mcp"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "11:30"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "mcp"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
       day: "monday"
-      time: "11:00"
+      time: "12:00"
     labels:
       - "dependencies"
       - "github-actions"

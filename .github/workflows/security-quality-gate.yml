@@ -1,4 +1,4 @@
-name: Security & Quality Gate
+﻿name: Security & Quality Gate
 
 on:
   pull_request:
@@ -7,9 +7,9 @@ on:
     branches: ["main"]
 
 jobs:
-  # ─── Secret Leak Detection ────────────────────────
+  # ??? Secret Leak Detection ????????????????????????
   secret-scan:
-    name: 🔒 Secret Scan (gitleaks)
+    name: ?뵏 Secret Scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,9 +19,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ─── Dependency Vulnerability Scan ─────────────────
+  # ??? Dependency Vulnerability Scan ?????????????????
   dependency-scan:
-    name: 🛡️ Dependency Audit
+    name: ?썳截?Dependency Audit
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -33,6 +33,9 @@ jobs:
             lang: node
     steps:
       - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
 
       # Python dependency audit
       - name: Set up Python
@@ -59,7 +62,7 @@ jobs:
       - name: npm audit
         if: matrix.lang == 'node'
         run: |
-          for pkg_dir in desci-platform/frontend desci-platform/contracts AgriGuard/frontend canva-mcp; do
+          for pkg_dir in apps/desci-platform/frontend apps/desci-platform/contracts apps/AgriGuard/frontend mcp/canva-mcp; do
             if [ -f "$pkg_dir/package-lock.json" ]; then
               echo "::group::Auditing $pkg_dir"
               cd "$pkg_dir"
@@ -69,15 +72,18 @@ jobs:
             fi
           done
 
-  # ─── QA Automated Review (Based on QA/QC Step 2) ───
+  # ??? QA Automated Review (Based on QA/QC Step 2) ???
   qa-review:
-    name: 🔍 QA Automated Review
+    name: ?뵇 QA Automated Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
 
       - name: Get changed files
         id: changed
@@ -119,9 +125,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # ─── Summary Gate ──────────────────────────────────
+  # ??? Summary Gate ??????????????????????????????????
   quality-gate:
-    name: ✅ Quality Gate
+    name: ??Quality Gate
     runs-on: ubuntu-latest
     needs: [secret-scan, dependency-scan]
     if: always()
@@ -129,7 +135,10 @@ jobs:
       - name: Check results
         run: |
           if [ "${{ needs.secret-scan.result }}" = "failure" ]; then
-            echo "::error::🚨 Secret leak detected! Fix before merging."
+            echo "::error::?슚 Secret leak detected! Fix before merging."
             exit 1
           fi
-          echo "✅ All quality checks passed"
+          echo "??All quality checks passed"
+
+
+

@@ -12,7 +12,7 @@ from .models import LLMPolicy, TaskTier
 # ---------------------------------------------------------------------------
 # Load root .env (the single source of truth for LLM keys)
 # ---------------------------------------------------------------------------
-_ROOT_DIR = Path(__file__).resolve().parents[2]  # d:\AI 프로젝트
+_ROOT_DIR = Path(__file__).resolve().parents[3]
 _ROOT_ENV = _ROOT_DIR / ".env"
 load_dotenv(_ROOT_ENV)
 
@@ -43,6 +43,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
         ("gemini", "gemini-2.5-pro-preview-03-25"),
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, GPT-5급 성능
         ("grok", "grok-3"),
+        ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),   # ★ 로컬 $0: 코드생성·추론 특화
         ("openai", "gpt-4o"),
     ],
     TaskTier.MEDIUM: [
@@ -51,6 +52,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
         ("mimo", "mimo-v2-pro"),                     # $0.09/1M, Haiku 대체 폴백
         ("anthropic", "claude-haiku-4-5-20251001"),
         ("grok", "grok-3-mini-fast"),
+        ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),   # ★ 로컬 $0 폴백
         ("openai", "gpt-4o-mini"),
     ],
     TaskTier.LIGHTWEIGHT: [
@@ -60,6 +62,7 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
         ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
         ("openai", "gpt-4o-mini"),
+        ("ollama", "deepseek-r1:14b"),               # 로컬 추론 특화 (API 비용 $0)
         ("ollama", "phi3:3.8b"),                     # 로컬 Ollama 폴백 (API 비용 $0)
         ("bitnet", "bitnet-b1.58-2b-4t"),            # 최후방 로컬 폴백 (API 비용 $0)
     ],
@@ -81,6 +84,10 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
     "claude-haiku-4-5-20251001": TaskTier.MEDIUM,
     "claude-sonnet-4-20250514": TaskTier.HEAVY,
     "claude-3-5-sonnet-20241022": TaskTier.HEAVY,
+    # Ollama local models
+    "qwen3-coder:30b-a3b-q4_K_M": TaskTier.MEDIUM,
+    "deepseek-r1:14b": TaskTier.LIGHTWEIGHT,
+    "phi3:3.8b": TaskTier.LIGHTWEIGHT,
 }
 
 # ---------------------------------------------------------------------------
@@ -104,6 +111,8 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "mimo-v2-pro": (0.09, 0.09),                 # Xiaomi MiMo-V2-Pro
     # Local inference — no API cost
     "bitnet-b1.58-2b-4t": (0.0, 0.0),
+    "qwen3-coder:30b-a3b-q4_K_M": (0.0, 0.0),  # Ollama: Qwen3-Coder 30B quantized
+    "deepseek-r1:14b": (0.0, 0.0),              # Ollama: DeepSeek-R1 14B
     "phi3:3.8b": (0.0, 0.0),            # Ollama local
     "qwen2.5:3b": (0.0, 0.0),           # Ollama local
     "gemma:2b": (0.0, 0.0),             # Ollama local
@@ -142,6 +151,21 @@ def _env_flag(name: str, default: bool = False) -> bool:
 def is_deepseek_longform_enabled() -> bool:
     """Feature flag for DeepSeek Korean long-form generation."""
     return _env_flag("ENABLE_DEEPSEEK_KO_LONGFORM", default=False)
+
+
+# ---------------------------------------------------------------------------
+# Reasoning Engine Configuration
+# ---------------------------------------------------------------------------
+REASONING_CONFIG = {
+    "enabled": _env_flag("REASONING_ENGINE_ENABLED", default=True),
+    "cot_samples": int(_key("REASONING_COT_SAMPLES") or "3"),
+    "cot_consensus_threshold": float(_key("REASONING_COT_CONSENSUS") or "0.7"),
+    "sage_confidence_high": float(_key("REASONING_SAGE_HIGH") or "0.85"),
+    "sage_confidence_low": float(_key("REASONING_SAGE_LOW") or "0.5"),
+    "fot_max_depth": int(_key("REASONING_FOT_MAX_DEPTH") or "3"),
+    "smart_router_enabled": _env_flag("REASONING_SMART_ROUTER", default=True),
+    "prefer_local": _env_flag("REASONING_PREFER_LOCAL", default=False),
+}
 
 
 def get_routing_chain(tier: TaskTier, policy: LLMPolicy | None = None) -> list[tuple[str, str]]:

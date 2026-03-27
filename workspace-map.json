@@ -1,5 +1,11 @@
 {
   "version": 1,
+  "workspace_aliases": [
+    {
+      "legacy_name": "AI 프로젝트",
+      "active": true
+    }
+  ],
   "units": [
     {
       "id": "desci-platform",

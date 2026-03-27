@@ -1,41 +1,46 @@
 @echo off
-REM DailyNews Morning Insights Runner (7 AM)
-REM Auto-generated for Windows Task Scheduler
-
 setlocal enabledelayedexpansion
 
-REM Navigate to project root
-cd /d "d:\AI 프로젝트\DailyNews"
+for %%I in ("%~dp0..\..") do set "WORKSPACE_ROOT=%%~fI"
+set "PROJECT_ROOT=%WORKSPACE_ROOT%\automation\DailyNews"
+set "ACTIVATE_SCRIPT=%WORKSPACE_ROOT%\.venv\Scripts\activate.bat"
+if not exist "%ACTIVATE_SCRIPT%" set "ACTIVATE_SCRIPT=%PROJECT_ROOT%\venv\Scripts\activate.bat"
 
-REM Setup logging
-set LOG_DIR=d:\AI 프로젝트\DailyNews\logs\insights
+cd /d "%PROJECT_ROOT%" || exit /b 1
+
+set "LOG_DIR=%PROJECT_ROOT%\logs\insights"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
-set DATE_STAMP=%date:~0,4%%date:~5,2%%date:~8,2%
-set TIME_STAMP=%time:~0,2%%time:~3,2%%time:~6,2%
-set TIME_STAMP=%TIME_STAMP: =0%
-set LOGFILE=%LOG_DIR%\morning_%DATE_STAMP%_%TIME_STAMP%.log
+set "DATE_STAMP=%date:~0,4%%date:~5,2%%date:~8,2%"
+set "TIME_STAMP=%time:~0,2%%time:~3,2%%time:~6,2%"
+set "TIME_STAMP=%TIME_STAMP: =0%"
+set "LOGFILE=%LOG_DIR%\morning_%DATE_STAMP%_%TIME_STAMP%.log"
 
 echo ========================================== >> "%LOGFILE%" 2>&1
 echo DailyNews Morning Insights >> "%LOGFILE%" 2>&1
 echo Started: %date% %time% >> "%LOGFILE%" 2>&1
 echo ========================================== >> "%LOGFILE%" 2>&1
 
-REM Activate virtual environment
-call venv\Scripts\activate.bat >> "%LOGFILE%" 2>&1
+if not exist "%ACTIVATE_SCRIPT%" (
+    echo ERROR: Failed to find a virtual environment. >> "%LOGFILE%" 2>&1
+    exit /b 1
+)
+
+call "%ACTIVATE_SCRIPT%" >> "%LOGFILE%" 2>&1
 if errorlevel 1 (
     echo ERROR: Failed to activate venv >> "%LOGFILE%" 2>&1
     exit /b 1
 )
 
-REM Run morning insight generation
+set "PYTHONPATH=%PROJECT_ROOT%\src;%WORKSPACE_ROOT%;%PYTHONPATH%"
+
 echo Running morning window insight generation... >> "%LOGFILE%" 2>&1
 python -m antigravity_mcp jobs generate-brief ^
     --window morning ^
     --max-items 10 ^
-    --categories Tech,Economy_KR,AI_Deep >> "%LOGFILE%" 2>&1
+    --categories Tech Economy_KR AI_Deep >> "%LOGFILE%" 2>&1
 
-set EXITCODE=%errorlevel%
+set "EXITCODE=%errorlevel%"
 
 if %EXITCODE% equ 0 (
     echo SUCCESS: Morning insights generated >> "%LOGFILE%" 2>&1
@@ -47,7 +52,6 @@ echo ========================================== >> "%LOGFILE%" 2>&1
 echo Finished: %date% %time% >> "%LOGFILE%" 2>&1
 echo ========================================== >> "%LOGFILE%" 2>&1
 
-REM Cleanup old logs (keep last 30 days)
 forfiles /p "%LOG_DIR%" /s /m *.log /d -30 /c "cmd /c del @path" 2>nul
 
 exit /b %EXITCODE%

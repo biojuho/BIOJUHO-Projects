@@ -2,6 +2,39 @@
 
 AgriGuard 프로젝트의 프론트엔드 애플리케이션입니다. React와 Vite를 기반으로 구축되었습니다.  
 This is the frontend application for the AgriGuard project, built with React and Vite.
+## Target Audience
+
+**Dual Persona Platform**: B2B Enterprise (Supply Chain Managers + End Consumers)
+
+**Persona A**: "Supply Chain Manager" (이현수, 38세 물류팀장)
+- Logistics teams at agricultural distributors and large retailers
+- Pain point: Manual record errors, delayed cold chain break detection, lack of claim evidence
+- Need: Real-time temperature monitoring, QR-based instant history lookup, blockchain evidence
+- Decision criteria: Easy implementation, ROI recovery <2 years, user training <1 hour
+
+**Persona B**: "Safety-Conscious Consumer" (김수진, 29세 주부)
+- Parents/homemakers highly concerned about food safety
+- Pain point: Distrust of origin labels, fear of food safety incidents
+- Need: QR scan to verify "real domestic" products, cold chain integrity confirmation
+- Decision criteria: Ease of use (1-tap QR scan), information trustworthiness, clean UI
+
+**What They Need**:
+- QR-based traceability (instant full history lookup)
+- IoT temperature monitoring (immediate detection of refrigeration truck failures)
+- Blockchain recording (tamper-proof evidence for claims)
+- Admin dashboard (logistics efficiency)
+- Alert system (temperature deviation early response)
+
+**Success Metrics**:
+- QR scan success rate >99%
+- Temperature data collection interval: 5 minutes
+- Blockchain record latency <30 seconds
+- Claim reduction rate: -90% (blockchain evidence)
+- B2C QR scans: >1,000/day average
+
+For detailed audience analysis, see [workspace-audience-profiles.md](../../../.claude/skills/audience-first/references/workspace-audience-profiles.md#4-agriguard).
+
+
 
 ## 🛠 기술 스택 (Tech Stack)
 

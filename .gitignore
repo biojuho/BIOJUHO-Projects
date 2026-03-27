@@ -2,7 +2,6 @@
 *.log
 .DS_Store
 Thumbs.db
-nul
 
 # Environment
 .env
@@ -25,6 +24,7 @@ tmp/
 .agent/
 .agents/
 **/.agent/
+.sessions/
 
 # Claude Code local settings (NEVER commit - contains personal permissions/overrides)
 .claude/settings.local.json
@@ -49,18 +49,27 @@ test-results/
 node_modules/
 dist/
 build/
-desci-platform/contracts/artifacts/
-desci-platform/contracts/cache/
-desci-platform/frontend/build_log*.txt
-desci-platform/frontend/lint.txt
-desci-platform/frontend/build_*.txt
-desci-platform/frontend/lint_*.txt
+apps/**/contracts/artifacts/
+apps/**/contracts/cache/
+apps/**/contracts/ignition/deployments/
+apps/**/frontend/build_log*.txt
+apps/**/frontend/lint.txt
+apps/**/frontend/build_*.txt
+apps/**/frontend/lint_*.txt
+apps/**/frontend/build_agri.out
+apps/dashboard/dist/
+apps/dashboard/__pycache__/
 MCP_notion-antigravity/output/
 
 # Vector DB / data (large binary files)
 **/chroma_db/
 **/data/
 !**/data/.gitkeep
+var/logs/
+var/data/
+var/db/
+var/smoke/
+var/legacy-root-backups/
 
 # SQLite databases
 *.db
@@ -71,17 +80,13 @@ MCP_notion-antigravity/output/
 *.db-journal
 
 # Hardhat build artifacts
-AgriGuard/contracts/artifacts/
-AgriGuard/contracts/cache/
-AgriGuard/contracts/ignition/deployments/
-AgriGuard/contracts/compile_out.txt
-AgriGuard/contracts/deploy_out.txt
-AgriGuard/frontend/build_agri.out
-AgriGuard/backend/benchmark_results.md
+apps/AgriGuard/contracts/compile_out.txt
+apps/AgriGuard/contracts/deploy_out.txt
+apps/AgriGuard/backend/benchmark_results.md
 
 # Patch scripts (temporary)
 **/patch*.py
-desci-platform/patch_frontend.py
+apps/desci-platform/patch_frontend.py
 
 # Secrets - NEVER commit these!
 credentials.json
@@ -93,16 +98,38 @@ create_repo.py
 serviceAccountKey.json
 **/canva_url.txt
 
-# Separate repositories (git submodules or independent projects)
-notebooklm-automation/
-lyria-music-player/
-
 # Temp outputs and test files
-sample_insight.json
-test_insight_output.json
-logs/
-
 # DailyNews output files (generated content, test outputs)
-DailyNews/output/*.txt
-DailyNews/output/*.json
-!DailyNews/output/SAMPLE-INSIGHT-OUTPUT.md
+automation/DailyNews/output/*.txt
+automation/DailyNews/output/*.json
+!automation/DailyNews/output/SAMPLE-INSIGHT-OUTPUT.md
+automation/DailyNews/logs/
+automation/getdaytrends/logs/
+automation/getdaytrends/tweet_bot.log
+automation/getdaytrends/run_history.log
+automation/getdaytrends/run_scheduled.log
+**/nul
+
+# Generated legacy compatibility aliases
+/AgriGuard/
+/desci-platform/
+/DailyNews/
+/getdaytrends/
+/content-intelligence/
+/github-mcp/
+/notebooklm-mcp/
+/telegram-mcp/
+/desci-research-mcp/
+/shared/
+/scripts/
+/monitoring/
+/nginx/
+/agents/
+/directives/
+/dashboard/
+/canva-mcp/
+/instagram-automation/
+/lyria-music-player/
+/notebooklm-automation/
+/notebooklm_output/
+/x-article-publisher-skill/

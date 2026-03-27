@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -11,6 +12,25 @@ from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ContentItem
 from antigravity_mcp.integrations.feed_adapter import FeedAdapter
 from antigravity_mcp.state.store import PipelineStateStore
+
+logger = logging.getLogger(__name__)
+
+
+async def fetch_article_body(url: str, max_chars: int = 1500) -> str:
+    """Fetch and extract article body text from a URL using trafilatura."""
+    try:
+        import trafilatura
+        downloaded = await asyncio.to_thread(trafilatura.fetch_url, url)
+        if not downloaded:
+            return ""
+        text = await asyncio.to_thread(
+            trafilatura.extract, downloaded,
+            include_comments=False, include_tables=False, no_fallback=False,
+        )
+        return (text or "")[:max_chars]
+    except Exception as exc:
+        logger.debug("Article body fetch failed for %s: %s", url, exc)
+        return ""
 
 
 def load_sources() -> dict[str, list[dict[str, str]]]:
@@ -70,6 +90,7 @@ async def collect_content_items(
     max_items: int,
     state_store: PipelineStateStore,
     feed_adapter: FeedAdapter | None = None,
+    fetch_bodies: bool = True,
 ) -> tuple[list[ContentItem], list[str]]:
     settings = get_settings()
     feed_adapter = feed_adapter or FeedAdapter(state_store=state_store)
@@ -138,6 +159,22 @@ async def collect_content_items(
                 source_count += 1
             if collected_for_category >= max_items:
                 break
+
+        # Stage 1: Deep Collect — fetch article body text
+        if fetch_bodies and cat_items:
+            body_sem = asyncio.Semaphore(5)
+
+            async def _fetch_body(item: ContentItem) -> None:
+                async with body_sem:
+                    body = await fetch_article_body(item.link)
+                    if body:
+                        item.full_text = body
+
+            await asyncio.gather(*[_fetch_body(it) for it in cat_items])
+            body_count = sum(1 for it in cat_items if it.full_text)
+            if body_count:
+                logger.info("[%s] Deep collect: %d/%d articles with body text", category, body_count, len(cat_items))
+
         return cat_items, cat_warnings
 
     # Parallel category collection

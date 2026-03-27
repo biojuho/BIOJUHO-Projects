@@ -82,3 +82,42 @@ def test_collect_news_continues_after_source_failure(load_script_module, monkeyp
 
     assert exit_code == 0
     assert state.has_article("https://healthy.example.com/article")
+
+
+def test_get_existing_urls_uses_database_query_endpoint(load_script_module, monkeypatch):
+    module, _runtime = load_script_module("collect_news")
+    called_urls: list[str] = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"results": [], "has_more": False, "next_cursor": None}
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, headers=None, json=None):
+            called_urls.append(url)
+            return FakeResponse()
+
+    monkeypatch.setattr(module.httpx, "AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr(module, "NOTION_REPORTS_DATA_SOURCE_ID", "legacy-data-source-id")
+
+    asyncio.run(
+        module.get_existing_urls(
+            "reports-database-id",
+            "token",
+            logger=type("Logger", (), {"info": lambda *args, **kwargs: None})(),
+        )
+    )
+
+    assert called_urls == ["https://api.notion.com/v1/databases/reports-database-id/query"]

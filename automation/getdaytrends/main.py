@@ -27,10 +27,12 @@ from pathlib import Path
 # 프로젝트 루트를 sys.path에 추가
 _current_file = Path(__file__).resolve()
 _getdaytrends_dir = _current_file.parent
-_project_root = _getdaytrends_dir.parent
+_workspace_root = _getdaytrends_dir.parents[1]
 
-if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
+for candidate in (_workspace_root, _workspace_root / "packages"):
+    candidate_text = str(candidate)
+    if candidate_text not in sys.path:
+        sys.path.insert(0, candidate_text)
 
 # pytest 실행 중에는 이미 경로가 설정되어 있으므로 중복 추가 방지
 if "pytest" not in sys.modules and str(_getdaytrends_dir) not in sys.path:

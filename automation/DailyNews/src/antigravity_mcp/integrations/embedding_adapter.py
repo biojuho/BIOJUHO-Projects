@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Similarity threshold for merging articles into the same cluster
 _DEFAULT_SIMILARITY_THRESHOLD = 0.75
+_EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 
 @dataclass
@@ -60,16 +61,21 @@ class EmbeddingAdapter:
         if not self._api_key:
             raise RuntimeError("GOOGLE_API_KEY not configured for embeddings.")
 
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"text-embedding-004:batchEmbedContents?key={self._api_key}"
-        )
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents"
         requests_body = [
-            {"model": "models/text-embedding-004", "content": {"parts": [{"text": t[:2048]}]}}
+            {
+                "model": _EMBEDDING_MODEL,
+                "taskType": "CLUSTERING",
+                "content": {"parts": [{"text": t[:2048]}]},
+            }
             for t in texts
         ]
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self._api_key,
+        }
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(url, json={"requests": requests_body})
+            resp = await client.post(url, headers=headers, json={"requests": requests_body})
             resp.raise_for_status()
             data = resp.json()
         return [item["values"] for item in data["embeddings"]]

@@ -18,9 +18,13 @@ from pathlib import Path
 from typing import Optional
 
 # ── BioLinker 모듈 경로 설정 ──
-_ROOT = Path(__file__).resolve().parents[2]  # d:\AI 프로젝트
-sys.path.insert(0, str(_ROOT))
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # biolinker/
+_ROOT = Path(__file__).resolve().parents[3]
+for candidate in (
+    _ROOT,
+    _ROOT / "packages",
+    Path(__file__).resolve().parent,
+):
+    sys.path.insert(0, str(candidate))
 
 from dotenv import load_dotenv
 

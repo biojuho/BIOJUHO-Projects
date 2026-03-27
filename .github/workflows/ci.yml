@@ -1,14 +1,14 @@
-name: Multi-Project CI/CD Pipeline
+﻿name: Multi-Project CI/CD Pipeline
 
 on:
   push:
     branches: ["main", "dev"]
     paths-ignore:
-      - "AgriGuard/**"   # agriguard-ci.yml 전담
+      - "apps/AgriGuard/**"   # agriguard-ci.yml ?꾨떞
   pull_request:
     branches: ["main", "dev"]
     paths-ignore:
-      - "AgriGuard/**"   # agriguard-ci.yml 전담
+      - "apps/AgriGuard/**"   # agriguard-ci.yml ?꾨떞
 
 jobs:
   lint-python:
@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
@@ -32,14 +34,14 @@ jobs:
     needs: lint-python
     defaults:
       run:
-        working-directory: desci-platform/biolinker
+        working-directory: apps/desci-platform/biolinker
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
           cache: pip
-          cache-dependency-path: desci-platform/biolinker/requirements.txt
+          cache-dependency-path: apps/desci-platform/biolinker/requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run tests
@@ -54,14 +56,16 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: desci-platform/frontend
+        working-directory: apps/desci-platform/frontend
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: desci-platform/frontend/package-lock.json
+          cache-dependency-path: apps/desci-platform/frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Lint
@@ -76,18 +80,23 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: desci-platform/contracts
+        working-directory: apps/desci-platform/contracts
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: desci-platform/contracts/package-lock.json
+          cache-dependency-path: apps/desci-platform/contracts/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Compile contracts
         run: npx hardhat compile
       - name: Run tests
         run: npx hardhat test
+
+
+
 

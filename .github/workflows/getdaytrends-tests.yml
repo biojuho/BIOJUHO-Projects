@@ -4,13 +4,13 @@ on:
   push:
     branches: ["main", "dev"]
     paths:
-      - "getdaytrends/**"
-      - "shared/**"
+      - "automation/getdaytrends/**"
+      - "packages/shared/**"
   pull_request:
     branches: ["main", "dev"]
     paths:
-      - "getdaytrends/**"
-      - "shared/**"
+      - "automation/getdaytrends/**"
+      - "packages/shared/**"
 
 concurrency:
   group: gdt-tests-${{ github.ref }}
@@ -18,53 +18,57 @@ concurrency:
 
 jobs:
   test:
-    name: 🧪 GetDayTrends Unit & Integration Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: getdaytrends/requirements.txt
+          cache-dependency-path: automation/getdaytrends/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r getdaytrends/requirements.txt
+        run: pip install -r automation/getdaytrends/requirements.txt
 
       - name: Run tests
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
         run: |
-          python -m pytest getdaytrends/tests/ -v --tb=short \
+          mkdir -p test-results
+          python -m pytest automation/getdaytrends/tests/ -v --tb=short \
             --junitxml=test-results/getdaytrends.xml
 
-      - name: Test Summary
+      - name: Test summary
         if: always()
         run: |
           python - <<'PY'
-          import xml.etree.ElementTree as ET
           import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
 
-          try:
-              tree = ET.parse("test-results/getdaytrends.xml")
-              root = tree.getroot()
-              tests = int(root.attrib.get("tests", 0))
-              failures = int(root.attrib.get("failures", 0))
-              errors = int(root.attrib.get("errors", 0))
-              passed = tests - failures - errors
+          report = Path("test-results/getdaytrends.xml")
+          if not report.exists():
+              raise SystemExit(0)
 
-              summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
-              with open(summary_path, "a") as f:
-                  emoji = "✅" if failures + errors == 0 else "❌"
-                  f.write(f"### {emoji} GetDayTrends: {passed}/{tests} passed\n")
-                  if failures + errors > 0:
-                      f.write(f"- ❌ Failures: {failures}, Errors: {errors}\n")
-          except Exception as e:
-              print(f"Summary generation failed: {e}")
+          root = ET.parse(report).getroot()
+          tests = int(root.attrib.get("tests", 0))
+          failures = int(root.attrib.get("failures", 0))
+          errors = int(root.attrib.get("errors", 0))
+          passed = tests - failures - errors
+
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          label = "PASS" if failures + errors == 0 else "FAIL"
+          with summary_path.open("a", encoding="utf-8") as handle:
+              handle.write(f"### {label} GetDayTrends: {passed}/{tests} passed\n")
+              if failures + errors > 0:
+                  handle.write(f"- Failures: {failures}, Errors: {errors}\n")
           PY
 
       - name: Upload test results
