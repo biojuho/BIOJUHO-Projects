@@ -1,0 +1,29 @@
+
+> frontend@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 2200 modules transformed.
+[31m✗[39m Build failed in 8.61s
+[31merror during build:
+[31msrc/components/AssetManager.jsx (5:9): "API_BASE_URL" is not exported by "src/components/BioLinker.jsx", imported by "src/components/AssetManager.jsx".[31m
+file: [36mD:/AI 프로젝트/desci-platform/frontend/src/components/AssetManager.jsx:5:9[31m
+[33m
+3: import { Upload, FileText, Trash2, RefreshCw } from 'lucide-react';
+4: import { useToast } from '../contexts/ToastContext';
+5: import { API_BASE_URL } from '../components/BioLinker'; // Reusing base URL from BioLinker or generic config
+            ^
+6: 
+7: const ASSET_TYPES = [
+[31m
+    at getRollupError (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at error (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/parseAst.js:398:42)
+    at Module.error (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:17040:16)
+    at Module.traceVariable (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:17452:29)
+    at ModuleScope.findVariable (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:15070:39)
+    at FunctionScope.findVariable (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at FunctionBodyScope.findVariable (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at ReturnValueScope.findVariable (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at FunctionBodyScope.findVariable (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at BlockScope.findVariable (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)[39m

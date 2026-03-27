@@ -1,0 +1,63 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\Dashboard.jsx
+  24:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\Layout.jsx
+  15:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              no-unused-vars
+  36:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  34 |     // Close mobile menu on route change
+  35 |     useEffect(() => {
+> 36 |         setIsMobileMenuOpen(false);
+     |         ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |     }, [location.pathname]);
+  38 |
+  39 |     // Close mobile menu on escape key  react-hooks/set-state-in-effect
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\Login.jsx
+  12:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\MyLab.jsx
+  8:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\VCDashboard.jsx
+  2:10  error  'useAuth' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\dashboard\VCMatchList.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\ui\EmptyState.jsx
+  5:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\ui\GlassCard.jsx
+  1:1  warning  Unused eslint-disable directive (no problems were reported from 'no-unused-vars')
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\ui\Input.jsx
+  21:36  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  19 |     const [showPassword, setShowPassword] = useState(false);
+  20 |     const isPassword = type === 'password';
+> 21 |     const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+     |                                    ^^^^^^^^^^^^^ Cannot call impure function
+  22 |     const errorId = `${inputId}-error`;
+  23 |     const helperId = `${inputId}-helper`;
+  24 |  react-hooks/purity
+
+D:\AI 프로젝트\desci-platform\frontend\src\components\ui\Toast.jsx
+  1:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+✖ 11 problems (10 errors, 1 warning)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

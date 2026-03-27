@@ -1,0 +1,22 @@
+{
+  "name": "x-article-publisher",
+  "version": "1.2.1",
+  "description": "Publish Markdown articles to X (Twitter) Articles with dry-run validation, selector manifests, and block-index positioning",
+  "author": {
+    "name": "wshuyi"
+  },
+  "repository": "https://github.com/wshuyi/x-article-publisher-skill",
+  "license": "MIT",
+  "keywords": [
+    "x",
+    "twitter",
+    "articles",
+    "markdown",
+    "publishing"
+  ],
+  "dependencies": {
+    "mcp": ["playwright"],
+    "python": ["Pillow", "pyobjc-framework-Cocoa", "pywin32", "clip-util"]
+  },
+  "platforms": ["macos", "windows"]
+}

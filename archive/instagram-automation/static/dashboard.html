@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Automation Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f0f14;
+            --surface: #1a1a24;
+            --surface-hover: #22222e;
+            --border: #2a2a3a;
+            --text: #e4e4e8;
+            --text-muted: #8b8b9e;
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108, 92, 231, 0.3);
+            --green: #00d2a0;
+            --yellow: #fdcb6e;
+            --red: #ff6b6b;
+            --gradient: linear-gradient(135deg, #6c5ce7, #a855f7);
+        }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .status-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .status-healthy { background: rgba(0,210,160,0.15); color: var(--green); }
+        .status-degraded { background: rgba(253,203,110,0.15); color: var(--yellow); }
+        .status-unhealthy { background: rgba(255,107,107,0.15); color: var(--red); }
+
+        .grid { display: grid; gap: 20px; }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+        .grid-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.2s;
+        }
+        .card:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+        .card h3 {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .table-wrapper { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover { background: var(--surface-hover); }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-published { background: rgba(0,210,160,0.15); color: var(--green); }
+        .badge-queued { background: rgba(108,92,231,0.15); color: var(--accent); }
+        .badge-failed { background: rgba(255,107,107,0.15); color: var(--red); }
+
+        .check-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .check-row:last-child { border-bottom: none; }
+        .check-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .dot-healthy { background: var(--green); }
+        .dot-degraded { background: var(--yellow); }
+        .dot-unhealthy { background: var(--red); }
+
+        .refresh-btn {
+            background: var(--gradient);
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+        .refresh-btn:hover { opacity: 0.85; }
+        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 32px 0 16px;
+        }
+        .error-item {
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            border-radius: 8px;
+            background: rgba(255,107,107,0.08);
+            font-size: 13px;
+            font-family: monospace;
+        }
+        .error-time { color: var(--text-muted); font-size: 11px; }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .grid-4, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .stat-value { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📸 Instagram Automation</h1>
+        <div>
+            <span id="status-badge" class="status-badge status-healthy">Loading...</span>
+            <button class="refresh-btn" onclick="refresh()" id="refresh-btn">Refresh</button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-4" id="kpi-cards">
+        <div class="card">
+            <h3>Posts Today</h3>
+            <div class="stat-value" id="posts-today">—</div>
+            <div class="stat-label">게시물</div>
+        </div>
+        <div class="card">
+            <h3>Published</h3>
+            <div class="stat-value" id="posts-published">—</div>
+            <div class="stat-label">발행 완료</div>
+        </div>
+        <div class="card">
+            <h3>Queued</h3>
+            <div class="stat-value" id="posts-queued">—</div>
+            <div class="stat-label">대기 중</div>
+        </div>
+        <div class="card">
+            <h3>Uptime</h3>
+            <div class="stat-value" id="uptime" style="font-size:24px">—</div>
+            <div class="stat-label">시스템 가동</div>
+        </div>
+    </div>
+
+    <h2 class="section-title">System Health</h2>
+    <div class="grid grid-3">
+        <div class="card" id="health-checks">
+            <h3>Health Checks</h3>
+            <div id="checks-list">Loading...</div>
+        </div>
+        <div class="card">
+            <h3>DM Automation</h3>
+            <div style="margin-top:8px">
+                <span class="stat-value" style="font-size:28px" id="dm-total">—</span>
+                <span class="stat-label"> handled</span>
+            </div>
+            <div style="margin-top:12px; color:var(--text-muted)">
+                Active rules: <span id="dm-rules">—</span>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Recent Errors</h3>
+            <div id="error-list"><span class="stat-label">No errors</span></div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Recent Posts</h2>
+    <div class="card">
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Caption</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody id="posts-table">
+                    <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        async function refresh() {
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            try {
+                const resp = await fetch(`${API_BASE}/api/dashboard`);
+                const data = await resp.json();
+                render(data);
+            } catch (e) {
+                console.error('Dashboard fetch failed:', e);
+                document.getElementById('status-badge').textContent = 'Offline';
+                document.getElementById('status-badge').className = 'status-badge status-unhealthy';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Refresh';
+            }
+        }
+
+        function render(data) {
+            // Status badge
+            const badge = document.getElementById('status-badge');
+            const status = data.health?.status || 'unknown';
+            badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            badge.className = `status-badge status-${status}`;
+
+            // KPIs
+            document.getElementById('posts-today').textContent = data.posts?.today ?? '—';
+            document.getElementById('posts-published').textContent = data.posts?.published ?? '—';
+            document.getElementById('posts-queued').textContent = data.posts?.queued ?? '—';
+            document.getElementById('uptime').textContent = data.health?.uptime ?? '—';
+
+            // Health checks
+            const checks = data.health?.checks || {};
+            const checksList = document.getElementById('checks-list');
+            checksList.innerHTML = Object.entries(checks).map(([name, c]) => `
+                <div class="check-row">
+                    <span><span class="check-dot dot-${c.status}"></span>${name}</span>
+                    <span style="color:var(--text-muted);font-size:12px">${c.detail}</span>
+                </div>
+            `).join('');
+
+            // DM stats
+            document.getElementById('dm-total').textContent = data.dms?.total_handled ?? '—';
+            document.getElementById('dm-rules').textContent = data.dms?.active_rules ?? '—';
+
+            // Errors
+            const errors = data.errors?.last_5 || [];
+            const errorList = document.getElementById('error-list');
+            if (errors.length === 0) {
+                errorList.innerHTML = '<span class="stat-label">No errors ✅</span>';
+            } else {
+                errorList.innerHTML = errors.map(e => `
+                    <div class="error-item">
+                        <span class="error-time">${e.timestamp?.split('T')[1]?.split('.')[0] || ''}</span>
+                        [${e.component}] ${e.error}
+                    </div>
+                `).join('');
+            }
+
+            // Recent posts table
+            const posts = data.posts?.recent || [];
+            const tbody = document.getElementById('posts-table');
+            if (posts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No posts yet</td></tr>';
+            } else {
+                tbody.innerHTML = posts.map(p => `
+                    <tr>
+                        <td>#${p.id}</td>
+                        <td>${(p.caption || '').substring(0, 60)}${(p.caption||'').length > 60 ? '...' : ''}</td>
+                        <td>${p.post_type || '—'}</td>
+                        <td><span class="badge badge-${p.status || 'queued'}">${p.status || '—'}</span></td>
+                        <td style="color:var(--text-muted)">${p.created_at?.split('T')[0] || '—'}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // Initial load
+        refresh();
+        // Auto-refresh every 30s
+        setInterval(refresh, 30000);
+    </script>
+</body>
+</html>

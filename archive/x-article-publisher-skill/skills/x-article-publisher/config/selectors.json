@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "target": "https://x.com/compose/articles",
+  "editor": {
+    "title_input": [
+      {"type": "placeholder", "value": "Article title"},
+      {"type": "placeholder", "value": "기사 제목"},
+      {"type": "textbox", "hint": "top title field"}
+    ],
+    "body_editor": [
+      {"type": "role", "value": "textbox", "hint": "main article editor"},
+      {"type": "css", "value": "[contenteditable='true']"}
+    ]
+  },
+  "page_state": {
+    "not_found": [
+      {"type": "text", "value": "Page not found"},
+      {"type": "text", "value": "페이지를 찾을 수 없습니다."}
+    ],
+    "login_prompt": [
+      {"type": "text", "value": "Sign in"},
+      {"type": "text", "value": "로그인"}
+    ],
+    "premium_gate": [
+      {"type": "text", "value": "Premium"},
+      {"type": "text", "value": "프리미엄"},
+      {"type": "text", "value": "Upgrade"}
+    ]
+  },
+  "actions": {
+    "create_article": [
+      {"type": "text", "value": "Create"},
+      {"type": "text", "value": "작성"},
+      {"type": "text", "value": "새 기사"}
+    ],
+    "cover_upload": [
+      {"type": "text", "value": "Add cover media"},
+      {"type": "text", "value": "표지 미디어 추가"},
+      {"type": "text", "value": "Add media"}
+    ],
+    "insert_menu": [
+      {"type": "text", "value": "Insert"},
+      {"type": "text", "value": "삽입"},
+      {"type": "text", "value": "Add media"}
+    ],
+    "insert_divider": [
+      {"type": "menuitem", "value": "Divider"},
+      {"type": "menuitem", "value": "구분선"}
+    ],
+    "preview": [
+      {"type": "text", "value": "Preview"},
+      {"type": "text", "value": "미리보기"}
+    ],
+    "save_draft": [
+      {"type": "text", "value": "Save"},
+      {"type": "text", "value": "Save draft"},
+      {"type": "text", "value": "저장"},
+      {"type": "text", "value": "초안 저장"}
+    ]
+  },
+  "upload_state": {
+    "uploading_text": [
+      {"type": "text", "value": "Uploading"},
+      {"type": "text", "value": "업로드 중"}
+    ]
+  }
+}

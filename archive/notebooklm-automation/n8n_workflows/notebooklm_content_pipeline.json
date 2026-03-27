@@ -1,0 +1,248 @@
+{
+  "name": "📁 NotebookLM 콘텐츠 파이프라인 — Google Drive → Notion",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{"mode": "everyMinute", "value": 15}]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": "={{ $env.GDRIVE_NOTEBOOKLM_FOLDER_ID }}",
+        "options": {}
+      },
+      "id": "drive-trigger",
+      "name": "📁 Drive 폴더 감시",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "credentials": {"googleDriveOAuth2Api": {"id": "gdrive-cred", "name": "Google Drive"}}
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 9 * * *"}]
+        }
+      },
+      "id": "schedule",
+      "name": "⏰ 매일 오전 9시",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 500]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notebooklm-pipeline",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "🔗 수동 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 700]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:8788/health",
+        "options": {"timeout": 15000}
+      },
+      "id": "health-check",
+      "name": "🔍 헬스체크",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 500],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"id": "c-ok", "leftValue": "={{ $json.status }}", "rightValue": "healthy", "operator": {"type": "string", "operation": "equals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-healthy",
+      "name": "✅ 서비스 정상?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [550, 500]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "conditions": [
+                  {"id": "c-pdf", "leftValue": "={{ $('📁 Drive 폴더 감시').first().json.name || $('🔗 수동 Webhook').first().json.body.file_name || '' }}", "rightValue": ".pdf", "operator": {"type": "string", "operation": "endsWith"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "PDF"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {"id": "c-img", "leftValue": "={{ ($('📁 Drive 폴더 감시').first().json.name || '').toLowerCase() }}", "rightValue": ".png", "operator": {"type": "string", "operation": "endsWith"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "이미지"
+            }
+          ],
+          "fallbackOutput": {
+            "renameOutput": true,
+            "outputLabel": "기타"
+          }
+        }
+      },
+      "id": "file-type-switch",
+      "name": "🔀 파일 형식 분기",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [800, 400]
+    },
+    {
+      "parameters": {
+        "fileId": {"__rl": true, "value": "={{ $('📁 Drive 폴더 감시').first().json.id }}", "mode": "id"},
+        "options": {}
+      },
+      "id": "drive-download",
+      "name": "📥 파일 다운로드",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1050, 300],
+      "credentials": {"googleDriveOAuth2Api": {"id": "gdrive-cred", "name": "Google Drive"}}
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "fc", "name": "file_content_base64", "value": "={{ $binary.data.base64 || '' }}", "type": "string"},
+            {"id": "fn", "name": "file_name", "value": "={{ $('📁 Drive 폴더 감시').first().json.name || $('🔗 수동 Webhook').first().json.body.file_name || 'unknown.pdf' }}", "type": "string"},
+            {"id": "ft", "name": "file_type", "value": "=pdf", "type": "string"},
+            {"id": "pj", "name": "project", "value": "={{ $('📁 Drive 폴더 감시').first().json.parents?.[0]?.name || $('🔗 수동 Webhook').first().json.body.project || '' }}", "type": "string"},
+            {"id": "su", "name": "source_url", "value": "={{ 'https://drive.google.com/file/d/' + ($('📁 Drive 폴더 감시').first().json.id || '') }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-payload",
+      "name": "📦 페이로드 조립",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/pipeline/drive-to-notion",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ file_content_base64: $json.file_content_base64, file_name: $json.file_name, file_type: $json.file_type, project: $json.project, source_url: $json.source_url }) }}",
+        "options": {"timeout": 600000}
+      },
+      "id": "pipeline-api",
+      "name": "🚀 파이프라인 API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1550, 300],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {"id": "c-ok", "leftValue": "={{ $json.success }}", "rightValue": true, "operator": {"type": "boolean", "operation": "equals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "pipeline-result",
+      "name": "🔀 결과 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1800, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=✅ *NotebookLM 콘텐츠 파이프라인 완료*\n📝 제목: {{ $json.article_title }}\n📊 추출: {{ $json.extracted_text_length }}자 → 아티클: {{ $json.article_length }}자\n🤖 AI: {{ $json.ai_model_used }}\n📎 Notion: {{ $json.notion_url || 'N/A' }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "success-msg",
+      "name": "✅ 성공 알림",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=🔴 *파이프라인 실패*\n⚠️ {{ $json.error || 'Unknown error' }}\n📊 추출: {{ $json.extracted_text_length || 0 }}자\n📝 제목: {{ $json.article_title || 'N/A' }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "fail-msg",
+      "name": "🚨 실패 알림",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2050, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "msg", "name": "message", "value": "=🔴 *NotebookLM 서버 다운*\n⚠️ 127.0.0.1:8788 응답 없음\n🔧 `notebooklm-api` 서버를 재시작해주세요.", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "server-down-msg",
+      "name": "🚨 서버 다운",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [800, 700]
+    }
+  ],
+  "connections": {
+    "📁 Drive 폴더 감시": {"main": [[{"node": "🔍 헬스체크", "type": "main", "index": 0}]]},
+    "⏰ 매일 오전 9시": {"main": [[{"node": "🔍 헬스체크", "type": "main", "index": 0}]]},
+    "🔗 수동 Webhook": {"main": [[{"node": "🔍 헬스체크", "type": "main", "index": 0}]]},
+    "🔍 헬스체크": {"main": [[{"node": "✅ 서비스 정상?", "type": "main", "index": 0}]]},
+    "✅ 서비스 정상?": {
+      "main": [
+        [{"node": "🔀 파일 형식 분기", "type": "main", "index": 0}],
+        [{"node": "🚨 서버 다운", "type": "main", "index": 0}]
+      ]
+    },
+    "🔀 파일 형식 분기": {
+      "main": [
+        [{"node": "📥 파일 다운로드", "type": "main", "index": 0}],
+        [{"node": "📥 파일 다운로드", "type": "main", "index": 0}],
+        [{"node": "📥 파일 다운로드", "type": "main", "index": 0}]
+      ]
+    },
+    "📥 파일 다운로드": {"main": [[{"node": "📦 페이로드 조립", "type": "main", "index": 0}]]},
+    "📦 페이로드 조립": {"main": [[{"node": "🚀 파이프라인 API", "type": "main", "index": 0}]]},
+    "🚀 파이프라인 API": {"main": [[{"node": "🔀 결과 확인", "type": "main", "index": 0}]]},
+    "🔀 결과 확인": {
+      "main": [
+        [{"node": "✅ 성공 알림", "type": "main", "index": 0}],
+        [{"node": "🚨 실패 알림", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

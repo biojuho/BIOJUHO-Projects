@@ -1,0 +1,51 @@
+# Cloud Run deployment configuration
+# Build context should be the workspace root (parent of instagram-automation/)
+
+substitutions:
+  _SERVICE_NAME: instagram-automation
+  _REGION: asia-northeast3
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'instagram-automation/Dockerfile'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}'
+      - '.'
+
+  # Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--memory'
+      - '512Mi'
+      - '--timeout'
+      - '300'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '2'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'PYTHONPATH=/app'
+
+images:
+  - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}'

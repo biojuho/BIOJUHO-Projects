@@ -1,0 +1,138 @@
+{
+  "name": "Instagram Automation - GetDayTrends Bridge",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 4
+            }
+          ]
+        }
+      },
+      "id": "trigger-node",
+      "name": "Every 4 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8002/api/trends/latest",
+        "options": {}
+      },
+      "id": "get-trends",
+      "name": "Get Trends from GetDayTrends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter top 3 viral trends for Instagram\nconst trends = $input.all().map(item => item.json);\nconst topTrends = (trends[0]?.data || trends)\n  .filter(t => t.viral_score > 50)\n  .slice(0, 3)\n  .map(t => ({\n    topic: t.topic || t.name,\n    score: t.viral_score || t.score,\n    category: t.category || 'general'\n  }));\n\nreturn [{ json: { trends: topTrends } }];"
+      },
+      "id": "filter-trends",
+      "name": "Filter Viral Trends",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8003/api/external/push-trends",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Token",
+              "value": "={{ $env.INSTAGRAM_API_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ trends: $json.trends, source: 'n8n-getdaytrends', auto_post: false }) }}"
+      },
+      "id": "push-to-instagram",
+      "name": "Push to Instagram Automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID, text: '📸 Instagram: ' + $json.data?.injected + ' trends injected from GetDayTrends' }) }}"
+      },
+      "id": "notify-telegram",
+      "name": "Telegram Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID, text: '⚠️ Instagram trend push failed' }) }}"
+      },
+      "id": "notify-error",
+      "name": "Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 400]
+    }
+  ],
+  "connections": {
+    "Every 4 Hours": {
+      "main": [[{ "node": "Get Trends from GetDayTrends", "type": "main", "index": 0 }]]
+    },
+    "Get Trends from GetDayTrends": {
+      "main": [[{ "node": "Filter Viral Trends", "type": "main", "index": 0 }]]
+    },
+    "Filter Viral Trends": {
+      "main": [[{ "node": "Push to Instagram Automation", "type": "main", "index": 0 }]]
+    },
+    "Push to Instagram Automation": {
+      "main": [[{ "node": "Success?", "type": "main", "index": 0 }]]
+    },
+    "Success?": {
+      "main": [
+        [{ "node": "Telegram Notification", "type": "main", "index": 0 }],
+        [{ "node": "Error Notification", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "instagram-automation-bridge"
+  }
+}

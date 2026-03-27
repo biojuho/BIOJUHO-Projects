@@ -1,0 +1,38 @@
+# 프로젝트별 프롬프트 템플릿 관리
+#
+# 사용법:
+#   templates/
+#   ├── _default.yaml          ← 기본 템플릿
+#   ├── 프로젝트A.yaml          ← 프로젝트별 오버라이드
+#   └── 프로젝트B.yaml
+#
+# YAML 형식:
+#   tone: "전문적이면서 친근한"
+#   style: "데이터 기반 분석"
+#   target_audience: "기술 리더, CTO"
+#   word_count: "1500~3000"
+#   structure:
+#     - "# 제목"
+#     - "## 핵심 인사이트"
+#     - "## 상세 분석"
+#     - "## 결론 및 시사점"
+#   custom_instructions: "추가 지침 텍스트"
+
+tone: "전문적이면서 읽기 쉬운"
+style: "인사이트 중심 분석형 블로그"
+target_audience: "기술/비즈니스 전문가"
+word_count: "1500~3000"
+language: "한국어"
+structure:
+  - "# 제목 — 핵심 키워드 포함"
+  - "## 핵심 요약 (3줄)"
+  - "## 배경 및 맥락"
+  - "## 주요 인사이트"
+  - "## 데이터 분석"
+  - "## 결론 및 시사점"
+format_rules:
+  - "Markdown 형식 필수"
+  - "소제목(##) 2~4개 포함"
+  - "핵심 수치/데이터 강조 (볼드)"
+  - "불릿 포인트 활용"
+custom_instructions: ""

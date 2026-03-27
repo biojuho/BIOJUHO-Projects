@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "units": [
+    {
+      "id": "desci-platform",
+      "category": "app",
+      "canonical_path": "apps/desci-platform",
+      "legacy_path": "desci-platform",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "desci"
+    },
+    {
+      "id": "agriguard",
+      "category": "app",
+      "canonical_path": "apps/AgriGuard",
+      "legacy_path": "AgriGuard",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "agriguard"
+    },
+    {
+      "id": "dashboard",
+      "category": "app",
+      "canonical_path": "apps/dashboard",
+      "legacy_path": "dashboard",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "workspace"
+    },
+    {
+      "id": "getdaytrends",
+      "category": "automation",
+      "canonical_path": "automation/getdaytrends",
+      "legacy_path": "getdaytrends",
+      "active": true,
+      "runtime_dirs": [
+        "automation/getdaytrends/data",
+        "automation/getdaytrends/logs"
+      ],
+      "test_scope": "getdaytrends"
+    },
+    {
+      "id": "dailynews",
+      "category": "automation",
+      "canonical_path": "automation/DailyNews",
+      "legacy_path": "DailyNews",
+      "active": true,
+      "runtime_dirs": [
+        "automation/DailyNews/data",
+        "automation/DailyNews/logs",
+        "automation/DailyNews/output"
+      ],
+      "test_scope": "mcp"
+    },
+    {
+      "id": "content-intelligence",
+      "category": "automation",
+      "canonical_path": "automation/content-intelligence",
+      "legacy_path": "content-intelligence",
+      "active": true,
+      "runtime_dirs": [
+        "automation/content-intelligence/data",
+        "automation/content-intelligence/output"
+      ],
+      "test_scope": "workspace"
+    },
+    {
+      "id": "canva-mcp",
+      "category": "mcp",
+      "canonical_path": "mcp/canva-mcp",
+      "legacy_path": "canva-mcp",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "mcp"
+    },
+    {
+      "id": "github-mcp",
+      "category": "mcp",
+      "canonical_path": "mcp/github-mcp",
+      "legacy_path": "github-mcp",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "mcp"
+    },
+    {
+      "id": "notebooklm-mcp",
+      "category": "mcp",
+      "canonical_path": "mcp/notebooklm-mcp",
+      "legacy_path": "notebooklm-mcp",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "mcp"
+    },
+    {
+      "id": "telegram-mcp",
+      "category": "mcp",
+      "canonical_path": "mcp/telegram-mcp",
+      "legacy_path": "telegram-mcp",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "mcp"
+    },
+    {
+      "id": "desci-research-mcp",
+      "category": "mcp",
+      "canonical_path": "mcp/desci-research-mcp",
+      "legacy_path": "desci-research-mcp",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "mcp"
+    },
+    {
+      "id": "shared",
+      "category": "package",
+      "canonical_path": "packages/shared",
+      "legacy_path": "shared",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "workspace"
+    },
+    {
+      "id": "scripts",
+      "category": "ops",
+      "canonical_path": "ops/scripts",
+      "legacy_path": "scripts",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "workspace"
+    },
+    {
+      "id": "monitoring",
+      "category": "ops",
+      "canonical_path": "ops/monitoring",
+      "legacy_path": "monitoring",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "workspace"
+    },
+    {
+      "id": "nginx",
+      "category": "ops",
+      "canonical_path": "ops/nginx",
+      "legacy_path": "nginx",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "workspace"
+    },
+    {
+      "id": "agents",
+      "category": "ops",
+      "canonical_path": "ops/agents",
+      "legacy_path": "agents",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "workspace"
+    },
+    {
+      "id": "directives",
+      "category": "ops",
+      "canonical_path": "ops/directives",
+      "legacy_path": "directives",
+      "active": true,
+      "runtime_dirs": [],
+      "test_scope": "workspace"
+    }
+  ],
+  "archive_units": [
+    {
+      "id": "instagram-automation",
+      "canonical_path": "archive/instagram-automation",
+      "legacy_path": "instagram-automation"
+    },
+    {
+      "id": "lyria-music-player",
+      "canonical_path": "archive/lyria-music-player",
+      "legacy_path": "lyria-music-player"
+    },
+    {
+      "id": "notebooklm-automation",
+      "canonical_path": "archive/notebooklm-automation",
+      "legacy_path": "notebooklm-automation"
+    },
+    {
+      "id": "notebooklm-output",
+      "canonical_path": "archive/notebooklm_output",
+      "legacy_path": "notebooklm_output"
+    },
+    {
+      "id": "x-article-publisher-skill",
+      "canonical_path": "archive/x-article-publisher-skill",
+      "legacy_path": "x-article-publisher-skill"
+    }
+  ]
+}
