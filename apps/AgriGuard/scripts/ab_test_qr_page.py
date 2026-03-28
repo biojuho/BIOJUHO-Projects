@@ -149,6 +149,19 @@ def relative_lift(baseline: float, variant: float) -> float:
 
 def summarize_variant(dataset: list[QRSessionObservation], variant: str) -> dict:
     subset = [item for item in dataset if item.variant == variant]
+    if not subset:
+        return {
+            "variant": variant,
+            "sessions": 0,
+            "scan_success_rate": 0.0,
+            "verification_success_rate": 0.0,
+            "invalid_error_rate": 0.0,
+            "manual_recovery_rate": 0.0,
+            "median_time_to_verify_sec": None,
+            "average_trust_score": 0.0,
+            "session_rows": [],
+        }
+
     subset_sorted = sorted(subset, key=lambda item: item.time_to_verify_sec)
     mid = len(subset_sorted) // 2
     if len(subset_sorted) % 2 == 0:
@@ -182,6 +195,15 @@ def summarize_variant(dataset: list[QRSessionObservation], variant: str) -> dict
 
 
 def decide(control: dict, variant: dict, min_relative_lift: float) -> dict:
+    if control["sessions"] == 0 or variant["sessions"] == 0:
+        return {
+            "outcome": "insufficient_data",
+            "summary": "Need samples for both variants before making a decision",
+            "verification_relative_lift": None,
+            "time_improved": None,
+            "error_not_worse": None,
+        }
+
     verification_lift = relative_lift(
         control["verification_success_rate"], variant["verification_success_rate"]
     )
@@ -209,6 +231,20 @@ def decide(control: dict, variant: dict, min_relative_lift: float) -> dict:
         "time_improved": time_improved,
         "error_not_worse": error_not_worse,
     }
+
+
+def format_metric(value: float | None, *, precision: int = 2, percentage: bool = False) -> str:
+    if value is None:
+        return "n/a"
+    if percentage:
+        return f"{value:.{precision}%}"
+    return f"{value:.{precision}f}"
+
+
+def format_bool(value: bool | None) -> str:
+    if value is None:
+        return "n/a"
+    return str(value)
 
 
 def render_markdown(
@@ -263,23 +299,30 @@ def render_markdown(
             "|---|---:|---:|---:|---:|---:|---:|",
             (
                 f"| {AB_TEST_HYPOTHESIS['version_a']['name']} | {control['sessions']} "
-                f"| {control['verification_success_rate']:.2f} | {control['scan_success_rate']:.2f} "
-                f"| {control['invalid_error_rate']:.2f} | {control['median_time_to_verify_sec']:.2f} "
-                f"| {control['average_trust_score']:.2f} |"
+                f"| {format_metric(control['verification_success_rate'])} | "
+                f"{format_metric(control['scan_success_rate'])} "
+                f"| {format_metric(control['invalid_error_rate'])} | "
+                f"{format_metric(control['median_time_to_verify_sec'])} "
+                f"| {format_metric(control['average_trust_score'])} |"
             ),
             (
                 f"| {AB_TEST_HYPOTHESIS['version_b']['name']} | {variant['sessions']} "
-                f"| {variant['verification_success_rate']:.2f} | {variant['scan_success_rate']:.2f} "
-                f"| {variant['invalid_error_rate']:.2f} | {variant['median_time_to_verify_sec']:.2f} "
-                f"| {variant['average_trust_score']:.2f} |"
+                f"| {format_metric(variant['verification_success_rate'])} | "
+                f"{format_metric(variant['scan_success_rate'])} "
+                f"| {format_metric(variant['invalid_error_rate'])} | "
+                f"{format_metric(variant['median_time_to_verify_sec'])} "
+                f"| {format_metric(variant['average_trust_score'])} |"
             ),
             "",
             "## Decision",
             "",
             f"- Outcome: {decision['summary']}",
-            f"- Verification relative lift: {decision['verification_relative_lift']:.2%}",
-            f"- Time improved: {decision['time_improved']}",
-            f"- Error rate not worse: {decision['error_not_worse']}",
+            (
+                f"- Verification relative lift: "
+                f"{format_metric(decision['verification_relative_lift'], percentage=True)}"
+            ),
+            f"- Time improved: {format_bool(decision['time_improved'])}",
+            f"- Error rate not worse: {format_bool(decision['error_not_worse'])}",
             "",
             "## Notes",
             "",

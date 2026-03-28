@@ -10,10 +10,15 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
 
+const VERIFICATION_TRACK_RETRY_DELAY_MS = 3000;
+const MAX_VERIFICATION_TRACK_ATTEMPTS = 3;
+
 export default function ProductDetail() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const verificationTrackedRef = useRef(false);
+  const verificationRetryTimerRef = useRef(null);
+  const [verificationTrackAttempt, setVerificationTrackAttempt] = useState(0);
   
   const [data, setData] = useState({
     product: null,
@@ -32,6 +37,9 @@ export default function ProductDetail() {
     loading: false,
     data: { cert_type: '', issued_by: '' }
   });
+  const scanSource = searchParams.get('scan_source');
+  const scanSession = searchParams.get('scan_session');
+  const scanVariant = searchParams.get('scan_variant') || 'qr_page_v1';
 
   const loadProductDetails = useCallback(async (productId) => {
     const [prodRes, histRes] = await Promise.all([
@@ -78,28 +86,60 @@ export default function ProductDetail() {
     if (!data.product) {
       return;
     }
-
-    const scanSource = searchParams.get('scan_source');
-    const scanSession = searchParams.get('scan_session');
-    const scanVariant = searchParams.get('scan_variant') || 'qr_page_v1';
     if (scanSource !== 'qr_reader' || !scanSession) {
       return;
     }
 
-    verificationTrackedRef.current = true;
-    void trackQrEvent({
-      session_id: scanSession,
-      event_type: 'verification_complete',
-      product_id: id,
-      source: scanSource,
-      variant_id: scanVariant,
-      event_payload: {
-        product_name: data.product.name,
-        origin: data.product.origin,
-        requires_cold_chain: Boolean(data.product.requires_cold_chain),
-      },
-    });
-  }, [data.product, id, searchParams]);
+    let isCancelled = false;
+
+    const attemptVerificationTracking = async () => {
+      const tracked = await trackQrEvent({
+        session_id: scanSession,
+        event_type: 'verification_complete',
+        product_id: id,
+        source: scanSource,
+        variant_id: scanVariant,
+        event_payload: {
+          product_name: data.product.name,
+          origin: data.product.origin,
+          requires_cold_chain: Boolean(data.product.requires_cold_chain),
+        },
+      });
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (tracked) {
+        verificationTrackedRef.current = true;
+        return;
+      }
+
+      if (verificationTrackAttempt >= MAX_VERIFICATION_TRACK_ATTEMPTS - 1) {
+        console.warn('Failed to track verification_complete after retries', {
+          sessionId: scanSession,
+          productId: id,
+          attempts: verificationTrackAttempt + 1,
+        });
+        return;
+      }
+
+      verificationRetryTimerRef.current = window.setTimeout(() => {
+        verificationRetryTimerRef.current = null;
+        setVerificationTrackAttempt((current) => current + 1);
+      }, VERIFICATION_TRACK_RETRY_DELAY_MS);
+    };
+
+    void attemptVerificationTracking();
+
+    return () => {
+      isCancelled = true;
+      if (verificationRetryTimerRef.current) {
+        window.clearTimeout(verificationRetryTimerRef.current);
+        verificationRetryTimerRef.current = null;
+      }
+    };
+  }, [data.product, id, scanSession, scanSource, scanVariant, verificationTrackAttempt]);
 
   const handleTrackingChange = useCallback((field, value) => {
     setTrackingState(prev => ({ ...prev, data: { ...prev.data, [field]: value } }));

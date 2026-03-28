@@ -1,5 +1,5 @@
 /* global describe, it, expect, vi, beforeEach, afterEach */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import QRReader from './QRReader';
 import { ToastProvider } from '../contexts/ToastContext';
@@ -65,6 +65,7 @@ describe('QRReader', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    cleanup();
   });
 
   it('tracks scan failure and recovery', async () => {

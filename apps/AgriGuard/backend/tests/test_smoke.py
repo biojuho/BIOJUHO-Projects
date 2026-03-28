@@ -2,8 +2,11 @@
 AgriGuard Backend Smoke Tests
 Tests core API endpoints and seed_db functionality.
 """
+import json
 import os
+import sqlite3
 import subprocess
+import tempfile
 
 backend_dir = os.path.join(os.path.dirname(__file__), "..")
 
@@ -88,3 +91,78 @@ finally:
 """
     result = subprocess.run(["python", "-c", code], cwd=backend_dir)
     assert result.returncode == 0
+
+
+def test_run_migrations_script_applies_head_revision():
+    """Verify the Alembic migration runner upgrades a fresh database to the latest revision."""
+    fd, db_path = tempfile.mkstemp(suffix="-migrations-smoke.db")
+    os.close(fd)
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    try:
+        env = os.environ.copy()
+        env["DATABASE_URL"] = f"sqlite:///{db_path}"
+        env["AUTO_CREATE_SCHEMA"] = "0"
+
+        result = subprocess.run(
+            ["python", "scripts/run_migrations.py"],
+            cwd=backend_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stderr or result.stdout
+
+        with sqlite3.connect(db_path) as connection:
+            revision = connection.execute(
+                "SELECT version_num FROM alembic_version"
+            ).fetchone()
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+
+        assert revision == ("0002_add_qr_scan_events",)
+        assert "qr_scan_events" in tables
+    finally:
+        try:
+            os.remove(db_path)
+        except OSError:
+            pass
+
+
+def test_qr_ab_script_handles_missing_variant_data():
+    """Verify the QR A/B helper exits cleanly when one variant has no samples yet."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dataset_path = os.path.join(tmpdir, "qr-ab.json")
+        payload = {
+            "dataset_name": "single-arm sample",
+            "sessions": [
+                {
+                    "session_id": "a-001",
+                    "variant": "A",
+                    "scan_success": True,
+                    "verification_success": True,
+                    "invalid_error": False,
+                    "used_manual_recovery": False,
+                    "time_to_verify_sec": 12.3,
+                    "trust_score": 4.1,
+                }
+            ],
+        }
+        with open(dataset_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+
+        result = subprocess.run(
+            ["python", "../scripts/ab_test_qr_page.py", "--dataset", dataset_path],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stderr or result.stdout
+        assert "Need samples for both variants before making a decision" in result.stdout
