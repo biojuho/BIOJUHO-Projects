@@ -30,6 +30,16 @@ try:
 except ImportError:
     _LOGFIRE_OK = False
 
+try:
+    from shared.metrics import setup_metrics
+    _METRICS_OK = True
+except ImportError:
+    try:
+        from packages.shared.metrics import setup_metrics
+        _METRICS_OK = True
+    except ImportError:
+        _METRICS_OK = False
+
 @asynccontextmanager
 async def lifespan(app):
     initialize_database()
@@ -82,6 +92,10 @@ if _LOGFIRE_OK:
         app,
         service_name="agriguard",
     )
+
+# ── Prometheus Metrics (/metrics) ──────────────────────────
+if _METRICS_OK:
+    setup_metrics(app, service_name="agriguard")
 
 # Fallback values used when the DB has no real data yet (demo mode)
 DEMO_TOTAL_FARMS = 142
