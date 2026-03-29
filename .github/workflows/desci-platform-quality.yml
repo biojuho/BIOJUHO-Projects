@@ -58,7 +58,7 @@ jobs:
 
       - name: Set up Node.js
         if: matrix.scope == 'desci' || matrix.scope == 'agriguard'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22.12.0"
           cache: "npm"
