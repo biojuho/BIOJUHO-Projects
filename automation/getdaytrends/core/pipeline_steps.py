@@ -367,6 +367,11 @@ async def _step_save(
         try:
             async with db_transaction(conn):
                 trend_id = await save_trend(conn, trend, run_row_id, bucket=config.cache_volume_bucket)
+                try:
+                    from shared.business_metrics import biz
+                    biz.trend_scored()
+                except ImportError:
+                    pass
                 saved_to: list[str] = []
 
                 if batch.tweets:

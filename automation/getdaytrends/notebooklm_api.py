@@ -202,6 +202,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Prometheus Metrics (/metrics) ──────────────────────────
+try:
+    from shared.metrics import setup_metrics
+    setup_metrics(app, service_name="getdaytrends")
+except ImportError:
+    pass
+
+# ── Structured Logging (JSON for Loki) ─────────────────────
+try:
+    from shared.structured_logging import setup_logging as setup_structured_logging
+    setup_structured_logging(service_name="getdaytrends")
+except ImportError:
+    pass
+
+# ── Audit Log ──────────────────────────────────────────────
+try:
+    from shared.audit import setup_audit_log
+    setup_audit_log(app, service_name="getdaytrends")
+except ImportError:
+    pass
+
 
 @app.get('/health', response_model=HealthResponse)
 async def get_health():
@@ -343,6 +364,41 @@ async def run_publish_notion(req: NotionPublishRequest):
         raise HTTPException(500, f'Notion publish failed: {exc}')
 
 
+async def _record_x_publish_result(
+    req: XPublishRequest, tweet_id: str
+) -> tuple[bool, int, str]:
+    """Sync a successful X publish back to the local GetDayTrends database.
+
+    Returns:
+        (recorded, local_tweet_id, error_message)
+    """
+    if not req.local_tweet_id and not req.trend_row_id and not req.run_row_id:
+        return False, 0, "no local identifiers provided"
+
+    try:
+        import aiosqlite
+        from db import mark_tweet_posted
+
+        db_path = req.db_path or os.path.join(
+            os.path.dirname(__file__), "data", "getdaytrends.db"
+        )
+        async with aiosqlite.connect(db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            resolved = await mark_tweet_posted(
+                conn,
+                x_tweet_id=tweet_id,
+                tweet_row_id=req.local_tweet_id or None,
+                content=req.tweet_text,
+                trend_id=req.trend_row_id or None,
+                run_id=req.run_row_id or None,
+            )
+        if resolved:
+            return True, resolved, ""
+        return False, 0, "could not resolve tweet row in database"
+    except Exception as exc:
+        return False, 0, str(exc)
+
+
 @app.post('/publish-x', response_model=XPublishResponse)
 async def run_publish_x(req: XPublishRequest):
     """Publish a tweet to X and sync the local GetDayTrends row when possible."""
@@ -360,6 +416,12 @@ async def run_publish_x(req: XPublishRequest):
     if result.get('ok'):
         tweet_id = result.get('tweet_id', '')
         publish_recorded, local_tweet_id, publish_record_error = await _record_x_publish_result(req, tweet_id)
+        # Business metrics
+        try:
+            from shared.business_metrics import biz
+            biz.tweet_published()
+        except ImportError:
+            pass
         return XPublishResponse(
             ok=True,
             tweet_id=tweet_id,
