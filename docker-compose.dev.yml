@@ -401,12 +401,67 @@ services:
       - "9090:9090"
     volumes:
       - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - dev-network
+    profiles:
+      - monitoring
+      - full
+
+  # AlertManager - Alert Routing
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: dev-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./ops/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - dev-network
+    profiles:
+      - monitoring
+      - full
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: dev-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./ops/monitoring/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    command:
+      - '-config.file=/etc/loki/loki.yml'
+    networks:
+      - dev-network
+    profiles:
+      - monitoring
+      - full
+
+  # Promtail - Log Shipper
+  promtail:
+    image: grafana/promtail:latest
+    container_name: dev-promtail
+    restart: unless-stopped
+    volumes:
+      - ./ops/monitoring/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - '-config.file=/etc/promtail/promtail.yml'
+    depends_on:
+      - loki
     networks:
       - dev-network
     profiles:
@@ -430,6 +485,7 @@ services:
       - ./ops/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - loki
     networks:
       - dev-network
     profiles:
@@ -494,5 +550,7 @@ volumes:
     name: dev-prometheus-data
   grafana-data:
     name: dev-grafana-data
+  loki-data:
+    name: dev-loki-data
   pgadmin-data:
     name: dev-pgadmin-data

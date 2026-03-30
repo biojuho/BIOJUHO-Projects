@@ -2,9 +2,45 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
 scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets:
           - prometheus:9090
 
+  - job_name: agriguard
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:8002
+    scrape_interval: 30s
+
+  - job_name: getdaytrends
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:8788
+    scrape_interval: 30s
+
+  - job_name: dashboard-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:8080
+    scrape_interval: 30s
+
+  - job_name: desci-biolinker
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:8000
+    scrape_interval: 30s

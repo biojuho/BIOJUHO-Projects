@@ -1,0 +1,46 @@
+groups:
+  - name: service_health
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been unreachable for more than 2 minutes."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} has >5% error rate"
+          description: "{{ $labels.service }} 5xx rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))
+          > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} p95 latency >5s"
+          description: "{{ $labels.service }} p95 latency is {{ $value }}s over the last 5 minutes."
+
+  - name: resource_health
+    rules:
+      - alert: PrometheusHighMemory
+        expr: process_resident_memory_bytes{job="prometheus"} > 1e9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus using >1GB memory"
+          description: "Prometheus resident memory is {{ $value | humanize1024 }}B."

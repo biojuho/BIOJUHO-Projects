@@ -1,0 +1,62 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [{ "title": "Workspace Overview", "url": "/d/workspace-overview", "type": "link" }],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 8, "x": 0, "y": 0 }, "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+      "targets": [{ "expr": "up{job=\"dashboard-api\"}", "legendFormat": "Dashboard API", "refId": "A" }],
+      "title": "Status", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 8, "x": 8, "y": 0 }, "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(rate(http_requests_total{service=\"dashboard\"}[5m]))", "refId": "A" }],
+      "title": "Request Rate", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 8, "x": 16, "y": 0 }, "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"dashboard\"}[5m])) by (le))", "refId": "A" }],
+      "title": "p95 Latency", "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 3 }, "id": 4,
+      "options": { "calculate": true, "calculation": { "yBuckets": { "mode": "size", "scale": { "log": 2, "type": "log" } } }, "cellGap": 1, "color": { "exponent": 0.5, "scheme": "Oranges", "steps": 64 }, "yAxis": { "unit": "s" } },
+      "targets": [{ "expr": "sum(increase(http_request_duration_seconds_bucket{service=\"dashboard\"}[5m])) by (le)", "format": "heatmap", "legendFormat": "{{le}}", "refId": "A" }],
+      "title": "Latency Heatmap", "type": "heatmap"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2 }, "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 }, "id": 5,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"dashboard\"}[5m])) by (le, path))", "legendFormat": "p95 {{path}}", "refId": "A" },
+        { "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{service=\"dashboard\"}[5m])) by (le, path))", "legendFormat": "p50 {{path}}", "refId": "B" }
+      ],
+      "title": "Endpoint Latency (p50 / p95)", "type": "timeseries"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["dashboard", "service"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "title": "Dashboard API Service",
+  "uid": "dashboard-api-service",
+  "version": 1
+}

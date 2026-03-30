@@ -1,0 +1,40 @@
+global:
+  resolve_timeout: 5m
+
+# -- Templates for Telegram message formatting --
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  group_by: ['alertname', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: default
+  routes:
+    - matchers:
+        - severity = critical
+      receiver: telegram-critical
+      continue: true
+
+receivers:
+  - name: default
+    # Alerts are always visible in the AlertManager UI at http://localhost:9093.
+    # The webhook below sends to a local relay; replace with your own endpoint.
+    webhook_configs: []
+
+  - name: telegram-critical
+    # Telegram Bot API via webhook — requires ALERTMANAGER_TELEGRAM_TOKEN and
+    # ALERTMANAGER_TELEGRAM_CHAT_ID to be set in the alertmanager container env.
+    # When the token is empty the URL is invalid and the webhook silently fails,
+    # which is the desired no-op behavior until credentials are configured.
+    webhook_configs:
+      - send_resolved: true
+        url: 'http://host.docker.internal:9095/alertmanager-telegram-relay'
+
+inhibit_rules:
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: ['alertname', 'service']
