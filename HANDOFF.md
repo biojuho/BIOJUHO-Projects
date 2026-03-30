@@ -1,12 +1,374 @@
 ﻿# Handoff Document
 
-**Last Updated**: 2026-03-27
-**Session Status**: Healthy / PostgreSQL Live / DailyNews Notion query fixed / DailyNews CLI stabilized / DailyNews evening batch verified / Audience README Week 1 Complete / GetDayTrends telemetry wired / AgriGuard QR telemetry live with summary endpoint
+**Last Updated**: 2026-03-30
+**Session Status**: Healthy / Daily QC 15-15 PASS / Worktree Active / PostgreSQL Live / Phase 3 Monitoring Complete / All 4 services instrumented / AlertManager + Loki deployed
 **Next Agent**: Claude Code / Gemini / Codex
 
 ---
 
+## Latest Follow-Up (2026-03-30)
+
+### Daily workspace QC snapshot recorded
+
+**Status**: PASS WITH CAUTION
+
+- Ran the canonical workspace gate:
+  - `python ops/scripts/run_workspace_smoke.py --scope all --json-out var/smoke/manual-smoke-2026-03-30.json`
+- Result:
+  - `15/15 PASS`
+- Coverage:
+  - workspace regression tests
+  - dashboard frontend build
+  - desci lint / unit tests / build / bundle budget / biolinker smoke
+  - AgriGuard lint / build / backend compile
+  - notebooklm-mcp compile
+  - github-mcp compile
+  - DailyNews unit tests
+  - getdaytrends compile / tests
+
+**Evidence**:
+- Smoke artifact: `var/smoke/manual-smoke-2026-03-30.json`
+- QC report: `docs/reports/2026-03/QC_REPORT_2026-03-30_DAILY_WORKSPACE.md`
+
+**Important operational note**:
+- The workspace passed deterministic QC, but it is not release-clean.
+- Before these record updates, `git status --porcelain` showed `119` changed paths.
+- Largest active areas were:
+  - `automation` (64)
+  - `ops` (15)
+  - `apps` (14)
+  - `packages` (9)
+
+**Recommended stance**:
+- Safe to continue development and targeted validation.
+- Do not interpret this QC snapshot as a release approval without reviewing the current in-progress diffs.
+
+---
+
+## Latest Follow-Up (2026-03-29)
+
+### Phase 3 monitoring stack complete
+
+**Status**: DEPLOYED (docker-compose ready)
+
+All 4 FastAPI services now have Prometheus metrics instrumentation:
+
+| Service | File | Port | `service_name` |
+|---------|------|------|----------------|
+| AgriGuard | `apps/AgriGuard/backend/main.py` | 8002 | `agriguard` |
+| GetDayTrends | `automation/getdaytrends/notebooklm_api.py` | 8788 | `getdaytrends` |
+| Dashboard API | `apps/dashboard/api.py` | 8080 | `dashboard` |
+| DeSci BioLinker | `apps/desci-platform/biolinker/main.py` | 8000 | `biolinker` |
+
+New monitoring infrastructure added:
+
+- **AlertManager** (port 9093): Alert routing with configurable webhook receiver
+  - Config: `ops/monitoring/alertmanager.yml`
+  - 4 alert rules in `ops/monitoring/alert_rules.yml`:
+    - `ServiceDown` (critical, 2m threshold)
+    - `HighErrorRate` (warning, >5% 5xx rate)
+    - `HighLatency` (warning, p95 >5s)
+    - `PrometheusHighMemory` (warning, >1GB)
+
+- **Loki** (port 3100): Log aggregation with TSDB storage
+  - Config: `ops/monitoring/loki.yml`
+  - Schema v13, 7-day retention
+
+- **Promtail**: Docker service discovery log shipper
+  - Config: `ops/monitoring/promtail.yml`
+  - Auto-discovers all compose containers
+
+- **Grafana**: Loki datasource added alongside Prometheus
+  - Provisioning: `ops/monitoring/grafana/provisioning/datasources/prometheus.yml`
+
+**Launch command**:
+```bash
+docker compose -f docker-compose.dev.yml --profile monitoring up -d
+```
+
+**Validation**:
+- `docker compose --profile monitoring config --services` -> alertmanager, loki, promtail, prometheus, grafana (+ app services)
+- All test suites pass: AgriGuard 6, GetDayTrends 22, DailyNews 23
+- All files compile cleanly
+
+### Phase 3 Week 2-3: structlog, Telegram relay, Loki panels
+
+**Status**: COMPLETE
+
+- **Structured logging** (`structlog` JSON) wired into all 4 FastAPI services via `packages/shared/structured_logging.py`
+  - JSON output with ISO timestamps, service name context, log level — Loki-ready
+  - Falls back to stdlib logging when structlog is unavailable
+- **AlertManager Telegram relay** at `ops/scripts/alertmanager_telegram_relay.py`
+  - Standalone HTTP server on port 9095
+  - Receives AlertManager webhook, formats alert, sends via Telegram Bot API
+  - Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` env vars
+  - AlertManager routes `severity=critical` to the relay
+- **Grafana Loki log panels** added to workspace dashboard (v3)
+  - Panel 7: "Service Logs (All)" — full docker log stream
+  - Panel 8: "Error Logs" — filtered for error/exception/traceback/critical/failed
+- **Dependency installation**:
+  - `prometheus_client` globally installed + BioLinker venv
+  - `structlog` globally installed + BioLinker venv
+  - Added to `requirements.txt`: getdaytrends, biolinker
+
+**Validation**:
+- All files compile cleanly
+- AgriGuard 6 passed, GetDayTrends 22 passed, DailyNews 23 passed
+- Docker compose monitoring profile: 12 services validated
+
+### Per-service Grafana dashboards + business metrics
+
+**Status**: COMPLETE
+
+- Created 4 per-service dashboards with latency heatmaps, endpoint breakdowns, and business metric panels:
+  - `agriguard-service.json` — 10 panels: health, latency heatmap, endpoint latency p50/p95, request volume, errors by endpoint, QR scans, verifications, error logs
+  - `getdaytrends-service.json` — 10 panels: health, latency heatmap, endpoint latency, LLM requests by model, LLM tokens & cost, trends scored, tweets published, error logs
+  - `biolinker-service.json` — 8 panels: health, latency heatmap, endpoint latency, RFP matches, RFP analyses, proposals generated, LLM usage & cost
+  - `dashboard-api-service.json` — 5 panels: health, latency heatmap, endpoint latency
+
+- Created `packages/shared/business_metrics.py` — singleton Prometheus counters:
+  - `llm_requests_total`, `llm_tokens_total`, `llm_cost_usd_total`, `llm_request_duration_seconds` (all by service + model)
+  - `trends_scored_total`, `tweets_published_total` (GetDayTrends)
+  - `agriguard_qr_scans_total`, `agriguard_verifications_total` (AgriGuard)
+  - `rfp_matches_total`, `rfp_analyses_total`, `proposals_generated_total` (BioLinker)
+
+- Wired into code:
+  - `packages/shared/llm/client.py` — `biz.llm_request()` after every LLM call (tokens, cost, model)
+  - `apps/AgriGuard/backend/main.py` — `biz.qr_scan()` + `biz.verification_complete()` on QR events
+  - `automation/getdaytrends/notebooklm_api.py` — `biz.tweet_published()` on successful X publish
+
+**Validation**: AgriGuard 6 passed, GetDayTrends 22 passed, Shared LLM 20 passed
+
+### Business metrics fully wired
+
+**Status**: COMPLETE
+
+- BioLinker routers now emit:
+  - `biz.rfp_analysis()` on `POST /analyze`
+  - `biz.rfp_match()` on `POST /match/paper`
+  - `biz.proposal_generated()` on `POST /proposal/generate`
+- GetDayTrends scoring pipeline now emits:
+  - `biz.trend_scored()` after every `save_trend()` in `core/pipeline_steps.py`
+
+**Validation**: Compile clean, GetDayTrends 22 passed, AgriGuard 6 passed
+
+### Phase 4: Prompt centralization + budget auto-downgrade
+
+**Status**: IMPLEMENTED
+
+- **Prompt template system** (`packages/shared/prompts/`):
+  - `manager.py`: YAML-based PromptManager with variable substitution, few-shot injection, safe rendering
+  - 5 templates: `content_generation`, `rfp_analysis`, `trend_analysis`, `research_agent`, `proposal_generation`
+  - 2 few-shot example sets: `trend_analysis.json`, `rfp_matching.json`
+  - Usage: `from shared.prompts import get_prompt_manager; pm = get_prompt_manager(); pm.render("trend_analysis", platform="X")`
+  - Requires `pyyaml` (already installed globally + BioLinker venv)
+
+- **Budget-aware auto-downgrade** (`packages/shared/llm/`):
+  - `config.py`: 3 thresholds — `LLM_BUDGET_DOWNGRADE_HEAVY=$1.50`, `LLM_BUDGET_DOWNGRADE_MEDIUM=$1.80`, `LLM_DAILY_BUDGET=$2.00`
+  - `stats.py`: `get_today_cost()` real-time daily cost from SQLite
+  - `client.py`: `_budget_downgrade()` auto-demotes tiers when cost exceeds thresholds
+  - Flow: HEAVY→MEDIUM at $1.50/day, MEDIUM→LIGHTWEIGHT at $1.80/day, hard block at $2.00/day
+  - All thresholds configurable via env vars
+
+**Validation**: Shared LLM 20 passed, PromptManager renders all 5 templates
+
+### Phase 5: Security & Compliance
+
+**Status**: COMPLETE
+
+- **5.1 Secret audit**: Already solid — `.gitignore` covers all secret patterns, zero `.env` tracked in git, gitleaks + detect-private-key pre-commit hooks active, Dependabot 11 ecosystems
+- **5.3 Audit log middleware** (`packages/shared/audit.py`): JSON structured logs for every HTTP request — service, user_id, method, path, status, duration_ms, client_ip. Wired into all 4 FastAPI services. Excludes /metrics, /health, /docs.
+- **5.4 Security policy** (`docs/SECURITY_POLICY.md`): Comprehensive doc covering secret management, vulnerability patching SLA, audit logging, API security, LLM cost controls
+
+**Validation**: All files compile, AgriGuard 6 passed, GetDayTrends 22 passed
+
+**All SYSTEM_ENHANCEMENT_PLAN phases completed**:
+- Phase 1: Infrastructure stabilization
+- Phase 2: Code quality
+- Phase 3: Monitoring & observability (live stack verified)
+- Phase 4: AI/LLM optimization (prompts, budget, RAG)
+- Phase 5: Security & compliance
+
+### Phase 4 completion: Prompt migration + few-shot + RAG hybrid
+
+**Status**: COMPLETE
+
+- **BioLinker prompt migration**: 7 hardcoded prompts (3 in agent_service, 1 in analyzer, 3 in proposal_generator) now load from centralized YAML templates via `PromptManager.render()` with graceful inline fallback
+- **Production few-shot examples**: 4 sets — `trend_analysis.json`, `rfp_matching.json`, `content_generation.json`, `biolinker_analysis.json`
+- **RAG hybrid search** (`packages/shared/search/hybrid.py`): BM25 keyword + cosine semantic + Reciprocal Rank Fusion, tested with sample RFP query
+
+**Template inventory** (12 YAML templates):
+- Generic: content_generation, rfp_analysis, trend_analysis, research_agent, proposal_generation
+- BioLinker: biolinker_research, biolinker_publisher, biolinker_lit_review, biolinker_analyzer, biolinker_proposal, biolinker_review, biolinker_lit_synthesis
+
+**Phase 4 status**: All 3 sub-tasks (4.1 prompt centralization, 4.2 LLM routing/budget, 4.3 RAG hybrid) complete
+
+**Remaining**:
+- Migrate DailyNews/GetDayTrends prompts (large, complex — lower priority since they use dynamic builders)
+- Wire `hybrid_search()` into BioLinker `VectorStore.search_similar()`
+
+### End-to-end monitoring verified live
+
+**Status**: VERIFIED
+
+- Monitoring stack running: Prometheus :9090, Grafana :3000, AlertManager :9093, Loki :3100
+- AgriGuard Docker image rebuilt with `prometheus_client` + `structlog` + shared package volume mount
+- `/metrics` endpoint live: `http://localhost:8002/metrics` returns real Prometheus counters and histograms
+- Prometheus successfully scraping AgriGuard (`health: up`)
+- 5 Grafana dashboards auto-provisioned (workspace overview + 4 per-service)
+- AlertManager receiving `ServiceDown` alerts for offline services (expected)
+- Loki ready for log aggregation
+
+**Files changed**:
+- `apps/AgriGuard/backend/requirements.txt` — added monitoring deps
+- `apps/AgriGuard/docker-compose.yml` — shared volume mount + PYTHONPATH
+
+**Remaining**:
+- Set `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` to activate alert notifications
+- Start relay: `python ops/scripts/alertmanager_telegram_relay.py`
+- Rebuild other service Docker images (GetDayTrends, BioLinker) when they go containerized
+
+---
+
+## Latest Follow-Up (2026-03-28)
+
+### Audience-First Week 2: All 4 A/B test scripts complete
+
+**Status**: COMPLETE
+
+- Created `apps/desci-platform/biolinker/scripts/ab_test_matching.py` — the last missing Week 2 A/B script
+- DeSci matching test compares keyword-overlap scoring (Version A) vs vector similarity scoring (Version B)
+- Primary KPI: Precision@5, decision rule: adopt B if >=30% relative lift
+- Audience: B2B Prosumer (Research Funding Seeker + Bio Investment Scout)
+- All 4 projects now have Audience-First A/B harnesses:
+  - DailyNews: `automation/DailyNews/scripts/ab_test_economy_kr_v2.py`
+  - GetDayTrends: `automation/getdaytrends/scripts/ab_test_viral_scoring.py`
+  - AgriGuard: `apps/AgriGuard/scripts/ab_test_qr_page.py`
+  - DeSci: `apps/desci-platform/biolinker/scripts/ab_test_matching.py`
+
+**Validation**:
+- `python -m compileall -q apps/desci-platform/biolinker/scripts/ab_test_matching.py` -> exit 0
+- Sample run produces Markdown + JSON output at `apps/desci-platform/data/ab_tests/`
+
+### DailyNews fact-check: allowlist replaced with heuristic patterns
+
+**Status**: IMPLEMENTED, TESTED
+
+- The ~100-item flat `_NOISE_ENTITY_TERMS` set was growing with every evening batch as new Korean verb fragments appeared
+- Replaced with 5 pattern-based heuristic rules:
+  1. Korean `~시`/`~시키` causative verb suffix regex — catches 향상시, 완화시, 증가시, 중단시, 우선시, etc. without individual entries
+  2. Korean particle/adverb regex (반드시, 다시, 불구)
+  3. Short all-uppercase ASCII acronym regex (≤5 chars: DNA, JSON, GDP, ESG)
+  4. Reduced English domain seed set (~30 terms)
+  5. Reduced Korean domain seed set (~30 terms)
+- Net effect: the allowlist no longer needs to grow; new `~시` fragments are auto-classified
+
+**Validation**:
+- `python -m pytest tests/unit/test_adapters.py tests/unit/test_config_aliases.py -q` -> `25 passed`
+
+### GetDayTrends: `_record_x_publish_result` implemented
+
+**Status**: IMPLEMENTED, WAITING FOR LIVE POSTS
+
+- The `/publish-x` endpoint was calling `_record_x_publish_result()` but the function was never defined
+- Implemented the missing async function that:
+  1. Opens the GetDayTrends SQLite DB
+  2. Calls `mark_tweet_posted()` with the X tweet ID and local identifiers
+  3. Records `posted_at` and `x_tweet_id` in the tweets table
+- This is the critical bridge between posting and measured-label collection
+- Once tweets flow through `/publish-x` with `local_tweet_id`, the metrics pipeline will produce real labels
+
+**Validation**:
+- `python -m compileall -q notebooklm_api.py` -> exit 0
+- `python -m pytest tests/test_db.py -q` -> `22 passed`
+
+**Operational next step**: Run `python scripts/collect_posted_tweet_metrics.py --lookback-hours 72` after tweets accumulate to sync X performance data
+
+### Phase 3 monitoring: Prometheus metrics + Grafana dashboard
+
+**Status**: FOUNDATION COMPLETE
+
+- Created `packages/shared/metrics.py` — reusable FastAPI middleware that exposes:
+  - `http_requests_total` counter (service, method, path, status)
+  - `http_request_duration_seconds` histogram (p50/p95 ready)
+  - `http_requests_in_flight` gauge
+  - `/metrics` endpoint (Prometheus scrape target)
+- Wired into AgriGuard backend via `setup_metrics(app, service_name="agriguard")`
+- Expanded `ops/monitoring/prometheus.yml` with scrape targets for all 4 services
+- Rebuilt Grafana dashboard (6 panels):
+  1. Service Health (up/down stat)
+  2. Request Rate by Service (req/s timeseries)
+  3. Request Latency p50/p95 (seconds timeseries)
+  4. Error Rate 4xx/5xx (stacked bars)
+  5. In-Flight Requests (gauge timeseries)
+  6. Request Rate by Endpoint (detail breakdown)
+
+**Validation**:
+- `python -m compileall -q packages/shared/metrics.py apps/AgriGuard/backend/main.py` -> exit 0
+- `python -m pytest apps/AgriGuard/backend/tests/test_smoke.py -q` -> `4 passed`
+
+**Next steps to complete Phase 3**:
+- Install `prometheus_client` in each service's requirements
+- Wire `setup_metrics()` into GetDayTrends, Dashboard API, and BioLinker
+- Deploy AlertManager for notification channels
+- Add Loki + Promtail for centralized logging
+
+---
+
 ## Latest Follow-Up (2026-03-27)
+
+### DailyNews dashboard refresh recovered
+
+**Status**: IMPLEMENTED, VERIFIED
+
+- Root cause of `refresh-dashboard` returning `partial` was configuration drift:
+  - the active pipeline only read `NOTION_DASHBOARD_PAGE_ID`
+  - but the older compatibility path had already stored a valid page ID in:
+    - `automation/DailyNews/config/dashboard_config.json`
+- Fixed this in two places:
+  - populated `NOTION_DASHBOARD_PAGE_ID` in the active `automation/DailyNews/.env`
+  - added a fallback in the new config loader so `config/dashboard_config.json` is used if the env var is empty
+- Updated docs to make the fallback explicit, while keeping `.env` as the source of truth for stable deployments
+
+**Validation**:
+- `python .agents/skills/windows-encoding-safe-test/scripts/run_utf8_safe.py --cwd automation/DailyNews --command "python -m pytest tests/unit/test_adapters.py tests/unit/test_config_aliases.py -q" --strict` -> `25 passed`
+- `python .agents/skills/windows-encoding-safe-test/scripts/run_utf8_safe.py --cwd automation/DailyNews --command "cmd /c run_cli.bat ops refresh-dashboard" --strict`
+  - result: `status: ok`
+  - `warnings: []`
+  - `updated_blocks: 24`
+- `run_evening_insights.bat` now finishes with the dashboard section also reporting `status: ok`
+
+### DailyNews warning triage extended
+
+**Status**: IMPROVED, STILL DYNAMIC
+
+- Ran another full evening batch after the first round of warning filtering
+- Classified and filtered the following as low-signal false positives:
+  - `프라이버시`
+  - `완화시`
+  - `고조시`
+  - `상기시`
+  - `DNA`
+  - `JSON`
+  - `Top`
+  - `충족시`
+  - `탄생시`
+  - `증폭시`
+- Left higher-risk warnings unfiltered when they might represent real unsupported claims or institutions, for example:
+  - `FCA`
+  - `금융감독청`
+  - quote warnings
+  - number warnings
+
+**Current reality check**:
+- The full evening batch still returns `partial`
+- Remaining warnings now rotate with live content and include new low-signal fragments such as:
+  - `중단시`
+  - `증가시`
+  - `우선시`
+  - plus some possibly meaningful entities like `상무부`, `연방군`, `CEO`
+- This suggests the next improvement should likely move from a growing allowlist to a more general heuristic for low-information entity fragments
+- Dashboard refresh is no longer part of the problem; that path is now healthy
 
 ### DailyNews evening batch and category warning check
 
