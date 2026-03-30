@@ -9,6 +9,8 @@ Thumbs.db
 !.env.example
 venv/
 __pycache__/
+venv/
+__pycache__/
 *.pyc
 
 # IDEs
@@ -19,6 +21,11 @@ __pycache__/
 tmp/
 .tmp/
 *.tmp
+fun/
+.smoke-basetemp/
+.smoke-tmp/
+**/.smoke-basetemp/
+**/.smoke-tmp/
 
 # Claude agent internals
 .agent/
@@ -49,6 +56,7 @@ test-results/
 node_modules/
 dist/
 build/
+*.egg-info/
 apps/**/contracts/artifacts/
 apps/**/contracts/cache/
 apps/**/contracts/ignition/deployments/
@@ -100,9 +108,9 @@ serviceAccountKey.json
 
 # Temp outputs and test files
 # DailyNews output files (generated content, test outputs)
-automation/DailyNews/output/*.txt
-automation/DailyNews/output/*.json
+automation/DailyNews/output/
 !automation/DailyNews/output/SAMPLE-INSIGHT-OUTPUT.md
+automation/DailyNews/review_pack/
 automation/DailyNews/logs/
 automation/getdaytrends/logs/
 automation/getdaytrends/tweet_bot.log
