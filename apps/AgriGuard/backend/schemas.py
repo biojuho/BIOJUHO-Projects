@@ -1,6 +1,8 @@
-﻿from pydantic import BaseModel, ConfigDict, Field
-from typing import Any, List, Optional
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class TrackingEvent(BaseModel):
     timestamp: datetime
@@ -10,6 +12,7 @@ class TrackingEvent(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class Certificate(BaseModel):
     cert_id: str
     issued_by: str
@@ -18,34 +21,40 @@ class Certificate(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class ProductBase(BaseModel):
     name: str
     description: str
     category: str
-    origin: Optional[str] = "Unknown"
-    harvest_date: Optional[datetime] = None
+    origin: str | None = "Unknown"
+    harvest_date: datetime | None = None
     requires_cold_chain: bool = False
+
 
 class ProductCreate(ProductBase):
     pass
 
+
 class Product(ProductBase):
     id: str
     owner_id: str
-    tracking_history: List[TrackingEvent] = Field(default_factory=list)
-    certificates: List[Certificate] = Field(default_factory=list)
+    tracking_history: list[TrackingEvent] = Field(default_factory=list)
+    certificates: list[Certificate] = Field(default_factory=list)
     is_verified: bool = False
     qr_code: str  # Simulation string
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class UserBase(BaseModel):
-    role: str # Farmer, Distributor, Retailer, Consumer
+    role: str  # Farmer, Distributor, Retailer, Consumer
     name: str
     organization: str
 
+
 class UserCreate(UserBase):
     pass
+
 
 class User(UserBase):
     id: str
@@ -53,20 +62,24 @@ class User(UserBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class GrowthCycles(BaseModel):
     active: int
     completed: int
 
+
 class RecentActivity(BaseModel):
     timestamp: str
     event: str
+
 
 class DashboardData(BaseModel):
     total_farms: int
     active_sensors: int
     critical_alerts: int
     growth_cycles: GrowthCycles
-    recent_activity: List[RecentActivity]
+    recent_activity: list[RecentActivity]
+
 
 class DashboardResponse(BaseModel):
     status: str
@@ -76,12 +89,12 @@ class DashboardResponse(BaseModel):
 class QRScanEventCreate(BaseModel):
     session_id: str
     event_type: str
-    occurred_at: Optional[datetime] = None
-    product_id: Optional[str] = None
-    qr_value: Optional[str] = None
-    error_code: Optional[str] = None
-    error_message: Optional[str] = None
-    recovery_method: Optional[str] = None
+    occurred_at: datetime | None = None
+    product_id: str | None = None
+    qr_value: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    recovery_method: str | None = None
     source: str = "qr_reader"
     variant_id: str = "qr_page_v1"
     event_payload: dict[str, Any] = Field(default_factory=dict)

@@ -6,9 +6,8 @@ import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from loguru import logger as log
-
 from collectors.base import llm_analyze
+from loguru import logger as log
 from prompts.regulation_check import (
     REGULATION_CHECK_SYSTEM,
     build_regulation_prompt,
@@ -22,6 +21,7 @@ if TYPE_CHECKING:
 # ───────────────────────────────────────────────────
 #  개별 플랫폼 규제 점검
 # ───────────────────────────────────────────────────
+
 
 async def check_platform_regulation(
     platform: str,
@@ -49,8 +49,7 @@ async def check_platform_regulation(
     )
 
     log.info(
-        f"  ✅ {platform.upper()} 규제 점검 완료 — "
-        f"DO {len(report.do_list)}건 / DON'T {len(report.dont_list)}건"
+        f"  ✅ {platform.upper()} 규제 점검 완료 — " f"DO {len(report.do_list)}건 / DON'T {len(report.dont_list)}건"
     )
     return report
 
@@ -59,16 +58,14 @@ async def check_all_regulations(
     config: CIEConfig,
 ) -> list[RegulationReport]:
     """모든 대상 플랫폼의 규제를 병렬 점검한다."""
-    tasks = [
-        check_platform_regulation(p, config)
-        for p in config.platforms
-    ]
+    tasks = [check_platform_regulation(p, config) for p in config.platforms]
     return await asyncio.gather(*tasks, return_exceptions=False)
 
 
 # ───────────────────────────────────────────────────
 #  통합 Do & Don't 체크리스트
 # ───────────────────────────────────────────────────
+
 
 def generate_unified_checklist(
     reports: list[RegulationReport],
@@ -79,27 +76,28 @@ def generate_unified_checklist(
 
     for report in reports:
         for action in report.do_list:
-            do_items.append({
-                "platform": report.platform,
-                "action": action,
-                "priority": "높음",
-            })
+            do_items.append(
+                {
+                    "platform": report.platform,
+                    "action": action,
+                    "priority": "높음",
+                }
+            )
         for action in report.dont_list:
-            dont_items.append({
-                "platform": report.platform,
-                "action": action,
-                "severity": "높음",
-            })
+            dont_items.append(
+                {
+                    "platform": report.platform,
+                    "action": action,
+                    "severity": "높음",
+                }
+            )
 
     # 공통 DO/DON'T 식별 (2개 이상 플랫폼에 공통이면 "공통"으로 표시)
     _merge_common(do_items, "priority")
     _merge_common(dont_items, "severity")
 
     platforms = ", ".join(r.platform.upper() for r in reports)
-    summary = (
-        f"{platforms} 통합 체크리스트 — "
-        f"DO {len(do_items)}건 / DON'T {len(dont_items)}건"
-    )
+    summary = f"{platforms} 통합 체크리스트 — " f"DO {len(do_items)}건 / DON'T {len(dont_items)}건"
 
     checklist = UnifiedChecklist(
         do_items=do_items,

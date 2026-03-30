@@ -18,9 +18,7 @@
 """
 
 import argparse
-import os
 import subprocess
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -68,7 +66,7 @@ def check_environment() -> dict:
     if BITNET_DIR.exists():
         print(f"  ✅ BitNet repo: {BITNET_DIR}")
     else:
-        print(f"  ⬜ BitNet repo: not cloned yet")
+        print("  ⬜ BitNet repo: not cloned yet")
     checks["repo"] = BITNET_DIR.exists()
 
     # Check model
@@ -76,7 +74,7 @@ def check_environment() -> dict:
         size_mb = MODEL_GGUF.stat().st_size / (1024 * 1024)
         print(f"  ✅ Model: {MODEL_GGUF.name} ({size_mb:.0f} MB)")
     else:
-        print(f"  ⬜ Model: not downloaded yet")
+        print("  ⬜ Model: not downloaded yet")
     checks["model"] = MODEL_GGUF.exists()
 
     # Overall
@@ -126,9 +124,7 @@ def setup_conda_env():
     print("\n🐍 Setting up conda environment...")
     try:
         # Check if env already exists
-        result = subprocess.run(
-            ["conda", "env", "list"], capture_output=True, text=True
-        )
+        result = subprocess.run(["conda", "env", "list"], capture_output=True, text=True)
         if "bitnet-cpp" in result.stdout:
             print("✅ Conda env 'bitnet-cpp' already exists")
             return
@@ -170,9 +166,13 @@ def download_model():
 
     subprocess.run(
         [
-            "python", "-m", "huggingface_hub", "download",
+            "python",
+            "-m",
+            "huggingface_hub",
+            "download",
             "microsoft/BitNet-b1.58-2B-4T-gguf",
-            "--local-dir", str(MODEL_DIR),
+            "--local-dir",
+            str(MODEL_DIR),
         ],
         check=True,
         cwd=str(BITNET_DIR),
@@ -190,9 +190,12 @@ def build_project():
 
     subprocess.run(
         [
-            "python", str(setup_script),
-            "-md", str(MODEL_DIR),
-            "-q", "i2_s",
+            "python",
+            str(setup_script),
+            "-md",
+            str(MODEL_DIR),
+            "-q",
+            "i2_s",
         ],
         check=True,
         cwd=str(BITNET_DIR),
@@ -255,7 +258,7 @@ def main():
         print("\n" + "=" * 50)
         print("🎉 BitNet 설치 완료!")
         print(f"   모델: {MODEL_DIR}")
-        print("   테스트: python -c \"from shared.llm.bitnet_runner import is_available; print(is_available())\"")
+        print('   테스트: python -c "from shared.llm.bitnet_runner import is_available; print(is_available())"')
 
     elif args.model_only:
         clone_repo()

@@ -9,7 +9,6 @@ from typing import Any
 
 import httpx
 from notion_client import AsyncClient
-
 from runtime import (
     AlreadyRunningError,
     JobLock,

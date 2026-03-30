@@ -2,6 +2,7 @@
 BioLinker - Structured Logging Configuration
 JSON-formatted structured logging via structlog.
 """
+
 import logging
 import sys
 

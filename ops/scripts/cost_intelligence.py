@@ -12,14 +12,12 @@ Usage::
     report = analyzer.generate_report(days=30)
     print(report.to_markdown())
 """
+
 from __future__ import annotations
 
 import sqlite3
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
-
 
 WORKSPACE = Path(__file__).resolve().parents[1]
 LLM_DB_PATH = WORKSPACE / "shared" / "llm" / "data" / "llm_costs.db"
@@ -205,13 +203,15 @@ class CostAnalyzer:
         result = []
         for r in rows:
             cost = round(r[2] or 0.0, 6)
-            result.append(ProjectUsage(
-                project=r[0] or "unknown",
-                calls=r[1],
-                total_cost=cost,
-                top_model=r[3] or "",
-                percentage=round(cost / total * 100, 1) if total > 0 else 0,
-            ))
+            result.append(
+                ProjectUsage(
+                    project=r[0] or "unknown",
+                    calls=r[1],
+                    total_cost=cost,
+                    top_model=r[3] or "",
+                    percentage=round(cost / total * 100, 1) if total > 0 else 0,
+                )
+            )
         return result
 
     def _by_model(self, conn: sqlite3.Connection, days: int) -> list[ModelUsage]:
@@ -247,10 +247,7 @@ class CostAnalyzer:
             (f"-{days} days",),
         ).fetchall()
 
-        return [
-            DailyUsage(date=r[0], calls=r[1], cost=round(r[2] or 0.0, 6), errors=r[3] or 0)
-            for r in rows
-        ]
+        return [DailyUsage(date=r[0], calls=r[1], cost=round(r[2] or 0.0, 6), errors=r[3] or 0) for r in rows]
 
     def _forecast(self, daily: list[DailyUsage]) -> dict:
         if len(daily) < 3:
@@ -288,45 +285,50 @@ class CostAnalyzer:
         for m in report.by_model:
             if m.model in MODEL_ALTERNATIVES and m.total_cost > 0.01:
                 alts = MODEL_ALTERNATIVES[m.model]
-                suggestions.append(OptimizationSuggestion(
-                    category="모델 다운그레이드",
-                    description=(
-                        f"{m.model} ({m.calls}회, ${m.total_cost:.4f}) -> "
-                        f"{alts[0]} 전환 검토"
-                    ),
-                    estimated_saving=m.total_cost * 0.5 / max(report.period_days, 1),
-                    priority="high" if m.total_cost > 0.5 else "medium",
-                ))
+                suggestions.append(
+                    OptimizationSuggestion(
+                        category="모델 다운그레이드",
+                        description=(f"{m.model} ({m.calls}회, ${m.total_cost:.4f}) -> " f"{alts[0]} 전환 검토"),
+                        estimated_saving=m.total_cost * 0.5 / max(report.period_days, 1),
+                        priority="high" if m.total_cost > 0.5 else "medium",
+                    )
+                )
 
         # 2. 에러율 높은 모델
         for m in report.by_model:
             if m.error_rate > 10 and m.calls > 10:
-                suggestions.append(OptimizationSuggestion(
-                    category="에러율 개선",
-                    description=f"{m.model} 에러율 {m.error_rate:.1f}% - 재시도 비용 낭비 가능",
-                    priority="high",
-                ))
+                suggestions.append(
+                    OptimizationSuggestion(
+                        category="에러율 개선",
+                        description=f"{m.model} 에러율 {m.error_rate:.1f}% - 재시도 비용 낭비 가능",
+                        priority="high",
+                    )
+                )
 
         # 3. 예산 초과 예측
         forecast = report.budget_forecast
         if forecast.get("trend") == "increasing" and forecast.get("change_pct", 0) > 20:
-            suggestions.append(OptimizationSuggestion(
-                category="비용 증가 경고",
-                description=(
-                    f"주간 비용 {forecast['change_pct']:.0f}% 증가 추세. "
-                    f"월 예상: ${forecast['monthly_estimate']:.2f}"
-                ),
-                priority="high",
-            ))
+            suggestions.append(
+                OptimizationSuggestion(
+                    category="비용 증가 경고",
+                    description=(
+                        f"주간 비용 {forecast['change_pct']:.0f}% 증가 추세. "
+                        f"월 예상: ${forecast['monthly_estimate']:.2f}"
+                    ),
+                    priority="high",
+                )
+            )
 
         # 4. 캐시 활용도
         if report.total_calls > 100 and report.daily_average > 0.5:
-            suggestions.append(OptimizationSuggestion(
-                category="캐시 최적화",
-                description="일 평균 호출이 많음. 스코어 캐시 TTL 확대 또는 결과 메모이제이션 검토",
-                estimated_saving=report.daily_average * 0.1,
-                priority="medium",
-            ))
+            suggestions.append(
+                OptimizationSuggestion(
+                    category="캐시 최적화",
+                    description="일 평균 호출이 많음. 스코어 캐시 TTL 확대 또는 결과 메모이제이션 검토",
+                    estimated_saving=report.daily_average * 0.1,
+                    priority="medium",
+                )
+            )
 
         return sorted(suggestions, key=lambda s: {"high": 0, "medium": 1, "low": 2}[s.priority])
 
@@ -345,17 +347,28 @@ def main():
 
     if args.json:
         import json
-        print(json.dumps({
-            "total_cost": report.total_cost,
-            "total_calls": report.total_calls,
-            "daily_average": report.daily_average,
-            "forecast": report.budget_forecast,
-            "suggestions": [
-                {"category": s.category, "description": s.description,
-                 "saving": s.estimated_saving, "priority": s.priority}
-                for s in report.suggestions
-            ],
-        }, ensure_ascii=False, indent=2))
+
+        print(
+            json.dumps(
+                {
+                    "total_cost": report.total_cost,
+                    "total_calls": report.total_calls,
+                    "daily_average": report.daily_average,
+                    "forecast": report.budget_forecast,
+                    "suggestions": [
+                        {
+                            "category": s.category,
+                            "description": s.description,
+                            "saving": s.estimated_saving,
+                            "priority": s.priority,
+                        }
+                        for s in report.suggestions
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
         print(report.to_markdown())
 

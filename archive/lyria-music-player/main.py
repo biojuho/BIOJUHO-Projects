@@ -31,13 +31,15 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--prompt", "-p",
+        "--prompt",
+        "-p",
         type=str,
         default="ambient electronic",
         help="음악 스타일 프롬프트 (기본: 'ambient electronic')",
     )
     parser.add_argument(
-        "--weight", "-w",
+        "--weight",
+        "-w",
         type=float,
         default=1.0,
         help="프롬프트 가중치 (기본: 1.0)",
@@ -49,19 +51,22 @@ def parse_args() -> argparse.Namespace:
         help="BPM 템포 (기본: 120)",
     )
     parser.add_argument(
-        "--temperature", "-t",
+        "--temperature",
+        "-t",
         type=float,
         default=1.0,
         help="생성 다양성 temperature (기본: 1.0, 범위: 0.0~2.0)",
     )
     parser.add_argument(
-        "--duration", "-d",
+        "--duration",
+        "-d",
         type=int,
         default=30,
         help="녹음 시간 (초, 기본: 30)",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=str,
         default=None,
         help="출력 WAV 파일명 (기본: lyria_YYYYMMDD_HHMMSS.wav)",

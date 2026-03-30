@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
 
+from env_loader import load_backend_env
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-
-from env_loader import load_backend_env
 
 # Load the backend-local .env before resolving DATABASE_URL so local uvicorn runs
 # do not silently pin themselves to SQLite during module import.

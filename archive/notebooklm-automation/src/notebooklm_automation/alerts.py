@@ -104,6 +104,7 @@ def _format_message(emoji: str, level: str, title: str, details: dict | None) ->
 #  Channel Implementations
 # ──────────────────────────────────────────────────
 
+
 async def _send_slack(webhook_url: str, message: str) -> bool:
     """Send via Slack Incoming Webhook."""
     try:

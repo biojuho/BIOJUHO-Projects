@@ -71,10 +71,14 @@ class AudioWriter:
         try:
             result = subprocess.run(
                 [
-                    "ffmpeg", "-y",
-                    "-i", str(self.wav_path),
-                    "-codec:a", "libmp3lame",
-                    "-qscale:a", "2",       # 고품질 VBR
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    str(self.wav_path),
+                    "-codec:a",
+                    "libmp3lame",
+                    "-qscale:a",
+                    "2",  # 고품질 VBR
                     str(mp3_path),
                 ],
                 capture_output=True,

@@ -2,10 +2,10 @@
 BioLinker - Agent Router
 AI 에이전트 엔드포인트 (Deep Research, Content, YouTube, Literature Review)
 """
-from fastapi import APIRouter, HTTPException, Body, Depends, Header, Request
 
-from services.logging_config import get_logger
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from limiter import limiter
+from services.logging_config import get_logger
 
 log = get_logger("biolinker.routers.agent")
 

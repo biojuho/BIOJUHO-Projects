@@ -39,14 +39,14 @@ const CanvaSearchDesigns: React.FC = () => {
 
   const handleDesignClick = (design: Design) => {
     const url = design.urls?.edit_url || design.urls?.view_url;
-    
+
     if (window.parent && window.parent.postMessage) {
       window.parent.postMessage({
         type: 'canva-design-clicked',
-        data: { 
-          designId: design.id, 
+        data: {
+          designId: design.id,
           url,
-          design 
+          design
         }
       }, '*');
     }
@@ -78,7 +78,7 @@ const CanvaSearchDesigns: React.FC = () => {
   return (
     <div className="rounded-xl">
       <h4 className="text-xl font-bold text-gray-900 mb-4">Search results</h4>
-      
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {designs.map((design) => (
           <div
@@ -121,11 +121,3 @@ const CanvaSearchDesigns: React.FC = () => {
 };
 
 export default CanvaSearchDesigns;
-
-
-
-
-
-
-
-

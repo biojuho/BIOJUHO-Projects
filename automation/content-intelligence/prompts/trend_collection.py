@@ -35,9 +35,7 @@ def build_trend_prompt(
         ),
     }
 
-    name, specifics = platform_specifics.get(
-        platform, (platform, "- 해당 플랫폼의 주요 트렌드")
-    )
+    name, specifics = platform_specifics.get(platform, (platform, "- 해당 플랫폼의 주요 트렌드"))
 
     return f"""\
 [작업]

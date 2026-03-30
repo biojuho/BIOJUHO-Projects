@@ -114,7 +114,9 @@ class ChainOfThoughtEngine:
                 if sim >= consensus_threshold:
                     log.info(
                         "CoT early stop: 2/%d samples agree (sim=%.2f >= threshold=%.2f)",
-                        n_samples, sim, consensus_threshold,
+                        n_samples,
+                        sim,
+                        consensus_threshold,
                     )
                     early_stopped = True
                     break
@@ -123,10 +125,9 @@ class ChainOfThoughtEngine:
         n = len(sample_texts)
         consensus_scores = []
         for idx in range(n):
-            avg_sim = sum(
-                _text_similarity(sample_texts[idx], sample_texts[j])
-                for j in range(n) if j != idx
-            ) / max(n - 1, 1)
+            avg_sim = sum(_text_similarity(sample_texts[idx], sample_texts[j]) for j in range(n) if j != idx) / max(
+                n - 1, 1
+            )
             consensus_scores.append(avg_sim)
 
         # Select the response with highest average consensus
@@ -188,10 +189,9 @@ class ChainOfThoughtEngine:
         n = len(sample_texts)
         consensus_scores = []
         for idx in range(n):
-            avg_sim = sum(
-                _text_similarity(sample_texts[idx], sample_texts[j])
-                for j in range(n) if j != idx
-            ) / max(n - 1, 1)
+            avg_sim = sum(_text_similarity(sample_texts[idx], sample_texts[j]) for j in range(n) if j != idx) / max(
+                n - 1, 1
+            )
             consensus_scores.append(avg_sim)
 
         best_idx = max(range(n), key=lambda i: consensus_scores[i])

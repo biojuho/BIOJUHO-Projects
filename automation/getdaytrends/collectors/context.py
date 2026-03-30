@@ -8,14 +8,14 @@ import asyncio
 import time
 import urllib.parse
 import xml.etree.ElementTree as ET
+from datetime import UTC
 
 import httpx
+from loguru import logger as log
 
 from config import AppConfig
 from models import MultiSourceContext, RawTrend, TrendSource
 from utils import run_async
-
-from loguru import logger as log
 
 # Timeout settings (from scraper)
 _DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=6.0)
@@ -33,12 +33,14 @@ _COMMON_HEADERS = {
 def _resolve_timeout(timeout: httpx.Timeout | float | None) -> httpx.Timeout | float:
     return _SHORT_TIMEOUT if timeout is None else timeout
 
+
 # [v6.1] RSS pubDate 파싱 헬퍼
 def _parse_rss_date(date_str: str | None) -> "datetime | None":
     """RSS pubDate (RFC 2822) → datetime. 파싱 실패 시 None."""
     if not date_str:
         return None
     from email.utils import parsedate_to_datetime
+
     try:
         return parsedate_to_datetime(date_str.strip())
     except Exception:
@@ -47,14 +49,14 @@ def _parse_rss_date(date_str: str | None) -> "datetime | None":
 
 def _format_news_age(date_str: str | None) -> str:
     """pubDate → '어제', '2시간 전' 등 사람 읽기용 문자열."""
-    from datetime import datetime as _dt, timezone
+    from datetime import datetime as _dt
+
     dt = _parse_rss_date(date_str)
     if not dt:
         return ""
-    now = _dt.now(timezone.utc)
+    now = _dt.now(UTC)
     if dt.tzinfo is None:
-        from datetime import timezone as _tz
-        dt = dt.replace(tzinfo=_tz.utc)
+        dt = dt.replace(tzinfo=UTC)
     delta = now - dt
     hours = delta.total_seconds() / 3600
     if hours < 1:
@@ -63,6 +65,7 @@ def _format_news_age(date_str: str | None) -> str:
         return f"{int(hours)}시간 전"
     else:
         return f"{int(hours / 24)}일 전"
+
 
 _COMMON_HEADERS = {
     "User-Agent": (
@@ -73,10 +76,10 @@ _COMMON_HEADERS = {
 }
 
 
-
 # ══════════════════════════════════════════════════════
 #  Source 3: X (Twitter) API v2
 # ══════════════════════════════════════════════════════
+
 
 def _is_similar_keyword(new_keyword: str, existing: set[str]) -> bool:
     """키워드 유사도 비교: 부분 문자열 매칭으로 중복 판단."""
@@ -102,6 +105,7 @@ async def _async_fetch_x_via_twikit_or_jina(
     # Phase 1: Twikit (비공식 API — 무료, 구조화된 데이터)
     try:
         from x_client import is_available, search_tweets_formatted
+
         if is_available():
             result = await search_tweets_formatted(keyword, count=10)
             if result and len(result) > 30:
@@ -149,10 +153,7 @@ def _check_rate_limit(headers: "httpx.Headers") -> None:
         try:
             if int(remaining) <= 3:
                 reset_in = int(reset) - int(time.time()) if reset else "?"
-                log.warning(
-                    f"[X API] 레이트 리밋 임박: {remaining}/{limit} 남음, "
-                    f"{reset_in}초 후 초기화"
-                )
+                log.warning(f"[X API] 레이트 리밋 임박: {remaining}/{limit} 남음, " f"{reset_in}초 후 초기화")
         except (ValueError, TypeError):
             pass
 
@@ -175,10 +176,7 @@ async def _async_fetch_twitter_trends(
         return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
     # 품질 필터 강화: 리트윗/인용/스팸 제외, 좋아요 3개 이상
-    query_str = (
-        f"{keyword} -is:retweet -is:quote -is:nullcast "
-        "lang:ko min_faves:3"
-    )
+    query_str = f"{keyword} -is:retweet -is:quote -is:nullcast " "lang:ko min_faves:3"
     encoded_query = urllib.parse.quote(query_str)
     url = (
         "https://api.twitter.com/2/tweets/search/recent"
@@ -201,7 +199,7 @@ async def _async_fetch_twitter_trends(
             return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
         if resp.status_code == 403:
-            log.debug(f"[X API] 검색 권한 없음 (Basic 티어 미지원). Jina 폴백.")
+            log.debug("[X API] 검색 권한 없음 (Basic 티어 미지원). Jina 폴백.")
             return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
         resp.raise_for_status()
@@ -216,11 +214,7 @@ async def _async_fetch_twitter_trends(
         # 참여도 기반 정렬 (좋아요 + RT×2 + 인용×1.5)
         for t in tweets:
             m = t.get("public_metrics", {})
-            t["_eng"] = (
-                m.get("like_count", 0)
-                + m.get("retweet_count", 0) * 2
-                + m.get("quote_count", 0)
-            )
+            t["_eng"] = m.get("like_count", 0) + m.get("retweet_count", 0) * 2 + m.get("quote_count", 0)
         tweets.sort(key=lambda t: t["_eng"], reverse=True)
 
         summaries = []
@@ -234,6 +228,7 @@ async def _async_fetch_twitter_trends(
             if raw_ts:
                 try:
                     from datetime import datetime, timedelta, timezone
+
                     dt_utc = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
                     dt_local = dt_utc.astimezone(timezone(timedelta(hours=9)))  # KST
                     time_label = dt_local.strftime("%m/%d %H:%M")
@@ -257,15 +252,14 @@ def fetch_twitter_trends(keyword: str, bearer_token: str = "") -> str:
     return run_async(_async_fetch_twitter_trends_standalone(keyword, bearer_token))
 
 
-async def _async_fetch_twitter_trends_standalone(
-    keyword: str, bearer_token: str = ""
-) -> str:
+async def _async_fetch_twitter_trends_standalone(keyword: str, bearer_token: str = "") -> str:
     """독립 세션으로 X 트렌드 수집 (단독 호출용)."""
     async with httpx.AsyncClient() as session:
         return await _async_fetch_twitter_trends(session, keyword, bearer_token)
 
 
 # ── X 포스팅 (OAuth 2.0 유저 컨텍스트) ──────────────────
+
 
 async def post_to_x_async(
     content: str,
@@ -296,9 +290,7 @@ async def post_to_x_async(
 
     async def _do_post(sess: httpx.AsyncClient) -> dict:
         try:
-            resp = await sess.post(
-                url, headers=headers, json=payload, timeout=_SHORT_TIMEOUT
-            )
+            resp = await sess.post(url, headers=headers, json=payload, timeout=_SHORT_TIMEOUT)
             body = resp.json()
             if resp.status_code in (200, 201):
                 tweet_id = body.get("data", {}).get("id", "")
@@ -322,9 +314,11 @@ def post_to_x(content: str, access_token: str) -> dict:
     """X 트윗 게시 (동기 래퍼)."""
     return run_async(post_to_x_async(content, access_token))
 
+
 # ══════════════════════════════════════════════════════
 #  Source 4: Reddit (Public JSON API)
 # ══════════════════════════════════════════════════════
+
 
 async def _async_fetch_reddit_trends(
     session: httpx.AsyncClient,
@@ -362,9 +356,11 @@ async def _async_fetch_reddit_trends_standalone(keyword: str) -> str:
     async with httpx.AsyncClient() as session:
         return await _async_fetch_reddit_trends(session, keyword)
 
+
 # ══════════════════════════════════════════════════════
 #  Source 5: Google News RSS (컨텍스트용)
 # ══════════════════════════════════════════════════════
+
 
 async def _async_fetch_google_news_trends(
     session: httpx.AsyncClient,
@@ -405,6 +401,7 @@ async def _async_fetch_google_news_trends(
 
     return " | ".join(insights) if insights else "관련 뉴스 없음"
 
+
 def _calc_quality_score(text: str) -> float:
     """
     컨텍스트 텍스트 기반 품질 점수 (0.0~1.0).
@@ -430,6 +427,7 @@ async def _async_fetch_google_news_trends_standalone(keyword: str) -> str:
     async with httpx.AsyncClient() as session:
         return await _async_fetch_google_news_trends(session, keyword)
 
+
 async def _async_fetch_single_source(
     session: httpx.AsyncClient,
     keyword: str,
@@ -440,10 +438,11 @@ async def _async_fetch_single_source(
     timeout_override: httpx.Timeout | float | None = None,
 ) -> tuple[str, str, str]:
     """단일 소스 수집 (비동기). 소스 품질 메트릭 기록 포함.
-    
+
     timeout_override: B-3 동적 타임아웃. None이면 기본 _SHORT_TIMEOUT 사용.
     """
     import time
+
     t0 = time.perf_counter()
     effective_timeout = _resolve_timeout(timeout_override)
     result_text = ""
@@ -472,9 +471,8 @@ async def _async_fetch_single_source(
         latency_ms = (time.perf_counter() - t0) * 1000
         quality_score = _calc_quality_score(result_text) if success else 0.0
         from db import record_source_quality
-        await record_source_quality(
-            conn, source_name, success, latency_ms, 1 if success else 0, quality_score
-        )
+
+        await record_source_quality(conn, source_name, success, latency_ms, 1 if success else 0, quality_score)
 
     return keyword, source_name, result_text
 
@@ -500,16 +498,14 @@ async def _async_collect_contexts(
     if conn is not None and getattr(config, "enable_source_quality_tracking", True):
         try:
             from db import get_source_quality_summary
+
             quality_summary = await get_source_quality_summary(conn, days=7)
             for src_name, stats in quality_summary.items():
                 avg_quality = stats.get("avg_quality_score", 0.5)
                 success_rate = stats.get("success_rate", 100.0)
                 if avg_quality < 0.3 and src_name in sources:
                     skip_sources.add(src_name)
-                    log.info(
-                        f"  [B-3 품질 필터] '{src_name}' 소스 스킵 "
-                        f"(평균 품질={avg_quality:.2f} < 0.3)"
-                    )
+                    log.info(f"  [B-3 품질 필터] '{src_name}' 소스 스킵 " f"(평균 품질={avg_quality:.2f} < 0.3)")
                 elif src_name in sources:
                     # 동적 타임아웃: 저품질→빠른 포기, 고품질→여유롭게
                     if avg_quality >= 0.7 and success_rate >= 80:
@@ -545,7 +541,11 @@ async def _async_collect_contexts(
     ) -> tuple[str, str, str]:
         async with semaphore:
             return await _async_fetch_single_source(
-                sess, keyword, source, bearer_token, extra_news,
+                sess,
+                keyword,
+                source,
+                bearer_token,
+                extra_news,
                 conn=conn if getattr(config, "enable_source_quality_tracking", True) else None,
                 timeout_override=source_timeouts.get(source),
             )
@@ -555,13 +555,15 @@ async def _async_collect_contexts(
         for trend in raw_trends:
             extra_news = extra_news_map.get(trend.name, "")
             for source in active_sources:
-                tasks.append(_limited_fetch(
-                    sess,
-                    trend.name,
-                    source,
-                    config.twitter_bearer_token,
-                    extra_news if source == "news" else "",
-                ))
+                tasks.append(
+                    _limited_fetch(
+                        sess,
+                        trend.name,
+                        source,
+                        config.twitter_bearer_token,
+                        extra_news if source == "news" else "",
+                    )
+                )
         return await asyncio.gather(*tasks, return_exceptions=True)
 
     # O1-1: 제공된 세션 재사용, 없으면 독립 세션 생성
@@ -587,6 +589,7 @@ async def _async_collect_contexts(
         # [Phase 4] Scrapling 뉴스 보강 — RSS 인사이트가 부족하면 직접 스크래핑
         try:
             from news_scraper import enrich_news_context
+
             news_insight = enrich_news_context(keyword, news_insight)
         except ImportError:
             pass  # Scrapling 미설치 시 기존 동작 유지
@@ -601,9 +604,11 @@ async def _async_collect_contexts(
 
     return contexts
 
+
 # ══════════════════════════════════════════════════════
 #  v15.0 Phase C: Google Trends Related Queries
 # ══════════════════════════════════════════════════════
+
 
 async def _async_fetch_google_trends_related(
     session: httpx.AsyncClient,
@@ -615,15 +620,15 @@ async def _async_fetch_google_trends_related(
     반환: {trend_name: [related_query_1, related_query_2, ...]}
     """
     result: dict[str, list[str]] = {}
-    
+
     for trend in trends:
         if trend.source != TrendSource.GOOGLE_TRENDS:
             continue
-        
+
         headlines = (trend.extra or {}).get("news_headlines", [])
         if headlines:
             result[trend.name] = list(headlines)
-    
+
     return result
 
 
@@ -637,11 +642,8 @@ async def _async_fetch_google_suggest(
     반환: 추천 검색어 리스트
     """
     encoded = urllib.parse.quote(query)
-    url = (
-        f"https://suggestqueries.google.com/complete/search"
-        f"?client=firefox&q={encoded}&hl={language}&gl={country}"
-    )
-    
+    url = f"https://suggestqueries.google.com/complete/search" f"?client=firefox&q={encoded}&hl={language}&gl={country}"
+
     try:
         async with httpx.AsyncClient() as session:
             resp = await session.get(
@@ -651,6 +653,7 @@ async def _async_fetch_google_suggest(
             )
             resp.raise_for_status()
             import json
+
             data = json.loads(resp.text)
             # Firefox 형식: [query, [suggestion1, suggestion2, ...]]
             if isinstance(data, list) and len(data) >= 2:

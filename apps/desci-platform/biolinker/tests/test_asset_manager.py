@@ -1,12 +1,12 @@
 """
 Unit tests for asset upload parsing and indexing behavior.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
-
 import services.asset_manager as asset_manager_module
 
 

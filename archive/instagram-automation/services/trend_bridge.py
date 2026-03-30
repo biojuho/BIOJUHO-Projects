@@ -74,21 +74,25 @@ class TrendBridge:
                 cat = row["category"] or ""
                 if cat.lower() in [c.lower() for c in exclude]:
                     continue
-                topics.append({
-                    "keyword": row["keyword"],
-                    "viral_potential": row["viral_potential"],
-                    "category": cat,
-                    "suggested_angles": row["suggested_angles"] or "",
-                    "why_trending": row["why_trending"] or "",
-                    "relevance_score": row["relevance_score"] or 0,
-                    "sentiment": row["sentiment"] or "neutral",
-                })
+                topics.append(
+                    {
+                        "keyword": row["keyword"],
+                        "viral_potential": row["viral_potential"],
+                        "category": cat,
+                        "suggested_angles": row["suggested_angles"] or "",
+                        "why_trending": row["why_trending"] or "",
+                        "relevance_score": row["relevance_score"] or 0,
+                        "sentiment": row["sentiment"] or "neutral",
+                    }
+                )
                 if len(topics) >= max_topics:
                     break
 
             logger.info(
                 "Fetched %d trending topics (from %d rows, min_viral=%d)",
-                len(topics), len(rows), min_viral_score,
+                len(topics),
+                len(rows),
+                min_viral_score,
             )
             return topics
 

@@ -1,6 +1,5 @@
-import requests
 import pytest
-
+import requests
 
 API_URL = "http://localhost:8001/api/agent/youtube"
 TEST_VIDEO_URL = "https://www.youtube.com/watch?v=x7X9w_GIm1s"

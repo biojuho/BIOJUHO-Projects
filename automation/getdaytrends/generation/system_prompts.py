@@ -274,6 +274,7 @@ def _system_threads_joongyeon() -> str:
 
 # ── 기존 프롬프트 빌더 (tone 분기 포함) ──────────────────
 
+
 def _system_tweets(tone: str) -> str:
     if tone == "joongyeon":
         return _system_tweets_joongyeon()
@@ -281,7 +282,7 @@ def _system_tweets(tone: str) -> str:
         f"X 트렌드 카피라이터. 말투: {tone}\n"
         "답글 유도하는 280자(한글 140자) 이내 트윗 작성. 공감/밈/질문/데이터 활용.\n"
         "첫 문장에 훅 필수. 고유한 시각·인사이트를 담을 것. 감정적 과장·낚시성 표현 금지.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"topic":"주제","tweets":['
         '{"type":"공감 유도형","content":"...","best_posting_time":"오전 8-10시","expected_engagement":"높음|보통|낮음","reasoning":"효과적인 이유 1문장"},'
         '{"type":"꿀팁형","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},'
@@ -299,7 +300,7 @@ def _system_long_form(tone: str, editorial_profile: str = "classic") -> str:
     return (
         f"X Premium+ 장문 작가. 말투: {tone}\n"
         "이모지 소제목+번호 구조, 데이터 인용, 반직관적 해석, 강렬한 훅, CTA 마무리.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"posts":[{"type":"딥다이브 분석","content":"1500~2500자"},'
         '{"type":"핫테이크 오피니언","content":"1000~2000자"}]}'
     )
@@ -313,7 +314,7 @@ def _system_threads(tone: str, editorial_profile: str = "classic") -> str:
     return (
         f"Meta Threads 크리에이터. 말투: {tone}(더 캐주얼).\n"
         "500자 이내. 이모지+줄바꿈 적극사용. 친구 톤.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"posts":[{"type":"훅 포스트","content":"500자 이내"},'
         '{"type":"참여형 포스트","content":"500자 이내"}]}'
     )
@@ -333,13 +334,13 @@ def _system_thread(tone: str) -> str:
             "   - '그래서 뭐?'에 대한 답. 실용적 인사이트 or 도발적 결론\n"
             "   - 마지막 줄: RT하고 싶게 만드는 킥 한 줄\n\n"
             "[금지] 해시태그 절대 금지. 이모지 전체 최대 2개\n\n"
-            '[JSON만 출력]\n'
+            "[JSON만 출력]\n"
             '{"hook":"첫 트윗","tweets":["훅","마무리"]}'
         )
     return (
         f"X 바이럴 쓰레드 전문가. 말투: {tone}\n"
         "정확히 2개 트윗. 훅(~2500자)+마무리CTA(500~1000자). 데이터 인용.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"hook":"첫 트윗","tweets":["훅","마무리 CTA"]}'
     )
 
@@ -361,7 +362,7 @@ def _system_tweets_and_threads(tone: str) -> str:
             "1. 훅 포스트: [충격 팩트]\\n\\n근데 진짜 문제는 [반전]\\n\\n[킥]\n"
             "2. 참여형: [일상 공감]\\n\\n[자조]\\n\\n나만 이런 건지 궁금한데\n"
             "Threads는 정보보다 공감. 1인칭 필수. 감정 비중 높게.\n\n"
-            '[JSON만 출력]\n'
+            "[JSON만 출력]\n"
             '{"topic":"주제","tweets":['
             '{"type":"반전|데이터펀치|자조공감|실용꿀팁|도발질문","content":"200자 내외","best_posting_time":"오전 8-10시","expected_engagement":"높음|보통|낮음","reasoning":"이유 1문장"},'
             '{"type":"...","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},'
@@ -375,7 +376,7 @@ def _system_tweets_and_threads(tone: str) -> str:
     return (
         f"X+Threads 콘텐츠 크리에이터. 말투: {tone}\n"
         "한 주제에 대해 X 트윗 5종(280자)과 Threads 포스트 2종(500자)을 동시 작성.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"topic":"주제","tweets":['
         '{"type":"공감 유도형","content":"280자 이내","best_posting_time":"오전 8-10시","expected_engagement":"높음|보통|낮음","reasoning":"효과적인 이유 1문장"},'
         '{"type":"꿀팁형","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},'

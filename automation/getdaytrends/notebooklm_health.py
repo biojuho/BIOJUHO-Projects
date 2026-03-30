@@ -15,10 +15,8 @@ Windows Task Scheduler 또는 cron에서 주기적으로 실행 가능.
 import asyncio
 import json
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger as log
 
@@ -70,8 +68,11 @@ def check_auth_status() -> dict:
     try:
         proc = subprocess.run(
             ["notebooklm", "auth", "check", "--test"],
-            capture_output=True, text=True, timeout=30,
-            encoding="utf-8", errors="replace",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace",
             env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
         )
         result["authenticated"] = proc.returncode == 0
@@ -95,6 +96,7 @@ def get_session_cookies_count() -> int:
 # ──────────────────────────────────────────────────
 #  Auth Refresh — 자동 갱신
 # ──────────────────────────────────────────────────
+
 
 def refresh_auth(timeout: int = 120) -> dict:
     """
@@ -129,8 +131,12 @@ def refresh_auth(timeout: int = 120) -> dict:
         log.info("[Auth Refresh] 1차 시도: reuse-session")
         proc = subprocess.run(
             ["notebooklm", "auth", "login", "--reuse-session"],
-            capture_output=True, text=True, timeout=timeout,
-            encoding="utf-8", errors="replace", env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
         )
         if proc.returncode == 0:
             result["success"] = True
@@ -153,8 +159,12 @@ def refresh_auth(timeout: int = 120) -> dict:
         log.info("[Auth Refresh] 2차 시도: new session (headless)")
         proc = subprocess.run(
             ["notebooklm", "auth", "login"],
-            capture_output=True, text=True, timeout=timeout,
-            encoding="utf-8", errors="replace", env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
         )
         if proc.returncode == 0:
             result["success"] = True
@@ -200,16 +210,12 @@ def proactive_refresh() -> dict:
     # 갱신 불필요
     if not auth["needs_refresh"] and auth["authenticated"]:
         log.debug(
-            f"[Proactive Refresh] 세션 정상 "
-            f"(나이: {auth['age_hours']}h, 임계: {SESSION_REFRESH_THRESHOLD_HOURS}h)"
+            f"[Proactive Refresh] 세션 정상 " f"(나이: {auth['age_hours']}h, 임계: {SESSION_REFRESH_THRESHOLD_HOURS}h)"
         )
         return result
 
     # 갱신 시도
-    log.info(
-        f"[Proactive Refresh] 갱신 필요 — "
-        f"나이: {auth['age_hours']}h, 인증: {auth['authenticated']}"
-    )
+    log.info(f"[Proactive Refresh] 갱신 필요 — " f"나이: {auth['age_hours']}h, 인증: {auth['authenticated']}")
     refresh = refresh_auth()
     result["refresh_result"] = refresh
 
@@ -238,8 +244,8 @@ def send_auth_alert(error_message: str = "") -> bool:
         bool: 하나 이상의 채널에 성공적으로 발송되었으면 True
     """
     try:
-        from config import AppConfig
         from alerts import send_alert
+        from config import AppConfig
 
         config = AppConfig.from_env()
 
@@ -282,6 +288,7 @@ def send_auth_alert(error_message: str = "") -> bool:
 #  Refresh History — 이력 관리
 # ──────────────────────────────────────────────────
 
+
 def _record_refresh_history(result: dict):
     """갱신 이력을 JSON 파일에 추가 기록."""
     try:
@@ -290,9 +297,7 @@ def _record_refresh_history(result: dict):
         history = []
         if REFRESH_HISTORY_FILE.exists():
             try:
-                history = json.loads(
-                    REFRESH_HISTORY_FILE.read_text(encoding="utf-8")
-                )
+                history = json.loads(REFRESH_HISTORY_FILE.read_text(encoding="utf-8"))
                 if not isinstance(history, list):
                     history = []
             except (json.JSONDecodeError, Exception):
@@ -316,9 +321,7 @@ def get_refresh_history(limit: int = 10) -> list[dict]:
     if not REFRESH_HISTORY_FILE.exists():
         return []
     try:
-        history = json.loads(
-            REFRESH_HISTORY_FILE.read_text(encoding="utf-8")
-        )
+        history = json.loads(REFRESH_HISTORY_FILE.read_text(encoding="utf-8"))
         return history[-limit:] if isinstance(history, list) else []
     except Exception:
         return []
@@ -327,6 +330,7 @@ def get_refresh_history(limit: int = 10) -> list[dict]:
 # ──────────────────────────────────────────────────
 #  Health Check — 종합 상태
 # ──────────────────────────────────────────────────
+
 
 async def health_check(verbose: bool = False) -> dict:
     """
@@ -356,8 +360,11 @@ async def health_check(verbose: bool = False) -> dict:
     try:
         proc = subprocess.run(
             ["notebooklm", "list", "--json"],
-            capture_output=True, text=True, timeout=30,
-            encoding="utf-8", errors="replace",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace",
             env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
         )
         if proc.returncode == 0:
@@ -386,7 +393,7 @@ async def health_check(verbose: bool = False) -> dict:
 
     if verbose:
         print(f"\n{'='*50}")
-        print(f"  NotebookLM Health Check")
+        print("  NotebookLM Health Check")
         print(f"  Timestamp: {result['timestamp']}")
         print(f"  Auth: {'OK' if result['auth']['authenticated'] else 'FAIL'}")
         print(f"  Session Age: {result['auth']['age_hours']}h")
@@ -413,6 +420,7 @@ def _log_health(result: dict):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="NotebookLM Health Check & Auth Refresh")
     parser.add_argument("--verbose", "-v", action="store_true", help="상세 출력")
     parser.add_argument("--json", action="store_true", help="JSON 출력")

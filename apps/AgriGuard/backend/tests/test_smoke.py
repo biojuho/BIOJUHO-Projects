@@ -2,6 +2,7 @@
 AgriGuard Backend Smoke Tests
 Tests core API endpoints and seed_db functionality.
 """
+
 import json
 import os
 import sqlite3
@@ -10,15 +11,18 @@ import tempfile
 
 backend_dir = os.path.join(os.path.dirname(__file__), "..")
 
+
 def test_imports():
     """Verify all core modules can be imported without error."""
     result = subprocess.run(["python", "-c", "import models, database, seed_db"], cwd=backend_dir)
     assert result.returncode == 0
 
+
 def test_seed_db_creates_data():
     """Run seed_db and verify data counts."""
     result = subprocess.run(["python", "seed_db.py"], cwd=backend_dir, capture_output=True)
     assert result.returncode == 0
+
 
 def test_dashboard_summary_data_shape():
     """Verify seed data can produce a valid dashboard summary."""
@@ -45,7 +49,7 @@ def test_qr_event_summary_funnel_metrics():
     code = """
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 tmpdir = tempfile.mkdtemp()
 db_path = os.path.join(tmpdir, "qr-events-smoke.db")
@@ -59,7 +63,7 @@ from main import get_qr_event_summary
 initialize_database()
 db = SessionLocal()
 try:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     db.add_all([
         models.QRScanEvent(session_id="s1", event_type="scan_start", occurred_at=now, variant_id="qr_page_v2"),
         models.QRScanEvent(session_id="s1", event_type="scan_failure", occurred_at=now, variant_id="qr_page_v2", error_code="camera_denied"),
@@ -116,14 +120,9 @@ def test_run_migrations_script_applies_head_revision():
         assert result.returncode == 0, result.stderr or result.stdout
 
         with sqlite3.connect(db_path) as connection:
-            revision = connection.execute(
-                "SELECT version_num FROM alembic_version"
-            ).fetchone()
+            revision = connection.execute("SELECT version_num FROM alembic_version").fetchone()
             tables = {
-                row[0]
-                for row in connection.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                ).fetchall()
+                row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             }
 
         assert revision == ("0002_add_qr_scan_events",)

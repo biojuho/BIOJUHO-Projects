@@ -105,7 +105,9 @@ def summarize_case_results(case_results: list[dict[str, Any]]) -> dict[str, Any]
     report_count = sum(1 for case in case_results if case["report_id"])
     quality_counts = Counter(str(case["quality_state"] or "missing") for case in case_results)
     status_counts = Counter(str(case["status"] or "unknown") for case in case_results)
-    generation_modes = Counter(str(case["actual_generation_mode"] or "unknown") for case in case_results if case["report_id"])
+    generation_modes = Counter(
+        str(case["actual_generation_mode"] or "unknown") for case in case_results if case["report_id"]
+    )
     draft_sources = Counter(str(case["x_draft"]["source"] or "missing") for case in case_results)
 
     evidence_cases = [case for case in case_results if int(case["evidence"]["line_count"]) > 0]
@@ -114,16 +116,12 @@ def summarize_case_results(case_results: list[dict[str, Any]]) -> dict[str, Any]
     direct_ref_cases = sum(1 for case in evidence_cases if int(case["evidence"]["article_ref_count"]) > 0)
 
     fact_check_scores = [
-        float(case["fact_check_score"])
-        for case in case_results
-        if float(case["fact_check_score"]) > 0
+        float(case["fact_check_score"]) for case in case_results if float(case["fact_check_score"]) > 0
     ]
     mode_scored_cases = [case for case in case_results if case["expected_generation_mode"]]
     matched_modes = sum(1 for case in mode_scored_cases if case["mode_matches"])
     edit_needed_count = sum(
-        1
-        for case in case_results
-        if case["quality_state"] != "ok" or case["quality_warning_count"] > 0
+        1 for case in case_results if case["quality_state"] != "ok" or case["quality_warning_count"] > 0
     )
     x_fallback_count = sum(1 for case in case_results if bool(case["x_draft"]["is_fallback"]))
     insight_override_count = sum(1 for case in case_results if case["x_draft"]["source"] == "insight_generator")
@@ -148,22 +146,15 @@ def summarize_case_results(case_results: list[dict[str, Any]]) -> dict[str, Any]
         "evidence_coverage_ratio": round(tagged_evidence_lines / max(total_evidence_lines, 1), 4)
         if total_evidence_lines
         else None,
-        "direct_article_ref_rate": round(direct_ref_cases / max(len(evidence_cases), 1), 4)
-        if evidence_cases
-        else None,
+        "direct_article_ref_rate": round(direct_ref_cases / max(len(evidence_cases), 1), 4) if evidence_cases else None,
         "avg_fact_check_score": round(sum(fact_check_scores) / len(fact_check_scores), 4)
         if fact_check_scores
         else None,
-        "fact_check_coverage_rate": round(len(fact_check_scores) / max(report_count, 1), 4)
-        if report_count
-        else None,
+        "fact_check_coverage_rate": round(len(fact_check_scores) / max(report_count, 1), 4) if report_count else None,
         "prompt_mode_match_rate": round(matched_modes / max(len(mode_scored_cases), 1), 4)
         if mode_scored_cases
         else None,
-        "top_warnings": [
-            {"message": message, "count": count}
-            for message, count in warning_counter.most_common(10)
-        ],
+        "top_warnings": [{"message": message, "count": count} for message, count in warning_counter.most_common(10)],
     }
 
 

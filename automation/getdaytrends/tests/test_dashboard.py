@@ -1,8 +1,8 @@
 """Tests for C-3 dashboard enhancement endpoints."""
-import asyncio
+
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -31,6 +31,7 @@ def client(mock_db_conn):
 
     with patch("dashboard._get_conn", return_value=mock_db_conn):
         from dashboard import app
+
         with TestClient(app) as c:
             yield c
 
@@ -79,10 +80,14 @@ class TestC3SourceQuality:
     """GET /api/source/quality"""
 
     def test_returns_quality_data(self, client, mock_db_conn):
-        with patch("dashboard.get_source_quality_summary", new_callable=AsyncMock, return_value={
-            "twitter": {"success_rate": 0.85, "avg_latency_ms": 230},
-            "reddit": {"success_rate": 0.92, "avg_latency_ms": 180},
-        }):
+        with patch(
+            "dashboard.get_source_quality_summary",
+            new_callable=AsyncMock,
+            return_value={
+                "twitter": {"success_rate": 0.85, "avg_latency_ms": 230},
+                "reddit": {"success_rate": 0.92, "avg_latency_ms": 180},
+            },
+        ):
             resp = client.get("/api/source/quality")
             assert resp.status_code == 200
 

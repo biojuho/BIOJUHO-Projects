@@ -63,7 +63,7 @@ def resolve_prompt_mode(window_name: str, item_count: int) -> str:
     return PROMPT_VERSION
 
 
-def build_report_prompt(*, category: str, items: list["ContentItem"], window_name: str) -> tuple[str, str, str]:
+def build_report_prompt(*, category: str, items: list[ContentItem], window_name: str) -> tuple[str, str, str]:
     contract = get_category_contract(category)
     mode = resolve_prompt_mode(window_name, len(items))
     audiences = ", ".join(contract["audiences"])

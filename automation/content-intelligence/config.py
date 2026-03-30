@@ -41,14 +41,10 @@ class CIEConfig:
     project_name: str = os.getenv("CIE_PROJECT_NAME", "")
     project_core_message: str = os.getenv("CIE_PROJECT_MESSAGE", "")
     target_audience: str = os.getenv("CIE_TARGET_AUDIENCE", "")
-    project_fields: list[str] = field(
-        default_factory=lambda: _csv("CIE_PROJECT_FIELDS", "AI,LLM,자동화")
-    )
+    project_fields: list[str] = field(default_factory=lambda: _csv("CIE_PROJECT_FIELDS", "AI,LLM,자동화"))
 
     # ── 수집 설정 ──
-    platforms: list[str] = field(
-        default_factory=lambda: _csv("CIE_PLATFORMS", "x,threads,naver")
-    )
+    platforms: list[str] = field(default_factory=lambda: _csv("CIE_PLATFORMS", "x,threads,naver"))
     trend_top_n: int = int(os.getenv("CIE_TREND_TOP_N", "5"))
     collection_schedule: str = os.getenv("CIE_SCHEDULE", "weekly")
 
@@ -57,9 +53,7 @@ class CIEConfig:
 
     # ── 콘텐츠 생성 ──
     content_types: list[str] = field(
-        default_factory=lambda: _csv(
-            "CIE_CONTENT_TYPES", "x_post,threads_post,naver_blog"
-        )
+        default_factory=lambda: _csv("CIE_CONTENT_TYPES", "x_post,threads_post,naver_blog")
     )
     enable_qa_validation: bool = os.getenv("CIE_QA_ENABLED", "true").lower() == "true"
     qa_min_score: int = int(os.getenv("CIE_QA_MIN_SCORE", "70"))
@@ -84,12 +78,8 @@ class CIEConfig:
     )
 
     # ── v2.0: 발행 설정 ──
-    enable_notion_publish: bool = (
-        os.getenv("CIE_NOTION_PUBLISH", "false").lower() == "true"
-    )
-    enable_x_publish: bool = (
-        os.getenv("CIE_X_PUBLISH", "false").lower() == "true"
-    )
+    enable_notion_publish: bool = os.getenv("CIE_NOTION_PUBLISH", "false").lower() == "true"
+    enable_x_publish: bool = os.getenv("CIE_X_PUBLISH", "false").lower() == "true"
     x_min_qa_score: int = int(os.getenv("CIE_X_MIN_QA_SCORE", "75"))
     x_access_token: str = os.getenv("X_ACCESS_TOKEN", "")
     x_client_id: str = os.getenv("X_CLIENT_ID", "")
@@ -115,19 +105,12 @@ class CIEConfig:
     @property
     def can_publish_notion(self) -> bool:
         """Notion 발행 가능 여부."""
-        return bool(
-            self.enable_notion_publish
-            and self.notion_database_id
-            and self.notion_token
-        )
+        return bool(self.enable_notion_publish and self.notion_database_id and self.notion_token)
 
     @property
     def can_publish_x(self) -> bool:
         """X 발행 가능 여부."""
-        return bool(
-            self.enable_x_publish
-            and self.x_access_token
-        )
+        return bool(self.enable_x_publish and self.x_access_token)
 
     def summary(self) -> str:
         """설정 요약 출력."""

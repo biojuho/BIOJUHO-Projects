@@ -1,13 +1,10 @@
 """Tests for P2: External Trigger API and n8n integration."""
 
 import json
-import os
 import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -41,8 +38,6 @@ class TestTokenAuth:
         assert verify_token("anything") is False
 
     def test_verify_token_match(self, monkeypatch):
-        from services.external_trigger import EXTERNAL_API_TOKEN
-
         monkeypatch.setattr("services.external_trigger.EXTERNAL_API_TOKEN", "secret123")
         from services.external_trigger import verify_token
 
@@ -112,9 +107,7 @@ class TestExternalTriggerHandler:
         from services.external_trigger import TriggerPostRequest
 
         handler = self._make_handler()
-        req = TriggerPostRequest(
-            topic="Test", hashtags=["#custom1", "#custom2"]
-        )
+        req = TriggerPostRequest(topic="Test", hashtags=["#custom1", "#custom2"])
         result = handler.handle_post_trigger(req)
         assert result.success is True
 
@@ -164,17 +157,13 @@ class TestExternalTriggerResult:
     def test_auto_timestamp(self):
         from services.external_trigger import ExternalTriggerResult
 
-        result = ExternalTriggerResult(
-            success=True, action="test", message="ok"
-        )
+        result = ExternalTriggerResult(success=True, action="test", message="ok")
         assert result.timestamp != ""
 
     def test_model_dump(self):
         from services.external_trigger import ExternalTriggerResult
 
-        result = ExternalTriggerResult(
-            success=True, action="test", message="ok", data={"key": "val"}
-        )
+        result = ExternalTriggerResult(success=True, action="test", message="ok", data={"key": "val"})
         d = result.model_dump()
         assert d["success"] is True
         assert d["data"]["key"] == "val"
@@ -182,9 +171,7 @@ class TestExternalTriggerResult:
 
 class TestN8nWorkflow:
     def test_workflow_json_valid(self):
-        workflow_path = (
-            Path(__file__).resolve().parents[1] / "n8n_workflows" / "getdaytrends_bridge.json"
-        )
+        workflow_path = Path(__file__).resolve().parents[1] / "n8n_workflows" / "getdaytrends_bridge.json"
         assert workflow_path.exists()
         with open(workflow_path) as f:
             data = json.load(f)
@@ -193,9 +180,7 @@ class TestN8nWorkflow:
         assert len(data["nodes"]) >= 5
 
     def test_workflow_has_schedule_trigger(self):
-        workflow_path = (
-            Path(__file__).resolve().parents[1] / "n8n_workflows" / "getdaytrends_bridge.json"
-        )
+        workflow_path = Path(__file__).resolve().parents[1] / "n8n_workflows" / "getdaytrends_bridge.json"
         with open(workflow_path) as f:
             data = json.load(f)
         node_types = [n["type"] for n in data["nodes"]]

@@ -60,4 +60,3 @@ D:\AI 프로젝트\desci-platform\frontend\src\components\ui\Toast.jsx
 
 ✖ 11 problems (10 errors, 1 warning)
   0 errors and 1 warning potentially fixable with the `--fix` option.
-

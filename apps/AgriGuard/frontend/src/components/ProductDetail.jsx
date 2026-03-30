@@ -19,7 +19,7 @@ export default function ProductDetail() {
   const verificationTrackedRef = useRef(false);
   const verificationRetryTimerRef = useRef(null);
   const [verificationTrackAttempt, setVerificationTrackAttempt] = useState(0);
-  
+
   const [data, setData] = useState({
     product: null,
     history: [],
@@ -227,7 +227,7 @@ export default function ProductDetail() {
                 ID: <Badge variant="outline" className="font-mono text-sm">{product.id}</Badge>
               </p>
             </div>
-            
+
             <Card className="min-w-[200px]">
               <CardContent className="p-4">
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(product.qr_code)}&bgcolor=22C55E`} alt="QR Code" className="w-full rounded-lg mb-2 opacity-90 hover:opacity-100 transition-opacity" />
@@ -263,7 +263,7 @@ export default function ProductDetail() {
               </div>
             </div>
           </div>
-          
+
           {product.description && (
              <div className="mt-8">
                 <h3 className="text-lg font-semibold text-foreground mb-2">Description</h3>

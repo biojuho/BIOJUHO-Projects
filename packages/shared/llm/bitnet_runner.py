@@ -16,13 +16,11 @@ Environment Variables:
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger("shared.llm.bitnet")
 
@@ -90,7 +88,7 @@ def run_inference(
     system: str = "",
     messages: list[dict],
     max_tokens: int = 512,
-    temperature: Optional[float] = None,
+    temperature: float | None = None,
 ) -> dict:
     """Run BitNet inference and return result dict.
 
@@ -114,12 +112,18 @@ def run_inference(
     cmd = [
         "python",
         str(inference_script),
-        "-m", config["model_path"],
-        "-p", prompt,
-        "-n", str(max_tokens),
-        "-t", str(config["threads"]),
-        "-c", str(config["ctx_size"]),
-        "-temp", str(temp),
+        "-m",
+        config["model_path"],
+        "-p",
+        prompt,
+        "-n",
+        str(max_tokens),
+        "-t",
+        str(config["threads"]),
+        "-c",
+        str(config["ctx_size"]),
+        "-temp",
+        str(temp),
     ]
 
     log.info("BitNet inference: threads=%d, ctx=%d, max_tokens=%d", config["threads"], config["ctx_size"], max_tokens)
@@ -136,7 +140,7 @@ def run_inference(
             errors="replace",
         )
     except subprocess.TimeoutExpired as e:
-        raise RuntimeError(f"BitNet inference timed out after 120s") from e
+        raise RuntimeError("BitNet inference timed out after 120s") from e
 
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
@@ -174,15 +178,18 @@ def _extract_response(raw_output: str) -> str:
     content_lines: list[str] = []
     for line in lines:
         # Skip llama.cpp-style stats lines
-        if any(marker in line for marker in [
-            "llama_print_timings:",
-            "llm_load_print_meta:",
-            "main: ",
-            "sampling: ",
-            "generate: ",
-            "n_predict",
-            "tokens per second",
-        ]):
+        if any(
+            marker in line
+            for marker in [
+                "llama_print_timings:",
+                "llm_load_print_meta:",
+                "main: ",
+                "sampling: ",
+                "generate: ",
+                "n_predict",
+                "tokens per second",
+            ]
+        ):
             continue
         content_lines.append(line)
 
@@ -192,6 +199,6 @@ def _extract_response(raw_output: str) -> str:
     marker = "[Assistant]"
     idx = text.rfind(marker)
     if idx >= 0:
-        text = text[idx + len(marker):].strip()
+        text = text[idx + len(marker) :].strip()
 
     return text if text else raw_output.strip()

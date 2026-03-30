@@ -26,11 +26,12 @@ from loguru import logger as log
 # DeepEval 선택 의존성
 try:
     from deepeval.metrics import (
+        AnswerRelevancyMetric,
         FaithfulnessMetric,
         HallucinationMetric,
-        AnswerRelevancyMetric,
     )
     from deepeval.test_case import LLMTestCase
+
     DEEPEVAL_AVAILABLE = True
 except ImportError:
     DEEPEVAL_AVAILABLE = False
@@ -39,10 +40,11 @@ except ImportError:
 @dataclass
 class EvalResult:
     """품질 평가 결과."""
+
     passed: bool = True
-    hallucination_score: float = 1.0      # 0=환각 없음, 1=전부 환각
-    faithfulness_score: float = 1.0       # 0=불일치, 1=완전 일치
-    relevancy_score: float = 1.0          # 0=무관, 1=완전 관련
+    hallucination_score: float = 1.0  # 0=환각 없음, 1=전부 환각
+    faithfulness_score: float = 1.0  # 0=불일치, 1=완전 일치
+    relevancy_score: float = 1.0  # 0=무관, 1=완전 관련
     issues: list[str] = field(default_factory=list)
     details: dict = field(default_factory=dict)
 
@@ -50,6 +52,7 @@ class EvalResult:
 # ══════════════════════════════════════════════════════
 #  DeepEval 기반 평가
 # ══════════════════════════════════════════════════════
+
 
 def evaluate_content(
     generated_text: str,
@@ -96,8 +99,7 @@ def evaluate_content(
             result.hallucination_score = hallucination_metric.score or 0.0
             if not hallucination_metric.is_successful():
                 result.issues.append(
-                    f"환각 감지 (score={result.hallucination_score:.2f}, "
-                    f"threshold={hallucination_threshold})"
+                    f"환각 감지 (score={result.hallucination_score:.2f}, " f"threshold={hallucination_threshold})"
                 )
                 result.passed = False
             result.details["hallucination_reason"] = hallucination_metric.reason
@@ -113,8 +115,7 @@ def evaluate_content(
             result.faithfulness_score = faithfulness_metric.score or 0.0
             if not faithfulness_metric.is_successful():
                 result.issues.append(
-                    f"사실 불일치 (score={result.faithfulness_score:.2f}, "
-                    f"threshold={faithfulness_threshold})"
+                    f"사실 불일치 (score={result.faithfulness_score:.2f}, " f"threshold={faithfulness_threshold})"
                 )
                 result.passed = False
             result.details["faithfulness_reason"] = faithfulness_metric.reason
@@ -130,8 +131,7 @@ def evaluate_content(
             result.relevancy_score = relevancy_metric.score or 0.0
             if not relevancy_metric.is_successful():
                 result.issues.append(
-                    f"관련성 부족 (score={result.relevancy_score:.2f}, "
-                    f"threshold={relevancy_threshold})"
+                    f"관련성 부족 (score={result.relevancy_score:.2f}, " f"threshold={relevancy_threshold})"
                 )
                 result.passed = False
             result.details["relevancy_reason"] = relevancy_metric.reason
@@ -157,6 +157,7 @@ def evaluate_content(
 #  배치 평가 (파이프라인 통합용)
 # ══════════════════════════════════════════════════════
 
+
 def evaluate_batch(
     tweets: list[str],
     source_context: str,
@@ -164,10 +165,7 @@ def evaluate_batch(
     **kwargs,
 ) -> list[EvalResult]:
     """여러 트윗을 한 번에 평가."""
-    return [
-        evaluate_content(tweet, source_context, keyword, **kwargs)
-        for tweet in tweets
-    ]
+    return [evaluate_content(tweet, source_context, keyword, **kwargs) for tweet in tweets]
 
 
 def batch_pass_rate(results: list[EvalResult]) -> float:

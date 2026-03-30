@@ -1,15 +1,14 @@
-﻿"""
-NotebookLM API Server ??n8n ?곕룞??FastAPI ?섑띁
+"""
+NotebookLM API Server — n8n 연동용 FastAPI 서버
 =================================================
-n8n??HTTP Request ?몃뱶?먯꽌 ?몄텧?섏뿬
-NotebookLM ?명듃遺??앹꽦, AI 遺꾩꽍, ?명룷洹몃옒???깆쓣 ?먮룞 ?섑뻾.
+n8n의 HTTP Request 노드에서 호출하여
+NotebookLM 노트북 생성, AI 분석, 인포그래픽 생성을 자동 수행.
 
-?ㅽ뻾: uvicorn notebooklm_api:app --host 0.0.0.0 --port 8788
+실행: uvicorn notebooklm_api:app --host 0.0.0.0 --port 8788
 """
 
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -32,6 +31,7 @@ try:
     )
     from notebooklm_automation.publishers.notion import publish_to_notion
     from notebooklm_automation.publishers.twitter import post_tweet
+
     _NLM_AVAILABLE = True
 except ImportError:
     NOTEBOOKLM_AVAILABLE = False
@@ -59,6 +59,7 @@ except ImportError:
 # ??????????????????????????????????????????????????
 #  Models
 # ??????????????????????????????????????????????????
+
 
 class NotebookRequest(BaseModel):
     keyword: str = Field(..., description="Trend keyword")
@@ -184,6 +185,7 @@ class XPublishResponse(BaseModel):
     local_tweet_id: int = 0
     publish_record_error: str = ""
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Check NotebookLM availability on startup."""
@@ -191,20 +193,21 @@ async def lifespan(app: FastAPI):
         available = await check_availability()
         print(f"[NotebookLM API] availability: {'OK' if available else 'FAIL'}")
     else:
-        print('[NotebookLM API] notebooklm-py unavailable')
+        print("[NotebookLM API] notebooklm-py unavailable")
     yield
 
 
 app = FastAPI(
-    title='NotebookLM API',
-    description='NotebookLM helper API for n8n, content generation, research, and publishing',
-    version='2.0.0',
+    title="NotebookLM API",
+    description="NotebookLM helper API for n8n, content generation, research, and publishing",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
 # ── Prometheus Metrics (/metrics) ──────────────────────────
 try:
     from shared.metrics import setup_metrics
+
     setup_metrics(app, service_name="getdaytrends")
 except ImportError:
     pass
@@ -212,6 +215,7 @@ except ImportError:
 # ── Structured Logging (JSON for Loki) ─────────────────────
 try:
     from shared.structured_logging import setup_logging as setup_structured_logging
+
     setup_structured_logging(service_name="getdaytrends")
 except ImportError:
     pass
@@ -219,30 +223,31 @@ except ImportError:
 # ── Audit Log ──────────────────────────────────────────────
 try:
     from shared.audit import setup_audit_log
+
     setup_audit_log(app, service_name="getdaytrends")
 except ImportError:
     pass
 
 
-@app.get('/health', response_model=HealthResponse)
+@app.get("/health", response_model=HealthResponse)
 async def get_health():
     """Return API and auth health."""
     if health_check is None:
-        raise HTTPException(503, 'health_check is unavailable')
+        raise HTTPException(503, "health_check is unavailable")
     result = await health_check()
     return HealthResponse(
-        status=result['status'],
-        authenticated=result['auth']['authenticated'],
-        session_age_hours=result['auth']['age_hours'],
-        api_reachable=result['api_reachable'],
+        status=result["status"],
+        authenticated=result["auth"]["authenticated"],
+        session_age_hours=result["auth"]["age_hours"],
+        api_reachable=result["api_reachable"],
     )
 
 
-@app.post('/notebook', response_model=NotebookResponse)
+@app.post("/notebook", response_model=NotebookResponse)
 async def create_notebook(req: NotebookRequest):
     """Create a NotebookLM notebook for one trend."""
     if not NOTEBOOKLM_AVAILABLE or trend_to_notebook is None:
-        raise HTTPException(503, 'notebooklm-py unavailable')
+        raise HTTPException(503, "notebooklm-py unavailable")
 
     try:
         result = await trend_to_notebook(
@@ -255,20 +260,20 @@ async def create_notebook(req: NotebookRequest):
         )
         return NotebookResponse(**result)
     except Exception as exc:
-        raise HTTPException(500, f'Notebook creation failed: {exc}')
+        raise HTTPException(500, f"Notebook creation failed: {exc}")
 
 
-@app.post('/content-factory', response_model=ContentFactoryResponse)
+@app.post("/content-factory", response_model=ContentFactoryResponse)
 async def run_content_factory(req: ContentFactoryRequest):
     """Generate NotebookLM content artifacts and optional publishing outputs."""
     if not NOTEBOOKLM_AVAILABLE or content_factory is None:
-        raise HTTPException(503, 'notebooklm-py unavailable')
+        raise HTTPException(503, "notebooklm-py unavailable")
 
     try:
         urls = req.urls
         if not urls and auto_discover_sources is not None:
             sources = await auto_discover_sources(req.keyword, max_total=8)
-            urls = [source['url'] for source in sources]
+            urls = [source["url"] for source in sources]
 
         result = await content_factory(
             keyword=req.keyword,
@@ -277,45 +282,45 @@ async def run_content_factory(req: ContentFactoryRequest):
             context_text=req.context_text,
         )
 
-        notion_url = ''
+        notion_url = ""
         if req.notion_api_key and req.notion_database_id and publish_to_notion is not None:
             try:
                 notion_result = await publish_to_notion(
-                    factory_result={**result, 'keyword': req.keyword, 'category': req.category},
+                    factory_result={**result, "keyword": req.keyword, "category": req.category},
                     notion_api_key=req.notion_api_key,
                     database_id=req.notion_database_id,
                 )
-                notion_url = notion_result.get('notion_url', '')
+                notion_url = notion_result.get("notion_url", "")
             except Exception as exc:
-                print(f'[API] Notion publish failed, continuing: {exc}')
+                print(f"[API] Notion publish failed, continuing: {exc}")
 
         response = ContentFactoryResponse(**result, notion_url=notion_url)
         response_dict = response.model_dump()
 
-        if req.x_access_token and result.get('tweet_draft') and post_tweet is not None:
+        if req.x_access_token and result.get("tweet_draft") and post_tweet is not None:
             try:
-                x_result = await post_tweet(text=result['tweet_draft'], access_token=req.x_access_token)
-                if x_result.get('ok'):
-                    response_dict['tweet_url'] = f"https://x.com/i/status/{x_result['tweet_id']}"
+                x_result = await post_tweet(text=result["tweet_draft"], access_token=req.x_access_token)
+                if x_result.get("ok"):
+                    response_dict["tweet_url"] = f"https://x.com/i/status/{x_result['tweet_id']}"
             except Exception as exc:
-                print(f'[API] X publish failed, continuing: {exc}')
+                print(f"[API] X publish failed, continuing: {exc}")
 
         return response_dict
     except Exception as exc:
-        raise HTTPException(500, f'Content factory failed: {exc}')
+        raise HTTPException(500, f"Content factory failed: {exc}")
 
 
-@app.post('/research', response_model=ResearchResponse)
+@app.post("/research", response_model=ResearchResponse)
 async def run_research(req: ResearchRequest):
     """Run NotebookLM research mode."""
     if not NOTEBOOKLM_AVAILABLE or research_tool is None:
-        raise HTTPException(503, 'notebooklm-py unavailable')
+        raise HTTPException(503, "notebooklm-py unavailable")
 
     try:
         urls = req.urls
         if not urls and auto_discover_sources is not None:
             sources = await auto_discover_sources(req.topic, max_total=10)
-            urls = [source['url'] for source in sources]
+            urls = [source["url"] for source in sources]
         result = await research_tool(
             topic=req.topic,
             urls=urls,
@@ -324,20 +329,20 @@ async def run_research(req: ResearchRequest):
         )
         return ResearchResponse(**result)
     except Exception as exc:
-        raise HTTPException(500, f'Research failed: {exc}')
+        raise HTTPException(500, f"Research failed: {exc}")
 
 
-@app.post('/bio-analyze', response_model=BioAnalyzeResponse)
+@app.post("/bio-analyze", response_model=BioAnalyzeResponse)
 async def run_bio_analyze(req: BioAnalyzeRequest):
     """Run a biotech company analysis with NotebookLM."""
     if not NOTEBOOKLM_AVAILABLE or analyze_bio_company is None:
-        raise HTTPException(503, 'notebooklm-py unavailable')
+        raise HTTPException(503, "notebooklm-py unavailable")
 
     try:
         urls = req.urls
         if not urls and auto_discover_sources is not None:
             sources = await auto_discover_sources(req.company_name, max_total=8, include_academic=True)
-            urls = [source['url'] for source in sources]
+            urls = [source["url"] for source in sources]
         result = await analyze_bio_company(
             company_name=req.company_name,
             urls=urls,
@@ -345,14 +350,14 @@ async def run_bio_analyze(req: BioAnalyzeRequest):
         )
         return BioAnalyzeResponse(**result)
     except Exception as exc:
-        raise HTTPException(500, f'Bio analysis failed: {exc}')
+        raise HTTPException(500, f"Bio analysis failed: {exc}")
 
 
-@app.post('/publish-notion')
+@app.post("/publish-notion")
 async def run_publish_notion(req: NotionPublishRequest):
     """Publish a content-factory result to Notion."""
     if publish_to_notion is None:
-        raise HTTPException(503, 'Notion publisher unavailable')
+        raise HTTPException(503, "Notion publisher unavailable")
 
     try:
         return await publish_to_notion(
@@ -361,12 +366,10 @@ async def run_publish_notion(req: NotionPublishRequest):
             database_id=req.database_id,
         )
     except Exception as exc:
-        raise HTTPException(500, f'Notion publish failed: {exc}')
+        raise HTTPException(500, f"Notion publish failed: {exc}")
 
 
-async def _record_x_publish_result(
-    req: XPublishRequest, tweet_id: str
-) -> tuple[bool, int, str]:
+async def _record_x_publish_result(req: XPublishRequest, tweet_id: str) -> tuple[bool, int, str]:
     """Sync a successful X publish back to the local GetDayTrends database.
 
     Returns:
@@ -377,11 +380,10 @@ async def _record_x_publish_result(
 
     try:
         import aiosqlite
+
         from db import mark_tweet_posted
 
-        db_path = req.db_path or os.path.join(
-            os.path.dirname(__file__), "data", "getdaytrends.db"
-        )
+        db_path = req.db_path or os.path.join(os.path.dirname(__file__), "data", "getdaytrends.db")
         async with aiosqlite.connect(db_path) as conn:
             conn.row_factory = aiosqlite.Row
             resolved = await mark_tweet_posted(
@@ -399,77 +401,78 @@ async def _record_x_publish_result(
         return False, 0, str(exc)
 
 
-@app.post('/publish-x', response_model=XPublishResponse)
+@app.post("/publish-x", response_model=XPublishResponse)
 async def run_publish_x(req: XPublishRequest):
     """Publish a tweet to X and sync the local GetDayTrends row when possible."""
     if post_tweet is None:
-        raise HTTPException(503, 'X publisher unavailable')
+        raise HTTPException(503, "X publisher unavailable")
 
-    token = req.x_access_token or os.getenv('X_ACCESS_TOKEN', '')
+    token = req.x_access_token or os.getenv("X_ACCESS_TOKEN", "")
     if not token:
-        return XPublishResponse(ok=False, error='X_ACCESS_TOKEN missing')
+        return XPublishResponse(ok=False, error="X_ACCESS_TOKEN missing")
 
     if len(req.tweet_text) > 280:
-        return XPublishResponse(ok=False, error=f'Tweet exceeds 280 characters ({len(req.tweet_text)})')
+        return XPublishResponse(ok=False, error=f"Tweet exceeds 280 characters ({len(req.tweet_text)})")
 
     result = await post_tweet(text=req.tweet_text, access_token=token)
-    if result.get('ok'):
-        tweet_id = result.get('tweet_id', '')
+    if result.get("ok"):
+        tweet_id = result.get("tweet_id", "")
         publish_recorded, local_tweet_id, publish_record_error = await _record_x_publish_result(req, tweet_id)
         # Business metrics
         try:
             from shared.business_metrics import biz
+
             biz.tweet_published()
         except ImportError:
             pass
         return XPublishResponse(
             ok=True,
             tweet_id=tweet_id,
-            tweet_url=f'https://x.com/i/status/{tweet_id}',
+            tweet_url=f"https://x.com/i/status/{tweet_id}",
             publish_recorded=publish_recorded,
             local_tweet_id=local_tweet_id,
             publish_record_error=publish_record_error,
         )
 
-    return XPublishResponse(ok=False, error=result.get('error', 'Unknown X publish error'))
+    return XPublishResponse(ok=False, error=result.get("error", "Unknown X publish error"))
 
 
-@app.get('/auth/status')
+@app.get("/auth/status")
 async def get_auth_status():
     """Return auth status and recent refresh history."""
     if check_auth_status is None or get_refresh_history is None:
-        raise HTTPException(503, 'Auth helpers unavailable')
+        raise HTTPException(503, "Auth helpers unavailable")
     status = check_auth_status()
-    status['refresh_history'] = get_refresh_history(limit=5)
+    status["refresh_history"] = get_refresh_history(limit=5)
     return status
 
 
-@app.post('/auth/refresh', response_model=AuthRefreshResponse)
+@app.post("/auth/refresh", response_model=AuthRefreshResponse)
 async def run_auth_refresh():
     """Attempt an auth refresh immediately."""
     if refresh_auth is None or check_auth_status is None:
-        raise HTTPException(503, 'Auth refresh unavailable')
+        raise HTTPException(503, "Auth refresh unavailable")
     result = refresh_auth()
     auth_status = check_auth_status()
     return AuthRefreshResponse(
-        success=result['success'],
-        method=result['method'],
-        message=result['message'],
-        timestamp=result['timestamp'],
+        success=result["success"],
+        method=result["method"],
+        message=result["message"],
+        timestamp=result["timestamp"],
         auth_status=auth_status,
     )
 
 
-@app.post('/auth/proactive-refresh', response_model=ProactiveRefreshResponse)
+@app.post("/auth/proactive-refresh", response_model=ProactiveRefreshResponse)
 async def run_proactive_refresh():
     """Refresh auth only if the helper decides it is needed."""
     if proactive_refresh is None:
-        raise HTTPException(503, 'Proactive refresh unavailable')
+        raise HTTPException(503, "Proactive refresh unavailable")
     result = proactive_refresh()
     return ProactiveRefreshResponse(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host='0.0.0.0', port=8788)
+    uvicorn.run(app, host="0.0.0.0", port=8788)

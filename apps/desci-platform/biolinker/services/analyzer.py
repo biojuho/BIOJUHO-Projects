@@ -2,13 +2,16 @@
 BioLinker - RFP Analyzer Service
 LLM 기반 정부 과제 적합도 분석 엔진
 """
-import os
+
 import json
+import os
 import re
-from datetime import datetime
-from typing import Optional
 from pathlib import Path
+
+import structlog
 from dotenv import load_dotenv
+
+logger = structlog.get_logger(__name__)
 
 # 환경 변수 로드 (워크스페이스 루트 .env)
 _workspace_root = Path(__file__).resolve().parents[4]
@@ -18,12 +21,14 @@ load_dotenv(_workspace_root / ".env")
 # LLM Imports
 try:
     from langchain_openai import ChatOpenAI
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
 
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
+
     GOOGLE_AVAILABLE = True
 except ImportError:
     GOOGLE_AVAILABLE = False
@@ -42,11 +47,12 @@ for candidate in (
     candidate_text = str(candidate)
     if candidate_text not in sys.path:
         sys.path.append(candidate_text)
-from models import RFPDocument, UserProfile, AnalysisResult, FitGrade
+from models import AnalysisResult, FitGrade, RFPDocument, UserProfile
 
 # System Prompt — loaded from centralized template if available
 try:
     from shared.prompts import get_prompt_manager as _get_pm
+
     ANALYZER_SYSTEM_PROMPT = _get_pm().render("biolinker_analyzer")
 except Exception:
     ANALYZER_SYSTEM_PROMPT = """당신은 바이오 의약품 분야 정부 과제 매칭 전문가입니다.
@@ -106,14 +112,14 @@ USER_PROMPT_TEMPLATE = """## 회사 프로필
 
 class RFPAnalyzer:
     """정부 과제 적합도 분석기"""
-    
+
     def __init__(self):
         self.llm = None
-        
+
         # 1. Google Gemini (Priority)
         google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-        print(f"[DEBUG] Google Key: {'Found' if google_key else 'Missing'}, Available: {GOOGLE_AVAILABLE}")
-        
+        logger.debug("llm_init", google_key_found=bool(google_key), google_available=GOOGLE_AVAILABLE)
+
         if google_key and GOOGLE_AVAILABLE:
             try:
                 self.llm = ChatGoogleGenerativeAI(
@@ -121,18 +127,16 @@ class RFPAnalyzer:
                     temperature=0.2,
                     google_api_key=google_key,
                 )
-                print("[DEBUG] Gemini 2.5 Flash initialized")
+                logger.info("gemini_initialized", model="gemini-2.5-flash")
             except Exception as e:
-                print(f"[DEBUG] Gemini init failed: {e}")
-        
+                logger.warning("gemini_init_failed", error=str(e))
+
         # 2. OpenAI (Fallback)
         elif os.getenv("OPENAI_API_KEY") and OPENAI_AVAILABLE:
             self.llm = ChatOpenAI(
-                model="gpt-4-turbo-preview",
-                temperature=0.2,
-                openai_api_key=os.getenv("OPENAI_API_KEY")
+                model="gpt-4-turbo-preview", temperature=0.2, openai_api_key=os.getenv("OPENAI_API_KEY")
             )
-    
+
     def _score_to_grade(self, score: int) -> FitGrade:
         """점수를 등급으로 변환"""
         if score >= 90:
@@ -145,64 +149,59 @@ class RFPAnalyzer:
             return FitGrade.C
         else:
             return FitGrade.D
-    
+
     def _parse_llm_response(self, response_text: str) -> dict:
         """LLM 응답에서 JSON 추출"""
         # JSON 블록 찾기
-        json_match = re.search(r'\{[\s\S]*\}', response_text)
+        json_match = re.search(r"\{[\s\S]*\}", response_text)
         if json_match:
             try:
                 return json.loads(json_match.group())
             except json.JSONDecodeError:
                 pass
         return None
-    
-    async def analyze(
-        self, 
-        rfp: RFPDocument, 
-        user_profile: UserProfile
-    ) -> AnalysisResult:
+
+    async def analyze(self, rfp: RFPDocument, user_profile: UserProfile) -> AnalysisResult:
         """
         RFP와 사용자 프로필을 비교 분석
-        
+
         Args:
             rfp: 공고 문서
             user_profile: 사용자 기술 프로필
-            
+
         Returns:
             AnalysisResult: 분석 결과
         """
-        
+
         # LLM이 없으면 Mock 결과 반환
         if not self.llm:
             return self._generate_mock_result(rfp, user_profile)
-        
+
         # LLM 프롬프트 생성
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", ANALYZER_SYSTEM_PROMPT),
-            ("user", USER_PROMPT_TEMPLATE)
-        ])
-        
+        prompt = ChatPromptTemplate.from_messages([("system", ANALYZER_SYSTEM_PROMPT), ("user", USER_PROMPT_TEMPLATE)])
+
         chain = prompt | self.llm
-        
+
         # 분석 실행
         try:
-            response = await chain.ainvoke({
-                "company_name": user_profile.company_name,
-                "tech_keywords": ", ".join(user_profile.tech_keywords),
-                "tech_description": user_profile.tech_description,
-                "company_size": user_profile.company_size or "미지정",
-                "current_trl": user_profile.current_trl or "미지정",
-                "rfp_title": rfp.title,
-                "rfp_source": rfp.source,
-                "rfp_deadline": rfp.deadline.strftime("%Y-%m-%d") if rfp.deadline else "미지정",
-                "rfp_budget": rfp.budget_range or "미지정",
-                "rfp_body": rfp.body_text[:4000]  # 토큰 제한
-            })
-            
+            response = await chain.ainvoke(
+                {
+                    "company_name": user_profile.company_name,
+                    "tech_keywords": ", ".join(user_profile.tech_keywords),
+                    "tech_description": user_profile.tech_description,
+                    "company_size": user_profile.company_size or "미지정",
+                    "current_trl": user_profile.current_trl or "미지정",
+                    "rfp_title": rfp.title,
+                    "rfp_source": rfp.source,
+                    "rfp_deadline": rfp.deadline.strftime("%Y-%m-%d") if rfp.deadline else "미지정",
+                    "rfp_budget": rfp.budget_range or "미지정",
+                    "rfp_body": rfp.body_text[:4000],  # 토큰 제한
+                }
+            )
+
             # 응답 파싱
             result_dict = self._parse_llm_response(response.content)
-            
+
             if result_dict:
                 return AnalysisResult(
                     fit_score=result_dict.get("fit_score", 50),
@@ -210,32 +209,28 @@ class RFPAnalyzer:
                     match_summary=result_dict.get("match_summary", []),
                     required_docs=result_dict.get("required_docs", []),
                     risk_flags=result_dict.get("risk_flags", []),
-                    recommended_actions=result_dict.get("recommended_actions", [])
+                    recommended_actions=result_dict.get("recommended_actions", []),
                 )
         except Exception as e:
-            print(f"[LLM Error] {e}")
+            logger.error("llm_analysis_failed", error=str(e))
             # Fallback to mock if API fails (Quota or other)
             return self._generate_mock_result(rfp, user_profile)
-        
+
         # 파싱 실패 시 기본값
         return self._generate_mock_result(rfp, user_profile)
-    
-    def _generate_mock_result(
-        self, 
-        rfp: RFPDocument, 
-        user_profile: UserProfile
-    ) -> AnalysisResult:
+
+    def _generate_mock_result(self, rfp: RFPDocument, user_profile: UserProfile) -> AnalysisResult:
         """MVP용 Mock 결과 생성 (LLM 없을 때)"""
-        
+
         # 간단한 키워드 매칭으로 점수 계산
         rfp_keywords = set(rfp.keywords + rfp.body_text.lower().split()[:100])
         user_keywords = set(k.lower() for k in user_profile.tech_keywords)
-        
+
         overlap = len(rfp_keywords & user_keywords)
         base_score = min(50 + overlap * 10, 95)
-        
+
         # Warning for missing keys
-        print("[WARNING] LLM API Keys missing! Returning SIMULATED (Mock) results.")
+        logger.warning("llm_keys_missing", message="Returning simulated mock results")
 
         return AnalysisResult(
             fit_score=base_score,
@@ -243,22 +238,21 @@ class RFPAnalyzer:
             match_summary=[
                 f"⚠️ [SIMULATION] '{user_profile.company_name}'의 기술 키워드 기반 단순 매칭",
                 f"공고 출처 '{rfp.source}' 관련성 (키워드 매칭)",
-                "정확한 분석을 위해 OpenAI 또는 Google API 키가 필요합니다."
+                "정확한 분석을 위해 OpenAI 또는 Google API 키가 필요합니다.",
             ],
             required_docs=rfp.required_docs or ["사업계획서", "기술성 평가서"],
             risk_flags=[
                 "🚨 [SIMULATION] 실제 AI 분석이 아닙니다.",
                 "MVP 버전: 단순 키워드 매칭 결과입니다.",
-                "LLM 연동 시 정밀 분석이 가능합니다."
+                "LLM 연동 시 정밀 분석이 가능합니다.",
             ],
             recommended_actions=[
                 "OpenAI/Google API 키를 설정하여 AI 분석 활성화",
-                "공고 상세 내용을 반드시 직접 확인하세요"
-            ]
+                "공고 상세 내용을 반드시 직접 확인하세요",
+            ],
         )
 
-
-    async def extract_keywords(self, title: str = '', abstract: str = '', text: str = '') -> list[str]:
+    async def extract_keywords(self, title: str = "", abstract: str = "", text: str = "") -> list[str]:
         """논문 텍스트에서 핵심 키워드 추출 (LLM 우선, 폴백 heuristic)"""
         combined = f"{title}\n\n{abstract}\n\n{text[:3000]}".strip()
         if not combined:
@@ -266,23 +260,29 @@ class RFPAnalyzer:
 
         if self.llm:
             try:
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", "You are a biomedical keyword extractor. Extract 5-10 concise English keywords from the given text. Return ONLY a comma-separated list of keywords, no explanations."),
-                    ("human", f"Text:\n{combined[:2000]}")
-                ])
+                prompt = ChatPromptTemplate.from_messages(
+                    [
+                        (
+                            "system",
+                            "You are a biomedical keyword extractor. Extract 5-10 concise English keywords from the given text. Return ONLY a comma-separated list of keywords, no explanations.",
+                        ),
+                        ("human", f"Text:\n{combined[:2000]}"),
+                    ]
+                )
                 chain = prompt | self.llm
                 response = await chain.ainvoke({})
-                raw = response.content if hasattr(response, 'content') else str(response)
-                keywords = [kw.strip() for kw in raw.split(',') if kw.strip()]
+                raw = response.content if hasattr(response, "content") else str(response)
+                keywords = [kw.strip() for kw in raw.split(",") if kw.strip()]
                 return keywords[:10] if keywords else ["Bio", "Research"]
             except Exception as e:
                 print(f"[Analyzer] Keyword extraction failed: {e}")
 
         # Fallback: frequency-based extraction
         import re as _re
-        words = _re.findall(r'\b[A-Za-z가-힣]{4,}\b', combined)
+
+        words = _re.findall(r"\b[A-Za-z가-힣]{4,}\b", combined)
         freq: dict = {}
-        stop = {'that', 'this', 'with', 'from', 'have', 'been', 'were', 'they', 'their', 'will', 'also', 'than', 'more'}
+        stop = {"that", "this", "with", "from", "have", "been", "were", "they", "their", "will", "also", "than", "more"}
         for w in words:
             lw = w.lower()
             if lw not in stop:
@@ -292,7 +292,8 @@ class RFPAnalyzer:
 
 
 # Singleton instance
-_analyzer: Optional[RFPAnalyzer] = None
+_analyzer: RFPAnalyzer | None = None
+
 
 def get_analyzer() -> RFPAnalyzer:
     global _analyzer

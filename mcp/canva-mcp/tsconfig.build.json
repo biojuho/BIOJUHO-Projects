@@ -15,4 +15,3 @@
   },
   "exclude": ["node_modules", "dist", "assets", "src/components", "src/dev", "src/hooks"]
 }
-

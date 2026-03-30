@@ -17,11 +17,9 @@ Content Hub Notion DB 자동 생성 스크립트 (v12.0)
 """
 
 import os
-import sys
 from pathlib import Path
 
 # 프로젝트 루트를 경로에 추가
-
 from dotenv import load_dotenv
 
 # 프로젝트 .env + 루트 .env 순서대로 로드
@@ -117,7 +115,7 @@ def main():
         "Notes": {"rich_text": {}},
     }
 
-    print(f"\n🔨 Content Hub DB 생성 중...")
+    print("\n🔨 Content Hub DB 생성 중...")
 
     try:
         new_db = notion.databases.create(
@@ -130,33 +128,34 @@ def main():
         new_db_id = new_db["id"]
         db_url = new_db.get("url", "")
 
-        print(f"\n✅ Content Hub DB 생성 완료!")
+        print("\n✅ Content Hub DB 생성 완료!")
         print(f"   📎 DB ID: {new_db_id}")
         print(f"   🔗 URL: {db_url}")
 
         # .env 파일에 자동 추가 제안
         env_path = Path(__file__).resolve().parents[1] / ".env"
-        print(f"\n📝 .env 파일에 다음을 추가하세요:")
+        print("\n📝 .env 파일에 다음을 추가하세요:")
         print(f"   CONTENT_HUB_DATABASE_ID={new_db_id}")
-        print(f"   TARGET_PLATFORMS=x,threads,naver_blog")
+        print("   TARGET_PLATFORMS=x,threads,naver_blog")
 
         # 자동 추가 옵션
         auto_add = input("\n.env에 자동으로 추가할까요? (y/n): ").strip().lower()
         if auto_add == "y" and env_path.exists():
             with open(env_path, "a", encoding="utf-8") as f:
-                f.write(f"\n\n# [v12.0] 멀티플랫폼 Content Hub (자동 생성: setup_content_hub.py)\n")
+                f.write("\n\n# [v12.0] 멀티플랫폼 Content Hub (자동 생성: setup_content_hub.py)\n")
                 f.write(f"CONTENT_HUB_DATABASE_ID={new_db_id}\n")
-                f.write(f"TARGET_PLATFORMS=x,threads,naver_blog\n")
-                f.write(f"BLOG_MIN_SCORE=70\n")
-            print(f"   ✅ .env 업데이트 완료!")
+                f.write("TARGET_PLATFORMS=x,threads,naver_blog\n")
+                f.write("BLOG_MIN_SCORE=70\n")
+            print("   ✅ .env 업데이트 완료!")
         elif auto_add == "y":
             print(f"   ⚠️ .env 파일을 찾을 수 없습니다: {env_path}")
-            print(f"   수동으로 추가해주세요.")
+            print("   수동으로 추가해주세요.")
 
         # 샘플 페이지 생성 (동작 확인용)
         create_sample = input("\n테스트용 샘플 페이지를 생성할까요? (y/n): ").strip().lower()
         if create_sample == "y":
             from datetime import datetime
+
             sample = notion.pages.create(
                 parent={"database_id": new_db_id},
                 properties={
@@ -168,22 +167,29 @@ def main():
                     "Source Trend": {"rich_text": [{"text": {"content": "Content Hub 테스트"}}]},
                     "Scheduled Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
                 },
-                children=[{
-                    "object": "block",
-                    "type": "callout",
-                    "callout": {
-                        "icon": {"type": "emoji", "emoji": "✅"},
-                        "rich_text": [{"type": "text", "text": {"content":
-                            "Content Hub가 정상적으로 생성되었습니다!\n"
-                            "이 테스트 페이지를 삭제하고 파이프라인을 실행하세요."
-                        }}],
-                        "color": "green_background",
-                    },
-                }],
+                children=[
+                    {
+                        "object": "block",
+                        "type": "callout",
+                        "callout": {
+                            "icon": {"type": "emoji", "emoji": "✅"},
+                            "rich_text": [
+                                {
+                                    "type": "text",
+                                    "text": {
+                                        "content": "Content Hub가 정상적으로 생성되었습니다!\n"
+                                        "이 테스트 페이지를 삭제하고 파이프라인을 실행하세요."
+                                    },
+                                }
+                            ],
+                            "color": "green_background",
+                        },
+                    }
+                ],
             )
             print(f"   ✅ 샘플 페이지 생성 완료: {sample.get('url', '')}")
 
-        print(f"\n🎉 Setup 완료! 다음 파이프라인 실행부터 Content Hub에 자동 저장됩니다.")
+        print("\n🎉 Setup 완료! 다음 파이프라인 실행부터 Content Hub에 자동 저장됩니다.")
 
     except Exception as e:
         print(f"\n❌ DB 생성 실패: {e}")

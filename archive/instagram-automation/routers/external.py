@@ -12,9 +12,8 @@ Endpoints:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-
 from dependencies import get_trigger_handler
+from fastapi import APIRouter, Depends, HTTPException, Request
 from services.external_trigger import (
     ExternalTriggerHandler,
     TrendPushRequest,

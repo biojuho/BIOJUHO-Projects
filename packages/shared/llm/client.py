@@ -6,7 +6,6 @@ import hashlib
 import json
 import logging
 import time
-from typing import Optional
 
 from .backends import BackendManager
 from .config import (
@@ -32,9 +31,9 @@ log = logging.getLogger("shared.llm")
 
 _FAIL_TTL = 300
 _CACHE_TTL: dict[str, int] = {
-    "lightweight": 60,   # real-time data like trends — short TTL
+    "lightweight": 60,  # real-time data like trends — short TTL
     "medium": 180,
-    "heavy": 600,        # deep analysis — worth reusing longer
+    "heavy": 600,  # deep analysis — worth reusing longer
 }
 _CACHE_MAX = 128
 
@@ -146,7 +145,7 @@ class LLMClient:
             "task_call_counts": {},
         }
 
-    def _resolve_tier(self, tier: Optional[TaskTier], model: Optional[str]) -> TaskTier:
+    def _resolve_tier(self, tier: TaskTier | None, model: str | None) -> TaskTier:
         if tier is not None:
             resolved = tier
         elif model and model in MODEL_TO_TIER:
@@ -164,26 +163,27 @@ class LLMClient:
         except Exception:
             return tier
         if tier == TaskTier.HEAVY and today_cost >= LLM_BUDGET_DOWNGRADE_HEAVY:
-            log.info("Budget downgrade: HEAVY→MEDIUM (today=$%.4f >= $%.2f)",
-                     today_cost, LLM_BUDGET_DOWNGRADE_HEAVY)
+            log.info("Budget downgrade: HEAVY→MEDIUM (today=$%.4f >= $%.2f)", today_cost, LLM_BUDGET_DOWNGRADE_HEAVY)
             return TaskTier.MEDIUM
         if tier == TaskTier.MEDIUM and today_cost >= LLM_BUDGET_DOWNGRADE_MEDIUM:
-            log.info("Budget downgrade: MEDIUM→LIGHTWEIGHT (today=$%.4f >= $%.2f)",
-                     today_cost, LLM_BUDGET_DOWNGRADE_MEDIUM)
+            log.info(
+                "Budget downgrade: MEDIUM→LIGHTWEIGHT (today=$%.4f >= $%.2f)", today_cost, LLM_BUDGET_DOWNGRADE_MEDIUM
+            )
             return TaskTier.LIGHTWEIGHT
         return tier
 
     def create(
         self,
         *,
-        tier: Optional[TaskTier] = None,
-        model: Optional[str] = None,
+        tier: TaskTier | None = None,
+        model: str | None = None,
         messages: list[dict],
         max_tokens: int = 1000,
         system: str = "",
-        policy: Optional[LLMPolicy] = None,
+        policy: LLMPolicy | None = None,
     ) -> LLMResponse:
         from pathlib import Path
+
         lock_file = Path(__file__).resolve().parents[0] / "data" / "RATE_LIMIT.lock"
         if lock_file.exists():
             raise RuntimeError("Rate Limit Exceeded: Daily budget reached. API request blocked by FinOps Dashboard.")
@@ -209,14 +209,15 @@ class LLMClient:
     async def acreate(
         self,
         *,
-        tier: Optional[TaskTier] = None,
-        model: Optional[str] = None,
+        tier: TaskTier | None = None,
+        model: str | None = None,
         messages: list[dict],
         max_tokens: int = 1000,
         system: str = "",
-        policy: Optional[LLMPolicy] = None,
+        policy: LLMPolicy | None = None,
     ) -> LLMResponse:
         from pathlib import Path
+
         lock_file = Path(__file__).resolve().parents[0] / "data" / "RATE_LIMIT.lock"
         if lock_file.exists():
             raise RuntimeError("Rate Limit Exceeded: Daily budget reached. API request blocked by FinOps Dashboard.")
@@ -269,11 +270,11 @@ class LLMClient:
     def create_with_reasoning(
         self,
         *,
-        tier: Optional[TaskTier] = None,
+        tier: TaskTier | None = None,
         messages: list[dict],
         max_tokens: int = 2000,
         system: str = "",
-        policy: Optional[LLMPolicy] = None,
+        policy: LLMPolicy | None = None,
         force_strategy: str | None = None,
     ) -> LLMResponse:
         """Create a response with automatic reasoning strategy selection.
@@ -325,11 +326,11 @@ class LLMClient:
     async def acreate_with_reasoning(
         self,
         *,
-        tier: Optional[TaskTier] = None,
+        tier: TaskTier | None = None,
         messages: list[dict],
         max_tokens: int = 2000,
         system: str = "",
-        policy: Optional[LLMPolicy] = None,
+        policy: LLMPolicy | None = None,
         force_strategy: str | None = None,
     ) -> LLMResponse:
         """Async version of create_with_reasoning()."""
@@ -361,7 +362,6 @@ class LLMClient:
             detected_output_language="",
         )
         return response
-
 
     @property
     def backend(self) -> str:
@@ -415,6 +415,7 @@ class LLMClient:
         error: Exception,
     ) -> Exception:
         from shared.telemetry.cost_tracker import detect_project_context
+
         project_name = detect_project_context()
 
         classified = classify_error(error)
@@ -444,6 +445,7 @@ class LLMClient:
         response: LLMResponse,
     ) -> None:
         from shared.telemetry.cost_tracker import detect_project_context
+
         project_name = detect_project_context()
 
         rec = self._tracker.record(
@@ -460,6 +462,7 @@ class LLMClient:
         # Prometheus business metrics (no-op if prometheus_client missing)
         try:
             from shared.business_metrics import biz
+
             biz.llm_request(
                 default_model,
                 service=project_name or "unknown",
@@ -481,8 +484,8 @@ class LLMClient:
         async_mode: bool,
     ):
         chain = self._iter_chain(resolved_tier, policy)
-        last_error: Optional[Exception] = None
-        rejected_meta: Optional[BridgeMeta] = None
+        last_error: Exception | None = None
+        rejected_meta: BridgeMeta | None = None
         repaired_from_deepseek = False
 
         if async_mode:
@@ -561,9 +564,7 @@ class LLMClient:
                     continue
                 raise
 
-        raise RuntimeError(
-            f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}"
-        )
+        raise RuntimeError(f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}")
 
     async def _dispatch_async(
         self,
@@ -576,7 +577,7 @@ class LLMClient:
         policy: LLMPolicy,
         rejected_meta: BridgeMeta | None,
         repaired_from_deepseek: bool,
-        last_error: Optional[Exception],
+        last_error: Exception | None,
     ) -> LLMResponse:
         for backend_name, default_model in chain:
             if _is_failed(resolved_tier, backend_name) or not self._backends.has_key(backend_name):
@@ -641,6 +642,4 @@ class LLMClient:
                     continue
                 raise
 
-        raise RuntimeError(
-            f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}"
-        )
+        raise RuntimeError(f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}")

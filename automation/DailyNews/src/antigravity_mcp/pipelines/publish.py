@@ -130,10 +130,7 @@ def _build_telegram_message(report: ContentReport, publication: dict[str, str]) 
     notion_url = publication.get("notion_url", "")
     summary = report.summary_lines[0] if report.summary_lines else "No summary."
     link_part = f'\n<a href="{notion_url}">Notion에서 보기</a>' if notion_url else ""
-    return (
-        f"<b>[{report.category}] {report.window_name.title()} Brief 발행됨</b>\n"
-        f"{summary}{link_part}"
-    )
+    return f"<b>[{report.category}] {report.window_name.title()} Brief 발행됨</b>\n" f"{summary}{link_part}"
 
 
 async def publish_report(
@@ -172,10 +169,7 @@ async def publish_report(
         warnings.append("Automatic publishing is disabled. Falling back to manual approval.")
         approval_mode = "manual"
 
-    fallback_x_draft = any(
-        draft.channel == "x" and draft.is_fallback
-        for draft in report.channel_drafts
-    )
+    fallback_x_draft = any(draft.channel == "x" and draft.is_fallback for draft in report.channel_drafts)
     if approval_mode == "auto" and (report.quality_state != "ok" or fallback_x_draft):
         warnings.append(
             "Auto publishing downgraded to manual because the report quality state is not ok "
@@ -185,7 +179,9 @@ async def publish_report(
 
     if notion_adapter.is_configured() and settings.notion_reports_database_id:
         properties = {
-            "Name": {"title": [{"type": "text", "text": {"content": f"{report.category} Brief {datetime.now().date()}"}}]},
+            "Name": {
+                "title": [{"type": "text", "text": {"content": f"{report.category} Brief {datetime.now().date()}"}}]
+            },
             "Date": {"date": {"start": datetime.now().date().isoformat()}},
         }
         try:

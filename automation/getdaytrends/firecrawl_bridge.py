@@ -9,6 +9,7 @@ Usage in main.py:
     from firecrawl_bridge import enrich_contexts_with_firecrawl
     contexts = await enrich_contexts_with_firecrawl(quality_trends, contexts, config)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,13 +20,15 @@ try:
     from loguru import logger as log
 except ImportError:
     import logging
+
     log = logging.getLogger(__name__)
 
-from firecrawl_client import FirecrawlClient, get_firecrawl_client
+from firecrawl_client import get_firecrawl_client
 
 # Crawl4AI 자동 감지 (설치되어 있으면 Firecrawl 대신 우선 사용)
 try:
     import crawl4ai_adapter
+
     _CRAWL4AI_AVAILABLE = crawl4ai_adapter.is_available()
 except ImportError:
     _CRAWL4AI_AVAILABLE = False
@@ -86,18 +89,14 @@ async def enrich_contexts_with_firecrawl(
     client = get_firecrawl_client() if backend == "firecrawl" else None
 
     # Filter trends worth enriching
-    eligible = [
-        t for t in quality_trends
-        if getattr(t, "viral_potential", 0) >= min_score_for_enrichment
-    ]
+    eligible = [t for t in quality_trends if getattr(t, "viral_potential", 0) >= min_score_for_enrichment]
 
     if not eligible:
         log.info("[CrawlBridge] No trends above enrichment threshold")
         return contexts
 
     log.info(
-        f"[CrawlBridge] Enriching {len(eligible)} trends "
-        f"(min_score={min_score_for_enrichment}, backend={backend})"
+        f"[CrawlBridge] Enriching {len(eligible)} trends " f"(min_score={min_score_for_enrichment}, backend={backend})"
     )
 
     for trend in eligible:
@@ -160,7 +159,7 @@ def _extract_news_urls(ctx: Any) -> list[str]:
 
     # Try different context structures
     if hasattr(ctx, "news_items"):
-        for item in (ctx.news_items or []):
+        for item in ctx.news_items or []:
             if hasattr(item, "url") and item.url:
                 urls.append(item.url)
             elif isinstance(item, dict) and item.get("url"):

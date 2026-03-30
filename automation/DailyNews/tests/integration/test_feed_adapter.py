@@ -1,10 +1,10 @@
 """Integration tests for FeedAdapter — uses respx to mock httpx at transport level."""
+
 from __future__ import annotations
 
+import httpx
 import pytest
 import respx
-import httpx
-
 from antigravity_mcp.integrations.feed_adapter import FeedAdapter
 
 # Minimal valid RSS 2.0 feed

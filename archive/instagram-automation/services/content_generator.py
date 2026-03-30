@@ -15,10 +15,10 @@ from pathlib import Path
 # Add project root for shared imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from shared.llm import TaskTier, get_client
-
 from config import ContentConfig
 from models import InstagramPost, PostType
+
+from shared.llm import TaskTier, get_client
 
 logger = logging.getLogger(__name__)
 
@@ -178,9 +178,7 @@ class ContentGenerator:
             tags = [w for w in raw.split() if w.startswith("#")]
             return " ".join(tags[: self.config.max_hashtags])
 
-    async def suggest_angles(
-        self, topic: str, trends: str = ""
-    ) -> list[dict]:
+    async def suggest_angles(self, topic: str, trends: str = "") -> list[dict]:
         """Suggest 3 content angles for a topic."""
         prompt = ANGLE_PROMPT.format(topic=topic, trends=trends or "N/A")
         resp = await self._llm.acreate(
@@ -235,9 +233,7 @@ class ContentGenerator:
         caption = await self.generate_caption(topic, style, audience)
 
         # Run critique loop
-        critique = ContentCritique(
-            threshold=min_score, max_revisions=max_revisions
-        )
+        critique = ContentCritique(threshold=min_score, max_revisions=max_revisions)
         result = await critique.run_critique_loop(caption, topic)
 
         # Use the refined caption

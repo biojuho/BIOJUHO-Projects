@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,7 +11,7 @@ from loguru import logger as log
 
 if TYPE_CHECKING:
     from config import CIEConfig
-    from storage.models import ContentBatch, GeneratedContent, MonthlyReview
+    from storage.models import ContentBatch, MonthlyReview
 
 # ───────────────────────────────────────────────────
 #  DB 초기화
@@ -120,9 +119,7 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
         try:
             conn.execute(f"SELECT {col_name} FROM generated_contents LIMIT 1")
         except sqlite3.OperationalError:
-            conn.execute(
-                f"ALTER TABLE generated_contents ADD COLUMN {col_name} {col_def}"
-            )
+            conn.execute(f"ALTER TABLE generated_contents ADD COLUMN {col_name} {col_def}")
             conn.commit()
             log.debug(f"  마이그레이션: generated_contents.{col_name} 추가")
 
@@ -135,9 +132,7 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
         try:
             conn.execute(f"SELECT {col_name} FROM trend_reports LIMIT 1")
         except sqlite3.OperationalError:
-            conn.execute(
-                f"ALTER TABLE trend_reports ADD COLUMN {col_name} {col_def}"
-            )
+            conn.execute(f"ALTER TABLE trend_reports ADD COLUMN {col_name} {col_def}")
             conn.commit()
             log.debug(f"  마이그레이션: trend_reports.{col_name} 추가")
 
@@ -145,6 +140,7 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
 # ───────────────────────────────────────────────────
 #  트렌드 저장
 # ───────────────────────────────────────────────────
+
 
 def save_trends(conn: sqlite3.Connection, batch) -> int:
     """MergedTrendReport를 DB에 저장한다."""
@@ -181,6 +177,7 @@ def save_trends(conn: sqlite3.Connection, batch) -> int:
 #  규제 리포트 저장
 # ───────────────────────────────────────────────────
 
+
 def save_regulations(conn: sqlite3.Connection, reports: list) -> int:
     """RegulationReport 목록을 DB에 저장한다."""
     count = 0
@@ -209,6 +206,7 @@ def save_regulations(conn: sqlite3.Connection, reports: list) -> int:
 # ───────────────────────────────────────────────────
 #  콘텐츠 저장
 # ───────────────────────────────────────────────────
+
 
 def save_contents(conn: sqlite3.Connection, batch: ContentBatch) -> int:
     """ContentBatch의 모든 콘텐츠를 DB에 저장한다."""
@@ -266,6 +264,7 @@ def save_contents(conn: sqlite3.Connection, batch: ContentBatch) -> int:
 #  미발행 콘텐츠 로드 (publish-only 모드)
 # ───────────────────────────────────────────────────
 
+
 def load_unpublished_contents(conn: sqlite3.Connection) -> list:
     """DB에서 QA 통과했지만 미발행인 콘텐츠를 로드한다."""
     from storage.models import GeneratedContent, QAReport
@@ -281,28 +280,34 @@ def load_unpublished_contents(conn: sqlite3.Connection) -> list:
     contents = []
     for row in rows:
         qa_detail = json.loads(row["qa_detail"]) if row["qa_detail"] else {}
-        qa_report = QAReport(
-            hook_score=qa_detail.get("hook", 0),
-            fact_score=qa_detail.get("fact", 0),
-            tone_score=qa_detail.get("tone", 0),
-            kick_score=qa_detail.get("kick", 0),
-            angle_score=qa_detail.get("angle", 0),
-            regulation_score=qa_detail.get("regulation", 0),
-            algorithm_score=qa_detail.get("algorithm", 0),
-            warnings=qa_detail.get("warnings", []),
-        ) if qa_detail else None
+        qa_report = (
+            QAReport(
+                hook_score=qa_detail.get("hook", 0),
+                fact_score=qa_detail.get("fact", 0),
+                tone_score=qa_detail.get("tone", 0),
+                kick_score=qa_detail.get("kick", 0),
+                angle_score=qa_detail.get("angle", 0),
+                regulation_score=qa_detail.get("regulation", 0),
+                algorithm_score=qa_detail.get("algorithm", 0),
+                warnings=qa_detail.get("warnings", []),
+            )
+            if qa_detail
+            else None
+        )
 
-        contents.append(GeneratedContent(
-            platform=row["platform"],
-            content_type=row["content_type"],
-            title=row["title"] or "",
-            body=row["body"],
-            hashtags=json.loads(row["hashtags"]) if row["hashtags"] else [],
-            trend_keywords_used=json.loads(row["trend_keywords"]) if row["trend_keywords"] else [],
-            qa_report=qa_report,
-            regulation_compliant=bool(row["regulation_ok"]),
-            algorithm_optimized=bool(row["algorithm_ok"]),
-        ))
+        contents.append(
+            GeneratedContent(
+                platform=row["platform"],
+                content_type=row["content_type"],
+                title=row["title"] or "",
+                body=row["body"],
+                hashtags=json.loads(row["hashtags"]) if row["hashtags"] else [],
+                trend_keywords_used=json.loads(row["trend_keywords"]) if row["trend_keywords"] else [],
+                qa_report=qa_report,
+                regulation_compliant=bool(row["regulation_ok"]),
+                algorithm_optimized=bool(row["algorithm_ok"]),
+            )
+        )
 
     return contents
 
@@ -310,6 +315,7 @@ def load_unpublished_contents(conn: sqlite3.Connection) -> list:
 # ───────────────────────────────────────────────────
 #  월간 회고 저장
 # ───────────────────────────────────────────────────
+
 
 def save_review(conn: sqlite3.Connection, review: MonthlyReview) -> None:
     """월간 회고를 DB에 저장한다."""

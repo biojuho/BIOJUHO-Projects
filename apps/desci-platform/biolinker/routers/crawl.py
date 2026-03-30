@@ -2,13 +2,12 @@
 BioLinker - Crawl Router
 KDDF/NTIS 공고 크롤링 엔드포인트
 """
-from typing import Optional
-from fastapi import APIRouter, Request
 
-from services.scheduler import get_scheduler
+from fastapi import APIRouter, Request
+from limiter import limiter
 from services.kddf_crawler import get_kddf_crawler
 from services.ntis_crawler import get_ntis_crawler
-from limiter import limiter
+from services.scheduler import get_scheduler
 
 router = APIRouter()
 
@@ -40,7 +39,7 @@ router = APIRouter()
 @limiter.limit("30/minute")
 async def get_notices(
     request: Request,
-    source: Optional[str] = None,
+    source: str | None = None,
     limit: int = 30,
 ):
     """Return previously collected government RFP notices.

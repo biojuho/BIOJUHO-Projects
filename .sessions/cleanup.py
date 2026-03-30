@@ -6,7 +6,6 @@ Usage:
     python .sessions/cleanup.py
 """
 
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 

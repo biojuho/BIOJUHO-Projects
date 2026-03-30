@@ -15,9 +15,8 @@ from __future__ import annotations
 import os
 from typing import TypeVar
 
-from pydantic import BaseModel
-
 from loguru import logger as log
+from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -41,6 +40,7 @@ def _get_instructor_client():
     if gemini_key:
         try:
             import google.genai as genai
+
             base_client = genai.Client(api_key=gemini_key)
             _instructor_client = instructor.from_genai(base_client)
             _instructor_backend = "gemini"
@@ -52,6 +52,7 @@ def _get_instructor_client():
     if anthropic_key:
         try:
             import anthropic
+
             base_client = anthropic.AsyncAnthropic(api_key=anthropic_key)
             _instructor_client = instructor.from_anthropic(base_client)
             _instructor_backend = "anthropic"
@@ -83,6 +84,7 @@ def reset_instructor_client():
 
 
 # ── 핵심 API ──────────────────────────────────────────────
+
 
 async def extract_structured(
     prompt: str,
@@ -142,11 +144,10 @@ async def extract_structured_list(
     LLM에 프롬프트를 보내고 list[item_model]로 파싱된 결과를 반환.
     expected_count가 주어지면 길이 검증도 수행.
     """
-    from typing import List
 
     # Pydantic wrapper for list response
     class ListWrapper(BaseModel):
-        items: List[item_model]  # type: ignore[valid-type]
+        items: list[item_model]  # type: ignore[valid-type]
 
     try:
         client = _get_instructor_client()
@@ -173,10 +174,7 @@ async def extract_structured_list(
         items = result.items
 
         if expected_count is not None and len(items) != expected_count:
-            log.warning(
-                f"[Instructor] 리스트 길이 불일치: "
-                f"expected={expected_count}, got={len(items)}"
-            )
+            log.warning(f"[Instructor] 리스트 길이 불일치: " f"expected={expected_count}, got={len(items)}")
 
         return items
 
@@ -187,8 +185,10 @@ async def extract_structured_list(
 
 # ── 스코어링 전용 Pydantic 모델 ────────────────────────────
 
+
 class ScoringResponseItem(BaseModel):
     """배치 스코어링 LLM 응답 아이템 — analyzer.py 배치 프롬프트의 JSON 스키마와 1:1 매핑."""
+
     keyword: str
     publishable: bool = True
     publishability_reason: str = ""
@@ -215,6 +215,7 @@ class ScoringResponseItem(BaseModel):
 
 class TweetItem(BaseModel):
     """생성된 트윗 아이템."""
+
     type: str = ""
     content: str
     best_posting_time: str = ""
@@ -224,12 +225,14 @@ class TweetItem(BaseModel):
 
 class TweetGenerationResponse(BaseModel):
     """트윗 생성 LLM 응답."""
+
     topic: str = ""
     tweets: list[TweetItem] = []
 
 
 class LongPostResponse(BaseModel):
     """장문 / Threads / 블로그 생성 응답."""
+
     topic: str = ""
     content: str = ""
     seo_keywords: list[str] = []
@@ -237,6 +240,7 @@ class LongPostResponse(BaseModel):
 
 class ThreadResponse(BaseModel):
     """쓰레드 생성 응답."""
+
     topic: str = ""
     hook: str = ""
     tweets: list[str] = []

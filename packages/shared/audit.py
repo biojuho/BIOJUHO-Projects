@@ -7,8 +7,10 @@ when available, otherwise stdlib logging.
 
 Usage::
     from shared.audit import setup_audit_log
+
     setup_audit_log(app, service_name="agriguard")
 """
+
 from __future__ import annotations
 
 import time
@@ -16,10 +18,12 @@ from typing import Any
 
 try:
     import structlog
+
     _log = structlog.get_logger("audit")
     _STRUCTLOG = True
 except ImportError:
     import logging
+
     _log = logging.getLogger("audit")
     _STRUCTLOG = False
 

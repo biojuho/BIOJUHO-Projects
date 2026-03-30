@@ -1,20 +1,18 @@
-﻿"""
+"""
 getdaytrends v3.0 - Database Layer (CRUD Functions)
 ?몃젋???덉뒪?좊━ ??? CRUD ?ы띁 ?⑥닔.
 """
 
 import json
-import os
 from datetime import datetime, timedelta
-
-import aiosqlite
-
-from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
 
 from loguru import logger as log
 
 # -- schema/connection imports --
 from db_schema import (  # noqa: F401
+    _backfill_fingerprints,
+    _normalize_name,
+    _normalize_volume,
     _PgAdapter,
     close_pg_pool,
     compute_fingerprint,
@@ -22,11 +20,10 @@ from db_schema import (  # noqa: F401
     get_connection,
     get_pg_pool,
     init_db,
-    _normalize_name,
-    _normalize_volume,
-    _backfill_fingerprints,
     sqlite_write_lock,
 )
+from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
+
 
 async def save_run(conn, run: RunResult) -> int:
     async with sqlite_write_lock(conn):
@@ -35,10 +32,16 @@ async def save_run(conn, run: RunResult) -> int:
                trends_scored, tweets_generated, tweets_saved, alerts_sent, errors)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                run.run_id, run.started_at.isoformat(), run.country, run.trends_collected,
-                run.trends_scored, run.tweets_generated, run.tweets_saved, run.alerts_sent,
-                json.dumps(run.errors, ensure_ascii=False)
-            )
+                run.run_id,
+                run.started_at.isoformat(),
+                run.country,
+                run.trends_collected,
+                run.trends_scored,
+                run.tweets_generated,
+                run.tweets_saved,
+                run.alerts_sent,
+                json.dumps(run.errors, ensure_ascii=False),
+            ),
         )
         await conn.commit()
         return cursor.lastrowid
@@ -51,9 +54,14 @@ async def update_run(conn, run: RunResult, row_id: int) -> None:
                tweets_generated=?, tweets_saved=?, alerts_sent=?, errors=? WHERE id=?""",
             (
                 run.finished_at.isoformat() if run.finished_at else None,
-                run.trends_collected, run.trends_scored, run.tweets_generated,
-                run.tweets_saved, run.alerts_sent, json.dumps(run.errors, ensure_ascii=False), row_id
-            )
+                run.trends_collected,
+                run.trends_scored,
+                run.tweets_generated,
+                run.tweets_saved,
+                run.alerts_sent,
+                json.dumps(run.errors, ensure_ascii=False),
+                row_id,
+            ),
         )
         await conn.commit()
 
@@ -69,32 +77,51 @@ async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) 
            cross_source_confidence, joongyeon_kick, joongyeon_angle)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            run_id, trend.keyword, trend.rank, str(trend.volume_last_24h), trend.volume_last_24h,
-            trend.viral_potential, trend.trend_acceleration, trend.top_insight,
-            json.dumps(trend.suggested_angles, ensure_ascii=False), trend.best_hook_starter,
-            trend.country, json.dumps([s.value for s in trend.sources], ensure_ascii=False),
+            run_id,
+            trend.keyword,
+            trend.rank,
+            str(trend.volume_last_24h),
+            trend.volume_last_24h,
+            trend.viral_potential,
+            trend.trend_acceleration,
+            trend.top_insight,
+            json.dumps(trend.suggested_angles, ensure_ascii=False),
+            trend.best_hook_starter,
+            trend.country,
+            json.dumps([s.value for s in trend.sources], ensure_ascii=False),
             trend.context.twitter_insight if trend.context else "",
             trend.context.reddit_insight if trend.context else "",
             trend.context.news_insight if trend.context else "",
-            trend.scored_at.isoformat(), fingerprint,
-            trend.sentiment, int(trend.safety_flag),
-            trend.cross_source_confidence, trend.joongyeon_kick, trend.joongyeon_angle,
-        )
+            trend.scored_at.isoformat(),
+            fingerprint,
+            trend.sentiment,
+            int(trend.safety_flag),
+            trend.cross_source_confidence,
+            trend.joongyeon_kick,
+            trend.joongyeon_angle,
+        ),
     )
     # commit? ?몄텧??db_transaction)媛 ?대떦 ???먯껜 commit ?쒓굅濡??몃옖??뀡 以묐┰ 蹂댁옣
     return cursor.lastrowid
 
 
-async def _save_tweet_unlocked(conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None) -> int:
+async def _save_tweet_unlocked(
+    conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None
+) -> int:
     cursor = await conn.execute(
         """INSERT INTO tweets (trend_id, run_id, tweet_type, content, char_count,
            is_thread, thread_order, status, saved_to, generated_at, content_type)
            VALUES (?, ?, ?, ?, ?, 0, 0, 'queued', ?, ?, ?)""",
         (
-            trend_id, run_id, tweet.tweet_type, tweet.content, tweet.char_count,
+            trend_id,
+            run_id,
+            tweet.tweet_type,
+            tweet.content,
+            tweet.char_count,
             json.dumps(saved_to or ["sqlite"], ensure_ascii=False),
-            datetime.now().isoformat(), tweet.content_type
-        )
+            datetime.now().isoformat(),
+            tweet.content_type,
+        ),
     )
     await conn.commit()
     return cursor.lastrowid
@@ -112,7 +139,7 @@ async def _save_thread_unlocked(conn, thread: GeneratedThread, trend_id: int, ru
             """INSERT INTO tweets (trend_id, run_id, tweet_type, content, char_count,
                is_thread, thread_order, status, saved_to, generated_at)
                VALUES (?, ?, 'thread', ?, ?, 1, ?, 'queued', '["sqlite"]', ?)""",
-            (trend_id, run_id, text, len(text), i, datetime.now().isoformat())
+            (trend_id, run_id, text, len(text), i, datetime.now().isoformat()),
         )
         ids.append(cursor.lastrowid)
     await conn.commit()
@@ -150,11 +177,13 @@ async def save_tweets_batch(
     else:
         rows = [
             (
-                trend_id, run_id,
+                trend_id,
+                run_id,
                 getattr(t, "tweet_type", ""),
                 getattr(t, "content", ""),
                 getattr(t, "char_count", len(getattr(t, "content", ""))),
-                saved_to_json, now,
+                saved_to_json,
+                now,
                 getattr(t, "content_type", "short"),
                 getattr(t, "variant_id", ""),
                 getattr(t, "language", "ko"),
@@ -196,11 +225,7 @@ async def _resolve_tweet_row_id_for_publish(
         conditions.append("run_id = ?")
         params.append(run_id)
 
-    query = (
-        "SELECT id FROM tweets "
-        f"WHERE {' AND '.join(conditions)} "
-        "ORDER BY generated_at DESC, id DESC LIMIT 1"
-    )
+    query = "SELECT id FROM tweets " f"WHERE {' AND '.join(conditions)} " "ORDER BY generated_at DESC, id DESC LIMIT 1"
     cursor = await conn.execute(query, tuple(params))
     row = await cursor.fetchone()
     return int(row["id"]) if row else None
@@ -318,11 +343,12 @@ async def sync_tweet_metrics(
             engagement_rate=engagement_rate,
         )
 
+
 async def get_trend_history(conn, keyword: str, days: int = 7) -> list[dict]:
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute(
         "SELECT keyword, rank, viral_potential, trend_acceleration, top_insight, scored_at FROM trends WHERE keyword = ? AND scored_at >= ? ORDER BY scored_at DESC",
-        (keyword, cutoff)
+        (keyword, cutoff),
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
@@ -332,7 +358,7 @@ async def get_recent_trends(conn, days: int = 7, min_score: int = 0) -> list[dic
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute(
         "SELECT keyword, rank, viral_potential, trend_acceleration, top_insight, country, scored_at FROM trends WHERE scored_at >= ? AND viral_potential >= ? ORDER BY viral_potential DESC",
-        (cutoff, min_score)
+        (cutoff, min_score),
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
@@ -347,7 +373,9 @@ async def get_recently_processed_keywords(conn, hours: int = 3) -> set[str]:
 
 async def get_recently_processed_fingerprints(conn, hours: int = 3) -> set[str]:
     cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
-    cursor = await conn.execute("SELECT DISTINCT fingerprint FROM trends WHERE scored_at >= ? AND fingerprint != ''", (cutoff,))
+    cursor = await conn.execute(
+        "SELECT DISTINCT fingerprint FROM trends WHERE scored_at >= ? AND fingerprint != ''", (cutoff,)
+    )
     rows = await cursor.fetchall()
     return {row["fingerprint"] for row in rows}
 
@@ -366,11 +394,14 @@ async def _cleanup_old_records_unlocked(conn, days: int = 90) -> int:
     tweets_deleted = cursor.rowcount
     cursor = await conn.execute("DELETE FROM trends WHERE scored_at < ?", (cutoff,))
     trends_deleted = cursor.rowcount
-    await conn.execute("DELETE FROM runs WHERE started_at < ? AND id NOT IN (SELECT DISTINCT run_id FROM trends)", (cutoff,))
+    await conn.execute(
+        "DELETE FROM runs WHERE started_at < ? AND id NOT IN (SELECT DISTINCT run_id FROM trends)", (cutoff,)
+    )
     await conn.commit()
     await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     total = tweets_deleted + trends_deleted
-    if total: log.info(f"DB ?뺣━ ?꾨즺: tweets {tweets_deleted}媛?+ trends {trends_deleted}媛???젣 ({days}??珥덇낵)")
+    if total:
+        log.info(f"DB ?뺣━ ?꾨즺: tweets {tweets_deleted}媛?+ trends {trends_deleted}媛???젣 ({days}??珥덇낵)")
     return total
 
 
@@ -403,7 +434,7 @@ async def get_meta(conn, key: str) -> str | None:
 async def _set_meta_unlocked(conn, key: str, value: str) -> None:
     await conn.execute(
         "INSERT INTO meta (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
-        (key, value, datetime.now().isoformat())
+        (key, value, datetime.now().isoformat()),
     )
     await conn.commit()
 
@@ -417,7 +448,7 @@ async def get_cached_score(conn, fingerprint: str, max_age_hours: int = 6) -> di
     cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
     cursor = await conn.execute(
         "SELECT keyword, viral_potential, trend_acceleration, top_insight, suggested_angles, best_hook_starter, scored_at FROM trends WHERE fingerprint = ? AND scored_at >= ? ORDER BY scored_at DESC LIMIT 1",
-        (fingerprint, cutoff)
+        (fingerprint, cutoff),
     )
     row = await cursor.fetchone()
     return dict(row) if row else None
@@ -427,7 +458,7 @@ async def get_cached_content(conn, fingerprint: str, max_age_hours: int = 24) ->
     cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
     cursor = await conn.execute(
         "SELECT tw.tweet_type, tw.content, tw.content_type, tw.char_count FROM tweets tw JOIN trends tr ON tw.trend_id = tr.id WHERE tr.fingerprint = ? AND tr.scored_at >= ? ORDER BY tw.generated_at DESC",
-        (fingerprint, cutoff)
+        (fingerprint, cutoff),
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows] if rows else None
@@ -443,12 +474,13 @@ async def get_recent_avg_viral_score(conn, lookback_hours: int = 3) -> float | N
 
 
 async def get_trend_history_batch(conn, keywords: list[str], days: int = 7) -> dict[str, list[dict]]:
-    if not keywords: return {}
+    if not keywords:
+        return {}
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     placeholders = ",".join("?" * len(keywords))
     cursor = await conn.execute(
         f"SELECT keyword, rank, viral_potential, trend_acceleration, top_insight, scored_at FROM trends WHERE keyword IN ({placeholders}) AND scored_at >= ? ORDER BY keyword, scored_at DESC",
-        (*keywords, cutoff)
+        (*keywords, cutoff),
     )
     rows = await cursor.fetchall()
     result = {kw: [] for kw in keywords}
@@ -525,8 +557,7 @@ async def get_volume_velocity(conn, keyword: str, lookback_runs: int = 3) -> flo
     ?곗씠??遺議???0.0 諛섑솚.
     """
     cursor = await conn.execute(
-        "SELECT volume_numeric, scored_at FROM trends WHERE keyword = ? "
-        "ORDER BY scored_at DESC LIMIT ?",
+        "SELECT volume_numeric, scored_at FROM trends WHERE keyword = ? " "ORDER BY scored_at DESC LIMIT ?",
         (keyword, lookback_runs + 1),
     )
     rows = await cursor.fetchall()
@@ -556,9 +587,7 @@ async def get_recent_tweet_contents(conn, keyword: str, hours: int = 24, limit: 
     return [r["content"] for r in rows]
 
 
-async def _record_posting_time_stat_unlocked(
-    conn, category: str, hour: int, engagement_label: str
-) -> None:
+async def _record_posting_time_stat_unlocked(conn, category: str, hour: int, engagement_label: str) -> None:
     """
     寃뚯떆 ?쒓컙?蹂?李몄뿬???숈뒿 湲곕줉.
     engagement_label: '?믪쓬'=1.0 / '蹂댄넻'=0.5 / '??쓬'=0.2
@@ -580,9 +609,7 @@ async def _record_posting_time_stat_unlocked(
         log.warning(f"posting_time_stat 湲곕줉 ?ㅽ뙣: {e}")
 
 
-async def record_posting_time_stat(
-    conn, category: str, hour: int, engagement_label: str
-) -> None:
+async def record_posting_time_stat(conn, category: str, hour: int, engagement_label: str) -> None:
     async with sqlite_write_lock(conn):
         await _record_posting_time_stat_unlocked(conn, category, hour, engagement_label)
 
@@ -603,9 +630,7 @@ async def get_best_posting_hours(conn, category: str, top_n: int = 3) -> list[in
     return [r["hour"] for r in rows]
 
 
-async def _record_watchlist_hit_unlocked(
-    conn, keyword: str, watchlist_item: str, viral_potential: int
-) -> None:
+async def _record_watchlist_hit_unlocked(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
     """Watchlist ?ㅼ썙???깆옣 湲곕줉."""
     try:
         await conn.execute(
@@ -618,16 +643,12 @@ async def _record_watchlist_hit_unlocked(
         log.debug(f"watchlist_hit 湲곕줉 ?ㅽ뙣 (臾댁떆): {e}")
 
 
-async def record_watchlist_hit(
-    conn, keyword: str, watchlist_item: str, viral_potential: int
-) -> None:
+async def record_watchlist_hit(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
     async with sqlite_write_lock(conn):
         await _record_watchlist_hit_unlocked(conn, keyword, watchlist_item, viral_potential)
 
 
-async def get_trend_history_patterns_batch(
-    conn, keywords: list[str], days: int = 7
-) -> dict[str, dict]:
+async def get_trend_history_patterns_batch(conn, keywords: list[str], days: int = 7) -> dict[str, dict]:
     """
     ?щ윭 ?ㅼ썙?쒖쓽 ?덉뒪?좊━ ?⑦꽩??1??荑쇰━濡??쇨큵 議고쉶.
     諛섑솚: {keyword: {"seen_count", "avg_score", "score_trend", "is_recurring"}}
@@ -691,7 +712,16 @@ async def _record_content_feedback_unlocked(
         await conn.execute(
             """INSERT INTO content_feedback (keyword, category, qa_score, regenerated, reason, content_age_hours, freshness_grade, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (keyword, category, qa_score, int(regenerated), reason, content_age_hours, freshness_grade, datetime.now().isoformat()),
+            (
+                keyword,
+                category,
+                qa_score,
+                int(regenerated),
+                reason,
+                content_age_hours,
+                freshness_grade,
+                datetime.now().isoformat(),
+            ),
         )
         await conn.commit()
     except Exception as e:
@@ -754,10 +784,7 @@ async def get_qa_summary(conn, days: int = 7) -> dict:
         (cutoff,),
     )
     cat_rows = await cursor.fetchall()
-    by_category = {
-        r["category"]: {"count": r["count"], "avg_score": r["avg_score"]}
-        for r in cat_rows
-    }
+    by_category = {r["category"]: {"count": r["count"], "avg_score": r["avg_score"]} for r in cat_rows}
 
     # 理쒓렐 ?먯닔 (理쒕? 10嫄?
     cursor = await conn.execute(
@@ -791,4 +818,3 @@ async def get_content_hashes(conn, hours: int = 24) -> set[str]:
     )
     rows = await cursor.fetchall()
     return {r["fingerprint"] for r in rows}
-

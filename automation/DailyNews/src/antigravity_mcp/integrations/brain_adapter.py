@@ -3,6 +3,7 @@
 Consolidated from legacy ``scripts/brain_module.py`` to eliminate duplication.
 Includes per-category prompt hints and structured X thread generation.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,15 +15,18 @@ logger = logging.getLogger(__name__)
 
 # Import LLM primitives with graceful fallback
 try:
-    from shared.llm import TaskTier, get_client as _get_llm_client
+    from shared.llm import TaskTier
+    from shared.llm import get_client as _get_llm_client
 except ImportError:
     try:
         import sys
         from pathlib import Path
+
         _ROOT = Path(__file__).resolve().parents[4]
         if str(_ROOT) not in sys.path:
             sys.path.insert(0, str(_ROOT))
-        from shared.llm import TaskTier, get_client as _get_llm_client
+        from shared.llm import TaskTier
+        from shared.llm import get_client as _get_llm_client
     except ImportError:
         TaskTier = None
         _get_llm_client = None
@@ -74,7 +78,7 @@ def _robust_json_parse(text: str) -> dict | None:
     except json.JSONDecodeError:
         pass
     try:
-        text = re.sub(r',(\s*[}\]])', r'\1', text)
+        text = re.sub(r",(\s*[}\]])", r"\1", text)
         return json.loads(text)
     except json.JSONDecodeError:
         logger.warning("Failed to parse brain module JSON: %s...", text[:100])
@@ -141,7 +145,7 @@ class BrainAdapter:
             text = (resp.text or "").strip()
             # Extract JSON array
             if "[" in text:
-                arr_text = text[text.index("["):text.index("]") + 1]
+                arr_text = text[text.index("[") : text.index("]") + 1]
                 indices = json.loads(arr_text)
                 valid = [i for i in indices if isinstance(i, int) and 0 <= i < len(articles)]
                 if valid:
@@ -193,6 +197,7 @@ class BrainAdapter:
         x_prompt_rules = ""
         try:
             from antigravity_mcp.config import CONFIG_DIR
+
             prompt_file = CONFIG_DIR / "x_longform_prompt.json"
             if prompt_file.exists():
                 prompt_config = json.loads(prompt_file.read_text(encoding="utf-8"))

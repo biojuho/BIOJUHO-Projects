@@ -27,15 +27,17 @@ if TYPE_CHECKING:
 
 # ── 데이터 모델 ──────────────────────────────────────
 
+
 @dataclass
 class RichTrend:
     """GetDayTrends에서 가져온 풍부한 트렌드 데이터."""
+
     keyword: str
     rank: int = 0
     viral_potential: int = 0
     category: str = ""
     sentiment: str = "neutral"
-    confidence: int = 0                 # cross_source_confidence
+    confidence: int = 0  # cross_source_confidence
     best_hook_starter: str = ""
     suggested_angles: list[str] = field(default_factory=list)
     top_insight: str = ""
@@ -50,6 +52,7 @@ class RichTrend:
 @dataclass
 class PostingTimeSlot:
     """카테고리별 최적 게시 시간."""
+
     category: str
     hour: int
     avg_score: float = 0.0
@@ -59,6 +62,7 @@ class PostingTimeSlot:
 @dataclass
 class GdtBridgeResult:
     """GDT Bridge 통합 결과."""
+
     trends: list[RichTrend] = field(default_factory=list)
     posting_slots: list[PostingTimeSlot] = field(default_factory=list)
     top_keywords: list[str] = field(default_factory=list)
@@ -68,6 +72,7 @@ class GdtBridgeResult:
 
 
 # ── DB 경로 탐지 ──────────────────────────────────────
+
 
 def _find_gdt_db(config: CIEConfig) -> Path | None:
     """GetDayTrends DB 파일을 자동 탐지한다."""
@@ -90,6 +95,7 @@ def _find_gdt_db(config: CIEConfig) -> Path | None:
 
 
 # ── 쿼리 함수들 ──────────────────────────────────────
+
 
 def load_rich_trends(
     conn: sqlite3.Connection,
@@ -128,26 +134,29 @@ def load_rich_trends(
     results = []
     for row in rows:
         import json
+
         angles_raw = row["suggested_angles"]
         try:
             angles = json.loads(angles_raw) if angles_raw else []
         except (json.JSONDecodeError, TypeError):
             angles = []
 
-        results.append(RichTrend(
-            keyword=row["keyword"],
-            rank=row["rank"] or 0,
-            viral_potential=row["viral_potential"] or 0,
-            top_insight=row["top_insight"],
-            suggested_angles=angles,
-            best_hook_starter=row["best_hook_starter"],
-            sentiment=row["sentiment"],
-            confidence=row["confidence"],
-            trend_acceleration=row["trend_acceleration"],
-            scored_at=row["scored_at"] or "",
-            avg_engagement_rate=row["avg_eng"],
-            total_impressions=int(row["total_imp"]),
-        ))
+        results.append(
+            RichTrend(
+                keyword=row["keyword"],
+                rank=row["rank"] or 0,
+                viral_potential=row["viral_potential"] or 0,
+                top_insight=row["top_insight"],
+                suggested_angles=angles,
+                best_hook_starter=row["best_hook_starter"],
+                sentiment=row["sentiment"],
+                confidence=row["confidence"],
+                trend_acceleration=row["trend_acceleration"],
+                scored_at=row["scored_at"] or "",
+                avg_engagement_rate=row["avg_eng"],
+                total_impressions=int(row["total_imp"]),
+            )
+        )
     return results
 
 
@@ -245,6 +254,7 @@ def load_watchlist_alerts(
 
 
 # ── 통합 로드 함수 ──────────────────────────────────────
+
 
 def load_all(config: CIEConfig) -> GdtBridgeResult | None:
     """GetDayTrends DB에서 모든 데이터를 통합 로드한다.

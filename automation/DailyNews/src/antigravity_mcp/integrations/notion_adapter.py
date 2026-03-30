@@ -40,10 +40,13 @@ def retry_notion_call(func):
             except Exception as exc:
                 last_exc = exc
                 if attempt < _MAX_RETRIES and _should_retry(exc):
-                    wait = backoff * (2 ** attempt)
+                    wait = backoff * (2**attempt)
                     logger.warning(
                         "Notion API retry attempt %d/%d after %.1fs: %s",
-                        attempt + 1, _MAX_RETRIES, wait, exc,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                        wait,
+                        exc,
                     )
                     await asyncio.sleep(wait)
                     continue
@@ -249,10 +252,8 @@ class NotionAdapter:
         # Phase 4: Batch delete — parallel deletion in chunks of 10
         BATCH_SIZE = 10
         for i in range(0, len(to_delete), BATCH_SIZE):
-            batch = to_delete[i:i + BATCH_SIZE]
-            await asyncio.gather(
-                *(self.client.blocks.delete(block_id=bid) for bid in batch)
-            )
+            batch = to_delete[i : i + BATCH_SIZE]
+            await asyncio.gather(*(self.client.blocks.delete(block_id=bid) for bid in batch))
 
         new_blocks = markdown_to_blocks(markdown)
         if new_blocks:

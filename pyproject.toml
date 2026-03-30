@@ -16,7 +16,7 @@ where = ["."]
 include = ["shared*", "content_intelligence*"]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py312"
 line-length = 120
 
 [tool.ruff.lint]

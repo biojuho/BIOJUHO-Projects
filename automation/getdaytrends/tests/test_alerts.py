@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """tests/test_alerts.py — alerts.py 단위 테스트.
 
 C-5 (Slack/Email) 및 기존 채널 (Telegram/Discord) 테스트.
@@ -8,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from config import AppConfig
 from alerts import (
     format_trend_alert,
     send_alert,
@@ -17,6 +15,7 @@ from alerts import (
     send_slack_alert,
     send_telegram_alert,
 )
+from config import AppConfig
 
 
 @pytest.fixture
@@ -169,9 +168,7 @@ def test_email_handles_failure(mock_smtp_cls, config):
 @patch("alerts.send_slack_alert", return_value={"ok": True})
 @patch("alerts.send_discord_alert", return_value={"ok": True})
 @patch("alerts.send_telegram_alert", return_value={"ok": True})
-def test_send_alert_dispatches_all_channels(
-    mock_tg, mock_dc, mock_sl, mock_em, config
-):
+def test_send_alert_dispatches_all_channels(mock_tg, mock_dc, mock_sl, mock_em, config):
     results = send_alert("test message", config)
     assert "telegram" in results
     assert "discord" in results

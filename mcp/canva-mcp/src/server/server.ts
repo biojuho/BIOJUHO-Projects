@@ -911,7 +911,7 @@ async function refreshAccessToken(refreshToken: string): Promise<{
 
 async function getValidAccessToken(sessionId: string): Promise<string> {
   const session = authSessions.get(sessionId);
-  
+
   if (!session) {
     throw new Error("Not authenticated. Please authenticate with Canva first.");
   }
@@ -936,7 +936,7 @@ async function canvaApiRequest(
   accessTokenOverride?: string
 ): Promise<any> {
   const accessToken = accessTokenOverride || await getValidAccessToken(sessionId);
-  
+
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
   };
@@ -1028,7 +1028,7 @@ function createCanvaServer(sessionId: string): Server {
       // Check authentication for all tools
       // First check if we have session tokens
       let accessToken: string | null = null;
-      
+
       if (authSessions.has(sessionId)) {
         accessToken = await getValidAccessToken(sessionId);
       } else {
@@ -1065,7 +1065,7 @@ function createCanvaServer(sessionId: string): Server {
       switch (toolName) {
         case "upload-asset-from-url": {
           const args = uploadAssetFromUrlParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(sessionId, "/url-asset-uploads", "POST", {
             name: args.name,
             url: args.url,
@@ -1093,11 +1093,11 @@ function createCanvaServer(sessionId: string): Server {
           } else if (args.sortBy) {
             params.append("sort_by", args.sortBy);
           }
-          
+
           if (args.ownershipFilter) {
             params.append("ownership", args.ownershipFilter);
           }
-          
+
           if (args.continuation) {
             params.append("continuation", args.continuation);
           }
@@ -1122,7 +1122,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "get-design": {
           const args = getDesignParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(sessionId, `/designs/${args.designId}`, "GET", undefined, accessToken);
 
           return {
@@ -1138,7 +1138,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "get-design-pages": {
           const args = getDesignPagesParser.parse(request.params.arguments ?? {});
-          
+
           const params = new URLSearchParams();
           if (args.offset !== undefined) params.append("offset", args.offset.toString());
           if (args.limit !== undefined) params.append("limit", args.limit.toString());
@@ -1164,7 +1164,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "get-design-content": {
           const args = getDesignContentParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(sessionId, `/designs/${args.designId}/content`, "GET", undefined, accessToken);
 
           return {
@@ -1180,7 +1180,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "create-folder": {
           const args = createFolderParser.parse(request.params.arguments ?? {});
-          
+
           const body: any = { name: args.name };
           if (args.parentFolderId) {
             body.parent_folder_id = args.parentFolderId;
@@ -1201,7 +1201,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "move-item-to-folder": {
           const args = moveItemToFolderParser.parse(request.params.arguments ?? {});
-          
+
           await canvaApiRequest(sessionId, `/folders/${args.folderId}/items`, "POST", {
             item_id: args.itemId,
           }, accessToken);
@@ -1218,7 +1218,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "list-folder-items": {
           const args = listFolderItemsParser.parse(request.params.arguments ?? {});
-          
+
           const params = new URLSearchParams();
           if (args.itemType) params.append("item_type", args.itemType);
           if (args.continuation) params.append("continuation", args.continuation);
@@ -1244,7 +1244,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "comment-on-design": {
           const args = commentOnDesignParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(
             sessionId,
             `/designs/${args.designId}/comments`,
@@ -1268,7 +1268,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "list-comments": {
           const args = listCommentsParser.parse(request.params.arguments ?? {});
-          
+
           const params = new URLSearchParams();
           if (args.commentResolution) params.append("comment_resolution", args.commentResolution);
           if (args.continuation) params.append("continuation", args.continuation);
@@ -1294,7 +1294,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "list-replies": {
           const args = listRepliesParser.parse(request.params.arguments ?? {});
-          
+
           const params = new URLSearchParams();
           if (args.continuation) params.append("continuation", args.continuation);
 
@@ -1319,7 +1319,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "reply-to-comment": {
           const args = replyToCommentParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(
             sessionId,
             `/designs/${args.designId}/comments/${args.threadId}/replies`,
@@ -1344,7 +1344,7 @@ function createCanvaServer(sessionId: string): Server {
         case "generate-design": {
           const args = generateDesignParser.parse(request.params.arguments ?? {});
           const widget = widgetsById.get("design-generator")!;
-          
+
           const body: any = { query: args.query };
           if (args.assetIds) {
             body.asset_ids = args.assetIds;
@@ -1366,7 +1366,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "create-design-from-candidate": {
           const args = createDesignFromCandidateParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(
             sessionId,
             `/designs/generate/${args.jobId}/candidates/${args.candidateId}`,
@@ -1389,7 +1389,7 @@ function createCanvaServer(sessionId: string): Server {
         case "start-editing-transaction": {
           const args = startEditingTransactionParser.parse(request.params.arguments ?? {});
           const widget = widgetsById.get("design-editor")!;
-          
+
           const data = await canvaApiRequest(
             sessionId,
             `/designs/${args.designId}/edit`,
@@ -1412,7 +1412,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "perform-editing-operations": {
           const args = performEditingOperationsParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(
             sessionId,
             `/designs/edit/${args.transactionId}/operations`,
@@ -1436,7 +1436,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "commit-editing-transaction": {
           const args = commitEditingTransactionParser.parse(request.params.arguments ?? {});
-          
+
           await canvaApiRequest(
             sessionId,
             `/designs/edit/${args.transactionId}/commit`,
@@ -1457,7 +1457,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "cancel-editing-transaction": {
           const args = cancelEditingTransactionParser.parse(request.params.arguments ?? {});
-          
+
           await canvaApiRequest(
             sessionId,
             `/designs/edit/${args.transactionId}/cancel`,
@@ -1478,7 +1478,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "get-design-thumbnail": {
           const args = getDesignThumbnailParser.parse(request.params.arguments ?? {});
-          
+
           const data = await canvaApiRequest(
             sessionId,
             `/designs/edit/${args.transactionId}/pages/${args.pageIndex}/thumbnail`,
@@ -1500,7 +1500,7 @@ function createCanvaServer(sessionId: string): Server {
 
         case "get-assets": {
           const args = getAssetsParser.parse(request.params.arguments ?? {});
-          
+
           const params = new URLSearchParams();
           args.assetIds.forEach(id => params.append("asset_ids", id));
 
@@ -1556,7 +1556,7 @@ async function handleSseRequest(res: ServerResponse, sessionId?: string, authHea
 
   // Store mapping from transport.sessionId to actualSessionId
   transportToSessionId.set(transport.sessionId, actualSessionId);
-  
+
   // Store auth header if provided (use actualSessionId which matches the closure in createCanvaServer)
   if (authHeader) {
     sessionAuthHeaders.set(actualSessionId, authHeader);
@@ -1659,7 +1659,7 @@ async function handleAuthCallback(req: IncomingMessage, res: ServerResponse, url
   }
 
   const pendingAuth = pendingAuthStates.get(state);
-  
+
   if (!pendingAuth) {
     res.writeHead(400).end("Invalid or expired state parameter");
     return;
@@ -1675,7 +1675,7 @@ async function handleAuthCallback(req: IncomingMessage, res: ServerResponse, url
 
   try {
     const tokenData = await exchangeCodeForToken(code, pendingAuth.codeVerifier);
-    
+
     authSessions.set(pendingAuth.sessionId, {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
@@ -1721,10 +1721,10 @@ function setCorsHeaders(res: ServerResponse, origin?: string) {
     'http://localhost:3000',
     'http://localhost:5173', // Vite dev server
   ];
-  
+
   const requestOrigin = origin || '*';
   const allowOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : '*';
-  
+
   res.setHeader("Access-Control-Allow-Origin", allowOrigin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
@@ -1734,10 +1734,10 @@ function setCorsHeaders(res: ServerResponse, origin?: string) {
 const httpServer = createServer(
   async (req: IncomingMessage, res: ServerResponse) => {
     const origin = req.headers.origin;
-    
+
     // Set CORS headers on all responses
     setCorsHeaders(res, origin);
-    
+
     if (!req.url) {
       res.writeHead(400).end("Missing URL");
       return;
@@ -1777,7 +1777,7 @@ const httpServer = createServer(
       const assetPath = url.pathname.slice(1);
       const fullPath = path.join(ASSETS_DIR, assetPath);
       const resolvedPath = path.resolve(fullPath);
-      
+
       if (!resolvedPath.startsWith(path.resolve(ASSETS_DIR))) {
         res.writeHead(403).end("Forbidden");
         return;
@@ -1798,7 +1798,7 @@ const httpServer = createServer(
           ".ico": "image/x-icon",
         };
         const contentType = contentTypes[ext] || "application/octet-stream";
-        
+
         res.writeHead(200, {
           "Content-Type": contentType,
           "Access-Control-Allow-Origin": "*",
@@ -1828,4 +1828,3 @@ httpServer.listen(port, '0.0.0.0', () => {
   console.log(`  CANVA_CLIENT_SECRET=<your_client_secret>`);
   console.log(`  CANVA_REDIRECT_URI=${CANVA_REDIRECT_URI}`);
 });
-

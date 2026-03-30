@@ -1,6 +1,6 @@
 # DSCI-DecentBio
 
-탈중앙화 과학(Decentralized Science) 플랫폼  
+탈중앙화 과학(Decentralized Science) 플랫폼
 Decentralized Science (DeSci) Platform
 ## Target Audience
 

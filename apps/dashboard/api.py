@@ -18,10 +18,10 @@ import sys
 from datetime import datetime
 
 # Windows cp949 인코딩 문제 해결
-if sys.stdout and hasattr(sys.stdout, 'buffer'):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-if sys.stderr and hasattr(sys.stderr, 'buffer'):
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+if sys.stdout and hasattr(sys.stdout, "buffer"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "buffer"):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 from pathlib import Path
 
 import uvicorn
@@ -52,6 +52,7 @@ app.add_middleware(
 # ── Prometheus Metrics (/metrics) ──────────────────────────
 try:
     from shared.metrics import setup_metrics
+
     setup_metrics(app, service_name="dashboard")
 except ImportError:
     pass
@@ -59,6 +60,7 @@ except ImportError:
 # ── Structured Logging (JSON for Loki) ─────────────────────
 try:
     from shared.structured_logging import setup_logging as setup_structured_logging
+
     setup_structured_logging(service_name="dashboard")
 except ImportError:
     pass
@@ -66,6 +68,7 @@ except ImportError:
 # ── Audit Log ──────────────────────────────────────────────
 try:
     from shared.audit import setup_audit_log
+
     setup_audit_log(app, service_name="dashboard")
 except ImportError:
     pass
@@ -122,6 +125,7 @@ def _get_pg_engine():
     if _pg_engine is None:
         try:
             from sqlalchemy import create_engine
+
             _pg_engine = create_engine(AG_PG_URL, pool_pre_ping=True, pool_size=3)
         except Exception as e:
             log.warning("PostgreSQL engine creation failed: %s", e)
@@ -133,6 +137,7 @@ def _pg_read(query: str) -> list[dict]:
     """PostgreSQL에서 읽어 dict 리스트로 반환."""
     try:
         from sqlalchemy import text
+
         engine = _get_pg_engine()
         if engine is None:
             return [{"error": "PostgreSQL not available"}]
@@ -148,6 +153,7 @@ def _pg_read(query: str) -> list[dict]:
 def _pg_scalar(query: str):
     try:
         from sqlalchemy import text
+
         engine = _get_pg_engine()
         if engine is None:
             return None
@@ -382,6 +388,7 @@ def _get_cost_summary() -> dict:
     """shared/telemetry에서 비용 데이터를 가져온다."""
     try:
         from shared.telemetry.cost_tracker import get_daily_cost_summary
+
         summary = get_daily_cost_summary(days=7)
         return summary
     except Exception as e:

@@ -55,8 +55,7 @@ def require_env(name: str) -> str:
     """Get an environment variable or raise with a clear message."""
     value = os.getenv(name, "").strip()
     if not value:
-        raise EnvironmentError(
-            f"Required environment variable '{name}' is not set. "
-            f"Check your .env file at {WORKSPACE_ROOT / '.env'}"
+        raise OSError(
+            f"Required environment variable '{name}' is not set. " f"Check your .env file at {WORKSPACE_ROOT / '.env'}"
         )
     return value

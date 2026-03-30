@@ -2,19 +2,17 @@
 DeSci Platform - Backend API
 Built with FastAPI by Raph & JuPark
 """
+
 import os
-from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
+
 from auth import get_current_user
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-app = FastAPI(
-    title="DSCI-DecentBio",
-    description="Decentralized Science Platform API",
-    version="0.1.0"
-)
+app = FastAPI(title="DSCI-DecentBio", description="Decentralized Science Platform API", version="0.1.0")
 
 # CORS 설정 - 환경변수에서 읽기
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")

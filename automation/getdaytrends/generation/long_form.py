@@ -3,14 +3,12 @@
 generator.py에서 추출된 모듈.
 """
 
-from config import AppConfig
-from models import GeneratedTweet, ScoredTrend
+from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
-from utils import sanitize_keyword
 
-from loguru import logger as log
-
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend
 from prompt_builder import (
     _REPORT_BLOG_SYSTEM,
     _build_account_identity_section,
@@ -23,6 +21,7 @@ from prompt_builder import (
     _system_long_form,
     _use_report_profile,
 )
+from utils import sanitize_keyword
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
 
@@ -30,6 +29,7 @@ _JSON_POLICY = LLMPolicy(response_mode="json")
 # ══════════════════════════════════════════════════════
 #  X Premium+ 장문 포스트 (1,500~3,000자) — Sonnet tier
 # ══════════════════════════════════════════════════════
+
 
 async def generate_long_form_async(
     trend: ScoredTrend,
@@ -39,6 +39,7 @@ async def generate_long_form_async(
 ) -> list[GeneratedTweet]:
     """X Premium+ 장문 콘텐츠 2종 비동기 생성 (v13.0: LIGHTWEIGHT 기본)."""
     from datetime import datetime as _dt
+
     report_profile = _use_report_profile(config)
     target_language = _resolve_language(config)
     context_section = _build_context_section(trend)
@@ -62,8 +63,7 @@ async def generate_long_form_async(
             "1) 딥다이브 분석 (1,500~3,000자): 남들이 놓친 포인트 기반 분석\n"
             "2) 리포트 코멘트 (1,000~2,000자): 과장 없이 의미와 관찰 포인트 정리\n\n"
             if report_profile
-            else
-            "1) 딥다이브 분석 (1,500~3,000자): 남들이 놓친 포인트 기반 분석\n"
+            else "1) 딥다이브 분석 (1,500~3,000자): 남들이 놓친 포인트 기반 분석\n"
             "2) 핫테이크 오피니언 (1,000~2,000자): 불편한 소신 + 팩트 근거\n\n"
         )
         + "반드시 JSON만 출력하세요."
@@ -159,7 +159,7 @@ def _system_blog_post(tone: str, editorial_profile: str = "classic") -> str:
         "2,000~5,000자의 SEO 최적화된 블로그 포스트 작성.\n"
         "구조: 서론(후킹) → 본론(H2 3~4개) → 핵심 요약 → 결론(CTA)\n"
         "첫 문단에 핵심 키워드 포함. 자연스럽고 깊이 있는 분석.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"posts":[{'
         '"type":"심층 분석",'
         '"title":"블로그 제목 (40자 이내)",'
@@ -168,7 +168,7 @@ def _system_blog_post(tone: str, editorial_profile: str = "classic") -> str:
         '"seo_keywords":["키워드1","키워드2","키워드3"],'
         '"meta_description":"메타 설명 (150자 이내)",'
         '"thumbnail_suggestion":"썸네일 키워드"'
-        '}]}'
+        "}]}"
     )
 
 
@@ -183,6 +183,7 @@ async def generate_blog_async(
     서론-본론(H2)-요약-결론 구성 + SEO 키워드 + 메타 설명.
     """
     from datetime import datetime as _dt
+
     report_profile = _use_report_profile(config)
     target_language = _resolve_language(config)
     context_section = _build_context_section(trend)
@@ -209,8 +210,7 @@ async def generate_blog_async(
         + (
             "## 왜 지금 중요한가 / ## 무슨 신호가 보이나 / ## 무엇을 봐야 하나 / ## 핵심 정리 구조를 지킬 것.\n"
             if report_profile
-            else
-            "소제목(##)으로 구분된 마크다운 구조를 지켜 작성할 것.\n"
+            else "소제목(##)으로 구분된 마크다운 구조를 지켜 작성할 것.\n"
         )
         + "반드시 JSON만 출력.\n"
     )
@@ -248,18 +248,17 @@ async def generate_blog_async(
             if thumb:
                 full_content += f"\n🖼️ 썸네일 제안: {thumb}"
 
-            posts.append(GeneratedTweet(
-                tweet_type=p.get("type", "블로그"),
-                content=full_content,
-                content_type="naver_blog",
-                platform="naver_blog",
-                seo_keywords=seo_kws[:seo_count],
-            ))
+            posts.append(
+                GeneratedTweet(
+                    tweet_type=p.get("type", "블로그"),
+                    content=full_content,
+                    content_type="naver_blog",
+                    platform="naver_blog",
+                    seo_keywords=seo_kws[:seo_count],
+                )
+            )
 
-        log.info(
-            f"블로그 생성 완료: '{trend.keyword}' "
-            f"({len(posts)}편, 총 {sum(p.char_count for p in posts)}자)"
-        )
+        log.info(f"블로그 생성 완료: '{trend.keyword}' " f"({len(posts)}편, 총 {sum(p.char_count for p in posts)}자)")
         return posts
 
     except Exception as e:

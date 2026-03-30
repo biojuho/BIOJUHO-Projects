@@ -27,7 +27,11 @@ def test_news_bot_continues_when_one_category_upload_fails(load_script_module, m
     monkeypatch.setattr(module, "ANTIGRAVITY_TASKS_DB_ID", "tasks-db")
     monkeypatch.setattr(module, "PIPELINE_MAX_CONCURRENCY", 2)
     monkeypatch.setattr(module, "AsyncClient", FakeAsyncClient)
-    monkeypatch.setattr(module, "load_sources", lambda: {"Tech": [{"name": "A", "url": "tech"}], "Economy": [{"name": "B", "url": "eco"}]})
+    monkeypatch.setattr(
+        module,
+        "load_sources",
+        lambda: {"Tech": [{"name": "A", "url": "tech"}], "Economy": [{"name": "B", "url": "eco"}]},
+    )
     monkeypatch.setattr(module, "load_summarizer", lambda: None)
     monkeypatch.setattr(module, "load_brain", lambda logger: None)
     monkeypatch.setattr(module, "load_x_radar", lambda logger: None)
@@ -67,7 +71,11 @@ def test_news_bot_skips_links_already_seen(load_script_module, monkeypatch, tmp_
     monkeypatch.setattr(module, "load_brain", lambda logger: None)
     monkeypatch.setattr(module, "load_x_radar", lambda logger: None)
     monkeypatch.setattr(module, "load_market_data", lambda logger: None)
-    monkeypatch.setattr(module, "fetch_feed_entries", lambda url: asyncio.sleep(0, result=[make_entry("Dup", "https://dup.example.com/article")]))
+    monkeypatch.setattr(
+        module,
+        "fetch_feed_entries",
+        lambda url: asyncio.sleep(0, result=[make_entry("Dup", "https://dup.example.com/article")]),
+    )
 
     captured = {"called": False}
 

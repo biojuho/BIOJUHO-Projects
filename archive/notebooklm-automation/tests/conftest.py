@@ -53,7 +53,9 @@ def mock_notebooklm_client():
 def patch_notebooklm(mock_notebooklm_client):
     """Patch NotebookLMClient.from_storage to return the mock client."""
     mock_client, mock_ctx = mock_notebooklm_client
-    with patch("notebooklm_automation.bridge.NOTEBOOKLM_AVAILABLE", True), \
-         patch("notebooklm_automation.bridge.NotebookLMClient") as MockCls:
+    with (
+        patch("notebooklm_automation.bridge.NOTEBOOKLM_AVAILABLE", True),
+        patch("notebooklm_automation.bridge.NotebookLMClient") as MockCls,
+    ):
         MockCls.from_storage = AsyncMock(return_value=mock_ctx)
         yield mock_client

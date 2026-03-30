@@ -1,4 +1,5 @@
-﻿"""Market data adapter with structured snapshots from yfinance."""
+"""Market data adapter with structured snapshots from yfinance."""
+
 from __future__ import annotations
 
 import logging

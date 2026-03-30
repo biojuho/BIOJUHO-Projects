@@ -12,9 +12,8 @@ Endpoints:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
-
 from dependencies import get_analytics
+from fastapi import APIRouter, Depends, Query
 from services.analytics import AnalyticsEngine
 
 router = APIRouter(

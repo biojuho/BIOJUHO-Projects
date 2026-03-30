@@ -21,21 +21,25 @@ _kiwi = None
 KIWI_AVAILABLE = False
 try:
     import importlib
+
     _kiwi_spec = importlib.util.find_spec("kiwipiepy")
     if _kiwi_spec is not None:
         # 실제 import + 간단 토큰화로 바이너리 호환성 검증
         from kiwipiepy import Kiwi as _KiwiClass  # noqa: F401
+
         KIWI_AVAILABLE = True
 except Exception:
     KIWI_AVAILABLE = False
 
 # ── Kiwi 싱글톤 ────────────────────────────────────────
 
+
 def _get_kiwi():
     global _kiwi
     if _kiwi is None:
         import os
         import shutil
+
         from kiwipiepy import Kiwi
 
         # Windows 한글 경로 우회: C++ 백엔드가 비ASCII 경로를 처리 못하는 경우
@@ -45,6 +49,7 @@ def _get_kiwi():
         except Exception:
             try:
                 import kiwipiepy_model
+
                 src = kiwipiepy_model.get_model_path()
                 dest = os.path.join(os.environ.get("TEMP", "C:/temp"), "kiwi_model")
                 os.makedirs(dest, exist_ok=True)
@@ -198,6 +203,7 @@ def _detect_ai_voice_fallback(text: str) -> list[str]:
 #  2. 신조어/밈 감지
 # ══════════════════════════════════════════════════════
 
+
 def extract_novel_words(text: str, min_length: int = 2) -> list[str]:
     """
     텍스트에서 사전 미등재 토큰(신조어, 밈, 줄임말)을 추출.
@@ -226,6 +232,7 @@ def extract_novel_words(text: str, min_length: int = 2) -> list[str]:
 # ══════════════════════════════════════════════════════
 #  3. 텍스트 품질 점수
 # ══════════════════════════════════════════════════════
+
 
 def compute_quality_score(text: str) -> float:
     """
@@ -259,14 +266,25 @@ def compute_quality_score(text: str) -> float:
 
     # 구어체 가점
     colloquial_markers = [
-        "거임", "아닌가", "근데 진짜", "솔직히", "ㅋ", "ㄷㄷ",
-        "인 거", "는 거", "한 거", "인데", "잖아", "거든",
+        "거임",
+        "아닌가",
+        "근데 진짜",
+        "솔직히",
+        "ㅋ",
+        "ㄷㄷ",
+        "인 거",
+        "는 거",
+        "한 거",
+        "인데",
+        "잖아",
+        "거든",
     ]
     if any(m in text for m in colloquial_markers):
         score += 0.1
 
     # 숫자/데이터 가점
     import re
+
     if re.search(r"\d+[%억만조원달러]", text):
         score += 0.1
 
@@ -280,6 +298,7 @@ def compute_quality_score(text: str) -> float:
 # ══════════════════════════════════════════════════════
 #  4. 키워드 정제
 # ══════════════════════════════════════════════════════
+
 
 def refine_keyword(keyword: str) -> dict:
     """
@@ -316,10 +335,7 @@ def refine_keyword(keyword: str) -> dict:
 
         # 문장 조각 판별: 명사 없이 어미/조사만 있으면 조각
         has_noun = any(t.tag.startswith("NN") or t.tag == "UN" for t in tokens)
-        has_only_particles = all(
-            t.tag.startswith(("J", "E", "X", "S")) or t.tag == "SP"
-            for t in tokens
-        )
+        has_only_particles = all(t.tag.startswith(("J", "E", "X", "S")) or t.tag == "SP" for t in tokens)
         result["is_fragment"] = not has_noun or has_only_particles
 
         # 오타 교정 (Kiwi typo correction)

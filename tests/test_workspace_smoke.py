@@ -5,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SMOKE_SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "run_workspace_smoke.py"
 QUALITY_GATE_PATH = PROJECT_ROOT / "docs" / "QUALITY_GATE.md"
@@ -69,7 +68,12 @@ def test_runtime_temp_dir_stays_under_workspace_var_tmp() -> None:
 
 def test_command_for_check_appends_workspace_local_basetemp() -> None:
     smoke = load_smoke_module()
-    check = smoke.Check("workspace", "workspace regression tests", ".", ["python", "-m", "pytest", "tests/test_workspace_smoke.py", "-q"])
+    check = smoke.Check(
+        "workspace",
+        "workspace regression tests",
+        ".",
+        ["python", "-m", "pytest", "tests/test_workspace_smoke.py", "-q"],
+    )
     temp_dir = smoke.runtime_temp_dir(PROJECT_ROOT, check)
 
     command = smoke.command_for_check(check, temp_dir)
@@ -90,7 +94,9 @@ def test_run_one_reports_missing_working_directory() -> None:
 
 def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) -> None:
     smoke = load_smoke_module()
-    check = smoke.Check("desci", "desci frontend unit tests", "apps/desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
+    check = smoke.Check(
+        "desci", "desci frontend unit tests", "apps/desci-platform/frontend", ["npm.cmd", "run", "test:lts"]
+    )
     attempts = iter(
         [
             smoke.Result(
@@ -126,7 +132,9 @@ def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) ->
 
 def test_should_retry_ignores_non_transient_failures() -> None:
     smoke = load_smoke_module()
-    check = smoke.Check("desci", "desci frontend unit tests", "apps/desci-platform/frontend", ["npm.cmd", "run", "test:lts"])
+    check = smoke.Check(
+        "desci", "desci frontend unit tests", "apps/desci-platform/frontend", ["npm.cmd", "run", "test:lts"]
+    )
     result = smoke.Result(
         "desci",
         "desci frontend unit tests",

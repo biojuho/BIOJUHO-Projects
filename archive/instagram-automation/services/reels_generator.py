@@ -150,6 +150,7 @@ class ReelsGenerator:
 
         if output_path is None:
             import time
+
             output_path = REELS_DIR / f"tts_{int(time.time())}.mp3"
         output_path = Path(output_path)
 
@@ -169,6 +170,7 @@ class ReelsGenerator:
         """
         if output_path is None:
             import time
+
             output_path = REELS_DIR / f"subs_{int(time.time())}.srt"
         output_path = Path(output_path)
 
@@ -178,12 +180,14 @@ class ReelsGenerator:
 
         # Hook: 0~5s
         if script.hook:
-            entries.append(SRTEntry(
-                index=idx,
-                start_time=self._format_time(current_sec),
-                end_time=self._format_time(5.0),
-                text=script.hook,
-            ))
+            entries.append(
+                SRTEntry(
+                    index=idx,
+                    start_time=self._format_time(current_sec),
+                    end_time=self._format_time(5.0),
+                    text=script.hook,
+                )
+            )
             idx += 1
             current_sec = 5.0
 
@@ -193,23 +197,27 @@ class ReelsGenerator:
             segment_dur = (body_end - current_sec) / len(script.body)
             for point in script.body:
                 end = current_sec + segment_dur
-                entries.append(SRTEntry(
-                    index=idx,
-                    start_time=self._format_time(current_sec),
-                    end_time=self._format_time(end),
-                    text=point,
-                ))
+                entries.append(
+                    SRTEntry(
+                        index=idx,
+                        start_time=self._format_time(current_sec),
+                        end_time=self._format_time(end),
+                        text=point,
+                    )
+                )
                 idx += 1
                 current_sec = end
 
         # CTA: last 10s
         if script.cta:
-            entries.append(SRTEntry(
-                index=idx,
-                start_time=self._format_time(current_sec),
-                end_time=self._format_time(float(script.estimated_duration)),
-                text=script.cta,
-            ))
+            entries.append(
+                SRTEntry(
+                    index=idx,
+                    start_time=self._format_time(current_sec),
+                    end_time=self._format_time(float(script.estimated_duration)),
+                    text=script.cta,
+                )
+            )
 
         srt_content = "\n".join(e.to_srt() for e in entries)
         output_path.write_text(srt_content, encoding="utf-8")
@@ -230,6 +238,7 @@ class ReelsGenerator:
         """
         if output_path is None:
             import time
+
             output_path = REELS_DIR / f"reel_{int(time.time())}.mp4"
 
         # Check FFmpeg availability
@@ -245,17 +254,28 @@ class ReelsGenerator:
 
         # Generate background color video + overlay audio + burn subtitles
         cmd = [
-            "ffmpeg", "-y",
+            "ffmpeg",
+            "-y",
             # Dark gradient background (1080x1920 vertical)
-            "-f", "lavfi", "-i",
+            "-f",
+            "lavfi",
+            "-i",
             f"color=c=0x1a1a2e:s=1080x1920:d={duration}:r=30",
             # Audio
-            "-i", str(audio_path),
+            "-i",
+            str(audio_path),
             # Subtitle overlay
-            "-vf", f"subtitles={srt_path}:force_style='FontSize=24,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Alignment=2,MarginV=120'",
+            "-vf",
+            f"subtitles={srt_path}:force_style='FontSize=24,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Alignment=2,MarginV=120'",
             # Output settings
-            "-c:v", "libx264", "-preset", "fast",
-            "-c:a", "aac", "-b:a", "128k",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
             "-shortest",
             str(output_path),
         ]
@@ -289,9 +309,7 @@ class ReelsGenerator:
             srt_path = self.generate_srt(script)
 
             # 4. Assemble video (optional — depends on FFmpeg)
-            video_path = self.assemble_video(
-                audio_path, srt_path, duration=script.estimated_duration
-            )
+            video_path = self.assemble_video(audio_path, srt_path, duration=script.estimated_duration)
 
             return ReelResult(
                 script=script,

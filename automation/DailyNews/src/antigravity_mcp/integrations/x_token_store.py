@@ -5,6 +5,7 @@ Falls back to environment variables if the data directory is unavailable.
 
 Pattern mirrors ``scripts/token_store.py`` (Canva OAuth token store).
 """
+
 from __future__ import annotations
 
 import base64
@@ -32,7 +33,7 @@ try:
     from cryptography.fernet import Fernet  # type: ignore
 
     def _derive_key() -> bytes:
-        seed = f"{os.getenv('COMPUTERNAME', 'unknown')}:{_PROJECT_ROOT}:x".encode("utf-8")
+        seed = f"{os.getenv('COMPUTERNAME', 'unknown')}:{_PROJECT_ROOT}:x".encode()
         raw = hashlib.sha256(seed).digest()
         return base64.urlsafe_b64encode(raw)
 
@@ -57,6 +58,7 @@ def _decrypt(ciphertext: str) -> str:
 # ---------------------------------------------------------------------------
 # File I/O
 # ---------------------------------------------------------------------------
+
 
 def _read_store() -> dict[str, str]:
     if not _TOKEN_FILE.exists():

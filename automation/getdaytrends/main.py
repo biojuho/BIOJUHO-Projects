@@ -1,6 +1,6 @@
 """
 =======================================================
-  X(Twitter) 트렌드 자동 트윗 생성기 v3.0
+  X(Twitter) 트렌드 자동 트윗 생성기 v4.1
   - 멀티소스 트렌드 병렬 수집 + 클러스터링
   - Claude AI 바이럴 스코어링 (배치 + 캐시 + 재시도)
   - 5종 단문 + Premium+ 장문 + Threads + 강화 쓰레드
@@ -45,14 +45,12 @@ if sys.platform == "win32" and "pytest" not in sys.modules and hasattr(sys.stdou
 
 
 import schedule
+from loguru import logger as log
 
-from config import AppConfig, VERSION
+from config import VERSION, AppConfig
 from core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
 from db import close_pg_pool, get_connection, get_trend_stats, init_db
 from utils import run_async
-
-from loguru import logger as log
-
 
 # ══════════════════════════════════════════════════════
 #  우아한 종료 (SIGTERM / SIGINT)
@@ -212,7 +210,8 @@ async def print_stats(config: AppConfig):
 
     # LLM 비용 통계 (최근 7일)
     try:
-        from shared.llm.stats import CostTracker, _DB_PATH as llm_db_path
+        from shared.llm.stats import _DB_PATH as llm_db_path
+        from shared.llm.stats import CostTracker
 
         if llm_db_path.exists():
             tracker = CostTracker(persist=True)
@@ -264,10 +263,7 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
     print(f"  Concurrency limit : {parallel_limit}")
 
     if config.smart_schedule and not config.one_shot:
-        print(
-            "  Smart reschedule stays on the base interval "
-            f"({config.schedule_minutes} min) in parallel mode."
-        )
+        print("  Smart reschedule stays on the base interval " f"({config.schedule_minutes} min) in parallel mode.")
 
     semaphore = asyncio.Semaphore(parallel_limit)
 
@@ -362,6 +358,7 @@ def main():
     if args.serve:
         try:
             import uvicorn
+
             from dashboard import app as _dashboard_app
 
             print("\n  대시보드 서버 시작: http://localhost:8080\n")
@@ -409,7 +406,6 @@ def main():
                     print(f"\n  ═══ 국가: {country.upper()} ═══")
                 run_pipeline(country_config, schedule_callback=_run_all_countries)
 
-
     _run_all_countries()
 
     # one-shot이면 여기서 종료
@@ -446,6 +442,7 @@ def main():
     except KeyboardInterrupt:
         _SHUTDOWN_FLAG.set()
     finally:
+
         async def _cleanup():
             await close_pg_pool()
 

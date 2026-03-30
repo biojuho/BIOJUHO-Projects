@@ -6,4 +6,5 @@ Run getdaytrends tests separately::
 
     python -m pytest getdaytrends/tests/ -q
 """
+
 collect_ignore_glob = ["getdaytrends/tests/*"]

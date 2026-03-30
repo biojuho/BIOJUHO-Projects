@@ -116,8 +116,8 @@ async def _direct_x_post(
     config: CIEConfig,
 ) -> PublishResult:
     """x_client 없을 경우 직접 X API v2 호출."""
-    from storage.models import PublishResult
     import requests
+    from storage.models import PublishResult
 
     tweet_text = _compose_tweet(content)
 
@@ -188,7 +188,7 @@ def _compose_tweet(content: GeneratedContent) -> str:
         # 280자 제한 고려
         max_body = 280 - len(hashtag_str) - 2
         if len(body) > max_body:
-            body = body[:max_body - 1] + "…"
+            body = body[: max_body - 1] + "…"
         return f"{body}\n\n{hashtag_str}"
 
     # 해시태그 없는 경우

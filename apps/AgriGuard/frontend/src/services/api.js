@@ -14,7 +14,7 @@ export const productApi = {
   create: ({ owner_id, ...body }) => api.post('/products/', body, { params: { owner_id } }),
   getAll: () => api.get('/products/'),
   getById: (id) => api.get(`/products/${id}`),
-  
+
   // Tracking & Blockchain (backend expects query params)
   addTracking: (id, data) => api.post(`/products/${id}/track`, null, { params: data }),
   getHistory: (id) => api.get(`/products/${id}/history`),

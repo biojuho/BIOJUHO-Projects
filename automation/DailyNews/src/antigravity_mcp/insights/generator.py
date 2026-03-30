@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from antigravity_mcp.insights.validator import InsightValidator
@@ -44,10 +44,7 @@ class InsightGenerator:
         raw_insights = await self._call_llm(prompt)
 
         validated_insights = []
-        source_text = "\n".join(
-            f"{article.get('title', '')}\n{article.get('summary', '')}"
-            for article in articles
-        )
+        source_text = "\n".join(f"{article.get('title', '')}\n{article.get('summary', '')}" for article in articles)
         for insight in raw_insights[:max_insights]:
             validated = self.validator.validate(insight, source_text=source_text)
             insight.update(validated)
@@ -162,7 +159,7 @@ class InsightGenerator:
         return parsed if isinstance(parsed, list) else []
 
     def _format_x_long_form(self, category: str, insights: list[dict[str, Any]]) -> str:
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         lines = [f"# {category} 주요 인사이트 ({today})", ""]
         for idx, insight in enumerate(insights, 1):
             if not insight.get("validation_passed", False):

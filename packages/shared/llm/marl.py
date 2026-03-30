@@ -43,6 +43,7 @@ log = logging.getLogger("shared.llm.marl")
 # Configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MARLConfig:
     """Configuration for the MARL metacognitive pipeline.
@@ -166,6 +167,7 @@ _SYNTHESIS_PROMPT = """다음은 같은 주제에 대한 여러 단계의 분석
 # Pipeline
 # ---------------------------------------------------------------------------
 
+
 class MARLPipeline:
     """MARL 5-stage metacognitive pipeline.
 
@@ -223,13 +225,15 @@ class MARLPipeline:
         # Stage 3: Revision
         revision_response = self._client.create(
             tier=cfg.generation_tier,
-            messages=[{
-                "role": "user",
-                "content": _REVISION_PROMPT.format(
-                    original=current_text,
-                    critique=critique_response.text,
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _REVISION_PROMPT.format(
+                        original=current_text,
+                        critique=critique_response.text,
+                    ),
+                }
+            ],
             max_tokens=cfg.max_tokens_per_stage,
             system=system,
             policy=policy,
@@ -243,10 +247,12 @@ class MARLPipeline:
         # Stage 4: Expert Deepening
         deepening_response = self._client.create(
             tier=cfg.generation_tier,
-            messages=[{
-                "role": "user",
-                "content": _DEEPENING_PROMPT.format(response=current_text),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _DEEPENING_PROMPT.format(response=current_text),
+                }
+            ],
             max_tokens=cfg.max_tokens_per_stage,
             system=system,
             policy=policy,
@@ -260,14 +266,16 @@ class MARLPipeline:
         # Stage 5: Final Synthesis
         synthesis_response = self._client.create(
             tier=cfg.generation_tier,
-            messages=[{
-                "role": "user",
-                "content": _SYNTHESIS_PROMPT.format(
-                    initial=gen_response.text,
-                    revised=revision_response.text,
-                    deepened=deepening_response.text,
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _SYNTHESIS_PROMPT.format(
+                        initial=gen_response.text,
+                        revised=revision_response.text,
+                        deepened=deepening_response.text,
+                    ),
+                }
+            ],
             max_tokens=cfg.max_tokens_per_stage * 2,  # extra room for synthesis
             system=system,
             policy=policy,
@@ -320,13 +328,15 @@ class MARLPipeline:
         # Stage 3: Revision
         revision_response = await self._client.acreate(
             tier=cfg.generation_tier,
-            messages=[{
-                "role": "user",
-                "content": _REVISION_PROMPT.format(
-                    original=current_text,
-                    critique=critique_response.text,
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _REVISION_PROMPT.format(
+                        original=current_text,
+                        critique=critique_response.text,
+                    ),
+                }
+            ],
             max_tokens=cfg.max_tokens_per_stage,
             system=system,
             policy=policy,
@@ -340,10 +350,12 @@ class MARLPipeline:
         # Stage 4: Expert Deepening
         deepening_response = await self._client.acreate(
             tier=cfg.generation_tier,
-            messages=[{
-                "role": "user",
-                "content": _DEEPENING_PROMPT.format(response=current_text),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _DEEPENING_PROMPT.format(response=current_text),
+                }
+            ],
             max_tokens=cfg.max_tokens_per_stage,
             system=system,
             policy=policy,
@@ -357,14 +369,16 @@ class MARLPipeline:
         # Stage 5: Final Synthesis
         synthesis_response = await self._client.acreate(
             tier=cfg.generation_tier,
-            messages=[{
-                "role": "user",
-                "content": _SYNTHESIS_PROMPT.format(
-                    initial=gen_response.text,
-                    revised=revision_response.text,
-                    deepened=deepening_response.text,
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _SYNTHESIS_PROMPT.format(
+                        initial=gen_response.text,
+                        revised=revision_response.text,
+                        deepened=deepening_response.text,
+                    ),
+                }
+            ],
             max_tokens=cfg.max_tokens_per_stage * 2,
             system=system,
             policy=policy,

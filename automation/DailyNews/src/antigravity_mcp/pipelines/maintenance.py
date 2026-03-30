@@ -1,9 +1,9 @@
 """Daily maintenance pipeline — DB backup, cache pruning, log rotation."""
+
 from __future__ import annotations
 
 import logging
-import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from antigravity_mcp.config import get_settings
@@ -27,10 +27,11 @@ def backup_db(
     dest_dir = dest_dir or settings.data_dir / "backups"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     backup_path = dest_dir / f"pipeline_state_{timestamp}.db"
 
     import sqlite3
+
     src_conn = store._connect()
     dst_conn = sqlite3.connect(str(backup_path))
     try:

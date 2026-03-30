@@ -30,7 +30,13 @@ def test_process_category_survives_source_failure_and_awaits_sleep(load_script_m
     async def fake_fetch(url: str):
         if "bad" in url:
             raise TimeoutError("timeout")
-        return [make_entry("Fresh AI startup launches cloud platform", "https://fresh.example.com/article", "new software tech startup")]
+        return [
+            make_entry(
+                "Fresh AI startup launches cloud platform",
+                "https://fresh.example.com/article",
+                "new software tech startup",
+            )
+        ]
 
     async def fake_upload(**kwargs):
         return {"id": "page-1"}
@@ -71,7 +77,9 @@ def test_run_daily_news_continues_after_category_failure(load_script_module, mon
     monkeypatch.setattr(module, "ANTIGRAVITY_NEWS_DB_ID", "news-db")
     monkeypatch.setattr(module, "load_news_sources", lambda: {"Tech": [], "Economy": []})
     monkeypatch.setattr(module, "AsyncClient", lambda auth: object())
-    monkeypatch.setattr(module, "get_extraction_window", lambda force: (module.datetime.now(), module.datetime.now(), "test"))
+    monkeypatch.setattr(
+        module, "get_extraction_window", lambda force: (module.datetime.now(), module.datetime.now(), "test")
+    )
 
     async def fake_process_category(**kwargs):
         if kwargs["category"] == "Tech":

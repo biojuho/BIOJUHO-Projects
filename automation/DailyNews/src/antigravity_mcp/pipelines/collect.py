@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from dateutil import parser as date_parser
@@ -20,12 +20,16 @@ async def fetch_article_body(url: str, max_chars: int = 1500) -> str:
     """Fetch and extract article body text from a URL using trafilatura."""
     try:
         import trafilatura
+
         downloaded = await asyncio.to_thread(trafilatura.fetch_url, url)
         if not downloaded:
             return ""
         text = await asyncio.to_thread(
-            trafilatura.extract, downloaded,
-            include_comments=False, include_tables=False, no_fallback=False,
+            trafilatura.extract,
+            downloaded,
+            include_comments=False,
+            include_tables=False,
+            no_fallback=False,
         )
         return (text or "")[:max_chars]
     except Exception as exc:
@@ -49,7 +53,7 @@ def get_window(window_name: str) -> tuple[datetime, datetime]:
     - evening: KST 07:00 ~ KST 18:00 (today)              → UTC 22:00 (prev day) ~ 09:00 (today)
     """
     KST_OFFSET = timedelta(hours=9)
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     now_kst = now_utc + KST_OFFSET  # aware KST
 
     if window_name == "morning":
@@ -75,9 +79,9 @@ def is_within_window(value: Any, start: datetime, end: datetime) -> bool:
             parsed = datetime(*value[:6])
         # Normalize both sides to UTC-aware for consistent comparison
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        aware_start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
-        aware_end = end if end.tzinfo else end.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
+        aware_start = start if start.tzinfo else start.replace(tzinfo=UTC)
+        aware_end = end if end.tzinfo else end.replace(tzinfo=UTC)
         return aware_start <= parsed <= aware_end
     except Exception:
         return True

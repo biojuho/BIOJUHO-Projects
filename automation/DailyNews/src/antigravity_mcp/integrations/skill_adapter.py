@@ -12,10 +12,12 @@ Built-in skills:
 
 Custom skills can be registered at runtime via :meth:`SkillAdapter.register`.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

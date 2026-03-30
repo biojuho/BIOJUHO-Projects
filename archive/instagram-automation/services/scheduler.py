@@ -33,18 +33,21 @@ class PostScheduler:
     def _get_meta_api(self):
         if self._meta_api is None:
             from services.meta_api import MetaGraphAPI
+
             self._meta_api = MetaGraphAPI(self.config.meta)
         return self._meta_api
 
     def _get_db(self):
         if self._db is None:
             from services.database import Database
+
             self._db = Database(self.config.db_path)
         return self._db
 
     def _get_content_gen(self):
         if self._content_gen is None:
             from services.content_generator import ContentGenerator
+
             self._content_gen = ContentGenerator(self.config.content)
         return self._content_gen
 
@@ -52,6 +55,7 @@ class PostScheduler:
         if self._notifier is None:
             try:
                 from shared.notifications import Notifier
+
                 self._notifier = Notifier.from_env()
             except Exception:
                 self._notifier = None
@@ -81,43 +85,29 @@ class PostScheduler:
                 raise ValueError("Post has no media URL — set image_url or video_url")
 
             if post.post_type.value == "IMAGE":
-                media_id = await api.publish_image(
-                    post.image_url, post.full_caption
-                )
+                media_id = await api.publish_image(post.image_url, post.full_caption)
             elif post.post_type.value == "REELS":
-                media_id = await api.publish_reel(
-                    post.video_url, post.full_caption
-                )
+                media_id = await api.publish_reel(post.video_url, post.full_caption)
             elif post.post_type.value == "CAROUSEL_ALBUM":
-                media_id = await api.publish_carousel(
-                    post.carousel_urls, post.full_caption
-                )
+                media_id = await api.publish_carousel(post.carousel_urls, post.full_caption)
             elif post.post_type.value == "STORIES":
-                media_id = await api.publish_story(
-                    image_url=post.image_url, video_url=post.video_url
-                )
+                media_id = await api.publish_story(image_url=post.image_url, video_url=post.video_url)
             else:
                 raise ValueError(f"Unknown post type: {post.post_type}")
 
-            db.update_post_status(
-                post.id, PostStatus.PUBLISHED, media_id=media_id
-            )
+            db.update_post_status(post.id, PostStatus.PUBLISHED, media_id=media_id)
             logger.info("Published post #%d -> media_id=%s", post.id, media_id)
 
             notifier = self._get_notifier()
             if notifier:
                 notifier.send(
-                    f"[IG] Post #{post.id} published\n"
-                    f"Type: {post.post_type.value}\n"
-                    f"Media ID: {media_id}"
+                    f"[IG] Post #{post.id} published\n" f"Type: {post.post_type.value}\n" f"Media ID: {media_id}"
                 )
             return True
 
         except Exception as e:
             logger.error("Failed to publish post #%d: %s", post.id, e)
-            db.update_post_status(
-                post.id, PostStatus.FAILED, error_message=str(e)
-            )
+            db.update_post_status(post.id, PostStatus.FAILED, error_message=str(e))
             notifier = self._get_notifier()
             if notifier:
                 notifier.send(f"[IG ERROR] Post #{post.id} failed: {e}")
@@ -134,10 +124,9 @@ class PostScheduler:
             # Try to get trending topics from GetDayTrends
             try:
                 from services.trend_bridge import TrendBridge
+
                 bridge = TrendBridge()
-                topics = bridge.topics_to_instagram_topics(
-                    max_topics=len(self.config.scheduler.posting_hours)
-                )
+                topics = bridge.topics_to_instagram_topics(max_topics=len(self.config.scheduler.posting_hours))
                 if topics:
                     logger.info("Using %d trending topics from GetDayTrends", len(topics))
                 else:
@@ -170,8 +159,7 @@ class PostScheduler:
         notifier = self._get_notifier()
         if notifier and count > 0:
             notifier.send(
-                f"[IG] Daily content generated: {count} posts queued\n"
-                f"Topics: {', '.join(topics[:count])}"
+                f"[IG] Daily content generated: {count} posts queued\n" f"Topics: {', '.join(topics[:count])}"
             )
         return count
 
@@ -187,6 +175,7 @@ class PostScheduler:
                 continue
             try:
                 from models import PostInsights
+
                 metrics = await api.get_media_insights(post.media_id)
                 insights = PostInsights(
                     media_id=post.media_id,

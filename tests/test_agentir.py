@@ -13,16 +13,15 @@ AgentIR 통합 테스트 — Phase 1 PoC + Phase 2 통합 검증 + Phase 3 인�
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 
 import pytest
 
-
 # ══════════════════════════════════════════════════════
 #  Group 1: 모듈 임포트 & 구조 검증
 # ══════════════════════════════════════════════════════
+
 
 class TestModuleStructure:
     """Phase 1: 모듈 구조 및 임포트 검증."""
@@ -30,6 +29,7 @@ class TestModuleStructure:
     def test_import_agentir_module(self):
         """AgentIR 모듈이 shared.embeddings에서 임포트 가능."""
         from shared.embeddings import agentir
+
         assert hasattr(agentir, "embed_with_reasoning")
         assert hasattr(agentir, "search")
         assert hasattr(agentir, "VectorIndex")
@@ -37,6 +37,7 @@ class TestModuleStructure:
     def test_import_reasoning_query(self):
         """ReasoningQuery 데이터 모델 임포트 가능."""
         from shared.embeddings.agentir import ReasoningQuery
+
         q = ReasoningQuery(query="test")
         assert q.query == "test"
         assert q.reasoning == ""
@@ -44,6 +45,7 @@ class TestModuleStructure:
     def test_import_retrieval_mode(self):
         """RetrievalMode Enum 임포트 가능."""
         from shared.embeddings.agentir import RetrievalMode
+
         assert RetrievalMode.REASONING_AWARE.value == "reasoning_aware"
         assert RetrievalMode.STANDARD.value == "standard"
         assert RetrievalMode.HYBRID.value == "hybrid"
@@ -51,36 +53,18 @@ class TestModuleStructure:
     def test_import_all_public_api(self):
         """모든 public API가 임포트 가능."""
         from shared.embeddings.agentir import (
-            ReasoningQuery,
-            RetrievalMode,
-            RetrievalResult,
-            VectorIndex,
-            ABTestResult,
-            AgentIRStats,
-            embed_with_reasoning,
-            embed_with_reasoning_async,
-            embed_documents,
-            embed_documents_async,
-            search,
-            search_async,
-            ab_test_search,
-            get_stats,
-            reset_stats,
-            health_check,
             AGENTIR_MODEL,
-            AGENTIR_PREFIX,
         )
+
         assert AGENTIR_MODEL == "Tevatron/AgentIR-4B"
 
     def test_backward_compatibility(self):
         """기존 shared.embeddings API가 여전히 작동."""
         from shared.embeddings import (
-            embed_texts,
-            embed_texts_async,
             cosine_similarity,
-            compute_similarity_matrix,
-            deduplicate_texts,
+            embed_texts,
         )
+
         # 기존 함수 시그니처 확인
         assert callable(embed_texts)
         assert callable(cosine_similarity)
@@ -89,6 +73,7 @@ class TestModuleStructure:
 # ══════════════════════════════════════════════════════
 #  Group 2: ReasoningQuery 데이터 모델
 # ══════════════════════════════════════════════════════
+
 
 class TestReasoningQuery:
     """ReasoningQuery 객체 생성 및 변환 검증."""
@@ -140,28 +125,28 @@ class TestReasoningQuery:
 #  Group 3: 임베딩 API 테스트
 # ══════════════════════════════════════════════════════
 
+
 class TestEmbeddingAPI:
     """임베딩 API 기능 검증 (API 연결 필요 시 skip)."""
 
     def test_embed_empty_returns_none(self):
         from shared.embeddings.agentir import embed_with_reasoning
+
         result = embed_with_reasoning([])
         assert result is None
 
     def test_embed_documents_empty_returns_none(self):
         from shared.embeddings.agentir import embed_documents
+
         result = embed_documents([])
         assert result is None
 
     @pytest.mark.skipif(
-        not os.getenv("HF_TOKEN") and not os.getenv("GOOGLE_API_KEY"),
-        reason="HF_TOKEN 또는 GOOGLE_API_KEY 미설정"
+        not os.getenv("HF_TOKEN") and not os.getenv("GOOGLE_API_KEY"), reason="HF_TOKEN 또는 GOOGLE_API_KEY 미설정"
     )
     def test_embed_with_reasoning_api(self):
         """실제 API를 통한 임베딩 테스트."""
-        from shared.embeddings.agentir import (
-            ReasoningQuery, embed_with_reasoning, RetrievalMode
-        )
+        from shared.embeddings.agentir import ReasoningQuery, RetrievalMode, embed_with_reasoning
 
         queries = [
             ReasoningQuery(
@@ -176,12 +161,12 @@ class TestEmbeddingAPI:
             assert len(vectors[0]) > 0
             # 정규화 검증
             import math
+
             norm = math.sqrt(sum(v * v for v in vectors[0]))
             assert abs(norm - 1.0) < 0.01, f"벡터가 정규화되지 않음: norm={norm}"
 
     @pytest.mark.skipif(
-        not os.getenv("HF_TOKEN") and not os.getenv("GOOGLE_API_KEY"),
-        reason="HF_TOKEN 또는 GOOGLE_API_KEY 미설정"
+        not os.getenv("HF_TOKEN") and not os.getenv("GOOGLE_API_KEY"), reason="HF_TOKEN 또는 GOOGLE_API_KEY 미설정"
     )
     def test_embed_documents_api(self):
         """실제 API를 통한 문서 임베딩 테스트."""
@@ -202,6 +187,7 @@ class TestEmbeddingAPI:
 #  Group 4: 검색 API 테스트
 # ══════════════════════════════════════════════════════
 
+
 class TestSearchAPI:
     """검색 기능 검증."""
 
@@ -213,12 +199,11 @@ class TestSearchAPI:
         assert results == []
 
     @pytest.mark.skipif(
-        not os.getenv("HF_TOKEN") and not os.getenv("GOOGLE_API_KEY"),
-        reason="HF_TOKEN 또는 GOOGLE_API_KEY 미설정"
+        not os.getenv("HF_TOKEN") and not os.getenv("GOOGLE_API_KEY"), reason="HF_TOKEN 또는 GOOGLE_API_KEY 미설정"
     )
     def test_search_ranking(self):
         """검색 랭킹이 관련도 순으로 정렬되는지 검증."""
-        from shared.embeddings.agentir import ReasoningQuery, search, RetrievalMode
+        from shared.embeddings.agentir import ReasoningQuery, search
 
         documents = [
             "스마트팜에서 AI 기반 병충해 예측 모델을 적용하여 농업 생산성 향상.",
@@ -231,7 +216,7 @@ class TestSearchAPI:
         query = ReasoningQuery(
             query="crop disease detection AI",
             reasoning="AgriGuard 프로젝트에서 딥러닝 기반 병충해 탐지 시스템 개발 중. "
-                      "이전 검색에서 CNN 모델이 유력한 후보임을 확인.",
+            "이전 검색에서 CNN 모델이 유력한 후보임을 확인.",
         )
 
         results = search(query, documents, top_k=3)
@@ -247,6 +232,7 @@ class TestSearchAPI:
 # ══════════════════════════════════════════════════════
 #  Group 5: VectorIndex CRUD + 영속성
 # ══════════════════════════════════════════════════════
+
 
 class TestVectorIndex:
     """인메모리 벡터 인덱스 기능 검증."""
@@ -320,9 +306,7 @@ class TestVectorIndex:
             filter_fn=lambda m: m.get("category") == "tech",
         )
         assert len(results) == 2
-        assert all(
-            idx.metadata[r.index]["category"] == "tech" for r in results
-        )
+        assert all(idx.metadata[r.index]["category"] == "tech" for r in results)
 
     def test_save_and_load(self):
         from shared.embeddings.agentir import VectorIndex
@@ -334,9 +318,7 @@ class TestVectorIndex:
             metadata=[{"k": "v1"}, {"k": "v2"}, {"k": "v3"}],
         )
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             path = f.name
 
         try:
@@ -365,6 +347,7 @@ class TestVectorIndex:
 #  Group 6: A/B 테스트 프레임워크
 # ══════════════════════════════════════════════════════
 
+
 class TestABTestFramework:
     """A/B 테스트 구조 검증."""
 
@@ -382,7 +365,7 @@ class TestABTestFramework:
         assert result.improvement == 0.1
 
     def test_ab_test_empty_queries(self):
-        from shared.embeddings.agentir import ab_test_search, ReasoningQuery
+        from shared.embeddings.agentir import ab_test_search
 
         result = ab_test_search(
             queries=[],
@@ -394,6 +377,7 @@ class TestABTestFramework:
 # ══════════════════════════════════════════════════════
 #  Group 7: 통계 & 헬스체크
 # ══════════════════════════════════════════════════════
+
 
 class TestStatsAndHealth:
     """통계 및 헬스체크 기능 검증."""
@@ -434,7 +418,7 @@ class TestStatsAndHealth:
         assert "stats" in result
 
     def test_reset_stats(self):
-        from shared.embeddings.agentir import reset_stats, get_stats
+        from shared.embeddings.agentir import get_stats, reset_stats
 
         reset_stats()
         stats = get_stats()
@@ -445,25 +429,31 @@ class TestStatsAndHealth:
 #  Group 8: 코사인 유사도
 # ══════════════════════════════════════════════════════
 
+
 class TestCosineSimularity:
     """AgentIR 내장 코사인 유사도 함수 검증."""
 
     def test_identical_vectors(self):
         from shared.embeddings.agentir import cosine_similarity
+
         assert abs(cosine_similarity([1, 0, 0], [1, 0, 0]) - 1.0) < 1e-6
 
     def test_orthogonal_vectors(self):
         from shared.embeddings.agentir import cosine_similarity
+
         assert abs(cosine_similarity([1, 0, 0], [0, 1, 0])) < 1e-6
 
     def test_opposite_vectors(self):
         from shared.embeddings.agentir import cosine_similarity
+
         assert abs(cosine_similarity([1, 0], [-1, 0]) - (-1.0)) < 1e-6
 
     def test_mismatched_dims(self):
         from shared.embeddings.agentir import cosine_similarity
+
         assert cosine_similarity([1, 0], [1, 0, 0]) == 0.0
 
     def test_zero_vector(self):
         from shared.embeddings.agentir import cosine_similarity
+
         assert cosine_similarity([0, 0], [1, 0]) == 0.0

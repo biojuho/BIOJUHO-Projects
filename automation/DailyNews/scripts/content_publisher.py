@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 
 from notion_client import AsyncClient
-
 from runtime import (
     AlreadyRunningError,
     JobLock,
@@ -44,7 +43,9 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
     if not file_path.exists():
         logger.error("input", "failed", "report file missing", path=file_path)
         state.record_job_finish(run_id, status="failed", error_text=f"report file missing: {file_path}")
-        send_telegram_message(f"❌ <b>Content Publisher Failed</b>\nInput file not found: <code>{file_path.name}</code>")
+        send_telegram_message(
+            f"❌ <b>Content Publisher Failed</b>\nInput file not found: <code>{file_path.name}</code>"
+        )
         return 1
 
     notion = AsyncClient(auth=NOTION_API_KEY)
@@ -72,7 +73,9 @@ async def publish_to_notion(*, title: str, file_path: Path, run_id: str | None =
                 logger=logger,
                 step="upload",
             )
-            state.record_job_finish(run_id, status="success", summary={"blocks": len(children), "page_id": page.get("id")})
+            state.record_job_finish(
+                run_id, status="success", summary={"blocks": len(children), "page_id": page.get("id")}
+            )
             logger.info("complete", "success", "content published", page_id=page.get("id"), blocks=len(children))
 
             page_url = page.get("url", "No URL available")

@@ -44,13 +44,9 @@ class InstagramAdapter(PlatformAdapter):
             caption = content.full_caption
 
             if content.post_type == "REEL" and content.video_url:
-                media_id = await self._api.publish_reel(
-                    content.video_url, caption
-                )
+                media_id = await self._api.publish_reel(content.video_url, caption)
             elif content.post_type == "CAROUSEL" and content.carousel_urls:
-                media_id = await self._api.publish_carousel(
-                    content.carousel_urls, caption
-                )
+                media_id = await self._api.publish_carousel(content.carousel_urls, caption)
             elif content.post_type == "STORY":
                 media_id = await self._api.publish_story(
                     image_url=content.image_url,
@@ -65,9 +61,7 @@ class InstagramAdapter(PlatformAdapter):
                         success=False,
                         error="No image_url for IMAGE post",
                     )
-                media_id = await self._api.publish_image(
-                    content.image_url, caption
-                )
+                media_id = await self._api.publish_image(content.image_url, caption)
 
             url = f"https://www.instagram.com/p/{media_id}/"
             logger.info("Published to Instagram: %s", media_id)

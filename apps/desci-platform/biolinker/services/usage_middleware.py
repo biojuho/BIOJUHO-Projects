@@ -2,13 +2,14 @@
 BioLinker - Usage Tracking Middleware
 API 요청별 사용량 추적 및 티어 기반 접근 제어
 """
+
 from __future__ import annotations
 
 from fastapi import Depends, HTTPException, status
 
 from services.auth import get_current_user
-from services.user_tier import get_tier_manager, UserTier
 from services.logging_config import get_logger
+from services.user_tier import UserTier, get_tier_manager
 
 log = get_logger("biolinker.middleware.usage")
 

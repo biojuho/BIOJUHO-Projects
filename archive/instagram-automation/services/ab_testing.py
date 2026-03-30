@@ -142,9 +142,7 @@ class ABTestEngine:
     def get_experiment_results(self, experiment_id: int) -> dict:
         """Get experiment results with winner determination."""
         conn = self._get_conn()
-        exp = conn.execute(
-            "SELECT * FROM experiments WHERE id = ?", (experiment_id,)
-        ).fetchone()
+        exp = conn.execute("SELECT * FROM experiments WHERE id = ?", (experiment_id,)).fetchone()
         if not exp:
             conn.close()
             return {"error": "Experiment not found"}
@@ -162,20 +160,22 @@ class ABTestEngine:
         for v in variants:
             eng_rate = (v["engagement"] / v["reach"] * 100) if v["reach"] > 0 else 0
             save_rate = (v["saved"] / v["reach"] * 100) if v["reach"] > 0 else 0
-            variant_data.append({
-                "id": v["id"],
-                "label": v["variant_label"],
-                "content_preview": v["content"][:100],
-                "impressions": v["impressions"],
-                "reach": v["reach"],
-                "engagement": v["engagement"],
-                "engagement_rate": round(eng_rate, 2),
-                "likes": v["likes"],
-                "comments": v["comments"],
-                "saved": v["saved"],
-                "save_rate": round(save_rate, 2),
-                "shares": v["shares"],
-            })
+            variant_data.append(
+                {
+                    "id": v["id"],
+                    "label": v["variant_label"],
+                    "content_preview": v["content"][:100],
+                    "impressions": v["impressions"],
+                    "reach": v["reach"],
+                    "engagement": v["engagement"],
+                    "engagement_rate": round(eng_rate, 2),
+                    "likes": v["likes"],
+                    "comments": v["comments"],
+                    "saved": v["saved"],
+                    "save_rate": round(save_rate, 2),
+                    "shares": v["shares"],
+                }
+            )
 
         # Determine winner by engagement rate
         winner = max(variant_data, key=lambda x: x["engagement_rate"])
@@ -277,9 +277,7 @@ class ABTestEngine:
     def get_active_experiments(self) -> list[dict]:
         """Get all active experiments."""
         conn = self._get_conn()
-        rows = conn.execute(
-            "SELECT * FROM experiments WHERE status = 'active' ORDER BY created_at DESC"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM experiments WHERE status = 'active' ORDER BY created_at DESC").fetchall()
         conn.close()
         return [dict(r) for r in rows]
 
@@ -300,11 +298,13 @@ class ABTestEngine:
         for exp in exps:
             results = self.get_experiment_results(exp["id"])
             if results.get("winner"):
-                learnings.append({
-                    "experiment": exp["name"],
-                    "test_type": exp["test_type"],
-                    "hypothesis": exp["hypothesis"],
-                    "winner": results["winner"],
-                    "significance": results.get("significance"),
-                })
+                learnings.append(
+                    {
+                        "experiment": exp["name"],
+                        "test_type": exp["test_type"],
+                        "hypothesis": exp["hypothesis"],
+                        "winner": results["winner"],
+                        "significance": results.get("significance"),
+                    }
+                )
         return learnings

@@ -2,20 +2,19 @@
 BioLinker - RFP Router
 RFP 분석, 파싱, 벡터 매칭, 제안서 생성 엔드포인트
 """
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request
 
-from models import AnalyzeRequest, AnalyzeResponse, UserProfile
-from services.logging_config import get_logger
-from services.crawler import get_crawler
-from services.analyzer import get_analyzer
-from services.vector_store import get_vector_store
-from services.matcher import get_rfp_matcher
-from services.smart_matcher import get_smart_matcher
-from services.proposal_generator import get_proposal_generator
-from services.usage_middleware import UsageGuard, TierRequired
-from services.user_tier import UserTier
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from limiter import limiter
+from models import AnalyzeRequest, AnalyzeResponse, UserProfile
+from services.analyzer import get_analyzer
+from services.crawler import get_crawler
+from services.logging_config import get_logger
+from services.matcher import get_rfp_matcher
+from services.proposal_generator import get_proposal_generator
+from services.smart_matcher import get_smart_matcher
+from services.usage_middleware import TierRequired, UsageGuard
+from services.user_tier import UserTier
+from services.vector_store import get_vector_store
 
 log = get_logger("biolinker.routers.rfp")
 
@@ -80,6 +79,7 @@ async def analyze_rfp(
 
         try:
             from shared.business_metrics import biz
+
             biz.rfp_analysis()
         except ImportError:
             pass
@@ -89,7 +89,7 @@ async def analyze_rfp(
 
 
 @router.post("/parse", tags=["RFP"])
-async def parse_rfp(rfp_text: str, rfp_url: Optional[str] = None):
+async def parse_rfp(rfp_text: str, rfp_url: str | None = None):
     """공고문 파싱"""
     try:
         crawler = get_crawler()
@@ -125,13 +125,13 @@ async def match_rfp(
     request: Request,
     query: str = Query(..., description="Project description or keywords"),
     limit: int = Query(5, ge=1, le=50, description="Max results to return"),
-    source: Optional[str] = Query(None, description="Filter by source, e.g. KDDF"),
-    document_type: Optional[str] = Query(None, alias="document_type", description="Filter by indexed document type"),
-    keyword: Optional[str] = Query(None, description="Keyword substring filter"),
-    deadline_from: Optional[str] = Query(None, description="Include notices with deadline on/after this ISO date"),
-    deadline_to: Optional[str] = Query(None, description="Include notices with deadline on/before this ISO date"),
-    trl_min: Optional[int] = Query(None, ge=0, le=9, description="Minimum TRL overlap"),
-    trl_max: Optional[int] = Query(None, ge=0, le=9, description="Maximum TRL overlap"),
+    source: str | None = Query(None, description="Filter by source, e.g. KDDF"),
+    document_type: str | None = Query(None, alias="document_type", description="Filter by indexed document type"),
+    keyword: str | None = Query(None, description="Keyword substring filter"),
+    deadline_from: str | None = Query(None, description="Include notices with deadline on/after this ISO date"),
+    deadline_to: str | None = Query(None, description="Include notices with deadline on/before this ISO date"),
+    trl_min: int | None = Query(None, ge=0, le=9, description="Minimum TRL overlap"),
+    trl_max: int | None = Query(None, ge=0, le=9, description="Maximum TRL overlap"),
     _usage=Depends(UsageGuard("rfp_search")),
 ):
     """Perform a ChromaDB vector-similarity search over indexed RFP notices.
@@ -175,6 +175,7 @@ async def match_paper_to_rfps(
         results = await matcher.match_paper(paper_id, limit=5)
         try:
             from shared.business_metrics import biz
+
             biz.rfp_match()
         except ImportError:
             pass
@@ -245,6 +246,7 @@ async def generate_proposal_draft(
         critique = await generator.review_draft(rfp, paper, draft)
         try:
             from shared.business_metrics import biz
+
             biz.proposal_generated()
         except ImportError:
             pass

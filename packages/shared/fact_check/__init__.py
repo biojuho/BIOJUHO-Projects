@@ -4,6 +4,7 @@ Domain-agnostic claim extraction, source credibility scoring,
 and cross-reference verification logic. Used by both getdaytrends
 and DailyNews projects.
 """
+
 from shared.fact_check.claim_extractor import (
     Claim,
     ClaimType,

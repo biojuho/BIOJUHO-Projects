@@ -51,6 +51,7 @@ def extract_pdf_text_from_path(path: str | Path, *, max_pages: int = 50) -> str:
 #  Backend: PyMuPDF (fitz)
 # ──────────────────────────────────────────────────
 
+
 def _try_pymupdf(data: bytes, max_pages: int) -> str:
     try:
         import fitz  # PyMuPDF
@@ -78,6 +79,7 @@ def _try_pymupdf(data: bytes, max_pages: int) -> str:
 # ──────────────────────────────────────────────────
 #  Backend: pdfplumber (fallback)
 # ──────────────────────────────────────────────────
+
 
 def _try_pdfplumber(data: bytes, max_pages: int) -> str:
     try:

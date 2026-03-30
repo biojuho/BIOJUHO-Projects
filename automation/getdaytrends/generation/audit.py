@@ -27,6 +27,6 @@ from content_qa import (
 )
 
 __all__ = [
-    'audit_generated_content',
-    'regenerate_content_groups',
+    "audit_generated_content",
+    "regenerate_content_groups",
 ]

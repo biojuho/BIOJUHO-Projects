@@ -4,6 +4,7 @@ Legacy ``scripts/run_daily_news.py`` calls ``BrainModule().analyze_news(...)``
 synchronously.  This wrapper delegates to the canonical async implementation
 in ``antigravity_mcp.integrations.brain_adapter`` and bridges async->sync.
 """
+
 import asyncio
 import sys
 from pathlib import Path
@@ -35,6 +36,7 @@ class BrainModule:
             loop = None
         if loop and loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 return pool.submit(
                     asyncio.run,
@@ -42,13 +44,17 @@ class BrainModule:
                 ).result()
         return asyncio.run(self._adapter.analyze_news(category, articles, time_window, niche_trends))
 
+
 if __name__ == "__main__":
     # Test Code
     print("Brain Module Test (Gemini)...")
     brain = BrainModule()
     test_data = [
-        {"title": "Bitcoin surges past $100k", "description": "Crypto market is booming as institutional investors flock in."},
-        {"title": "Ethereum upgrade successful", "description": "Gas fees lowered significantly after the new patch."}
+        {
+            "title": "Bitcoin surges past $100k",
+            "description": "Crypto market is booming as institutional investors flock in.",
+        },
+        {"title": "Ethereum upgrade successful", "description": "Gas fees lowered significantly after the new patch."},
     ]
     result = brain.analyze_news("Crypto", test_data)
     if result:

@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Aspect ratios for Instagram
 ASPECT_RATIOS = {
-    "feed": "1:1",       # 1080x1080
-    "portrait": "4:5",   # 1080x1350
-    "reels": "9:16",     # 1080x1920
+    "feed": "1:1",  # 1080x1080
+    "portrait": "4:5",  # 1080x1350
+    "reels": "9:16",  # 1080x1920
     "stories": "9:16",
     "landscape": "1.91:1",  # 1080x566
 }
@@ -47,9 +47,7 @@ def _get_gemini_api_key() -> str:
     """Get Gemini API key from environment."""
     key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not key:
-        raise ValueError(
-            "No Google API key found. Set GOOGLE_API_KEY or GEMINI_API_KEY"
-        )
+        raise ValueError("No Google API key found. Set GOOGLE_API_KEY or GEMINI_API_KEY")
     return key
 
 
@@ -69,15 +67,11 @@ class ImageGenerator:
 
                 self._client = genai.Client(api_key=_get_gemini_api_key())
             except ImportError:
-                logger.error(
-                    "google-genai package not installed. Run: pip install google-genai"
-                )
+                logger.error("google-genai package not installed. Run: pip install google-genai")
                 raise
         return self._client
 
-    async def generate_image_prompt(
-        self, topic: str, style: str = "modern"
-    ) -> str:
+    async def generate_image_prompt(self, topic: str, style: str = "modern") -> str:
         """Generate an optimized image creation prompt using LLM."""
         from shared.llm import TaskTier, get_client
 
@@ -114,9 +108,7 @@ class ImageGenerator:
             prompt = await self.generate_image_prompt(topic, style)
             aspect = ASPECT_RATIOS.get(format_type, "1:1")
 
-            full_prompt = IMAGE_PROMPT_TEMPLATE.format(
-                topic=topic, style=style, aspect_ratio=aspect
-            )
+            full_prompt = IMAGE_PROMPT_TEMPLATE.format(topic=topic, style=style, aspect_ratio=aspect)
             # Combine LLM prompt with structural template
             final_prompt = f"{prompt}\n\n{full_prompt}"
 

@@ -28,13 +28,11 @@ CATEGORY_RESEARCH_PROMPTS: dict[str, list[str]] = {
         "기사에 언급된 기술들 간의 연관성과 상호 영향을 분석해줘.",
     ],
     "Economy_KR": [
-        "이 기사들을 종합했을 때, 한국 경제의 단기(1개월) 전망에 대해 "
-        "긍정/부정 시그널을 각각 3개씩 도출해줘.",
+        "이 기사들을 종합했을 때, 한국 경제의 단기(1개월) 전망에 대해 " "긍정/부정 시그널을 각각 3개씩 도출해줘.",
         "개인 투자자 관점에서 주목해야 할 포인트를 정리해줘.",
     ],
     "Economy_Global": [
-        "글로벌 매크로 환경에서 이 기사들이 시사하는 바를 정리하고, "
-        "한국 시장에 미칠 영향을 분석해줘.",
+        "글로벌 매크로 환경에서 이 기사들이 시사하는 바를 정리하고, " "한국 시장에 미칠 영향을 분석해줘.",
         "기사들 간의 인과관계와 연쇄 효과를 분석해줘.",
     ],
     "Crypto": [
@@ -42,8 +40,7 @@ CATEGORY_RESEARCH_PROMPTS: dict[str, list[str]] = {
         "이 기사들에서 감지되는 리스크와 기회를 각각 정리해줘.",
     ],
     "Global_Affairs": [
-        "이 기사들의 지정학적 맥락을 분석하고, 향후 전개 시나리오를 "
-        "낙관/비관/중립 3가지로 제시해줘.",
+        "이 기사들의 지정학적 맥락을 분석하고, 향후 전개 시나리오를 " "낙관/비관/중립 3가지로 제시해줘.",
         "한국 외교/경제에 미칠 파급효과를 분석해줘.",
     ],
     "AI_Deep": [
@@ -234,7 +231,9 @@ class DailyNewsAdapter:
 
             # 2. Wait for completion
             final_status = await c.artifacts.wait_for_completion(
-                notebook_id, task_id, timeout=180.0,
+                notebook_id,
+                task_id,
+                timeout=180.0,
             )
             if final_status.is_failed:
                 logger.warning("[Infographic] Generation failed: %s", final_status.error)
@@ -247,7 +246,8 @@ class DailyNewsAdapter:
             output_path = str(output_dir / f"infographic_{safe_cat}_{window_name or today}.png")
 
             downloaded = await c.artifacts.download_infographic(
-                notebook_id, output_path,
+                notebook_id,
+                output_path,
             )
             result["infographic_path"] = downloaded
             logger.info("[Infographic] Downloaded: %s", downloaded)
@@ -255,6 +255,7 @@ class DailyNewsAdapter:
             # 3.5 Apply branding watermark
             try:
                 from notebooklm_automation.utils.watermark import add_watermark
+
                 add_watermark(downloaded, brand_text="JooPark 쥬팍")
             except Exception as e:
                 logger.debug("[Infographic] Watermark skipped: %s", e)
@@ -262,6 +263,7 @@ class DailyNewsAdapter:
             # 4. Upload to Imgur for public URL (for Notion image embed)
             try:
                 from notebooklm_automation.utils.imgur import upload_image
+
                 imgur_result = await upload_image(
                     downloaded,
                     title=f"DailyNews {category} Infographic",

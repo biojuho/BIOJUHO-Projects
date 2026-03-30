@@ -14,7 +14,7 @@ file: [36mD:/AI 프로젝트/desci-platform/frontend/src/components/AssetManage
 4: import { useToast } from '../contexts/ToastContext';
 5: import { API_BASE_URL } from '../components/BioLinker'; // Reusing base URL from BioLinker or generic config
             ^
-6: 
+6:
 7: const ASSET_TYPES = [
 [31m
     at getRollupError (file:///D:/AI%20%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/desci-platform/frontend/node_modules/rollup/dist/es/shared/parseAst.js:402:41)

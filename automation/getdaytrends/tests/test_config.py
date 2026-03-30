@@ -1,11 +1,8 @@
 """config.py 테스트: 환경변수 로드, 검증, 국가 코드 매핑."""
 
-import os
-import sys
 import unittest
 
 # 프로젝트 루트를 path에 추가
-
 from config import COUNTRY_MAP, AppConfig
 
 

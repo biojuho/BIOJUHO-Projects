@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import sqlite3
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 

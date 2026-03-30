@@ -1,6 +1,6 @@
 """shared.content — Cross-project content generation utilities.
 
-Phase 3 리펙토링: GetDayTrends ↔ DailyNews ↔ content-intelligence 간 
+Phase 3 리펙토링: GetDayTrends ↔ DailyNews ↔ content-intelligence 간
 공통 콘텐츠 생성 패턴을 추출한 공유 모듈.
 
 제공하는 기능:
@@ -18,12 +18,12 @@ from loguru import logger as log
 
 def parse_json_response(text: str | None) -> dict | None:
     """LLM 응답에서 JSON 파싱. 모든 프로젝트 공통 사용.
-    
+
     마크다운 코드블록 내 JSON도 추출 시도합니다.
     """
     if not text:
         return None
-    
+
     # 마크다운 코드블록 제거
     cleaned = text.strip()
     if cleaned.startswith("```"):
@@ -31,7 +31,7 @@ def parse_json_response(text: str | None) -> dict | None:
         match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", cleaned, re.DOTALL)
         if match:
             cleaned = match.group(1).strip()
-    
+
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
@@ -61,7 +61,7 @@ def trim_content(content: str, max_length: int = 280, suffix: str = "...") -> st
     """
     if len(content) <= max_length:
         return content
-    return content[:max_length - len(suffix)] + suffix
+    return content[: max_length - len(suffix)] + suffix
 
 
 # 금지 패턴 (프로젝트 공통)
@@ -88,7 +88,7 @@ def check_banned_patterns(text: str) -> list[str]:
 
 def format_llm_cost_summary(cost_usd: float, calls: int) -> str:
     """LLM 비용 요약 문자열 (공통 포맷).
-    
+
     GetDayTrends, DailyNews, content-intelligence 모두에서 사용.
     """
     return f"${cost_usd:.4f} ({calls}콜)"

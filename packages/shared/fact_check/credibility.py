@@ -1,4 +1,5 @@
 """Source credibility scoring for news outlets."""
+
 from __future__ import annotations
 
 import re
@@ -15,29 +16,46 @@ class CredibilityTier(Enum):
 
 _SOURCE_CREDIBILITY_MAP: dict[str, CredibilityTier] = {
     # Tier 1
-    "연합뉴스": CredibilityTier.TIER_1, "yonhapnews": CredibilityTier.TIER_1,
-    "kbs": CredibilityTier.TIER_1, "mbc": CredibilityTier.TIER_1,
-    "sbs": CredibilityTier.TIER_1, "bbc": CredibilityTier.TIER_1,
-    "reuters": CredibilityTier.TIER_1, "ap news": CredibilityTier.TIER_1,
-    "associated press": CredibilityTier.TIER_1, "nhk": CredibilityTier.TIER_1,
+    "연합뉴스": CredibilityTier.TIER_1,
+    "yonhapnews": CredibilityTier.TIER_1,
+    "kbs": CredibilityTier.TIER_1,
+    "mbc": CredibilityTier.TIER_1,
+    "sbs": CredibilityTier.TIER_1,
+    "bbc": CredibilityTier.TIER_1,
+    "reuters": CredibilityTier.TIER_1,
+    "ap news": CredibilityTier.TIER_1,
+    "associated press": CredibilityTier.TIER_1,
+    "nhk": CredibilityTier.TIER_1,
     "afp": CredibilityTier.TIER_1,
     # Tier 2
-    "조선일보": CredibilityTier.TIER_2, "중앙일보": CredibilityTier.TIER_2,
-    "동아일보": CredibilityTier.TIER_2, "한겨레": CredibilityTier.TIER_2,
-    "경향신문": CredibilityTier.TIER_2, "한국경제": CredibilityTier.TIER_2,
-    "매일경제": CredibilityTier.TIER_2, "jtbc": CredibilityTier.TIER_2,
-    "bloomberg": CredibilityTier.TIER_2, "wsj": CredibilityTier.TIER_2,
+    "조선일보": CredibilityTier.TIER_2,
+    "중앙일보": CredibilityTier.TIER_2,
+    "동아일보": CredibilityTier.TIER_2,
+    "한겨레": CredibilityTier.TIER_2,
+    "경향신문": CredibilityTier.TIER_2,
+    "한국경제": CredibilityTier.TIER_2,
+    "매일경제": CredibilityTier.TIER_2,
+    "jtbc": CredibilityTier.TIER_2,
+    "bloomberg": CredibilityTier.TIER_2,
+    "wsj": CredibilityTier.TIER_2,
     "wall street journal": CredibilityTier.TIER_2,
-    "nytimes": CredibilityTier.TIER_2, "new york times": CredibilityTier.TIER_2,
+    "nytimes": CredibilityTier.TIER_2,
+    "new york times": CredibilityTier.TIER_2,
     "washington post": CredibilityTier.TIER_2,
     "financial times": CredibilityTier.TIER_2,
-    "cnbc": CredibilityTier.TIER_2, "nikkei": CredibilityTier.TIER_2,
+    "cnbc": CredibilityTier.TIER_2,
+    "nikkei": CredibilityTier.TIER_2,
     # Tier 3
-    "머니투데이": CredibilityTier.TIER_3, "뉴시스": CredibilityTier.TIER_3,
-    "뉴스1": CredibilityTier.TIER_3, "이데일리": CredibilityTier.TIER_3,
-    "서울경제": CredibilityTier.TIER_3, "아시아경제": CredibilityTier.TIER_3,
-    "허프포스트": CredibilityTier.TIER_3, "huffpost": CredibilityTier.TIER_3,
-    "the verge": CredibilityTier.TIER_3, "techcrunch": CredibilityTier.TIER_3,
+    "머니투데이": CredibilityTier.TIER_3,
+    "뉴시스": CredibilityTier.TIER_3,
+    "뉴스1": CredibilityTier.TIER_3,
+    "이데일리": CredibilityTier.TIER_3,
+    "서울경제": CredibilityTier.TIER_3,
+    "아시아경제": CredibilityTier.TIER_3,
+    "허프포스트": CredibilityTier.TIER_3,
+    "huffpost": CredibilityTier.TIER_3,
+    "the verge": CredibilityTier.TIER_3,
+    "techcrunch": CredibilityTier.TIER_3,
     "wired": CredibilityTier.TIER_3,
 }
 

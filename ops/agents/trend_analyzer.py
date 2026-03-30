@@ -6,18 +6,19 @@ Pydantic AI 기반 트렌드 분석 에이전트 — Phase 3-B 예제.
 
 Usage::
     from agents.trend_analyzer import analyze_trend
+
     result = await analyze_trend("ChatGPT", context="AI 챗봇 경쟁 심화...")
 
 테스트::
     python -m pytest agents/test_trend_analyzer.py -v
 """
+
 from __future__ import annotations
 
 import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -31,9 +32,11 @@ from pydantic_ai import Agent, RunContext
 
 # ── 의존성 ──────────────────────────────────────────
 
+
 @dataclass
 class AnalysisDeps:
     """분석 에이전트의 런타임 의존성."""
+
     country: str = "korea"
     category: str = ""
     current_time: str = ""
@@ -41,8 +44,10 @@ class AnalysisDeps:
 
 # ── 구조화 출력 모델 ────────────────────────────────
 
+
 class TrendScore(BaseModel):
     """트렌드 바이럴 스코어링 결과."""
+
     keyword: str = Field(description="트렌드 키워드")
     viral_potential: int = Field(ge=0, le=100, description="바이럴 잠재력 (0-100)")
     category: str = Field(description="카테고리 (테크, 경제, 사회, 연예, 스포츠 등)")
@@ -50,11 +55,12 @@ class TrendScore(BaseModel):
     sentiment: str = Field(description="감성 (긍정/부정/중립/혼합)")
     peak_status: str = Field(description="트렌드 단계 (상승중/정점/하락중/신규)")
     content_angle: str = Field(description="콘텐츠 생성 시 추천 앵글")
-    risk_note: Optional[str] = Field(default=None, description="주의사항 (민감한 주제 등)")
+    risk_note: str | None = Field(default=None, description="주의사항 (민감한 주제 등)")
 
 
 class BatchTrendScores(BaseModel):
     """배치 트렌드 스코어링 결과."""
+
     trends: list[TrendScore] = Field(description="스코어링된 트렌드 목록")
 
 
@@ -127,6 +133,7 @@ def add_batch_context(ctx: RunContext[AnalysisDeps]) -> str:
 
 # ── 공개 API ────────────────────────────────────────
 
+
 async def analyze_trend(
     keyword: str,
     context: str = "",
@@ -134,7 +141,8 @@ async def analyze_trend(
     category: str = "",
 ) -> TrendScore:
     """단일 트렌드 분석. 구조화된 TrendScore 반환 보장."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
+
     kst = timezone(timedelta(hours=9))
     now = datetime.now(kst).strftime("%Y-%m-%d %H:%M KST")
 
@@ -153,7 +161,8 @@ async def analyze_trends_batch(
     country: str = "korea",
 ) -> list[TrendScore]:
     """배치 트렌드 분석. [{"keyword": "...", "context": "..."}, ...]"""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
+
     kst = timezone(timedelta(hours=9))
     now = datetime.now(kst).strftime("%Y-%m-%d %H:%M KST")
 

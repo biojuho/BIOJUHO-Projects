@@ -9,13 +9,13 @@ GetDayTrends에서 분석 및 생성된 트렌드 텍스트 데이터를 기반�
 - 생성된 이미지 URL 반환
 """
 
+import asyncio
 import json
 import subprocess
-import asyncio
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger as log
+
 from config import AppConfig
 from models import ScoredTrend
 
@@ -26,7 +26,7 @@ class CanvaMCPClient:
     def __init__(self, workspace_root: Path):
         self.workspace_root = workspace_root
         self.mcp_server_path = workspace_root / "canva-mcp"
-        self.server_process: Optional[subprocess.Popen] = None
+        self.server_process: subprocess.Popen | None = None
 
     async def start_server(self) -> bool:
         """Canva MCP 서버 시작"""
@@ -81,10 +81,7 @@ class CanvaMCPClient:
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {
-                    "name": "create_design",
-                    "arguments": payload
-                }
+                "params": {"name": "create_design", "arguments": payload},
             }
 
             # MCP 서버로 요청 전송
@@ -96,12 +93,9 @@ class CanvaMCPClient:
             response_line = ""
             try:
                 response_line = await asyncio.wait_for(
-                    asyncio.get_event_loop().run_in_executor(
-                        None, self.server_process.stdout.readline
-                    ),
-                    timeout=30.0
+                    asyncio.get_event_loop().run_in_executor(None, self.server_process.stdout.readline), timeout=30.0
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 log.error("[Canva MCP] 응답 타임아웃 (30초)")
                 return []
 
@@ -132,7 +126,7 @@ class CanvaMCPClient:
 
 
 # 전역 MCP 클라이언트 인스턴스 (싱글톤)
-_mcp_client: Optional[CanvaMCPClient] = None
+_mcp_client: CanvaMCPClient | None = None
 
 
 def get_mcp_client(workspace_root: Path = Path(__file__).resolve().parents[1]) -> CanvaMCPClient:
@@ -165,8 +159,7 @@ async def generate_visual_assets(trend: ScoredTrend, config: AppConfig) -> list[
         log.debug("[Canva] API 키가 설정되지 않았습니다. 시각 자료 생성을 건너뜁니다.")
         return []
 
-    log.info("[Canva] '{}' 시각 자료 생성 시작 (템플릿: {})",
-             trend.keyword, config.canva_template_id or "default")
+    log.info("[Canva] '{}' 시각 자료 생성 시작 (템플릿: {})", trend.keyword, config.canva_template_id or "default")
 
     # MCP 클라이언트 초기화
     mcp_client = get_mcp_client()
@@ -184,9 +177,9 @@ async def generate_visual_assets(trend: ScoredTrend, config: AppConfig) -> list[
         "elements": {
             "title": trend.keyword,
             "subtitle": trend.top_insight or "",
-            "volume": str(trend.volume) if hasattr(trend, 'volume') else "",
-            "category": trend.category if hasattr(trend, 'category') else ""
-        }
+            "volume": str(trend.volume) if hasattr(trend, "volume") else "",
+            "category": trend.category if hasattr(trend, "category") else "",
+        },
     }
 
     # MCP 서버를 통해 디자인 생성
@@ -196,8 +189,7 @@ async def generate_visual_assets(trend: ScoredTrend, config: AppConfig) -> list[
         log.warning("[Canva] 이미지 생성 실패 - 스켈레톤 모드로 폴백")
         return await _generate_visual_assets_skeleton(trend, config)
 
-    log.info("[Canva] '{}' 시각 자료 생성 완료: {} 이미지",
-             trend.keyword, len(image_urls))
+    log.info("[Canva] '{}' 시각 자료 생성 완료: {} 이미지", trend.keyword, len(image_urls))
 
     return image_urls
 
@@ -210,8 +202,7 @@ async def _generate_visual_assets_skeleton(trend: ScoredTrend, config: AppConfig
     """
     log.info("[Canva Skeleton] '{}' 시각 자료 생성 요청 (스켈레톤 모드)", trend.keyword)
     log.debug("[Canva Skeleton] 템플릿 ID: {}", config.canva_template_id)
-    log.debug("[Canva Skeleton] 트렌드 데이터: keyword={}, insight={}",
-              trend.keyword, trend.top_insight)
+    log.debug("[Canva Skeleton] 트렌드 데이터: keyword={}, insight={}", trend.keyword, trend.top_insight)
 
     # Phase 2 TODO:
     # - MCP 서버 프로세스 관리 안정화

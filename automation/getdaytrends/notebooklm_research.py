@@ -5,12 +5,12 @@ notebooklm_bridge.py에서 분리됨.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from loguru import logger as log
 
 try:
     from notebooklm import NotebookLMClient  # type: ignore
+
     NOTEBOOKLM_AVAILABLE = True
 except ImportError:
     NOTEBOOKLM_AVAILABLE = False
@@ -19,6 +19,7 @@ except ImportError:
 # ──────────────────────────────────────────────────
 #  Research Tool — 경쟁사/시장 비교분석
 # ──────────────────────────────────────────────────
+
 
 async def research_tool(
     topic: str,
@@ -51,8 +52,8 @@ async def research_tool(
         raise RuntimeError("notebooklm-py가 설치되지 않았습니다")
 
     from notebooklm.rpc.types import (
-        InfographicOrientation,
         InfographicDetail,
+        InfographicOrientation,
         InfographicStyle,
     )
 
@@ -68,8 +69,7 @@ async def research_tool(
     }
 
     default_questions = [
-        f"'{topic}'에 관련된 모든 소스를 비교 분석하여 "
-        f"공통점, 차이점, 장단점을 마크다운 표 형태로 정리해줘.",
+        f"'{topic}'에 관련된 모든 소스를 비교 분석하여 " f"공통점, 차이점, 장단점을 마크다운 표 형태로 정리해줘.",
         f"'{topic}'의 최근 트렌드와 미래 전망을 데이터 기반으로 정리해줘.",
         f"'{topic}'에서 가장 중요한 인사이트 5가지를 뽑아줘.",
     ]
@@ -126,6 +126,7 @@ async def research_tool(
 #  Bio Company Analyzer — DeSci 바이오 기업/기술 분석
 # ──────────────────────────────────────────────────
 
+
 async def analyze_bio_company(
     company_name: str,
     urls: list[str],
@@ -155,8 +156,8 @@ async def analyze_bio_company(
         raise RuntimeError("notebooklm-py가 설치되지 않았습니다")
 
     from notebooklm.rpc.types import (
-        InfographicOrientation,
         InfographicDetail,
+        InfographicOrientation,
         InfographicStyle,
     )
 
@@ -209,18 +210,15 @@ async def analyze_bio_company(
             ),
             (
                 "technology_analysis",
-                f"'{company_name}'의 핵심 기술, R&D 파이프라인, "
-                f"특허 현황, 기술적 차별점을 분석해줘.",
+                f"'{company_name}'의 핵심 기술, R&D 파이프라인, " f"특허 현황, 기술적 차별점을 분석해줘.",
             ),
             (
                 "competitive_position",
-                f"'{company_name}'의 시장 내 경쟁 포지션, 주요 경쟁사 비교, "
-                f"SWOT 분석을 마크다운 표로 정리해줘.",
+                f"'{company_name}'의 시장 내 경쟁 포지션, 주요 경쟁사 비교, " f"SWOT 분석을 마크다운 표로 정리해줘.",
             ),
             (
                 "investment_thesis",
-                f"'{company_name}'에 대한 투자 포인트와 리스크를 "
-                f"DeSci(탈중앙화 과학) 관점에서 평가해줘.",
+                f"'{company_name}'에 대한 투자 포인트와 리스크를 " f"DeSci(탈중앙화 과학) 관점에서 평가해줘.",
             ),
         ]
 
@@ -263,6 +261,7 @@ async def analyze_bio_company(
 # ──────────────────────────────────────────────────
 #  Standalone Test
 # ──────────────────────────────────────────────────
+
 
 async def _self_test():
     """모듈 단독 테스트."""

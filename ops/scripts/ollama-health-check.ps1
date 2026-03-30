@@ -1,4 +1,4 @@
-<# 
+<#
 .SYNOPSIS
     Ollama Health Check & Auto-Restart Script
 .DESCRIPTION
@@ -43,12 +43,12 @@ try {
     }
 } catch {
     Write-Log "ERROR: API health check failed: $($_.Exception.Message)"
-    
+
     # 응답 없으면 재시작 시도
     Stop-Process -Name "ollama" -Force -ErrorAction SilentlyContinue
     Stop-Process -Name "ollama app" -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 3
-    
+
     if (Test-Path $OllamaExe) {
         Start-Process $OllamaExe -WindowStyle Hidden
         Start-Sleep -Seconds 5

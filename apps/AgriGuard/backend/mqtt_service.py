@@ -17,9 +17,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 log = logging.getLogger("agriguard.mqtt")
 
@@ -97,12 +98,14 @@ class MQTTSensorService:
             log.warning("MQTT not connected - cannot publish alert")
             return
 
-        payload = json.dumps({
-            "product_id": product_id,
-            "alert_type": alert_type,
-            "message": message,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        payload = json.dumps(
+            {
+                "product_id": product_id,
+                "alert_type": alert_type,
+                "message": message,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         await self._client.publish(self.TOPIC_ALERTS, payload)
 
     async def _handle_message(self, message: Any) -> None:
@@ -118,7 +121,7 @@ class MQTTSensorService:
                 humidity=float(payload.get("humidity", 0)),
                 battery=float(payload.get("battery", 100)),
                 zone=payload.get("zone", "unknown"),
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 raw=payload,
             )
 

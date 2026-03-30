@@ -3,51 +3,34 @@ getdaytrends Core Pipeline Orchestrator
 전체 파이프라인 실행 로직: 수집 → 스코어링 → 생성 → 저장
 """
 
-import asyncio
 import dataclasses
-
 import sys
 import time
 import uuid
 from datetime import datetime
-from typing import Any
-
-import schedule
 
 from alerts import check_and_alert, check_watchlist
 from analyzer import analyze_trends
-from config import AppConfig, VERSION
+from config import AppConfig
 from db import (
     cleanup_old_records,
-    close_pg_pool,
-    compute_fingerprint,
-    db_transaction,
-    get_best_posting_hours,
-    get_cached_content,
     get_connection,
     get_meta,
     get_recent_avg_viral_score,
-    get_recent_tweet_contents,
     get_trend_history_batch,
     init_db,
-    record_posting_time_stat,
     save_run,
-    save_trend,
-    save_tweets_batch,
     set_meta,
     update_run,
 )
-from generator import generate_for_trend_async, regenerate_content_groups
-from models import RunResult, TweetBatch
+from models import RunResult
 from scraper import collect_contexts, collect_trends
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
-from shared.llm import get_client
-from storage import save_to_content_hub, save_to_google_sheets, save_to_notion
-from utils import run_async
-
 from loguru import logger as log
+from shared.llm import get_client
 
+from utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  Helper Functions
@@ -73,12 +56,15 @@ async def _check_budget_and_adjust_limit(config: AppConfig, conn) -> tuple[AppCo
     effective_budget = config.get_effective_budget()
     if effective_budget > 0:
         try:
-            from shared.llm.stats import CostTracker, _DB_PATH as _llm_db
+            from shared.llm.stats import _DB_PATH as _llm_db
+            from shared.llm.stats import CostTracker
+
             if _llm_db.exists():
                 _tracker = CostTracker(persist=True)
                 _daily = _tracker.get_daily_stats(1)
                 _tracker.close()
                 from datetime import date as _date
+
                 _today = str(_date.today())
                 _today_cost = sum(r["cost_usd"] for r in _daily if r.get("date") == _today)
                 if _today_cost >= effective_budget:
@@ -146,7 +132,9 @@ def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
                 if not contexts.get(t.name) or not contexts[t.name].to_combined_text().strip()
             ]
             if empty_ctx:
-                log.warning(f"  [컨텍스트 부족] {len(empty_ctx)}개 트렌드 컨텍스트 비어있음: {', '.join(empty_ctx[:3])}")
+                log.warning(
+                    f"  [컨텍스트 부족] {len(empty_ctx)}개 트렌드 컨텍스트 비어있음: {', '.join(empty_ctx[:3])}"
+                )
 
     return raw_trends, contexts
 
@@ -180,9 +168,7 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
     all_before_exclusion = list(safe_trends)
     if excluded_cats:
         before = len(safe_trends)
-        safe_trends = [
-            t for t in safe_trends if (getattr(t, "category", "기타") or "기타") not in excluded_cats
-        ]
+        safe_trends = [t for t in safe_trends if (getattr(t, "category", "기타") or "기타") not in excluded_cats]
         excluded_count = before - len(safe_trends)
         if excluded_count:
             log.info(f"  [카테고리 제외] {excluded_count}개 제거 ({', '.join(excluded_cats)})")
@@ -190,16 +176,16 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
     # Zero Content Prevention
     if not safe_trends and getattr(config, "enable_zero_content_prevention", True):
         candidates = [
-            t
-            for t in all_before_exclusion
-            if not (config.enable_sentiment_filter and getattr(t, "safety_flag", False))
+            t for t in all_before_exclusion if not (config.enable_sentiment_filter and getattr(t, "safety_flag", False))
         ]
         candidates.sort(key=lambda x: x.viral_potential, reverse=True)
 
         restored = [t for t in candidates if t.viral_potential >= min_score]
         if restored:
             safe_trends = restored[: min_count or 1]
-            log.warning(f"  [Zero Content Prevention] 모든 트렌드 제외됨 → {len(safe_trends)}개 복원 (바이럴≥{min_score})")
+            log.warning(
+                f"  [Zero Content Prevention] 모든 트렌드 제외됨 → {len(safe_trends)}개 복원 (바이럴≥{min_score})"
+            )
         else:
             floor_score = int(min_score * 0.6)
             restored = [t for t in candidates if t.viral_potential >= floor_score]
@@ -282,7 +268,9 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
     log.debug(f"  [다양성 Pass1] 카테고리별 시드: {len(selected)}개 ({len(sorted_cats)}개 카테고리)")
 
     # Pass 2: 남은 슬롯 채우기
-    remaining = sorted([t for t in safe_trends if id(t) not in selected_set], key=lambda x: x.viral_potential, reverse=True)
+    remaining = sorted(
+        [t for t in safe_trends if id(t) not in selected_set], key=lambda x: x.viral_potential, reverse=True
+    )
 
     for t in remaining:
         if t.viral_potential < min_score:
@@ -299,7 +287,9 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
     if len(selected) < min_count:
         floor_score = int(min_score * 0.75)
         log.info(f"  [최소 기사] {len(selected)}개 < {min_count}개 → 기준 {min_score}점 → {floor_score}점 하향")
-        extras = sorted([t for t in safe_trends if id(t) not in selected_set], key=lambda x: x.viral_potential, reverse=True)
+        extras = sorted(
+            [t for t in safe_trends if id(t) not in selected_set], key=lambda x: x.viral_potential, reverse=True
+        )
         for t in extras:
             if len(selected) >= min_count:
                 break
@@ -314,7 +304,9 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
             log.debug(f"  [최소 기사 보충] '{t.keyword}' ({t.viral_potential}점, {cat}) 추가")
 
     if len(selected) < min_count:
-        log.warning(f"  [최소 기사] floor({floor_score}점) 적용 후에도 {len(selected)}/{min_count}개 → 가용 트렌드 부족")
+        log.warning(
+            f"  [최소 기사] floor({floor_score}점) 적용 후에도 {len(selected)}/{min_count}개 → 가용 트렌드 부족"
+        )
 
     selected.sort(key=lambda x: x.viral_potential, reverse=True)
     return selected
@@ -374,12 +366,11 @@ async def _step_score_and_alert(raw_trends, contexts, config: AppConfig, conn, r
     return scored_trends, quality_trends
 
 
-
 # -- step functions import --
-from core.pipeline_steps import (  # noqa: F401, E402
+from core.pipeline_steps import (  # noqa: E402
+    _adjust_schedule,
     _step_generate,
     _step_save,
-    _adjust_schedule,
 )
 
 #  Pipeline Orchestrator
@@ -426,7 +417,9 @@ async def async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunRe
                 from performance_tracker import PerformanceTracker
 
                 tracker = PerformanceTracker(db_path=pipeline_config.db_path)
-                history = tracker.get_trend_history(keyword="", hours=getattr(pipeline_config, "genealogy_history_hours", 72))
+                history = tracker.get_trend_history(
+                    keyword="", hours=getattr(pipeline_config, "genealogy_history_hours", 72)
+                )
                 genealogy = await analyze_trend_genealogy(quality_trends, history, get_client(), pipeline_config)
                 if genealogy:
                     quality_trends = enrich_trends_with_genealogy(quality_trends, genealogy)
@@ -437,7 +430,9 @@ async def async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunRe
                                 keyword=g["keyword"],
                                 parent_keyword=g.get("parent_keyword", ""),
                                 predicted_children=g.get("predicted_children", []),
-                                viral_score=next((t.viral_potential for t in quality_trends if t.keyword == g["keyword"]), 0),
+                                viral_score=next(
+                                    (t.viral_potential for t in quality_trends if t.keyword == g["keyword"]), 0
+                                ),
                             )
                     log.info(f"  [Genealogy] 계보 저장 완료 ({len(genealogy)}개)")
             except Exception as _ge:
@@ -454,7 +449,7 @@ async def async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunRe
                 from canva import generate_visual_assets
 
                 canva_count = 0
-                for trend, batch in zip(quality_trends, batch_results):
+                for trend, batch in zip(quality_trends, batch_results, strict=False):
                     if trend.viral_potential >= getattr(pipeline_config, "canva_min_score", 90):
                         visual_urls = await generate_visual_assets(trend, pipeline_config)
                         if visual_urls:
@@ -517,7 +512,9 @@ async def async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunRe
             try:
                 from performance_tracker import PerformanceTracker
 
-                _pt = PerformanceTracker(db_path=pipeline_config.db_path, bearer_token=pipeline_config.twitter_bearer_token)
+                _pt = PerformanceTracker(
+                    db_path=pipeline_config.db_path, bearer_token=pipeline_config.twitter_bearer_token
+                )
                 if getattr(pipeline_config, "enable_tiered_collection", False):
                     _tier_result = await _pt.run_tiered_collection()
                     log.info(f"  [Tiered Collection] {_tier_result}")
@@ -532,7 +529,8 @@ async def async_run_pipeline(config: AppConfig, schedule_callback=None) -> RunRe
         if pipeline_config.enable_structured_metrics:
             _total_cost = 0.0
             try:
-                from shared.llm.stats import CostTracker, _DB_PATH as _llm_db
+                from shared.llm.stats import _DB_PATH as _llm_db
+                from shared.llm.stats import CostTracker
 
                 if _llm_db.exists():
                     _tracker = CostTracker(persist=True)

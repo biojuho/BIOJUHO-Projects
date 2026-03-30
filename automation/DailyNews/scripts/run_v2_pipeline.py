@@ -2,18 +2,19 @@
 
 Runs: Deep Collect -> Editorial Filter -> Deep Analysis -> QC Score -> Save to Notion
 """
+
 import asyncio
+import io
 import json
 import logging
 import sys
-import io
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 # Fix Windows console encoding
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 sys.path.insert(0, r"D:\AI project\DailyNews\src")
 sys.path.insert(0, r"D:\AI project\DailyNews\scripts")
@@ -22,12 +23,12 @@ sys.path.insert(0, r"D:\AI project\packages")
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-from antigravity_mcp.pipelines.collect import collect_content_items
-from antigravity_mcp.integrations.brain_adapter import BrainAdapter
-from antigravity_mcp.integrations.reasoning_adapter import ReasoningAdapter
-from antigravity_mcp.integrations.digest_adapter import DigestAdapter
-from antigravity_mcp.state.store import PipelineStateStore
 from antigravity_mcp.config import get_settings
+from antigravity_mcp.integrations.brain_adapter import BrainAdapter
+from antigravity_mcp.integrations.digest_adapter import DigestAdapter
+from antigravity_mcp.integrations.reasoning_adapter import ReasoningAdapter
+from antigravity_mcp.pipelines.collect import collect_content_items
+from antigravity_mcp.state.store import PipelineStateStore
 
 CATEGORIES = ["Tech", "AI_Deep", "Economy_KR", "Economy_Global", "Crypto", "Global_Affairs"]
 
@@ -44,6 +45,7 @@ CATEGORY_LABELS = {
 async def qc_score(brain: BrainAdapter, category: str, post_text: str) -> dict:
     """Stage 4: Quality Gate — score the post on 3 criteria."""
     from shared.llm import TaskTier
+
     prompt = (
         "아래 X 롱폼 포스트를 평가하세요.\n\n"
         f"[카테고리]: {category}\n"
@@ -71,7 +73,7 @@ async def qc_score(brain: BrainAdapter, category: str, post_text: str) -> dict:
         )
         text = (resp.text or "").strip()
         if "{" in text:
-            text = text[text.index("{"):text.rindex("}") + 1]
+            text = text[text.index("{") : text.rindex("}") + 1]
             return json.loads(text)
     except Exception as e:
         logger.warning("QC scoring failed for %s: %s", category, e)
@@ -113,8 +115,8 @@ async def generate_unified_brief(results: dict) -> str:
 
 async def publish_to_notion(results: dict):
     """Publish QC'd results as a structured Notion page."""
-    from settings import NOTION_API_KEY, ANTIGRAVITY_TASKS_DB_ID
     from notion_client import AsyncClient
+    from settings import ANTIGRAVITY_TASKS_DB_ID, NOTION_API_KEY
 
     notion = AsyncClient(auth=NOTION_API_KEY)
     db_id = ANTIGRAVITY_TASKS_DB_ID
@@ -128,26 +130,39 @@ async def publish_to_notion(results: dict):
     unified_brief = await generate_unified_brief(results)
 
     # Header - Unified Morning Brief
-    children.append({
-        "object": "block", "type": "callout",
-        "callout": {
-            "icon": {"type": "emoji", "emoji": "📰"},
-            "rich_text": [{"type": "text", "text": {"content":
-                f"Antigravity Daily Brief - {today_str} 07:00 발행분\n"
-                f"6개 카테고리 X 롱폼 포스트 | 자동 생성"
-            }}],
-            "color": "blue_background",
+    children.append(
+        {
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "icon": {"type": "emoji", "emoji": "📰"},
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": f"Antigravity Daily Brief - {today_str} 07:00 발행분\n"
+                            f"6개 카테고리 X 롱폼 포스트 | 자동 생성"
+                        },
+                    }
+                ],
+                "color": "blue_background",
+            },
         }
-    })
+    )
 
     # Add unified brief as code block for easy copy
-    children.append({
-        "object": "block", "type": "heading_2",
-        "heading_2": {"rich_text": [{"type": "text", "text": {"content": "📋 통합 모닝 브리핑 (X Thread Format)"}}]}
-    })
+    children.append(
+        {
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {
+                "rich_text": [{"type": "text", "text": {"content": "📋 통합 모닝 브리핑 (X Thread Format)"}}]
+            },
+        }
+    )
 
     # Split unified brief into chunks (Notion has 2000 char limit per block)
-    brief_lines = unified_brief.split('\n')
+    brief_lines = unified_brief.split("\n")
     current_chunk = []
     current_len = 0
 
@@ -155,14 +170,14 @@ async def publish_to_notion(results: dict):
         line_len = len(line) + 1  # +1 for newline
         if current_len + line_len > 1900:  # Leave margin
             # Flush current chunk
-            chunk_text = '\n'.join(current_chunk)
-            children.append({
-                "object": "block", "type": "code",
-                "code": {
-                    "rich_text": [{"type": "text", "text": {"content": chunk_text}}],
-                    "language": "markdown"
+            chunk_text = "\n".join(current_chunk)
+            children.append(
+                {
+                    "object": "block",
+                    "type": "code",
+                    "code": {"rich_text": [{"type": "text", "text": {"content": chunk_text}}], "language": "markdown"},
                 }
-            })
+            )
             current_chunk = [line]
             current_len = line_len
         else:
@@ -171,29 +186,37 @@ async def publish_to_notion(results: dict):
 
     # Flush remaining
     if current_chunk:
-        chunk_text = '\n'.join(current_chunk)
-        children.append({
-            "object": "block", "type": "code",
-            "code": {
-                "rich_text": [{"type": "text", "text": {"content": chunk_text}}],
-                "language": "markdown"
+        chunk_text = "\n".join(current_chunk)
+        children.append(
+            {
+                "object": "block",
+                "type": "code",
+                "code": {"rich_text": [{"type": "text", "text": {"content": chunk_text}}], "language": "markdown"},
             }
-        })
+        )
 
     children.append({"object": "block", "type": "divider", "divider": {}})
 
     # QC Details Header
-    children.append({
-        "object": "block", "type": "callout",
-        "callout": {
-            "icon": {"type": "emoji", "emoji": "📊"},
-            "rich_text": [{"type": "text", "text": {"content":
-                f"QC Details - 개별 카테고리 분석\n"
-                f"3-Stage Pipeline: Deep Collect → Editorial Filter → Deep Analysis → QC"
-            }}],
-            "color": "gray_background",
+    children.append(
+        {
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "icon": {"type": "emoji", "emoji": "📊"},
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": "QC Details - 개별 카테고리 분석\n"
+                            "3-Stage Pipeline: Deep Collect → Editorial Filter → Deep Analysis → QC"
+                        },
+                    }
+                ],
+                "color": "gray_background",
+            },
         }
-    })
+    )
     children.append({"object": "block", "type": "divider", "divider": {}})
 
     total_score = 0
@@ -211,12 +234,13 @@ async def publish_to_notion(results: dict):
         count += 1
 
         # Category heading with QC score
-        children.append({
-            "object": "block", "type": "heading_2",
-            "heading_2": {"rich_text": [{"type": "text", "text": {
-                "content": f"{label} — QC: {avg}/5"
-            }}]},
-        })
+        children.append(
+            {
+                "object": "block",
+                "type": "heading_2",
+                "heading_2": {"rich_text": [{"type": "text", "text": {"content": f"{label} — QC: {avg}/5"}}]},
+            }
+        )
 
         # QC details callout
         qc_text = (
@@ -229,14 +253,17 @@ async def publish_to_notion(results: dict):
             f"모호표현: {'없음 ✅' if not qc.get('has_vague_expr') else '있음 ❌'}\n"
             f"피드백: {qc.get('feedback', '')}"
         )
-        children.append({
-            "object": "block", "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "📋"},
-                "rich_text": [{"type": "text", "text": {"content": qc_text}}],
-                "color": "gray_background",
+        children.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "📋"},
+                    "rich_text": [{"type": "text", "text": {"content": qc_text}}],
+                    "color": "gray_background",
+                },
             }
-        })
+        )
 
         # Post content
         post = r.get("post", "")
@@ -247,10 +274,13 @@ async def publish_to_notion(results: dict):
                 continue
             if len(para) > 1990:
                 para = para[:1990] + "..."
-            children.append({
-                "object": "block", "type": "paragraph",
-                "paragraph": {"rich_text": [{"type": "text", "text": {"content": para}}]},
-            })
+            children.append(
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para}}]},
+                }
+            )
 
         children.append({"object": "block", "type": "divider", "divider": {}})
 
@@ -318,14 +348,17 @@ async def run_full_pipeline():
             continue
 
         # Prepare for brain adapter
-        articles = [{
-            "title": i.title,
-            "description": i.summary,
-            "summary": i.summary,
-            "full_text": i.full_text,
-            "source_name": i.source_name,
-            "link": i.link,
-        } for i in items]
+        articles = [
+            {
+                "title": i.title,
+                "description": i.summary,
+                "summary": i.summary,
+                "full_text": i.full_text,
+                "source_name": i.source_name,
+                "link": i.link,
+            }
+            for i in items
+        ]
 
         # Stage 2+3: Editorial Filter + Deep Analysis
         result = await brain.analyze_news(
@@ -357,9 +390,7 @@ async def run_full_pipeline():
         reasoning_patterns = []
         if reasoner.is_available():
             try:
-                content_for_reasoning = "\n".join(
-                    f"{a['title']}: {a.get('summary', '')[:200]}" for a in articles
-                )
+                content_for_reasoning = "\n".join(f"{a['title']}: {a.get('summary', '')[:200]}" for a in articles)
                 reasoning_result = await reasoner.run_full_reasoning(
                     report_id=f"v2-{cat}-{date.today().isoformat()}",
                     category=cat,

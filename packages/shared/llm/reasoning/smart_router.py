@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from ..config import REASONING_CONFIG
-from ..models import LLMPolicy, LLMResponse, TaskTier
+from ..models import LLMPolicy, TaskTier
 
 if TYPE_CHECKING:
     from ..client import LLMClient
@@ -66,29 +66,94 @@ class ReasoningResult:
 # ---------------------------------------------------------------------------
 
 # Keywords indicating different complexity levels
-_CRITICAL_KEYWORDS = frozenset({
-    "리팩토링", "refactor", "전체", "entire", "시스템", "system",
-    "아키텍처", "architecture", "마이그레이션", "migration",
-    "redesign", "재설계", "multi-file", "다중 파일",
-    "분산", "distributed", "microservice", "마이크로서비스",
-})
+_CRITICAL_KEYWORDS = frozenset(
+    {
+        "리팩토링",
+        "refactor",
+        "전체",
+        "entire",
+        "시스템",
+        "system",
+        "아키텍처",
+        "architecture",
+        "마이그레이션",
+        "migration",
+        "redesign",
+        "재설계",
+        "multi-file",
+        "다중 파일",
+        "분산",
+        "distributed",
+        "microservice",
+        "마이크로서비스",
+    }
+)
 
-_HIGH_KEYWORDS = frozenset({
-    "디버깅", "debug", "debugging", "버그", "bug", "fix",
-    "최적화", "optimize", "optimization", "성능", "performance",
-    "보안", "security", "취약점", "vulnerability",
-    "테스트", "test", "testing", "복잡한", "complex",
-    "알고리즘", "algorithm", "분석", "analysis", "analyze",
-    "설계", "design", "계획", "plan", "planning",
-})
+_HIGH_KEYWORDS = frozenset(
+    {
+        "디버깅",
+        "debug",
+        "debugging",
+        "버그",
+        "bug",
+        "fix",
+        "최적화",
+        "optimize",
+        "optimization",
+        "성능",
+        "performance",
+        "보안",
+        "security",
+        "취약점",
+        "vulnerability",
+        "테스트",
+        "test",
+        "testing",
+        "복잡한",
+        "complex",
+        "알고리즘",
+        "algorithm",
+        "분석",
+        "analysis",
+        "analyze",
+        "설계",
+        "design",
+        "계획",
+        "plan",
+        "planning",
+    }
+)
 
-_MEDIUM_KEYWORDS = frozenset({
-    "구현", "implement", "생성", "create", "generate",
-    "작성", "write", "추가", "add", "수정", "modify",
-    "함수", "function", "클래스", "class", "모듈", "module",
-    "API", "endpoint", "라우트", "route",
-    "설명", "explain", "요약", "summary", "summarize",
-})
+_MEDIUM_KEYWORDS = frozenset(
+    {
+        "구현",
+        "implement",
+        "생성",
+        "create",
+        "generate",
+        "작성",
+        "write",
+        "추가",
+        "add",
+        "수정",
+        "modify",
+        "함수",
+        "function",
+        "클래스",
+        "class",
+        "모듈",
+        "module",
+        "API",
+        "endpoint",
+        "라우트",
+        "route",
+        "설명",
+        "explain",
+        "요약",
+        "summary",
+        "summarize",
+    }
+)
 
 
 def estimate_complexity(query: str) -> QueryComplexity:
@@ -166,6 +231,7 @@ def estimate_complexity(query: str) -> QueryComplexity:
 # Smart Router
 # ---------------------------------------------------------------------------
 
+
 class SmartRouter:
     """Unified reasoning router that selects the optimal strategy.
 
@@ -200,39 +266,58 @@ class SmartRouter:
         strategy = force_strategy or self._select_strategy(complexity)
         resolved_tier = tier or self._tier_for_complexity(complexity)
 
-        log.info("SmartRouter: complexity=%s, strategy=%s, tier=%s",
-                 complexity.value, strategy, resolved_tier.value)
+        log.info("SmartRouter: complexity=%s, strategy=%s, tier=%s", complexity.value, strategy, resolved_tier.value)
 
         if strategy == "direct":
             return self._run_direct(
-                messages=messages, system=system, policy=policy,
-                tier=resolved_tier, max_tokens=max_tokens,
-                complexity=complexity, t0=t0,
+                messages=messages,
+                system=system,
+                policy=policy,
+                tier=resolved_tier,
+                max_tokens=max_tokens,
+                complexity=complexity,
+                t0=t0,
             )
         elif strategy == "sage":
             return self._run_sage(
-                messages=messages, system=system, policy=policy,
-                tier=resolved_tier, max_tokens=max_tokens,
-                complexity=complexity, t0=t0,
+                messages=messages,
+                system=system,
+                policy=policy,
+                tier=resolved_tier,
+                max_tokens=max_tokens,
+                complexity=complexity,
+                t0=t0,
             )
         elif strategy == "cot":
             return self._run_cot(
-                messages=messages, system=system, policy=policy,
-                tier=resolved_tier, max_tokens=max_tokens,
-                complexity=complexity, t0=t0,
+                messages=messages,
+                system=system,
+                policy=policy,
+                tier=resolved_tier,
+                max_tokens=max_tokens,
+                complexity=complexity,
+                t0=t0,
             )
         elif strategy == "fot":
             return self._run_fot(
-                messages=messages, system=system, policy=policy,
-                tier=resolved_tier, max_tokens=max_tokens,
-                complexity=complexity, t0=t0,
+                messages=messages,
+                system=system,
+                policy=policy,
+                tier=resolved_tier,
+                max_tokens=max_tokens,
+                complexity=complexity,
+                t0=t0,
             )
         else:
             log.warning("SmartRouter: unknown strategy '%s', falling back to direct", strategy)
             return self._run_direct(
-                messages=messages, system=system, policy=policy,
-                tier=resolved_tier, max_tokens=max_tokens,
-                complexity=complexity, t0=t0,
+                messages=messages,
+                system=system,
+                policy=policy,
+                tier=resolved_tier,
+                max_tokens=max_tokens,
+                complexity=complexity,
+                t0=t0,
             )
 
     async def aroute_and_reason(
@@ -257,69 +342,95 @@ class SmartRouter:
 
         if strategy == "direct":
             resp = await self._client.acreate(
-                tier=resolved_tier, messages=messages,
-                max_tokens=max_tokens, system=system, policy=policy,
+                tier=resolved_tier,
+                messages=messages,
+                max_tokens=max_tokens,
+                system=system,
+                policy=policy,
             )
             return ReasoningResult(
-                text=resp.text, strategy_used="direct",
-                complexity=complexity, confidence=1.0,
+                text=resp.text,
+                strategy_used="direct",
+                complexity=complexity,
+                confidence=1.0,
                 total_cost_usd=resp.cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
             )
         elif strategy == "sage":
             from .sage import SAGEEngine
+
             engine = SAGEEngine(self._client)
             result = await engine.arun(
-                messages=messages, system=system, policy=policy,
-                tier=resolved_tier, max_tokens=max_tokens,
+                messages=messages,
+                system=system,
+                policy=policy,
+                tier=resolved_tier,
+                max_tokens=max_tokens,
                 confidence_high=self._config["sage_confidence_high"],
                 confidence_low=self._config["sage_confidence_low"],
             )
             return ReasoningResult(
-                text=result.text, strategy_used="sage",
-                complexity=complexity, confidence=result.confidence,
+                text=result.text,
+                strategy_used="sage",
+                complexity=complexity,
+                confidence=result.confidence,
                 total_cost_usd=result.total_cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
                 reasoning_metadata={"stages": result.stages_applied, "enhanced": result.was_enhanced},
             )
         elif strategy == "cot":
             from .chain_of_thought import ChainOfThoughtEngine
+
             engine = ChainOfThoughtEngine(self._client)
             result = await engine.arun(
-                messages=messages, system=system, policy=policy,
-                tier=resolved_tier, max_tokens=max_tokens,
+                messages=messages,
+                system=system,
+                policy=policy,
+                tier=resolved_tier,
+                max_tokens=max_tokens,
                 n_samples=self._config["cot_samples"],
                 consensus_threshold=self._config["cot_consensus_threshold"],
             )
             return ReasoningResult(
-                text=result.text, strategy_used="cot",
-                complexity=complexity, confidence=result.confidence,
+                text=result.text,
+                strategy_used="cot",
+                complexity=complexity,
+                confidence=result.confidence,
                 total_cost_usd=result.total_cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
                 reasoning_metadata={"samples": result.samples_used, "early_stopped": result.early_stopped},
             )
         elif strategy == "fot":
             from .forest_of_thought import ForestOfThoughtEngine
+
             engine = ForestOfThoughtEngine(self._client)
             result = await engine.arun(
-                messages=messages, system=system, policy=policy,
+                messages=messages,
+                system=system,
+                policy=policy,
                 max_tokens=max_tokens,
                 max_subtasks=self._config["fot_max_depth"] + 2,
             )
             return ReasoningResult(
-                text=result.text, strategy_used="fot",
-                complexity=complexity, confidence=0.8,
+                text=result.text,
+                strategy_used="fot",
+                complexity=complexity,
+                confidence=0.8,
                 total_cost_usd=result.total_cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
                 reasoning_metadata={"subtasks": result.subtask_count},
             )
         else:
             resp = await self._client.acreate(
-                tier=resolved_tier, messages=messages,
-                max_tokens=max_tokens, system=system, policy=policy,
+                tier=resolved_tier,
+                messages=messages,
+                max_tokens=max_tokens,
+                system=system,
+                policy=policy,
             )
             return ReasoningResult(
-                text=resp.text, strategy_used="direct",
+                text=resp.text,
+                strategy_used="direct",
                 complexity=complexity,
                 total_cost_usd=resp.cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
@@ -344,7 +455,11 @@ class SmartRouter:
         """Select TaskTier based on complexity level."""
         if self._config.get("prefer_local", False):
             # When prefer_local is set, use local models more aggressively
-            return TaskTier.MEDIUM if complexity in (QueryComplexity.HIGH, QueryComplexity.CRITICAL) else TaskTier.LIGHTWEIGHT
+            return (
+                TaskTier.MEDIUM
+                if complexity in (QueryComplexity.HIGH, QueryComplexity.CRITICAL)
+                else TaskTier.LIGHTWEIGHT
+            )
 
         mapping = {
             QueryComplexity.LOW: TaskTier.LIGHTWEIGHT,
@@ -358,28 +473,39 @@ class SmartRouter:
 
     def _run_direct(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
         resp = self._client.create(
-            tier=tier, messages=messages, max_tokens=max_tokens,
-            system=system, policy=policy,
+            tier=tier,
+            messages=messages,
+            max_tokens=max_tokens,
+            system=system,
+            policy=policy,
         )
         return ReasoningResult(
-            text=resp.text, strategy_used="direct",
-            complexity=complexity, confidence=1.0,
+            text=resp.text,
+            strategy_used="direct",
+            complexity=complexity,
+            confidence=1.0,
             total_cost_usd=resp.cost_usd,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
         )
 
     def _run_sage(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
         from .sage import SAGEEngine
+
         engine = SAGEEngine(self._client)
         result = engine.run(
-            messages=messages, system=system, policy=policy,
-            tier=tier, max_tokens=max_tokens,
+            messages=messages,
+            system=system,
+            policy=policy,
+            tier=tier,
+            max_tokens=max_tokens,
             confidence_high=self._config["sage_confidence_high"],
             confidence_low=self._config["sage_confidence_low"],
         )
         return ReasoningResult(
-            text=result.text, strategy_used="sage",
-            complexity=complexity, confidence=result.confidence,
+            text=result.text,
+            strategy_used="sage",
+            complexity=complexity,
+            confidence=result.confidence,
             total_cost_usd=result.total_cost_usd,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
             reasoning_metadata={"stages": result.stages_applied, "enhanced": result.was_enhanced},
@@ -387,16 +513,22 @@ class SmartRouter:
 
     def _run_cot(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
         from .chain_of_thought import ChainOfThoughtEngine
+
         engine = ChainOfThoughtEngine(self._client)
         result = engine.run(
-            messages=messages, system=system, policy=policy,
-            tier=tier, max_tokens=max_tokens,
+            messages=messages,
+            system=system,
+            policy=policy,
+            tier=tier,
+            max_tokens=max_tokens,
             n_samples=self._config["cot_samples"],
             consensus_threshold=self._config["cot_consensus_threshold"],
         )
         return ReasoningResult(
-            text=result.text, strategy_used="cot",
-            complexity=complexity, confidence=result.confidence,
+            text=result.text,
+            strategy_used="cot",
+            complexity=complexity,
+            confidence=result.confidence,
             total_cost_usd=result.total_cost_usd,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
             reasoning_metadata={"samples": result.samples_used, "early_stopped": result.early_stopped},
@@ -404,15 +536,20 @@ class SmartRouter:
 
     def _run_fot(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
         from .forest_of_thought import ForestOfThoughtEngine
+
         engine = ForestOfThoughtEngine(self._client)
         result = engine.run(
-            messages=messages, system=system, policy=policy,
+            messages=messages,
+            system=system,
+            policy=policy,
             max_tokens=max_tokens,
             max_subtasks=self._config["fot_max_depth"] + 2,
         )
         return ReasoningResult(
-            text=result.text, strategy_used="fot",
-            complexity=complexity, confidence=0.8,
+            text=result.text,
+            strategy_used="fot",
+            complexity=complexity,
+            confidence=0.8,
             total_cost_usd=result.total_cost_usd,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
             reasoning_metadata={"subtasks": result.subtask_count},

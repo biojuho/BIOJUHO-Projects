@@ -61,9 +61,7 @@ class ExecutionLogger:
                 ON pipeline_runs(started_at DESC)
             """)
 
-    def start_run(
-        self, pipeline_name: str, input_params: dict | None = None
-    ) -> str:
+    def start_run(self, pipeline_name: str, input_params: dict | None = None) -> str:
         """Record the start of a pipeline run. Returns run_id."""
         run_id = str(uuid.uuid4())[:8]
         now = datetime.now().isoformat()
@@ -99,9 +97,7 @@ class ExecutionLogger:
 
         with sqlite3.connect(str(self._db_path)) as conn:
             # Get start time for duration
-            row = conn.execute(
-                "SELECT started_at FROM pipeline_runs WHERE id = ?", (run_id,)
-            ).fetchone()
+            row = conn.execute("SELECT started_at FROM pipeline_runs WHERE id = ?", (run_id,)).fetchone()
 
             duration = 0.0
             if row:
@@ -133,7 +129,9 @@ class ExecutionLogger:
         emoji = "✅" if success else "❌"
         log.info(
             "[RunLog] %s %s — %.1fs%s",
-            emoji, run_id, duration,
+            emoji,
+            run_id,
+            duration,
             f" | error: {error}" if error else "",
         )
 

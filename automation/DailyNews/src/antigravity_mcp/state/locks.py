@@ -24,7 +24,7 @@ class JobLock:
         settings = get_settings()
         self.path: Path = settings.data_dir / f"{self.job_name}.lock"
 
-    def __enter__(self) -> "JobLock":
+    def __enter__(self) -> JobLock:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if self.path.exists():
             payload = {}

@@ -1,17 +1,24 @@
 """Quick scraping diagnostic test."""
-import sys, os
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 os.chdir(os.path.join(os.path.dirname(__file__), ".."))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
-import httpx, asyncio
+import asyncio
+
+import httpx
+
 
 async def test_scrape():
     results = {}
-    
+
     # Test 1: getdaytrends.com connectivity
     print("=" * 50)
     print("Test 1: getdaytrends.com")
@@ -46,6 +53,7 @@ async def test_scrape():
             print(f"  Content length: {len(resp.text)} chars")
             if "<item>" in resp.text:
                 import xml.etree.ElementTree as ET
+
                 root = ET.fromstring(resp.content)
                 items = root.findall(".//item")
                 print(f"  Items found: {len(items)}")
@@ -62,6 +70,7 @@ async def test_scrape():
     print("\nTest 3: Full scraper module")
     try:
         from scraper import fetch_getdaytrends, fetch_google_trends_rss
+
         trends = fetch_getdaytrends("korea", 5)
         print(f"  fetch_getdaytrends: {len(trends)} trends")
         for t in trends[:3]:
@@ -84,10 +93,13 @@ async def test_scrape():
     # Test 4: Task Scheduler status
     print("\nTest 4: Windows Task Scheduler")
     import subprocess
+
     try:
         out = subprocess.run(
             ["schtasks", "/query", "/tn", "GetDayTrends", "/fo", "LIST"],
-            capture_output=True, text=True, encoding="utf-8"
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
         )
         print(f"  {out.stdout.strip()}")
         if out.returncode != 0:
@@ -97,6 +109,7 @@ async def test_scrape():
 
     print("\n" + "=" * 50)
     print("SUMMARY:", results)
+
 
 if __name__ == "__main__":
     asyncio.run(test_scrape())

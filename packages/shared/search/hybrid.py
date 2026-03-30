@@ -10,22 +10,25 @@ Usage::
 
     results = hybrid_search(
         query="AI drug discovery",
-        documents=docs,           # list of dicts with 'id', 'text', 'embedding'
-        query_embedding=emb,      # query vector
+        documents=docs,  # list of dicts with 'id', 'text', 'embedding'
+        query_embedding=emb,  # query vector
         top_k=5,
     )
 """
+
 from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 
 @dataclass
 class HybridSearchResult:
     """A single hybrid search result."""
+
     id: str
     text: str
     metadata: dict[str, Any]
@@ -72,7 +75,7 @@ def _cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
     """Cosine similarity between two vectors."""
     if len(a) != len(b) or not a:
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
     if norm_a == 0 or norm_b == 0:
@@ -132,7 +135,7 @@ def hybrid_search(
     avg_doc_len = sum(len(t) for t in all_doc_tokens) / max(len(all_doc_tokens), 1)
 
     keyword_scores: dict[str, float] = {}
-    for doc, doc_tokens in zip(documents, all_doc_tokens):
+    for doc, doc_tokens in zip(documents, all_doc_tokens, strict=False):
         doc_id = doc["id"]
         keyword_scores[doc_id] = _bm25_score(query_tokens, doc_tokens, avg_doc_len)
 
@@ -174,16 +177,16 @@ def hybrid_search(
     results = []
     for rank, doc_id in enumerate(sorted_ids[:top_k], 1):
         doc = doc_map[doc_id]
-        results.append(HybridSearchResult(
-            id=doc_id,
-            text=doc.get("text", ""),
-            metadata=doc.get("metadata", {}),
-            semantic_score=round(semantic_scores.get(doc_id, 0.0), 4),
-            keyword_score=round(keyword_scores.get(doc_id, 0.0), 4),
-            hybrid_score=round(
-                (fused if use_rrf and query_embedding else combined).get(doc_id, 0.0), 4
-            ),
-            rank=rank,
-        ))
+        results.append(
+            HybridSearchResult(
+                id=doc_id,
+                text=doc.get("text", ""),
+                metadata=doc.get("metadata", {}),
+                semantic_score=round(semantic_scores.get(doc_id, 0.0), 4),
+                keyword_score=round(keyword_scores.get(doc_id, 0.0), 4),
+                hybrid_score=round((fused if use_rrf and query_embedding else combined).get(doc_id, 0.0), 4),
+                rank=rank,
+            )
+        )
 
     return results

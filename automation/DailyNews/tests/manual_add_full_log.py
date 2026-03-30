@@ -1,8 +1,9 @@
-import os
 import asyncio
+import os
+import sys
+
 from dotenv import load_dotenv
 from notion_client import AsyncClient
-import sys
 
 # 윈도우 인코딩 설정
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -12,13 +13,14 @@ load_dotenv()
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 ANTIGRAVITY_DB_ID = "0c959762-2880-4dc4-8c06-69bbaa8be183"
 
+
 async def run_add_full_log():
     if not NOTION_API_KEY:
         print("[FAIL] API Key missing")
         return
 
     notion = AsyncClient(auth=NOTION_API_KEY)
-    
+
     title = "[Log] Notion MCP 프로젝트 회고 및 향후 계획 🚀"
     content = """
 # 1. 오늘 달성한 성과 ✅
@@ -40,45 +42,51 @@ async def run_add_full_log():
     """
 
     print(f"Adding full log: {title}...")
-    
+
     # 서버 내부 로직을 흉내내어 블록 변환 테스트 (클라이언트 입장에서 직접 호출하는 것이므로)
     children_blocks = []
-    for line in content.split('\n'):
+    for line in content.split("\n"):
         line = line.strip()
         if not line:
             continue
-            
+
         if line.startswith("# "):
-            children_blocks.append({
-                "object": "block", "type": "heading_1",
-                "heading_1": {"rich_text": [{"type": "text", "text": {"content": line[2:]}}]}
-            })
+            children_blocks.append(
+                {
+                    "object": "block",
+                    "type": "heading_1",
+                    "heading_1": {"rich_text": [{"type": "text", "text": {"content": line[2:]}}]},
+                }
+            )
         elif line.startswith("- "):
-            children_blocks.append({
-                "object": "block", "type": "bulleted_list_item",
-                "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": line[2:]}}]}
-            })
+            children_blocks.append(
+                {
+                    "object": "block",
+                    "type": "bulleted_list_item",
+                    "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": line[2:]}}]},
+                }
+            )
         else:
-            children_blocks.append({
-                "object": "block", "type": "paragraph",
-                "paragraph": {"rich_text": [{"type": "text", "text": {"content": line}}]}
-            })
-    
+            children_blocks.append(
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": line}}]},
+                }
+            )
+
     try:
         new_page = await notion.pages.create(
             parent={"database_id": ANTIGRAVITY_DB_ID},
-            properties={
-                "Name": {
-                    "title": [{"text": {"content": title}}]
-                }
-            },
-            children=children_blocks
+            properties={"Name": {"title": [{"text": {"content": title}}]}},
+            children=children_blocks,
         )
-        print(f"[SUCCESS] Full Log saved!")
+        print("[SUCCESS] Full Log saved!")
         print(f"URL: {new_page['url']}")
-        
+
     except Exception as e:
         print(f"[FAIL] Error: {str(e)}")
+
 
 if __name__ == "__main__":
     asyncio.run(run_add_full_log())

@@ -3,9 +3,9 @@
 Usage:
     python scripts/run_digest.py [--action run|master|status]
 """
-import asyncio
+
 import argparse
-import json
+import asyncio
 import logging
 import sys
 from datetime import date
@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 async def run_digest():
     """Generate a digest from pending queue."""
-    from antigravity_mcp.state.store import PipelineStateStore
     from antigravity_mcp.config import get_settings
     from antigravity_mcp.integrations.digest_adapter import DigestAdapter
+    from antigravity_mcp.state.store import PipelineStateStore
 
     settings = get_settings()
     state_store = PipelineStateStore(settings.pipeline_state_db)
@@ -50,15 +50,17 @@ async def run_digest():
         for rid in entry.report_ids:
             report = state_store.get_report(rid)
             if report:
-                reports_data.append({
-                    "report_id": report.report_id,
-                    "category": report.category,
-                    "summary_lines": report.summary_lines,
-                    "insights": report.insights,
-                })
+                reports_data.append(
+                    {
+                        "report_id": report.report_id,
+                        "category": report.category,
+                        "summary_lines": report.summary_lines,
+                        "insights": report.insights,
+                    }
+                )
 
         if not reports_data:
-            print(f"  ⚠️ No valid reports found, skipping")
+            print("  ⚠️ No valid reports found, skipping")
             continue
 
         result = await digest.generate_digest(reports_data)
@@ -70,9 +72,9 @@ async def run_digest():
 
 async def run_master():
     """Generate DigestMaster from all generated digests."""
-    from antigravity_mcp.state.store import PipelineStateStore
     from antigravity_mcp.config import get_settings
     from antigravity_mcp.integrations.digest_adapter import DigestAdapter
+    from antigravity_mcp.state.store import PipelineStateStore
 
     settings = get_settings()
     state_store = PipelineStateStore(settings.pipeline_state_db)
@@ -87,10 +89,7 @@ async def run_master():
         print("No generated digests to merge")
         return
 
-    digests_data = [
-        {"serial_number": d.serial_number, "summary_text": d.summary_text}
-        for d in generated
-    ]
+    digests_data = [{"serial_number": d.serial_number, "summary_text": d.summary_text} for d in generated]
 
     print(f"Merging {len(digests_data)} digests into DigestMaster...")
     master = await digest.generate_digest_master(digests_data)
@@ -105,8 +104,8 @@ async def run_master():
 
 async def show_status():
     """Show current digest queue status."""
-    from antigravity_mcp.state.store import PipelineStateStore
     from antigravity_mcp.config import get_settings
+    from antigravity_mcp.state.store import PipelineStateStore
 
     settings = get_settings()
     state_store = PipelineStateStore(settings.pipeline_state_db)

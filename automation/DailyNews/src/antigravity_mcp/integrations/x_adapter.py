@@ -12,6 +12,7 @@ Optional:
   X_BEARER_TOKEN      — needed for read-only lookups (not for posting)
   X_DAILY_POST_LIMIT  — per-day cap (default 10); enforced by the adapter
 """
+
 from __future__ import annotations
 
 import logging
@@ -89,11 +90,7 @@ class XAdapter:
         # Auto mode: check daily limit (persistent via SQLite)
         limit = self.settings.x_daily_post_limit
         today_str = date.today().isoformat()
-        current_count = (
-            self._state_store.get_x_post_count(today_str)
-            if self._state_store is not None
-            else 0
-        )
+        current_count = self._state_store.get_x_post_count(today_str) if self._state_store is not None else 0
         if current_count >= limit:
             logger.warning("X daily post limit (%d) reached; skipping auto-publish.", limit)
             return {
@@ -212,6 +209,7 @@ class XAdapter:
                 # If paragraph itself is too long, split by sentences
                 if len(para) > max_chars:
                     import re
+
                     sentences = re.split(r"(?<=[.!?])\s+", para)
                     sentence_chunk = ""
                     for sentence in sentences:

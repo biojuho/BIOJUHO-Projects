@@ -45,7 +45,11 @@ async def notion_create_page_tool(
     if not adapter.is_configured():
         return error_response("notion_not_configured", "NOTION_API_KEY is missing.")
     try:
-        return ok(await adapter.create_page(parent_page_id=parent_page_id, title=title, markdown=markdown, properties=properties))
+        return ok(
+            await adapter.create_page(
+                parent_page_id=parent_page_id, title=title, markdown=markdown, properties=properties
+            )
+        )
     except NotionAdapterError as exc:
         return error_response(exc.code, str(exc), retryable=exc.retryable)
 

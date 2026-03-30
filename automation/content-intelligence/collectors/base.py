@@ -4,16 +4,10 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
-from typing import TYPE_CHECKING
 
 from loguru import logger as log
 
 from shared.llm import TaskTier, get_client
-
-if TYPE_CHECKING:
-    from config import CIEConfig
-    from storage.models import PlatformTrendReport
 
 
 def _parse_json_response(text: str) -> dict:

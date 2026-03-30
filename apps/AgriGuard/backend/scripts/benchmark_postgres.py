@@ -23,7 +23,6 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
-
 QUERIES = [
     {
         "name": "COUNT all products",
@@ -147,18 +146,22 @@ def run_benchmark(engine, label: str, rounds: int) -> list[dict]:
             min_ms = min(times_ms)
             max_ms = max(times_ms)
 
-            results.append({
-                "query": q["name"],
-                "category": q["category"],
-                "engine": label,
-                "avg_ms": round(avg_ms, 3),
-                "min_ms": round(min_ms, 3),
-                "max_ms": round(max_ms, 3),
-                "rows": row_count,
-                "rounds": rounds,
-            })
+            results.append(
+                {
+                    "query": q["name"],
+                    "category": q["category"],
+                    "engine": label,
+                    "avg_ms": round(avg_ms, 3),
+                    "min_ms": round(min_ms, 3),
+                    "max_ms": round(max_ms, 3),
+                    "rows": row_count,
+                    "rounds": rounds,
+                }
+            )
 
-            print(f"  [{label}] {q['name']}: avg={avg_ms:.2f}ms (min={min_ms:.2f}, max={max_ms:.2f}) [{row_count} rows]")
+            print(
+                f"  [{label}] {q['name']}: avg={avg_ms:.2f}ms (min={min_ms:.2f}, max={max_ms:.2f}) [{row_count} rows]"
+            )
 
     return results
 
@@ -182,39 +185,47 @@ def render_markdown(sqlite_results: list[dict], pg_results: list[dict] | None, i
     if pg_results:
         lines.append(f"- PostgreSQL: `{info.get('pg_url_masked', 'N/A')}`")
 
-    lines.extend([
-        "",
-        "## Results",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Results",
+            "",
+        ]
+    )
 
     if pg_results:
-        lines.extend([
-            "| Query | Category | SQLite (ms) | PostgreSQL (ms) | Speedup |",
-            "|-------|----------|-------------|-----------------|---------|",
-        ])
-        for sq, pq in zip(sqlite_results, pg_results):
+        lines.extend(
+            [
+                "| Query | Category | SQLite (ms) | PostgreSQL (ms) | Speedup |",
+                "|-------|----------|-------------|-----------------|---------|",
+            ]
+        )
+        for sq, pq in zip(sqlite_results, pg_results, strict=False):
             speedup = sq["avg_ms"] / pq["avg_ms"] if pq["avg_ms"] > 0 else float("inf")
             sign = "[+]" if speedup > 1 else "[-]"
             lines.append(
                 f"| {sq['query']} | {sq['category']} | {sq['avg_ms']:.2f} | {pq['avg_ms']:.2f} | {sign} {speedup:.1f}x |"
             )
     else:
-        lines.extend([
-            "| Query | Category | SQLite (ms) | Rows |",
-            "|-------|----------|-------------|------|",
-        ])
+        lines.extend(
+            [
+                "| Query | Category | SQLite (ms) | Rows |",
+                "|-------|----------|-------------|------|",
+            ]
+        )
         for sq in sqlite_results:
             lines.append(f"| {sq['query']} | {sq['category']} | {sq['avg_ms']:.2f} | {sq['rows']} |")
 
-    lines.extend([
-        "",
-        "## Notes",
-        "",
-        "- Speedup > 1x means PostgreSQL is faster",
-        "- Results depend on data volume, indexing, and connection latency",
-        f"- Current data volume: {info.get('total_rows', 'N/A')} rows",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Notes",
+            "",
+            "- Speedup > 1x means PostgreSQL is faster",
+            "- Results depend on data volume, indexing, and connection latency",
+            f"- Current data volume: {info.get('total_rows', 'N/A')} rows",
+        ]
+    )
 
     return "\n".join(lines) + "\n"
 
@@ -242,7 +253,7 @@ def main() -> int:
     # PostgreSQL benchmark (optional)
     pg_results = None
     if args.pg_url:
-        print(f"\n[PostgreSQL]:")
+        print("\n[PostgreSQL]:")
         try:
             pg_engine = create_engine(args.pg_url, pool_pre_ping=True)
             with pg_engine.connect() as conn:

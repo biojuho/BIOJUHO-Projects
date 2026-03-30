@@ -127,16 +127,16 @@ def migrate_data():
     # Connect to both DBs
     sqlite_conn = sqlite3.connect('agriguard.db')
     pg_engine = create_engine(os.getenv('DATABASE_URL'))
-    
+
     # Export tables
     tables = ['users', 'crops', 'transactions', 'supply_chain']
-    
+
     for table in tables:
         print(f"Migrating {table}...")
         df = pd.read_sql(f"SELECT * FROM {table}", sqlite_conn)
         df.to_sql(table, pg_engine, if_exists='append', index=False)
         print(f"✅ {len(df)} rows migrated")
-    
+
     sqlite_conn.close()
 ```
 

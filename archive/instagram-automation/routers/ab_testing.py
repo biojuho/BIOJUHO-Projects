@@ -12,10 +12,9 @@ Endpoints:
 
 from __future__ import annotations
 
+from dependencies import get_ab_engine
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-
-from dependencies import get_ab_engine
 from services.ab_testing import ABTestEngine
 
 router = APIRouter(prefix="/api/ab", tags=["ab_testing"])

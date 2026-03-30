@@ -9,13 +9,14 @@ Usage::
     python scripts/linear_sync.py --diff          # Linear과의 차이점 확인
     python scripts/linear_sync.py --sync          # 동기화 실행 (Linear MCP 필요)
 """
+
 from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-import sys
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -106,14 +107,16 @@ def parse_roadmap(path: Path = ROADMAP_PATH) -> list[RoadmapItem]:
                 if not labels:
                     labels.append("feature")
 
-                items.append(RoadmapItem(
-                    id=item_id,
-                    title=title,
-                    phase=current_phase,
-                    status="done" if checked else "todo",
-                    priority=priority,
-                    labels=labels,
-                ))
+                items.append(
+                    RoadmapItem(
+                        id=item_id,
+                        title=title,
+                        phase=current_phase,
+                        status="done" if checked else "todo",
+                        priority=priority,
+                        labels=labels,
+                    )
+                )
 
     return items
 
@@ -123,7 +126,7 @@ def show_parsed(items: list[RoadmapItem]) -> None:
     done = [i for i in items if i.status == "done"]
     todo = [i for i in items if i.status == "todo"]
 
-    print(f"=== ROADMAP 파싱 결과 ===")
+    print("=== ROADMAP 파싱 결과 ===")
     print(f"총 항목: {len(items)} (완료: {len(done)}, 미완료: {len(todo)})")
     print()
 
@@ -161,10 +164,13 @@ def main():
 
     if args.parse or (not args.diff and not args.sync):
         if args.json:
-            print(json.dumps(
-                [i.to_linear_issue() for i in items],
-                ensure_ascii=False, indent=2,
-            ))
+            print(
+                json.dumps(
+                    [i.to_linear_issue() for i in items],
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         else:
             show_parsed(items)
         return

@@ -42,4 +42,3 @@ ERROR getdaytrends\tests\test_generator.py
 ERROR getdaytrends\tests\test_integration.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!
 ======================= 1 deselected, 2 errors in 3.98s =======================
-

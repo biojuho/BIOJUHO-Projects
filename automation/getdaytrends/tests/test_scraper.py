@@ -1,10 +1,9 @@
 """scraper.py 테스트: 볼륨 파싱, 캐시, 중복 필터."""
 
 import os
-import sys
 import unittest
 
-
+from models import RawTrend, TrendSource
 from scraper import (
     _FETCH_CACHE,
     _FETCH_CACHE_TTL,
@@ -13,7 +12,6 @@ from scraper import (
     _merge_trends,
     _parse_volume_text,
 )
-from models import RawTrend, TrendSource
 
 
 class TestParseVolumeText(unittest.TestCase):
@@ -105,6 +103,7 @@ class TestMergeTrends(unittest.TestCase):
             # shared.embeddings 내부 클라이언트 초기화 리셋
             try:
                 import shared.embeddings.core as _ecore
+
                 _ecore._client = None
             except ImportError:
                 pass
@@ -131,6 +130,7 @@ class TestFetchCache(unittest.TestCase):
 
     def test_cache_key_stored(self):
         import time as _time
+
         trends = [RawTrend(name="테스트", source=TrendSource.GETDAYTRENDS)]
         _FETCH_CACHE["korea"] = (_time.time(), trends)
         self.assertIn("korea", _FETCH_CACHE)
@@ -138,6 +138,7 @@ class TestFetchCache(unittest.TestCase):
 
     def test_cache_expired_detection(self):
         import time as _time
+
         expired_ts = _time.time() - _FETCH_CACHE_TTL - 1
         _FETCH_CACHE["us"] = (expired_ts, [])
         cached_at, _ = _FETCH_CACHE["us"]

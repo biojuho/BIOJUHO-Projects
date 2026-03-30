@@ -1,7 +1,7 @@
 """Sentiment analysis adapter — classifies text sentiment via LLM."""
+
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -10,15 +10,18 @@ logger = logging.getLogger(__name__)
 
 # Import LLM primitives with graceful fallback
 try:
-    from shared.llm import LLMPolicy, TaskTier, get_client as _get_llm_client
+    from shared.llm import LLMPolicy, TaskTier
+    from shared.llm import get_client as _get_llm_client
 except ImportError:
     try:
         import sys
         from pathlib import Path
+
         _ROOT = Path(__file__).resolve().parents[4]
         if str(_ROOT) not in sys.path:
             sys.path.insert(0, str(_ROOT))
-        from shared.llm import LLMPolicy, TaskTier, get_client as _get_llm_client
+        from shared.llm import LLMPolicy, TaskTier
+        from shared.llm import get_client as _get_llm_client
     except ImportError:
         LLMPolicy = None
         TaskTier = None
@@ -61,7 +64,7 @@ class SentimentAdapter:
             "다음 텍스트들의 감성을 분석하고 핵심 주제를 추출하세요.\n"
             "JSON 배열로만 응답하세요 (다른 설명 없이).\n\n"
             f"{numbered}\n\n"
-            '응답 형식 (각 텍스트당 하나의 객체):\n'
+            "응답 형식 (각 텍스트당 하나의 객체):\n"
             '[{"sentiment": "POSITIVE|NEGATIVE|NEUTRAL", "topics": ["주제1", "주제2"]}]'
         )
 

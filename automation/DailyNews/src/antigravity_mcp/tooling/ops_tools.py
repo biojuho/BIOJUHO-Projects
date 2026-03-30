@@ -77,11 +77,13 @@ async def ops_cleanup_tool(dry_run: bool = False) -> dict:
 
     llm_pruned = store.prune_llm_cache()
     articles_pruned = store.prune_old_articles(days=30)
-    return ok({
-        "dry_run": False,
-        "llm_cache_entries_pruned": llm_pruned,
-        "article_cache_entries_pruned": articles_pruned,
-    })
+    return ok(
+        {
+            "dry_run": False,
+            "llm_cache_entries_pruned": llm_pruned,
+            "article_cache_entries_pruned": articles_pruned,
+        }
+    )
 
 
 async def ops_check_health_tool(
@@ -123,12 +125,14 @@ async def ops_check_health_tool(
         except Exception as exc:
             logger.warning("Failed to send Telegram health alert: %s", exc)
 
-    return ok({
-        "health": health,
-        "llm_available": llm_available,
-        "alerts": alerts,
-        "status": "degraded" if alerts else "healthy",
-    })
+    return ok(
+        {
+            "health": health,
+            "llm_available": llm_available,
+            "alerts": alerts,
+            "status": "degraded" if alerts else "healthy",
+        }
+    )
 
 
 async def ops_auto_collect_metrics_tool(hours: int = 48) -> dict:
@@ -168,6 +172,7 @@ async def ops_get_cost_report_tool(days: int = 7) -> dict:
     stats = store.get_token_usage_stats(hours=days * 24)
     try:
         from shared.llm import export_usage_csv, get_daily_stats
+
         daily = get_daily_stats(days=days)
         stats["daily_breakdown"] = daily
     except ImportError:
@@ -182,10 +187,12 @@ async def ops_export_analytics_tool(date: str = "", days: int = 30) -> dict:
     store = PipelineStateStore()
     json_result = export_daily_report_json(date=date, state_store=store)
     csv_result = export_performance_csv(days=days, state_store=store)
-    return ok({
-        "json_export": json_result,
-        "csv_export": csv_result,
-    })
+    return ok(
+        {
+            "json_export": json_result,
+            "csv_export": csv_result,
+        }
+    )
 
 
 async def ops_get_content_calendar_tool(days: int = 7) -> dict:
@@ -197,11 +204,13 @@ async def ops_get_content_calendar_tool(days: int = 7) -> dict:
     optimal = scheduler.get_optimal_hours(count=6)
     should_post = scheduler.should_post_now()
     next_slot = scheduler.get_next_posting_slot()
-    return ok({
-        "optimal_hours_today": optimal,
-        "should_post_now": should_post,
-        "next_slot": next_slot,
-    })
+    return ok(
+        {
+            "optimal_hours_today": optimal,
+            "should_post_now": should_post,
+            "next_slot": next_slot,
+        }
+    )
 
 
 async def ops_get_tweet_performance_tool(days: int = 7, limit: int = 10, sort_by: str = "impressions") -> dict:
@@ -209,7 +218,9 @@ async def ops_get_tweet_performance_tool(days: int = 7, limit: int = 10, sort_by
     store = PipelineStateStore()
     top_tweets = store.get_top_tweets(days=days, limit=limit, sort_by=sort_by)
     summary = store.get_metrics_summary(days=days)
-    return ok({
-        "summary": summary,
-        "top_tweets": top_tweets,
-    })
+    return ok(
+        {
+            "summary": summary,
+            "top_tweets": top_tweets,
+        }
+    )

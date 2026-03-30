@@ -7,10 +7,12 @@ Logfire 미설치 시 no-op (기존 loguru 로깅 유지).
 Usage::
     # FastAPI 앱에서:
     from shared.observability import setup_observability
+
     setup_observability(app, service_name="agriguard")
 
     # 커스텀 span:
     from shared.observability import span
+
     with span("collect-news", category="tech"):
         articles = await collect()
 
@@ -20,15 +22,18 @@ Usage::
     LOGFIRE_SEND_TO_CLOUD  - "false"로 셀프호스트 모드 (OTLP → Jaeger)
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT - Jaeger OTLP 엔드포인트
 """
+
 from __future__ import annotations
 
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 
 # Logfire는 선택 의존성
 try:
     import logfire as _logfire
+
     LOGFIRE_AVAILABLE = True
 except ImportError:
     _logfire = None  # type: ignore
@@ -110,6 +115,7 @@ def setup_observability(
     if bridge_loguru:
         try:
             from loguru import logger
+
             logger.configure(handlers=[_logfire.loguru_handler()])
         except Exception:
             pass

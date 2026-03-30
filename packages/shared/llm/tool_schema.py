@@ -48,9 +48,7 @@ class ToolValidationError(Exception):
     def __init__(self, tool_name: str, errors: list[dict]) -> None:
         self.tool_name = tool_name
         self.errors = errors
-        super().__init__(
-            f"Validation failed for tool '{tool_name}': {json.dumps(errors, ensure_ascii=False)}"
-        )
+        super().__init__(f"Validation failed for tool '{tool_name}': {json.dumps(errors, ensure_ascii=False)}")
 
 
 @dataclass

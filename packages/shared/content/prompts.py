@@ -6,13 +6,10 @@
 
 def build_json_output_instruction(schema_example: str) -> str:
     """JSON 출력 지시문 생성 (공통 패턴).
-    
+
     모든 LLM 호출에서 JSON 응답을 요청할 때 사용.
     """
-    return (
-        f"반드시 JSON만 출력하고 다른 설명은 일절 없어야 합니다.\n"
-        f"JSON 스키마:\n{schema_example}"
-    )
+    return f"반드시 JSON만 출력하고 다른 설명은 일절 없어야 합니다.\n" f"JSON 스키마:\n{schema_example}"
 
 
 def build_context_injection(
@@ -28,7 +25,7 @@ def build_context_injection(
         parts.append(f"[뉴스]\n{news}")
     if reddit and "없음" not in reddit and "제한" not in reddit:
         parts.append(f"[Reddit]\n{reddit}")
-    
+
     if not parts:
         return ""
     return "\n[수집된 실시간 컨텍스트]\n" + "\n\n".join(parts) + "\n"

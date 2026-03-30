@@ -24,20 +24,17 @@ Author: Claude Code
 Date: 2026-03-22
 """
 
-import os
-import sys
-import sqlite3
 import argparse
-from typing import List, Dict, Tuple
-from sqlalchemy import create_engine, MetaData, Table, inspect, text
-from sqlalchemy.orm import sessionmaker
-import pandas as pd
+import os
+import sqlite3
+import sys
 from datetime import datetime
 
-# Add AgriGuard backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'AgriGuard', 'backend'))
+import pandas as pd
+from sqlalchemy import create_engine, text
 
-from models import Base
+# Add AgriGuard backend to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "AgriGuard", "backend"))
 
 
 class DatabaseMigrator:
@@ -59,7 +56,7 @@ class DatabaseMigrator:
         print(f"🔌 Connecting to PostgreSQL: {self.postgres_url.split('@')[1]}")
         self.pg_engine = create_engine(self.postgres_url, echo=False)
 
-    def get_tables(self) -> List[str]:
+    def get_tables(self) -> list[str]:
         """Get list of tables from SQLite"""
         cursor = self.sqlite_conn.cursor()
         cursor.execute("""
@@ -87,14 +84,7 @@ class DatabaseMigrator:
 
         # Write to PostgreSQL
         try:
-            df.to_sql(
-                table_name,
-                self.pg_engine,
-                if_exists='append',
-                index=False,
-                method='multi',
-                chunksize=1000
-            )
+            df.to_sql(table_name, self.pg_engine, if_exists="append", index=False, method="multi", chunksize=1000)
             print(f"  ✅ Successfully migrated {row_count} rows")
             self.tables_migrated.append(table_name)
             return row_count
@@ -103,7 +93,7 @@ class DatabaseMigrator:
             print(f"  ❌ Error migrating {table_name}: {e}")
             raise
 
-    def verify_migration(self, table_name: str) -> Tuple[int, int, bool]:
+    def verify_migration(self, table_name: str) -> tuple[int, int, bool]:
         """Verify row counts match between SQLite and PostgreSQL"""
         # SQLite count
         cursor = self.sqlite_conn.cursor()
@@ -121,7 +111,7 @@ class DatabaseMigrator:
         print(f"  {status} {table_name}: SQLite={sqlite_count}, PostgreSQL={pg_count}")
         return sqlite_count, pg_count, match
 
-    def run_migration(self) -> Dict[str, int]:
+    def run_migration(self) -> dict[str, int]:
         """Execute full migration"""
         print("=" * 60)
         print("🚀 Starting AgriGuard Database Migration")
@@ -205,23 +195,17 @@ class DatabaseMigrator:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Migrate AgriGuard database from SQLite to PostgreSQL'
+    parser = argparse.ArgumentParser(description="Migrate AgriGuard database from SQLite to PostgreSQL")
+    parser.add_argument("--verify", action="store_true", help="Only verify migration (do not migrate)")
+    parser.add_argument(
+        "--sqlite",
+        default="AgriGuard/backend/agriguard.db",
+        help="Path to SQLite database (default: AgriGuard/backend/agriguard.db)",
     )
     parser.add_argument(
-        '--verify',
-        action='store_true',
-        help='Only verify migration (do not migrate)'
-    )
-    parser.add_argument(
-        '--sqlite',
-        default='AgriGuard/backend/agriguard.db',
-        help='Path to SQLite database (default: AgriGuard/backend/agriguard.db)'
-    )
-    parser.add_argument(
-        '--postgres',
-        default=os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/agriguard'),
-        help='PostgreSQL connection URL (default: from DATABASE_URL env var)'
+        "--postgres",
+        default=os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/agriguard"),
+        help="PostgreSQL connection URL (default: from DATABASE_URL env var)",
     )
 
     args = parser.parse_args()
@@ -245,7 +229,7 @@ def main():
             print()
             response = input("Continue? (yes/no): ")
 
-            if response.lower() != 'yes':
+            if response.lower() != "yes":
                 print("❌ Migration cancelled")
                 sys.exit(0)
 
@@ -257,11 +241,12 @@ def main():
     except Exception as e:
         print(f"\n\n❌ Migration failed: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:
         migrator.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -14,10 +14,10 @@ from urllib.parse import quote_plus, unquote
 import httpx
 from loguru import logger as log
 
-
 # ──────────────────────────────────────────────────
 #  Google News RSS
 # ──────────────────────────────────────────────────
+
 
 async def _google_news_search(
     keyword: str,
@@ -44,11 +44,13 @@ async def _google_news_search(
         for title, link in items[:max_results]:
             # Google News 리다이렉트 URL에서 실제 URL 추출
             real_url = _extract_google_news_url(link.strip())
-            results.append({
-                "title": _clean_xml(title),
-                "url": real_url,
-                "source": "google_news",
-            })
+            results.append(
+                {
+                    "title": _clean_xml(title),
+                    "url": real_url,
+                    "source": "google_news",
+                }
+            )
         log.info(f"[SourceFinder] Google News: {len(results)}개 발견")
     except Exception as e:
         log.warning(f"[SourceFinder] Google News 실패: {e}")
@@ -76,6 +78,7 @@ def _clean_xml(text: str) -> str:
 #  DuckDuckGo Instant Answer
 # ──────────────────────────────────────────────────
 
+
 async def _duckduckgo_search(
     keyword: str,
     max_results: int = 5,
@@ -86,9 +89,7 @@ async def _duckduckgo_search(
 
     results = []
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         async with httpx.AsyncClient() as http:
             resp = await http.get(url, headers=headers, timeout=15, follow_redirects=True)
             resp.raise_for_status()
@@ -103,11 +104,13 @@ async def _duckduckgo_search(
             # DuckDuckGo 리다이렉트 URL 디코딩
             real_url = _decode_ddg_url(link)
             if real_url and not any(x in real_url for x in ["duckduckgo.com", "ad_domain"]):
-                results.append({
-                    "title": re.sub(r"<.*?>", "", title).strip(),
-                    "url": real_url,
-                    "source": "duckduckgo",
-                })
+                results.append(
+                    {
+                        "title": re.sub(r"<.*?>", "", title).strip(),
+                        "url": real_url,
+                        "source": "duckduckgo",
+                    }
+                )
         log.info(f"[SourceFinder] DuckDuckGo: {len(results)}개 발견")
     except Exception as e:
         log.warning(f"[SourceFinder] DuckDuckGo 실패: {e}")
@@ -130,6 +133,7 @@ def _decode_ddg_url(url: str) -> str:
 #  Wikipedia
 # ──────────────────────────────────────────────────
 
+
 async def _wikipedia_search(
     keyword: str,
     lang: str = "en",
@@ -138,15 +142,12 @@ async def _wikipedia_search(
     """Wikipedia API에서 관련 문서 URL 수집."""
     encoded = quote_plus(keyword)
     api_url = (
-        f"https://{lang}.wikipedia.org/w/api.php"
-        f"?action=opensearch&search={encoded}&limit={max_results}&format=json"
+        f"https://{lang}.wikipedia.org/w/api.php" f"?action=opensearch&search={encoded}&limit={max_results}&format=json"
     )
 
     results = []
     try:
-        headers = {
-            "User-Agent": "NotebookLM-SourceFinder/1.0 (contact@biojuho.dev)"
-        }
+        headers = {"User-Agent": "NotebookLM-SourceFinder/1.0 (contact@biojuho.dev)"}
         async with httpx.AsyncClient() as http:
             resp = await http.get(api_url, headers=headers, timeout=10)
             resp.raise_for_status()
@@ -156,12 +157,14 @@ async def _wikipedia_search(
         if len(data) >= 4:
             titles = data[1]
             urls = data[3]
-            for title, url in zip(titles, urls):
-                results.append({
-                    "title": title,
-                    "url": url,
-                    "source": "wikipedia",
-                })
+            for title, url in zip(titles, urls, strict=False):
+                results.append(
+                    {
+                        "title": title,
+                        "url": url,
+                        "source": "wikipedia",
+                    }
+                )
         log.info(f"[SourceFinder] Wikipedia: {len(results)}개 발견")
     except Exception as e:
         log.warning(f"[SourceFinder] Wikipedia 실패: {e}")
@@ -172,6 +175,7 @@ async def _wikipedia_search(
 # ──────────────────────────────────────────────────
 #  Scholar / arXiv (학술 논문)
 # ──────────────────────────────────────────────────
+
 
 async def _arxiv_search(
     keyword: str,
@@ -198,11 +202,13 @@ async def _arxiv_search(
             re.DOTALL,
         )
         for title, arxiv_url in entries[:max_results]:
-            results.append({
-                "title": title.strip().replace("\n", " "),
-                "url": arxiv_url.strip(),
-                "source": "arxiv",
-            })
+            results.append(
+                {
+                    "title": title.strip().replace("\n", " "),
+                    "url": arxiv_url.strip(),
+                    "source": "arxiv",
+                }
+            )
         log.info(f"[SourceFinder] arXiv: {len(results)}개 발견")
     except Exception as e:
         log.warning(f"[SourceFinder] arXiv 실패: {e}")
@@ -213,6 +219,7 @@ async def _arxiv_search(
 # ──────────────────────────────────────────────────
 #  Main: Auto Discover Sources
 # ──────────────────────────────────────────────────
+
 
 async def auto_discover_sources(
     keyword: str,
@@ -275,6 +282,7 @@ async def auto_discover_sources(
 # ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
+
     async def _test():
         print("=== Source Finder Test ===")
         results = await auto_discover_sources(

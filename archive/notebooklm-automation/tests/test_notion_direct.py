@@ -1,6 +1,8 @@
 """Direct Notion publish test — bypasses LLM to verify Notion integration."""
+
 import asyncio
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()

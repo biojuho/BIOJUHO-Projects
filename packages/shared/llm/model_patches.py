@@ -22,6 +22,7 @@ log = logging.getLogger("shared.llm")
 # Patch registry: each patch is a (pattern, patch_fn) pair
 # ---------------------------------------------------------------------------
 
+
 def _patch_anthropic(model: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Claude-specific optimizations.
 

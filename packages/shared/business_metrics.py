@@ -6,6 +6,7 @@ Tracks LLM token usage, API costs, and domain-specific counters
 
 Usage::
     from shared.business_metrics import biz
+
     biz.llm_request("gpt-4o", input_tokens=500, output_tokens=200, cost_usd=0.003)
     biz.trend_scored()
     biz.tweet_published()
@@ -14,10 +15,12 @@ Usage::
 
 All counters are no-ops when prometheus_client is not installed.
 """
+
 from __future__ import annotations
 
 try:
     from prometheus_client import Counter, Histogram
+
     _PROM = True
 except ImportError:
     _PROM = False
@@ -115,19 +118,13 @@ class _BusinessMetrics:
             return
         self._llm_requests.labels(service=service, model=model).inc()
         if input_tokens:
-            self._llm_tokens.labels(
-                service=service, model=model, direction="input"
-            ).inc(input_tokens)
+            self._llm_tokens.labels(service=service, model=model, direction="input").inc(input_tokens)
         if output_tokens:
-            self._llm_tokens.labels(
-                service=service, model=model, direction="output"
-            ).inc(output_tokens)
+            self._llm_tokens.labels(service=service, model=model, direction="output").inc(output_tokens)
         if cost_usd > 0:
             self._llm_cost.labels(service=service, model=model).inc(cost_usd)
         if duration_s > 0:
-            self._llm_latency.labels(service=service, model=model).observe(
-                duration_s
-            )
+            self._llm_latency.labels(service=service, model=model).observe(duration_s)
 
     # ── GetDayTrends ───────────────────────────────────────────
 
@@ -145,9 +142,7 @@ class _BusinessMetrics:
 
     # ── AgriGuard ──────────────────────────────────────────────
 
-    def qr_scan(
-        self, event_type: str = "scan_start", *, service: str = "agriguard"
-    ) -> None:
+    def qr_scan(self, event_type: str = "scan_start", *, service: str = "agriguard") -> None:
         self._ensure()
         if not _PROM:
             return

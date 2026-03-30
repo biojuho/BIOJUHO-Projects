@@ -3,12 +3,8 @@ generator.py 테스트: 점수 조건별 생성 분기, 프롬프트 빌더, ret
 v3.0: _retry_generate, safety_flag 통합 테스트 추가.
 """
 
-import asyncio
-import os
-import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
-
 
 from config import AppConfig
 from generator import (
@@ -18,8 +14,8 @@ from generator import (
     _resolve_language,
     _system_blog_post,
     _system_long_form,
-    _system_tweets,
     _system_threads,
+    _system_tweets,
     audit_generated_content,
     generate_blog_async,
     generate_long_form_async,
@@ -142,7 +138,6 @@ class TestGenerationTierGating(unittest.TestCase):
     @patch("generator.generate_tweets_and_threads_async", new_callable=AsyncMock)
     def test_low_score_only_tweets(self, mock_combined, mock_thread, mock_long, mock_tweets):
         """60점 트렌드 → 단문 트윗만 생성 (Threads 미달, Sonnet 미달)."""
-        import asyncio
         mock_tweets.return_value = self._make_batch()
 
         cfg = _make_config(
@@ -156,20 +151,20 @@ class TestGenerationTierGating(unittest.TestCase):
         client = MagicMock()
 
         from generator import generate_for_trend_async
+
         result = asyncio.run(generate_for_trend_async(trend, cfg, client))
 
         self.assertIsNotNone(result)
-        mock_tweets.assert_called_once()   # 개별 트윗 생성
+        mock_tweets.assert_called_once()  # 개별 트윗 생성
         mock_combined.assert_not_called()  # 65점 미달 → 통합 안 함
-        mock_long.assert_not_called()      # 95점 미달
-        mock_thread.assert_not_called()    # 92점 미달
+        mock_long.assert_not_called()  # 95점 미달
+        mock_thread.assert_not_called()  # 92점 미달
 
     @patch("generator.generate_tweets_and_threads_async", new_callable=AsyncMock)
     @patch("generator.generate_long_form_async", new_callable=AsyncMock)
     @patch("generator.generate_thread_async", new_callable=AsyncMock)
     def test_high_score_all_generated(self, mock_thread, mock_long, mock_combined):
         """96점 트렌드 → 통합(트윗+Threads) + Sonnet 장문 + 쓰레드 전체 생성."""
-        import asyncio
         mock_combined.return_value = self._make_batch()
         mock_long.return_value = []
         mock_thread.return_value = None
@@ -185,12 +180,13 @@ class TestGenerationTierGating(unittest.TestCase):
         client = MagicMock()
 
         from generator import generate_for_trend_async
+
         result = asyncio.run(generate_for_trend_async(trend, cfg, client))
 
         self.assertIsNotNone(result)
         mock_combined.assert_called_once()  # C1: 통합 호출
-        mock_long.assert_called_once()      # 96 >= 95
-        mock_thread.assert_called_once()    # 96 >= 92
+        mock_long.assert_called_once()  # 96 >= 95
+        mock_thread.assert_called_once()  # 96 >= 92
 
 
 class TestRetryGenerate(unittest.IsolatedAsyncioTestCase):
@@ -261,12 +257,14 @@ class TestSafetyFlagIntegration(unittest.TestCase):
 
     def test_safety_flag_default_false(self):
         from models import ScoredTrend
+
         trend = ScoredTrend(keyword="정상", rank=1)
         self.assertFalse(trend.safety_flag)
         self.assertEqual(trend.sentiment, "neutral")
 
     def test_safety_flag_true(self):
         from models import ScoredTrend
+
         trend = ScoredTrend(keyword="재난", rank=1, safety_flag=True, sentiment="harmful")
         self.assertTrue(trend.safety_flag)
         self.assertEqual(trend.sentiment, "harmful")
@@ -277,12 +275,14 @@ class TestVariantAndLanguageFields(unittest.TestCase):
 
     def test_default_variant_and_language(self):
         from models import GeneratedTweet
+
         t = GeneratedTweet(tweet_type="공감형", content="내용")
         self.assertEqual(t.variant_id, "")
         self.assertEqual(t.language, "ko")
 
     def test_custom_variant_and_language(self):
         from models import GeneratedTweet
+
         t = GeneratedTweet(tweet_type="공감형", content="content", variant_id="B", language="en")
         self.assertEqual(t.variant_id, "B")
         self.assertEqual(t.language, "en")

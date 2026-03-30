@@ -1,13 +1,11 @@
 """structured_output.py 테스트 — Instructor 구조화된 출력 모듈."""
 
-import pytest
-
 from structured_output import (
+    LongPostResponse,
     ScoringResponseItem,
+    ThreadResponse,
     TweetGenerationResponse,
     TweetItem,
-    LongPostResponse,
-    ThreadResponse,
     reset_instructor_client,
 )
 

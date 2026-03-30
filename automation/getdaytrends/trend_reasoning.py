@@ -6,6 +6,7 @@ GetDayTrends Trend Reasoning — 교차 트렌드 귀납적 추론 엔진.
   Step 2: 교차 연결 → 가설 (왜 이 키워드들이 동시에 뜨는가)
   Step 3: 반증 시도 → 생존 패턴 축적
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,6 +29,7 @@ log = logging.getLogger(__name__)
 #  Robust JSON Parser (Korean LLM output tolerant)
 # ══════════════════════════════════════════════════════
 
+
 def _robust_json_parse(text: str) -> dict | list | None:
     raw = text
     if "```json" in raw:
@@ -42,21 +44,21 @@ def _robust_json_parse(text: str) -> dict | list | None:
         pass
 
     fixed = re.sub(r'(?<=": ")(.*?)(?=")', lambda m: m.group(0).replace("\n", " "), raw, flags=re.DOTALL)
-    fixed = re.sub(r',(\s*[}\]])', r'\1', fixed)
+    fixed = re.sub(r",(\s*[}\]])", r"\1", fixed)
     try:
         return json.loads(fixed)
     except json.JSONDecodeError:
         pass
 
-    collapsed = re.sub(r'\n\s*', ' ', raw)
-    collapsed = re.sub(r',(\s*[}\]])', r'\1', collapsed)
+    collapsed = re.sub(r"\n\s*", " ", raw)
+    collapsed = re.sub(r",(\s*[}\]])", r"\1", collapsed)
     try:
         return json.loads(collapsed)
     except json.JSONDecodeError:
         pass
 
     try:
-        objects = re.findall(r'\{[^{}]*\}', collapsed)
+        objects = re.findall(r"\{[^{}]*\}", collapsed)
         if objects:
             return [json.loads(obj) for obj in objects]
     except json.JSONDecodeError:
@@ -100,6 +102,7 @@ CREATE TABLE IF NOT EXISTS trend_patterns (
 
 
 _tables_initialized = False
+
 
 async def init_reasoning_tables(conn) -> None:
     """Create reasoning tables if not exist (idempotent, runs once per process)."""
@@ -165,8 +168,13 @@ async def save_hypotheses(conn, hypotheses: list[dict]) -> None:
         await conn.execute(
             "INSERT OR IGNORE INTO trend_hypotheses (hypothesis_id, hypothesis_text, based_on, related_pattern, status, created_at) "
             "VALUES (?, ?, ?, ?, 'pending', ?)",
-            (hid, h.get("hypothesis", ""), json.dumps(h.get("based_on", []), ensure_ascii=False),
-             h.get("pattern", ""), now),
+            (
+                hid,
+                h.get("hypothesis", ""),
+                json.dumps(h.get("based_on", []), ensure_ascii=False),
+                h.get("pattern", ""),
+                now,
+            ),
         )
     await conn.commit()
 
@@ -174,6 +182,7 @@ async def save_hypotheses(conn, hypotheses: list[dict]) -> None:
 # ══════════════════════════════════════════════════════
 #  3-Step Reasoning Engine
 # ══════════════════════════════════════════════════════
+
 
 class TrendReasoningAdapter:
     """Cross-trend inductive reasoning engine for GetDayTrends."""
@@ -202,7 +211,8 @@ class TrendReasoningAdapter:
 
         try:
             resp = await self._client.acreate(
-                tier=TaskTier.HEAVY, max_tokens=1500,
+                tier=TaskTier.HEAVY,
+                max_tokens=1500,
                 messages=[{"role": "user", "content": prompt}],
             )
             parsed = _robust_json_parse(resp.text or "")
@@ -213,15 +223,12 @@ class TrendReasoningAdapter:
             log.warning("Step 1 failed: %s", exc)
         return []
 
-    async def step2_hypothesize(
-        self, facts: list[dict], existing_patterns: list[dict] | None = None
-    ) -> list[dict]:
+    async def step2_hypothesize(self, facts: list[dict], existing_patterns: list[dict] | None = None) -> list[dict]:
         if not self.is_available() or not facts:
             return []
 
         facts_text = "\n".join(
-            f"F-{i+1}: {f['fact_text']} / WHY: {f.get('why_question', '')}"
-            for i, f in enumerate(facts)
+            f"F-{i+1}: {f['fact_text']} / WHY: {f.get('why_question', '')}" for i, f in enumerate(facts)
         )
 
         patterns_text = ""
@@ -242,7 +249,8 @@ class TrendReasoningAdapter:
 
         try:
             resp = await self._client.acreate(
-                tier=TaskTier.HEAVY, max_tokens=1500,
+                tier=TaskTier.HEAVY,
+                max_tokens=1500,
                 messages=[{"role": "user", "content": prompt}],
             )
             parsed = _robust_json_parse(resp.text or "")
@@ -275,7 +283,8 @@ class TrendReasoningAdapter:
 
         try:
             resp = await self._client.acreate(
-                tier=TaskTier.HEAVY, max_tokens=2000,
+                tier=TaskTier.HEAVY,
+                max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}],
             )
             parsed = _robust_json_parse(resp.text or "")
@@ -288,12 +297,19 @@ class TrendReasoningAdapter:
         return []
 
     async def run_full_reasoning(
-        self, conn, run_id: str, category: str, trend_data: str,
+        self,
+        conn,
+        run_id: str,
+        category: str,
+        trend_data: str,
     ) -> dict[str, Any]:
         """Full 3-step reasoning pipeline."""
         result: dict[str, Any] = {
-            "facts": [], "hypotheses": [], "falsification": [],
-            "new_patterns": [], "survived_count": 0,
+            "facts": [],
+            "hypotheses": [],
+            "falsification": [],
+            "new_patterns": [],
+            "survived_count": 0,
         }
 
         # Ensure tables
@@ -329,6 +345,8 @@ class TrendReasoningAdapter:
 
         log.info(
             "Trend reasoning complete: %d facts → %d hyp → %d survived",
-            len(facts), len(hypotheses), len(survived),
+            len(facts),
+            len(hypotheses),
+            len(survived),
         )
         return result

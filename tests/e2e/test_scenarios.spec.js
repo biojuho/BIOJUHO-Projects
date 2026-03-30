@@ -5,10 +5,10 @@ test.describe('DeSci Platform E2E Tests', () => {
     // Navigate to the upload paper route (assuming /upload-paper maps to it)
     // We mock the navigation for CI purposes or just check DOM if served
     await page.goto('http://localhost:5173/upload-paper').catch(() => {});
-    
+
     // Check if the Legal Agreement Checkbox exists
     const agreementCheckbox = page.locator('input#terms');
-    
+
     // Check button state
     const uploadButton = page.locator('button[type="submit"]');
     if (await uploadButton.count() > 0) {

@@ -8,10 +8,10 @@ from loguru import logger as log
 
 from models import MultiSourceContext, RawTrend, TrendCluster
 
-
 # ══════════════════════════════════════════════════════
 #  Similarity Helpers
 # ══════════════════════════════════════════════════════
+
 
 def _jaccard_similarity(a: str, b: str) -> float:
     """형태소 단위 자카드 유사도 (0.0~1.0). 2자 미만 토큰은 제외."""
@@ -31,7 +31,7 @@ def _compute_similarity_pairs_embedding(
     실패 시 None 반환 (Jaccard 폴백 트리거).
     """
     try:
-        from embeddings import embed_texts, compute_similarity_matrix
+        from embeddings import compute_similarity_matrix, embed_texts
 
         vectors = embed_texts(names)
         if vectors is None or len(vectors) != len(names):
@@ -44,10 +44,7 @@ def _compute_similarity_pairs_embedding(
             for j in range(i + 1, n):
                 if sim_matrix[i][j] >= threshold:
                     pairs.append((i, j))
-                    log.debug(
-                        f"  [임베딩 유사] '{names[i]}' ↔ '{names[j]}' "
-                        f"= {sim_matrix[i][j]:.3f} ≥ {threshold}"
-                    )
+                    log.debug(f"  [임베딩 유사] '{names[i]}' ↔ '{names[j]}' " f"= {sim_matrix[i][j]:.3f} ≥ {threshold}")
         return pairs
 
     except Exception as e:
@@ -58,6 +55,7 @@ def _compute_similarity_pairs_embedding(
 # ══════════════════════════════════════════════════════
 #  Cluster Merge (공통 로직)
 # ══════════════════════════════════════════════════════
+
 
 def _merge_clusters(
     raw_trends: list["RawTrend"],
@@ -98,10 +96,7 @@ def _merge_clusters(
 
     merged_count = sum(len(c.members) - 1 for c in clusters if len(c.members) > 1)
     if merged_count:
-        log.info(
-            f"[{method} 클러스터링] {len(raw_trends)}개 → {len(representatives)}개 "
-            f"(병합 {merged_count}개)"
-        )
+        log.info(f"[{method} 클러스터링] {len(raw_trends)}개 → {len(representatives)}개 " f"(병합 {merged_count}개)")
 
     return representatives, contexts, clusters
 
@@ -109,6 +104,7 @@ def _merge_clusters(
 # ══════════════════════════════════════════════════════
 #  Local Hybrid Clustering (v14.0)
 # ══════════════════════════════════════════════════════
+
 
 def cluster_trends_local(
     raw_trends: list["RawTrend"],
@@ -263,9 +259,15 @@ def cluster_trends(
                 merged_news.append(ctx.news_insight)
 
         merged_ctx = MultiSourceContext(
-            twitter_insight="\n".join(merged_twitter) if merged_twitter else contexts.get(rep, MultiSourceContext()).twitter_insight,
-            reddit_insight="\n".join(merged_reddit) if merged_reddit else contexts.get(rep, MultiSourceContext()).reddit_insight,
-            news_insight="\n".join(merged_news) if merged_news else contexts.get(rep, MultiSourceContext()).news_insight,
+            twitter_insight="\n".join(merged_twitter)
+            if merged_twitter
+            else contexts.get(rep, MultiSourceContext()).twitter_insight,
+            reddit_insight="\n".join(merged_reddit)
+            if merged_reddit
+            else contexts.get(rep, MultiSourceContext()).reddit_insight,
+            news_insight="\n".join(merged_news)
+            if merged_news
+            else contexts.get(rep, MultiSourceContext()).news_insight,
         )
         contexts[rep] = merged_ctx
 

@@ -2,11 +2,8 @@
 
 import asyncio
 import json
-import os
-import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
-
 
 from config import AppConfig
 from generator import _parse_json, generate_tweets_async
@@ -162,10 +159,11 @@ class TestPipelineIntegration(unittest.TestCase):
             tweets=[GeneratedTweet(tweet_type="유머형", content="폴백 트윗", content_type="short")],
         )
 
-        with patch("generator.generate_tweets_and_threads_async", new_callable=AsyncMock) as mock_combined, \
-             patch("generator.generate_tweets_async", new_callable=AsyncMock) as mock_tweets, \
-             patch("generator.generate_threads_content_async", new_callable=AsyncMock) as mock_threads:
-
+        with (
+            patch("generator.generate_tweets_and_threads_async", new_callable=AsyncMock) as mock_combined,
+            patch("generator.generate_tweets_async", new_callable=AsyncMock) as mock_tweets,
+            patch("generator.generate_threads_content_async", new_callable=AsyncMock) as mock_threads,
+        ):
             mock_combined.return_value = None  # 통합 실패
             mock_tweets.return_value = individual_batch
             mock_threads.return_value = []
@@ -183,10 +181,12 @@ class TestPipelineIntegration(unittest.TestCase):
     def test_tweet_280_char_trimming(self):
         """280자 초과 트윗이 자동 트리밍되는지 검증."""
         long_content = "A" * 300
-        valid_json = json.dumps({
-            "topic": "테스트",
-            "tweets": [{"type": "공감형", "content": long_content}],
-        })
+        valid_json = json.dumps(
+            {
+                "topic": "테스트",
+                "tweets": [{"type": "공감형", "content": long_content}],
+            }
+        )
         response = MagicMock()
         response.text = valid_json
         client = MagicMock()
@@ -200,6 +200,7 @@ class TestPipelineIntegration(unittest.TestCase):
     def test_config_immutability(self):
         """Q1: 파이프라인 실행 후 원본 config가 변경되지 않음."""
         import dataclasses
+
         original = AppConfig()
         original_limit = original.limit
 
@@ -247,13 +248,14 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             "reason": "통과",
         }
 
-        with patch("core.pipeline_steps.get_cached_content", new_callable=AsyncMock) as mock_cached, \
-             patch("core.pipeline_steps.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent, \
-             patch("core.pipeline_steps.generate_for_trend_async", new_callable=AsyncMock) as mock_generate, \
-             patch("generator.audit_generated_content", new_callable=AsyncMock) as mock_audit, \
-             patch("core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen, \
-             patch("core.pipeline_steps.get_client") as mock_client_factory:
-
+        with (
+            patch("core.pipeline_steps.get_cached_content", new_callable=AsyncMock) as mock_cached,
+            patch("core.pipeline_steps.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent,
+            patch("core.pipeline_steps.generate_for_trend_async", new_callable=AsyncMock) as mock_generate,
+            patch("generator.audit_generated_content", new_callable=AsyncMock) as mock_audit,
+            patch("core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
+            patch("core.pipeline_steps.get_client") as mock_client_factory,
+        ):
             mock_cached.return_value = None
             mock_recent.return_value = []
             mock_generate.return_value = initial_batch

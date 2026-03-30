@@ -40,4 +40,3 @@ E   ImportError: cannot import name '_round_robin_counter' from 'generator' (D:\
 =========================== short test summary info ===========================
 FAILED getdaytrends\tests\test_v15_quality.py::TestPersonaRotation::test_round_robin_mode
 ===== 1 failed, 347 passed, 30 skipped, 1 deselected in 68.09s (0:01:08) ======
-

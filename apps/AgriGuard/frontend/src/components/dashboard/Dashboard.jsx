@@ -46,7 +46,7 @@ export default function Dashboard() {
   const originEntries = Object.entries(originDist).sort((a, b) => b[1] - a[1]);
   const statusChartData = statusEntries.map(([name, value]) => ({ name, value }));
   const originChartData = originEntries.map(([name, value]) => ({ name, value }));
-  
+
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#f43f5e'];
 
   return (

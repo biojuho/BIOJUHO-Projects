@@ -26,10 +26,37 @@ class InsightValidator:
         "실험하",
     ]
     GENERIC_ACTIONS = ["검토하", "고려하", "관심", "주목하", "모니터링하"]
-    TIME_KEYWORDS = ["최근", "과거", "개월", "주일", "앞으로", "미래", "향후", "전망", "추세", "트렌드", "이번", "오늘", "내", "까지"]
+    TIME_KEYWORDS = [
+        "최근",
+        "과거",
+        "개월",
+        "주일",
+        "앞으로",
+        "미래",
+        "향후",
+        "전망",
+        "추세",
+        "트렌드",
+        "이번",
+        "오늘",
+        "내",
+        "까지",
+    ]
     RIPPLE_KEYWORDS = ["1차", "2차", "3차", "→", "->", "파급", "연쇄", "이어", "결과", "따라서"]
     CAUSALITY_KEYWORDS = ["때문", "결과", "따라", "이어", "발생", "초래", "유발"]
-    TARGET_KEYWORDS = ["투자자", "개발자", "창업자", "스타트업", "기업", "연구자", "정책입안자", "소비자", "독자", "PM", "사업자"]
+    TARGET_KEYWORDS = [
+        "투자자",
+        "개발자",
+        "창업자",
+        "스타트업",
+        "기업",
+        "연구자",
+        "정책입안자",
+        "소비자",
+        "독자",
+        "PM",
+        "사업자",
+    ]
 
     def __init__(self, min_score: float = 0.6) -> None:
         self.min_score = min_score
@@ -63,7 +90,9 @@ class InsightValidator:
         if novel_numbers:
             warnings.append(f"입력 기사에 없는 숫자 감지: {', '.join(sorted(novel_numbers))}")
 
-        passed = not hard_fail and p1_score >= self.min_score and p2_score >= self.min_score and p3_score >= self.min_score
+        passed = (
+            not hard_fail and p1_score >= self.min_score and p2_score >= self.min_score and p3_score >= self.min_score
+        )
         return {
             "validation_passed": passed,
             "principle_1_score": p1_score,

@@ -107,9 +107,7 @@ class EngagementPredictor:
             for row in rows:
                 caption, hashtags, sched, ptype, likes, comments, saves, reach = row
                 dt = datetime.fromisoformat(sched) if sched else datetime.now()
-                inp = PredictionInput.from_post(
-                    caption or "", hashtags or "", dt
-                )
+                inp = PredictionInput.from_post(caption or "", hashtags or "", dt)
                 inp.post_type = ptype or "IMAGE"
                 X.append(inp.to_features())
                 engagement = (likes + comments * 2 + saves * 3) / max(reach, 1) * 100
@@ -125,12 +123,14 @@ class EngagementPredictor:
         if len(X) < self.MIN_TRAINING_SAMPLES:
             logger.info(
                 "Not enough data to train (%d/%d samples)",
-                len(X), self.MIN_TRAINING_SAMPLES,
+                len(X),
+                self.MIN_TRAINING_SAMPLES,
             )
             return False
 
         try:
             from sklearn.linear_model import LinearRegression
+
             self._model = LinearRegression()
             self._model.fit(X, y)
             self._trained = True
@@ -166,9 +166,7 @@ class EngagementPredictor:
             suggestions.append("질문으로 참여 유도 고려: '여러분은 어떻게 생각하세요?'")
 
         if inp.posting_hour not in self.DEFAULT_BEST_HOURS:
-            suggestions.append(
-                f"최적 게시 시간: {', '.join(f'{h}시' for h in self.DEFAULT_BEST_HOURS)}"
-            )
+            suggestions.append(f"최적 게시 시간: {', '.join(f'{h}시' for h in self.DEFAULT_BEST_HOURS)}")
 
         # ML prediction (if model trained)
         predicted_rate = 3.5  # Default average

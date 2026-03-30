@@ -13,19 +13,19 @@ Crawl4AI 미설치 시 자동으로 기존 Firecrawl 클라이언트로 폴백.
     FIRECRAWL_API_KEY가 설정되어 있으면 Firecrawl 우선.
     둘 다 없으면 크롤링 비활성화.
 """
+
 from __future__ import annotations
 
 import asyncio
-import os
-from typing import Any
 
 from loguru import logger as log
 
 # Crawl4AI는 선택 의존성
 try:
-    from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+    from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
     from crawl4ai.content_filter_strategy import PruningContentFilter
     from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+
     CRAWL4AI_AVAILABLE = True
 except ImportError:
     CRAWL4AI_AVAILABLE = False
@@ -33,11 +33,11 @@ except ImportError:
 _CONTENT_TRUNCATE_CHARS = 3000  # Firecrawl 클라이언트와 동일한 제한
 
 # 싱글톤 크롤러 인스턴스
-_crawler: "AsyncWebCrawler | None" = None
+_crawler: AsyncWebCrawler | None = None
 _crawler_lock = asyncio.Lock()
 
 
-async def _get_crawler() -> "AsyncWebCrawler | None":
+async def _get_crawler() -> AsyncWebCrawler | None:
     """Crawl4AI 싱글톤 크롤러."""
     global _crawler
     if not CRAWL4AI_AVAILABLE:
@@ -74,11 +74,7 @@ async def scrape_url(url: str) -> dict[str, str]:
         return empty
 
     try:
-        md_gen = DefaultMarkdownGenerator(
-            content_filter=PruningContentFilter(
-                threshold=0.4, threshold_type="fixed"
-            )
-        )
+        md_gen = DefaultMarkdownGenerator(content_filter=PruningContentFilter(threshold=0.4, threshold_type="fixed"))
         config = CrawlerRunConfig(
             cache_mode=CacheMode.BYPASS,
             markdown_generator=md_gen,
@@ -156,11 +152,7 @@ async def enrich_trend_context(
         title = article["title"] or "(제목 없음)"
         content = article["content"].strip()
         date_info = f" ({article['published_date']})" if article["published_date"] else ""
-        parts.append(
-            f"--- 기사 {idx}{date_info} ---\n"
-            f"제목: {title}\n"
-            f"본문:\n{content}"
-        )
+        parts.append(f"--- 기사 {idx}{date_info} ---\n" f"제목: {title}\n" f"본문:\n{content}")
 
     return "[기사 본문 요약]\n" + "\n\n".join(parts)
 

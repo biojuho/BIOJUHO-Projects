@@ -22,17 +22,17 @@ generation/prompts.py — System Prompt Templates & Section Builders
 # Re-export from prompt_builder for backward compatibility
 from prompt_builder import (
     _LANG_NAME_MAP,
+    _resolve_language,
     _retry_generate,
     _select_generation_tier,
-    _resolve_language,
 )
 
 # Re-export from generation.system_prompts
 try:
     from generation.system_prompts import (
-        _system_tweets,
         _system_long_form,
         _system_threads,
+        _system_tweets,
     )
 except ImportError:
     # Fallback if system_prompts.py doesn't exist yet
@@ -41,11 +41,11 @@ except ImportError:
     _system_threads = None
 
 __all__ = [
-    '_LANG_NAME_MAP',
-    '_retry_generate',
-    '_select_generation_tier',
-    '_resolve_language',
-    '_system_tweets',
-    '_system_long_form',
-    '_system_threads',
+    "_LANG_NAME_MAP",
+    "_retry_generate",
+    "_select_generation_tier",
+    "_resolve_language",
+    "_system_tweets",
+    "_system_long_form",
+    "_system_threads",
 ]

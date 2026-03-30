@@ -2,15 +2,15 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Ensure the backend directory is on sys.path so models can be imported
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from env_loader import load_backend_env  # noqa: E402
-from database import Base  # noqa: E402
 import models  # noqa: E402, F401  — registers all models with Base.metadata
+from database import Base  # noqa: E402
+from env_loader import load_backend_env  # noqa: E402
 
 # Alembic Config object
 config = context.config

@@ -11,7 +11,6 @@ import logging
 from typing import Any
 
 import httpx
-
 from config import MetaAPIConfig
 from services.rate_limiter import MetaRateLimiter
 
@@ -91,9 +90,7 @@ class MetaGraphAPI:
 
     # ---- low-level ----
 
-    async def _request(
-        self, method: str, path: str, **kwargs: Any
-    ) -> dict:
+    async def _request(self, method: str, path: str, **kwargs: Any) -> dict:
         # Enforce Meta's 200 calls/hour rate limit
         await self._rate_limiter.acquire()
 
@@ -119,8 +116,10 @@ class MetaGraphAPI:
             message = err.get("message", "Unknown error")
             fbtrace_id = err.get("fbtrace_id", "")
             kwargs = dict(
-                message=message, code=code,
-                subcode=subcode, fbtrace_id=fbtrace_id,
+                message=message,
+                code=code,
+                subcode=subcode,
+                fbtrace_id=fbtrace_id,
             )
 
             # Classify by error code
@@ -154,9 +153,7 @@ class MetaGraphAPI:
 
     # ---- Media Publishing (2-step process) ----
 
-    async def create_image_container(
-        self, image_url: str, caption: str
-    ) -> str:
+    async def create_image_container(self, image_url: str, caption: str) -> str:
         """Step 1: Create image media container. Returns container ID."""
         data = await self.post(
             f"/{self.config.ig_user_id}/media",
@@ -167,9 +164,7 @@ class MetaGraphAPI:
         logger.info("Created image container: %s", container_id)
         return container_id
 
-    async def create_reel_container(
-        self, video_url: str, caption: str, *, share_to_feed: bool = True
-    ) -> str:
+    async def create_reel_container(self, video_url: str, caption: str, *, share_to_feed: bool = True) -> str:
         """Step 1: Create reels media container."""
         data = await self.post(
             f"/{self.config.ig_user_id}/media",
@@ -182,9 +177,7 @@ class MetaGraphAPI:
         logger.info("Created reel container: %s", container_id)
         return container_id
 
-    async def create_story_container(
-        self, *, image_url: str | None = None, video_url: str | None = None
-    ) -> str:
+    async def create_story_container(self, *, image_url: str | None = None, video_url: str | None = None) -> str:
         """Step 1: Create stories media container."""
         kwargs: dict[str, str] = {"media_type": "STORIES"}
         if image_url:
@@ -194,9 +187,7 @@ class MetaGraphAPI:
         else:
             raise ValueError("image_url or video_url required for stories")
 
-        data = await self.post(
-            f"/{self.config.ig_user_id}/media", **kwargs
-        )
+        data = await self.post(f"/{self.config.ig_user_id}/media", **kwargs)
         return data["id"]
 
     async def create_carousel_item(self, image_url: str) -> str:
@@ -208,9 +199,7 @@ class MetaGraphAPI:
         )
         return data["id"]
 
-    async def create_carousel_container(
-        self, children_ids: list[str], caption: str
-    ) -> str:
+    async def create_carousel_container(self, children_ids: list[str], caption: str) -> str:
         """Create carousel album container from child IDs."""
         data = await self.post(
             f"/{self.config.ig_user_id}/media",
@@ -246,19 +235,13 @@ class MetaGraphAPI:
                 logger.info("Container %s ready (%.1fs)", container_id, elapsed)
                 return
             if status == ContainerStatus.ERROR:
-                raise MetaContainerError(
-                    f"Container {container_id} failed processing"
-                )
+                raise MetaContainerError(f"Container {container_id} failed processing")
             if status == ContainerStatus.EXPIRED:
-                raise MetaContainerError(
-                    f"Container {container_id} expired (24h TTL)"
-                )
+                raise MetaContainerError(f"Container {container_id} expired (24h TTL)")
             await asyncio.sleep(interval)
             elapsed += interval
             interval = min(interval * backoff_factor, max_interval)
-        raise MetaContainerError(
-            f"Container {container_id} timed out after {timeout}s"
-        )
+        raise MetaContainerError(f"Container {container_id} timed out after {timeout}s")
 
     async def publish_container(self, container_id: str) -> str:
         """Step 2: Publish a ready container. Returns media ID."""
@@ -284,9 +267,7 @@ class MetaGraphAPI:
         await self.wait_for_container(container_id, timeout=300)
         return await self.publish_container(container_id)
 
-    async def publish_carousel(
-        self, image_urls: list[str], caption: str
-    ) -> str:
+    async def publish_carousel(self, image_urls: list[str], caption: str) -> str:
         """Publish carousel album (2-10 images). Returns media ID."""
         if len(image_urls) < 2 or len(image_urls) > 10:
             raise ValueError("Carousel requires 2-10 images")
@@ -298,13 +279,9 @@ class MetaGraphAPI:
         await self.wait_for_container(container_id, timeout=120)
         return await self.publish_container(container_id)
 
-    async def publish_story(
-        self, *, image_url: str | None = None, video_url: str | None = None
-    ) -> str:
+    async def publish_story(self, *, image_url: str | None = None, video_url: str | None = None) -> str:
         """Publish story. Returns media ID."""
-        container_id = await self.create_story_container(
-            image_url=image_url, video_url=video_url
-        )
+        container_id = await self.create_story_container(image_url=image_url, video_url=video_url)
         await self.wait_for_container(container_id, timeout=120)
         return await self.publish_container(container_id)
 
@@ -361,9 +338,7 @@ class MetaGraphAPI:
             params["since"] = since
         if until:
             params["until"] = until
-        return await self.get(
-            f"/{self.config.ig_user_id}/insights", **params
-        )
+        return await self.get(f"/{self.config.ig_user_id}/insights", **params)
 
     async def get_recent_media(self, limit: int = 25) -> list[dict]:
         """Get recent media posts."""

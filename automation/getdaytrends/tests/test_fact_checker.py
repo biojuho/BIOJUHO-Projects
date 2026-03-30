@@ -10,8 +10,6 @@ fact_checker.py 모듈의 기능 검증:
 6. Integration with ScoredTrend
 """
 
-import pytest
-
 from fact_checker import (
     Claim,
     ClaimType,
@@ -33,7 +31,6 @@ from models import (
     TrendContext,
     TweetBatch,
 )
-
 
 # ══════════════════════════════════════════════════════
 #  Fixtures
@@ -100,11 +97,7 @@ class TestClaimExtraction:
         text = "전년 대비 +15% 성장했고, 시장점유율은 30%이다."
         claims = extract_claims(text)
         # NUMBER 패턴이 먼저 % 숫자를 잡을 수 있으므로 NUMBER+PERCENTAGE 합산 확인
-        pct_claims = [
-            c for c in claims
-            if c.claim_type in (ClaimType.PERCENTAGE, ClaimType.NUMBER)
-            and "%" in c.value
-        ]
+        pct_claims = [c for c in claims if c.claim_type in (ClaimType.PERCENTAGE, ClaimType.NUMBER) and "%" in c.value]
         assert len(pct_claims) >= 2
         values = [c.value for c in pct_claims]
         assert any("15" in v for v in values)
@@ -323,10 +316,12 @@ class TestCrossSourceConsistency:
 class TestBatchVerification:
     def test_verify_batch_all_pass(self):
         trend = _make_trend()
-        batch = _make_batch([
-            "삼성전자 파운드리 20조 투자. TSMC와 경쟁 격화.",
-            "3나노 수율 50% 돌파. 반도체 업계 지각변동.",
-        ])
+        batch = _make_batch(
+            [
+                "삼성전자 파운드리 20조 투자. TSMC와 경쟁 격화.",
+                "3나노 수율 50% 돌파. 반도체 업계 지각변동.",
+            ]
+        )
         results = verify_batch(batch, trend)
         assert "tweets" in results
         assert results["tweets"].total_claims >= 0
@@ -341,16 +336,20 @@ class TestBatchVerification:
         trend = _make_trend()
         batch = TweetBatch(
             topic="삼성전자",
-            tweets=[GeneratedTweet(
-                tweet_type="공감형",
-                content="삼성전자 3나노 수율 향상",
-                content_type="short",
-            )],
-            long_posts=[GeneratedTweet(
-                tweet_type="장문",
-                content="삼성전자 파운드리 사업부가 20조원 규모의 대규모 투자를 발표했다.",
-                content_type="long",
-            )],
+            tweets=[
+                GeneratedTweet(
+                    tweet_type="공감형",
+                    content="삼성전자 3나노 수율 향상",
+                    content_type="short",
+                )
+            ],
+            long_posts=[
+                GeneratedTweet(
+                    tweet_type="장문",
+                    content="삼성전자 파운드리 사업부가 20조원 규모의 대규모 투자를 발표했다.",
+                    content_type="long",
+                )
+            ],
         )
         results = verify_batch(batch, trend)
         assert "tweets" in results

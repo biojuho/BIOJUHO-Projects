@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 v15.0 Phase A Tests
   A-1: Dynamic category filter enhancement (zero-content prevention)
   A-2: Niche-First scoring
   A-3: Lazy Context config validation
 """
-import pytest
+
 from models import MultiSourceContext, ScoredTrend
 
 
@@ -25,9 +24,7 @@ def _make_scored_trend(
         top_insight="테스트 인사이트",
         suggested_angles=["각도1", "각도2"],
         best_hook_starter="최고의 훅",
-        context=MultiSourceContext(
-            twitter_insight="X 반응", reddit_insight="Reddit 반응"
-        ),
+        context=MultiSourceContext(twitter_insight="X 반응", reddit_insight="Reddit 반응"),
         safety_flag=safety,
         sentiment="harmful" if safety else "neutral",
         category=category,
@@ -39,15 +36,18 @@ def _make_scored_trend(
 #  A-1: Zero Content Prevention
 # ═══════════════════════════════════════════════
 
+
 class TestZeroContentPrevention:
     """All trends are in exclude_categories -> return at least 1."""
 
     def _get_quality_func(self):
         from core.pipeline import _ensure_quality_and_diversity
+
         return _ensure_quality_and_diversity
 
     def _make_config(self, **overrides):
         from config import AppConfig
+
         cfg = AppConfig()
         cfg.storage_type = "none"
         cfg.dry_run = True
@@ -143,14 +143,15 @@ class TestZeroContentPrevention:
 #  A-2: Niche-First Scoring
 # ═══════════════════════════════════════════════
 
+
 class TestNicheBonus:
     """Niche category trends get bonus points applied correctly."""
 
     def test_niche_bonus_applied(self):
         """Tech category gets +10 bonus."""
         from analyzer import _parse_scored_trend_from_dict
-        from models import MultiSourceContext
         from config import AppConfig
+        from models import MultiSourceContext
 
         config = AppConfig()
         config.niche_categories = ["테크", "경제"]
@@ -180,8 +181,8 @@ class TestNicheBonus:
     def test_non_niche_no_bonus(self):
         """Non-niche category gets no bonus."""
         from analyzer import _parse_scored_trend_from_dict
-        from models import MultiSourceContext
         from config import AppConfig
+        from models import MultiSourceContext
 
         config = AppConfig()
         config.niche_categories = ["테크"]
@@ -196,9 +197,7 @@ class TestNicheBonus:
             "trend_acceleration": "+0%",
         }
 
-        result_entertainment = _parse_scored_trend_from_dict(
-            parsed, "아이돌A", 0, ctx, config
-        )
+        result_entertainment = _parse_scored_trend_from_dict(parsed, "아이돌A", 0, ctx, config)
 
         parsed2 = {
             "keyword": "AI기술",
@@ -206,19 +205,18 @@ class TestNicheBonus:
             "category": "테크",
             "trend_acceleration": "+0%",
         }
-        result_tech = _parse_scored_trend_from_dict(
-            parsed2, "AI기술", 0, ctx, config
-        )
+        result_tech = _parse_scored_trend_from_dict(parsed2, "AI기술", 0, ctx, config)
 
         # Same viral_potential(55) but tech gets bonus -> tech > entertainment
-        assert result_tech.viral_potential > result_entertainment.viral_potential, \
-            f"Tech({result_tech.viral_potential}) should > Entertainment({result_entertainment.viral_potential})"
+        assert (
+            result_tech.viral_potential > result_entertainment.viral_potential
+        ), f"Tech({result_tech.viral_potential}) should > Entertainment({result_entertainment.viral_potential})"
 
     def test_niche_bonus_respects_cap(self):
         """Bonus does not exceed 100 cap."""
         from analyzer import _parse_scored_trend_from_dict
-        from models import MultiSourceContext
         from config import AppConfig
+        from models import MultiSourceContext
 
         config = AppConfig()
         config.niche_categories = ["테크"]
@@ -245,18 +243,21 @@ class TestNicheBonus:
 #  A-3: Lazy Context Config Validation
 # ═══════════════════════════════════════════════
 
+
 class TestLazyContext:
     """enable_lazy_context config validation."""
 
     def test_config_default_enabled(self):
         """Default value: lazy context enabled."""
         from config import AppConfig
+
         cfg = AppConfig()
         assert cfg.enable_lazy_context is True
 
     def test_config_from_env_disabled(self, monkeypatch):
         """Env variable can disable lazy context."""
         from config import AppConfig
+
         monkeypatch.setenv("ENABLE_LAZY_CONTEXT", "false")
         cfg = AppConfig.from_env()
         assert cfg.enable_lazy_context is False
@@ -264,6 +265,7 @@ class TestLazyContext:
     def test_niche_categories_from_env(self, monkeypatch):
         """Env variable can customize niche categories."""
         from config import AppConfig
+
         monkeypatch.setenv("NICHE_CATEGORIES", "게임,음식")
         cfg = AppConfig.from_env()
         assert "게임" in cfg.niche_categories
@@ -272,6 +274,7 @@ class TestLazyContext:
     def test_niche_bonus_from_env(self, monkeypatch):
         """Env variable can set bonus points."""
         from config import AppConfig
+
         monkeypatch.setenv("NICHE_BONUS_POINTS", "15")
         cfg = AppConfig.from_env()
         assert cfg.niche_bonus_points == 15

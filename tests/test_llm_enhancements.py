@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests for GiniGen-inspired LLM enhancements.
 
 Phase 1: Error classification
@@ -7,7 +6,7 @@ Phase 3: MARL pipeline
 Phase 4: Tool schema validation
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import BaseModel, Field
@@ -28,13 +27,13 @@ from shared.llm.errors import (
 )
 from shared.llm.marl import MARLConfig, MARLPipeline, MARLResult, MARLStageLog
 from shared.llm.model_patches import apply_model_patch, get_model_info
-from shared.llm.models import LLMPolicy, LLMResponse, TaskTier
-from shared.llm.tool_schema import ToolDefinition, ToolRegistry, ToolResult, ToolValidationError
-
+from shared.llm.models import LLMResponse, TaskTier
+from shared.llm.tool_schema import ToolDefinition, ToolRegistry, ToolValidationError
 
 # ===================================================================
 # Phase 1: Error Classification
 # ===================================================================
+
 
 class TestErrorClassification:
     """Test structured error classification."""
@@ -139,6 +138,7 @@ class TestErrorClassification:
 # Phase 2: Model Patches
 # ===================================================================
 
+
 class TestModelPatches:
     """Test model-specific parameter adjustments."""
 
@@ -208,6 +208,7 @@ class TestModelPatches:
 # Phase 3: MARL Pipeline
 # ===================================================================
 
+
 class TestMARLConfig:
     """Test MARL configuration."""
 
@@ -233,12 +234,22 @@ class TestMARLResult:
 
     def test_result_with_stages(self):
         stage1 = MARLStageLog(
-            stage=1, name="generation", text="initial", tier=TaskTier.MEDIUM,
-            cost_usd=0.01, input_tokens=100, output_tokens=50,
+            stage=1,
+            name="generation",
+            text="initial",
+            tier=TaskTier.MEDIUM,
+            cost_usd=0.01,
+            input_tokens=100,
+            output_tokens=50,
         )
         stage2 = MARLStageLog(
-            stage=2, name="critique", text="critique text", tier=TaskTier.LIGHTWEIGHT,
-            cost_usd=0.001, input_tokens=200, output_tokens=100,
+            stage=2,
+            name="critique",
+            text="critique text",
+            tier=TaskTier.LIGHTWEIGHT,
+            cost_usd=0.001,
+            input_tokens=200,
+            output_tokens=100,
         )
         result = MARLResult(
             final_text="revised output",
@@ -286,11 +297,13 @@ class TestMARLPipeline:
         assert client.create.call_count == 1
 
     def test_three_stage_pipeline(self):
-        client = self._make_mock_client([
-            "초기 응답",      # Stage 1: Generation
-            "비판 내용",      # Stage 2: Critique
-            "수정된 응답",    # Stage 3: Revision
-        ])
+        client = self._make_mock_client(
+            [
+                "초기 응답",  # Stage 1: Generation
+                "비판 내용",  # Stage 2: Critique
+                "수정된 응답",  # Stage 3: Revision
+            ]
+        )
         pipeline = MARLPipeline(client)
         result = pipeline.run(
             messages=[{"role": "user", "content": "분석해줘"}],
@@ -301,13 +314,15 @@ class TestMARLPipeline:
         assert client.create.call_count == 3
 
     def test_five_stage_pipeline(self):
-        client = self._make_mock_client([
-            "초기 응답",      # Stage 1
-            "비판",          # Stage 2
-            "수정된 응답",    # Stage 3
-            "심화 응답",      # Stage 4
-            "최종 합성",      # Stage 5
-        ])
+        client = self._make_mock_client(
+            [
+                "초기 응답",  # Stage 1
+                "비판",  # Stage 2
+                "수정된 응답",  # Stage 3
+                "심화 응답",  # Stage 4
+                "최종 합성",  # Stage 5
+            ]
+        )
         pipeline = MARLPipeline(client)
         result = pipeline.run(
             messages=[{"role": "user", "content": "심층 분석"}],
@@ -344,6 +359,7 @@ class TestMARLPipeline:
 # ===================================================================
 # Phase 4: Tool Schema Validation
 # ===================================================================
+
 
 class WeatherInput(BaseModel):
     city: str = Field(description="도시 이름")
@@ -443,12 +459,22 @@ class TestToolRegistry:
 
     def test_to_openai_tools(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="tool_a", description="A", input_schema=WeatherInput, execute=_get_weather,
-        ))
-        registry.register(ToolDefinition(
-            name="tool_b", description="B", input_schema=WeatherInput, execute=_get_weather,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="tool_a",
+                description="A",
+                input_schema=WeatherInput,
+                execute=_get_weather,
+            )
+        )
+        registry.register(
+            ToolDefinition(
+                name="tool_b",
+                description="B",
+                input_schema=WeatherInput,
+                execute=_get_weather,
+            )
+        )
         tools = registry.to_openai_tools()
         assert len(tools) == 2
         names = {t["function"]["name"] for t in tools}
@@ -456,9 +482,14 @@ class TestToolRegistry:
 
     def test_dispatch_success(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="weather", description="날씨", input_schema=WeatherInput, execute=_get_weather,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="weather",
+                description="날씨",
+                input_schema=WeatherInput,
+                execute=_get_weather,
+            )
+        )
         result = registry.dispatch("weather", {"city": "인천"})
         assert result.success is True
         assert result.output == "인천: 맑음"
@@ -471,10 +502,20 @@ class TestToolRegistry:
 
     def test_tool_names(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="a", description="A", input_schema=WeatherInput, execute=_get_weather,
-        ))
-        registry.register(ToolDefinition(
-            name="b", description="B", input_schema=WeatherInput, execute=_get_weather,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="a",
+                description="A",
+                input_schema=WeatherInput,
+                execute=_get_weather,
+            )
+        )
+        registry.register(
+            ToolDefinition(
+                name="b",
+                description="B",
+                input_schema=WeatherInput,
+                execute=_get_weather,
+            )
+        )
         assert set(registry.tool_names) == {"a", "b"}

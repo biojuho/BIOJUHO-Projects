@@ -3,7 +3,7 @@
 import sys
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -60,9 +60,7 @@ class TestApprovalGate:
         from services.approval_gate import ApprovalRequest, ApprovalStatus
 
         gate = self._make_gate()
-        gate._pending["123"] = ApprovalRequest(
-            post_id="123", caption_preview="test", topic="AI"
-        )
+        gate._pending["123"] = ApprovalRequest(post_id="123", caption_preview="test", topic="AI")
         assert gate.approve("123") is True
         assert gate.check_approval("123") == ApprovalStatus.APPROVED
 
@@ -70,9 +68,7 @@ class TestApprovalGate:
         from services.approval_gate import ApprovalRequest, ApprovalStatus
 
         gate = self._make_gate()
-        gate._pending["123"] = ApprovalRequest(
-            post_id="123", caption_preview="test", topic="AI"
-        )
+        gate._pending["123"] = ApprovalRequest(post_id="123", caption_preview="test", topic="AI")
         assert gate.reject("123") is True
         assert gate.check_approval("123") == ApprovalStatus.REJECTED
 
@@ -108,7 +104,9 @@ class TestApprovalGate:
         gate = self._make_gate()
         gate._pending["a"] = ApprovalRequest(post_id="a", caption_preview="", topic="")
         gate._pending["b"] = ApprovalRequest(
-            post_id="b", caption_preview="", topic="",
+            post_id="b",
+            caption_preview="",
+            topic="",
             status=ApprovalStatus.APPROVED,
         )
         stats = gate.get_stats()
@@ -118,8 +116,6 @@ class TestApprovalGate:
 
     @pytest.mark.asyncio
     async def test_send_for_approval(self):
-        from services.approval_gate import ApprovalStatus
-
         gate = self._make_gate()
         gate._send_telegram = AsyncMock(return_value=42)
         req = await gate.send_for_approval("p1", "caption", "topic")

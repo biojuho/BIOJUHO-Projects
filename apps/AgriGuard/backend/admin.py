@@ -5,15 +5,14 @@ http://localhost:8002/admin 에서 접근
 
 import os
 
+from database import engine
+from models import Certificate, Product, SensorReading, TrackingEvent, User
 from sqladmin import Admin, ModelView, action
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 
-from database import engine
-from models import User, Product, TrackingEvent, Certificate, SensorReading
-
-
 # ── Authentication ──────────────────────────────────────────
+
 
 class AdminAuth(AuthenticationBackend):
     """Simple password-based admin auth. Set ADMIN_PASSWORD in .env."""
@@ -37,6 +36,7 @@ class AdminAuth(AuthenticationBackend):
 
 # ── Model Views ─────────────────────────────────────────────
 
+
 class UserAdmin(ModelView, model=User):
     name = "User"
     name_plural = "Users"
@@ -56,9 +56,13 @@ class ProductAdmin(ModelView, model=Product):
     icon = "fa-solid fa-box"
 
     column_list = [
-        Product.id, Product.name, Product.category,
-        Product.origin, Product.is_verified,
-        Product.requires_cold_chain, Product.harvest_date,
+        Product.id,
+        Product.name,
+        Product.category,
+        Product.origin,
+        Product.is_verified,
+        Product.requires_cold_chain,
+        Product.harvest_date,
     ]
     column_searchable_list = [Product.name, Product.category, Product.origin]
     column_sortable_list = [Product.name, Product.category, Product.harvest_date, Product.is_verified]
@@ -69,15 +73,13 @@ class ProductAdmin(ModelView, model=Product):
 
     @action(name="verify", label="Mark Verified", confirmation_message="Mark selected products as verified?")
     async def action_verify(self, request: Request) -> None:
-        from sqlalchemy.orm import Session
         from database import SessionLocal
+        from sqlalchemy.orm import Session
 
         pks = request.query_params.get("pks", "").split(",")
         db: Session = SessionLocal()
         try:
-            db.query(Product).filter(Product.id.in_(pks)).update(
-                {"is_verified": True}, synchronize_session="fetch"
-            )
+            db.query(Product).filter(Product.id.in_(pks)).update({"is_verified": True}, synchronize_session="fetch")
             db.commit()
         finally:
             db.close()
@@ -89,8 +91,11 @@ class TrackingEventAdmin(ModelView, model=TrackingEvent):
     icon = "fa-solid fa-truck"
 
     column_list = [
-        TrackingEvent.id, TrackingEvent.product_id,
-        TrackingEvent.status, TrackingEvent.location, TrackingEvent.timestamp,
+        TrackingEvent.id,
+        TrackingEvent.product_id,
+        TrackingEvent.status,
+        TrackingEvent.location,
+        TrackingEvent.timestamp,
     ]
     column_searchable_list = [TrackingEvent.status, TrackingEvent.location]
     column_sortable_list = [TrackingEvent.timestamp, TrackingEvent.status]
@@ -105,8 +110,11 @@ class CertificateAdmin(ModelView, model=Certificate):
     icon = "fa-solid fa-certificate"
 
     column_list = [
-        Certificate.cert_id, Certificate.product_id,
-        Certificate.cert_type, Certificate.issued_by, Certificate.issue_date,
+        Certificate.cert_id,
+        Certificate.product_id,
+        Certificate.cert_type,
+        Certificate.issued_by,
+        Certificate.issue_date,
     ]
     column_searchable_list = [Certificate.cert_type, Certificate.issued_by]
     column_sortable_list = [Certificate.issue_date, Certificate.cert_type]
@@ -121,9 +129,13 @@ class SensorReadingAdmin(ModelView, model=SensorReading):
     icon = "fa-solid fa-temperature-half"
 
     column_list = [
-        SensorReading.sensor_id, SensorReading.temperature,
-        SensorReading.humidity, SensorReading.battery,
-        SensorReading.zone, SensorReading.status, SensorReading.timestamp,
+        SensorReading.sensor_id,
+        SensorReading.temperature,
+        SensorReading.humidity,
+        SensorReading.battery,
+        SensorReading.zone,
+        SensorReading.status,
+        SensorReading.timestamp,
     ]
     column_searchable_list = [SensorReading.sensor_id, SensorReading.zone, SensorReading.status]
     column_sortable_list = [SensorReading.timestamp, SensorReading.temperature, SensorReading.humidity]
@@ -134,6 +146,7 @@ class SensorReadingAdmin(ModelView, model=SensorReading):
 
 
 # ── Admin Factory ───────────────────────────────────────────
+
 
 def setup_admin(app) -> Admin:
     """Mount SQLAdmin on the FastAPI app. Call from main.py."""

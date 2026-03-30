@@ -6,6 +6,6 @@ python -m venv venv
 echo [STEP 2] 필수 라이브러리 설치 중...
 venv\Scripts\pip install -r requirements.txt
 
-echo [SUCCESS] 설치가 완료되었습니다! 
+echo [SUCCESS] 설치가 완료되었습니다!
 echo [주의] credentials.json 파일을 폴더에 넣고 'authenticate_notebooklm.bat'로 인증해주세요.
 pause

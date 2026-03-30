@@ -3,10 +3,11 @@
 Provides optimal posting time calculation based on historical data
 and default engagement windows. Extracted from .agent/engine/scheduler.py.
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +36,14 @@ _KST_OFFSET = 9  # UTC+9
 class SchedulerAdapter:
     """Determines optimal posting times for X content."""
 
-    def __init__(self, *, state_store: "PipelineStateStore | None" = None) -> None:
+    def __init__(self, *, state_store: PipelineStateStore | None = None) -> None:
         self._state_store = state_store
 
     def get_optimal_hours(self, count: int = 5, target_date: datetime | None = None) -> list[dict]:
         """Return top *count* posting hours for *target_date* (default: today KST)."""
-        now = target_date or datetime.now(timezone.utc)
+        now = target_date or datetime.now(UTC)
         kst_hour = (now.hour + _KST_OFFSET) % 24
-        kst_weekday = ((now.weekday() + (1 if kst_hour < now.hour else 0)) % 7)
+        kst_weekday = (now.weekday() + (1 if kst_hour < now.hour else 0)) % 7
         day_type = "weekend" if kst_weekday >= 5 else "weekday"
 
         windows = _DEFAULT_WINDOWS[day_type]
@@ -77,7 +78,7 @@ class SchedulerAdapter:
 
     def should_post_now(self, tolerance_minutes: int = 30) -> bool:
         """Check if the current time is within an optimal posting window."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         kst_hour = (now.hour + _KST_OFFSET) % 24
         kst_minute = now.minute
         optimal = self.get_optimal_hours(count=3)
@@ -89,7 +90,7 @@ class SchedulerAdapter:
 
     def get_next_posting_slot(self) -> dict:
         """Return the next optimal posting time slot."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         kst_hour = (now.hour + _KST_OFFSET) % 24
         optimal = self.get_optimal_hours(count=6)
         for w in optimal:

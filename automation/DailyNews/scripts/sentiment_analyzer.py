@@ -6,6 +6,7 @@ Call-site contract (news_bot.py line 465):
     result = asyncio.to_thread(sentiment_analyzer.analyze_texts, [title])
     # result[0] must have keys: "sentiment" (str) and "topics" (list[str])
 """
+
 from __future__ import annotations
 
 import json
@@ -42,7 +43,7 @@ class SentimentAnalyzer:
             "다음 텍스트들의 감성을 분석하고 핵심 주제를 추출하세요.\n"
             "JSON 배열로만 응답하세요 (다른 설명 없이).\n\n"
             f"{numbered}\n\n"
-            '응답 형식 (각 텍스트당 하나의 객체):\n'
+            "응답 형식 (각 텍스트당 하나의 객체):\n"
             '[{"sentiment": "POSITIVE|NEGATIVE|NEUTRAL", "topics": ["주제1", "주제2"]}]'
         )
 

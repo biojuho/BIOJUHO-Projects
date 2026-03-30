@@ -3,6 +3,7 @@
 Identifies verifiable claims: numbers, percentages, dates,
 entities, quotes, and comparisons.
 """
+
 from __future__ import annotations
 
 import re
@@ -62,11 +63,46 @@ _ENTITY_PATTERN = re.compile(
 )
 
 _COMMON_ENTITIES = {
-    "ai", "x", "threads", "meta", "kbs", "sbs", "mbc", "jtbc", "bbc", "cnn",
-    "wbc", "gpt", "it", "kst", "premium", "google", "apple", "samsung",
-    "naver", "kakao", "openai", "microsoft", "amazon", "tesla", "nvidia",
-    "chatgpt", "claude", "gemini", "youtube", "instagram", "facebook",
-    "삼성", "현대", "기아", "네이버", "카카오", "한국", "미국", "일본", "중국",
+    "ai",
+    "x",
+    "threads",
+    "meta",
+    "kbs",
+    "sbs",
+    "mbc",
+    "jtbc",
+    "bbc",
+    "cnn",
+    "wbc",
+    "gpt",
+    "it",
+    "kst",
+    "premium",
+    "google",
+    "apple",
+    "samsung",
+    "naver",
+    "kakao",
+    "openai",
+    "microsoft",
+    "amazon",
+    "tesla",
+    "nvidia",
+    "chatgpt",
+    "claude",
+    "gemini",
+    "youtube",
+    "instagram",
+    "facebook",
+    "삼성",
+    "현대",
+    "기아",
+    "네이버",
+    "카카오",
+    "한국",
+    "미국",
+    "일본",
+    "중국",
 }
 
 

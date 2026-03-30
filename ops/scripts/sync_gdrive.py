@@ -5,7 +5,6 @@ import shutil
 import time
 from pathlib import Path
 
-
 EXCLUDE_DIRS = {
     "node_modules",
     "__pycache__",

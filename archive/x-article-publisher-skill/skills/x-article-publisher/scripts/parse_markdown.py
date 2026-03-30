@@ -24,7 +24,6 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-
 SEARCH_DIRS = [
     Path.home() / "Downloads",
     Path.home() / "Desktop",
@@ -92,7 +91,8 @@ def find_image_file(raw_path: str, base_path: Path, allow_global_search: bool = 
                     "path": str(candidate.resolve()),
                     "exists": True,
                     "resolution_strategy": "global_search",
-                    "searched_paths": [str(path) for path, _ in candidate_paths] + [str(search_dir / filename) for search_dir in SEARCH_DIRS],
+                    "searched_paths": [str(path) for path, _ in candidate_paths]
+                    + [str(search_dir / filename) for search_dir in SEARCH_DIRS],
                 }
 
     unresolved = candidate_paths[0][0] if candidate_paths else base_path / _normalize_markdown_path(raw_path)
@@ -224,7 +224,9 @@ def extract_images_and_dividers(
         images.append(
             {
                 "path": full_path,
-                "original_path": str((base_path / _normalize_markdown_path(raw_img_path)).resolve()) if not Path(_normalize_markdown_path(raw_img_path)).is_absolute() else _normalize_markdown_path(raw_img_path),
+                "original_path": str((base_path / _normalize_markdown_path(raw_img_path)).resolve())
+                if not Path(_normalize_markdown_path(raw_img_path)).is_absolute()
+                else _normalize_markdown_path(raw_img_path),
                 "exists": resolved["exists"],
                 "alt": alt_text,
                 "block_index": block_index,
@@ -431,7 +433,9 @@ def main() -> None:
     parser.add_argument("file", help="Markdown file to parse")
     parser.add_argument("--output", choices=["json", "html"], default="json", help="Output format")
     parser.add_argument("--html-only", action="store_true", help="Output only HTML content")
-    parser.add_argument("--no-global-image-search", action="store_true", help="Disable fallback search in Downloads/Desktop/Pictures")
+    parser.add_argument(
+        "--no-global-image-search", action="store_true", help="Disable fallback search in Downloads/Desktop/Pictures"
+    )
     parser.add_argument("--validate", action="store_true", help="Exit with code 1 if parse validation fails")
     parser.add_argument("--dry-run", action="store_true", help="Include a step-by-step workflow plan in JSON output")
     args = parser.parse_args()

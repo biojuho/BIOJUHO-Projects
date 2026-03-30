@@ -6,14 +6,14 @@ import os
 import sqlite3
 import sys
 import time
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Iterable, Sequence
+from typing import Any
 
 import feedparser
 import httpx
-
 from settings import (
     DATA_DIR,
     LOG_DIR,
@@ -26,7 +26,7 @@ from settings import (
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def configure_stdout_utf8() -> None:
@@ -43,7 +43,7 @@ def configure_stdout_utf8() -> None:
 
 
 def generate_run_id(job_name: str) -> str:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return f"{job_name}-{timestamp}-{os.getpid()}"
 
 
@@ -189,7 +189,7 @@ class JobLock:
                 pass
         return False
 
-    def __enter__(self) -> "JobLock":
+    def __enter__(self) -> JobLock:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(
             {"pid": os.getpid(), "run_id": self.run_id, "started_at": utc_now_iso()},
@@ -235,7 +235,7 @@ class PipelineStateStore:
         implementation is in use.
         """
 
-    def __enter__(self) -> "PipelineStateStore":
+    def __enter__(self) -> PipelineStateStore:
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:

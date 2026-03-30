@@ -1,7 +1,7 @@
 # SQLite → Supabase PostgreSQL 마이그레이션 계획
 
-**작성일**: 2026-03-30  
-**상태**: 📋 PLAN (미착수)  
+**작성일**: 2026-03-30
+**상태**: 📋 PLAN (미착수)
 **우선순위**: P1 — getdaytrends + pipeline_state 먼저, llm_costs/cie는 후순위
 
 ---
@@ -73,9 +73,9 @@ import psycopg2
 def migrate(sqlite_path, pg_url, schema_name):
     src = sqlite3.connect(sqlite_path)
     dst = psycopg2.connect(pg_url)
-    
+
     # 1. CREATE SCHEMA IF NOT EXISTS
-    # 2. CREATE TABLE (PostgreSQL DDL)  
+    # 2. CREATE TABLE (PostgreSQL DDL)
     # 3. INSERT INTO ... SELECT FROM sqlite
     # 4. Normalize empty strings → NULL
     # 5. Verify row counts

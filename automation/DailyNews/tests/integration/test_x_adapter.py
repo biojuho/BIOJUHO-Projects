@@ -1,11 +1,11 @@
 """Integration tests for XAdapter (tweepy mocked)."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from antigravity_mcp.domain.models import ChannelDraft, ContentReport
 from antigravity_mcp.integrations.x_adapter import XAdapter
 
@@ -64,8 +64,10 @@ async def test_publish_auto_mode_blocked_when_push_disabled(sample_report):
 
 @pytest.mark.asyncio
 async def test_publish_auto_without_credentials_returns_error(sample_report):
-    with patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True), \
-         patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=False):
+    with (
+        patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True),
+        patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=False),
+    ):
         adapter = XAdapter()
         adapter.settings = _auto_settings()
         result = await adapter.publish(sample_report, "content", approval_mode="auto")
@@ -78,9 +80,11 @@ async def test_publish_auto_posts_tweet(sample_report):
     mock_client = MagicMock()
     mock_client.create_tweet.return_value = SimpleNamespace(data={"id": "1234567890"})
 
-    with patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True), \
-         patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True), \
-         patch.object(XAdapter, "_build_client", return_value=mock_client):
+    with (
+        patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True),
+        patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True),
+        patch.object(XAdapter, "_build_client", return_value=mock_client),
+    ):
         adapter = XAdapter()
         adapter.settings = _auto_settings()
         result = await adapter.publish(sample_report, "Hello X!", approval_mode="auto")
@@ -96,9 +100,11 @@ async def test_publish_truncates_content_to_280(sample_report):
     mock_client = MagicMock()
     mock_client.create_tweet.return_value = SimpleNamespace(data={"id": "999"})
 
-    with patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True), \
-         patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True), \
-         patch.object(XAdapter, "_build_client", return_value=mock_client):
+    with (
+        patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True),
+        patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True),
+        patch.object(XAdapter, "_build_client", return_value=mock_client),
+    ):
         adapter = XAdapter()
         adapter.settings = _auto_settings()
         await adapter.publish(sample_report, "A" * 300, approval_mode="auto")
@@ -115,9 +121,11 @@ async def test_daily_limit_blocks_after_cap(sample_report, tmp_path):
     mock_client = MagicMock()
     mock_client.create_tweet.return_value = SimpleNamespace(data={"id": "777"})
 
-    with patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True), \
-         patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True), \
-         patch.object(XAdapter, "_build_client", return_value=mock_client):
+    with (
+        patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True),
+        patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True),
+        patch.object(XAdapter, "_build_client", return_value=mock_client),
+    ):
         adapter = XAdapter(state_store=store)
         adapter.settings = _auto_settings(x_daily_post_limit=2)
 

@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import Any
 
 from notion_client import AsyncClient
-
 from runtime import (
     AlreadyRunningError,
     JobLock,
@@ -55,7 +54,8 @@ from settings import (
 # shared.llm 모듈
 _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT))
-from shared.llm import TaskTier, get_client as _get_llm_client
+from shared.llm import TaskTier
+from shared.llm import get_client as _get_llm_client
 
 
 def load_sources() -> dict[str, list[dict[str, str]]]:
@@ -70,62 +70,317 @@ def load_sources() -> dict[str, list[dict[str, str]]]:
 _CATEGORY_KEYWORDS: dict[str, tuple[list[str], list[str]]] = {
     # (include_keywords, exclude_keywords)
     "Tech": (
-        ["ai", "artificial intelligence", "software", "developer", "programming",
-         "startup", "cloud", "saas", "api", "open source", "llm", "gpu", "chip",
-         "semiconductor", "apple", "google", "microsoft", "amazon", "meta",
-         "robot", "quantum", "cybersecurity", "hack", "browser", "linux",
-         "python", "rust", "javascript", "database", "ml", "machine learning",
-         "tech", "기술", "개발", "소프트웨어", "인공지능", "반도체", "클라우드",
-         "스타트업", "오픈소스", "프로그래밍", "IT", "컴퓨터", "데이터"],
-        ["recipe", "cookbook", "fashion", "celebrity", "gossip", "horoscope",
-         "sports score", "doordash", "food delivery"]),
+        [
+            "ai",
+            "artificial intelligence",
+            "software",
+            "developer",
+            "programming",
+            "startup",
+            "cloud",
+            "saas",
+            "api",
+            "open source",
+            "llm",
+            "gpu",
+            "chip",
+            "semiconductor",
+            "apple",
+            "google",
+            "microsoft",
+            "amazon",
+            "meta",
+            "robot",
+            "quantum",
+            "cybersecurity",
+            "hack",
+            "browser",
+            "linux",
+            "python",
+            "rust",
+            "javascript",
+            "database",
+            "ml",
+            "machine learning",
+            "tech",
+            "기술",
+            "개발",
+            "소프트웨어",
+            "인공지능",
+            "반도체",
+            "클라우드",
+            "스타트업",
+            "오픈소스",
+            "프로그래밍",
+            "IT",
+            "컴퓨터",
+            "데이터",
+        ],
+        [
+            "recipe",
+            "cookbook",
+            "fashion",
+            "celebrity",
+            "gossip",
+            "horoscope",
+            "sports score",
+            "doordash",
+            "food delivery",
+        ],
+    ),
     "Economy_KR": (
-        ["경제", "금리", "증시", "코스피", "코스닥", "환율", "부동산", "물가",
-         "한국은행", "기재부", "수출", "수입", "GDP", "고용", "실업", "투자",
-         "주가", "채권", "무역", "산업", "기업", "삼성", "현대", "SK", "LG",
-         "배당", "IPO", "상장",
-         # 확장: 일상 경제·기업·소비·금융
-         "은행", "보험", "카드", "대출", "저축", "연금", "세금", "재정",
-         "매출", "영업이익", "순이익", "실적", "분기", "반기", "결산",
-         "소비", "소비자", "가격", "할인", "쇼핑", "유통", "마트", "백화점",
-         "시장", "거래", "매매", "분양", "아파트", "전세", "월세", "임대",
-         "주식", "펀드", "ETF", "증권", "자산", "포트폴리오",
-         "수출입", "관세", "FTA", "무역수지", "경상수지",
-         "인플레이션", "디플레이션", "스태그플레이션", "경기", "불황", "호황",
-         "신한", "국민", "하나", "우리", "농협", "카카오", "네이버", "쿠팡",
-         "포스코", "롯데", "CJ", "신세계", "GS", "KT", "셀트리온", "바이오",
-         "속보", "전망", "전년", "증가", "감소", "상승", "하락", "급등", "급락"],
-        []),
+        [
+            "경제",
+            "금리",
+            "증시",
+            "코스피",
+            "코스닥",
+            "환율",
+            "부동산",
+            "물가",
+            "한국은행",
+            "기재부",
+            "수출",
+            "수입",
+            "GDP",
+            "고용",
+            "실업",
+            "투자",
+            "주가",
+            "채권",
+            "무역",
+            "산업",
+            "기업",
+            "삼성",
+            "현대",
+            "SK",
+            "LG",
+            "배당",
+            "IPO",
+            "상장",
+            # 확장: 일상 경제·기업·소비·금융
+            "은행",
+            "보험",
+            "카드",
+            "대출",
+            "저축",
+            "연금",
+            "세금",
+            "재정",
+            "매출",
+            "영업이익",
+            "순이익",
+            "실적",
+            "분기",
+            "반기",
+            "결산",
+            "소비",
+            "소비자",
+            "가격",
+            "할인",
+            "쇼핑",
+            "유통",
+            "마트",
+            "백화점",
+            "시장",
+            "거래",
+            "매매",
+            "분양",
+            "아파트",
+            "전세",
+            "월세",
+            "임대",
+            "주식",
+            "펀드",
+            "ETF",
+            "증권",
+            "자산",
+            "포트폴리오",
+            "수출입",
+            "관세",
+            "FTA",
+            "무역수지",
+            "경상수지",
+            "인플레이션",
+            "디플레이션",
+            "스태그플레이션",
+            "경기",
+            "불황",
+            "호황",
+            "신한",
+            "국민",
+            "하나",
+            "우리",
+            "농협",
+            "카카오",
+            "네이버",
+            "쿠팡",
+            "포스코",
+            "롯데",
+            "CJ",
+            "신세계",
+            "GS",
+            "KT",
+            "셀트리온",
+            "바이오",
+            "속보",
+            "전망",
+            "전년",
+            "증가",
+            "감소",
+            "상승",
+            "하락",
+            "급등",
+            "급락",
+        ],
+        [],
+    ),
     "Economy_Global": (
-        ["economy", "gdp", "inflation", "fed", "interest rate", "stock",
-         "market", "trade", "tariff", "treasury", "bond", "wall street",
-         "nasdaq", "s&p", "dow", "earnings", "revenue", "fiscal", "monetary",
-         "central bank", "ecb", "imf", "world bank", "recession", "growth",
-         "employment", "jobs", "oil", "commodity", "forex"],
-        ["celebrity", "sports", "entertainment"]),
+        [
+            "economy",
+            "gdp",
+            "inflation",
+            "fed",
+            "interest rate",
+            "stock",
+            "market",
+            "trade",
+            "tariff",
+            "treasury",
+            "bond",
+            "wall street",
+            "nasdaq",
+            "s&p",
+            "dow",
+            "earnings",
+            "revenue",
+            "fiscal",
+            "monetary",
+            "central bank",
+            "ecb",
+            "imf",
+            "world bank",
+            "recession",
+            "growth",
+            "employment",
+            "jobs",
+            "oil",
+            "commodity",
+            "forex",
+        ],
+        ["celebrity", "sports", "entertainment"],
+    ),
     "Crypto": (
-        ["bitcoin", "btc", "ethereum", "eth", "crypto", "blockchain",
-         "defi", "nft", "token", "web3", "mining", "staking", "wallet",
-         "exchange", "binance", "coinbase", "solana", "xrp", "altcoin",
-         "비트코인", "이더리움", "암호화폐", "블록체인", "코인", "거래소",
-         "디파이", "토큰", "스테이킹", "채굴"],
-        []),
+        [
+            "bitcoin",
+            "btc",
+            "ethereum",
+            "eth",
+            "crypto",
+            "blockchain",
+            "defi",
+            "nft",
+            "token",
+            "web3",
+            "mining",
+            "staking",
+            "wallet",
+            "exchange",
+            "binance",
+            "coinbase",
+            "solana",
+            "xrp",
+            "altcoin",
+            "비트코인",
+            "이더리움",
+            "암호화폐",
+            "블록체인",
+            "코인",
+            "거래소",
+            "디파이",
+            "토큰",
+            "스테이킹",
+            "채굴",
+        ],
+        [],
+    ),
     "Global_Affairs": (
-        ["war", "peace", "treaty", "sanction", "diplomacy", "election",
-         "president", "minister", "parliament", "united nations", "nato",
-         "refugee", "conflict", "military", "nuclear", "human rights",
-         "immigration", "border", "protest", "coup", "summit", "ambassador",
-         "외교", "전쟁", "평화", "정상회담", "유엔", "군사", "난민", "제재"],
-        ["recipe", "fashion", "sports score"]),
+        [
+            "war",
+            "peace",
+            "treaty",
+            "sanction",
+            "diplomacy",
+            "election",
+            "president",
+            "minister",
+            "parliament",
+            "united nations",
+            "nato",
+            "refugee",
+            "conflict",
+            "military",
+            "nuclear",
+            "human rights",
+            "immigration",
+            "border",
+            "protest",
+            "coup",
+            "summit",
+            "ambassador",
+            "외교",
+            "전쟁",
+            "평화",
+            "정상회담",
+            "유엔",
+            "군사",
+            "난민",
+            "제재",
+        ],
+        ["recipe", "fashion", "sports score"],
+    ),
     "AI_Deep": (
-        ["ai", "artificial intelligence", "llm", "gpt", "claude", "gemini",
-         "transformer", "diffusion", "agent", "rag", "fine-tune", "training",
-         "inference", "benchmark", "open source model", "foundation model",
-         "multimodal", "reasoning", "alignment", "safety", "rlhf", "mcp",
-         "langchain", "hugging face", "openai", "anthropic", "google ai",
-         "meta ai", "deepmind", "mistral", "deepseek", "prompt",
-         "인공지능", "대규모 언어 모델", "에이전트", "파인튜닝", "추론"],
-        ["recipe", "fashion", "celebrity", "sports"]),
+        [
+            "ai",
+            "artificial intelligence",
+            "llm",
+            "gpt",
+            "claude",
+            "gemini",
+            "transformer",
+            "diffusion",
+            "agent",
+            "rag",
+            "fine-tune",
+            "training",
+            "inference",
+            "benchmark",
+            "open source model",
+            "foundation model",
+            "multimodal",
+            "reasoning",
+            "alignment",
+            "safety",
+            "rlhf",
+            "mcp",
+            "langchain",
+            "hugging face",
+            "openai",
+            "anthropic",
+            "google ai",
+            "meta ai",
+            "deepmind",
+            "mistral",
+            "deepseek",
+            "prompt",
+            "인공지능",
+            "대규모 언어 모델",
+            "에이전트",
+            "파인튜닝",
+            "추론",
+        ],
+        ["recipe", "fashion", "celebrity", "sports"],
+    ),
 }
 
 
@@ -161,7 +416,6 @@ def get_time_window() -> tuple[datetime, datetime, str]:
     Schedule runs at KST 07:00 (morning) and KST 17:00 (evening).
     KST = UTC+9, so we subtract 9 hours from KST boundaries.
     """
-    from datetime import timezone as _tz
 
     KST_OFFSET = timedelta(hours=9)
     now_kst = datetime.now()  # local KST on this machine
@@ -261,6 +515,7 @@ def load_canva(logger):
 def load_sentiment_analyzer(logger):
     try:
         from sentiment_analyzer import SentimentAnalyzer
+
         analyzer = SentimentAnalyzer()
         logger.info("bootstrap", "success", "sentiment analyzer loaded")
         return analyzer
@@ -275,6 +530,7 @@ def load_skill_integrator(logger):
         return None
     try:
         import skill_integrator
+
         logger.info("bootstrap", "success", "skill integrator loaded")
         return skill_integrator
     except Exception as exc:
@@ -285,6 +541,7 @@ def load_skill_integrator(logger):
 def load_proofreader(logger):
     try:
         from proofreader import Proofreader
+
         proofreader = Proofreader()
         logger.info("bootstrap", "success", "proofreader loaded")
         return proofreader
@@ -363,21 +620,16 @@ def build_children(
                     "color": "purple_background",
                     "rich_text": [
                         {"type": "text", "text": {"content": "Canva 인포그래픽: "}, "annotations": {"bold": True}},
-                        {"type": "text", "text": {"content": "Canva에서 편집하기", "link": {"url": canva_result["edit_url"]}}},
+                        {
+                            "type": "text",
+                            "text": {"content": "Canva에서 편집하기", "link": {"url": canva_result["edit_url"]}},
+                        },
                     ],
                 },
             }
         )
         if canva_result.get("view_url"):
-            children.append(
-                {
-                    "object": "block",
-                    "type": "embed",
-                    "embed": {
-                        "url": canva_result["view_url"]
-                    }
-                }
-            )
+            children.append({"object": "block", "type": "embed", "embed": {"url": canva_result["view_url"]}})
 
     if market_snapshot:
         children.append(
@@ -410,8 +662,12 @@ def build_children(
                         "icon": {"emoji": "💡"},
                         "color": "gray_background",
                         "rich_text": [
-                            {"type": "text", "text": {"content": f"[{insight.get('topic', 'Issue')}] "}, "annotations": {"bold": True}},
-                            {"type": "text", "text": {"content": str(insight.get('insight', ''))}},
+                            {
+                                "type": "text",
+                                "text": {"content": f"[{insight.get('topic', 'Issue')}] "},
+                                "annotations": {"bold": True},
+                            },
+                            {"type": "text", "text": {"content": str(insight.get("insight", ""))}},
                         ],
                     },
                 }
@@ -478,7 +734,9 @@ def build_children(
                         {
                             "object": "block",
                             "type": "paragraph",
-                            "paragraph": {"rich_text": [{"text": {"content": "Original Link", "link": {"url": article["link"]}}}]},
+                            "paragraph": {
+                                "rich_text": [{"text": {"content": "Original Link", "link": {"url": article["link"]}}}]
+                            },
                         },
                         {
                             "object": "block",
@@ -487,8 +745,10 @@ def build_children(
                                 "rich_text": [
                                     {
                                         "type": "text",
-                                        "text": {"content": f"[{article.get('sentiment', 'NEUTRAL')}] Topics: {', '.join(article.get('topics', []))}"},
-                                        "annotations": {"bold": True}
+                                        "text": {
+                                            "content": f"[{article.get('sentiment', 'NEUTRAL')}] Topics: {', '.join(article.get('topics', []))}"
+                                        },
+                                        "annotations": {"bold": True},
                                     }
                                 ]
                             },
@@ -529,7 +789,9 @@ async def process_category(
         start_time, end_time, label = get_time_window()
         # Display in KST for log readability (window is internally UTC)
         _KST = timedelta(hours=9)
-        window_str = f"{(start_time + _KST).strftime('%Y-%m-%d %H:%M')} ~ {(end_time + _KST).strftime('%Y-%m-%d %H:%M')}"
+        window_str = (
+            f"{(start_time + _KST).strftime('%Y-%m-%d %H:%M')} ~ {(end_time + _KST).strftime('%Y-%m-%d %H:%M')}"
+        )
         logger.info("category", "start", "processing category", category=category, window=window_str)
 
         articles: list[dict[str, Any]] = []
@@ -539,6 +801,7 @@ async def process_category(
         # Instead of letting the first source exhaust max_items,
         # each source contributes at most ceil(max_items / num_sources) articles.
         import math
+
         max_per_source = max(1, math.ceil(max_items / max(1, len(feeds))))
 
         for source in feeds:
@@ -547,7 +810,9 @@ async def process_category(
             try:
                 entries = await fetch_feed_entries(source_url)
             except Exception as exc:
-                logger.error("fetch", "failed", "feed fetch failed", category=category, source=source_name, error=str(exc))
+                logger.error(
+                    "fetch", "failed", "feed fetch failed", category=category, source=source_name, error=str(exc)
+                )
                 continue
 
             source_count = 0
@@ -569,13 +834,16 @@ async def process_category(
                 entry_title = getattr(entry, "title", "Untitled")
                 if not _is_relevant_to_category(entry_title, content, category):
                     logger.info(
-                        "filter", "skipped", "off-topic article filtered",
-                        category=category, title=entry_title[:80],
+                        "filter",
+                        "skipped",
+                        "off-topic article filtered",
+                        category=category,
+                        title=entry_title[:80],
                     )
                     continue
 
                 summary = await summarize_article(entry_title, content, llm_client, logger)
-                
+
                 if proofreader:
                     try:
                         logger.info("category", "in_progress", "proofreading summary", category=category)
@@ -619,14 +887,19 @@ async def process_category(
         if len(articles) > 1:
             try:
                 from shared.embeddings import deduplicate_texts
+
                 titles = [a["title"] for a in articles]
                 unique_indices = deduplicate_texts(titles, threshold=0.82)
                 removed = len(articles) - len(unique_indices)
                 if removed:
                     articles = [articles[i] for i in unique_indices]
                     logger.info(
-                        "dedup", "success", "semantic dedup applied",
-                        category=category, removed=removed, remaining=len(articles),
+                        "dedup",
+                        "success",
+                        "semantic dedup applied",
+                        category=category,
+                        removed=removed,
+                        remaining=len(articles),
                     )
             except Exception as exc:
                 logger.debug("dedup", "skipped", "embedding dedup unavailable", error=str(exc))
@@ -666,6 +939,7 @@ async def process_category(
         if canva is not None:
             try:
                 from PIL import Image, ImageDraw, ImageFont
+
                 ts = datetime.now().strftime("%Y%m%d_%H%M")
                 infographic_path = OUTPUT_DIR / f"infographic_{category}_{ts}.png"
                 infographic_path.parent.mkdir(parents=True, exist_ok=True)
@@ -687,15 +961,20 @@ async def process_category(
                 draw.rectangle([(0, 0), (1080, 180)], fill="#16213e")
                 draw.text((60, 45), f"{category.upper()} NEWS", font=font_title, fill="#e94560")
                 draw.text((60, 125), datetime.now().strftime("%Y-%m-%d"), font=font_date, fill="#aaaaaa")
-                
+
                 y_pos = 220
                 for idx, a in enumerate(articles[:5]):
                     draw.rectangle([(40, y_pos), (1040, y_pos + 140)], fill="#0f3460", outline="#e94560")
-                    title_text = a['title'][:40] + "..." if len(a['title']) > 40 else a['title']
+                    title_text = a["title"][:40] + "..." if len(a["title"]) > 40 else a["title"]
                     draw.text((70, y_pos + 30), f"{idx+1}. {title_text}", font=font_body_bold, fill="white")
-                    draw.text((70, y_pos + 90), f"    출처: {a.get('source', 'Unknown')} | 감성: {a.get('sentiment', 'NEUTRAL')}", font=font_body, fill="#b5b5c3")
+                    draw.text(
+                        (70, y_pos + 90),
+                        f"    출처: {a.get('source', 'Unknown')} | 감성: {a.get('sentiment', 'NEUTRAL')}",
+                        font=font_body,
+                        fill="#b5b5c3",
+                    )
                     y_pos += 160
-                    
+
                 img.save(infographic_path)
 
                 # Import to Canva
@@ -708,7 +987,13 @@ async def process_category(
                     90,
                 )
                 if canva_result:
-                    logger.info("canva", "success", "design imported", category=category, design_id=canva_result.get("design_id"))
+                    logger.info(
+                        "canva",
+                        "success",
+                        "design imported",
+                        category=category,
+                        design_id=canva_result.get("design_id"),
+                    )
                 else:
                     logger.warning("canva", "skipped", "import failed", category=category)
             except Exception as exc:
@@ -737,6 +1022,7 @@ async def process_category(
         overall_sentiment = "NEUTRAL"
         if sentiments:
             from collections import Counter
+
             overall_sentiment = Counter(sentiments).most_common(1)[0][0]
 
         # Deduplicate entities (top 5 max for Notion multi-select limit)
@@ -746,7 +1032,11 @@ async def process_category(
             notion_client=notion,
             parent={"database_id": ANTIGRAVITY_TASKS_DB_ID},
             properties={
-                "Name": {"title": [{"text": {"content": f"[{category}] {label} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"}}]},
+                "Name": {
+                    "title": [
+                        {"text": {"content": f"[{category}] {label} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"}}
+                    ]
+                },
                 "Date": {"date": {"start": datetime.now().isoformat()}},
                 "Type": {"select": {"name": "News"}},
                 "Priority": {"select": {"name": "High"}},
@@ -779,9 +1069,17 @@ async def process_category(
                 else:
                     logger.info("skills", "skipped", "opinion generator returned no usable content", category=category)
             except Exception as exc:
-                logger.warning("skills", "failed", "x post draft generation failed (non-blocking)", category=category, error=str(exc))
+                logger.warning(
+                    "skills",
+                    "failed",
+                    "x post draft generation failed (non-blocking)",
+                    category=category,
+                    error=str(exc),
+                )
 
-        logger.info("category", "success", "category uploaded", category=category, articles=len(articles), page_id=page_id)
+        logger.info(
+            "category", "success", "category uploaded", category=category, articles=len(articles), page_id=page_id
+        )
         result: dict[str, Any] = {"category": category, "status": "success", "articles": len(articles)}
         if canva_result:
             result["canva_design_id"] = canva_result.get("design_id")
@@ -791,7 +1089,9 @@ async def process_category(
         return result
 
 
-async def run_news_bot(*, max_items: int, run_id: str | None = None, categories: list[str] | None = None, force: bool = False) -> int:
+async def run_news_bot(
+    *, max_items: int, run_id: str | None = None, categories: list[str] | None = None, force: bool = False
+) -> int:
     configure_stdout_utf8()
     run_id = run_id or generate_run_id("news_bot")
     logger = get_logger("news_bot", run_id)
@@ -885,15 +1185,23 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Notion news bot pipeline.")
     parser.add_argument("--max-items", type=int, default=5, help="Maximum articles to summarize per category")
     parser.add_argument("--run-id", help="Optional run identifier for logs and state tracking")
-    parser.add_argument("--categories", nargs="*", default=None, help="Limit to specific categories (e.g. Economy_KR Global_Affairs)")
-    parser.add_argument("--force", action="store_true", help="Clear article cache before running (reprocess already-seen articles)")
+    parser.add_argument(
+        "--categories", nargs="*", default=None, help="Limit to specific categories (e.g. Economy_KR Global_Affairs)"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Clear article cache before running (reprocess already-seen articles)"
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    return asyncio.run(run_news_bot(max_items=args.max_items, run_id=args.run_id, categories=args.categories, force=args.force))
+    return asyncio.run(
+        run_news_bot(max_items=args.max_items, run_id=args.run_id, categories=args.categories, force=args.force)
+    )
+
 
 if __name__ == "__main__":
     import os
+
     os._exit(main())

@@ -1,13 +1,13 @@
 /**
  * Cloudflare Worker for Canva MCP Server
- * 
+ *
  * IMPORTANT: This server requires OAuth setup!
  * 1. Create a Canva app at https://www.canva.com/developers/
  * 2. Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET in Cloudflare environment
  * 3. Set CANVA_REDIRECT_URI to your Cloudflare Worker URL + /auth/callback
  * 4. Create a KV namespace for storing OAuth tokens: `wrangler kv:namespace create CANVA_TOKENS`
  * 5. Add the namespace binding to wrangler.toml
- * 
+ *
  * This worker provides a simplified version that returns placeholder data
  * until OAuth is properly configured.
  */
@@ -59,11 +59,11 @@ const SEARCH_WIDGET_HTML = `<!DOCTYPE html>
     const data = window.__WIDGET_PROPS__ || {};
     document.getElementById('search-query').textContent = data.query || 'Recent Designs';
     document.getElementById('search-stats').textContent = (data.designs?.length || 0) + ' designs found';
-    
+
     if (data.requiresAuth) {
       document.getElementById('oauth-notice').innerHTML = '<div class="oauth-notice"><h3>🔒 OAuth Setup Required</h3><p>To access your Canva designs, you need to set up OAuth authentication. Set <code>CANVA_CLIENT_ID</code>, <code>CANVA_CLIENT_SECRET</code>, and configure a KV namespace in your Cloudflare Worker. Visit the <a href="https://www.canva.com/developers/" target="_blank">Canva Developers</a> portal to create your app.</p></div>';
     }
-    
+
     const grid = document.getElementById('designs-grid');
     (data.designs || []).forEach(design => {
       const card = document.createElement('div');
@@ -235,7 +235,7 @@ export default {
     // Widget HTML serving
     if (url.pathname.startsWith("/ui/widget/")) {
       const templatePath = url.pathname.replace("/ui/widget/", "");
-      
+
       if (templatePath === "canva-search-designs.html") {
         return new Response(SEARCH_WIDGET_HTML, {
           headers: {
@@ -278,7 +278,7 @@ export default {
         }
 
         const tokens: any = await tokenResponse.json();
-        
+
         // Store tokens in KV (use state as session ID)
         await env.CANVA_TOKENS.put(
           `session:${state}`,
@@ -364,7 +364,7 @@ export default {
         if (name === WIDGETS.search.id) {
           const parsed = searchDesignsInputParser.parse(args);
           const oauthConfigured = isOAuthConfigured(env);
-          
+
           let designs;
           let requiresAuth = false;
 
@@ -431,4 +431,3 @@ export default {
     );
   },
 };
-

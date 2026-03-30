@@ -4,6 +4,7 @@ pytest configuration & shared fixtures for BioLinker tests.
 Centralises monkeypatch stubs for external services (ChromaDB, Firebase,
 Web3, IPFS) so individual test modules don't have to repeat setup boilerplate.
 """
+
 from __future__ import annotations
 
 import sys
@@ -22,11 +23,8 @@ if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
 import main as app_main  # noqa: E402
-import routers.crawl as crawl_router  # noqa: E402
 import routers.rfp as rfp_router  # noqa: E402
-import routers.web3 as web3_router  # noqa: E402
 import services.usage_middleware as usage_mw  # noqa: E402
-
 
 # ── Warnings suppression ────────────────────────────────────────────────────
 
@@ -125,13 +123,15 @@ def mock_external_services(monkeypatch, stub_vector_store, stub_web3, stub_ipfs)
 
     stub_tier_mgr = MagicMock()
     stub_tier_mgr.get_tier = AsyncMock(return_value=_UserTier.ENTERPRISE)
-    stub_tier_mgr.get_usage = AsyncMock(return_value=MagicMock(
-        usage_summary=lambda: {"tier": "enterprise", "usage": {}}
-    ))
-    stub_tier_mgr.check_and_increment = AsyncMock(return_value=(
-        True,
-        {"tier": "enterprise", "usage": {"rfp_analysis": {"used": 1, "limit": 999999, "remaining": 999998}}},
-    ))
+    stub_tier_mgr.get_usage = AsyncMock(
+        return_value=MagicMock(usage_summary=lambda: {"tier": "enterprise", "usage": {}})
+    )
+    stub_tier_mgr.check_and_increment = AsyncMock(
+        return_value=(
+            True,
+            {"tier": "enterprise", "usage": {"rfp_analysis": {"used": 1, "limit": 999999, "remaining": 999998}}},
+        )
+    )
     monkeypatch.setattr(usage_mw, "get_tier_manager", lambda: stub_tier_mgr)
 
     return {

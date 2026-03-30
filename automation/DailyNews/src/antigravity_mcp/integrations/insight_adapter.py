@@ -1,4 +1,5 @@
 """Insight Adapter — in-package DailyNews insight generation wrapper."""
+
 from __future__ import annotations
 
 import logging

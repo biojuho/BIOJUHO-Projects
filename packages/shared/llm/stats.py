@@ -7,7 +7,7 @@ import logging
 import sqlite3
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .config import MODEL_COSTS
@@ -104,7 +104,7 @@ class CostTracker:
         cost = (input_tokens * cost_per_m[0] + output_tokens * cost_per_m[1]) / 1_000_000
 
         rec = CostRecord(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             backend=backend,
             model=model,
             tier=tier,
@@ -215,8 +215,7 @@ class CostTracker:
             return 0.0
         try:
             cursor = self._db.execute(
-                "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls "
-                "WHERE DATE(timestamp) = DATE('now')"
+                "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls " "WHERE DATE(timestamp) = DATE('now')"
             )
             return round(cursor.fetchone()[0], 6)
         except Exception:
@@ -228,7 +227,7 @@ class CostTracker:
             return None
         try:
             _ensure_dirs()
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            today = datetime.now(UTC).strftime("%Y-%m-%d")
             csv_path = _CSV_DIR / f"llm_usage_{today}.csv"
             cursor = self._db.execute(
                 """SELECT timestamp, backend, model, tier,
@@ -242,11 +241,20 @@ class CostTracker:
             rows = cursor.fetchall()
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow([
-                    "timestamp", "backend", "model", "tier",
-                    "input_tokens", "output_tokens", "cost_usd",
-                    "success", "error", "project",
-                ])
+                writer.writerow(
+                    [
+                        "timestamp",
+                        "backend",
+                        "model",
+                        "tier",
+                        "input_tokens",
+                        "output_tokens",
+                        "cost_usd",
+                        "success",
+                        "error",
+                        "project",
+                    ]
+                )
                 writer.writerows(rows)
             log.info("Exported %d records to %s", len(rows), csv_path)
             return csv_path

@@ -2,34 +2,32 @@
 BioLinker - FastAPI Main Application
 정부 과제 매칭 AI 에이전트 API
 """
+
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.requests import Request
+
 from dotenv import load_dotenv
-
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from services.logging_config import get_logger, setup_logging
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-
-from services.logging_config import setup_logging, get_logger
 
 # Initialize structured logging before anything else
 _is_production = os.getenv("ENV", "development") == "production"
 setup_logging(json_output=_is_production, log_level=os.getenv("LOG_LEVEL", "INFO"))
 log = get_logger("biolinker.main")
 
+from limiter import limiter
 from services.auth import get_current_user
 from services.crawler import get_crawler
+from services.ipfs_service import get_ipfs_service
 from services.kddf_crawler import get_kddf_crawler
 from services.ntis_crawler import get_ntis_crawler
+from services.pdf_parser import get_pdf_parser
 from services.scheduler import get_scheduler
 from services.vector_store import get_vector_store
-from services.ipfs_service import get_ipfs_service
-from services.pdf_parser import get_pdf_parser
-from services.web3_service import get_web3_service, MOCK_MODE
-from limiter import limiter
+from services.web3_service import get_web3_service
 
 load_dotenv()
 
@@ -68,9 +66,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS
 _default_origins = (
-    "http://localhost:5173,http://localhost:5174"
-    if os.getenv("ENV", "development") != "production"
-    else ""
+    "http://localhost:5173,http://localhost:5174" if os.getenv("ENV", "development") != "production" else ""
 )
 allowed_origins = os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
 app.add_middleware(
@@ -84,6 +80,7 @@ app.add_middleware(
 # ── Prometheus Metrics (/metrics) ──────────────────────────
 try:
     from shared.metrics import setup_metrics
+
     setup_metrics(app, service_name="biolinker")
 except ImportError:
     pass
@@ -91,6 +88,7 @@ except ImportError:
 # ── Structured Logging (JSON for Loki) ─────────────────────
 try:
     from shared.structured_logging import setup_logging as setup_structured_logging
+
     setup_structured_logging(service_name="biolinker")
 except ImportError:
     pass
@@ -98,12 +96,13 @@ except ImportError:
 # ── Audit Log ──────────────────────────────────────────────
 try:
     from shared.audit import setup_audit_log
+
     setup_audit_log(app, service_name="biolinker")
 except ImportError:
     pass
 
 # ============== Routers ==============
-from routers import rfp, crawl, web3, agent, governance, subscription  # noqa: E402
+from routers import agent, crawl, governance, rfp, subscription, web3  # noqa: E402
 from services.user_tier import get_tier_manager  # noqa: E402
 
 # Initialize tier manager with Firestore
@@ -118,6 +117,7 @@ app.include_router(subscription.router, tags=["Subscription"])
 
 
 # ============== 기본 엔드포인트 ==============
+
 
 @app.get("/")
 async def root():
@@ -216,4 +216,5 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

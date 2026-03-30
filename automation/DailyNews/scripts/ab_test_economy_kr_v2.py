@@ -8,10 +8,11 @@ Changes from v1:
 - ✅ Hypothesis validation framework
 - ✅ Recommendations based on data
 """
+
 import asyncio
-import sys
 import json
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -21,11 +22,10 @@ sys.path.insert(0, r"D:\AI project\packages")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-from antigravity_mcp.pipelines.collect import collect_content_items, fetch_article_body
-from antigravity_mcp.integrations.brain_adapter import BrainAdapter
-from antigravity_mcp.state.store import PipelineStateStore
 from antigravity_mcp.config import get_settings
-
+from antigravity_mcp.integrations.brain_adapter import BrainAdapter
+from antigravity_mcp.pipelines.collect import collect_content_items
+from antigravity_mcp.state.store import PipelineStateStore
 
 # ============================================================================
 # AUDIENCE PROFILE (Audience-First v2.0)
@@ -184,12 +184,7 @@ def evaluate_content_quality(content: str, version_name: str) -> dict:
     cta_score = 100 if has_clear_cta else 30
 
     # Weighted Primary KPI
-    primary_kpi = (
-        specificity_score * 0.3
-        + actionability_score * 0.3
-        + emotion_score * 0.2
-        + cta_score * 0.2
-    )
+    primary_kpi = specificity_score * 0.3 + actionability_score * 0.3 + emotion_score * 0.2 + cta_score * 0.2
 
     return {
         "version": version_name,
@@ -232,25 +227,17 @@ async def run_ab_test():
     print("=" * 80)
     print(f"타입: {AUDIENCE_PROFILE['type']}")
     print(f"타깃: {AUDIENCE_PROFILE['target_persona']['primary']}")
-    print(
-        f"Pain Points: {', '.join(AUDIENCE_PROFILE['target_persona']['psychographics']['pain_points'][:2])}"
-    )
+    print(f"Pain Points: {', '.join(AUDIENCE_PROFILE['target_persona']['psychographics']['pain_points'][:2])}")
     print(f"채널: {AUDIENCE_PROFILE['consumption_context']['channel']}")
-    print(
-        f"성공 기준: {AUDIENCE_PROFILE['success_criteria']['must_have'][0]}"
-    )
+    print(f"성공 기준: {AUDIENCE_PROFILE['success_criteria']['must_have'][0]}")
 
     # Step 2: Show Hypothesis
     print("\n" + "=" * 80)
     print("🧪 A/B TEST HYPOTHESIS")
     print("=" * 80)
     print(f"가설: {AB_TEST_HYPOTHESIS['hypothesis']}")
-    print(
-        f"\nVersion A: {AB_TEST_HYPOTHESIS['version_a']['name']} — {AB_TEST_HYPOTHESIS['version_a']['description']}"
-    )
-    print(
-        f"Version B: {AB_TEST_HYPOTHESIS['version_b']['name']} — {AB_TEST_HYPOTHESIS['version_b']['description']}"
-    )
+    print(f"\nVersion A: {AB_TEST_HYPOTHESIS['version_a']['name']} — {AB_TEST_HYPOTHESIS['version_a']['description']}")
+    print(f"Version B: {AB_TEST_HYPOTHESIS['version_b']['name']} — {AB_TEST_HYPOTHESIS['version_b']['description']}")
     print(
         f"\nPrimary KPI: {AB_TEST_HYPOTHESIS['kpis']['primary']['name']} (Target: {AB_TEST_HYPOTHESIS['kpis']['primary']['target']})"
     )
@@ -284,9 +271,7 @@ async def run_ab_test():
     print(f"  Collected: {len(items)} articles")
     for item in items[:5]:  # Show first 5
         body_len = len(item.full_text) if item.full_text else 0
-        print(
-            f"  - [{item.source_name}] {item.title[:50]}... (body: {body_len} chars)"
-        )
+        print(f"  - [{item.source_name}] {item.title[:50]}... (body: {body_len} chars)")
 
     if not items:
         print("[ERROR] No articles collected. Check RSS feeds.")
@@ -312,7 +297,7 @@ async def run_ab_test():
         return
 
     # Stage 2 + 3: Editorial Filter + Deep Analysis
-    print(f"\n[Stage 2+3] Editorial Filter + Deep Analysis")
+    print("\n[Stage 2+3] Editorial Filter + Deep Analysis")
     print("-" * 40)
     result_new = await brain.analyze_news(
         category="Economy_KR",
@@ -397,24 +382,16 @@ async def run_ab_test():
     recommendations = []
 
     if eval_new["breakdown"]["specificity"]["count"] < 2:
-        recommendations.append(
-            "- 구체적 숫자/데이터 포인트를 최소 2개 이상 포함하도록 프롬프트 개선"
-        )
+        recommendations.append("- 구체적 숫자/데이터 포인트를 최소 2개 이상 포함하도록 프롬프트 개선")
 
     if not eval_new["passes_criteria"]["has_cta"]:
-        recommendations.append(
-            "- 명확한 CTA 또는 행동 가이드를 마지막 문단에 추가"
-        )
+        recommendations.append("- 명확한 CTA 또는 행동 가이드를 마지막 문단에 추가")
 
     if eval_new["breakdown"]["length"]["value"] > 800:
-        recommendations.append(
-            "- 모바일 가독성을 위해 콘텐츠 길이를 800자 이하로 제한"
-        )
+        recommendations.append("- 모바일 가독성을 위해 콘텐츠 길이를 800자 이하로 제한")
 
     if eval_new["breakdown"]["actionability"]["score"] < 50:
-        recommendations.append(
-            "- 독자의 실생활 적용 가능한 인사이트 강화 (예: '이번 주 주목할 지표는...')"
-        )
+        recommendations.append("- 독자의 실생활 적용 가능한 인사이트 강화 (예: '이번 주 주목할 지표는...')")
 
     if recommendations:
         print("개선 권장사항:")
@@ -427,15 +404,11 @@ async def run_ab_test():
     print("\n" + "=" * 80)
     print("📌 NEXT STEPS")
     print("=" * 80)
-    print(
-        "1. 실제 X 배포: 각 버전 20개씩 랜덤 게시 (A/B 스플릿)"
-    )
+    print("1. 실제 X 배포: 각 버전 20개씩 랜덤 게시 (A/B 스플릿)")
     print("2. 인게이지먼트 측정: 좋아요+RT+답글/조회수 (7일간)")
     print("3. 정성 피드백: 댓글/DM에서 독자 반응 분석")
     print("4. 최종 결정: 통계적 유의성 확인 후 버전 확정")
-    print(
-        "5. 파이프라인 업데이트: 승리 버전의 프롬프트/구조를 표준으로 설정"
-    )
+    print("5. 파이프라인 업데이트: 승리 버전의 프롬프트/구조를 표준으로 설정")
 
     # Step 9: Save Report
     output_dir = Path(r"D:\AI project\automation\DailyNews\output")
@@ -470,33 +443,25 @@ async def run_ab_test():
     # Also save markdown version
     md_path = output_dir / "ab_test_economy_kr_v2.md"
     with open(md_path, "w", encoding="utf-8") as f:
-        f.write(f"# Economy_KR A/B Test v2.0 — Audience-First Validation\n\n")
+        f.write("# Economy_KR A/B Test v2.0 — Audience-First Validation\n\n")
         f.write(f"**Test Date**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
-        f.write(f"---\n\n")
-        f.write(f"## 🎯 Audience Profile\n\n")
+        f.write("---\n\n")
+        f.write("## 🎯 Audience Profile\n\n")
         f.write(f"- **Type**: {AUDIENCE_PROFILE['type']}\n")
         f.write(f"- **Target**: {AUDIENCE_PROFILE['target_persona']['primary']}\n")
         f.write(
             f"- **Pain Points**: {', '.join(AUDIENCE_PROFILE['target_persona']['psychographics']['pain_points'])}\n"
         )
-        f.write(
-            f"- **Channel**: {AUDIENCE_PROFILE['consumption_context']['channel']}\n\n"
-        )
-        f.write(f"---\n\n")
-        f.write(f"## 🧪 Hypothesis\n\n")
+        f.write(f"- **Channel**: {AUDIENCE_PROFILE['consumption_context']['channel']}\n\n")
+        f.write("---\n\n")
+        f.write("## 🧪 Hypothesis\n\n")
         f.write(f"{AB_TEST_HYPOTHESIS['hypothesis']}\n\n")
-        f.write(
-            f"**Version A**: {AB_TEST_HYPOTHESIS['version_a']['description']}\n"
-        )
-        f.write(
-            f"**Version B**: {AB_TEST_HYPOTHESIS['version_b']['description']}\n\n"
-        )
-        f.write(f"---\n\n")
-        f.write(f"## 📊 Results\n\n")
-        f.write(
-            f"| Version | Primary KPI | Length | Specificity | Actionability | CTA |\n"
-        )
-        f.write(f"|---------|-------------|--------|-------------|---------------|-----|\n")
+        f.write(f"**Version A**: {AB_TEST_HYPOTHESIS['version_a']['description']}\n")
+        f.write(f"**Version B**: {AB_TEST_HYPOTHESIS['version_b']['description']}\n\n")
+        f.write("---\n\n")
+        f.write("## 📊 Results\n\n")
+        f.write("| Version | Primary KPI | Length | Specificity | Actionability | CTA |\n")
+        f.write("|---------|-------------|--------|-------------|---------------|-----|\n")
         f.write(
             f"| Version A (OLD) | {eval_old['primary_kpi']} | {eval_old['breakdown']['length']['value']} | {eval_old['breakdown']['specificity']['score']} | {eval_old['breakdown']['actionability']['score']} | {eval_old['breakdown']['cta_clarity']['score']} |\n"
         )
@@ -505,18 +470,18 @@ async def run_ab_test():
         )
         f.write(f"**KPI Difference**: {kpi_diff:+.1f} points\n\n")
         f.write(f"**Decision**: {decision}\n\n")
-        f.write(f"---\n\n")
-        f.write(f"## 💡 Recommendations\n\n")
+        f.write("---\n\n")
+        f.write("## 💡 Recommendations\n\n")
         if recommendations:
             for rec in recommendations:
                 f.write(f"{rec}\n")
         else:
             f.write("✅ No critical issues. Current version meets criteria.\n")
-        f.write(f"\n---\n\n")
-        f.write(f"## 📝 Content Samples\n\n")
-        f.write(f"### Version A (OLD)\n\n")
+        f.write("\n---\n\n")
+        f.write("## 📝 Content Samples\n\n")
+        f.write("### Version A (OLD)\n\n")
         f.write(f"```\n{old_post}\n```\n\n")
-        f.write(f"### Version B (NEW)\n\n")
+        f.write("### Version B (NEW)\n\n")
         f.write(f"```\n{new_post}\n```\n\n")
 
     print(f"✅ Markdown Report saved: {md_path}")

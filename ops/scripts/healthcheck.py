@@ -17,7 +17,6 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from workspace_paths import find_workspace_root, rel_unit_path
 
-
 WORKSPACE = find_workspace_root()
 REPORT_HISTORY = SCRIPT_DIR / ".healthcheck-history.json"
 
@@ -25,7 +24,10 @@ CHECKS = [
     {
         "name": "getdaytrends",
         "type": "python",
-        "checks": [("config", rel_unit_path("getdaytrends", "config.py")), ("main", rel_unit_path("getdaytrends", "main.py"))],
+        "checks": [
+            ("config", rel_unit_path("getdaytrends", "config.py")),
+            ("main", rel_unit_path("getdaytrends", "main.py")),
+        ],
         "key_imports": ["anthropic", "httpx", "aiosqlite"],
         "requirements": rel_unit_path("getdaytrends", "requirements.txt"),
     },
@@ -49,7 +51,10 @@ CHECKS = [
     {
         "name": "desci-frontend",
         "type": "node",
-        "checks": [("package", rel_unit_path("desci-platform", "frontend", "package.json")), ("src", rel_unit_path("desci-platform", "frontend", "src"))],
+        "checks": [
+            ("package", rel_unit_path("desci-platform", "frontend", "package.json")),
+            ("src", rel_unit_path("desci-platform", "frontend", "src")),
+        ],
         "key_imports": [],
         "requirements": None,
     },
@@ -66,7 +71,10 @@ CHECKS = [
     {
         "name": "AgriGuard-frontend",
         "type": "node",
-        "checks": [("package", rel_unit_path("agriguard", "frontend", "package.json")), ("src", rel_unit_path("agriguard", "frontend", "src"))],
+        "checks": [
+            ("package", rel_unit_path("agriguard", "frontend", "package.json")),
+            ("src", rel_unit_path("agriguard", "frontend", "src")),
+        ],
         "key_imports": [],
         "requirements": None,
         "build_check": rel_unit_path("agriguard", "frontend"),
@@ -117,7 +125,9 @@ def check_dependency_drift(req_path: str) -> list[dict]:
         return results
 
     try:
-        proc = subprocess.run([sys.executable, "-m", "pip", "list", "--format=json"], capture_output=True, text=True, timeout=15)
+        proc = subprocess.run(
+            [sys.executable, "-m", "pip", "list", "--format=json"], capture_output=True, text=True, timeout=15
+        )
         installed: dict[str, str] = {}
         if proc.returncode == 0:
             for package in json.loads(proc.stdout):
@@ -169,7 +179,10 @@ def check_npm_build(rel_path: str) -> dict:
         proc = subprocess.run([npm_cmd, "run", "build:dry"], cwd=full_path, capture_output=True, text=True, timeout=45)
         if proc.returncode == 0:
             return {"ok": True, "message": "OK build dry-run"}
-        stderr = next((line.strip() for line in proc.stderr.splitlines() if "error" in line.lower() or "failed" in line.lower()), "")
+        stderr = next(
+            (line.strip() for line in proc.stderr.splitlines() if "error" in line.lower() or "failed" in line.lower()),
+            "",
+        )
         return {"ok": False, "message": f"FAILED build dry-run: {stderr or 'unknown error'}"}
     except Exception as exc:
         return {"ok": False, "message": f"FAILED build dry-run: {exc}"}
@@ -186,7 +199,14 @@ def run_healthcheck() -> dict:
     }
 
     for project in CHECKS:
-        project_result = {"name": project["name"], "type": project["type"], "checks": [], "imports": [], "drift": [], "healthy": True}
+        project_result = {
+            "name": project["name"],
+            "type": project["type"],
+            "checks": [],
+            "imports": [],
+            "drift": [],
+            "healthy": True,
+        }
 
         for check_name, check_path in project["checks"]:
             ok, message = check_file_exists(check_path)
@@ -202,7 +222,9 @@ def run_healthcheck() -> dict:
 
         if project.get("build_check"):
             build_result = check_npm_build(project["build_check"])
-            project_result["checks"].append({"name": "build_check", "ok": build_result["ok"], "message": build_result["message"]})
+            project_result["checks"].append(
+                {"name": "build_check", "ok": build_result["ok"], "message": build_result["message"]}
+            )
             if not build_result["ok"]:
                 project_result["healthy"] = False
 

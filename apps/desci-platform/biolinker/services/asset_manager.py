@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import UploadFile
 
@@ -37,10 +37,10 @@ class AssetManager:
         file: UploadFile,
         file_ext: str,
         content: bytes,
-    ) -> tuple[str, Dict[str, Any], str]:
+    ) -> tuple[str, dict[str, Any], str]:
         """Parse uploaded content and return extracted text and metadata."""
         text_content = ""
-        parsed_metadata: Dict[str, Any] = {}
+        parsed_metadata: dict[str, Any] = {}
         parser_name = "none"
 
         if file_ext.lower() == ".pdf":
@@ -63,7 +63,7 @@ class AssetManager:
         return text_content, parsed_metadata, parser_name
 
     @staticmethod
-    def _split_csv(raw_value: str) -> List[str]:
+    def _split_csv(raw_value: str) -> list[str]:
         return [item.strip() for item in raw_value.split(",") if item.strip()]
 
     def _resolve_paper_fields(
@@ -72,8 +72,8 @@ class AssetManager:
         submitted_title: str,
         submitted_authors: str,
         submitted_abstract: str,
-        parsed_metadata: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parsed_metadata: dict[str, Any],
+    ) -> dict[str, Any]:
         """Merge submitted paper fields with parser-derived metadata."""
         parsed_authors = parsed_metadata.get("authors") or []
         author_names = [
@@ -93,25 +93,14 @@ class AssetManager:
                 affiliations.append(affiliation)
 
         references = [
-            str(reference).strip()
-            for reference in parsed_metadata.get("references", [])
-            if str(reference).strip()
+            str(reference).strip() for reference in parsed_metadata.get("references", []) if str(reference).strip()
         ]
-        keywords = [
-            str(keyword).strip()
-            for keyword in parsed_metadata.get("keywords", [])
-            if str(keyword).strip()
-        ]
+        keywords = [str(keyword).strip() for keyword in parsed_metadata.get("keywords", []) if str(keyword).strip()]
 
         final_title = (
-            (submitted_title or "").strip()
-            or str(parsed_metadata.get("title") or "").strip()
-            or file.filename
+            (submitted_title or "").strip() or str(parsed_metadata.get("title") or "").strip() or file.filename
         )
-        final_abstract = (
-            (submitted_abstract or "").strip()
-            or str(parsed_metadata.get("abstract") or "").strip()
-        )
+        final_abstract = (submitted_abstract or "").strip() or str(parsed_metadata.get("abstract") or "").strip()
 
         return {
             "title": final_title,
@@ -124,7 +113,7 @@ class AssetManager:
             "detected_title": str(parsed_metadata.get("title") or "").strip(),
         }
 
-    async def upload_asset(self, file: UploadFile, asset_type: str = "general") -> Dict[str, Any]:
+    async def upload_asset(self, file: UploadFile, asset_type: str = "general") -> dict[str, Any]:
         """
         Upload a generic asset and index extracted text.
 
@@ -162,11 +151,7 @@ class AssetManager:
         if parsed_metadata.get("doi"):
             metadata["doi"] = parsed_metadata["doi"]
         if authors:
-            metadata["authors"] = ", ".join(
-                author.get("name", "").strip()
-                for author in authors
-                if author.get("name")
-            )
+            metadata["authors"] = ", ".join(author.get("name", "").strip() for author in authors if author.get("name"))
 
         self.vector_store.add_company_asset(
             asset_id=asset_id,
@@ -192,11 +177,11 @@ class AssetManager:
     async def upload_paper(
         self,
         file: UploadFile,
-        user: Dict[str, Any],
+        user: dict[str, Any],
         title: str = "",
         authors: str = "",
         abstract: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Upload a research paper, pin it to IPFS, and index structured metadata."""
         content = await file.read()
         fallback_id, file_ext, file_path = self._save_upload(file, content)
@@ -281,7 +266,7 @@ class AssetManager:
             },
         }
 
-    def list_user_papers(self, user_id: str) -> List[Dict[str, Any]]:
+    def list_user_papers(self, user_id: str) -> list[dict[str, Any]]:
         """Return papers indexed for a specific authenticated user."""
         if not user_id:
             return []
@@ -294,30 +279,30 @@ class AssetManager:
         papers = []
         for item in raw_items:
             metadata = item.get("metadata", {}) or {}
-            papers.append({
-                "id": item.get("id"),
-                "title": metadata.get("title", "Untitled paper"),
-                "abstract": metadata.get("abstract", ""),
-                "authors": self._split_csv(str(metadata.get("authors", ""))),
-                "affiliations": [
-                    entry.strip()
-                    for entry in str(metadata.get("affiliations", "")).split(" | ")
-                    if entry.strip()
-                ],
-                "keywords": self._split_csv(str(metadata.get("keywords", ""))),
-                "doi": metadata.get("doi", ""),
-                "cid": metadata.get("cid", item.get("id")),
-                "ipfs_url": metadata.get("ipfs_url", ""),
-                "type": metadata.get("type", "paper"),
-                "parser": metadata.get("parser", ""),
-                "nft_minted": str(metadata.get("nft_minted", "false")).lower() == "true",
-                "created_at": metadata.get("created_at", ""),
-            })
+            papers.append(
+                {
+                    "id": item.get("id"),
+                    "title": metadata.get("title", "Untitled paper"),
+                    "abstract": metadata.get("abstract", ""),
+                    "authors": self._split_csv(str(metadata.get("authors", ""))),
+                    "affiliations": [
+                        entry.strip() for entry in str(metadata.get("affiliations", "")).split(" | ") if entry.strip()
+                    ],
+                    "keywords": self._split_csv(str(metadata.get("keywords", ""))),
+                    "doi": metadata.get("doi", ""),
+                    "cid": metadata.get("cid", item.get("id")),
+                    "ipfs_url": metadata.get("ipfs_url", ""),
+                    "type": metadata.get("type", "paper"),
+                    "parser": metadata.get("parser", ""),
+                    "nft_minted": str(metadata.get("nft_minted", "false")).lower() == "true",
+                    "created_at": metadata.get("created_at", ""),
+                }
+            )
 
         papers.sort(key=lambda paper: paper.get("created_at", ""), reverse=True)
         return papers
 
-    def list_assets(self) -> List[Dict[str, Any]]:
+    def list_assets(self) -> list[dict[str, Any]]:
         """List locally uploaded asset files."""
         assets = []
         if os.path.exists(self.asset_dir):

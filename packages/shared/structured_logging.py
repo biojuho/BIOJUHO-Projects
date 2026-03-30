@@ -11,6 +11,7 @@ Usage::
     log = get_logger()
     log.info("request_handled", path="/health", status=200, duration_ms=12)
 """
+
 from __future__ import annotations
 
 import logging

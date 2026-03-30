@@ -3,6 +3,7 @@
 Adds a semi-transparent watermark bar with logo text (e.g. "JooPark 쥬팍")
 to the bottom-right corner of downloaded infographic images.
 """
+
 from __future__ import annotations
 
 import logging
@@ -130,7 +131,7 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     font_candidates = [
         # Windows Korean fonts
         "C:/Windows/Fonts/malgunbd.ttf",  # Malgun Gothic Bold
-        "C:/Windows/Fonts/malgun.ttf",    # Malgun Gothic
+        "C:/Windows/Fonts/malgun.ttf",  # Malgun Gothic
         "C:/Windows/Fonts/NanumGothicBold.ttf",
         "C:/Windows/Fonts/NanumGothic.ttf",
         # macOS

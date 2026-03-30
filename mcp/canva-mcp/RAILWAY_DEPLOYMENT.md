@@ -59,5 +59,3 @@ curl https://your-railway-url.up.railway.app/health
 2. Redirected to Canva for authorization
 3. Callback to `/auth/callback`
 4. Tokens stored and user can use MCP tools
-
-

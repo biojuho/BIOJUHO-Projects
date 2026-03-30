@@ -72,9 +72,7 @@ class NewsDeduplicator:
             return 1.0
         return SequenceMatcher(None, a, b).ratio()
 
-    def find_duplicates(
-        self, articles: list[ArticleItem]
-    ) -> list[DedupGroup]:
+    def find_duplicates(self, articles: list[ArticleItem]) -> list[DedupGroup]:
         """Group articles by similarity.
 
         Returns list of DedupGroup, each containing near-duplicate articles.
@@ -106,11 +104,13 @@ class NewsDeduplicator:
             duplicates = [a for a in group_items if a is not canonical]
             sources = list({a.source for a in group_items if a.source})
 
-            groups.append(DedupGroup(
-                canonical=canonical,
-                duplicates=duplicates,
-                sources=sources,
-            ))
+            groups.append(
+                DedupGroup(
+                    canonical=canonical,
+                    duplicates=duplicates,
+                    sources=sources,
+                )
+            )
 
         dup_count = sum(len(g.duplicates) for g in groups)
         if dup_count > 0:
@@ -123,9 +123,7 @@ class NewsDeduplicator:
 
         return groups
 
-    def deduplicate(
-        self, articles: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def deduplicate(self, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Convenience: takes raw dicts, returns deduplicated dicts.
 
         Each dict should have 'title', 'link', 'source', 'description' keys.

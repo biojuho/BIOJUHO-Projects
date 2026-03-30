@@ -7,15 +7,15 @@ describe('calculatePrice (단위 테스트)', () => {
   describe('정상 케이스', () => {
     // it: 개별 테스트 케이스 하나를 의미합니다. 우리가 검증하고 싶은 하나의 상황을 적습니다.
     it('일반적인 가격과 할인율이 주어지면 할인된 가격을 반환한다', () => {
-      // expect: 결과값을 검증합니다. 
+      // expect: 결과값을 검증합니다.
       // calculatePrice(10000, 10)의 결과가 9000이 될 것(toBe)이라고 기대(expect)합니다.
       expect(calculatePrice(10000, 10)).toBe(9000);
     });
-    
+
     it('할인율이 0%일 경우 원래 가격을 그대로 반환한다', () => {
       expect(calculatePrice(5000, 0)).toBe(5000);
     });
-    
+
     it('할인율이 100%일 경우 0을 반환한다', () => {
       expect(calculatePrice(20000, 100)).toBe(0);
     });

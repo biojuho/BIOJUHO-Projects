@@ -2,11 +2,11 @@
 BioLinker - User Tier Management
 Freemium 티어 기반 사용량 제어 및 추적
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,26 +17,27 @@ log = get_logger("biolinker.user_tier")
 
 class UserTier(str, Enum):
     """사용자 구독 티어"""
-    FREE = "free"           # 무료
-    PRO = "pro"             # $29/mo
+
+    FREE = "free"  # 무료
+    PRO = "pro"  # $29/mo
     ENTERPRISE = "enterprise"  # $199/mo
 
 
 # ── 티어별 월간 한도 ──────────────────────────────────────────────
 TIER_LIMITS: dict[UserTier, dict[str, int]] = {
     UserTier.FREE: {
-        "rfp_search": 10,          # 정부과제 검색
-        "rfp_analysis": 3,         # AI 적합도 분석
+        "rfp_search": 10,  # 정부과제 검색
+        "rfp_analysis": 3,  # AI 적합도 분석
         "proposal_generation": 0,  # AI 제안서 생성 (사용 불가)
-        "vc_match": 5,             # VC 매칭 (결과만)
-        "ipfs_upload": 3,          # IPFS 논문 저장
-        "literature_review": 1,    # 문헌 리뷰
+        "vc_match": 5,  # VC 매칭 (결과만)
+        "ipfs_upload": 3,  # IPFS 논문 저장
+        "literature_review": 1,  # 문헌 리뷰
     },
     UserTier.PRO: {
-        "rfp_search": 999_999,     # 무제한
+        "rfp_search": 999_999,  # 무제한
         "rfp_analysis": 30,
         "proposal_generation": 5,
-        "vc_match": 999_999,       # 무제한 + 연락처
+        "vc_match": 999_999,  # 무제한 + 연락처
         "ipfs_upload": 30,
         "literature_review": 10,
     },
@@ -60,13 +61,12 @@ TIER_RATE_LIMITS: dict[UserTier, str] = {
 
 class UserUsage(BaseModel):
     """월간 사용량 추적"""
+
     uid: str
     tier: UserTier = UserTier.FREE
-    period: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m")
-    )
+    period: str = Field(default_factory=lambda: datetime.now(UTC).strftime("%Y-%m"))
     counters: dict[str, int] = Field(default_factory=dict)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def increment(self, action: str) -> bool:
         """사용량 증가. 한도 초과 시 False 반환."""
@@ -85,7 +85,7 @@ class UserUsage(BaseModel):
             return False
 
         self.counters[action] = current + 1
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)
         return True
 
     def remaining(self, action: str) -> int:
@@ -119,7 +119,7 @@ class UserTierManager:
         self._cache: dict[str, UserUsage] = {}
 
     def _current_period(self) -> str:
-        return datetime.now(timezone.utc).strftime("%Y-%m")
+        return datetime.now(UTC).strftime("%Y-%m")
 
     async def get_usage(self, uid: str) -> UserUsage:
         """사용자 사용량 조회 (캐시 → Firestore → 신규 생성)"""
@@ -133,11 +133,7 @@ class UserTierManager:
         # 2. Firestore 조회
         if self._db:
             try:
-                doc = (
-                    self._db.collection("user_usage")
-                    .document(f"{uid}_{period}")
-                    .get()
-                )
+                doc = self._db.collection("user_usage").document(f"{uid}_{period}").get()
                 if doc.exists:
                     data = doc.to_dict()
                     usage = UserUsage(
@@ -164,9 +160,7 @@ class UserTierManager:
         # Firestore 저장
         if self._db:
             try:
-                self._db.collection("user_usage").document(
-                    f"{uid}_{usage.period}"
-                ).set(
+                self._db.collection("user_usage").document(f"{uid}_{usage.period}").set(
                     {
                         "uid": uid,
                         "tier": usage.tier.value,
@@ -188,9 +182,9 @@ class UserTierManager:
 
         if self._db:
             try:
-                self._db.collection("user_usage").document(
-                    f"{uid}_{usage.period}"
-                ).set({"tier": tier.value}, merge=True)
+                self._db.collection("user_usage").document(f"{uid}_{usage.period}").set(
+                    {"tier": tier.value}, merge=True
+                )
             except Exception as e:
                 log.error("firestore_tier_update_error", error=str(e), uid=uid)
 
@@ -204,7 +198,7 @@ class UserTierManager:
 
 
 # ── Singleton ──────────────────────────────────────────────────────
-_manager: Optional[UserTierManager] = None
+_manager: UserTierManager | None = None
 
 
 def get_tier_manager(db=None) -> UserTierManager:

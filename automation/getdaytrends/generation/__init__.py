@@ -28,6 +28,7 @@ def __getattr__(name):
     # generator.py imports from generation.persona, so we can't eagerly
     # import from generator at module level (circular import).
     import generator as _gen
+
     _exports = {
         "generate_for_trend_async": _gen.generate_for_trend_async,
         "generate_for_trend": _gen.generate_for_trend,

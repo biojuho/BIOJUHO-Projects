@@ -22,7 +22,7 @@ export default function ProductRegistry() {
     success: null,
     submitError: null,
   });
-  
+
   const [formData, setFormData] = useState(EMPTY_FORM);
 
   const handleChange = useCallback((field, value) => {
@@ -35,7 +35,7 @@ export default function ProductRegistry() {
       setUiState(prev => ({ ...prev, submitError: 'Owner ID is required.' }));
       return;
     }
-    
+
     setUiState({ loading: true, success: null, submitError: null });
 
     try {
@@ -47,10 +47,10 @@ export default function ProductRegistry() {
       setFormData(EMPTY_FORM);
     } catch (error) {
       console.error("Failed to register product", error);
-      setUiState({ 
-        loading: false, 
-        success: null, 
-        submitError: error.response?.data?.detail || error.message || 'Registration failed.' 
+      setUiState({
+        loading: false,
+        success: null,
+        submitError: error.response?.data?.detail || error.message || 'Registration failed.'
       });
     }
   }, [formData]);

@@ -18,17 +18,17 @@ API_VERSION: str = "v1alpha"
 MODEL_NAME: str = "models/lyria-realtime-exp"
 
 # ── 오디오 상수 (Lyria RealTime 출력 포맷) ─────────────────
-SAMPLE_RATE: int = 48_000       # 48 kHz
-CHANNELS: int = 2               # 스테레오
-SAMPLE_WIDTH: int = 2           # 16-bit (2 bytes per sample)
-DTYPE: str = "int16"            # numpy dtype
+SAMPLE_RATE: int = 48_000  # 48 kHz
+CHANNELS: int = 2  # 스테레오
+SAMPLE_WIDTH: int = 2  # 16-bit (2 bytes per sample)
+DTYPE: str = "int16"  # numpy dtype
 
 # ── 음악 생성 기본값 ──────────────────────────────────────
 DEFAULT_PROMPT: str = "ambient electronic"
 DEFAULT_WEIGHT: float = 1.0
 DEFAULT_BPM: int = 120
 DEFAULT_TEMPERATURE: float = 1.0
-DEFAULT_DURATION: int = 30      # 초
+DEFAULT_DURATION: int = 30  # 초
 
 # ── 출력 경로 ─────────────────────────────────────────────
 OUTPUT_DIR: Path = Path(__file__).parent / "output"
@@ -36,7 +36,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 # ── 재연결 설정 ───────────────────────────────────────────
 MAX_RETRIES: int = 3
-RETRY_BASE_DELAY: float = 1.0   # 초 (exponential backoff)
+RETRY_BASE_DELAY: float = 1.0  # 초 (exponential backoff)
 
 
 def validate_api_key() -> None:

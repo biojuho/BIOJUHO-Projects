@@ -1,15 +1,14 @@
-# -*- coding: utf-8 -*-
 """tests/test_canva.py — canva.py 단위 테스트.
 
 C-4: Canva Visuals Pipeline Integration 테스트.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from config import AppConfig
 from canva import generate_visual_assets
+from config import AppConfig
 
 
 @pytest.fixture
@@ -76,11 +75,15 @@ def test_canva_min_score_default_90():
 
 def test_canva_config_from_env():
     import os
-    with patch.dict(os.environ, {
-        "ENABLE_CANVA_VISUALS": "true",
-        "CANVA_MIN_SCORE": "85",
-        "CANVA_API_KEY": "test-key",
-    }):
+
+    with patch.dict(
+        os.environ,
+        {
+            "ENABLE_CANVA_VISUALS": "true",
+            "CANVA_MIN_SCORE": "85",
+            "CANVA_API_KEY": "test-key",
+        },
+    ):
         config = AppConfig.from_env()
         assert config.enable_canva_visuals is True
         assert config.canva_min_score == 85

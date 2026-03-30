@@ -22,12 +22,12 @@ Templates live in ``shared/prompts/templates/*.yaml`` with this schema::
 
 Few-shot examples live in ``shared/prompts/few_shot_examples/*.json``.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ _EXAMPLES_DIR = Path(__file__).parent / "few_shot_examples"
 
 try:
     import yaml as _yaml
+
     _YAML_OK = True
 except ImportError:
     _YAML_OK = False
@@ -51,8 +52,7 @@ def _load_yaml(path: Path) -> dict:
 class PromptTemplate:
     """A single loaded prompt template."""
 
-    __slots__ = ("name", "version", "description", "system", "variables",
-                 "few_shot_key", "tags", "source_path")
+    __slots__ = ("name", "version", "description", "system", "variables", "few_shot_key", "tags", "source_path")
 
     def __init__(self, data: dict, source_path: Path | None = None):
         self.name: str = data["name"]
@@ -77,6 +77,7 @@ class PromptTemplate:
 
 class _SafeDict(dict):
     """Dict that returns {key} for missing keys instead of raising."""
+
     def __missing__(self, key: str) -> str:
         return "{" + key + "}"
 
@@ -140,8 +141,7 @@ class PromptManager:
         """
         tpl = self._templates.get(template_name)
         if tpl is None:
-            raise KeyError(f"Prompt template '{template_name}' not found. "
-                           f"Available: {self.list_templates()}")
+            raise KeyError(f"Prompt template '{template_name}' not found. " f"Available: {self.list_templates()}")
 
         few_shot_text = ""
         fs_key = kwargs.pop("few_shot_key", "") or tpl.few_shot_key

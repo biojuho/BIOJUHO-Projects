@@ -2,13 +2,13 @@
 
 from .cost_tracker import detect_project_context, get_daily_cost_summary
 from .sentry_integration import (
-    init_sentry,
+    add_breadcrumb,
     capture_exception,
     capture_message,
-    add_breadcrumb,
+    init_sentry,
     pipeline_span,
-    sentry_cost_warning,
     send_quality_alert,
+    sentry_cost_warning,
 )
 
 __all__ = [

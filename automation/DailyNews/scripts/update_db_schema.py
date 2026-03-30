@@ -4,7 +4,6 @@ import asyncio
 import json
 
 from notion_client import AsyncClient
-
 from settings import NOTION_API_KEY, NOTION_TASKS_DATABASE_ID
 
 

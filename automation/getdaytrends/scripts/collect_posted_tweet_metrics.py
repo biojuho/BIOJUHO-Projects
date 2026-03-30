@@ -4,16 +4,14 @@ import argparse
 import asyncio
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
 def parse_args() -> argparse.Namespace:
     script_dir = Path(__file__).resolve().parent
     project_dir = script_dir.parent
-    parser = argparse.ArgumentParser(
-        description="Collect X performance metrics for posted GetDayTrends tweets."
-    )
+    parser = argparse.ArgumentParser(description="Collect X performance metrics for posted GetDayTrends tweets.")
     parser.add_argument(
         "--db-path",
         default=str(project_dir / "data" / "getdaytrends.db"),
@@ -44,7 +42,7 @@ async def run_collection(args: argparse.Namespace) -> dict:
     collected = await tracker.run_collection_cycle(lookback_hours=args.lookback_hours)
     summary = tracker.get_performance_summary(days=max(1, round(args.lookback_hours / 24)))
     return {
-        "generated_at": datetime.now(timezone.utc).astimezone().isoformat(),
+        "generated_at": datetime.now(UTC).astimezone().isoformat(),
         "db_path": str(Path(args.db_path).resolve()),
         "lookback_hours": args.lookback_hours,
         "collected_count": collected,

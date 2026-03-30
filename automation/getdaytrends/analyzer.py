@@ -9,22 +9,9 @@ import asyncio
 import json
 import sqlite3
 
-
-
-from config import AppConfig
-from db import compute_fingerprint, get_cached_score
-from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
+from loguru import logger as log
 from shared.llm import LLMClient, TaskTier, get_client
 from shared.llm.models import LLMPolicy
-from trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local  # noqa: F401
-from trend_genealogy import (  # noqa: F401
-    analyze_trend_genealogy,
-    detect_trend_patterns,
-    enrich_trends_with_genealogy,
-)
-from utils import run_async, sanitize_keyword
-
-from loguru import logger as log
 
 # -- 추출된 모듈 re-export (후방 호환) --
 from analysis.parsing import (  # noqa: F401
@@ -35,7 +22,16 @@ from analysis.parsing import (  # noqa: F401
     _parse_scored_trend_from_dict,
     _score_batch_instructor,
 )
-
+from config import AppConfig
+from db import compute_fingerprint, get_cached_score
+from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
+from trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local  # noqa: F401
+from trend_genealogy import (  # noqa: F401
+    analyze_trend_genealogy,
+    detect_trend_patterns,
+    enrich_trends_with_genealogy,
+)
+from utils import run_async, sanitize_keyword
 
 # ══════════════════════════════════════════════════════
 #  Scoring Prompt
@@ -174,8 +170,12 @@ async def _score_trend_async(
         if cached:
             log.info(f"  [캐시] '{keyword}' 스코어 재사용 ({cached['viral_potential']}점)")
             import json as _json
-            angles = _json.loads(cached.get("suggested_angles", "[]")) if isinstance(
-                cached.get("suggested_angles"), str) else cached.get("suggested_angles", [])
+
+            angles = (
+                _json.loads(cached.get("suggested_angles", "[]"))
+                if isinstance(cached.get("suggested_angles"), str)
+                else cached.get("suggested_angles", [])
+            )
             return ScoredTrend(
                 keyword=keyword,
                 rank=0,
@@ -191,6 +191,7 @@ async def _score_trend_async(
 
     # ── LLM 스코어링 (최대 2회 시도) ──
     from datetime import datetime as _dt
+
     safe_keyword = sanitize_keyword(keyword)
     prompt = SCORING_PROMPT_TEMPLATE.format(
         keyword=safe_keyword,
@@ -257,9 +258,6 @@ async def _score_trend_async(
     return _default_scored_trend(keyword, context)
 
 
-
-
-
 # ══════════════════════════════════════════════════════
 #  배치 스코어링 (Phase 2: 5개/LLM 호출, 비용 ~70% 절감)
 # ══════════════════════════════════════════════════════
@@ -289,24 +287,27 @@ async def _batch_score_async(
             cached = await get_cached_score(conn, fp, max_age_hours=18)
             if cached:
                 import json as _json
-                angles = _json.loads(cached.get("suggested_angles", "[]")) \
-                    if isinstance(cached.get("suggested_angles"), str) \
+
+                angles = (
+                    _json.loads(cached.get("suggested_angles", "[]"))
+                    if isinstance(cached.get("suggested_angles"), str)
                     else cached.get("suggested_angles", [])
+                )
                 log.info(f"  [캐시] '{trend.name}' 스코어 재사용 ({cached['viral_potential']}점)")
                 cached_results[trend.name] = ScoredTrend(
-                    keyword=trend.name, rank=0,
+                    keyword=trend.name,
+                    rank=0,
                     volume_last_24h=trend.volume_numeric,
                     trend_acceleration=cached.get("trend_acceleration", "+0%"),
                     viral_potential=cached["viral_potential"],
                     top_insight=cached.get("top_insight", ""),
                     suggested_angles=angles,
                     best_hook_starter=cached.get("best_hook_starter", ""),
-                    context=ctx, sources=[TrendSource.GETDAYTRENDS],
+                    context=ctx,
+                    sources=[TrendSource.GETDAYTRENDS],
                     sentiment=cached.get("sentiment", "neutral"),
                     safety_flag=bool(cached.get("safety_flag", 0)),
-                    cross_source_confidence=_compute_cross_source_confidence(
-                        trend.volume_numeric, ctx
-                    ),
+                    cross_source_confidence=_compute_cross_source_confidence(trend.volume_numeric, ctx),
                 )
             else:
                 need_llm.append((trend, ctx))
@@ -318,10 +319,10 @@ async def _batch_score_async(
     if need_llm:
         # ── 배치 LLM 호출 ──
         from datetime import datetime as _dt
+
         current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
         trends_json = json.dumps(
-            [{"keyword": t.name, "volume": t.volume, "context": ctx.to_combined_text()}
-             for t, ctx in need_llm],
+            [{"keyword": t.name, "volume": t.volume, "context": ctx.to_combined_text()} for t, ctx in need_llm],
             ensure_ascii=False,
         )
         prompt = BATCH_SCORING_PROMPT_TEMPLATE.format(
@@ -330,9 +331,7 @@ async def _batch_score_async(
             current_time=current_time,
         )
         # [Phase 1] Instructor 우선 시도 → 실패 시 기존 JSON 파싱 폴백
-        parsed_list: list[dict] | None = await _score_batch_instructor(
-            prompt, len(need_llm)
-        )
+        parsed_list: list[dict] | None = await _score_batch_instructor(prompt, len(need_llm))
 
         if parsed_list is None:
             # 기존 경로: shared/llm 클라이언트 + 수동 JSON 파싱
@@ -350,7 +349,9 @@ async def _batch_score_async(
                     parsed_list = _parse_json_array(text)
                     if parsed_list and len(parsed_list) == len(need_llm):
                         break
-                    log.warning(f"배치 스코어링 응답 길이 불일치: {len(parsed_list) if parsed_list else 0} vs {len(need_llm)}")
+                    log.warning(
+                        f"배치 스코어링 응답 길이 불일치: {len(parsed_list) if parsed_list else 0} vs {len(need_llm)}"
+                    )
                     parsed_list = None
                 except Exception as e:
                     log.error(f"배치 스코어링 실패 ({attempt + 1}/2): {e}")
@@ -358,28 +359,28 @@ async def _batch_score_async(
                         await asyncio.sleep(1)
 
         if parsed_list:
-            for (trend, ctx), item in zip(need_llm, parsed_list):
+            for (trend, ctx), item in zip(need_llm, parsed_list, strict=False):
                 keyword = sanitize_keyword(trend.name)
                 # [v9.0 B-1] DB에서 실제 velocity 조회
                 vel = 0.0
                 if conn is not None:
                     try:
                         from db import get_volume_velocity
+
                         vel = await get_volume_velocity(conn, keyword)
                     except Exception:
                         pass
-                results.append(_parse_scored_trend_from_dict(
-                    item, keyword, trend.volume_numeric, ctx, config, velocity=vel
-                ))
+                results.append(
+                    _parse_scored_trend_from_dict(item, keyword, trend.volume_numeric, ctx, config, velocity=vel)
+                )
         else:
             # 배치 실패 → 개별 스코어링 폴백
             log.warning(f"배치 스코어링 실패 → 개별 폴백 ({len(need_llm)}개)")
             fallback = await asyncio.gather(
-                *[_score_trend_async(t.name, ctx, t.volume, t.volume_numeric, client, conn)
-                  for t, ctx in need_llm],
+                *[_score_trend_async(t.name, ctx, t.volume, t.volume_numeric, client, conn) for t, ctx in need_llm],
                 return_exceptions=True,
             )
-            for (trend, ctx), res in zip(need_llm, fallback):
+            for (trend, ctx), res in zip(need_llm, fallback, strict=False):
                 if isinstance(res, Exception):
                     results.append(_default_scored_trend(trend.name, ctx))
                 else:
@@ -395,9 +396,11 @@ async def _batch_score_async(
             ordered.append(match if match else _default_scored_trend(trend.name, ctx))
     return ordered
 
+
 # ══════════════════════════════════════════════════════
 #  Async Orchestrator
 # ══════════════════════════════════════════════════════
+
 
 async def _analyze_trends_async(
     raw_trends: list[RawTrend],
@@ -420,7 +423,9 @@ async def _analyze_trends_async(
         use_emb = getattr(config, "enable_embedding_clustering", True)
         emb_threshold = getattr(config, "embedding_cluster_threshold", 0.75)
         raw_trends, contexts, clusters = cluster_trends_local(
-            raw_trends, contexts, threshold,
+            raw_trends,
+            contexts,
+            threshold,
             use_embedding=use_emb,
             embedding_threshold=emb_threshold,
         )
@@ -453,7 +458,8 @@ async def _analyze_trends_async(
 
     # [v14.1] 임베딩 기반 카테고리 사전 분류 힌트
     try:
-        from shared.embeddings import embed_texts, cosine_similarity as _cos_sim
+        from shared.embeddings import cosine_similarity as _cos_sim
+        from shared.embeddings import embed_texts
 
         _CATEGORY_REFS = {
             "정치": "국회 대통령 정당 선거 법안 정책",
@@ -473,8 +479,7 @@ async def _analyze_trends_async(
             trend_vectors = embed_texts(trend_names, task_type="SEMANTIC_SIMILARITY")
             if trend_vectors:
                 for i, t in enumerate(raw_trends):
-                    scores = {cat: _cos_sim(trend_vectors[i], ref_vectors[j])
-                              for j, cat in enumerate(ref_keys)}
+                    scores = {cat: _cos_sim(trend_vectors[i], ref_vectors[j]) for j, cat in enumerate(ref_keys)}
                     best_cat = max(scores, key=scores.get)
                     best_score = scores[best_cat]
                     if best_score >= 0.50:  # 최소 신뢰도
@@ -491,7 +496,7 @@ async def _analyze_trends_async(
 
     # 배치 분할 (5개씩)
     pairs = [(t, contexts.get(t.name, MultiSourceContext())) for t in raw_trends]
-    batches = [pairs[i:i + _BATCH_SIZE] for i in range(0, len(pairs), _BATCH_SIZE)]
+    batches = [pairs[i : i + _BATCH_SIZE] for i in range(0, len(pairs), _BATCH_SIZE)]
     bucket = getattr(config, "cache_volume_bucket", 5000)
 
     log.info(f"  배치 스코어링 시작: {len(raw_trends)}개 → {len(batches)}배치 (배치크기={_BATCH_SIZE})")
@@ -501,7 +506,7 @@ async def _analyze_trends_async(
     )
 
     scored: list[ScoredTrend] = []
-    for batch, raw_batch in zip(batch_results, batches):
+    for batch, raw_batch in zip(batch_results, batches, strict=False):
         if isinstance(batch, Exception):
             log.error(f"배치 스코어링 전체 예외: {batch}")
             for trend, ctx in raw_batch:
@@ -530,16 +535,15 @@ async def _analyze_trends_async(
     # Phase 3: 히스토리 패턴 보정 [v9.0] N+1 → 배치 조회
     if config.enable_history_correction and conn is not None:
         _HISTORY_MULTIPLIER = {
-            "new":     1.10,
-            "rising":  1.15,
-            "stable":  0.90,
+            "new": 1.10,
+            "rising": 1.15,
+            "stable": 0.90,
             "falling": 0.75,
         }
         try:
             from db import get_trend_history_patterns_batch
-            pattern_map = await get_trend_history_patterns_batch(
-                conn, [r.keyword for r in scored], days=7
-            )
+
+            pattern_map = await get_trend_history_patterns_batch(conn, [r.keyword for r in scored], days=7)
         except Exception as _e:
             log.debug(f"배치 히스토리 조회 실패 (무시): {_e}")
             pattern_map = {}
@@ -562,19 +566,17 @@ async def _analyze_trends_async(
     # Phase 4: 중연 킥 기반 장문 조건 연동
     kick_threshold = getattr(config, "joongyeon_kick_long_form_threshold", 75)
     for result in scored:
-        if result.joongyeon_kick >= kick_threshold and \
-                result.viral_potential < config.long_form_min_score:
+        if result.joongyeon_kick >= kick_threshold and result.viral_potential < config.long_form_min_score:
             result.viral_potential = config.long_form_min_score
-            log.debug(
-                f"  [Phase4 킥] '{result.keyword}' kick={result.joongyeon_kick} → 장문 미니스코어 우회"
-            )
+            log.debug(f"  [Phase4 킥] '{result.keyword}' kick={result.joongyeon_kick} → 장문 미니스코어 우회")
 
     # Phase 5: [v9.0 C-6] 이머징 트렌드 감지
-    if getattr(config, 'enable_emerging_detection', True) and conn is not None:
-        vel_threshold = getattr(config, 'emerging_velocity_threshold', 2.0)
-        vol_cap = getattr(config, 'emerging_volume_cap', 5000)
+    if getattr(config, "enable_emerging_detection", True) and conn is not None:
+        vel_threshold = getattr(config, "emerging_velocity_threshold", 2.0)
+        vol_cap = getattr(config, "emerging_volume_cap", 5000)
         try:
             from db import get_volume_velocity
+
             for result in scored:
                 vel = await get_volume_velocity(conn, result.keyword)
                 result.velocity = vel
@@ -614,4 +616,3 @@ def analyze_trends(
 ) -> list[ScoredTrend]:
     """동기 래퍼. 내부적으로 비동기 병렬 스코어링 실행."""
     return run_async(_analyze_trends_async(raw_trends, contexts, config, conn))
-

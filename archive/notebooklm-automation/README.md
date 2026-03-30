@@ -20,7 +20,7 @@ notebooklm-api              # → http://localhost:8788
 Google Drive → 텍스트 추출 → AI 아티클 → Notion 자동 발행
 
 ```bash
-# PDF → Notion  
+# PDF → Notion
 curl -X POST http://localhost:8788/pipeline/drive-to-notion \
   -H "Content-Type: application/json" \
   -d '{"file_url": "https://drive.google.com/...", "file_type": "pdf", "project": "MyProject"}'

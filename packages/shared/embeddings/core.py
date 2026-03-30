@@ -18,8 +18,6 @@ import asyncio
 import hashlib
 import math
 import os
-from functools import lru_cache
-from typing import Optional
 
 try:
     from loguru import logger as log
@@ -54,6 +52,7 @@ def _cache_key(text: str, dimensions: int, task_type: str) -> str:
 def _evict_expired() -> None:
     """만료된 캐시 항목 제거."""
     import time
+
     now = time.time()
     expired = [k for k, (ts, _) in _EMBED_CACHE.items() if now - ts > _CACHE_TTL]
     for k in expired:
@@ -75,6 +74,7 @@ def _get_genai_client():
 
     try:
         from google import genai
+
         api_key = os.getenv("GOOGLE_API_KEY", "")
         if not api_key:
             log.warning("[임베딩] GOOGLE_API_KEY 미설정 → 임베딩 비활성화")
@@ -93,11 +93,12 @@ def _get_genai_client():
 #  Embedding API
 # ══════════════════════════════════════════════════════
 
+
 def embed_texts(
     texts: list[str],
     dimensions: int = DEFAULT_DIMENSIONS,
     task_type: str = "CLUSTERING",
-) -> Optional[list[list[float]]]:
+) -> list[list[float]] | None:
     """
     텍스트 목록을 Gemini Embedding 2로 벡터화 (동기).
 
@@ -117,6 +118,7 @@ def embed_texts(
         return None
 
     import time as _time
+
     _evict_expired()
 
     # 캐시 히트/미스 분리
@@ -159,7 +161,7 @@ def embed_texts(
         vectors = [emb.values for emb in result.embeddings]
 
         # 결과를 캐시에 저장하고 results에 배치
-        for idx, vec in zip(miss_indices, vectors):
+        for idx, vec in zip(miss_indices, vectors, strict=False):
             key = _cache_key(texts[idx], dimensions, task_type)
             _EMBED_CACHE[key] = (now, vec)
             results[idx] = vec
@@ -167,7 +169,7 @@ def embed_texts(
         # 캐시 크기 제한
         if len(_EMBED_CACHE) > _CACHE_MAX_SIZE:
             sorted_keys = sorted(_EMBED_CACHE, key=lambda k: _EMBED_CACHE[k][0])
-            for k in sorted_keys[:len(_EMBED_CACHE) - _CACHE_MAX_SIZE]:
+            for k in sorted_keys[: len(_EMBED_CACHE) - _CACHE_MAX_SIZE]:
                 del _EMBED_CACHE[k]
 
         log.debug(f"[임베딩] {len(miss_texts)}개 API 호출 + {cache_hits}개 캐시 → 총 {len(texts)}개 완료")
@@ -182,7 +184,7 @@ async def embed_texts_async(
     texts: list[str],
     dimensions: int = DEFAULT_DIMENSIONS,
     task_type: str = "CLUSTERING",
-) -> Optional[list[list[float]]]:
+) -> list[list[float]] | None:
     """비동기 임베딩 — asyncio.to_thread로 래핑."""
     return await asyncio.to_thread(embed_texts, texts, dimensions, task_type)
 
@@ -191,11 +193,12 @@ async def embed_texts_async(
 #  코사인 유사도
 # ══════════════════════════════════════════════════════
 
+
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     """두 벡터 간 코사인 유사도 (0.0 ~ 1.0)."""
     if len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
     if norm_a == 0 or norm_b == 0:
@@ -219,6 +222,7 @@ def compute_similarity_matrix(vectors: list[list[float]]) -> list[list[float]]:
 # ══════════════════════════════════════════════════════
 #  의미적 중복 제거
 # ══════════════════════════════════════════════════════
+
 
 def deduplicate_texts(
     texts: list[str],
@@ -259,10 +263,7 @@ def deduplicate_texts(
         for j in selected:
             sim = cosine_similarity(vectors[i], vectors[j])
             if sim >= threshold:
-                log.debug(
-                    f"[중복 제거] '{texts[i][:30]}' ↔ '{texts[j][:30]}' "
-                    f"= {sim:.3f} ≥ {threshold} → 제거"
-                )
+                log.debug(f"[중복 제거] '{texts[i][:30]}' ↔ '{texts[j][:30]}' " f"= {sim:.3f} ≥ {threshold} → 제거")
                 is_dup = True
                 break
         if not is_dup:

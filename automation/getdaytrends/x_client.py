@@ -20,17 +20,18 @@ from loguru import logger as log
 # Twikit은 선택 의존성 (설치 안 되어 있으면 폴백 비활성화)
 try:
     from twikit import Client as TwikitClient
+
     TWIKIT_AVAILABLE = True
 except ImportError:
     TWIKIT_AVAILABLE = False
 
 _COOKIES_PATH = Path(__file__).parent / "data" / "x_cookies.json"
-_client: "TwikitClient | None" = None
+_client: TwikitClient | None = None
 _client_lock = asyncio.Lock()
 _login_attempted = False
 
 
-async def _get_client() -> "TwikitClient | None":
+async def _get_client() -> TwikitClient | None:
     """Twikit 싱글톤 클라이언트. 쿠키 기반 세션 재사용."""
     global _client, _login_attempted
 
@@ -111,13 +112,15 @@ async def search_tweets(keyword: str, count: int = 10) -> list[dict[str, Any]]:
                 "replies": getattr(tweet, "reply_count", 0) or 0,
                 "quotes": getattr(tweet, "quote_count", 0) or 0,
             }
-            results.append({
-                "id": getattr(tweet, "id", ""),
-                "text": getattr(tweet, "text", ""),
-                "user": getattr(tweet.user, "screen_name", "") if tweet.user else "",
-                "created_at": getattr(tweet, "created_at", ""),
-                **metrics,
-            })
+            results.append(
+                {
+                    "id": getattr(tweet, "id", ""),
+                    "text": getattr(tweet, "text", ""),
+                    "user": getattr(tweet.user, "screen_name", "") if tweet.user else "",
+                    "created_at": getattr(tweet, "created_at", ""),
+                    **metrics,
+                }
+            )
         return results
     except Exception as e:
         log.debug(f"[Twikit] 트윗 검색 실패 ({keyword}): {e}")
@@ -149,6 +152,7 @@ async def search_tweets_formatted(keyword: str, count: int = 10) -> str:
         if raw_ts:
             try:
                 from datetime import datetime, timedelta, timezone
+
                 # Twikit은 "Thu Mar 19 12:30:00 +0000 2026" 형식
                 dt_utc = datetime.strptime(raw_ts, "%a %b %d %H:%M:%S %z %Y")
                 dt_local = dt_utc.astimezone(timezone(timedelta(hours=9)))  # KST
@@ -172,10 +176,7 @@ async def fetch_trends(category: str = "trending") -> list[dict[str, Any]]:
 
     try:
         trends = await client.get_trends(category)
-        return [
-            {"name": getattr(t, "name", str(t)), "tweet_count": getattr(t, "tweet_count", 0) or 0}
-            for t in trends
-        ]
+        return [{"name": getattr(t, "name", str(t)), "tweet_count": getattr(t, "tweet_count", 0) or 0} for t in trends]
     except Exception as e:
         log.debug(f"[Twikit] 트렌드 수집 실패: {e}")
         return []

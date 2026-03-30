@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from loguru import logger as log
 from pydantic import BaseModel, Field
 
+from .alerts import AlertLevel, send_alert
 from .bridge import (
     NOTEBOOKLM_AVAILABLE,
     analyze_bio_company,
@@ -21,7 +22,6 @@ from .bridge import (
     research_tool,
     trend_to_notebook,
 )
-from .alerts import AlertLevel, send_alert
 from .config import get_config
 from .execution_log import ExecutionLogger
 from .extractors.ocr_extractor import extract_image_text
@@ -40,6 +40,7 @@ from .publishers.twitter import post_tweet
 # ──────────────────────────────────────────────────
 #  Request / Response Models
 # ──────────────────────────────────────────────────
+
 
 class NotebookRequest(BaseModel):
     keyword: str = Field(..., description="트렌드 키워드")
@@ -153,6 +154,7 @@ class XPublishResponse(BaseModel):
 
 class PipelineDriveToNotionRequest(BaseModel):
     """Integrated pipeline: Google Drive file → text extraction → AI article → Notion."""
+
     file_url: str = Field(default="", description="Google Drive direct download URL")
     file_content_base64: str = Field(default="", description="Base64-encoded file content (alternative to URL)")
     file_name: str = Field(default="", description="Original file name for format detection")
@@ -181,6 +183,7 @@ class PipelineDriveToNotionResponse(BaseModel):
 #  App Lifecycle
 # ──────────────────────────────────────────────────
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if NOTEBOOKLM_AVAILABLE:
@@ -203,6 +206,7 @@ app = FastAPI(
 #  Endpoints
 # ──────────────────────────────────────────────────
 
+
 @app.get("/health", response_model=HealthResponse)
 async def get_health():
     result = await health_check()
@@ -220,8 +224,11 @@ async def create_notebook(req: NotebookRequest):
         raise HTTPException(503, "notebooklm-py 미설치")
     try:
         result = await trend_to_notebook(
-            keyword=req.keyword, urls=req.urls, viral_score=req.viral_score,
-            category=req.category, context_text=req.context_text,
+            keyword=req.keyword,
+            urls=req.urls,
+            viral_score=req.viral_score,
+            category=req.category,
+            context_text=req.context_text,
             content_types=req.content_types or [],
         )
         return NotebookResponse(**result)
@@ -235,15 +242,18 @@ async def run_content_factory(req: ContentFactoryRequest):
         raise HTTPException(503, "notebooklm-py 미설치")
     try:
         result = await content_factory(
-            keyword=req.keyword, urls=req.urls,
-            category=req.category, context_text=req.context_text,
+            keyword=req.keyword,
+            urls=req.urls,
+            category=req.category,
+            context_text=req.context_text,
         )
         notion_url = ""
         if req.notion_api_key and req.notion_database_id:
             try:
                 nr = await publish_to_notion(
                     factory_result={**result, "keyword": req.keyword, "category": req.category},
-                    notion_api_key=req.notion_api_key, database_id=req.notion_database_id,
+                    notion_api_key=req.notion_api_key,
+                    database_id=req.notion_database_id,
                 )
                 notion_url = nr.get("notion_url", "")
             except Exception:
@@ -266,8 +276,10 @@ async def run_research(req: ResearchRequest):
         raise HTTPException(503, "notebooklm-py 미설치")
     try:
         result = await research_tool(
-            topic=req.topic, urls=req.urls,
-            research_questions=req.questions, category=req.category,
+            topic=req.topic,
+            urls=req.urls,
+            research_questions=req.questions,
+            category=req.category,
         )
         return ResearchResponse(**result)
     except Exception as e:
@@ -280,7 +292,9 @@ async def run_bio_analyze(req: BioAnalyzeRequest):
         raise HTTPException(503, "notebooklm-py 미설치")
     try:
         result = await analyze_bio_company(
-            company_name=req.company_name, urls=req.urls, focus_areas=req.focus_areas,
+            company_name=req.company_name,
+            urls=req.urls,
+            focus_areas=req.focus_areas,
         )
         return BioAnalyzeResponse(**result)
     except Exception as e:
@@ -292,7 +306,8 @@ async def run_publish_notion(req: NotionPublishRequest):
     try:
         return await publish_to_notion(
             factory_result=req.factory_result,
-            notion_api_key=req.notion_api_key, database_id=req.database_id,
+            notion_api_key=req.notion_api_key,
+            database_id=req.database_id,
         )
     except Exception as e:
         raise HTTPException(500, f"Notion 발행 실패: {e}")
@@ -315,8 +330,10 @@ async def get_auth_status():
 async def run_auth_refresh():
     result = refresh_auth()
     return AuthRefreshResponse(
-        success=result["success"], method=result["method"],
-        message=result["message"], timestamp=result["timestamp"],
+        success=result["success"],
+        method=result["method"],
+        message=result["message"],
+        timestamp=result["timestamp"],
         auth_status=check_auth_status(),
     )
 
@@ -369,10 +386,14 @@ async def run_pipeline_drive_to_notion(req: PipelineDriveToNotionRequest):
 
     # Execution logging
     exec_log = ExecutionLogger()
-    run_id = exec_log.start_run("drive-to-notion", {
-        "file_name": req.file_name, "file_type": req.file_type,
-        "project": req.project,
-    })
+    run_id = exec_log.start_run(
+        "drive-to-notion",
+        {
+            "file_name": req.file_name,
+            "file_type": req.file_type,
+            "project": req.project,
+        },
+    )
 
     # ── Step 1: Get file content ──
     file_bytes: bytes = b""
@@ -406,6 +427,7 @@ async def run_pipeline_drive_to_notion(req: PipelineDriveToNotionRequest):
         if req.file_url and "/presentation/d/" in req.file_url:
             try:
                 from .extractors.slides_extractor import extract_slides_text
+
                 pres_id = req.file_url.split("/presentation/d/")[1].split("/")[0]
                 extracted_text = await extract_slides_text(pres_id)
             except Exception as e:
@@ -421,9 +443,7 @@ async def run_pipeline_drive_to_notion(req: PipelineDriveToNotionRequest):
             extracted_text = extract_pdf_text(file_bytes)  # Try PDF anyway
 
     if not extracted_text or len(extracted_text) < 50:
-        return PipelineDriveToNotionResponse(
-            success=False, error="텍스트 추출 실패 또는 내용 부족 (50자 미만)"
-        )
+        return PipelineDriveToNotionResponse(success=False, error="텍스트 추출 실패 또는 내용 부족 (50자 미만)")
 
     log.info("[Pipeline] extracted %d chars from %s", len(extracted_text), file_type)
 
@@ -453,6 +473,7 @@ async def run_pipeline_drive_to_notion(req: PipelineDriveToNotionRequest):
         else:
             try:
                 from .templates import PromptTemplateManager
+
                 mgr = PromptTemplateManager()
                 prompt = mgr.build_article_prompt(req.project, extracted_text[:8000])
             except Exception:
@@ -551,19 +572,29 @@ async def run_pipeline_drive_to_notion(req: PipelineDriveToNotionRequest):
             error=f"Notion 발행 실패: {e}",
         )
         exec_log.complete_run(run_id, success=False, error=str(e))
-        await send_alert(AlertLevel.ERROR, "Notion 발행 실패", details={
-            "run_id": run_id, "file": req.file_name, "error": str(e),
-        })
+        await send_alert(
+            AlertLevel.ERROR,
+            "Notion 발행 실패",
+            details={
+                "run_id": run_id,
+                "file": req.file_name,
+                "error": str(e),
+            },
+        )
         return resp
 
     # Log successful completion
-    exec_log.complete_run(run_id, success=True, result={
-        "article_title": article_title,
-        "article_length": len(article_body),
-        "extracted_text_length": len(extracted_text),
-        "notion_url": notion_result.get("notion_url", ""),
-        "ai_model_used": ai_model_used,
-    })
+    exec_log.complete_run(
+        run_id,
+        success=True,
+        result={
+            "article_title": article_title,
+            "article_length": len(article_body),
+            "extracted_text_length": len(extracted_text),
+            "notion_url": notion_result.get("notion_url", ""),
+            "ai_model_used": ai_model_used,
+        },
+    )
 
     return PipelineDriveToNotionResponse(
         success=True,
@@ -598,6 +629,7 @@ async def get_pipeline_stats(days: int = 7):
 # ──────────────────────────────────────────────────
 #  CLI Entry
 # ──────────────────────────────────────────────────
+
 
 def main() -> None:
     """CLI entry point registered as ``notebooklm-api``."""

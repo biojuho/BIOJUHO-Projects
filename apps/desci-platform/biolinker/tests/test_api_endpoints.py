@@ -6,19 +6,18 @@ External service stubs are provided by conftest.py fixtures:
   - async_client: httpx AsyncClient with all services mocked
   - mock_external_services: dict of stub objects for further customisation
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from httpx import AsyncClient
-
 # Module references for monkeypatching (imported via conftest sys.path setup)
 import main as app_main  # noqa: E402
+import pytest
 import routers.crawl as crawl_router  # noqa: E402
 import routers.rfp as rfp_router  # noqa: E402
 import routers.web3 as web3_router  # noqa: E402
-
+from httpx import AsyncClient
 
 # ─── GET /health ─────────────────────────────────────────────────────────────
 
@@ -55,7 +54,8 @@ async def test_health_healthy_when_vector_store_ok(async_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_health_degraded_when_vector_store_fails(monkeypatch):
     """When vector store raises, status should be 'degraded'."""
-    from httpx import ASGITransport, AsyncClient as _AsyncClient
+    from httpx import ASGITransport
+    from httpx import AsyncClient as _AsyncClient
 
     broken_store = MagicMock()
     broken_store.count.side_effect = RuntimeError("connection refused")
@@ -138,7 +138,7 @@ async def test_notices_empty_list(async_client: AsyncClient, monkeypatch):
 @pytest.mark.asyncio
 async def test_analyze_returns_200_with_mocked_llm(async_client: AsyncClient, monkeypatch):
     """POST /analyze should return a structured AnalyzeResponse when LLM is mocked."""
-    from models import RFPDocument, AnalysisResult, FitGrade
+    from models import AnalysisResult, FitGrade, RFPDocument
 
     # Mock crawler.parse_text
     mock_rfp = RFPDocument(
@@ -326,9 +326,7 @@ async def test_match_rfp_returns_results(async_client: AsyncClient, monkeypatch)
     response = await async_client.get("/match/rfp", params={"query": "AI drug discovery"})
 
     assert response.status_code == 200
-    stub_vector_store.search_similar.assert_called_once_with(
-        "AI drug discovery", n_results=5, filters=None
-    )
+    stub_vector_store.search_similar.assert_called_once_with("AI drug discovery", n_results=5, filters=None)
 
 
 @pytest.mark.asyncio

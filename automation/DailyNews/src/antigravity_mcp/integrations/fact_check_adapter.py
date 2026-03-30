@@ -4,6 +4,7 @@ This module wraps ``shared.fact_check`` when available and filters out
 low-signal false positives that would otherwise create noisy editorial
 warnings for obviously synthetic labels or section markers.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,32 +28,88 @@ _SKIP_FACTCHECK_PREFIXES = (
 
 # Static set for exact matches — only truly universal noise terms.
 _NOISE_ENTITY_TERMS = {
-    "tech", "economy", "economy_kr", "economy_global", "crypto", "ai",
-    "manual", "summary", "signal", "pattern", "draft", "post",
-    "first", "second", "third", "fourth", "one", "two", "three",
-    "line", "insight", "government", "privacy", "new", "top",
+    "tech",
+    "economy",
+    "economy_kr",
+    "economy_global",
+    "crypto",
+    "ai",
+    "manual",
+    "summary",
+    "signal",
+    "pattern",
+    "draft",
+    "post",
+    "first",
+    "second",
+    "third",
+    "fourth",
+    "one",
+    "two",
+    "three",
+    "line",
+    "insight",
+    "government",
+    "privacy",
+    "new",
+    "top",
 }
 
 _SMALL_COUNT_SUFFIXES = {"k", "m", "b", "x"}
 
 # Korean counter suffixes that follow numbers and are low-signal.
 _KR_COUNTER_SUFFIXES = {
-    "개", "건", "회", "명", "곳", "개월", "가지", "번", "차", "배",
-    "단계", "종", "편", "장", "페이지", "줄",
+    "개",
+    "건",
+    "회",
+    "명",
+    "곳",
+    "개월",
+    "가지",
+    "번",
+    "차",
+    "배",
+    "단계",
+    "종",
+    "편",
+    "장",
+    "페이지",
+    "줄",
 }
 
 # Common Korean verb-stem fragments that appear as hallucinated entities.
 # Pattern: 1–3 Hangul syllables ending in 시 (causative/suffix fragments).
-_KR_VERB_STEM_RE = re.compile(
-    r"^[\uac00-\ud7a3]{0,3}시$"
-)
+_KR_VERB_STEM_RE = re.compile(r"^[\uac00-\ud7a3]{0,3}시$")
 
 # Single common English words that are product features, not real entities.
 _COMMON_ENGLISH_WORDS = {
-    "voices", "taste", "model", "models", "custom", "style", "styles",
-    "mode", "search", "tool", "tools", "chat", "agent", "agents",
-    "track", "tracks", "song", "songs", "note", "notes", "data",
-    "update", "feature", "features", "launch", "market", "trend",
+    "voices",
+    "taste",
+    "model",
+    "models",
+    "custom",
+    "style",
+    "styles",
+    "mode",
+    "search",
+    "tool",
+    "tools",
+    "chat",
+    "agent",
+    "agents",
+    "track",
+    "tracks",
+    "song",
+    "songs",
+    "note",
+    "notes",
+    "data",
+    "update",
+    "feature",
+    "features",
+    "launch",
+    "market",
+    "trend",
 }
 
 
@@ -184,11 +241,7 @@ class FactCheckAdapter:
             if source_name:
                 source_names.append(source_name)
 
-        generated_parts = [
-            part
-            for part in list(summary_lines) + list(insights)
-            if self._should_fact_check_line(part)
-        ]
+        generated_parts = [part for part in list(summary_lines) + list(insights) if self._should_fact_check_line(part)]
         generated_text = "\n".join(generated_parts)
         if not generated_text.strip():
             return {
@@ -217,9 +270,8 @@ class FactCheckAdapter:
 
         filtered_issues = self._filter_issues(list(result.issues))
         has_hallucination = any(issue.startswith("[Hallucination]") for issue in filtered_issues)
-        passed = (
-            (not has_hallucination and result.accuracy_score >= min_accuracy)
-            or (not filtered_issues and result.accuracy_score >= max(0.35, min_accuracy - 0.1))
+        passed = (not has_hallucination and result.accuracy_score >= min_accuracy) or (
+            not filtered_issues and result.accuracy_score >= max(0.35, min_accuracy - 0.1)
         )
         return {
             "passed": passed,

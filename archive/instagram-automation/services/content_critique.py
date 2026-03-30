@@ -155,9 +155,7 @@ class ContentCritique:
                 passed=True,
             )
 
-    async def revise(
-        self, caption: str, topic: str, critique: CritiqueResult
-    ) -> str:
+    async def revise(self, caption: str, topic: str, critique: CritiqueResult) -> str:
         """Revise a caption based on critique feedback."""
         prompt = REVISE_PROMPT.format(
             caption=caption,
@@ -171,9 +169,7 @@ class ContentCritique:
             system="Instagram content reviser. Output improved caption only.",
         )
         revised = resp.text.strip()
-        logger.info(
-            "Revised caption: %d→%d chars", len(caption), len(revised)
-        )
+        logger.info("Revised caption: %d→%d chars", len(caption), len(revised))
         return revised
 
     async def run_critique_loop(

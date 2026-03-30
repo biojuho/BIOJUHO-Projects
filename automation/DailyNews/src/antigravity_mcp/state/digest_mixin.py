@@ -2,11 +2,11 @@
 
 Follows the same pattern as existing mixins in :pymod:`antigravity_mcp.state.mixins`.
 """
+
 from __future__ import annotations
 
 import json
 import sqlite3
-from typing import Any
 
 from antigravity_mcp.domain.models import DigestEntry
 from antigravity_mcp.state.events import utc_now_iso
@@ -37,6 +37,7 @@ class _DigestMixin:
                     )
             else:
                 import hashlib
+
                 digest_id = hashlib.sha256(f"digest-{now}".encode()).hexdigest()[:16]
                 conn.execute(
                     """
@@ -86,6 +87,7 @@ class _DigestMixin:
     def get_next_serial_number(self) -> str:
         """Generate the next digest serial number in '0001_YYMMDD' format."""
         from datetime import date
+
         today = date.today()
         date_part = today.strftime("%y%m%d")
         with self._connect() as conn:

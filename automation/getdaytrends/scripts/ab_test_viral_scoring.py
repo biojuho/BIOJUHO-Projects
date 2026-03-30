@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -58,8 +58,7 @@ AB_TEST_HYPOTHESIS = {
         "Average score of selected trends",
     ],
     "decision_rule": (
-        "Adopt version B if Precision@10 improves by >=20% relative and "
-        "false positives do not increase."
+        "Adopt version B if Precision@10 improves by >=20% relative and " "false positives do not increase."
     ),
 }
 
@@ -84,9 +83,7 @@ SAMPLE_DATASET: list[TrendObservation] = [
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Draft A/B evaluation for GetDayTrends viral scoring."
-    )
+    parser = argparse.ArgumentParser(description="Draft A/B evaluation for GetDayTrends viral scoring.")
     parser.add_argument(
         "--dataset",
         help="Optional JSON dataset path. If omitted, a built-in sample dataset is used.",
@@ -117,12 +114,8 @@ def parse_args() -> argparse.Namespace:
 def parse_observation(item: dict) -> TrendObservation:
     return TrendObservation(
         keyword=item["keyword"],
-        single_source_score=float(
-            item.get("single_source_score", item.get("single_source_score_proxy"))
-        ),
-        multi_source_score=float(
-            item.get("multi_source_score", item.get("viral_potential"))
-        ),
+        single_source_score=float(item.get("single_source_score", item.get("single_source_score_proxy"))),
+        multi_source_score=float(item.get("multi_source_score", item.get("viral_potential"))),
         actual_hit=bool(item.get("actual_hit", item.get("observed_hit", item.get("hit")))),
         notes=item.get("notes", ""),
     )
@@ -145,9 +138,7 @@ def load_dataset(path: str | None) -> tuple[list[TrendObservation], str, dict]:
     raise ValueError("Unsupported dataset format")
 
 
-def rank_dataset(
-    dataset: list[TrendObservation], score_field: str, top_k: int
-) -> list[TrendObservation]:
+def rank_dataset(dataset: list[TrendObservation], score_field: str, top_k: int) -> list[TrendObservation]:
     return sorted(
         dataset,
         key=lambda item: (-getattr(item, score_field), item.keyword),
@@ -166,9 +157,7 @@ def relative_lift(baseline: float, variant: float) -> float:
     return (variant - baseline) / baseline
 
 
-def summarize_ranked(
-    dataset: list[TrendObservation], score_field: str, top_k: int
-) -> dict:
+def summarize_ranked(dataset: list[TrendObservation], score_field: str, top_k: int) -> dict:
     ranked = rank_dataset(dataset, score_field, top_k)
     hits = sum(1 for item in ranked if item.actual_hit)
     false_positives = len(ranked) - hits
@@ -188,9 +177,7 @@ def summarize_ranked(
 def decide(version_a: dict, version_b: dict, min_relative_lift: float) -> dict:
     lift = relative_lift(version_a["precision_at_k"], version_b["precision_at_k"])
     improved = version_b["precision_at_k"] > version_a["precision_at_k"]
-    false_positive_ok = (
-        version_b["false_positives"] <= version_a["false_positives"]
-    )
+    false_positive_ok = version_b["false_positives"] <= version_a["false_positives"]
 
     if improved and lift >= min_relative_lift and false_positive_ok:
         outcome = "adopt_b"
@@ -219,9 +206,7 @@ def render_markdown(
     version_b: dict,
     decision: dict,
 ) -> str:
-    generated_at = datetime.now(timezone.utc).astimezone().strftime(
-        "%Y-%m-%d %H:%M:%S %Z"
-    )
+    generated_at = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     lines = [
         "# GetDayTrends A/B Test Draft",
         "",

@@ -140,11 +140,3 @@ export function useWidgetProps<T extends Record<string, unknown>>(
 
   return mockData as unknown as T;
 }
-
-
-
-
-
-
-
-

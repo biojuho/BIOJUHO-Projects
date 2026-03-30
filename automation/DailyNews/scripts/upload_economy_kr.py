@@ -1,6 +1,10 @@
 """One-shot Economy_KR uploader — bypasses LLM summarization."""
+
 from __future__ import annotations
-import asyncio, sys, os
+
+import asyncio
+import os
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -11,10 +15,10 @@ os.chdir(os.path.dirname(__file__))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from runtime import fetch_feed_entries
-from settings import NOTION_API_KEY, ANTIGRAVITY_TASKS_DB_ID
-from notion_client import AsyncClient
 from news_bot import _is_relevant_to_category
+from notion_client import AsyncClient
+from runtime import fetch_feed_entries
+from settings import ANTIGRAVITY_TASKS_DB_ID, NOTION_API_KEY
 
 SOURCES = [
     ("Maeil Economy", "https://www.mk.co.kr/rss/30100041/"),

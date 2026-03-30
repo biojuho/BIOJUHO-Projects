@@ -12,9 +12,8 @@ Also tests Ollama model detection and Qwen3-Coder routing placement.
 from __future__ import annotations
 
 import sys
-import os
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -37,23 +36,17 @@ class TestQwen3CoderRouting:
     def test_qwen3_in_heavy_chain(self):
         heavy = TIER_CHAINS[TaskTier.HEAVY]
         ollama_models = [(b, m) for b, m in heavy if b == "ollama"]
-        assert any("qwen3-coder" in m for _, m in ollama_models), (
-            "Qwen3-Coder should be in HEAVY chain"
-        )
+        assert any("qwen3-coder" in m for _, m in ollama_models), "Qwen3-Coder should be in HEAVY chain"
 
     def test_qwen3_in_medium_chain(self):
         medium = TIER_CHAINS[TaskTier.MEDIUM]
         ollama_models = [(b, m) for b, m in medium if b == "ollama"]
-        assert any("qwen3-coder" in m for _, m in ollama_models), (
-            "Qwen3-Coder should be in MEDIUM chain"
-        )
+        assert any("qwen3-coder" in m for _, m in ollama_models), "Qwen3-Coder should be in MEDIUM chain"
 
     def test_deepseek_r1_in_lightweight_chain(self):
         light = TIER_CHAINS[TaskTier.LIGHTWEIGHT]
         ollama_models = [(b, m) for b, m in light if b == "ollama"]
-        assert any("deepseek-r1" in m for _, m in ollama_models), (
-            "DeepSeek-R1 should be in LIGHTWEIGHT chain"
-        )
+        assert any("deepseek-r1" in m for _, m in ollama_models), "DeepSeek-R1 should be in LIGHTWEIGHT chain"
 
     def test_qwen3_cost_zero(self):
         assert MODEL_COSTS.get("qwen3-coder:30b-a3b-q4_K_M") == (0.0, 0.0)
@@ -77,9 +70,9 @@ class TestQwen3CoderRouting:
             None,
         )
         assert qwen_idx is not None and openai_idx is not None
-        assert qwen_idx < openai_idx, (
-            f"Qwen3-Coder (idx={qwen_idx}) should be before OpenAI (idx={openai_idx}) in HEAVY"
-        )
+        assert (
+            qwen_idx < openai_idx
+        ), f"Qwen3-Coder (idx={qwen_idx}) should be before OpenAI (idx={openai_idx}) in HEAVY"
 
     def test_reasoning_config_defaults(self):
         assert REASONING_CONFIG["enabled"] in (True, False)
@@ -99,22 +92,25 @@ class TestOllamaModelDetection:
     @patch("shared.llm.backends.urllib.request.urlopen")
     def test_ollama_list_models(self, mock_urlopen):
         import json
-        from shared.llm.backends import _ollama_list_models, _ollama_models_cache
 
         # Reset cache
         import shared.llm.backends as backends_mod
+        from shared.llm.backends import _ollama_list_models
+
         backends_mod._ollama_models_cache = None
         backends_mod._ollama_cache_ts = 0.0
 
         mock_resp = MagicMock()
         mock_resp.status = 200
-        mock_resp.read.return_value = json.dumps({
-            "models": [
-                {"name": "qwen3-coder:30b-a3b-q4_K_M"},
-                {"name": "phi3:3.8b"},
-                {"name": "deepseek-r1:14b"},
-            ]
-        }).encode("utf-8")
+        mock_resp.read.return_value = json.dumps(
+            {
+                "models": [
+                    {"name": "qwen3-coder:30b-a3b-q4_K_M"},
+                    {"name": "phi3:3.8b"},
+                    {"name": "deepseek-r1:14b"},
+                ]
+            }
+        ).encode("utf-8")
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
         mock_resp.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_resp
@@ -127,17 +123,16 @@ class TestOllamaModelDetection:
     @patch("shared.llm.backends.urllib.request.urlopen")
     def test_ollama_has_model(self, mock_urlopen):
         import json
-        from shared.llm.backends import _ollama_has_model
 
         import shared.llm.backends as backends_mod
+        from shared.llm.backends import _ollama_has_model
+
         backends_mod._ollama_models_cache = None
         backends_mod._ollama_cache_ts = 0.0
 
         mock_resp = MagicMock()
         mock_resp.status = 200
-        mock_resp.read.return_value = json.dumps({
-            "models": [{"name": "qwen3-coder:30b-a3b-q4_K_M"}]
-        }).encode("utf-8")
+        mock_resp.read.return_value = json.dumps({"models": [{"name": "qwen3-coder:30b-a3b-q4_K_M"}]}).encode("utf-8")
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
         mock_resp.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_resp
@@ -148,12 +143,14 @@ class TestOllamaModelDetection:
     @patch("shared.llm.backends.urllib.request.urlopen")
     def test_ollama_server_offline(self, mock_urlopen):
         import shared.llm.backends as backends_mod
+
         backends_mod._ollama_models_cache = None
         backends_mod._ollama_cache_ts = 0.0
 
         mock_urlopen.side_effect = ConnectionError("Connection refused")
 
         from shared.llm.backends import _ollama_list_models
+
         models = _ollama_list_models()
         assert models == []
 
@@ -167,17 +164,20 @@ class TestSmartRouter:
     """Verify complexity estimation and strategy selection."""
 
     def test_low_complexity(self):
-        from shared.llm.reasoning.smart_router import estimate_complexity, QueryComplexity
+        from shared.llm.reasoning.smart_router import QueryComplexity, estimate_complexity
+
         result = estimate_complexity("hello world")
         assert result == QueryComplexity.LOW
 
     def test_medium_complexity(self):
-        from shared.llm.reasoning.smart_router import estimate_complexity, QueryComplexity
+        from shared.llm.reasoning.smart_router import QueryComplexity, estimate_complexity
+
         result = estimate_complexity("REST API 엔드포인트를 추가하고, 클래스 구현을 생성해주세요")
         assert result in (QueryComplexity.MEDIUM, QueryComplexity.HIGH)
 
     def test_high_complexity(self):
-        from shared.llm.reasoning.smart_router import estimate_complexity, QueryComplexity
+        from shared.llm.reasoning.smart_router import QueryComplexity, estimate_complexity
+
         long_query = """
         이 코드에 복잡한 버그가 있습니다. 디버깅을 해주세요.
         성능 최적화도 필요합니다. 알고리즘을 분석해주세요.
@@ -189,7 +189,8 @@ class TestSmartRouter:
         assert result in (QueryComplexity.HIGH, QueryComplexity.CRITICAL)
 
     def test_critical_complexity(self):
-        from shared.llm.reasoning.smart_router import estimate_complexity, QueryComplexity
+        from shared.llm.reasoning.smart_router import QueryComplexity, estimate_complexity
+
         query = """
         전체 시스템 아키텍처 리팩토링이 필요합니다.
         마이크로서비스로 마이그레이션하는 설계를 해주세요.
@@ -210,7 +211,8 @@ class TestSmartRouter:
         assert result == QueryComplexity.CRITICAL
 
     def test_strategy_mapping(self):
-        from shared.llm.reasoning.smart_router import SmartRouter, QueryComplexity
+        from shared.llm.reasoning.smart_router import QueryComplexity, SmartRouter
+
         client = MagicMock()
         router = SmartRouter(client)
         assert router._select_strategy(QueryComplexity.LOW) == "direct"
@@ -232,10 +234,12 @@ class TestChainOfThought:
 
         client = MagicMock()
         client.create.side_effect = [
-            LLMResponse(text="answer A is correct", model="m", backend="b",
-                       tier=TaskTier.MEDIUM, cost_usd=0.0, latency_ms=10),
-            LLMResponse(text="answer A is correct", model="m", backend="b",
-                       tier=TaskTier.MEDIUM, cost_usd=0.0, latency_ms=10),
+            LLMResponse(
+                text="answer A is correct", model="m", backend="b", tier=TaskTier.MEDIUM, cost_usd=0.0, latency_ms=10
+            ),
+            LLMResponse(
+                text="answer A is correct", model="m", backend="b", tier=TaskTier.MEDIUM, cost_usd=0.0, latency_ms=10
+            ),
         ]
 
         engine = ChainOfThoughtEngine(client)
@@ -255,15 +259,30 @@ class TestChainOfThought:
 
         client = MagicMock()
         client.create.side_effect = [
-            LLMResponse(text="completely different response one about cats",
-                       model="m", backend="b", tier=TaskTier.MEDIUM,
-                       cost_usd=0.01, latency_ms=10),
-            LLMResponse(text="XYZ another unrelated response about dogs here",
-                       model="m", backend="b", tier=TaskTier.MEDIUM,
-                       cost_usd=0.01, latency_ms=10),
-            LLMResponse(text="third response about neither cats nor dogs",
-                       model="m", backend="b", tier=TaskTier.MEDIUM,
-                       cost_usd=0.01, latency_ms=10),
+            LLMResponse(
+                text="completely different response one about cats",
+                model="m",
+                backend="b",
+                tier=TaskTier.MEDIUM,
+                cost_usd=0.01,
+                latency_ms=10,
+            ),
+            LLMResponse(
+                text="XYZ another unrelated response about dogs here",
+                model="m",
+                backend="b",
+                tier=TaskTier.MEDIUM,
+                cost_usd=0.01,
+                latency_ms=10,
+            ),
+            LLMResponse(
+                text="third response about neither cats nor dogs",
+                model="m",
+                backend="b",
+                tier=TaskTier.MEDIUM,
+                cost_usd=0.01,
+                latency_ms=10,
+            ),
         ]
 
         engine = ChainOfThoughtEngine(client)
@@ -343,8 +362,11 @@ class TestSAGE:
 
             This is a complete and tested solution.
             """,
-            model="m", backend="b", tier=TaskTier.MEDIUM,
-            cost_usd=0.01, latency_ms=50,
+            model="m",
+            backend="b",
+            tier=TaskTier.MEDIUM,
+            cost_usd=0.01,
+            latency_ms=50,
         )
 
         engine = SAGEEngine(client)
@@ -401,12 +423,17 @@ class TestForestOfThought:
         # First call (decompose) returns empty/unparseable text
         # Second call (direct fallback) returns the actual response
         client.create.side_effect = [
-            LLMResponse(text="I can't decompose this.",
-                       model="m", backend="b", tier=TaskTier.MEDIUM,
-                       cost_usd=0.01, latency_ms=10),
-            LLMResponse(text="Direct solution here.",
-                       model="m", backend="b", tier=TaskTier.MEDIUM,
-                       cost_usd=0.02, latency_ms=20),
+            LLMResponse(
+                text="I can't decompose this.",
+                model="m",
+                backend="b",
+                tier=TaskTier.MEDIUM,
+                cost_usd=0.01,
+                latency_ms=10,
+            ),
+            LLMResponse(
+                text="Direct solution here.", model="m", backend="b", tier=TaskTier.MEDIUM, cost_usd=0.02, latency_ms=20
+            ),
         ]
 
         engine = ForestOfThoughtEngine(client)
@@ -429,23 +456,18 @@ class TestClientReasoningIntegration:
     def test_import_reasoning_modules(self):
         """Verify all reasoning modules import cleanly."""
         from shared.llm.reasoning import (
-            ChainOfThoughtEngine,
-            CoTResult,
-            ForestOfThoughtEngine,
-            FoTResult,
             QueryComplexity,
-            ReasoningResult,
-            SAGEEngine,
-            SAGEResult,
             SmartRouter,
         )
+
         # If we get here, imports work
         assert SmartRouter is not None
         assert QueryComplexity.LOW is not None
 
     def test_top_level_reasoning_exports(self):
         """Verify SmartRouter is exported from shared.llm.__init__."""
-        from shared.llm import SmartRouter, QueryComplexity
+        from shared.llm import QueryComplexity, SmartRouter
+
         assert SmartRouter is not None
         assert QueryComplexity is not None
 

@@ -109,8 +109,7 @@ async def trend_to_notebook(
             try:
                 ask_result = await client.chat.ask(
                     nb.id,
-                    f"'{keyword}'에 대한 핵심 인사이트 3가지와 "
-                    f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
+                    f"'{keyword}'에 대한 핵심 인사이트 3가지와 " f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
                 )
                 result["summary"] = ask_result.answer
             except Exception as e:
@@ -119,9 +118,7 @@ async def trend_to_notebook(
         # 5. Content generation
         for ctype in content_types:
             try:
-                artifact_id = await _generate_content(
-                    client, nb.id, keyword, ctype, audio_instructions
-                )
+                artifact_id = await _generate_content(client, nb.id, keyword, ctype, audio_instructions)
                 if artifact_id:
                     result["artifacts"][ctype] = artifact_id
             except Exception as e:
@@ -139,9 +136,7 @@ async def _generate_content(
 ) -> str | None:
     """Start content generation and return artifact/task ID."""
     if content_type == "audio":
-        status = await client.artifacts.generate_audio(
-            notebook_id, instructions=audio_instructions
-        )
+        status = await client.artifacts.generate_audio(notebook_id, instructions=audio_instructions)
         return status.artifact_id if hasattr(status, "artifact_id") else str(status)
 
     if content_type == "slide-deck":
@@ -237,9 +232,7 @@ async def content_factory(
 
         if context_text.strip():
             try:
-                await client.notes.create(
-                    nb.id, title=f"컨텍스트: {keyword}", content=context_text[:5000]
-                )
+                await client.notes.create(nb.id, title=f"컨텍스트: {keyword}", content=context_text[:5000])
             except Exception:
                 pass
 
@@ -247,8 +240,7 @@ async def content_factory(
         try:
             insight = await client.chat.ask(
                 nb.id,
-                f"'{keyword}'에 대한 핵심 인사이트 3가지와 "
-                f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
+                f"'{keyword}'에 대한 핵심 인사이트 3가지와 " f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
             )
             result["summary"] = insight.answer
         except Exception as e:
@@ -282,12 +274,8 @@ async def content_factory(
 
         # Briefing report
         try:
-            report_status = await client.artifacts.generate_report(
-                nb.id, report_format="briefing-doc"
-            )
-            result["report_id"] = (
-                report_status.task_id if hasattr(report_status, "task_id") else ""
-            ) or ""
+            report_status = await client.artifacts.generate_report(nb.id, report_format="briefing-doc")
+            result["report_id"] = (report_status.task_id if hasattr(report_status, "task_id") else "") or ""
         except Exception as e:
             log.warning("[ContentFactory] report failed: %s", e)
 
@@ -335,8 +323,7 @@ async def research_tool(
     }
 
     default_questions = [
-        f"'{topic}'에 관련된 모든 소스를 비교 분석하여 "
-        f"공통점, 차이점, 장단점을 마크다운 표 형태로 정리해줘.",
+        f"'{topic}'에 관련된 모든 소스를 비교 분석하여 " f"공통점, 차이점, 장단점을 마크다운 표 형태로 정리해줘.",
         f"'{topic}'의 최근 트렌드와 미래 전망을 데이터 기반으로 정리해줘.",
         f"'{topic}'에서 가장 중요한 인사이트 5가지를 뽑아줘.",
     ]
@@ -456,18 +443,15 @@ async def analyze_bio_company(
             ),
             (
                 "technology_analysis",
-                f"'{company_name}'의 핵심 기술, R&D 파이프라인, "
-                f"특허 현황, 기술적 차별점을 분석해줘.",
+                f"'{company_name}'의 핵심 기술, R&D 파이프라인, " f"특허 현황, 기술적 차별점을 분석해줘.",
             ),
             (
                 "competitive_position",
-                f"'{company_name}'의 시장 내 경쟁 포지션, 주요 경쟁사 비교, "
-                f"SWOT 분석을 마크다운 표로 정리해줘.",
+                f"'{company_name}'의 시장 내 경쟁 포지션, 주요 경쟁사 비교, " f"SWOT 분석을 마크다운 표로 정리해줘.",
             ),
             (
                 "investment_thesis",
-                f"'{company_name}'에 대한 투자 포인트와 리스크를 "
-                f"DeSci(탈중앙화 과학) 관점에서 평가해줘.",
+                f"'{company_name}'에 대한 투자 포인트와 리스크를 " f"DeSci(탈중앙화 과학) 관점에서 평가해줘.",
             ),
         ]
 
@@ -528,9 +512,7 @@ async def enrich_trends_with_notebooklm(
     cfg = get_config()
     min_viral_score = min_viral_score if min_viral_score is not None else cfg.min_viral_score
 
-    high_viral = [
-        t for t in quality_trends if getattr(t, "viral_potential", 0) >= min_viral_score
-    ][:max_notebooks]
+    high_viral = [t for t in quality_trends if getattr(t, "viral_potential", 0) >= min_viral_score][:max_notebooks]
 
     if not high_viral:
         return []

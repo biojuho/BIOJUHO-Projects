@@ -3,14 +3,12 @@
 generator.py에서 추출된 모듈.
 """
 
-from config import AppConfig
-from models import GeneratedTweet, ScoredTrend, TweetBatch
+from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
-from utils import sanitize_keyword
 
-from loguru import logger as log
-
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
 from prompt_builder import (
     _build_account_identity_section,
     _build_category_tone_hint,
@@ -24,6 +22,7 @@ from prompt_builder import (
     _resolve_language,
     _system_tweets,
 )
+from utils import sanitize_keyword
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
 
@@ -54,13 +53,15 @@ async def generate_tweets_with_marl_async(
     분석 깊이를 높인 트윗 생성. MARL 실패 시 기존 방식 폴백.
     """
     # Lazy import to avoid circular dependency
+    from shared.llm.marl import MARLConfig, MARLPipeline
+
     from generator import generate_tweets_async
-    from shared.llm.marl import MARLPipeline, MARLConfig
 
     if not _should_use_marl(trend, config):
         return await generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
 
     from datetime import datetime as _dt
+
     target_language = _resolve_language(config)
     context_section = _build_context_section(trend)
     scoring_section = _build_scoring_section(trend)
@@ -105,9 +106,7 @@ async def generate_tweets_with_marl_async(
         data = _parse_json(result.final_text)
 
         if not data:
-            log.warning(
-                f"[MARL] '{trend.keyword}' JSON 파싱 실패 → 기존 방식 폴백"
-            )
+            log.warning(f"[MARL] '{trend.keyword}' JSON 파싱 실패 → 기존 방식 폴백")
             return await generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
 
         tweets = []
@@ -116,19 +115,18 @@ async def generate_tweets_with_marl_async(
             if len(content) > 280:
                 content = content[:277] + "..."
                 log.warning(f"[MARL] 트윗 280자 초과 트리밍: {trend.keyword}")
-            tweets.append(GeneratedTweet(
-                tweet_type=t.get("type", ""),
-                content=content,
-                content_type="short",
-                best_posting_time=t.get("best_posting_time", ""),
-                expected_engagement=t.get("expected_engagement", ""),
-                reasoning=t.get("reasoning", ""),
-            ))
+            tweets.append(
+                GeneratedTweet(
+                    tweet_type=t.get("type", ""),
+                    content=content,
+                    content_type="short",
+                    best_posting_time=t.get("best_posting_time", ""),
+                    expected_engagement=t.get("expected_engagement", ""),
+                    reasoning=t.get("reasoning", ""),
+                )
+            )
 
-        log.info(
-            f"[MARL] 트윗 생성 완료: '{trend.keyword}' "
-            f"({len(tweets)}개, stages={result.stages_completed})"
-        )
+        log.info(f"[MARL] 트윗 생성 완료: '{trend.keyword}' " f"({len(tweets)}개, stages={result.stages_completed})")
         return TweetBatch(
             topic=data.get("topic", trend.keyword),
             tweets=tweets,

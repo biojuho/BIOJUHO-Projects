@@ -1,16 +1,17 @@
 """Pydantic AI 트렌드 분석 에이전트 테스트 — TestModel 사용 (실제 LLM 호출 없음)."""
+
 from __future__ import annotations
 
-import pytest
 import pydantic_ai.models as models
+import pytest
 from pydantic_ai.models.test import TestModel
 
 from agents.trend_analyzer import (
-    TrendScore,
-    BatchTrendScores,
-    trend_agent,
-    batch_agent,
     AnalysisDeps,
+    BatchTrendScores,
+    TrendScore,
+    batch_agent,
+    trend_agent,
 )
 
 # 테스트에서 실수로 실제 API 호출 방지

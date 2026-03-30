@@ -3,18 +3,14 @@
 from __future__ import annotations
 
 import os
-import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from notebooklm_automation.config import reset_config
-
-
 # ──────────────────────────────────────────────────
 #  Alert System
 # ──────────────────────────────────────────────────
+
 
 class TestAlerts:
     """Tests for the alert system."""
@@ -24,11 +20,15 @@ class TestAlerts:
         """Slack alert sends correctly with webhook URL."""
         from notebooklm_automation.alerts import AlertLevel, send_alert
 
-        with patch.dict(os.environ, {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"}), \
-             patch("notebooklm_automation.alerts._send_slack", new_callable=AsyncMock, return_value=True):
+        with (
+            patch.dict(os.environ, {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"}),
+            patch("notebooklm_automation.alerts._send_slack", new_callable=AsyncMock, return_value=True),
+        ):
             result = await send_alert(
-                AlertLevel.ERROR, "Test Error",
-                details={"key": "value"}, channels=["slack"],
+                AlertLevel.ERROR,
+                "Test Error",
+                details={"key": "value"},
+                channels=["slack"],
             )
             assert result.get("slack") is True
 
@@ -39,7 +39,9 @@ class TestAlerts:
 
         with patch.dict(os.environ, {}, clear=False):
             result = await send_alert(
-                AlertLevel.INFO, "Test Info", channels=["slack"],
+                AlertLevel.INFO,
+                "Test Info",
+                channels=["slack"],
             )
             # No SLACK_WEBHOOK_URL set, so slack should fail
             assert isinstance(result, dict)
@@ -56,6 +58,7 @@ class TestAlerts:
 # ──────────────────────────────────────────────────
 #  Execution Logger
 # ──────────────────────────────────────────────────
+
 
 class TestExecutionLogger:
     """Tests for the SQLite execution logger."""
@@ -112,6 +115,7 @@ class TestExecutionLogger:
 # ──────────────────────────────────────────────────
 #  Prompt Template Manager
 # ──────────────────────────────────────────────────
+
 
 class TestPromptTemplateManager:
     """Tests for the YAML prompt template system."""

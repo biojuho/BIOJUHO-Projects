@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import json
-import tempfile
-from datetime import datetime, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from notebooklm_automation.config import NotebookLMConfig, reset_config
 from notebooklm_automation.health import (
     _record_refresh_history,
@@ -38,8 +33,7 @@ class TestCheckAuthStatus:
         state_file = tmp_path / "storage_state.json"
         state_file.write_text('{"cookies": [1,2,3]}')
         cfg = NotebookLMConfig(home_dir=tmp_path)
-        with patch("notebooklm_automation.health.get_config", return_value=cfg), \
-             patch("subprocess.run") as mock_run:
+        with patch("notebooklm_automation.health.get_config", return_value=cfg), patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             result = check_auth_status()
             assert result["storage_file_exists"] is True

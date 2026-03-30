@@ -21,7 +21,6 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-
 # Table migration order (respects FK dependencies)
 TABLE_ORDER = [
     "users",
@@ -95,7 +94,7 @@ def insert_batch_pg(session: Session, table: str, columns: list[str], rows: list
     stmt = text(f'INSERT INTO "{table}" ({col_list}) VALUES ({param_list})')
 
     # Convert rows to dicts
-    row_dicts = [dict(zip(columns, row)) for row in rows]
+    row_dicts = [dict(zip(columns, row, strict=False)) for row in rows]
 
     # Convert SQLite integers to PostgreSQL booleans for specific columns
     boolean_columns = {

@@ -1,11 +1,8 @@
 """utils.py 테스트: sanitize_keyword 프롬프트 인젝션 방어."""
 
 import asyncio
-import os
-import sys
 import unittest
 from unittest.mock import patch
-
 
 from utils import _run_coroutine_in_new_loop, run_async, sanitize_keyword
 

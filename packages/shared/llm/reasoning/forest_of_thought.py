@@ -26,7 +26,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from ..models import LLMPolicy, LLMResponse, TaskTier
+from ..models import LLMPolicy, TaskTier
 
 if TYPE_CHECKING:
     from ..client import LLMClient
@@ -114,8 +114,8 @@ def _parse_subtasks(text: str) -> list[str]:
             continue
         # Match patterns like "1. task" or "1) task" or "- task"
         for prefix_len in range(1, 4):
-            if line[prefix_len:prefix_len + 1] in (".", ")", ":"):
-                task = line[prefix_len + 1:].strip()
+            if line[prefix_len : prefix_len + 1] in (".", ")", ":"):
+                task = line[prefix_len + 1 :].strip()
                 if task:
                     subtasks.append(task)
                 break
@@ -187,40 +187,45 @@ class ForestOfThoughtEngine:
             log.debug("FoT: solving subtask %d/%d: %s", idx + 1, len(subtasks), subtask[:60])
             resp = self._client.create(
                 tier=solve_tier,
-                messages=[{
-                    "role": "user",
-                    "content": _SUBTASK_PROMPT.format(
-                        original_query=original_query,
-                        subtask=subtask,
-                    ),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": _SUBTASK_PROMPT.format(
+                            original_query=original_query,
+                            subtask=subtask,
+                        ),
+                    }
+                ],
                 max_tokens=max_tokens,
                 system=system,
                 policy=policy,
             )
-            subtask_results.append(FoTSubtaskResult(
-                subtask=subtask,
-                text=resp.text,
-                backend=resp.backend,
-                cost_usd=resp.cost_usd,
-                latency_ms=resp.latency_ms,
-            ))
+            subtask_results.append(
+                FoTSubtaskResult(
+                    subtask=subtask,
+                    text=resp.text,
+                    backend=resp.backend,
+                    cost_usd=resp.cost_usd,
+                    latency_ms=resp.latency_ms,
+                )
+            )
             total_cost += resp.cost_usd
 
         # Step 3: Synthesize results
         results_text = "\n\n".join(
-            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}"
-            for i, r in enumerate(subtask_results)
+            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}" for i, r in enumerate(subtask_results)
         )
         synth_resp = self._client.create(
             tier=synthesize_tier,
-            messages=[{
-                "role": "user",
-                "content": _SYNTHESIS_PROMPT.format(
-                    original_query=original_query,
-                    results=results_text,
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": _SYNTHESIS_PROMPT.format(
+                        original_query=original_query,
+                        results=results_text,
+                    ),
+                }
+            ],
             max_tokens=max_tokens * 2,
             system=system,
             policy=policy,
@@ -263,8 +268,11 @@ class ForestOfThoughtEngine:
 
         if not subtasks:
             direct = await self._client.acreate(
-                tier=solve_tier, messages=messages,
-                max_tokens=max_tokens, system=system, policy=policy,
+                tier=solve_tier,
+                messages=messages,
+                max_tokens=max_tokens,
+                system=system,
+                policy=policy,
             )
             return FoTResult(
                 text=direct.text,
@@ -278,33 +286,47 @@ class ForestOfThoughtEngine:
         for idx, subtask in enumerate(subtasks):
             resp = await self._client.acreate(
                 tier=solve_tier,
-                messages=[{
-                    "role": "user",
-                    "content": _SUBTASK_PROMPT.format(
-                        original_query=original_query, subtask=subtask,
-                    ),
-                }],
-                max_tokens=max_tokens, system=system, policy=policy,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": _SUBTASK_PROMPT.format(
+                            original_query=original_query,
+                            subtask=subtask,
+                        ),
+                    }
+                ],
+                max_tokens=max_tokens,
+                system=system,
+                policy=policy,
             )
-            subtask_results.append(FoTSubtaskResult(
-                subtask=subtask, text=resp.text,
-                backend=resp.backend, cost_usd=resp.cost_usd, latency_ms=resp.latency_ms,
-            ))
+            subtask_results.append(
+                FoTSubtaskResult(
+                    subtask=subtask,
+                    text=resp.text,
+                    backend=resp.backend,
+                    cost_usd=resp.cost_usd,
+                    latency_ms=resp.latency_ms,
+                )
+            )
             total_cost += resp.cost_usd
 
         results_text = "\n\n".join(
-            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}"
-            for i, r in enumerate(subtask_results)
+            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}" for i, r in enumerate(subtask_results)
         )
         synth_resp = await self._client.acreate(
             tier=synthesize_tier,
-            messages=[{
-                "role": "user",
-                "content": _SYNTHESIS_PROMPT.format(
-                    original_query=original_query, results=results_text,
-                ),
-            }],
-            max_tokens=max_tokens * 2, system=system, policy=policy,
+            messages=[
+                {
+                    "role": "user",
+                    "content": _SYNTHESIS_PROMPT.format(
+                        original_query=original_query,
+                        results=results_text,
+                    ),
+                }
+            ],
+            max_tokens=max_tokens * 2,
+            system=system,
+            policy=policy,
         )
         total_cost += synth_resp.cost_usd
 

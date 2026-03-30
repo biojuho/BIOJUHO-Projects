@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import logging
+import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
 
 from models import DMTriggerRule, InstagramPost, PostInsights, PostStatus, PostType
 
@@ -138,9 +137,7 @@ class Database:
     def get_queued_posts(self) -> list[InstagramPost]:
         """Get all queued posts."""
         with self._cursor() as cur:
-            cur.execute(
-                "SELECT * FROM posts WHERE status = 'queued' ORDER BY scheduled_at ASC"
-            )
+            cur.execute("SELECT * FROM posts WHERE status = 'queued' ORDER BY scheduled_at ASC")
             return [self._row_to_post(r) for r in cur.fetchall()]
 
     def update_post_status(
@@ -196,18 +193,12 @@ class Database:
             carousel_urls=json.loads(row["carousel_urls"] or "[]"),
             post_type=PostType(row["post_type"]),
             status=PostStatus(row["status"]),
-            scheduled_at=datetime.fromisoformat(row["scheduled_at"])
-            if row["scheduled_at"]
-            else None,
-            published_at=datetime.fromisoformat(row["published_at"])
-            if row["published_at"]
-            else None,
+            scheduled_at=datetime.fromisoformat(row["scheduled_at"]) if row["scheduled_at"] else None,
+            published_at=datetime.fromisoformat(row["published_at"]) if row["published_at"] else None,
             media_id=row["media_id"],
             container_id=row["container_id"],
             error_message=row["error_message"],
-            created_at=datetime.fromisoformat(row["created_at"])
-            if row["created_at"]
-            else datetime.now(),
+            created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else datetime.now(),
         )
 
     # ---- DM Rules ----
@@ -234,9 +225,7 @@ class Database:
                 for r in cur.fetchall()
             ]
 
-    def log_dm(
-        self, sender_id: str, message: str, response: str, keyword: str = ""
-    ) -> None:
+    def log_dm(self, sender_id: str, message: str, response: str, keyword: str = "") -> None:
         with self._cursor() as cur:
             cur.execute(
                 """INSERT INTO dm_log

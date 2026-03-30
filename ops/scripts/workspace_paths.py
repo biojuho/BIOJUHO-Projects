@@ -4,7 +4,6 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-
 WORKSPACE_MAP_FILENAME = "workspace-map.json"
 
 

@@ -1,6 +1,7 @@
 """
 Tests for hybrid reranking and metadata filtering in the vector store.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,7 +9,9 @@ from datetime import datetime
 import services.vector_store as vector_store_module
 
 
-def _seed_notice(store, doc_id: str, title: str, source: str, keywords: str, document: str, deadline: str, min_trl: int, max_trl: int):
+def _seed_notice(
+    store, doc_id: str, title: str, source: str, keywords: str, document: str, deadline: str, min_trl: int, max_trl: int
+):
     store._save_to_json(  # pylint: disable=protected-access
         doc_id,
         [1.0, 0.0],

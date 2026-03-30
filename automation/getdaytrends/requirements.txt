@@ -31,4 +31,5 @@ deepeval>=3.9.0
 # [Phase 4] Scrapling — 안티봇 우회 + 적응형 뉴스 스크래핑
 scrapling>=0.4.0
 prometheus_client>=0.21.0
-structlog>=24.0.0
+loguru>=0.7.0,<1.0
+aiosqlite>=0.20.0,<1.0

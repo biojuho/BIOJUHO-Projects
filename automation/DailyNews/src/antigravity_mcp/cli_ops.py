@@ -29,7 +29,16 @@ async def run_ops_replay(args: argparse.Namespace) -> int:
     store = PipelineStateStore()
     run = store.get_run(args.run_id)
     if run is None:
-        print(json_dumps({"status": "error", "data": {}, "meta": {"warnings": []}, "error": {"code": "run_not_found", "message": f"Unknown run_id: {args.run_id}", "retryable": False}}))
+        print(
+            json_dumps(
+                {
+                    "status": "error",
+                    "data": {},
+                    "meta": {"warnings": []},
+                    "error": {"code": "run_not_found", "message": f"Unknown run_id: {args.run_id}", "retryable": False},
+                }
+            )
+        )
         return 1
     if run.job_name == "generate_brief":
         summary = run.summary or {}

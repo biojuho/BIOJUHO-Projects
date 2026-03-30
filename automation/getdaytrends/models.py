@@ -6,7 +6,6 @@ v3.0: ScoredTrend에 sentiment/safety_flag, GeneratedTweet에 variant_id/languag
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -28,6 +27,7 @@ class TweetStatus(Enum):
 
 class RawTrend(BaseModel):
     """단일 소스에서 수집된 트렌드."""
+
     name: str
     source: TrendSource
     volume: str = "N/A"
@@ -36,16 +36,17 @@ class RawTrend(BaseModel):
     country: str = "korea"
     extra: dict = Field(default_factory=dict)
     fetched_at: datetime = Field(default_factory=datetime.now)
-    published_at: Optional[datetime] = None  # [v6.1] 소스 콘텐츠 발행 시점 (RSS pubDate)
+    published_at: datetime | None = None  # [v6.1] 소스 콘텐츠 발행 시점 (RSS pubDate)
 
 
 class TrendContext(BaseModel):
     """[v10.0] 구조화된 트렌드 배경 분석 — '왜 지금 이게 터졌는지' 인과관계 체인."""
-    trigger_event: str = ""       # "OO장관의 XX 발언 (3시간 전)"
-    chain_reaction: str = ""      # "해당 발언 → 커뮤니티 확산 → 언론 보도"
-    why_now: str = ""             # "총선 D-30과 맞물려 정치적 프레임 전쟁으로 확대"
+
+    trigger_event: str = ""  # "OO장관의 XX 발언 (3시간 전)"
+    chain_reaction: str = ""  # "해당 발언 → 커뮤니티 확산 → 언론 보도"
+    why_now: str = ""  # "총선 D-30과 맞물려 정치적 프레임 전쟁으로 확대"
     key_positions: list[str] = Field(default_factory=list)  # 찬/반 주요 입장 2-3개
-    real_tweets_summary: str = "" # 실제 X 반응 핵심 요약
+    real_tweets_summary: str = ""  # 실제 X 반응 핵심 요약
 
     def to_prompt_text(self) -> str:
         """생성 프롬프트에 주입할 구조화된 배경 텍스트."""
@@ -66,6 +67,7 @@ class TrendContext(BaseModel):
 
 class MultiSourceContext(BaseModel):
     """하나의 키워드에 대한 멀티소스 컨텍스트."""
+
     twitter_insight: str = ""
     reddit_insight: str = ""
     news_insight: str = ""
@@ -83,6 +85,7 @@ class MultiSourceContext(BaseModel):
 
 class ScoredTrend(BaseModel):
     """바이럴 분석 완료된 트렌드."""
+
     keyword: str
     rank: int
     volume_last_24h: int = 0
@@ -91,41 +94,41 @@ class ScoredTrend(BaseModel):
     top_insight: str = ""
     suggested_angles: list[str] = Field(default_factory=list)
     best_hook_starter: str = ""
-    category: str = ""          # 트렌드 카테고리 (연예/스포츠/정치/경제/테크 등)
-    context: Optional[MultiSourceContext] = None
+    category: str = ""  # 트렌드 카테고리 (연예/스포츠/정치/경제/테크 등)
+    context: MultiSourceContext | None = None
     sources: list[TrendSource] = Field(default_factory=list)
     country: str = "korea"
     scored_at: datetime = Field(default_factory=datetime.now)
     # [v3.0] 감성 분석 + 안전 필터
     sentiment: str = "neutral"  # positive | neutral | negative | harmful
-    safety_flag: bool = False   # True면 콘텐츠 생성 스킵 (재난/혐오/사망 관련)
+    safety_flag: bool = False  # True면 콘텐츠 생성 스킵 (재난/혐오/사망 관련)
     # [v4.0] 트렌드 검증 & 중연 관점 필드
-    cross_source_confidence: int = 0    # 0~4: 멀티소스 교차 검증 점수 (볼륨+X+뉴스+Reddit)
-    joongyeon_kick: int = 0             # 0~100: 중연 킥 포인트 잠재력 (현상 역설, 관점 반전 정도)
-    joongyeon_angle: str = ""           # 중연 스타일 최적 앵글 (한 문장)
+    cross_source_confidence: int = 0  # 0~4: 멀티소스 교차 검증 점수 (볼륨+X+뉴스+Reddit)
+    joongyeon_kick: int = 0  # 0~100: 중연 킥 포인트 잠재력 (현상 역설, 관점 반전 정도)
+    joongyeon_angle: str = ""  # 중연 스타일 최적 앵글 (한 문장)
     # [v6.1] 최신성 검증
-    content_age_hours: float = 0.0      # 콘텐츠 발행~현재 경과 시간
-    freshness_grade: str = "unknown"    # fresh | recent | stale | expired | unknown
+    content_age_hours: float = 0.0  # 콘텐츠 발행~현재 경과 시간
+    freshness_grade: str = "unknown"  # fresh | recent | stale | expired | unknown
     # [v8.0] 트렌드 분석 강화 (프롬프트 ①)
-    why_trending: str = ""              # 왜 지금 뜨는지 원인 1-2문장 추론
-    peak_status: str = ""              # 상승중|정점|하락중
-    relevance_score: int = 0           # 1-10: X에서 활발히 논의하기 적합한 정도
+    why_trending: str = ""  # 왜 지금 뜨는지 원인 1-2문장 추론
+    peak_status: str = ""  # 상승중|정점|하락중
+    relevance_score: int = 0  # 1-10: X에서 활발히 논의하기 적합한 정도
     # [v10.0] 구조화된 트렌드 배경 (Deep Why)
-    trend_context: Optional[TrendContext] = None
+    trend_context: TrendContext | None = None
     # [v9.0] 벨로시티 + 이머징 트렌드
-    velocity: float = 0.0               # 런 간 볼륨 증가율 (B-1)
-    is_emerging: bool = False            # 저볼륨 + 고벨로시티 이머징 트렌드 (C-6)
+    velocity: float = 0.0  # 런 간 볼륨 증가율 (B-1)
+    is_emerging: bool = False  # 저볼륨 + 고벨로시티 이머징 트렌드 (C-6)
     # [v13.0] 게시 가능성 게이트 (Publishability Gate)
-    publishable: bool = True             # False면 콘텐츠 생성 스킵 (의미없는 키워드, 문장 조각 등)
-    publishability_reason: str = ""      # publishable=false 사유 (예: "문장 조각", "오타 키워드")
-    corrected_keyword: str = ""          # 오타 키워드의 교정된 원본 (예: "카이로류" → "아카이로 류")
+    publishable: bool = True  # False면 콘텐츠 생성 스킵 (의미없는 키워드, 문장 조각 등)
+    publishability_reason: str = ""  # publishable=false 사유 (예: "문장 조각", "오타 키워드")
+    corrected_keyword: str = ""  # 오타 키워드의 교정된 원본 (예: "카이로류" → "아카이로 류")
     # [v5.0] Trend Genealogy — 트렌드 계보 추적
-    parent_trends: list[str] = Field(default_factory=list)       # 이 트렌드의 원인이 된 상위 트렌드
+    parent_trends: list[str] = Field(default_factory=list)  # 이 트렌드의 원인이 된 상위 트렌드
     predicted_children: list[str] = Field(default_factory=list)  # LLM이 예측한 파생 트렌드
-    genealogy_depth: int = 0             # 계보 깊이 (0=원본, 1=1차 파생, 2=2차 파생)
+    genealogy_depth: int = 0  # 계보 깊이 (0=원본, 1=1차 파생, 2=2차 파생)
     # [v6.0] 정보 정확성 검증
-    source_credibility: float = 0.0      # 0~1: 뉴스 출처 신뢰도 가중 평균
-    fact_check_score: float = 1.0        # 0~1: 생성 콘텐츠 팩트 체크 정확도
+    source_credibility: float = 0.0  # 0~1: 뉴스 출처 신뢰도 가중 평균
+    fact_check_score: float = 1.0  # 0~1: 생성 콘텐츠 팩트 체크 정확도
     hallucination_flags: list[str] = Field(default_factory=list)  # 환각 감지된 항목 목록
     cross_source_consistent: bool = True  # 소스 간 정보 일관성 여부
     cross_source_agreement: float = 0.5  # 0~1: 소스 간 엔터티 일치도 점수
@@ -133,26 +136,28 @@ class ScoredTrend(BaseModel):
 
 class TrendCluster(BaseModel):
     """의미적으로 유사한 트렌드 그룹."""
+
     representative: str
     members: list[str] = Field(default_factory=list)
-    merged_context: Optional[MultiSourceContext] = None
+    merged_context: MultiSourceContext | None = None
 
 
 class GeneratedTweet(BaseModel):
     """생성된 단일 트윗/포스트."""
+
     tweet_type: str
     content: str
     content_type: str = "short"  # "short" (280자) | "long" (X Premium+) | "threads" (Meta Threads)
     char_count: int = 0
     # [v3.0] A/B 변형 + 멀티언어 지원
-    variant_id: str = ""   # A/B 테스트 변형 식별자 (예: "A", "B"). 기본값 빈 문자열(단일 변형)
-    language: str = "ko"   # 생성 언어 코드 (예: "ko", "en", "ja")
+    variant_id: str = ""  # A/B 테스트 변형 식별자 (예: "A", "B"). 기본값 빈 문자열(단일 변형)
+    language: str = "ko"  # 생성 언어 코드 (예: "ko", "en", "ja")
     # [v8.0] 멘션 메타데이터 (프롬프트 ②)
-    best_posting_time: str = ""        # 추천 게시 시간 (예: 오전 8-10시)
-    expected_engagement: str = ""      # 높음|보통|낮음
-    reasoning: str = ""                # 이 멘션이 효과적인 이유 한 문장
+    best_posting_time: str = ""  # 추천 게시 시간 (예: 오전 8-10시)
+    expected_engagement: str = ""  # 높음|보통|낮음
+    reasoning: str = ""  # 이 멘션이 효과적인 이유 한 문장
     # [v12.0] 멀티플랫폼
-    platform: str = "x"               # 대상 플랫폼: "x" | "threads" | "naver_blog"
+    platform: str = "x"  # 대상 플랫폼: "x" | "threads" | "naver_blog"
     seo_keywords: list[str] = Field(default_factory=list)  # SEO 키워드 (블로그용)
 
     @model_validator(mode="after")
@@ -164,20 +169,22 @@ class GeneratedTweet(BaseModel):
 
 class GeneratedThread(BaseModel):
     """고바이럴 트렌드용 멀티트윗 쓰레드."""
+
     tweets: list[str]
     hook: str = ""
 
 
 class TweetBatch(BaseModel):
     """하나의 트렌드에 대한 전체 생성 결과."""
+
     topic: str
     tweets: list[GeneratedTweet] = Field(default_factory=list)
     long_posts: list[GeneratedTweet] = Field(default_factory=list)
     threads_posts: list[GeneratedTweet] = Field(default_factory=list)
     blog_posts: list[GeneratedTweet] = Field(default_factory=list)  # [v12.0] 네이버 블로그 글감
-    thread: Optional[GeneratedThread] = None
+    thread: GeneratedThread | None = None
     viral_score: int = 0
-    language: str = ""          # [v3.0] 멀티언어 배치 언어 코드 (예: "en", "ja"). 기본값 "" = 기본 언어
+    language: str = ""  # [v3.0] 멀티언어 배치 언어 코드 (예: "en", "ja"). 기본값 "" = 기본 언어
     metadata: dict = Field(default_factory=dict)  # [B-4] 런타임 메타 (best_posting_hours 등)
     visual_urls: list[str] = Field(default_factory=list)  # [C-4] Canva 비주얼 자산 URL
     generated_at: datetime = Field(default_factory=datetime.now)
@@ -185,11 +192,12 @@ class TweetBatch(BaseModel):
 
 class RunResult(BaseModel):
     """파이프라인 실행 결과 요약."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     run_id: str
     started_at: datetime = Field(default_factory=datetime.now)
-    finished_at: Optional[datetime] = None
+    finished_at: datetime | None = None
     country: str = "korea"
     trends_collected: int = 0
     trends_scored: int = 0

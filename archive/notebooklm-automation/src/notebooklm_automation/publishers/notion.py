@@ -22,10 +22,10 @@ from loguru import logger as log
 
 from ..config import get_config
 
-
 # ──────────────────────────────────────────────────
 #  Block Builders
 # ──────────────────────────────────────────────────
+
 
 def _notion_block(block_type: str, content: str, **extra) -> dict:
     """Build a Notion block dict."""
@@ -80,28 +80,32 @@ def _build_notion_children(
     # Tweet draft section
     if tweet:
         children.append(_notion_block("heading_2", "🐦 트윗 초안"))
-        children.append({
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"emoji": "🐦"},
-                "rich_text": [{"text": {"content": tweet}}],
-            },
-        })
+        children.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"emoji": "🐦"},
+                    "rich_text": [{"text": {"content": tweet}}],
+                },
+            }
+        )
         children.append(_notion_block("divider", ""))
 
     # Infographic image embed (external URL)
     if infographic_url and infographic_url.startswith("http"):
         children.append(_notion_block("heading_2", "📊 인포그래픽"))
-        children.append({
-            "object": "block",
-            "type": "image",
-            "image": {
-                "type": "external",
-                "external": {"url": infographic_url},
-                "caption": [{"text": {"content": "NotebookLM 자동 생성 인포그래픽"}}],
-            },
-        })
+        children.append(
+            {
+                "object": "block",
+                "type": "image",
+                "image": {
+                    "type": "external",
+                    "external": {"url": infographic_url},
+                    "caption": [{"text": {"content": "NotebookLM 자동 생성 인포그래픽"}}],
+                },
+            }
+        )
         children.append(_notion_block("divider", ""))
 
     # Resources section
@@ -121,14 +125,16 @@ def _build_notion_children(
     # File attachment (embed block for Drive files)
     if file_attachment_url:
         children.append(_notion_block("heading_2", "📎 첨부 파일"))
-        children.append({
-            "object": "block",
-            "type": "bookmark",
-            "bookmark": {
-                "url": file_attachment_url,
-                "caption": [{"text": {"content": "원본 인포그래픽/슬라이드 파일"}}],
-            },
-        })
+        children.append(
+            {
+                "object": "block",
+                "type": "bookmark",
+                "bookmark": {
+                    "url": file_attachment_url,
+                    "caption": [{"text": {"content": "원본 인포그래픽/슬라이드 파일"}}],
+                },
+            }
+        )
 
     return children
 
@@ -136,6 +142,7 @@ def _build_notion_children(
 # ──────────────────────────────────────────────────
 #  Property Builders
 # ──────────────────────────────────────────────────
+
 
 def _build_properties(
     db_props: dict,
@@ -162,9 +169,7 @@ def _build_properties(
             title_field = prop_name
             break
 
-    properties[title_field] = {
-        "title": [{"text": {"content": title}}]
-    }
+    properties[title_field] = {"title": [{"text": {"content": title}}]}
 
     # 프로젝트 (Select)
     _set_select(properties, db_props, "프로젝트", project)
@@ -236,6 +241,7 @@ def _set_date(properties: dict, db_props: dict, name: str) -> None:
 # ──────────────────────────────────────────────────
 #  Main Publisher — Extended
 # ──────────────────────────────────────────────────
+
 
 async def publish_to_notion(
     factory_result: dict,
@@ -341,7 +347,7 @@ async def publish_to_notion(
         remaining = children[100:]
         async with httpx.AsyncClient() as http:
             for chunk_start in range(0, len(remaining), 100):
-                chunk = remaining[chunk_start:chunk_start + 100]
+                chunk = remaining[chunk_start : chunk_start + 100]
                 await http.patch(
                     f"https://api.notion.com/v1/blocks/{page_id}/children",
                     headers=headers,

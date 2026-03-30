@@ -9,7 +9,6 @@ Usage:
 
 import argparse
 import sqlite3
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -48,13 +47,16 @@ def analyze_cache_stats(days: int = 7):
     # 기간별 통계
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT
             COUNT(DISTINCT prompt_hash) as unique_prompts,
             COUNT(*) as total_queries
         FROM llm_cache
         WHERE created_at >= ?
-    """, (cutoff,))
+    """,
+        (cutoff,),
+    )
 
     unique, queries = cursor.fetchone() or (0, 0)
 
@@ -124,7 +126,8 @@ def analyze_cache_stats(days: int = 7):
     # 가장 많이 사용된 프롬프트 (상위 10개)
     print("[ Most Frequent Prompts (Top 10) ]".ljust(80, "-"))
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT
             prompt_hash,
             COUNT(*) as usage_count,
@@ -134,7 +137,9 @@ def analyze_cache_stats(days: int = 7):
         GROUP BY prompt_hash
         ORDER BY usage_count DESC
         LIMIT 10
-    """, (cutoff,))
+    """,
+        (cutoff,),
+    )
 
     frequent_prompts = cursor.fetchall()
 

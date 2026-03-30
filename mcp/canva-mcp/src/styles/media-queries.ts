@@ -13,4 +13,3 @@ export const prefersReducedMotion = createMediaQueryFn(
 export const isPrimarilyTouchDevice = createMediaQueryFn("(pointer: coarse)");
 
 export const isHoverAvailable = createMediaQueryFn("(hover: hover)");
-

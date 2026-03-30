@@ -12,10 +12,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 # ── BioLinker 모듈 경로 설정 ──
 _ROOT = Path(__file__).resolve().parents[3]
@@ -38,9 +36,9 @@ except ImportError:
     print("ERROR: mcp 패키지가 필요합니다. pip install mcp")
     sys.exit(1)
 
-from shared.llm import LLMPolicy, TaskTier, get_client
-from services.analyzer import analyze_rfp_text
 from services.vector_store import get_vector_store
+
+from shared.llm import LLMPolicy, TaskTier, get_client
 
 log = logging.getLogger("biolinker.mcp")
 
@@ -51,6 +49,7 @@ server = Server("biolinker-mcp")
 # ══════════════════════════════════════════════════════════
 # Tools
 # ══════════════════════════════════════════════════════════
+
 
 @server.list_tools()
 async def list_tools() -> list[Tool]:
@@ -139,6 +138,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 # ══════════════════════════════════════════════════════════
 # Tool Implementations
 # ══════════════════════════════════════════════════════════
+
 
 async def _tool_analyze_rfp(args: dict) -> list[TextContent]:
     rfp_text = args["rfp_text"]
@@ -229,6 +229,7 @@ async def _tool_health_check() -> list[TextContent]:
 # ══════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════
+
 
 async def main():
     async with stdio_server() as (read_stream, write_stream):

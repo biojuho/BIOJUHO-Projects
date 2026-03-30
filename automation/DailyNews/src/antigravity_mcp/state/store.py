@@ -3,6 +3,7 @@
 ``PipelineStateStore`` composes domain-focused mixin classes while keeping
 connection, locking, and schema management in one place.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -71,7 +72,7 @@ class PipelineStateStore(
 
     # ── Context-manager support ───────────────────────────────────────────
 
-    def __enter__(self) -> "PipelineStateStore":
+    def __enter__(self) -> PipelineStateStore:
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
@@ -90,10 +91,7 @@ class PipelineStateStore(
         return row is not None
 
     def _ensure_column(self, connection: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
-        existing_columns = {
-            row["name"]
-            for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
-        }
+        existing_columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
         if column not in existing_columns:
             connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
@@ -372,13 +370,9 @@ class PipelineStateStore(
         if self._table_exists(connection, "job_runs"):
             existing_cols = {row[1] for row in connection.execute("PRAGMA table_info(job_runs)").fetchall()}
             if existing_cols and "processed_count" not in existing_cols:
-                connection.execute(
-                    "ALTER TABLE job_runs ADD COLUMN processed_count INTEGER NOT NULL DEFAULT 0"
-                )
+                connection.execute("ALTER TABLE job_runs ADD COLUMN processed_count INTEGER NOT NULL DEFAULT 0")
             if existing_cols and "published_count" not in existing_cols:
-                connection.execute(
-                    "ALTER TABLE job_runs ADD COLUMN published_count INTEGER NOT NULL DEFAULT 0"
-                )
+                connection.execute("ALTER TABLE job_runs ADD COLUMN published_count INTEGER NOT NULL DEFAULT 0")
 
         if self._table_exists(connection, "article_cache"):
             existing_cols = {row[1] for row in connection.execute("PRAGMA table_info(article_cache)").fetchall()}

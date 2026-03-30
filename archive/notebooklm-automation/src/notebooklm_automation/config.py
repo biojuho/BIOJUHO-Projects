@@ -12,16 +12,8 @@ class NotebookLMConfig:
     """Immutable configuration loaded from environment variables."""
 
     # --- Paths ---
-    home_dir: Path = field(
-        default_factory=lambda: Path(os.getenv(
-            "NOTEBOOKLM_HOME", str(Path.home() / ".notebooklm")
-        ))
-    )
-    output_dir: Path = field(
-        default_factory=lambda: Path(os.getenv(
-            "NOTEBOOKLM_OUTPUT_DIR", "./notebooklm_output"
-        ))
-    )
+    home_dir: Path = field(default_factory=lambda: Path(os.getenv("NOTEBOOKLM_HOME", str(Path.home() / ".notebooklm"))))
+    output_dir: Path = field(default_factory=lambda: Path(os.getenv("NOTEBOOKLM_OUTPUT_DIR", "./notebooklm_output")))
 
     # --- API Server ---
     api_host: str = field(default_factory=lambda: os.getenv("NOTEBOOKLM_API_HOST", "0.0.0.0"))
@@ -34,9 +26,7 @@ class NotebookLMConfig:
 
     # --- Content Defaults ---
     default_content_types: list[str] = field(
-        default_factory=lambda: os.getenv(
-            "NOTEBOOKLM_CONTENT_TYPES", "audio"
-        ).split(",")
+        default_factory=lambda: os.getenv("NOTEBOOKLM_CONTENT_TYPES", "audio").split(",")
     )
     default_audio_instructions: str = field(
         default_factory=lambda: os.getenv(
@@ -44,9 +34,7 @@ class NotebookLMConfig:
             "한국어로 핵심 내용을 2분 브리핑으로 요약해줘",
         )
     )
-    min_viral_score: int = field(
-        default_factory=lambda: int(os.getenv("NOTEBOOKLM_MIN_VIRAL", "75"))
-    )
+    min_viral_score: int = field(default_factory=lambda: int(os.getenv("NOTEBOOKLM_MIN_VIRAL", "75")))
 
     # --- Notion ---
     notion_api_key: str = field(default_factory=lambda: os.getenv("NOTION_API_KEY", ""))

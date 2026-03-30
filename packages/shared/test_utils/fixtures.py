@@ -1,4 +1,5 @@
 """Shared test fixtures for DailyNews and getdaytrends."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 def make_tmp_state_store(tmp_path: Path):
     """Create a temporary PipelineStateStore for testing."""
     from antigravity_mcp.state.store import PipelineStateStore
+
     return PipelineStateStore(path=tmp_path / "test.db")
 
 

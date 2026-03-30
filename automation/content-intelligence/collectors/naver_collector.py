@@ -6,9 +6,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import httpx
-from loguru import logger as log
-
 from collectors.base import llm_analyze
+from loguru import logger as log
 from prompts.trend_collection import TREND_COLLECTION_SYSTEM, build_trend_prompt
 from storage.models import PlatformTrend, PlatformTrendReport
 
@@ -82,15 +81,18 @@ async def _fetch_naver_datalab(config: CIEConfig) -> list[PlatformTrend] | None:
     # 프로젝트 분야 기반 키워드 그룹
     keyword_groups = []
     for field in config.project_fields[:5]:
-        keyword_groups.append({
-            "groupName": field,
-            "keywords": [field],
-        })
+        keyword_groups.append(
+            {
+                "groupName": field,
+                "keywords": [field],
+            }
+        )
 
     if not keyword_groups:
         return None
 
     from datetime import timedelta
+
     end_date = datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 

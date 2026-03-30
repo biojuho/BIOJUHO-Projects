@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
-from datetime import datetime
 
 from config import AppConfig
 from models import DMTriggerRule, WebhookEvent
@@ -32,18 +31,21 @@ class DMResponder:
     def _get_meta_api(self):
         if self._meta_api is None:
             from services.meta_api import MetaGraphAPI
+
             self._meta_api = MetaGraphAPI(self.config.meta)
         return self._meta_api
 
     def _get_db(self):
         if self._db is None:
             from services.database import Database
+
             self._db = Database(self.config.db_path)
         return self._db
 
     def _get_content_gen(self):
         if self._content_gen is None:
             from services.content_generator import ContentGenerator
+
             self._content_gen = ContentGenerator(self.config.content)
         return self._content_gen
 
@@ -161,9 +163,7 @@ class DMResponder:
 
         # Fallback: LLM-based response
         gen = self._get_content_gen()
-        response = await gen.generate_dm_response(
-            event.text, self._business_context
-        )
+        response = await gen.generate_dm_response(event.text, self._business_context)
         await self._send_dm(event.sender_id, response)
         db.log_dm(event.sender_id, event.text, response, "llm_fallback")
 
@@ -175,9 +175,7 @@ class DMResponder:
         """Build response from rule template or LLM."""
         if rule.is_llm_response:
             gen = self._get_content_gen()
-            return await gen.generate_dm_response(
-                user_text, self._business_context
-            )
+            return await gen.generate_dm_response(user_text, self._business_context)
         return rule.response_template
 
     async def _send_dm(self, recipient_id: str, message: str) -> None:

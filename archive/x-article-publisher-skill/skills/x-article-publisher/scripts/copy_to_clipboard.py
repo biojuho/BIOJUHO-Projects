@@ -39,15 +39,15 @@ def compress_image(image_path: str, quality: int = 85, max_size: tuple = (2000, 
     img = Image.open(image_path)
 
     # Convert to RGB if necessary (for JPEG)
-    if img.mode in ('RGBA', 'P'):
-        img = img.convert('RGB')
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
 
     # Resize if too large
     img.thumbnail(max_size, Image.Resampling.LANCZOS)
 
     # Save to bytes
     buffer = io.BytesIO()
-    img.save(buffer, format='JPEG', quality=quality, optimize=True)
+    img.save(buffer, format="JPEG", quality=quality, optimize=True)
     return buffer.getvalue()
 
 
@@ -61,7 +61,7 @@ def copy_image_to_clipboard_macos(image_path: str, quality: int = None) -> bool:
         if quality:
             image_data = compress_image(image_path, quality)
         else:
-            with open(image_path, 'rb') as f:
+            with open(image_path, "rb") as f:
                 image_data = f.read()
 
         # Create NSData from image bytes
@@ -73,14 +73,15 @@ def copy_image_to_clipboard_macos(image_path: str, quality: int = None) -> bool:
 
         # Determine type based on file extension
         ext = Path(image_path).suffix.lower()
-        if ext in ('.png',):
+        if ext in (".png",):
             pasteboard.setData_forType_(ns_data, NSPasteboardTypePNG)
         else:
             # For JPEG and others, use TIFF (more compatible)
             from PIL import Image
+
             img = Image.open(io.BytesIO(image_data))
             tiff_buffer = io.BytesIO()
-            img.save(tiff_buffer, format='TIFF')
+            img.save(tiff_buffer, format="TIFF")
             tiff_data = NSData.dataWithBytes_length_(tiff_buffer.getvalue(), len(tiff_buffer.getvalue()))
             pasteboard.setData_forType_(tiff_data, NSPasteboardTypeTIFF)
 
@@ -106,7 +107,7 @@ def copy_html_to_clipboard_macos(html: str) -> bool:
         pasteboard.clearContents()
 
         # Set HTML content
-        html_data = html.encode('utf-8')
+        html_data = html.encode("utf-8")
         ns_data = NSData.dataWithBytes_length_(html_data, len(html_data))
         pasteboard.setData_forType_(ns_data, NSPasteboardTypeHTML)
 
@@ -128,6 +129,7 @@ def copy_html_to_clipboard_macos(html: str) -> bool:
 # Windows Implementation
 # ============================================================================
 
+
 def copy_image_to_clipboard_windows(image_path: str, quality: int = None) -> bool:
     """Copy image to Windows clipboard using CF_DIB format."""
     try:
@@ -142,12 +144,12 @@ def copy_image_to_clipboard_windows(image_path: str, quality: int = None) -> boo
             img = Image.open(image_path)
 
         # Convert to RGB (required for BMP format)
-        if img.mode in ('RGBA', 'P', 'LA'):
-            img = img.convert('RGB')
+        if img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
 
         # Save as BMP to BytesIO, skip 14-byte BITMAPFILEHEADER
         output = io.BytesIO()
-        img.save(output, format='BMP')
+        img.save(output, format="BMP")
         data = output.getvalue()[14:]  # Skip BITMAPFILEHEADER
         output.close()
 
@@ -193,11 +195,12 @@ def copy_html_to_clipboard_windows(html: str) -> bool:
 # Platform Detection
 # ============================================================================
 
+
 def copy_image_to_clipboard(image_path: str, quality: int = None) -> bool:
     """Copy image to clipboard (cross-platform)."""
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         return copy_image_to_clipboard_macos(image_path, quality)
-    elif sys.platform == 'win32':
+    elif sys.platform == "win32":
         return copy_image_to_clipboard_windows(image_path, quality)
     else:
         print(f"Error: Unsupported platform: {sys.platform}", file=sys.stderr)
@@ -206,9 +209,9 @@ def copy_image_to_clipboard(image_path: str, quality: int = None) -> bool:
 
 def copy_html_to_clipboard(html: str) -> bool:
     """Copy HTML to clipboard (cross-platform)."""
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         return copy_html_to_clipboard_macos(html)
-    elif sys.platform == 'win32':
+    elif sys.platform == "win32":
         return copy_html_to_clipboard_windows(html)
     else:
         print(f"Error: Unsupported platform: {sys.platform}", file=sys.stderr)
@@ -216,27 +219,24 @@ def copy_html_to_clipboard(html: str) -> bool:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Copy to clipboard for X Articles')
-    subparsers = parser.add_subparsers(dest='type', required=True)
+    parser = argparse.ArgumentParser(description="Copy to clipboard for X Articles")
+    subparsers = parser.add_subparsers(dest="type", required=True)
 
     # Image subcommand
-    img_parser = subparsers.add_parser('image', help='Copy image to clipboard')
-    img_parser.add_argument('path', help='Path to image file')
-    img_parser.add_argument('--quality', type=int, default=None,
-                           help='JPEG quality (1-100), enables compression')
-    img_parser.add_argument('--max-width', type=int, default=2000,
-                           help='Max width for resize')
-    img_parser.add_argument('--max-height', type=int, default=2000,
-                           help='Max height for resize')
+    img_parser = subparsers.add_parser("image", help="Copy image to clipboard")
+    img_parser.add_argument("path", help="Path to image file")
+    img_parser.add_argument("--quality", type=int, default=None, help="JPEG quality (1-100), enables compression")
+    img_parser.add_argument("--max-width", type=int, default=2000, help="Max width for resize")
+    img_parser.add_argument("--max-height", type=int, default=2000, help="Max height for resize")
 
     # HTML subcommand
-    html_parser = subparsers.add_parser('html', help='Copy HTML to clipboard')
-    html_parser.add_argument('content', nargs='?', help='HTML content')
-    html_parser.add_argument('--file', '-f', help='Read HTML from file')
+    html_parser = subparsers.add_parser("html", help="Copy HTML to clipboard")
+    html_parser.add_argument("content", nargs="?", help="HTML content")
+    html_parser.add_argument("--file", "-f", help="Read HTML from file")
 
     args = parser.parse_args()
 
-    if args.type == 'image':
+    if args.type == "image":
         if not os.path.exists(args.path):
             print(f"Error: Image not found: {args.path}", file=sys.stderr)
             sys.exit(1)
@@ -248,12 +248,12 @@ def main():
                 print(f"  (compressed with quality={args.quality})")
         sys.exit(0 if success else 1)
 
-    elif args.type == 'html':
+    elif args.type == "html":
         if args.file:
             if not os.path.exists(args.file):
                 print(f"Error: File not found: {args.file}", file=sys.stderr)
                 sys.exit(1)
-            with open(args.file, 'r', encoding='utf-8') as f:
+            with open(args.file, encoding="utf-8") as f:
                 html = f.read()
         elif args.content:
             html = args.content
@@ -267,5 +267,5 @@ def main():
         sys.exit(0 if success else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

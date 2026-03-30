@@ -51,9 +51,7 @@ class TestComputeQualityScore:
     """품질 점수 테스트."""
 
     def test_good_colloquial_text(self):
-        score = compute_quality_score(
-            "근데 진짜 이건 좀 심하지 않나. 3일 만에 2000억 증발인데 아무도 안 떠든다"
-        )
+        score = compute_quality_score("근데 진짜 이건 좀 심하지 않나. 3일 만에 2000억 증발인데 아무도 안 떠든다")
         assert score >= 0.8
 
     def test_ai_voice_text_penalized(self):

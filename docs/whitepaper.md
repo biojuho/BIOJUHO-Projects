@@ -71,10 +71,10 @@ contract AgriGuard {
         address owner;
         bool verified;
     }
-    
+
     mapping(uint256 => Product) public products;
     mapping(uint256 => TrackingEvent[]) public history;
-    
+
     function registerProduct(...) external;
     function addTrackingEvent(...) external;
     function verifyProduct(uint256 id) external;

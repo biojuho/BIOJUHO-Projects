@@ -4,9 +4,8 @@ import argparse
 import json
 import sqlite3
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-
 
 DEFAULT_LLM_WEIGHT = 0.6
 DEFAULT_MIN_CONFIDENCE = 2
@@ -263,7 +262,7 @@ def main() -> int:
     payload = {
         "dataset_name": "getdaytrends historical viral scoring dataset",
         "metadata": {
-            "exported_at": datetime.now(timezone.utc).astimezone().isoformat(),
+            "exported_at": datetime.now(UTC).astimezone().isoformat(),
             "source_db": str(db_path.resolve()),
             "observation_mode": "first keyword appearance with full future window",
             "lookahead_hours": args.lookahead_hours,

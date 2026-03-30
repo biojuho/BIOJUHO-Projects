@@ -6,11 +6,12 @@ Each mixin handles a single domain concern (SRP):
   - _ReportMixin:   content_reports + channel_publications lifecycle
   - _CacheMixin:    llm_cache, feed_etag_cache, token usage stats
 """
+
 from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from antigravity_mcp.domain.models import ChannelDraft, ContentReport, PipelineRun
@@ -28,7 +29,7 @@ _DEFAULT_MODEL_COSTS: dict[str, tuple[float, float]] = {
     "claude-sonnet-4-20250514": (3.0, 15.0),
     "deepseek-chat": (0.14, 0.28),
     "gemini-2.5-flash": (0.0, 0.0),
-    "gemini-2.5-flash-lite": (0.10, 0.40),           # Free 1,000RPD, 초저비용
+    "gemini-2.5-flash-lite": (0.10, 0.40),  # Free 1,000RPD, 초저비용
     "gemini-2.5-flash-preview-04-17": (0.0, 0.0),
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
@@ -119,7 +120,9 @@ class _RunMixin:
             summary=summary,
         )
 
-    def list_runs(self, *, job_name: str | None = None, status: str | None = None, limit: int = 20) -> list[PipelineRun]:
+    def list_runs(
+        self, *, job_name: str | None = None, status: str | None = None, limit: int = 20
+    ) -> list[PipelineRun]:
         query = "SELECT * FROM job_runs"
         clauses: list[str] = []
         params: list[Any] = []
@@ -152,7 +155,7 @@ class _RunMixin:
 
     def get_pipeline_health(self) -> dict[str, Any]:
         """Return health metrics for pipeline runs in the last 24 hours."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(hours=24)).isoformat()
         with self._connect() as connection:
             last_row = connection.execute(
                 "SELECT started_at, status FROM job_runs ORDER BY started_at DESC LIMIT 1"
@@ -207,7 +210,7 @@ class _RunMixin:
         processes left by previous crashes (e.g. Task Scheduler killed mid-run,
         power loss, OOM). Returns the number of cleaned runs.
         """
-        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(minutes=max_age_minutes)).isoformat()
         with self._connect() as conn:
             cursor = conn.execute(
                 """
@@ -226,8 +229,11 @@ class _RunMixin:
         cleaned = cursor.rowcount
         if cleaned > 0:
             import logging
+
             logging.getLogger(__name__).warning(
-                "Cleaned %d stale runs (>%d min)", cleaned, max_age_minutes,
+                "Cleaned %d stale runs (>%d min)",
+                cleaned,
+                max_age_minutes,
             )
         return cleaned
 
@@ -256,11 +262,9 @@ class _ArticleMixin:
 
     def prune_old_articles(self, days: int = 30) -> int:
         """Delete article_cache entries older than *days*. Returns count of removed rows."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         with self._connect() as connection:
-            cursor = connection.execute(
-                "DELETE FROM article_cache WHERE first_seen_at < ?", (cutoff,)
-            )
+            cursor = connection.execute("DELETE FROM article_cache WHERE first_seen_at < ?", (cutoff,))
         return cursor.rowcount
 
     def record_article(
@@ -340,7 +344,9 @@ class _ReportMixin:
                     report.window_end,
                     json.dumps(report.summary_lines, ensure_ascii=False, default=_json_default),
                     json.dumps(report.insights, ensure_ascii=False, default=_json_default),
-                    json.dumps([draft.to_dict() for draft in report.channel_drafts], ensure_ascii=False, default=_json_default),
+                    json.dumps(
+                        [draft.to_dict() for draft in report.channel_drafts], ensure_ascii=False, default=_json_default
+                    ),
                     report.notion_page_id,
                     report.asset_status,
                     report.approval_state,
@@ -474,7 +480,7 @@ class _CacheMixin:
 
     def get_cached_llm_response(self, prompt_hash: str) -> str | None:
         """Return cached LLM response text or None if cache miss / expired."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with self._connect() as conn:
             row = conn.execute(
                 """
@@ -510,7 +516,7 @@ class _CacheMixin:
         ttl_hours: int = 24,
     ) -> None:
         """Store an LLM response in cache with optional TTL."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = (now + timedelta(hours=ttl_hours)).isoformat()
         with self._connect() as conn:
             conn.execute(
@@ -522,7 +528,7 @@ class _CacheMixin:
 
     def prune_llm_cache(self) -> int:
         """Remove expired cache entries. Returns count of deleted rows."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with self._connect() as conn:
             cursor = conn.execute("DELETE FROM llm_cache WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
         return cursor.rowcount
@@ -545,7 +551,7 @@ class _CacheMixin:
 
     def get_token_usage_stats(self, hours: int = 24) -> dict:
         """Aggregate token usage from LLM cache entries within the given time window."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
         with self._connect() as conn:
             rows = conn.execute(
                 """
@@ -620,7 +626,7 @@ class _XPostMixin:
 
     def prune_old_x_posts(self, keep_days: int = 7) -> int:
         """Remove post count entries older than *keep_days*."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).strftime("%Y-%m-%d")
+        cutoff = (datetime.now(UTC) - timedelta(days=keep_days)).strftime("%Y-%m-%d")
         with self._connect() as conn:
             cursor = conn.execute("DELETE FROM x_daily_posts WHERE post_date < ?", (cutoff,))
         return cursor.rowcount
@@ -686,7 +692,7 @@ class _TopicMixin:
 
     def get_recent_topics(self, category: str, *, days: int = 7, limit: int = 20) -> list[dict[str, Any]]:
         """Return recent topics for a category, sorted by last_seen_at desc."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         with self._connect() as conn:
             rows = conn.execute(
                 """
@@ -775,15 +781,24 @@ class _MetricsMixin:
                     bookmarks = excluded.bookmarks,
                     last_fetched_at = excluded.last_fetched_at
                 """,
-                (tweet_id, report_id, content_preview[:200], impressions, likes,
-                 retweets, replies, quotes, bookmarks, published, now),
+                (
+                    tweet_id,
+                    report_id,
+                    content_preview[:200],
+                    impressions,
+                    likes,
+                    retweets,
+                    replies,
+                    quotes,
+                    bookmarks,
+                    published,
+                    now,
+                ),
             )
 
     def get_tweet_metrics(self, tweet_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM x_tweet_metrics WHERE tweet_id = ?", (tweet_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM x_tweet_metrics WHERE tweet_id = ?", (tweet_id,)).fetchone()
         if row is None:
             return None
         return dict(row)
@@ -793,7 +808,7 @@ class _MetricsMixin:
         valid_sorts = {"impressions", "likes", "retweets", "replies", "quotes", "bookmarks"}
         if sort_by not in valid_sorts:
             sort_by = "impressions"
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         with self._connect() as conn:
             rows = conn.execute(
                 f"""
@@ -816,7 +831,7 @@ class _MetricsMixin:
 
     def get_recent_tweet_ids(self, *, hours: int = 48) -> list[str]:
         """Return tweet IDs published within the given time window."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT tweet_id FROM x_tweet_metrics WHERE published_at >= ? ORDER BY published_at DESC",
@@ -826,7 +841,7 @@ class _MetricsMixin:
 
     def get_metrics_summary(self, *, days: int = 7) -> dict[str, Any]:
         """Aggregate tweet metrics over the given period."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         with self._connect() as conn:
             row = conn.execute(
                 """

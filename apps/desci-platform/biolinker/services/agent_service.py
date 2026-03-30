@@ -13,17 +13,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 _ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_ROOT))
 
-from shared.llm import LLMPolicy, TaskTier, get_client as _get_llm_client
-from shared.llm.models import LLMResponse
-
 from services.search_service import get_search_service
+from shared.llm import LLMPolicy, TaskTier
+from shared.llm import get_client as _get_llm_client
+from shared.llm.models import LLMResponse
 
 # Centralized prompt templates (packages/shared/prompts/templates/*.yaml)
 try:
     from shared.prompts import get_prompt_manager as _get_pm
+
     _pm = _get_pm()
     RESEARCH_SYSTEM_PROMPT = _pm.render("biolinker_research")
     CONTENT_PUBLISHER_PROMPT = _pm.render("biolinker_publisher")
@@ -50,7 +55,7 @@ class AgentService:
     def __init__(self) -> None:
         self.search_service = get_search_service()
         self._client = _get_llm_client()
-        print("[AgentService] Initialized with shared.llm (language bridge enabled)")
+        logger.info("agent_service_initialized", bridge="shared.llm")
 
     async def _call_llm(
         self,
@@ -74,7 +79,7 @@ class AgentService:
         locale_context: RequestLocaleContext,
         max_depth: int = 2,
     ) -> dict[str, Any]:
-        print(f"[Agent] Starting Deep Research on: {topic} depth={max_depth}")
+        logger.info("deep_research_start", topic=topic, max_depth=max_depth)
         queries = await self._generate_search_queries(topic, locale_context)
 
         search_results = []
@@ -168,7 +173,7 @@ class AgentService:
         locale_context: RequestLocaleContext,
         query: str = "영상 내용을 요약해줘",
     ) -> dict[str, Any]:
-        print(f"[Agent] Analyzing YouTube Video: {video_url}")
+        logger.info("youtube_analysis_start", video_url=video_url)
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
         except ImportError:
@@ -210,7 +215,7 @@ class AgentService:
         topic: str,
         locale_context: RequestLocaleContext,
     ) -> dict[str, Any]:
-        print(f"[Agent] Starting Literature Review on: {topic}")
+        logger.info("literature_review_start", topic=topic)
         query_response = await self._call_llm(
             "You are a research assistant. Output ONLY a JSON array.",
             (

@@ -49,6 +49,7 @@ def extract_image_text_from_path(path: str | Path, **kwargs) -> str:
 #  Backend: Google Cloud Vision API
 # ──────────────────────────────────────────────────
 
+
 def _try_google_vision(data: bytes) -> str:
     """OCR via Google Cloud Vision API (requires GOOGLE_APPLICATION_CREDENTIALS)."""
     try:
@@ -82,6 +83,7 @@ def _try_google_vision(data: bytes) -> str:
 # ──────────────────────────────────────────────────
 #  Backend: Tesseract OCR (local fallback)
 # ──────────────────────────────────────────────────
+
 
 def _try_tesseract(data: bytes, language: str) -> str:
     """OCR via pytesseract + Pillow (requires tesseract binary)."""

@@ -12,9 +12,7 @@ import httpx
 def parse_args() -> argparse.Namespace:
     script_dir = Path(__file__).resolve().parent
     project_dir = script_dir.parent
-    parser = argparse.ArgumentParser(
-        description="Publish queued GetDayTrends tweets through the local /publish-x API."
-    )
+    parser = argparse.ArgumentParser(description="Publish queued GetDayTrends tweets through the local /publish-x API.")
     parser.add_argument(
         "--db-path",
         default=str(project_dir / "data" / "getdaytrends.db"),

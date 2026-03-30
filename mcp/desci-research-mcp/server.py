@@ -7,10 +7,10 @@ arXiv and Semantic Scholar APIs are free and require no API keys.
 """
 
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import httpx
+
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("desci-research")
@@ -24,7 +24,7 @@ ATOM_NS = "{http://www.w3.org/2005/Atom}"
 ARXIV_NS = "{http://arxiv.org/schemas/atom}"
 
 
-def _text(el: Optional[ET.Element], default: str = "") -> str:
+def _text(el: ET.Element | None, default: str = "") -> str:
     """Safely extract text from an XML element."""
     return el.text.strip() if el is not None and el.text else default
 
@@ -34,17 +34,10 @@ def _parse_arxiv_entry(entry: ET.Element) -> dict:
     arxiv_id_raw = _text(entry.find(f"{ATOM_NS}id"))
     arxiv_id = arxiv_id_raw.rsplit("/abs/", 1)[-1] if "/abs/" in arxiv_id_raw else arxiv_id_raw
 
-    authors = [
-        _text(author.find(f"{ATOM_NS}name"))
-        for author in entry.findall(f"{ATOM_NS}author")
-    ]
+    authors = [_text(author.find(f"{ATOM_NS}name")) for author in entry.findall(f"{ATOM_NS}author")]
 
-    categories = [
-        cat.get("term", "")
-        for cat in entry.findall(f"{ARXIV_NS}primary_category")
-    ] + [
-        cat.get("term", "")
-        for cat in entry.findall(f"{ATOM_NS}category")
+    categories = [cat.get("term", "") for cat in entry.findall(f"{ARXIV_NS}primary_category")] + [
+        cat.get("term", "") for cat in entry.findall(f"{ATOM_NS}category")
     ]
     # Deduplicate while preserving order
     seen = set()
@@ -75,7 +68,7 @@ def _parse_arxiv_entry(entry: ET.Element) -> dict:
 async def search_arxiv(
     query: str,
     max_results: int = 10,
-    categories: Optional[list[str]] = None,
+    categories: list[str] | None = None,
 ) -> list[dict]:
     """Search arXiv papers by query string.
 
@@ -116,7 +109,7 @@ async def search_arxiv(
 async def search_semantic_scholar(
     query: str,
     max_results: int = 10,
-    fields: Optional[list[str]] = None,
+    fields: list[str] | None = None,
 ) -> list[dict]:
     """Search Semantic Scholar for academic papers.
 
@@ -153,15 +146,17 @@ async def search_semantic_scholar(
     results = []
     for p in papers:
         authors = [a.get("name", "") for a in (p.get("authors") or [])]
-        results.append({
-            "title": p.get("title", ""),
-            "authors": authors,
-            "abstract": p.get("abstract", ""),
-            "year": p.get("year"),
-            "citation_count": p.get("citationCount", 0),
-            "paper_id": p.get("paperId", ""),
-            "url": p.get("url", ""),
-        })
+        results.append(
+            {
+                "title": p.get("title", ""),
+                "authors": authors,
+                "abstract": p.get("abstract", ""),
+                "year": p.get("year"),
+                "citation_count": p.get("citationCount", 0),
+                "paper_id": p.get("paperId", ""),
+                "url": p.get("url", ""),
+            }
+        )
 
     return results
 
@@ -227,19 +222,23 @@ async def get_paper_details(
 
         references = []
         for ref in (data.get("references") or [])[:20]:
-            references.append({
-                "title": ref.get("title", ""),
-                "paper_id": ref.get("paperId", ""),
-                "year": ref.get("year"),
-            })
+            references.append(
+                {
+                    "title": ref.get("title", ""),
+                    "paper_id": ref.get("paperId", ""),
+                    "year": ref.get("year"),
+                }
+            )
 
         citations = []
         for cit in (data.get("citations") or [])[:20]:
-            citations.append({
-                "title": cit.get("title", ""),
-                "paper_id": cit.get("paperId", ""),
-                "year": cit.get("year"),
-            })
+            citations.append(
+                {
+                    "title": cit.get("title", ""),
+                    "paper_id": cit.get("paperId", ""),
+                    "year": cit.get("year"),
+                }
+            )
 
         return {
             "title": data.get("title", ""),
@@ -265,7 +264,7 @@ async def get_paper_details(
 @mcp.tool()
 async def search_grants(
     query: str,
-    agency: Optional[str] = None,
+    agency: str | None = None,
     max_results: int = 10,
 ) -> list[dict]:
     """Search grants.gov for funding opportunities.
@@ -320,14 +319,16 @@ async def search_grants(
 
     results = []
     for opp in opportunities[:max_results]:
-        results.append({
-            "title": opp.get("title") or opp.get("oppTitle", ""),
-            "agency": opp.get("agency") or opp.get("agencyCode", ""),
-            "deadline": opp.get("closeDate") or opp.get("closeDateStr", ""),
-            "amount": opp.get("awardCeiling") or opp.get("estimatedFunding", "N/A"),
-            "description": (opp.get("description") or opp.get("synopsis") or "")[:500],
-            "url": f"https://www.grants.gov/search-results-detail/{opp.get('id') or opp.get('oppNumber', '')}",
-        })
+        results.append(
+            {
+                "title": opp.get("title") or opp.get("oppTitle", ""),
+                "agency": opp.get("agency") or opp.get("agencyCode", ""),
+                "deadline": opp.get("closeDate") or opp.get("closeDateStr", ""),
+                "amount": opp.get("awardCeiling") or opp.get("estimatedFunding", "N/A"),
+                "description": (opp.get("description") or opp.get("synopsis") or "")[:500],
+                "url": f"https://www.grants.gov/search-results-detail/{opp.get('id') or opp.get('oppNumber', '')}",
+            }
+        )
 
     return results
 
@@ -377,15 +378,17 @@ async def find_related_papers(
     results = []
     for p in papers_raw[:max_results]:
         authors = [a.get("name", "") for a in (p.get("authors") or [])]
-        results.append({
-            "title": p.get("title", ""),
-            "authors": authors,
-            "abstract": p.get("abstract", ""),
-            "year": p.get("year"),
-            "citation_count": p.get("citationCount", 0),
-            "paper_id": p.get("paperId", ""),
-            "url": p.get("url", ""),
-        })
+        results.append(
+            {
+                "title": p.get("title", ""),
+                "authors": authors,
+                "abstract": p.get("abstract", ""),
+                "year": p.get("year"),
+                "citation_count": p.get("citationCount", 0),
+                "paper_id": p.get("paperId", ""),
+                "url": p.get("url", ""),
+            }
+        )
 
     return results
 
@@ -407,7 +410,7 @@ async def get_research_trends(
     """
     days = min(days, 90)
 
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=days)
 
     # arXiv date range format: YYYYMMDDHHMM
@@ -449,19 +452,117 @@ async def get_research_trends(
 
     # Common stopwords to skip
     stopwords = {
-        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-        "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
-        "being", "have", "has", "had", "do", "does", "did", "will", "would",
-        "could", "should", "may", "might", "can", "shall", "this", "that",
-        "these", "those", "it", "its", "we", "our", "they", "their", "not",
-        "no", "nor", "as", "if", "than", "then", "so", "up", "out", "about",
-        "into", "over", "after", "such", "each", "which", "who", "whom",
-        "what", "where", "when", "how", "all", "both", "few", "more", "most",
-        "other", "some", "any", "only", "also", "very", "just", "because",
-        "through", "during", "before", "between", "under", "above", "while",
-        "using", "based", "via", "show", "shows", "shown", "use", "used",
-        "new", "two", "one", "first", "well", "however", "results", "paper",
-        "propose", "proposed", "approach", "method", "methods", "work",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "shall",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "we",
+        "our",
+        "they",
+        "their",
+        "not",
+        "no",
+        "nor",
+        "as",
+        "if",
+        "than",
+        "then",
+        "so",
+        "up",
+        "out",
+        "about",
+        "into",
+        "over",
+        "after",
+        "such",
+        "each",
+        "which",
+        "who",
+        "whom",
+        "what",
+        "where",
+        "when",
+        "how",
+        "all",
+        "both",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "any",
+        "only",
+        "also",
+        "very",
+        "just",
+        "because",
+        "through",
+        "during",
+        "before",
+        "between",
+        "under",
+        "above",
+        "while",
+        "using",
+        "based",
+        "via",
+        "show",
+        "shows",
+        "shown",
+        "use",
+        "used",
+        "new",
+        "two",
+        "one",
+        "first",
+        "well",
+        "however",
+        "results",
+        "paper",
+        "propose",
+        "proposed",
+        "approach",
+        "method",
+        "methods",
+        "work",
     }
 
     word_counts: Counter = Counter()

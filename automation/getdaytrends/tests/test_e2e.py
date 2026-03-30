@@ -4,17 +4,13 @@ Mock LLM + 인메모리 DB로 전체 수집→스코어링→생성→저장 흐
 실제 API 호출 없이 파이프라인 계약(contract)을 보장.
 """
 
-import asyncio
 import json
-import os
-import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-
 from config import AppConfig
-from db import db_transaction, get_connection, init_db, save_run, update_run
+from db import db_transaction, get_connection, init_db, save_run
 from models import (
     GeneratedTweet,
     MultiSourceContext,
@@ -24,7 +20,6 @@ from models import (
     TrendSource,
     TweetBatch,
 )
-
 
 # ══════════════════════════════════════════════════════
 #  Fixtures
@@ -179,21 +174,23 @@ async def test_batch_scoring_returns_correct_count(conn):
     raw = [_make_raw_trend(f"트렌드{i}", volume=(i + 1) * 10000) for i in range(5)]
     pairs = [(r, MultiSourceContext()) for r in raw]
 
-    llm_response = json.dumps([
-        {
-            "keyword": r.name,
-            "volume_last_24h": r.volume_numeric,
-            "trend_acceleration": "+5%",
-            "viral_potential": 70 + i,
-            "top_insight": f"인사이트{i}",
-            "suggested_angles": ["앵글1"],
-            "best_hook_starter": "훅",
-            "category": "테크",
-            "sentiment": "neutral",
-            "safety_flag": False,
-        }
-        for i, r in enumerate(raw)
-    ])
+    llm_response = json.dumps(
+        [
+            {
+                "keyword": r.name,
+                "volume_last_24h": r.volume_numeric,
+                "trend_acceleration": "+5%",
+                "viral_potential": 70 + i,
+                "top_insight": f"인사이트{i}",
+                "suggested_angles": ["앵글1"],
+                "best_hook_starter": "훅",
+                "category": "테크",
+                "sentiment": "neutral",
+                "safety_flag": False,
+            }
+            for i, r in enumerate(raw)
+        ]
+    )
 
     mock_response = MagicMock()
     mock_response.text = llm_response
@@ -220,18 +217,20 @@ async def test_batch_scoring_fallback_on_parse_error(conn):
     bad_response.text = "invalid json"
 
     good_response = MagicMock()
-    good_response.text = json.dumps({
-        "keyword": "폴백테스트",
-        "volume_last_24h": 5000,
-        "trend_acceleration": "+0%",
-        "viral_potential": 65,
-        "top_insight": "폴백 인사이트",
-        "suggested_angles": [],
-        "best_hook_starter": "훅",
-        "category": "기타",
-        "sentiment": "neutral",
-        "safety_flag": False,
-    })
+    good_response.text = json.dumps(
+        {
+            "keyword": "폴백테스트",
+            "volume_last_24h": 5000,
+            "trend_acceleration": "+0%",
+            "viral_potential": 65,
+            "top_insight": "폴백 인사이트",
+            "suggested_angles": [],
+            "best_hook_starter": "훅",
+            "category": "기타",
+            "sentiment": "neutral",
+            "safety_flag": False,
+        }
+    )
 
     call_count = 0
 
@@ -267,13 +266,13 @@ async def test_save_tweets_with_variant_and_language(conn):
         trend_id = await save_trend(conn, trend, run_id)
         tweets = [
             GeneratedTweet(tweet_type="공감형", content="A 변형", content_type="short", variant_id="A", language="ko"),
-            GeneratedTweet(tweet_type="공감형", content="B variant", content_type="short", variant_id="B", language="en"),
+            GeneratedTweet(
+                tweet_type="공감형", content="B variant", content_type="short", variant_id="B", language="en"
+            ),
         ]
         await save_tweets_batch(conn, tweets, trend_id, run_id)
 
-    cursor = await conn.execute(
-        "SELECT tweet_type, variant_id, language FROM tweets WHERE trend_id = ?", (trend_id,)
-    )
+    cursor = await conn.execute("SELECT tweet_type, variant_id, language FROM tweets WHERE trend_id = ?", (trend_id,))
     rows = [dict(r) for r in await cursor.fetchall()]
     assert len(rows) == 2
     variant_ids = {r["variant_id"] for r in rows}

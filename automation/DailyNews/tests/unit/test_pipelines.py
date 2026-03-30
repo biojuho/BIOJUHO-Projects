@@ -1,14 +1,14 @@
 """Pipeline unit tests for collect, analyze, publish, and dashboard flows."""
+
 from __future__ import annotations
 
 import importlib
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from antigravity_mcp.domain.models import ChannelDraft, ContentItem, ContentReport, GeneratedPayload
 from antigravity_mcp.state.store import PipelineStateStore
 
@@ -223,7 +223,9 @@ class TestAnalyzePipeline:
         assert any("Reused" in warning for warning in warnings2)
 
     @pytest.mark.asyncio
-    async def test_generate_briefs_persists_analysis_meta_without_override_in_concise_mode(self, state_store, sample_items):
+    async def test_generate_briefs_persists_analysis_meta_without_override_in_concise_mode(
+        self, state_store, sample_items
+    ):
         from antigravity_mcp.pipelines.analyze import generate_briefs
 
         class FakeInsightAdapter:
@@ -316,10 +318,7 @@ class TestAnalyzePipeline:
         assert saved is not None
         assert saved.generation_mode == "v1-brief"
         assert saved.analysis_meta["brief_body"] == (
-            "오늘의 핫 이슈: Tech. 변화의 시작입니다.\n"
-            "첫 문장.\n"
-            "둘째 문장.\n"
-            "셋째 문장."
+            "오늘의 핫 이슈: Tech. 변화의 시작입니다.\n" "첫 문장.\n" "둘째 문장.\n" "셋째 문장."
         )
         assert "핵심 사실:" not in saved.analysis_meta["brief_body"]
         assert "배경/디테일:" not in saved.analysis_meta["brief_body"]
@@ -411,8 +410,8 @@ class TestPublishPipeline:
 
     @pytest.mark.asyncio
     async def test_publish_downgrades_auto_when_quality_not_ok(self, state_store, sample_report, monkeypatch):
-        from antigravity_mcp.pipelines.publish import publish_report
         from antigravity_mcp.config import get_settings
+        from antigravity_mcp.pipelines.publish import publish_report
 
         monkeypatch.setenv("CONTENT_APPROVAL_MODE", "auto")
         get_settings.cache_clear()
@@ -629,7 +628,7 @@ class TestStateStore:
     def test_cleanup_stale_runs(self, state_store):
         state_store.record_job_start("stale-run", "test_job")
         conn = state_store._connect()
-        old_time = (datetime.now(timezone.utc) - timedelta(minutes=31)).isoformat()
+        old_time = (datetime.now(UTC) - timedelta(minutes=31)).isoformat()
         conn.execute("UPDATE job_runs SET started_at = ? WHERE run_id = ?", (old_time, "stale-run"))
         conn.commit()
 

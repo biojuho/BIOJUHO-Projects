@@ -1,6 +1,7 @@
 """
 Tests for vector store backend selection.
 """
+
 from __future__ import annotations
 
 import services.vector_store as vector_store_module

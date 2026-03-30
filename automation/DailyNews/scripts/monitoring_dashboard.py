@@ -11,20 +11,17 @@ import sqlite3
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 # 프로젝트 루트 설정
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from antigravity_mcp.config import get_settings
-from antigravity_mcp.state.store import PipelineStateStore
-
 
 def clear_screen():
     """화면 클리어 (크로스 플랫폼)"""
     import os
-    os.system('cls' if os.name == 'nt' else 'clear')
+
+    os.system("cls" if os.name == "nt" else "clear")
 
 
 def print_header():
@@ -37,7 +34,7 @@ def print_header():
     print()
 
 
-def get_pipeline_stats(days: int = 7) -> Dict[str, int]:
+def get_pipeline_stats(days: int = 7) -> dict[str, int]:
     """파이프라인 실행 통계"""
     db_path = PROJECT_ROOT / "data" / "pipeline_state.db"
     conn = sqlite3.connect(db_path)
@@ -45,12 +42,15 @@ def get_pipeline_stats(days: int = 7) -> Dict[str, int]:
 
     cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT status, COUNT(*) as count
         FROM job_runs
         WHERE started_at >= ?
         GROUP BY status
-    """, (cutoff_date,))
+    """,
+        (cutoff_date,),
+    )
 
     stats = {row[0]: row[1] for row in cursor.fetchall()}
     conn.close()
@@ -58,18 +58,21 @@ def get_pipeline_stats(days: int = 7) -> Dict[str, int]:
     return stats
 
 
-def get_recent_runs(limit: int = 10) -> List[Tuple]:
+def get_recent_runs(limit: int = 10) -> list[tuple]:
     """최근 실행 목록"""
     db_path = PROJECT_ROOT / "data" / "pipeline_state.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT run_id, job_name, status, started_at, finished_at
         FROM job_runs
         ORDER BY started_at DESC
         LIMIT ?
-    """, (limit,))
+    """,
+        (limit,),
+    )
 
     runs = cursor.fetchall()
     conn.close()
@@ -77,7 +80,7 @@ def get_recent_runs(limit: int = 10) -> List[Tuple]:
     return runs
 
 
-def get_insight_logs() -> List[Dict]:
+def get_insight_logs() -> list[dict]:
     """Insight 로그 파일 목록"""
     log_dir = PROJECT_ROOT / "logs" / "insights"
 
@@ -86,16 +89,18 @@ def get_insight_logs() -> List[Dict]:
 
     logs = []
     for log_file in sorted(log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True):
-        logs.append({
-            "name": log_file.name,
-            "size": log_file.stat().st_size,
-            "modified": datetime.fromtimestamp(log_file.stat().st_mtime)
-        })
+        logs.append(
+            {
+                "name": log_file.name,
+                "size": log_file.stat().st_size,
+                "modified": datetime.fromtimestamp(log_file.stat().st_mtime),
+            }
+        )
 
     return logs[:5]  # 최근 5개만
 
 
-def get_database_stats() -> Dict:
+def get_database_stats() -> dict:
     """데이터베이스 통계"""
     db_path = PROJECT_ROOT / "data" / "pipeline_state.db"
     conn = sqlite3.connect(db_path)
@@ -158,7 +163,7 @@ def print_pipeline_stats():
     for status in status_order:
         count = stats.get(status, 0)
         if count > 0:
-            pct = (count / total * 100)
+            pct = count / total * 100
             bar_length = int(pct / 2)  # 50% = 25 chars
             bar = "#" * bar_length  # ASCII-safe for Windows console
             print(f"    {status:10s}: {count:3d} ({pct:5.1f}%) {bar}")
@@ -211,7 +216,7 @@ def print_insight_logs():
 
     for log in logs:
         size_str = f"{log['size'] / 1024:.1f} KB"
-        modified_str = log['modified'].strftime('%Y-%m-%d %H:%M:%S')
+        modified_str = log["modified"].strftime("%Y-%m-%d %H:%M:%S")
         print(f"  {log['name']:<40s} | {size_str:<10s} | {modified_str:<19s}")
 
 
@@ -234,17 +239,21 @@ def print_scheduled_tasks():
 
     try:
         import subprocess
+
         result = subprocess.run(
-            ['powershell', '-Command',
-             'Get-ScheduledTask | Where-Object {$_.TaskName -match "DailyNews"} | '
-             'Select-Object TaskName,State | Format-Table -HideTableHeaders'],
+            [
+                "powershell",
+                "-Command",
+                'Get-ScheduledTask | Where-Object {$_.TaskName -match "DailyNews"} | '
+                "Select-Object TaskName,State | Format-Table -HideTableHeaders",
+            ],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
 
         if result.returncode == 0 and result.stdout.strip():
-            lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+            lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
             if lines:
                 print(f"  {'Task Name':<35s} | {'State':<10s}")
                 print("  " + "-" * 47)
@@ -279,6 +288,7 @@ def main():
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
+
         traceback.print_exc()
 
 

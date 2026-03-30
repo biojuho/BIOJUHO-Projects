@@ -7,17 +7,18 @@ Stripe 연동 요구사항:
   - STRIPE_WEBHOOK_SECRET: Stripe Webhook 서명 검증 시크릿 (.env)
   - DESCI_FRONTEND_URL: 프론트엔드 URL (체크아웃 성공/취소 리다이렉트)
 """
-import os
-from fastapi import APIRouter, Depends, HTTPException, Body, Request
 
+import os
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from services.auth import get_current_user
+from services.logging_config import get_logger
 from services.user_tier import (
-    get_tier_manager,
-    UserTier,
     TIER_LIMITS,
     TIER_RATE_LIMITS,
+    UserTier,
+    get_tier_manager,
 )
-from services.logging_config import get_logger
 
 log = get_logger("biolinker.routers.subscription")
 
@@ -26,12 +27,14 @@ router = APIRouter(prefix="/subscription", tags=["Subscription"])
 # ── Stripe 초기화 ──────────────────────────────────────────────────
 _stripe = None
 
+
 def _get_stripe():
     """지연 로딩 — stripe 패키지가 없어도 서버 기동 가능."""
     global _stripe
     if _stripe is None:
         try:
             import stripe
+
             stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
             _stripe = stripe
         except ImportError:
@@ -113,6 +116,7 @@ async def get_pricing():
 
 # ── 사용량 조회 (인증 필요) ────────────────────────────────────────
 
+
 @router.get("/usage")
 async def get_usage(user: dict = Depends(get_current_user)):
     """현재 사용자의 월간 사용량 조회"""
@@ -138,6 +142,7 @@ async def get_tier(user: dict = Depends(get_current_user)):
 
 
 # ── Stripe Checkout ────────────────────────────────────────────────
+
 
 @router.post("/checkout")
 async def create_checkout_session(
@@ -200,6 +205,7 @@ async def create_checkout_session(
 
 # ── 티어 변경 (관리자/테스트용) ────────────────────────────────────
 
+
 @router.post("/upgrade")
 async def upgrade_tier(
     user: dict = Depends(get_current_user),
@@ -231,6 +237,7 @@ async def upgrade_tier(
 
 # ── Stripe Webhook ─────────────────────────────────────────────────
 
+
 @router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     """Stripe Webhook — 결제 이벤트 처리.
@@ -251,15 +258,14 @@ async def stripe_webhook(request: Request):
     # 서명 검증
     if webhook_secret:
         try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, webhook_secret
-            )
+            event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
         except (ValueError, stripe.error.SignatureVerificationError) as e:
             log.warning("stripe_webhook_invalid_signature", error=str(e))
             raise HTTPException(400, "Invalid Stripe signature") from e
     else:
         # 개발 모드: 서명 검증 스킵
         import json
+
         event = json.loads(payload)
         log.warning("stripe_webhook_no_secret — 개발 모드")
 

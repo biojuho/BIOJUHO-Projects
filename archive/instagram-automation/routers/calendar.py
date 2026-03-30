@@ -11,10 +11,9 @@ Endpoints:
 
 from __future__ import annotations
 
+from dependencies import get_calendar
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-
-from dependencies import get_calendar
 from services.content_calendar import ContentCalendar
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])

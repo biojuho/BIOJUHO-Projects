@@ -7,16 +7,15 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Sequence
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from workspace_paths import find_workspace_root, rel_unit_path
-
 
 EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output|archive|var)([\\/]|$)"
 TAIL_LINE_COUNT = 20
@@ -191,7 +190,12 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("agriguard", "agriguard frontend lint", agriguard_frontend, [npm_exe, "run", "lint"]),
         Check("agriguard", "agriguard frontend build", agriguard_frontend, [npm_exe, "run", "build:lts"]),
         Check("agriguard", "agriguard backend compile", ".", compile_command(python_exe, agriguard_backend)),
-        Check("mcp", "notebooklm compile", ".", compile_command(python_exe, f"{notebooklm_mcp}/scripts", f"{notebooklm_mcp}/tests")),
+        Check(
+            "mcp",
+            "notebooklm compile",
+            ".",
+            compile_command(python_exe, f"{notebooklm_mcp}/scripts", f"{notebooklm_mcp}/tests"),
+        ),
         Check("mcp", "github-mcp compile", ".", compile_command(python_exe, f"{github_mcp}/scripts")),
         Check("mcp", "DailyNews unit tests", dailynews, [python_exe, "-m", "pytest", "tests/unit", "-q"]),
         Check("getdaytrends", "getdaytrends compile", ".", compile_command(python_exe, getdaytrends)),
@@ -217,7 +221,9 @@ def command_for_check(item: Check, temp_dir: Path) -> list[str]:
 def run_one(root: Path, item: Check) -> Result:
     cwd = (root / item.cwd).resolve()
     if not cwd.exists():
-        return Result(item.scope, item.name, item.cwd, format_command(item.command), 2, False, "", "working directory missing")
+        return Result(
+            item.scope, item.name, item.cwd, format_command(item.command), 2, False, "", "working directory missing"
+        )
 
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
@@ -277,7 +283,9 @@ def run_check(root: Path, item: Check) -> Result:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
-    parser.add_argument("--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends"])
+    parser.add_argument(
+        "--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends"]
+    )
     parser.add_argument("--json-out", help="Optional JSON output file")
     args = parser.parse_args()
 
@@ -295,7 +303,9 @@ def main() -> int:
     if not has_module(python_exe, "pytest"):
         print("[smoke] warning: pytest is not installed for selected Python; pytest-based checks may fail")
 
-    print("[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var")
+    print(
+        "[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var"
+    )
 
     results: list[Result] = []
     for check in checks:
@@ -316,7 +326,9 @@ def main() -> int:
             out_path = Path.cwd() / out_path
         try:
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(json.dumps([asdict(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8")
+            out_path.write_text(
+                json.dumps([asdict(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8"
+            )
             print(f"[smoke] json written: {out_path}")
         except OSError as exc:
             print(f"[smoke] warning: could not write json report to {out_path}: {exc}")

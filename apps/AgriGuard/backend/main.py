@@ -1,22 +1,21 @@
-import os
-import sys
 import asyncio
 import json
-from contextlib import asynccontextmanager
-from pathlib import Path
-from fastapi import FastAPI, HTTPException, Depends, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from typing import List
+import os
+import sys
 import uuid
-from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import models
 import schemas
-from database import SessionLocal, initialize_database, verify_database_connection
-from services.chain_simulator import get_chain
 from auth import get_current_user
-from iot_service import sensor_simulation_loop, get_current_status, get_latest_readings, handle_ws_connection
+from database import SessionLocal, initialize_database, verify_database_connection
+from fastapi import Depends, FastAPI, HTTPException, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+from iot_service import get_current_status, get_latest_readings, handle_ws_connection, sensor_simulation_loop
+from services.chain_simulator import get_chain
+from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 # ── Observability (Logfire) ─────────────────────────────────
@@ -26,19 +25,23 @@ for candidate in Path(__file__).resolve().parents:
         break
 try:
     from shared.observability import setup_observability
+
     _LOGFIRE_OK = True
 except ImportError:
     _LOGFIRE_OK = False
 
 try:
     from shared.metrics import setup_metrics
+
     _METRICS_OK = True
 except ImportError:
     try:
         from packages.shared.metrics import setup_metrics
+
         _METRICS_OK = True
     except ImportError:
         _METRICS_OK = False
+
 
 @asynccontextmanager
 async def lifespan(app):
@@ -52,8 +55,9 @@ async def lifespan(app):
     mqtt_host = os.environ.get("MQTT_BROKER_HOST", "")
     mqtt_task = None
     if mqtt_host:
-        from mqtt_service import MQTTSensorService
         from iot_service import add_reading_from_mqtt
+        from mqtt_service import MQTTSensorService
+
         mqtt_service = MQTTSensorService(
             broker_host=mqtt_host,
             broker_port=int(os.environ.get("MQTT_BROKER_PORT", "1883")),
@@ -66,6 +70,7 @@ async def lifespan(app):
     sim_task.cancel()
     if mqtt_task:
         mqtt_task.cancel()
+
 
 app = FastAPI(title="AgriGuard API", version="0.2.0", lifespan=lifespan)
 
@@ -84,6 +89,7 @@ app.add_middleware(
 
 # ── Admin Panel (/admin) ────────────────────────────────────
 from admin import setup_admin
+
 setup_admin(app)
 
 # ── Logfire Observability ───────────────────────────────────
@@ -100,6 +106,7 @@ if _METRICS_OK:
 # ── Structured Logging (JSON for Loki) ─────────────────────
 try:
     from shared.structured_logging import setup_logging as setup_structured_logging
+
     setup_structured_logging(service_name="agriguard")
 except ImportError:
     pass
@@ -107,6 +114,7 @@ except ImportError:
 # ── Audit Log ──────────────────────────────────────────────
 try:
     from shared.audit import setup_audit_log
+
     setup_audit_log(app, service_name="agriguard")
 except ImportError:
     pass
@@ -169,17 +177,12 @@ def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
     harvested_products = db.query(models.Product).filter(models.Product.harvest_date != None).count()
     active_cycles = total_products - harvested_products
 
-    recent_events = (
-        db.query(models.TrackingEvent)
-        .order_by(models.TrackingEvent.timestamp.desc())
-        .limit(5)
-        .all()
-    )
+    recent_events = db.query(models.TrackingEvent).order_by(models.TrackingEvent.timestamp.desc()).limit(5).all()
     recent_activity = [_format_tracking_event_as_activity(e) for e in recent_events]
 
     if not recent_activity:
         recent_activity = [
-            {"timestamp": datetime.utcnow().isoformat() + "Z", "event": "System initialized. Waiting for sensor data."}
+            {"timestamp": datetime.now(UTC).isoformat() + "Z", "event": "System initialized. Waiting for sensor data."}
         ]
 
     has_real_data = total_products > 0
@@ -217,13 +220,15 @@ def get_supply_chain_summary(db: Session = Depends(get_db)):
 
 
 @app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def create_user(
+    user: schemas.UserCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)
+):
     db_user = models.User(
         id=str(uuid.uuid4()),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         role=user.role,
         name=user.name,
-        organization=user.organization
+        organization=user.organization,
     )
     db.add(db_user)
     db.commit()
@@ -232,7 +237,12 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current
 
 
 @app.post("/products/", response_model=schemas.Product)
-def create_product(product: schemas.ProductCreate, owner_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def create_product(
+    product: schemas.ProductCreate,
+    owner_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     product_id = str(uuid.uuid4())
     get_chain().log_event(product_id, {"action": "REGISTER", "owner": owner_id})
 
@@ -253,7 +263,7 @@ def create_product(product: schemas.ProductCreate, owner_id: str, db: Session = 
     return db_product
 
 
-@app.get("/products/", response_model=List[schemas.Product])
+@app.get("/products/", response_model=list[schemas.Product])
 def list_products(db: Session = Depends(get_db)):
     return db.query(models.Product).all()
 
@@ -277,7 +287,13 @@ def get_product_history(product_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/products/{product_id}/certifications", response_model=schemas.Product)
-def add_certification(product_id: str, cert_type: str, issued_by: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def add_certification(
+    product_id: str,
+    cert_type: str,
+    issued_by: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -288,16 +304,19 @@ def add_certification(product_id: str, cert_type: str, issued_by: str, db: Sessi
             cert_id=cert_id,
             product_id=product_id,
             issued_by=issued_by,
-            issue_date=datetime.utcnow(),
+            issue_date=datetime.now(UTC),
             cert_type=cert_type,
         )
         db.add(new_cert)
-        get_chain().log_event(product_id, {
-            "action": "CERTIFICATION_ISSUED",
-            "cert_id": cert_id,
-            "cert_type": cert_type,
-            "issued_by": issued_by,
-        })
+        get_chain().log_event(
+            product_id,
+            {
+                "action": "CERTIFICATION_ISSUED",
+                "cert_id": cert_id,
+                "cert_type": cert_type,
+                "issued_by": issued_by,
+            },
+        )
         db.commit()
         db.refresh(product)
         return product
@@ -307,7 +326,14 @@ def add_certification(product_id: str, cert_type: str, issued_by: str, db: Sessi
 
 
 @app.post("/products/{product_id}/track")
-def add_tracking_event(product_id: str, status: str, location: str, handler_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def add_tracking_event(
+    product_id: str,
+    status: str,
+    location: str,
+    handler_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -315,18 +341,21 @@ def add_tracking_event(product_id: str, status: str, location: str, handler_id: 
     try:
         event = models.TrackingEvent(
             product_id=product_id,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             status=status,
             location=location,
             handler_id=handler_id,
         )
         db.add(event)
-        get_chain().log_event(product_id, {
-            "timestamp": event.timestamp.isoformat(),
-            "status": status,
-            "location": location,
-            "handler_id": handler_id,
-        })
+        get_chain().log_event(
+            product_id,
+            {
+                "timestamp": event.timestamp.isoformat(),
+                "status": status,
+                "location": location,
+                "handler_id": handler_id,
+            },
+        )
         db.commit()
         db.refresh(event)
         return {"status": "success", "event": {"id": event.id, "status": event.status, "location": event.location}}
@@ -341,7 +370,7 @@ def capture_qr_scan_event(payload: schemas.QRScanEventCreate, db: Session = Depe
         event = models.QRScanEvent(
             session_id=payload.session_id,
             event_type=payload.event_type,
-            occurred_at=payload.occurred_at or datetime.utcnow(),
+            occurred_at=payload.occurred_at or datetime.now(UTC),
             product_id=payload.product_id,
             qr_value=payload.qr_value,
             error_code=payload.error_code,
@@ -357,6 +386,7 @@ def capture_qr_scan_event(payload: schemas.QRScanEventCreate, db: Session = Depe
         # Business metrics
         try:
             from shared.business_metrics import biz
+
             biz.qr_scan(payload.event_type)
             if payload.event_type == "verification_complete":
                 biz.verification_complete()
@@ -370,7 +400,7 @@ def capture_qr_scan_event(payload: schemas.QRScanEventCreate, db: Session = Depe
 
 @app.get("/qr-events/summary")
 def get_qr_event_summary(hours: int = 24, variant_id: str | None = None, db: Session = Depends(get_db)):
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
     query = db.query(models.QRScanEvent).filter(models.QRScanEvent.occurred_at >= since)
     if variant_id:
         query = query.filter(models.QRScanEvent.variant_id == variant_id)
@@ -412,20 +442,10 @@ def get_qr_event_summary(hours: int = 24, variant_id: str | None = None, db: Ses
     scan_start_sessions = sum(1 for value in sessions.values() if "scan_start" in value)
     scan_failure_sessions = sum(1 for value in sessions.values() if "scan_failure" in value)
     scan_recovery_sessions = sum(1 for value in sessions.values() if "scan_recovery" in value)
-    verification_complete_sessions = sum(
-        1 for value in sessions.values() if "verification_complete" in value
-    )
+    verification_complete_sessions = sum(1 for value in sessions.values() if "verification_complete" in value)
 
-    completion_rate = (
-        round(verification_complete_sessions / scan_start_sessions, 4)
-        if scan_start_sessions
-        else 0.0
-    )
-    recovery_rate = (
-        round(scan_recovery_sessions / scan_failure_sessions, 4)
-        if scan_failure_sessions
-        else 0.0
-    )
+    completion_rate = round(verification_complete_sessions / scan_start_sessions, 4) if scan_start_sessions else 0.0
+    recovery_rate = round(scan_recovery_sessions / scan_failure_sessions, 4) if scan_failure_sessions else 0.0
 
     return {
         "hours": hours,
@@ -449,15 +469,18 @@ def get_qr_event_summary(hours: int = 24, variant_id: str | None = None, db: Ses
 
 # ============== IoT Cold-Chain ==============
 
+
 @app.get("/iot/status")
 async def iot_status():
     """현재 IoT 센서 상태 집계"""
     return get_current_status()
 
+
 @app.get("/iot/readings")
 async def iot_readings(hours: int = 24):
     """최근 N시간 센서 데이터"""
     return get_latest_readings(hours)
+
 
 @app.websocket("/ws/iot")
 async def ws_iot(websocket: WebSocket):
@@ -467,4 +490,5 @@ async def ws_iot(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8002)

@@ -1,19 +1,13 @@
 """models.py 테스트: 데이터 구조, 자동 계산, 직렬화."""
 
-import os
-import sys
 import unittest
-
 
 from models import (
     GeneratedThread,
     GeneratedTweet,
     MultiSourceContext,
-    RawTrend,
     RunResult,
-    ScoredTrend,
     TrendCluster,
-    TrendSource,
     TweetBatch,
 )
 

@@ -30,7 +30,7 @@ def _normalize_brief_body(text: str) -> str:
             continue
         for prefix in ("핵심 사실:", "배경/디테일:", "전망/의미:"):
             if line.startswith(prefix):
-                line = line[len(prefix):].strip()
+                line = line[len(prefix) :].strip()
                 break
         lines.append(line)
     return "\n".join(lines).strip()
@@ -220,10 +220,7 @@ async def _apply_brain_enrichment(ctx: ReportAssemblyContext, brain_adapter: Any
     if not brain_adapter or not hasattr(brain_adapter, "analyze_news"):
         return
     try:
-        articles_data = [
-            {"title": item.title, "description": item.summary[:200]}
-            for item in ctx.items
-        ]
+        articles_data = [{"title": item.title, "description": item.summary[:200]} for item in ctx.items]
         window_str = f"{ctx.window_start} ~ {ctx.window_end}"
         result = await brain_adapter.analyze_news(ctx.category, articles_data, window_str)
         if result:
@@ -276,8 +273,7 @@ async def _apply_notebooklm_enrichment(ctx: ReportAssemblyContext, notebooklm_ad
         return
     try:
         articles_data = [
-            {"title": item.title, "description": item.summary[:200], "link": item.link}
-            for item in ctx.items
+            {"title": item.title, "description": item.summary[:200], "link": item.link} for item in ctx.items
         ]
         result = await notebooklm_adapter.research_category(
             category=ctx.category,
@@ -349,10 +345,7 @@ async def _apply_insight_enrichment(ctx: ReportAssemblyContext, insight_adapter:
     if not insight_adapter:
         return
     try:
-        articles_data = [
-            {"title": item.title, "summary": item.summary[:200], "link": item.link}
-            for item in ctx.items
-        ]
+        articles_data = [{"title": item.title, "summary": item.summary[:200], "link": item.link} for item in ctx.items]
         result = await insight_adapter.generate_insights(
             category=ctx.category,
             articles=articles_data,
@@ -537,7 +530,7 @@ def record_topics_and_articles(
     run_id: str,
 ) -> None:
     for cluster in cluster_meta.get(ctx.category, []):
-        topic_id = hashlib.sha256(f"{ctx.category}:{cluster.topic_label}".encode("utf-8")).hexdigest()[:16]
+        topic_id = hashlib.sha256(f"{ctx.category}:{cluster.topic_label}".encode()).hexdigest()[:16]
         ctx.state_store.upsert_topic(
             topic_id=topic_id,
             topic_label=cluster.topic_label,

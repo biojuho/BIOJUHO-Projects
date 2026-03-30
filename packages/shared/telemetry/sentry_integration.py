@@ -10,12 +10,13 @@ shared.telemetry.sentry_integration - Sentry 에러 모니터링 통합.
   - 비용 초과/품질 저하 등 커스텀 이벤트 전송
   - Sentry 미설정 시 조용한 no-op fallback
 """
+
 from __future__ import annotations
 
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
-
+from typing import Any
 
 _initialized = False
 
@@ -139,8 +140,7 @@ def pipeline_span(
     try:
         yield
     except Exception as e:
-        add_breadcrumb(f"Error: {name}", category="pipeline", level="error",
-                       data={"error": str(e)})
+        add_breadcrumb(f"Error: {name}", category="pipeline", level="error", data={"error": str(e)})
         capture_exception(e, project=project, pipeline_stage=name)
         raise
     else:

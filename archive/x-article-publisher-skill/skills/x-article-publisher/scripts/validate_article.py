@@ -19,7 +19,6 @@ from typing import Any
 
 from parse_markdown import build_workflow_plan, parse_markdown_file
 
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 SELECTOR_MANIFEST = SKILL_DIR / "config" / "selectors.json"

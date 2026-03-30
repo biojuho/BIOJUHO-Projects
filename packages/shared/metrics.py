@@ -7,8 +7,10 @@ prometheus_client is not installed.
 
 Usage::
     from shared.metrics import setup_metrics
+
     setup_metrics(app, service_name="agriguard")
 """
+
 from __future__ import annotations
 
 import time
@@ -16,12 +18,12 @@ from typing import Any
 
 try:
     from prometheus_client import (
+        CONTENT_TYPE_LATEST,
         CollectorRegistry,
         Counter,
         Gauge,
         Histogram,
         generate_latest,
-        CONTENT_TYPE_LATEST,
     )
 
     _PROM_AVAILABLE = True
@@ -86,21 +88,13 @@ def setup_metrics(app: Any, *, service_name: str = "app") -> None:
             response = await call_next(request)
             elapsed = time.perf_counter() - start
             status = str(response.status_code)
-            request_count.labels(
-                service=service_name, method=method, path=path, status=status
-            ).inc()
-            request_latency.labels(
-                service=service_name, method=method, path=path
-            ).observe(elapsed)
+            request_count.labels(service=service_name, method=method, path=path, status=status).inc()
+            request_latency.labels(service=service_name, method=method, path=path).observe(elapsed)
             return response
         except Exception:
             elapsed = time.perf_counter() - start
-            request_count.labels(
-                service=service_name, method=method, path=path, status="500"
-            ).inc()
-            request_latency.labels(
-                service=service_name, method=method, path=path
-            ).observe(elapsed)
+            request_count.labels(service=service_name, method=method, path=path, status="500").inc()
+            request_latency.labels(service=service_name, method=method, path=path).observe(elapsed)
             raise
         finally:
             in_flight.labels(service=service_name).dec()

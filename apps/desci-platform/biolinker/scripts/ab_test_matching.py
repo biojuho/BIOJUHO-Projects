@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -69,68 +69,113 @@ AB_TEST_HYPOTHESIS = {
         "Grade distribution (S/A vs B/C/D)",
     ],
     "decision_rule": (
-        "Adopt version B if Precision@5 improves by >=30% relative and "
-        "false positives do not increase."
+        "Adopt version B if Precision@5 improves by >=30% relative and " "false positives do not increase."
     ),
 }
 
 
 SAMPLE_DATASET: list[MatchObservation] = [
     MatchObservation(
-        "AI 기반 신약 타겟 발굴 기술 개발", 72, 94, True,
-        "A", "direct tech field match",
+        "AI 기반 신약 타겟 발굴 기술 개발",
+        72,
+        94,
+        True,
+        "A",
+        "direct tech field match",
     ),
     MatchObservation(
-        "첨단 바이오 소재 실용화 지원", 65, 88, True,
-        "A", "bio materials align with lab focus",
+        "첨단 바이오 소재 실용화 지원",
+        65,
+        88,
+        True,
+        "A",
+        "bio materials align with lab focus",
     ),
     MatchObservation(
-        "중소기업 디지털 전환 지원", 58, 42, False,
-        "C", "generic SME digitalization, not bio",
+        "중소기업 디지털 전환 지원",
+        58,
+        42,
+        False,
+        "C",
+        "generic SME digitalization, not bio",
     ),
     MatchObservation(
-        "의료 데이터 플랫폼 구축", 80, 91, True,
-        "S", "strong health-AI overlap",
+        "의료 데이터 플랫폼 구축",
+        80,
+        91,
+        True,
+        "S",
+        "strong health-AI overlap",
     ),
     MatchObservation(
-        "농업용 드론 기술 개발", 45, 38, False,
-        "D", "unrelated field",
+        "농업용 드론 기술 개발",
+        45,
+        38,
+        False,
+        "D",
+        "unrelated field",
     ),
     MatchObservation(
-        "유전체 분석 도구 고도화", 70, 93, True,
-        "A", "genomics closely related",
+        "유전체 분석 도구 고도화",
+        70,
+        93,
+        True,
+        "A",
+        "genomics closely related",
     ),
     MatchObservation(
-        "문화 콘텐츠 수출 지원", 30, 22, False,
-        "D", "no bio relevance",
+        "문화 콘텐츠 수출 지원",
+        30,
+        22,
+        False,
+        "D",
+        "no bio relevance",
     ),
     MatchObservation(
-        "바이오마커 진단키트 개발", 85, 96, True,
-        "S", "core competency match",
+        "바이오마커 진단키트 개발",
+        85,
+        96,
+        True,
+        "S",
+        "core competency match",
     ),
     MatchObservation(
-        "스마트팩토리 도입 지원", 55, 35, False,
-        "D", "manufacturing, not research",
+        "스마트팩토리 도입 지원",
+        55,
+        35,
+        False,
+        "D",
+        "manufacturing, not research",
     ),
     MatchObservation(
-        "항체 치료제 전임상 연구", 78, 90, True,
-        "A", "therapeutics research match",
+        "항체 치료제 전임상 연구",
+        78,
+        90,
+        True,
+        "A",
+        "therapeutics research match",
     ),
     MatchObservation(
-        "블록체인 기반 공급망 관리", 40, 30, False,
-        "D", "supply chain tech, no bio",
+        "블록체인 기반 공급망 관리",
+        40,
+        30,
+        False,
+        "D",
+        "supply chain tech, no bio",
     ),
     MatchObservation(
-        "디지털 헬스케어 실증사업", 68, 86, True,
-        "B", "health-AI partial overlap",
+        "디지털 헬스케어 실증사업",
+        68,
+        86,
+        True,
+        "B",
+        "health-AI partial overlap",
     ),
 ]
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Draft A/B evaluation for DeSci RFP matching."
-    )
+    parser = argparse.ArgumentParser(description="Draft A/B evaluation for DeSci RFP matching.")
     parser.add_argument(
         "--dataset",
         help="Optional JSON dataset path. If omitted, a built-in sample is used.",
@@ -172,9 +217,7 @@ def load_dataset(path: str | None) -> tuple[list[MatchObservation], str, dict]:
         return [parse_observation(item) for item in raw], path, {}
 
     if isinstance(raw, dict):
-        observations = (
-            raw.get("observations") or raw.get("items") or raw.get("dataset") or []
-        )
+        observations = raw.get("observations") or raw.get("items") or raw.get("dataset") or []
         metadata = raw.get("metadata", {})
         dataset_name = raw.get("dataset_name") or metadata.get("dataset_name") or path
         return [parse_observation(item) for item in observations], dataset_name, metadata
@@ -182,9 +225,7 @@ def load_dataset(path: str | None) -> tuple[list[MatchObservation], str, dict]:
     raise ValueError("Unsupported dataset format")
 
 
-def rank_dataset(
-    dataset: list[MatchObservation], score_field: str, top_k: int
-) -> list[MatchObservation]:
+def rank_dataset(dataset: list[MatchObservation], score_field: str, top_k: int) -> list[MatchObservation]:
     return sorted(
         dataset,
         key=lambda item: (-getattr(item, score_field), item.rfp_title),
@@ -211,9 +252,7 @@ def grade_distribution(ranked: list[MatchObservation]) -> dict[str, int]:
     return dist
 
 
-def summarize_ranked(
-    dataset: list[MatchObservation], score_field: str, top_k: int
-) -> dict:
+def summarize_ranked(dataset: list[MatchObservation], score_field: str, top_k: int) -> dict:
     ranked = rank_dataset(dataset, score_field, top_k)
     hits = sum(1 for item in ranked if item.actual_relevant)
     false_positives = len(ranked) - hits
@@ -263,9 +302,7 @@ def render_markdown(
     version_b: dict,
     decision: dict,
 ) -> str:
-    generated_at = datetime.now(timezone.utc).astimezone().strftime(
-        "%Y-%m-%d %H:%M:%S %Z"
-    )
+    generated_at = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     lines = [
         "# DeSci RFP Matching A/B Test Draft",
         "",
@@ -275,76 +312,75 @@ def render_markdown(
         "",
     ]
     if metadata:
-        lines.extend([
-            "## Dataset Metadata",
+        lines.extend(
+            [
+                "## Dataset Metadata",
+                "",
+                *[
+                    f"- {key.replace('_', ' ').title()}: {value}"
+                    for key, value in metadata.items()
+                    if value not in ("", None, [], {})
+                ],
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Audience",
             "",
-            *[
-                f"- {key.replace('_', ' ').title()}: {value}"
-                for key, value in metadata.items()
-                if value not in ("", None, [], {})
-            ],
+            f"- Type: {AUDIENCE_PROFILE['type']}",
+            f"- Personas: {', '.join(AUDIENCE_PROFILE['primary_personas'])}",
+            f"- Profile: {AUDIENCE_PROFILE['profile']}",
             "",
-        ])
-    lines.extend([
-        "## Audience",
-        "",
-        f"- Type: {AUDIENCE_PROFILE['type']}",
-        f"- Personas: {', '.join(AUDIENCE_PROFILE['primary_personas'])}",
-        f"- Profile: {AUDIENCE_PROFILE['profile']}",
-        "",
-        "## Hypothesis",
-        "",
-        f"- {AB_TEST_HYPOTHESIS['hypothesis']}",
-        f"- Primary KPI: {AB_TEST_HYPOTHESIS['primary_kpi']}",
-        f"- Decision rule: {AB_TEST_HYPOTHESIS['decision_rule']}",
-        "",
-        "## Metrics",
-        "",
-        "| Version | Precision@K | Relevant | False Positives | Avg Score | Grade Dist |",
-        "|---|---:|---:|---:|---:|---|",
-        (
-            f"| {AB_TEST_HYPOTHESIS['version_a']['name']} "
-            f"| {version_a['precision_at_k']:.2f} "
-            f"| {version_a['hit_count']} "
-            f"| {version_a['false_positives']} "
-            f"| {version_a['average_score']:.2f} "
-            f"| {_fmt_grades(version_a['grade_distribution'])} |"
-        ),
-        (
-            f"| {AB_TEST_HYPOTHESIS['version_b']['name']} "
-            f"| {version_b['precision_at_k']:.2f} "
-            f"| {version_b['hit_count']} "
-            f"| {version_b['false_positives']} "
-            f"| {version_b['average_score']:.2f} "
-            f"| {_fmt_grades(version_b['grade_distribution'])} |"
-        ),
-        "",
-        "## Top-K RFP Picks",
-        "",
-        f"- Version A: {', '.join(version_a['top_rfps'])}",
-        f"- Version B: {', '.join(version_b['top_rfps'])}",
-        "",
-        "## Decision",
-        "",
-        f"- Outcome: {decision['summary']}",
-        f"- Relative Precision lift: {decision['relative_lift']:.2%}",
-        f"- Lift threshold met: {decision['meets_lift_threshold']}",
-        f"- False positives acceptable: {decision['false_positive_ok']}",
-        "",
-        "## Notes",
-        "",
-        "- This is a draft harness for Audience-First evaluation, not a production experiment runner.",
-        "- In production, ground truth comes from researcher satisfaction surveys and proposal submission rates.",
-    ])
+            "## Hypothesis",
+            "",
+            f"- {AB_TEST_HYPOTHESIS['hypothesis']}",
+            f"- Primary KPI: {AB_TEST_HYPOTHESIS['primary_kpi']}",
+            f"- Decision rule: {AB_TEST_HYPOTHESIS['decision_rule']}",
+            "",
+            "## Metrics",
+            "",
+            "| Version | Precision@K | Relevant | False Positives | Avg Score | Grade Dist |",
+            "|---|---:|---:|---:|---:|---|",
+            (
+                f"| {AB_TEST_HYPOTHESIS['version_a']['name']} "
+                f"| {version_a['precision_at_k']:.2f} "
+                f"| {version_a['hit_count']} "
+                f"| {version_a['false_positives']} "
+                f"| {version_a['average_score']:.2f} "
+                f"| {_fmt_grades(version_a['grade_distribution'])} |"
+            ),
+            (
+                f"| {AB_TEST_HYPOTHESIS['version_b']['name']} "
+                f"| {version_b['precision_at_k']:.2f} "
+                f"| {version_b['hit_count']} "
+                f"| {version_b['false_positives']} "
+                f"| {version_b['average_score']:.2f} "
+                f"| {_fmt_grades(version_b['grade_distribution'])} |"
+            ),
+            "",
+            "## Top-K RFP Picks",
+            "",
+            f"- Version A: {', '.join(version_a['top_rfps'])}",
+            f"- Version B: {', '.join(version_b['top_rfps'])}",
+            "",
+            "## Decision",
+            "",
+            f"- Outcome: {decision['summary']}",
+            f"- Relative Precision lift: {decision['relative_lift']:.2%}",
+            f"- Lift threshold met: {decision['meets_lift_threshold']}",
+            f"- False positives acceptable: {decision['false_positive_ok']}",
+            "",
+            "## Notes",
+            "",
+            "- This is a draft harness for Audience-First evaluation, not a production experiment runner.",
+            "- In production, ground truth comes from researcher satisfaction surveys and proposal submission rates.",
+        ]
+    )
     if not metadata:
-        lines.append(
-            "- Replace the sample dataset with real matching logs "
-            "exported from the /analyze endpoint."
-        )
+        lines.append("- Replace the sample dataset with real matching logs " "exported from the /analyze endpoint.")
     else:
-        lines.append(
-            "- Interpret the result together with the dataset metadata and label method."
-        )
+        lines.append("- Interpret the result together with the dataset metadata and label method.")
     return "\n".join(lines) + "\n"
 
 

@@ -12,11 +12,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
-
 from dependencies import get_database, get_scheduler
+from fastapi import APIRouter, Depends, Query
 from models import InstagramPost, PostType
+from pydantic import BaseModel
 from services.database import Database
 from services.scheduler import PostScheduler
 
@@ -50,9 +49,7 @@ async def generate_content(
     db: Database = Depends(get_database),
 ):
     """Generate daily content batch."""
-    count = await scheduler.generate_daily_content(
-        topics=req.topics if req.topics else None
-    )
+    count = await scheduler.generate_daily_content(topics=req.topics if req.topics else None)
     return {"generated": count, "queue": len(db.get_queued_posts())}
 
 
@@ -69,9 +66,7 @@ async def enqueue_post(
         video_url=req.video_url,
         carousel_urls=req.carousel_urls,
         post_type=PostType(req.post_type),
-        scheduled_at=datetime.fromisoformat(req.scheduled_at)
-        if req.scheduled_at
-        else None,
+        scheduled_at=datetime.fromisoformat(req.scheduled_at) if req.scheduled_at else None,
     )
     post_id = db.enqueue_post(post)
     return {"post_id": post_id, "status": "queued"}
@@ -119,9 +114,7 @@ async def get_published(
                 "media_id": p.media_id,
                 "caption_preview": p.caption[:100],
                 "post_type": p.post_type.value,
-                "published_at": p.published_at.isoformat()
-                if p.published_at
-                else None,
+                "published_at": p.published_at.isoformat() if p.published_at else None,
             }
             for p in posts
         ],

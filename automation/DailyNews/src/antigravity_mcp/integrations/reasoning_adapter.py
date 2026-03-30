@@ -4,6 +4,7 @@ Step 1: Extract verifiable fact fragments + "why?" questions
 Step 2: Cross-link facts → generate hypotheses (compared to existing patterns)
 Step 3: Attempt falsification → promote surviving hypotheses to patterns
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,15 +17,18 @@ logger = logging.getLogger(__name__)
 
 # Import LLM primitives with graceful fallback
 try:
-    from shared.llm import TaskTier, get_client as _get_llm_client
+    from shared.llm import TaskTier
+    from shared.llm import get_client as _get_llm_client
 except ImportError:
     try:
         import sys
         from pathlib import Path
+
         _ROOT = Path(__file__).resolve().parents[4]
         if str(_ROOT) not in sys.path:
             sys.path.insert(0, str(_ROOT))
-        from shared.llm import TaskTier, get_client as _get_llm_client
+        from shared.llm import TaskTier
+        from shared.llm import get_client as _get_llm_client
     except ImportError:
         TaskTier = None
         _get_llm_client = None
@@ -51,15 +55,15 @@ def _robust_json_parse(text: str) -> dict | list | None:
     # Replace actual newlines that appear inside quoted strings with spaces
     fixed = re.sub(r'(?<=": ")(.*?)(?=")', lambda m: m.group(0).replace("\n", " "), raw, flags=re.DOTALL)
     # Also fix trailing commas
-    fixed = re.sub(r',(\s*[}\]])', r'\1', fixed)
+    fixed = re.sub(r",(\s*[}\]])", r"\1", fixed)
     try:
         return json.loads(fixed)
     except json.JSONDecodeError:
         pass
 
     # Step 4: Aggressive — collapse all newlines inside the JSON structure
-    collapsed = re.sub(r'\n\s*', ' ', raw)
-    collapsed = re.sub(r',(\s*[}\]])', r'\1', collapsed)
+    collapsed = re.sub(r"\n\s*", " ", raw)
+    collapsed = re.sub(r",(\s*[}\]])", r"\1", collapsed)
     try:
         return json.loads(collapsed)
     except json.JSONDecodeError:
@@ -67,7 +71,7 @@ def _robust_json_parse(text: str) -> dict | list | None:
 
     # Step 5: Last resort — extract individual JSON objects via regex
     try:
-        objects = re.findall(r'\{[^{}]*\}', collapsed)
+        objects = re.findall(r"\{[^{}]*\}", collapsed)
         if objects:
             parsed = [json.loads(obj) for obj in objects]
             return parsed
@@ -82,6 +86,7 @@ def _load_prompts() -> dict[str, Any]:
     """Load reasoning prompts from config/reasoning_prompts.json."""
     try:
         from antigravity_mcp.config import CONFIG_DIR
+
         path = CONFIG_DIR / "reasoning_prompts.json"
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
@@ -141,20 +146,23 @@ class ReasoningAdapter:
                 if self._state_store:
                     from antigravity_mcp.domain.models import FactFragment
                     from antigravity_mcp.state.events import utc_now_iso
+
                     fragments = []
                     for idx, item in enumerate(parsed):
                         fid = hashlib.sha256(
                             f"{report_id}:{idx}:{item.get('fact_text', '')[:50]}".encode()
                         ).hexdigest()[:16]
-                        fragments.append(FactFragment(
-                            fact_id=fid,
-                            report_id=report_id,
-                            fact_text=item.get("fact_text", ""),
-                            why_question=item.get("why_question", ""),
-                            category=category,
-                            source_title=source_title,
-                            created_at=utc_now_iso(),
-                        ))
+                        fragments.append(
+                            FactFragment(
+                                fact_id=fid,
+                                report_id=report_id,
+                                fact_text=item.get("fact_text", ""),
+                                why_question=item.get("why_question", ""),
+                                category=category,
+                                source_title=source_title,
+                                created_at=utc_now_iso(),
+                            )
+                        )
                     self._state_store.save_fact_fragments(fragments)
                 logger.info("[Step1] Extracted %d facts from report %s", len(parsed), report_id)
                 return parsed
@@ -178,8 +186,7 @@ class ReasoningAdapter:
         system_msg = step2_cfg.get("system", "당신은 사실들 사이의 패턴을 발견하는 연구자입니다.")
 
         facts_text = "\n".join(
-            f"F-{i+1}: {f['fact_text']} / WHY: {f.get('why_question', '')}"
-            for i, f in enumerate(facts)
+            f"F-{i+1}: {f['fact_text']} / WHY: {f.get('why_question', '')}" for i, f in enumerate(facts)
         )
 
         patterns_text = ""
@@ -212,19 +219,20 @@ class ReasoningAdapter:
                 if self._state_store:
                     from antigravity_mcp.domain.models import Hypothesis
                     from antigravity_mcp.state.events import utc_now_iso
+
                     hyps = []
                     for idx, item in enumerate(parsed):
-                        hid = hashlib.sha256(
-                            f"hyp:{idx}:{item.get('hypothesis', '')[:50]}".encode()
-                        ).hexdigest()[:16]
-                        hyps.append(Hypothesis(
-                            hypothesis_id=hid,
-                            hypothesis_text=item.get("hypothesis", ""),
-                            based_on_facts=item.get("based_on", []),
-                            related_pattern=item.get("pattern", ""),
-                            status="pending",
-                            created_at=utc_now_iso(),
-                        ))
+                        hid = hashlib.sha256(f"hyp:{idx}:{item.get('hypothesis', '')[:50]}".encode()).hexdigest()[:16]
+                        hyps.append(
+                            Hypothesis(
+                                hypothesis_id=hid,
+                                hypothesis_text=item.get("hypothesis", ""),
+                                based_on_facts=item.get("based_on", []),
+                                related_pattern=item.get("pattern", ""),
+                                status="pending",
+                                created_at=utc_now_iso(),
+                            )
+                        )
                     self._state_store.save_hypotheses(hyps)
                 logger.info("[Step2] Generated %d hypotheses", len(parsed))
                 return parsed
@@ -234,9 +242,7 @@ class ReasoningAdapter:
 
     # ── Step 3: Falsify ───────────────────────────────────────────────────
 
-    async def step3_falsify(
-        self, hypotheses: list[dict[str, Any]], category: str = ""
-    ) -> list[dict[str, Any]]:
+    async def step3_falsify(self, hypotheses: list[dict[str, Any]], category: str = "") -> list[dict[str, Any]]:
         """Attempt falsification of each hypothesis. Promote survivors to patterns.
 
         Returns list of {"hypothesis": "...", "status": "survived|falsified",
@@ -264,7 +270,7 @@ class ReasoningAdapter:
             f"값에 줄바꿈을 넣지 마세요. 각 항목은 50자 이내로 간결하게:\n"
             f'[{{"hypothesis": "요약", "status": "survived", "counter": "반증 내용", "new_pattern": "패턴"}}]\n'
             f"status는 반드시 'survived' 또는 'falsified' 중 하나.\n"
-            f"falsified인 경우 new_pattern은 빈 문자열(\"\")로."
+            f'falsified인 경우 new_pattern은 빈 문자열("")로.'
         )
 
         try:
@@ -290,7 +296,8 @@ class ReasoningAdapter:
                         )
                 logger.info(
                     "[Step3] %d/%d hypotheses survived falsification",
-                    len(survived), len(parsed),
+                    len(survived),
+                    len(parsed),
                 )
                 return parsed
         except Exception as exc:
@@ -335,6 +342,9 @@ class ReasoningAdapter:
 
         logger.info(
             "Reasoning complete for %s: %d facts → %d hypotheses → %d survived",
-            category, len(facts), len(hypotheses), len(survived),
+            category,
+            len(facts),
+            len(hypotheses),
+            len(survived),
         )
         return result

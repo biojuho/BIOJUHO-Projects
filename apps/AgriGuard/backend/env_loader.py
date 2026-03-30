@@ -5,7 +5,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-
 BACKEND_DIR = Path(__file__).resolve().parent
 DEFAULT_ENV_FILE = BACKEND_DIR / ".env"
 

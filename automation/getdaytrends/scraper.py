@@ -11,11 +11,6 @@ NOTE: 소스별 수집 함수는 collectors/sources.py로 이동됨.
 import asyncio
 
 import httpx
-
-from config import AppConfig
-from models import MultiSourceContext, RawTrend, TrendSource
-from utils import run_async
-
 from loguru import logger as log
 
 # ══════════════════════════════════════════════════════
@@ -24,33 +19,36 @@ from loguru import logger as log
 from collectors.sources import (  # noqa: F401
     _COMMON_HEADERS,
     _DEFAULT_TIMEOUT,
-    _SHORT_TIMEOUT,
     _FETCH_CACHE,
     _FETCH_CACHE_TTL,
-    _parse_rss_date,
-    _format_news_age,
-    _parse_volume_text,
+    _GEO_MAP,
+    _SHORT_TIMEOUT,
+    _YOUTUBE_GEO_MAP,
     _async_fetch_getdaytrends,
     _async_fetch_getdaytrends_standalone,
-    fetch_getdaytrends,
-    _fallback_trends,
-    _GEO_MAP,
-    _is_korean_trend,
     _async_fetch_google_trends_rss,
     _async_fetch_google_trends_rss_standalone,
-    fetch_google_trends_rss,
-    _is_similar_keyword,
-    _YOUTUBE_GEO_MAP,
     _async_fetch_youtube_trending,
     _async_fetch_youtube_trending_standalone,
-    fetch_youtube_trending,
+    _fallback_trends,
+    _format_news_age,
+    _is_korean_trend,
+    _is_similar_keyword,
     _merge_trends,
+    _parse_rss_date,
+    _parse_volume_text,
+    fetch_getdaytrends,
+    fetch_google_trends_rss,
+    fetch_youtube_trending,
 )
-
+from config import AppConfig
+from models import MultiSourceContext, RawTrend, TrendSource
+from utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  Async Orchestrator
 # ══════════════════════════════════════════════════════
+
 
 async def _async_collect_trends(
     config: AppConfig,
@@ -97,24 +95,32 @@ async def _async_collect_trends(
             log.error("[장애] 모든 트렌드 소스 수집 실패! Fallback 트렌드로 우회합니다.")
             gdt_trends = _fallback_trends()  # 실패 시 모의 트렌드 사용
         elif success_sources / total_sources < 0.5:
-            log.warning(f"[부분 성공] 데이터 소스 수집 성공률 50% 미만 ({success_sources}/{total_sources}). 파이프라인 강행.")
+            log.warning(
+                f"[부분 성공] 데이터 소스 수집 성공률 50% 미만 ({success_sources}/{total_sources}). 파이프라인 강행."
+            )
         else:
             log.info(f"[부분 성공] 수집 성공: {success_sources}/{total_sources} 개 소스 가동 중.")
 
         # 소스 품질 기록 (v5.0)
         if getattr(config, "enable_source_quality_tracking", True) and conn is not None:
             from db import record_source_quality
-            import time
-            await record_source_quality(conn, "getdaytrends", bool(gdt_trends), 0, len(gdt_trends),
-                                        min(len(gdt_trends) / max(fetch_size, 1), 1.0))
-            await record_source_quality(conn, "google_trends", bool(gtr_trends), 0, len(gtr_trends),
-                                        min(len(gtr_trends) / 20, 1.0))
+
+            await record_source_quality(
+                conn,
+                "getdaytrends",
+                bool(gdt_trends),
+                0,
+                len(gdt_trends),
+                min(len(gdt_trends) / max(fetch_size, 1), 1.0),
+            )
+            await record_source_quality(
+                conn, "google_trends", bool(gtr_trends), 0, len(gtr_trends), min(len(gtr_trends) / 20, 1.0)
+            )
 
         # 2단계: 병합 (getdaytrends → google_trends 순서 우선)
         all_trends = _merge_trends(gdt_trends, gtr_trends, limit=fetch_size)
         log.info(
-            f"병합 완료: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)} "
-            f"→ 총 {len(all_trends)}개"
+            f"병합 완료: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)} " f"→ 총 {len(all_trends)}개"
         )
 
         # 3단계: 중복 필터 (유사도 기반)
@@ -132,13 +138,14 @@ async def _async_collect_trends(
                 log.warning(f"모든 트렌드가 {config.dedupe_window_hours}시간 내 처리됨 → 중복 허용")
 
         # [v14.1] 4단계 전 의미적 중복 제거 (임베딩 기반)
-        if len(all_trends) > 1 and getattr(config, 'enable_embedding_clustering', True):
+        if len(all_trends) > 1 and getattr(config, "enable_embedding_clustering", True):
             try:
                 from shared.embeddings import deduplicate_texts
+
                 names = [t.name for t in all_trends]
                 unique_indices = deduplicate_texts(
                     names,
-                    threshold=getattr(config, 'embedding_cluster_threshold', 0.75),
+                    threshold=getattr(config, "embedding_cluster_threshold", 0.75),
                 )
                 removed = len(all_trends) - len(unique_indices)
                 if removed:
@@ -163,9 +170,11 @@ async def _async_collect_trends(
     log.info(f"멀티소스 수집 완료: {len(raw_trends)}개 트렌드 (기본 컨텍스트만 구성)")
     return raw_trends, contexts
 
+
 # ══════════════════════════════════════════════════════
 #  Sync Public API (하위 호환)
 # ══════════════════════════════════════════════════════
+
 
 def collect_trends(
     config: AppConfig,
@@ -191,19 +200,18 @@ def collect_contexts(
     return run_async(_async_collect_contexts(raw_trends, config, conn=conn))
 
 
-
 # -- backward-compat re-exports from context_collector --
 from context_collector import (  # noqa: F401
     _async_collect_contexts,
     _async_fetch_google_news_trends,
+    _async_fetch_google_suggest,
     _async_fetch_google_trends_related,
     _async_fetch_reddit_trends,
     _async_fetch_twitter_trends,
-    _async_fetch_google_suggest,
     _calc_quality_score,
     fetch_google_news_trends,
     fetch_reddit_trends,
     fetch_twitter_trends,
-    post_to_x_async,
     post_to_x,
+    post_to_x_async,
 )

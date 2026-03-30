@@ -85,7 +85,7 @@ git stash  # 또는 git checkout -- config.py models.py generator.py storage.py 
 
 ```
 배포 승인: ✅ 승인
-판정 이유: 
+판정 이유:
   - 8개 파일 구문 검증 통과
   - 실전 파이프라인 테스트 성공 (트윗5+Threads2+블로그1 생성, Content Hub 저장)
   - CRITICAL/HIGH 이슈 없음 (LOW 3건은 선택적 개선)

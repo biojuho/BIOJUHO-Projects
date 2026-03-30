@@ -1,4 +1,4 @@
-﻿"""
+"""
 getdaytrends Phase 3+ - Content Performance Tracker (Adaptive Feedback Loop)
 
 X/Twitter 寃뚯떆 ?몄쐵??李몄뿬 吏??impressions, likes, retweets, replies, quotes)瑜?
@@ -9,19 +9,27 @@ import asyncio
 import json
 import re
 import sqlite3
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
-
 from loguru import logger as log
 
 # -- models import --
 from perf_models import (  # noqa: F401
-    ANGLE_TYPES, HOOK_PATTERNS, KICK_PATTERNS,
-    TweetMetrics, AngleStats, PatternStats, GoldenReference,
-    normalize_angle, normalize_hook, normalize_kick,
-    _ANGLE_ALIASES, _HOOK_ALIASES, _KICK_ALIASES,
+    _ANGLE_ALIASES,
+    _HOOK_ALIASES,
+    _KICK_ALIASES,
+    ANGLE_TYPES,
+    HOOK_PATTERNS,
+    KICK_PATTERNS,
+    AngleStats,
+    GoldenReference,
+    PatternStats,
+    TweetMetrics,
+    normalize_angle,
+    normalize_hook,
+    normalize_kick,
 )
 
 # ?? X API v2 Constants ???????????????????????????????????
@@ -34,6 +42,7 @@ _BATCH_CHUNK_SIZE = 100  # X API max IDs per request
 
 
 # ?? PerformanceTracker ???????????????????????????????????
+
 
 class PerformanceTracker:
     """
@@ -159,7 +168,7 @@ class PerformanceTracker:
                     retweets=metrics.get("retweet_count", 0),
                     replies=metrics.get("reply_count", 0),
                     quotes=metrics.get("quote_count", 0),
-                    collected_at=datetime.now(timezone.utc),
+                    collected_at=datetime.now(UTC),
                 )
                 tm.compute_engagement_rate()
                 return tm
@@ -192,7 +201,7 @@ class PerformanceTracker:
         headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         for i in range(0, len(tweet_ids), _BATCH_CHUNK_SIZE):
-            chunk = tweet_ids[i:i + _BATCH_CHUNK_SIZE]
+            chunk = tweet_ids[i : i + _BATCH_CHUNK_SIZE]
             ids_param = ",".join(chunk)
             url = f"{_X_API_BASE}/tweets"
             params = {"ids": ids_param, "tweet.fields": _TWEET_FIELDS}
@@ -219,7 +228,7 @@ class PerformanceTracker:
                             retweets=metrics.get("retweet_count", 0),
                             replies=metrics.get("reply_count", 0),
                             quotes=metrics.get("quote_count", 0),
-                            collected_at=datetime.now(timezone.utc),
+                            collected_at=datetime.now(UTC),
                         )
                         tm.compute_engagement_rate()
                         results.append(tm)
@@ -254,10 +263,18 @@ class PerformanceTracker:
     @staticmethod
     def _metrics_to_tuple(m: TweetMetrics) -> tuple:
         return (
-            m.tweet_id, m.impressions, m.likes, m.retweets,
-            m.replies, m.quotes, m.engagement_rate, m.angle_type,
-            m.hook_pattern, m.kick_pattern, m.collection_tier,
-            (m.collected_at or datetime.now(timezone.utc)).isoformat(),
+            m.tweet_id,
+            m.impressions,
+            m.likes,
+            m.retweets,
+            m.replies,
+            m.quotes,
+            m.engagement_rate,
+            m.angle_type,
+            m.hook_pattern,
+            m.kick_pattern,
+            m.collection_tier,
+            (m.collected_at or datetime.now(UTC)).isoformat(),
         )
 
     @staticmethod
@@ -286,6 +303,7 @@ class PerformanceTracker:
                    WHERE id = ?""",
                 (metrics.impressions, engagements, metrics.engagement_rate, int(metrics.tweet_id)),
             )
+
     def save_metrics(self, metrics: TweetMetrics) -> None:
         """?⑥씪 TweetMetrics瑜?tweet_performance ?뚯씠釉붿뿉 ???媛깆떊."""
         self.init_table()
@@ -328,7 +346,7 @@ class PerformanceTracker:
         self.init_table()
         conn = self._get_conn()
         try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             rows = conn.execute(
                 """SELECT angle_type,
                           COUNT(*) as cnt,
@@ -361,7 +379,9 @@ class PerformanceTracker:
             conn.close()
 
     def get_optimal_angle_weights(
-        self, days: int = 30, min_samples: int = 5,
+        self,
+        days: int = 30,
+        min_samples: int = 5,
         _precomputed_stats: dict[str, AngleStats] | None = None,
     ) -> dict[str, float]:
         """?듦? ?좏삎蹂?理쒖쟻 媛以묒튂 怨꾩궛.
@@ -507,11 +527,13 @@ class PerformanceTracker:
         for row_dict in local_only:
             db_id = str(row_dict["id"])
             angle = normalize_angle(row_dict.get("tweet_type", ""))
-            all_metrics.append(TweetMetrics(
-                tweet_id=db_id,
-                angle_type=angle,
-                collected_at=datetime.now(timezone.utc),
-            ))
+            all_metrics.append(
+                TweetMetrics(
+                    tweet_id=db_id,
+                    angle_type=angle,
+                    collected_at=datetime.now(UTC),
+                )
+            )
 
         # ?쇨큵 ???(N+1 諛⑹?)
         collected_count = self.save_metrics_batch(all_metrics)
@@ -529,7 +551,7 @@ class PerformanceTracker:
         self.init_table()
         conn = self._get_conn()
         try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             rows = conn.execute(
                 """SELECT hook_pattern,
                           COUNT(*) as cnt,
@@ -546,7 +568,8 @@ class PerformanceTracker:
             for row in rows:
                 p = row["hook_pattern"]
                 result[p] = PatternStats(
-                    pattern=p, pattern_type="hook",
+                    pattern=p,
+                    pattern_type="hook",
                     total_tweets=row["cnt"],
                     avg_impressions=round(row["avg_imp"] or 0.0, 1),
                     avg_engagement_rate=round(row["avg_er"] or 0.0, 6),
@@ -563,7 +586,7 @@ class PerformanceTracker:
         self.init_table()
         conn = self._get_conn()
         try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             rows = conn.execute(
                 """SELECT kick_pattern,
                           COUNT(*) as cnt,
@@ -580,7 +603,8 @@ class PerformanceTracker:
             for row in rows:
                 p = row["kick_pattern"]
                 result[p] = PatternStats(
-                    pattern=p, pattern_type="kick",
+                    pattern=p,
+                    pattern_type="kick",
                     total_tweets=row["cnt"],
                     avg_impressions=round(row["avg_imp"] or 0.0, 1),
                     avg_engagement_rate=round(row["avg_er"] or 0.0, 6),
@@ -593,7 +617,9 @@ class PerformanceTracker:
             conn.close()
 
     def get_optimal_pattern_weights(
-        self, days: int = 30, min_samples: int = 3,
+        self,
+        days: int = 30,
+        min_samples: int = 3,
     ) -> dict[str, dict[str, float]]:
         """[B] ?????⑦꽩蹂?理쒖쟻 媛以묒튂 怨꾩궛 ???앹꽦 ?꾨＼?꾪듃??二쇱엯."""
         hook_stats = self.get_hook_performance(days)
@@ -654,9 +680,17 @@ class PerformanceTracker:
                        engagement_rate=excluded.engagement_rate,
                        impressions=excluded.impressions,
                        saved_at=excluded.saved_at""",
-                (ref.tweet_id, ref.content, ref.angle_type, ref.hook_pattern,
-                 ref.kick_pattern, ref.engagement_rate, ref.impressions,
-                 ref.category, (ref.saved_at or datetime.now(timezone.utc)).isoformat()),
+                (
+                    ref.tweet_id,
+                    ref.content,
+                    ref.angle_type,
+                    ref.hook_pattern,
+                    ref.kick_pattern,
+                    ref.engagement_rate,
+                    ref.impressions,
+                    ref.category,
+                    (ref.saved_at or datetime.now(UTC)).isoformat(),
+                ),
             )
             conn.commit()
             log.debug(f"怨⑤뱺 ?덊띁?곗뒪 ??? tweet_id={ref.tweet_id}, ER={ref.engagement_rate}")
@@ -688,10 +722,14 @@ class PerformanceTracker:
 
             return [
                 GoldenReference(
-                    tweet_id=r["tweet_id"], content=r["content"],
-                    angle_type=r["angle_type"], hook_pattern=r["hook_pattern"],
-                    kick_pattern=r["kick_pattern"], engagement_rate=r["engagement_rate"],
-                    impressions=r["impressions"], category=r.get("category", ""),
+                    tweet_id=r["tweet_id"],
+                    content=r["content"],
+                    angle_type=r["angle_type"],
+                    hook_pattern=r["hook_pattern"],
+                    kick_pattern=r["kick_pattern"],
+                    engagement_rate=r["engagement_rate"],
+                    impressions=r["impressions"],
+                    category=r.get("category", ""),
                 )
                 for r in rows
             ]
@@ -707,7 +745,7 @@ class PerformanceTracker:
         conn = self._get_conn()
         saved = 0
         try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             rows = conn.execute(
                 """SELECT tp.tweet_id, tp.angle_type, tp.hook_pattern, tp.kick_pattern,
                           tp.engagement_rate, tp.impressions,
@@ -734,7 +772,7 @@ class PerformanceTracker:
                     kick_pattern=r["kick_pattern"] or "",
                     engagement_rate=r["engagement_rate"],
                     impressions=r["impressions"],
-                    saved_at=datetime.now(timezone.utc),
+                    saved_at=datetime.now(UTC),
                 )
                 self.save_golden_reference(ref)
                 saved += 1
@@ -762,7 +800,7 @@ class PerformanceTracker:
         self.init_table()
         conn = self._get_conn()
         try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+            cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
             rows = conn.execute(
                 """SELECT tweet_id, impressions, engagement_rate, angle_type
                    FROM tweet_performance
@@ -877,14 +915,16 @@ class PerformanceTracker:
     # ?? [A] Trend Genealogy ????????????????????????????
 
     def save_trend_genealogy(
-        self, keyword: str, parent_keyword: str = "",
+        self,
+        keyword: str,
+        parent_keyword: str = "",
         predicted_children: list[str] | None = None,
         viral_score: int = 0,
     ) -> None:
         """[A] ?몃젋??怨꾨낫 ???媛깆떊."""
         self.init_table()
         conn = self._get_conn()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         children_json = json.dumps(predicted_children or [], ensure_ascii=False)
         try:
             existing = conn.execute(
@@ -925,7 +965,7 @@ class PerformanceTracker:
         self.init_table()
         conn = self._get_conn()
         try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+            cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
             rows = conn.execute(
                 """SELECT keyword, parent_keyword, predicted_children,
                           genealogy_depth, total_appearances, peak_viral_score,
@@ -965,7 +1005,7 @@ class PerformanceTracker:
         self.init_table()
         conn = self._get_conn()
         try:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             row = conn.execute(
                 """SELECT COUNT(*) as total,
                           AVG(engagement_rate) as avg_er,
@@ -985,13 +1025,15 @@ class PerformanceTracker:
             "avg_engagement_rate": round(overview.get("avg_er", 0.0) or 0.0, 6),
             "avg_impressions": round(overview.get("avg_imp", 0.0) or 0.0, 1),
             "max_engagement_rate": round(overview.get("max_er", 0.0) or 0.0, 6),
-            "angle_stats": {k: {
-                "total_tweets": v.total_tweets,
-                "avg_impressions": v.avg_impressions,
-                "avg_engagement_rate": v.avg_engagement_rate,
-                "weight": weights.get(k, 0.2),
-            } for k, v in stats.items()},
+            "angle_stats": {
+                k: {
+                    "total_tweets": v.total_tweets,
+                    "avg_impressions": v.avg_impressions,
+                    "avg_engagement_rate": v.avg_engagement_rate,
+                    "weight": weights.get(k, 0.2),
+                }
+                for k, v in stats.items()
+            },
             "optimal_weights": weights,
             "pattern_weights": pattern_weights,
         }
-

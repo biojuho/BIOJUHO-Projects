@@ -11,15 +11,14 @@ AgentIR (Reasoning-Aware Retrieval):
     )
 """
 
+from . import agentir
 from .core import (
-    cosine_similarity,
     compute_similarity_matrix,
+    cosine_similarity,
     deduplicate_texts,
     embed_texts,
     embed_texts_async,
 )
-
-from . import agentir
 
 __all__ = [
     # Core (Gemini Embedding 2)

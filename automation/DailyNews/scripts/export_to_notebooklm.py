@@ -5,13 +5,14 @@ Usage:
     python -m scripts.export_to_notebooklm --upload      # Also create NotebookLM notebook via API
     python -m scripts.export_to_notebooklm --content-types audio report  # Generate specific artifacts
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from datetime import date, datetime
 from pathlib import Path
-import sys
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
@@ -21,7 +22,7 @@ if str(SRC_DIR) not in sys.path:
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from settings import OUTPUT_DIR, NOTION_API_KEY
+from settings import NOTION_API_KEY, OUTPUT_DIR
 
 
 async def fetch_todays_pages() -> list[dict]:
@@ -30,6 +31,7 @@ async def fetch_todays_pages() -> list[dict]:
         return []
 
     from notion_client import AsyncClient
+
     notion = AsyncClient(auth=NOTION_API_KEY)
 
     today_str = date.today().isoformat()
@@ -67,6 +69,7 @@ async def fetch_todays_pages() -> list[dict]:
 async def export_markdown(pages: list[dict]) -> Path | None:
     """Export reports to a combined Markdown file."""
     from notion_client import AsyncClient
+
     notion = AsyncClient(auth=NOTION_API_KEY)
 
     today_str = date.today().isoformat()
@@ -120,7 +123,7 @@ async def upload_to_notebooklm(
 ) -> dict | None:
     """Create a NotebookLM notebook from today's export."""
     try:
-        from antigravity_mcp.integrations.notebooklm_adapter import NotebookLMAdapter, NOTEBOOKLM_AVAILABLE
+        from antigravity_mcp.integrations.notebooklm_adapter import NOTEBOOKLM_AVAILABLE, NotebookLMAdapter
     except ImportError:
         print("[ERROR] notebooklm_adapter not found")
         return None
@@ -173,8 +176,7 @@ async def upload_to_notebooklm(
         try:
             result = await client.chat.ask(
                 nb.id,
-                "오늘의 전체 뉴스를 종합 분석해줘. "
-                "카테고리별 핵심 이슈와 카테고리 간 연결 패턴을 정리해줘.",
+                "오늘의 전체 뉴스를 종합 분석해줘. " "카테고리별 핵심 이슈와 카테고리 간 연결 패턴을 정리해줘.",
             )
             summary = result.answer if result else ""
             print(f"[INFO] AI summary: {len(summary)} chars", flush=True)
@@ -222,6 +224,7 @@ async def main(upload: bool = False, content_types: list[str] | None = None) -> 
             output_dir = Path(OUTPUT_DIR) / "notebooklm_sources"
             summary_file = output_dir / f"{date.today().isoformat()}_upload_result.json"
             import json
+
             summary_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
             print(f"[INFO] Upload result saved: {summary_file}", flush=True)
 

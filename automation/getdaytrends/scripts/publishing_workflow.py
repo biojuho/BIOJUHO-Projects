@@ -15,9 +15,7 @@ Content Hub의 콘텐츠 라이프사이클을 관리합니다:
 """
 
 import os
-import sys
 from datetime import datetime
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -58,6 +56,7 @@ CHECKLISTS = {
 def _get_notion_client():
     try:
         from notion_client import Client as NotionClient
+
         token = os.getenv("NOTION_TOKEN", "")
         if not token:
             print("❌ NOTION_TOKEN이 설정되지 않았습니다.")
@@ -77,6 +76,7 @@ def _get_hub_db_id() -> str:
 
 
 # ── 체크리스트 추가 ─────────────────────────────────────
+
 
 def add_checklists_to_ready_pages():
     """Status=Ready인 모든 Content Hub 페이지에 발행 체크리스트 추가."""
@@ -120,61 +120,78 @@ def add_checklists_to_ready_pages():
 
         # 체크리스트 블록 생성
         blocks = []
-        blocks.append({
-            "object": "block",
-            "type": "divider",
-            "divider": {},
-        })
-        blocks.append({
-            "object": "block",
-            "type": "heading_2",
-            "heading_2": {
-                "rich_text": [{"type": "text", "text": {"content": "📋 발행 체크리스트"}}],
-            },
-        })
+        blocks.append(
+            {
+                "object": "block",
+                "type": "divider",
+                "divider": {},
+            }
+        )
+        blocks.append(
+            {
+                "object": "block",
+                "type": "heading_2",
+                "heading_2": {
+                    "rich_text": [{"type": "text", "text": {"content": "📋 발행 체크리스트"}}],
+                },
+            }
+        )
 
         for platform in platforms:
             checklist = CHECKLISTS.get(platform, [])
             if not checklist:
                 continue
 
-            blocks.append({
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {
-                    "rich_text": [{"type": "text", "text": {"content": f"🏷️ {platform}"}}],
-                },
-            })
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "heading_3",
+                    "heading_3": {
+                        "rich_text": [{"type": "text", "text": {"content": f"🏷️ {platform}"}}],
+                    },
+                }
+            )
 
             for item in checklist:
-                blocks.append({
-                    "object": "block",
-                    "type": "to_do",
-                    "to_do": {
-                        "rich_text": [{"type": "text", "text": {"content": item.replace("✅ ", "")}}],
-                        "checked": False,
-                    },
-                })
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "to_do",
+                        "to_do": {
+                            "rich_text": [{"type": "text", "text": {"content": item.replace("✅ ", "")}}],
+                            "checked": False,
+                        },
+                    }
+                )
 
         # 발행 메모 영역
-        blocks.append({
-            "object": "block",
-            "type": "divider",
-            "divider": {},
-        })
-        blocks.append({
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "📌"},
-                "rich_text": [{"type": "text", "text": {"content":
-                    f"발행 메모\n"
-                    f"체크리스트 추가 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-                    f"모든 항목 체크 후 Status를 'Approved'로 변경하세요"
-                }}],
-                "color": "yellow_background",
-            },
-        })
+        blocks.append(
+            {
+                "object": "block",
+                "type": "divider",
+                "divider": {},
+            }
+        )
+        blocks.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "📌"},
+                    "rich_text": [
+                        {
+                            "type": "text",
+                            "text": {
+                                "content": f"발행 메모\n"
+                                f"체크리스트 추가 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+                                f"모든 항목 체크 후 Status를 'Approved'로 변경하세요"
+                            },
+                        }
+                    ],
+                    "color": "yellow_background",
+                },
+            }
+        )
 
         try:
             notion.blocks.children.append(block_id=page_id, children=blocks)
@@ -184,6 +201,7 @@ def add_checklists_to_ready_pages():
 
 
 # ── Draft → Ready 자동 전환 ─────────────────────────────
+
 
 def promote_drafts_to_ready(min_viral_score: int = 60):
     """Draft 상태 + 바이럴 점수 60점 이상 → Ready로 자동 전환.
@@ -220,7 +238,11 @@ def promote_drafts_to_ready(min_viral_score: int = 60):
     for page in pages:
         page_id = page["id"]
         title_prop = page.get("properties", {}).get("Name", {})
-        title = title_prop.get("title", [{}])[0].get("text", {}).get("content", "Untitled") if title_prop.get("title") else "Untitled"
+        title = (
+            title_prop.get("title", [{}])[0].get("text", {}).get("content", "Untitled")
+            if title_prop.get("title")
+            else "Untitled"
+        )
 
         score_prop = page.get("properties", {}).get("Viral Score", {})
         score = score_prop.get("number", 0)
@@ -238,6 +260,7 @@ def promote_drafts_to_ready(min_viral_score: int = 60):
 
 
 # ── Published 마킹 ─────────────────────────────────────
+
 
 def mark_as_published(page_id: str, published_url: str = ""):
     """수동 발행 후 Status=Published + URL 기록."""
@@ -261,6 +284,7 @@ def mark_as_published(page_id: str, published_url: str = ""):
 
 
 # ── 대시보드 요약 ─────────────────────────────────────────
+
 
 def show_dashboard():
     """Content Hub 상태 요약 대시보드."""
@@ -292,17 +316,17 @@ def show_dashboard():
         for p in platforms:
             platform_count[p] = platform_count.get(p, 0) + 1
 
-    print(f"\n📊 Content Hub 대시보드")
+    print("\n📊 Content Hub 대시보드")
     print(f"{'─' * 40}")
     print(f"  총 콘텐츠: {len(pages)}개")
-    print(f"\n  상태별:")
+    print("\n  상태별:")
     status_emojis = {"Draft": "📝", "Ready": "🟡", "Approved": "🔵", "Published": "✅", "Archived": "📦"}
     for status, count in sorted(status_count.items(), key=lambda x: -x[1]):
         emoji = status_emojis.get(status, "❓")
         bar = "█" * count
         print(f"    {emoji} {status:12s} {count:3d} {bar}")
 
-    print(f"\n  플랫폼별:")
+    print("\n  플랫폼별:")
     platform_emojis = {"X": "🐦", "Threads": "🧵", "NaverBlog": "📝"}
     for platform, count in sorted(platform_count.items(), key=lambda x: -x[1]):
         emoji = platform_emojis.get(platform, "📋")
@@ -311,36 +335,34 @@ def show_dashboard():
 
     # Ready 상태인 것들 개별 표시
     ready_pages = [
-        p for p in pages
-        if p.get("properties", {}).get("Status", {}).get("select", {}).get("name") == "Ready"
+        p for p in pages if p.get("properties", {}).get("Status", {}).get("select", {}).get("name") == "Ready"
     ]
     if ready_pages:
-        print(f"\n  🟡 발행 대기 (Ready):")
+        print("\n  🟡 발행 대기 (Ready):")
         for page in ready_pages[:10]:
             props = page.get("properties", {})
-            title = props.get("Name", {}).get("title", [{}])[0].get("text", {}).get("content", "Untitled") if props.get("Name", {}).get("title") else "Untitled"
+            title = (
+                props.get("Name", {}).get("title", [{}])[0].get("text", {}).get("content", "Untitled")
+                if props.get("Name", {}).get("title")
+                else "Untitled"
+            )
             score = props.get("Viral Score", {}).get("number", 0)
             print(f"    • [{score}점] {title[:50]}")
 
 
 # ── CLI Entry Point ────────────────────────────────────
 
+
 def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Content Hub 발행 워크플로 관리")
-    parser.add_argument("--add-checklists", action="store_true",
-                        help="Ready 상태 페이지에 발행 체크리스트 추가")
-    parser.add_argument("--promote-ready", action="store_true",
-                        help="Draft → Ready 자동 전환 (viral 60점+)")
-    parser.add_argument("--mark-published", type=str, metavar="PAGE_ID",
-                        help="지정 페이지를 Published로 마킹")
-    parser.add_argument("--url", type=str, default="",
-                        help="발행 URL (--mark-published와 함께 사용)")
-    parser.add_argument("--dashboard", action="store_true",
-                        help="Content Hub 상태 대시보드")
-    parser.add_argument("--min-score", type=int, default=60,
-                        help="Draft→Ready 전환 최소 바이럴 점수 (기본: 60)")
+    parser.add_argument("--add-checklists", action="store_true", help="Ready 상태 페이지에 발행 체크리스트 추가")
+    parser.add_argument("--promote-ready", action="store_true", help="Draft → Ready 자동 전환 (viral 60점+)")
+    parser.add_argument("--mark-published", type=str, metavar="PAGE_ID", help="지정 페이지를 Published로 마킹")
+    parser.add_argument("--url", type=str, default="", help="발행 URL (--mark-published와 함께 사용)")
+    parser.add_argument("--dashboard", action="store_true", help="Content Hub 상태 대시보드")
+    parser.add_argument("--min-score", type=int, default=60, help="Draft→Ready 전환 최소 바이럴 점수 (기본: 60)")
 
     args = parser.parse_args()
 

@@ -1,16 +1,14 @@
 """Unit tests for adapters: skill, x_metrics, metrics pipeline, brain (consolidated)."""
+
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from antigravity_mcp.state.store import PipelineStateStore
 
-
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def state_store(tmp_path):
@@ -18,6 +16,7 @@ def state_store(tmp_path):
 
 
 # ─── SkillAdapter ─────────────────────────────────────────────────────────────
+
 
 class TestSkillAdapter:
     def test_list_skills_has_builtins(self):
@@ -187,7 +186,9 @@ class TestFactCheckAdapter:
                 "Liquidity stress still matters for exchanges.",
             ],
             drafts_text="Stylized X draft that should not be fact-checked here.",
-            source_articles=[{"title": "Bitcoin holds ground", "description": "Liquidity tightens", "source_name": "CoinDesk"}],
+            source_articles=[
+                {"title": "Bitcoin holds ground", "description": "Liquidity tightens", "source_name": "CoinDesk"}
+            ],
         )
 
         assert result["passed"] is True
@@ -237,6 +238,7 @@ class TestFactCheckAdapter:
 
 
 # ─── XMetricsAdapter ─────────────────────────────────────────────────────────
+
 
 class TestXMetricsAdapter:
     def test_unavailable_without_bearer(self):
@@ -295,6 +297,7 @@ class TestXMetricsAdapter:
 
 # ─── Metrics Pipeline ────────────────────────────────────────────────────────
 
+
 class TestMetricsPipeline:
     @pytest.mark.asyncio
     async def test_collect_recent_no_tweets(self, state_store):
@@ -318,6 +321,7 @@ class TestMetricsPipeline:
 
 
 # ─── State Store Metrics Mixin ────────────────────────────────────────────────
+
 
 class TestMetricsMixin:
     def test_record_and_get_recent_tweet_ids(self, state_store):
@@ -357,6 +361,7 @@ class TestMetricsMixin:
 
 
 # ─── BrainAdapter ─────────────────────────────────────────────────────────────
+
 
 class TestBrainAdapter:
     def test_category_hints_present(self):

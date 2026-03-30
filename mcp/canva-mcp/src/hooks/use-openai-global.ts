@@ -35,4 +35,3 @@ export function useOpenAiGlobal<K extends keyof OpenAiGlobals>(
     () => window.openai?.[key] ?? null
   );
 }
-

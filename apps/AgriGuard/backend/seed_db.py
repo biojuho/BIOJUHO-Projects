@@ -1,11 +1,12 @@
-import uuid
-from datetime import datetime, timedelta
 import random
+import uuid
+from datetime import UTC, datetime, timedelta
 
-from database import SessionLocal, initialize_database
 import models
+from database import SessionLocal, initialize_database
 
 initialize_database()
+
 
 def seed_db():
     db = SessionLocal()
@@ -18,17 +19,17 @@ def seed_db():
         print("Seeding database...")
         # 1. Create Farmers (Users)
         farmers = []
-        for i in range(120): # Simulate ~120 farms
+        for i in range(120):  # Simulate ~120 farms
             user = models.User(
                 id=str(uuid.uuid4()),
                 role="Farmer",
                 name=f"Farm Operator {i}",
                 organization=f"AgriGreen {i}",
-                created_at=datetime.utcnow() - timedelta(days=random.randint(10, 365))
+                created_at=datetime.now(UTC) - timedelta(days=random.randint(10, 365)),
             )
             farmers.append(user)
             db.add(user)
-            
+
         db.commit()
 
         # 2. Create Products
@@ -37,8 +38,8 @@ def seed_db():
         for i in range(500):
             owner = random.choice(farmers)
             harvested = random.choice([True, False])
-            created_at = datetime.utcnow() - timedelta(days=random.randint(1, 100))
-            
+            created_at = datetime.now(UTC) - timedelta(days=random.randint(1, 100))
+
             product = models.Product(
                 id=str(uuid.uuid4()),
                 name=f"Batch {i} - {random.choice(categories)}",
@@ -49,11 +50,11 @@ def seed_db():
                 requires_cold_chain=random.choice([True, False]),
                 owner_id=owner.id,
                 is_verified=True,
-                qr_code=f"agri://verify/mock-{i}"
+                qr_code=f"agri://verify/mock-{i}",
             )
             products.append(product)
             db.add(product)
-            
+
         db.commit()
 
         # 3. Create Tracking Events
@@ -63,10 +64,10 @@ def seed_db():
             event = models.TrackingEvent(
                 id=str(uuid.uuid4()),
                 product_id=product.id,
-                timestamp=datetime.utcnow() - timedelta(hours=random.randint(1, 720)),
+                timestamp=datetime.now(UTC) - timedelta(hours=random.randint(1, 720)),
                 status=random.choice(statuses),
                 location=f"Zone {random.choice(['A', 'B', 'C', 'North', 'South'])}",
-                handler_id=random.choice(farmers).id
+                handler_id=random.choice(farmers).id,
             )
             db.add(event)
 
@@ -78,6 +79,7 @@ def seed_db():
         print(f"Error seeding database: {e}")
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     seed_db()

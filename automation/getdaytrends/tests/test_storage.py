@@ -1,13 +1,10 @@
 """storage.py 테스트: SQLite 배치 저장, Notion 재시도 로직."""
 
-import os
-import aiosqlite
-import pytest
-import sys
-import time
 import unittest
 from unittest.mock import MagicMock, patch
 
+import aiosqlite
+import pytest
 
 from config import AppConfig
 from db import init_db, save_tweets_batch
@@ -45,8 +42,7 @@ def _make_trend() -> ScoredTrend:
 
 def _make_batch(n_tweets: int = 5, with_thread: bool = False) -> TweetBatch:
     tweets = [
-        GeneratedTweet(tweet_type=f"유형{i}", content=f"트윗{i}" * 10, content_type="short")
-        for i in range(n_tweets)
+        GeneratedTweet(tweet_type=f"유형{i}", content=f"트윗{i}" * 10, content_type="short") for i in range(n_tweets)
     ]
     thread = GeneratedThread(tweets=["훅 트윗 내용", "마무리 CTA"]) if with_thread else None
     return TweetBatch(topic="테스트 키워드", tweets=tweets, thread=thread)
@@ -72,10 +68,7 @@ class TestSaveTweetsBatch(unittest.IsolatedAsyncioTestCase):
 
     @pytest.mark.asyncio
     async def test_batch_insert_count(self):
-        tweets = [
-            GeneratedTweet(tweet_type=f"유형{i}", content=f"내용{i}", content_type="short")
-            for i in range(5)
-        ]
+        tweets = [GeneratedTweet(tweet_type=f"유형{i}", content=f"내용{i}", content_type="short") for i in range(5)]
         await save_tweets_batch(self.conn, tweets, trend_id=1, run_id=1)
         await self.conn.commit()
         cursor = await self.conn.execute("SELECT COUNT(*) FROM tweets WHERE trend_id=1")
@@ -103,6 +96,7 @@ class TestNotionRetryLogic(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_success_on_first_try(self):
         from storage import _retry_notion_call
+
         fn = MagicMock(return_value="ok")
         result = _retry_notion_call(fn, "arg1")
         self.assertEqual(result, "ok")
@@ -111,6 +105,7 @@ class TestNotionRetryLogic(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_raises_non_retryable(self):
         from storage import _retry_notion_call
+
         fn = MagicMock(side_effect=ValueError("non-retryable"))
         with self.assertRaises(ValueError):
             _retry_notion_call(fn)
@@ -119,6 +114,7 @@ class TestNotionRetryLogic(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_notion_unavailable_returns_false(self):
         from storage import save_to_notion
+
         cfg = AppConfig()
         batch = _make_batch()
         trend = _make_trend()

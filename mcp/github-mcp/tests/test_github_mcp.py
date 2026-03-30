@@ -1,8 +1,7 @@
 """GitHub MCP 기본 테스트 — 스크립트 구문 검사 + 유틸리티 함수 단위 테스트."""
 
-import os
-import sys
 import importlib.util
+import os
 
 
 def test_fetch_info_imports():
@@ -34,6 +33,7 @@ def test_env_file_exists():
 def test_package_json_valid():
     """package.json이 유효한 JSON인지 확인."""
     import json
+
     pkg_path = os.path.join(os.path.dirname(__file__), "..", "package.json")
     with open(pkg_path, encoding="utf-8") as f:
         data = json.load(f)

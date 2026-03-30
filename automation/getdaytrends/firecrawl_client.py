@@ -7,10 +7,9 @@ Firecrawl API (https://firecrawl.dev) 기반 비동기 스크래핑 + 요약.
 import asyncio
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import httpx
-
 from loguru import logger as log
 
 # ══════════════════════════════════════════════════════
@@ -54,9 +53,11 @@ _rate_limiter = _RateLimiter()
 #  FirecrawlClient
 # ══════════════════════════════════════════════════════
 
+
 @dataclass
 class ScrapedArticle:
     """크롤링된 기사 데이터."""
+
     url: str
     title: str = ""
     content: str = ""
@@ -126,11 +127,14 @@ class FirecrawlClient:
             await _rate_limiter.acquire()
             client = await self._get_client()
 
-            resp = await client.post("/scrape", json={
-                "url": url,
-                "formats": ["markdown"],
-                "onlyMainContent": True,
-            })
+            resp = await client.post(
+                "/scrape",
+                json={
+                    "url": url,
+                    "formats": ["markdown"],
+                    "onlyMainContent": True,
+                },
+            )
 
             if resp.status_code == 402:
                 log.warning("[Firecrawl] API 크레딧 소진 (402)")
@@ -231,11 +235,7 @@ class FirecrawlClient:
             content = article["content"].strip()
             date_info = f" ({article['published_date']})" if article["published_date"] else ""
 
-            parts.append(
-                f"--- 기사 {idx}{date_info} ---\n"
-                f"제목: {title}\n"
-                f"본문:\n{content}"
-            )
+            parts.append(f"--- 기사 {idx}{date_info} ---\n" f"제목: {title}\n" f"본문:\n{content}")
 
         return "[기사 본문 요약]\n" + "\n\n".join(parts)
 

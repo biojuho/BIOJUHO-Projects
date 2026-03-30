@@ -6,8 +6,10 @@ from datetime import date
 from typing import Any
 
 import httpx
+from credibility import CredibilityScorer
+from deduplicator import NewsDeduplicator
+from news_bot import _is_relevant_to_category
 from notion_client import AsyncClient
-
 from runtime import (
     AlreadyRunningError,
     JobLock,
@@ -26,9 +28,6 @@ from settings import (
     NOTION_REPORTS_DATA_SOURCE_ID,
     PIPELINE_HTTP_TIMEOUT_SEC,
 )
-from news_bot import _is_relevant_to_category
-from deduplicator import NewsDeduplicator
-from credibility import CredibilityScorer
 
 # Pipeline quality gates
 _DEDUPLICATOR = NewsDeduplicator(threshold=0.85)
@@ -145,13 +144,15 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
                             summary["skipped"] += 1
                             continue
 
-                        category_entries.append({
-                            "title": title,
-                            "link": link,
-                            "source": source_name,
-                            "description": description,
-                            "category": category,
-                        })
+                        category_entries.append(
+                            {
+                                "title": title,
+                                "link": link,
+                                "source": source_name,
+                                "description": description,
+                                "category": category,
+                            }
+                        )
 
                 if not category_entries:
                     continue
@@ -164,7 +165,9 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
                 if filtered_count:
                     summary["credibility_filtered"] += filtered_count
                     logger.info(
-                        "credibility", "filtered", f"{filtered_count} low-trust articles removed",
+                        "credibility",
+                        "filtered",
+                        f"{filtered_count} low-trust articles removed",
                         category=category,
                     )
 
@@ -174,7 +177,9 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
                 if dedup_removed:
                     summary["dedup_removed"] += dedup_removed
                     logger.info(
-                        "dedup", "removed", f"{dedup_removed} near-duplicate articles merged",
+                        "dedup",
+                        "removed",
+                        f"{dedup_removed} near-duplicate articles merged",
                         category=category,
                     )
 
@@ -207,7 +212,15 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
                     state.record_article(link=link, source=source_name, notion_page_id=page_id, run_id=run_id)
                     existing_urls.add(link)
                     summary["saved"] += 1
-                    logger.info("upload", "success", "article saved", category=category, source=source_name, link=link, page_id=page_id)
+                    logger.info(
+                        "upload",
+                        "success",
+                        "article saved",
+                        category=category,
+                        source=source_name,
+                        link=link,
+                        page_id=page_id,
+                    )
 
             state.record_job_finish(run_id, status="success", summary=summary)
             logger.info("complete", "success", "collect_news finished", **summary)

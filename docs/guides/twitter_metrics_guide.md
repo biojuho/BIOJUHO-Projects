@@ -37,22 +37,22 @@ def get_weekly_metrics():
     api_key = os.getenv("TWITTER_API_KEY")
     api_secret = os.getenv("TWITTER_API_SECRET")
     bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
-    
+
     # Tweepy Client 초기화
     client = tweepy.Client(bearer_token=bearer_token)
     user_id = client.get_me().data.id
-    
+
     # 최근 일주일 작성 트윗 추출
     start_time = datetime.utcnow() - timedelta(days=7)
-    
+
     # tweet_fields에 유기적 지표(organic_metrics), 비공개 지표(non_public_metrics) 지정 필요 (권한 주의)
     tweets = client.get_users_tweets(
-        id=user_id, 
-        start_time=start_time, 
-        max_results=100, 
+        id=user_id,
+        start_time=start_time,
+        max_results=100,
         tweet_fields=['public_metrics', 'organic_metrics']
     )
-    
+
     if not tweets.data:
         return "조회된 트윗 없음"
 
@@ -65,7 +65,7 @@ def get_weekly_metrics():
             "impressions": metrics.get('impression_count', 0),
             "engagements": metrics.get('like_count', 0) + metrics.get('retweet_count', 0)
         })
-        
+
     return sorted(report, key=lambda x: x['impressions'], reverse=True)
 
 if __name__ == "__main__":

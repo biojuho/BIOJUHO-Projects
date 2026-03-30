@@ -8,23 +8,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from dependencies import (
+    get_database,
+    get_monitor,
+)
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
-
-from dependencies import (
-    get_analytics,
-    get_calendar,
-    get_database,
-    get_meta_api,
-    get_monitor,
-    get_scheduler,
-)
-from services.analytics import AnalyticsEngine
-from services.content_calendar import ContentCalendar
 from services.database import Database
-from services.meta_api import MetaGraphAPI
 from services.monitoring import SystemMonitor
-from services.scheduler import PostScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +45,7 @@ async def health(db: Database = Depends(get_database)):
     return {
         "status": "running",
         "service": "instagram-automation",
-        "scheduler_active": _scheduler_instance is not None
-        and _scheduler_instance.running,
+        "scheduler_active": _scheduler_instance is not None and _scheduler_instance.running,
         "posts_queued": len(db.get_queued_posts()),
         "posts_published_today": db.get_post_count_today(),
     }

@@ -241,9 +241,7 @@ def _record_refresh_history(result: dict) -> None:
                 history = []
         history.append(result)
         history = history[-100:]
-        cfg.refresh_history_file.write_text(
-            json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        cfg.refresh_history_file.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as e:
         log.debug("refresh history write failed: %s", e)
 

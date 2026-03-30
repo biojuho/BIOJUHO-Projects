@@ -2,17 +2,18 @@
 BioLinker - 벡터 저장소 (Vector Store)
 ChromaDB 기반의 RFP 임베딩 저장 및 유사도 검색 기능을 제공합니다.
 """
-import os
-import sys
-import json
-import re
+
 import hashlib
 import itertools
+import json
+import os
+import re
+import sys
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple, cast
+from typing import Any, cast
 
-import numpy as np # type: ignore
-from dotenv import load_dotenv # type: ignore
+import numpy as np  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 
 # --- 경로 및 환경 설정 ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,11 +34,11 @@ if BIOLINKER_DIR not in sys.path:
     sys.path.append(BIOLINKER_DIR)
 
 try:
-    from models import RFPDocument, VCFirm # type: ignore
+    from models import RFPDocument, VCFirm  # type: ignore
 except ImportError:
     # 패키지 컨텍스트에서 실행될 경우 상대 임포트 시도
     try:
-        from ..models import RFPDocument, VCFirm # type: ignore
+        from ..models import RFPDocument, VCFirm  # type: ignore
     except ImportError:
         # 최종 실패 시 로그 출력 및 Any 타입 할당 (크래시 방지)
         print("[경고] models.RFPDocument를 임포트할 수 없습니다. PYTHONPATH를 확인하세요.")
@@ -47,7 +48,8 @@ except ImportError:
 # --- 조건부 임포트 (라이브러리 가용성 체크) ---
 CHROMADB_AVAILABLE = False  # pylint: disable=invalid-name
 try:
-    import chromadb # type: ignore
+    import chromadb  # type: ignore
+
     # import chromadb.utils.embedding_functions as embedding_functions # 현재 미사용
     CHROMADB_AVAILABLE = True  # pylint: disable=invalid-name
 except Exception:  # pylint: disable=broad-exception-caught
@@ -75,6 +77,7 @@ def _load_openai_support() -> bool:
     _OPENAI_LOAD_ATTEMPTED = True
     try:
         from openai import OpenAI as _OpenAI  # type: ignore
+
         OpenAI = _OpenAI
         OPENAI_AVAILABLE = True
     except Exception:  # pylint: disable=broad-exception-caught
@@ -90,6 +93,7 @@ def _load_google_support() -> bool:
     _GOOGLE_LOAD_ATTEMPTED = True
     try:
         from langchain_google_genai import GoogleGenerativeAIEmbeddings as _GoogleEmbeddings  # type: ignore
+
         GoogleGenerativeAIEmbeddings = _GoogleEmbeddings
         _GOOGLE_AVAILABLE = True
     except Exception:  # pylint: disable=broad-exception-caught
@@ -105,6 +109,7 @@ def _load_qdrant_support() -> bool:
     _QDRANT_LOAD_ATTEMPTED = True
     try:
         from qdrant_client import QdrantClient as _QdrantClient  # type: ignore
+
         QdrantClient = _QdrantClient
         try:
             from qdrant_client import models as _qdrant_models  # type: ignore
@@ -126,7 +131,7 @@ class VectorStore:
         self.persist_dir = persist_dir
         self.client = None
         self.collection = None
-        self.embedding_fn: Optional[Any] = None
+        self.embedding_fn: Any | None = None
         self.embedding_model = None
         self.openai_client = None
 
@@ -135,8 +140,7 @@ class VectorStore:
         if google_key and _load_google_support():
             # Langchain 임베딩 래퍼
             self.embedding_model = GoogleGenerativeAIEmbeddings(
-                model="models/gemini-embedding-001",
-                google_api_key=google_key
+                model="models/gemini-embedding-001", google_api_key=google_key
             )
             # ChromaDB용 커스텀 함수 래퍼
             self.embedding_fn = self._google_embedding_fn
@@ -153,8 +157,7 @@ class VectorStore:
                 client = chromadb.PersistentClient(path=persist_dir)
                 self.client = client
                 self.collection = client.get_or_create_collection(
-                    name=self.COLLECTION_NAME,
-                    metadata={"description": "BioLinker RFP 공고 임베딩"}
+                    name=self.COLLECTION_NAME, metadata={"description": "BioLinker RFP 공고 임베딩"}
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"[오류] ChromaDB 초기화 실패: {e}")
@@ -180,12 +183,12 @@ class VectorStore:
             for text in input_text:
                 response = client.embeddings.create(
                     model="text-embedding-3-small",
-                    input=text[:8000] # type: ignore
+                    input=text[:8000],  # type: ignore
                 )
                 data.append(response.data[0].embedding)
         return data
 
-    def _get_embedding(self, text: str) -> List[float]:
+    def _get_embedding(self, text: str) -> list[float]:
         """단일 텍스트 임베딩 생성"""
         if self.embedding_fn:
             return self.embedding_fn([text])[0]  # type: ignore
@@ -199,10 +202,10 @@ class VectorStore:
         hash_val = hashlib.md5(text.encode()).hexdigest()
         # MD5에서 16차원 의사(pseudo) 벡터 생성
         # Linter complaining about string slicing, suppressing error
-        return [float(int(hash_val[i : i + 2], 16)) / 255.0 for i in range(0, 32, 2)] # type: ignore
+        return [float(int(hash_val[i : i + 2], 16)) / 255.0 for i in range(0, 32, 2)]  # type: ignore
 
     @staticmethod
-    def _safe_int(value: Any) -> Optional[int]:
+    def _safe_int(value: Any) -> int | None:
         try:
             if value in (None, "", "None"):
                 return None
@@ -211,7 +214,7 @@ class VectorStore:
             return None
 
     @staticmethod
-    def _parse_datetime(value: Any) -> Optional[datetime]:
+    def _parse_datetime(value: Any) -> datetime | None:
         if not value:
             return None
         text = str(value).strip()
@@ -224,14 +227,10 @@ class VectorStore:
 
     @staticmethod
     def _tokenize_text(text: str) -> set[str]:
-        return {
-            token
-            for token in re.findall(r"[0-9A-Za-z가-힣]{2,}", (text or "").lower())
-            if token
-        }
+        return {token for token in re.findall(r"[0-9A-Za-z가-힣]{2,}", (text or "").lower()) if token}
 
     @classmethod
-    def _backend_filters(cls, filters: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def _backend_filters(cls, filters: dict[str, Any] | None) -> dict[str, Any] | None:
         if not filters:
             return None
 
@@ -244,14 +243,10 @@ class VectorStore:
 
     @staticmethod
     def _tokenize_text(text: str) -> set[str]:
-        return {
-            token
-            for token in re.findall("[0-9A-Za-z\\uac00-\\ud7a3]{2,}", (text or "").lower())
-            if token
-        }
+        return {token for token in re.findall("[0-9A-Za-z\\uac00-\\ud7a3]{2,}", (text or "").lower()) if token}
 
     @classmethod
-    def _metadata_matches(cls, metadata: Dict[str, Any], document: str, filters: Optional[Dict[str, Any]]) -> bool:
+    def _metadata_matches(cls, metadata: dict[str, Any], document: str, filters: dict[str, Any] | None) -> bool:
         if not filters:
             return True
 
@@ -299,7 +294,7 @@ class VectorStore:
         return True
 
     @classmethod
-    def _lexical_score(cls, query: str, metadata: Dict[str, Any], document: str) -> float:
+    def _lexical_score(cls, query: str, metadata: dict[str, Any], document: str) -> float:
         query_text = (query or "").strip().lower()
         if not query_text:
             return 0.0
@@ -335,16 +330,16 @@ class VectorStore:
     def _post_process_hit_items(
         cls,
         query: str,
-        items: List[Dict[str, Any]],
+        items: list[dict[str, Any]],
         n_results: int,
-        filters: Optional[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None,
+    ) -> list[dict[str, Any]]:
         hybrid_weight = float(os.getenv("HYBRID_SEARCH_TEXT_WEIGHT", "0.2"))
         hybrid_weight = max(0.0, min(1.0, hybrid_weight))
 
         processed = []
         for item in items:
-            metadata = cast(Dict[str, Any], item.get("metadata", {}) or {})
+            metadata = cast(dict[str, Any], item.get("metadata", {}) or {})
             document = str(item.get("document", "") or "")
             if not cls._metadata_matches(metadata, document, filters):
                 continue
@@ -353,12 +348,14 @@ class VectorStore:
             lexical_score = cls._lexical_score(query, metadata, document)
             combined_score = ((1.0 - hybrid_weight) * vector_score) + (hybrid_weight * lexical_score)
 
-            processed.append({
-                **item,
-                "similarity": combined_score,
-                "vector_score": vector_score,
-                "lexical_score": lexical_score,
-            })
+            processed.append(
+                {
+                    **item,
+                    "similarity": combined_score,
+                    "vector_score": vector_score,
+                    "lexical_score": lexical_score,
+                }
+            )
 
         processed.sort(
             key=lambda entry: (
@@ -370,8 +367,8 @@ class VectorStore:
         return processed[:n_results]
 
     @classmethod
-    def _item_to_document_result(cls, item: Dict[str, Any]) -> Optional[Tuple[RFPDocument, float]]:
-        metadata = cast(Dict[str, Any], item.get("metadata", {}) or {})
+    def _item_to_document_result(cls, item: dict[str, Any]) -> tuple[RFPDocument, float] | None:
+        metadata = cast(dict[str, Any], item.get("metadata", {}) or {})
         try:
             document = RFPDocument(  # type: ignore
                 id=str(item.get("id", "")),
@@ -395,7 +392,7 @@ class VectorStore:
             rfp.id = hashlib.md5(rfp.title.encode()).hexdigest()
 
         # 임베딩 생성
-        embed_text = f"{rfp.title}\n{rfp.body_text[:2000]}" # type: ignore
+        embed_text = f"{rfp.title}\n{rfp.body_text[:2000]}"  # type: ignore
         embedding = self._get_embedding(embed_text)
 
         # 메타데이터 준비
@@ -410,7 +407,7 @@ class VectorStore:
             "budget": rfp.budget_range or "",
             "min_trl": rfp.min_trl if rfp.min_trl is not None else -1,
             "max_trl": rfp.max_trl if rfp.max_trl is not None else 99,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
         # Local variable narrowing for self.collection
@@ -421,11 +418,11 @@ class VectorStore:
                 ids=[rfp.id],
                 embeddings=[embedding],
                 metadatas=[metadata],
-                documents=[rfp.body_text[:5000]] # type: ignore
+                documents=[rfp.body_text[:5000]],  # type: ignore
             )
         else:
             # 단순 인메모리 JSON 저장
-            self._save_to_json(rfp.id, embedding, metadata, rfp.body_text[:5000]) # type: ignore
+            self._save_to_json(rfp.id, embedding, metadata, rfp.body_text[:5000])  # type: ignore
 
         return rfp.id
 
@@ -435,18 +432,18 @@ class VectorStore:
         title: str,
         abstract: str,
         full_text: str,
-        keywords: List[str],
-        authors: Optional[List[str]] = None,
-        affiliations: Optional[List[str]] = None,
-        references: Optional[List[str]] = None,
-        doi: Optional[str] = None,
-        parser: Optional[str] = None,
-        owner_uid: Optional[str] = None,
-        owner_email: Optional[str] = None,
-        owner_name: Optional[str] = None,
-        cid: Optional[str] = None,
-        ipfs_url: Optional[str] = None,
-        created_at: Optional[str] = None,
+        keywords: list[str],
+        authors: list[str] | None = None,
+        affiliations: list[str] | None = None,
+        references: list[str] | None = None,
+        doi: str | None = None,
+        parser: str | None = None,
+        owner_uid: str | None = None,
+        owner_email: str | None = None,
+        owner_name: str | None = None,
+        cid: str | None = None,
+        ipfs_url: str | None = None,
+        created_at: str | None = None,
         nft_minted: bool = False,
     ) -> str:
         """사용자 논문 저장"""
@@ -470,7 +467,7 @@ class VectorStore:
             "cid": cid or paper_id,
             "ipfs_url": ipfs_url or "",
             "nft_minted": str(nft_minted).lower(),
-            "created_at": created_at or datetime.now().isoformat()
+            "created_at": created_at or datetime.now().isoformat(),
         }
 
         # 임베딩 및 저장
@@ -479,14 +476,9 @@ class VectorStore:
 
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
-            collection.add(
-                ids=[paper_id],
-                embeddings=[embedding],
-                metadatas=[metadata],
-                documents=[full_text[:5000]]
-            )
+            collection.add(ids=[paper_id], embeddings=[embedding], metadatas=[metadata], documents=[full_text[:5000]])
         else:
-            if CHROMADB_AVAILABLE: # 컬렉션 초기화 실패 케이스
+            if CHROMADB_AVAILABLE:  # 컬렉션 초기화 실패 케이스
                 print("[경고] ChromaDB 컬렉션을 사용할 수 없어 논문 저장을 건너뜁니다.")
             else:
                 # 단순 인메모리 JSON 저장 (ChromaDB 미설치)
@@ -494,19 +486,18 @@ class VectorStore:
 
         return paper_id
 
-    
-    def add_company_asset(
-        self, asset_id: str, title: str, content: str, metadata: Dict[str, Any]
-    ) -> str:
+    def add_company_asset(self, asset_id: str, title: str, content: str, metadata: dict[str, Any]) -> str:
         """회사 자산(IR, 특허 등) 저장"""
         # 메타데이터 보강
         final_meta = metadata.copy()
-        final_meta.update({
-            "title": title,
-            "source": metadata.get("source", "CompanyAsset"),
-            "type": "company_asset", # Explicitly set type
-            "created_at": datetime.now().isoformat()
-        })
+        final_meta.update(
+            {
+                "title": title,
+                "source": metadata.get("source", "CompanyAsset"),
+                "type": "company_asset",  # Explicitly set type
+                "created_at": datetime.now().isoformat(),
+            }
+        )
 
         # 임베딩 생성
         embed_text = f"{title}\n{content[:4000]}"
@@ -514,12 +505,7 @@ class VectorStore:
 
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
-            collection.add(
-                ids=[asset_id],
-                embeddings=[embedding],
-                metadatas=[final_meta],
-                documents=[content[:6000]]
-            )
+            collection.add(ids=[asset_id], embeddings=[embedding], metadatas=[final_meta], documents=[content[:6000]])
         else:
             # 인메모리 저장
             self._save_to_json(asset_id, embedding, final_meta, content[:6000])
@@ -536,7 +522,7 @@ class VectorStore:
             "country": vc.country,
             "stages": ",".join(vc.preferred_stages),
             "keywords": ",".join(vc.portfolio_keywords),
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
         # 임베딩 생성 (Thesis가 가장 중요)
@@ -545,18 +531,13 @@ class VectorStore:
 
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
-            collection.add(
-                ids=[vc.id],
-                embeddings=[embedding],
-                metadatas=[metadata],
-                documents=[vc.investment_thesis]
-            )
+            collection.add(ids=[vc.id], embeddings=[embedding], metadatas=[metadata], documents=[vc.investment_thesis])
         else:
             self._save_to_json(vc.id, embedding, metadata, vc.investment_thesis)
 
         return vc.id
 
-    def add_notices(self, rfps: List[RFPDocument]) -> List[str]:
+    def add_notices(self, rfps: list[RFPDocument]) -> list[str]:
         """다수의 RFP 공고 저장"""
         ids = []
         for rfp in rfps:
@@ -568,15 +549,12 @@ class VectorStore:
         return ids
 
     def search_similar(
-        self,
-        query: str,
-        n_results: int = 5,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[RFPDocument, float]]:
+        self, query: str, n_results: int = 5, filters: dict[str, Any] | None = None
+    ) -> list[tuple[RFPDocument, float]]:
         # pylint: disable=too-many-locals
         """유사 공고 검색 (하이브리드 필터 지원)"""
         query_embedding = self._get_embedding(query)
-        raw_hits: List[Dict[str, Any]] = []
+        raw_hits: list[dict[str, Any]] = []
         fetch_limit = max(n_results * 4, n_results)
 
         collection = self.collection
@@ -586,7 +564,7 @@ class VectorStore:
                     query_embeddings=[query_embedding],
                     n_results=fetch_limit,
                     where=backend_filters,
-                    include=["metadatas", "documents", "distances"]
+                    include=["metadatas", "documents", "distances"],
                 )
 
                 if results and results.get("ids") and results["ids"][0]:
@@ -599,12 +577,14 @@ class VectorStore:
                         return default
 
                     for i, doc_id in enumerate(ids):
-                        raw_hits.append({
-                            "id": doc_id,
-                            "metadata": get_result_item("metadatas", i, {}) or {},
-                            "document": get_result_item("documents", i, "") or "",
-                            "similarity": 1.0 - float(get_result_item("distances", i, 0.999)),
-                        })
+                        raw_hits.append(
+                            {
+                                "id": doc_id,
+                                "metadata": get_result_item("metadatas", i, {}) or {},
+                                "document": get_result_item("documents", i, "") or "",
+                                "similarity": 1.0 - float(get_result_item("distances", i, 0.999)),
+                            }
+                        )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"[오류] ChromaDB 검색 실패: {e}")
 
@@ -637,13 +617,14 @@ class VectorStore:
                 results = collection.query(
                     query_embeddings=[query_embedding],
                     n_results=fetch_limit,
-                    where=filters, # filters가 None이면 where절 생략됨
-                    include=["metadatas", "documents", "distances"]
+                    where=filters,  # filters가 None이면 where절 생략됨
+                    include=["metadatas", "documents", "distances"],
                 )
 
                 # 결과가 존재하고 비어있지 않은지 확인
-                if results and results.get('ids') and results['ids'][0]:
-                    ids = results['ids'][0]
+                if results and results.get("ids") and results["ids"][0]:
+                    ids = results["ids"][0]
+
                     # 안전한 리스트 접근을 위한 헬퍼 함수
                     def get_result_item(key: str, idx: int, default: Any) -> Any:
                         items = results.get(key)
@@ -652,30 +633,30 @@ class VectorStore:
                         return default
 
                     for i, doc_id in enumerate(ids):
-                        doc_text = get_result_item('documents', i, "")
-                        raw_meta = get_result_item('metadatas', i, {})
-                        dist = get_result_item('distances', i, 0.999) # 기본값: 매우 먼 거리
+                        doc_text = get_result_item("documents", i, "")
+                        raw_meta = get_result_item("metadatas", i, {})
+                        dist = get_result_item("distances", i, 0.999)  # 기본값: 매우 먼 거리
 
                         # 엄격한 타입 검사를 위한 변환
-                        meta: Dict[str, Any] = raw_meta if isinstance(raw_meta, dict) else {}
+                        meta: dict[str, Any] = raw_meta if isinstance(raw_meta, dict) else {}
 
                         # RFPDocument 재구성
                         try:
-                            doc = RFPDocument( # type: ignore
+                            doc = RFPDocument(  # type: ignore
                                 id=doc_id,
                                 title=str(meta.get("title", "알 수 없음")),
                                 body_text=doc_text,
                                 source=str(meta.get("source", "알 수 없음")),
                                 deadline=None,  # 필요시 파싱, 단순 검색에서는 생략
-                                keywords=str(meta.get("keywords", "")).split(",") if meta.get("keywords") else []
+                                keywords=str(meta.get("keywords", "")).split(",") if meta.get("keywords") else [],
                             )
                             # Chroma는 거리(distance) 반환 (낮을수록 좋음), 유사도(1 - dist)로 변환
                             found_docs.append((doc, 1.0 - float(dist)))
-                        except Exception: # pylint: disable=broad-exception-caught
+                        except Exception:  # pylint: disable=broad-exception-caught
                             continue
 
             except Exception as e:  # pylint: disable=broad-exception-caught
-                print(f"[오류] ChromaDB 검색 실패: {e}") 
+                print(f"[오류] ChromaDB 검색 실패: {e}")
                 # 여기서 에러 발생 시 인메모리 검색으로 넘어감
 
             # ChromaDB 결과가 있으면 반환 (인메모리 검색 생략)
@@ -688,57 +669,51 @@ class VectorStore:
 
         converted_results = []
         for item in in_memory_results:
-            meta = item['metadata']
+            meta = item["metadata"]
             try:
-                doc = RFPDocument( # type: ignore
-                    id=item['id'],
+                doc = RFPDocument(  # type: ignore
+                    id=item["id"],
                     title=str(meta.get("title", "알 수 없음")),
-                    body_text=item['document'],
+                    body_text=item["document"],
                     source=str(meta.get("source", "알 수 없음")),
                     deadline=None,
-                    keywords=str(meta.get("keywords", "")).split(",") if meta.get("keywords") else []
+                    keywords=str(meta.get("keywords", "")).split(",") if meta.get("keywords") else [],
                 )
-                converted_results.append((doc, item['similarity']))
-            except Exception: # pylint: disable=broad-exception-caught
+                converted_results.append((doc, item["similarity"]))
+            except Exception:  # pylint: disable=broad-exception-caught
                 continue
         return converted_results
 
-    def _save_to_json(
-        self, doc_id: str, embedding: List[float], metadata: Dict[str, Any], document: str
-    ) -> None:
+    def _save_to_json(self, doc_id: str, embedding: list[float], metadata: dict[str, Any], document: str) -> None:
         """인메모리 저장 (JSON Fallback)"""
         db_path = os.path.join(self.persist_dir, "db.json")
         os.makedirs(self.persist_dir, exist_ok=True)
 
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
         if os.path.exists(db_path):
             try:
-                with open(db_path, 'r', encoding='utf-8') as f:
-                    data = cast(Dict[str, Any], json.load(f))
+                with open(db_path, encoding="utf-8") as f:
+                    data = cast(dict[str, Any], json.load(f))
             except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
-        data[doc_id] = {
-            "embedding": embedding,
-            "metadata": metadata,
-            "document": document
-        }
+        data[doc_id] = {"embedding": embedding, "metadata": metadata, "document": document}
 
-        with open(db_path, 'w', encoding='utf-8') as f:
+        with open(db_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
 
     def _search_in_memory(
-        self, query_embedding: List[float], n_results: int, filters: Optional[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, query_embedding: list[float], n_results: int, filters: dict[str, Any] | None
+    ) -> list[dict[str, Any]]:
         """인메모리 코사인 유사도 검색"""
         db_path = os.path.join(self.persist_dir, "db.json")
         if not os.path.exists(db_path):
             return []
 
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
         try:
-            with open(db_path, 'r', encoding='utf-8') as f:
-                data = cast(Dict[str, Any], json.load(f))
+            with open(db_path, encoding="utf-8") as f:
+                data = cast(dict[str, Any], json.load(f))
         except Exception:  # pylint: disable=broad-exception-caught
             return []
 
@@ -750,18 +725,18 @@ class VectorStore:
 
         for doc_id, item in data.items():
             if not self._metadata_matches(
-                cast(Dict[str, Any], item.get("metadata", {}) or {}),
+                cast(dict[str, Any], item.get("metadata", {}) or {}),
                 str(item.get("document", "") or ""),
                 post_filters,
             ):
                 continue
             # 필터 로직
             if filters:
-                current_filters: Dict[str, Any] = cast(Dict[str, Any], filters)
+                current_filters: dict[str, Any] = cast(dict[str, Any], filters)
                 match = True
                 for k, v in current_filters.items():
                     # item is Any, so this access is unchecked but shouldn't error as "undefined base"
-                    meta_val = item['metadata'].get(k)
+                    meta_val = item["metadata"].get(k)
                     # 단순 동등성 체크
                     if meta_val != v:
                         match = False
@@ -769,7 +744,7 @@ class VectorStore:
                 if not match:
                     continue
 
-            d_vec = np.array(item['embedding'])
+            d_vec = np.array(item["embedding"])
             d_norm = np.linalg.norm(d_vec)
 
             if q_norm == 0 or d_norm == 0:
@@ -777,44 +752,35 @@ class VectorStore:
             else:
                 sim = float(np.dot(q_vec, d_vec) / (q_norm * d_norm))
 
-            results.append({
-                'id': doc_id,
-                'metadata': item['metadata'],
-                'document': item['document'],
-                'similarity': sim
-            })
+            results.append(
+                {"id": doc_id, "metadata": item["metadata"], "document": item["document"], "similarity": sim}
+            )
 
-        results.sort(key=lambda x: x['similarity'], reverse=True)
-        return results[:n_results] # type: ignore
+        results.sort(key=lambda x: x["similarity"], reverse=True)
+        return results[:n_results]  # type: ignore
 
     def search_by_profile(
-        self,
-        tech_keywords: List[str],
-        tech_description: str,
-        n_results: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, tech_keywords: list[str], tech_description: str, n_results: int = 10
+    ) -> list[dict[str, Any]]:
         """프로필 기반 검색"""
         query = f"기술 키워드: {', '.join(tech_keywords)}\n역량: {tech_description}"
         results = self.search_similar(query, n_results)
 
         # 딕셔너리 리스트 반환 (RFPDocument 객체를 dict로 변환)
-        return [
-            {**doc.model_dump(), "similarity_score": score}
-            for doc, score in results
-        ]
+        return [{**doc.model_dump(), "similarity_score": score} for doc, score in results]
 
-    def get_notice(self, notice_id: str) -> Optional[Dict[str, Any]]:
+    def get_notice(self, notice_id: str) -> dict[str, Any] | None:
         """ID로 공고 조회"""
         # Local variable narrowing
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
             try:
                 result = collection.get(ids=[notice_id], include=["metadatas", "documents"])
-                if result['ids']:
+                if result["ids"]:
                     return {
-                        'id': notice_id,
-                        'metadata': result['metadatas'][0], # type: ignore
-                        'document': result['documents'][0] # type: ignore
+                        "id": notice_id,
+                        "metadata": result["metadatas"][0],  # type: ignore
+                        "document": result["documents"][0],  # type: ignore
                     }
             except Exception:  # pylint: disable=broad-exception-caught
                 pass
@@ -823,13 +789,13 @@ class VectorStore:
             db_path = os.path.join(self.persist_dir, "db.json")
             if os.path.exists(db_path):
                 try:
-                    with open(db_path, 'r', encoding='utf-8') as f:
+                    with open(db_path, encoding="utf-8") as f:
                         data = json.load(f)
                         if notice_id in data:
                             return {
-                                'id': notice_id,
-                                'metadata': data[notice_id]['metadata'],
-                                'document': data[notice_id]['document']
+                                "id": notice_id,
+                                "metadata": data[notice_id]["metadata"],
+                                "document": data[notice_id]["document"],
                             }
                 except Exception:  # pylint: disable=broad-exception-caught
                     pass
@@ -848,11 +814,11 @@ class VectorStore:
             db_path = os.path.join(self.persist_dir, "db.json")
             if os.path.exists(db_path):
                 try:
-                    with open(db_path, 'r', encoding='utf-8') as f:
+                    with open(db_path, encoding="utf-8") as f:
                         data = json.load(f)
                     if notice_id in data:
                         del data[notice_id]
-                        with open(db_path, 'w', encoding='utf-8') as f:
+                        with open(db_path, "w", encoding="utf-8") as f:
                             json.dump(data, f, ensure_ascii=False)
                 except Exception:  # pylint: disable=broad-exception-caught
                     pass
@@ -868,28 +834,28 @@ class VectorStore:
         db_path = os.path.join(self.persist_dir, "db.json")
         if os.path.exists(db_path):
             try:
-                with open(db_path, 'r', encoding='utf-8') as f:
+                with open(db_path, encoding="utf-8") as f:
                     data = json.load(f)
                     return len(data)
             except Exception:  # pylint: disable=broad-exception-caught
                 pass
         return 0
 
-    def list_all(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def list_all(self, limit: int = 100) -> list[dict[str, Any]]:
         """모든 공고 목록 조회 (메타데이터 포함)"""
         # Local variable narrowing
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
             try:
                 result = collection.get(limit=limit, include=["metadatas"])
-                ids = result.get('ids', []) or []
-                metadatas = result.get('metadatas', []) or []
+                ids = result.get("ids", []) or []
+                metadatas = result.get("metadatas", []) or []
 
                 items = []
                 for i, id_ in enumerate(ids):
                     # 범위 체크 및 None 체크
-                    meta = metadatas[i] if (i < len(metadatas) and metadatas[i]) else {} # type: ignore
-                    items.append({'id': id_, 'metadata': meta})
+                    meta = metadatas[i] if (i < len(metadatas) and metadatas[i]) else {}  # type: ignore
+                    items.append({"id": id_, "metadata": meta})
                 return items
             except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"[오류] ChromaDB 전체 목록 조회 실패: {e}")
@@ -899,49 +865,41 @@ class VectorStore:
         db_path = os.path.join(self.persist_dir, "db.json")
         if os.path.exists(db_path):
             try:
-                with open(db_path, 'r', encoding='utf-8') as f:
+                with open(db_path, encoding="utf-8") as f:
                     data = json.load(f)
-                return [{'id': k, 'metadata': v['metadata']} for k, v in itertools.islice(data.items(), limit)]
+                return [{"id": k, "metadata": v["metadata"]} for k, v in itertools.islice(data.items(), limit)]
             except Exception:  # pylint: disable=broad-exception-caught
                 pass
         return []
 
-    def get_documents_by_metadata(self, key: str, value: Any) -> List[Dict[str, Any]]:
+    def get_documents_by_metadata(self, key: str, value: Any) -> list[dict[str, Any]]:
         """메타데이터 키-값으로 문서 조회"""
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
             try:
                 result = collection.get(where={key: value}, include=["metadatas", "documents"])
                 items = []
-                ids = result.get('ids', []) or []
-                metadatas = result.get('metadatas', []) or []
-                documents = result.get('documents', []) or []
-                
+                ids = result.get("ids", []) or []
+                metadatas = result.get("metadatas", []) or []
+                documents = result.get("documents", []) or []
+
                 for i, id_ in enumerate(ids):
-                    items.append({
-                        'id': id_,
-                        'metadata': metadatas[i],
-                        'document': documents[i]
-                    })
+                    items.append({"id": id_, "metadata": metadatas[i], "document": documents[i]})
                 return items
             except Exception as e:
                 print(f"[오류] ChromaDB 메타데이터 조회 실패: {e}")
                 return []
-        
+
         # In-memory fallback
         db_path = os.path.join(self.persist_dir, "db.json")
         items = []
         if os.path.exists(db_path):
             try:
-                with open(db_path, 'r', encoding='utf-8') as f:
+                with open(db_path, encoding="utf-8") as f:
                     data = json.load(f)
                     for doc_id, val in data.items():
-                        if val.get('metadata', {}).get(key) == value:
-                            items.append({
-                                'id': doc_id,
-                                'metadata': val['metadata'],
-                                'document': val['document']
-                            })
+                        if val.get("metadata", {}).get(key) == value:
+                            items.append({"id": doc_id, "metadata": val["metadata"], "document": val["document"]})
             except Exception:
                 pass
         return items
@@ -955,15 +913,14 @@ class QdrantVectorStore(VectorStore):
         self.persist_dir = persist_dir
         self.client = None
         self.collection = None
-        self.embedding_fn: Optional[Any] = None
+        self.embedding_fn: Any | None = None
         self.embedding_model = None
         self.openai_client = None
 
         google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if google_key and _load_google_support():
             self.embedding_model = GoogleGenerativeAIEmbeddings(
-                model="models/gemini-embedding-001",
-                google_api_key=google_key
+                model="models/gemini-embedding-001", google_api_key=google_key
             )
             self.embedding_fn = self._google_embedding_fn
         elif os.getenv("OPENAI_API_KEY") and _load_openai_support():
@@ -1008,7 +965,7 @@ class QdrantVectorStore(VectorStore):
         self._collection_ready = True
 
     @staticmethod
-    def _build_filter(filters: Optional[Dict[str, Any]]) -> Any:
+    def _build_filter(filters: dict[str, Any] | None) -> Any:
         backend_filters = VectorStore._backend_filters(filters)
         if not backend_filters or qdrant_models is None:
             return None
@@ -1025,8 +982,8 @@ class QdrantVectorStore(VectorStore):
     def _upsert_payload(
         self,
         doc_id: str,
-        embedding: List[float],
-        metadata: Dict[str, Any],
+        embedding: list[float],
+        metadata: dict[str, Any],
         document: str,
     ) -> None:
         self._ensure_collection(len(embedding))
@@ -1062,7 +1019,7 @@ class QdrantVectorStore(VectorStore):
             "budget": rfp.budget_range or "",
             "min_trl": rfp.min_trl if rfp.min_trl is not None else -1,
             "max_trl": rfp.max_trl if rfp.max_trl is not None else 99,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
         try:
@@ -1079,18 +1036,18 @@ class QdrantVectorStore(VectorStore):
         title: str,
         abstract: str,
         full_text: str,
-        keywords: List[str],
-        authors: Optional[List[str]] = None,
-        affiliations: Optional[List[str]] = None,
-        references: Optional[List[str]] = None,
-        doi: Optional[str] = None,
-        parser: Optional[str] = None,
-        owner_uid: Optional[str] = None,
-        owner_email: Optional[str] = None,
-        owner_name: Optional[str] = None,
-        cid: Optional[str] = None,
-        ipfs_url: Optional[str] = None,
-        created_at: Optional[str] = None,
+        keywords: list[str],
+        authors: list[str] | None = None,
+        affiliations: list[str] | None = None,
+        references: list[str] | None = None,
+        doi: str | None = None,
+        parser: str | None = None,
+        owner_uid: str | None = None,
+        owner_email: str | None = None,
+        owner_name: str | None = None,
+        cid: str | None = None,
+        ipfs_url: str | None = None,
+        created_at: str | None = None,
         nft_minted: bool = False,
     ) -> str:
         reference_items = [reference for reference in (references or []) if reference]
@@ -1125,16 +1082,16 @@ class QdrantVectorStore(VectorStore):
 
         return paper_id
 
-    def add_company_asset(
-        self, asset_id: str, title: str, content: str, metadata: Dict[str, Any]
-    ) -> str:
+    def add_company_asset(self, asset_id: str, title: str, content: str, metadata: dict[str, Any]) -> str:
         final_meta = metadata.copy()
-        final_meta.update({
-            "title": title,
-            "source": metadata.get("source", "CompanyAsset"),
-            "type": "company_asset",
-            "created_at": datetime.now().isoformat()
-        })
+        final_meta.update(
+            {
+                "title": title,
+                "source": metadata.get("source", "CompanyAsset"),
+                "type": "company_asset",
+                "created_at": datetime.now().isoformat(),
+            }
+        )
         embed_text = f"{title}\n{content[:4000]}"
         embedding = self._get_embedding(embed_text)
 
@@ -1155,7 +1112,7 @@ class QdrantVectorStore(VectorStore):
             "country": vc.country,
             "stages": ",".join(vc.preferred_stages),
             "keywords": ",".join(vc.portfolio_keywords),
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
         embed_text = f"{vc.name}\n{vc.investment_thesis}\nKeywords: {', '.join(vc.portfolio_keywords)}"
         embedding = self._get_embedding(embed_text)
@@ -1169,13 +1126,10 @@ class QdrantVectorStore(VectorStore):
         return vc.id
 
     def search_similar(
-        self,
-        query: str,
-        n_results: int = 5,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[RFPDocument, float]]:
+        self, query: str, n_results: int = 5, filters: dict[str, Any] | None = None
+    ) -> list[tuple[RFPDocument, float]]:
         query_embedding = self._get_embedding(query)
-        raw_hits: List[Dict[str, Any]] = []
+        raw_hits: list[dict[str, Any]] = []
         fetch_limit = max(n_results * 4, n_results)
         backend_filters = self._backend_filters(filters)
 
@@ -1200,8 +1154,12 @@ class QdrantVectorStore(VectorStore):
                         deadline=None,
                         keywords=str(payload.get("keywords", "")).split(",") if payload.get("keywords") else [],
                         url=str(payload.get("url", "") or "") or None,
-                        min_trl=int(payload.get("min_trl")) if str(payload.get("min_trl", "")).strip() not in {"", "None"} else None,
-                        max_trl=int(payload.get("max_trl")) if str(payload.get("max_trl", "")).strip() not in {"", "None"} else None,
+                        min_trl=int(payload.get("min_trl"))
+                        if str(payload.get("min_trl", "")).strip() not in {"", "None"}
+                        else None,
+                        max_trl=int(payload.get("max_trl"))
+                        if str(payload.get("max_trl", "")).strip() not in {"", "None"}
+                        else None,
                     )
                     found_docs.append((doc, float(getattr(point, "score", 0.0) or 0.0)))
                 except Exception:  # pylint: disable=broad-exception-caught
@@ -1216,22 +1174,22 @@ class QdrantVectorStore(VectorStore):
         in_memory_results = self._search_in_memory(query_embedding, n_results, filters)
         converted_results = []
         for item in in_memory_results:
-            meta = item['metadata']
+            meta = item["metadata"]
             try:
                 doc = RFPDocument(  # type: ignore
-                    id=item['id'],
+                    id=item["id"],
                     title=str(meta.get("title", "제목없음")),
-                    body_text=item['document'],
+                    body_text=item["document"],
                     source=str(meta.get("source", "Unknown")),
                     deadline=None,
-                    keywords=str(meta.get("keywords", "")).split(",") if meta.get("keywords") else []
+                    keywords=str(meta.get("keywords", "")).split(",") if meta.get("keywords") else [],
                 )
-                converted_results.append((doc, item['similarity']))
+                converted_results.append((doc, item["similarity"]))
             except Exception:  # pylint: disable=broad-exception-caught
                 continue
         return converted_results
 
-    def get_notice(self, notice_id: str) -> Optional[Dict[str, Any]]:
+    def get_notice(self, notice_id: str) -> dict[str, Any] | None:
         try:
             results = self.qdrant_client.retrieve(
                 collection_name=self.collection_name,
@@ -1275,7 +1233,7 @@ class QdrantVectorStore(VectorStore):
         except Exception:  # pylint: disable=broad-exception-caught
             return super().count()
 
-    def list_all(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def list_all(self, limit: int = 100) -> list[dict[str, Any]]:
         try:
             records, _ = self.qdrant_client.scroll(
                 collection_name=self.collection_name,
@@ -1292,7 +1250,7 @@ class QdrantVectorStore(VectorStore):
         except Exception:  # pylint: disable=broad-exception-caught
             return super().list_all(limit)
 
-    def get_documents_by_metadata(self, key: str, value: Any) -> List[Dict[str, Any]]:
+    def get_documents_by_metadata(self, key: str, value: Any) -> list[dict[str, Any]]:
         try:
             records, _ = self.qdrant_client.scroll(
                 collection_name=self.collection_name,
@@ -1305,23 +1263,22 @@ class QdrantVectorStore(VectorStore):
             for point in records:
                 payload = dict(getattr(point, "payload", {}) or {})
                 document = str(payload.pop("document", "") or "")
-                items.append({
-                    "id": str(getattr(point, "id", "")),
-                    "metadata": payload,
-                    "document": document,
-                })
+                items.append(
+                    {
+                        "id": str(getattr(point, "id", "")),
+                        "metadata": payload,
+                        "document": document,
+                    }
+                )
             return items
         except Exception:  # pylint: disable=broad-exception-caught
             return super().get_documents_by_metadata(key, value)
 
     def search_similar(
-        self,
-        query: str,
-        n_results: int = 5,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[RFPDocument, float]]:
+        self, query: str, n_results: int = 5, filters: dict[str, Any] | None = None
+    ) -> list[tuple[RFPDocument, float]]:
         query_embedding = self._get_embedding(query)
-        raw_hits: List[Dict[str, Any]] = []
+        raw_hits: list[dict[str, Any]] = []
         fetch_limit = max(n_results * 4, n_results)
 
         try:
@@ -1335,12 +1292,14 @@ class QdrantVectorStore(VectorStore):
 
             for point in results:
                 payload = dict(getattr(point, "payload", {}) or {})
-                raw_hits.append({
-                    "id": str(getattr(point, "id", "")),
-                    "metadata": {k: v for k, v in payload.items() if k != "document"},
-                    "document": str(payload.get("document", "") or ""),
-                    "similarity": float(getattr(point, "score", 0.0) or 0.0),
-                })
+                raw_hits.append(
+                    {
+                        "id": str(getattr(point, "id", "")),
+                        "metadata": {k: v for k, v in payload.items() if k != "document"},
+                        "document": str(payload.get("document", "") or ""),
+                        "similarity": float(getattr(point, "score", 0.0) or 0.0),
+                    }
+                )
         except Exception as e:  # pylint: disable=broad-exception-caught
             print(f"[?ㅻ쪟] Qdrant 寃???ㅽ뙣: {e}")
 
@@ -1365,7 +1324,8 @@ class QdrantVectorStore(VectorStore):
         return converted_results
 
 
-_VECTOR_STORE: Optional[VectorStore] = None
+_VECTOR_STORE: VectorStore | None = None
+
 
 def get_vector_store() -> VectorStore:
     """VectorStore 싱글톤 인스턴스 반환"""

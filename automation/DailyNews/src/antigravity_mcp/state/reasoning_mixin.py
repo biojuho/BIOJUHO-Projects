@@ -2,11 +2,12 @@
 
 Follows the same pattern as existing mixins in :pymod:`antigravity_mcp.state.mixins`.
 """
+
 from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from antigravity_mcp.domain.models import FactFragment, Hypothesis
@@ -32,8 +33,15 @@ class _ReasoningMixin:
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
-                    (f.fact_id, f.report_id, f.fact_text, f.why_question,
-                     f.category, f.source_title, f.created_at or now)
+                    (
+                        f.fact_id,
+                        f.report_id,
+                        f.fact_text,
+                        f.why_question,
+                        f.category,
+                        f.source_title,
+                        f.created_at or now,
+                    )
                     for f in facts
                 ],
             )
@@ -58,7 +66,7 @@ class _ReasoningMixin:
         ]
 
     def get_recent_facts(self, category: str, *, days: int = 7, limit: int = 50) -> list[FactFragment]:
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         with self._connect() as conn:
             rows = conn.execute(
                 """
@@ -94,17 +102,20 @@ class _ReasoningMixin:
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
-                    (h.hypothesis_id, h.hypothesis_text,
-                     json.dumps(h.based_on_facts, ensure_ascii=False),
-                     h.related_pattern, h.status, h.counter_evidence,
-                     h.created_at or now)
+                    (
+                        h.hypothesis_id,
+                        h.hypothesis_text,
+                        json.dumps(h.based_on_facts, ensure_ascii=False),
+                        h.related_pattern,
+                        h.status,
+                        h.counter_evidence,
+                        h.created_at or now,
+                    )
                     for h in hypotheses
                 ],
             )
 
-    def update_hypothesis_status(
-        self, hypothesis_id: str, *, status: str, counter_evidence: str = ""
-    ) -> None:
+    def update_hypothesis_status(self, hypothesis_id: str, *, status: str, counter_evidence: str = "") -> None:
         with self._connect() as conn:
             conn.execute(
                 """
@@ -169,8 +180,7 @@ class _ReasoningMixin:
                         strength = ?, updated_at = ?
                     WHERE pattern_id = ?
                     """,
-                    (new_count, json.dumps(merged, ensure_ascii=False),
-                     new_strength, now, pattern_id),
+                    (new_count, json.dumps(merged, ensure_ascii=False), new_strength, now, pattern_id),
                 )
             else:
                 conn.execute(
@@ -180,14 +190,18 @@ class _ReasoningMixin:
                          survival_count, strength, created_at, updated_at)
                     VALUES (?, ?, ?, ?, 1, ?, ?, ?)
                     """,
-                    (pattern_id, pattern_text, category,
-                     json.dumps(evidence_facts, ensure_ascii=False),
-                     strength, now, now),
+                    (
+                        pattern_id,
+                        pattern_text,
+                        category,
+                        json.dumps(evidence_facts, ensure_ascii=False),
+                        strength,
+                        now,
+                        now,
+                    ),
                 )
 
-    def get_active_patterns(
-        self, category: str, *, min_survival: int = 1, limit: int = 30
-    ) -> list[dict[str, Any]]:
+    def get_active_patterns(self, category: str, *, min_survival: int = 1, limit: int = 30) -> list[dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
                 """

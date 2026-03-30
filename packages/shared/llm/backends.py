@@ -13,15 +13,16 @@ import logging
 import urllib.request
 from typing import Any
 
-from .models import LLMResponse, TaskTier
-from .model_patches import apply_model_patch
 from . import bitnet_runner
+from .model_patches import apply_model_patch
+from .models import LLMResponse, TaskTier
 
 log = logging.getLogger("shared.llm")
 
 # LiteLLM 선택 의존성 — 설치되어 있으면 OpenAI-호환 백엔드를 통합
 try:
     import litellm
+
     litellm.suppress_debug_info = True  # 임포트 로그 억제
     LITELLM_AVAILABLE = True
 except ImportError:
@@ -109,11 +110,7 @@ class BackendManager:
 
     def has_any_key(self) -> bool:
         """Check if at least one backend has a valid API key."""
-        return (
-            any(bool(v) for v in self._keys.values())
-            or _ollama_is_running()
-            or bitnet_runner.is_available()
-        )
+        return any(bool(v) for v in self._keys.values()) or _ollama_is_running() or bitnet_runner.is_available()
 
     # -- Client factories (lazy) ------------------------------------------
 
@@ -216,7 +213,12 @@ class BackendManager:
             return self._call_openai_compat(backend, model, messages, max_tokens, system, tier, response_mode)
 
     def _call_anthropic(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+        self,
+        model: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
         response_mode: str = "text",
     ) -> LLMResponse:
         client = self._get_anthropic()
@@ -234,10 +236,7 @@ class BackendManager:
                     "cache_control": {"type": "ephemeral"},
                 }
             ]
-        resp = client.messages.create(
-            **kwargs,
-            extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
-        )
+        resp = client.messages.create(**kwargs, extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"})
         text = resp.content[0].text
         # Prepend the prefill character back to reconstruct the full JSON
         if response_mode == "json":
@@ -252,7 +251,12 @@ class BackendManager:
         )
 
     def _call_gemini(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+        self,
+        model: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
         response_mode: str = "text",
     ) -> LLMResponse:
         client = self._get_gemini()
@@ -403,7 +407,12 @@ class BackendManager:
         )
 
     def _call_bitnet(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+        self,
+        model: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
     ) -> LLMResponse:
         """Local BitNet inference via bitnet.cpp subprocess."""
         result = bitnet_runner.run_inference(
@@ -416,7 +425,7 @@ class BackendManager:
             model=result["model"],
             backend="bitnet",
             tier=tier,
-            input_tokens=0,   # local inference — no API token counting
+            input_tokens=0,  # local inference — no API token counting
             output_tokens=result.get("tokens_generated", 0),
         )
 
@@ -446,9 +455,7 @@ class BackendManager:
                 backend, model, litellm_model_id, messages, max_tokens, system, tier, response_mode
             )
 
-        return await asyncio.to_thread(
-            self.call, backend, model, messages, max_tokens, system, tier, response_mode
-        )
+        return await asyncio.to_thread(self.call, backend, model, messages, max_tokens, system, tier, response_mode)
 
     async def _acall_via_litellm(
         self,
@@ -492,7 +499,12 @@ class BackendManager:
         )
 
     async def _acall_gemini(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier,
+        self,
+        model: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
         response_mode: str = "text",
     ) -> LLMResponse:
         client = self._get_gemini()
@@ -539,9 +551,7 @@ class BackendManager:
         else:
             yield from self._stream_openai_compat(backend, model, messages, max_tokens, system, tier)
 
-    def _stream_anthropic(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
-    ):
+    def _stream_anthropic(self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier):
         client = self._get_anthropic()
         kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "messages": messages}
         if system:
@@ -552,16 +562,11 @@ class BackendManager:
                     "cache_control": {"type": "ephemeral"},
                 }
             ]
-        with client.messages.stream(
-            **kwargs,
-            extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
-        ) as stream:
+        with client.messages.stream(**kwargs, extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}) as stream:
             for text in stream.text_stream:
                 yield text
 
-    def _stream_gemini(
-        self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier
-    ):
+    def _stream_gemini(self, model: str, messages: list[dict], max_tokens: int, system: str, tier: TaskTier):
         client = self._get_gemini()
         parts = []
         if system:
@@ -572,14 +577,21 @@ class BackendManager:
         gemini_max = max(max_tokens * 4, 8192)
         config: dict[str, Any] = {"max_output_tokens": gemini_max}
         for chunk in client.models.generate_content_stream(
-            model=model, contents=prompt, config=config,
+            model=model,
+            contents=prompt,
+            config=config,
         ):
             if chunk.text:
                 yield chunk.text
 
     def _stream_openai_compat(
-        self, backend: str, model: str, messages: list[dict],
-        max_tokens: int, system: str, tier: TaskTier,
+        self,
+        backend: str,
+        model: str,
+        messages: list[dict],
+        max_tokens: int,
+        system: str,
+        tier: TaskTier,
     ):
         getters = {
             "openai": self._get_openai,
@@ -595,7 +607,10 @@ class BackendManager:
             api_messages.append({"role": "system", "content": system})
         api_messages.extend(messages)
         stream = client.chat.completions.create(
-            model=model, messages=api_messages, max_tokens=max_tokens, stream=True,
+            model=model,
+            messages=api_messages,
+            max_tokens=max_tokens,
+            stream=True,
         )
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:

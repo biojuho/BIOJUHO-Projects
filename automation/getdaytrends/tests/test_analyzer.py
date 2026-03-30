@@ -1,10 +1,9 @@
 """analyzer.py 테스트: JSON 파싱, 기본값 폴백, 패턴 감지."""
 
-import sqlite3
 import unittest
 
-from analyzer import _parse_json_array, _parse_json
-from models import MultiSourceContext, ScoredTrend
+from analyzer import _parse_json, _parse_json_array
+from models import MultiSourceContext
 
 
 class TestParseJson(unittest.TestCase):
@@ -80,9 +79,11 @@ class TestDetectTrendPatterns(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         import aiosqlite
+
         self.conn = await aiosqlite.connect(":memory:")
         self.conn.row_factory = aiosqlite.Row
         from db import init_db
+
         await init_db(self.conn)
 
     async def asyncTearDown(self):
@@ -90,6 +91,7 @@ class TestDetectTrendPatterns(unittest.IsolatedAsyncioTestCase):
 
     async def test_no_history(self):
         from analyzer import detect_trend_patterns
+
         pattern = await detect_trend_patterns(self.conn, "없는키워드")
         self.assertEqual(pattern["seen_count"], 0)
         self.assertFalse(pattern["is_recurring"])
@@ -98,7 +100,7 @@ class TestDetectTrendPatterns(unittest.IsolatedAsyncioTestCase):
     async def test_with_history(self):
         from analyzer import detect_trend_patterns
         from db import save_trend
-        from models import ScoredTrend, TrendSource
+        from models import TrendSource
 
         t1 = ScoredTrend(keyword="AI", rank=1, viral_potential=50, sources=[TrendSource.GETDAYTRENDS])
         await save_trend(self.conn, t1, 1)
@@ -119,11 +121,13 @@ class TestDetectTrendPatterns(unittest.IsolatedAsyncioTestCase):
 #  v4.0 신규 테스트: Phase 1~4 검증
 # ══════════════════════════════════════════════════════
 
+
 class TestCrossSourceConfidence(unittest.TestCase):
     """Phase 1: 멀티소스 교차 검증 점수 계산."""
 
     def _conf(self, volume=0, twitter="", news="", reddit=""):
         from analyzer import _compute_cross_source_confidence
+
         ctx = MultiSourceContext(twitter_insight=twitter, news_insight=news, reddit_insight=reddit)
         return _compute_cross_source_confidence(volume, ctx)
 
@@ -153,6 +157,7 @@ class TestCrossSourceConfidence(unittest.TestCase):
 
     def test_none_context(self):
         from analyzer import _compute_cross_source_confidence
+
         score = _compute_cross_source_confidence(0, None)
         self.assertEqual(score, 0)
 
@@ -162,6 +167,7 @@ class TestSignalScore(unittest.TestCase):
 
     def _sig(self, vol=0, acc="+0%", conf=0, is_new=True):
         from analyzer import _compute_signal_score
+
         return _compute_signal_score(vol, acc, conf, is_new)
 
     def test_zero_everything(self):
@@ -218,6 +224,7 @@ class TestParseScoredTrendV4(unittest.TestCase):
 
     def test_joongyeon_kick_parsed(self):
         from analyzer import _parse_scored_trend_from_dict
+
         ctx = MultiSourceContext(
             twitter_insight="x" * 30,
             news_insight="y" * 30,
@@ -230,6 +237,7 @@ class TestParseScoredTrendV4(unittest.TestCase):
 
     def test_joongyeon_kick_clamped(self):
         from analyzer import _parse_scored_trend_from_dict
+
         ctx = MultiSourceContext()
         parsed = self._make_parsed(joongyeon_kick=150)
         result = _parse_scored_trend_from_dict(parsed, "테스트", 50000, ctx)
@@ -238,6 +246,7 @@ class TestParseScoredTrendV4(unittest.TestCase):
     def test_low_confidence_penalty(self):
         """cross_source_confidence < 2 → viral_potential × 0.65."""
         from analyzer import _parse_scored_trend_from_dict
+
         ctx = MultiSourceContext()  # 모든 소스 비어있음 → confidence = 0
         parsed = self._make_parsed(viral_potential=80, joongyeon_kick=0)
         result = _parse_scored_trend_from_dict(parsed, "테스트", 0, ctx)
@@ -247,6 +256,7 @@ class TestParseScoredTrendV4(unittest.TestCase):
     def test_high_confidence_no_penalty(self):
         """cross_source_confidence >= 2 → 패널티 없음."""
         from analyzer import _parse_scored_trend_from_dict
+
         ctx = MultiSourceContext(
             twitter_insight="x" * 30,
             news_insight="y" * 30,
@@ -258,7 +268,10 @@ class TestParseScoredTrendV4(unittest.TestCase):
 
     def test_cross_source_confidence_field_set(self):
         from analyzer import _parse_scored_trend_from_dict
-        ctx = MultiSourceContext(twitter_insight="충분히 긴 트위터 내용입니다", news_insight="충분히 긴 뉴스 내용입니다")
+
+        ctx = MultiSourceContext(
+            twitter_insight="충분히 긴 트위터 내용입니다", news_insight="충분히 긴 뉴스 내용입니다"
+        )
         parsed = self._make_parsed()
         result = _parse_scored_trend_from_dict(parsed, "테스트", 5000, ctx)
         self.assertGreaterEqual(result.cross_source_confidence, 0)

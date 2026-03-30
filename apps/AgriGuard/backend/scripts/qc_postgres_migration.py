@@ -46,9 +46,9 @@ def parse_args() -> argparse.Namespace:
 
 def compare_row_counts(sqlite_engine, pg_engine, sensor_drift_tolerance: int) -> bool:
     """Compare row counts across all tables."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("1. Row Count Comparison")
-    print("="*60)
+    print("=" * 60)
 
     all_match = True
     warnings = []
@@ -78,7 +78,7 @@ def compare_row_counts(sqlite_engine, pg_engine, sensor_drift_tolerance: int) ->
         print(f"{status} {table:20s}: SQLite={sq_count:6d} | PostgreSQL={pg_count:6d}")
 
     if warnings:
-        print(f"\nWarnings:")
+        print("\nWarnings:")
         for w in warnings:
             print(f"  - {w}")
 
@@ -88,13 +88,14 @@ def compare_row_counts(sqlite_engine, pg_engine, sensor_drift_tolerance: int) ->
 
 def verify_boolean_conversion(pg_engine) -> bool:
     """Verify boolean columns are proper boolean type."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("2. Boolean Type Verification")
-    print("="*60)
+    print("=" * 60)
 
     with pg_engine.connect() as conn:
         # Check products table boolean columns
-        result = conn.execute(text("""
+        result = conn.execute(
+            text("""
             SELECT
                 COUNT(*) as total,
                 COUNT(CASE WHEN requires_cold_chain = true THEN 1 END) as cold_chain_true,
@@ -102,7 +103,8 @@ def verify_boolean_conversion(pg_engine) -> bool:
                 COUNT(CASE WHEN is_verified = true THEN 1 END) as verified_true,
                 COUNT(CASE WHEN is_verified = false THEN 1 END) as verified_false
             FROM products
-        """)).fetchone()
+        """)
+        ).fetchone()
 
         total = result[0]
         cold_true = result[1]
@@ -122,26 +124,35 @@ def verify_boolean_conversion(pg_engine) -> bool:
 
 def verify_foreign_keys(pg_engine) -> bool:
     """Verify foreign key constraints are satisfied."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("3. Foreign Key Integrity")
-    print("="*60)
+    print("=" * 60)
 
     checks = [
-        ("products -> users", """
+        (
+            "products -> users",
+            """
             SELECT COUNT(*) FROM products p
             LEFT JOIN users u ON p.owner_id = u.id
             WHERE u.id IS NULL
-        """),
-        ("tracking_events -> products", """
+        """,
+        ),
+        (
+            "tracking_events -> products",
+            """
             SELECT COUNT(*) FROM tracking_events te
             LEFT JOIN products p ON te.product_id = p.id
             WHERE p.id IS NULL
-        """),
-        ("certificates -> products", """
+        """,
+        ),
+        (
+            "certificates -> products",
+            """
             SELECT COUNT(*) FROM certificates c
             LEFT JOIN products p ON c.product_id = p.id
             WHERE p.id IS NULL
-        """),
+        """,
+        ),
     ]
 
     all_valid = True
@@ -152,13 +163,15 @@ def verify_foreign_keys(pg_engine) -> bool:
             if orphans > 0:
                 # Check if orphaned products have special owner_id
                 if check_name == "products -> users":
-                    orphan_owners = conn.execute(text("""
+                    orphan_owners = conn.execute(
+                        text("""
                         SELECT DISTINCT p.owner_id
                         FROM products p
                         LEFT JOIN users u ON p.owner_id = u.id
                         WHERE u.id IS NULL
                         LIMIT 5
-                    """)).fetchall()
+                    """)
+                    ).fetchall()
                     print(f"{status} {check_name:35s}: {orphans} orphaned records")
                     print(f"     Orphaned owner_ids: {[o[0] for o in orphan_owners]}")
                     # If orphaned owner_id is 'demo-user' or similar test/seed data, it's acceptable
@@ -172,7 +185,7 @@ def verify_foreign_keys(pg_engine) -> bool:
                         )
                         for (owner_id,) in orphan_owners
                     ):
-                        print(f"     (Test/demo/seed users - acceptable for QC)")
+                        print("     (Test/demo/seed users - acceptable for QC)")
                         # Don't fail QC for test data
                     else:
                         all_valid = False
@@ -187,26 +200,25 @@ def verify_foreign_keys(pg_engine) -> bool:
 
 def compare_sample_data(sqlite_engine, pg_engine) -> bool:
     """Compare sample rows to verify data integrity."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("4. Sample Data Integrity")
-    print("="*60)
+    print("=" * 60)
 
     # Compare first user (using actual schema: id, role, name, organization, created_at)
     with sqlite_engine.connect() as sq_conn:
-        sq_user = sq_conn.execute(text('SELECT id, role, name FROM users LIMIT 1')).fetchone()
+        sq_user = sq_conn.execute(text("SELECT id, role, name FROM users LIMIT 1")).fetchone()
 
     with pg_engine.connect() as pg_conn:
         if sq_user:
             pg_user = pg_conn.execute(
-                text('SELECT id, role, name FROM users WHERE id = :id'),
-                {"id": sq_user[0]}
+                text("SELECT id, role, name FROM users WHERE id = :id"), {"id": sq_user[0]}
             ).fetchone()
 
             if pg_user and sq_user[1] == pg_user[1] and sq_user[2] == pg_user[2]:
                 print(f"[OK] Sample user match: {sq_user[2]} (role: {sq_user[1]})")
                 return True
             else:
-                print(f"[FAIL] Sample user mismatch")
+                print("[FAIL] Sample user mismatch")
                 return False
         else:
             print("[SKIP] No users to compare")
@@ -215,9 +227,9 @@ def compare_sample_data(sqlite_engine, pg_engine) -> bool:
 
 def verify_schema_alignment(sqlite_engine, pg_engine) -> bool:
     """Verify schema structure is aligned."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("5. Schema Structure Validation")
-    print("="*60)
+    print("=" * 60)
 
     sqlite_inspector = inspect(sqlite_engine)
     pg_inspector = inspect(pg_engine)
@@ -241,9 +253,9 @@ def verify_schema_alignment(sqlite_engine, pg_engine) -> bool:
 def main() -> int:
     args = parse_args()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("AgriGuard PostgreSQL Migration QC")
-    print("="*60)
+    print("=" * 60)
 
     if not args.sqlite_db.exists():
         print(f"[ERROR] SQLite database not found: {args.sqlite_db}")
@@ -264,9 +276,9 @@ def main() -> int:
     results.append(("Schema", verify_schema_alignment(sqlite_engine, pg_engine)))
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("QC Summary")
-    print("="*60)
+    print("=" * 60)
 
     passed = sum(1 for _, result in results if result)
     total = len(results)

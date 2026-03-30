@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -95,9 +95,7 @@ SAMPLE_DATASET: list[QRSessionObservation] = [
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Draft A/B evaluation for the AgriGuard QR verification page."
-    )
+    parser = argparse.ArgumentParser(description="Draft A/B evaluation for the AgriGuard QR verification page.")
     parser.add_argument(
         "--dataset",
         help="Optional JSON dataset path. If omitted, a built-in sample dataset is used.",
@@ -165,31 +163,19 @@ def summarize_variant(dataset: list[QRSessionObservation], variant: str) -> dict
     subset_sorted = sorted(subset, key=lambda item: item.time_to_verify_sec)
     mid = len(subset_sorted) // 2
     if len(subset_sorted) % 2 == 0:
-        median_time = (
-            subset_sorted[mid - 1].time_to_verify_sec + subset_sorted[mid].time_to_verify_sec
-        ) / 2
+        median_time = (subset_sorted[mid - 1].time_to_verify_sec + subset_sorted[mid].time_to_verify_sec) / 2
     else:
         median_time = subset_sorted[mid].time_to_verify_sec
 
     return {
         "variant": variant,
         "sessions": len(subset),
-        "scan_success_rate": round(
-            sum(1 for item in subset if item.scan_success) / len(subset), 4
-        ),
-        "verification_success_rate": round(
-            sum(1 for item in subset if item.verification_success) / len(subset), 4
-        ),
-        "invalid_error_rate": round(
-            sum(1 for item in subset if item.invalid_error) / len(subset), 4
-        ),
-        "manual_recovery_rate": round(
-            sum(1 for item in subset if item.used_manual_recovery) / len(subset), 4
-        ),
+        "scan_success_rate": round(sum(1 for item in subset if item.scan_success) / len(subset), 4),
+        "verification_success_rate": round(sum(1 for item in subset if item.verification_success) / len(subset), 4),
+        "invalid_error_rate": round(sum(1 for item in subset if item.invalid_error) / len(subset), 4),
+        "manual_recovery_rate": round(sum(1 for item in subset if item.used_manual_recovery) / len(subset), 4),
         "median_time_to_verify_sec": round(median_time, 2),
-        "average_trust_score": round(
-            sum(item.trust_score for item in subset) / len(subset), 2
-        ),
+        "average_trust_score": round(sum(item.trust_score for item in subset) / len(subset), 2),
         "session_rows": [asdict(item) for item in subset],
     }
 
@@ -204,15 +190,9 @@ def decide(control: dict, variant: dict, min_relative_lift: float) -> dict:
             "error_not_worse": None,
         }
 
-    verification_lift = relative_lift(
-        control["verification_success_rate"], variant["verification_success_rate"]
-    )
-    time_improved = (
-        variant["median_time_to_verify_sec"] < control["median_time_to_verify_sec"]
-    )
-    error_not_worse = (
-        variant["invalid_error_rate"] <= control["invalid_error_rate"]
-    )
+    verification_lift = relative_lift(control["verification_success_rate"], variant["verification_success_rate"])
+    time_improved = variant["median_time_to_verify_sec"] < control["median_time_to_verify_sec"]
+    error_not_worse = variant["invalid_error_rate"] <= control["invalid_error_rate"]
 
     if verification_lift >= min_relative_lift and time_improved and error_not_worse:
         outcome = "adopt_b"
@@ -255,9 +235,7 @@ def render_markdown(
     variant: dict,
     decision: dict,
 ) -> str:
-    generated_at = datetime.now(timezone.utc).astimezone().strftime(
-        "%Y-%m-%d %H:%M:%S %Z"
-    )
+    generated_at = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     lines = [
         "# AgriGuard QR Page A/B Test Draft",
         "",

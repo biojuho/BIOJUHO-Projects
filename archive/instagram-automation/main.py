@@ -29,10 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Import dependencies and routers
 from dependencies import (
-    get_analytics,
-    get_calendar,
     get_config,
-    get_database,
     get_meta_api,
     get_scheduler,
     initialize_dependencies,
@@ -67,9 +64,7 @@ def _setup_apscheduler() -> None:
         config = get_config()
         scheduler_service = get_scheduler()
 
-        _scheduler_instance = AsyncIOScheduler(
-            timezone=config.scheduler.timezone
-        )
+        _scheduler_instance = AsyncIOScheduler(timezone=config.scheduler.timezone)
 
         # Daily content generation
         _scheduler_instance.add_job(
@@ -109,6 +104,7 @@ def _setup_apscheduler() -> None:
 
         # Make scheduler instance available to monitoring router
         from routers.monitoring import set_scheduler_instance
+
         set_scheduler_instance(_scheduler_instance)
 
     except ImportError:

@@ -1,6 +1,6 @@
 # GetDayTrends 운영 규칙 (Operational Rules)
 
-> 실시간 트렌드 파이프라인의 안정적 무인 운영을 위한 규칙.  
+> 실시간 트렌드 파이프라인의 안정적 무인 운영을 위한 규칙.
 > 최종 업데이트: 2026-03-21
 
 ---
@@ -235,7 +235,7 @@ Get-Content "d:\AI 프로젝트\getdaytrends\run_scheduled.log" -Tail 20
 
 ```sql
 -- 최근 24시간 소스별 성공률
-SELECT source, 
+SELECT source,
        COUNT(*) as total,
        SUM(success) as ok,
        ROUND(100.0 * SUM(success) / COUNT(*), 1) as rate,

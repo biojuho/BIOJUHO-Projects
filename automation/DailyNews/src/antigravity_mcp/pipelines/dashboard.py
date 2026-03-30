@@ -111,10 +111,9 @@ def _dashboard_markdown(
     cost_stats: dict[str, object] | None = None,
     metrics_summary: dict[str, object] | None = None,
 ) -> str:
-    run_lines = "\n".join(
-        f"- {run['job_name']} | {run['status']} | {run['started_at']}"
-        for run in runs
-    ) or "- No recent runs."
+    run_lines = (
+        "\n".join(f"- {run['job_name']} | {run['status']} | {run['started_at']}" for run in runs) or "- No recent runs."
+    )
     health_section = _health_markdown(health) if health else ""
     cost_section = _cost_markdown(cost_stats) if cost_stats else ""
     metrics_section = _metrics_markdown(metrics_summary) if metrics_summary else ""

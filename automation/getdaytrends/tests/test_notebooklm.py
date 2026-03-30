@@ -251,10 +251,7 @@ class TestRefreshHistory:
 
     def test_returns_recent(self, notebooklm_home):
         history_file = notebooklm_home / "refresh_history.json"
-        records = [
-            {"success": True, "timestamp": f"2026-03-{day:02d}T00:00:00"}
-            for day in range(1, 21)
-        ]
+        records = [{"success": True, "timestamp": f"2026-03-{day:02d}T00:00:00"} for day in range(1, 21)]
         history_file.write_text(json.dumps(records), encoding="utf-8")
 
         recent = nlm_health.get_refresh_history(limit=5)

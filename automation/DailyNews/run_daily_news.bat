@@ -21,4 +21,3 @@ if errorlevel 1 (
 
 echo [%DATE% %TIME%] Daily news bot completed successfully. >> logs\scheduler.log
 exit /b 0
-

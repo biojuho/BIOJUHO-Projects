@@ -5,9 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from loguru import logger as log
-
 from collectors.base import llm_analyze
+from loguru import logger as log
 from prompts.monthly_review import MONTHLY_REVIEW_SYSTEM, build_monthly_review_prompt
 from storage.models import MonthlyReview
 
@@ -135,6 +134,7 @@ def _load_used_keywords(config: CIEConfig, month: str) -> str:
 
         # 빈도 카운트
         from collections import Counter
+
         counter = Counter(all_kws)
         return ", ".join(f"{k}({v}회)" for k, v in counter.most_common(20))
 

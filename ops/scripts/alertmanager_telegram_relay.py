@@ -9,6 +9,7 @@ Usage:
 
 Listens on port 9095 by default.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,12 +52,14 @@ def send_telegram(text: str) -> None:
         log.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set, skipping")
         return
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = json.dumps({
-        "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "Markdown",
-        "disable_web_page_preview": True,
-    }).encode()
+    payload = json.dumps(
+        {
+            "chat_id": CHAT_ID,
+            "text": text,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }
+    ).encode()
     req = Request(url, data=payload, headers={"Content-Type": "application/json"})
     try:
         with urlopen(req, timeout=10) as resp:

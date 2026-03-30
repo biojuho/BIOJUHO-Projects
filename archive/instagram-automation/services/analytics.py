@@ -27,12 +27,14 @@ class AnalyticsEngine:
     def _get_db(self):
         if self._db is None:
             from services.database import Database
+
             self._db = Database(self.config.db_path)
         return self._db
 
     def _get_meta_api(self):
         if self._meta_api is None:
             from services.meta_api import MetaGraphAPI
+
             self._meta_api = MetaGraphAPI(self.config.meta)
         return self._meta_api
 
@@ -82,9 +84,7 @@ class AnalyticsEngine:
         published = db.get_published_posts(limit=100)
 
         cutoff = datetime.now() - timedelta(days=days)
-        recent = [
-            p for p in published if p.published_at and p.published_at > cutoff
-        ]
+        recent = [p for p in published if p.published_at and p.published_at > cutoff]
 
         if not recent:
             return {"period_days": days, "total_posts": 0}
@@ -113,9 +113,7 @@ class AnalyticsEngine:
                     "engagement": latest.engagement,
                     "engagement_rate": latest.engagement_rate,
                     "saved": latest.saved,
-                    "published_at": post.published_at.isoformat()
-                    if post.published_at
-                    else None,
+                    "published_at": post.published_at.isoformat() if post.published_at else None,
                 }
             )
 
@@ -155,11 +153,7 @@ class AnalyticsEngine:
             if insights_list:
                 hour_data[hour].append(insights_list[0].engagement_rate)
 
-        return {
-            hour: round(sum(rates) / len(rates), 2)
-            for hour, rates in sorted(hour_data.items())
-            if rates
-        }
+        return {hour: round(sum(rates) / len(rates), 2) for hour, rates in sorted(hour_data.items()) if rates}
 
     def get_best_content_type(self) -> dict[str, float]:
         """Analyze which content types perform best.
@@ -176,15 +170,9 @@ class AnalyticsEngine:
                 continue
             insights_list = db.get_insights_for_post(post.media_id)
             if insights_list:
-                type_data[post.post_type.value].append(
-                    insights_list[0].engagement_rate
-                )
+                type_data[post.post_type.value].append(insights_list[0].engagement_rate)
 
-        return {
-            ptype: round(sum(rates) / len(rates), 2)
-            for ptype, rates in type_data.items()
-            if rates
-        }
+        return {ptype: round(sum(rates) / len(rates), 2) for ptype, rates in type_data.items() if rates}
 
     def generate_report_text(self, days: int = 7) -> str:
         """Generate a human-readable performance report."""
@@ -204,17 +192,13 @@ class AnalyticsEngine:
 
         if best_times:
             lines.append("Best Posting Times:")
-            for hour, rate in sorted(
-                best_times.items(), key=lambda x: x[1], reverse=True
-            )[:3]:
+            for hour, rate in sorted(best_times.items(), key=lambda x: x[1], reverse=True)[:3]:
                 lines.append(f"  {hour:02d}:00 -> {rate:.2f}% engagement")
             lines.append("")
 
         if best_types:
             lines.append("Best Content Types:")
-            for ptype, rate in sorted(
-                best_types.items(), key=lambda x: x[1], reverse=True
-            ):
+            for ptype, rate in sorted(best_types.items(), key=lambda x: x[1], reverse=True):
                 lines.append(f"  {ptype}: {rate:.2f}% engagement")
             lines.append("")
 
@@ -222,9 +206,6 @@ class AnalyticsEngine:
         if top_posts:
             lines.append("Top 3 Posts:")
             for i, p in enumerate(top_posts[:3], 1):
-                lines.append(
-                    f"  {i}. {p['media_id']} "
-                    f"(reach={p['reach']:,}, eng={p['engagement_rate']:.1f}%)"
-                )
+                lines.append(f"  {i}. {p['media_id']} " f"(reach={p['reach']:,}, eng={p['engagement_rate']:.1f}%)")
 
         return "\n".join(lines)

@@ -3,14 +3,12 @@
 generator.py에서 추출된 모듈.
 """
 
-from config import AppConfig
-from models import GeneratedThread, GeneratedTweet, ScoredTrend
+from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
-from utils import sanitize_keyword
 
-from loguru import logger as log
-
+from config import AppConfig
+from models import GeneratedThread, GeneratedTweet, ScoredTrend
 from prompt_builder import (
     _build_account_identity_section,
     _build_context_section,
@@ -23,6 +21,7 @@ from prompt_builder import (
     _system_threads,
     _use_report_profile,
 )
+from utils import sanitize_keyword
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
 
@@ -31,6 +30,7 @@ _JSON_POLICY = LLMPolicy(response_mode="json")
 #  Meta Threads 콘텐츠 (500자) — Haiku tier
 # ══════════════════════════════════════════════════════
 
+
 async def generate_threads_content_async(
     trend: ScoredTrend,
     config: AppConfig,
@@ -38,6 +38,7 @@ async def generate_threads_content_async(
 ) -> list[GeneratedTweet]:
     """Meta Threads 최적화 콘텐츠 비동기 생성 (Haiku — 단문)."""
     from datetime import datetime as _dt
+
     report_profile = _use_report_profile(config)
     target_language = _resolve_language(config)
     context_section = _build_context_section(trend)
@@ -60,8 +61,7 @@ async def generate_threads_content_async(
             "1) 핵심 브리프: 지금 중요한 사실과 의미를 간결하게 정리\n"
             "2) 쟁점 질문: 팩트를 짚은 뒤 생각할 질문 하나만 남기기\n\n"
             if report_profile
-            else
-            "위 배경과 컨텍스트를 소화한 뒤, Threads에서 '친구한테 공유' 하고 싶은 글 작성.\n"
+            else "위 배경과 컨텍스트를 소화한 뒤, Threads에서 '친구한테 공유' 하고 싶은 글 작성.\n"
             "핵심: 뉴스 전달이 아니라 '이 현상에 대한 내 해석'.\n"
             "컨텍스트의 구체적 수치/사건을 반드시 활용할 것.\n"
             "1) 훅 포스트: 구체적 팩트/숫자로 스크롤 멈추게\n"
@@ -104,6 +104,7 @@ async def generate_threads_content_async(
 # ══════════════════════════════════════════════════════
 #  X 쓰레드 (Premium+ 강화: 2트윗) — Sonnet tier
 # ══════════════════════════════════════════════════════
+
 
 async def generate_thread_async(
     trend: ScoredTrend,

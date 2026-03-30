@@ -6,9 +6,8 @@ import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from loguru import logger as log
-
 from collectors.base import llm_analyze
+from loguru import logger as log
 from prompts.content_generation import (
     CONTENT_GENERATION_SYSTEM,
     build_content_prompt,
@@ -28,6 +27,7 @@ if TYPE_CHECKING:
 # ───────────────────────────────────────────────────
 #  콘텐츠 생성
 # ───────────────────────────────────────────────────
+
 
 async def generate_platform_content(
     platform: str,
@@ -79,10 +79,7 @@ async def generate_all_content(
     config: CIEConfig,
 ) -> ContentBatch:
     """모든 대상 플랫폼의 콘텐츠를 병렬 생성한다."""
-    tasks = [
-        generate_platform_content(p, trend_report, checklist, config)
-        for p in config.platforms
-    ]
+    tasks = [generate_platform_content(p, trend_report, checklist, config) for p in config.platforms]
     results = await asyncio.gather(*tasks, return_exceptions=False)
 
     all_contents = []
@@ -208,21 +205,14 @@ async def validate_and_regenerate(
         # 미달 시 1회 재생성
         if not qa.pass_threshold and config.qa_max_retries > 0:
             log.info(f"  🔄 재생성 시도 ({content.platform})...")
-            regen = await generate_platform_content(
-                content.platform, trend_report, checklist, config
-            )
+            regen = await generate_platform_content(content.platform, trend_report, checklist, config)
             if regen:
                 new_content = regen[0]
-                new_qa = await validate_content(
-                    new_content, trend_report, checklist, config
-                )
+                new_qa = await validate_content(new_content, trend_report, checklist, config)
                 new_content.qa_report = new_qa
                 if new_qa.total_score > qa.total_score:
                     batch.contents[i] = new_content
-                    log.info(
-                        f"    ✅ 재생성 개선: "
-                        f"{qa.total_score} → {new_qa.total_score}"
-                    )
+                    log.info(f"    ✅ 재생성 개선: " f"{qa.total_score} → {new_qa.total_score}")
                 else:
                     log.info("    ↩️ 원본 유지 (재생성이 더 낮음)")
 

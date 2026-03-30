@@ -7,24 +7,30 @@ generator.py에서 분리됨.
 import asyncio
 import json
 import re
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
+
+from loguru import logger as log
+from shared.llm import TaskTier
 
 from config import AppConfig
 from models import ScoredTrend
-from shared.llm import TaskTier
-
-from loguru import logger as log
 
 # ── 언어 코드 매핑 ────────────────────────────────────
 _LANG_NAME_MAP: dict[str, str] = {
-    "ko": "한국어", "en": "영어", "ja": "일본어",
-    "es": "스페인어", "fr": "프랑스어", "zh": "중국어",
+    "ko": "한국어",
+    "en": "영어",
+    "ja": "일본어",
+    "es": "스페인어",
+    "fr": "프랑스어",
+    "zh": "중국어",
 }
 
 
 # ══════════════════════════════════════════════════════
 #  Retry Helper (Phase 1)
 # ══════════════════════════════════════════════════════
+
 
 async def _retry_generate(
     coro_factory: Callable[[], Coroutine[Any, Any, Any]],
@@ -44,10 +50,9 @@ async def _retry_generate(
                 return result
         except Exception as e:
             if attempt < max_retries:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 log.warning(
-                    f"생성 재시도 ({attempt + 1}/{max_retries}) '{keyword}': "
-                    f"{type(e).__name__} → {delay:.0f}s 후"
+                    f"생성 재시도 ({attempt + 1}/{max_retries}) '{keyword}': " f"{type(e).__name__} → {delay:.0f}s 후"
                 )
                 await asyncio.sleep(delay)
             else:
@@ -58,6 +63,7 @@ async def _retry_generate(
 # ══════════════════════════════════════════════════════
 #  Category-based Tier Routing (Phase 4)
 # ══════════════════════════════════════════════════════
+
 
 def _select_generation_tier(trend: ScoredTrend, config: AppConfig) -> "TaskTier":
     """카테고리 기반 LLM 티어 결정.
@@ -103,7 +109,7 @@ def _resolve_language(config: AppConfig) -> str:
         mapping = {"ko": "한국어", "en": "영어", "ja": "일본어", "es": "스페인어", "fr": "프랑스어"}
         langs = [mapping.get(l.lower(), l) for l in config.target_languages]
         return ", ".join(langs)
-    
+
     return _LANGUAGE_MAP.get((config.country or "").lower(), "한국어(Korean)")
 
 
@@ -262,9 +268,7 @@ def _build_golden_reference_section(golden_refs: list | None) -> str:
         er = getattr(ref, "engagement_rate", 0.0) or 0.0
         angle = getattr(ref, "angle_type", "") or ""
         hook = getattr(ref, "hook_pattern", "") or ""
-        examples.append(
-            f"  {i}. [{angle}|{hook}] (ER={er:.4f}): {content}"
-        )
+        examples.append(f"  {i}. [{angle}|{hook}] (ER={er:.4f}): {content}")
     refs_text = "\n".join(examples)
     return (
         f"\n[벤치마크 레퍼런스 — 이 수준 이상의 품질을 목표로 할 것]\n"
@@ -288,13 +292,19 @@ def _build_pattern_weights_section(pattern_weights: dict | None) -> str:
     kick_sorted = sorted(kick_w.items(), key=lambda x: x[1], reverse=True)[:3]
 
     hook_labels = {
-        "number_shock": "숫자충격", "relatable_math": "체감환산",
-        "reversal": "반전선언", "insider": "내부자시선",
-        "contrast": "대조병치", "question": "질문도발",
+        "number_shock": "숫자충격",
+        "relatable_math": "체감환산",
+        "reversal": "반전선언",
+        "insider": "내부자시선",
+        "contrast": "대조병치",
+        "question": "질문도발",
     }
     kick_labels = {
-        "mic_drop": "뒤통수", "self_deprecation": "자조형",
-        "uncertainty": "질문형", "manifesto": "선언형", "twist": "반전형",
+        "mic_drop": "뒤통수",
+        "self_deprecation": "자조형",
+        "uncertainty": "질문형",
+        "manifesto": "선언형",
+        "twist": "반전형",
     }
 
     hook_line = ", ".join(f"{hook_labels.get(k, k)}({v:.0%})" for k, v in hook_sorted)
@@ -330,6 +340,7 @@ def _build_category_tone_hint(trend: ScoredTrend) -> str:
 # ══════════════════════════════════════════════════════
 #  JSON Parser
 # ══════════════════════════════════════════════════════
+
 
 def _parse_json(raw: str | None) -> dict | None:
     if not raw:
@@ -614,6 +625,7 @@ def _system_threads_joongyeon() -> str:
 
 # ── 기존 프롬프트 빌더 (tone 분기 포함) ──────────────────
 
+
 def _system_tweets(tone: str) -> str:
     if tone == "joongyeon":
         return _system_tweets_joongyeon()
@@ -621,7 +633,7 @@ def _system_tweets(tone: str) -> str:
         f"X 트렌드 카피라이터. 말투: {tone}\n"
         "답글 유도하는 280자(한글 140자) 이내 트윗 작성. 공감/밈/질문/데이터 활용.\n"
         "첫 문장에 훅 필수. 고유한 시각·인사이트를 담을 것. 감정적 과장·낚시성 표현 금지.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"topic":"주제","tweets":['
         '{"type":"공감 유도형","content":"...","best_posting_time":"오전 8-10시","expected_engagement":"높음|보통|낮음","reasoning":"효과적인 이유 1문장"},'
         '{"type":"꿀팁형","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},'
@@ -639,7 +651,7 @@ def _system_long_form(tone: str, editorial_profile: str = "classic") -> str:
     return (
         f"X Premium+ 장문 작가. 말투: {tone}\n"
         "이모지 소제목+번호 구조, 데이터 인용, 반직관적 해석, 강렬한 훅, CTA 마무리.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"posts":[{"type":"딥다이브 분석","content":"1500~2500자"},'
         '{"type":"핫테이크 오피니언","content":"1000~2000자"}]}'
     )
@@ -653,7 +665,7 @@ def _system_threads(tone: str, editorial_profile: str = "classic") -> str:
     return (
         f"Meta Threads 크리에이터. 말투: {tone}(더 캐주얼).\n"
         "500자 이내. 이모지+줄바꿈 적극사용. 친구 톤.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"posts":[{"type":"훅 포스트","content":"500자 이내"},'
         '{"type":"참여형 포스트","content":"500자 이내"}]}'
     )
@@ -673,13 +685,13 @@ def _system_thread(tone: str) -> str:
             "   - '그래서 뭐?'에 대한 답. 실용적 인사이트 or 도발적 결론\n"
             "   - 마지막 줄: RT하고 싶게 만드는 킥 한 줄\n\n"
             "[금지] 해시태그 절대 금지. 이모지 전체 최대 2개\n\n"
-            '[JSON만 출력]\n'
+            "[JSON만 출력]\n"
             '{"hook":"첫 트윗","tweets":["훅","마무리"]}'
         )
     return (
         f"X 바이럴 쓰레드 전문가. 말투: {tone}\n"
         "정확히 2개 트윗. 훅(~2500자)+마무리CTA(500~1000자). 데이터 인용.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"hook":"첫 트윗","tweets":["훅","마무리 CTA"]}'
     )
 
@@ -701,7 +713,7 @@ def _system_tweets_and_threads(tone: str) -> str:
             "1. 훅 포스트: [충격 팩트]\\n\\n근데 진짜 문제는 [반전]\\n\\n[킥]\n"
             "2. 참여형: [일상 공감]\\n\\n[자조]\\n\\n나만 이런 건지 궁금한데\n"
             "Threads는 정보보다 공감. 1인칭 필수. 감정 비중 높게.\n\n"
-            '[JSON만 출력]\n'
+            "[JSON만 출력]\n"
             '{"topic":"주제","tweets":['
             '{"type":"반전|데이터펀치|자조공감|실용꿀팁|도발질문","content":"200자 내외","best_posting_time":"오전 8-10시","expected_engagement":"높음|보통|낮음","reasoning":"이유 1문장"},'
             '{"type":"...","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},'
@@ -715,7 +727,7 @@ def _system_tweets_and_threads(tone: str) -> str:
     return (
         f"X+Threads 콘텐츠 크리에이터. 말투: {tone}\n"
         "한 주제에 대해 X 트윗 5종(280자)과 Threads 포스트 2종(500자)을 동시 작성.\n\n"
-        '[JSON만 출력]\n'
+        "[JSON만 출력]\n"
         '{"topic":"주제","tweets":['
         '{"type":"공감 유도형","content":"280자 이내","best_posting_time":"오전 8-10시","expected_engagement":"높음|보통|낮음","reasoning":"효과적인 이유 1문장"},'
         '{"type":"꿀팁형","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},'
@@ -726,5 +738,3 @@ def _system_tweets_and_threads(tone: str) -> str:
         '{"type":"훅 포스트","content":"500자 이내"},'
         '{"type":"참여형 포스트","content":"500자 이내"}]}'
     )
-
-

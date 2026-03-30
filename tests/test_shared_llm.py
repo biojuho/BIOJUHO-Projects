@@ -1,12 +1,8 @@
-# -*- coding: utf-8 -*-
 """shared.llm module tests - fallback chain, bridge logic, cost tracking."""
 
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 
 from shared.llm import BridgeMeta, LLMClient, LLMPolicy, TaskTier, reset_client
 from shared.llm.config import MODEL_TO_TIER, TIER_CHAINS, get_routing_chain, load_keys
@@ -94,9 +90,16 @@ class TestLLMClient:
         LLMClient.reset()
 
     def test_no_keys_raises_value_error(self, monkeypatch):
-        for var in ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
-                    "OPENAI_API_KEY", "XAI_API_KEY", "DEEPSEEK_API_KEY", "MOONSHOT_API_KEY",
-                    "XIAOMI_MIMO_API_KEY"):
+        for var in (
+            "ANTHROPIC_API_KEY",
+            "GOOGLE_API_KEY",
+            "GEMINI_API_KEY",
+            "OPENAI_API_KEY",
+            "XAI_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "MOONSHOT_API_KEY",
+            "XIAOMI_MIMO_API_KEY",
+        ):
             monkeypatch.delenv(var, raising=False)
         # Also disable local backends (Ollama server + BitNet binary)
         monkeypatch.setattr("shared.llm.backends._ollama_is_running", lambda: False)
@@ -157,7 +160,7 @@ class TestLLMClient:
             text="한국어 정확하게 정리된 응답입니다",
             model="gemini-2.5-flash-lite",
             backend="gemini",
-            tier=TaskTier.LIGHTWEIGHT
+            tier=TaskTier.LIGHTWEIGHT,
         )
         client = LLMClient(**self._DUMMY_KEYS)
         resp = client.create(
@@ -185,9 +188,23 @@ class TestLLMClient:
         """Stats tracking with Gemini-only chain (DeepSeek removed 2026-03-22)."""
         mock_call.side_effect = [
             # First call: normal response
-            LLMResponse(text="한국어 정상 응답입니다", model="gemini-2.5-flash-lite", backend="gemini", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
+            LLMResponse(
+                text="한국어 정상 응답입니다",
+                model="gemini-2.5-flash-lite",
+                backend="gemini",
+                tier=TaskTier.LIGHTWEIGHT,
+                input_tokens=100,
+                output_tokens=50,
+            ),
             # Second call: normal response
-            LLMResponse(text="두번째 정상 응답입니다", model="gemini-2.5-flash-lite", backend="gemini", tier=TaskTier.LIGHTWEIGHT, input_tokens=100, output_tokens=50),
+            LLMResponse(
+                text="두번째 정상 응답입니다",
+                model="gemini-2.5-flash-lite",
+                backend="gemini",
+                tier=TaskTier.LIGHTWEIGHT,
+                input_tokens=100,
+                output_tokens=50,
+            ),
         ]
         client = LLMClient(**self._DUMMY_KEYS)
         client.create(

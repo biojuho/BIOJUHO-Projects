@@ -5,11 +5,7 @@ v14.0: 독립 모듈 → shared/embeddings로 이전.
 이 파일은 기존 import를 깨지 않기 위한 호환 래퍼입니다.
 """
 
-import sys
-from pathlib import Path
-
-
-from shared.embeddings import (  # noqa: E402, F401
+from shared.embeddings import (
     compute_similarity_matrix,
     cosine_similarity,
     deduplicate_texts,

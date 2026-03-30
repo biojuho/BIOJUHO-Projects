@@ -3,8 +3,9 @@
 Usage:
     python scripts/run_reasoning.py [--category Tech] [--reports 3]
 """
-import asyncio
+
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -18,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 async def main(category: str = "Tech", max_reports: int = 3):
-    from antigravity_mcp.state.store import PipelineStateStore
     from antigravity_mcp.config import get_settings
     from antigravity_mcp.integrations.reasoning_adapter import ReasoningAdapter
+    from antigravity_mcp.state.store import PipelineStateStore
 
     settings = get_settings()
     state_store = PipelineStateStore(settings.pipeline_state_db)
@@ -80,7 +81,7 @@ async def main(category: str = "Tech", max_reports: int = 3):
         print(f"  Step 2: {len(hyps)} hypothesis(es) generated")
         print(f"  Step 3: {survived}/{len(hyps)} survived falsification")
         if patterns:
-            print(f"  New patterns:")
+            print("  New patterns:")
             for p in patterns:
                 print(f"    → {p[:80]}...")
         print()

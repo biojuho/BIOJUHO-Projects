@@ -14,6 +14,7 @@ from models import MultiSourceContext, ScoredTrend, TrendContext, TrendSource
 # [Phase 1] Instructor 구조화된 출력 (선택 의존성)
 try:
     from structured_output import ScoringResponseItem, extract_structured_list
+
     INSTRUCTOR_AVAILABLE = True
 except ImportError:
     INSTRUCTOR_AVAILABLE = False
@@ -22,6 +23,7 @@ except ImportError:
 # ══════════════════════════════════════════════════════
 #  JSON Parser
 # ══════════════════════════════════════════════════════
+
 
 def _parse_json(text: str | None) -> dict | None:
     """JSON 파싱. response_mode=json 덕분에 단순 loads로 충분."""
@@ -46,6 +48,7 @@ def _parse_json_array(text: str | None) -> list | None:
 # ══════════════════════════════════════════════════════
 #  [Phase 1] Instructor 기반 배치 스코어링
 # ══════════════════════════════════════════════════════
+
 
 async def _score_batch_instructor(
     prompt: str,
@@ -74,6 +77,7 @@ async def _score_batch_instructor(
 # ══════════════════════════════════════════════════════
 #  Default / Conversion
 # ══════════════════════════════════════════════════════
+
 
 def _default_scored_trend(keyword: str, context: MultiSourceContext) -> ScoredTrend:
     """스코어링 실패 시 기본값."""
@@ -127,9 +131,7 @@ def _parse_scored_trend_from_dict(
     niche_bonus = getattr(config, "niche_bonus_points", 0) if config else 0
     if niche_cats and niche_bonus and category in niche_cats:
         hybrid_viral = min(hybrid_viral + niche_bonus, 100)
-        log.debug(
-            f"  [Niche Bonus] '{keyword}' ({category}) +{niche_bonus}점 → {hybrid_viral}점"
-        )
+        log.debug(f"  [Niche Bonus] '{keyword}' ({category}) +{niche_bonus}점 → {hybrid_viral}점")
 
     # [v10.0] 구조화된 트렌드 배경 (Deep Why)
     trend_ctx = None
@@ -161,14 +163,9 @@ def _parse_scored_trend_from_dict(
     corrected_keyword = parsed.get("corrected_keyword", "")
 
     if not publishable:
-        log.warning(
-            f"  [게시불가] '{keyword}' publishable=false "
-            f"(사유: {publishability_reason or '미상'})"
-        )
+        log.warning(f"  [게시불가] '{keyword}' publishable=false " f"(사유: {publishability_reason or '미상'})")
     if corrected_keyword:
-        log.info(
-            f"  [키워드 교정] '{keyword}' → '{corrected_keyword}'"
-        )
+        log.info(f"  [키워드 교정] '{keyword}' → '{corrected_keyword}'")
 
     # [v6.0] 출처 신뢰도 & 소스 간 일관성 검증
     source_credibility_val = 0.0
@@ -183,9 +180,7 @@ def _parse_scored_trend_from_dict(
 
         # 출처 신뢰도 산출
         news_insight = context.news_insight if context else ""
-        _, source_credibility_val = compute_enhanced_confidence(
-            volume_numeric, context, news_insight
-        )
+        _, source_credibility_val = compute_enhanced_confidence(volume_numeric, context, news_insight)
 
         # 저신뢰 출처 패널티 적용
         cred_threshold = getattr(config, "credibility_penalty_threshold", 0.3) if config else 0.3
@@ -204,20 +199,17 @@ def _parse_scored_trend_from_dict(
         enable_consistency = getattr(config, "enable_cross_source_consistency", True) if config else True
         if enable_consistency and context:
             temp_trend = ScoredTrend(
-                keyword=keyword, rank=0, context=context,
+                keyword=keyword,
+                rank=0,
+                context=context,
                 sources=[TrendSource.GETDAYTRENDS],
             )
             consistency = check_cross_source_consistency(temp_trend)
             cross_source_consistent_val = consistency["consistent"]
             if not cross_source_consistent_val:
                 conflicts = consistency.get("conflicts", [])
-                hallucination_flags_val.extend(
-                    f"소스 충돌: {c}" for c in conflicts[:3]
-                )
-                log.warning(
-                    f"  [소스 불일치] '{keyword}' 충돌 {len(conflicts)}건: "
-                    f"{', '.join(conflicts[:2])}"
-                )
+                hallucination_flags_val.extend(f"소스 충돌: {c}" for c in conflicts[:3])
+                log.warning(f"  [소스 불일치] '{keyword}' 충돌 {len(conflicts)}건: " f"{', '.join(conflicts[:2])}")
     except Exception as _e:
         log.debug(f"[v6.0] 정확성 검증 스킵: {_e}")
 

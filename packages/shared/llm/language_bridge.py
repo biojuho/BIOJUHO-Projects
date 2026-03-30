@@ -107,8 +107,7 @@ def prepare_request(
     """Normalize prompt content and wrap it with Korean-first bridge instructions."""
     normalized_policy = normalize_policy(policy)
     normalized_messages = [
-        {**message, "content": normalize_text(str(message.get("content", "")))}
-        for message in messages
+        {**message, "content": normalize_text(str(message.get("content", "")))} for message in messages
     ]
     input_text = "\n".join(message["content"] for message in normalized_messages if message.get("content"))
     detected_input_language = normalized_policy.input_language
@@ -150,8 +149,7 @@ def build_bridge_instruction(policy: LLMPolicy, backend: str) -> str:
 
     if policy.preserve_terms:
         instructions.append(
-            "다음 전문 용어와 약어는 필요시 원문 표기를 유지하세요: "
-            + ", ".join(policy.preserve_terms[:20])
+            "다음 전문 용어와 약어는 필요시 원문 표기를 유지하세요: " + ", ".join(policy.preserve_terms[:20])
         )
     if policy.response_mode == "json":
         instructions.append("출력은 설명 없는 유효한 JSON만 반환하세요.")

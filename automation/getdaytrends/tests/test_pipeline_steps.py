@@ -1,9 +1,8 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from dataclasses import dataclass
+
+import pytest
 
 from config import AppConfig
-
 
 # ══════════════════════════════════════════════════════
 #  _should_skip_qa unit tests
@@ -23,6 +22,7 @@ class TestShouldSkipQA:
 
     def _skip(self, trend, is_cached: bool, config: AppConfig) -> bool:
         from core.pipeline_steps import _should_skip_qa
+
         return _should_skip_qa(trend, is_cached, config)
 
     def test_cached_content_skips_qa(self):
@@ -76,6 +76,7 @@ class TestIsAccelerating:
 
     def _check(self, val: str) -> bool:
         from core.pipeline_steps import _is_accelerating
+
         return _is_accelerating(val)
 
     def test_korean_keyword(self):
@@ -107,6 +108,7 @@ class TestBatchFromCache:
 
     def test_basic_reconstruction(self):
         from core.pipeline_steps import _batch_from_cache
+
         rows = [
             {"tweet_type": "분석형", "content": "테스트 트윗", "content_type": "short"},
             {"tweet_type": "공감형", "content": "테스트 장문", "content_type": "long"},
@@ -120,6 +122,7 @@ class TestBatchFromCache:
 
     def test_deduplication(self):
         from core.pipeline_steps import _batch_from_cache
+
         rows = [
             {"tweet_type": "분석형", "content": "첫번째", "content_type": "short"},
             {"tweet_type": "분석형", "content": "중복", "content_type": "short"},

@@ -1,8 +1,9 @@
 """Publish all unpublished draft reports to Notion via CLI"""
+
+import os
 import sqlite3
 import subprocess
 import sys
-import os
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
 DB_PATH = os.path.join(PROJECT_ROOT, "data", "pipeline_state.db")
@@ -13,8 +14,8 @@ cur = conn.cursor()
 
 # Find all draft reports without Notion page
 cur.execute("""
-    SELECT report_id, category, window_name, created_at 
-    FROM content_reports 
+    SELECT report_id, category, window_name, created_at
+    FROM content_reports
     WHERE status = 'draft' AND (notion_page_id IS NULL OR notion_page_id = '')
     ORDER BY created_at DESC
 """)
@@ -40,17 +41,28 @@ success = 0
 failed = 0
 for report_id, category, window, created_at in drafts:
     cmd = [
-        PYTHON_EXE, "-X", "utf8",
-        "-m", "antigravity_mcp",
-        "jobs", "publish-report",
-        "--report-id", report_id,
-        "--approval-mode", "auto",
+        PYTHON_EXE,
+        "-X",
+        "utf8",
+        "-m",
+        "antigravity_mcp",
+        "jobs",
+        "publish-report",
+        "--report-id",
+        report_id,
+        "--approval-mode",
+        "auto",
     ]
     try:
         result = subprocess.run(
-            cmd, cwd=PROJECT_ROOT, env=env,
-            capture_output=True, text=True, timeout=60,
-            encoding="utf-8", errors="replace",
+            cmd,
+            cwd=PROJECT_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            encoding="utf-8",
+            errors="replace",
         )
         if result.returncode == 0:
             print(f"  OK: {category}/{window} ({report_id[:40]})")

@@ -12,16 +12,15 @@ getdaytrends — NotebookLM Bridge
 의존성: notebooklm-py (pip install notebooklm-py)
 """
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger as log
 
 # notebooklm-py lazy import (설치되지 않은 환경에서도 에러 없이 동작)
 try:
     from notebooklm import NotebookLMClient  # type: ignore
+
     NOTEBOOKLM_AVAILABLE = True
 except ImportError:
     NOTEBOOKLM_AVAILABLE = False
@@ -49,6 +48,7 @@ DEFAULT_OUTPUT_DIR = Path("./notebooklm_output")
 #  Core Bridge
 # ──────────────────────────────────────────────────
 
+
 async def check_availability() -> bool:
     """NotebookLM 연동 가능 여부 확인."""
     if not NOTEBOOKLM_AVAILABLE:
@@ -70,9 +70,9 @@ async def trend_to_notebook(
     viral_score: int = 0,
     category: str = "기타",
     context_text: str = "",
-    content_types: Optional[list[str]] = None,
-    audio_instructions: Optional[str] = None,
-    output_dir: Optional[Path] = None,
+    content_types: list[str] | None = None,
+    audio_instructions: str | None = None,
+    output_dir: Path | None = None,
 ) -> dict:
     """
     단일 트렌드를 NotebookLM 노트북으로 변환.
@@ -80,7 +80,7 @@ async def trend_to_notebook(
     Args:
         keyword: 트렌드 키워드
         urls: 관련 URL 리스트 (뉴스, 소셜 등)
-        viral_score: 바이럴 점수  
+        viral_score: 바이럴 점수
         category: 카테고리
         context_text: 추가 컨텍스트 텍스트 (소셜 인사이트 등)
         content_types: 생성할 콘텐츠 유형 (audio, slide-deck, mind-map 등)
@@ -146,8 +146,7 @@ async def trend_to_notebook(
             try:
                 ask_result = await client.chat.ask(
                     nb.id,
-                    f"'{keyword}'에 대한 핵심 인사이트 3가지와 "
-                    f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘"
+                    f"'{keyword}'에 대한 핵심 인사이트 3가지와 " f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
                 )
                 result["summary"] = ask_result.answer
                 log.info(f"[NotebookLM] AI 요약 완료 ({len(ask_result.answer)}자)")
@@ -157,9 +156,7 @@ async def trend_to_notebook(
         # 5. 콘텐츠 생성 (비동기 — 생성 시작만, 완료 대기는 선택적)
         for ctype in content_types:
             try:
-                artifact_id = await _generate_content(
-                    client, nb.id, keyword, ctype, audio_instructions
-                )
+                artifact_id = await _generate_content(client, nb.id, keyword, ctype, audio_instructions)
                 if artifact_id:
                     result["artifacts"][ctype] = artifact_id
                     log.info(f"[NotebookLM] {ctype} 생성 시작: {artifact_id[:8]}...")
@@ -175,41 +172,40 @@ async def _generate_content(
     keyword: str,
     content_type: str,
     audio_instructions: str,
-) -> Optional[str]:
+) -> str | None:
     """콘텐츠 유형별 생성 시작. artifact_id 반환."""
     if content_type == "audio":
         status = await client.artifacts.generate_audio(
             notebook_id,
             instructions=audio_instructions,
         )
-        return status.artifact_id if hasattr(status, 'artifact_id') else str(status)
+        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
 
     elif content_type == "slide-deck":
         status = await client.artifacts.generate_slide_deck(notebook_id)
-        return status.artifact_id if hasattr(status, 'artifact_id') else str(status)
+        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
 
     elif content_type == "mind-map":
         status = await client.artifacts.generate_mind_map(notebook_id)
-        return status.artifact_id if hasattr(status, 'artifact_id') else str(status)
+        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
 
     elif content_type == "quiz":
         status = await client.artifacts.generate_quiz(notebook_id)
-        return status.artifact_id if hasattr(status, 'artifact_id') else str(status)
+        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
 
     elif content_type == "report":
-        status = await client.artifacts.generate_report(
-            notebook_id, report_format="briefing-doc"
-        )
-        return status.artifact_id if hasattr(status, 'artifact_id') else str(status)
+        status = await client.artifacts.generate_report(notebook_id, report_format="briefing-doc")
+        return status.artifact_id if hasattr(status, "artifact_id") else str(status)
 
     elif content_type == "infographic":
         # NotebookLM API requires explicit style/orientation —
         # omitting them causes null response and generation failure.
         from notebooklm.rpc.types import (
-            InfographicOrientation,
             InfographicDetail,
+            InfographicOrientation,
             InfographicStyle,
         )
+
         status = await client.artifacts.generate_infographic(
             notebook_id,
             language="ko",
@@ -228,6 +224,7 @@ async def _generate_content(
 # ──────────────────────────────────────────────────
 #  Content Factory — 멀티포맷 동시 생산
 # ──────────────────────────────────────────────────
+
 
 async def content_factory(
     keyword: str,
@@ -252,8 +249,8 @@ async def content_factory(
         raise RuntimeError("notebooklm-py가 설치되지 않았습니다")
 
     from notebooklm.rpc.types import (
-        InfographicOrientation,
         InfographicDetail,
+        InfographicOrientation,
         InfographicStyle,
     )
 
@@ -297,8 +294,7 @@ async def content_factory(
         try:
             insight = await client.chat.ask(
                 nb.id,
-                f"'{keyword}'에 대한 핵심 인사이트 3가지와 "
-                f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
+                f"'{keyword}'에 대한 핵심 인사이트 3가지와 " f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
             )
             result["summary"] = insight.answer
             log.info(f"[ContentFactory] 인사이트 완료 ({len(insight.answer)}자)")
@@ -313,7 +309,7 @@ async def content_factory(
                 f"호기심을 끄는 톤으로",
             )
             result["tweet_draft"] = tweet.answer.strip()
-            log.info(f"[ContentFactory] 트윗 초안 완료")
+            log.info("[ContentFactory] 트윗 초안 완료")
         except Exception as e:
             log.warning(f"[ContentFactory] 트윗 초안 실패: {e}")
 
@@ -328,17 +324,15 @@ async def content_factory(
                 style=InfographicStyle.PROFESSIONAL,
             )
             result["infographic_id"] = info_status.task_id or ""
-            log.info(f"[ContentFactory] 인포그래픽 생성 시작")
+            log.info("[ContentFactory] 인포그래픽 생성 시작")
         except Exception as e:
             log.warning(f"[ContentFactory] 인포그래픽 실패: {e}")
 
         try:
-            report_status = await client.artifacts.generate_report(
-                nb.id, report_format="briefing-doc"
-            )
+            report_status = await client.artifacts.generate_report(nb.id, report_format="briefing-doc")
             rid = report_status.task_id if hasattr(report_status, "task_id") else ""
             result["report_id"] = rid or ""
-            log.info(f"[ContentFactory] 브리핑 리포트 생성 시작")
+            log.info("[ContentFactory] 브리핑 리포트 생성 시작")
         except Exception as e:
             log.warning(f"[ContentFactory] 리포트 실패: {e}")
 
@@ -349,11 +343,12 @@ async def content_factory(
 #  Pipeline Integration
 # ──────────────────────────────────────────────────
 
+
 async def enrich_trends_with_notebooklm(
     quality_trends: list,
     contexts: dict,
     min_viral_score: int = DEFAULT_MIN_VIRAL_SCORE,
-    content_types: Optional[list[str]] = None,
+    content_types: list[str] | None = None,
     max_notebooks: int = 3,
 ) -> list[dict]:
     """
@@ -374,18 +369,13 @@ async def enrich_trends_with_notebooklm(
         return []
 
     # 바이럴 점수 기준 상위 트렌드 선택
-    high_viral = [
-        t for t in quality_trends
-        if getattr(t, "viral_potential", 0) >= min_viral_score
-    ][:max_notebooks]
+    high_viral = [t for t in quality_trends if getattr(t, "viral_potential", 0) >= min_viral_score][:max_notebooks]
 
     if not high_viral:
         log.debug(f"[NotebookLM] 바이럴≥{min_viral_score} 트렌드 없음 — 스킵")
         return []
 
-    log.info(
-        f"[NotebookLM] 고바이럴 {len(high_viral)}개 트렌드 → 노트북 생성 시작"
-    )
+    log.info(f"[NotebookLM] 고바이럴 {len(high_viral)}개 트렌드 → 노트북 생성 시작")
 
     results = []
     for trend in high_viral:
@@ -433,6 +423,7 @@ def _extract_urls_from_context(ctx) -> list[str]:
     news = getattr(ctx, "news_insight", "")
     if news:
         import re
+
         found = re.findall(r'https?://[^\s<>"\']+', str(news))
         urls.extend(found)
 
@@ -450,6 +441,7 @@ def _extract_urls_from_context(ctx) -> list[str]:
 # ──────────────────────────────────────────────────
 #  Notion Auto-Publisher
 # ──────────────────────────────────────────────────
+
 
 async def publish_to_notion(
     factory_result: dict,
@@ -496,9 +488,7 @@ async def publish_to_notion(
 
     # 기본 properties: title만 확실히 설정
     properties = {
-        title_field: {
-            "title": [{"text": {"content": f"📊 {factory_result.get('keyword', 'Analysis')}"}}]
-        },
+        title_field: {"title": [{"text": {"content": f"📊 {factory_result.get('keyword', 'Analysis')}"}}]},
     }
     # select 필드 있으면 추가
     if "Status" in db_props:
@@ -583,10 +573,8 @@ async def publish_to_notion(
     return {"notion_page_id": page_id, "notion_url": notion_url}
 
 
-
-
 # -- backward-compat re-exports from notebooklm_research --
 from notebooklm_research import (  # noqa: F401
-    research_tool,
     analyze_bio_company,
+    research_tool,
 )

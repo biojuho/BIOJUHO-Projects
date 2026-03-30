@@ -8,7 +8,6 @@ import threading
 
 import numpy as np
 import sounddevice as sd
-
 from config import CHANNELS, DTYPE, SAMPLE_RATE
 
 
@@ -81,9 +80,7 @@ class AudioPlayer:
         while self._running:
             try:
                 # 블로킹 방식으로 큐에서 데이터 가져오기
-                data = loop.run_until_complete(
-                    asyncio.wait_for(self._queue.get(), timeout=0.5)
-                )
+                data = loop.run_until_complete(asyncio.wait_for(self._queue.get(), timeout=0.5))
                 if data is None:  # 종료 신호
                     break
 
@@ -96,7 +93,7 @@ class AudioPlayer:
                 if self._stream is not None and self._stream.active:
                     self._stream.write(samples)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except Exception as e:
                 if self._running:

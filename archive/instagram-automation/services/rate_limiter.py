@@ -23,9 +23,7 @@ class RateLimitExceeded(Exception):
 
     def __init__(self, retry_after: float):
         self.retry_after = retry_after
-        super().__init__(
-            f"Rate limit exceeded. Retry after {retry_after:.0f}s"
-        )
+        super().__init__(f"Rate limit exceeded. Retry after {retry_after:.0f}s")
 
 
 class MetaRateLimiter:

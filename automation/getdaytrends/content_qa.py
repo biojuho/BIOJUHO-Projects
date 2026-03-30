@@ -5,8 +5,11 @@ generator.py에서 분리됨.
 """
 
 import asyncio
-import json
 import re
+
+from loguru import logger as log
+from shared.llm import LLMClient
+from shared.llm.models import LLMPolicy
 
 from config import AppConfig
 from models import GeneratedTweet, ScoredTrend, TweetBatch
@@ -19,12 +22,9 @@ from multilang import (
     _extract_candidate_entities,
     _first_nonempty_lines,
 )
-from shared.llm import LLMClient, TaskTier
-from shared.llm.models import LLMPolicy
-
-from loguru import logger as log
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
+
 
 def _audit_content_group(
     group_name: str,
@@ -53,7 +53,8 @@ def _audit_content_group(
 
     # [Phase 2] Kiwipiepy 형태소 기반 AI어투 심층 탐지
     try:
-        from korean_nlp import detect_ai_voice, compute_quality_score
+        from korean_nlp import compute_quality_score, detect_ai_voice
+
         ai_flags = detect_ai_voice(combined)
         if ai_flags:
             # 기존 상투구와 중복되지 않는 새로운 AI어투만 추가 감점
@@ -62,9 +63,7 @@ def _audit_content_group(
                 tone = max(0, tone - min(10, 3 * len(new_flags)))
                 issues.append(f"AI어투(형태소): {', '.join(new_flags[:2])}")
         # 품질 점수가 낮으면 추가 감점
-        avg_quality = sum(
-            compute_quality_score(item.content) for item in items if item.content
-        ) / max(len(items), 1)
+        avg_quality = sum(compute_quality_score(item.content) for item in items if item.content) / max(len(items), 1)
         if avg_quality < 0.5:
             tone = max(0, tone - 3)
             issues.append(f"Kiwipiepy 품질 점수 낮음: {avg_quality:.2f}")
@@ -102,9 +101,14 @@ def _audit_content_group(
 
     # [v6.0] 강화된 팩트 체크 — 출처 불명 인용 감지
     _UNVERIFIED_QUOTE_PATTERNS = [
-        "전문가들은", "관계자에 따르면", "업계 관계자",
-        "한 관계자는", "내부 소식통", "익명의 관계자",
-        "소식통에 따르면", "전문가는 분석",
+        "전문가들은",
+        "관계자에 따르면",
+        "업계 관계자",
+        "한 관계자는",
+        "내부 소식통",
+        "익명의 관계자",
+        "소식통에 따르면",
+        "전문가는 분석",
     ]
     matched_unverified = [p for p in _UNVERIFIED_QUOTE_PATTERNS if p in combined]
     if matched_unverified:
@@ -241,9 +245,10 @@ async def audit_generated_content(
     summary_total = round(sum(r["total"] for r in group_results.values()) / len(group_results))
     summary_regulation = min(r["regulation"] for r in group_results.values())
     primary_result = group_results.get("tweets") or next(iter(group_results.values()))
-    summary_reason = " | ".join(
-        f"{group}: {result['reason']}" for group, result in group_results.items() if result["failed"]
-    ) or "통과"
+    summary_reason = (
+        " | ".join(f"{group}: {result['reason']}" for group, result in group_results.items() if result["failed"])
+        or "통과"
+    )
     summary_worst = min(group_results.items(), key=lambda item: item[1]["total"])[0]
 
     summary = {
@@ -283,27 +288,25 @@ async def regenerate_content_groups(
 
     regen_tasks: dict[str, asyncio.Task] = {}
     if "tweets" in groups:
-        regen_tasks["tweets"] = asyncio.create_task(
-            generate_tweets_async(trend, config, client, recent_tweets)
-        )
+        regen_tasks["tweets"] = asyncio.create_task(generate_tweets_async(trend, config, client, recent_tweets))
     if "threads_posts" in groups:
-        regen_tasks["threads_posts"] = asyncio.create_task(
-            generate_threads_content_async(trend, config, client)
-        )
+        regen_tasks["threads_posts"] = asyncio.create_task(generate_threads_content_async(trend, config, client))
     if "long_posts" in groups and config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
         regen_tasks["long_posts"] = asyncio.create_task(
             generate_long_form_async(trend, config, client, tier=_select_generation_tier(trend, config))
         )
-    if "blog_posts" in groups and "naver_blog" in getattr(config, "target_platforms", []) and trend.viral_potential >= getattr(config, "blog_min_score", 70):
-        regen_tasks["blog_posts"] = asyncio.create_task(
-            generate_blog_async(trend, config, client)
-        )
+    if (
+        "blog_posts" in groups
+        and "naver_blog" in getattr(config, "target_platforms", [])
+        and trend.viral_potential >= getattr(config, "blog_min_score", 70)
+    ):
+        regen_tasks["blog_posts"] = asyncio.create_task(generate_blog_async(trend, config, client))
 
     if not regen_tasks:
         return batch
 
     results = await asyncio.gather(*regen_tasks.values(), return_exceptions=True)
-    for group_name, result in zip(regen_tasks.keys(), results):
+    for group_name, result in zip(regen_tasks.keys(), results, strict=False):
         if isinstance(result, Exception):
             log.warning(f"  [QA 재생성 실패] '{trend.keyword}' {group_name}: {result}")
             continue
@@ -320,5 +323,4 @@ async def regenerate_content_groups(
 #  → generation/persona.py로 추출됨
 # ══════════════════════════════════════════════════════
 
-from generation.persona import select_persona, _CATEGORY_PERSONA_MAP, _round_robin_counter  # noqa: F401,E501
-
+from generation.persona import _CATEGORY_PERSONA_MAP, _round_robin_counter, select_persona  # noqa: F401

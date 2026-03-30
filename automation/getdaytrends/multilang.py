@@ -5,24 +5,23 @@ generator.py에서 분리됨.
 """
 
 import asyncio
-import json
 import re
 
-from config import AppConfig
-from models import GeneratedThread, GeneratedTweet, ScoredTrend, TweetBatch
+from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
+
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
 from utils import sanitize_keyword
 
-from loguru import logger as log
-
 _JSON_POLICY = LLMPolicy(response_mode="json")
-
 
 
 # ══════════════════════════════════════════════════════
 #  Phase 4: 멀티언어 생성
 # ══════════════════════════════════════════════════════
+
 
 async def generate_for_trend_multilang_async(
     trend: ScoredTrend,
@@ -70,12 +69,14 @@ async def generate_for_trend_multilang_async(
                 content = t.get("content", "")
                 if len(content) > 280:
                     content = content[:277] + "..."
-                tweets.append(GeneratedTweet(
-                    tweet_type=t.get("type", ""),
-                    content=content,
-                    content_type="short",
-                    language=lang_code,
-                ))
+                tweets.append(
+                    GeneratedTweet(
+                        tweet_type=t.get("type", ""),
+                        content=content,
+                        content_type="short",
+                        language=lang_code,
+                    )
+                )
 
             log.info(f"멀티언어 [{lang_code}] 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
             return TweetBatch(
@@ -93,7 +94,7 @@ async def generate_for_trend_multilang_async(
     results = await asyncio.gather(*[_gen_for_lang(lang) for lang in extra_langs], return_exceptions=True)
 
     batches: list[TweetBatch] = []
-    for lang, result in zip(extra_langs, results):
+    for lang, result in zip(extra_langs, results, strict=False):
         if isinstance(result, Exception):
             log.error(f"멀티언어 [{lang}] 예외 ({trend.keyword}): {result}")
         elif result is not None:
@@ -191,8 +192,22 @@ _BLOG_REQUIRED_HEADINGS = (
     "## 핵심 정리",
 )
 _GENERIC_ENTITY_ALLOWLIST = {
-    "ai", "x", "threads", "meta", "kbs", "sbs", "mbc", "jtbc", "bbc", "cnn",
-    "wbc", "gpt", "it", "kst", "premium", "premium+",
+    "ai",
+    "x",
+    "threads",
+    "meta",
+    "kbs",
+    "sbs",
+    "mbc",
+    "jtbc",
+    "bbc",
+    "cnn",
+    "wbc",
+    "gpt",
+    "it",
+    "kst",
+    "premium",
+    "premium+",
 }
 
 
@@ -217,5 +232,3 @@ def _extract_candidate_entities(text: str) -> set[str]:
 
 def _first_nonempty_lines(text: str, limit: int = 3) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip()][:limit]
-
-

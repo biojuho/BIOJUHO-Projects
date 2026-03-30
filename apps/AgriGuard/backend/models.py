@@ -1,8 +1,10 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Float, ForeignKey, Index, Text
-from sqlalchemy.orm import relationship
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
+
 from database import Base
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, String, Text
+from sqlalchemy.orm import relationship
+
 
 class User(Base):
     __tablename__ = "users"
@@ -11,13 +13,12 @@ class User(Base):
     role = Column(String, index=True)
     name = Column(String)
     organization = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+
 
 class Product(Base):
     __tablename__ = "products"
-    __table_args__ = (
-        Index("ix_products_qr_code", "qr_code", unique=True),
-    )
+    __table_args__ = (Index("ix_products_qr_code", "qr_code", unique=True),)
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, index=True)
@@ -34,15 +35,14 @@ class Product(Base):
     tracking_history = relationship("TrackingEvent", back_populates="product", cascade="all, delete-orphan")
     certificates = relationship("Certificate", back_populates="product", cascade="all, delete-orphan")
 
+
 class TrackingEvent(Base):
     __tablename__ = "tracking_events"
-    __table_args__ = (
-        Index("ix_tracking_events_product_id", "product_id"),
-    )
+    __table_args__ = (Index("ix_tracking_events_product_id", "product_id"),)
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     product_id = Column(String, ForeignKey("products.id"))
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(UTC))
     status = Column(String)
     location = Column(String)
     handler_id = Column(String)
@@ -61,7 +61,7 @@ class QRScanEvent(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(String, nullable=False)
     event_type = Column(String, nullable=False)
-    occurred_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    occurred_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     product_id = Column(String, nullable=True)
     qr_value = Column(Text, nullable=True)
     error_code = Column(String, nullable=True)
@@ -71,19 +71,19 @@ class QRScanEvent(Base):
     variant_id = Column(String, default="qr_page_v1", nullable=False)
     metadata_json = Column(Text, default="{}", nullable=False)
 
+
 class Certificate(Base):
     __tablename__ = "certificates"
-    __table_args__ = (
-        Index("ix_certificates_product_id", "product_id"),
-    )
+    __table_args__ = (Index("ix_certificates_product_id", "product_id"),)
 
     cert_id = Column(String, primary_key=True, index=True)
     product_id = Column(String, ForeignKey("products.id"))
     issued_by = Column(String)
-    issue_date = Column(DateTime, default=datetime.utcnow)
+    issue_date = Column(DateTime, default=lambda: datetime.now(UTC))
     cert_type = Column(String)
 
     product = relationship("Product", back_populates="certificates")
+
 
 class SensorReading(Base):
     __tablename__ = "sensor_readings"
@@ -96,7 +96,7 @@ class SensorReading(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     sensor_id = Column(String, nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
+    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
     temperature = Column(Float, nullable=False)
     humidity = Column(Float, nullable=False)
     battery = Column(Float)

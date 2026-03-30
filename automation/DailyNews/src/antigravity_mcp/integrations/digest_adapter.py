@@ -3,6 +3,7 @@
 Collects pending reports into a digest queue, generates Claude-powered
 summaries, and supports DigestMaster (daily/weekly roll-ups).
 """
+
 from __future__ import annotations
 
 import json
@@ -14,15 +15,18 @@ logger = logging.getLogger(__name__)
 
 # Import LLM primitives with graceful fallback
 try:
-    from shared.llm import TaskTier, get_client as _get_llm_client
+    from shared.llm import TaskTier
+    from shared.llm import get_client as _get_llm_client
 except ImportError:
     try:
         import sys
         from pathlib import Path
+
         _ROOT = Path(__file__).resolve().parents[4]
         if str(_ROOT) not in sys.path:
             sys.path.insert(0, str(_ROOT))
-        from shared.llm import TaskTier, get_client as _get_llm_client
+        from shared.llm import TaskTier
+        from shared.llm import get_client as _get_llm_client
     except ImportError:
         TaskTier = None
         _get_llm_client = None
@@ -39,7 +43,7 @@ def _robust_json_parse(text: str) -> dict | None:
     except json.JSONDecodeError:
         pass
     try:
-        text = re.sub(r',(\s*[}\]])', r'\1', text)
+        text = re.sub(r",(\s*[}\]])", r"\1", text)
         return json.loads(text)
     except json.JSONDecodeError:
         logger.warning("Failed to parse digest JSON: %s...", text[:120])
@@ -65,9 +69,7 @@ class DigestAdapter:
             self._state_store.enqueue_for_digest(report_id)
             logger.info("Enqueued report %s for digest", report_id)
 
-    async def generate_digest(
-        self, reports_data: list[dict[str, Any]]
-    ) -> dict[str, str]:
+    async def generate_digest(self, reports_data: list[dict[str, Any]]) -> dict[str, str]:
         """Generate a consolidated digest summary from multiple reports.
 
         Args:
@@ -96,11 +98,7 @@ class DigestAdapter:
                     insights_text.append(str(item))
             insights = "\n".join(insights_text)
 
-            reports_text += (
-                f"[리포트 {idx}: {cat}]\n"
-                f"요약:\n{summaries}\n"
-                f"인사이트:\n{insights}\n\n"
-            )
+            reports_text += f"[리포트 {idx}: {cat}]\n" f"요약:\n{summaries}\n" f"인사이트:\n{insights}\n\n"
 
         prompt = (
             "당신은 여러 카테고리의 뉴스 분석 리포트를 하나의 종합 다이제스트로 정리하는 에디터입니다.\n\n"
@@ -129,6 +127,7 @@ class DigestAdapter:
                 if self._state_store and hasattr(self._state_store, "save_digest"):
                     from antigravity_mcp.domain.models import DigestEntry
                     from antigravity_mcp.state.events import utc_now_iso
+
                     serial = self._state_store.get_next_serial_number()
                     report_ids = [r.get("report_id", "") for r in reports_data if r.get("report_id")]
                     digest = DigestEntry(
@@ -146,16 +145,13 @@ class DigestAdapter:
             logger.warning("Digest generation failed: %s", exc)
         return {"summary": "", "key_themes": "", "outlook": ""}
 
-    async def generate_digest_master(
-        self, digests: list[dict[str, str]]
-    ) -> str:
+    async def generate_digest_master(self, digests: list[dict[str, str]]) -> str:
         """Roll up multiple digests into a single DigestMaster document."""
         if not self.is_available() or not digests:
             return ""
 
         digests_text = "\n\n".join(
-            f"[Digest {d.get('serial_number', '?')}]\n{d.get('summary_text', '')}"
-            for d in digests
+            f"[Digest {d.get('serial_number', '?')}]\n{d.get('summary_text', '')}" for d in digests
         )
 
         prompt = (

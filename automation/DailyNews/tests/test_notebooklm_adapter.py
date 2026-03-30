@@ -1,4 +1,5 @@
 """Tests for NotebookLM adapter — unit tests with mocked NotebookLM client."""
+
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +19,7 @@ if str(SRC_DIR) not in sys.path:
 # ──────────────────────────────────────────────
 #  Fixtures: mock notebooklm-py
 # ──────────────────────────────────────────────
+
 
 class FakeNotebook:
     def __init__(self, id: str = "nb-test-123"):
@@ -61,16 +63,26 @@ class FakeNotebookLMClient:
             generate_report=AsyncMock(return_value=FakeArtifactStatus()),
             generate_mind_map=AsyncMock(return_value=FakeArtifactStatus()),
             generate_slide_deck=AsyncMock(return_value=FakeArtifactStatus()),
-            generate_infographic=AsyncMock(return_value=SimpleNamespace(
-                task_id="task-infographic-001", status="pending",
-            )),
-            wait_for_completion=AsyncMock(return_value=SimpleNamespace(
-                is_complete=True, is_failed=False, status="completed", error=None,
-            )),
+            generate_infographic=AsyncMock(
+                return_value=SimpleNamespace(
+                    task_id="task-infographic-001",
+                    status="pending",
+                )
+            ),
+            wait_for_completion=AsyncMock(
+                return_value=SimpleNamespace(
+                    is_complete=True,
+                    is_failed=False,
+                    status="completed",
+                    error=None,
+                )
+            ),
             download_infographic=AsyncMock(return_value="output/infographics/test.png"),
-            list_infographics=AsyncMock(return_value=[
-                SimpleNamespace(url="https://notebooklm.google.com/infographic/test.png"),
-            ]),
+            list_infographics=AsyncMock(
+                return_value=[
+                    SimpleNamespace(url="https://notebooklm.google.com/infographic/test.png"),
+                ]
+            ),
         )
 
     @classmethod
@@ -97,14 +109,17 @@ def mock_notebooklm():
     fake_rpc = MagicMock()
     fake_rpc.types = fake_types
     fake_module.rpc = fake_rpc
-    with patch.dict(sys.modules, {
-        "notebooklm": fake_module,
-        "notebooklm.rpc": fake_rpc,
-        "notebooklm.rpc.types": fake_types,
-    }):
+    with patch.dict(
+        sys.modules,
+        {
+            "notebooklm": fake_module,
+            "notebooklm.rpc": fake_rpc,
+            "notebooklm.rpc.types": fake_types,
+        },
+    ):
         # Re-import adapter with mocked module
-        import importlib
         import antigravity_mcp.integrations.notebooklm_adapter as adapter_mod
+
         adapter_mod.NOTEBOOKLM_AVAILABLE = True
         adapter_mod.NotebookLMClient = FakeNotebookLMClient
         yield adapter_mod
@@ -113,6 +128,7 @@ def mock_notebooklm():
 # ──────────────────────────────────────────────
 #  Test: adapter availability
 # ──────────────────────────────────────────────
+
 
 def test_adapter_is_available_when_module_present(mock_notebooklm):
     adapter = mock_notebooklm.NotebookLMAdapter()
@@ -128,6 +144,7 @@ def test_adapter_check_availability(mock_notebooklm):
 # ──────────────────────────────────────────────
 #  Test: B) Per-category deep research
 # ──────────────────────────────────────────────
+
 
 def test_research_category_creates_notebook(mock_notebooklm):
     adapter = mock_notebooklm.NotebookLMAdapter()
@@ -146,9 +163,7 @@ def test_research_category_creates_notebook(mock_notebooklm):
 def test_research_category_with_extra_context(mock_notebooklm):
     adapter = mock_notebooklm.NotebookLMAdapter()
     articles = [{"title": "Market crash", "link": "https://ex.com/3", "description": "Economy"}]
-    result = asyncio.run(
-        adapter.research_category("Economy_KR", articles, extra_context="Previous brain analysis")
-    )
+    result = asyncio.run(adapter.research_category("Economy_KR", articles, extra_context="Previous brain analysis"))
 
     assert result["notebook_id"] == "nb-test-123"
     assert result["source_count"] == 1
@@ -160,6 +175,7 @@ def test_research_category_handles_source_failure(mock_notebooklm):
     # Make source addition fail
     async def fail_add(*args, **kwargs):
         raise Exception("Source add error")
+
     FakeNotebookLMClient.sources_fail = True
 
     articles = [{"title": "Test", "link": "https://ex.com/bad", "description": "test"}]
@@ -183,15 +199,20 @@ def test_research_category_uses_category_prompts(mock_notebooklm):
 #  Test: B2) Infographic generation
 # ──────────────────────────────────────────────
 
+
 def test_research_category_with_infographic(mock_notebooklm):
     """research_category with generate_infographic=True should return infographic fields."""
     adapter = mock_notebooklm.NotebookLMAdapter()
     articles = [
         {"title": "AI boom", "link": "https://example.com/1", "description": "AI"},
     ]
-    result = asyncio.run(adapter.research_category(
-        "Tech", articles, generate_infographic=True,
-    ))
+    result = asyncio.run(
+        adapter.research_category(
+            "Tech",
+            articles,
+            generate_infographic=True,
+        )
+    )
 
     assert result["notebook_id"] == "nb-test-123"
     assert "infographic_path" in result
@@ -204,9 +225,13 @@ def test_research_category_without_infographic(mock_notebooklm):
     articles = [
         {"title": "Market data", "link": "https://example.com/2", "description": "econ"},
     ]
-    result = asyncio.run(adapter.research_category(
-        "Economy_KR", articles, generate_infographic=False,
-    ))
+    result = asyncio.run(
+        adapter.research_category(
+            "Economy_KR",
+            articles,
+            generate_infographic=False,
+        )
+    )
 
     assert result["infographic_path"] == ""
     assert result["infographic_url"] == ""
@@ -215,6 +240,7 @@ def test_research_category_without_infographic(mock_notebooklm):
 # ──────────────────────────────────────────────
 #  Test: C) Weekly digest
 # ──────────────────────────────────────────────
+
 
 def test_weekly_digest_creates_notebook(mock_notebooklm):
     adapter = mock_notebooklm.NotebookLMAdapter()
@@ -250,12 +276,24 @@ def test_weekly_digest_creates_notebook(mock_notebooklm):
 def test_weekly_digest_deduplicates_urls(mock_notebooklm):
     adapter = mock_notebooklm.NotebookLMAdapter()
     reports = [
-        {"category": "A", "summary_lines": [], "insights": [],
-         "source_links": ["https://dup.com/1", "https://dup.com/2"],
-         "window_name": "m", "window_start": "", "window_end": ""},
-        {"category": "B", "summary_lines": [], "insights": [],
-         "source_links": ["https://dup.com/1", "https://dup.com/3"],  # /1 is duplicate
-         "window_name": "e", "window_start": "", "window_end": ""},
+        {
+            "category": "A",
+            "summary_lines": [],
+            "insights": [],
+            "source_links": ["https://dup.com/1", "https://dup.com/2"],
+            "window_name": "m",
+            "window_start": "",
+            "window_end": "",
+        },
+        {
+            "category": "B",
+            "summary_lines": [],
+            "insights": [],
+            "source_links": ["https://dup.com/1", "https://dup.com/3"],  # /1 is duplicate
+            "window_name": "e",
+            "window_start": "",
+            "window_end": "",
+        },
     ]
 
     result = asyncio.run(adapter.create_weekly_digest(reports))
@@ -265,14 +303,18 @@ def test_weekly_digest_deduplicates_urls(mock_notebooklm):
 def test_weekly_digest_generates_artifacts(mock_notebooklm):
     adapter = mock_notebooklm.NotebookLMAdapter()
     reports = [
-        {"category": "Tech", "summary_lines": ["test"], "insights": [],
-         "source_links": ["https://ex.com/x"],
-         "window_name": "m", "window_start": "", "window_end": ""},
+        {
+            "category": "Tech",
+            "summary_lines": ["test"],
+            "insights": [],
+            "source_links": ["https://ex.com/x"],
+            "window_name": "m",
+            "window_start": "",
+            "window_end": "",
+        },
     ]
 
-    result = asyncio.run(
-        adapter.create_weekly_digest(reports, content_types=["report", "mind-map"])
-    )
+    result = asyncio.run(adapter.create_weekly_digest(reports, content_types=["report", "mind-map"]))
     assert "report" in result["artifacts"]
     assert "mind-map" in result["artifacts"]
 
@@ -280,6 +322,7 @@ def test_weekly_digest_generates_artifacts(mock_notebooklm):
 # ──────────────────────────────────────────────
 #  Test: singleton factory
 # ──────────────────────────────────────────────
+
 
 def test_get_notebooklm_adapter_singleton(mock_notebooklm):
     mock_notebooklm._instance = None  # reset
@@ -292,11 +335,16 @@ def test_get_notebooklm_adapter_singleton(mock_notebooklm):
 #  Test: ContentReport notebooklm_metadata
 # ──────────────────────────────────────────────
 
+
 def test_content_report_has_notebooklm_metadata():
     from antigravity_mcp.domain.models import ContentReport
+
     report = ContentReport(
-        report_id="r1", category="Tech", window_name="test",
-        window_start="", window_end="",
+        report_id="r1",
+        category="Tech",
+        window_name="test",
+        window_start="",
+        window_end="",
         notebooklm_metadata={"notebook_id": "nb-123", "source_count": 5},
     )
     assert report.notebooklm_metadata["notebook_id"] == "nb-123"
@@ -306,9 +354,13 @@ def test_content_report_has_notebooklm_metadata():
 
 def test_content_report_default_empty_metadata():
     from antigravity_mcp.domain.models import ContentReport
+
     report = ContentReport(
-        report_id="r2", category="Tech", window_name="test",
-        window_start="", window_end="",
+        report_id="r2",
+        category="Tech",
+        window_name="test",
+        window_start="",
+        window_end="",
     )
     assert report.notebooklm_metadata == {}
 
@@ -317,12 +369,17 @@ def test_content_report_default_empty_metadata():
 #  Test: ContentReport with infographic metadata
 # ──────────────────────────────────────────────
 
+
 def test_content_report_infographic_metadata():
     """Infographic path/url stored in notebooklm_metadata."""
     from antigravity_mcp.domain.models import ContentReport
+
     report = ContentReport(
-        report_id="r3", category="Tech", window_name="test",
-        window_start="", window_end="",
+        report_id="r3",
+        category="Tech",
+        window_name="test",
+        window_start="",
+        window_end="",
         notebooklm_metadata={
             "notebook_id": "nb-456",
             "source_count": 3,

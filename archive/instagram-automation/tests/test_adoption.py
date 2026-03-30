@@ -3,7 +3,7 @@
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -131,9 +131,7 @@ class TestPlatformAdapter:
     def test_publish_result_failure(self):
         from platform_adapters import PublishResult
 
-        result = PublishResult(
-            platform="instagram", post_id="", success=False, error="Token expired"
-        )
+        result = PublishResult(platform="instagram", post_id="", success=False, error="Token expired")
         assert result.success is False
         assert "Token" in result.error
 

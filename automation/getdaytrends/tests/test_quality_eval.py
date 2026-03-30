@@ -51,11 +51,13 @@ class TestEvaluateContentIntegration:
 
     def test_empty_text_returns_default(self):
         from quality_eval import evaluate_content
+
         result = evaluate_content("", "source context", "keyword")
         assert result.passed is True
 
     def test_empty_context_returns_default(self):
         from quality_eval import evaluate_content
+
         result = evaluate_content("generated text", "", "keyword")
         assert result.passed is True
 
@@ -64,6 +66,7 @@ class TestEvaluateContentIntegration:
     def test_basic_evaluation(self):
         """DeepEval이 설치된 경우 기본 평가 동작 확인."""
         from quality_eval import evaluate_content
+
         result = evaluate_content(
             "삼성전자 주가가 10% 상승했다",
             "삼성전자 주가 10% 상승 보도",

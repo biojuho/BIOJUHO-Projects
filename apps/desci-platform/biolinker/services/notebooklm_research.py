@@ -25,6 +25,7 @@ __all__ = ["analyze_paper", "analyze_papers_batch"]
 # ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
+
     async def _test():
         print("=== DeSci NotebookLM Research Test ===")
         result = await analyze_paper(

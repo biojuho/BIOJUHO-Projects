@@ -22,35 +22,38 @@
 
 # ── Trend Collection (collectors/sources.py) ──
 from collectors.sources import (  # noqa: F401
-    _parse_rss_date,
-    _format_news_age,
-    _parse_volume_text,
-    _FETCH_CACHE,
-    _FETCH_CACHE_TTL,
     _COMMON_HEADERS,
     _DEFAULT_TIMEOUT,
-    _SHORT_TIMEOUT,
-    _async_fetch_getdaytrends,
-    fetch_getdaytrends,
-    _fallback_trends,
+    _FETCH_CACHE,
+    _FETCH_CACHE_TTL,
     _GEO_MAP,
-    _is_korean_trend,
-    _async_fetch_google_trends_rss,
-    fetch_google_trends_rss,
-    _is_similar_keyword,
+    _SHORT_TIMEOUT,
     _YOUTUBE_GEO_MAP,
+    _async_fetch_getdaytrends,
+    _async_fetch_google_trends_rss,
     _async_fetch_youtube_trending,
-    fetch_youtube_trending,
+    _fallback_trends,
+    _format_news_age,
+    _is_korean_trend,
+    _is_similar_keyword,
     _merge_trends,
+    _parse_rss_date,
+    _parse_volume_text,
+    fetch_getdaytrends,
+    fetch_google_trends_rss,
+    fetch_youtube_trending,
 )
+
 
 # ── Orchestrator (scraper.py) ──
 # NOTE: lazy import to avoid circular dependency (scraper → collectors.sources → collectors/__init__ → scraper)
 def __getattr__(name):
     if name in ("collect_trends", "collect_contexts"):
         import scraper as _scraper
+
         return getattr(_scraper, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # ── Context Collection (collectors/context.py) ──
 from collectors.context import (  # noqa: F401

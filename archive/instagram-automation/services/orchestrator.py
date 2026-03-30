@@ -63,10 +63,7 @@ class Orchestrator:
         if not today_plan:
             logger.info("No calendar entries for today, generating weekly plan")
             entries = self.calendar.generate_weekly_plan(posting_hours=[12, 18])
-            summary["calendar_entries"] = len([
-                e for e in entries
-                if e.date == datetime.now().strftime("%Y-%m-%d")
-            ])
+            summary["calendar_entries"] = len([e for e in entries if e.date == datetime.now().strftime("%Y-%m-%d")])
 
         # 2. Inject trends
         if self.trend_bridge:
@@ -74,9 +71,7 @@ class Orchestrator:
                 topics = self.trend_bridge.get_instagram_topics(limit=3)
                 today = datetime.now().strftime("%Y-%m-%d")
                 for topic in topics[:1]:  # Inject top trend
-                    self.calendar.inject_trend_topic(
-                        today, topic, posting_hour=15
-                    )
+                    self.calendar.inject_trend_topic(today, topic, posting_hour=15)
                     summary["trends_injected"] += 1
             except Exception as e:
                 logger.warning("Trend injection skipped: %s", e)
@@ -84,9 +79,7 @@ class Orchestrator:
         # 3. Generate content (delegated to scheduler)
         try:
             await self.scheduler.generate_daily_content()
-            summary["posts_generated"] = len(
-                self.scheduler.db.get_scheduled_posts()
-            )
+            summary["posts_generated"] = len(self.scheduler.db.get_scheduled_posts())
         except Exception as e:
             logger.error("Content generation failed: %s", e)
 
@@ -115,11 +108,10 @@ class Orchestrator:
                 # Boost winning hashtags
                 try:
                     import json
+
                     winner_tags = json.loads(learning["winner_data"])
                     if isinstance(winner_tags, list):
-                        self.hashtag_db.record_performance(
-                            winner_tags, reach=1000, engagement=100
-                        )
+                        self.hashtag_db.record_performance(winner_tags, reach=1000, engagement=100)
                         applied += 1
                         logger.info("Boosted winning hashtags: %s", winner_tags)
                 except Exception:

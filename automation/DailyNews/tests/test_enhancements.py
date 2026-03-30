@@ -3,8 +3,6 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 # Ensure scripts/ is importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -15,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 class TestNewsDeduplicator:
     def _make(self, threshold=0.85):
         from deduplicator import NewsDeduplicator
+
         return NewsDeduplicator(threshold=threshold)
 
     def test_identical_titles(self):
@@ -44,6 +43,7 @@ class TestNewsDeduplicator:
 
     def test_find_duplicates_basic(self):
         from deduplicator import ArticleItem, NewsDeduplicator
+
         dedup = NewsDeduplicator(threshold=0.8)
 
         articles = [
@@ -60,11 +60,16 @@ class TestNewsDeduplicator:
 
     def test_canonical_selection(self):
         from deduplicator import ArticleItem, NewsDeduplicator
+
         dedup = NewsDeduplicator(threshold=0.7)
 
         articles = [
             ArticleItem(title="GPT-5 launched by OpenAI", link="a", description="short"),
-            ArticleItem(title="GPT-5 launched by OpenAI today", link="b", description="longer description with more details about the launch"),
+            ArticleItem(
+                title="GPT-5 launched by OpenAI today",
+                link="b",
+                description="longer description with more details about the launch",
+            ),
         ]
         groups = dedup.find_duplicates(articles)
         assert len(groups) == 1
@@ -89,6 +94,7 @@ class TestNewsDeduplicator:
 class TestCredibilityScorer:
     def _make(self):
         from credibility import CredibilityScorer
+
         return CredibilityScorer()
 
     def test_extract_domain(self):

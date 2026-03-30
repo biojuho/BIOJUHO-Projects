@@ -18,11 +18,8 @@ DailyNews 프로젝트의 뉴스 수집·분석 결과를 GetDayTrends의
 """
 
 import asyncio
-import json
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # 프로젝트 경로
 GETDAYTRENDS_ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +36,7 @@ load_dotenv(GETDAYTRENDS_ROOT / ".env")
 
 # ── DailyNews 리포트 조회 ─────────────────────────────
 
+
 def _load_dailynews_reports(
     window_name: str = "morning",
     limit: int = 5,
@@ -48,6 +46,7 @@ def _load_dailynews_reports(
 
     try:
         from antigravity_mcp.state.store import PipelineStateStore
+
         store = PipelineStateStore()
 
         # 최근 리포트 검색
@@ -58,19 +57,20 @@ def _load_dailynews_reports(
             # window 필터
             if window_name and hasattr(r, "window_name") and r.window_name != window_name:
                 continue
-            reports.append({
-                "report_id": r.report_id,
-                "category": r.category,
-                "window_name": r.window_name,
-                "summary_lines": r.summary_lines,
-                "insights": r.insights,
-                "source_links": getattr(r, "source_links", []),
-                "channel_drafts": [
-                    {"channel": d.channel, "content": d.content}
-                    for d in getattr(r, "channel_drafts", [])
-                ],
-                "created_at": getattr(r, "created_at", ""),
-            })
+            reports.append(
+                {
+                    "report_id": r.report_id,
+                    "category": r.category,
+                    "window_name": r.window_name,
+                    "summary_lines": r.summary_lines,
+                    "insights": r.insights,
+                    "source_links": getattr(r, "source_links", []),
+                    "channel_drafts": [
+                        {"channel": d.channel, "content": d.content} for d in getattr(r, "channel_drafts", [])
+                    ],
+                    "created_at": getattr(r, "created_at", ""),
+                }
+            )
     except ImportError:
         print("⚠️ DailyNews 모듈 로드 실패. antigravity_mcp가 설치되었는지 확인하세요.")
     except Exception as e:
@@ -80,6 +80,7 @@ def _load_dailynews_reports(
 
 
 # ── 리포트 → GetDayTrends 컨텍스트 변환 ─────────────────
+
 
 def reports_to_trend_contexts(reports: list[dict]) -> list[dict]:
     """DailyNews 리포트를 GetDayTrends ScoredTrend 호환 컨텍스트로 변환.
@@ -125,15 +126,17 @@ def reports_to_trend_contexts(reports: list[dict]) -> list[dict]:
 
         context_text = "\n\n".join(context_parts)
 
-        contexts.append({
-            "keyword": keyword,
-            "category": category,
-            "context_text": context_text,
-            "summary": "\n".join(summary_lines),
-            "insights": insights,
-            "source_links": source_links,
-            "viral_potential": 75,  # 뉴스 소스 기본 점수
-        })
+        contexts.append(
+            {
+                "keyword": keyword,
+                "category": category,
+                "context_text": context_text,
+                "summary": "\n".join(summary_lines),
+                "insights": insights,
+                "source_links": source_links,
+                "viral_potential": 75,  # 뉴스 소스 기본 점수
+            }
+        )
 
     return contexts
 
@@ -149,6 +152,7 @@ def get_news_contexts(
 
 # ── 독립 실행: 블로그 글감 생성 ─────────────────────────
 
+
 async def generate_blog_from_news(
     window_name: str = "morning",
     limit: int = 3,
@@ -158,8 +162,9 @@ async def generate_blog_from_news(
     Returns:
         list of dicts with blog_content, seo_keywords, etc.
     """
+    from shared.llm import get_client
+
     from config import AppConfig
-    from shared.llm import LLMClient, get_client
 
     config = AppConfig.from_env()
     client = get_client()
@@ -175,7 +180,7 @@ async def generate_blog_from_news(
         print(f"\n📝 블로그 글감 생성 중: {ctx['keyword'][:40]}...")
 
         # ScoredTrend 모방 객체 생성
-        from models import ScoredTrend, MultiSourceContext
+        from models import MultiSourceContext, ScoredTrend
 
         mock_trend = ScoredTrend(
             keyword=ctx["keyword"],
@@ -190,17 +195,20 @@ async def generate_blog_from_news(
         )
 
         from generator import generate_blog_async
+
         blog_posts = await generate_blog_async(mock_trend, config, client)
 
         for post in blog_posts:
-            results.append({
-                "keyword": ctx["keyword"],
-                "category": ctx["category"],
-                "content": post.content,
-                "char_count": post.char_count,
-                "seo_keywords": getattr(post, "seo_keywords", []),
-                "source_links": ctx["source_links"],
-            })
+            results.append(
+                {
+                    "keyword": ctx["keyword"],
+                    "category": ctx["category"],
+                    "content": post.content,
+                    "char_count": post.char_count,
+                    "seo_keywords": getattr(post, "seo_keywords", []),
+                    "source_links": ctx["source_links"],
+                }
+            )
             print(f"   ✅ {post.char_count:,}자 생성 완료")
             if getattr(post, "seo_keywords", []):
                 print(f"   🔑 SEO: {', '.join(post.seo_keywords)}")
@@ -210,16 +218,16 @@ async def generate_blog_from_news(
 
 # ── CLI Entry Point ────────────────────────────────────
 
+
 def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="DailyNews → 네이버 블로그 글감 생성")
-    parser.add_argument("--window", default="morning", choices=["morning", "evening"],
-                        help="DailyNews 윈도우 (기본: morning)")
-    parser.add_argument("--limit", type=int, default=3,
-                        help="최대 생성 수 (기본: 3)")
-    parser.add_argument("--list-only", action="store_true",
-                        help="리포트 목록만 출력 (생성하지 않음)")
+    parser.add_argument(
+        "--window", default="morning", choices=["morning", "evening"], help="DailyNews 윈도우 (기본: morning)"
+    )
+    parser.add_argument("--limit", type=int, default=3, help="최대 생성 수 (기본: 3)")
+    parser.add_argument("--list-only", action="store_true", help="리포트 목록만 출력 (생성하지 않음)")
     args = parser.parse_args()
 
     if args.list_only:
@@ -235,10 +243,12 @@ def main():
         return
 
     print(f"\n🔄 DailyNews [{args.window}] → 블로그 글감 생성 시작...")
-    results = asyncio.run(generate_blog_from_news(
-        window_name=args.window,
-        limit=args.limit,
-    ))
+    results = asyncio.run(
+        generate_blog_from_news(
+            window_name=args.window,
+            limit=args.limit,
+        )
+    )
 
     if results:
         print(f"\n🎉 총 {len(results)}편의 블로그 글감이 생성되었습니다!")

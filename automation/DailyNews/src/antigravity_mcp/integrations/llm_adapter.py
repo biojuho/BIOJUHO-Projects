@@ -37,9 +37,7 @@ _SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
     "draft": (r"^(draft(\s+post)?)\b",),
 }
 
-_EVIDENCE_TAG_RE = re.compile(
-    r"\[(?:A\d+|Inference:[A\d+\s]+|Background|Insufficient evidence)\]"
-)
+_EVIDENCE_TAG_RE = re.compile(r"\[(?:A\d+|Inference:[A\d+\s]+|Background|Insufficient evidence)\]")
 _ARTICLE_TAG_RE = re.compile(r"\[A\d+\]")
 _INFERENCE_TAG_RE = re.compile(r"\[Inference:[^\]]+\]")
 _BACKGROUND_TAG_RE = re.compile(r"\[Background\]")
@@ -408,7 +406,9 @@ class LLMAdapter:
                 ChannelDraft(
                     channel="x",
                     status="draft",
-                    content="\n".join(draft_lines) if draft_lines else self._build_x_draft(category, summary_lines, items),
+                    content="\n".join(draft_lines)
+                    if draft_lines
+                    else self._build_x_draft(category, summary_lines, items),
                     source="fallback" if x_fallback else "llm",
                     is_fallback=x_fallback,
                 ),
@@ -477,9 +477,7 @@ class LLMAdapter:
         insights = (sections["pattern"] + sections["ripple"] + sections["counterpoint"] + sections["action"])[:10]
         draft_lines = sections["draft"]
         missing_sections = [
-            name
-            for name in ("signal", "pattern", "ripple", "counterpoint", "action")
-            if not sections[name]
+            name for name in ("signal", "pattern", "ripple", "counterpoint", "action") if not sections[name]
         ]
         sections_found = {key: len(value) for key, value in sections.items() if value}
 
@@ -506,7 +504,9 @@ class LLMAdapter:
                 ChannelDraft(
                     channel="x",
                     status="draft",
-                    content="\n".join(draft_lines) if draft_lines else self._build_x_draft(category, summary_lines, items),
+                    content="\n".join(draft_lines)
+                    if draft_lines
+                    else self._build_x_draft(category, summary_lines, items),
                     source="fallback" if x_fallback else "llm",
                     is_fallback=x_fallback,
                 ),
@@ -553,7 +553,9 @@ class LLMAdapter:
             f"Most active sources: {', '.join(f'{source} ({count})' for source, count in source_counts.most_common(3))}.",
         ]
         insights = [
-            f"{category} coverage is clustering around {items[0].title}." if items else f"{category} coverage is limited.",
+            f"{category} coverage is clustering around {items[0].title}."
+            if items
+            else f"{category} coverage is limited.",
             f"Operators should review {min(len(items), 3)} candidate stories before publishing.",
             "External distribution remains manual until approval is granted.",
         ]

@@ -1,10 +1,11 @@
 """Analytics export pipeline — structured JSON and CSV exports."""
+
 from __future__ import annotations
 
 import csv
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +35,7 @@ def export_daily_report_json(
     output_dir = output_dir or settings.output_dir
 
     if not date:
-        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date = datetime.now(UTC).strftime("%Y-%m-%d")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     file_path = output_dir / f"daily_report_{date}.json"
@@ -49,7 +50,7 @@ def export_daily_report_json(
 
     export_data = {
         "date": date,
-        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "pipeline_runs": day_runs,
         "token_usage": token_stats,
         "tweet_metrics": {
@@ -90,24 +91,35 @@ def export_performance_csv(
 
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "tweet_id", "report_id", "impressions", "likes",
-            "retweets", "replies", "quotes", "bookmarks",
-            "published_at", "content_preview",
-        ])
+        writer.writerow(
+            [
+                "tweet_id",
+                "report_id",
+                "impressions",
+                "likes",
+                "retweets",
+                "replies",
+                "quotes",
+                "bookmarks",
+                "published_at",
+                "content_preview",
+            ]
+        )
         for tw in top_tweets:
-            writer.writerow([
-                tw.get("tweet_id", ""),
-                tw.get("report_id", ""),
-                tw.get("impressions", 0),
-                tw.get("likes", 0),
-                tw.get("retweets", 0),
-                tw.get("replies", 0),
-                tw.get("quotes", 0),
-                tw.get("bookmarks", 0),
-                tw.get("published_at", ""),
-                tw.get("content_preview", "")[:100],
-            ])
+            writer.writerow(
+                [
+                    tw.get("tweet_id", ""),
+                    tw.get("report_id", ""),
+                    tw.get("impressions", 0),
+                    tw.get("likes", 0),
+                    tw.get("retweets", 0),
+                    tw.get("replies", 0),
+                    tw.get("quotes", 0),
+                    tw.get("bookmarks", 0),
+                    tw.get("published_at", ""),
+                    tw.get("content_preview", "")[:100],
+                ]
+            )
 
     logger.info("Exported %d tweet metrics to %s", len(top_tweets), output_path)
     return {"file_path": str(output_path), "rows": len(top_tweets), "days": days}

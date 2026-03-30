@@ -4,6 +4,7 @@ BioLinker - GROBID Parser Service
 Optional integration with a local GROBID server for parsing scientific PDFs
 into structured TEI XML and extracting richer metadata than pypdf alone.
 """
+
 from __future__ import annotations
 
 import os
@@ -34,7 +35,7 @@ class GrobidParser:
 
     def __init__(self) -> None:
         self.enabled = os.getenv("GROBID_ENABLED", "false").lower() == "true"
-        self.base_url = (os.getenv("GROBID_URL", "http://grobid:8070/api").rstrip("/"))
+        self.base_url = os.getenv("GROBID_URL", "http://grobid:8070/api").rstrip("/")
         self.timeout_seconds = float(os.getenv("GROBID_TIMEOUT_SECONDS", "60"))
 
     @property

@@ -32,10 +32,10 @@ const CanvaDesignGenerator: React.FC = () => {
     if (window.parent && window.parent.postMessage) {
       window.parent.postMessage({
         type: 'canva-create-from-candidate',
-        data: { 
-          jobId: job_id, 
+        data: {
+          jobId: job_id,
           candidateId: candidate.id,
-          candidate 
+          candidate
         }
       }, '*');
     }
@@ -144,11 +144,3 @@ const CanvaDesignGenerator: React.FC = () => {
 };
 
 export default CanvaDesignGenerator;
-
-
-
-
-
-
-
-

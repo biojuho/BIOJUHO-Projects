@@ -34,7 +34,6 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from workspace_paths import find_workspace_root, rel_unit_path
 
-
 WORKSPACE = find_workspace_root()
 
 # 프로젝트 경로 매핑
@@ -60,8 +59,12 @@ def get_git_log(days: int = 30) -> list[dict]:
     try:
         result = subprocess.run(
             ["git", "log", f"--since={since}", "--format=%H|%aI|%s", "--no-merges", "--name-only"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            cwd=WORKSPACE, timeout=30,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=WORKSPACE,
+            timeout=30,
         )
         commits = []
         current = None
@@ -96,8 +99,12 @@ def get_merge_commits(days: int = 30) -> list[dict]:
     try:
         result = subprocess.run(
             ["git", "log", f"--since={since}", "--merges", "--format=%H|%aI|%s"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            cwd=WORKSPACE, timeout=30,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=WORKSPACE,
+            timeout=30,
         )
         merges = []
         for line in result.stdout.strip().split("\n"):
@@ -105,11 +112,13 @@ def get_merge_commits(days: int = 30) -> list[dict]:
                 continue
             parts = line.split("|", maxsplit=2)
             if len(parts) >= 3:
-                merges.append({
-                    "hash": parts[0][:8],
-                    "date": parts[1],
-                    "message": parts[2],
-                })
+                merges.append(
+                    {
+                        "hash": parts[0][:8],
+                        "date": parts[1],
+                        "message": parts[2],
+                    }
+                )
         return merges
     except Exception:
         return []
@@ -279,7 +288,7 @@ def generate_ascii_chart(trend: list[dict], width: int = 40) -> str:
     # 7일 단위로 그룹핑
     grouped = []
     for i in range(0, len(trend), 7):
-        chunk = trend[i:i + 7]
+        chunk = trend[i : i + 7]
         total = sum(t["commits"] for t in chunk)
         label = chunk[0]["date"]
         grouped.append({"label": label, "total": total})
@@ -352,7 +361,9 @@ def format_report(report: dict) -> str:
     lines.append(f"🔥 Change Failure Rate: {cfr['failure_rate_pct']}% [{cfr['level']}]")
 
     mttr = m["mean_time_to_restore"]
-    lines.append(f"🔧 Mean Time to Restore: {mttr['avg_hours']}h avg ({mttr.get('fix_count', 0)} fixes) [{mttr['level']}]")
+    lines.append(
+        f"🔧 Mean Time to Restore: {mttr['avg_hours']}h avg ({mttr.get('fix_count', 0)} fixes) [{mttr['level']}]"
+    )
 
     # 주간 트렌드
     if report.get("weekly_trend"):
@@ -397,6 +408,7 @@ def format_report(report: dict) -> str:
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="DORA Metrics v2")
     parser.add_argument("--days", type=int, default=30, help="분석 기간 (일)")
     parser.add_argument("--by-project", action="store_true", help="프로젝트별 분리 리포트")

@@ -1,16 +1,16 @@
 """End-to-end pipeline integration tests: collect → analyze → publish."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from antigravity_mcp.domain.models import ChannelDraft, ContentItem, ContentReport
+from antigravity_mcp.domain.models import ChannelDraft, ContentReport
 from antigravity_mcp.state.store import PipelineStateStore
 
-
 # ─── Fixtures ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def store(tmp_path):
@@ -48,6 +48,7 @@ def mock_llm_response():
 
 
 # ─── Full collect → analyze flow ─────────────────────────────────────────────
+
 
 class TestCollectAnalyzePipeline:
     @pytest.mark.asyncio
@@ -147,6 +148,7 @@ class TestCollectAnalyzePipeline:
 
 # ─── Full publish flow ────────────────────────────────────────────────────────
 
+
 class TestPublishPipeline:
     @pytest.fixture
     def saved_report(self, store):
@@ -176,10 +178,12 @@ class TestPublishPipeline:
 
         mock_notion = MagicMock()
         mock_notion.is_configured.return_value = True
-        mock_notion.create_record = AsyncMock(return_value={
-            "id": "notion-page-123",
-            "url": "https://notion.so/page-123",
-        })
+        mock_notion.create_record = AsyncMock(
+            return_value={
+                "id": "notion-page-123",
+                "url": "https://notion.so/page-123",
+            }
+        )
         mock_telegram = MagicMock()
         mock_telegram.send_message = AsyncMock(return_value=True)
 
@@ -233,6 +237,7 @@ class TestPublishPipeline:
 
 # ─── Ops tools ───────────────────────────────────────────────────────────────
 
+
 class TestOpsTools:
     @pytest.mark.asyncio
     async def test_ops_cleanup_dry_run_returns_no_deletions(self, store):
@@ -246,15 +251,23 @@ class TestOpsTools:
 
     @pytest.mark.asyncio
     async def test_ops_cleanup_prunes_expired_cache(self, store):
+        # Insert an expired LLM cache entry (expires_at in the past)
+
         from antigravity_mcp.tooling.ops_tools import ops_cleanup_tool
 
-        # Insert an expired LLM cache entry (expires_at in the past)
-        from datetime import datetime, timezone
         store._connect().execute(
             """INSERT OR REPLACE INTO llm_cache
                (prompt_hash, response_text, model_name, input_tokens, output_tokens, created_at, expires_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            ("expired-hash", "old response", "gemini", 100, 50, "2024-01-01T00:00:00+00:00", "2024-01-02T00:00:00+00:00"),
+            (
+                "expired-hash",
+                "old response",
+                "gemini",
+                100,
+                50,
+                "2024-01-01T00:00:00+00:00",
+                "2024-01-02T00:00:00+00:00",
+            ),
         )
         store._connect().commit()
 
@@ -267,8 +280,10 @@ class TestOpsTools:
     async def test_ops_check_health_returns_healthy_on_empty_db(self, store):
         from antigravity_mcp.tooling.ops_tools import ops_check_health_tool
 
-        with patch("antigravity_mcp.tooling.ops_tools.PipelineStateStore", return_value=store), \
-             patch("antigravity_mcp.tooling.ops_tools.TelegramAdapter") as mock_tg_cls:
+        with (
+            patch("antigravity_mcp.tooling.ops_tools.PipelineStateStore", return_value=store),
+            patch("antigravity_mcp.tooling.ops_tools.TelegramAdapter") as mock_tg_cls,
+        ):
             mock_tg = MagicMock()
             mock_tg.send_message = AsyncMock(return_value=True)
             mock_tg_cls.return_value = mock_tg
@@ -284,10 +299,12 @@ class TestOpsTools:
 
 # ─── Skill Integrator ─────────────────────────────────────────────────────────
 
+
 class TestSkillAdapter:
     @pytest.mark.asyncio
     async def test_invoke_unknown_skill_returns_error(self):
         from antigravity_mcp.integrations.skill_adapter import SkillAdapter
+
         adapter = SkillAdapter()
         result = await adapter.invoke("nonexistent_skill", {})
         assert result["status"] == "error"
@@ -296,6 +313,7 @@ class TestSkillAdapter:
     @pytest.mark.asyncio
     async def test_list_skills_returns_all_builtins(self):
         from antigravity_mcp.integrations.skill_adapter import SkillAdapter
+
         adapter = SkillAdapter()
         skills = adapter.list_skills()
         expected = {"summarize_category", "market_snapshot", "proofread", "brain_analysis", "sentiment_classify"}
@@ -304,6 +322,7 @@ class TestSkillAdapter:
     @pytest.mark.asyncio
     async def test_invoke_summarize_category_requires_category(self):
         from antigravity_mcp.integrations.skill_adapter import SkillAdapter
+
         adapter = SkillAdapter()
         result = await adapter.invoke("summarize_category", {})  # missing 'category'
         assert result["status"] == "error"

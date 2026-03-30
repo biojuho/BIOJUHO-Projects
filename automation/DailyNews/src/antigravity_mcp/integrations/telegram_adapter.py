@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -43,7 +43,7 @@ class TelegramAdapter:
         retryable: bool = False,
     ) -> bool:
         """Send an immediate error alert to Telegram when a pipeline stage fails."""
-        now_kst = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        now_kst = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         retry_tag = " [RETRYABLE]" if retryable else ""
         text = (
             f"<b>[ALERT] Pipeline Error{retry_tag}</b>\n"

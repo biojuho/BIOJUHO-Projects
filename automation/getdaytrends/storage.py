@@ -4,20 +4,21 @@ Notion + Google Sheets + SQLite 저장 라우터.
 Notion API 재시도 로직 (지수 백오프) 포함.
 """
 
-import sqlite3
 import time
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
+
+from loguru import logger as log
 
 from config import AppConfig
 from models import ScoredTrend, TweetBatch
-
-from loguru import logger as log
 
 # 저장 방식별 임포트
 try:
     from notion_client import Client as NotionClient
     from notion_client.errors import APIResponseError
+
     NOTION_AVAILABLE = True
 except ImportError:
     NOTION_AVAILABLE = False
@@ -74,10 +75,7 @@ def _retry_notion_call(
             last_exception = e
 
             if attempt >= max_retries:
-                log.error(
-                    f"Notion API 재시도 한도 초과 (HTTP {status}): "
-                    f"{max_retries + 1}회 시도 후 실패"
-                )
+                log.error(f"Notion API 재시도 한도 초과 (HTTP {status}): " f"{max_retries + 1}회 시도 후 실패")
                 raise
 
             # 429인 경우 Retry-After 헤더 확인
@@ -92,11 +90,10 @@ def _retry_notion_call(
             if retry_after and isinstance(retry_after, (int, float)):
                 delay = float(retry_after)
             else:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
 
             log.warning(
-                f"Notion API 에러 (HTTP {status}), "
-                f"{delay:.1f}초 후 재시도 ({attempt + 1}/{max_retries})..."
+                f"Notion API 에러 (HTTP {status}), " f"{delay:.1f}초 후 재시도 ({attempt + 1}/{max_retries})..."
             )
             time.sleep(delay)
 
@@ -104,21 +101,21 @@ def _retry_notion_call(
     if last_exception:
         raise last_exception
 
+
 try:
     import gspread
     from google.oauth2.service_account import Credentials
+
     GSPREAD_AVAILABLE = True
 except ImportError:
     GSPREAD_AVAILABLE = False
 
 
-
 # -- notion builder imports --
-from notion_builder import (  # noqa: F401
-    _notion_page_exists,
+from notion_builder import (
     _build_notion_body,
+    _notion_page_exists,
 )
-
 
 
 def save_to_notion(
@@ -175,9 +172,7 @@ def save_to_notion(
     if batch.thread:
         thread_text = "\n---\n".join(batch.thread.tweets)
         # Notion은 UTF-16 코드 유닛 기준 2000자 제한 (이모지=2유닛)
-        properties["쓰레드"] = {
-            "rich_text": [{"text": {"content": thread_text[:1900]}}]
-        }
+        properties["쓰레드"] = {"rich_text": [{"text": {"content": thread_text[:1900]}}]}
 
     # 본문 블록 생성
     body_blocks = _build_notion_body(batch, trend, image_url)
@@ -250,16 +245,19 @@ def save_to_content_hub(
     )
     if batch.viral_score > 0:
         meta_text += f" | QA: {batch.viral_score}"
-    blocks.append({
-        "object": "block",
-        "type": "callout",
-        "callout": {
-            "icon": {"type": "emoji", "emoji": platform_emoji},
-            "rich_text": [{"type": "text", "text": {"content": meta_text}}],
-            "color": {"x": "blue_background", "threads": "purple_background",
-                       "naver_blog": "green_background"}.get(platform, "gray_background"),
-        },
-    })
+    blocks.append(
+        {
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "icon": {"type": "emoji", "emoji": platform_emoji},
+                "rich_text": [{"type": "text", "text": {"content": meta_text}}],
+                "color": {"x": "blue_background", "threads": "purple_background", "naver_blog": "green_background"}.get(
+                    platform, "gray_background"
+                ),
+            },
+        }
+    )
 
     if platform == "x":
         # X 콘텐츠: 트윗 5종 + 장문 + 쓰레드
@@ -267,98 +265,147 @@ def save_to_content_hub(
 
     elif platform == "threads":
         # Threads 전용 바디
-        blocks.append({
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "🧵"},
-                "rich_text": [{"type": "text", "text": {"content":
-                    f"Threads 글감 — {batch.topic}\n"
-                    f"톤: friend-to-friend | 바이럴 점수: {trend.viral_potential}/100\n"
-                    "아래 포스트에서 마음에 드는 것을 복사해서 Threads에 올리세요"
-                }}],
-                "color": "purple_background",
-            },
-        })
+        blocks.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "🧵"},
+                    "rich_text": [
+                        {
+                            "type": "text",
+                            "text": {
+                                "content": f"Threads 글감 — {batch.topic}\n"
+                                f"톤: friend-to-friend | 바이럴 점수: {trend.viral_potential}/100\n"
+                                "아래 포스트에서 마음에 드는 것을 복사해서 Threads에 올리세요"
+                            },
+                        }
+                    ],
+                    "color": "purple_background",
+                },
+            }
+        )
         for post in batch.threads_posts:
-            blocks.append({
-                "object": "block",
-                "type": "heading_3",
-                "heading_3": {
-                    "rich_text": [{"type": "text", "text": {"content": f"💜 {post.tweet_type}"}}],
-                },
-            })
-            blocks.append({
-                "object": "block",
-                "type": "code",
-                "code": {
-                    "language": "plain text",
-                    "rich_text": [{"type": "text", "text": {"content": post.content[:1900]}}],
-                },
-            })
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "heading_3",
+                    "heading_3": {
+                        "rich_text": [{"type": "text", "text": {"content": f"💜 {post.tweet_type}"}}],
+                    },
+                }
+            )
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "code",
+                    "code": {
+                        "language": "plain text",
+                        "rich_text": [{"type": "text", "text": {"content": post.content[:1900]}}],
+                    },
+                }
+            )
 
     elif platform == "naver_blog":
         # 블로그 전용 바디 (이미 _build_notion_body에 포함되지만 독립 페이지 시 전용 구성)
-        blocks.append({
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"type": "emoji", "emoji": "📝"},
-                "rich_text": [{"type": "text", "text": {"content":
-                    f"네이버 블로그용 글감 — {batch.topic}\n"
-                    f"바이럴 점수: {trend.viral_potential}/100 | 카테고리: {getattr(trend, 'category', '기타')}\n"
-                    "아래 글감을 네이버 블로그에 복사하여 발행하세요"
-                }}],
-                "color": "green_background",
-            },
-        })
+        blocks.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "📝"},
+                    "rich_text": [
+                        {
+                            "type": "text",
+                            "text": {
+                                "content": f"네이버 블로그용 글감 — {batch.topic}\n"
+                                f"바이럴 점수: {trend.viral_potential}/100 | 카테고리: {getattr(trend, 'category', '기타')}\n"
+                                "아래 글감을 네이버 블로그에 복사하여 발행하세요"
+                            },
+                        }
+                    ],
+                    "color": "green_background",
+                },
+            }
+        )
         for post in batch.blog_posts:
             seo_kws = getattr(post, "seo_keywords", [])
             if seo_kws:
-                blocks.append({
-                    "object": "block",
-                    "type": "callout",
-                    "callout": {
-                        "icon": {"type": "emoji", "emoji": "🔑"},
-                        "rich_text": [{"type": "text", "text": {"content":
-                            f"SEO 키워드: {', '.join(seo_kws)}\n글자 수: {post.char_count:,}자"
-                        }}],
-                        "color": "purple_background",
-                    },
-                })
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "callout",
+                        "callout": {
+                            "icon": {"type": "emoji", "emoji": "🔑"},
+                            "rich_text": [
+                                {
+                                    "type": "text",
+                                    "text": {
+                                        "content": f"SEO 키워드: {', '.join(seo_kws)}\n글자 수: {post.char_count:,}자"
+                                    },
+                                }
+                            ],
+                            "color": "purple_background",
+                        },
+                    }
+                )
             # 블로그 본문 렌더링
             for line in post.content.split("\n"):
                 stripped = line.strip()
                 if not stripped:
                     continue
                 if stripped.startswith("# "):
-                    blocks.append({"object": "block", "type": "heading_1",
-                        "heading_1": {"rich_text": [{"type": "text", "text": {"content": stripped[2:]}}]}})
+                    blocks.append(
+                        {
+                            "object": "block",
+                            "type": "heading_1",
+                            "heading_1": {"rich_text": [{"type": "text", "text": {"content": stripped[2:]}}]},
+                        }
+                    )
                 elif stripped.startswith("## "):
-                    blocks.append({"object": "block", "type": "heading_2",
-                        "heading_2": {"rich_text": [{"type": "text", "text": {"content": stripped[3:]}}]}})
+                    blocks.append(
+                        {
+                            "object": "block",
+                            "type": "heading_2",
+                            "heading_2": {"rich_text": [{"type": "text", "text": {"content": stripped[3:]}}]},
+                        }
+                    )
                 elif stripped.startswith("- "):
-                    blocks.append({"object": "block", "type": "bulleted_list_item",
-                        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": stripped[2:][:1900]}}]}})
+                    blocks.append(
+                        {
+                            "object": "block",
+                            "type": "bulleted_list_item",
+                            "bulleted_list_item": {
+                                "rich_text": [{"type": "text", "text": {"content": stripped[2:][:1900]}}]
+                            },
+                        }
+                    )
                 elif stripped.startswith("---"):
                     blocks.append({"object": "block", "type": "divider", "divider": {}})
                 else:
                     text = stripped
                     while text:
                         chunk, text = text[:1900], text[1900:]
-                        blocks.append({"object": "block", "type": "paragraph",
-                            "paragraph": {"rich_text": [{"type": "text", "text": {"content": chunk}}]}})
+                        blocks.append(
+                            {
+                                "object": "block",
+                                "type": "paragraph",
+                                "paragraph": {"rich_text": [{"type": "text", "text": {"content": chunk}}]},
+                            }
+                        )
 
     # Notion 100블록 제한 방지
     if len(blocks) > 100:
         blocks = blocks[:99]
-        blocks.append({
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {
-                "rich_text": [{"type": "text", "text": {"content": "⚠️ 100블록 제한으로 일부 내용 생략"}}],
-            },
-        })
+        blocks.append(
+            {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [{"type": "text", "text": {"content": "⚠️ 100블록 제한으로 일부 내용 생략"}}],
+                },
+            }
+        )
 
     try:
         _retry_notion_call(
@@ -395,9 +442,17 @@ def save_to_google_sheets(
 
         if sheet.row_count == 0 or not sheet.cell(1, 1).value:
             headers = [
-                "생성시각", "순위", "주제",
-                "공감유도형", "꿀팁형", "찬반질문형", "명언형", "유머밈형",
-                "상태", "바이럴점수", "쓰레드",
+                "생성시각",
+                "순위",
+                "주제",
+                "공감유도형",
+                "꿀팁형",
+                "찬반질문형",
+                "명언형",
+                "유머밈형",
+                "상태",
+                "바이럴점수",
+                "쓰레드",
             ]
             sheet.append_row(headers, value_input_option="USER_ENTERED")
 
@@ -429,5 +484,3 @@ def save_to_google_sheets(
     except Exception as e:
         log.error(f"Google Sheets 저장 실패: {e}")
         return False
-
-

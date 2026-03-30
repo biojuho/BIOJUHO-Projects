@@ -52,9 +52,7 @@ def gather_stats(db_path: Path) -> dict:
         tables = []
         total_rows = 0
         for table_name in table_names:
-            row_count = cursor.execute(
-                f'SELECT COUNT(*) FROM "{table_name}"'
-            ).fetchone()[0]
+            row_count = cursor.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
             tables.append({"name": table_name, "rows": row_count})
             total_rows += row_count
 

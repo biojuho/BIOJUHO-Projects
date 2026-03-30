@@ -4,12 +4,10 @@ import argparse
 import asyncio
 import json
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 from dateutil import parser as date_parser
 from notion_client import AsyncClient
-
 from runtime import (
     AlreadyRunningError,
     JobLock,
@@ -97,7 +95,7 @@ async def upload_to_notion(
     nlm_result: dict | None = None,
 ) -> dict[str, Any]:
     summary, insight_text, x_posts = normalize_analysis(analysis)
-    description = f"[Summary]\n" + "\n".join(summary[:3])
+    description = "[Summary]\n" + "\n".join(summary[:3])
     if insight_text:
         description += f"\n\n[Insight]\n{insight_text}"
 
@@ -110,18 +108,24 @@ async def upload_to_notion(
     ]
 
     if canva_result and canva_result.get("edit_url"):
-        children.insert(0, {
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"emoji": "🎨"},
-                "color": "purple_background",
-                "rich_text": [
-                    {"type": "text", "text": {"content": "Canva 인포그래픽: "}, "annotations": {"bold": True}},
-                    {"type": "text", "text": {"content": "Canva에서 편집하기", "link": {"url": canva_result["edit_url"]}}},
-                ],
+        children.insert(
+            0,
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"emoji": "🎨"},
+                    "color": "purple_background",
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Canva 인포그래픽: "}, "annotations": {"bold": True}},
+                        {
+                            "type": "text",
+                            "text": {"content": "Canva에서 편집하기", "link": {"url": canva_result["edit_url"]}},
+                        },
+                    ],
+                },
             },
-        })
+        )
 
     for item in summary:
         children.append(
@@ -258,7 +262,9 @@ async def process_category(
         try:
             entries = await fetch_feed_entries(source_url)
         except Exception as exc:
-            logger.error("fetch", "failed", "source fetch failed", category=category, source=source_name, error=str(exc))
+            logger.error(
+                "fetch", "failed", "source fetch failed", category=category, source=source_name, error=str(exc)
+            )
             continue
 
         for entry in entries:
@@ -303,14 +309,19 @@ async def process_category(
     if len(all_articles) > 1:
         try:
             from shared.embeddings import deduplicate_texts
+
             titles = [a["title"] for a in all_articles]
             unique_indices = deduplicate_texts(titles, threshold=0.82)
             removed = len(all_articles) - len(unique_indices)
             if removed:
                 all_articles = [all_articles[i] for i in unique_indices]
                 logger.info(
-                    "dedup", "success", "semantic dedup applied",
-                    category=category, removed=removed, remaining=len(all_articles),
+                    "dedup",
+                    "success",
+                    "semantic dedup applied",
+                    category=category,
+                    removed=removed,
+                    remaining=len(all_articles),
                 )
         except Exception as exc:
             logger.debug("dedup", "skipped", "embedding dedup unavailable", error=str(exc))
@@ -354,7 +365,9 @@ async def process_category(
             )
             if nlm_result:
                 logger.info(
-                    "notebooklm", "success", "deep research complete",
+                    "notebooklm",
+                    "success",
+                    "deep research complete",
                     category=category,
                     notebook_id=nlm_result.get("notebook_id", "")[:8],
                     insights=len(nlm_result.get("research_insights", [])),
@@ -363,11 +376,13 @@ async def process_category(
                 if analysis and nlm_result.get("research_insights"):
                     existing_insights = analysis.get("insights") or []
                     for ri in nlm_result["research_insights"][:2]:
-                        existing_insights.append({
-                            "topic": "Deep Research",
-                            "insight": ri[:300],
-                            "importance": "NotebookLM",
-                        })
+                        existing_insights.append(
+                            {
+                                "topic": "Deep Research",
+                                "insight": ri[:300],
+                                "importance": "NotebookLM",
+                            }
+                        )
                     analysis["insights"] = existing_insights
         except Exception as exc:
             logger.warning("notebooklm", "failed", "deep research failed", category=category, error=str(exc))
@@ -404,7 +419,9 @@ async def process_category(
                 90,
             )
             if canva_result:
-                logger.info("canva", "success", "design imported", category=category, design_id=canva_result.get("design_id"))
+                logger.info(
+                    "canva", "success", "design imported", category=category, design_id=canva_result.get("design_id")
+                )
             else:
                 logger.warning("canva", "skipped", "import returned no result", category=category)
         except Exception as exc:
@@ -468,8 +485,10 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
 
     try:
         from settings import CANVA_CLIENT_ID, CANVA_REFRESH_TOKEN
+
         if CANVA_CLIENT_ID and CANVA_REFRESH_TOKEN:
             import canva_generator
+
             canva_generator.get_access_token()
             canva = canva_generator
             logger.info("bootstrap", "success", "canva generator initialized")
@@ -484,6 +503,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
     notebooklm = None
     try:
         from antigravity_mcp.integrations.notebooklm_adapter import get_notebooklm_adapter
+
         _nlm = get_notebooklm_adapter()
         if _nlm.is_available:
             nlm_ok = await _nlm.check_availability()
@@ -555,6 +575,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
             # [v2.0] Heartbeat: 파이프라인 성공 시 Discord/Telegram 알림
             try:
                 from shared.notifications import Notifier
+
                 _notifier = Notifier.from_env()
                 if _notifier.has_channels:
                     _notifier.send_heartbeat(
@@ -582,6 +603,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
         # [v2.0] 에러 알림: 파이프라인 실패 시 즉시 Discord/Telegram 전송
         try:
             from shared.notifications import Notifier
+
             _notifier = Notifier.from_env()
             if _notifier.has_channels:
                 _notifier.send_error(

@@ -22,7 +22,7 @@ Usage:
 import os
 import sqlite3
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Literal
 
 WORKSPACE = Path(__file__).resolve().parents[2]
 
@@ -49,7 +49,7 @@ def get_backend() -> Literal["sqlite", "postgresql"]:
     return "sqlite"
 
 
-def get_sqlite_connection(db_name: str, path: Optional[Path] = None) -> sqlite3.Connection:
+def get_sqlite_connection(db_name: str, path: Path | None = None) -> sqlite3.Connection:
     """SQLite 연결을 반환합니다.
 
     Args:

@@ -8,11 +8,11 @@ import asyncio
 import dataclasses
 import re
 import sys
-import time
 from datetime import datetime
-from typing import Any
 
 import schedule
+from loguru import logger as log
+from shared.llm import get_client
 
 from config import AppConfig
 from db import (
@@ -27,10 +27,7 @@ from db import (
 )
 from generator import generate_for_trend_async, regenerate_content_groups
 from models import GeneratedTweet, RunResult, TweetBatch
-from shared.llm import get_client
 from storage import save_to_content_hub, save_to_google_sheets, save_to_notion
-
-from loguru import logger as log
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
@@ -100,6 +97,7 @@ def _batch_from_cache(topic: str, rows: list[dict]) -> TweetBatch:
         viral_score=0,
     )
 
+
 async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
     """Step 3: 트윗/쓰레드 전체 병렬 생성 (캐시 우선)."""
     print(f"\n[3/4] 트윗 병렬 생성 중... ({len(quality_trends)}개 동시)")
@@ -165,7 +163,9 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
             effective_config = dataclasses.replace(config, enable_long_form=False)
 
         # 기본 생성
-        primary = await generate_for_trend_async(trend, effective_config, client, recent_tweets, golden_refs, pattern_weights)
+        primary = await generate_for_trend_async(
+            trend, effective_config, client, recent_tweets, golden_refs, pattern_weights
+        )
         if primary is None:
             return primary
 
@@ -181,7 +181,9 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
                     f"{group}={details.get(group, {}).get('total', '?')}/{details.get(group, {}).get('threshold', '?')}"
                     for group in failed_groups
                 )
-                log.warning(f"  [QA 미달] '{trend.keyword}' → {failed_summary} (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성")
+                log.warning(
+                    f"  [QA 미달] '{trend.keyword}' → {failed_summary} (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성"
+                )
                 primary = await regenerate_content_groups(
                     primary,
                     trend,
@@ -243,7 +245,9 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
                 if any_failed and getattr(effective_config, "hallucination_zero_tolerance", True):
                     halluc_groups = [gn for gn, r in fc_results.items() if r.hallucinated_claims > 0]
                     if halluc_groups:
-                        log.warning(f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}")
+                        log.warning(
+                            f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}"
+                        )
                         primary = await regenerate_content_groups(
                             primary,
                             trend,
@@ -283,7 +287,7 @@ async def _step_save(
     ext_pairs: list[tuple] = []
     failed_saves: list[str] = []
 
-    for trend, batch in zip(quality_trends, batch_results):
+    for trend, batch in zip(quality_trends, batch_results, strict=False):
         # safety_flag 트렌드 스킵
         if config.enable_sentiment_filter and getattr(trend, "safety_flag", False):
             log.warning(f"유해 트렌드 스킵: '{trend.keyword}' (sentiment={trend.sentiment})")
@@ -309,16 +313,14 @@ async def _step_save(
             continue
 
         run.tweets_generated += (
-            len(batch.tweets)
-            + len(batch.long_posts)
-            + len(batch.threads_posts)
-            + len(getattr(batch, "blog_posts", []))
+            len(batch.tweets) + len(batch.long_posts) + len(batch.threads_posts) + len(getattr(batch, "blog_posts", []))
         )
 
         # 생성물 다양성 QA
         if len(batch.tweets) >= 2:
             try:
-                from shared.embeddings import embed_texts as _qa_embed, cosine_similarity as _qa_cos
+                from shared.embeddings import cosine_similarity as _qa_cos
+                from shared.embeddings import embed_texts as _qa_embed
 
                 _qa_contents = [t.content for t in batch.tweets]
                 _qa_vectors = _qa_embed(_qa_contents, task_type="SEMANTIC_SIMILARITY")
@@ -369,6 +371,7 @@ async def _step_save(
                 trend_id = await save_trend(conn, trend, run_row_id, bucket=config.cache_volume_bucket)
                 try:
                     from shared.business_metrics import biz
+
                     biz.trend_scored()
                 except ImportError:
                     pass

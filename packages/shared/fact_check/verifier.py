@@ -1,13 +1,14 @@
 """Cross-reference verification of claims against source corpus."""
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
 
 from shared.fact_check.claim_extractor import (
+    _NUMBER_PATTERN,
     Claim,
     ClaimType,
-    _NUMBER_PATTERN,
     extract_claims,
 )
 from shared.fact_check.credibility import compute_source_credibility_score
@@ -16,10 +17,16 @@ from shared.fact_check.credibility import compute_source_credibility_score
 def _normalize_number(text: str) -> float | None:
     text = text.strip().replace(",", "")
     multipliers = {
-        "만": 10_000, "억": 100_000_000, "조": 1_000_000_000_000,
-        "천": 1_000, "백": 100,
-        "k": 1_000, "m": 1_000_000, "b": 1_000_000_000,
-        "trillion": 1_000_000_000_000, "billion": 1_000_000_000,
+        "만": 10_000,
+        "억": 100_000_000,
+        "조": 1_000_000_000_000,
+        "천": 1_000,
+        "백": 100,
+        "k": 1_000,
+        "m": 1_000_000,
+        "b": 1_000_000_000,
+        "trillion": 1_000_000_000_000,
+        "billion": 1_000_000_000,
         "million": 1_000_000,
     }
     m = re.match(r"([+-]?\d+(?:\.\d+)?)\s*(.+)?", text)
@@ -208,9 +215,7 @@ def verify_text_against_sources(
             verified += 1
         elif claim.claim_type in (ClaimType.QUOTE, ClaimType.ENTITY):
             hallucinated += 1
-            result.issues.append(
-                f"[Hallucination] {claim.claim_type.value}: '{claim.value}'"
-            )
+            result.issues.append(f"[Hallucination] {claim.claim_type.value}: '{claim.value}'")
         elif claim.claim_type == ClaimType.NUMBER:
             unverified += 1
             result.issues.append(f"[Unverified number] '{claim.value}'")
@@ -225,9 +230,6 @@ def verify_text_against_sources(
     if result.total_claims > 0:
         result.accuracy_score = round(verified / result.total_claims, 2)
 
-    result.passed = (
-        result.hallucinated_claims == 0
-        and result.accuracy_score >= min_accuracy
-    )
+    result.passed = result.hallucinated_claims == 0 and result.accuracy_score >= min_accuracy
 
     return result

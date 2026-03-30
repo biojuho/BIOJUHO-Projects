@@ -2,9 +2,7 @@
 
 import asyncio
 import sys
-import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -135,12 +133,8 @@ class TestImageGenerator:
     def test_validate_url_cdn(self):
         from services.image_generator import ImageGenerator
 
-        assert ImageGenerator.validate_image_url(
-            "https://storage.googleapis.com/bucket/image"
-        )
-        assert ImageGenerator.validate_image_url(
-            "https://firebasestorage.googleapis.com/v0/b/bucket/image.jpg"
-        )
+        assert ImageGenerator.validate_image_url("https://storage.googleapis.com/bucket/image")
+        assert ImageGenerator.validate_image_url("https://firebasestorage.googleapis.com/v0/b/bucket/image.jpg")
 
     def test_make_filename(self):
         from services.image_generator import ImageGenerator

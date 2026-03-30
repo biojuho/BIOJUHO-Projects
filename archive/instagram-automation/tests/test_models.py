@@ -1,8 +1,6 @@
 """Basic tests for Instagram automation models."""
 
-from datetime import datetime
-
-from models import InstagramPost, PostInsights, PostType, PostStatus, DMTriggerRule
+from models import DMTriggerRule, InstagramPost, PostInsights, PostStatus, PostType
 
 
 def test_instagram_post_full_caption():

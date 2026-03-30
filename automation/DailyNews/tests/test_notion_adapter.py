@@ -3,7 +3,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from antigravity_mcp.integrations.notion_adapter import NotionAdapter
 
 

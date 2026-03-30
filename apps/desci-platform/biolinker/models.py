@@ -2,10 +2,11 @@
 BioLinker - RFP Document Models
 정부 과제 공고 및 분석 결과 데이터 스키마
 """
-from pydantic import BaseModel, Field
+
 from datetime import datetime
-from typing import Optional
 from enum import Enum
+
+from pydantic import BaseModel, Field
 
 
 class FitGrade(str, Enum):
@@ -18,33 +19,36 @@ class FitGrade(str, Enum):
 
 class RFPDocument(BaseModel):
     """정부 과제 공고 문서 스키마"""
-    id: Optional[str] = None
+
+    id: str | None = None
     title: str = Field(..., description="공고명")
     source: str = Field(..., description="출처 (KDDF, TIPS, KEIT 등)")
-    deadline: Optional[datetime] = Field(None, description="마감일")
-    budget_range: Optional[str] = Field(None, description="지원 규모")
-    min_trl: Optional[int] = Field(None, description="최소 TRL")
-    max_trl: Optional[int] = Field(None, description="최대 TRL")
+    deadline: datetime | None = Field(None, description="마감일")
+    budget_range: str | None = Field(None, description="지원 규모")
+    min_trl: int | None = Field(None, description="최소 TRL")
+    max_trl: int | None = Field(None, description="최대 TRL")
     body_text: str = Field(..., description="본문 전체")
     keywords: list[str] = Field(default_factory=list, description="자동 추출된 핵심 키워드")
     eligibility: list[str] = Field(default_factory=list, description="지원 자격 조건")
     required_docs: list[str] = Field(default_factory=list, description="필수 제출 서류")
-    url: Optional[str] = None
+    url: str | None = None
     created_at: datetime = Field(default_factory=datetime.now)
 
 
 class UserProfile(BaseModel):
     """사용자 기술 프로필"""
+
     company_name: str = Field(..., description="회사명")
     tech_keywords: list[str] = Field(..., description="보유 기술 키워드")
     tech_description: str = Field(..., description="회사 역량 설명")
-    company_size: Optional[str] = Field(None, description="기업 규모 (중소기업, 벤처 등)")
-    established_year: Optional[int] = Field(None, description="설립 연도")
-    current_trl: Optional[str] = Field(None, description="현재 기술 성숙도 (TRL 1-9)")
+    company_size: str | None = Field(None, description="기업 규모 (중소기업, 벤처 등)")
+    established_year: int | None = Field(None, description="설립 연도")
+    current_trl: str | None = Field(None, description="현재 기술 성숙도 (TRL 1-9)")
 
 
 class AnalysisResult(BaseModel):
     """적합도 분석 결과 스키마"""
+
     fit_score: int = Field(..., ge=0, le=100, description="적합도 점수 (0-100)")
     fit_grade: FitGrade = Field(..., description="적합도 등급 (S/A/B/C/D)")
     match_summary: list[str] = Field(..., description="매칭 근거 (3개)")
@@ -56,22 +60,25 @@ class AnalysisResult(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     """분석 요청"""
+
     rfp_text: str = Field(..., description="공고문 텍스트")
-    rfp_url: Optional[str] = Field(None, description="공고 URL")
+    rfp_url: str | None = Field(None, description="공고 URL")
     user_profile: UserProfile
 
 
 class AnalyzeResponse(BaseModel):
     """분석 응답"""
+
     rfp: RFPDocument
     result: AnalysisResult
 
 
 class Paper(BaseModel):
     """사용자가 업로드한 논문"""
+
     id: str = Field(..., description="논문 ID")
     title: str = Field(..., description="논문 제목")
-    abstract: Optional[str] = Field(None, description="초록")
+    abstract: str | None = Field(None, description="초록")
     cid: str = Field(..., description="IPFS CID")
     ipfs_url: str = Field(..., description="IPFS Gateway URL")
     uploaded_at: datetime = Field(default_factory=datetime.now)
@@ -80,12 +87,12 @@ class Paper(BaseModel):
 
 class VCFirm(BaseModel):
     """벤처 캐피탈(VC) 정보"""
+
     id: str = Field(..., description="VC ID")
     name: str = Field(..., description="VC 이름")
     country: str = Field("KR", description="국가 (KR, US, Global)")
-    website: Optional[str] = Field(None, description="웹사이트 URL")
+    website: str | None = Field(None, description="웹사이트 URL")
     investment_thesis: str = Field(..., description="투자 철학 및 관심 분야 (AI 검색용)")
     preferred_stages: list[str] = Field(default_factory=list, description="선호 투자 단계 (Seed, Series A 등)")
     portfolio_keywords: list[str] = Field(default_factory=list, description="포트폴리오 키워드 (Bio, AI, SaaS 등)")
-    contact_email: Optional[str] = Field(None, description="연락처")
-
+    contact_email: str | None = Field(None, description="연락처")

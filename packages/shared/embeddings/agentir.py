@@ -34,7 +34,6 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 try:
     from loguru import logger as log
@@ -67,14 +66,16 @@ _CACHE_MAX_SIZE = 300
 
 class RetrievalMode(Enum):
     """Agent retrieval modes for different use cases."""
-    REASONING_AWARE = "reasoning_aware"   # reasoning trace + query (AgentIR 방식)
-    STANDARD = "standard"                  # query only (기존 방식)
-    HYBRID = "hybrid"                      # AgentIR + Gemini 앙상블
+
+    REASONING_AWARE = "reasoning_aware"  # reasoning trace + query (AgentIR 방식)
+    STANDARD = "standard"  # query only (기존 방식)
+    HYBRID = "hybrid"  # AgentIR + Gemini 앙상블
 
 
 @dataclass
 class ReasoningQuery:
     """Structured query with reasoning context for AgentIR."""
+
     query: str
     reasoning: str = ""
     task_context: str = ""
@@ -103,6 +104,7 @@ class ReasoningQuery:
 @dataclass
 class RetrievalResult:
     """검색 결과 with 메타데이터."""
+
     text: str
     score: float
     index: int
@@ -114,6 +116,7 @@ class RetrievalResult:
 @dataclass
 class AgentIRStats:
     """AgentIR 사용 통계."""
+
     total_calls: int = 0
     cache_hits: int = 0
     api_calls: int = 0
@@ -130,10 +133,7 @@ class AgentIRStats:
         else:
             self.api_calls += 1
         # Running average
-        self.avg_latency_ms = (
-            (self.avg_latency_ms * (self.total_calls - 1) + latency_ms)
-            / self.total_calls
-        )
+        self.avg_latency_ms = (self.avg_latency_ms * (self.total_calls - 1) + latency_ms) / self.total_calls
 
     def summary(self) -> dict:
         return {
@@ -166,15 +166,15 @@ def _evict_expired():
         del _CACHE[k]
 
 
-
 # ══════════════════════════════════════════════════════
 #  Core Embedding API
 # ══════════════════════════════════════════════════════
 
+
 def embed_with_reasoning(
     queries: list[ReasoningQuery],
     mode: RetrievalMode = RetrievalMode.REASONING_AWARE,
-) -> Optional[list[list[float]]]:
+) -> list[list[float]] | None:
     """
     Reasoning-aware 임베딩: 에이전트의 추론 trace와 쿼리를 함께 벡터화.
 
@@ -226,9 +226,7 @@ def embed_with_reasoning(
     if vectors is None:
         # Fallback: Gemini Embedding 2
         log.warning("[AgentIR] HF API 실패 → Gemini Embedding 2 폴백")
-        vectors = _embed_via_gemini_fallback(
-            [queries[i].to_standard_query() for i in miss_indices]
-        )
+        vectors = _embed_via_gemini_fallback([queries[i].to_standard_query() for i in miss_indices])
         if vectors is None:
             _stats.record((time.time() - start_time) * 1000, cache_hit=False, fallback=True)
             return None
@@ -237,7 +235,7 @@ def embed_with_reasoning(
         _stats.record((time.time() - start_time) * 1000, cache_hit=False)
 
     # 캐시 저장 + 결과 매핑
-    for idx, vec in zip(miss_indices, vectors):
+    for idx, vec in zip(miss_indices, vectors, strict=False):
         key = _cache_key(texts[idx])
         _CACHE[key] = (now, vec)
         results[idx] = vec
@@ -245,27 +243,24 @@ def embed_with_reasoning(
     # 캐시 크기 제한
     if len(_CACHE) > _CACHE_MAX_SIZE:
         sorted_keys = sorted(_CACHE, key=lambda k: _CACHE[k][0])
-        for k in sorted_keys[:len(_CACHE) - _CACHE_MAX_SIZE]:
+        for k in sorted_keys[: len(_CACHE) - _CACHE_MAX_SIZE]:
             del _CACHE[k]
 
-    log.debug(
-        f"[AgentIR] {len(miss_texts)}개 임베딩 완료 "
-        f"(mode={mode.value}, cache_hits={cache_hits})"
-    )
+    log.debug(f"[AgentIR] {len(miss_texts)}개 임베딩 완료 " f"(mode={mode.value}, cache_hits={cache_hits})")
     return results  # type: ignore
 
 
 async def embed_with_reasoning_async(
     queries: list[ReasoningQuery],
     mode: RetrievalMode = RetrievalMode.REASONING_AWARE,
-) -> Optional[list[list[float]]]:
+) -> list[list[float]] | None:
     """비동기 reasoning-aware 임베딩."""
     return await asyncio.to_thread(embed_with_reasoning, queries, mode)
 
 
 def embed_documents(
     documents: list[str],
-) -> Optional[list[list[float]]]:
+) -> list[list[float]] | None:
     """
     문서 임베딩 (패시지/코퍼스용). Reasoning prefix 없이 임베딩.
 
@@ -303,7 +298,7 @@ def embed_documents(
         if vectors is None:
             return None
 
-    for idx, vec in zip(miss_indices, vectors):
+    for idx, vec in zip(miss_indices, vectors, strict=False):
         key = _cache_key(f"doc:{documents[idx]}")
         _CACHE[key] = (now, vec)
         results[idx] = vec
@@ -313,7 +308,7 @@ def embed_documents(
 
 async def embed_documents_async(
     documents: list[str],
-) -> Optional[list[list[float]]]:
+) -> list[list[float]] | None:
     """비동기 문서 임베딩."""
     return await asyncio.to_thread(embed_documents, documents)
 
@@ -321,6 +316,7 @@ async def embed_documents_async(
 # ══════════════════════════════════════════════════════
 #  Backend Implementations
 # ══════════════════════════════════════════════════════
+
 
 def _normalize_vector(vec: list[float]) -> list[float]:
     """L2 정규화. [QA 수정] 헬퍼 분리."""
@@ -347,7 +343,7 @@ def _parse_hf_response(result: list) -> list[list[float]]:
     return vectors
 
 
-def _embed_via_hf_api(texts: list[str]) -> Optional[list[list[float]]]:
+def _embed_via_hf_api(texts: list[str]) -> list[list[float]] | None:
     """
     HuggingFace Serverless Inference API를 통한 임베딩.
 
@@ -395,10 +391,11 @@ def _embed_via_hf_api(texts: list[str]) -> Optional[list[list[float]]]:
         return None
 
 
-def _embed_via_gemini_fallback(texts: list[str]) -> Optional[list[list[float]]]:
+def _embed_via_gemini_fallback(texts: list[str]) -> list[list[float]] | None:
     """Gemini Embedding 2를 폴백으로 사용."""
     try:
         from shared.embeddings.core import embed_texts
+
         return embed_texts(texts, task_type="RETRIEVAL_QUERY")
     except Exception as e:
         log.warning(f"[AgentIR] Gemini 폴백도 실패: {e}")
@@ -409,11 +406,12 @@ def _embed_via_gemini_fallback(texts: list[str]) -> Optional[list[list[float]]]:
 #  Retrieval (Search) API
 # ══════════════════════════════════════════════════════
 
+
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     """코사인 유사도 (0.0 ~ 1.0)."""
     if len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
     if norm_a == 0 or norm_b == 0:
@@ -424,7 +422,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 def search(
     query: ReasoningQuery,
     documents: list[str],
-    doc_vectors: Optional[list[list[float]]] = None,
+    doc_vectors: list[list[float]] | None = None,
     top_k: int = 5,
     mode: RetrievalMode = RetrievalMode.REASONING_AWARE,
     threshold: float = 0.0,
@@ -486,8 +484,7 @@ def search(
     ]
 
     log.debug(
-        f"[AgentIR 검색] top-{top_k} 완료 "
-        f"(mode={mode.value}, latency={latency:.0f}ms, results={len(results)})"
+        f"[AgentIR 검색] top-{top_k} 완료 " f"(mode={mode.value}, latency={latency:.0f}ms, results={len(results)})"
     )
     return results
 
@@ -495,24 +492,24 @@ def search(
 async def search_async(
     query: ReasoningQuery,
     documents: list[str],
-    doc_vectors: Optional[list[list[float]]] = None,
+    doc_vectors: list[list[float]] | None = None,
     top_k: int = 5,
     mode: RetrievalMode = RetrievalMode.REASONING_AWARE,
     threshold: float = 0.0,
 ) -> list[RetrievalResult]:
     """비동기 reasoning-aware 검색."""
-    return await asyncio.to_thread(
-        search, query, documents, doc_vectors, top_k, mode, threshold
-    )
+    return await asyncio.to_thread(search, query, documents, doc_vectors, top_k, mode, threshold)
 
 
 # ══════════════════════════════════════════════════════
 #  Index Management (Phase 3)
 # ══════════════════════════════════════════════════════
 
+
 @dataclass
 class VectorIndex:
     """인메모리 벡터 인덱스 with 영속성 지원."""
+
     name: str
     documents: list[str] = field(default_factory=list)
     vectors: list[list[float]] = field(default_factory=list)
@@ -524,7 +521,7 @@ class VectorIndex:
         self,
         documents: list[str],
         vectors: list[list[float]],
-        metadata: Optional[list[dict]] = None,
+        metadata: list[dict] | None = None,
     ) -> int:
         """문서 + 벡터 추가. 추가된 수 반환."""
         if len(documents) != len(vectors):
@@ -582,9 +579,9 @@ class VectorIndex:
         log.info(f"[AgentIR] 인덱스 '{self.name}' 저장: {path} ({len(self.documents)}개 문서)")
 
     @classmethod
-    def load(cls, path: str) -> "VectorIndex":
+    def load(cls, path: str) -> VectorIndex:
         """JSON 파일에서 인덱스 로드."""
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         idx = cls(
             name=data["name"],
@@ -605,9 +602,11 @@ class VectorIndex:
 #  A/B Testing (Phase 3)
 # ══════════════════════════════════════════════════════
 
+
 @dataclass
 class ABTestResult:
     """A/B 테스트 개별 결과."""
+
     query: str
     reasoning_aware_scores: list[float]
     standard_scores: list[float]
@@ -619,7 +618,7 @@ class ABTestResult:
 def ab_test_search(
     queries: list[ReasoningQuery],
     documents: list[str],
-    doc_vectors: Optional[list[list[float]]] = None,
+    doc_vectors: list[list[float]] | None = None,
     top_k: int = 5,
 ) -> dict:
     """
@@ -697,6 +696,7 @@ def ab_test_search(
 #  Monitoring & Diagnostics
 # ══════════════════════════════════════════════════════
 
+
 def get_stats() -> dict:
     """AgentIR 사용 통계 반환."""
     return _stats.summary()
@@ -732,6 +732,7 @@ def health_check() -> dict:
     # Gemini fallback 테스트
     try:
         from shared.embeddings.core import embed_texts
+
         test_vec = embed_texts(["health check"], task_type="RETRIEVAL_QUERY")
         status["gemini_fallback_healthy"] = test_vec is not None
     except Exception:

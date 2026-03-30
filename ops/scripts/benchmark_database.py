@@ -21,18 +21,17 @@ Author: Claude Code
 Date: 2026-03-22
 """
 
+import argparse
 import os
 import sys
 import time
-import argparse
-import sqlite3
-from datetime import datetime
-from typing import Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'AgriGuard', 'backend'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "AgriGuard", "backend"))
 
 
 class DatabaseBenchmark:
@@ -46,7 +45,7 @@ class DatabaseBenchmark:
 
     def time_operation(self, name: str, operation, iterations: int = 1):
         """Time a database operation"""
-        print(f"  ⏱️  {name}... ", end='', flush=True)
+        print(f"  ⏱️  {name}... ", end="", flush=True)
 
         start = time.time()
         for _ in range(iterations):
@@ -59,48 +58,59 @@ class DatabaseBenchmark:
 
     def test_single_insert(self):
         """Test single row insert performance"""
+
         def insert():
             with self.engine.connect() as conn:
-                conn.execute(text("""
+                conn.execute(
+                    text("""
                     INSERT INTO users (username, email, password_hash, role, is_active)
                     VALUES (:username, :email, :password, :role, :active)
-                """), {
-                    "username": f"bench_user_{time.time()}",
-                    "email": f"bench_{time.time()}@test.com",
-                    "password": "hashed_password",
-                    "role": "farmer",
-                    "active": True
-                })
+                """),
+                    {
+                        "username": f"bench_user_{time.time()}",
+                        "email": f"bench_{time.time()}@test.com",
+                        "password": "hashed_password",
+                        "role": "farmer",
+                        "active": True,
+                    },
+                )
                 conn.commit()
 
         self.time_operation("Single INSERT", insert, iterations=10)
 
     def test_batch_insert(self):
         """Test batch insert performance (100 rows)"""
+
         def batch_insert():
             with self.engine.connect() as conn:
                 values = []
                 for i in range(100):
                     ts = time.time() + i
-                    values.append({
-                        "username": f"batch_user_{ts}",
-                        "email": f"batch_{ts}@test.com",
-                        "password": "hashed_password",
-                        "role": "farmer",
-                        "active": True
-                    })
+                    values.append(
+                        {
+                            "username": f"batch_user_{ts}",
+                            "email": f"batch_{ts}@test.com",
+                            "password": "hashed_password",
+                            "role": "farmer",
+                            "active": True,
+                        }
+                    )
 
                 for val in values:
-                    conn.execute(text("""
+                    conn.execute(
+                        text("""
                         INSERT INTO users (username, email, password_hash, role, is_active)
                         VALUES (:username, :email, :password, :role, :active)
-                    """), val)
+                    """),
+                        val,
+                    )
                 conn.commit()
 
         self.time_operation("Batch INSERT (100 rows)", batch_insert)
 
     def test_simple_select(self):
         """Test simple SELECT performance"""
+
         def select():
             with self.engine.connect() as conn:
                 result = conn.execute(text("SELECT * FROM users LIMIT 100"))
@@ -110,36 +120,43 @@ class DatabaseBenchmark:
 
     def test_join_select(self):
         """Test JOIN query performance"""
+
         def join_query():
             with self.engine.connect() as conn:
                 # This assumes there's a relationship between tables
                 # Adjust based on actual schema
-                result = conn.execute(text("""
+                result = conn.execute(
+                    text("""
                     SELECT u.username, u.email, u.created_at
                     FROM users u
                     LIMIT 50
-                """))
+                """)
+                )
                 _ = result.fetchall()
 
         self.time_operation("JOIN SELECT", join_query, iterations=10)
 
     def test_concurrent_writes(self, num_workers: int = 10):
         """Test concurrent write performance"""
+
         def single_insert(worker_id: int):
             with self.engine.connect() as conn:
-                conn.execute(text("""
+                conn.execute(
+                    text("""
                     INSERT INTO users (username, email, password_hash, role, is_active)
                     VALUES (:username, :email, :password, :role, :active)
-                """), {
-                    "username": f"concurrent_{worker_id}_{time.time()}",
-                    "email": f"concurrent_{worker_id}_{time.time()}@test.com",
-                    "password": "hashed_password",
-                    "role": "farmer",
-                    "active": True
-                })
+                """),
+                    {
+                        "username": f"concurrent_{worker_id}_{time.time()}",
+                        "email": f"concurrent_{worker_id}_{time.time()}@test.com",
+                        "password": "hashed_password",
+                        "role": "farmer",
+                        "active": True,
+                    },
+                )
                 conn.commit()
 
-        print(f"  ⏱️  Concurrent writes ({num_workers} parallel)... ", end='', flush=True)
+        print(f"  ⏱️  Concurrent writes ({num_workers} parallel)... ", end="", flush=True)
 
         start = time.time()
         errors = 0
@@ -177,6 +194,7 @@ class DatabaseBenchmark:
         except Exception as e:
             print(f"\n❌ Benchmark failed: {e}")
             import traceback
+
             traceback.print_exc()
 
         print("=" * 50)
@@ -185,14 +203,18 @@ class DatabaseBenchmark:
         """Cleanup test data"""
         try:
             with self.engine.connect() as conn:
-                conn.execute(text("DELETE FROM users WHERE username LIKE 'bench_%' OR username LIKE 'batch_%' OR username LIKE 'concurrent_%'"))
+                conn.execute(
+                    text(
+                        "DELETE FROM users WHERE username LIKE 'bench_%' OR username LIKE 'batch_%' OR username LIKE 'concurrent_%'"
+                    )
+                )
                 conn.commit()
         except:
             pass
         self.engine.dispose()
 
 
-def generate_report(sqlite_results: Dict, pg_results: Dict, output_path: str):
+def generate_report(sqlite_results: dict, pg_results: dict, output_path: str):
     """Generate markdown benchmark report"""
     report = f"""# AgriGuard Database Migration Benchmark Report
 
@@ -207,7 +229,7 @@ def generate_report(sqlite_results: Dict, pg_results: Dict, output_path: str):
 |--------|--------|------------|--------|-------------|
 """
 
-    for test_name in sqlite_results.keys():
+    for test_name in sqlite_results:
         sqlite_time = sqlite_results.get(test_name)
         pg_time = pg_results.get(test_name)
 
@@ -322,17 +344,17 @@ python scripts/benchmark_database.py \\
 
     # Write report
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(report)
 
     print(f"\n📄 Report saved to: {output_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Benchmark SQLite vs PostgreSQL')
-    parser.add_argument('--sqlite', required=True, help='Path to SQLite database')
-    parser.add_argument('--postgres', required=True, help='PostgreSQL connection URL')
-    parser.add_argument('--output', default='docs/db_migration_benchmark.md', help='Output markdown file')
+    parser = argparse.ArgumentParser(description="Benchmark SQLite vs PostgreSQL")
+    parser.add_argument("--sqlite", required=True, help="Path to SQLite database")
+    parser.add_argument("--postgres", required=True, help="PostgreSQL connection URL")
+    parser.add_argument("--output", default="docs/db_migration_benchmark.md", help="Output markdown file")
 
     args = parser.parse_args()
 
@@ -358,5 +380,5 @@ def main():
     print("\n✅ Benchmark completed!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

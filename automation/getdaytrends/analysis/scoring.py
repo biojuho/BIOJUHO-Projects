@@ -20,19 +20,23 @@ def _compute_cross_source_confidence(
     score = 0
     if volume_numeric > 0:
         score += 1
-    if context and context.twitter_insight and \
-            "없음" not in context.twitter_insight and \
-            "오류" not in context.twitter_insight and \
-            len(context.twitter_insight) > 20:
+    if (
+        context
+        and context.twitter_insight
+        and "없음" not in context.twitter_insight
+        and "오류" not in context.twitter_insight
+        and len(context.twitter_insight) > 20
+    ):
         score += 1
-    if context and context.news_insight and \
-            "없음" not in context.news_insight and \
-            len(context.news_insight) > 20:
+    if context and context.news_insight and "없음" not in context.news_insight and len(context.news_insight) > 20:
         score += 1
-    if context and context.reddit_insight and \
-            "없음" not in context.reddit_insight and \
-            "제한" not in context.reddit_insight and \
-            len(context.reddit_insight) > 20:
+    if (
+        context
+        and context.reddit_insight
+        and "없음" not in context.reddit_insight
+        and "제한" not in context.reddit_insight
+        and len(context.reddit_insight) > 20
+    ):
         score += 1
     return score
 

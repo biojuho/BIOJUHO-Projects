@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -30,7 +29,8 @@ except ImportError:
     _HAS_LANGGRAPH = False
     log.info("langgraph not installed - agent graph disabled. Install with: pip install langgraph>=0.4.0")
 
-from shared.llm import LLMPolicy, TaskTier, get_client as _get_llm
+from shared.llm import LLMPolicy, TaskTier
+from shared.llm import get_client as _get_llm
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +38,7 @@ from shared.llm import LLMPolicy, TaskTier, get_client as _get_llm
 # ---------------------------------------------------------------------------
 class PipelineState(TypedDict, total=False):
     """Shared state flowing through the agent graph."""
+
     rfp_text: str
     user_profile: dict[str, Any]
     # CollectorAgent outputs
@@ -103,6 +104,7 @@ async def analyzer_node(state: PipelineState) -> PipelineState:
             policy=LLMPolicy(task_kind="json_extraction", response_mode="json"),
         )
         import json
+
         data = json.loads(resp.text)
         state["fit_score"] = data.get("fit_score", 0)
         state["fit_grade"] = data.get("fit_grade", "D")

@@ -64,7 +64,9 @@ def test_generate_briefs_saves_report_and_records_articles(tmp_path):
 
     assert status in ("ok", "partial"), f"Unexpected status: {status}, warnings: {warnings}"
     # Filter out non-critical warnings (embedding, fact-check, skill)
-    critical_warnings = [w for w in warnings if not any(skip in w for skip in ("Embedding", "FactCheck", "Skill", "Clustering"))]
+    critical_warnings = [
+        w for w in warnings if not any(skip in w for skip in ("Embedding", "FactCheck", "Skill", "Clustering"))
+    ]
     assert critical_warnings == [], f"Unexpected critical warnings: {critical_warnings}"
     assert len(reports) == 1
     assert store.get_run(run_id) is not None
@@ -102,4 +104,6 @@ def test_publish_report_returns_partial_when_notion_not_configured(tmp_path, mon
     assert run_id
     assert publication["report_id"] == "report-1"
     assert status == "partial"
-    assert any("manual approval" in warning.lower() or "notion reports database" in warning.lower() for warning in warnings)
+    assert any(
+        "manual approval" in warning.lower() or "notion reports database" in warning.lower() for warning in warnings
+    )

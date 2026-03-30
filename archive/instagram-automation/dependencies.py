@@ -25,56 +25,67 @@ if TYPE_CHECKING:
 # Lazy imports to avoid circular dependencies
 def _lazy_import_config():
     from config import get_config
+
     return get_config()
 
 
 def _lazy_import_database():
     from services.database import Database
+
     return Database
 
 
 def _lazy_import_meta_api():
     from services.meta_api import MetaGraphAPI
+
     return MetaGraphAPI
 
 
 def _lazy_import_scheduler():
     from services.scheduler import PostScheduler
+
     return PostScheduler
 
 
 def _lazy_import_dm_responder():
     from services.dm_responder import DMResponder
+
     return DMResponder
 
 
 def _lazy_import_analytics():
     from services.analytics import AnalyticsEngine
+
     return AnalyticsEngine
 
 
 def _lazy_import_calendar():
     from services.content_calendar import ContentCalendar
+
     return ContentCalendar
 
 
 def _lazy_import_hashtag_db():
     from services.hashtag_strategy import HashtagDB
+
     return HashtagDB
 
 
 def _lazy_import_ab_engine():
     from services.ab_testing import ABTestEngine
+
     return ABTestEngine
 
 
 def _lazy_import_monitor():
     from services.monitoring import SystemMonitor
+
     return SystemMonitor
 
 
 def _lazy_import_trigger_handler():
     from services.external_trigger import ExternalTriggerHandler
+
     return ExternalTriggerHandler
 
 
@@ -188,10 +199,7 @@ def get_trigger_handler() -> ExternalTriggerHandler:
     if _trigger_handler_instance is None:
         ExternalTriggerHandlerClass = _lazy_import_trigger_handler()
         _trigger_handler_instance = ExternalTriggerHandlerClass(
-            get_calendar(),
-            get_hashtag_db(),
-            get_ab_engine(),
-            get_database()
+            get_calendar(), get_hashtag_db(), get_ab_engine(), get_database()
         )
     return _trigger_handler_instance
 

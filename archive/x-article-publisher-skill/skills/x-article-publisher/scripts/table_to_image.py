@@ -17,8 +17,8 @@ Requirements:
     pip install pillow
 """
 
-import sys
 import re
+import sys
 from pathlib import Path
 
 try:
@@ -30,23 +30,23 @@ except ImportError:
 
 def parse_markdown_table(content: str) -> tuple[list[str], list[list[str]], list[str]]:
     """Parse markdown table into headers, rows, and alignments."""
-    lines = [line.strip() for line in content.strip().split('\n') if line.strip()]
+    lines = [line.strip() for line in content.strip().split("\n") if line.strip()]
 
     if len(lines) < 2:
         raise ValueError("Table must have at least 2 rows")
 
     def parse_cells(line: str) -> list[str]:
         line = line.strip()
-        if line.startswith('|'):
+        if line.startswith("|"):
             line = line[1:]
-        if line.endswith('|'):
+        if line.endswith("|"):
             line = line[:-1]
-        return [cell.strip() for cell in line.split('|')]
+        return [cell.strip() for cell in line.split("|")]
 
     # Find separator line
     separator_idx = -1
     for i, line in enumerate(lines):
-        if re.match(r'^\|?[\s]*:?-{2,}:?[\s]*(\|[\s]*:?-{2,}:?[\s]*)*\|?$', line):
+        if re.match(r"^\|?[\s]*:?-{2,}:?[\s]*(\|[\s]*:?-{2,}:?[\s]*)*\|?$", line):
             separator_idx = i
             break
 
@@ -57,18 +57,18 @@ def parse_markdown_table(content: str) -> tuple[list[str], list[list[str]], list
         alignments = []
         for cell in sep_cells:
             cell = cell.strip()
-            if cell.startswith(':') and cell.endswith(':'):
-                alignments.append('center')
-            elif cell.endswith(':'):
-                alignments.append('right')
+            if cell.startswith(":") and cell.endswith(":"):
+                alignments.append("center")
+            elif cell.endswith(":"):
+                alignments.append("right")
             else:
-                alignments.append('left')
-        rows = [parse_cells(line) for line in lines[separator_idx + 1:]]
+                alignments.append("left")
+        rows = [parse_cells(line) for line in lines[separator_idx + 1 :]]
     else:
         # No headers - all data rows
         headers = []
         rows = [parse_cells(line) for line in lines]
-        alignments = ['left'] * (len(rows[0]) if rows else 0)
+        alignments = ["left"] * (len(rows[0]) if rows else 0)
 
     return headers, rows, alignments
 
@@ -94,7 +94,7 @@ def get_font(size: int, bold: bool = False):
     for path in font_paths:
         try:
             return ImageFont.truetype(path, size)
-        except (OSError, IOError):
+        except OSError:
             continue
 
     # Fallback to default
@@ -102,10 +102,7 @@ def get_font(size: int, bold: bool = False):
 
 
 def render_table_to_image(
-    headers: list[str],
-    rows: list[list[str]],
-    alignments: list[str],
-    scale: int = 2
+    headers: list[str], rows: list[list[str]], alignments: list[str], scale: int = 2
 ) -> Image.Image:
     """Render table data to a PIL Image."""
 
@@ -133,7 +130,7 @@ def render_table_to_image(
     col_widths = [0] * col_count
 
     # Create temp image for text measurement
-    temp_img = Image.new('RGB', (1, 1))
+    temp_img = Image.new("RGB", (1, 1))
     temp_draw = ImageDraw.Draw(temp_img)
 
     # Measure headers
@@ -161,7 +158,7 @@ def render_table_to_image(
     img_height = table_height + margin * 2
 
     # Create image
-    img = Image.new('RGB', (img_width, img_height), bg_color)
+    img = Image.new("RGB", (img_width, img_height), bg_color)
     draw = ImageDraw.Draw(img)
 
     # Draw table border (rounded rectangle)
@@ -174,11 +171,7 @@ def render_table_to_image(
     # Draw header
     if headers:
         # Header background
-        draw.rounded_rectangle(
-            [x0, y0, x1, y0 + row_height],
-            radius=border_radius,
-            fill=header_bg
-        )
+        draw.rounded_rectangle([x0, y0, x1, y0 + row_height], radius=border_radius, fill=header_bg)
         # Cover bottom corners of header (they should be square)
         draw.rectangle([x0, y0 + row_height - border_radius, x1, y0 + row_height], fill=header_bg)
 
@@ -191,9 +184,9 @@ def render_table_to_image(
             bbox = draw.textbbox((0, 0), header, font=bold_font)
             text_width = bbox[2] - bbox[0]
 
-            if alignments[i] == 'center':
+            if alignments[i] == "center":
                 text_x = x + (col_widths[i] - text_width) // 2
-            elif alignments[i] == 'right':
+            elif alignments[i] == "right":
                 text_x = x + col_widths[i] - text_width - padding_x
             else:
                 text_x = x + padding_x
@@ -220,9 +213,9 @@ def render_table_to_image(
             text_width = bbox[2] - bbox[0]
 
             if i < len(alignments):
-                if alignments[i] == 'center':
+                if alignments[i] == "center":
                     text_x = x + (col_widths[i] - text_width) // 2
-                elif alignments[i] == 'right':
+                elif alignments[i] == "right":
                     text_x = x + col_widths[i] - text_width - padding_x
                 else:
                     text_x = x + padding_x
@@ -248,8 +241,8 @@ def main():
 
     # Parse optional scale argument
     scale = 2
-    if '--scale' in sys.argv:
-        scale_idx = sys.argv.index('--scale')
+    if "--scale" in sys.argv:
+        scale_idx = sys.argv.index("--scale")
         if scale_idx + 1 < len(sys.argv):
             try:
                 scale = int(sys.argv[scale_idx + 1])
@@ -275,9 +268,9 @@ def main():
 
     # Save
     output = Path(output_path)
-    img.save(output, 'PNG')
+    img.save(output, "PNG")
     print(f"Saved: {output} ({img.width}x{img.height})")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

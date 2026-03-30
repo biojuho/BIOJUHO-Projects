@@ -24,9 +24,9 @@ from .errors import (
 from .marl import MARLConfig, MARLPipeline, MARLResult
 from .model_patches import apply_model_patch
 from .models import BridgeMeta, LLMPolicy, LLMResponse, TaskTier
+from .reasoning import QueryComplexity, SmartRouter
 from .stats import CostTracker
 from .tool_schema import ToolDefinition, ToolRegistry, ToolResult
-from .reasoning import SmartRouter, QueryComplexity
 
 _client: LLMClient | None = None
 
@@ -98,4 +98,3 @@ __all__ = [
     "SmartRouter",
     "QueryComplexity",
 ]
-

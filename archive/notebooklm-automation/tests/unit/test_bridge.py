@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from notebooklm_automation.bridge import (
     _extract_urls_from_context,
     content_factory,

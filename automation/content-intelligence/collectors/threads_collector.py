@@ -5,9 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from loguru import logger as log
-
 from collectors.base import llm_analyze
+from loguru import logger as log
 from prompts.trend_collection import TREND_COLLECTION_SYSTEM, build_trend_prompt
 from storage.models import PlatformTrend, PlatformTrendReport
 

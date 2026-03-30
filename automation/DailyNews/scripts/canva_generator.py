@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import requests
-
 from settings import (
     CANVA_CLIENT_ID,
     CANVA_CLIENT_SECRET,
@@ -52,6 +51,7 @@ class CanvaAPIError(Exception):
 # Auth
 # ---------------------------------------------------------------------------
 
+
 def _refresh_access_token() -> str:
     """Exchange a refresh token for a new access token.
 
@@ -64,9 +64,7 @@ def _refresh_access_token() -> str:
     if not CANVA_CLIENT_ID or not CANVA_CLIENT_SECRET:
         raise CanvaAuthError("CANVA_CLIENT_ID or CANVA_CLIENT_SECRET missing in .env")
     if not _current_refresh_token:
-        raise CanvaAuthError(
-            "CANVA_REFRESH_TOKEN missing. Run canva_auth_server.py first to obtain one."
-        )
+        raise CanvaAuthError("CANVA_REFRESH_TOKEN missing. Run canva_auth_server.py first to obtain one.")
 
     resp = requests.post(
         f"{CANVA_API_BASE}/oauth/token",
@@ -141,15 +139,14 @@ def _api_request(
         timeout=timeout,
     )
     if resp.status_code not in (200, 201, 202):
-        raise CanvaAPIError(
-            f"Canva API {method} {endpoint} failed ({resp.status_code}): {resp.text}"
-        )
+        raise CanvaAPIError(f"Canva API {method} {endpoint} failed ({resp.status_code}): {resp.text}")
     return resp.json()
 
 
 # ---------------------------------------------------------------------------
 # Design Import (PIL image -> PDF -> Canva Design)
 # ---------------------------------------------------------------------------
+
 
 def import_image_as_design(image_path: Path, title: str = "Infographic") -> dict:
     """Convert a local image to PDF and import it as a Canva design.
@@ -214,6 +211,7 @@ def import_image_as_design(image_path: Path, title: str = "Infographic") -> dict
 # Design Export
 # ---------------------------------------------------------------------------
 
+
 def export_design(design_id: str, fmt: str = "png") -> dict:
     """Request an export of a design. Returns export job info."""
     body: dict[str, Any] = {
@@ -250,6 +248,7 @@ def download_export(url: str, output_path: Path) -> Path:
 # ---------------------------------------------------------------------------
 # High-level pipeline helpers
 # ---------------------------------------------------------------------------
+
 
 def import_and_export(
     image_path: Path,
@@ -320,6 +319,7 @@ async def async_import_and_export(
 
 if __name__ == "__main__":
     import sys
+
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     print("=== Canva Generator Test ===")
@@ -355,9 +355,7 @@ if __name__ == "__main__":
     print(f"  Saved: {test_png}")
 
     print("[3/3] Import to Canva + Export PNG...")
-    result = asyncio.run(
-        async_import_and_export(test_png, "Test Infographic")
-    )
+    result = asyncio.run(async_import_and_export(test_png, "Test Infographic"))
     if result:
         print(f"  Design ID: {result['design_id']}")
         print(f"  Edit URL: {result['edit_url'][:80]}...")

@@ -2,14 +2,15 @@
 BioLinker - Web3 Router
 지갑, 토큰 보상, NFT 민팅, 자산 관리 엔드포인트
 """
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 
-from services.web3_service import get_web3_service, MOCK_MODE
+from datetime import datetime
+
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
+from firestore_db import db
 from services.asset_manager import get_asset_manager
 from services.auth import get_current_user
 from services.logging_config import get_logger
-from firestore_db import db
+from services.web3_service import get_web3_service
 
 log = get_logger("biolinker.routers.web3")
 
@@ -55,13 +56,15 @@ async def get_reward_amounts():
 async def mint_nft(
     request: dict = Body(
         ...,
-        examples=[{
-            "user_address": "0x...",
-            "token_uri": "ipfs://...",
-            "consent_hash": "0x...",
-            "consent_timestamp": "2026-03-03T10:00:00Z",
-        }],
-    )
+        examples=[
+            {
+                "user_address": "0x...",
+                "token_uri": "ipfs://...",
+                "consent_hash": "0x...",
+                "consent_timestamp": "2026-03-03T10:00:00Z",
+            }
+        ],
+    ),
 ):
     """Research Paper IP-NFT Minting with Legal Consent Audit Trail"""
     user_address = request.get("user_address")
@@ -78,14 +81,16 @@ async def mint_nft(
     # Record consent audit trail in Firestore
     if db and consent_hash:
         try:
-            db.collection("consent_audit").add({
-                "user_address": user_address,
-                "token_uri": token_uri,
-                "consent_hash": consent_hash,
-                "consent_timestamp": consent_timestamp,
-                "minted_at": datetime.now().isoformat(),
-                "tx_hash": result.get("tx_hash", ""),
-            })
+            db.collection("consent_audit").add(
+                {
+                    "user_address": user_address,
+                    "token_uri": token_uri,
+                    "consent_hash": consent_hash,
+                    "consent_timestamp": consent_timestamp,
+                    "minted_at": datetime.now().isoformat(),
+                    "tx_hash": result.get("tx_hash", ""),
+                }
+            )
         except Exception as e:
             log.warning("consent_audit_log_failed", error=str(e))
 

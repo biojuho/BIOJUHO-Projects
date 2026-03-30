@@ -9,12 +9,13 @@ getdaytrends/alerts.py에서 추출한 공통 알림 로직을 모든 프로젝�
   - 에러/성공/heartbeat/비용 경고 등 목적별 포맷터
   - 전송 실패 시 조용한 fallback (프로덕션 안전)
 """
+
 from __future__ import annotations
 
 import json
 import os
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -30,11 +31,13 @@ def send_telegram(
         return {"ok": False, "error": "Telegram 설정 없음"}
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = json.dumps({
-        "chat_id": chat_id,
-        "text": message[:4096],
-        "parse_mode": "Markdown",
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "chat_id": chat_id,
+            "text": message[:4096],
+            "parse_mode": "Markdown",
+        }
+    ).encode("utf-8")
 
     try:
         req = urllib.request.Request(
@@ -101,7 +104,7 @@ class Notifier:
         self.telegram_chat_id = telegram_chat_id
 
     @classmethod
-    def from_env(cls) -> "Notifier":
+    def from_env(cls) -> Notifier:
         """환경 변수에서 알림 채널 설정 자동 로드."""
         return cls(
             discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL", ""),
@@ -112,17 +115,13 @@ class Notifier:
     @property
     def has_channels(self) -> bool:
         """최소 1개 채널이 설정되어 있는지 확인."""
-        return bool(self.discord_webhook_url) or bool(
-            self.telegram_bot_token and self.telegram_chat_id
-        )
+        return bool(self.discord_webhook_url) or bool(self.telegram_bot_token and self.telegram_chat_id)
 
     def send(self, message: str) -> dict[str, dict]:
         """모든 설정된 채널로 동시 전송."""
         results: dict[str, dict] = {}
         if self.telegram_bot_token and self.telegram_chat_id:
-            results["telegram"] = send_telegram(
-                message, self.telegram_bot_token, self.telegram_chat_id
-            )
+            results["telegram"] = send_telegram(message, self.telegram_bot_token, self.telegram_chat_id)
         if self.discord_webhook_url:
             results["discord"] = send_discord(message, self.discord_webhook_url)
         return results
@@ -135,7 +134,7 @@ class Notifier:
         source: str = "system",
     ) -> dict[str, dict]:
         """에러 알림 전송 (포맷팅 포함)."""
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         lines = [
             f"🔴 *에러 알림* [{source}]",
             f"🕐 {now}",
@@ -153,7 +152,7 @@ class Notifier:
         details: str = "",
     ) -> dict[str, dict]:
         """성공 알림 전송."""
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         lines = [
             f"✅ *성공* [{source}]",
             f"🕐 {now}",
@@ -171,7 +170,7 @@ class Notifier:
         details: str = "",
     ) -> dict[str, dict]:
         """서비스 heartbeat 전송 — 정기적 alive ping용."""
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         emoji = "💚" if status == "alive" else "💛"
         lines = [
             f"{emoji} *Heartbeat* [{service_name}]",

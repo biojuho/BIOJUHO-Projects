@@ -8,6 +8,7 @@ getdaytrends pytest configuration & shared fixture factories.
 3. Provides shared fixture factories (config, trend builders, mock LLM client,
    in-memory DB) so individual test modules don't repeat boilerplate.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,16 +17,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-
 # ── Path priority ───────────────────────────────────────────────────────────
 
 
-def pytest_configure(config):  # noqa: ARG001
+def pytest_configure(config):
     pkg_root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
     workspace_root = os.path.normpath(os.path.join(pkg_root, ".."))
-    notebooklm_src = os.path.normpath(
-        os.path.join(pkg_root, "..", "notebooklm-automation", "src")
-    )
+    notebooklm_src = os.path.normpath(os.path.join(pkg_root, "..", "notebooklm-automation", "src"))
     # Remove any existing entry first, then insert at front
     for p in (pkg_root, workspace_root):
         while p in sys.path:
@@ -135,9 +133,7 @@ def make_scored_trend(
         top_insight="테스트 인사이트",
         suggested_angles=["앵글1", "앵글2"],
         best_hook_starter="최고의 훅",
-        context=MultiSourceContext(
-            twitter_insight="X 반응", reddit_insight="Reddit 반응"
-        ),
+        context=MultiSourceContext(twitter_insight="X 반응", reddit_insight="Reddit 반응"),
         safety_flag=safety,
         sentiment="harmful" if safety else "neutral",
     )

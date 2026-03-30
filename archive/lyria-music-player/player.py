@@ -7,9 +7,6 @@ import asyncio
 import signal
 import sys
 
-from google import genai
-from google.genai import types
-
 from audio_output import AudioPlayer
 from audio_writer import AudioWriter
 from config import (
@@ -24,6 +21,8 @@ from config import (
     RETRY_BASE_DELAY,
     validate_api_key,
 )
+from google import genai
+from google.genai import types
 
 
 class LyriaMusicPlayer:
@@ -154,7 +153,7 @@ class LyriaMusicPlayer:
                     timeout=self.duration,
                 )
                 print("\n⏹️ 사용자에 의해 중지됨")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print(f"\n⏱️ {self.duration}초 녹음 완료")
 
             # 세션 종료 전 정지
@@ -172,10 +171,7 @@ class LyriaMusicPlayer:
                         return
 
                     # 오디오 청크 추출
-                    if (
-                        message.server_content
-                        and message.server_content.audio_chunks
-                    ):
+                    if message.server_content and message.server_content.audio_chunks:
                         for chunk in message.server_content.audio_chunks:
                             audio_data = chunk.data
 
@@ -229,6 +225,7 @@ class LyriaMusicPlayer:
 
     def _setup_signal_handlers(self) -> None:
         """Ctrl+C graceful shutdown 핸들러를 등록합니다."""
+
         def _signal_handler(sig, frame):
             print("\n\n🛑 종료 신호 수신 (Ctrl+C)")
             self._stop_event.set()

@@ -4,8 +4,8 @@ Tests the full pipeline: SmartRouter → Qwen3-Coder (local) → response.
 Requires Ollama running with qwen3-coder model installed.
 """
 
-import sys
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -104,12 +104,12 @@ def test_live_reasoning(models):
             max_tokens=500,
         )
         elapsed = (time.perf_counter() - t0) * 1000
-        print(f"  ✅ Success!")
+        print("  ✅ Success!")
         print(f"  Model: {resp.model}")
         print(f"  Backend: {resp.backend}")
         print(f"  Cost: ${resp.cost_usd:.4f}")
         print(f"  Latency: {elapsed:.0f}ms")
-        print(f"  Response (first 200 chars):")
+        print("  Response (first 200 chars):")
         print(f"    {resp.text[:200]}...")
     except Exception as e:
         print(f"  ⚠️ Error: {e}")
@@ -120,15 +120,17 @@ def test_live_reasoning(models):
     t0 = time.perf_counter()
     try:
         resp = client.create_with_reasoning(
-            messages=[{
-                "role": "user",
-                "content": "REST API 엔드포인트를 추가하고, FastAPI 클래스를 구현해서 CRUD를 생성해주세요.",
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": "REST API 엔드포인트를 추가하고, FastAPI 클래스를 구현해서 CRUD를 생성해주세요.",
+                }
+            ],
             system="You are a senior backend engineer.",
             max_tokens=1000,
         )
         elapsed = (time.perf_counter() - t0) * 1000
-        print(f"  ✅ Success!")
+        print("  ✅ Success!")
         print(f"  Model: {resp.model}")
         print(f"  Backend: {resp.backend}")
         print(f"  Cost: ${resp.cost_usd:.4f}")
@@ -160,7 +162,7 @@ def main():
     # Test 4: Live LLM call
     has_qwen = any("qwen3-coder" in m for m in models)
     if has_qwen:
-        print(f"\n✅ qwen3-coder detected in Ollama!")
+        print("\n✅ qwen3-coder detected in Ollama!")
     else:
         print(f"\n⚠️ qwen3-coder not found in Ollama (available: {models})")
         print("  → Will fallback to other backends")

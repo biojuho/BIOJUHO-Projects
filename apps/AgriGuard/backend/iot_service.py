@@ -2,17 +2,15 @@
 AgriGuard IoT Service — Cold-Chain Temperature & Humidity Monitoring
 Simulates IoT sensor data (mock) and provides WebSocket + REST endpoints.
 """
+
 import asyncio
-import json
 import logging
 import random
-import time
 from datetime import datetime, timedelta
-from typing import Any, Optional
-
-from fastapi import WebSocket
+from typing import Any
 
 from database import SessionLocal
+from fastapi import WebSocket
 from models import SensorReading
 
 logger = logging.getLogger(__name__)
@@ -114,15 +112,17 @@ def get_current_status() -> dict:
 
     result = []
     for zone_name, data in zones.items():
-        result.append({
-            "zone": zone_name,
-            "avg_temp": round(sum(data["temps"]) / len(data["temps"]), 1),
-            "avg_humidity": round(sum(data["humidities"]) / len(data["humidities"]), 1),
-            "min_temp": min(data["temps"]),
-            "max_temp": max(data["temps"]),
-            "alert_count": data["alerts"],
-            "readings_count": len(data["temps"]),
-        })
+        result.append(
+            {
+                "zone": zone_name,
+                "avg_temp": round(sum(data["temps"]) / len(data["temps"]), 1),
+                "avg_humidity": round(sum(data["humidities"]) / len(data["humidities"]), 1),
+                "min_temp": min(data["temps"]),
+                "max_temp": max(data["temps"]),
+                "alert_count": data["alerts"],
+                "readings_count": len(data["temps"]),
+            }
+        )
 
     has_alerts = any(z["alert_count"] > 0 for z in result)
     return {

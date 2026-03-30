@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 
 from antigravity_mcp.cli_ops import dispatch_ops_command
 from antigravity_mcp.state.events import json_dumps
@@ -9,7 +10,6 @@ from antigravity_mcp.tooling.content_tools import (
     content_generate_brief_tool,
     content_publish_report_tool,
 )
-import sys
 
 
 def build_parser() -> argparse.ArgumentParser:

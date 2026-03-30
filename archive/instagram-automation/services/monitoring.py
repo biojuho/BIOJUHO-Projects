@@ -50,18 +50,19 @@ class SystemMonitor:
 
     def log_error(self, component: str, error: str) -> None:
         """Log an error for monitoring."""
-        self._error_log.append({
-            "component": component,
-            "error": error,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self._error_log.append(
+            {
+                "component": component,
+                "error": error,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
         # Keep last 100 errors
         if len(self._error_log) > 100:
             self._error_log = self._error_log[-100:]
 
     def get_health(self) -> dict:
         """Comprehensive health check."""
-        from services.rate_limiter import MetaRateLimiter
 
         checks = {
             "database": self._check_database(),
@@ -89,6 +90,7 @@ class SystemMonitor:
     def _check_database(self) -> dict:
         """Check if database is accessible."""
         import sqlite3
+
         try:
             conn = sqlite3.connect(self.db_path, timeout=3)
             conn.execute("SELECT 1")
@@ -101,6 +103,7 @@ class SystemMonitor:
         """Check rate limiter status as proxy for API health."""
         try:
             from services.rate_limiter import MetaRateLimiter
+
             limiter = MetaRateLimiter()
             stats = limiter.get_stats()
             if stats["usage_pct"] > 90:
@@ -109,12 +112,13 @@ class SystemMonitor:
                     "detail": f"Rate limit at {stats['usage_pct']:.0f}%",
                 }
             return {"status": HealthStatus.HEALTHY, "detail": f"Usage: {stats['usage_pct']:.0f}%"}
-        except Exception as e:
+        except Exception:
             return {"status": HealthStatus.HEALTHY, "detail": "Rate limiter not initialized (OK at startup)"}
 
     def _check_disk_space(self) -> dict:
         """Check available disk space for image storage."""
         import shutil
+
         data_dir = Path(self.db_path).parent
         try:
             usage = shutil.disk_usage(data_dir)
@@ -124,7 +128,7 @@ class SystemMonitor:
             if free_pct < 15:
                 return {"status": HealthStatus.DEGRADED, "detail": f"{free_pct:.1f}% disk free"}
             return {"status": HealthStatus.HEALTHY, "detail": f"{free_pct:.0f}% disk free"}
-        except Exception as e:
+        except Exception:
             return {"status": HealthStatus.HEALTHY, "detail": "Cannot check disk (OK in cloud)"}
 
     def _check_error_rate(self) -> dict:
@@ -147,16 +151,12 @@ class SystemMonitor:
 
         # Post stats
         today = datetime.now().strftime("%Y-%m-%d")
-        posts_today = conn.execute(
-            "SELECT COUNT(*) as c FROM posts WHERE DATE(created_at) = ?", (today,)
-        ).fetchone()["c"]
+        posts_today = conn.execute("SELECT COUNT(*) as c FROM posts WHERE DATE(created_at) = ?", (today,)).fetchone()[
+            "c"
+        ]
         posts_total = conn.execute("SELECT COUNT(*) as c FROM posts").fetchone()["c"]
-        posts_published = conn.execute(
-            "SELECT COUNT(*) as c FROM posts WHERE status = 'published'"
-        ).fetchone()["c"]
-        posts_queued = conn.execute(
-            "SELECT COUNT(*) as c FROM posts WHERE status = 'queued'"
-        ).fetchone()["c"]
+        posts_published = conn.execute("SELECT COUNT(*) as c FROM posts WHERE status = 'published'").fetchone()["c"]
+        posts_queued = conn.execute("SELECT COUNT(*) as c FROM posts WHERE status = 'queued'").fetchone()["c"]
 
         # Recent posts
         recent_posts = conn.execute(
@@ -206,10 +206,7 @@ class SystemMonitor:
                 if time.monotonic() - last_alert < self._alert_cooldown_seconds:
                     continue
 
-                msg = (
-                    f"⚠️ [IG Monitor] {check_name}: {check_result['status']}\n"
-                    f"Detail: {check_result['detail']}"
-                )
+                msg = f"⚠️ [IG Monitor] {check_name}: {check_result['status']}\n" f"Detail: {check_result['detail']}"
 
                 if notifier:
                     try:

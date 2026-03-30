@@ -2,13 +2,14 @@
 BioLinker - Governance Router
 DAO 거버넌스 제안 및 투표 엔드포인트
 """
+
 import datetime as _dt
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Body
 
-from services.web3_service import MOCK_MODE
-from services.logging_config import get_logger
+from fastapi import APIRouter, Body, HTTPException
 from firestore_db import db
+from services.logging_config import get_logger
+from services.web3_service import MOCK_MODE
 
 log = get_logger("biolinker.routers.governance")
 
@@ -20,11 +21,7 @@ async def list_proposals():
     """List all governance proposals."""
     if db:
         try:
-            docs = (
-                db.collection("governance_proposals")
-                .order_by("created_at", direction="DESCENDING")
-                .stream()
-            )
+            docs = db.collection("governance_proposals").order_by("created_at", direction="DESCENDING").stream()
             return [doc.to_dict() for doc in docs]
         except Exception as e:
             log.error("governance_firestore_read_error", error=str(e))
@@ -113,10 +110,12 @@ async def vote_on_proposal(proposal_id: str, request: dict = Body(...)):
             else:
                 data["against_votes"] = data.get("against_votes", 0) + weight
 
-            ref.update({
-                "for_votes": data["for_votes"],
-                "against_votes": data["against_votes"],
-            })
+            ref.update(
+                {
+                    "for_votes": data["for_votes"],
+                    "against_votes": data["against_votes"],
+                }
+            )
 
             return {"success": True, "proposal_id": proposal_id, "voter": voter, "support": support}
         except HTTPException:

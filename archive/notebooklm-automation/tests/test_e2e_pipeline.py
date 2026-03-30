@@ -6,6 +6,7 @@ import sys
 
 import pytest
 
+
 def create_sample_pdf() -> bytes:
     """Create a sample PDF with research content for testing."""
     try:

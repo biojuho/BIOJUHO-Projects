@@ -6,7 +6,9 @@ re-running initialisation logic that lives in main.py.
 Usage:
     from firestore_db import db
 """
+
 import os
+
 import firebase_admin
 from firebase_admin import firestore
 from services.logging_config import get_logger

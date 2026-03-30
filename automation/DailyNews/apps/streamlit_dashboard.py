@@ -6,7 +6,6 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-
 from antigravity_mcp.config import get_settings
 
 
@@ -83,8 +82,12 @@ def main() -> None:
     st.caption("Operational cockpit for briefs, approvals, MCP runs, and publishing health.")
 
     runs_df = _fetch_dataframe(settings.pipeline_state_db, "SELECT * FROM job_runs ORDER BY started_at DESC LIMIT 50")
-    reports_df = _fetch_dataframe(settings.pipeline_state_db, "SELECT * FROM content_reports ORDER BY updated_at DESC LIMIT 50")
-    analytics_df = _fetch_dataframe(settings.analytics_db, "SELECT * FROM post_history ORDER BY generated_at DESC LIMIT 50")
+    reports_df = _fetch_dataframe(
+        settings.pipeline_state_db, "SELECT * FROM content_reports ORDER BY updated_at DESC LIMIT 50"
+    )
+    analytics_df = _fetch_dataframe(
+        settings.analytics_db, "SELECT * FROM post_history ORDER BY generated_at DESC LIMIT 50"
+    )
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -95,7 +98,11 @@ def main() -> None:
         published_reports = 0 if reports_df.empty else int((reports_df["status"] == "published").sum())
         _metric_card("Published Reports", str(published_reports), "Reports successfully synced to Notion.")
     with col4:
-        published_posts = 0 if analytics_df.empty or "status" not in analytics_df else int((analytics_df["status"] == "published").sum())
+        published_posts = (
+            0
+            if analytics_df.empty or "status" not in analytics_df
+            else int((analytics_df["status"] == "published").sum())
+        )
         _metric_card("Channel Deliveries", str(published_posts), "Cross-channel outputs recorded in analytics.")
 
     chart_left, chart_right = st.columns([1.2, 1])
@@ -150,12 +157,29 @@ def main() -> None:
     if reports_df.empty:
         st.write("No reports available.")
     else:
-        view_columns = [column for column in ["report_id", "category", "window_name", "status", "approval_state", "updated_at"] if column in reports_df.columns]
+        view_columns = [
+            column
+            for column in ["report_id", "category", "window_name", "status", "approval_state", "updated_at"]
+            if column in reports_df.columns
+        ]
         st.dataframe(reports_df[view_columns], use_container_width=True, hide_index=True)
 
     st.subheader("Recent Runs")
     if runs_df.empty:
         st.write("No run history available.")
     else:
-        view_columns = [column for column in ["run_id", "job_name", "status", "processed_count", "published_count", "started_at", "finished_at", "error_text"] if column in runs_df.columns]
+        view_columns = [
+            column
+            for column in [
+                "run_id",
+                "job_name",
+                "status",
+                "processed_count",
+                "published_count",
+                "started_at",
+                "finished_at",
+                "error_text",
+            ]
+            if column in runs_df.columns
+        ]
         st.dataframe(runs_df[view_columns], use_container_width=True, hide_index=True)

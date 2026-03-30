@@ -3,12 +3,11 @@
 import asyncio
 import os
 import tempfile
-import aiosqlite
-import pytest
-import sys
 import unittest
 from datetime import datetime
 
+import aiosqlite
+import pytest
 
 from db import (
     compute_fingerprint,
@@ -48,9 +47,7 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_tables_created(self):
         await init_db(self.conn)
-        cursor = await self.conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor = await self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = await cursor.fetchall()
         table_names = {row["name"] for row in tables}
         self.assertIn("runs", table_names)
@@ -292,8 +289,7 @@ class TestGetCachedContent(unittest.IsolatedAsyncioTestCase):
 
     @pytest.mark.asyncio
     async def test_cache_hit_returns_rows(self):
-        trend = ScoredTrend(keyword="AI 트렌드", rank=1, volume_last_24h=50000,
-                            sources=[TrendSource.GETDAYTRENDS])
+        trend = ScoredTrend(keyword="AI 트렌드", rank=1, volume_last_24h=50000, sources=[TrendSource.GETDAYTRENDS])
         trend_id = await save_trend(self.conn, trend, self.run_id)
         tweet = GeneratedTweet(tweet_type="공감 유도형", content="캐시 테스트 트윗")
         await save_tweet(self.conn, tweet, trend_id, self.run_id)
@@ -307,8 +303,7 @@ class TestGetCachedContent(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_expired_cache_returns_none(self):
         """max_age_hours=0 이면 캐시 미스."""
-        trend = ScoredTrend(keyword="AI 트렌드", rank=1, volume_last_24h=50000,
-                            sources=[TrendSource.GETDAYTRENDS])
+        trend = ScoredTrend(keyword="AI 트렌드", rank=1, volume_last_24h=50000, sources=[TrendSource.GETDAYTRENDS])
         trend_id = await save_trend(self.conn, trend, self.run_id)
         tweet = GeneratedTweet(tweet_type="공감 유도형", content="캐시 테스트")
         await save_tweet(self.conn, tweet, trend_id, self.run_id)
@@ -339,8 +334,7 @@ class TestGetRecentAvgViralScore(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_avg_score_calculated(self):
         for kw, score in [("A", 60), ("B", 80), ("C", 100)]:
-            trend = ScoredTrend(keyword=kw, rank=1, viral_potential=score,
-                                sources=[TrendSource.GETDAYTRENDS])
+            trend = ScoredTrend(keyword=kw, rank=1, viral_potential=score, sources=[TrendSource.GETDAYTRENDS])
             await save_trend(self.conn, trend, self.run_id)
 
         result = await get_recent_avg_viral_score(self.conn, lookback_hours=3)
@@ -426,6 +420,7 @@ class TestPerformanceTrackingColumns(unittest.IsolatedAsyncioTestCase):
         await init_db(self.conn)
         await init_db(self.conn)
 
+
 class TestParallelSQLiteWrites(unittest.IsolatedAsyncioTestCase):
     """Shared SQLite file should survive parallel init/save sequences."""
 
@@ -446,9 +441,7 @@ class TestParallelSQLiteWrites(unittest.IsolatedAsyncioTestCase):
 
                 return asyncio.run(_inner())
 
-            row_ids = await asyncio.gather(
-                *(asyncio.to_thread(worker, index) for index in range(4))
-            )
+            row_ids = await asyncio.gather(*(asyncio.to_thread(worker, index) for index in range(4)))
 
             self.assertEqual(len(row_ids), 4)
 

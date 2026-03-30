@@ -4,16 +4,13 @@ Telegram + Discord 웹훅 알림. trend_monitor/webhook.py에서 포팅.
 """
 
 import json
-import sys
 import urllib.parse
 import urllib.request
-from pathlib import Path
 
+from loguru import logger as log
 
 from config import AppConfig
 from models import ScoredTrend
-
-from loguru import logger as log
 
 
 def format_trend_alert(trend: ScoredTrend) -> str:
@@ -39,11 +36,13 @@ def send_telegram_alert(message: str, config: AppConfig) -> dict:
         return {"ok": False, "error": "Telegram 설정 없음"}
 
     url = f"https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage"
-    payload = json.dumps({
-        "chat_id": config.telegram_chat_id,
-        "text": message[:4096],
-        "parse_mode": "Markdown",
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "chat_id": config.telegram_chat_id,
+            "text": message[:4096],
+            "parse_mode": "Markdown",
+        }
+    ).encode("utf-8")
 
     try:
         req = urllib.request.Request(
@@ -171,8 +170,8 @@ def send_weekly_cost_report(config: AppConfig) -> bool:
     전송 성공 여부 반환.
     """
     try:
-        from shared.llm.stats import CostTracker
         from shared.llm.stats import _DB_PATH as llm_db_path
+        from shared.llm.stats import CostTracker
 
         if not llm_db_path.exists():
             return False
@@ -252,7 +251,9 @@ def check_watchlist(
     # DB 기록 (비동기 conn이므로 asyncio 없이 별도 코루틴으로 처리)
     if conn is not None:
         import asyncio
+
         from db import record_watchlist_hit
+
         for trend, wk in detected:
             try:
                 asyncio.get_event_loop().run_until_complete(
@@ -273,10 +274,7 @@ def check_and_alert(
     if config.no_alerts:
         return 0
 
-    has_channels = (
-        (config.telegram_bot_token and config.telegram_chat_id)
-        or config.discord_webhook_url
-    )
+    has_channels = (config.telegram_bot_token and config.telegram_chat_id) or config.discord_webhook_url
     if not has_channels:
         return 0
 
@@ -312,8 +310,8 @@ def send_daily_cost_alert(config: AppConfig) -> bool:
     try:
         from datetime import date as _date
 
-        from shared.llm.stats import CostTracker
         from shared.llm.stats import _DB_PATH as llm_db_path
+        from shared.llm.stats import CostTracker
 
         if not llm_db_path.exists():
             return False
@@ -335,17 +333,10 @@ def send_daily_cost_alert(config: AppConfig) -> bool:
 
         if pct >= 90:
             message = (
-                f"🔴 *일일 예산 임박!*\n"
-                f"{summary}\n"
-                f"📞 호출: {today_calls}회\n"
-                f"⚠️ Sonnet 비활성화 임계 도달"
+                f"🔴 *일일 예산 임박!*\n" f"{summary}\n" f"📞 호출: {today_calls}회\n" f"⚠️ Sonnet 비활성화 임계 도달"
             )
         else:
-            message = (
-                f"🟡 *일일 비용 경고*\n"
-                f"{summary}\n"
-                f"📞 호출: {today_calls}회"
-            )
+            message = f"🟡 *일일 비용 경고*\n" f"{summary}\n" f"📞 호출: {today_calls}회"
 
         result = send_alert(message, config)
         if any(r.get("ok") for r in result.values()):
@@ -374,6 +365,7 @@ def send_heartbeat(
         return False
 
     from datetime import datetime as _dt
+
     now = _dt.now().strftime("%Y-%m-%d %H:%M")
     message = (
         f"💚 *GetDayTrends 하트비트*\n"
@@ -385,4 +377,3 @@ def send_heartbeat(
     )
     result = send_telegram_alert(message, config)
     return result.get("ok", False)
-

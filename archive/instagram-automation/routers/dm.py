@@ -9,10 +9,9 @@ Endpoints:
 
 from __future__ import annotations
 
+from dependencies import get_database, get_dm_responder
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-
-from dependencies import get_database, get_dm_responder
 from services.database import Database
 from services.dm_responder import DMResponder
 

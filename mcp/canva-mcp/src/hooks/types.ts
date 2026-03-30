@@ -99,4 +99,3 @@ declare global {
     [SET_GLOBALS_EVENT_TYPE]: SetGlobalsEvent;
   }
 }
-

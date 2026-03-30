@@ -2,10 +2,10 @@
 /**
  * DeSci Platform — Sepolia Testnet Deployment Script
  * Deploys BioLinker (IP-NFT) + DSCIToken contracts.
- * 
+ *
  * Usage:
  *   npx hardhat run scripts/deploy_sepolia.js --network sepolia
- * 
+ *
  * Prerequisites:
  *   - SEPOLIA_RPC_URL in .env
  *   - PRIVATE_KEY in .env (deployer wallet with Sepolia ETH)

@@ -11,7 +11,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8002';
 const handlers = [
   http.get(`${API_URL}/products/:id`, ({ params }) => {
     const { id } = params;
-    
+
     // 성공 케이스
     if (id === '1') {
       return HttpResponse.json({ id: '1', title: 'Success Product' }, { status: 200 });
@@ -31,7 +31,7 @@ const server = setupServer(...handlers);
 // beforeAll: 보통 테스트 파일 맨 처음에, 모든 테스트가 시작되기 전 딱 한 번 실행됩니다. (가짜 서버 켜기)
 beforeAll(() => server.listen());
 
-// afterEach: 각각의 테스트 블록(it)이 하나 끝날 때마다 실행됩니다. 
+// afterEach: 각각의 테스트 블록(it)이 하나 끝날 때마다 실행됩니다.
 // (테스트끼리 서로 영향을 주지 않도록 가짜 서버의 핸들러 상태를 중간중간 초기화 해줍니다)
 afterEach(() => server.resetHandlers());
 

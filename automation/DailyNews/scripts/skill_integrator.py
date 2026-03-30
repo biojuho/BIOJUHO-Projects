@@ -8,13 +8,13 @@ after creating a Notion page for each category.
 All functions are async-safe (run blocking skill code in threads) and
 degrade gracefully when skills are unavailable or misconfigured.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import sys
-from pathlib import Path
 from typing import Any
 
 from settings import PROJECT_ROOT
@@ -53,6 +53,7 @@ def _load_x_radar():
     try:
         _ensure_skill_paths()
         from skills.x_radar import scraper as mod  # type: ignore
+
         _x_radar_module = mod
         return mod
     except Exception as exc:
@@ -68,6 +69,7 @@ def _load_opinion_generator():
     try:
         _ensure_skill_paths()
         from skills.opinion_generator import generator as mod  # type: ignore
+
         _opinion_generator_module = mod
         return mod
     except Exception as exc:
@@ -78,6 +80,7 @@ def _load_opinion_generator():
 # ---------------------------------------------------------------------------
 # Public async API
 # ---------------------------------------------------------------------------
+
 
 async def enrich_with_x_radar(keyword: str) -> dict[str, Any]:
     """Fetch trending X / Reddit / News data for *keyword* via the X Radar skill.
@@ -145,9 +148,7 @@ async def generate_opinion_post(
     topic_text = topic_text[:1500]
 
     try:
-        raw = await asyncio.to_thread(
-            mod.generate_opinion_and_hooks, topic_text, persona
-        )
+        raw = await asyncio.to_thread(mod.generate_opinion_and_hooks, topic_text, persona)
         parsed = json.loads(raw) if isinstance(raw, str) else raw
         return parsed
     except Exception as exc:
@@ -167,13 +168,15 @@ def build_x_draft_blocks(opinion_result: dict[str, Any]) -> list[dict[str, Any]]
     blocks: list[dict[str, Any]] = []
 
     # Section heading
-    blocks.append({
-        "object": "block",
-        "type": "heading_3",
-        "heading_3": {
-            "rich_text": [{"text": {"content": "X Post Draft (Auto-Generated)"}}],
-        },
-    })
+    blocks.append(
+        {
+            "object": "block",
+            "type": "heading_3",
+            "heading_3": {
+                "rich_text": [{"text": {"content": "X Post Draft (Auto-Generated)"}}],
+            },
+        }
+    )
 
     contents = opinion_result.get("contents", {})
 
@@ -187,14 +190,16 @@ def build_x_draft_blocks(opinion_result: dict[str, Any]) -> list[dict[str, Any]]
         if isinstance(viral, dict):
             score_info = f" | Viral Score: {viral.get('total_score', '?')}/100"
         text = f"[Single Tweet{score_info}]\n{hook}\n\n{body}"
-        blocks.append({
-            "object": "block",
-            "type": "code",
-            "code": {
-                "language": "plain text",
-                "rich_text": [{"text": {"content": text[:2000]}}],
-            },
-        })
+        blocks.append(
+            {
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "language": "plain text",
+                    "rich_text": [{"text": {"content": text[:2000]}}],
+                },
+            }
+        )
 
     # Thread
     thread = contents.get("thread") if isinstance(contents, dict) else None
@@ -207,14 +212,16 @@ def build_x_draft_blocks(opinion_result: dict[str, Any]) -> list[dict[str, Any]]
             if isinstance(viral, dict):
                 score_info = f" | Viral Score: {viral.get('total_score', '?')}/100"
             text = f"[Thread{score_info}]\n{thread_text}"
-            blocks.append({
-                "object": "block",
-                "type": "code",
-                "code": {
-                    "language": "plain text",
-                    "rich_text": [{"text": {"content": text[:2000]}}],
-                },
-            })
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "code",
+                    "code": {
+                        "language": "plain text",
+                        "rich_text": [{"text": {"content": text[:2000]}}],
+                    },
+                }
+            )
 
     # Suggested hooks summary
     hooks = opinion_result.get("suggested_hooks", [])
@@ -226,17 +233,19 @@ def build_x_draft_blocks(opinion_result: dict[str, Any]) -> list[dict[str, Any]]
             elif isinstance(h, str):
                 hook_lines.append(f"- {h}")
         if hook_lines:
-            blocks.append({
-                "object": "block",
-                "type": "callout",
-                "callout": {
-                    "icon": {"emoji": "\ud83c\udfaf"},
-                    "color": "blue_background",
-                    "rich_text": [
-                        {"type": "text", "text": {"content": "Suggested Hooks:\n" + "\n".join(hook_lines)}}
-                    ],
-                },
-            })
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "icon": {"emoji": "\ud83c\udfaf"},
+                        "color": "blue_background",
+                        "rich_text": [
+                            {"type": "text", "text": {"content": "Suggested Hooks:\n" + "\n".join(hook_lines)}}
+                        ],
+                    },
+                }
+            )
 
     # So-What analysis
     so_what = opinion_result.get("so_what_analysis")
@@ -246,17 +255,17 @@ def build_x_draft_blocks(opinion_result: dict[str, Any]) -> list[dict[str, Any]]
             f"Why it matters: {so_what.get('layer_2_why_it_matters', '-')}\n"
             f"What's next: {so_what.get('layer_3_whats_next', '-')}"
         )
-        blocks.append({
-            "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"emoji": "\ud83e\udde0"},
-                "color": "yellow_background",
-                "rich_text": [
-                    {"type": "text", "text": {"content": f"So-What Analysis:\n{analysis_text}"}}
-                ],
-            },
-        })
+        blocks.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"emoji": "\ud83e\udde0"},
+                    "color": "yellow_background",
+                    "rich_text": [{"type": "text", "text": {"content": f"So-What Analysis:\n{analysis_text}"}}],
+                },
+            }
+        )
 
     if blocks:
         blocks.append({"object": "block", "type": "divider", "divider": {}})

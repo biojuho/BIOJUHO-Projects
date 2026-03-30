@@ -5,6 +5,7 @@ Usage:
     python -m scripts.weekly_notebooklm_digest --week 2026-W12
     python -m scripts.weekly_notebooklm_digest --days 7 --content-types report mind-map audio
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,7 +23,6 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from notion_client import AsyncClient
-
 from runtime import configure_stdout_utf8, generate_run_id, get_logger
 from settings import ANTIGRAVITY_NEWS_DB_ID, NOTION_API_KEY, OUTPUT_DIR
 
@@ -130,8 +130,12 @@ async def run_weekly_digest(
     week_label = week_label or end_date.strftime("%Y-W%V")
 
     logger.info(
-        "digest", "start", "weekly digest",
-        week=week_label, start=start_date.isoformat(), end=end_date.isoformat(),
+        "digest",
+        "start",
+        "weekly digest",
+        week=week_label,
+        start=start_date.isoformat(),
+        end=end_date.isoformat(),
     )
 
     # 1. Fetch reports from Notion
@@ -147,6 +151,7 @@ async def run_weekly_digest(
     # 2. Initialize NotebookLM adapter
     try:
         from antigravity_mcp.integrations.notebooklm_adapter import get_notebooklm_adapter
+
         adapter = get_notebooklm_adapter()
         if not adapter.is_available:
             logger.error("digest", "failed", "notebooklm-py not installed")
@@ -196,7 +201,9 @@ async def run_weekly_digest(
     summary_file.write_text(md_content, encoding="utf-8")
 
     logger.info(
-        "digest", "success", "weekly digest complete",
+        "digest",
+        "success",
+        "weekly digest complete",
         week=week_label,
         notebook_id=result["notebook_id"][:8],
         sources=result["source_count"],
@@ -207,6 +214,7 @@ async def run_weekly_digest(
     # 5. Upload digest link to Notion dashboard (optional)
     try:
         from settings import DASHBOARD_PAGE_ID
+
         if DASHBOARD_PAGE_ID:
             await notion.blocks.children.append(
                 DASHBOARD_PAGE_ID,
@@ -218,9 +226,19 @@ async def run_weekly_digest(
                             "icon": {"emoji": "\U0001f4da"},
                             "color": "green_background",
                             "rich_text": [
-                                {"type": "text", "text": {"content": f"Weekly Digest {week_label}: "}, "annotations": {"bold": True}},
-                                {"type": "text", "text": {"content": "Open in NotebookLM", "link": {"url": notebook_url}}},
-                                {"type": "text", "text": {"content": f" ({result['source_count']} sources, {len(reports)} reports)"}},
+                                {
+                                    "type": "text",
+                                    "text": {"content": f"Weekly Digest {week_label}: "},
+                                    "annotations": {"bold": True},
+                                },
+                                {
+                                    "type": "text",
+                                    "text": {"content": "Open in NotebookLM", "link": {"url": notebook_url}},
+                                },
+                                {
+                                    "type": "text",
+                                    "text": {"content": f" ({result['source_count']} sources, {len(reports)} reports)"},
+                                },
                             ],
                         },
                     }

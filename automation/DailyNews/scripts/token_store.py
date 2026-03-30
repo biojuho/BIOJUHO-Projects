@@ -51,7 +51,7 @@ try:
         tokens from being stored as plain text on disk. The key material is
         derived from values unique to the current machine + project location.
         """
-        seed = f"{os.getenv('COMPUTERNAME', 'unknown')}:{_PROJECT_ROOT}".encode("utf-8")
+        seed = f"{os.getenv('COMPUTERNAME', 'unknown')}:{_PROJECT_ROOT}".encode()
         raw = hashlib.sha256(seed).digest()
         return base64.urlsafe_b64encode(raw)
 
@@ -76,6 +76,7 @@ def _decrypt(ciphertext: str) -> str:
 # ---------------------------------------------------------------------------
 # Internal file I/O
 # ---------------------------------------------------------------------------
+
 
 def _read_store() -> dict[str, str]:
     """Read the token store file.  Returns an empty dict on any failure."""
@@ -102,6 +103,7 @@ def _write_store(data: dict[str, str]) -> None:
 # Fallback: write to .env
 # ---------------------------------------------------------------------------
 
+
 def _fallback_save(name: str, value: str) -> None:
     """Write a token to .env via python-dotenv as a last resort."""
     try:
@@ -120,6 +122,7 @@ def _fallback_load(name: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def save_token(name: str, value: str) -> None:
     """Persist a token by *name*.

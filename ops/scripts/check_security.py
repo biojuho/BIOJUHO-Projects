@@ -8,6 +8,7 @@ Usage:
     python scripts/check_security.py <file_path>
     python scripts/check_security.py --scan-all
 """
+
 from __future__ import annotations
 
 import os
@@ -23,34 +24,59 @@ from workspace_paths import find_workspace_root
 
 # Patterns that indicate hardcoded secrets
 SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("API Key assignment", re.compile(
-        r"""(?:api[_-]?key|apikey|secret[_-]?key|auth[_-]?token|access[_-]?token|bearer)\s*[:=]\s*["'][A-Za-z0-9_\-/.]{20,}["']""",
-        re.IGNORECASE,
-    )),
+    (
+        "API Key assignment",
+        re.compile(
+            r"""(?:api[_-]?key|apikey|secret[_-]?key|auth[_-]?token|access[_-]?token|bearer)\s*[:=]\s*["'][A-Za-z0-9_\-/.]{20,}["']""",
+            re.IGNORECASE,
+        ),
+    ),
     ("AWS Key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("Anthropic Key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}")),
     ("OpenAI Key", re.compile(r"sk-[A-Za-z0-9]{20,}")),
     ("Google API Key", re.compile(r"AIzaSy[A-Za-z0-9_\-]{33}")),
     ("Slack Token", re.compile(r"xox[bprs]-[A-Za-z0-9\-]+")),
     ("GitHub Token", re.compile(r"ghp_[A-Za-z0-9]{36}")),
-    ("Generic password", re.compile(
-        r"""(?:password|passwd|pwd)\s*[:=]\s*["'][^"'\s]{8,}["']""",
-        re.IGNORECASE,
-    )),
+    (
+        "Generic password",
+        re.compile(
+            r"""(?:password|passwd|pwd)\s*[:=]\s*["'][^"'\s]{8,}["']""",
+            re.IGNORECASE,
+        ),
+    ),
     ("Private Key Block", re.compile(r"-----BEGIN (?:RSA |DSA |EC )?PRIVATE KEY-----")),
     ("Telegram Token", re.compile(r"\d{8,10}:[A-Za-z0-9_\-]{35}")),
 ]
 
 # File extensions to scan
 SCANNABLE_EXTENSIONS = {
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".json", ".yaml", ".yml",
-    ".toml", ".cfg", ".ini", ".env", ".sh", ".bat", ".ps1", ".md",
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".cfg",
+    ".ini",
+    ".env",
+    ".sh",
+    ".bat",
+    ".ps1",
+    ".md",
 }
 
 # Files/dirs to skip
 SKIP_PATTERNS = {
-    "node_modules", ".git", "__pycache__", "venv", ".venv",
-    ".env.example", "check_security.py",  # Don't flag ourselves
+    "node_modules",
+    ".git",
+    "__pycache__",
+    "venv",
+    ".venv",
+    ".env.example",
+    "check_security.py",  # Don't flag ourselves
     "package-lock.json",
 }
 
@@ -87,12 +113,14 @@ def scan_file(filepath: Path) -> list[dict]:
 
         for name, pattern in SECRET_PATTERNS:
             if pattern.search(line):
-                issues.append({
-                    "file": str(filepath),
-                    "line": line_num,
-                    "pattern": name,
-                    "content": stripped[:120] + ("..." if len(stripped) > 120 else ""),
-                })
+                issues.append(
+                    {
+                        "file": str(filepath),
+                        "line": line_num,
+                        "pattern": name,
+                        "content": stripped[:120] + ("..." if len(stripped) > 120 else ""),
+                    }
+                )
 
     return issues
 

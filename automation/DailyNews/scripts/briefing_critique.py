@@ -137,9 +137,7 @@ class BriefingCritique:
             logger.warning("Critique JSON parse failed: %s", e)
             return BriefingCritiqueResult(passed=True)
 
-    async def revise(
-        self, briefing: str, critique: BriefingCritiqueResult
-    ) -> str:
+    async def revise(self, briefing: str, critique: BriefingCritiqueResult) -> str:
         """Revise briefing based on critique feedback."""
         prompt = REVISE_PROMPT.format(
             briefing=briefing[:3000],
@@ -153,9 +151,7 @@ class BriefingCritique:
         )
         return resp.text.strip()
 
-    async def run_critique_loop(
-        self, briefing: str
-    ) -> BriefingCritiqueLoopResult:
+    async def run_critique_loop(self, briefing: str) -> BriefingCritiqueLoopResult:
         """Run critique→revise loop until quality threshold met."""
         current = briefing
         history: list[BriefingCritiqueResult] = []

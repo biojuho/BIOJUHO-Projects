@@ -9,10 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from loguru import logger as log
-
 from collectors.base import llm_analyze
 from collectors.gdt_bridge import load_all as gdt_load_all
+from loguru import logger as log
 from prompts.trend_collection import TREND_COLLECTION_SYSTEM, build_trend_prompt
 from storage.models import PlatformTrend, PlatformTrendReport
 
@@ -49,13 +48,9 @@ async def collect_x_trends(config: CIEConfig) -> PlatformTrendReport:
             f"getdaytrends DB 딥 연동: {len(trends)} 트렌드 로드",
         ]
         if gdt_result.watchlist_alerts:
-            insights.append(
-                f"⚡ 감시 키워드 활성: {', '.join(gdt_result.watchlist_alerts)}"
-            )
+            insights.append(f"⚡ 감시 키워드 활성: {', '.join(gdt_result.watchlist_alerts)}")
         if gdt_result.top_keywords:
-            insights.append(
-                f"🏆 고성과 키워드: {', '.join(gdt_result.top_keywords[:5])}"
-            )
+            insights.append(f"🏆 고성과 키워드: {', '.join(gdt_result.top_keywords[:5])}")
 
         log.info(f"  ✅ GDT Bridge: {len(trends)} 트렌드 로드 완료")
         return PlatformTrendReport(

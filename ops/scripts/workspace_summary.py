@@ -4,7 +4,7 @@ Workspace Summary 스크립트 (v1.0)
 
 기능:
   - Git uncommitted 변경 요약
-  - 최신 세션 히스토리 → TODO 추출  
+  - 최신 세션 히스토리 → TODO 추출
   - 프로젝트별 마지막 커밋 시간 → 방치 프로젝트 알림
   - DORA 점수 원라인 요약
 
@@ -13,10 +13,9 @@ Workspace Summary 스크립트 (v1.0)
     python scripts/workspace_summary.py --no-dora
 """
 
-import re
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -24,7 +23,6 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from workspace_paths import find_workspace_root, rel_unit_path
-
 
 WORKSPACE = find_workspace_root()
 SESSION_HISTORY_DIR = WORKSPACE / ".agent" / "session-history"
@@ -45,10 +43,7 @@ STALE_THRESHOLD_DAYS = 3
 def get_git_status() -> dict:
     """Git uncommitted 변경 요약."""
     try:
-        result = subprocess.run(
-            ["git", "status", "--short"],
-            capture_output=True, text=True, cwd=WORKSPACE, timeout=10
-        )
+        result = subprocess.run(["git", "status", "--short"], capture_output=True, text=True, cwd=WORKSPACE, timeout=10)
         lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
 
         # 유형별 분류
@@ -133,29 +128,37 @@ def get_project_last_commits() -> list[dict]:
         try:
             result = subprocess.run(
                 ["git", "log", "-1", "--format=%aI|%s", "--", f"{proj_dir}/"],
-                capture_output=True, text=True, encoding="utf-8", errors="replace",
-                cwd=WORKSPACE, timeout=10,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                cwd=WORKSPACE,
+                timeout=10,
             )
             output = result.stdout.strip()
             if "|" in output:
                 parts = output.split("|", maxsplit=1)
                 dt = datetime.fromisoformat(parts[0])
                 age_days = (datetime.now(dt.tzinfo) - dt).days
-                results.append({
-                    "project": proj_dir,
-                    "last_commit": parts[0][:10],
-                    "message": parts[1][:60],
-                    "age_days": age_days,
-                    "stale": age_days > STALE_THRESHOLD_DAYS,
-                })
+                results.append(
+                    {
+                        "project": proj_dir,
+                        "last_commit": parts[0][:10],
+                        "message": parts[1][:60],
+                        "age_days": age_days,
+                        "stale": age_days > STALE_THRESHOLD_DAYS,
+                    }
+                )
             else:
-                results.append({
-                    "project": proj_dir,
-                    "last_commit": "없음",
-                    "message": "",
-                    "age_days": 999,
-                    "stale": True,
-                })
+                results.append(
+                    {
+                        "project": proj_dir,
+                        "last_commit": "없음",
+                        "message": "",
+                        "age_days": 999,
+                        "stale": True,
+                    }
+                )
         except Exception:
             pass
     return results
@@ -170,8 +173,12 @@ def get_dora_oneliner() -> str:
     try:
         result = subprocess.run(
             [sys.executable, str(dora_script), "--days", "7"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            cwd=WORKSPACE, timeout=30,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=WORKSPACE,
+            timeout=30,
         )
         # "Overall DORA Level" 라인 추출
         for line in result.stdout.split("\n"):
@@ -206,7 +213,7 @@ def format_summary(git: dict, todos: dict, projects: list[dict], dora: str) -> s
         for i, t in enumerate(todos["todos"][:7], 1):
             lines.append(f"   {i}. {t}")
     if todos.get("issues"):
-        lines.append(f"\n⚠️ 미해결 이슈:")
+        lines.append("\n⚠️ 미해결 이슈:")
         for issue in todos["issues"][:3]:
             lines.append(f"   • {issue}")
 
@@ -222,14 +229,14 @@ def format_summary(git: dict, todos: dict, projects: list[dict], dora: str) -> s
     lines.append(f"\n{dora}")
 
     # 추천 작업
-    lines.append(f"\n💡 추천 작업:")
+    lines.append("\n💡 추천 작업:")
     if git["total"] > 0:
         lines.append(f"   1. uncommitted {git['total']}개 변경사항 커밋 (/deploy)")
     if stale:
         stale_names = ", ".join(p["project"] for p in stale[:3])
         lines.append(f"   2. 장기 방치 프로젝트 점검: {stale_names}")
     if todos.get("todos"):
-        lines.append(f"   3. 이전 세션 TODO 이어서 작업")
+        lines.append("   3. 이전 세션 TODO 이어서 작업")
 
     lines.append("\n" + "─" * 57)
     return "\n".join(lines)
@@ -237,6 +244,7 @@ def format_summary(git: dict, todos: dict, projects: list[dict], dora: str) -> s
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Workspace Summary")
     parser.add_argument("--no-dora", action="store_true", help="DORA 메트릭 생략 (빠른 실행)")
     args = parser.parse_args()

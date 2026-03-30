@@ -5,21 +5,17 @@ FastAPI 기반 간단 대시보드: 히스토리 통계 + 최근 트렌드/트�
 실행: uvicorn dashboard:app --reload --port 8010
 """
 
-import sys
 from datetime import datetime
-from pathlib import Path
-
 
 try:
     from fastapi import FastAPI, Query
     from fastapi.responses import HTMLResponse, JSONResponse
 except ImportError:
     raise ImportError(
-        "dashboard 실행을 위해 fastapi와 uvicorn이 필요합니다:\n"
-        "  pip install fastapi uvicorn[standard]"
+        "dashboard 실행을 위해 fastapi와 uvicorn이 필요합니다:\n" "  pip install fastapi uvicorn[standard]"
     )
 
-from config import AppConfig, VERSION
+from config import VERSION, AppConfig
 from db import get_connection, get_source_quality_summary, get_trend_stats, init_db
 
 app = FastAPI(title="getdaytrends Dashboard", version=VERSION)
@@ -28,7 +24,7 @@ _config = AppConfig.from_env()
 
 # Phase 3: 파이프라인 상태 추적 (인메모리)
 _pipeline_status: dict = {
-    "state": "idle",        # idle | running | error
+    "state": "idle",  # idle | running | error
     "last_run_at": None,
     "last_run_elapsed": None,
     "last_error": None,
@@ -201,6 +197,7 @@ def index():
 
 # ── API Endpoints ────────────────────────────────────────
 
+
 @app.get("/api/stats")
 async def api_stats():
     conn = await _get_conn()
@@ -210,7 +207,9 @@ async def api_stats():
     llm_cost_7d = 0.0
     llm_daily = []
     try:
-        from shared.llm.stats import CostTracker, _DB_PATH as llm_db_path
+        from shared.llm.stats import _DB_PATH as llm_db_path
+        from shared.llm.stats import CostTracker
+
         if llm_db_path.exists():
             tracker = CostTracker(persist=True)
             daily = tracker.get_daily_stats(7)
@@ -221,16 +220,19 @@ async def api_stats():
         pass
 
     await conn.close()
-    return JSONResponse({
-        **stats,
-        "llm_cost_7d": round(llm_cost_7d, 6),
-        "llm_daily": llm_daily,
-    })
+    return JSONResponse(
+        {
+            **stats,
+            "llm_cost_7d": round(llm_cost_7d, 6),
+            "llm_daily": llm_daily,
+        }
+    )
 
 
 @app.get("/api/trends")
 async def api_trends(days: int = Query(7, ge=1, le=90), limit: int = Query(50, ge=1, le=200)):
     from datetime import timedelta
+
     conn = await _get_conn()
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute(
@@ -238,7 +240,7 @@ async def api_trends(days: int = Query(7, ge=1, le=90), limit: int = Query(50, g
                   country, scored_at
            FROM trends WHERE scored_at >= ?
            ORDER BY viral_potential DESC LIMIT ?""",
-        (cutoff, limit)
+        (cutoff, limit),
     )
     rows = await cursor.fetchall()
     await conn.close()
@@ -252,6 +254,7 @@ async def api_tweets(
     limit: int = Query(30, ge=1, le=100),
 ):
     from datetime import timedelta
+
     conn = await _get_conn()
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
 
@@ -262,7 +265,7 @@ async def api_tweets(
                FROM tweets tw JOIN trends tr ON tw.trend_id = tr.id
                WHERE tr.keyword LIKE ? AND tw.generated_at >= ?
                ORDER BY tw.generated_at DESC LIMIT ?""",
-            (f"%{trend_keyword}%", cutoff, limit)
+            (f"%{trend_keyword}%", cutoff, limit),
         )
     else:
         # NOTE: Using a query logic equivalent to original
@@ -273,9 +276,9 @@ async def api_tweets(
                FROM tweets tw JOIN trends tr ON tw.trend_id = tr.id
                WHERE tw.generated_at >= ?
                ORDER BY tw.generated_at DESC LIMIT ?""",
-            (cutoff, limit)
+            (cutoff, limit),
         )
-    
+
     rows = await cursor.fetchall()
     await conn.close()
     return JSONResponse([dict(r) for r in rows])
@@ -288,7 +291,7 @@ async def api_runs(limit: int = Query(20, ge=1, le=100)):
         """SELECT run_uuid, started_at, finished_at, country,
                   trends_collected, tweets_generated, tweets_saved, errors
            FROM runs ORDER BY started_at DESC LIMIT ?""",
-        (limit,)
+        (limit,),
     )
     rows = await cursor.fetchall()
     await conn.close()
@@ -304,8 +307,10 @@ def api_pipeline_status():
     budget_info = {"daily_budget_usd": _config.daily_budget_usd, "today_cost_usd": 0.0, "budget_used_pct": 0.0}
     try:
         from datetime import date
-        from shared.llm.stats import CostTracker
+
         from shared.llm.stats import _DB_PATH as llm_db_path
+        from shared.llm.stats import CostTracker
+
         if llm_db_path.exists():
             tracker = CostTracker(persist=True)
             daily = tracker.get_daily_stats(1)
@@ -345,6 +350,7 @@ def update_pipeline_status(state: str, error: str = "", trends: int = 0, tweets:
 async def api_trends_today(limit: int = Query(50, ge=1, le=200)):
     """오늘 생성된 트렌드 + 연결 트윗 수."""
     from datetime import date
+
     conn = await _get_conn()
     today = str(date.today())
     cursor = await conn.execute(
@@ -354,7 +360,7 @@ async def api_trends_today(limit: int = Query(50, ge=1, le=200)):
            FROM trends t
            WHERE t.scored_at >= ?
            ORDER BY t.viral_potential DESC LIMIT ?""",
-        (today, limit)
+        (today, limit),
     )
     rows = await cursor.fetchall()
     await conn.close()
@@ -374,7 +380,7 @@ async def api_trend_tweets(
            FROM tweets tw JOIN trends tr ON tw.trend_id = tr.id
            WHERE tr.keyword = ?
            ORDER BY tw.generated_at DESC LIMIT ?""",
-        (keyword, limit)
+        (keyword, limit),
     )
     rows = await cursor.fetchall()
     await conn.close()
@@ -396,6 +402,7 @@ async def api_source_quality(days: int = Query(7, ge=1, le=30)):
 async def api_category_stats(days: int = Query(7, ge=1, le=90)):
     """카테고리별 바이럴 점수 분포."""
     from datetime import timedelta
+
     conn = await _get_conn()
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute(
@@ -409,7 +416,7 @@ async def api_category_stats(days: int = Query(7, ge=1, le=90)):
            WHERE scored_at >= ?
            GROUP BY COALESCE(category, '기타')
            ORDER BY count DESC""",
-        (cutoff,)
+        (cutoff,),
     )
     rows = await cursor.fetchall()
     await conn.close()
@@ -425,7 +432,7 @@ async def api_watchlist(limit: int = Query(50, ge=1, le=200)):
             """SELECT keyword, watchlist_item, viral_potential, detected_at
                FROM watchlist_hits
                ORDER BY detected_at DESC LIMIT ?""",
-            (limit,)
+            (limit,),
         )
         rows = await cursor.fetchall()
         return JSONResponse([dict(r) for r in rows])

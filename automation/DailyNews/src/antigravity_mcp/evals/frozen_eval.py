@@ -64,7 +64,9 @@ async def run_frozen_eval(
     resolved_dataset_path = _resolve_path(dataset_path, base_dir=settings.project_root) or default_dataset_path()
     resolved_output_path = _resolve_path(output_path, base_dir=settings.project_root) or _default_output_path()
     resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
-    resolved_state_db_path = _resolve_path(state_db_path, base_dir=settings.project_root) or resolved_output_path.with_suffix(".db")
+    resolved_state_db_path = _resolve_path(
+        state_db_path, base_dir=settings.project_root
+    ) or resolved_output_path.with_suffix(".db")
     resolved_state_db_path.parent.mkdir(parents=True, exist_ok=True)
 
     metadata, cases = load_frozen_eval_cases(resolved_dataset_path)
@@ -90,7 +92,9 @@ async def run_frozen_eval(
                 run_id=case_run_id,
                 **overrides,
             )
-            report = next((report for report in reports if report.category == case.category), reports[0] if reports else None)
+            report = next(
+                (report for report in reports if report.category == case.category), reports[0] if reports else None
+            )
             case_results.append(
                 build_case_result(
                     case=case,

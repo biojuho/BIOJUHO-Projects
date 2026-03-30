@@ -1,6 +1,7 @@
 """
 Unit tests for the PDF parser abstraction and GROBID fallback behavior.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace

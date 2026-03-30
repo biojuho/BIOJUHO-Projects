@@ -44,4 +44,3 @@ export function useWidgetState<T extends UnknownObject>(
 
   return [widgetState, setWidgetState] as const;
 }
-

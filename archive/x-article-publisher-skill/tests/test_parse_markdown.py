@@ -5,7 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = REPO_ROOT / "skills" / "x-article-publisher" / "scripts"
 if str(SCRIPT_DIR) not in sys.path:
@@ -50,9 +49,7 @@ class ParseMarkdownTests(unittest.TestCase):
             root = Path(tmp_dir)
             markdown = root / "article.md"
             markdown.write_text(
-                "# Missing Image\n\n"
-                "![cover](./missing/cover.jpg)\n\n"
-                "Body.\n",
+                "# Missing Image\n\n" "![cover](./missing/cover.jpg)\n\n" "Body.\n",
                 encoding="utf-8",
             )
 

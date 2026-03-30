@@ -28,33 +28,94 @@ logger = logging.getLogger(__name__)
 DOMAIN_KEYWORDS = {
     "tech": {
         "keywords": [
-            "AI", "인공지능", "머신러닝", "딥러닝", "GPT", "LLM",
-            "스타트업", "앱", "소프트웨어", "하드웨어", "반도체",
-            "클라우드", "사이버보안", "블록체인", "메타버스",
-            "apple", "google", "microsoft", "openai", "meta",
-            "startup", "software", "chip", "quantum",
+            "AI",
+            "인공지능",
+            "머신러닝",
+            "딥러닝",
+            "GPT",
+            "LLM",
+            "스타트업",
+            "앱",
+            "소프트웨어",
+            "하드웨어",
+            "반도체",
+            "클라우드",
+            "사이버보안",
+            "블록체인",
+            "메타버스",
+            "apple",
+            "google",
+            "microsoft",
+            "openai",
+            "meta",
+            "startup",
+            "software",
+            "chip",
+            "quantum",
         ],
         "system": "AI·테크 전문 뉴스 분석가. 기술적 임팩트와 산업 영향을 중심으로 분석하세요.",
     },
     "finance": {
         "keywords": [
-            "시장", "주식", "경제", "금리", "환율", "투자",
-            "코스피", "나스닥", "S&P", "다우", "GDP",
-            "연준", "한은", "기준금리", "인플레이션",
-            "IPO", "M&A", "실적", "매출", "영업이익",
-            "market", "stock", "economy", "interest rate",
-            "fed", "inflation", "ipo", "earnings",
+            "시장",
+            "주식",
+            "경제",
+            "금리",
+            "환율",
+            "투자",
+            "코스피",
+            "나스닥",
+            "S&P",
+            "다우",
+            "GDP",
+            "연준",
+            "한은",
+            "기준금리",
+            "인플레이션",
+            "IPO",
+            "M&A",
+            "실적",
+            "매출",
+            "영업이익",
+            "market",
+            "stock",
+            "economy",
+            "interest rate",
+            "fed",
+            "inflation",
+            "ipo",
+            "earnings",
         ],
         "system": "금융·경제 전문 뉴스 분석가. 시장 영향과 투자 시사점을 중심으로 분석하세요.",
     },
     "science": {
         "keywords": [
-            "연구", "논문", "실험", "임상", "바이오",
-            "유전자", "기후", "탄소", "에너지", "우주",
-            "NASA", "nature", "science", "cell",
-            "research", "study", "clinical", "genome",
-            "climate", "renewable", "space", "health",
-            "의료", "신약", "백신", "진단",
+            "연구",
+            "논문",
+            "실험",
+            "임상",
+            "바이오",
+            "유전자",
+            "기후",
+            "탄소",
+            "에너지",
+            "우주",
+            "NASA",
+            "nature",
+            "science",
+            "cell",
+            "research",
+            "study",
+            "clinical",
+            "genome",
+            "climate",
+            "renewable",
+            "space",
+            "health",
+            "의료",
+            "신약",
+            "백신",
+            "진단",
         ],
         "system": "과학·바이오 전문 뉴스 분석가. 과학적 의미와 실용적 영향을 중심으로 분석하세요.",
     },
@@ -128,8 +189,7 @@ class NewsAgent:
 
         # Format articles for prompt
         articles_text = "\n".join(
-            f"- {a.get('title', 'N/A')} ({a.get('source', 'N/A')}): "
-            f"{a.get('description', '')[:150]}"
+            f"- {a.get('title', 'N/A')} ({a.get('source', 'N/A')}): " f"{a.get('description', '')[:150]}"
             for a in articles[:10]  # Max 10 per agent
         )
 
@@ -173,9 +233,7 @@ class AgentOrchestrator:
         self.agents = [NewsAgent(d) for d in domain_list]
         self._llm = get_client()
 
-    def classify_articles(
-        self, articles: list[dict]
-    ) -> dict[str, list[dict]]:
+    def classify_articles(self, articles: list[dict]) -> dict[str, list[dict]]:
         """Classify articles by domain.
 
         Articles matching multiple domains go to the first matching agent.
@@ -248,10 +306,7 @@ class AgentOrchestrator:
 
         # Add general articles summary
         if general:
-            general_lines = "\n".join(
-                f"- {a.get('title', 'N/A')} ({a.get('source', 'N/A')})"
-                for a in general[:5]
-            )
+            general_lines = "\n".join(f"- {a.get('title', 'N/A')} ({a.get('source', 'N/A')})" for a in general[:5])
             sections.append(f"### 기타 뉴스\n{general_lines}")
 
         return "\n\n---\n\n".join(sections)

@@ -1,0 +1,63 @@
+Detect hardcoded secrets.................................................[42mPassed[m
+ruff.....................................................................[41mFailed[m
+[2m- hook id: ruff[m
+[2m- exit code: 2[m
+
+ruff failed
+  Cause: Failed to parse d:\AI project\pyproject.toml
+  Cause: TOML parse error at line 19, column 18
+   |
+19 | target-version = "py314"
+   |                  ^^^^^^^
+unknown variant `py314`, expected one of `py37`, `py38`, `py39`, `py310`, `py311`, `py312`
+
+ruff-format..............................................................[41mFailed[m
+[2m- hook id: ruff-format[m
+[2m- exit code: 2[m
+
+ruff failed
+  Cause: Failed to parse d:\AI project\pyproject.toml
+  Cause: TOML parse error at line 19, column 18
+   |
+19 | target-version = "py314"
+   |                  ^^^^^^^
+unknown variant `py314`, expected one of `py37`, `py38`, `py39`, `py310`, `py311`, `py312`
+
+check yaml...............................................................[41mFailed[m
+[2m- hook id: check-yaml[m
+[2m- exit code: 2[m
+
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+usage: python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE
+       [-h] [-m] [--unsafe] [filenames ...]
+python.EXE C:\Users\bioju\.cache\pre-commit\repot4d4cjq8\py_env-python3.14\Scripts\check-yaml.EXE: error: unrecognized arguments: --safe
+
+check json...............................................................[42mPassed[m
+check toml...............................................................[42mPassed[m
+fix end of files.........................................................[42mPassed[m
+trim trailing whitespace.................................................[42mPassed[m
+mixed line ending........................................................[42mPassed[m
+check for added large files..............................................[42mPassed[m
+check for merge conflicts................................................[42mPassed[m
+detect private key.......................................................[42mPassed[m
+Custom Security Scanner..................................................[42mPassed[m

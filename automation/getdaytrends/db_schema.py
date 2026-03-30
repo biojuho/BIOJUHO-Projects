@@ -1,29 +1,24 @@
-﻿"""
+"""
 getdaytrends ??Database Schema & Connection Layer
 PostgreSQL ?대뙌?? DB ?곌껐, ?ㅽ궎留?珥덇린?? 留덉씠洹몃젅?댁뀡.
 db.py?먯꽌 遺꾨━??
 """
 
-
 import hashlib
-import json
 import os
 import re
 import threading
 import unicodedata
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from typing import AsyncIterator
 
 import aiosqlite
-
-from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-
 from loguru import logger as log
 
 # ?? PostgreSQL ?좏깮??吏??????????????????????????????
 try:
     import asyncpg
+
     _PG_AVAILABLE = True
 except ImportError:
     asyncpg = None  # type: ignore[assignment]
@@ -35,6 +30,7 @@ _SQLITE_WRITE_LOCK = threading.RLock()
 
 
 # ?? ?몃옖??뀡 而⑦뀓?ㅽ듃 留ㅻ땲? ????????????????????????????
+
 
 @asynccontextmanager
 async def sqlite_write_lock(conn) -> AsyncIterator[None]:
@@ -77,6 +73,7 @@ class _PgAdapter:
     """
     asyncpg ?곌껐??aiosqlite.Connection ?명꽣?섏씠?ㅼ? ?좎궗?섍쾶 ?섑븨.
     """
+
     def __init__(self, conn: "asyncpg.Connection") -> None:
         self._conn = conn
 
@@ -120,19 +117,31 @@ class _PgAdapter:
         try:
             if is_insert:
                 row = await self._conn.fetchrow(sql_pg, *parameters)
+
                 class DummyCursor:
                     lastrowid = dict(row).get("id") if row else None
                     rowcount = 1
-                    async def fetchone(self): return row
-                    async def fetchall(self): return [row] if row else []
+
+                    async def fetchone(self):
+                        return row
+
+                    async def fetchall(self):
+                        return [row] if row else []
+
                 return DummyCursor()
             else:
                 rows = await self._conn.fetch(sql_pg, *parameters)
+
                 class DummyCursor:
                     lastrowid = None
                     rowcount = len(rows)
-                    async def fetchone(self): return rows[0] if rows else None
-                    async def fetchall(self): return rows
+
+                    async def fetchone(self):
+                        return rows[0] if rows else None
+
+                    async def fetchall(self):
+                        return rows
+
                 return DummyCursor()
         except Exception as e:
             log.error(f"PG Execute Error: {e} | SQL: {sql_pg}")
@@ -196,10 +205,7 @@ async def get_connection(
     url = database_url or os.getenv("DATABASE_URL", "")
     if url.startswith(("postgresql://", "postgres://")):
         if not _PG_AVAILABLE:
-            raise ImportError(
-                "PostgreSQL ?ъ슜???꾪빐 asyncpg ?ㅼ튂 ?꾩슂:\n"
-                "  pip install asyncpg"
-            )
+            raise ImportError("PostgreSQL ?ъ슜???꾪빐 asyncpg ?ㅼ튂 ?꾩슂:\n" "  pip install asyncpg")
         pool = await get_pg_pool(url)
         pg_conn = await pool.acquire()
         return _PgAdapter(pg_conn)
@@ -353,7 +359,7 @@ async def _init_db_unlocked(conn) -> None:
         await conn.execute("ALTER TABLE tweets ADD COLUMN content_type TEXT DEFAULT 'short'")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_run_type ON tweets(run_id, content_type)")
         await conn.commit()
-    
+
     try:
         await conn.execute("SELECT fingerprint FROM trends LIMIT 1")
     except Exception:
@@ -361,7 +367,7 @@ async def _init_db_unlocked(conn) -> None:
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_trends_fingerprint ON trends(fingerprint)")
         await conn.commit()
         await _backfill_fingerprints(conn)
-        
+
     for _col_name, _col_def in [
         ("posted_at", "TEXT DEFAULT NULL"),
         ("x_tweet_id", "TEXT DEFAULT ''"),
@@ -402,9 +408,12 @@ async def init_db(conn) -> None:
 
 
 async def _backfill_fingerprints(conn) -> None:
-    cursor = await conn.execute("SELECT id, keyword, volume_numeric FROM trends WHERE fingerprint = '' OR fingerprint IS NULL")
+    cursor = await conn.execute(
+        "SELECT id, keyword, volume_numeric FROM trends WHERE fingerprint = '' OR fingerprint IS NULL"
+    )
     rows = await cursor.fetchall()
-    if not rows: return
+    if not rows:
+        return
     for row in rows:
         fp = compute_fingerprint(row["keyword"], row["volume_numeric"])
         await conn.execute("UPDATE trends SET fingerprint = ? WHERE id = ?", (fp, row["id"]))
@@ -433,6 +442,3 @@ def compute_fingerprint(name: str, volume: int, bucket: int = 5000) -> str:
     normalized_volume = _normalize_volume(volume, bucket)
     raw = f"{normalized_name}:{normalized_volume}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
-
-
-

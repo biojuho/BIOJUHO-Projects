@@ -4,17 +4,15 @@ BioLinker - Smoke / Integration Pipeline Tests
 Uses shared conftest.py fixtures for external service stubs.
 sync_client provides a TestClient with all services pre-mocked.
 """
+
 import asyncio
 import warnings
-
-import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import MagicMock
 
 import main as app_main  # noqa: E402
 import routers.rfp as rfp_router  # noqa: E402
 import routers.web3 as web3_router  # noqa: E402
-
+from fastapi.testclient import TestClient
 
 # ─── Auth / basic endpoint tests ────────────────────────────────────────────
 
@@ -109,15 +107,18 @@ def test_match_to_proposal_flow(sync_client, monkeypatch):
 
     # [QA 수정] Tier manager mock — ENTERPRISE 티어로 모든 가드 통과
     from unittest.mock import AsyncMock as _AsyncMock
+
     import services.usage_middleware as _usage_mw
     from services.user_tier import UserTier as _UserTier
 
     stub_mgr = MagicMock()
     stub_mgr.get_tier = _AsyncMock(return_value=_UserTier.ENTERPRISE)
-    stub_mgr.check_and_increment = _AsyncMock(return_value=(
-        True,
-        {"tier": "enterprise", "usage": {"proposal_generation": {"used": 1, "limit": 999999, "remaining": 999998}}},
-    ))
+    stub_mgr.check_and_increment = _AsyncMock(
+        return_value=(
+            True,
+            {"tier": "enterprise", "usage": {"proposal_generation": {"used": 1, "limit": 999999, "remaining": 999998}}},
+        )
+    )
     monkeypatch.setattr(_usage_mw, "get_tier_manager", lambda: stub_mgr)
 
     auth_headers = {"Authorization": "Bearer test-token-bypass"}

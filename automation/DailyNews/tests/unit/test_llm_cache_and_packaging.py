@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from antigravity_mcp.domain.models import ChannelDraft, ContentItem, ContentReport
 from antigravity_mcp.integrations import llm_adapter as llm_module
 from antigravity_mcp.pipelines.collect import collect_content_items

@@ -38,15 +38,14 @@ if str(_PROJECT_ROOT) not in sys.path:
 if str(_CIE_DIR) not in sys.path:
     sys.path.insert(0, str(_CIE_DIR))
 
-from loguru import logger as log
-
 from config import CIEConfig
+from loguru import logger as log
 from storage.models import MergedTrendReport
-
 
 # ══════════════════════════════════════════════════════
 #  CLI
 # ══════════════════════════════════════════════════════
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -68,6 +67,7 @@ def parse_args() -> argparse.Namespace:
 #  Logging
 # ══════════════════════════════════════════════════════
 
+
 def setup_logging(verbose: bool = False) -> None:
     log.remove()
     level = "DEBUG" if verbose else "INFO"
@@ -84,6 +84,7 @@ def setup_logging(verbose: bool = False) -> None:
 #  Banner
 # ══════════════════════════════════════════════════════
 
+
 def print_banner(config: CIEConfig, mode: str, publish: bool) -> None:
     log.info("═" * 55)
     log.info("  Content Intelligence Engine (CIE) v2.0")
@@ -98,15 +99,16 @@ def print_banner(config: CIEConfig, mode: str, publish: bool) -> None:
 #  Pipeline Steps
 # ══════════════════════════════════════════════════════
 
+
 async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
     """Step 1: 멀티플랫폼 트렌드 수집 (병렬)."""
     log.info("\n" + "─" * 40)
     log.info("📡 STEP 1: 트렌드 수집")
     log.info("─" * 40)
 
-    from collectors.x_collector import collect_x_trends
-    from collectors.threads_collector import collect_threads_trends
     from collectors.naver_collector import collect_naver_trends
+    from collectors.threads_collector import collect_threads_trends
+    from collectors.x_collector import collect_x_trends
 
     collector_map = {
         "x": collect_x_trends,
@@ -152,10 +154,7 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
     )
 
     total_trends = sum(len(r.trends) for r in valid_reports)
-    log.info(
-        f"\n  📊 트렌드 수집 요약: {len(valid_reports)}개 플랫폼, "
-        f"{total_trends}개 트렌드"
-    )
+    log.info(f"\n  📊 트렌드 수집 요약: {len(valid_reports)}개 플랫폼, " f"{total_trends}개 트렌드")
     if cross_platform:
         log.info(f"  🔗 교차 플랫폼 키워드: {', '.join(cross_platform)}")
 
@@ -199,7 +198,7 @@ async def step_save(config, trend_report=None, regulation_reports=None, batch=No
     log.info("💾 STEP 4: 저장")
     log.info("─" * 40)
 
-    from storage.local_db import get_connection, save_trends, save_regulations, save_contents
+    from storage.local_db import get_connection, save_contents, save_regulations, save_trends
 
     conn = get_connection(config)
     try:
@@ -224,6 +223,7 @@ async def step_publish(config: CIEConfig, batch):
     # Notion 발행
     if config.can_publish_notion:
         from storage.notion_publisher import publish_batch_to_notion
+
         notion_results = await publish_batch_to_notion(batch, config)
         all_results.extend(notion_results)
         success = sum(1 for r in notion_results if r.success)
@@ -234,6 +234,7 @@ async def step_publish(config: CIEConfig, batch):
     # X 발행
     if config.can_publish_x:
         from storage.x_publisher import publish_batch_to_x
+
         x_results = await publish_batch_to_x(batch, config)
         all_results.extend(x_results)
         success = sum(1 for r in x_results if r.success)
@@ -263,6 +264,7 @@ async def step_publish_only(config: CIEConfig):
         log.info(f"  📦 미발행 콘텐츠 {len(contents)}건 발견")
 
         from storage.models import ContentBatch
+
         batch = ContentBatch(contents=contents)
         await step_publish(config, batch)
     finally:
@@ -272,6 +274,7 @@ async def step_publish_only(config: CIEConfig):
 # ══════════════════════════════════════════════════════
 #  Main Pipeline
 # ══════════════════════════════════════════════════════
+
 
 async def run_pipeline(
     config: CIEConfig,
@@ -348,6 +351,7 @@ async def run_pipeline(
 #  Entry Point
 # ══════════════════════════════════════════════════════
 
+
 def main() -> None:
     args = parse_args()
     setup_logging(args.verbose)
@@ -356,7 +360,7 @@ def main() -> None:
 
     if args.dry_run:
         log.info("🧪 DRY RUN 모드 — LLM 호출 없이 구조 검증만 수행")
-        log.info(f"  설정 로드: ✅")
+        log.info("  설정 로드: ✅")
         log.info(f"  플랫폼: {config.platforms}")
         log.info(f"  DB 경로: {config.sqlite_path}")
         log.info(f"  Notion: {'연결됨' if config.notion_database_id else '미설정'}")
@@ -365,10 +369,12 @@ def main() -> None:
 
         # GDT Bridge 확인
         from collectors.gdt_bridge import _find_gdt_db
+
         gdt_path = _find_gdt_db(config)
         log.info(f"  GDT DB: {'✅ ' + str(gdt_path) if gdt_path else '❌ 미발견'}")
 
-        from storage.local_db import get_connection, ensure_schema
+        from storage.local_db import ensure_schema, get_connection
+
         conn = get_connection(config)
         ensure_schema(conn)
         conn.close()

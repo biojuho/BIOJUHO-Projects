@@ -1,10 +1,11 @@
 """Telegram Bot MCP Server — Claude Code integration for notifications, approvals, and monitoring."""
 
-import os
 import json
-from datetime import datetime, timezone, timedelta
+import os
+from datetime import datetime, timedelta, timezone
 
 import httpx
+
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("telegram-bot")
@@ -18,9 +19,7 @@ def _get_config() -> tuple[str, str]:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
-        raise ValueError(
-            "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables"
-        )
+        raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables")
     return token, chat_id
 
 
@@ -95,20 +94,12 @@ async def send_alert(title: str, body: str, level: str = "info") -> dict:
     icon = icons.get(level, "[INFO]")
     now = datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
 
-    msg = (
-        f"*{icon} {title}*\n"
-        f"\n"
-        f"{body}\n"
-        f"\n"
-        f"_{now}_"
-    )
+    msg = f"*{icon} {title}*\n" f"\n" f"{body}\n" f"\n" f"_{now}_"
     return await _send(msg)
 
 
 @mcp.tool()
-async def send_pipeline_report(
-    pipeline_name: str, status: str, details: str, metrics: dict | None = None
-) -> dict:
+async def send_pipeline_report(pipeline_name: str, status: str, details: str, metrics: dict | None = None) -> dict:
     """Send a pipeline execution report.
 
     Args:
@@ -198,14 +189,7 @@ async def send_approval_request(action: str, description: str) -> dict:
         Dict with ok, message_id, or error.
     """
     now = datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
-    msg = (
-        f"*[APPROVAL REQUIRED]*\n"
-        f"\n"
-        f"*Action:* `{action}`\n"
-        f"{description}\n"
-        f"\n"
-        f"_{now}_"
-    )
+    msg = f"*[APPROVAL REQUIRED]*\n" f"\n" f"*Action:* `{action}`\n" f"{description}\n" f"\n" f"_{now}_"
 
     reply_markup = {
         "inline_keyboard": [

@@ -30,7 +30,7 @@ export default function Layout() {
                 AgriGuard
               </span>
             </div>
-            
+
             {/* Desktop Nav */}
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-1">

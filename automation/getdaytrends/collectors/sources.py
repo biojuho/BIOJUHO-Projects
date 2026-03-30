@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """collectors/sources — 개별 소스 수집 함수 모음.
 
 scraper.py에서 추출한 소스별 트렌드 수집 로직을 모아둔 모듈.
@@ -12,15 +11,13 @@ import asyncio
 import re
 import time
 import xml.etree.ElementTree as ET
+from datetime import UTC
 
 import httpx
-
-from config import AppConfig
-from models import MultiSourceContext, RawTrend, TrendSource
-from utils import run_async
-
 from loguru import logger as log
 
+from models import RawTrend, TrendSource
+from utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  공통 상수 & 유틸리티
@@ -50,6 +47,7 @@ def _parse_rss_date(date_str: str | None) -> "datetime | None":
     if not date_str:
         return None
     from email.utils import parsedate_to_datetime
+
     try:
         return parsedate_to_datetime(date_str.strip())
     except Exception:
@@ -58,14 +56,14 @@ def _parse_rss_date(date_str: str | None) -> "datetime | None":
 
 def _format_news_age(date_str: str | None) -> str:
     """pubDate → '어제', '2시간 전' 등 사람 읽기용 문자열."""
-    from datetime import datetime as _dt, timezone
+    from datetime import datetime as _dt
+
     dt = _parse_rss_date(date_str)
     if not dt:
         return ""
-    now = _dt.now(timezone.utc)
+    now = _dt.now(UTC)
     if dt.tzinfo is None:
-        from datetime import timezone as _tz
-        dt = dt.replace(tzinfo=_tz.utc)
+        dt = dt.replace(tzinfo=UTC)
     delta = now - dt
     hours = delta.total_seconds() / 3600
     if hours < 1:
@@ -98,9 +96,8 @@ def _parse_volume_text(text: str) -> int:
 #  Source 1: getdaytrends.com
 # ══════════════════════════════════════════════════════
 
-async def _async_fetch_getdaytrends(
-    session: httpx.AsyncClient, country_slug: str, limit: int = 50
-) -> list[RawTrend]:
+
+async def _async_fetch_getdaytrends(session: httpx.AsyncClient, country_slug: str, limit: int = 50) -> list[RawTrend]:
     """getdaytrends.com에서 트렌드 수집 (비동기)."""
     from bs4 import BeautifulSoup
 
@@ -113,7 +110,9 @@ async def _async_fetch_getdaytrends(
     if cached:
         cached_at, cached_trends = cached
         if time.time() - cached_at < _FETCH_CACHE_TTL:
-            log.info(f"[수집 캐시] getdaytrends.com 재사용: {len(cached_trends)}개 ({cache_key}, {int(time.time() - cached_at)}초 전)")
+            log.info(
+                f"[수집 캐시] getdaytrends.com 재사용: {len(cached_trends)}개 ({cache_key}, {int(time.time() - cached_at)}초 전)"
+            )
             return cached_trends[:limit]
 
     try:
@@ -146,14 +145,16 @@ async def _async_fetch_getdaytrends(
             href = name_el.get("href", "")
             link = f"{base_url}{href}" if href and not href.startswith("http") else href
 
-            trends.append(RawTrend(
-                name=name,
-                source=TrendSource.GETDAYTRENDS,
-                volume=volume_text,
-                volume_numeric=_parse_volume_text(volume_text),
-                link=link,
-                country=country_slug or "global",
-            ))
+            trends.append(
+                RawTrend(
+                    name=name,
+                    source=TrendSource.GETDAYTRENDS,
+                    volume=volume_text,
+                    volume_numeric=_parse_volume_text(volume_text),
+                    link=link,
+                    country=country_slug or "global",
+                )
+            )
 
             if len(trends) >= limit:
                 break
@@ -177,9 +178,7 @@ def fetch_getdaytrends(country_slug: str, limit: int = 50) -> list[RawTrend]:
     return run_async(_async_fetch_getdaytrends_standalone(country_slug, limit))
 
 
-async def _async_fetch_getdaytrends_standalone(
-    country_slug: str, limit: int = 50
-) -> list[RawTrend]:
+async def _async_fetch_getdaytrends_standalone(country_slug: str, limit: int = 50) -> list[RawTrend]:
     """독립 세션으로 getdaytrends 수집 (단독 호출용)."""
     async with httpx.AsyncClient() as session:
         return await _async_fetch_getdaytrends(session, country_slug, limit)
@@ -188,10 +187,7 @@ async def _async_fetch_getdaytrends_standalone(
 def _fallback_trends() -> list[RawTrend]:
     """스크래핑 실패 시 대체 주제."""
     fallbacks = ["주말 계획", "점심 메뉴", "날씨", "커피", "퇴근"]
-    return [
-        RawTrend(name=t, source=TrendSource.GETDAYTRENDS)
-        for t in fallbacks
-    ]
+    return [RawTrend(name=t, source=TrendSource.GETDAYTRENDS) for t in fallbacks]
 
 
 # ══════════════════════════════════════════════════════
@@ -216,7 +212,7 @@ def _is_korean_trend(name: str, country_slug: str) -> bool:
     if country_slug not in ("korea", "KR"):
         return True  # 비한국 국가는 그대로 허용
     # 한글 유니코드 범위: AC00-D7A3 (완성형), 1100-11FF (자모)
-    has_hangul = any('\uAC00' <= c <= '\uD7A3' or '\u1100' <= c <= '\u11FF' for c in name)
+    has_hangul = any("\uac00" <= c <= "\ud7a3" or "\u1100" <= c <= "\u11ff" for c in name)
     # 영어 혹은 한글이면 허용
     is_ascii = all(ord(c) < 128 for c in name.replace(" ", ""))
     return has_hangul or is_ascii
@@ -267,20 +263,20 @@ async def _async_fetch_google_trends_rss(
 
             # [v6.1] pubDate 파싱
             pub_date_el = item.find("pubDate")
-            published_at = _parse_rss_date(
-                pub_date_el.text if pub_date_el is not None else None
-            )
+            published_at = _parse_rss_date(pub_date_el.text if pub_date_el is not None else None)
 
-            trends.append(RawTrend(
-                name=name,
-                source=TrendSource.GOOGLE_TRENDS,
-                volume=volume_text,
-                volume_numeric=_parse_volume_text(volume_text.replace("+", "").replace(",", "")),
-                link=link,
-                country=country_slug or "global",
-                extra={"news_headlines": news_items},
-                published_at=published_at,
-            ))
+            trends.append(
+                RawTrend(
+                    name=name,
+                    source=TrendSource.GOOGLE_TRENDS,
+                    volume=volume_text,
+                    volume_numeric=_parse_volume_text(volume_text.replace("+", "").replace(",", "")),
+                    link=link,
+                    country=country_slug or "global",
+                    extra={"news_headlines": news_items},
+                    published_at=published_at,
+                )
+            )
 
             if len(trends) >= limit:
                 break
@@ -298,9 +294,7 @@ def fetch_google_trends_rss(country_slug: str, limit: int = 20) -> list[RawTrend
     return run_async(_async_fetch_google_trends_rss_standalone(country_slug, limit))
 
 
-async def _async_fetch_google_trends_rss_standalone(
-    country_slug: str, limit: int = 20
-) -> list[RawTrend]:
+async def _async_fetch_google_trends_rss_standalone(country_slug: str, limit: int = 20) -> list[RawTrend]:
     """독립 세션으로 Google Trends RSS 수집 (단독 호출용)."""
     async with httpx.AsyncClient() as session:
         return await _async_fetch_google_trends_rss(session, country_slug, limit)
@@ -355,10 +349,10 @@ async def _async_fetch_youtube_trending(
             if attempt == 3:
                 log.debug(f"YouTube Trending 수집 최종 실패 (3회 초과): {e}")
                 return []
-            backoff = 2 ** attempt
+            backoff = 2**attempt
             log.warning(f"YouTube API 에러({e}), {backoff}초 후 재시도 ({attempt}/3)")
             await asyncio.sleep(backoff)
-            
+
     if not isinstance(raw, bytes):
         return []
 
@@ -393,14 +387,16 @@ async def _async_fetch_youtube_trending(
                 except ValueError:
                     pass
 
-            trends.append(RawTrend(
-                name=name,
-                source=TrendSource.YOUTUBE,
-                volume=f"{view_count:,} views" if view_count else "N/A",
-                volume_numeric=view_count,
-                link=link,
-                country=country_slug or "korea",
-            ))
+            trends.append(
+                RawTrend(
+                    name=name,
+                    source=TrendSource.YOUTUBE,
+                    volume=f"{view_count:,} views" if view_count else "N/A",
+                    volume_numeric=view_count,
+                    link=link,
+                    country=country_slug or "korea",
+                )
+            )
 
         log.info(f"YouTube Trending 수집 완료: {len(trends)}개 ({country_code})")
         return trends
@@ -415,9 +411,7 @@ def fetch_youtube_trending(country_slug: str = "korea", limit: int = 10) -> list
     return run_async(_async_fetch_youtube_trending_standalone(country_slug, limit))
 
 
-async def _async_fetch_youtube_trending_standalone(
-    country_slug: str = "korea", limit: int = 10
-) -> list[RawTrend]:
+async def _async_fetch_youtube_trending_standalone(country_slug: str = "korea", limit: int = 10) -> list[RawTrend]:
     """독립 세션으로 YouTube Trending 수집 (단독 호출용)."""
     async with httpx.AsyncClient() as session:
         return await _async_fetch_youtube_trending(session, country_slug, limit)
@@ -426,6 +420,7 @@ async def _async_fetch_youtube_trending_standalone(
 # ══════════════════════════════════════════════════════
 #  Merge & Deduplicate Trends
 # ══════════════════════════════════════════════════════
+
 
 def _merge_trends(
     primary: list[RawTrend],
@@ -460,6 +455,7 @@ def _merge_trends(
     if len(merged) > 1:
         try:
             from shared.embeddings import deduplicate_texts
+
             names = [t.name for t in merged]
             unique_indices = deduplicate_texts(names, threshold=0.82)
             removed = len(merged) - len(unique_indices)

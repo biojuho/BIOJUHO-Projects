@@ -11,12 +11,14 @@ from enum import Enum
 #  Source Credibility Tiers
 # ══════════════════════════════════════════════════════
 
+
 class CredibilityTier(Enum):
     """뉴스 출처 신뢰도 등급."""
-    TIER_1 = "tier_1"   # 주요 통신사/공영방송 (연합뉴스, KBS, BBC, Reuters, AP)
-    TIER_2 = "tier_2"   # 종합일간지/전문지 (조선일보, 한겨레, Bloomberg, WSJ)
-    TIER_3 = "tier_3"   # 인터넷 매체/포털 (허프포스트, 매일경제 등)
-    TIER_4 = "tier_4"   # 블로그/커뮤니티/미확인 출처
+
+    TIER_1 = "tier_1"  # 주요 통신사/공영방송 (연합뉴스, KBS, BBC, Reuters, AP)
+    TIER_2 = "tier_2"  # 종합일간지/전문지 (조선일보, 한겨레, Bloomberg, WSJ)
+    TIER_3 = "tier_3"  # 인터넷 매체/포털 (허프포스트, 매일경제 등)
+    TIER_4 = "tier_4"  # 블로그/커뮤니티/미확인 출처
     UNKNOWN = "unknown"
 
 

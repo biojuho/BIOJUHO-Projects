@@ -5,7 +5,7 @@ performance_tracker.py에서 분리됨.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 
 # ── Data Models ──────────────────────────────────────────
 
@@ -74,8 +74,8 @@ class TweetMetrics:
     quotes: int = 0
     engagement_rate: float = 0.0
     angle_type: str = ""
-    hook_pattern: str = ""   # [B] 훅 패턴: number_shock|relatable_math|reversal|insider|contrast|question
-    kick_pattern: str = ""   # [B] 킥 패턴: mic_drop|self_deprecation|uncertainty|manifesto|twist
+    hook_pattern: str = ""  # [B] 훅 패턴: number_shock|relatable_math|reversal|insider|contrast|question
+    kick_pattern: str = ""  # [B] 킥 패턴: mic_drop|self_deprecation|uncertainty|manifesto|twist
     collected_at: datetime | None = None
     collection_tier: str = ""  # [D] 수집 단계: "1h"|"6h"|"48h"
 
@@ -103,20 +103,37 @@ HOOK_PATTERNS = ["number_shock", "relatable_math", "reversal", "insider", "contr
 KICK_PATTERNS = ["mic_drop", "self_deprecation", "uncertainty", "manifesto", "twist"]
 
 _HOOK_ALIASES: dict[str, str] = {
-    "숫자충격": "number_shock", "숫자 충격": "number_shock", "number_shock": "number_shock",
-    "체감환산": "relatable_math", "체감 환산": "relatable_math", "relatable_math": "relatable_math",
-    "반전선언": "reversal", "반전 선언": "reversal",
-    "내부자시선": "insider", "내부자 시선": "insider", "insider": "insider",
-    "대조병치": "contrast", "대조 병치": "contrast", "contrast": "contrast",
-    "질문도발": "question", "질문 도발": "question", "question": "question",
+    "숫자충격": "number_shock",
+    "숫자 충격": "number_shock",
+    "number_shock": "number_shock",
+    "체감환산": "relatable_math",
+    "체감 환산": "relatable_math",
+    "relatable_math": "relatable_math",
+    "반전선언": "reversal",
+    "반전 선언": "reversal",
+    "내부자시선": "insider",
+    "내부자 시선": "insider",
+    "insider": "insider",
+    "대조병치": "contrast",
+    "대조 병치": "contrast",
+    "contrast": "contrast",
+    "질문도발": "question",
+    "질문 도발": "question",
+    "question": "question",
 }
 
 _KICK_ALIASES: dict[str, str] = {
-    "뒤통수": "mic_drop", "mic_drop": "mic_drop",
-    "자조형": "self_deprecation", "자조": "self_deprecation", "self_deprecation": "self_deprecation",
-    "질문형": "uncertainty", "uncertainty": "uncertainty",
-    "선언형": "manifesto", "manifesto": "manifesto",
-    "반전형": "twist", "twist": "twist",
+    "뒤통수": "mic_drop",
+    "mic_drop": "mic_drop",
+    "자조형": "self_deprecation",
+    "자조": "self_deprecation",
+    "self_deprecation": "self_deprecation",
+    "질문형": "uncertainty",
+    "uncertainty": "uncertainty",
+    "선언형": "manifesto",
+    "manifesto": "manifesto",
+    "반전형": "twist",
+    "twist": "twist",
 }
 
 
@@ -149,6 +166,7 @@ def normalize_kick(kick_type: str) -> str:
 @dataclass
 class PatternStats:
     """[B] 훅/킥 패턴별 성과 통계."""
+
     pattern: str
     pattern_type: str  # "hook" | "kick"
     total_tweets: int = 0
@@ -160,6 +178,7 @@ class PatternStats:
 @dataclass
 class GoldenReference:
     """[E] 골든 레퍼런스 — 고성과 트윗을 QA 벤치마크로 저장."""
+
     tweet_id: str
     content: str
     angle_type: str
@@ -169,4 +188,3 @@ class GoldenReference:
     impressions: int
     category: str = ""
     saved_at: datetime | None = None
-

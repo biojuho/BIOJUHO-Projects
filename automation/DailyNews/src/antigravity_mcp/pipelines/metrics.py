@@ -3,6 +3,7 @@
 Fetches engagement metrics for recently published tweets and stores
 them in the state store for performance analysis.
 """
+
 from __future__ import annotations
 
 import logging

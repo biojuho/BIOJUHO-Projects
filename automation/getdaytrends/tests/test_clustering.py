@@ -3,17 +3,13 @@ getdaytrends v9.0 - 로컬 Jaccard 클러스터링 테스트 (A-3)
 cluster_trends_local 함수의 유사도 기반 트렌드 병합 검증.
 """
 
-import os
-import sys
-
-
 from analyzer import _jaccard_similarity, cluster_trends_local
 from models import MultiSourceContext, RawTrend, TrendSource
-
 
 # ══════════════════════════════════════════════════════
 #  Jaccard 유사도 단위 테스트
 # ══════════════════════════════════════════════════════
+
 
 def test_jaccard_identical():
     """동일 문자열 → 유사도 1.0."""
@@ -57,6 +53,7 @@ def test_jaccard_case_insensitive():
 #  cluster_trends_local 통합 테스트
 # ══════════════════════════════════════════════════════
 
+
 def _make_raw(name: str, volume: int = 1000) -> RawTrend:
     return RawTrend(
         name=name,
@@ -75,7 +72,7 @@ def test_cluster_identical_keywords():
     trends = [
         _make_raw("삼성전자 주가 상승", 5000),
         _make_raw("삼성전자 주가 하락", 3000),  # Jaccard = 0.5 >= 0.35
-        _make_raw("날씨 예보 서울", 2000),      # 다른 주제 (병합 안 됨)
+        _make_raw("날씨 예보 서울", 2000),  # 다른 주제 (병합 안 됨)
     ]
     contexts = {
         "삼성전자 주가 상승": _make_ctx(twitter="상승 관련 트윗"),
@@ -124,7 +121,7 @@ def test_cluster_context_merge():
     trends = [
         _make_raw("OpenAI GPT 신기능", 8000),
         _make_raw("OpenAI GPT 업데이트", 4000),  # Jaccard ≥ 0.35
-        _make_raw("날씨 예보 주말", 1000),          # 병합 안 되는 다른 주제
+        _make_raw("날씨 예보 주말", 1000),  # 병합 안 되는 다른 주제
     ]
     contexts = {
         "OpenAI GPT 신기능": _make_ctx(twitter="신기능 트윗", news="신기능 뉴스"),
@@ -167,7 +164,7 @@ def test_cluster_custom_threshold():
     trends = [
         _make_raw("삼성전자 주가 상승", 5000),
         _make_raw("삼성전자 주가 하락", 3000),  # Jaccard = 0.5
-        _make_raw("날씨 예보 내일", 2000),       # 다른 주제
+        _make_raw("날씨 예보 내일", 2000),  # 다른 주제
     ]
     contexts = {t.name: _make_ctx() for t in trends}
 
@@ -184,6 +181,7 @@ def test_cluster_custom_threshold():
 #  [v14.0] 임베딩 클러스터링 관련 테스트
 # ══════════════════════════════════════════════════════
 
+
 def test_cluster_embedding_fallback_to_jaccard():
     """임베딩 비활성화 시 Jaccard로 폴백되는지 확인."""
     trends = [
@@ -194,9 +192,7 @@ def test_cluster_embedding_fallback_to_jaccard():
     contexts = {t.name: _make_ctx() for t in trends}
 
     # use_embedding=False → Jaccard만 사용
-    reps, _, clusters = cluster_trends_local(
-        trends, contexts, threshold=0.35, use_embedding=False
-    )
+    reps, _, clusters = cluster_trends_local(trends, contexts, threshold=0.35, use_embedding=False)
     assert len(reps) == 2  # Jaccard=0.5 >= 0.35 → 삼성전자 병합
     rep_names = {r.name for r in reps}
     assert "삼성전자 주가 상승" in rep_names
@@ -211,9 +207,6 @@ def test_cluster_with_embedding_disabled_preserves_standalone():
     ]
     contexts = {t.name: _make_ctx() for t in trends}
 
-    reps, _, clusters = cluster_trends_local(
-        trends, contexts, use_embedding=False
-    )
+    reps, _, clusters = cluster_trends_local(trends, contexts, use_embedding=False)
     assert len(reps) == 3
     assert len(clusters) == 3
-

@@ -17,58 +17,58 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from models import ScoredTrend, TweetBatch
-
 from loguru import logger as log
 
-
+from models import ScoredTrend, TweetBatch
 
 # -- credibility imports --
 from source_credibility import (  # noqa: F401
-    CredibilityTier,
-    _SOURCE_CREDIBILITY_MAP,
     _CREDIBILITY_WEIGHTS,
-    get_source_credibility,
+    _SOURCE_CREDIBILITY_MAP,
+    CredibilityTier,
     compute_source_credibility_score,
+    get_source_credibility,
 )
-
-
 
 # ══════════════════════════════════════════════════════
 #  Claim Types & Extraction
 # ══════════════════════════════════════════════════════
 
+
 class ClaimType(Enum):
     """검증 가능한 주장 유형."""
-    NUMBER = "number"           # 구체적 숫자/통계 (50만명, 2000억 등)
-    PERCENTAGE = "percentage"   # 백분율 (30%, +15% 등)
-    DATE = "date"               # 날짜/시점 (3월 15일, 어제 등)
-    ENTITY = "entity"           # 고유명사 (기관, 인물, 기업명 등)
-    QUOTE = "quote"             # 직접/간접 인용 ("~라고 말했다")
-    COMPARISON = "comparison"   # 비교 주장 ("A보다 B가 크다")
+
+    NUMBER = "number"  # 구체적 숫자/통계 (50만명, 2000억 등)
+    PERCENTAGE = "percentage"  # 백분율 (30%, +15% 등)
+    DATE = "date"  # 날짜/시점 (3월 15일, 어제 등)
+    ENTITY = "entity"  # 고유명사 (기관, 인물, 기업명 등)
+    QUOTE = "quote"  # 직접/간접 인용 ("~라고 말했다")
+    COMPARISON = "comparison"  # 비교 주장 ("A보다 B가 크다")
 
 
 @dataclass
 class Claim:
     """추출된 개별 주장."""
+
     claim_type: ClaimType
-    value: str                   # 추출된 값 ("2000억", "삼성전자" 등)
-    context: str = ""            # 주장이 포함된 문장
-    verified: bool = False       # 소스에서 확인됨
-    source_match: str = ""       # 매칭된 소스 텍스트
-    confidence: float = 0.0     # 검증 확신도 (0~1)
+    value: str  # 추출된 값 ("2000억", "삼성전자" 등)
+    context: str = ""  # 주장이 포함된 문장
+    verified: bool = False  # 소스에서 확인됨
+    source_match: str = ""  # 매칭된 소스 텍스트
+    confidence: float = 0.0  # 검증 확신도 (0~1)
 
 
 @dataclass
 class FactCheckResult:
     """팩트 체크 결과."""
+
     passed: bool = True
     total_claims: int = 0
     verified_claims: int = 0
     unverified_claims: int = 0
-    hallucinated_claims: int = 0     # 소스에 전혀 없는 주장
+    hallucinated_claims: int = 0  # 소스에 전혀 없는 주장
     claims: list[Claim] = field(default_factory=list)
-    accuracy_score: float = 1.0      # 0~1 (verified / total)
+    accuracy_score: float = 1.0  # 0~1 (verified / total)
     source_credibility: float = 0.0  # 0~1
     issues: list[str] = field(default_factory=list)
 
@@ -124,11 +124,46 @@ _ENTITY_PATTERN = re.compile(
 
 # 일반적인 고유명사 (검증 대상에서 제외)
 _COMMON_ENTITIES = {
-    "ai", "x", "threads", "meta", "kbs", "sbs", "mbc", "jtbc", "bbc", "cnn",
-    "wbc", "gpt", "it", "kst", "premium", "google", "apple", "samsung",
-    "naver", "kakao", "openai", "microsoft", "amazon", "tesla", "nvidia",
-    "chatgpt", "claude", "gemini", "youtube", "instagram", "facebook",
-    "삼성", "현대", "기아", "네이버", "카카오", "한국", "미국", "일본", "중국",
+    "ai",
+    "x",
+    "threads",
+    "meta",
+    "kbs",
+    "sbs",
+    "mbc",
+    "jtbc",
+    "bbc",
+    "cnn",
+    "wbc",
+    "gpt",
+    "it",
+    "kst",
+    "premium",
+    "google",
+    "apple",
+    "samsung",
+    "naver",
+    "kakao",
+    "openai",
+    "microsoft",
+    "amazon",
+    "tesla",
+    "nvidia",
+    "chatgpt",
+    "claude",
+    "gemini",
+    "youtube",
+    "instagram",
+    "facebook",
+    "삼성",
+    "현대",
+    "기아",
+    "네이버",
+    "카카오",
+    "한국",
+    "미국",
+    "일본",
+    "중국",
 }
 
 
@@ -153,70 +188,78 @@ def extract_claims(text: str) -> list[Claim]:
             value = m.group(0).strip()
             if value not in seen_values:
                 seen_values.add(value)
-                claims.append(Claim(
-                    claim_type=ClaimType.NUMBER,
-                    value=value,
-                    context=sentence,
-                ))
+                claims.append(
+                    Claim(
+                        claim_type=ClaimType.NUMBER,
+                        value=value,
+                        context=sentence,
+                    )
+                )
 
         # 2. 백분율 추출 (NUMBER와 별도)
         for m in re.finditer(r"[+-]?\d+(?:\.\d+)?%", sentence):
             value = m.group(0)
             if value not in seen_values:
                 seen_values.add(value)
-                claims.append(Claim(
-                    claim_type=ClaimType.PERCENTAGE,
-                    value=value,
-                    context=sentence,
-                ))
+                claims.append(
+                    Claim(
+                        claim_type=ClaimType.PERCENTAGE,
+                        value=value,
+                        context=sentence,
+                    )
+                )
 
         # 3. 날짜 추출
         for m in _DATE_PATTERN.finditer(sentence):
             value = m.group(0).strip()
             if value not in seen_values:
                 seen_values.add(value)
-                claims.append(Claim(
-                    claim_type=ClaimType.DATE,
-                    value=value,
-                    context=sentence,
-                ))
+                claims.append(
+                    Claim(
+                        claim_type=ClaimType.DATE,
+                        value=value,
+                        context=sentence,
+                    )
+                )
 
         # 4. 인용 추출
         for m in _QUOTE_PATTERN.finditer(sentence):
             value = (m.group(1) or m.group(2) or "").strip()
             if value and value not in seen_values and len(value) > 5:
                 seen_values.add(value)
-                claims.append(Claim(
-                    claim_type=ClaimType.QUOTE,
-                    value=value,
-                    context=sentence,
-                ))
+                claims.append(
+                    Claim(
+                        claim_type=ClaimType.QUOTE,
+                        value=value,
+                        context=sentence,
+                    )
+                )
 
         # 5. 고유명사 추출 (일반적인 것 제외)
         for m in _ENTITY_PATTERN.finditer(sentence):
             value = m.group(0).strip()
-            if (
-                value.casefold() not in _COMMON_ENTITIES
-                and value not in seen_values
-                and len(value) >= 2
-            ):
+            if value.casefold() not in _COMMON_ENTITIES and value not in seen_values and len(value) >= 2:
                 seen_values.add(value)
-                claims.append(Claim(
-                    claim_type=ClaimType.ENTITY,
-                    value=value,
-                    context=sentence,
-                ))
+                claims.append(
+                    Claim(
+                        claim_type=ClaimType.ENTITY,
+                        value=value,
+                        context=sentence,
+                    )
+                )
 
         # 6. 비교 추출
         for m in _COMPARISON_PATTERN.finditer(sentence):
             value = m.group(0).strip()
             if value not in seen_values and len(value) > 5:
                 seen_values.add(value)
-                claims.append(Claim(
-                    claim_type=ClaimType.COMPARISON,
-                    value=value,
-                    context=sentence,
-                ))
+                claims.append(
+                    Claim(
+                        claim_type=ClaimType.COMPARISON,
+                        value=value,
+                        context=sentence,
+                    )
+                )
 
     return claims
 
@@ -224,6 +267,7 @@ def extract_claims(text: str) -> list[Claim]:
 # ══════════════════════════════════════════════════════
 #  Cross-Reference Verification
 # ══════════════════════════════════════════════════════
+
 
 def _build_source_corpus(trend: ScoredTrend) -> str:
     """트렌드의 모든 소스 데이터를 하나의 검색 가능한 텍스트로 결합."""
@@ -261,10 +305,16 @@ def _normalize_number(text: str) -> float | None:
     """숫자 문자열을 정규화된 float로 변환."""
     text = text.strip().replace(",", "")
     multipliers = {
-        "만": 10_000, "억": 100_000_000, "조": 1_000_000_000_000,
-        "천": 1_000, "백": 100,
-        "k": 1_000, "m": 1_000_000, "b": 1_000_000_000,
-        "trillion": 1_000_000_000_000, "billion": 1_000_000_000,
+        "만": 10_000,
+        "억": 100_000_000,
+        "조": 1_000_000_000_000,
+        "천": 1_000,
+        "백": 100,
+        "k": 1_000,
+        "m": 1_000_000,
+        "b": 1_000_000_000,
+        "trillion": 1_000_000_000_000,
+        "billion": 1_000_000_000,
         "million": 1_000_000,
     }
     m = re.match(r"([+-]?\d+(?:\.\d+)?)\s*(.+)?", text)
@@ -410,6 +460,7 @@ def _find_context_around(corpus: str, needle: str, window: int = 50) -> str:
 #  Content Verification (통합 API)
 # ══════════════════════════════════════════════════════
 
+
 def verify_content(
     text: str,
     trend: ScoredTrend,
@@ -466,15 +517,11 @@ def verify_content(
         elif claim.claim_type in (ClaimType.QUOTE, ClaimType.ENTITY):
             # 인용과 고유명사는 소스 미확인 시 환각으로 간주
             hallucinated += 1
-            result.issues.append(
-                f"[환각 의심] {claim.claim_type.value}: '{claim.value}' - 소스에서 확인 불가"
-            )
+            result.issues.append(f"[환각 의심] {claim.claim_type.value}: '{claim.value}' - 소스에서 확인 불가")
         elif claim.claim_type == ClaimType.NUMBER and not strict_mode:
             # 숫자는 LLM 추론으로 생성될 수 있으므로 경고만
             unverified += 1
-            result.issues.append(
-                f"[미검증 수치] '{claim.value}' - 소스에서 직접 확인 불가"
-            )
+            result.issues.append(f"[미검증 수치] '{claim.value}' - 소스에서 직접 확인 불가")
         else:
             unverified += 1
 
@@ -490,14 +537,12 @@ def verify_content(
         result.accuracy_score = 1.0
 
     # 6. 통과/실패 판정
-    result.passed = (
-        result.hallucinated_claims == 0
-        and result.accuracy_score >= min_accuracy
-    )
+    result.passed = result.hallucinated_claims == 0 and result.accuracy_score >= min_accuracy
 
     # [Phase 3] DeepEval 보조 평가 — 규칙 기반 검증을 LLM 기반으로 보완
     try:
         from quality_eval import evaluate_content as deepeval_check
+
         source_context = _build_source_corpus(trend)
         eval_result = deepeval_check(text, source_context, trend.keyword)
         if not eval_result.passed:
@@ -506,10 +551,7 @@ def verify_content(
             # DeepEval이 환각을 감지했으면 규칙 기반이 통과여도 실패 처리
             if eval_result.hallucination_score > 0.7:
                 result.passed = False
-                log.warning(
-                    f"[DeepEval] '{trend.keyword}' 환각 점수 높음: "
-                    f"{eval_result.hallucination_score:.2f}"
-                )
+                log.warning(f"[DeepEval] '{trend.keyword}' 환각 점수 높음: " f"{eval_result.hallucination_score:.2f}")
     except ImportError:
         pass  # DeepEval 미설치 시 기존 동작 유지
     except Exception as e:
@@ -545,7 +587,8 @@ def verify_batch(
             continue
         combined = "\n".join(item.content for item in items if item.content)
         result = verify_content(
-            combined, trend,
+            combined,
+            trend,
             strict_mode=strict_mode,
             min_accuracy=min_accuracy,
         )
@@ -569,6 +612,7 @@ def verify_batch(
 # ══════════════════════════════════════════════════════
 #  Cross-Source Consistency Check
 # ══════════════════════════════════════════════════════
+
 
 def check_cross_source_consistency(trend: ScoredTrend) -> dict:
     """
@@ -653,9 +697,7 @@ def check_cross_source_consistency(trend: ScoredTrend) -> dict:
                     if normalized > 0 and other_normalized > 0:
                         ratio = max(normalized, other_normalized) / min(normalized, other_normalized)
                         if 1.5 < ratio < 100:  # 1.5배 이상 차이나면 충돌
-                            conflicts.append(
-                                f"{name}({n}) vs {other_name}({on})"
-                            )
+                            conflicts.append(f"{name}({n}) vs {other_name}({on})")
 
     # 충돌이 없으면 일관적으로 판정 (엔터티 교집합이 작아도 충돌 없으면 OK)
     consistent = len(conflicts) == 0
@@ -672,6 +714,7 @@ def check_cross_source_consistency(trend: ScoredTrend) -> dict:
 #  Enhanced Cross-Source Confidence
 # ══════════════════════════════════════════════════════
 
+
 def compute_enhanced_confidence(
     volume_numeric: int,
     context: "MultiSourceContext | None",
@@ -685,7 +728,6 @@ def compute_enhanced_confidence(
     Returns:
         (cross_source_confidence: int 0~4, weighted_credibility: float 0~1)
     """
-    from models import MultiSourceContext
 
     score = 0
     if volume_numeric > 0:

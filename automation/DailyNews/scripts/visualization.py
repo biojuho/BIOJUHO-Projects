@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from collections import Counter
 from datetime import date
 from pathlib import Path
-import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd

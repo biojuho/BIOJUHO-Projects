@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 class HashtagTier(str):
-    MEGA = "mega"       # 1M+ posts
-    LARGE = "large"     # 100K-1M
-    MEDIUM = "medium"   # 10K-100K
-    SMALL = "small"     # <10K (niche)
+    MEGA = "mega"  # 1M+ posts
+    LARGE = "large"  # 100K-1M
+    MEDIUM = "medium"  # 10K-100K
+    SMALL = "small"  # <10K (niche)
 
 
 # Default hashtag pools for common niches
@@ -247,9 +247,7 @@ class HashtagDB:
     def get_set(self, name: str) -> list[str] | None:
         """Retrieve a saved hashtag set."""
         conn = self._get_conn()
-        row = conn.execute(
-            "SELECT tags FROM hashtag_sets WHERE name = ?", (name,)
-        ).fetchone()
+        row = conn.execute("SELECT tags FROM hashtag_sets WHERE name = ?", (name,)).fetchone()
         conn.close()
         if row:
             return json.loads(row["tags"])
@@ -260,12 +258,8 @@ class HashtagDB:
         conn = self._get_conn()
         total = conn.execute("SELECT COUNT(*) as c FROM hashtags").fetchone()["c"]
         banned = conn.execute("SELECT COUNT(*) as c FROM hashtags WHERE is_banned = 1").fetchone()["c"]
-        niches = conn.execute(
-            "SELECT niche, COUNT(*) as c FROM hashtags GROUP BY niche ORDER BY c DESC"
-        ).fetchall()
-        tiers = conn.execute(
-            "SELECT tier, COUNT(*) as c FROM hashtags GROUP BY tier ORDER BY c DESC"
-        ).fetchall()
+        niches = conn.execute("SELECT niche, COUNT(*) as c FROM hashtags GROUP BY niche ORDER BY c DESC").fetchall()
+        tiers = conn.execute("SELECT tier, COUNT(*) as c FROM hashtags GROUP BY tier ORDER BY c DESC").fetchall()
         sets_count = conn.execute("SELECT COUNT(*) as c FROM hashtag_sets").fetchone()["c"]
         conn.close()
         return {

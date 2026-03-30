@@ -20,6 +20,7 @@ from loguru import logger as log
 # Scrapling 선택 의존성
 try:
     from scrapling import Fetcher, StealthyFetcher
+
     SCRAPLING_AVAILABLE = True
 except ImportError:
     SCRAPLING_AVAILABLE = False
@@ -28,6 +29,7 @@ except ImportError:
 # ══════════════════════════════════════════════════════
 #  Scrapling 기반 뉴스 수집
 # ══════════════════════════════════════════════════════
+
 
 def fetch_news_enhanced(
     keyword: str,
@@ -91,12 +93,14 @@ def _fetch_naver_news(keyword: str, max_results: int = 5) -> list[dict]:
             link = title_el.attrib.get("href", "") if title_el else ""
 
             if title:
-                articles.append({
-                    "title": title,
-                    "source": source_name,
-                    "url": link,
-                    "snippet": snippet,
-                })
+                articles.append(
+                    {
+                        "title": title,
+                        "source": source_name,
+                        "url": link,
+                        "snippet": snippet,
+                    }
+                )
 
         log.info(f"[Scrapling] 네이버 뉴스 '{keyword}': {len(articles)}건")
         return articles
@@ -128,12 +132,14 @@ def _fetch_daum_news(keyword: str, max_results: int = 5) -> list[dict]:
             link = title_el.attrib.get("href", "") if title_el else ""
 
             if title:
-                articles.append({
-                    "title": title,
-                    "source": source_name,
-                    "url": link,
-                    "snippet": snippet,
-                })
+                articles.append(
+                    {
+                        "title": title,
+                        "source": source_name,
+                        "url": link,
+                        "snippet": snippet,
+                    }
+                )
 
         log.info(f"[Scrapling] 다음 뉴스 '{keyword}': {len(articles)}건")
         return articles
@@ -153,6 +159,7 @@ def _fetch_news_fallback(keyword: str, max_results: int = 5) -> list[dict]:
 #  scraper.py 통합 헬퍼
 # ══════════════════════════════════════════════════════
 
+
 def enrich_news_context(keyword: str, existing_insight: str) -> str:
     """
     기존 Google News RSS 인사이트를 Scrapling 직접 수집으로 보강.
@@ -167,10 +174,7 @@ def enrich_news_context(keyword: str, existing_insight: str) -> str:
         return existing_insight
 
     # 새 기사를 기존 인사이트에 병합
-    new_headlines = [
-        f"[{a['source']}] {a['title']}" for a in articles
-        if a["title"] not in existing_insight
-    ]
+    new_headlines = [f"[{a['source']}] {a['title']}" for a in articles if a["title"] not in existing_insight]
 
     if not new_headlines:
         return existing_insight

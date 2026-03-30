@@ -11,9 +11,8 @@ Endpoints:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
-
 from dependencies import get_hashtag_db
+from fastapi import APIRouter, Depends, Query
 from services.hashtag_strategy import HashtagDB
 
 router = APIRouter(prefix="/api/hashtags", tags=["hashtags"])

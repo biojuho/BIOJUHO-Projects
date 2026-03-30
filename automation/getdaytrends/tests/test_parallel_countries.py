@@ -1,7 +1,8 @@
 """Tests for C-2 parallel multi-country execution."""
+
 import asyncio
 from dataclasses import dataclass, field
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -20,6 +21,7 @@ class FakeConfig:
 
     def for_country(self, country: str) -> "FakeConfig":
         import dataclasses
+
         return dataclasses.replace(self, country=country, countries=[country])
 
 
@@ -29,7 +31,6 @@ class TestRunCountriesParallel:
     @pytest.mark.asyncio
     async def test_parallel_runs_all_countries(self):
         """모든 국가가 병렬로 실행되는지 확인."""
-        from core.pipeline import async_run_pipeline
 
         call_log = []
 
@@ -70,7 +71,7 @@ class TestRunCountriesParallel:
 
         assert len(results) == 3
         assert isinstance(results[0], FakeRunResult)  # korea OK
-        assert isinstance(results[1], RuntimeError)     # us failed
+        assert isinstance(results[1], RuntimeError)  # us failed
         assert isinstance(results[2], FakeRunResult)  # japan OK
         assert set(call_log) == {"korea", "us", "japan"}
 
@@ -86,5 +87,6 @@ class TestRunCountriesParallel:
     def test_enable_parallel_countries_default(self):
         """enable_parallel_countries 기본값이 True인지 확인."""
         from config import AppConfig
+
         config = AppConfig()
         assert config.enable_parallel_countries is True

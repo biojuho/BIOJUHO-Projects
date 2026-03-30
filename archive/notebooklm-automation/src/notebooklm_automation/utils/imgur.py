@@ -9,6 +9,7 @@ Supports:
 
 If both are set, Imgur is preferred.
 """
+
 from __future__ import annotations
 
 import base64
@@ -63,7 +64,10 @@ async def upload_image(
 
 
 async def _upload_imgur(
-    image_path: Path, client_id: str, title: str, description: str,
+    image_path: Path,
+    client_id: str,
+    title: str,
+    description: str,
 ) -> dict[str, str]:
     """Upload to Imgur anonymous API."""
     with open(image_path, "rb") as f:
@@ -96,7 +100,9 @@ async def _upload_imgur(
 
 
 async def _upload_imgbb(
-    image_path: Path, api_key: str, title: str,
+    image_path: Path,
+    api_key: str,
+    title: str,
 ) -> dict[str, str]:
     """Upload to imgbb.com API."""
     with open(image_path, "rb") as f:
@@ -134,6 +140,12 @@ def upload_image_sync(
 ) -> dict[str, str]:
     """Synchronous wrapper for ``upload_image``."""
     import asyncio
-    return asyncio.run(upload_image(
-        image_path, title=title, description=description, client_id=client_id,
-    ))
+
+    return asyncio.run(
+        upload_image(
+            image_path,
+            title=title,
+            description=description,
+            client_id=client_id,
+        )
+    )

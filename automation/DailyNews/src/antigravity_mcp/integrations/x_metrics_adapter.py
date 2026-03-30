@@ -6,6 +6,7 @@ Bearer token (app-only auth).
 Required env var:
   X_BEARER_TOKEN  — needed for read-only lookups
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,10 +31,7 @@ class XMetricsAdapter:
     def __init__(self, *, state_store: PipelineStateStore | None = None) -> None:
         self.settings = get_settings()
         self._state_store = state_store
-        self._bearer_token = (
-            load_token("X_BEARER_TOKEN")
-            or self.settings.x_bearer_token
-        )
+        self._bearer_token = load_token("X_BEARER_TOKEN") or self.settings.x_bearer_token
 
     @property
     def is_available(self) -> bool:
@@ -52,7 +50,7 @@ class XMetricsAdapter:
 
         # Process in batches of 100 (API limit)
         for i in range(0, len(tweet_ids), _MAX_IDS_PER_REQUEST):
-            batch = tweet_ids[i:i + _MAX_IDS_PER_REQUEST]
+            batch = tweet_ids[i : i + _MAX_IDS_PER_REQUEST]
             ids_param = ",".join(batch)
 
             try:
@@ -70,17 +68,19 @@ class XMetricsAdapter:
 
                 for tweet in data.get("data", []):
                     metrics = tweet.get("public_metrics", {})
-                    results.append({
-                        "tweet_id": tweet["id"],
-                        "text": tweet.get("text", ""),
-                        "created_at": tweet.get("created_at", ""),
-                        "impressions": metrics.get("impression_count", 0),
-                        "likes": metrics.get("like_count", 0),
-                        "retweets": metrics.get("retweet_count", 0),
-                        "replies": metrics.get("reply_count", 0),
-                        "quotes": metrics.get("quote_count", 0),
-                        "bookmarks": metrics.get("bookmark_count", 0),
-                    })
+                    results.append(
+                        {
+                            "tweet_id": tweet["id"],
+                            "text": tweet.get("text", ""),
+                            "created_at": tweet.get("created_at", ""),
+                            "impressions": metrics.get("impression_count", 0),
+                            "likes": metrics.get("like_count", 0),
+                            "retweets": metrics.get("retweet_count", 0),
+                            "replies": metrics.get("reply_count", 0),
+                            "quotes": metrics.get("quote_count", 0),
+                            "bookmarks": metrics.get("bookmark_count", 0),
+                        }
+                    )
             except Exception as exc:
                 logger.error("Failed to fetch X metrics for batch: %s", exc)
 

@@ -52,39 +52,37 @@ TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.HEAVY: [
         ("anthropic", "claude-sonnet-4-20250514"),
         ("gemini", "gemini-2.5-pro-preview-03-25"),
-        ("mimo", "mimo-v2-pro"),                     # $0.09/1M, GPT-5급 성능
+        ("mimo", "mimo-v2-pro"),  # $0.09/1M, GPT-5급 성능
         ("grok", "grok-3"),
-        ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),   # ★ 로컬 $0: 코드생성·추론 특화
+        ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),  # ★ 로컬 $0: 코드생성·추론 특화
         ("openai", "gpt-4o"),
     ],
     TaskTier.MEDIUM: [
-        ("gemini", "gemini-2.5-flash-lite"),          # Free 1,000RPD, 초저비용 $0.10/$0.40
-        ("gemini", "gemini-2.5-flash"),               # ✅ 2.5 Flash (2.0 deprecated 제거됨)
-        ("mimo", "mimo-v2-pro"),                     # $0.09/1M, Haiku 대체 폴백
+        ("gemini", "gemini-2.5-flash-lite"),  # Free 1,000RPD, 초저비용 $0.10/$0.40
+        ("gemini", "gemini-2.5-flash"),  # ✅ 2.5 Flash (2.0 deprecated 제거됨)
+        ("mimo", "mimo-v2-pro"),  # $0.09/1M, Haiku 대체 폴백
         ("anthropic", "claude-haiku-4-5-20251001"),
         ("grok", "grok-3-mini-fast"),
-        ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),   # ★ 로컬 $0 폴백
+        ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),  # ★ 로컬 $0 폴백
         ("openai", "gpt-4o-mini"),
     ],
     TaskTier.LIGHTWEIGHT: [
-        ("gemini", "gemini-2.5-flash-lite"),          # ★ 주력: Free 1,000RPD, $0.10/$0.40
-        ("gemini", "gemini-2.5-flash"),               # ✅ 2.5 Flash (2.0 deprecated 제거됨)
-        ("mimo", "mimo-v2-pro"),                     # $0.09/1M, 한국어 안정 + 초저비용
-        ("grok", "grok-3-mini-fast"),                # 저렴 $0.3/$0.5, 빠름
+        ("gemini", "gemini-2.5-flash-lite"),  # ★ 주력: Free 1,000RPD, $0.10/$0.40
+        ("gemini", "gemini-2.5-flash"),  # ✅ 2.5 Flash (2.0 deprecated 제거됨)
+        ("mimo", "mimo-v2-pro"),  # $0.09/1M, 한국어 안정 + 초저비용
+        ("grok", "grok-3-mini-fast"),  # 저렴 $0.3/$0.5, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
         ("openai", "gpt-4o-mini"),
-        ("ollama", "deepseek-r1:14b"),               # 로컬 추론 특화 (API 비용 $0)
-        ("ollama", "phi3:3.8b"),                     # 로컬 Ollama 폴백 (API 비용 $0)
-        ("bitnet", "bitnet-b1.58-2b-4t"),            # 최후방 로컬 폴백 (API 비용 $0)
+        ("ollama", "deepseek-r1:14b"),  # 로컬 추론 특화 (API 비용 $0)
+        ("ollama", "phi3:3.8b"),  # 로컬 Ollama 폴백 (API 비용 $0)
+        ("bitnet", "bitnet-b1.58-2b-4t"),  # 최후방 로컬 폴백 (API 비용 $0)
     ],
 }
 
 STRUCTURED_TASK_KINDS = frozenset(
     {"classification", "keyword_extraction", "search_query_generation", "json_extraction"}
 )
-LONGFORM_TASK_KINDS = frozenset(
-    {"summary", "analysis", "literature_review", "grant_writing", "youtube_longform"}
-)
+LONGFORM_TASK_KINDS = frozenset({"summary", "analysis", "literature_review", "grant_writing", "youtube_longform"})
 
 # ---------------------------------------------------------------------------
 # Backward-compatible: Anthropic model name → TaskTier
@@ -112,22 +110,22 @@ MODEL_COSTS: dict[str, tuple[float, float]] = {
     "claude-3-haiku-20240307": (0.25, 1.25),
     "gemini-2.5-pro-preview-03-25": (1.25, 10.0),
     "gemini-2.5-pro": (1.25, 10.0),
-    "gemini-2.5-flash": (0.15, 3.50),               # Free tier에서는 $0, 유료 시 적용
-    "gemini-2.5-flash-lite": (0.10, 0.40),           # Free 1,000RPD, 유료 시 초저비용
+    "gemini-2.5-flash": (0.15, 3.50),  # Free tier에서는 $0, 유료 시 적용
+    "gemini-2.5-flash-lite": (0.10, 0.40),  # Free 1,000RPD, 유료 시 초저비용
     "gpt-4o": (2.5, 10.0),
     "gpt-4o-mini": (0.15, 0.6),
     "grok-3": (3.0, 15.0),
     "grok-3-mini-fast": (0.3, 0.5),
     "deepseek-chat": (0.14, 0.28),
-    "mimo-v2-pro": (0.09, 0.09),                 # Xiaomi MiMo-V2-Pro
+    "mimo-v2-pro": (0.09, 0.09),  # Xiaomi MiMo-V2-Pro
     # Local inference — no API cost
     "bitnet-b1.58-2b-4t": (0.0, 0.0),
     "qwen3-coder:30b-a3b-q4_K_M": (0.0, 0.0),  # Ollama: Qwen3-Coder 30B quantized
-    "deepseek-r1:14b": (0.0, 0.0),              # Ollama: DeepSeek-R1 14B
-    "phi3:3.8b": (0.0, 0.0),            # Ollama local
-    "qwen2.5:3b": (0.0, 0.0),           # Ollama local
-    "gemma:2b": (0.0, 0.0),             # Ollama local
-    "tinyllama:1.1b": (0.0, 0.0),       # Ollama local
+    "deepseek-r1:14b": (0.0, 0.0),  # Ollama: DeepSeek-R1 14B
+    "phi3:3.8b": (0.0, 0.0),  # Ollama local
+    "qwen2.5:3b": (0.0, 0.0),  # Ollama local
+    "gemma:2b": (0.0, 0.0),  # Ollama local
+    "tinyllama:1.1b": (0.0, 0.0),  # Ollama local
 }
 
 # ---------------------------------------------------------------------------

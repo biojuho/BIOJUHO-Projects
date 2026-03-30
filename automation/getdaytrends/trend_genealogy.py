@@ -8,7 +8,6 @@ import json
 import sqlite3
 
 from loguru import logger as log
-
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
@@ -19,9 +18,8 @@ _JSON_POLICY = LLMPolicy(response_mode="json", task_kind="json_extraction")
 #  Trend Pattern Detection
 # ══════════════════════════════════════════════════════
 
-async def detect_trend_patterns(
-    conn: sqlite3.Connection, keyword: str, days: int = 7
-) -> dict:
+
+async def detect_trend_patterns(conn: sqlite3.Connection, keyword: str, days: int = 7) -> dict:
     """SQLite 히스토리 기반 반복 트렌드 감지."""
     from db import get_trend_history
 
@@ -119,11 +117,11 @@ async def analyze_trend_genealogy(
         return []
 
     from datetime import datetime as _dt
+
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
 
     current_keywords = "\n".join(
-        f"- {t.keyword} (카테고리: {t.category}, 바이럴: {t.viral_potential})"
-        for t in current_trends[:15]
+        f"- {t.keyword} (카테고리: {t.category}, 바이럴: {t.viral_potential})" for t in current_trends[:15]
     )
 
     history_keywords = "없음 (첫 실행)"
@@ -157,12 +155,14 @@ async def analyze_trend_genealogy(
         for r in results:
             if not isinstance(r, dict) or "keyword" not in r:
                 continue
-            valid.append({
-                "keyword": r.get("keyword", ""),
-                "parent_keyword": r.get("parent_keyword", ""),
-                "predicted_children": r.get("predicted_children", [])[:2],
-                "confidence": min(max(float(r.get("confidence", 0.0)), 0.0), 1.0),
-            })
+            valid.append(
+                {
+                    "keyword": r.get("keyword", ""),
+                    "parent_keyword": r.get("parent_keyword", ""),
+                    "predicted_children": r.get("predicted_children", [])[:2],
+                    "confidence": min(max(float(r.get("confidence", 0.0)), 0.0), 1.0),
+                }
+            )
 
         log.info(
             f"[Genealogy] 계보 분석 완료: {len(valid)}개 트렌드, "

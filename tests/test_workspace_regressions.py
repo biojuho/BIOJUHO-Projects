@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DESCI_PATH = PROJECT_ROOT / "apps" / "desci-platform"
 NOTION_SCRIPTS_PATH = PROJECT_ROOT / "automation" / "DailyNews" / "scripts"
@@ -36,7 +35,7 @@ def test_getdaytrends_package_imports_from_repo_root() -> None:
     generation = importlib.import_module("getdaytrends.generation")
 
     assert hasattr(collectors, "_async_collect_contexts")
-    assert callable(getattr(generation, "select_persona"))
+    assert callable(generation.select_persona)
 
 
 @patch("biolinker.services.pdf_parser.pypdf.PdfReader")

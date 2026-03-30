@@ -33,8 +33,8 @@ const CanvaDesignEditor: React.FC = () => {
     if (transaction_id && window.parent && window.parent.postMessage) {
       window.parent.postMessage({
         type: 'canva-start-design-session',
-        data: { 
-          transactionId: transaction_id 
+        data: {
+          transactionId: transaction_id
         }
       }, '*');
     }
@@ -45,11 +45,3 @@ const CanvaDesignEditor: React.FC = () => {
 };
 
 export default CanvaDesignEditor;
-
-
-
-
-
-
-
-

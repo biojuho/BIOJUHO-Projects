@@ -104,11 +104,14 @@ class ApprovalGate:
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.post(url, json={
-                    "chat_id": self.chat_id,
-                    "text": text,
-                    "parse_mode": "Markdown",
-                })
+                resp = await client.post(
+                    url,
+                    json={
+                        "chat_id": self.chat_id,
+                        "text": text,
+                        "parse_mode": "Markdown",
+                    },
+                )
                 data = resp.json()
                 if data.get("ok"):
                     return data["result"]["message_id"]
@@ -156,10 +159,7 @@ class ApprovalGate:
     def get_pending(self) -> list[ApprovalRequest]:
         """Get all pending approval requests."""
         self._check_auto_approvals()
-        return [
-            r for r in self._pending.values()
-            if r.status == ApprovalStatus.PENDING
-        ]
+        return [r for r in self._pending.values() if r.status == ApprovalStatus.PENDING]
 
     def _check_auto_approvals(self) -> None:
         """Check and auto-approve timed-out requests."""

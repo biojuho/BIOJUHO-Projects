@@ -5,6 +5,7 @@ Call-site contract (news_bot.py line 456):
     summary = await proofreader.proofread_text_async(summary)
     # proofread_text_async must be a coroutine (async def)
 """
+
 from __future__ import annotations
 
 import logging

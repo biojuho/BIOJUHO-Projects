@@ -1,12 +1,8 @@
 """Tests for Phase 4: AI Self-Critique loop and Reels auto-creation."""
 
-import json
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -204,8 +200,6 @@ class TestReelResult:
     def test_failure(self):
         from services.reels_generator import ReelResult, ReelsScript
 
-        result = ReelResult(
-            script=ReelsScript(), error="TTS failed"
-        )
+        result = ReelResult(script=ReelsScript(), error="TTS failed")
         assert result.success is False
         assert "TTS" in result.error

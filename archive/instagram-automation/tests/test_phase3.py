@@ -4,8 +4,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
@@ -107,6 +105,7 @@ class TestSystemMonitor:
 
     def test_dashboard_with_posts(self):
         import sqlite3
+
         from services.monitoring import SystemMonitor
 
         db_path = _tmp_db()
@@ -124,6 +123,7 @@ class TestSystemMonitor:
 
     def test_alert_check(self):
         import asyncio
+
         from services.monitoring import SystemMonitor
 
         monitor = SystemMonitor(_tmp_db())

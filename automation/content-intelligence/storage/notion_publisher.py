@@ -54,7 +54,12 @@ async def publish_to_notion(
             "properties": {
                 "Name": {
                     "title": [
-                        {"text": {"content": content.title or f"[{content.platform.upper()}] {content.trend_keywords_used[0] if content.trend_keywords_used else 'CIE 콘텐츠'}"}}
+                        {
+                            "text": {
+                                "content": content.title
+                                or f"[{content.platform.upper()}] {content.trend_keywords_used[0] if content.trend_keywords_used else 'CIE 콘텐츠'}"
+                            }
+                        }
                     ]
                 },
                 "Platform": {"select": {"name": content.platform.upper()}},
@@ -62,11 +67,7 @@ async def publish_to_notion(
                 "QA Score": {"number": content.qa_report.total_score if content.qa_report else 0},
                 "QA Status": {"select": {"name": "PASS" if content.qa_passed else "FAIL"}},
                 "Status": {"select": {"name": "Draft"}},
-                "Keywords": {
-                    "multi_select": [
-                        {"name": kw[:100]} for kw in content.trend_keywords_used[:5]
-                    ]
-                },
+                "Keywords": {"multi_select": [{"name": kw[:100]} for kw in content.trend_keywords_used[:5]]},
             },
             "children": body_blocks,
         }
@@ -74,9 +75,7 @@ async def publish_to_notion(
         # 해시태그 속성 (있으면 추가)
         if content.hashtags:
             hashtag_text = " ".join(f"#{h}" for h in content.hashtags[:10])
-            payload["properties"]["Hashtags"] = {
-                "rich_text": [{"text": {"content": hashtag_text}}]
-            }
+            payload["properties"]["Hashtags"] = {"rich_text": [{"text": {"content": hashtag_text}}]}
 
         resp = requests.post(
             "https://api.notion.com/v1/pages",
@@ -146,28 +145,28 @@ def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict]:
 
         # 2000자 제한 처리
         while len(para) > max_len:
-            blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [{"type": "text", "text": {"content": para[:max_len]}}]
-                },
-            })
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para[:max_len]}}]},
+                }
+            )
             para = para[max_len:]
 
         if para:
-            blocks.append({
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [{"type": "text", "text": {"content": para}}]
-                },
-            })
+            blocks.append(
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para}}]},
+                }
+            )
 
-    return blocks or [{
-        "object": "block",
-        "type": "paragraph",
-        "paragraph": {
-            "rich_text": [{"type": "text", "text": {"content": "(빈 본문)"}}]
-        },
-    }]
+    return blocks or [
+        {
+            "object": "block",
+            "type": "paragraph",
+            "paragraph": {"rich_text": [{"type": "text", "text": {"content": "(빈 본문)"}}]},
+        }
+    ]

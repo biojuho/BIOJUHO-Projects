@@ -119,62 +119,62 @@
 
 - **[TODO]** [.agent/session-history/2026-03-07.md:48](.agent/session-history/2026-03-07.md#L48)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `## 📋 다음 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:36](.agent/session-history/2026-03-08.md#L36)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `## 📋 다음 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:99](.agent/session-history/2026-03-08.md#L99)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 📋 다음 세션 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:135](.agent/session-history/2026-03-08.md#L135)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 📋 다음 세션 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:161](.agent/session-history/2026-03-08.md#L161)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 📋 다음 세션 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:184](.agent/session-history/2026-03-08.md#L184)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 📋 다음 세션 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:235](.agent/session-history/2026-03-08.md#L235)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 📋 다음 세션 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:275](.agent/session-history/2026-03-08.md#L275)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 📋 다음 세션 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-08.md:313](.agent/session-history/2026-03-08.md#L313)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 📋 다음 세션 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-21.md:36](.agent/session-history/2026-03-21.md#L36)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 다음 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-21.md:104](.agent/session-history/2026-03-21.md#L104)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 다음 TODO`
 
 - **[TODO]** [.agent/session-history/2026-03-24.md:44](.agent/session-history/2026-03-24.md#L44)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 다음 TODO`
 
 - **[TODO]** [.agent/workflows/qa-qc.md:110](.agent/workflows/qa-qc.md#L110)
@@ -199,7 +199,7 @@
 
 - **[TODO]** [.agent/workflows/session-workflow.md:186](.agent/workflows/session-workflow.md#L186)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `### 다음 세션 TODO`
 
 - **[TODO]** [.sessions/README.md:49](.sessions/README.md#L49)
@@ -214,7 +214,7 @@
 
 - **[TODO]** [.sessions/SESSION_LOG_2026-03-23.md:160](.sessions/SESSION_LOG_2026-03-23.md#L160)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `## Next Agent TODO`
 
 - **[XXX]** [AgriGuard/contracts/package-lock.json:6142](AgriGuard/contracts/package-lock.json#L6142)
@@ -289,7 +289,7 @@
 
 - **[TODO]** [TASKS.md:8](TASKS.md#L8)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `## TODO`
 
 - **[TODO]** [TASKS.md:10](TASKS.md#L10)
@@ -1434,7 +1434,7 @@
 
 - **[TODO]** [docs/WORKSPACE-STATUS-2026-03-22.md:98](docs/WORKSPACE-STATUS-2026-03-22.md#L98)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `## 남은 TODO`
 
 - **[TODO]** [getdaytrends/V9.0_IMPLEMENTATION_STATUS.md:185](getdaytrends/V9.0_IMPLEMENTATION_STATUS.md#L185)
@@ -1484,7 +1484,7 @@
 
 - **[TODO]** [scripts/workspace_summary.py:194](scripts/workspace_summary.py#L194)
   - Category: `other`
-  - Context: 
+  - Context:
   - Code: `# 이전 세션 TODO`
 
 - **[TODO]** [scripts/workspace_summary.py:198](scripts/workspace_summary.py#L198)
@@ -1510,40 +1510,40 @@
   - 주석 명시 |
 
 - **[P3]** [.agent/session-history/2026-03-07.md:48](.agent/session-history/2026-03-07.md#L48)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:36](.agent/session-history/2026-03-08.md#L36)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:99](.agent/session-history/2026-03-08.md#L99)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:135](.agent/session-history/2026-03-08.md#L135)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:161](.agent/session-history/2026-03-08.md#L161)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:184](.agent/session-history/2026-03-08.md#L184)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:235](.agent/session-history/2026-03-08.md#L235)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:275](.agent/session-history/2026-03-08.md#L275)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-08.md:313](.agent/session-history/2026-03-08.md#L313)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-21.md:36](.agent/session-history/2026-03-21.md#L36)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-21.md:104](.agent/session-history/2026-03-21.md#L104)
-  - 
+  -
 
 - **[P3]** [.agent/session-history/2026-03-24.md:44](.agent/session-history/2026-03-24.md#L44)
-  - 
+  -
 
 - **[P3]** [.agent/workflows/qa-qc.md:110](.agent/workflows/qa-qc.md#L110)
   - 로 등록하고 넘어감
@@ -1558,7 +1558,7 @@
   - **: 구체적이고 실행 가능한 항목
 
 - **[P3]** [.agent/workflows/session-workflow.md:186](.agent/workflows/session-workflow.md#L186)
-  - 
+  -
 
 - **[P3]** [.sessions/README.md:49](.sessions/README.md#L49)
   - **: Handoff tasks
@@ -1567,7 +1567,7 @@
   - /IN_PROGRESS/DONE, priority levels, tool assignment guide
 
 - **[P3]** [.sessions/SESSION_LOG_2026-03-23.md:160](.sessions/SESSION_LOG_2026-03-23.md#L160)
-  - 
+  -
 
 - **[P3]** [AgriGuard/contracts/package-lock.json:6142](AgriGuard/contracts/package-lock.json#L6142)
   - evb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==",
@@ -1585,7 +1585,7 @@
   - / IN_PROGRESS / DONE)
 
 - **[P3]** [TASKS.md:8](TASKS.md#L8)
-  - 
+  -
 
 - **[P3]** [TASKS.md:10](TASKS.md#L10)
   - *
@@ -2149,7 +2149,7 @@
   - 처리 (Phase 2, 4)
 
 - **[P3]** [docs/WORKSPACE-STATUS-2026-03-22.md:98](docs/WORKSPACE-STATUS-2026-03-22.md#L98)
-  - 
+  -
 
 - **[P3]** [getdaytrends/V9.0_IMPLEMENTATION_STATUS.md:185](getdaytrends/V9.0_IMPLEMENTATION_STATUS.md#L185)
   - | Config exists, not integrated |
@@ -2179,7 +2179,7 @@
   - " in line or "다음 세션" in line
 
 - **[P3]** [scripts/workspace_summary.py:194](scripts/workspace_summary.py#L194)
-  - 
+  -
 
 - **[P3]** [scripts/workspace_summary.py:198](scripts/workspace_summary.py#L198)
   - ({len(todos['todos'])}개):")
@@ -3006,7 +3006,7 @@
   - [TODO] 처리 (Phase 2, 4)
 
 - **[P3]** [docs/WORKSPACE-STATUS-2026-03-22.md:98](docs/WORKSPACE-STATUS-2026-03-22.md#L98)
-  - [TODO] 
+  - [TODO]
 
 ### root - 26개 항목
 
@@ -3049,7 +3049,7 @@
   - [TODO] / IN_PROGRESS / DONE)
 
 - **[P3]** [TASKS.md:8](TASKS.md#L8)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [TASKS.md:10](TASKS.md#L10)
   - [TODO] *
@@ -3101,40 +3101,40 @@
   - [TODO] 주석 명시 |
 
 - **[P3]** [.agent/session-history/2026-03-07.md:48](.agent/session-history/2026-03-07.md#L48)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:36](.agent/session-history/2026-03-08.md#L36)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:99](.agent/session-history/2026-03-08.md#L99)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:135](.agent/session-history/2026-03-08.md#L135)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:161](.agent/session-history/2026-03-08.md#L161)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:184](.agent/session-history/2026-03-08.md#L184)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:235](.agent/session-history/2026-03-08.md#L235)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:275](.agent/session-history/2026-03-08.md#L275)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-08.md:313](.agent/session-history/2026-03-08.md#L313)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-21.md:36](.agent/session-history/2026-03-21.md#L36)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-21.md:104](.agent/session-history/2026-03-21.md#L104)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/session-history/2026-03-24.md:44](.agent/session-history/2026-03-24.md#L44)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [.agent/workflows/qa-qc.md:110](.agent/workflows/qa-qc.md#L110)
   - [TODO] 로 등록하고 넘어감
@@ -3149,7 +3149,7 @@
   - [TODO] **: 구체적이고 실행 가능한 항목
 
 - **[P3]** [.agent/workflows/session-workflow.md:186](.agent/workflows/session-workflow.md#L186)
-  - [TODO] 
+  - [TODO]
 
 ### scripts - 14개 항목
 
@@ -3189,7 +3189,7 @@
   - [TODO] " in line or "다음 세션" in line
 
 - **[P3]** [scripts/workspace_summary.py:194](scripts/workspace_summary.py#L194)
-  - [TODO] 
+  - [TODO]
 
 - **[P3]** [scripts/workspace_summary.py:198](scripts/workspace_summary.py#L198)
   - [TODO] ({len(todos['todos'])}개):")
@@ -3243,7 +3243,7 @@
   - [TODO] /IN_PROGRESS/DONE, priority levels, tool assignment guide
 
 - **[P3]** [.sessions/SESSION_LOG_2026-03-23.md:160](.sessions/SESSION_LOG_2026-03-23.md#L160)
-  - [TODO] 
+  - [TODO]
 
 ### AgriGuard - 2개 항목
 

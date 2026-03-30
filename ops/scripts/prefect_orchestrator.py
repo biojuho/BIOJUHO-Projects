@@ -17,18 +17,18 @@ Usage::
     # Prefect 대시보드 확인
     prefect server start  # http://localhost:4200
 """
+
 from __future__ import annotations
 
 import argparse
 import importlib
-import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from prefect import flow, task, get_run_logger
+from prefect import flow, get_run_logger, task
 from prefect.tasks import exponential_backoff
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -37,13 +37,14 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from workspace_paths import find_workspace_root, rel_unit_path
 
-
 WORKSPACE = find_workspace_root()
 
 # Logfire 옵저버빌리티 (선택)
 sys.path.insert(0, str(WORKSPACE))
 try:
-    from shared.observability import setup_observability, span as obs_span
+    from shared.observability import setup_observability
+    from shared.observability import span as obs_span
+
     _LOGFIRE_OK = True
 except ImportError:
     _LOGFIRE_OK = False
@@ -52,6 +53,7 @@ except ImportError:
 # ══════════════════════════════════════════════════════
 #  Utility
 # ══════════════════════════════════════════════════════
+
 
 def _ensure_path(project: str) -> None:
     """프로젝트 경로를 sys.path에 추가."""
@@ -65,6 +67,7 @@ def _notify(message: str) -> None:
     try:
         _ensure_path(".")
         from shared.notifications.notifier import Notifier
+
         notifier = Notifier.from_env()
         if notifier.has_channels:
             notifier.send(message)
@@ -75,6 +78,7 @@ def _notify(message: str) -> None:
 # ══════════════════════════════════════════════════════
 #  Prefect on_failure hook → Telegram 알림
 # ══════════════════════════════════════════════════════
+
 
 def _on_flow_failure(flow, flow_run, state):
     """Flow 실패 시 Telegram/Discord 알림."""
@@ -92,6 +96,7 @@ def _on_flow_success(flow, flow_run, state):
 #  Tasks (각 파이프라인 단계)
 # ══════════════════════════════════════════════════════
 
+
 @task(name="check-budget", tags=["infra"])
 def check_budget() -> tuple[bool, float]:
     """일일 예산 확인. (within_budget, current_cost)"""
@@ -99,11 +104,13 @@ def check_budget() -> tuple[bool, float]:
     try:
         _ensure_path(".")
         from shared.telemetry.cost_tracker import get_daily_cost_summary
+
         summary = get_daily_cost_summary(days=1)
         current = summary.get("total_cost", 0.0)
 
         _ensure_path("getdaytrends")
         from config import AppConfig
+
         cfg = AppConfig.from_env()
         budget = cfg.daily_budget_usd
 
@@ -232,6 +239,7 @@ def track_performance(dry_run: bool = False) -> dict[str, Any]:
 #  Flow (메인 파이프라인)
 # ══════════════════════════════════════════════════════
 
+
 @flow(
     name="content-pipeline",
     description="GetDayTrends 전체 콘텐츠 파이프라인: 수집 → 검증 → 생성 → 발행 → 추적",
@@ -249,7 +257,7 @@ def content_pipeline(dry_run: bool = True) -> dict[str, Any]:
     mode = "DRY-RUN" if dry_run else "EXECUTE"
     print(f"\n{'='*50}")
     print(f"  Content Pipeline ({mode})")
-    print(f"  {datetime.now(timezone.utc).isoformat()}")
+    print(f"  {datetime.now(UTC).isoformat()}")
     print(f"{'='*50}\n")
 
     # 예산 확인
@@ -283,6 +291,7 @@ def content_pipeline(dry_run: bool = True) -> dict[str, Any]:
 #  (desci-platform/biolinker/services/scheduler.py 대체)
 # ══════════════════════════════════════════════════════
 
+
 @task(
     name="collect-notices",
     retries=3,
@@ -295,6 +304,7 @@ def collect_notices() -> dict[str, Any]:
     _ensure_path(rel_unit_path("desci-platform", "biolinker"))
     try:
         from services.scheduler import NoticeScheduler
+
         scheduler = NoticeScheduler.__new__(NoticeScheduler)
         # 수집 로직만 호출 (APScheduler 없이)
         if hasattr(scheduler, "_collect_and_index"):
@@ -326,6 +336,7 @@ def notice_collection_pipeline() -> dict[str, Any]:
 #  CLI
 # ══════════════════════════════════════════════════════
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Prefect Pipeline Orchestrator",
@@ -347,7 +358,9 @@ Prefect Dashboard:
     parser.add_argument("--cron", type=str, default="0 */4 * * *", help="크론 스케줄 (기본: 4시간)")
     parser.add_argument("--dry-run", action="store_true", help="드라이런 모드 (기본값)")
     parser.add_argument(
-        "--flow", type=str, default="content",
+        "--flow",
+        type=str,
+        default="content",
         choices=["content", "notices"],
         help="실행할 플로우 (content: 콘텐츠 파이프라인, notices: 공고 수집)",
     )

@@ -30,10 +30,13 @@ class TestXPublishEndpoint:
     async def test_publish_x_success(self, x_publish_request):
         mock_result = {"ok": True, "tweet_id": "1234567890"}
 
-        with patch("notebooklm_api.post_tweet", new_callable=AsyncMock, return_value=mock_result), patch(
-            "notebooklm_api._record_x_publish_result",
-            new_callable=AsyncMock,
-            return_value=(True, 77, ""),
+        with (
+            patch("notebooklm_api.post_tweet", new_callable=AsyncMock, return_value=mock_result),
+            patch(
+                "notebooklm_api._record_x_publish_result",
+                new_callable=AsyncMock,
+                return_value=(True, 77, ""),
+            ),
         ):
             from notebooklm_api import XPublishRequest, run_publish_x
 

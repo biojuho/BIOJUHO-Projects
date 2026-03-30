@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ──────────────────────────────────────────────────
 #  PDF Extractor
 # ──────────────────────────────────────────────────
+
 
 class TestPDFExtractor:
     """Tests for extract_pdf_text."""
@@ -60,6 +60,7 @@ class TestPDFExtractor:
 #  OCR Extractor
 # ──────────────────────────────────────────────────
 
+
 class TestOCRExtractor:
     """Tests for extract_image_text."""
 
@@ -82,6 +83,7 @@ class TestOCRExtractor:
 # ──────────────────────────────────────────────────
 #  Slides Extractor
 # ──────────────────────────────────────────────────
+
 
 class TestSlidesExtractor:
     """Tests for slides text extraction."""

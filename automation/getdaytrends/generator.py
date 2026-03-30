@@ -14,28 +14,26 @@ v4.1 변경 (프롬프트 고도화):
 """
 
 import asyncio
-import json
-import re
 import sys
-from pathlib import Path
-from typing import Any, Callable, Coroutine
-
-
-from config import AppConfig
-from models import GeneratedThread, GeneratedTweet, ScoredTrend, TrendContext, TweetBatch
-from shared.llm import LLMClient, TaskTier
-from shared.llm.models import LLMPolicy
-from utils import run_async, sanitize_keyword
+from typing import Any
 
 from loguru import logger as log
+from shared.llm import LLMClient, TaskTier
+from shared.llm.models import LLMPolicy
+
+from config import AppConfig
+from models import GeneratedTweet, ScoredTrend, TweetBatch
+from utils import run_async, sanitize_keyword
 
 # [Phase 1] Instructor 구조화된 출력 (선택 의존성)
 try:
     from structured_output import (
+        INSTRUCTOR_AVAILABLE as _INST_OK,
+    )
+    from structured_output import (
         TweetGenerationResponse,
         TweetItem,
         extract_structured,
-        INSTRUCTOR_AVAILABLE as _INST_OK,
     )
 except ImportError:
     _INST_OK = False
@@ -45,6 +43,11 @@ _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
 
 # -- prompt builder import --
+# -- 추출된 모듈 re-export (후방 호환) --
+from generation.marl import (  # noqa: F401
+    _should_use_marl,
+    generate_tweets_with_marl_async,
+)
 from prompt_builder import (  # noqa: F401
     _LANG_NAME_MAP,
     _REPORT_BLOG_SYSTEM,
@@ -70,16 +73,10 @@ from prompt_builder import (  # noqa: F401
     _use_report_profile,
 )
 
-# -- 추출된 모듈 re-export (후방 호환) --
-from generation.marl import (  # noqa: F401
-    _should_use_marl,
-    generate_tweets_with_marl_async,
-)
-
-
 # ══════════════════════════════════════════════════════
 #  1) 단문 트윗 5종 (280자) — Haiku tier
 # ══════════════════════════════════════════════════════
+
 
 async def generate_tweets_async(
     trend: ScoredTrend,
@@ -95,6 +92,7 @@ async def generate_tweets_async(
     [v5.0] pattern_weights: 훅/킥 성과 가중치 (B. Adaptive Voice).
     """
     from datetime import datetime as _dt
+
     target_language = _resolve_language(config)
     context_section = _build_context_section(trend)
     scoring_section = _build_scoring_section(trend)
@@ -127,8 +125,10 @@ async def generate_tweets_async(
         try:
             full_prompt = f"[시스템]\n{_system_tweets(config.tone)}\n\n[사용자]\n{user_message}"
             inst_result = await extract_structured(
-                full_prompt, TweetGenerationResponse,
-                tier="lightweight", max_tokens=1500,
+                full_prompt,
+                TweetGenerationResponse,
+                tier="lightweight",
+                max_tokens=1500,
             )
             if inst_result and inst_result.tweets:
                 data = inst_result.model_dump()
@@ -160,14 +160,16 @@ async def generate_tweets_async(
         if len(content) > 280:
             content = content[:277] + "..."
             log.warning(f"트윗 280자 초과 트리밍: {trend.keyword} [{t.get('type', '')}]")
-        tweets.append(GeneratedTweet(
-            tweet_type=t.get("type", ""),
-            content=content,
-            content_type="short",
-            best_posting_time=t.get("best_posting_time", ""),
-            expected_engagement=t.get("expected_engagement", ""),
-            reasoning=t.get("reasoning", ""),
-        ))
+        tweets.append(
+            GeneratedTweet(
+                tweet_type=t.get("type", ""),
+                content=content,
+                content_type="short",
+                best_posting_time=t.get("best_posting_time", ""),
+                expected_engagement=t.get("expected_engagement", ""),
+                reasoning=t.get("reasoning", ""),
+            )
+        )
 
     log.info(f"트윗 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
     return TweetBatch(
@@ -184,15 +186,15 @@ from generation.long_form import (  # noqa: F401
     generate_blog_async,
     generate_long_form_async,
 )
-from generation.threads import (  # noqa: F401
+from generation.threads import (
     generate_thread_async,
     generate_threads_content_async,
 )
 
-
 # ══════════════════════════════════════════════════════
 #  5) 통합 배치 생성: 단문 5종 + Threads 2종 (1회 호출) — Haiku tier
 # ══════════════════════════════════════════════════════
+
 
 async def generate_tweets_and_threads_async(
     trend: ScoredTrend,
@@ -236,8 +238,7 @@ async def generate_tweets_and_threads_async(
         batch.threads_posts = threads_result
 
     log.info(
-        f"통합 생성 완료: '{trend.keyword}' "
-        f"(트윗 {len(batch.tweets)}개 + Threads {len(batch.threads_posts)}개)"
+        f"통합 생성 완료: '{trend.keyword}' " f"(트윗 {len(batch.tweets)}개 + Threads {len(batch.threads_posts)}개)"
     )
     return batch
 
@@ -245,6 +246,7 @@ async def generate_tweets_and_threads_async(
 # ══════════════════════════════════════════════════════
 #  Async Orchestrator — 트렌드 내 모든 생성 병렬 실행
 # ══════════════════════════════════════════════════════
+
 
 async def generate_for_trend_async(
     trend: ScoredTrend,
@@ -270,16 +272,11 @@ async def generate_for_trend_async(
 
     # Threads 활성 여부 확인
     threads_enabled = (
-        config.enable_threads
-        and trend.viral_potential >= config.threads_min_score
-        and "threads" in platforms
+        config.enable_threads and trend.viral_potential >= config.threads_min_score and "threads" in platforms
     )
 
     # [v12.0] 블로그 활성 여부
-    blog_enabled = (
-        "naver_blog" in platforms
-        and trend.viral_potential >= getattr(config, "blog_min_score", 70)
-    )
+    blog_enabled = "naver_blog" in platforms and trend.viral_potential >= getattr(config, "blog_min_score", 70)
 
     # C3: 생성 티어 표시 (비용 투명성)
     tier_parts = ["단문(5종)" + ("+Threads(통합)" if threads_enabled else "")]
@@ -392,7 +389,7 @@ async def generate_for_trend_async(
 
     keys = list(tasks.keys())
     results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-    result_map = dict(zip(keys, results))
+    result_map = dict(zip(keys, results, strict=False))
 
     # 통합 호출 결과 처리 (폴백 포함)
     if "combined" in result_map:
@@ -491,13 +488,15 @@ async def generate_ab_variant_async(
             content = t.get("content", "")
             if len(content) > 280:
                 content = content[:277] + "..."
-            tweets.append(GeneratedTweet(
-                tweet_type=t.get("type", ""),
-                content=content,
-                content_type="short",
-                variant_id="B",
-                language=config.target_languages[0] if config.target_languages else "ko",
-            ))
+            tweets.append(
+                GeneratedTweet(
+                    tweet_type=t.get("type", ""),
+                    content=content,
+                    content_type="short",
+                    variant_id="B",
+                    language=config.target_languages[0] if config.target_languages else "ko",
+                )
+            )
 
         log.info(f"A/B 변형 B 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
         return TweetBatch(topic=data.get("topic", trend.keyword), tweets=tweets, viral_score=trend.viral_potential)
@@ -512,8 +511,7 @@ from content_qa import (  # noqa: F401
     audit_generated_content,
     regenerate_content_groups,
 )
+from generation.persona import _round_robin_counter, select_persona  # noqa: F401
 from multilang import (  # noqa: F401
     generate_for_trend_multilang_async,
 )
-from generation.persona import select_persona, _round_robin_counter  # noqa: F401,E501
-

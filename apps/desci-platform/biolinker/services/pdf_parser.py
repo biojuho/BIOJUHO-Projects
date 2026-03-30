@@ -1,7 +1,7 @@
-
 """
 BioLinker - PDF Parser Service
 """
+
 from __future__ import annotations
 
 import io
@@ -89,7 +89,9 @@ class PDFParser:
         except Exception:
             return {}
 
+
 _parser = PDFParser()
+
 
 def get_pdf_parser():
     return _parser

@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ..models import LLMPolicy, LLMResponse, TaskTier
+from ..models import LLMPolicy, TaskTier
 
 if TYPE_CHECKING:
     from ..client import LLMClient
@@ -109,10 +109,13 @@ def _heuristic_confidence(text: str) -> float:
         score += 0.1
 
     # Hedging language reduces confidence
-    hedges = len(re.findall(
-        r"(아마도|아닐 수|확실하지|잘 모르|maybe|perhaps|might|possibly|unclear)",
-        text, re.IGNORECASE,
-    ))
+    hedges = len(
+        re.findall(
+            r"(아마도|아닐 수|확실하지|잘 모르|maybe|perhaps|might|possibly|unclear)",
+            text,
+            re.IGNORECASE,
+        )
+    )
     score -= hedges * 0.05
 
     # Error/warning indicators reduce confidence
@@ -170,10 +173,12 @@ class SAGEEngine:
         if use_llm_confidence:
             conf_resp = self._client.create(
                 tier=TaskTier.LIGHTWEIGHT,
-                messages=[{
-                    "role": "user",
-                    "content": _CONFIDENCE_PROMPT.format(response=initial_resp.text),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": _CONFIDENCE_PROMPT.format(response=initial_resp.text),
+                    }
+                ],
                 max_tokens=200,
                 system="You are a quality evaluator. Be strict and precise.",
                 policy=policy,
@@ -183,14 +188,12 @@ class SAGEEngine:
         else:
             confidence = _heuristic_confidence(initial_resp.text)
 
-        log.info("SAGE confidence: %.2f (threshold high=%.2f, low=%.2f)",
-                 confidence, confidence_high, confidence_low)
+        log.info("SAGE confidence: %.2f (threshold high=%.2f, low=%.2f)", confidence, confidence_high, confidence_low)
 
         # Step 3: Decide on enhancement
         if confidence >= confidence_high:
             # High confidence → return immediately
-            log.info("SAGE: high confidence, returning directly (saved %d+ tokens)",
-                     max_tokens * 2)
+            log.info("SAGE: high confidence, returning directly (saved %d+ tokens)", max_tokens * 2)
             return SAGEResult(
                 text=initial_resp.text,
                 confidence=confidence,
@@ -243,8 +246,11 @@ class SAGEEngine:
         t0 = time.perf_counter()
 
         initial_resp = await self._client.acreate(
-            tier=tier, messages=messages, max_tokens=max_tokens,
-            system=system, policy=policy,
+            tier=tier,
+            messages=messages,
+            max_tokens=max_tokens,
+            system=system,
+            policy=policy,
         )
         total_cost = initial_resp.cost_usd
 
@@ -263,8 +269,10 @@ class SAGEEngine:
 
         if confidence >= confidence_high:
             return SAGEResult(
-                text=initial_resp.text, confidence=confidence,
-                stages_applied=1, was_enhanced=False,
+                text=initial_resp.text,
+                confidence=confidence,
+                stages_applied=1,
+                was_enhanced=False,
                 original_text=initial_resp.text,
                 total_cost_usd=total_cost,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
@@ -275,15 +283,19 @@ class SAGEEngine:
         stages = 3 if confidence >= confidence_low else 5
         marl = MARLPipeline(self._client)
         marl_result = await marl.arun(
-            messages=messages, system=system, policy=policy,
+            messages=messages,
+            system=system,
+            policy=policy,
             config=MARLConfig(stages=stages),
         )
         total_cost += marl_result.total_cost_usd
 
         return SAGEResult(
-            text=marl_result.final_text, confidence=confidence,
+            text=marl_result.final_text,
+            confidence=confidence,
             stages_applied=marl_result.stages_completed + 1,
-            was_enhanced=True, original_text=initial_resp.text,
+            was_enhanced=True,
+            original_text=initial_resp.text,
             total_cost_usd=total_cost,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
         )

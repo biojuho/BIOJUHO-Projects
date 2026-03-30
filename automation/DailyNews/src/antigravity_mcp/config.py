@@ -9,7 +9,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = PROJECT_ROOT / "src"
 DATA_DIR = PROJECT_ROOT / "data"
@@ -194,34 +193,26 @@ def get_settings() -> AppSettings:
         "NOTION_DATABASE_ID",
     )
     if tasks_db_source in {"ANTIGRAVITY_TASKS_DB_ID", "ANTIGRAVITY_DB_ID", "NOTION_DATABASE_ID"}:
-        warnings.append(
-            f"{tasks_db_source} is deprecated; use NOTION_TASKS_DATABASE_ID instead."
-        )
+        warnings.append(f"{tasks_db_source} is deprecated; use NOTION_TASKS_DATABASE_ID instead.")
 
     notion_tasks_data_source_id, tasks_ds_source = _first_non_empty(
         "NOTION_TASKS_DATA_SOURCE_ID",
     )
     if tasks_ds_source:
-        warnings.append(
-            f"{tasks_ds_source} configured as the source of truth for task queries."
-        )
+        warnings.append(f"{tasks_ds_source} configured as the source of truth for task queries.")
 
     notion_reports_database_id, reports_db_source = _first_non_empty(
         "NOTION_REPORTS_DATABASE_ID",
         "ANTIGRAVITY_NEWS_DB_ID",
     )
     if reports_db_source == "ANTIGRAVITY_NEWS_DB_ID":
-        warnings.append(
-            "ANTIGRAVITY_NEWS_DB_ID is deprecated; use NOTION_REPORTS_DATABASE_ID instead."
-        )
+        warnings.append("ANTIGRAVITY_NEWS_DB_ID is deprecated; use NOTION_REPORTS_DATABASE_ID instead.")
 
     notion_reports_data_source_id, reports_ds_source = _first_non_empty(
         "NOTION_REPORTS_DATA_SOURCE_ID",
     )
     if reports_ds_source:
-        warnings.append(
-            f"{reports_ds_source} configured as the source of truth for report queries."
-        )
+        warnings.append(f"{reports_ds_source} configured as the source of truth for report queries.")
 
     notion_dashboard_page_id, dashboard_source = _first_non_empty(
         "NOTION_DASHBOARD_PAGE_ID",
@@ -230,9 +221,7 @@ def get_settings() -> AppSettings:
     if not notion_dashboard_page_id:
         notion_dashboard_page_id = _load_dashboard_page_id_from_config()
         if notion_dashboard_page_id:
-            warnings.append(
-                "NOTION_DASHBOARD_PAGE_ID loaded from config/dashboard_config.json fallback."
-            )
+            warnings.append("NOTION_DASHBOARD_PAGE_ID loaded from config/dashboard_config.json fallback.")
     if dashboard_source == "DASHBOARD_PAGE_ID":
         warnings.append("DASHBOARD_PAGE_ID is deprecated; use NOTION_DASHBOARD_PAGE_ID instead.")
 

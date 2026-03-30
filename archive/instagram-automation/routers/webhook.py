@@ -5,9 +5,8 @@ Handles Instagram webhook verification and event processing.
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Request
-
 from dependencies import get_config, get_dm_responder
+from fastapi import APIRouter, HTTPException, Query, Request
 
 logger = logging.getLogger(__name__)
 

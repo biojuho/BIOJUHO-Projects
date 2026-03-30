@@ -3,15 +3,16 @@ Firebase Authentication Module for AgriGuard
 Handles token verification for protected routes.
 Pattern adapted from desci-platform/biolinker/services/auth.py.
 """
+
 import os
-from typing import Optional
-from fastapi import Header, HTTPException, status
 
 from env_loader import load_backend_env
+from fastapi import Header, HTTPException, status
 
 try:
     import firebase_admin
-    from firebase_admin import credentials, auth
+    from firebase_admin import auth, credentials
+
     FIREBASE_AVAILABLE = True
 except ImportError:
     FIREBASE_AVAILABLE = False
@@ -83,7 +84,7 @@ def verify_firebase_token(token: str) -> dict:
         )
 
 
-async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
+async def get_current_user(authorization: str | None = Header(None)) -> dict:
     """
     FastAPI dependency that extracts the Bearer token from the Authorization
     header and returns the authenticated user dict.

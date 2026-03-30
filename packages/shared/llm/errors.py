@@ -28,6 +28,7 @@ log = logging.getLogger("shared.llm")
 # Error hierarchy
 # ---------------------------------------------------------------------------
 
+
 class LLMError(Exception):
     """Base error for all LLM operations."""
 
@@ -192,11 +193,14 @@ def should_fallback_to_next_backend(error: Exception) -> bool:
     """
     classified = classify_error(error)
     # These error types should trigger backend fallback
-    return isinstance(classified, (
-        QuotaExhaustedError,
-        RateLimitError,
-        ServerError,
-        NetworkError,
-        ModelNotFoundError,
-        QualityGateError,
-    ))
+    return isinstance(
+        classified,
+        (
+            QuotaExhaustedError,
+            RateLimitError,
+            ServerError,
+            NetworkError,
+            ModelNotFoundError,
+            QualityGateError,
+        ),
+    )

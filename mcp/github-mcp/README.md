@@ -2,7 +2,7 @@
 
 ## ⚙️ MCP settings.json에 추가할 내용 (Configuration for settings.json)
 
-IDE의 MCP 설정 파일에 아래 내용을 추가하세요:  
+IDE의 MCP 설정 파일에 아래 내용을 추가하세요:
 Add the following content to your IDE's MCP configuration file:
 
 ```json

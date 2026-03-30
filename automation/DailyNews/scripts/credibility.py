@@ -20,25 +20,53 @@ logger = logging.getLogger(__name__)
 # Source reputation tiers
 TIER_1_DOMAINS = {
     # Major wire services & established outlets
-    "reuters.com", "apnews.com", "bbc.com", "bbc.co.uk",
-    "nytimes.com", "washingtonpost.com", "theguardian.com",
-    "nature.com", "science.org", "thelancet.com",
-    "techcrunch.com", "arstechnica.com", "wired.com",
+    "reuters.com",
+    "apnews.com",
+    "bbc.com",
+    "bbc.co.uk",
+    "nytimes.com",
+    "washingtonpost.com",
+    "theguardian.com",
+    "nature.com",
+    "science.org",
+    "thelancet.com",
+    "techcrunch.com",
+    "arstechnica.com",
+    "wired.com",
     # Korean major outlets
-    "chosun.com", "donga.com", "hani.co.kr", "khan.co.kr",
-    "mk.co.kr", "hankyung.com", "sedaily.com",
-    "yonhapnews.co.kr", "yna.co.kr",
+    "chosun.com",
+    "donga.com",
+    "hani.co.kr",
+    "khan.co.kr",
+    "mk.co.kr",
+    "hankyung.com",
+    "sedaily.com",
+    "yonhapnews.co.kr",
+    "yna.co.kr",
 }
 
 TIER_2_DOMAINS = {
     # Established but opinion-heavy or niche
-    "theverge.com", "engadget.com", "mashable.com",
-    "cnn.com", "cnbc.com", "bloomberg.com", "ft.com",
-    "forbes.com", "businessinsider.com",
-    "zdnet.com", "venturebeat.com", "thenextweb.com",
+    "theverge.com",
+    "engadget.com",
+    "mashable.com",
+    "cnn.com",
+    "cnbc.com",
+    "bloomberg.com",
+    "ft.com",
+    "forbes.com",
+    "businessinsider.com",
+    "zdnet.com",
+    "venturebeat.com",
+    "thenextweb.com",
     # Korean secondary
-    "etnews.com", "zdnet.co.kr", "bloter.net", "platum.kr",
-    "newsis.com", "news1.kr", "edaily.co.kr",
+    "etnews.com",
+    "zdnet.co.kr",
+    "bloter.net",
+    "platum.kr",
+    "newsis.com",
+    "news1.kr",
+    "edaily.co.kr",
 }
 
 # Clickbait patterns (Korean + English)
@@ -60,9 +88,19 @@ CLICKBAIT_PATTERNS = [
 
 # Sensational word list
 SENSATIONAL_WORDS = {
-    "충격", "경악", "폭탄", "대박", "미친", "헐",
-    "shocking", "insane", "crazy", "unbelievable",
-    "breaking", "urgent", "explosive",
+    "충격",
+    "경악",
+    "폭탄",
+    "대박",
+    "미친",
+    "헐",
+    "shocking",
+    "insane",
+    "crazy",
+    "unbelievable",
+    "breaking",
+    "urgent",
+    "explosive",
 }
 
 

@@ -4,4 +4,3 @@ export { useOpenAiGlobal } from "./use-openai-global";
 export { useWidgetProps } from "./use-widget-props.mock";
 export { useWidgetState } from "./use-widget-state";
 export * from "./types";
-

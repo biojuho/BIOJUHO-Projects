@@ -68,9 +68,7 @@ def _needs_legacy_baseline(database_url: str | None) -> bool:
             if "alembic_version" not in tables:
                 return True
 
-            versions = connection.execute(
-                text("SELECT version_num FROM alembic_version")
-            ).fetchall()
+            versions = connection.execute(text("SELECT version_num FROM alembic_version")).fetchall()
             return len(versions) == 0
     finally:
         engine.dispose()
@@ -83,10 +81,7 @@ def main() -> int:
     print(f"Running Alembic migrations against {_display_database_target()}...")
 
     if _needs_legacy_baseline(database_url):
-        print(
-            "Detected a pre-Alembic baseline database; stamping revision "
-            f"{BASELINE_REVISION} before upgrade."
-        )
+        print("Detected a pre-Alembic baseline database; stamping revision " f"{BASELINE_REVISION} before upgrade.")
         command.stamp(config, BASELINE_REVISION)
 
     command.upgrade(config, "head")

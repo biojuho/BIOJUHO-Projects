@@ -3,7 +3,6 @@ import json
 import pytest
 import requests
 
-
 API_URL = "http://localhost:8001/analyze"
 
 PAYLOAD = {

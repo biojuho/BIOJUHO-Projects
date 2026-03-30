@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import pytest
-
 from notebooklm_automation.config import NotebookLMConfig, get_config, reset_config
 
 

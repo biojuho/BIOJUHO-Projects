@@ -116,4 +116,3 @@
 - `tests/test_workspace_smoke.py`
 - `docs/QUALITY_GATE.md`
 - `desci-platform/frontend/src/components/PricingPage.jsx`
-

@@ -192,12 +192,12 @@ export default function SupplyChain() {
                 </div>
                 ); })()}
               </div>
-              
+
               <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
                 <span className="text-sm font-semibold text-muted-foreground">
                   Current Status: <Badge variant="outline" className="ml-2">{getStatusText(getProductStatus(product))}</Badge>
                 </span>
-                
+
                 <Button variant="link" asChild className="text-primary hover:text-primary/80">
                   <a href={`/product/${product.id}`}>View Details →</a>
                 </Button>

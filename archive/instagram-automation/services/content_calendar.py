@@ -21,11 +21,12 @@ logger = logging.getLogger(__name__)
 
 class ContentTheme(str, Enum):
     """Weekly content themes for consistent branding."""
-    EDUCATION = "education"        # 정보/인사이트 전달
-    ENGAGEMENT = "engagement"      # 참여 유도 (질문, 투표)
-    STORYTELLING = "storytelling"   # 스토리, 경험 공유
-    TREND = "trend"                # 트렌드 반응
-    PROMOTION = "promotion"        # 프로모션/CTA
+
+    EDUCATION = "education"  # 정보/인사이트 전달
+    ENGAGEMENT = "engagement"  # 참여 유도 (질문, 투표)
+    STORYTELLING = "storytelling"  # 스토리, 경험 공유
+    TREND = "trend"  # 트렌드 반응
+    PROMOTION = "promotion"  # 프로모션/CTA
     BEHIND_SCENES = "behind_scenes"  # 일상/비하인드
     USER_CONTENT = "user_content"  # UGC/리포스트
 
@@ -159,8 +160,15 @@ class ContentCalendar:
                     """INSERT INTO content_calendar
                        (date, theme, topic, post_type, posting_hour, notes, status)
                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (entry.date, entry.theme, entry.topic, entry.post_type,
-                     entry.posting_hour, entry.notes, entry.status),
+                    (
+                        entry.date,
+                        entry.theme,
+                        entry.topic,
+                        entry.post_type,
+                        entry.posting_hour,
+                        entry.notes,
+                        entry.status,
+                    ),
                 )
                 entries.append(entry)
 
@@ -231,12 +239,10 @@ class ContentCalendar:
         """Calendar statistics."""
         conn = self._get_conn()
         total = conn.execute("SELECT COUNT(*) as c FROM content_calendar").fetchone()["c"]
-        planned = conn.execute(
-            "SELECT COUNT(*) as c FROM content_calendar WHERE status = 'planned'"
-        ).fetchone()["c"]
-        completed = conn.execute(
-            "SELECT COUNT(*) as c FROM content_calendar WHERE status = 'completed'"
-        ).fetchone()["c"]
+        planned = conn.execute("SELECT COUNT(*) as c FROM content_calendar WHERE status = 'planned'").fetchone()["c"]
+        completed = conn.execute("SELECT COUNT(*) as c FROM content_calendar WHERE status = 'completed'").fetchone()[
+            "c"
+        ]
         themes = conn.execute(
             "SELECT theme, COUNT(*) as c FROM content_calendar GROUP BY theme ORDER BY c DESC"
         ).fetchall()

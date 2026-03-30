@@ -110,7 +110,7 @@ All components now follow a consistent design system:
 - Selection: Purple border + checkmark
 ```
 
-### Canva Search Designs  
+### Canva Search Designs
 ```
 - Layout: 2-3 column grid
 - Images: 1:1 aspect ratio (square)
@@ -162,4 +162,3 @@ All components have been successfully refactored to match the Spotify/Expedia st
 - Function-only editor component
 
 The design is now consistent, modern, and user-friendly!
-

@@ -33,4 +33,3 @@ getdaytrends\tests\test_v15_zero_content.py ............                 [ 97%]
 getdaytrends\tests\test_x_publish.py sssssss..                           [100%]
 
 =============== 348 passed, 30 skipped, 1 deselected in 26.07s ================
-

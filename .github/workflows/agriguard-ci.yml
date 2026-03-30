@@ -94,6 +94,3 @@ jobs:
 
       - name: Build frontend image
         run: docker build -t agriguard-frontend ./apps/AgriGuard/frontend
-
-
-
