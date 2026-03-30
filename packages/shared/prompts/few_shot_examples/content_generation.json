@@ -1,0 +1,10 @@
+[
+  {
+    "input": "Category: Tech\nTopic: AI chip export controls expansion\nSources: Reuters, X/Twitter, Reddit\nWindow: morning",
+    "output": "## AI칩 수출통제 확대 — 글로벌 반도체 재편 가속\n\n**요약**: 미국 상무부가 고성능 AI칩 수출 제한을 18개국으로 확대. NVIDIA H100 대체 수요가 중국 자체 칩 생태계 투자를 가속화하고 있음.\n\n**핵심 인사이트**:\n1. TSMC/삼성 파운드리가 '우회 수출' 검증 부담 증가\n2. 중국 SMIC의 7nm 양산 시도가 수출통제 효과를 시험 중\n3. 한국 팹리스 업체들의 '비규제 칩' 포트폴리오 전환 가속\n\n**투자자 관점**: 반도체 장비주(ASML, 도쿄일렉트론) 단기 수혜 vs 중장기 중국 자급화 리스크"
+  },
+  {
+    "input": "Category: Economy\nTopic: Housing loan rate forecast 2026\nSources: News, Bank of Korea report\nWindow: evening",
+    "output": "## 2026 주담대 금리 전망 — 3%대 진입 시그널\n\n**요약**: 한국은행 기준금리 인하 기대감과 은행권 대출 경쟁 심화로 주담대 금리가 3.5% 이하로 하락하는 추세.\n\n**핵심 인사이트**:\n1. 5대 시중은행 변동금리 하한 3.4% 도달 (전월 대비 -0.15%p)\n2. 고정금리 갈아타기 수요 급증 — 대환대출 신청 전년비 +47%\n3. DSR 규제 완화 논의 재개로 실수요자 진입 장벽 하락 기대\n\n**실용 포인트**: 고정 vs 변동 금리 전환 적기 분석이 핵심"
+  }
+]

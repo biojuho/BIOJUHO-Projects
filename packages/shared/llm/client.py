@@ -9,7 +9,14 @@ import time
 from typing import Optional
 
 from .backends import BackendManager
-from .config import FALLBACK_ERRORS, MODEL_TO_TIER, get_routing_chain, load_keys
+from .config import (
+    FALLBACK_ERRORS,
+    LLM_BUDGET_DOWNGRADE_HEAVY,
+    LLM_BUDGET_DOWNGRADE_MEDIUM,
+    MODEL_TO_TIER,
+    get_routing_chain,
+    load_keys,
+)
 from .errors import classify_error, should_fallback_to_next_backend
 from .language_bridge import (
     inspect_response,
@@ -141,10 +148,30 @@ class LLMClient:
 
     def _resolve_tier(self, tier: Optional[TaskTier], model: Optional[str]) -> TaskTier:
         if tier is not None:
+            resolved = tier
+        elif model and model in MODEL_TO_TIER:
+            resolved = MODEL_TO_TIER[model]
+        else:
+            resolved = TaskTier.MEDIUM
+        return self._budget_downgrade(resolved)
+
+    def _budget_downgrade(self, tier: TaskTier) -> TaskTier:
+        """Downgrade tier when daily cost approaches budget limits."""
+        if tier == TaskTier.LIGHTWEIGHT:
             return tier
-        if model and model in MODEL_TO_TIER:
-            return MODEL_TO_TIER[model]
-        return TaskTier.MEDIUM
+        try:
+            today_cost = self._tracker.get_today_cost()
+        except Exception:
+            return tier
+        if tier == TaskTier.HEAVY and today_cost >= LLM_BUDGET_DOWNGRADE_HEAVY:
+            log.info("Budget downgrade: HEAVY→MEDIUM (today=$%.4f >= $%.2f)",
+                     today_cost, LLM_BUDGET_DOWNGRADE_HEAVY)
+            return TaskTier.MEDIUM
+        if tier == TaskTier.MEDIUM and today_cost >= LLM_BUDGET_DOWNGRADE_MEDIUM:
+            log.info("Budget downgrade: MEDIUM→LIGHTWEIGHT (today=$%.4f >= $%.2f)",
+                     today_cost, LLM_BUDGET_DOWNGRADE_MEDIUM)
+            return TaskTier.LIGHTWEIGHT
+        return tier
 
     def create(
         self,
@@ -429,6 +456,19 @@ class LLMClient:
             project=project_name,
         )
         response.cost_usd = rec.cost_usd
+
+        # Prometheus business metrics (no-op if prometheus_client missing)
+        try:
+            from shared.business_metrics import biz
+            biz.llm_request(
+                default_model,
+                service=project_name or "unknown",
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+                cost_usd=rec.cost_usd,
+            )
+        except ImportError:
+            pass
 
     def _dispatch(
         self,

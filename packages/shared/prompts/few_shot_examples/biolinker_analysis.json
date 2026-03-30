@@ -1,0 +1,10 @@
+[
+  {
+    "input": "RFP: AI 기반 신약 타겟 발굴 기술 개발 (KDDF)\nUser: Drug Discovery AI startup, TRL 4, 12명\nTech: AI/ML, Genomics, Drug Target Prediction",
+    "output": "{\"fit_score\": 92, \"fit_grade\": \"S\", \"match_summary\": [\"AI/ML 기반 신약 발굴 기술이 RFP 핵심 요구사항과 직접 부합\", \"TRL 4 수준이 과제 요구 TRL 3-6 범위 내\", \"유전체 분석 역량이 타겟 발굴 파이프라인에 시너지\"], \"required_docs\": [\"사업계획서\", \"기술역량 증빙\", \"연구실적 목록\"], \"risk_flags\": [\"컨소시엄 구성 요건 확인 필요\"], \"recommended_actions\": [\"임상 파트너 기관 사전 확보\", \"기존 파이프라인 TRL 진행 현황 정리\"]}"
+  },
+  {
+    "input": "RFP: 중소기업 디지털 전환 지원 (KIAT)\nUser: Biotech company, TRL 3, 8명\nTech: Protein Engineering, Cell Therapy",
+    "output": "{\"fit_score\": 15, \"fit_grade\": \"D\", \"match_summary\": [\"RFP는 범용 디지털 전환 중심으로 바이오 기술과 무관\", \"IT/제조업 중심 평가 기준으로 바이오 역량 평가 불가\", \"기술 분야 중복도가 5% 미만\"], \"required_docs\": [], \"risk_flags\": [\"지원 분야 부적합으로 서류 탈락 가능성 높음\"], \"recommended_actions\": [\"바이오 특화 과제 (KDDF, TIPS 바이오) 검토 권장\"]}"
+  }
+]

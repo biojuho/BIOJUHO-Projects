@@ -209,6 +209,19 @@ class CostTracker:
             log.warning("Failed to query daily stats: %s", e)
             return []
 
+    def get_today_cost(self) -> float:
+        """Return total USD cost spent today (UTC)."""
+        if self._db is None:
+            return 0.0
+        try:
+            cursor = self._db.execute(
+                "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls "
+                "WHERE DATE(timestamp) = DATE('now')"
+            )
+            return round(cursor.fetchone()[0], 6)
+        except Exception:
+            return 0.0
+
     def export_csv(self, days: int = 30) -> Path | None:
         """Export recent records to a daily CSV file."""
         if self._db is None:

@@ -1,0 +1,10 @@
+[
+  {
+    "input": "RFP: AI 기반 신약 타겟 발굴 기술 개발\nUser Tech: Drug Discovery, AI/ML, Genomics\nTRL: 4",
+    "output": "{\n  \"fit_score\": 92,\n  \"fit_grade\": \"S\",\n  \"match_summary\": [\n    \"AI/ML 기반 신약 발굴 기술이 RFP 핵심 요구사항과 직접 부합\",\n    \"TRL 4 수준이 과제 요구 TRL 3-6 범위 내\",\n    \"유전체 분석 역량이 타겟 발굴 파이프라인에 시너지\"\n  ]\n}"
+  },
+  {
+    "input": "RFP: 중소기업 디지털 전환 지원\nUser Tech: Biotech, Drug Discovery\nTRL: 3",
+    "output": "{\n  \"fit_score\": 18,\n  \"fit_grade\": \"D\",\n  \"match_summary\": [\n    \"RFP는 범용 디지털 전환 중심으로 바이오 기술과 무관\",\n    \"자격 요건상 IT/제조업 중심 평가 기준\",\n    \"기술 분야 중복도가 매우 낮음\"\n  ]\n}"
+  }
+]

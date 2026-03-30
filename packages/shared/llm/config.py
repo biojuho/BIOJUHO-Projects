@@ -17,6 +17,17 @@ _ROOT_ENV = _ROOT_DIR / ".env"
 load_dotenv(_ROOT_ENV)
 
 
+# ---------------------------------------------------------------------------
+# Budget-aware auto-downgrade thresholds (USD/day)
+# ---------------------------------------------------------------------------
+# When today's cumulative cost exceeds a threshold, HEAVY requests auto-
+# downgrade to MEDIUM, and MEDIUM to LIGHTWEIGHT.  The hard cap triggers
+# the existing RATE_LIMIT.lock mechanism.
+LLM_DAILY_BUDGET = float(os.getenv("LLM_DAILY_BUDGET", "2.00"))
+LLM_BUDGET_DOWNGRADE_HEAVY = float(os.getenv("LLM_BUDGET_DOWNGRADE_HEAVY", "1.50"))
+LLM_BUDGET_DOWNGRADE_MEDIUM = float(os.getenv("LLM_BUDGET_DOWNGRADE_MEDIUM", "1.80"))
+
+
 def _key(name: str) -> str:
     return (os.getenv(name) or "").strip()
 
