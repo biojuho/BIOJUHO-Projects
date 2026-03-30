@@ -49,6 +49,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Prometheus Metrics (/metrics) ──────────────────────────
+try:
+    from shared.metrics import setup_metrics
+    setup_metrics(app, service_name="dashboard")
+except ImportError:
+    pass
+
+# ── Structured Logging (JSON for Loki) ─────────────────────
+try:
+    from shared.structured_logging import setup_logging as setup_structured_logging
+    setup_structured_logging(service_name="dashboard")
+except ImportError:
+    pass
+
+# ── Audit Log ──────────────────────────────────────────────
+try:
+    from shared.audit import setup_audit_log
+    setup_audit_log(app, service_name="dashboard")
+except ImportError:
+    pass
+
 # ── DB 경로 ──
 GDT_DB = WORKSPACE / "automation" / "getdaytrends" / "data" / "getdaytrends.db"
 CIE_DB = WORKSPACE / "automation" / "content-intelligence" / "data" / "cie.db"

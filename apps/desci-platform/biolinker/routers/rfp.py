@@ -78,6 +78,11 @@ async def analyze_rfp(
         analyzer = get_analyzer()
         result = await analyzer.analyze(rfp, body.user_profile)
 
+        try:
+            from shared.business_metrics import biz
+            biz.rfp_analysis()
+        except ImportError:
+            pass
         return AnalyzeResponse(rfp=rfp, result=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -168,6 +173,11 @@ async def match_paper_to_rfps(
     try:
         matcher = get_rfp_matcher()
         results = await matcher.match_paper(paper_id, limit=5)
+        try:
+            from shared.business_metrics import biz
+            biz.rfp_match()
+        except ImportError:
+            pass
         return {"matches": results}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -233,6 +243,11 @@ async def generate_proposal_draft(
         generator = get_proposal_generator()
         draft = await generator.generate_draft(rfp, paper)
         critique = await generator.review_draft(rfp, paper, draft)
+        try:
+            from shared.business_metrics import biz
+            biz.proposal_generated()
+        except ImportError:
+            pass
         return {"draft": draft, "critique": critique}
     except Exception as e:
         log.error("proposal_generation_error", error=str(e))

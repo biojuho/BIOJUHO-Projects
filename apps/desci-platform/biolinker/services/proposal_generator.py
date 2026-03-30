@@ -22,18 +22,24 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
-PROPOSAL_SYSTEM_PROMPT = """You are an expert Grant Writer and Scientific Author with a Ph.D. in Biotechnology.
-Your task is to draft a high-quality grant proposal and academic synthesis for a specific Request for Proposal (RFP) based on a user's research paper.
+# Centralized prompt templates
+import sys
+_pkg_root = Path(__file__).resolve().parents[3] / "packages"
+if str(_pkg_root) not in sys.path:
+    sys.path.insert(0, str(_pkg_root))
 
-The proposal must adhere to rigorous scientific writing standards:
-1. Strictly align with the RFP's goals and requirements.
-2. Utilize the core technology and findings from the provided Research Paper.
-3. Incorporate the IMRAD structure (Introduction, Methods, Results, And Discussion) appropriately.
-4. Always write in full, flowing paragraphs. DO NOT use bullet points for the main narrative.
-5. Use professional scientific terminology, objective reporting without bias, and precise language.
-
-If the paper is missing details required by the RFP, bridge the gap using standard scientific methodology, but do not hallucinate core data.
-"""
+try:
+    from shared.prompts import get_prompt_manager as _get_pm
+    _pm = _get_pm()
+    PROPOSAL_SYSTEM_PROMPT = _pm.render("biolinker_proposal")
+    REVIEW_SYSTEM_PROMPT = _pm.render("biolinker_review")
+    LIT_REVIEW_SYSTEM_PROMPT = _pm.render("biolinker_lit_synthesis")
+    _PROMPTS_LOADED = True
+except Exception:
+    _PROMPTS_LOADED = False
+    PROPOSAL_SYSTEM_PROMPT = "You are an expert Grant Writer with a Ph.D. in Biotechnology."
+    REVIEW_SYSTEM_PROMPT = None
+    LIT_REVIEW_SYSTEM_PROMPT = None
 
 USER_PROMPT_TEMPLATE = """
 [RFP Details]
@@ -52,7 +58,8 @@ Write a draft proposal titled "{rfp_title} - {paper_title} Integration".
 Language: Korean (Use professional R&D terminology).
 """
 
-REVIEW_SYSTEM_PROMPT = """You are an expert Scientific Grant Reviewer.
+if not _PROMPTS_LOADED or REVIEW_SYSTEM_PROMPT is None:
+    REVIEW_SYSTEM_PROMPT = """You are an expert Scientific Grant Reviewer.
 Your task is to critically analyze a grant proposal draft based on the original Request for Proposal (RFP) and the Research Paper submitted.
 Provide a concise, constructive critique consisting of strengths, weaknesses, and actionable improvements.
 """
@@ -78,7 +85,8 @@ Language: Korean (Use professional R&D terminology).
 """
 
 
-LIT_REVIEW_SYSTEM_PROMPT = """You are an expert Literature Reviewer.
+if not _PROMPTS_LOADED or LIT_REVIEW_SYSTEM_PROMPT is None:
+    LIT_REVIEW_SYSTEM_PROMPT = """You are an expert Literature Reviewer.
 Your task is to synthesize a compelling literature review abstract based on a provided research paper and an RFP.
 You must use a two-stage process:
 Stage 1: Outline the key themes, methods, and outcomes.

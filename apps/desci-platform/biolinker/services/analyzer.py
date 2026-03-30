@@ -44,8 +44,12 @@ for candidate in (
         sys.path.append(candidate_text)
 from models import RFPDocument, UserProfile, AnalysisResult, FitGrade
 
-# System Prompt for LLM
-ANALYZER_SYSTEM_PROMPT = """당신은 바이오 의약품 분야 정부 과제 매칭 전문가입니다.
+# System Prompt — loaded from centralized template if available
+try:
+    from shared.prompts import get_prompt_manager as _get_pm
+    ANALYZER_SYSTEM_PROMPT = _get_pm().render("biolinker_analyzer")
+except Exception:
+    ANALYZER_SYSTEM_PROMPT = """당신은 바이오 의약품 분야 정부 과제 매칭 전문가입니다.
 
 ## 당신의 임무
 사용자의 '보유 기술 프로필'과 '정부 과제 공고문(RFP)'을 비교 분석하여 적합도를 평가합니다.

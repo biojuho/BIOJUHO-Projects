@@ -81,6 +81,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Prometheus Metrics (/metrics) ──────────────────────────
+try:
+    from shared.metrics import setup_metrics
+    setup_metrics(app, service_name="biolinker")
+except ImportError:
+    pass
+
+# ── Structured Logging (JSON for Loki) ─────────────────────
+try:
+    from shared.structured_logging import setup_logging as setup_structured_logging
+    setup_structured_logging(service_name="biolinker")
+except ImportError:
+    pass
+
+# ── Audit Log ──────────────────────────────────────────────
+try:
+    from shared.audit import setup_audit_log
+    setup_audit_log(app, service_name="biolinker")
+except ImportError:
+    pass
+
 # ============== Routers ==============
 from routers import rfp, crawl, web3, agent, governance, subscription  # noqa: E402
 from services.user_tier import get_tier_manager  # noqa: E402

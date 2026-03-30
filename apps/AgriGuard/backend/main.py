@@ -97,6 +97,20 @@ if _LOGFIRE_OK:
 if _METRICS_OK:
     setup_metrics(app, service_name="agriguard")
 
+# ── Structured Logging (JSON for Loki) ─────────────────────
+try:
+    from shared.structured_logging import setup_logging as setup_structured_logging
+    setup_structured_logging(service_name="agriguard")
+except ImportError:
+    pass
+
+# ── Audit Log ──────────────────────────────────────────────
+try:
+    from shared.audit import setup_audit_log
+    setup_audit_log(app, service_name="agriguard")
+except ImportError:
+    pass
+
 # Fallback values used when the DB has no real data yet (demo mode)
 DEMO_TOTAL_FARMS = 142
 DEMO_SENSORS_PER_PRODUCT = 3
@@ -340,6 +354,14 @@ def capture_qr_scan_event(payload: schemas.QRScanEventCreate, db: Session = Depe
         db.add(event)
         db.commit()
         db.refresh(event)
+        # Business metrics
+        try:
+            from shared.business_metrics import biz
+            biz.qr_scan(payload.event_type)
+            if payload.event_type == "verification_complete":
+                biz.verification_complete()
+        except ImportError:
+            pass
         return {"status": "success", "event_id": event.id}
     except Exception as e:
         db.rollback()

@@ -59,10 +59,12 @@ services:
       - AUTO_CREATE_SCHEMA=${AUTO_CREATE_SCHEMA:-false}
       - MQTT_BROKER_HOST=mosquitto
       - MQTT_BROKER_PORT=1883
+      - PYTHONPATH=/app
     env_file:
       - ./backend/.env
     volumes:
       - backend-data:/app/data
+      - ../../packages/shared:/app/shared:ro
     depends_on:
       postgres:
         condition: service_healthy

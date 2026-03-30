@@ -21,52 +21,18 @@ from shared.llm.models import LLMResponse
 
 from services.search_service import get_search_service
 
-RESEARCH_SYSTEM_PROMPT = """당신은 수석 AI 연구원입니다.
-제공된 검색 결과와 문맥을 바탕으로 심도 있는 연구 리포트를 작성해야 합니다.
-
-## 역할
-- 복잡한 정보를 구조화하여 명확하게 전달
-- 사실 기반의 분석 (검색 결과 인용 필수)
-- 객관적이고 전문적인 어조 유지
-
-## 출력 형식 (Markdown)
-# [주제] 심층 분석
-## 요약 (Executive Summary)
-## 주요 발견 (Key Findings)
-## 상세 분석 (Deep Dive)
-## 결론 및 전망
-## 참고 문헌 (References)
-"""
-
-CONTENT_PUBLISHER_PROMPT = """당신은 전문 콘텐츠 퍼블리셔입니다.
-주어진 주제와 원천 데이터(연구 내용 등)를 바탕으로 지정된 형식의 고품질 콘텐츠를 작성합니다.
-
-## 요청 형식: {format_type}
-
-### 블로그 포스트
-- 독자의 흥미를 유발하는 제목과 도입부
-- SEO를 고려한 구조
-- 명확한 인사이트와 행동 유도
-
-### 연구 리포트
-- 연구 질문과 맥락을 먼저 요약
-- 근거 중심의 서술 유지
-- 결론과 한계를 분리해 정리
-
-### 소셜/요약형 콘텐츠
-- 핵심 메시지 중심
-- 필요시 해시태그 또는 요약 문장 활용
-
-## 작성 원칙
-- 원천 데이터의 핵심 의미를 유지하세요.
-- 환각을 피하고 사실에 기반하여 작성하세요.
-- 최종 응답은 자연스러운 한국어로 작성하세요.
-"""
-
-LITERATURE_REVIEW_SYSTEM_PROMPT = """당신은 수석 의학/과학 문헌 리뷰어입니다.
-개별 논문 요약이 아니라, 제공된 검색 결과를 주제별로 묶어 종합적인 문헌 고찰을 작성하세요.
-모든 주장에는 검색 결과 출처를 반영하고, 마크다운 형식을 유지하세요.
-"""
+# Centralized prompt templates (packages/shared/prompts/templates/*.yaml)
+try:
+    from shared.prompts import get_prompt_manager as _get_pm
+    _pm = _get_pm()
+    RESEARCH_SYSTEM_PROMPT = _pm.render("biolinker_research")
+    CONTENT_PUBLISHER_PROMPT = _pm.render("biolinker_publisher")
+    LITERATURE_REVIEW_SYSTEM_PROMPT = _pm.render("biolinker_lit_review")
+except Exception:
+    # Fallback: inline defaults if prompt templates unavailable
+    RESEARCH_SYSTEM_PROMPT = "당신은 수석 AI 연구원입니다. 심도 있는 연구 리포트를 작성하세요."
+    CONTENT_PUBLISHER_PROMPT = "당신은 전문 콘텐츠 퍼블리셔입니다. 요청 형식: {format_type}"
+    LITERATURE_REVIEW_SYSTEM_PROMPT = "당신은 수석 의학/과학 문헌 리뷰어입니다."
 
 
 @dataclass(frozen=True)
