@@ -105,6 +105,8 @@ For new setups, always provide the database IDs above and do not rely on data so
 
 Legacy aliases such as `ANTIGRAVITY_DB_ID`, `ANTIGRAVITY_TASKS_DB_ID`, `ANTIGRAVITY_NEWS_DB_ID`, and `DASHBOARD_PAGE_ID` are still accepted for one release and generate warnings.
 
+If `NOTION_DASHBOARD_PAGE_ID` is temporarily missing, the runtime can fall back to `config/dashboard_config.json`, but `.env` remains the source of truth for stable deployments.
+
 ## Installation
 
 ```bash

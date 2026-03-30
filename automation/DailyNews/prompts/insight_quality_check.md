@@ -1,199 +1,93 @@
-# 인사이트 품질 검증 체크리스트
+# Insight Quality Check
 
-> 모든 인사이트는 아래 3가지 원칙을 **필수적으로** 충족해야 합니다.
+This document is the operator-facing counterpart to
+`src/antigravity_mcp/insights/validator.py`.
 
----
+Every generated insight should satisfy all three principles below.
 
-## 원칙 1: 점(Fact) → 선(Trend) 연결 (필수)
+## Principle 1: Fact -> Pattern
 
-### 체크리스트
+The insight must connect at least one concrete fact from the source set to a
+broader pattern or trend.
 
-- [ ] **최소 2개 이상의 독립된 데이터 포인트 언급**
-  - 예: "엔비디아 H100 품귀 현상(3월) + AMD MI300X 출시(2월) + 구글 TPU v5(1월)"
-  - 단일 기사 요약은 불충분
+Checklist:
+- Use at least 2 concrete anchors from the source set or clearly label extra context as `[Background]`.
+- Mention a time horizon, timing signal, or sequence when making a trend claim.
+- Explain the link between the fact and the broader pattern instead of merely restating the article.
+- When possible, end the main analytic sentence with an evidence tag such as `[A1]` or `[Inference:A1+A2]`.
 
-- [ ] **시간축 트렌드 언급 (과거 → 현재 → 미래)**
-  - 예: "과거 클라우드 전쟁(2015-2018)과 유사한 패턴이 나타나고 있으며, 향후 3년 내 ..."
-  - 시간 키워드: "최근", "과거", "앞으로", "예상", "전망", "추세"
+Fail examples:
+- "AI is growing quickly."
+- "This seems important for the market."
 
-- [ ] **산업/분야 간 연결 고리 제시**
-  - 예: "이는 단순 기술 경쟁이 아니라 클라우드 인프라 수직통합 전략의 일부"
-  - 연결 키워드: "연장선", "흐름", "패턴", "일부", "맥락", "배경"
+Better examples:
+- "GPU supply remains tight while cloud vendors keep expanding custom accelerators. That combination raises the odds that inference costs stay sticky through the next two quarters."
 
-### 검증 방법
+## Principle 2: Ripple Effect
 
-```python
-# 자동 검증 예시 (validator.py 참고)
-data_points = count_unique_facts(content)  # ≥ 2
-time_keywords = count_time_references(content)  # ≥ 2
-connection_words = check_connection_phrases(content)  # True
-```
+The insight must describe a second-order effect, not just a first-order summary.
 
-### 점수 기준
+Checklist:
+- Include at least one explicit causality phrase such as `because`, `therefore`, `which means`, or `leading to`.
+- Show a chain with stages such as `1st order`, `2nd order`, `3rd order`, or an equivalent sequence.
+- Avoid vague "there may be impacts" language.
 
-- **1.0점**: 모든 체크리스트 충족
-- **0.7점**: 2개 중 1개 미충족
-- **0.4점**: 3개 중 2개 미충족
-- **0.0점**: 모든 항목 미충족
+Hard fail:
+- No stage language and no causality language in the ripple section.
 
----
+## Principle 3: Actionable Item
 
-## 원칙 2: 파급 효과(Ripple Effect) 예측 (필수)
+The reader should know what to do next.
 
-### 체크리스트
+Checklist:
+- Name a specific audience.
+- Use a concrete action verb.
+- Include a timeframe or deadline.
+- Refer to a specific asset, metric, company, tool, or decision target.
 
-- [ ] **1차 효과 명시**
-  - 예: "1차: GPU 공급망 병목"
-  - 직접적이고 즉각적인 결과
+Hard fail:
+- CTA ends in generic verbs like `review`, `consider`, `watch`, `monitor`, `pay attention` without a concrete target or timeframe.
+- More than 3 audience segments are named in one insight.
 
-- [ ] **2차 효과 예측**
-  - 예: "2차: AI 스타트업 학습 비용 3배 상승"
-  - 1차 효과로 인해 파생되는 간접 효과
+Good:
+- "Investor: compare CoreWeave pricing against your current GPU rental benchmark this week."
 
-- [ ] **(선택) 3차 효과 언급**
-  - 예: "3차: 오픈소스 모델 vs 폐쇄형 모델 성능 격차 확대"
-  - 2차 효과의 장기적 결과
+Bad:
+- "Monitor the AI market closely."
 
-### 검증 방법
+## Runtime Hard-Fail Rules
 
-```python
-# 자동 검증 예시
-ripple_keywords = count_ripple_indicators(content)  # "→", "1차", "2차", "결과적으로"
-causality = check_causality_phrases(content)  # "때문", "따라서", "이어질"
-```
+The runtime validator currently applies these hard-fail rules:
 
-### 점수 기준
+1. Generic CTA with no target or timeframe.
+2. More than 3 audience groups in `target_audience`.
+3. Ripple section missing both stage language and causality language.
+4. New numbers not present in the source set are not a hard fail, but they produce a warning and should move the report into `needs_review`.
 
-- **1.0점**: 1차 + 2차 + 3차 모두 명시
-- **0.8점**: 1차 + 2차 명시
-- **0.5점**: 1차만 명시
-- **0.0점**: 파급 효과 언급 없음
+## Evidence Tag Contract
 
-### 좋은 예시
+For base LLM report generation, analytic lines in:
 
-```
-1차: GPU 공급 부족 →
-2차: AI 스타트업 학습 비용 3배 상승 →
-3차: 대기업 vs 스타트업 AI 모델 품질 격차 확대
-```
+- `Signal`
+- `Pattern`
+- `Ripple Effects`
+- `Counterpoint`
+- `Action Items`
 
-### 나쁜 예시
+should end with exactly one of:
 
-```
-AI 칩 부족으로 문제가 발생할 것입니다. (파급 단계 불명확)
-```
+- `[A1]`, `[A2]`, ...
+- `[Inference:A1+A2]`
+- `[Background]`
+- `[Insufficient evidence]`
 
----
+`Draft Post` should remain clean reader-facing text and should not include evidence tags.
 
-## 원칙 3: 실행 가능한 결론(Actionable Item) 도출 (필수)
+## Editor Review Guidance
 
-### 체크리스트
+Before approving a report, check:
 
-- [ ] **구체적 행동 동사 포함**
-  - 좋은 예: "시작하라", "점검하라", "투자하라", "확보하라", "준비하라"
-  - 나쁜 예: "고민하라", "생각하라", "관심을 가지라" (너무 추상적)
-
-- [ ] **타겟 독자 명시**
-  - 예: "AI 스타트업이라면 →", "투자자라면 →", "개발자라면 →"
-  - 독자 유형: 투자자, 개발자, 창업자, 연구자, 정책입안자, 소비자
-
-- [ ] **실행 가능성 (구체적)**
-  - 좋은 예: "클라우드 크레딧 확보 전략 수립 (AWS, GCP, Azure)"
-  - 나쁜 예: "AI 기술 발전에 관심을 가지세요" (너무 광범위)
-
-### 검증 방법
-
-```python
-# 자동 검증 예시
-action_verbs = count_action_verbs(content)  # ≥ 1
-target_audience = check_audience_mention(content)  # True
-specificity = check_abstract_penalty(content)  # < 2 (추상적 키워드 개수)
-```
-
-### 점수 기준
-
-- **1.0점**: 동사 2개 이상 + 타겟 명시 + 구체적
-- **0.7점**: 동사 1개 + 타겟 명시
-- **0.4점**: 동사만 있거나 타겟만 명시
-- **0.0점**: 모두 미충족
-
-### 좋은 예시 (페르소나별)
-
-```
-**AI 스타트업이라면:**
-→ 지금 당장 클라우드 크레딧 확보 전략을 수립하고,
-   Smaller-but-efficient 모델 (Mistral, Llama 3 8B) 연구에 투자하세요.
-
-**투자자라면:**
-→ GPU 임대 플랫폼 (CoreWeave, Lambda Labs) 주목.
-   AI 인프라 ETF 편입 비중 조정을 검토하세요.
-
-**개발자라면:**
-→ 모델 경량화 기법 (Quantization, Pruning) 학습 시작.
-   Google Colab Pro+ 또는 Lambda Labs 크레딧 확보.
-```
-
-### 나쁜 예시
-
-```
-AI 기술에 대해 더 많은 관심을 가져야 합니다. (추상적, 타겟 불명확, 동사 약함)
-```
-
----
-
-## 종합 검증 프로세스
-
-### 1. 자동 검증 (validator.py)
-
-```python
-from validator import InsightValidator
-
-validator = InsightValidator(min_score=0.6)
-result = validator.validate(insight)
-
-if not result['validation_passed']:
-    # 재생성 또는 수동 수정
-    regenerate_insight()
-```
-
-### 2. 수동 검증 (선택)
-
-- 인사이트를 큰 소리로 읽어보기
-- "So What?" (그래서 어쩌라고?) 질문에 답할 수 있는가?
-- 독자가 즉시 행동할 수 있는가?
-
-### 3. 최종 점수 계산
-
-```
-total_score = (principle_1_score + principle_2_score + principle_3_score) / 3.0
-
-if total_score >= 0.6:
-    PASS ✅
-else:
-    FAIL ❌ (재생성 필요)
-```
-
----
-
-## 추가 가이드라인
-
-### 1. 출처 투명성
-
-- 모든 주장은 기사 링크 또는 데이터 근거 필요
-- "최근 보도에 따르면" (X) → "3월 1일 TechCrunch 보도에 따르면" (O)
-
-### 2. 중립성 vs 관점
-
-- 팩트는 중립적, 분석은 명확한 관점 제시
-- 양비론 금지: "A도 맞고 B도 맞다" (X)
-
-### 3. 길이 제한
-
-- 인사이트당 150-300단어 권장
-- X 롱폼 전체는 800-1200단어
-
----
-
-## 버전 히스토리
-
-- **v1.0** (2026-03-21): 초기 체크리스트 확립
+- Can the main claim be traced back to the provided article set?
+- Does the ripple section explain what changes after the headline?
+- Could the action item be completed within a real operating window?
+- If the report is marked `fallback` or `needs_review`, do not auto-publish it.

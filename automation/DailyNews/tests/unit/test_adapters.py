@@ -172,8 +172,8 @@ class TestFactCheckAdapter:
             return FakeResult()
 
         monkeypatch.setattr(
-            "antigravity_mcp.integrations.fact_check_adapter.verify_text_against_sources",
-            fake_verify_text_against_sources,
+            "antigravity_mcp.integrations.fact_check_adapter.resolve_shared_fact_check",
+            lambda: (FakeResult, fake_verify_text_against_sources, None),
         )
 
         adapter = FactCheckAdapter()
@@ -212,14 +212,16 @@ class TestFactCheckAdapter:
             hallucinated_claims = 2
             issues = [
                 "[Hallucination] entity: '정부'",
+                "[Hallucination] entity: 'JSON'",
+                "[Hallucination] entity: '프라이버시'",
                 "[Unverified number] '6개'",
                 "[Hallucination] entity: '교란시'",
                 "[Hallucination] entity: 'OpenAI'",
             ]
 
         monkeypatch.setattr(
-            "antigravity_mcp.integrations.fact_check_adapter.verify_text_against_sources",
-            lambda *args, **kwargs: FakeResult(),
+            "antigravity_mcp.integrations.fact_check_adapter.resolve_shared_fact_check",
+            lambda: (FakeResult, lambda *args, **kwargs: FakeResult(), None),
         )
 
         adapter = FactCheckAdapter()

@@ -8,7 +8,7 @@ Canonical variables and backward-compatible aliases:
 | `NOTION_TASKS_DATA_SOURCE_ID` | None | Legacy compatibility only. Do not use it to choose the Notion query endpoint. |
 | `NOTION_REPORTS_DATABASE_ID` | `ANTIGRAVITY_NEWS_DB_ID` | Report publishing target. |
 | `NOTION_REPORTS_DATA_SOURCE_ID` | None | Legacy compatibility only. Database queries should use `NOTION_REPORTS_DATABASE_ID`. |
-| `NOTION_DASHBOARD_PAGE_ID` | `DASHBOARD_PAGE_ID` | Dashboard auto-refresh target page. |
+| `NOTION_DASHBOARD_PAGE_ID` | `DASHBOARD_PAGE_ID` | Dashboard auto-refresh target page. Falls back to `config/dashboard_config.json` only when env is empty. |
 | `GOOGLE_API_KEY` | `GEMINI_API_KEY` | Google LLM access. |
 
 Operational rule:

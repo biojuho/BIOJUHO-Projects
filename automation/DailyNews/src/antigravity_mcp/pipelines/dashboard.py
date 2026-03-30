@@ -67,9 +67,46 @@ def _metrics_markdown(metrics_summary: dict[str, object]) -> str:
     )
 
 
+def _governance_markdown(governance: dict[str, object]) -> str:
+    quality_counts = governance.get("quality_counts", {})
+    approval_counts = governance.get("approval_counts", {})
+    fallback_x_drafts = governance.get("fallback_x_drafts", 0)
+    considered = governance.get("reports_considered", 0)
+
+    def _format_counts(value: object) -> str:
+        if not isinstance(value, dict) or not value:
+            return "none"
+        return ", ".join(f"{key}={count}" for key, count in sorted(value.items()))
+
+    return (
+        "### Governance Snapshot\n"
+        f"- Reports considered: {considered}\n"
+        f"- Quality states: {_format_counts(quality_counts)}\n"
+        f"- Approval states: {_format_counts(approval_counts)}\n"
+        f"- Fallback X drafts: {fallback_x_drafts}\n"
+    )
+
+
+def _recent_reports_markdown(reports: list[dict[str, object]]) -> str:
+    if not reports:
+        return "### Recent Reports\n- No reports yet.\n"
+    lines = [
+        (
+            f"- {report.get('category', 'unknown')} | {report.get('window_name', 'unknown')} | "
+            f"quality={report.get('quality_state', 'ok')} | "
+            f"mode={report.get('generation_mode', '') or 'unknown'} | "
+            f"approval={report.get('approval_state', 'manual')}"
+        )
+        for report in reports
+    ]
+    return "### Recent Reports\n" + "\n".join(lines) + "\n"
+
+
 def _dashboard_markdown(
     counts: dict[str, int],
     runs: list[dict[str, str]],
+    reports: list[dict[str, object]],
+    governance: dict[str, object],
     health: dict[str, object] | None = None,
     cost_stats: dict[str, object] | None = None,
     metrics_summary: dict[str, object] | None = None,
@@ -81,6 +118,8 @@ def _dashboard_markdown(
     health_section = _health_markdown(health) if health else ""
     cost_section = _cost_markdown(cost_stats) if cost_stats else ""
     metrics_section = _metrics_markdown(metrics_summary) if metrics_summary else ""
+    governance_section = _governance_markdown(governance)
+    report_section = _recent_reports_markdown(reports)
     return (
         "## [AUTO_DASHBOARD] Antigravity Content Engine\n"
         f"- Reports stored: {counts['reports']}\n"
@@ -89,10 +128,13 @@ def _dashboard_markdown(
         f"{health_section}"
         f"{cost_section}"
         f"{metrics_section}"
+        f"{governance_section}"
+        f"{report_section}"
         "### Recent Runs\n"
         f"{run_lines}\n"
         "### Governance\n"
         "- External publishing remains manual by default.\n"
+        "- Reports marked needs_review or fallback should not be auto-published.\n"
         "- Notion is the system of record for curated reports.\n"
         "---"
     )
@@ -111,6 +153,8 @@ async def refresh_dashboard(
 
     counts = state_store.report_counts()
     recent_runs = [run.to_dict() for run in state_store.list_runs(limit=5)]
+    recent_reports = [report.to_dict() for report in state_store.list_reports(limit=5)]
+    governance = state_store.get_report_governance_summary(limit=100)
     health = state_store.get_pipeline_health()
     cost_stats = state_store.get_token_usage_stats(hours=24)
     metrics_summary = state_store.get_metrics_summary(days=7)
@@ -120,6 +164,8 @@ async def refresh_dashboard(
         "reports": counts["reports"],
         "runs": counts["runs"],
         "cached_articles": counts["cached_articles"],
+        "governance": governance,
+        "recent_reports": recent_reports,
         "health": health,
         "cost_stats": cost_stats,
         "metrics_summary": metrics_summary,
@@ -128,7 +174,15 @@ async def refresh_dashboard(
     if settings.notion_dashboard_page_id and notion_adapter.is_configured():
         appended = await notion_adapter.replace_auto_dashboard_blocks(
             page_id=settings.notion_dashboard_page_id,
-            markdown=_dashboard_markdown(counts, recent_runs, health, cost_stats, metrics_summary),
+            markdown=_dashboard_markdown(
+                counts,
+                recent_runs,
+                recent_reports,
+                governance,
+                health,
+                cost_stats,
+                metrics_summary,
+            ),
         )
         payload["updated_blocks"] = appended
     else:

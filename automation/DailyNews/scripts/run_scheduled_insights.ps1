@@ -106,18 +106,46 @@ try {
     $GenerateOutput | ForEach-Object { Add-Content -Path $LogFile -Value $_ -Encoding utf8 }
     $GenerateExitCode = $LASTEXITCODE
 
-    # Extract report IDs from JSON output
+    # Extract report IDs — Method 1: regex (encoding-safe)
     $ReportIds = @()
     try {
-        $JsonOutput = ($GenerateOutput | Where-Object { $_ -match '^\{' }) -join ""
-        if ($JsonOutput) {
-            $ParsedOutput = $JsonOutput | ConvertFrom-Json -ErrorAction SilentlyContinue
-            if ($ParsedOutput.data.report_ids) {
-                $ReportIds = $ParsedOutput.data.report_ids
+        $GenerateText = ($GenerateOutput | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+        $RegexResult = [regex]::Matches($GenerateText, '"(report-[a-z_]+-\d{8}T\d{6}Z)"')
+        $Seen = @{}
+        foreach ($m in $RegexResult) {
+            $rid = $m.Groups[1].Value
+            if (-not $Seen.ContainsKey($rid)) {
+                $ReportIds += $rid
+                $Seen[$rid] = $true
             }
         }
+        if ($ReportIds.Count -gt 0) {
+            Write-Log ("[EXTRACT] Regex extracted {0} report ID(s)" -f $ReportIds.Count)
+        }
     } catch {
-        Write-Log "[WARNING] Could not parse generate-brief JSON output"
+        Write-Log ("[WARNING] Regex extraction failed: {0}" -f $_.Exception.Message)
+    }
+
+    # Extract report IDs — Method 2: DB fallback (if regex found nothing)
+    if ($ReportIds.Count -eq 0) {
+        Write-Log "[EXTRACT] Regex found 0 IDs; querying DB for recent draft reports..."
+        $DbFallbackScript = @"
+import sqlite3, datetime
+db = r'$ProjectRoot\data\pipeline_state.db'
+conn = sqlite3.connect(db)
+cur = conn.cursor()
+cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=15)).isoformat()
+cur.execute("SELECT report_id FROM content_reports WHERE status='draft' AND approval_state='manual' AND (notion_page_id IS NULL OR notion_page_id = '') AND created_at >= ?", (cutoff,))
+ids = [r[0] for r in cur.fetchall()]
+conn.close()
+for rid in ids:
+    print(rid)
+"@
+        $DbResult = Invoke-PythonScriptText -ScriptText $DbFallbackScript
+        if ($DbResult) {
+            $ReportIds = @($DbResult | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^report-' })
+            Write-Log ("[EXTRACT] DB fallback found {0} draft report(s)" -f $ReportIds.Count)
+        }
     }
 
     if ($ReportIds.Count -gt 0) {
@@ -128,33 +156,28 @@ try {
         Write-Log ("[WARNING] Brief generation exit code {0}, attempting publish of any created reports" -f $GenerateExitCode)
     }
 
-    # --- Step 2: Auto-publish all draft reports from today ---
+    # --- Step 2: Auto-publish generated reports ---
     Write-Log "[STEP 2] Auto-publishing draft reports..."
-
-    $PublishScript = @"
-import sqlite3, subprocess, sys, os, json
-db = r'$ProjectRoot\data\pipeline_state.db'
-python = r'$PythonExe'
-os.environ['PYTHONUTF8'] = '1'
-os.environ['PYTHONIOENCODING'] = 'utf-8'
-os.environ['PYTHONPATH'] = r'$ProjectRoot\src' + ';' + os.environ.get('PYTHONPATH', '')
-conn = sqlite3.connect(db)
-cur = conn.cursor()
-today = __import__('datetime').date.today().isoformat()
-cur.execute("SELECT report_id, category FROM content_reports WHERE status='draft' AND created_at LIKE ?", (today+'%',))
-drafts = cur.fetchall()
-conn.close()
-print(f'Found {len(drafts)} draft report(s) to publish')
-for rid, cat in drafts:
-    print(f'Publishing {cat} ({rid})...')
-    r = subprocess.run([python, '-m', 'antigravity_mcp', 'jobs', 'publish-report', '--report-id', rid, '--approval-mode', 'auto'], capture_output=True, text=True, cwd=r'$ProjectRoot', timeout=120)
-    if r.returncode == 0:
-        print(f'  OK: {cat} published')
-    else:
-        print(f'  WARN: {cat} publish exit {r.returncode}')
-        if r.stderr: print(f'  stderr: {r.stderr[:150]}')
-"@
-    Invoke-PythonScriptText -ScriptText $PublishScript | ForEach-Object { Write-Log "[PUBLISH] $_" }
+    if ($ReportIds.Count -eq 0) {
+        Write-Log "[PUBLISH] No report_ids parsed from generate-brief output; skipping auto-publish."
+    } else {
+        Write-Log ("[PUBLISH] Publishing {0} report(s): {1}" -f $ReportIds.Count, ($ReportIds -join ", "))
+        foreach ($ReportId in $ReportIds) {
+            $PublishArgs = @(
+                "-m", "antigravity_mcp",
+                "jobs", "publish-report",
+                "--report-id", $ReportId,
+                "--approval-mode", "auto"
+            )
+            $PublishOutput = & $PythonExe @PublishArgs 2>&1
+            $PublishOutput | ForEach-Object { Add-Content -Path $LogFile -Value ("[PUBLISH-DETAIL] {0}" -f $_) -Encoding utf8 }
+            if ($LASTEXITCODE -eq 0) {
+                Write-Log ("[PUBLISH] OK: {0} published" -f $ReportId)
+            } else {
+                Write-Log ("[PUBLISH] WARN: {0} publish exit {1}" -f $ReportId, $LASTEXITCODE)
+            }
+        }
+    }
 
     # --- Step 3: Refresh dashboard ---
     Write-Log "[STEP 3] Refreshing dashboard..."

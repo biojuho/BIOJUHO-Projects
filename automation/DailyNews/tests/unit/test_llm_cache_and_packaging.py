@@ -70,6 +70,57 @@ async def test_llm_adapter_reuses_persistent_cache(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_llm_adapter_retries_shared_client_without_temperature(monkeypatch, tmp_path):
+    store = PipelineStateStore(tmp_path / "pipeline_state.db")
+    fake_response = SimpleNamespace(
+        text="Summary\n- First line\nInsights\n- First insight\nBrief\n오늘의 핫 이슈: Tech. 변화의 시작입니다.\nDraft\n짧은 초안",
+        model="shared-model",
+        input_tokens=10,
+        output_tokens=5,
+    )
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[dict] = []
+
+        async def acreate(self, **kwargs):
+            self.calls.append(dict(kwargs))
+            if "temperature" in kwargs:
+                raise TypeError("acreate() got an unexpected keyword argument 'temperature'")
+            return fake_response
+
+    fake_client = FakeClient()
+    llm_module._L1_CACHE.clear()
+    monkeypatch.setattr(llm_module, "_get_llm_client", lambda: fake_client)
+    monkeypatch.setattr(llm_module, "TaskTier", SimpleNamespace(MEDIUM="medium"))
+    monkeypatch.setattr(llm_module, "LLMPolicy", FakePolicy)
+
+    adapter = llm_module.LLMAdapter(state_store=store)
+    items = [
+        ContentItem(
+            source_name="Feed",
+            category="Tech",
+            title="Story A",
+            link="https://example.com/story-a",
+            summary="Summary A",
+        )
+    ]
+
+    payload, warnings = await adapter.build_report_payload(
+        category="Tech",
+        items=items,
+        window_name="manual",
+    )
+
+    assert warnings == []
+    assert len(fake_client.calls) == 2
+    assert "temperature" in fake_client.calls[0]
+    assert "temperature" not in fake_client.calls[1]
+    assert payload.generation_mode == "v1-brief"
+    assert payload.parse_meta["brief_body"].startswith("오늘의 핫 이슈: Tech.")
+
+
+@pytest.mark.asyncio
 async def test_collect_default_feed_adapter_receives_state_store(monkeypatch, tmp_path):
     store = PipelineStateStore(tmp_path / "pipeline_state.db")
     captured: dict[str, object] = {}
@@ -101,6 +152,8 @@ async def test_collect_default_feed_adapter_receives_state_store(monkeypatch, tm
 
 @pytest.mark.asyncio
 async def test_publish_forces_manual_approval_when_policy_requires_it(monkeypatch, tmp_path):
+    from antigravity_mcp.config import get_settings
+
     store = PipelineStateStore(tmp_path / "pipeline_state.db")
     report = ContentReport(
         report_id="report-1",
@@ -130,6 +183,7 @@ async def test_publish_forces_manual_approval_when_policy_requires_it(monkeypatc
 
     fake_x = FakeX()
     monkeypatch.setenv("CONTENT_APPROVAL_MODE", "manual")
+    get_settings.cache_clear()
 
     _, _, warnings, status = await publish_report(
         report_id="report-1",
@@ -143,3 +197,4 @@ async def test_publish_forces_manual_approval_when_policy_requires_it(monkeypatc
     assert status == "partial"
     assert fake_x.approval_modes == ["manual"]
     assert any("Falling back to manual approval" in warning for warning in warnings)
+    get_settings.cache_clear()

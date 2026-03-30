@@ -29,6 +29,7 @@ from antigravity_mcp.tooling.ops_tools import (
     ops_get_tweet_performance_tool,
     ops_list_runs_tool,
     ops_refresh_dashboard_tool,
+    ops_run_frozen_eval_tool,
 )
 
 _DEPRECATION_MSG = " This tool will be removed in v0.3.0."
@@ -111,6 +112,19 @@ def build_server() -> FastMCP:
     @server.tool()
     async def ops_refresh_dashboard() -> dict:
         return await ops_refresh_dashboard_tool()
+
+    @server.tool()
+    async def ops_run_frozen_eval(
+        dataset_path: str = "",
+        output_path: str = "",
+        state_db_path: str = "",
+    ) -> dict:
+        """Run the frozen evaluation dataset and write JSON/Markdown outputs."""
+        return await ops_run_frozen_eval_tool(
+            dataset_path=dataset_path,
+            output_path=output_path,
+            state_db_path=state_db_path,
+        )
 
     @server.tool()
     async def ops_cleanup(dry_run: bool = False) -> dict:

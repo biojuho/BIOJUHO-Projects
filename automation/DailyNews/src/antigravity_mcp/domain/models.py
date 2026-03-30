@@ -36,9 +36,35 @@ class ChannelDraft:
     status: str
     content: str
     external_url: str = ""
+    source: str = "llm"
+    is_fallback: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(slots=True)
+class GeneratedPayload:
+    summary_lines: list[str] = field(default_factory=list)
+    insights: list[str] = field(default_factory=list)
+    channel_drafts: list[ChannelDraft] = field(default_factory=list)
+    generation_mode: str = ""
+    parse_meta: dict[str, Any] = field(default_factory=dict)
+    quality_state: str = "ok"
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["channel_drafts"] = [draft.to_dict() for draft in self.channel_drafts]
+        return data
+
+    def as_legacy_tuple(self) -> tuple[list[str], list[str], list[ChannelDraft]]:
+        return self.summary_lines, self.insights, self.channel_drafts
+
+    def __iter__(self):
+        return iter(self.as_legacy_tuple())
+
+    def __getitem__(self, index: int):
+        return self.as_legacy_tuple()[index]
 
 
 @dataclass(slots=True)
@@ -61,6 +87,9 @@ class ContentReport:
     updated_at: str = ""
     notebooklm_metadata: dict[str, Any] = field(default_factory=dict)
     fact_check_score: float = 0.0
+    generation_mode: str = ""
+    quality_state: str = "ok"
+    analysis_meta: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

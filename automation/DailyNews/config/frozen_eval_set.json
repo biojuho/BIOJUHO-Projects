@@ -1,0 +1,162 @@
+{
+  "version": "2026-03-29.v1",
+  "description": "Starter frozen evaluation set for DailyNews prompt and quality regression checks.",
+  "cases": [
+    {
+      "case_id": "tech_manual_duo",
+      "description": "Two related tech stories should prefer v2-deep and produce evidence-tagged analysis.",
+      "category": "Tech",
+      "window_name": "manual",
+      "window_start": "2026-03-15T00:00:00+00:00",
+      "window_end": "2026-03-15T06:00:00+00:00",
+      "expected_generation_mode": "v2-deep",
+      "items": [
+        {
+          "source_name": "Reuters",
+          "title": "Nvidia suppliers expand advanced packaging capacity",
+          "link": "https://example.com/tech/nvidia-packaging-capacity",
+          "summary": "Asian chip suppliers are accelerating advanced packaging investment to relieve GPU bottlenecks and support hyperscaler demand."
+        },
+        {
+          "source_name": "The Information",
+          "title": "Cloud providers revise AI infrastructure pricing plans",
+          "link": "https://example.com/tech/cloud-ai-pricing",
+          "summary": "Major cloud platforms are testing longer-term GPU reservation contracts as inference demand becomes less predictable."
+        }
+      ]
+    },
+    {
+      "case_id": "ai_deep_morning_duo",
+      "description": "Two AI stories should stay in deep mode and produce focused action items for builders.",
+      "category": "AI_Deep",
+      "window_name": "morning",
+      "window_start": "2026-03-16T00:00:00+00:00",
+      "window_end": "2026-03-16T07:00:00+00:00",
+      "expected_generation_mode": "v2-deep",
+      "items": [
+        {
+          "source_name": "MIT Tech Review",
+          "title": "Enterprise buyers push for smaller domain-tuned models",
+          "link": "https://example.com/ai/enterprise-small-models",
+          "summary": "Companies are prioritizing controllable fine-tuned models that reduce latency, cost, and compliance overhead."
+        },
+        {
+          "source_name": "VentureBeat",
+          "title": "Open-source agent tooling wins inside regulated teams",
+          "link": "https://example.com/ai/open-source-agent-tooling",
+          "summary": "Regulated sectors are adopting observable agent stacks when they can inspect prompts, tools, and logs end to end."
+        }
+      ]
+    },
+    {
+      "case_id": "economy_kr_evening_trio",
+      "description": "Korean economy evening batch should trigger multi-signal mode.",
+      "category": "Economy_KR",
+      "window_name": "evening",
+      "window_start": "2026-03-17T07:00:00+00:00",
+      "window_end": "2026-03-17T18:00:00+00:00",
+      "expected_generation_mode": "v2-multi",
+      "items": [
+        {
+          "source_name": "Yonhap",
+          "title": "Korean exporters face new freight cost pressure",
+          "link": "https://example.com/economy-kr/exporter-freight-pressure",
+          "summary": "Manufacturers warn that shipping cost normalization has stalled as Red Sea rerouting persists."
+        },
+        {
+          "source_name": "Korea Herald",
+          "title": "Retail spending softens outside premium districts",
+          "link": "https://example.com/economy-kr/retail-spending-softens",
+          "summary": "Mid-market consumption remains weak even as premium neighborhoods report stronger traffic."
+        },
+        {
+          "source_name": "Maeil Business",
+          "title": "Banks tighten SME lending reviews",
+          "link": "https://example.com/economy-kr/sme-lending-reviews",
+          "summary": "Banks are raising scrutiny on small-business borrowers tied to construction and discretionary retail."
+        }
+      ]
+    },
+    {
+      "case_id": "economy_global_evening_trio",
+      "description": "Global economy batch should highlight macro transmission across rates, labor, and logistics.",
+      "category": "Economy_Global",
+      "window_name": "evening",
+      "window_start": "2026-03-18T07:00:00+00:00",
+      "window_end": "2026-03-18T18:00:00+00:00",
+      "expected_generation_mode": "v2-multi",
+      "items": [
+        {
+          "source_name": "Financial Times",
+          "title": "European manufacturers warn on delayed rate-cut payoff",
+          "link": "https://example.com/economy-global/eu-rate-cut-payoff",
+          "summary": "Executives say financing conditions remain tight because banks are repricing risk more slowly than central banks are guiding."
+        },
+        {
+          "source_name": "Bloomberg",
+          "title": "US labor cooling narrows wage gains in logistics",
+          "link": "https://example.com/economy-global/us-logistics-wages",
+          "summary": "Warehouse and transport hiring has cooled, softening wage growth after several quarters of labor shortages."
+        },
+        {
+          "source_name": "Reuters",
+          "title": "Shipping insurers keep war-risk premiums elevated",
+          "link": "https://example.com/economy-global/war-risk-premiums",
+          "summary": "Insurers say geopolitical threats continue to keep container route insurance pricing above pre-crisis norms."
+        }
+      ]
+    },
+    {
+      "case_id": "crypto_morning_duo",
+      "description": "Crypto morning batch should stay in deep mode and connect exchange structure to asset flows.",
+      "category": "Crypto",
+      "window_name": "morning",
+      "window_start": "2026-03-19T00:00:00+00:00",
+      "window_end": "2026-03-19T07:00:00+00:00",
+      "expected_generation_mode": "v2-deep",
+      "items": [
+        {
+          "source_name": "CoinDesk",
+          "title": "Institutional desks favor basis trades over outright exposure",
+          "link": "https://example.com/crypto/basis-trades",
+          "summary": "Prime brokers report stronger client interest in market-neutral structures than directional spot accumulation."
+        },
+        {
+          "source_name": "The Block",
+          "title": "Asian exchanges compete on stablecoin settlement rails",
+          "link": "https://example.com/crypto/stablecoin-settlement-rails",
+          "summary": "Regional exchanges are racing to reduce withdrawal friction by expanding stablecoin settlement options."
+        }
+      ]
+    },
+    {
+      "case_id": "global_affairs_evening_trio",
+      "description": "Global affairs evening batch should prefer multi-signal mode with geopolitical ripple effects.",
+      "category": "Global_Affairs",
+      "window_name": "evening",
+      "window_start": "2026-03-20T07:00:00+00:00",
+      "window_end": "2026-03-20T18:00:00+00:00",
+      "expected_generation_mode": "v2-multi",
+      "items": [
+        {
+          "source_name": "Reuters",
+          "title": "Regional chip export controls widen to packaging tools",
+          "link": "https://example.com/global/export-controls-packaging",
+          "summary": "New export controls are extending from advanced chips to adjacent packaging and inspection tools."
+        },
+        {
+          "source_name": "AP",
+          "title": "Alliance partners debate maritime patrol burden sharing",
+          "link": "https://example.com/global/maritime-patrol-sharing",
+          "summary": "Defense officials are negotiating how to split surveillance and escort responsibilities across shipping lanes."
+        },
+        {
+          "source_name": "Nikkei",
+          "title": "Battery supply pacts move closer to security agreements",
+          "link": "https://example.com/global/battery-supply-pacts",
+          "summary": "Governments are tying battery-mineral access deals to broader strategic cooperation and procurement preferences."
+        }
+      ]
+    }
+  ]
+}

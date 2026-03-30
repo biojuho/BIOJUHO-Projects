@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
+from antigravity_mcp.evals.frozen_eval import run_frozen_eval
 from antigravity_mcp.integrations.llm_adapter import _SHARED_LLM_IMPORT_ERROR, _get_llm_client
 from antigravity_mcp.integrations.telegram_adapter import TelegramAdapter
 from antigravity_mcp.integrations.x_metrics_adapter import XMetricsAdapter
@@ -32,6 +34,36 @@ async def ops_refresh_dashboard_tool() -> dict:
     if status == "partial":
         return partial(payload, warnings=warnings, meta={"run_id": run_id})
     return ok(payload, meta={"run_id": run_id})
+
+
+async def ops_run_frozen_eval_tool(
+    dataset_path: str = "",
+    output_path: str = "",
+    state_db_path: str = "",
+) -> dict:
+    try:
+        result = await run_frozen_eval(
+            dataset_path=Path(dataset_path) if dataset_path else None,
+            output_path=Path(output_path) if output_path else None,
+            state_db_path=Path(state_db_path) if state_db_path else None,
+        )
+    except FileNotFoundError as exc:
+        return error_response("dataset_not_found", str(exc))
+    except ValueError as exc:
+        return error_response("invalid_dataset", str(exc))
+    except Exception as exc:
+        logger.exception("Frozen eval run failed: %s", exc)
+        return error_response("frozen_eval_failed", f"Frozen eval failed: {exc}")
+
+    warnings = list(result.get("warnings", []))
+    meta = {
+        "run_id": result.get("run_id", ""),
+        "output_path": result.get("output_path", ""),
+        "markdown_path": result.get("markdown_path", ""),
+    }
+    if warnings:
+        return partial(result, warnings=warnings, meta=meta)
+    return ok(result, meta=meta)
 
 
 async def ops_cleanup_tool(dry_run: bool = False) -> dict:

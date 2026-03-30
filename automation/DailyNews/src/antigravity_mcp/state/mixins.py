@@ -42,6 +42,16 @@ def _estimate_cached_response_cost(model_name: str, input_tokens: int, output_to
     return (input_tokens * input_cost + output_tokens * output_cost) / 1_000_000
 
 
+def _json_default(value: Any) -> Any:
+    if hasattr(value, "to_dict") and callable(value.to_dict):
+        return value.to_dict()
+    if isinstance(value, set):
+        return list(value)
+    if hasattr(value, "__dict__"):
+        return vars(value)
+    return str(value)
+
+
 # ── Run tracking ──────────────────────────────────────────────────────────
 
 
@@ -317,9 +327,10 @@ class _ReportMixin:
                 INSERT OR REPLACE INTO content_reports(
                     report_id, category, window_name, window_start, window_end,
                     summary_json, insights_json, drafts_json, notion_page_id, asset_status,
-                    approval_state, source_links_json, status, fingerprint, created_at, updated_at
+                    approval_state, source_links_json, status, fingerprint, created_at, updated_at,
+                    notebooklm_metadata_json, fact_check_score, quality_state, generation_mode, analysis_meta_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     report.report_id,
@@ -327,17 +338,22 @@ class _ReportMixin:
                     report.window_name,
                     report.window_start,
                     report.window_end,
-                    json.dumps(report.summary_lines, ensure_ascii=False),
-                    json.dumps(report.insights, ensure_ascii=False),
-                    json.dumps([draft.to_dict() for draft in report.channel_drafts], ensure_ascii=False),
+                    json.dumps(report.summary_lines, ensure_ascii=False, default=_json_default),
+                    json.dumps(report.insights, ensure_ascii=False, default=_json_default),
+                    json.dumps([draft.to_dict() for draft in report.channel_drafts], ensure_ascii=False, default=_json_default),
                     report.notion_page_id,
                     report.asset_status,
                     report.approval_state,
-                    json.dumps(report.source_links, ensure_ascii=False),
+                    json.dumps(report.source_links, ensure_ascii=False, default=_json_default),
                     report.status,
                     report.fingerprint,
                     created_at,
                     updated_at,
+                    json.dumps(report.notebooklm_metadata, ensure_ascii=False, default=_json_default),
+                    float(report.fact_check_score),
+                    report.quality_state,
+                    report.generation_mode,
+                    json.dumps(report.analysis_meta, ensure_ascii=False, default=_json_default),
                 ),
             )
 
@@ -348,6 +364,35 @@ class _ReportMixin:
                 (report_id,),
             ).fetchone()
         return self._row_to_report(row) if row else None  # type: ignore[attr-defined]
+
+    def list_reports(self, *, limit: int = 20, category: str | None = None) -> list[ContentReport]:
+        query = "SELECT * FROM content_reports"
+        params: list[Any] = []
+        if category:
+            query += " WHERE category = ?"
+            params.append(category)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        with self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [report for report in (self._row_to_report(row) for row in rows) if report is not None]
+
+    def get_report_governance_summary(self, *, limit: int = 100) -> dict[str, Any]:
+        reports = self.list_reports(limit=limit)
+        quality_counts: dict[str, int] = {}
+        approval_counts: dict[str, int] = {}
+        fallback_x_drafts = 0
+        for report in reports:
+            quality_counts[report.quality_state] = quality_counts.get(report.quality_state, 0) + 1
+            approval_counts[report.approval_state] = approval_counts.get(report.approval_state, 0) + 1
+            if any(draft.channel == "x" and draft.is_fallback for draft in report.channel_drafts):
+                fallback_x_drafts += 1
+        return {
+            "reports_considered": len(reports),
+            "quality_counts": quality_counts,
+            "approval_counts": approval_counts,
+            "fallback_x_drafts": fallback_x_drafts,
+        }
 
     def set_report_publication(self, report_id: str, *, notion_page_id: str, status: str) -> None:
         report = self.get_report(report_id)
@@ -388,6 +433,8 @@ class _ReportMixin:
                 status=item.get("status", ""),
                 content=item.get("content", ""),
                 external_url=item.get("external_url", ""),
+                source=item.get("source", "llm"),
+                is_fallback=bool(item.get("is_fallback", False)),
             )
             for item in json.loads(row["drafts_json"] or "[]")
         ]
@@ -408,6 +455,11 @@ class _ReportMixin:
             fingerprint=row["fingerprint"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            notebooklm_metadata=json.loads(row["notebooklm_metadata_json"] or "{}"),
+            fact_check_score=float(row["fact_check_score"] or 0.0),
+            quality_state=row["quality_state"] or "ok",
+            generation_mode=row["generation_mode"] or "",
+            analysis_meta=json.loads(row["analysis_meta_json"] or "{}"),
         )
 
 

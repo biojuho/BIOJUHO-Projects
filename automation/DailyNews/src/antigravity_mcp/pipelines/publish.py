@@ -15,21 +15,111 @@ from antigravity_mcp.state.store import PipelineStateStore
 logger = logging.getLogger(__name__)
 
 
+def _styled_brief_markdown(report: ContentReport) -> str:
+    brief_body = str((report.analysis_meta or {}).get("brief_body", "") or "").strip()
+    if not brief_body:
+        return ""
+
+    x_draft = next((draft.content for draft in report.channel_drafts if draft.channel == "x"), "")
+    lines = [
+        f"# {report.category} {report.window_name.title()} Brief",
+        brief_body,
+    ]
+    if x_draft:
+        lines.extend(
+            [
+                "## X Draft",
+                x_draft,
+            ]
+        )
+    lines.extend(
+        [
+            "## Approval",
+            f"- Approval mode: {report.approval_state}",
+            f"- Quality state: {report.quality_state}",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _analysis_meta_markdown(report: ContentReport) -> str:
+    meta = report.analysis_meta or {}
+    parser = meta.get("parser", {})
+    quality_review = meta.get("quality_review", {})
+    fact_check = meta.get("fact_check", {})
+    insight_generator = meta.get("insight_generator", {})
+    draft_overrides = meta.get("draft_overrides", {})
+
+    lines = ["## Analysis Meta"]
+    if parser:
+        lines.append(f"- Parser fallback used: {'yes' if parser.get('used_fallback') else 'no'}")
+        missing_sections = parser.get("missing_sections") or []
+        if missing_sections:
+            lines.append(f"- Missing sections: {', '.join(str(item) for item in missing_sections)}")
+        evidence = parser.get("evidence", {})
+        if evidence:
+            lines.append(
+                "- Evidence tags: "
+                f"{evidence.get('tagged_line_count', 0)}/{evidence.get('line_count', 0)} analytic lines tagged"
+            )
+            if evidence.get("article_refs"):
+                lines.append(
+                    "- Direct article refs: " + ", ".join(str(item) for item in evidence.get("article_refs", []))
+                )
+    if draft_overrides:
+        lines.append(
+            "- Draft overrides: "
+            + ", ".join(f"{channel}={source}" for channel, source in sorted(draft_overrides.items()))
+        )
+    if insight_generator:
+        summary = insight_generator.get("validation_summary", {})
+        if summary:
+            lines.append(
+                "- Insight validation: "
+                f"passed={summary.get('passed', 0)} / failed={summary.get('failed', 0)} / total={summary.get('total_insights', 0)}"
+            )
+        if insight_generator.get("error"):
+            lines.append(f"- Insight generator error: {insight_generator['error']}")
+    if fact_check:
+        lines.append(
+            "- Fact check: "
+            f"passed={'yes' if fact_check.get('passed', False) else 'no'}, "
+            f"score={fact_check.get('fact_check_score', report.fact_check_score):.2f}"
+        )
+    warnings = quality_review.get("warnings", [])
+    if warnings:
+        lines.append("- Quality warnings:")
+        lines.extend(f"  - {warning}" for warning in warnings[:5])
+    return "\n".join(lines)
+
+
 def _report_markdown(report: ContentReport) -> str:
+    if report.generation_mode == "v1-brief":
+        styled = _styled_brief_markdown(report)
+        if styled:
+            return styled
+
     summary_lines = "\n".join(f"- {line}" for line in report.summary_lines)
     insight_lines = "\n".join(f"- {line}" for line in report.insights)
     draft_lines = "\n\n".join(
-        f"## {draft.channel.upper()}\n{draft.content}"
+        f"## {draft.channel.upper()}\n"
+        f"- Source: {draft.source}\n"
+        f"- Fallback: {'yes' if draft.is_fallback else 'no'}\n\n"
+        f"{draft.content}"
         for draft in report.channel_drafts
     )
     return (
         f"# {report.category} {report.window_name.title()} Brief\n"
+        "## Generation\n"
+        f"- Generation mode: {report.generation_mode or 'unknown'}\n"
+        f"- Quality state: {report.quality_state}\n"
         "## Summary\n"
         f"{summary_lines}\n"
         "## Insights\n"
         f"{insight_lines}\n"
         "## Drafts\n"
         f"{draft_lines}\n"
+        f"{_analysis_meta_markdown(report)}\n"
         "## Approval\n"
         f"- Approval mode: {report.approval_state}\n"
         f"- Asset status: {report.asset_status}"
@@ -80,6 +170,17 @@ async def publish_report(
 
     if settings.content_approval_mode == "manual" and approval_mode != "manual":
         warnings.append("Automatic publishing is disabled. Falling back to manual approval.")
+        approval_mode = "manual"
+
+    fallback_x_draft = any(
+        draft.channel == "x" and draft.is_fallback
+        for draft in report.channel_drafts
+    )
+    if approval_mode == "auto" and (report.quality_state != "ok" or fallback_x_draft):
+        warnings.append(
+            "Auto publishing downgraded to manual because the report quality state is not ok "
+            "or the X draft is a fallback draft."
+        )
         approval_mode = "manual"
 
     if notion_adapter.is_configured() and settings.notion_reports_database_id:

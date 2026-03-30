@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-import sys
 
-from antigravity_mcp.pipelines.dashboard import refresh_dashboard
+from antigravity_mcp.cli_ops import dispatch_ops_command
 from antigravity_mcp.state.events import json_dumps
-from antigravity_mcp.state.store import PipelineStateStore
 from antigravity_mcp.tooling.content_tools import (
     content_generate_brief_tool,
     content_publish_report_tool,
 )
-from antigravity_mcp.tooling.ops_tools import ops_get_run_status_tool
+import sys
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -42,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
     replay = ops_subparsers.add_parser("replay-run", help="Replay a supported run")
     replay.add_argument("--run-id", required=True)
 
+    frozen_eval = ops_subparsers.add_parser("run-frozen-eval", help="Run the frozen evaluation dataset")
+    frozen_eval.add_argument("--dataset", default="")
+    frozen_eval.add_argument("--output", default="")
+    frozen_eval.add_argument("--state-db", default="")
+
     return parser
 
 
@@ -66,47 +68,6 @@ async def _run_jobs_publish_report(args: argparse.Namespace) -> int:
     return 0 if result["status"] != "error" else 1
 
 
-async def _run_ops_refresh_dashboard() -> int:
-    run_id, payload, warnings, status = await refresh_dashboard(state_store=PipelineStateStore())
-    result = {
-        "status": status,
-        "run_id": run_id,
-        "data": payload,
-        "warnings": warnings,
-    }
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0 if status != "error" else 1
-
-
-async def _run_ops_replay(args: argparse.Namespace) -> int:
-    store = PipelineStateStore()
-    run = store.get_run(args.run_id)
-    if run is None:
-        print(json_dumps({"status": "error", "data": {}, "meta": {"warnings": []}, "error": {"code": "run_not_found", "message": f"Unknown run_id: {args.run_id}", "retryable": False}}))
-        return 1
-    if run.job_name == "generate_brief":
-        summary = run.summary or {}
-        replay_args = argparse.Namespace(
-            categories=summary.get("categories"),
-            window=summary.get("window_name", "manual"),
-            max_items=summary.get("max_items", 5),
-        )
-        return await _run_jobs_generate_brief(replay_args)
-    if run.job_name == "publish_report":
-        summary = run.summary or {}
-        replay_args = argparse.Namespace(
-            report_id=summary.get("report_id", ""),
-            channels=summary.get("channels", ["x", "canva"]),
-            approval_mode=summary.get("approval_mode", "manual"),
-        )
-        if not replay_args.report_id:
-            print(json_dumps(await ops_get_run_status_tool(args.run_id)))
-            return 1
-        return await _run_jobs_publish_report(replay_args)
-    print(json_dumps(await ops_get_run_status_tool(args.run_id)))
-    return 1
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -120,9 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_run_jobs_generate_brief(args))
     if args.command == "jobs" and args.jobs_command == "publish-report":
         return asyncio.run(_run_jobs_publish_report(args))
-    if args.command == "ops" and args.ops_command == "refresh-dashboard":
-        return asyncio.run(_run_ops_refresh_dashboard())
-    if args.command == "ops" and args.ops_command == "replay-run":
-        return asyncio.run(_run_ops_replay(args))
+    if args.command == "ops":
+        return dispatch_ops_command(args)
     parser.print_help()
     return 1

@@ -51,6 +51,18 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _load_dashboard_page_id_from_config() -> str:
+    config_path = CONFIG_DIR / "dashboard_config.json"
+    if not config_path.exists():
+        return ""
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    page_id = str(data.get("dashboard_page_id", "")).strip()
+    return page_id
+
+
 def _mask_secret(value: str) -> str:
     if not value:
         return ""
@@ -215,6 +227,12 @@ def get_settings() -> AppSettings:
         "NOTION_DASHBOARD_PAGE_ID",
         "DASHBOARD_PAGE_ID",
     )
+    if not notion_dashboard_page_id:
+        notion_dashboard_page_id = _load_dashboard_page_id_from_config()
+        if notion_dashboard_page_id:
+            warnings.append(
+                "NOTION_DASHBOARD_PAGE_ID loaded from config/dashboard_config.json fallback."
+            )
     if dashboard_source == "DASHBOARD_PAGE_ID":
         warnings.append("DASHBOARD_PAGE_ID is deprecated; use NOTION_DASHBOARD_PAGE_ID instead.")
 
