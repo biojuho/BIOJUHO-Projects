@@ -32,7 +32,7 @@ async def fetch_article_body(url: str, max_chars: int = 1500) -> str:
             no_fallback=False,
         )
         return (text or "")[:max_chars]
-    except Exception as exc:
+    except (ImportError, OSError, ValueError, RuntimeError) as exc:
         logger.debug("Article body fetch failed for %s: %s", url, exc)
         return ""
 
@@ -69,9 +69,14 @@ def get_window(window_name: str) -> tuple[datetime, datetime]:
     return now_utc - timedelta(hours=24), now_utc
 
 
-def is_within_window(value: Any, start: datetime, end: datetime) -> bool:
+def is_within_window(value: Any, start: datetime, end: datetime, *, allow_missing: bool = False) -> bool:
     if not value:
-        return True
+        if allow_missing:
+            logger.debug("Including entry with missing publish date because allow_missing=True")
+            return True
+        # No publish date at all — cannot verify, exclude to avoid stale content
+        logger.debug("Excluding entry with missing publish date from window check")
+        return False
     try:
         if isinstance(value, str):
             parsed = date_parser.parse(value)
@@ -83,8 +88,9 @@ def is_within_window(value: Any, start: datetime, end: datetime) -> bool:
         aware_start = start if start.tzinfo else start.replace(tzinfo=UTC)
         aware_end = end if end.tzinfo else end.replace(tzinfo=UTC)
         return aware_start <= parsed <= aware_end
-    except Exception:
-        return True
+    except (ValueError, TypeError, OverflowError) as exc:
+        logger.warning("Date parsing failed for value %r, excluding entry: %s", value, exc)
+        return False
 
 
 async def collect_content_items(
@@ -129,6 +135,20 @@ async def collect_content_items(
 
         max_per_source = max(1, math.ceil(max_items / max(1, len(sources))))
 
+        # Batch collect all candidate links for dedup lookup
+        all_candidate_links: list[str] = []
+        for _source_name, entries, exc in fetch_results:
+            if exc is not None:
+                continue
+            for entry in entries:
+                link = getattr(entry, "link", "")
+                if link:
+                    all_candidate_links.append(link)
+
+        seen_links = state_store.get_seen_links(
+            links=all_candidate_links, category=category, window_name=window_name
+        )
+
         collected_for_category = 0
         for source_name, entries, exc in fetch_results:
             if exc is not None:
@@ -142,12 +162,12 @@ async def collect_content_items(
                 if source_count >= max_per_source:
                     break
                 published = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
-                if not is_within_window(published, start, end):
+                if not is_within_window(published, start, end, allow_missing=window_name == "manual"):
                     continue
                 link = getattr(entry, "link", "")
                 if not link:
                     continue
-                if state_store.has_seen_article(link=link, category=category, window_name=window_name):
+                if link in seen_links:
                     continue
                 cat_items.append(
                     ContentItem(

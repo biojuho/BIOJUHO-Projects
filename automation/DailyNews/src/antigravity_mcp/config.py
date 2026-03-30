@@ -100,6 +100,7 @@ class AppSettings:
     x_access_token: str
     x_access_token_secret: str
     x_bearer_token: str
+    supabase_database_url: str
     x_daily_post_limit: int
     pipeline_max_concurrency: int
     pipeline_http_timeout_sec: int
@@ -173,6 +174,7 @@ class AppSettings:
             "telegram_bot_token": _mask_secret(self.telegram_bot_token),
             "x_api_key": _mask_secret(self.x_api_key),
             "x_access_token": _mask_secret(self.x_access_token),
+            "supabase_database_url": _mask_secret(self.supabase_database_url),
             "x_daily_post_limit": self.x_daily_post_limit,
             "pipeline_max_concurrency": self.pipeline_max_concurrency,
             "pipeline_http_timeout_sec": self.pipeline_http_timeout_sec,
@@ -239,6 +241,7 @@ def get_settings() -> AppSettings:
     x_access_token, _ = _first_non_empty("X_ACCESS_TOKEN", "TWITTER_ACCESS_TOKEN")
     x_access_token_secret, _ = _first_non_empty("X_ACCESS_TOKEN_SECRET", "TWITTER_ACCESS_TOKEN_SECRET")
     x_bearer_token, _ = _first_non_empty("X_BEARER_TOKEN", "TWITTER_BEARER_TOKEN")
+    supabase_database_url, _ = _first_non_empty("SUPABASE_DATABASE_URL", "DATABASE_URL")
 
     return AppSettings(
         project_root=PROJECT_ROOT,
@@ -269,6 +272,7 @@ def get_settings() -> AppSettings:
         x_access_token=x_access_token,
         x_access_token_secret=x_access_token_secret,
         x_bearer_token=x_bearer_token,
+        supabase_database_url=supabase_database_url,
         x_daily_post_limit=_env_int("X_DAILY_POST_LIMIT", 10),
         pipeline_max_concurrency=_env_int("PIPELINE_MAX_CONCURRENCY", 3),
         pipeline_http_timeout_sec=_env_int("PIPELINE_HTTP_TIMEOUT_SEC", 15),
@@ -305,9 +309,15 @@ def configure_logging(settings: AppSettings | None = None) -> None:
                     entry["exception"] = str(record.exc_info[1])
                 return json.dumps(entry, ensure_ascii=False)
 
-        file_handler = logging.FileHandler(jsonl_path, encoding="utf-8")
+        from logging.handlers import RotatingFileHandler
+
+        file_handler = RotatingFileHandler(
+            jsonl_path, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        )
         file_handler.setLevel(log_level)
         file_handler.setFormatter(_JsonlFormatter())
         logging.getLogger().addHandler(file_handler)
-    except OSError:
-        pass  # Skip file logging if path not writable
+    except OSError as exc:
+        import sys
+
+        print(f"WARNING: File logging unavailable ({jsonl_path}): {exc}", file=sys.stderr)

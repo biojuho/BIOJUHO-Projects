@@ -6,6 +6,7 @@ connection, locking, and schema management in one place.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import threading
 from pathlib import Path
@@ -90,7 +91,16 @@ class PipelineStateStore(
         ).fetchone()
         return row is not None
 
+    _IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+    def _validate_identifier(self, value: str, kind: str = "identifier") -> str:
+        if not self._IDENTIFIER_RE.match(value):
+            raise ValueError(f"Invalid SQL {kind}: {value!r}")
+        return value
+
     def _ensure_column(self, connection: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+        self._validate_identifier(table, "table name")
+        self._validate_identifier(column, "column name")
         existing_columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
         if column not in existing_columns:
             connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")

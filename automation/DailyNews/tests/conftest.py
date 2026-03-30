@@ -20,6 +20,16 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from antigravity_mcp.config import get_settings
+from antigravity_mcp.state.store import PipelineStateStore
+
+
+@pytest.fixture
+def state_store(tmp_path):
+    """Provide an isolated PipelineStateStore backed by a temporary SQLite DB."""
+    db_path = tmp_path / "test_pipeline_state.db"
+    store = PipelineStateStore(path=db_path)
+    yield store
+    store.close()
 
 
 @pytest.fixture

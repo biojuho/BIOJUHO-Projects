@@ -18,6 +18,10 @@ from antigravity_mcp.integrations.llm_providers import (
 from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
 from antigravity_mcp.state.store import PipelineStateStore
 
+
+class LLMUnavailableError(Exception):
+    """Raised when all LLM providers fail and no text could be generated."""
+
 logger = logging.getLogger(__name__)
 
 TaskTier = None  # compatibility for tests and monkeypatching
@@ -28,13 +32,13 @@ _SHARED_LLM_IMPORT_ERROR: Exception | None = None
 _L1_MAX_SIZE = 128
 _L1_CACHE: OrderedDict[str, str] = OrderedDict()
 
-_SECTION_PATTERNS: dict[str, tuple[str, ...]] = {
-    "signal": (r"^(top\s+)?signal\b",),
-    "pattern": (r"^pattern\b",),
-    "ripple": (r"^ripple(\s+effects?)?\b",),
-    "counterpoint": (r"^counterpoint\b",),
-    "action": (r"^action(\s+items?)?\b",),
-    "draft": (r"^(draft(\s+post)?)\b",),
+_SECTION_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "signal": (re.compile(r"^(top\s+)?signal\b"),),
+    "pattern": (re.compile(r"^pattern\b"),),
+    "ripple": (re.compile(r"^ripple(\s+effects?)?\b"),),
+    "counterpoint": (re.compile(r"^counterpoint\b"),),
+    "action": (re.compile(r"^action(\s+items?)?\b"),),
+    "draft": (re.compile(r"^(draft(\s+post)?)\b"),),
 }
 
 _EVIDENCE_TAG_RE = re.compile(r"\[(?:A\d+|Inference:[A\d+\s]+|Background|Insufficient evidence)\]")
@@ -137,23 +141,25 @@ class LLMAdapter:
             items=items,
             window_name=window_name,
         )
-        text, meta, text_warnings = await self._complete_text(
-            prompt=(system_prompt, user_prompt),
-            max_tokens=1500,
-            temperature=0.2,
-            cache_scope=f"report:{category}:{window_name}:{generation_mode}",
-        )
-        warnings.extend(text_warnings)
-
-        if not text:
-            warnings.append(f"provider_fallback:{category}:{window_name}")
-            return self._fallback_report(
+        try:
+            text, meta, text_warnings = await self._complete_text(
+                prompt=(system_prompt, user_prompt),
+                max_tokens=1500,
+                temperature=0.2,
+                cache_scope=f"report:{category}:{window_name}:{generation_mode}",
+            )
+            warnings.extend(text_warnings)
+        except LLMUnavailableError:
+            warnings.append(f"all_providers_failed:{category}:{window_name}")
+            fallback = self._fallback_report(
                 category=category,
                 items=items,
                 window_name=window_name,
                 generation_mode=generation_mode,
-                reason="provider_failure",
-            ), warnings
+                reason="all_providers_failed",
+            )
+            fallback.quality_state = "blocked"
+            return fallback, warnings
 
         payload, parse_warnings = self._parse_response(
             category=category,
@@ -256,7 +262,14 @@ class LLMAdapter:
                     warnings.append(f"Used fallback provider: {provider_name}")
                     break
 
-        if text and self._state_store is not None:
+        if not text:
+            logger.error("All LLM providers failed for cache_scope=%s", cache_scope)
+            raise LLMUnavailableError(
+                f"All LLM providers failed for scope '{cache_scope}'. "
+                "Check API keys and provider availability."
+            )
+
+        if self._state_store is not None:
             self._state_store.put_llm_cache(
                 prompt_hash,
                 text,
@@ -264,8 +277,7 @@ class LLMAdapter:
                 input_tokens=int(meta["input_tokens"]),
                 output_tokens=int(meta["output_tokens"]),
             )
-        if text:
-            _l1_put(prompt_hash, text)
+        _l1_put(prompt_hash, text)
         return text, meta, warnings
 
     def _build_prompt_hash(self, *, prompt: str | tuple[str, str], cache_scope: str) -> str:
@@ -338,7 +350,7 @@ class LLMAdapter:
     def _detect_section(self, line: str) -> str | None:
         header_line = self._normalize_header(line)
         for section_name, patterns in _SECTION_PATTERNS.items():
-            if any(re.match(pattern, header_line) for pattern in patterns):
+            if any(pattern.match(header_line) for pattern in patterns):
                 return section_name
         return None
 
@@ -609,4 +621,4 @@ class LLMAdapter:
         )
 
 
-__all__ = ["LLMAdapter", "TaskTier", "LLMPolicy", "_get_llm_client", "_SHARED_LLM_IMPORT_ERROR", "resolve_prompt_mode"]
+__all__ = ["LLMAdapter", "LLMUnavailableError", "TaskTier", "LLMPolicy", "_get_llm_client", "_SHARED_LLM_IMPORT_ERROR", "resolve_prompt_mode"]

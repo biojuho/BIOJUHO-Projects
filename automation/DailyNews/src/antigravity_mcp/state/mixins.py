@@ -260,6 +260,27 @@ class _ArticleMixin:
             ).fetchone()
         return row is not None
 
+    def get_seen_links(self, *, links: list[str], category: str, window_name: str) -> set[str]:
+        """Batch check which links have already been seen. Returns the set of known links."""
+        if not links:
+            return set()
+        seen: set[str] = set()
+        with self._connect() as connection:
+            # SQLite variable limit is 999; process in chunks
+            chunk_size = 900
+            for i in range(0, len(links), chunk_size):
+                chunk = links[i : i + chunk_size]
+                placeholders = ",".join("?" for _ in chunk)
+                rows = connection.execute(
+                    f"""
+                    SELECT link FROM article_cache
+                    WHERE link IN ({placeholders}) AND category = ? AND window_name = ?
+                    """,
+                    (*chunk, category, window_name),
+                ).fetchall()
+                seen.update(row["link"] for row in rows)
+        return seen
+
     def prune_old_articles(self, days: int = 30) -> int:
         """Delete article_cache entries older than *days*. Returns count of removed rows."""
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
