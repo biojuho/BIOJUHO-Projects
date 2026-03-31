@@ -7,9 +7,9 @@
 
 ## TODO
 
-- [ ] Re-evaluate DailyNews/GetDayTrends prompt migration scope after gray-zone closure docs and release criteria alignment
-- [ ] Docker 포트 충돌 정리 (root-compose vs AgriGuard: 5432, 8002, 1883)
-- [ ] GitHub Actions A/B test CI 자동화 (weekly economy_kr)
+- [x] **VibeDebt 베이스라인 스캔 실행** — Score 34.3 / Grade C, `var/debt/2026-03-31-baseline.json` 저장 완료
+- [ ] **radon 의존성 추가** — `pyproject.toml` dev-dependencies에 `radon>=6.0` 추가 (복잡도 분석 정확도 향상)
+- [ ] **Pushgateway Docker 서비스 추가** — `docker-compose.yml`에 `prom/pushgateway:latest` 서비스 추가 (포트 9091)
 
 ---
 
@@ -22,6 +22,82 @@
 ## DONE (Last 7 Days)
 
 ### 2026-03-31
+
+- [x] **System Critical Review & Action Items Execution**
+  - **Result**: Conducted a highly critical review of the current AI ecosystem identifying the design/infrastructure gap, followed by immediate execution of 3 strategic action items to stabilize automation and metrics.
+  - **Action 1**: Verified GetDayTrends GitHub Actions workflow (`.github/workflows/getdaytrends.yml`) and explicitly disabled the brittle Windows Task Scheduler (`\GetDayTrends_CurrentUser`) via local powershell.
+  - **Action 2**: Extracted Prometheus and Grafana into a standalone `docker-compose.monitoring.yml` and started them persistently (`# 200 OK`) to actually utilize the built observability stack 24/7.
+  - **Action 3**: Created the `.github/workflows/collect-tweet-metrics.yml` cron workflow to collect real X engagement metrics into SQLite twice daily, closing the loop on A/B testing capability.
+  - **Files**:
+    - `docs/reports/2026-03/SYSTEM_CRITICAL_REVIEW_2026-03-31.md`
+    - `docker-compose.monitoring.yml`
+    - `.github/workflows/collect-tweet-metrics.yml`
+  - **Validation**:
+    - `schtasks /query /tn "\GetDayTrends_CurrentUser"` -> Disabled
+    - `docker compose -f docker-compose.monitoring.yml config --services` -> Validated
+    - `Invoke-WebRequest -Uri http://localhost:9090/-/ready` -> `200`
+    - `Invoke-WebRequest -Uri http://localhost:3000/api/health` -> `200`
+
+- [x] **Daily workspace QC snapshot recorded**
+  - **Result**: Ran the deterministic quality gate and recorded the outcome in repo docs plus session records
+  - **Validation**:
+    - `python ops/scripts/run_workspace_smoke.py --scope all --json-out var/smoke/manual-smoke-2026-03-31.json` -> `15/15 PASS`
+    - `git status --porcelain` snapshot showed `25` changed paths before documentation updates
+  - **QC Report**:
+    - `docs/reports/2026-03/QC_REPORT_2026-03-31_DAILY_WORKSPACE.md`
+  - **Recorded In**:
+    - `HANDOFF.md`
+    - `TASKS.md`
+    - `CONTEXT.md`
+  - **Verdict**:
+    - Operational QC: PASS
+    - Release hygiene: CAUTION
+
+- [x] **DailyNews/GetDayTrends 프롬프트 마이그레이션 스코프 재평가**
+  - **Result**: 마이그레이션 불필요 → 현행 유지 결정
+  - **근거**:
+    - GetDayTrends `prompt_builder.py` (741줄): 페르소나(중연), 카테고리별 톤 힌팅, 팩트 가드레일, 앵글 기반 생성 등 **고도로 동적인** 런타임 빌딩 로직
+    - DailyNews `llm_prompts.py`: 유사하게 동적 프롬프트 빌더 패턴
+    - 이들은 `PromptManager` (YAML 정적 템플릿) 패턴과 맞지 않음 — 변수 치환이 아닌 컨텍스트 기반 섹션 합성
+    - BioLinker 프롬프트 마이그레이션(YAML 템플릿에 적합한 정적 프롬프트)은 이미 Phase 4에서 완료됨
+  - **판정**: ROI 부족으로 마이그레이션 스킵. 현행 자체 구조 유지
+
+- [x] **Docker 포트 충돌 정리 (root-compose vs AgriGuard)**
+  - **Result**: 루트 `docker-compose.dev.yml`의 호스트 포트를 AgriGuard 독립 compose와 분리하고, 관련 문서/환경 예제를 같은 기준으로 정렬
+  - **변경**:
+    - PostgreSQL: `5432` → `5433` (환경변수 `POSTGRES_PORT`로 오버라이드 가능)
+    - MQTT: `1883` → `1884` (환경변수 `MQTT_PORT`로 오버라이드 가능)
+    - AgriGuard Backend: `8002` → `8003` (환경변수 `AGRIGUARD_PORT`로 오버라이드 가능)
+    - 포트 정책 섹션을 compose 파일 헤더와 운영 문서에 문서화
+  - **Files**:
+    - `docker-compose.dev.yml`
+    - `.env.example`
+    - `docs/DOCKER_SETUP_GUIDE.md`
+    - `ops/scripts/setup_dev_environment.ps1`
+    - `HANDOFF.md`
+  - **Validation**: `docker compose -f docker-compose.dev.yml config --services`
+
+- [x] **Intention-first PR triage system adapted from ACPX concepts**
+  - **Result**: Added a deterministic PR triage workflow for pull requests, upgraded the PR template to capture intent/problem/validation explicitly, and documented why this repo adopts the triage principles without the full ACPX autonomous runtime.
+  - **Files**:
+    - `.github/pull_request_template.md`
+    - `.github/workflows/pr-triage.yml`
+    - `ops/scripts/pr_triage.py`
+    - `docs/PR_TRIAGE_SYSTEM.md`
+    - `tests/test_pr_triage.py`
+  - **Validation**:
+    - `python -m pytest tests/test_pr_triage.py -q` -> `9 passed`
+    - `python -m py_compile ops/scripts/pr_triage.py` -> exit `0`
+
+- [x] **DailyNews Economy_KR A/B test CI 자동화**
+  - **Result**: Added a weekly GitHub Actions workflow for `ab_test_economy_kr_v2.py`, uploads JSON/Markdown artifacts, appends a run summary, and sends Telegram status notifications.
+  - **Files**:
+    - `.github/workflows/dailynews-ab-economy-kr.yml`
+    - `.github/workflows/dailynews-pipeline.yml`
+    - `automation/DailyNews/scripts/ab_test_economy_kr_v2.py`
+  - **Validation**:
+    - `python -m py_compile automation/DailyNews/scripts/ab_test_economy_kr_v2.py` -> exit `0`
+    - `git diff --check -- automation/DailyNews/scripts/ab_test_economy_kr_v2.py .github/workflows/dailynews-pipeline.yml .github/workflows/dailynews-ab-economy-kr.yml` -> clean
 
 - [x] **DailyNews P0-P3 코드 리뷰 전체 완료 (15개 항목)**
   - **Result**: 보안(SQL injection), 안정성(circuit breaker, fallback gate), 관측성(metrics, tracing, Telegram alerting), 아키텍처(mixin base, BriefAdapters, async 통일) 전체 구현
@@ -592,13 +668,14 @@
 
 - **Total Active Tasks**: 0
 - **In Progress**: 0
-- **Completed (7 days)**: 24+
+- **Completed (7 days)**: 26+
 - **Workspace Smoke**: 15/15 passed
 - **CIE v2 Smoke**: 31/31 passed
 - **Dashboard QA/QC**: verified (6 auto-fixes)
 - **Dashboard Status**: Backend (http://localhost:8080) + Frontend (http://localhost:5173) running
 - **AgriGuard QC**: frozen resync snapshot passes `5/5`; live PostgreSQL writes resumed after cutover
 - **Tech Debt**: P0=0, P1=0 (code), P2=0, P3=278+ (all non-critical)
+- **Docker Port Policy**: root compose uses 5433/1884 to avoid AgriGuard standalone (5432/1883) conflicts
 
 ---
 

@@ -1,0 +1,82 @@
+# ===================================================
+# AI Projects — 경량 모니터링 (상시 가동)
+# ===================================================
+#
+# 목적: 회의 결정에 따라 Prometheus + Grafana를 24/7 상시 가동
+# profile 없이 기본 `up`으로 즉시 시작
+#
+# 사용법:
+#   docker compose -f docker-compose.monitoring.yml up -d    # 시작
+#   docker compose -f docker-compose.monitoring.yml down      # 중지
+#   docker compose -f docker-compose.monitoring.yml logs -f   # 로그
+#
+# 접속:
+#   Prometheus: http://localhost:9090
+#   Grafana:    http://localhost:3000 (admin/admin)
+#
+# ===================================================
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mon-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - mon-prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - mon-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mon-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/workspace-overview.json
+    volumes:
+      - mon-grafana-data:/var/lib/grafana
+      - ./ops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - mon-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  mon-network:
+    name: ai-projects-mon-network
+    driver: bridge
+
+volumes:
+  mon-prometheus-data:
+    name: mon-prometheus-data
+  mon-grafana-data:
+    name: mon-grafana-data
