@@ -7,7 +7,7 @@ import re
 from collections import Counter, OrderedDict
 from typing import Any
 
-from antigravity_mcp.config import get_settings
+from antigravity_mcp.config import emit_metric, get_settings
 from antigravity_mcp.domain.models import ChannelDraft, ContentItem, GeneratedPayload
 from antigravity_mcp.integrations.llm_prompts import build_report_prompt, resolve_prompt_mode
 from antigravity_mcp.integrations.llm_providers import (
@@ -15,6 +15,7 @@ from antigravity_mcp.integrations.llm_providers import (
     call_google_genai,
     call_openai,
 )
+from antigravity_mcp.integrations.circuit_breaker import CircuitBreaker
 from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
 from antigravity_mcp.state.store import PipelineStateStore
 
@@ -23,6 +24,14 @@ class LLMUnavailableError(Exception):
     """Raised when all LLM providers fail and no text could be generated."""
 
 logger = logging.getLogger(__name__)
+
+# Per-provider circuit breakers so a single broken provider doesn't block all LLM calls.
+_llm_breakers: dict[str, CircuitBreaker] = {
+    "shared.llm": CircuitBreaker("llm:shared", failure_threshold=3, cooldown_sec=120),
+    "gemini": CircuitBreaker("llm:gemini", failure_threshold=3, cooldown_sec=90),
+    "anthropic": CircuitBreaker("llm:anthropic", failure_threshold=3, cooldown_sec=90),
+    "openai": CircuitBreaker("llm:openai", failure_threshold=3, cooldown_sec=90),
+}
 
 TaskTier = None  # compatibility for tests and monkeypatching
 LLMPolicy = None
@@ -206,7 +215,8 @@ class LLMAdapter:
                 return cached_text, meta, warnings
 
         text = ""
-        if self._llm_client is not None and self._task_tier is not None:
+        shared_breaker = _llm_breakers["shared.llm"]
+        if self._llm_client is not None and self._task_tier is not None and shared_breaker.allow_request():
             try:
                 system_prompt, user_prompt = prompt if isinstance(prompt, tuple) else ("", prompt)
                 request_kwargs: dict[str, Any] = {
@@ -234,14 +244,18 @@ class LLMAdapter:
                 meta["model_name"] = getattr(response, "model", "")
                 meta["input_tokens"] = int(getattr(response, "input_tokens", 0) or 0)
                 meta["output_tokens"] = int(getattr(response, "output_tokens", 0) or 0)
+                shared_breaker.record_success()
             except Exception as exc:
+                shared_breaker.record_failure()
                 warnings.append(f"shared.llm failed ({type(exc).__name__}); trying fallback providers.")
                 logger.warning("shared.llm failed: %s", exc)
         else:
-            warnings.append("shared.llm unavailable; trying direct API fallback providers.")
+            reason = "circuit open" if not shared_breaker.allow_request() else "unavailable"
+            warnings.append(f"shared.llm {reason}; trying direct API fallback providers.")
 
         if not text:
             merged_prompt = f"{prompt[0]}\n\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
+            _breaker_keys = {"gemini-2.5-flash": "gemini", "claude-haiku-4-5": "anthropic", "gpt-4o-mini": "openai"}
             fallback_providers: list[tuple[str, str, Any]] = [
                 ("gemini-2.5-flash", self.settings.google_api_key, call_google_genai),
                 ("claude-haiku-4-5", self.settings.anthropic_api_key, call_anthropic),
@@ -249,6 +263,10 @@ class LLMAdapter:
             ]
             for provider_name, api_key, call_fn in fallback_providers:
                 if not api_key:
+                    continue
+                breaker = _llm_breakers.get(_breaker_keys.get(provider_name, ""), None)
+                if breaker and not breaker.allow_request():
+                    warnings.append(f"Skipping {provider_name}: circuit breaker open.")
                     continue
                 fallback_text = await call_fn(
                     merged_prompt,
@@ -260,7 +278,11 @@ class LLMAdapter:
                     meta["provider"] = provider_name
                     meta["model_name"] = provider_name
                     warnings.append(f"Used fallback provider: {provider_name}")
+                    if breaker:
+                        breaker.record_success()
                     break
+                if breaker:
+                    breaker.record_failure()
 
         if not text:
             logger.error("All LLM providers failed for cache_scope=%s", cache_scope)
@@ -278,6 +300,14 @@ class LLMAdapter:
                 output_tokens=int(meta["output_tokens"]),
             )
         _l1_put(prompt_hash, text)
+        emit_metric(
+            "llm_call",
+            provider=meta["provider"],
+            model=meta["model_name"],
+            cache_scope=cache_scope,
+            input_tokens=meta["input_tokens"],
+            output_tokens=meta["output_tokens"],
+        )
         return text, meta, warnings
 
     def _build_prompt_hash(self, *, prompt: str | tuple[str, str], cache_scope: str) -> str:

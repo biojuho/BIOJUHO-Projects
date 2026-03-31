@@ -11,11 +11,15 @@ from notion_client import AsyncClient
 from antigravity_mcp.config import AppSettings, get_settings
 from antigravity_mcp.domain.markdown_blocks import block_to_text, markdown_to_blocks
 from antigravity_mcp.domain.models import PageSummary
+from antigravity_mcp.integrations.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
 _MAX_RETRIES = 3
 _INITIAL_BACKOFF = 1.0
+
+# Shared circuit breaker for all Notion API calls within this process.
+_notion_breaker = CircuitBreaker("notion", failure_threshold=5, cooldown_sec=60)
 
 
 def _should_retry(exc: Exception) -> bool:
@@ -28,15 +32,23 @@ def _should_retry(exc: Exception) -> bool:
 
 
 def retry_notion_call(func):
-    """Decorator that retries an async Notion API call with exponential backoff."""
+    """Decorator that retries an async Notion API call with exponential backoff and circuit breaker."""
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
+        if not _notion_breaker.allow_request():
+            raise NotionAdapterError(
+                "circuit_open",
+                "Notion circuit breaker is OPEN — calls are temporarily blocked after repeated failures.",
+                retryable=True,
+            )
         backoff = _INITIAL_BACKOFF
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                return await func(*args, **kwargs)
+                result = await func(*args, **kwargs)
+                _notion_breaker.record_success()
+                return result
             except Exception as exc:
                 last_exc = exc
                 if attempt < _MAX_RETRIES and _should_retry(exc):
@@ -50,7 +62,9 @@ def retry_notion_call(func):
                     )
                     await asyncio.sleep(wait)
                     continue
+                _notion_breaker.record_failure()
                 raise
+        _notion_breaker.record_failure()
         raise last_exc  # pragma: no cover
 
     return wrapper

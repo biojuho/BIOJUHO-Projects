@@ -201,7 +201,10 @@ def get_settings() -> AppSettings:
         "NOTION_TASKS_DATA_SOURCE_ID",
     )
     if tasks_ds_source:
-        warnings.append(f"{tasks_ds_source} configured as the source of truth for task queries.")
+        warnings.append(
+            f"{tasks_ds_source} is legacy compatibility only; task queries still use "
+            "NOTION_TASKS_DATABASE_ID and /v1/databases/{id}/query."
+        )
 
     notion_reports_database_id, reports_db_source = _first_non_empty(
         "NOTION_REPORTS_DATABASE_ID",
@@ -214,7 +217,10 @@ def get_settings() -> AppSettings:
         "NOTION_REPORTS_DATA_SOURCE_ID",
     )
     if reports_ds_source:
-        warnings.append(f"{reports_ds_source} configured as the source of truth for report queries.")
+        warnings.append(
+            f"{reports_ds_source} is legacy compatibility only; report queries still use "
+            "NOTION_REPORTS_DATABASE_ID and /v1/databases/{id}/query."
+        )
 
     notion_dashboard_page_id, dashboard_source = _first_non_empty(
         "NOTION_DASHBOARD_PAGE_ID",
@@ -223,7 +229,10 @@ def get_settings() -> AppSettings:
     if not notion_dashboard_page_id:
         notion_dashboard_page_id = _load_dashboard_page_id_from_config()
         if notion_dashboard_page_id:
-            warnings.append("NOTION_DASHBOARD_PAGE_ID loaded from config/dashboard_config.json fallback.")
+            warnings.append(
+                "NOTION_DASHBOARD_PAGE_ID loaded from config/dashboard_config.json fallback. "
+                "Treat this as a local fallback, not a stable deployment contract."
+            )
     if dashboard_source == "DASHBOARD_PAGE_ID":
         warnings.append("DASHBOARD_PAGE_ID is deprecated; use NOTION_DASHBOARD_PAGE_ID instead.")
 
@@ -285,6 +294,43 @@ def get_settings() -> AppSettings:
     )
 
 
+class _JsonlFormatter(logging.Formatter):
+    """Structured JSON formatter that includes extra metric fields when present."""
+
+    _RESERVED = frozenset(logging.LogRecord("", 0, "", 0, "", (), None).__dict__)
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry: dict[str, Any] = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info and record.exc_info[1]:
+            entry["exception"] = str(record.exc_info[1])
+        # Include any extra fields passed via logger.info("...", extra={...})
+        for key, value in record.__dict__.items():
+            if key not in self._RESERVED and not key.startswith("_"):
+                entry[key] = value
+        return json.dumps(entry, ensure_ascii=False, default=str)
+
+
+def emit_metric(
+    event: str,
+    *,
+    logger_name: str = "antigravity_mcp.metrics",
+    **kwargs: Any,
+) -> None:
+    """Emit a structured metric event to the JSONL log.
+
+    Usage:
+        emit_metric("llm_call", provider="gemini", latency_ms=340, tokens=150)
+        emit_metric("pipeline_run", stage="collect", item_count=25, status="ok")
+    """
+    _logger = logging.getLogger(logger_name)
+    _logger.info(event, extra={"metric_event": event, **kwargs})
+
+
 def configure_logging(settings: AppSettings | None = None) -> None:
     """Configure structured JSON logging to logs/pipeline.jsonl."""
     settings = settings or get_settings()
@@ -296,19 +342,6 @@ def configure_logging(settings: AppSettings | None = None) -> None:
     # JSON file handler
     jsonl_path = settings.log_dir / "pipeline.jsonl"
     try:
-
-        class _JsonlFormatter(logging.Formatter):
-            def format(self, record: logging.LogRecord) -> str:
-                entry = {
-                    "timestamp": self.formatTime(record, self.datefmt),
-                    "level": record.levelname,
-                    "logger": record.name,
-                    "message": record.getMessage(),
-                }
-                if record.exc_info and record.exc_info[1]:
-                    entry["exception"] = str(record.exc_info[1])
-                return json.dumps(entry, ensure_ascii=False)
-
         from logging.handlers import RotatingFileHandler
 
         file_handler = RotatingFileHandler(
