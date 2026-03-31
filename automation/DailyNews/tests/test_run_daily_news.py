@@ -20,7 +20,7 @@ def make_entry(title: str, link: str, description: str = "desc") -> SimpleNamesp
 
 def test_process_category_survives_source_failure_and_awaits_sleep(load_script_module, monkeypatch, tmp_path):
     module, _runtime = load_script_module("run_daily_news")
-    monkeypatch.setattr(module, "ANTIGRAVITY_NEWS_DB_ID", "news-db")
+    monkeypatch.setattr(module, "NOTION_REPORTS_DATABASE_ID", "news-db")
 
     calls = {"sleep": 0}
 
@@ -74,7 +74,7 @@ def test_process_category_survives_source_failure_and_awaits_sleep(load_script_m
 def test_run_daily_news_continues_after_category_failure(load_script_module, monkeypatch):
     module, _runtime = load_script_module("run_daily_news")
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
-    monkeypatch.setattr(module, "ANTIGRAVITY_NEWS_DB_ID", "news-db")
+    monkeypatch.setattr(module, "NOTION_REPORTS_DATABASE_ID", "news-db")
     monkeypatch.setattr(module, "load_news_sources", lambda: {"Tech": [], "Economy": []})
     monkeypatch.setattr(module, "AsyncClient", lambda auth: object())
     monkeypatch.setattr(

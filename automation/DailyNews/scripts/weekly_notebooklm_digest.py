@@ -24,7 +24,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from notion_client import AsyncClient
 from runtime import configure_stdout_utf8, generate_run_id, get_logger
-from settings import ANTIGRAVITY_NEWS_DB_ID, NOTION_API_KEY, OUTPUT_DIR
+from settings import NOTION_API_KEY, NOTION_DASHBOARD_PAGE_ID, NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR
 
 
 async def fetch_week_reports(
@@ -39,7 +39,7 @@ async def fetch_week_reports(
 
     while has_more:
         kwargs: dict = {
-            "database_id": ANTIGRAVITY_NEWS_DB_ID,
+            "database_id": NOTION_REPORTS_DATABASE_ID,
             "filter": {
                 "and": [
                     {"property": "Date", "date": {"on_or_after": start_date.isoformat()}},
@@ -120,8 +120,8 @@ async def run_weekly_digest(
     run_id = generate_run_id("weekly_digest")
     logger = get_logger("weekly_digest", run_id)
 
-    if not NOTION_API_KEY or not ANTIGRAVITY_NEWS_DB_ID:
-        logger.error("bootstrap", "failed", "NOTION_API_KEY or ANTIGRAVITY_NEWS_DB_ID missing")
+    if not NOTION_API_KEY or not NOTION_REPORTS_DATABASE_ID:
+        logger.error("bootstrap", "failed", "NOTION_API_KEY or NOTION_REPORTS_DATABASE_ID missing")
         return 1
 
     # Date range
@@ -213,11 +213,9 @@ async def run_weekly_digest(
 
     # 5. Upload digest link to Notion dashboard (optional)
     try:
-        from settings import DASHBOARD_PAGE_ID
-
-        if DASHBOARD_PAGE_ID:
+        if NOTION_DASHBOARD_PAGE_ID:
             await notion.blocks.children.append(
-                DASHBOARD_PAGE_ID,
+                NOTION_DASHBOARD_PAGE_ID,
                 children=[
                     {
                         "object": "block",

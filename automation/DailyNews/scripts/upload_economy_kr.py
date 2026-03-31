@@ -18,7 +18,7 @@ if hasattr(sys.stdout, "reconfigure"):
 from news_bot import _is_relevant_to_category
 from notion_client import AsyncClient
 from runtime import fetch_feed_entries
-from settings import ANTIGRAVITY_TASKS_DB_ID, NOTION_API_KEY
+from settings import NOTION_API_KEY, NOTION_TASKS_DATABASE_ID
 
 SOURCES = [
     ("Maeil Economy", "https://www.mk.co.kr/rss/30100041/"),
@@ -85,7 +85,7 @@ async def main() -> int:
         )
 
     page = await notion.pages.create(
-        parent={"database_id": ANTIGRAVITY_TASKS_DB_ID},
+        parent={"database_id": NOTION_TASKS_DATABASE_ID},
         properties={
             "Name": {"title": [{"text": {"content": f"[Economy_KR] Manual Brief - {now.strftime('%Y-%m-%d %H:%M')}"}}]},
             "Date": {"date": {"start": now.isoformat()}},

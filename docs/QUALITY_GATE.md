@@ -75,6 +75,22 @@ Python compile checks exclude:
 
 External-service tests stay out of the default PR gate. Keep them manual, scheduled, or separately triggered so standard PRs stay deterministic.
 
+## Release Approval Overlay
+
+The deterministic quality gate is a development-health signal. It is not, by itself, a release approval.
+
+Release approval additionally requires:
+
+- a passing deterministic gate for the affected scope,
+- a clean worktree or an explicitly reviewed in-progress diff set,
+- review of compatibility and deprecation warnings that are still allowed at runtime,
+- confirmation of the active source of truth for any feature being released,
+- explicit verification of manual or external service steps that the deterministic gate does not cover.
+
+DailyNews rule:
+
+- Treat report status `published` as shorthand for `notion_synced` unless external delivery has been separately verified.
+
 ## JSON report schema
 
 `run_workspace_smoke.py --json-out <path>` writes an array of objects containing:

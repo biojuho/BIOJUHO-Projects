@@ -9,6 +9,18 @@ import streamlit as st
 from antigravity_mcp.config import get_settings
 
 
+def _has_text(value: object) -> bool:
+    return bool(str(value or "").strip())
+
+
+def _report_delivery_state(row: pd.Series) -> str:
+    """Prefer an explicit delivery label over the overloaded stored status field."""
+    if _has_text(row.get("notion_page_id", "")):
+        return "notion_synced"
+    raw_status = str(row.get("status", "draft") or "draft").strip()
+    return raw_status or "draft"
+
+
 def _fetch_dataframe(db_path: Path, query: str) -> pd.DataFrame:
     if not db_path.exists():
         return pd.DataFrame()
@@ -88,15 +100,21 @@ def main() -> None:
     analytics_df = _fetch_dataframe(
         settings.analytics_db, "SELECT * FROM post_history ORDER BY generated_at DESC LIMIT 50"
     )
+    if not reports_df.empty:
+        reports_df = reports_df.copy()
+        reports_df["delivery_state"] = reports_df.apply(_report_delivery_state, axis=1)
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         _metric_card("Tracked Runs", str(len(runs_df.index)), "Recent pipeline executions stored locally.")
     with col2:
-        _metric_card("Draft Reports", str(len(reports_df.index)), "Content reports ready for approval or publishing.")
+        local_draft_reports = 0 if reports_df.empty else int((reports_df["delivery_state"] == "draft").sum())
+        _metric_card("Local Draft Reports", str(local_draft_reports), "Reports stored locally and not yet synced to Notion.")
     with col3:
-        published_reports = 0 if reports_df.empty else int((reports_df["status"] == "published").sum())
-        _metric_card("Published Reports", str(published_reports), "Reports successfully synced to Notion.")
+        notion_synced_reports = (
+            0 if reports_df.empty else int((reports_df["delivery_state"] == "notion_synced").sum())
+        )
+        _metric_card("Notion-Synced Reports", str(notion_synced_reports), "Reports mirrored to Notion.")
     with col4:
         published_posts = (
             0
@@ -137,15 +155,15 @@ def main() -> None:
         if reports_df.empty:
             st.info("No content reports stored yet.")
         else:
-            pie_df = reports_df.groupby("status").size().reset_index(name="count")
+            pie_df = reports_df.groupby("delivery_state").size().reset_index(name="count")
             fig = px.pie(
                 pie_df,
-                names="status",
+                names="delivery_state",
                 values="count",
-                color="status",
+                color="delivery_state",
                 color_discrete_map={
                     "draft": "#d98c2b",
-                    "published": "#1f6f50",
+                    "notion_synced": "#1f6f50",
                     "failed": "#b8402a",
                 },
                 hole=0.56,
@@ -159,7 +177,7 @@ def main() -> None:
     else:
         view_columns = [
             column
-            for column in ["report_id", "category", "window_name", "status", "approval_state", "updated_at"]
+            for column in ["report_id", "category", "window_name", "delivery_state", "approval_state", "updated_at"]
             if column in reports_df.columns
         ]
         st.dataframe(reports_df[view_columns], use_container_width=True, hide_index=True)

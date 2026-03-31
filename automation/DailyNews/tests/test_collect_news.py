@@ -30,7 +30,7 @@ def test_collect_news_skips_duplicates_and_saves_new_articles(load_script_module
 
     monkeypatch.setattr(module, "PipelineStateStore", lambda: state)
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
-    monkeypatch.setattr(module, "ANTIGRAVITY_NEWS_DB_ID", "news-db")
+    monkeypatch.setattr(module, "NOTION_REPORTS_DATABASE_ID", "news-db")
     monkeypatch.setattr(module, "AsyncClient", FakeAsyncClient)
     monkeypatch.setattr(
         module, "_load_all_feeds", lambda: {"Tech": [{"name": "FeedA", "url": "https://feed.example.com"}]}
@@ -66,7 +66,7 @@ def test_collect_news_continues_after_source_failure(load_script_module, monkeyp
     state = runtime.PipelineStateStore(tmp_path / "data" / "pipeline_state.db")
     monkeypatch.setattr(module, "PipelineStateStore", lambda: state)
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
-    monkeypatch.setattr(module, "ANTIGRAVITY_NEWS_DB_ID", "news-db")
+    monkeypatch.setattr(module, "NOTION_REPORTS_DATABASE_ID", "news-db")
     monkeypatch.setattr(module, "AsyncClient", FakeAsyncClient)
     monkeypatch.setattr(
         module, "get_existing_urls", lambda database_id, api_key, logger: asyncio.sleep(0, result=set())
@@ -122,8 +122,6 @@ def test_get_existing_urls_uses_database_query_endpoint(load_script_module, monk
             return FakeResponse()
 
     monkeypatch.setattr(module.httpx, "AsyncClient", FakeAsyncClient)
-    monkeypatch.setattr(module, "NOTION_REPORTS_DATA_SOURCE_ID", "legacy-data-source-id")
-
     asyncio.run(
         module.get_existing_urls(
             "reports-database-id",

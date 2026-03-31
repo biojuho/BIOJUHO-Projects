@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import warnings
 from pathlib import Path
 
 log = logging.getLogger("antigravity.proofreader")
@@ -18,12 +19,26 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from shared.llm import LLMPolicy, TaskTier, get_client
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message=r".*_UnionGenericAlias.*deprecated and slated for removal in Python 3\.17",
+        category=DeprecationWarning,
+        module=r"google\.genai\.types",
+    )
+    from shared.llm import LLMPolicy, TaskTier, get_client
 
 
 class Proofreader:
     def __init__(self):
-        self._client = get_client()
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*_UnionGenericAlias.*deprecated and slated for removal in Python 3\.17",
+                category=DeprecationWarning,
+                module=r"google\.genai\.types",
+            )
+            self._client = get_client()
 
     async def proofread_text_async(self, text: str) -> str:
         """Return grammar/style corrected Korean text.

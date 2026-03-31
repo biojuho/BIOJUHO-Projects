@@ -21,11 +21,10 @@ from runtime import (
     get_logger,
 )
 from settings import (
-    ANTIGRAVITY_NEWS_DB_ID,
     NEWS_SOURCES_FILE,
     NOTION_API_KEY,
     NOTION_API_VERSION,
-    NOTION_REPORTS_DATA_SOURCE_ID,
+    NOTION_REPORTS_DATABASE_ID,
     PIPELINE_HTTP_TIMEOUT_SEC,
 )
 
@@ -47,8 +46,7 @@ async def get_existing_urls(database_id: str, api_key: str, logger) -> set[str]:
     existing_urls: set[str] = set()
     has_more = True
     next_cursor: str | None = None
-    query_id = database_id or NOTION_REPORTS_DATA_SOURCE_ID
-    url = f"https://api.notion.com/v1/databases/{query_id}/query"
+    url = f"https://api.notion.com/v1/databases/{database_id}/query"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Notion-Version": NOTION_API_VERSION,
@@ -100,9 +98,9 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
         logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
         state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
         return 1
-    if not ANTIGRAVITY_NEWS_DB_ID:
-        logger.error("bootstrap", "failed", "ANTIGRAVITY_NEWS_DB_ID missing")
-        state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_NEWS_DB_ID missing")
+    if not NOTION_REPORTS_DATABASE_ID:
+        logger.error("bootstrap", "failed", "NOTION_REPORTS_DATABASE_ID missing")
+        state.record_job_finish(run_id, status="failed", error_text="NOTION_REPORTS_DATABASE_ID missing")
         return 1
 
     summary = {"saved": 0, "skipped": 0, "sources_failed": 0, "credibility_filtered": 0, "dedup_removed": 0}
@@ -110,7 +108,7 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
 
     try:
         with JobLock("collect_news", run_id):
-            existing_urls = await get_existing_urls(ANTIGRAVITY_NEWS_DB_ID, NOTION_API_KEY, logger)
+            existing_urls = await get_existing_urls(NOTION_REPORTS_DATABASE_ID, NOTION_API_KEY, logger)
             today_str = date.today().isoformat()
             all_sources = _load_all_feeds()
 
@@ -201,7 +199,7 @@ async def collect_and_upload_news(*, max_items: int, run_id: str | None = None) 
 
                     page = await create_notion_page_with_retry(
                         notion_client=notion,
-                        parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
+                        parent={"database_id": NOTION_REPORTS_DATABASE_ID},
                         properties=properties,
                         children=[],
                         logger=logger,

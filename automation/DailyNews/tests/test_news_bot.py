@@ -24,7 +24,7 @@ def test_news_bot_continues_when_one_category_upload_fails(load_script_module, m
     state = runtime.PipelineStateStore(tmp_path / "data" / "pipeline_state.db")
     monkeypatch.setattr(module, "PipelineStateStore", lambda: state)
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
-    monkeypatch.setattr(module, "ANTIGRAVITY_TASKS_DB_ID", "tasks-db")
+    monkeypatch.setattr(module, "NOTION_TASKS_DATABASE_ID", "tasks-db")
     monkeypatch.setattr(module, "PIPELINE_MAX_CONCURRENCY", 2)
     monkeypatch.setattr(module, "AsyncClient", FakeAsyncClient)
     monkeypatch.setattr(
@@ -63,7 +63,7 @@ def test_news_bot_skips_links_already_seen(load_script_module, monkeypatch, tmp_
 
     monkeypatch.setattr(module, "PipelineStateStore", lambda: state)
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
-    monkeypatch.setattr(module, "ANTIGRAVITY_TASKS_DB_ID", "tasks-db")
+    monkeypatch.setattr(module, "NOTION_TASKS_DATABASE_ID", "tasks-db")
     monkeypatch.setattr(module, "PIPELINE_MAX_CONCURRENCY", 1)
     monkeypatch.setattr(module, "AsyncClient", FakeAsyncClient)
     monkeypatch.setattr(module, "load_sources", lambda: {"Tech": [{"name": "A", "url": "tech"}]})

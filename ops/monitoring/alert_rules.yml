@@ -44,3 +44,27 @@ groups:
         annotations:
           summary: "Prometheus using >1GB memory"
           description: "Prometheus resident memory is {{ $value | humanize1024 }}B."
+
+  - name: pipeline_health
+    rules:
+      - alert: PipelineJobFailed
+        expr: |
+          increase(pipeline_job_failures_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: automation_pipeline
+        annotations:
+          summary: "Pipeline Job Failed: {{ $labels.job_name }}"
+          description: "The automation pipeline {{ $labels.job_name }} has recorded a failure. Check the Supabase checkpoint state or local logs immediately to resume."
+
+      - alert: PipelineUnusuallySlow
+        expr: |
+          pipeline_checkpoint_duration_seconds{step="total"} > 1800
+        for: 5m
+        labels:
+          severity: warning
+          service: automation_pipeline
+        annotations:
+          summary: "Pipeline {{ $labels.job_name }} is unusually slow"
+          description: "The pipeline has been running for over 30 minutes. This might indicate an LLM timeout, a stale DB lock, or a hanging HTTP request."

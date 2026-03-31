@@ -371,6 +371,19 @@ class TestAnalyzePipeline:
         assert any("Evidence tags missing" in warning for warning in warnings)
 
 
+class TestReportStateSemantics:
+    def test_content_report_delivery_state_distinguishes_notion_sync(self, sample_report):
+        assert sample_report.has_notion_sync() is False
+        assert sample_report.delivery_state == "draft"
+
+        sample_report.status = "published"
+        assert sample_report.delivery_state == "published"
+
+        sample_report.notion_page_id = "notion-page-123"
+        assert sample_report.has_notion_sync() is True
+        assert sample_report.delivery_state == "notion_synced"
+
+
 class TestPublishPipeline:
     @pytest.mark.asyncio
     async def test_publish_unknown_report_returns_error(self, state_store):
@@ -406,7 +419,51 @@ class TestPublishPipeline:
         )
 
         assert "report_id" in publication
+        assert publication["report_delivery_state"] == "draft"
         assert any("not configured" in warning for warning in warnings)
+
+        saved = state_store.get_report(sample_report.report_id)
+        assert saved is not None
+        assert saved.delivery_state == "draft"
+
+    @pytest.mark.asyncio
+    async def test_publish_with_notion_marks_report_as_notion_synced(self, state_store, sample_report):
+        from antigravity_mcp.pipelines.publish import publish_report
+
+        state_store.save_report(sample_report)
+
+        mock_notion = MagicMock()
+        mock_notion.is_configured.return_value = True
+        mock_notion.create_record = AsyncMock(return_value={"id": "notion-page-123", "url": "https://notion.so/page"})
+
+        mock_telegram = MagicMock()
+        mock_telegram.send_message = AsyncMock(return_value=True)
+
+        fake_settings = MagicMock(
+            content_approval_mode="manual",
+            notion_reports_database_id="db-123",
+            auto_push_enabled=False,
+        )
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings):
+            _, publication, warnings, status = await publish_report(
+                report_id=sample_report.report_id,
+                channels=[],
+                approval_mode="manual",
+                state_store=state_store,
+                notion_adapter=mock_notion,
+                telegram_adapter=mock_telegram,
+            )
+
+        assert status in ("ok", "partial")
+        assert warnings == []
+        assert publication["report_status"] == "published"
+        assert publication["report_delivery_state"] == "notion_synced"
+
+        saved = state_store.get_report(sample_report.report_id)
+        assert saved is not None
+        assert saved.status == "published"
+        assert saved.delivery_state == "notion_synced"
+        assert saved.has_notion_sync() is True
 
     @pytest.mark.asyncio
     async def test_publish_downgrades_auto_when_quality_not_ok(self, state_store, sample_report, monkeypatch):

@@ -1,12 +1,13 @@
 # Task Board
 
-**Last Updated**: 2026-03-30
+**Last Updated**: 2026-03-31
 **Board Type**: Kanban (TODO / IN_PROGRESS / DONE)
 
 ---
 
 ## TODO
 
+- [ ] Re-evaluate DailyNews/GetDayTrends prompt migration scope after gray-zone closure docs and release criteria alignment
 - [ ] Docker 포트 충돌 정리 (root-compose vs AgriGuard: 5432, 8002, 1883)
 - [ ] GitHub Actions A/B test CI 자동화 (weekly economy_kr)
 
@@ -19,6 +20,24 @@
 ---
 
 ## DONE (Last 7 Days)
+
+### 2026-03-31
+
+- [x] **DailyNews gray-zone closure recorded**
+  - **Result**: Retired the last DailyNews legacy compatibility layer from active runtime behavior. Scripts now use canonical `NOTION_*` settings only, shared deployment examples no longer advertise deprecated names, and config warnings now flag removed legacy env names instead of silently reading them.
+  - **Files**:
+    - `automation/DailyNews/src/antigravity_mcp/config.py`
+    - `automation/DailyNews/scripts/settings.py`
+    - `automation/DailyNews/docs/runbooks/gray-zone-closure-checklist.md`
+    - `automation/DailyNews/docs/runbooks/environment-mapping.md`
+    - `automation/DailyNews/QC_REPORT_2026-03-31_PIPELINE_STABILIZATION.md`
+  - **Validation**:
+    - `python -m pytest -q tests` -> `195 passed`
+    - `python -m compileall -q src apps scripts` -> exit `0`
+  - **Recorded In**:
+    - `automation/DailyNews/docs/runbooks/gray-zone-closure-checklist.md`
+    - `automation/DailyNews/QC_REPORT_2026-03-31_PIPELINE_STABILIZATION.md`
+    - `TASKS.md`
 
 ### 2026-03-30
 

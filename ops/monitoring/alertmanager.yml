@@ -1,10 +1,6 @@
 global:
   resolve_timeout: 5m
 
-# -- Templates for Telegram message formatting --
-templates:
-  - '/etc/alertmanager/templates/*.tmpl'
-
 route:
   group_by: ['alertname', 'service']
   group_wait: 30s
@@ -14,23 +10,27 @@ route:
   routes:
     - matchers:
         - severity = critical
-      receiver: telegram-critical
+      receiver: discord-critical
       continue: true
 
 receivers:
   - name: default
-    # Alerts are always visible in the AlertManager UI at http://localhost:9093.
-    # The webhook below sends to a local relay; replace with your own endpoint.
     webhook_configs: []
 
-  - name: telegram-critical
-    # Telegram Bot API via webhook — requires ALERTMANAGER_TELEGRAM_TOKEN and
-    # ALERTMANAGER_TELEGRAM_CHAT_ID to be set in the alertmanager container env.
-    # When the token is empty the URL is invalid and the webhook silently fails,
-    # which is the desired no-op behavior until credentials are configured.
-    webhook_configs:
-      - send_resolved: true
-        url: 'http://host.docker.internal:9095/alertmanager-telegram-relay'
+  - name: discord-critical
+    discord_configs:
+      # Discord Webhook URL. Please replace this with your actual Discord channel webhook.
+      # You can supply this via environment variables if starting alertmanager with `--config.file` that supports env templating,
+      # or by directly editing this file in your deployment pipeline.
+      - webhook_url: 'https://discord.com/api/webhooks/000000000000000000/YOUR_DISCORD_WEBHOOK_TOKEN_HERE_REPLACE_ME'
+        title: '🚨 {{ .GroupLabels.alertname }} ({{ .Status | toUpper }})'
+        message: |-
+          {{ range .Alerts }}
+          **Service:** {{ .Labels.service }}
+          **Severity:** {{ .Labels.severity }}
+          **Summary:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          {{ end }}
 
 inhibit_rules:
   - source_matchers:

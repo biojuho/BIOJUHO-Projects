@@ -1,14 +1,14 @@
 """Notion auto-publisher — push content pipeline results to a Notion database.
 
-Supports the full 7-property schema for the content automation pipeline:
-  - 제목 (Title)         → Article title
-  - 프로젝트 (Select)     → Project classification
-  - 작성일 (Date)         → Auto-generated date
-  - 상태 (Status/Select)  → 초안 / 검토중 / 발행됨
-  - 태그 (Multi-select)   → Topic tags
-  - AI 모델 (Select)      → LLM model used
-  - 원본 자료 (URL)       → Google Drive link
-  - 첨부 파일 (Files)     → Infographic/slide file attachments
+v13 표준 스키마 (8개 속성):
+  - Name (Title)       → Article title
+  - Status (Select)    → Draft / Ready / Published / Archived
+  - Category (Select)  → Content category
+  - Date (Date)        → Auto-generated date
+  - Tags (Multi-select)→ Topic tags
+  - Score (Number)     → Quality score
+  - Platform (Multi-select) → Target platforms
+  - URL (URL)          → Source link
 
 Extracted from ``getdaytrends/notebooklm_bridge.py::publish_to_notion``.
 """
@@ -148,17 +148,14 @@ def _build_properties(
     db_props: dict,
     *,
     title: str,
-    project: str = "",
-    status: str = "초안",
+    status: str = "Draft",
     tags: list[str] | None = None,
-    ai_model: str = "",
     source_url: str = "",
     category: str = "",
 ) -> dict:
-    """Build Notion page properties dynamically based on DB schema.
+    """Build Notion page properties using v13 standard schema.
 
-    Automatically detects the title field name and only sets properties
-    that actually exist in the database schema.
+    Only sets properties that actually exist in the database schema.
     """
     properties: dict = {}
 
@@ -171,33 +168,21 @@ def _build_properties(
 
     properties[title_field] = {"title": [{"text": {"content": title}}]}
 
-    # 프로젝트 (Select)
-    _set_select(properties, db_props, "프로젝트", project)
-    _set_select(properties, db_props, "Project", project)
-
-    # 상태 (Status or Select)
+    # Status (Select)
     _set_status_or_select(properties, db_props, status)
 
-    # 태그 (Multi-select)
+    # Category (Select)
+    _set_select(properties, db_props, "Category", category)
+
+    # Tags (Multi-select)
     if tags:
-        _set_multi_select(properties, db_props, "태그", tags)
         _set_multi_select(properties, db_props, "Tags", tags)
 
-    # AI 모델 (Select)
-    _set_select(properties, db_props, "AI 모델", ai_model)
-    _set_select(properties, db_props, "AI Model", ai_model)
+    # URL
+    _set_url(properties, db_props, "URL", source_url)
 
-    # 원본 자료 (URL)
-    _set_url(properties, db_props, "원본 자료", source_url)
-    _set_url(properties, db_props, "Source URL", source_url)
-
-    # 카테고리 (Select) — legacy compatibility
-    _set_select(properties, db_props, "Category", category)
-    _set_select(properties, db_props, "카테고리", category)
-
-    # 작성일 (Date) — auto-set to now
-    _set_date(properties, db_props, "작성일")
-    _set_date(properties, db_props, "Created Date")
+    # Date — auto-set to now
+    _set_date(properties, db_props, "Date")
 
     return properties
 
@@ -222,14 +207,13 @@ def _set_url(properties: dict, db_props: dict, name: str, url: str) -> None:
 
 def _set_status_or_select(properties: dict, db_props: dict, status: str) -> None:
     """Set status using Status type or fallback to Select."""
-    for name in ("상태", "Status"):
-        if name in db_props and name not in properties:
-            prop_type = db_props[name].get("type", "select")
-            if prop_type == "status":
-                properties[name] = {"status": {"name": status}}
-            else:
-                properties[name] = {"select": {"name": status}}
-            return
+    if "Status" in db_props and "Status" not in properties:
+        prop_type = db_props["Status"].get("type", "select")
+        if prop_type == "status":
+            properties["Status"] = {"status": {"name": status}}
+        else:
+            properties["Status"] = {"select": {"name": status}}
+        return
 
 
 def _set_date(properties: dict, db_props: dict, name: str) -> None:
@@ -290,10 +274,8 @@ async def publish_to_notion(
     infographic_id = factory_result.get("infographic_id", "")
     infographic_url = factory_result.get("infographic_url", "")
     source_url = factory_result.get("source_url", "")
-    project = factory_result.get("project", "")
-    status = factory_result.get("status", "초안")
+    status = factory_result.get("status", "Draft")
     tags = factory_result.get("tags", [])
-    ai_model = factory_result.get("ai_model", "")
     file_attachment_url = factory_result.get("file_attachment_url", "")
     category = factory_result.get("category", "기타")
 
@@ -301,10 +283,8 @@ async def publish_to_notion(
     properties = _build_properties(
         db_props,
         title=title,
-        project=project,
         status=status,
         tags=tags,
-        ai_model=ai_model,
         source_url=source_url,
         category=category,
     )

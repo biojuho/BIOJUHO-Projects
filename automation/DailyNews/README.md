@@ -10,6 +10,7 @@ Antigravity Content Engine is a Notion-native AI content platform that combines:
 - operational dashboards backed by local state and Notion.
 
 This repository keeps the original compatibility entrypoints, but the active implementation now lives under [`src/antigravity_mcp`](./src/antigravity_mcp).
+
 ## Target Audience
 
 **Primary Persona**: "경제 인사이트 헌터" (Economic Insight Hunter)
@@ -47,6 +48,38 @@ The platform is optimized for internal content operations:
 - store report state locally and sync approved outputs to Notion,
 - expose search, authoring, and operational status through MCP tools,
 - monitor run health and report readiness in Streamlit and Notion dashboards.
+
+## Canonical Operating Rules
+
+- Treat [`src/antigravity_mcp`](./src/antigravity_mcp) as the only active implementation path for new code changes.
+- Do not add new call sites to compatibility entrypoints such as `server.py`, `admin_dashboard.py`, `run_server.bat`, or legacy MCP tool names.
+- Use the canonical Notion database IDs for queries and writes. Data source IDs remain compatibility-only inputs.
+- Treat `.env` as the deployment source of truth. `config/dashboard_config.json` is a local fallback, not a stable deployment contract.
+- Keep external delivery status separate from approval mode and separate from local report storage status.
+
+## Report Lifecycle Terms
+
+Use the following vocabulary in tickets, runbooks, and handoffs.
+
+| Term | Meaning in the current implementation | Source of truth |
+| --- | --- | --- |
+| `draft` | A report exists locally but does not yet have a Notion page ID. | `data/pipeline_state.db` |
+| `published` | Current stored shorthand meaning the report has been synced to Notion. Do not use this word as proof of external posting. | Local mirror plus `notion_page_id` |
+| `notion_synced` | Preferred operational label when a report has a non-empty `notion_page_id`. | Notion record plus local mirror |
+| `external_posted` | Preferred operational label when a channel adapter actually posts to an external destination such as X. | Channel adapter result and analytics |
+| `approval_mode` | Review policy (`manual` or `auto`). This is not a delivery state. | Report metadata |
+
+Team rule:
+
+- In docs and reviews, prefer `notion_synced` and `external_posted` over the generic word `published`.
+
+## Source Of Truth Hierarchy
+
+- Notion reports database: curated report output for approved briefs.
+- `data/pipeline_state.db`: local run tracking, deduplication, approval metadata, and report lifecycle mirror.
+- `data/analytics.db`: downstream channel delivery and metrics history.
+- `.env`: canonical deployment configuration for Notion targets and external integrations.
+- `config/dashboard_config.json`: temporary local fallback only when the env value is intentionally absent.
 
 ## Project Layout
 
@@ -92,20 +125,15 @@ Required for active Notion reads and writes:
 - `PIPELINE_MAX_RETRIES`
 - `CONTENT_APPROVAL_MODE`
 
-Optional legacy compatibility only:
-
-- `NOTION_TASKS_DATA_SOURCE_ID`
-- `NOTION_REPORTS_DATA_SOURCE_ID`
-
 DailyNews now queries Notion with the standard database endpoint:
 
 - `/v1/databases/{id}/query`
 
-For new setups, always provide the database IDs above and do not rely on data source IDs for query operations.
-
-Legacy aliases such as `ANTIGRAVITY_DB_ID`, `ANTIGRAVITY_TASKS_DB_ID`, `ANTIGRAVITY_NEWS_DB_ID`, and `DASHBOARD_PAGE_ID` are still accepted for one release and generate warnings.
+For new setups, always provide the database IDs above. Legacy names such as `ANTIGRAVITY_DB_ID`, `ANTIGRAVITY_TASKS_DB_ID`, `ANTIGRAVITY_NEWS_DB_ID`, `DASHBOARD_PAGE_ID`, `NOTION_TASKS_DATA_SOURCE_ID`, and `NOTION_REPORTS_DATA_SOURCE_ID` are no longer read and will surface warnings until local environments are updated.
 
 If `NOTION_DASHBOARD_PAGE_ID` is temporarily missing, the runtime can fall back to `config/dashboard_config.json`, but `.env` remains the source of truth for stable deployments.
+
+For the current retirement plan and release criteria, see [`docs/runbooks/gray-zone-closure-checklist.md`](./docs/runbooks/gray-zone-closure-checklist.md).
 
 ## Installation
 
@@ -231,3 +259,4 @@ python -m pytest -q
 - Notion remains the system of record for curated report output.
 - Local SQLite state in `data/pipeline_state.db` is used for run tracking, deduplication, and report lifecycle management.
 - External publishing stays in manual approval mode by default.
+- Release approval is stricter than deterministic QC. See [`../../docs/QUALITY_GATE.md`](../../docs/QUALITY_GATE.md).

@@ -19,12 +19,11 @@ from runtime import (
     get_logger,
 )
 from settings import (
-    ANTIGRAVITY_TASKS_DB_ID,
     DASHBOARD_CONFIG_FILE,
-    DASHBOARD_PAGE_ID,
     NOTION_API_KEY,
     NOTION_API_VERSION,
-    NOTION_TASKS_DATA_SOURCE_ID,
+    NOTION_DASHBOARD_PAGE_ID,
+    NOTION_TASKS_DATABASE_ID,
     PIPELINE_HTTP_TIMEOUT_SEC,
 )
 
@@ -34,9 +33,9 @@ def save_config(page_id: str) -> None:
 
 
 async def get_or_create_dashboard(notion: AsyncClient, logger) -> str:
-    if DASHBOARD_PAGE_ID:
-        logger.info("dashboard", "success", "using dashboard page from env", page_id=DASHBOARD_PAGE_ID)
-        return DASHBOARD_PAGE_ID
+    if NOTION_DASHBOARD_PAGE_ID:
+        logger.info("dashboard", "success", "using dashboard page from env", page_id=NOTION_DASHBOARD_PAGE_ID)
+        return NOTION_DASHBOARD_PAGE_ID
 
     if DASHBOARD_CONFIG_FILE.exists():
         try:
@@ -57,7 +56,7 @@ async def get_or_create_dashboard(notion: AsyncClient, logger) -> str:
         return page_id
 
     new_page = await notion.pages.create(
-        parent={"database_id": ANTIGRAVITY_TASKS_DB_ID},
+        parent={"database_id": NOTION_TASKS_DATABASE_ID},
         properties={
             "Name": {"title": [{"text": {"content": "Antigravity Newsroom"}}]},
             "Type": {"select": {"name": "Dashboard"}},
@@ -73,8 +72,7 @@ async def get_or_create_dashboard(notion: AsyncClient, logger) -> str:
 
 async def query_todays_articles(logger) -> list[dict[str, Any]]:
     today_str = date.today().isoformat()
-    query_id = ANTIGRAVITY_TASKS_DB_ID or NOTION_TASKS_DATA_SOURCE_ID
-    url = f"https://api.notion.com/v1/databases/{query_id}/query"
+    url = f"https://api.notion.com/v1/databases/{NOTION_TASKS_DATABASE_ID}/query"
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Notion-Version": NOTION_API_VERSION,
@@ -194,9 +192,9 @@ async def run_update_dashboard(*, run_id: str | None = None) -> int:
         logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
         state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
         return 1
-    if not ANTIGRAVITY_TASKS_DB_ID:
-        logger.error("bootstrap", "failed", "ANTIGRAVITY_TASKS_DB_ID missing")
-        state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_TASKS_DB_ID missing")
+    if not NOTION_TASKS_DATABASE_ID:
+        logger.error("bootstrap", "failed", "NOTION_TASKS_DATABASE_ID missing")
+        state.record_job_finish(run_id, status="failed", error_text="NOTION_TASKS_DATABASE_ID missing")
         return 1
 
     notion = AsyncClient(auth=NOTION_API_KEY)

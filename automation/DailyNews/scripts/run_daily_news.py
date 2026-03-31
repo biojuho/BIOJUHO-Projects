@@ -19,7 +19,7 @@ from runtime import (
     get_logger,
     run_with_timeout,
 )
-from settings import ANTIGRAVITY_NEWS_DB_ID, NEWS_SOURCES_FILE, NOTION_API_KEY, OUTPUT_DIR
+from settings import NEWS_SOURCES_FILE, NOTION_API_KEY, NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR
 
 
 def get_extraction_window(force: bool) -> tuple[datetime, datetime, str]:
@@ -227,7 +227,7 @@ async def upload_to_notion(
 
     return await create_notion_page_with_retry(
         notion_client=notion,
-        parent={"database_id": ANTIGRAVITY_NEWS_DB_ID},
+        parent={"database_id": NOTION_REPORTS_DATABASE_ID},
         properties={
             "Name": {"title": [{"text": {"content": f"[{category}] Daily Report - {today_str}"}}]},
         },
@@ -463,9 +463,9 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
         logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
         state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
         return 1
-    if not ANTIGRAVITY_NEWS_DB_ID:
-        logger.error("bootstrap", "failed", "ANTIGRAVITY_NEWS_DB_ID missing")
-        state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_NEWS_DB_ID missing")
+    if not NOTION_REPORTS_DATABASE_ID:
+        logger.error("bootstrap", "failed", "NOTION_REPORTS_DATABASE_ID missing")
+        state.record_job_finish(run_id, status="failed", error_text="NOTION_REPORTS_DATABASE_ID missing")
         return 1
 
     try:

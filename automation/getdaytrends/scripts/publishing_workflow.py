@@ -220,7 +220,7 @@ def promote_drafts_to_ready(min_viral_score: int = 60):
             filter={
                 "and": [
                     {"property": "Status", "select": {"equals": "Draft"}},
-                    {"property": "Viral Score", "number": {"greater_than_or_equal_to": min_viral_score}},
+                    {"property": "Score", "number": {"greater_than_or_equal_to": min_viral_score}},
                 ],
             },
         )
@@ -244,7 +244,7 @@ def promote_drafts_to_ready(min_viral_score: int = 60):
             else "Untitled"
         )
 
-        score_prop = page.get("properties", {}).get("Viral Score", {})
+        score_prop = page.get("properties", {}).get("Score", {})
         score = score_prop.get("number", 0)
 
         try:
@@ -272,7 +272,7 @@ def mark_as_published(page_id: str, published_url: str = ""):
         "Status": {"select": {"name": "Published"}},
     }
     if published_url:
-        updates["Published URL"] = {"url": published_url}
+        updates["URL"] = {"url": published_url}
 
     try:
         notion.pages.update(page_id=page_id, properties=updates)
@@ -346,7 +346,7 @@ def show_dashboard():
                 if props.get("Name", {}).get("title")
                 else "Untitled"
             )
-            score = props.get("Viral Score", {}).get("number", 0)
+            score = props.get("Score", {}).get("number", 0)
             print(f"    • [{score}점] {title[:50]}")
 
 

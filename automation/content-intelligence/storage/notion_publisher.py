@@ -40,14 +40,15 @@ async def publish_to_notion(
             "Notion-Version": "2022-06-28",
         }
 
-        # QA 리포트 요약
-        qa_summary = ""
-        if content.qa_report:
-            qa_summary = content.qa_report.to_emoji_report()
-
         # 본문을 Notion 블록으로 변환 (최대 2000자)
         body_text = content.body[:2000] if content.body else "(본문 없음)"
         body_blocks = _split_to_blocks(body_text)
+
+        # v13 표준 스키마 — 8개 속성
+        # Tags = keywords + hashtags 통합
+        tag_items = [{"name": kw[:100]} for kw in content.trend_keywords_used[:5]]
+        if content.hashtags:
+            tag_items.extend([{"name": h[:100]} for h in content.hashtags[:5]])
 
         payload = {
             "parent": {"database_id": config.notion_database_id},
@@ -62,20 +63,15 @@ async def publish_to_notion(
                         }
                     ]
                 },
-                "Platform": {"select": {"name": content.platform.upper()}},
-                "Content Type": {"select": {"name": content.content_type}},
-                "QA Score": {"number": content.qa_report.total_score if content.qa_report else 0},
-                "QA Status": {"select": {"name": "PASS" if content.qa_passed else "FAIL"}},
                 "Status": {"select": {"name": "Draft"}},
-                "Keywords": {"multi_select": [{"name": kw[:100]} for kw in content.trend_keywords_used[:5]]},
+                "Platform": {"select": {"name": content.platform.upper()}},
+                "Score": {"number": content.qa_report.total_score if content.qa_report else 0},
+                "Tags": {"multi_select": tag_items},
             },
             "children": body_blocks,
         }
 
-        # 해시태그 속성 (있으면 추가)
-        if content.hashtags:
-            hashtag_text = " ".join(f"#{h}" for h in content.hashtags[:10])
-            payload["properties"]["Hashtags"] = {"rich_text": [{"text": {"content": hashtag_text}}]}
+        # Hashtags are already merged into Tags above
 
         resp = requests.post(
             "https://api.notion.com/v1/pages",

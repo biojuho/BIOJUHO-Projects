@@ -128,8 +128,7 @@ def test_query_todays_articles_uses_database_query_endpoint(load_script_module, 
 
     monkeypatch.setattr(module.httpx, "AsyncClient", FakeAsyncClient)
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
-    monkeypatch.setattr(module, "ANTIGRAVITY_TASKS_DB_ID", "tasks-database-id")
-    monkeypatch.setattr(module, "NOTION_TASKS_DATA_SOURCE_ID", "legacy-data-source-id")
+    monkeypatch.setattr(module, "NOTION_TASKS_DATABASE_ID", "tasks-database-id")
 
     asyncio.run(
         module.query_todays_articles(

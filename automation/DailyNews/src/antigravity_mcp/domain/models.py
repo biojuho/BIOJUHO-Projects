@@ -91,6 +91,17 @@ class ContentReport:
     quality_state: str = "ok"
     analysis_meta: dict[str, Any] = field(default_factory=dict)
 
+    def has_notion_sync(self) -> bool:
+        return bool(str(self.notion_page_id or "").strip())
+
+    @property
+    def delivery_state(self) -> str:
+        """Expose an explicit operational label without breaking stored status values."""
+        if self.has_notion_sync():
+            return "notion_synced"
+        raw_status = str(self.status or "draft").strip()
+        return raw_status or "draft"
+
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["channel_drafts"] = [draft.to_dict() for draft in self.channel_drafts]

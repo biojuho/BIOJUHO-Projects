@@ -29,6 +29,7 @@ from antigravity_mcp.integrations.digest_adapter import DigestAdapter
 from antigravity_mcp.integrations.reasoning_adapter import ReasoningAdapter
 from antigravity_mcp.pipelines.collect import collect_content_items
 from antigravity_mcp.state.store import PipelineStateStore
+from antigravity_mcp.state.checkpoint import CheckpointStore
 
 CATEGORIES = ["Tech", "AI_Deep", "Economy_KR", "Economy_Global", "Crypto", "Global_Affairs"]
 
@@ -116,10 +117,10 @@ async def generate_unified_brief(results: dict) -> str:
 async def publish_to_notion(results: dict):
     """Publish QC'd results as a structured Notion page."""
     from notion_client import AsyncClient
-    from settings import ANTIGRAVITY_TASKS_DB_ID, NOTION_API_KEY
+    from settings import NOTION_API_KEY, NOTION_TASKS_DATABASE_ID
 
     notion = AsyncClient(auth=NOTION_API_KEY)
-    db_id = ANTIGRAVITY_TASKS_DB_ID
+    db_id = NOTION_TASKS_DATABASE_ID
     if len(db_id) == 32 and "-" not in db_id:
         db_id = f"{db_id[:8]}-{db_id[8:12]}-{db_id[12:16]}-{db_id[16:20]}-{db_id[20:]}"
 
@@ -306,6 +307,9 @@ async def run_full_pipeline():
     reasoner = ReasoningAdapter(state_store=state_store)
     digester = DigestAdapter(state_store=state_store)
 
+    chk_store = CheckpointStore()
+    job_id = f"v2_pipeline_{date.today().isoformat()}"
+
     if not brain.is_available():
         print("[ERROR] BrainAdapter not available")
         return
@@ -314,7 +318,14 @@ async def run_full_pipeline():
     print(f"DailyNews v2 Full Pipeline - {date.today().isoformat()}")
     print(f"{'=' * 60}\n")
 
-    all_results = {}
+    last_step, payload = chk_store.load_checkpoint(job_id)
+    if last_step == "completed":
+        print(f"✅ Job '{job_id}' is already completed. Exiting.")
+        return
+    elif last_step:
+        print(f"🔄 Resuming job '{job_id}' from step: {last_step} (Restored {len(payload.get('all_results', {}))} categories)")
+
+    all_results = payload.get("all_results", {})
 
     for cat in CATEGORIES:
         print(f"\n{'-' * 40}")
@@ -420,6 +431,9 @@ async def run_full_pipeline():
             "article_count": len(items),
             "body_count": body_count,
         }
+        
+        # Save checkpoint to cloud DB/SQLite after completion of this category
+        chk_store.save_checkpoint(job_id, "v2_pipeline", f"cat_{cat}", {"all_results": all_results})
 
     # Stage 6: Cross-Category Digest
     if all_results and digester.is_available():
@@ -444,12 +458,25 @@ async def run_full_pipeline():
 
     # Publish to Notion
     if all_results:
-        print(f"\n{'=' * 60}")
-        print("Publishing QC'd results to Notion...")
-        url, overall = await publish_to_notion(all_results)
-        print(f"  ✅ Published: {url}")
-        print(f"  Overall QC Score: {overall}/5")
-        print(f"  Categories: {len(all_results)}/{len(CATEGORIES)}")
+        if payload.get("published_url"):
+            url = payload["published_url"]
+            print(f"\n{'=' * 60}")
+            print(f"  ⏭️ Already published to Notion in checkpoint: {url}")
+        else:
+            print(f"\n{'=' * 60}")
+            print("Publishing QC'd results to Notion...")
+            url, overall = await publish_to_notion(all_results)
+            print(f"  ✅ Published: {url}")
+            print(f"  Overall QC Score: {overall}/5")
+            print(f"  Categories: {len(all_results)}/{len(CATEGORIES)}")
+            
+            payload["all_results"] = all_results
+            payload["published_url"] = url
+            payload["overall_score"] = overall
+            chk_store.save_checkpoint(job_id, "v2_pipeline", "publish_notion", payload)
+
+    # Mark as completely finished
+    chk_store.mark_completed(job_id)
 
     # Save local backup
     output_path = Path(r"D:\AI project\automation\DailyNews\output")

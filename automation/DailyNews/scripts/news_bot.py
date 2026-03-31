@@ -41,10 +41,10 @@ from runtime import (
     safe_gather,
 )
 from settings import (
-    ANTIGRAVITY_TASKS_DB_ID,
     CANVA_ENABLED,
     NEWS_SOURCES_FILE,
     NOTION_API_KEY,
+    NOTION_TASKS_DATABASE_ID,
     OUTPUT_DIR,
     PIPELINE_MAX_CONCURRENCY,
     PROJECT_ROOT,
@@ -54,8 +54,13 @@ from settings import (
 # shared.llm 모듈
 _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT))
-from shared.llm import TaskTier
-from shared.llm import get_client as _get_llm_client
+
+
+def _load_shared_llm():
+    from shared.llm import TaskTier
+    from shared.llm import get_client as get_llm_client
+
+    return TaskTier, get_llm_client
 
 
 def load_sources() -> dict[str, list[dict[str, str]]]:
@@ -454,7 +459,8 @@ def in_time_window(entry: Any, start: datetime, end: datetime) -> bool:
 
 def load_summarizer():
     try:
-        return _get_llm_client()
+        _task_tier, get_llm_client = _load_shared_llm()
+        return get_llm_client()
     except Exception:
         return None
 
@@ -579,9 +585,10 @@ async def summarize_article(title: str, content: str, client: Any, logger) -> st
         )
 
     try:
+        task_tier, _get_llm_client = _load_shared_llm()
         response = await run_with_timeout(
             client.acreate(
-                tier=TaskTier.LIGHTWEIGHT,
+                tier=task_tier.LIGHTWEIGHT,
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}],
             ),
@@ -1030,7 +1037,7 @@ async def process_category(
 
         page = await create_notion_page_with_retry(
             notion_client=notion,
-            parent={"database_id": ANTIGRAVITY_TASKS_DB_ID},
+            parent={"database_id": NOTION_TASKS_DATABASE_ID},
             properties={
                 "Name": {
                     "title": [
@@ -1102,9 +1109,9 @@ async def run_news_bot(
         logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
         state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
         return 1
-    if not ANTIGRAVITY_TASKS_DB_ID:
-        logger.error("bootstrap", "failed", "ANTIGRAVITY_TASKS_DB_ID missing")
-        state.record_job_finish(run_id, status="failed", error_text="ANTIGRAVITY_TASKS_DB_ID missing")
+    if not NOTION_TASKS_DATABASE_ID:
+        logger.error("bootstrap", "failed", "NOTION_TASKS_DATABASE_ID missing")
+        state.record_job_finish(run_id, status="failed", error_text="NOTION_TASKS_DATABASE_ID missing")
         return 1
 
     notion = AsyncClient(auth=NOTION_API_KEY)

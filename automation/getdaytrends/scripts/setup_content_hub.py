@@ -10,10 +10,10 @@ Content Hub Notion DB 자동 생성 스크립트 (v12.0)
     NOTION_TOKEN        - Notion Integration Token
     NOTION_DATABASE_ID  - 기존 DB ID (같은 부모 페이지에 Content Hub 생성)
 
-생성되는 DB 속성:
-    - Title (제목), Platform (멀티셀렉트), Status (셀렉트)
-    - Category (셀렉트), Viral Score (숫자), Source Trend (텍스트)
-    - Scheduled Date (날짜), QA Score (숫자), Pipeline Run (텍스트)
+생성되는 DB 속성 (v13 표준 스키마):
+    - Name (제목), Status (셀렉트), Category (셀렉트)
+    - Date (날짜), Tags (멀티셀렉트), Score (숫자)
+    - Platform (멀티셀렉트), URL (url)
 """
 
 import os
@@ -71,17 +71,9 @@ def main():
             return
 
     # Content Hub DB 속성 정의
+    # v13 표준 스키마 — 8개 속성으로 통합
     properties = {
-        "Title": {"title": {}},
-        "Platform": {
-            "multi_select": {
-                "options": [
-                    {"name": "X", "color": "blue"},
-                    {"name": "Threads", "color": "purple"},
-                    {"name": "NaverBlog", "color": "green"},
-                ]
-            }
-        },
+        "Name": {"title": {}},
         "Status": {
             "select": {
                 "options": [
@@ -106,13 +98,23 @@ def main():
                 ]
             }
         },
-        "Viral Score": {"number": {"format": "number"}},
-        "QA Score": {"number": {"format": "number"}},
-        "Source Trend": {"rich_text": {}},
-        "Scheduled Date": {"date": {}},
-        "Pipeline Run": {"rich_text": {}},
-        "Published URL": {"url": {}},
-        "Notes": {"rich_text": {}},
+        "Date": {"date": {}},
+        "Tags": {
+            "multi_select": {
+                "options": []
+            }
+        },
+        "Score": {"number": {"format": "number"}},
+        "Platform": {
+            "multi_select": {
+                "options": [
+                    {"name": "X", "color": "blue"},
+                    {"name": "Threads", "color": "purple"},
+                    {"name": "NaverBlog", "color": "green"},
+                ]
+            }
+        },
+        "URL": {"url": {}},
     }
 
     print("\n🔨 Content Hub DB 생성 중...")
@@ -159,13 +161,13 @@ def main():
             sample = notion.pages.create(
                 parent={"database_id": new_db_id},
                 properties={
-                    "Title": {"title": [{"text": {"content": "🐦 [X] 테스트 — Content Hub 정상 동작 확인"}}]},
-                    "Platform": {"multi_select": [{"name": "X"}]},
+                    "Name": {"title": [{"text": {"content": "🐦 [X] 테스트 — Content Hub 정상 동작 확인"}}]},
                     "Status": {"select": {"name": "Draft"}},
                     "Category": {"select": {"name": "테크"}},
-                    "Viral Score": {"number": 85},
-                    "Source Trend": {"rich_text": [{"text": {"content": "Content Hub 테스트"}}]},
-                    "Scheduled Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
+                    "Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
+                    "Score": {"number": 85},
+                    "Platform": {"multi_select": [{"name": "X"}]},
+                    "Tags": {"multi_select": [{"name": "테스트"}]},
                 },
                 children=[
                     {
