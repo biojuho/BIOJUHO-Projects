@@ -7,9 +7,8 @@
 
 ## TODO
 
-- [x] **VibeDebt 베이스라인 스캔 실행** — Score 34.3 / Grade C, `var/debt/2026-03-31-baseline.json` 저장 완료
-- [ ] **radon 의존성 추가** — `pyproject.toml` dev-dependencies에 `radon>=6.0` 추가 (복잡도 분석 정확도 향상)
-- [ ] **Pushgateway Docker 서비스 추가** — `docker-compose.yml`에 `prom/pushgateway:latest` 서비스 추가 (포트 9091)
+- [ ] **X engagement metrics loop validation** — verify scheduled `collect_posted_tweet_metrics.py` writes measured labels into the DB
+- [ ] **VibeDebt Pushgateway E2E smoke** — start `docker-compose.monitoring.yml` and push a real metrics snapshot to `pushgateway:9091`
 
 ---
 
@@ -22,6 +21,26 @@
 ## DONE (Last 7 Days)
 
 ### 2026-03-31
+
+- [x] **VibeDebt backlog cleanup finished**
+  - **Result**: Added the root workspace `dev` extra for `radon>=6.0`, verified that `docker-compose.monitoring.yml` already exposes `pushgateway` on port `9091`, and replaced the stale TODO items with the next operational tasks.
+  - **Files**:
+    - `pyproject.toml`
+    - `TASKS.md`
+  - **Validation**:
+    - `python -m pip install -e ".[dev]"` -> `radon 6.0.1`
+    - `docker compose -f docker-compose.monitoring.yml config --services` -> includes `pushgateway`
+    - `python ops/scripts/tech_debt_scanner.py --json-out var/debt/2026-03-31-radon.json` -> `radon_available=true`
+    - `python ops/scripts/push_debt_metrics.py --report-file var/debt/2026-03-31-radon.json --dry-run` -> metrics rendered successfully
+
+- [x] **Audience-First Prompt Optimization & Local QC Validated**
+  - **Result**: Successfully implemented and verified Creator-focused formatting ("Text blocks" spacing) and the explicit "💡 바이럴 텐션: XX점" metric injection into GetDayTrends LLM generator prompts.
+  - **Action 1**: Configured `DailyNews_AB_Test` to run locally via Windows Task Scheduler (Wed, Sun 19:00 KST) as a fallback strategy to preserve GitHub Actions tier limits.
+  - **Action 2**: Modified `prompt_builder.py` (`_build_audience_format_section`) and applied constraints across all short-form and threads generators in `generator.py` and `threads.py`.
+  - **Validation**:
+    - `python automation/getdaytrends/tests/test_generator.py` -> 29/29 tests passed.
+    - `pytest automation/getdaytrends/tests/` -> 414 tests passed, 0 failures.
+    - `test_prompt_qc.py` -> Verified explicit viral score hook and visual blank line insertion natively within terminal outputs.
 
 - [x] **System Critical Review & Action Items Execution**
   - **Result**: Conducted a highly critical review of the current AI ecosystem identifying the design/infrastructure gap, followed by immediate execution of 3 strategic action items to stabilize automation and metrics.
