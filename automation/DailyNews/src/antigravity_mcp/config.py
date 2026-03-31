@@ -270,7 +270,7 @@ def get_settings() -> AppSettings:
         docs_dir=DOCS_DIR,
         env_path=ENV_PATH,
         notion_api_key=notion_api_key,
-        notion_api_version="2025-09-03",
+        notion_api_version="2022-06-28",
         notion_tasks_database_id=notion_tasks_database_id,
         notion_tasks_data_source_id=notion_tasks_data_source_id,
         notion_reports_database_id=notion_reports_database_id,

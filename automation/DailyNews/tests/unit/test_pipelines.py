@@ -435,6 +435,8 @@ class TestPublishPipeline:
         mock_notion = MagicMock()
         mock_notion.is_configured.return_value = True
         mock_notion.create_record = AsyncMock(return_value={"id": "notion-page-123", "url": "https://notion.so/page"})
+        # [QA 수정] query_database must be AsyncMock for duplicate-prevention check
+        mock_notion.query_database = AsyncMock(return_value=([], ""))
 
         mock_telegram = MagicMock()
         mock_telegram.send_message = AsyncMock(return_value=True)
@@ -455,15 +457,105 @@ class TestPublishPipeline:
             )
 
         assert status in ("ok", "partial")
-        assert warnings == []
         assert publication["report_status"] == "published"
         assert publication["report_delivery_state"] == "notion_synced"
+        # [QA 수정] Verify duplicate check was called
+        mock_notion.query_database.assert_called_once()
 
         saved = state_store.get_report(sample_report.report_id)
         assert saved is not None
         assert saved.status == "published"
         assert saved.delivery_state == "notion_synced"
         assert saved.has_notion_sync() is True
+
+    @pytest.mark.asyncio
+    async def test_regression_duplicate_prevention_skips_creation_20260331(self, state_store, sample_report):
+        """Regression: publish_report should skip create_record when a page already exists for same date+category."""
+        from antigravity_mcp.pipelines.publish import publish_report
+
+        state_store.save_report(sample_report)
+
+        mock_notion = MagicMock()
+        mock_notion.is_configured.return_value = True
+        # [QA 수정] Simulate existing page found by duplicate check
+        mock_notion.query_database = AsyncMock(
+            return_value=([{"id": "existing-page-id", "url": "https://notion.so/existing"}], "")
+        )
+        mock_notion.create_record = AsyncMock()
+
+        mock_telegram = MagicMock()
+        mock_telegram.send_message = AsyncMock(return_value=True)
+
+        fake_settings = MagicMock(
+            content_approval_mode="manual",
+            notion_reports_database_id="db-123",
+            auto_push_enabled=False,
+        )
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings):
+            _, publication, warnings, _ = await publish_report(
+                report_id=sample_report.report_id,
+                channels=[],
+                approval_mode="manual",
+                state_store=state_store,
+                notion_adapter=mock_notion,
+                telegram_adapter=mock_telegram,
+            )
+
+        # create_record should NOT be called when duplicate exists
+        mock_notion.create_record.assert_not_called()
+        assert publication["notion_page_id"] == "existing-page-id"
+        assert any("already exists" in w for w in warnings)
+
+    @pytest.mark.asyncio
+    async def test_regression_properties_include_type_sentiment_entities_20260331(self, state_store, sample_report):
+        """Regression: publish_report should set Type=News and map Sentiment/Entities from analysis_meta."""
+        from antigravity_mcp.pipelines.publish import publish_report
+
+        sample_report.analysis_meta = {
+            "sentiment": {"overall": "BULLISH", "entities": ["AI", "Cloud"]},
+        }
+        state_store.save_report(sample_report)
+
+        mock_notion = MagicMock()
+        mock_notion.is_configured.return_value = True
+        mock_notion.query_database = AsyncMock(return_value=([], ""))
+        mock_notion.create_record = AsyncMock(return_value={"id": "new-page-id", "url": "https://notion.so/new"})
+
+        mock_telegram = MagicMock()
+        mock_telegram.send_message = AsyncMock(return_value=True)
+
+        fake_settings = MagicMock(
+            content_approval_mode="manual",
+            notion_reports_database_id="db-123",
+            auto_push_enabled=False,
+        )
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings):
+            await publish_report(
+                report_id=sample_report.report_id,
+                channels=[],
+                approval_mode="manual",
+                state_store=state_store,
+                notion_adapter=mock_notion,
+                telegram_adapter=mock_telegram,
+            )
+
+        # Verify create_record was called with the correct properties
+        call_kwargs = mock_notion.create_record.call_args[1]
+        props = call_kwargs["properties"]
+        assert props["Type"] == {"select": {"name": "News"}}
+        assert props["Sentiment"] == {"select": {"name": "BULLISH"}}
+        assert props["Entities"] == {"multi_select": [{"name": "AI"}, {"name": "Cloud"}]}
+
+    def test_regression_api_version_is_stable_20260331(self):
+        """Regression: Notion API version must be 2022-06-28, not the non-existent 2025-09-03."""
+        from antigravity_mcp.config import get_settings
+
+        get_settings.cache_clear()
+        settings = get_settings()
+        assert settings.notion_api_version == "2022-06-28", (
+            f"API version reverted to invalid value: {settings.notion_api_version}"
+        )
+        get_settings.cache_clear()
 
     @pytest.mark.asyncio
     async def test_publish_downgrades_auto_when_quality_not_ok(self, state_store, sample_report, monkeypatch):

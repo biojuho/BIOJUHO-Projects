@@ -192,23 +192,60 @@ async def publish_report(
         approval_mode = "manual"
 
     if notion_adapter.is_configured() and settings.notion_reports_database_id:
+        today_iso = datetime.now().date().isoformat()
         properties = {
             "Name": {
                 "title": [{"type": "text", "text": {"content": f"{report.category} Brief {datetime.now().date()}"}}]
             },
-            "Date": {"date": {"start": datetime.now().date().isoformat()}},
+            "Date": {"date": {"start": today_iso}},
+            "Type": {"select": {"name": "News"}},
         }
+        # Map sentiment from analysis_meta (populated by analyze_steps)
+        sentiment_meta = (report.analysis_meta or {}).get("sentiment", {})
+        overall_sentiment = sentiment_meta.get("overall", "")
+        if overall_sentiment:
+            properties["Sentiment"] = {"select": {"name": overall_sentiment}}
+        # Map entities from analysis_meta
+        entities = sentiment_meta.get("entities", [])
+        if entities:
+            properties["Entities"] = {"multi_select": [{"name": e[:100]} for e in entities[:5]]}
+
+        # Duplicate prevention: check if same category+date already exists
         try:
-            created = await notion_adapter.create_record(
+            existing_pages, _ = await notion_adapter.query_database(
                 database_id=settings.notion_reports_database_id,
-                properties=properties,
-                markdown=_report_markdown(report),
+                filter_payload={
+                    "and": [
+                        {"property": "Date", "date": {"equals": today_iso}},
+                        {"property": "Name", "title": {"contains": report.category}},
+                    ]
+                },
+                limit=1,
             )
-            report.notion_page_id = created.get("id", "")
-            publication["notion_page_id"] = report.notion_page_id
-            publication["notion_url"] = created.get("url", "")
-        except NotionAdapterError as exc:
-            warnings.append(str(exc))
+        except NotionAdapterError:
+            existing_pages = []
+
+        if existing_pages:
+            existing_id = existing_pages[0].get("id", "")
+            existing_url = existing_pages[0].get("url", "")
+            report.notion_page_id = existing_id
+            publication["notion_page_id"] = existing_id
+            publication["notion_url"] = existing_url
+            warnings.append(
+                f"Notion record already exists for {report.category} on {today_iso}; skipped duplicate creation."
+            )
+        else:
+            try:
+                created = await notion_adapter.create_record(
+                    database_id=settings.notion_reports_database_id,
+                    properties=properties,
+                    markdown=_report_markdown(report),
+                )
+                report.notion_page_id = created.get("id", "")
+                publication["notion_page_id"] = report.notion_page_id
+                publication["notion_url"] = created.get("url", "")
+            except NotionAdapterError as exc:
+                warnings.append(str(exc))
     else:
         warnings.append("Notion reports database is not configured; report saved only to local state.")
 
