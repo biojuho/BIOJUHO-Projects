@@ -52,6 +52,7 @@ from prompt_builder import (  # noqa: F401
     _LANG_NAME_MAP,
     _REPORT_BLOG_SYSTEM,
     _build_account_identity_section,
+    _build_audience_format_section,
     _build_available_facts_section,
     _build_category_tone_hint,
     _build_context_section,
@@ -102,6 +103,7 @@ async def generate_tweets_async(
     deep_why_section = _build_deep_why_section(trend)
     golden_ref_section = _build_golden_reference_section(golden_refs)
     pattern_weights_section = _build_pattern_weights_section(pattern_weights)
+    audience_format_section = _build_audience_format_section(trend)
     safe_keyword = sanitize_keyword(trend.keyword)
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
 
@@ -110,7 +112,7 @@ async def generate_tweets_async(
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
         f"{identity_section}{deep_why_section}{context_section}{scoring_section}"
-        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}\n"
+        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}{audience_format_section}\n"
         "위 배경과 컨텍스트를 깊이 소화한 뒤, 쟁점을 추출하고 각 쟁점별로 날카로운 각도의 트윗 작성.\n"
         "중요: 너는 뉴스를 '전달'하는 사람이 아니라 뉴스를 보고 '한마디 하는' 사람임.\n"
         "정보 전달 30% + 너의 해석/시각 70% 비율로 작성.\n"
@@ -248,6 +250,39 @@ async def generate_tweets_and_threads_async(
 # ══════════════════════════════════════════════════════
 
 
+async def _resolve_combined_fallback(
+    result_map: dict[str, Any],
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    golden_refs: list | None,
+    pattern_weights: dict | None,
+) -> TweetBatch | None:
+    """'combined' 키 결과에서 배치를 추출하고 실패 시 개별 폴백 실행."""
+    combined = result_map["combined"]
+    if combined and not isinstance(combined, Exception):
+        return combined
+    if isinstance(combined, Exception):
+        log.warning(f"통합 생성 예외, 개별 폴백: {combined}")
+    fallback_results = await asyncio.gather(
+        generate_tweets_async(trend, config, client, None, golden_refs, pattern_weights),
+        generate_threads_content_async(trend, config, client),
+        return_exceptions=True,
+    )
+    batch = fallback_results[0] if not isinstance(fallback_results[0], Exception) else None
+    if batch and not isinstance(fallback_results[1], Exception) and fallback_results[1]:
+        batch.threads_posts = fallback_results[1]
+    return batch
+
+
+def _attach_optional_results(batch: TweetBatch, result_map: dict[str, Any]) -> None:
+    """result_map의 선택적 생성 결과(장문/쓰레드/블로그)를 배치에 병합."""
+    for key, attr in (("long", "long_posts"), ("thread", "thread"), ("blog", "blog_posts")):
+        result = result_map.get(key)
+        if result and not isinstance(result, Exception):
+            setattr(batch, attr, result)
+
+
 async def generate_for_trend_async(
     trend: ScoredTrend,
     config: AppConfig,
@@ -264,21 +299,16 @@ async def generate_for_trend_async(
     [v9.0] recent_tweets: 이전 생성 표현 주입 (콘텐츠 다양성).
     [v5.0] golden_refs / pattern_weights: 성과 기반 벤치마크 + 패턴 가중치.
     """
-    # Phase 4: 카테고리 기반 티어 결정
     gen_tier = _select_generation_tier(trend, config)
     category = getattr(trend, "category", "") or "미분류"
     tier_label = "Sonnet" if gen_tier == TaskTier.HEAVY else "Haiku↓"
     platforms = getattr(config, "target_platforms", ["x"])
 
-    # Threads 활성 여부 확인
     threads_enabled = (
         config.enable_threads and trend.viral_potential >= config.threads_min_score and "threads" in platforms
     )
-
-    # [v12.0] 블로그 활성 여부
     blog_enabled = "naver_blog" in platforms and trend.viral_potential >= getattr(config, "blog_min_score", 70)
 
-    # C3: 생성 티어 표시 (비용 투명성)
     tier_parts = ["단문(5종)" + ("+Threads(통합)" if threads_enabled else "")]
     if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
         tier_parts.append(f"Premium+장문({tier_label})")
@@ -288,126 +318,56 @@ async def generate_for_trend_async(
         tier_parts.append("블로그(HEAVY)")
     log.info(f"  [{trend.viral_potential}점/{category}] '{trend.keyword}' → {' + '.join(tier_parts)}")
 
+    # 직렬 실행 경로 (Python 3.14+ 호환용)
     if _PY314_SERIAL_GENERATION:
         result_map: dict[str, Any] = {}
-        try:
-            if threads_enabled:
-                result_map["combined"] = await generate_tweets_and_threads_async(
-                    trend, config, client, recent_tweets, golden_refs, pattern_weights
-                )
-            else:
-                result_map["tweets"] = await generate_tweets_async(
-                    trend, config, client, recent_tweets, golden_refs, pattern_weights
-                )
-        except Exception as exc:
-            result_map["combined" if threads_enabled else "tweets"] = exc
-
-        if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
-            try:
-                result_map["long"] = await generate_long_form_async(trend, config, client, tier=gen_tier)
-            except Exception as exc:
-                result_map["long"] = exc
-
-        if trend.viral_potential >= config.thread_min_score:
-            try:
-                result_map["thread"] = await generate_thread_async(trend, config, client, tier=gen_tier)
-            except Exception as exc:
-                result_map["thread"] = exc
-
-        if blog_enabled:
-            try:
-                result_map["blog"] = await generate_blog_async(trend, config, client)
-            except Exception as exc:
-                result_map["blog"] = exc
-
-        if "combined" in result_map:
-            combined = result_map["combined"]
-            if combined and not isinstance(combined, Exception):
-                batch = combined
-            else:
-                if isinstance(combined, Exception):
-                    log.warning(f"combined generation failed, falling back: {combined}")
-
-                try:
-                    fallback_tweets = await generate_tweets_async(
-                        trend, config, client, None, golden_refs, pattern_weights
-                    )
-                except Exception as exc:
-                    fallback_tweets = exc
-
-                try:
-                    fallback_threads = await generate_threads_content_async(trend, config, client)
-                except Exception as exc:
-                    fallback_threads = exc
-
-                batch = fallback_tweets if not isinstance(fallback_tweets, Exception) else None
-                if batch and not isinstance(fallback_threads, Exception) and fallback_threads:
-                    batch.threads_posts = fallback_threads
-        else:
-            batch = result_map.get("tweets")
-
-        if not batch or isinstance(batch, Exception):
-            if isinstance(batch, Exception):
-                log.error(f"tweet generation exception ({trend.keyword}): {batch}")
-            return None
-
-        long_result = result_map.get("long")
-        if long_result and not isinstance(long_result, Exception):
-            batch.long_posts = long_result
-
-        thread_result = result_map.get("thread")
-        if thread_result and not isinstance(thread_result, Exception):
-            batch.thread = thread_result
-
-        blog_result = result_map.get("blog")
-        if blog_result and not isinstance(blog_result, Exception):
-            batch.blog_posts = blog_result
-
-        return batch
-
-    tasks: dict[str, asyncio.Task] = {}
-
-    # C1 최적화: Threads 가능하면 통합 호출, 아니면 기존 개별 호출
-    if threads_enabled:
-        tasks["combined"] = asyncio.ensure_future(
+        primary_key = "combined" if threads_enabled else "tweets"
+        primary_coro = (
             generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+            if threads_enabled
+            else generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
         )
+        try:
+            result_map[primary_key] = await primary_coro
+        except Exception as exc:
+            result_map[primary_key] = exc
+
+        for key, coro in [
+            ("long", generate_long_form_async(trend, config, client, tier=gen_tier)
+             if config.enable_long_form and trend.viral_potential >= config.long_form_min_score else None),
+            ("thread", generate_thread_async(trend, config, client, tier=gen_tier)
+             if trend.viral_potential >= config.thread_min_score else None),
+            ("blog", generate_blog_async(trend, config, client) if blog_enabled else None),
+        ]:
+            if coro is not None:
+                try:
+                    result_map[key] = await coro
+                except Exception as exc:
+                    result_map[key] = exc
     else:
-        tasks["tweets"] = asyncio.ensure_future(
-            generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
-        )
-
-    if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
-        tasks["long"] = asyncio.ensure_future(generate_long_form_async(trend, config, client, tier=gen_tier))
-
-    if trend.viral_potential >= config.thread_min_score:
-        tasks["thread"] = asyncio.ensure_future(generate_thread_async(trend, config, client, tier=gen_tier))
-
-    # [v12.0] 네이버 블로그 생성 (병렬)
-    if blog_enabled:
-        tasks["blog"] = asyncio.ensure_future(generate_blog_async(trend, config, client))
-
-    keys = list(tasks.keys())
-    results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-    result_map = dict(zip(keys, results, strict=False))
-
-    # 통합 호출 결과 처리 (폴백 포함)
-    if "combined" in result_map:
-        combined = result_map["combined"]
-        if combined and not isinstance(combined, Exception):
-            batch = combined
-        else:
-            # 통합 실패 → 개별 폴백
-            if isinstance(combined, Exception):
-                log.warning(f"통합 생성 예외, 개별 폴백: {combined}")
-            fallback_results = await asyncio.gather(
-                generate_tweets_async(trend, config, client, None, golden_refs, pattern_weights),
-                generate_threads_content_async(trend, config, client),
-                return_exceptions=True,
+        # 병렬 실행 경로 (기본)
+        tasks: dict[str, asyncio.Task] = {}
+        if threads_enabled:
+            tasks["combined"] = asyncio.ensure_future(
+                generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
             )
-            batch = fallback_results[0] if not isinstance(fallback_results[0], Exception) else None
-            if batch and not isinstance(fallback_results[1], Exception) and fallback_results[1]:
-                batch.threads_posts = fallback_results[1]
+        else:
+            tasks["tweets"] = asyncio.ensure_future(
+                generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+            )
+        if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
+            tasks["long"] = asyncio.ensure_future(generate_long_form_async(trend, config, client, tier=gen_tier))
+        if trend.viral_potential >= config.thread_min_score:
+            tasks["thread"] = asyncio.ensure_future(generate_thread_async(trend, config, client, tier=gen_tier))
+        if blog_enabled:
+            tasks["blog"] = asyncio.ensure_future(generate_blog_async(trend, config, client))
+        keys = list(tasks.keys())
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        result_map = dict(zip(keys, results, strict=False))
+
+    # 기본 배치 추출 (combined 또는 tweets)
+    if "combined" in result_map:
+        batch = await _resolve_combined_fallback(result_map, trend, config, client, golden_refs, pattern_weights)
     else:
         batch = result_map.get("tweets")
 
@@ -416,19 +376,7 @@ async def generate_for_trend_async(
             log.error(f"트윗 생성 예외 ({trend.keyword}): {batch}")
         return None
 
-    long_result = result_map.get("long")
-    if long_result and not isinstance(long_result, Exception):
-        batch.long_posts = long_result
-
-    thread_result = result_map.get("thread")
-    if thread_result and not isinstance(thread_result, Exception):
-        batch.thread = thread_result
-
-    # [v12.0] 블로그 결과 병합
-    blog_result = result_map.get("blog")
-    if blog_result and not isinstance(blog_result, Exception):
-        batch.blog_posts = blog_result
-
+    _attach_optional_results(batch, result_map)
     return batch
 
 

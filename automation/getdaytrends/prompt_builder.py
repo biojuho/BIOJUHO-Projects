@@ -256,6 +256,20 @@ def _build_fact_guardrail_section(trend: ScoredTrend) -> str:
     return rules + facts_section
 
 
+def _build_audience_format_section(trend: ScoredTrend) -> str:
+    """[v18.0] Audience-First 프레임워크 기반: 크리에이터 친화적 시각적 포맷팅 및 지표 노출 규칙."""
+    viral_score = trend.viral_potential
+    if viral_score < 70:
+        return ""
+    
+    return (
+        f"\n[Audience-First 포맷팅 규칙]\n"
+        f"- 대상 독자: 트렌드를 빠르게 파악하고 큐레이션하려는 '콘텐츠 크리에이터/마케터'.\n"
+        f"- 시각적 가독성: 줄바꿈과 여백을 적극 활용하여 텍스트 덩어리(Text Block)가 되지 않도록 할 것.\n"
+        f"- 바이럴 텐션: 포스트 리드(첫 문단) 혹은 마무리 부근에 현재 획득한 바이럴 점수({viral_score}점)를 "
+        f"'💡 바이럴 텐션: {viral_score}점' 이나 유사한 재치있는 표현으로 명시하여 크리에이터들이 이 정보를 가치있게 느끼도록 할 것.\n"
+    )
+
 def _build_golden_reference_section(golden_refs: list | None) -> str:
     """[E] 골든 레퍼런스 벤치마크 섹션 — QA 기준으로 실제 고성과 트윗 주입."""
     if not golden_refs:

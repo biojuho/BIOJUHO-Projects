@@ -11,6 +11,7 @@ from config import AppConfig
 from models import GeneratedThread, GeneratedTweet, ScoredTrend
 from prompt_builder import (
     _build_account_identity_section,
+    _build_audience_format_section,
     _build_context_section,
     _build_deep_why_section,
     _build_fact_guardrail_section,
@@ -46,6 +47,7 @@ async def generate_threads_content_async(
     deep_why_section = _build_deep_why_section(trend)
     fact_guardrail_section = _build_fact_guardrail_section(trend)
     identity_section = _build_account_identity_section(config, include_tone=not report_profile)
+    audience_format_section = _build_audience_format_section(trend)
     safe_keyword = sanitize_keyword(trend.keyword)
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
 
@@ -53,7 +55,7 @@ async def generate_threads_content_async(
         f"주제: {safe_keyword}\n"
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}\n"
+        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}{audience_format_section}\n"
         + (
             "위 배경과 컨텍스트를 소화한 뒤, Threads용 리포트형 포스트 2개를 작성.\n"
             "핵심: 뉴스 전달이 아니라 '이 현상에 대한 내 해석'.\n"
