@@ -34,6 +34,16 @@ if TYPE_CHECKING:
 log = logging.getLogger("shared.llm.reasoning.fot")
 
 # ---------------------------------------------------------------------------
+# Pruning configuration (ToT-inspired)
+# ---------------------------------------------------------------------------
+
+_MIN_QUALITY_LENGTH = 50  # subtask results shorter than this are pruned
+_ERROR_INDICATORS = frozenset({
+    "에러", "error", "failed", "실패", "cannot", "unable",
+    "할 수 없", "불가능", "exception", "traceback",
+})
+
+# ---------------------------------------------------------------------------
 # Prompt templates
 # ---------------------------------------------------------------------------
 
@@ -129,7 +139,13 @@ class ForestOfThoughtEngine:
     """Forest-of-Thought: recursive sub-task decomposition and synthesis.
 
     Breaks complex queries into manageable sub-tasks, solves each
-    independently (preventing context rot), then synthesizes results.
+    independently (preventing context rot), prunes low-quality results,
+    then synthesizes the remaining high-quality results.
+
+    Pruning (ToT-inspired):
+    - Removes results that are too short (< 50 chars)
+    - Removes results dominated by error indicators
+    - Logs pruning statistics for observability
     """
 
     def __init__(self, client: LLMClient) -> None:
@@ -211,9 +227,19 @@ class ForestOfThoughtEngine:
             )
             total_cost += resp.cost_usd
 
+        # Step 2.5: Prune low-quality subtask results (ToT-inspired)
+        pruned_results = [r for r in subtask_results if self._quality_check(r)]
+        if len(pruned_results) < len(subtask_results):
+            pruned_count = len(subtask_results) - len(pruned_results)
+            log.info("FoT: pruned %d/%d low-quality subtasks", pruned_count, len(subtask_results))
+        if not pruned_results:
+            # All pruned — fall back to using all results
+            log.warning("FoT: all subtasks pruned, using originals")
+            pruned_results = subtask_results
+
         # Step 3: Synthesize results
         results_text = "\n\n".join(
-            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}" for i, r in enumerate(subtask_results)
+            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}" for i, r in enumerate(pruned_results)
         )
         synth_resp = self._client.create(
             tier=synthesize_tier,
@@ -235,7 +261,7 @@ class ForestOfThoughtEngine:
         return FoTResult(
             text=synth_resp.text,
             subtasks=subtasks,
-            subtask_results=subtask_results,
+            subtask_results=pruned_results,
             total_cost_usd=total_cost,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
             subtask_count=len(subtasks),
@@ -283,7 +309,7 @@ class ForestOfThoughtEngine:
         subtask_results: list[FoTSubtaskResult] = []
         total_cost = decompose_resp.cost_usd
 
-        for idx, subtask in enumerate(subtasks):
+        for _idx, subtask in enumerate(subtasks):
             resp = await self._client.acreate(
                 tier=solve_tier,
                 messages=[
@@ -310,8 +336,16 @@ class ForestOfThoughtEngine:
             )
             total_cost += resp.cost_usd
 
+        # Prune low-quality results (async path)
+        pruned_results = [r for r in subtask_results if self._quality_check(r)]
+        if len(pruned_results) < len(subtask_results):
+            log.info("FoT async: pruned %d/%d low-quality subtasks",
+                     len(subtask_results) - len(pruned_results), len(subtask_results))
+        if not pruned_results:
+            pruned_results = subtask_results
+
         results_text = "\n\n".join(
-            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}" for i, r in enumerate(subtask_results)
+            f"### 서브태스크 {i + 1}: {r.subtask}\n{r.text}" for i, r in enumerate(pruned_results)
         )
         synth_resp = await self._client.acreate(
             tier=synthesize_tier,
@@ -333,8 +367,37 @@ class ForestOfThoughtEngine:
         return FoTResult(
             text=synth_resp.text,
             subtasks=subtasks,
-            subtask_results=subtask_results,
+            subtask_results=pruned_results,
             total_cost_usd=total_cost,
             total_latency_ms=(time.perf_counter() - t0) * 1000,
             subtask_count=len(subtasks),
         )
+
+    # -- Pruning (ToT-inspired) --------------------------------------------
+
+    @staticmethod
+    def _quality_check(result: FoTSubtaskResult) -> bool:
+        """Check if a subtask result meets minimum quality for synthesis.
+
+        Prunes results that are:
+        - Too short (likely incomplete or trivial)
+        - Dominated by error messages
+        - Empty or whitespace-only
+        """
+        text = result.text.strip()
+
+        # Empty or near-empty
+        if len(text) < _MIN_QUALITY_LENGTH:
+            log.debug("FoT prune: '%s' too short (%d chars)", result.subtask[:30], len(text))
+            return False
+
+        # Error-dominated content
+        text_lower = text.lower()
+        error_hits = sum(1 for indicator in _ERROR_INDICATORS if indicator in text_lower)
+        # If >30% of the response is error indicators relative to word count
+        word_count = max(len(text_lower.split()), 1)
+        if error_hits > 0 and error_hits / word_count > 0.15:
+            log.debug("FoT prune: '%s' error-dominated (%d indicators)", result.subtask[:30], error_hits)
+            return False
+
+        return True

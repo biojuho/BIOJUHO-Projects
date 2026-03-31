@@ -35,6 +35,7 @@ from ..models import LLMPolicy, TaskTier
 
 if TYPE_CHECKING:
     from ..client import LLMClient
+    from ..context_map import ContextMap
 
 log = logging.getLogger("shared.llm.reasoning.router")
 
@@ -239,9 +240,14 @@ class SmartRouter:
     estimated complexity, without making LLM calls for routing itself.
     """
 
-    def __init__(self, client: LLMClient) -> None:
+    def __init__(
+        self,
+        client: LLMClient,
+        context_map: ContextMap | None = None,
+    ) -> None:
         self._client = client
         self._config = REASONING_CONFIG
+        self._context_map = context_map
 
     def route_and_reason(
         self,
@@ -263,15 +269,22 @@ class SmartRouter:
         query = messages[-1].get("content", "") if messages else ""
         complexity = estimate_complexity(query)
 
+        # Inject code context for complex queries (Phase 2.2)
+        enriched_system = self._inject_code_context(system, query, complexity)
+
         strategy = force_strategy or self._select_strategy(complexity)
         resolved_tier = tier or self._tier_for_complexity(complexity)
 
-        log.info("SmartRouter: complexity=%s, strategy=%s, tier=%s", complexity.value, strategy, resolved_tier.value)
+        log.info(
+            "SmartRouter: complexity=%s, strategy=%s, tier=%s, code_context=%s",
+            complexity.value, strategy, resolved_tier.value,
+            "injected" if enriched_system != system else "none",
+        )
 
         if strategy == "direct":
             return self._run_direct(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
@@ -281,7 +294,7 @@ class SmartRouter:
         elif strategy == "sage":
             return self._run_sage(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
@@ -291,7 +304,7 @@ class SmartRouter:
         elif strategy == "cot":
             return self._run_cot(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
@@ -301,7 +314,7 @@ class SmartRouter:
         elif strategy == "fot":
             return self._run_fot(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
@@ -312,7 +325,7 @@ class SmartRouter:
             log.warning("SmartRouter: unknown strategy '%s', falling back to direct", strategy)
             return self._run_direct(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
@@ -335,17 +348,21 @@ class SmartRouter:
         query = messages[-1].get("content", "") if messages else ""
         complexity = estimate_complexity(query)
 
+        # Inject code context for complex queries (Phase 2.2)
+        enriched_system = self._inject_code_context(system, query, complexity)
+
         strategy = force_strategy or self._select_strategy(complexity)
         resolved_tier = tier or self._tier_for_complexity(complexity)
 
         log.info("SmartRouter async: complexity=%s, strategy=%s", complexity.value, strategy)
 
+        # Async routing uses enriched_system for all strategies
         if strategy == "direct":
             resp = await self._client.acreate(
                 tier=resolved_tier,
                 messages=messages,
                 max_tokens=max_tokens,
-                system=system,
+                system=enriched_system,
                 policy=policy,
             )
             return ReasoningResult(
@@ -362,7 +379,7 @@ class SmartRouter:
             engine = SAGEEngine(self._client)
             result = await engine.arun(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
@@ -384,7 +401,7 @@ class SmartRouter:
             engine = ChainOfThoughtEngine(self._client)
             result = await engine.arun(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
@@ -406,7 +423,7 @@ class SmartRouter:
             engine = ForestOfThoughtEngine(self._client)
             result = await engine.arun(
                 messages=messages,
-                system=system,
+                system=enriched_system,
                 policy=policy,
                 max_tokens=max_tokens,
                 max_subtasks=self._config["fot_max_depth"] + 2,
@@ -425,7 +442,7 @@ class SmartRouter:
                 tier=resolved_tier,
                 messages=messages,
                 max_tokens=max_tokens,
-                system=system,
+                system=enriched_system,
                 policy=policy,
             )
             return ReasoningResult(
@@ -468,6 +485,46 @@ class SmartRouter:
             QueryComplexity.CRITICAL: TaskTier.HEAVY,
         }
         return mapping.get(complexity, TaskTier.MEDIUM)
+
+    # -- Code context injection (Phase 2.2) --
+
+    def _inject_code_context(
+        self,
+        system: str,
+        query: str,
+        complexity: QueryComplexity,
+    ) -> str:
+        """Inject relevant code context into the system prompt for complex queries.
+
+        Only activates for MEDIUM+ complexity to avoid overhead on simple queries.
+        Uses the AST-based ContextMap (no LLM calls).
+        """
+        if self._context_map is None:
+            return system
+
+        # Only inject for queries that benefit from code context
+        if complexity == QueryComplexity.LOW:
+            return system
+
+        # Scale token budget by complexity
+        token_budgets = {
+            QueryComplexity.MEDIUM: 500,
+            QueryComplexity.HIGH: 800,
+            QueryComplexity.CRITICAL: 1200,
+        }
+        max_tokens = token_budgets.get(complexity, 500)
+
+        try:
+            code_context = self._context_map.get_relevant_context(
+                query, max_tokens=max_tokens,
+            )
+            if code_context:
+                separator = "\n\n" if system else ""
+                return f"{system}{separator}{code_context}"
+        except Exception as e:
+            log.debug("Code context injection failed (non-fatal): %s", e)
+
+        return system
 
     # -- Strategy runners (sync) --
 
