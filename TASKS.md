@@ -23,6 +23,20 @@
 
 ### 2026-03-31
 
+- [x] **DailyNews P0-P3 코드 리뷰 전체 완료 (15개 항목)**
+  - **Result**: 보안(SQL injection), 안정성(circuit breaker, fallback gate), 관측성(metrics, tracing, Telegram alerting), 아키텍처(mixin base, BriefAdapters, async 통일) 전체 구현
+  - **Commits**:
+    - `f06bf7a` — P0/P1: silent failure 차단, SQL injection, log rotation, batch queries
+    - `bd79bd0` — P2: circuit breaker, Telegram alerting, emit_metric(), BriefAdapters
+    - `8185a5b` — P3: _DBProviderBase, asyncio.to_thread, trace context (contextvars)
+    - `bff4fc3` — delivery_state, config alias cleanup, linter fixes, session docs
+  - **Tests**: 79 unit tests passed
+  - **Key new files**:
+    - `src/antigravity_mcp/integrations/circuit_breaker.py`
+    - `src/antigravity_mcp/tracing.py`
+    - `src/antigravity_mcp/state/base.py`
+    - `tests/unit/test_circuit_breaker.py`, `tests/unit/test_tracing.py`
+
 - [x] **DailyNews gray-zone closure recorded**
   - **Result**: Retired the last DailyNews legacy compatibility layer from active runtime behavior. Scripts now use canonical `NOTION_*` settings only, shared deployment examples no longer advertise deprecated names, and config warnings now flag removed legacy env names instead of silently reading them.
   - **Files**:
