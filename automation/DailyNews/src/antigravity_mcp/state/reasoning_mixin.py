@@ -6,19 +6,16 @@ Follows the same pattern as existing mixins in :pymod:`antigravity_mcp.state.mix
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from antigravity_mcp.domain.models import FactFragment, Hypothesis
+from antigravity_mcp.state.base import _DBProviderBase
 from antigravity_mcp.state.events import utc_now_iso
 
 
-class _ReasoningMixin:
+class _ReasoningMixin(_DBProviderBase):
     """CRUD for ``fact_fragments``, ``hypotheses``, and ``reasoning_patterns`` tables."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError  # provided by PipelineStateStore
 
     # ── Fact Fragments ────────────────────────────────────────────────────
 

@@ -15,6 +15,7 @@ Optional:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date
 from typing import Any
@@ -116,7 +117,7 @@ class XAdapter:
 
         tweet_text = content[:280]  # Twitter's character limit
         try:
-            response = client.create_tweet(text=tweet_text)
+            response = await asyncio.to_thread(client.create_tweet, text=tweet_text)
             tweet_id = response.data["id"]
             tweet_url = f"https://twitter.com/i/web/status/{tweet_id}"
             if self._state_store is not None:
@@ -139,8 +140,8 @@ class XAdapter:
                     return {"status": "auth_error", "message": f"X auth failed ({status_code}); check credentials."}
             return {"status": "error", "message": f"{error_name}: {exc}"}
 
-    def post_thread(self, tweets: list[str]) -> list[dict[str, str]]:
-        """Post a thread of tweets (synchronous helper for batch use).
+    async def post_thread(self, tweets: list[str]) -> list[dict[str, str]]:
+        """Post a thread of tweets.
 
         Returns a list of result dicts per tweet.
         """
@@ -158,7 +159,7 @@ class XAdapter:
                 kwargs: dict[str, Any] = {"text": tweet_text[:280]}
                 if reply_to:
                     kwargs["reply"] = {"in_reply_to_tweet_id": reply_to}
-                response = client.create_tweet(**kwargs)
+                response = await asyncio.to_thread(client.create_tweet, **kwargs)
                 tweet_id = str(response.data["id"])
                 reply_to = tweet_id
                 if self._state_store is not None:

@@ -6,17 +6,14 @@ Follows the same pattern as existing mixins in :pymod:`antigravity_mcp.state.mix
 from __future__ import annotations
 
 import json
-import sqlite3
 
 from antigravity_mcp.domain.models import DigestEntry
+from antigravity_mcp.state.base import _DBProviderBase
 from antigravity_mcp.state.events import utc_now_iso
 
 
-class _DigestMixin:
+class _DigestMixin(_DBProviderBase):
     """CRUD for the ``digest_queue`` table."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError  # provided by PipelineStateStore
 
     def enqueue_for_digest(self, report_id: str) -> None:
         """Add a report to the digest queue with 'pending' status."""

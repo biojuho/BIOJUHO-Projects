@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from antigravity_mcp.domain.models import ChannelDraft, ContentReport, PipelineRun
+from antigravity_mcp.state.base import _DBProviderBase
 from antigravity_mcp.state.events import utc_now_iso
 
 try:
@@ -56,11 +57,8 @@ def _json_default(value: Any) -> Any:
 # ── Run tracking ──────────────────────────────────────────────────────────
 
 
-class _RunMixin:
+class _RunMixin(_DBProviderBase):
     """Methods for the ``job_runs`` table."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError  # provided by PipelineStateStore
 
     def record_job_start(self, run_id: str, job_name: str, summary: dict[str, Any] | None = None) -> None:
         with self._connect() as connection:
@@ -241,11 +239,8 @@ class _RunMixin:
 # ── Article deduplication ─────────────────────────────────────────────────
 
 
-class _ArticleMixin:
+class _ArticleMixin(_DBProviderBase):
     """Methods for the ``article_cache`` table."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError
 
     def has_seen_article(self, *, link: str, category: str, window_name: str) -> bool:
         with self._connect() as connection:
@@ -328,11 +323,8 @@ class _ArticleMixin:
 # ── Report lifecycle ──────────────────────────────────────────────────────
 
 
-class _ReportMixin:
+class _ReportMixin(_DBProviderBase):
     """Methods for the ``content_reports`` and ``channel_publications`` tables."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError
 
     def find_report_by_fingerprint(self, fingerprint: str) -> ContentReport | None:
         with self._connect() as connection:
@@ -493,11 +485,8 @@ class _ReportMixin:
 # ── LLM / Feed caching ───────────────────────────────────────────────────
 
 
-class _CacheMixin:
+class _CacheMixin(_DBProviderBase):
     """Methods for ``llm_cache``, ``feed_etag_cache``, and token usage stats."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError
 
     def get_cached_llm_response(self, prompt_hash: str) -> str | None:
         """Return cached LLM response text or None if cache miss / expired."""
@@ -613,11 +602,8 @@ class _CacheMixin:
 # ── X daily post counter ─────────────────────────────────────────────────
 
 
-class _XPostMixin:
+class _XPostMixin(_DBProviderBase):
     """Persistent daily post counter for X (Twitter) publishing."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError
 
     def get_x_post_count(self, post_date: str) -> int:
         """Return the number of posts made on the given date (YYYY-MM-DD)."""
@@ -656,11 +642,8 @@ class _XPostMixin:
 # ── Topic timeline tracking ───────────────────────────────────────────────
 
 
-class _TopicMixin:
+class _TopicMixin(_DBProviderBase):
     """Persistent topic timeline for continuity tracking across briefs."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError
 
     def upsert_topic(
         self,
@@ -763,11 +746,8 @@ class _TopicMixin:
 # ── X tweet metrics ───────────────────────────────────────────────────────
 
 
-class _MetricsMixin:
+class _MetricsMixin(_DBProviderBase):
     """Methods for tracking X tweet performance metrics."""
-
-    def _connect(self) -> sqlite3.Connection:  # type: ignore[override]
-        raise NotImplementedError
 
     def upsert_tweet_metrics(
         self,

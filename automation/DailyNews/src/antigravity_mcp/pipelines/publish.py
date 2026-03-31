@@ -133,6 +133,10 @@ def _build_telegram_message(report: ContentReport, publication: dict[str, str]) 
     return f"<b>[{report.category}] {report.window_name.title()} Brief 발행됨</b>\n" f"{summary}{link_part}"
 
 
+def _has_notion_page_id(report: ContentReport) -> bool:
+    return report.has_notion_sync()
+
+
 async def publish_report(
     *,
     report_id: str,
@@ -220,7 +224,7 @@ async def publish_report(
             # Auto-detect thread mode: if content > 280 chars, split into thread
             if len(draft.content) > 280 and approval_mode == "auto":
                 thread_tweets = XAdapter.split_to_thread(draft.content)
-                thread_results = x_adapter.post_thread(thread_tweets)
+                thread_results = await x_adapter.post_thread(thread_tweets)
                 published_ids = [r["tweet_id"] for r in thread_results if r.get("status") == "published"]
                 if published_ids:
                     x_status = "published"
@@ -258,7 +262,9 @@ async def publish_report(
     except Exception as exc:
         logger.warning("Telegram notification failed: %s", exc)
 
-    report.status = "published" if report.notion_page_id else "draft"
+    report.status = "published" if _has_notion_page_id(report) else "draft"
+    publication["report_status"] = report.status
+    publication["report_delivery_state"] = report.delivery_state
     report.approval_state = approval_mode
     state_store.save_report(report)
     state_store.record_job_finish(
@@ -266,6 +272,6 @@ async def publish_report(
         status="partial" if warnings else "success",
         summary=publication,
         processed_count=1,
-        published_count=1 if report.notion_page_id else 0,
+        published_count=1 if _has_notion_page_id(report) else 0,
     )
     return run_id, publication, warnings, "partial" if warnings else "ok"

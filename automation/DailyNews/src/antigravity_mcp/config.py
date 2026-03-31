@@ -188,42 +188,50 @@ class AppSettings:
 def get_settings() -> AppSettings:
     warnings: list[str] = []
 
-    notion_tasks_database_id, tasks_db_source = _first_non_empty(
+    notion_tasks_database_id, _ = _first_non_empty(
         "NOTION_TASKS_DATABASE_ID",
+    )
+    _legacy_tasks_database_id, tasks_db_source = _first_non_empty(
         "ANTIGRAVITY_TASKS_DB_ID",
         "ANTIGRAVITY_DB_ID",
         "NOTION_DATABASE_ID",
     )
-    if tasks_db_source in {"ANTIGRAVITY_TASKS_DB_ID", "ANTIGRAVITY_DB_ID", "NOTION_DATABASE_ID"}:
-        warnings.append(f"{tasks_db_source} is deprecated; use NOTION_TASKS_DATABASE_ID instead.")
+    if tasks_db_source:
+        warnings.append(f"{tasks_db_source} is no longer read; set NOTION_TASKS_DATABASE_ID instead.")
 
-    notion_tasks_data_source_id, tasks_ds_source = _first_non_empty(
+    _legacy_tasks_data_source_id, tasks_ds_source = _first_non_empty(
         "NOTION_TASKS_DATA_SOURCE_ID",
     )
+    notion_tasks_data_source_id = ""
     if tasks_ds_source:
         warnings.append(
-            f"{tasks_ds_source} is legacy compatibility only; task queries still use "
+            f"{tasks_ds_source} is no longer read; task queries require "
             "NOTION_TASKS_DATABASE_ID and /v1/databases/{id}/query."
         )
 
-    notion_reports_database_id, reports_db_source = _first_non_empty(
+    notion_reports_database_id, _ = _first_non_empty(
         "NOTION_REPORTS_DATABASE_ID",
+    )
+    _legacy_reports_database_id, reports_db_source = _first_non_empty(
         "ANTIGRAVITY_NEWS_DB_ID",
     )
-    if reports_db_source == "ANTIGRAVITY_NEWS_DB_ID":
-        warnings.append("ANTIGRAVITY_NEWS_DB_ID is deprecated; use NOTION_REPORTS_DATABASE_ID instead.")
+    if reports_db_source:
+        warnings.append("ANTIGRAVITY_NEWS_DB_ID is no longer read; set NOTION_REPORTS_DATABASE_ID instead.")
 
-    notion_reports_data_source_id, reports_ds_source = _first_non_empty(
+    _legacy_reports_data_source_id, reports_ds_source = _first_non_empty(
         "NOTION_REPORTS_DATA_SOURCE_ID",
     )
+    notion_reports_data_source_id = ""
     if reports_ds_source:
         warnings.append(
-            f"{reports_ds_source} is legacy compatibility only; report queries still use "
+            f"{reports_ds_source} is no longer read; report queries require "
             "NOTION_REPORTS_DATABASE_ID and /v1/databases/{id}/query."
         )
 
-    notion_dashboard_page_id, dashboard_source = _first_non_empty(
+    notion_dashboard_page_id, _ = _first_non_empty(
         "NOTION_DASHBOARD_PAGE_ID",
+    )
+    _legacy_dashboard_page_id, dashboard_source = _first_non_empty(
         "DASHBOARD_PAGE_ID",
     )
     if not notion_dashboard_page_id:
@@ -233,8 +241,8 @@ def get_settings() -> AppSettings:
                 "NOTION_DASHBOARD_PAGE_ID loaded from config/dashboard_config.json fallback. "
                 "Treat this as a local fallback, not a stable deployment contract."
             )
-    if dashboard_source == "DASHBOARD_PAGE_ID":
-        warnings.append("DASHBOARD_PAGE_ID is deprecated; use NOTION_DASHBOARD_PAGE_ID instead.")
+    if dashboard_source:
+        warnings.append("DASHBOARD_PAGE_ID is no longer read; use NOTION_DASHBOARD_PAGE_ID instead.")
 
     notion_api_key, _ = _first_non_empty("NOTION_API_KEY")
     google_api_key, _ = _first_non_empty("GOOGLE_API_KEY", "GEMINI_API_KEY")
@@ -306,6 +314,12 @@ class _JsonlFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        # Auto-include trace_id from contextvars if active
+        from antigravity_mcp.tracing import current_trace_id
+
+        trace_id = current_trace_id()
+        if trace_id:
+            entry["trace_id"] = trace_id
         if record.exc_info and record.exc_info[1]:
             entry["exception"] = str(record.exc_info[1])
         # Include any extra fields passed via logger.info("...", extra={...})

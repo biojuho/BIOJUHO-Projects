@@ -27,6 +27,7 @@ from antigravity_mcp.pipelines.analyze_steps import (
 )
 from antigravity_mcp.state.events import generate_run_id
 from antigravity_mcp.state.store import PipelineStateStore
+from antigravity_mcp.tracing import trace_context
 
 logger = logging.getLogger(__name__)
 
@@ -87,98 +88,99 @@ async def generate_briefs(
 
     run_id = run_id or generate_run_id("generate_brief")
 
-    grouped: dict[str, list[ContentItem]] = defaultdict(list)
-    for item in items:
-        grouped[item.category].append(item)
+    with trace_context(run_id):
+        grouped: dict[str, list[ContentItem]] = defaultdict(list)
+        for item in items:
+            grouped[item.category].append(item)
 
-    warnings: list[str] = []
-    reports: list[ContentReport] = []
+        warnings: list[str] = []
+        reports: list[ContentReport] = []
 
-    cleaned = state_store.cleanup_stale_runs(max_age_minutes=30)
-    if cleaned:
-        warnings.append(f"Auto-cleaned {cleaned} stale run(s) stuck in 'running' state.")
+        cleaned = state_store.cleanup_stale_runs(max_age_minutes=30)
+        if cleaned:
+            warnings.append(f"Auto-cleaned {cleaned} stale run(s) stuck in 'running' state.")
 
-    state_store.record_job_start(
-        run_id,
-        "generate_brief",
-        summary={"window_name": window_name, "categories": list(grouped), "max_items": len(items)},
-    )
+        state_store.record_job_start(
+            run_id,
+            "generate_brief",
+            summary={"window_name": window_name, "categories": list(grouped), "max_items": len(items)},
+        )
 
-    cluster_meta, cluster_warnings = await build_cluster_meta(grouped, emb)
-    warnings.extend(cluster_warnings)
+        cluster_meta, cluster_warnings = await build_cluster_meta(grouped, emb)
+        warnings.extend(cluster_warnings)
 
-    for category, category_items in grouped.items():
-        ctx, existing = prepare_category_batch(
-            category=category,
-            category_items=category_items,
-            cluster_meta=cluster_meta,
+        for category, category_items in grouped.items():
+            ctx, existing = prepare_category_batch(
+                category=category,
+                category_items=category_items,
+                cluster_meta=cluster_meta,
+                window_name=window_name,
+                window_start=window_start,
+                window_end=window_end,
+                state_store=state_store,
+            )
+            if existing:
+                reports.append(existing)
+                warnings.append(f"Reused existing report for {category}.")
+                continue
+
+            await generate_base_payload(ctx, llm)
+            await apply_proofreading(ctx, proofreader)
+            await apply_enrichments(
+                ctx,
+                sentiment_adapter=sentiment,
+                brain_adapter=brain,
+                skill_adapter=skill,
+                notebooklm_adapter=notebooklm,
+                reasoning_adapter=reasoning,
+                insight_adapter=insight if hasattr(insight, "generate_insights") else None,
+            )
+            await finalize_quality(ctx)
+
+            report = persist_report(ctx)
+            maybe_enqueue_digest(ctx=ctx, report=report, digest_adapter=digest)
+            record_topics_and_articles(ctx=ctx, cluster_meta=cluster_meta, run_id=run_id)
+
+            warnings.extend(ctx.warnings)
+            reports.append(report)
+
+        blocked_reports = [r for r in reports if r.quality_state == "blocked"]
+        final_status = "partial" if warnings else "success"
+
+        emit_metric(
+            "pipeline_run",
+            stage="generate_briefs",
+            run_id=run_id,
             window_name=window_name,
-            window_start=window_start,
-            window_end=window_end,
-            state_store=state_store,
+            item_count=len(items),
+            report_count=len(reports),
+            blocked_count=len(blocked_reports),
+            warning_count=len(warnings),
+            status=final_status,
         )
-        if existing:
-            reports.append(existing)
-            warnings.append(f"Reused existing report for {category}.")
-            continue
 
-        await generate_base_payload(ctx, llm)
-        await apply_proofreading(ctx, proofreader)
-        await apply_enrichments(
-            ctx,
-            sentiment_adapter=sentiment,
-            brain_adapter=brain,
-            skill_adapter=skill,
-            notebooklm_adapter=notebooklm,
-            reasoning_adapter=reasoning,
-            insight_adapter=insight if hasattr(insight, "generate_insights") else None,
+        state_store.record_job_finish(
+            run_id,
+            status=final_status,
+            summary={"report_ids": [report.report_id for report in reports], "window_name": window_name},
+            processed_count=len(items),
+            published_count=0,
         )
-        await finalize_quality(ctx)
 
-        report = persist_report(ctx)
-        maybe_enqueue_digest(ctx=ctx, report=report, digest_adapter=digest)
-        record_topics_and_articles(ctx=ctx, cluster_meta=cluster_meta, run_id=run_id)
-
-        warnings.extend(ctx.warnings)
-        reports.append(report)
-
-    blocked_reports = [r for r in reports if r.quality_state == "blocked"]
-    final_status = "partial" if warnings else "success"
-
-    emit_metric(
-        "pipeline_run",
-        stage="generate_briefs",
-        run_id=run_id,
-        window_name=window_name,
-        item_count=len(items),
-        report_count=len(reports),
-        blocked_count=len(blocked_reports),
-        warning_count=len(warnings),
-        status=final_status,
-    )
-
-    state_store.record_job_finish(
-        run_id,
-        status=final_status,
-        summary={"report_ids": [report.report_id for report in reports], "window_name": window_name},
-        processed_count=len(items),
-        published_count=0,
-    )
-
-    # Fire-and-forget Telegram alert for blocked reports or pipeline failures.
-    if blocked_reports:
-        try:
-            telegram = TelegramAdapter()
-            if telegram.is_configured:
-                categories = ", ".join(r.category for r in blocked_reports)
-                await telegram.send_error_alert(
-                    pipeline_stage="generate_briefs",
-                    error_type="LLM_BLOCKED",
-                    error_message=f"{len(blocked_reports)} report(s) blocked (all LLM providers failed): {categories}",
-                    run_id=run_id,
-                    retryable=True,
-                )
-        except Exception as exc:
-            logger.warning("Telegram alert failed: %s", exc)
+        # Fire-and-forget Telegram alert for blocked reports or pipeline failures.
+        if blocked_reports:
+            try:
+                telegram = TelegramAdapter()
+                if telegram.is_configured:
+                    categories = ", ".join(r.category for r in blocked_reports)
+                    await telegram.send_error_alert(
+                        pipeline_stage="generate_briefs",
+                        error_type="LLM_BLOCKED",
+                        error_message=f"{len(blocked_reports)} report(s) blocked (all LLM providers failed): {categories}",
+                        run_id=run_id,
+                        retryable=True,
+                    )
+            except Exception as exc:
+                logger.warning("Telegram alert failed: %s", exc)
 
     return run_id, reports, warnings, "partial" if warnings else "ok"
