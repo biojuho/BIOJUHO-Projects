@@ -30,9 +30,11 @@ Usage:
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import logging
 import sqlite3
+import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -46,12 +48,16 @@ log = logging.getLogger("shared.telemetry.workflow_trace")
 # Configuration
 # ---------------------------------------------------------------------------
 
-_WORKSPACE = Path(__file__).resolve().parents[2]
-_TRACE_DB_PATH = _WORKSPACE / "shared" / "telemetry" / "data" / "workflow_traces.db"
+_TRACE_DB_PATH = Path(__file__).resolve().parent / "data" / "workflow_traces.db"
 
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
+
+
+def _utc_now_sqlite() -> str:
+    """Return current UTC time in SQLite-compatible format (no timezone offset)."""
+    return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 @dataclass
@@ -60,7 +66,7 @@ class TraceRecord:
 
     pipeline: str
     stage: str
-    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    timestamp: str = field(default_factory=_utc_now_sqlite)
     prompt_hash: str = ""
     model: str = ""
     backend: str = ""
@@ -97,7 +103,8 @@ class PromptPattern:
 def _ensure_db(db_path: Path) -> sqlite3.Connection:
     """Create the trace database and table if they don't exist."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS workflow_traces (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,6 +232,8 @@ class WorkflowTracer:
         self._conn: sqlite3.Connection | None = None
         self._buffer: list[TraceRecord] = []
         self._buffer_size = 20  # flush every N records
+        self._lock = threading.Lock()
+        atexit.register(self.close)
 
     def _get_conn(self) -> sqlite3.Connection:
         """Lazy connection initialization."""
@@ -255,25 +264,33 @@ class WorkflowTracer:
             raise
         finally:
             record = ctx.finalize()
-            self._buffer.append(record)
-            if len(self._buffer) >= self._buffer_size:
+            with self._lock:
+                self._buffer.append(record)
+                needs_flush = len(self._buffer) >= self._buffer_size
+            if needs_flush:
                 self.flush()
 
     def record_direct(self, record: TraceRecord) -> None:
         """Record a trace directly without context manager."""
-        self._buffer.append(record)
-        if len(self._buffer) >= self._buffer_size:
+        with self._lock:
+            self._buffer.append(record)
+            needs_flush = len(self._buffer) >= self._buffer_size
+        if needs_flush:
             self.flush()
 
     def flush(self) -> int:
         """Flush buffered traces to the database. Returns count flushed."""
-        if not self._buffer:
-            return 0
+        with self._lock:
+            if not self._buffer:
+                return 0
+            # Swap buffer under lock to minimize hold time
+            to_flush = list(self._buffer)
+            self._buffer.clear()
 
         conn = self._get_conn()
         count = 0
         try:
-            for rec in self._buffer:
+            for rec in to_flush:
                 conn.execute(
                     """INSERT INTO workflow_traces
                     (pipeline, stage, timestamp, prompt_hash, model, backend,
@@ -300,9 +317,10 @@ class WorkflowTracer:
             conn.commit()
             log.debug("Flushed %d workflow traces to DB", count)
         except Exception as e:
-            log.warning("Failed to flush traces: %s", e)
-        finally:
-            self._buffer.clear()
+            log.warning("Failed to flush %d traces: %s — re-queuing", len(to_flush), e)
+            # Re-queue failed records so they aren't lost
+            with self._lock:
+                self._buffer = to_flush + self._buffer
 
         return count
 
@@ -416,8 +434,8 @@ class WorkflowTracer:
             self._conn.close()
             self._conn = None
 
-    def __del__(self) -> None:
-        import contextlib
+    def __enter__(self) -> WorkflowTracer:
+        return self
 
-        with contextlib.suppress(Exception):
-            self.close()
+    def __exit__(self, *exc: object) -> None:
+        self.close()

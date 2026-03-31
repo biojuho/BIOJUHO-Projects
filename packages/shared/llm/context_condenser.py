@@ -25,6 +25,8 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -132,15 +134,22 @@ class ContextCondenser:
        into a structured summary for the next category.
 
     Uses LIGHTWEIGHT tier to minimize condensation cost.
+    Thread-safe: metrics updates are guarded by a lock.
     """
 
     def __init__(self, client: LLMClient) -> None:
         self._client = client
+        self._lock = threading.Lock()
         self._metrics = {
             "total_condensations": 0,
             "total_tokens_saved": 0,
             "total_cost_usd": 0.0,
         }
+
+    @staticmethod
+    def _sanitize_for_prompt(text: str) -> str:
+        """Escape XML-like tags in user content to prevent prompt injection."""
+        return re.sub(r"<(/?)(\w+)", r"&lt;\1\2", text)
 
     # -- Conversation condensation -----------------------------------------
 
@@ -177,8 +186,8 @@ class ContextCondenser:
         old_messages = history[:-keep_recent]
         recent_messages = history[-keep_recent:]
 
-        # Format old messages for summarization
-        history_text = self._format_messages(old_messages)
+        # Format old messages for summarization (sanitize to prevent prompt injection)
+        history_text = self._sanitize_for_prompt(self._format_messages(old_messages))
 
         # Summarize using LIGHTWEIGHT tier
         try:
@@ -217,10 +226,11 @@ class ContextCondenser:
 
         elapsed_ms = (time.perf_counter() - t0) * 1000
 
-        # Update metrics
-        self._metrics["total_condensations"] += 1
-        self._metrics["total_tokens_saved"] += max(tokens_saved, 0)
-        self._metrics["total_cost_usd"] += condensation_cost
+        # Update metrics (thread-safe)
+        with self._lock:
+            self._metrics["total_condensations"] += 1
+            self._metrics["total_tokens_saved"] += max(tokens_saved, 0)
+            self._metrics["total_cost_usd"] += condensation_cost
 
         log.info(
             "Condensed %d→%d messages (saved ~%d tokens, cost=$%.4f, %.0fms)",
@@ -257,7 +267,7 @@ class ContextCondenser:
         t0 = time.perf_counter()
         old_messages = history[:-keep_recent]
         recent_messages = history[-keep_recent:]
-        history_text = self._format_messages(old_messages)
+        history_text = self._sanitize_for_prompt(self._format_messages(old_messages))
 
         try:
             resp = await self._client.acreate(
@@ -291,9 +301,10 @@ class ContextCondenser:
         tokens_saved = int((old_chars - summary_chars) / _CHARS_PER_TOKEN)
         elapsed_ms = (time.perf_counter() - t0) * 1000
 
-        self._metrics["total_condensations"] += 1
-        self._metrics["total_tokens_saved"] += max(tokens_saved, 0)
-        self._metrics["total_cost_usd"] += condensation_cost
+        with self._lock:
+            self._metrics["total_condensations"] += 1
+            self._metrics["total_tokens_saved"] += max(tokens_saved, 0)
+            self._metrics["total_cost_usd"] += condensation_cost
 
         return CondensationResult(
             messages=condensed,
@@ -339,6 +350,9 @@ class ContextCondenser:
         if pipeline_goal:
             results_text = f"파이프라인 목표: {pipeline_goal}\n\n{results_text}"
 
+        # Sanitize to prevent prompt injection
+        results_text = self._sanitize_for_prompt(results_text)
+
         try:
             resp = self._client.create(
                 tier=TaskTier.LIGHTWEIGHT,
@@ -354,8 +368,9 @@ class ContextCondenser:
                     enforce_korean_output=True,
                 ),
             )
-            self._metrics["total_condensations"] += 1
-            self._metrics["total_cost_usd"] += resp.cost_usd
+            with self._lock:
+                self._metrics["total_condensations"] += 1
+                self._metrics["total_cost_usd"] += resp.cost_usd
             return resp.text
         except Exception as e:
             log.warning("Pipeline condensation failed: %s", e)
@@ -382,5 +397,6 @@ class ContextCondenser:
 
     @property
     def metrics(self) -> dict:
-        """Return condensation metrics."""
-        return dict(self._metrics)
+        """Return condensation metrics (thread-safe snapshot)."""
+        with self._lock:
+            return dict(self._metrics)

@@ -21,6 +21,7 @@ from __future__ import annotations
 import ast
 import contextlib
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -65,7 +66,7 @@ _SKIP_DIRS = frozenset({
     "__pycache__", ".git", ".venv", "venv", "node_modules",
     ".pytest_cache", ".ruff_cache", ".mypy_cache", "dist",
     "build", ".egg-info", ".tox", "archive", ".sessions",
-    ".smoke-basetemp", ".smoke-tmp",
+    ".smoke-basetemp", ".smoke-tmp", "var",
 })
 
 _MAX_FILE_SIZE = 100_000  # Skip files larger than 100KB
@@ -86,17 +87,42 @@ def _extract_docstring(node: ast.AST) -> str:
 
 
 def _format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
-    """Format a function signature from AST."""
-    args = []
-    for arg in node.args.args:
-        name = arg.arg
-        if name == "self":
-            continue
+    """Format a function signature from AST, including all argument types."""
+    parts: list[str] = []
+
+    def _fmt_arg(arg: ast.arg) -> str:
         annotation = ""
         if arg.annotation:
             with contextlib.suppress(Exception):
                 annotation = f": {ast.unparse(arg.annotation)}"
-        args.append(f"{name}{annotation}")
+        return f"{arg.arg}{annotation}"
+
+    # Positional-only args (before /)
+    for arg in getattr(node.args, "posonlyargs", []):
+        if arg.arg != "self":
+            parts.append(_fmt_arg(arg))
+    if getattr(node.args, "posonlyargs", []):
+        parts.append("/")
+
+    # Regular positional args
+    for arg in node.args.args:
+        if arg.arg == "self":
+            continue
+        parts.append(_fmt_arg(arg))
+
+    # *args or bare *
+    if node.args.vararg:
+        parts.append(f"*{_fmt_arg(node.args.vararg)}")
+    elif node.args.kwonlyargs:
+        parts.append("*")
+
+    # Keyword-only args (after *)
+    for arg in node.args.kwonlyargs:
+        parts.append(_fmt_arg(arg))
+
+    # **kwargs
+    if node.args.kwarg:
+        parts.append(f"**{_fmt_arg(node.args.kwarg)}")
 
     # Return annotation
     ret = ""
@@ -105,7 +131,7 @@ def _format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
             ret = f" -> {ast.unparse(node.returns)}"
 
     prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
-    return f"{prefix} {node.name}({', '.join(args)}){ret}"
+    return f"{prefix} {node.name}({', '.join(parts)}){ret}"
 
 
 def parse_python_file(file_path: Path, project_root: Path) -> list[Symbol]:
@@ -125,9 +151,6 @@ def parse_python_file(file_path: Path, project_root: Path) -> list[Symbol]:
         tree = ast.parse(source, filename=str(file_path))
     except SyntaxError:
         return symbols
-
-    # Module-level docstring (tracked for future use)
-    _module_doc = _extract_docstring(tree)
 
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -163,15 +186,14 @@ def parse_python_file(file_path: Path, project_root: Path) -> list[Symbol]:
                         docstring=_extract_docstring(item),
                         parent_class=node.name,
                     ))
-        elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            # Track imports for dependency mapping
-            if isinstance(node, ast.ImportFrom) and node.module:
-                symbols.append(Symbol(
-                    name=node.module,
-                    kind="import",
-                    file_path=rel_path,
-                    line_number=node.lineno,
-                ))
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            # Track from-imports for dependency mapping
+            symbols.append(Symbol(
+                name=node.module,
+                kind="import",
+                file_path=rel_path,
+                line_number=node.lineno,
+            ))
 
     return symbols
 
@@ -200,14 +222,15 @@ def build_symbol_index(
         scan_dirs = [project_root]
 
     for scan_dir in scan_dirs:
-        for py_file in scan_dir.rglob("*.py"):
-            # Skip excluded directories
-            parts = py_file.relative_to(project_root).parts
-            if any(p in _SKIP_DIRS for p in parts):
-                continue
-
-            symbols = parse_python_file(py_file, project_root)
-            index.symbols.extend(symbols)
+        # Use os.walk with topdown=True to prune skip dirs before descending
+        for dirpath, dirnames, filenames in os.walk(scan_dir):
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+            for fname in filenames:
+                if not fname.endswith(".py"):
+                    continue
+                py_file = Path(dirpath) / fname
+                symbols = parse_python_file(py_file, project_root)
+                index.symbols.extend(symbols)
 
     index.build_time_ms = (time.perf_counter() - t0) * 1000
     log.debug(
@@ -223,15 +246,19 @@ def build_symbol_index(
 # Relevance ranking
 # ---------------------------------------------------------------------------
 
+# [QA 수정] 모듈 레벨 상수로 이동 — _tokenize_query 호출마다 재생성 방지
+_STOPWORDS: frozenset[str] = frozenset({
+    "the", "a", "an", "is", "are", "to", "of", "in", "for", "and", "or",
+    "에", "은", "는", "이", "가", "를", "을", "와", "과", "의", "로", "으로",
+    "에서", "으", "해", "하", "해서", "하고", "수",
+})
+
+
 def _tokenize_query(query: str) -> set[str]:
     """Extract meaningful tokens from a query (Korean + English)."""
     # Split on whitespace and common separators
     raw_tokens = re.split(r"[\s,./\-_:;(){}[\]\"'`]+", query.lower())
-    # Filter out very short tokens and stopwords
-    stopwords = {"the", "a", "an", "is", "are", "to", "of", "in", "for", "and", "or",
-                 "에", "은", "는", "이", "가", "를", "을", "와", "과", "의", "로", "으로",
-                 "에서", "으", "해", "하", "해서", "하고", "수"}
-    return {t for t in raw_tokens if len(t) > 1 and t not in stopwords}
+    return {t for t in raw_tokens if len(t) > 1 and t not in _STOPWORDS}
 
 
 def rank_symbols(query: str, index: SymbolIndex, top_k: int = 30) -> list[Symbol]:

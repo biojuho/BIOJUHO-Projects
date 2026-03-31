@@ -21,6 +21,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -306,10 +307,10 @@ class ForestOfThoughtEngine:
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
             )
 
-        subtask_results: list[FoTSubtaskResult] = []
         total_cost = decompose_resp.cost_usd
 
-        for _idx, subtask in enumerate(subtasks):
+        # Solve all subtasks concurrently via asyncio.gather
+        async def _solve(subtask: str) -> FoTSubtaskResult:
             resp = await self._client.acreate(
                 tier=solve_tier,
                 messages=[
@@ -325,16 +326,16 @@ class ForestOfThoughtEngine:
                 system=system,
                 policy=policy,
             )
-            subtask_results.append(
-                FoTSubtaskResult(
-                    subtask=subtask,
-                    text=resp.text,
-                    backend=resp.backend,
-                    cost_usd=resp.cost_usd,
-                    latency_ms=resp.latency_ms,
-                )
+            return FoTSubtaskResult(
+                subtask=subtask,
+                text=resp.text,
+                backend=resp.backend,
+                cost_usd=resp.cost_usd,
+                latency_ms=resp.latency_ms,
             )
-            total_cost += resp.cost_usd
+
+        subtask_results = list(await asyncio.gather(*[_solve(s) for s in subtasks]))
+        total_cost += sum(r.cost_usd for r in subtask_results)
 
         # Prune low-quality results (async path)
         pruned_results = [r for r in subtask_results if self._quality_check(r)]

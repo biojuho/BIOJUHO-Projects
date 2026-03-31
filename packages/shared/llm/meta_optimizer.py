@@ -281,7 +281,7 @@ class MetaOptimizer:
     ) -> Path:
         """Save report as both JSON and Markdown files."""
         if output_dir is None:
-            output_dir = Path(__file__).resolve().parents[2] / "shared" / "telemetry" / "reports"
+            output_dir = Path(__file__).resolve().parent.parent / "telemetry" / "reports"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")

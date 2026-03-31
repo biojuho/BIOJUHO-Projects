@@ -425,6 +425,9 @@ class SmartRouter:
                 messages=messages,
                 system=enriched_system,
                 policy=policy,
+                decompose_tier=resolved_tier,
+                solve_tier=resolved_tier,
+                synthesize_tier=resolved_tier,
                 max_tokens=max_tokens,
                 max_subtasks=self._config["fot_max_depth"] + 2,
             )
@@ -599,6 +602,9 @@ class SmartRouter:
             messages=messages,
             system=system,
             policy=policy,
+            decompose_tier=tier,
+            solve_tier=tier,
+            synthesize_tier=tier,
             max_tokens=max_tokens,
             max_subtasks=self._config["fot_max_depth"] + 2,
         )
