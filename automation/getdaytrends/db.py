@@ -633,7 +633,7 @@ async def record_posting_time_stat(conn, category: str, hour: int, engagement_la
 async def get_best_posting_hours(conn, category: str, top_n: int = 3) -> list[int]:
     """
     移댄뀒怨좊━蹂??됯퇏 李몄뿬??湲곗? ?곸쐞 N媛?寃뚯떆 ?쒓컙? 諛섑솚.
-    ?곗씠???놁쑝硫?鍮?由ъ뒪??諛섑솚.
+    데이터 없으면 빈 리스트 반환.
     """
     cursor = await conn.execute(
         """SELECT hour, total_score / sample_count AS avg_score
@@ -681,7 +681,7 @@ async def get_trend_history_patterns_batch(conn, keywords: list[str], days: int 
     )
     rows = await cursor.fetchall()
 
-    # ?ㅼ썙?쒕퀎 洹몃９??
+    # 카테고리별 그룹핑
     grouped: dict[str, list[int]] = {kw: [] for kw in keywords}
     for row in rows:
         grouped[row["keyword"]].append(row["viral_potential"])
@@ -723,7 +723,7 @@ async def _record_content_feedback_unlocked(
     content_age_hours: float = 0.0,
     freshness_grade: str = "unknown",
 ) -> None:
-    """v6.0/v6.1: 肄섑뀗痢?QA ?쇰뱶諛?+ 理쒖떊??湲곕줉."""
+    """v6.0/v6.1: 콘텐츠 QA 피드백 + 최신성 기록."""
     try:
         await conn.execute(
             """INSERT INTO content_feedback (keyword, category, qa_score, regenerated, reason, content_age_hours, freshness_grade, created_at)
@@ -769,12 +769,12 @@ async def record_content_feedback(
 
 async def get_qa_summary(conn, days: int = 7) -> dict:
     """
-    v15.0 Phase B: QA 硫뷀듃由??붿빟.
-    諛섑솚: {total_feedbacks, avg_qa_score, regeneration_rate, by_category, recent_scores}
+    v15.0 Phase B: QA 메트릭 요약.
+    반환: {total_feedbacks, avg_qa_score, regeneration_rate, by_category, recent_scores}
     """
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
 
-    # ?꾩껜 吏묎퀎
+    # 전체 집계
     cursor = await conn.execute(
         """SELECT COUNT(*) as total,
                   COALESCE(AVG(qa_score), 0.0) as avg_score,
@@ -789,7 +789,7 @@ async def get_qa_summary(conn, days: int = 7) -> dict:
     regen_count = dict(row).get("regen_count", 0) if row else 0
     regen_rate = regen_count / total if total > 0 else 0.0
 
-    # 移댄뀒怨좊━蹂?遺꾩꽍
+    # 카테고리별 분석
     cursor = await conn.execute(
         """SELECT category,
                   COUNT(*) as count,
@@ -802,7 +802,7 @@ async def get_qa_summary(conn, days: int = 7) -> dict:
     cat_rows = await cursor.fetchall()
     by_category = {r["category"]: {"count": r["count"], "avg_score": r["avg_score"]} for r in cat_rows}
 
-    # 理쒓렐 ?먯닔 (理쒕? 10嫄?
+    # 최근 점수 (최대 10건)
     cursor = await conn.execute(
         """SELECT qa_score FROM content_feedback
            WHERE created_at >= ?
