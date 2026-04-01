@@ -9,8 +9,12 @@ import urllib.request
 
 from loguru import logger as log
 
-from config import AppConfig
-from models import ScoredTrend
+try:
+    from .config import AppConfig
+    from .models import ScoredTrend
+except ImportError:
+    from config import AppConfig
+    from models import ScoredTrend
 
 
 def format_trend_alert(trend: ScoredTrend) -> str:
@@ -252,7 +256,10 @@ def check_watchlist(
     if conn is not None:
         import asyncio
 
-        from db import record_watchlist_hit
+        try:
+            from .db import record_watchlist_hit
+        except ImportError:
+            from db import record_watchlist_hit
 
         for trend, wk in detected:
             try:

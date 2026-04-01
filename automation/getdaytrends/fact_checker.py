@@ -19,16 +19,28 @@ from enum import Enum
 
 from loguru import logger as log
 
-from models import ScoredTrend, TweetBatch
+try:
+    from .models import ScoredTrend, TweetBatch
+except ImportError:
+    from models import ScoredTrend, TweetBatch
 
 # -- credibility imports --
-from source_credibility import (  # noqa: F401
-    _CREDIBILITY_WEIGHTS,
-    _SOURCE_CREDIBILITY_MAP,
-    CredibilityTier,
-    compute_source_credibility_score,
-    get_source_credibility,
-)
+try:
+    from .source_credibility import (  # noqa: F401
+        _CREDIBILITY_WEIGHTS,
+        _SOURCE_CREDIBILITY_MAP,
+        CredibilityTier,
+        compute_source_credibility_score,
+        get_source_credibility,
+    )
+except ImportError:
+    from source_credibility import (  # noqa: F401
+        _CREDIBILITY_WEIGHTS,
+        _SOURCE_CREDIBILITY_MAP,
+        CredibilityTier,
+        compute_source_credibility_score,
+        get_source_credibility,
+    )
 
 # ══════════════════════════════════════════════════════
 #  Claim Types & Extraction
@@ -541,7 +553,10 @@ def verify_content(
 
     # [Phase 3] DeepEval 보조 평가 — 규칙 기반 검증을 LLM 기반으로 보완
     try:
-        from quality_eval import evaluate_content as deepeval_check
+        try:
+            from .quality_eval import evaluate_content as deepeval_check
+        except ImportError:
+            from quality_eval import evaluate_content as deepeval_check
 
         source_context = _build_source_corpus(trend)
         eval_result = deepeval_check(text, source_context, trend.keyword)

@@ -27,7 +27,10 @@ def __getattr__(name):
     """Lazy import to avoid circular dependency with generator.py."""
     # generator.py imports from generation.persona, so we can't eagerly
     # import from generator at module level (circular import).
-    import generator as _gen
+    try:
+        from .. import generator as _gen
+    except ImportError:
+        import generator as _gen
 
     _exports = {
         "generate_for_trend_async": _gen.generate_for_trend_async,

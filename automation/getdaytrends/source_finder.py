@@ -52,8 +52,10 @@ async def _google_news_search(
                 }
             )
         log.info(f"[SourceFinder] Google News: {len(results)}개 발견")
-    except Exception as e:
-        log.warning(f"[SourceFinder] Google News 실패: {e}")
+    except httpx.HTTPStatusError as e:
+        log.warning(f"[SourceFinder] Google News HTTP {e.response.status_code}: {e}")
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        log.warning(f"[SourceFinder] Google News 네트워크 오류: {type(e).__name__}: {e}")
 
     return results
 
@@ -112,8 +114,10 @@ async def _duckduckgo_search(
                     }
                 )
         log.info(f"[SourceFinder] DuckDuckGo: {len(results)}개 발견")
-    except Exception as e:
-        log.warning(f"[SourceFinder] DuckDuckGo 실패: {e}")
+    except httpx.HTTPStatusError as e:
+        log.warning(f"[SourceFinder] DuckDuckGo HTTP {e.response.status_code}: {e}")
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        log.warning(f"[SourceFinder] DuckDuckGo 네트워크 오류: {type(e).__name__}: {e}")
 
     return results
 
@@ -166,8 +170,10 @@ async def _wikipedia_search(
                     }
                 )
         log.info(f"[SourceFinder] Wikipedia: {len(results)}개 발견")
-    except Exception as e:
-        log.warning(f"[SourceFinder] Wikipedia 실패: {e}")
+    except httpx.HTTPStatusError as e:
+        log.warning(f"[SourceFinder] Wikipedia HTTP {e.response.status_code}: {e}")
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        log.warning(f"[SourceFinder] Wikipedia 네트워크 오류: {type(e).__name__}: {e}")
 
     return results
 
@@ -210,8 +216,10 @@ async def _arxiv_search(
                 }
             )
         log.info(f"[SourceFinder] arXiv: {len(results)}개 발견")
-    except Exception as e:
-        log.warning(f"[SourceFinder] arXiv 실패: {e}")
+    except httpx.HTTPStatusError as e:
+        log.warning(f"[SourceFinder] arXiv HTTP {e.response.status_code}: {e}")
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        log.warning(f"[SourceFinder] arXiv 네트워크 오류: {type(e).__name__}: {e}")
 
     return results
 

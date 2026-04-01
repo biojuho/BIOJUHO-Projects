@@ -7,21 +7,38 @@ from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
-from config import AppConfig
-from models import GeneratedTweet, ScoredTrend
-from prompt_builder import (
-    _REPORT_BLOG_SYSTEM,
-    _build_account_identity_section,
-    _build_context_section,
-    _build_deep_why_section,
-    _build_fact_guardrail_section,
-    _build_scoring_section,
-    _parse_json,
-    _resolve_language,
-    _system_long_form,
-    _use_report_profile,
-)
-from utils import sanitize_keyword
+try:
+    from ..config import AppConfig
+    from ..models import GeneratedTweet, ScoredTrend
+    from ..prompt_builder import (
+        _REPORT_BLOG_SYSTEM,
+        _build_account_identity_section,
+        _build_context_section,
+        _build_deep_why_section,
+        _build_fact_guardrail_section,
+        _build_scoring_section,
+        _parse_json,
+        _resolve_language,
+        _system_long_form,
+        _use_report_profile,
+    )
+    from ..utils import sanitize_keyword
+except ImportError:
+    from config import AppConfig
+    from models import GeneratedTweet, ScoredTrend
+    from prompt_builder import (
+        _REPORT_BLOG_SYSTEM,
+        _build_account_identity_section,
+        _build_context_section,
+        _build_deep_why_section,
+        _build_fact_guardrail_section,
+        _build_scoring_section,
+        _parse_json,
+        _resolve_language,
+        _system_long_form,
+        _use_report_profile,
+    )
+    from utils import sanitize_keyword
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
 

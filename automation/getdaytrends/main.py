@@ -47,10 +47,16 @@ if sys.platform == "win32" and "pytest" not in sys.modules and hasattr(sys.stdou
 import schedule
 from loguru import logger as log
 
-from config import VERSION, AppConfig
-from core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
-from db import close_pg_pool, get_connection, get_trend_stats, init_db
-from utils import run_async
+try:
+    from .config import VERSION, AppConfig
+    from .core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
+    from .db import close_pg_pool, get_connection, get_trend_stats, init_db
+    from .utils import run_async
+except ImportError:
+    from config import VERSION, AppConfig
+    from core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
+    from db import close_pg_pool, get_connection, get_trend_stats, init_db
+    from utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  우아한 종료 (SIGTERM / SIGINT)
@@ -235,8 +241,8 @@ async def print_stats(config: AppConfig):
                 print(f"  7일 합계       : ${total_cost:.4f}")
                 print(f"  월 추정 비용   : ${total_cost / 7 * 30:.2f}")
                 print()
-    except Exception as e:
-        log.debug(f"LLM 비용 통계 조회 실패: {e}")
+    except (ValueError, KeyError, OSError) as e:
+        log.debug(f"LLM 비용 통계 조회 실패: {type(e).__name__}: {e}")
 
 
 def _normalize_countries(countries: list[str]) -> list[str]:
@@ -359,7 +365,10 @@ def main():
         try:
             import uvicorn
 
-            from dashboard import app as _dashboard_app
+            try:
+                from .dashboard import app as _dashboard_app
+            except ImportError:
+                from dashboard import app as _dashboard_app
 
             print("\n  대시보드 서버 시작: http://localhost:8080\n")
             uvicorn.run(_dashboard_app, host="0.0.0.0", port=8080)

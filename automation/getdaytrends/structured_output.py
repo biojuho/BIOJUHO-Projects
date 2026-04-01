@@ -46,8 +46,8 @@ def _get_instructor_client():
             _instructor_backend = "gemini"
             log.info("[Instructor] Gemini 백엔드 초기화 완료")
             return _instructor_client
-        except Exception as e:
-            log.warning(f"[Instructor] Gemini 초기화 실패: {e}")
+        except (ImportError, ValueError, TypeError) as e:
+            log.warning(f"[Instructor] Gemini 초기화 실패: {type(e).__name__}: {e}")
 
     if anthropic_key:
         try:
@@ -58,8 +58,8 @@ def _get_instructor_client():
             _instructor_backend = "anthropic"
             log.info("[Instructor] Anthropic 백엔드 초기화 완료")
             return _instructor_client
-        except Exception as e:
-            log.warning(f"[Instructor] Anthropic 초기화 실패: {e}")
+        except (ImportError, ValueError, TypeError) as e:
+            log.warning(f"[Instructor] Anthropic 초기화 실패: {type(e).__name__}: {e}")
 
     raise RuntimeError("[Instructor] 사용 가능한 LLM API 키가 없습니다")
 
@@ -125,8 +125,11 @@ async def extract_structured(
 
         return result
 
-    except Exception as e:
+    except (RuntimeError, ConnectionError, TimeoutError) as e:
         log.warning(f"[Instructor] 구조화 추출 실패: {type(e).__name__}: {e}")
+        return None
+    except Exception as e:
+        log.warning(f"[Instructor] 구조화 추출 예상외 오류: {type(e).__name__}: {e}")
         return None
 
 
@@ -178,8 +181,11 @@ async def extract_structured_list(
 
         return items
 
-    except Exception as e:
+    except (RuntimeError, ConnectionError, TimeoutError) as e:
         log.warning(f"[Instructor] 리스트 추출 실패: {type(e).__name__}: {e}")
+        return None
+    except Exception as e:
+        log.warning(f"[Instructor] 리스트 추출 예상외 오류: {type(e).__name__}: {e}")
         return None
 
 

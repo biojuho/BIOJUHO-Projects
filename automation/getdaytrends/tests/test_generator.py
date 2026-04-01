@@ -3,6 +3,7 @@ generator.py 테스트: 점수 조건별 생성 분기, 프롬프트 빌더, ret
 v3.0: _retry_generate, safety_flag 통합 테스트 추가.
 """
 
+import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 

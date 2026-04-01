@@ -6,9 +6,10 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Sequence
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     script_dir = Path(__file__).resolve().parent
     project_dir = script_dir.parent
     parser = argparse.ArgumentParser(description="Collect X performance metrics for posted GetDayTrends tweets.")
@@ -32,7 +33,12 @@ def parse_args() -> argparse.Namespace:
         "--json-out",
         help="Optional JSON summary output path.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--require-token",
+        action="store_true",
+        help="Exit non-zero when the X bearer token is missing instead of emitting a skipped summary.",
+    )
+    return parser.parse_args(argv)
 
 
 async def run_collection(args: argparse.Namespace) -> dict:
@@ -57,10 +63,33 @@ def write_json(path_str: str, payload: dict) -> Path:
     return path
 
 
-def main() -> int:
-    args = parse_args()
+def build_skipped_payload(args: argparse.Namespace, *, reason: str) -> dict:
+    return {
+        "generated_at": datetime.now(UTC).astimezone().isoformat(),
+        "db_path": str(Path(args.db_path).resolve()),
+        "lookback_hours": args.lookback_hours,
+        "collected_count": 0,
+        "status": "skipped",
+        "reason": reason,
+        "summary": {},
+    }
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
     if not args.bearer_token:
-        raise SystemExit("Missing bearer token. Set TWITTER_BEARER_TOKEN or pass --bearer-token.")
+        if args.require_token:
+            print("Missing bearer token. Set TWITTER_BEARER_TOKEN or pass --bearer-token.")
+            return 1
+
+        payload = build_skipped_payload(args, reason="missing_bearer_token")
+        if args.json_out:
+            output_path = write_json(args.json_out, payload)
+            print(f"json_out: {output_path}")
+        print("status: skipped")
+        print(f"reason: {payload['reason']}")
+        print(f"db_path: {payload['db_path']}")
+        return 0
 
     payload = asyncio.run(run_collection(args))
     if args.json_out:

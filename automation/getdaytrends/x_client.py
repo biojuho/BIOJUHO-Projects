@@ -16,6 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger as log
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 # Twikit은 선택 의존성 (설치 안 되어 있으면 폴백 비활성화)
 try:
@@ -63,7 +69,7 @@ async def _get_client() -> TwikitClient | None:
                 _client.load_cookies(str(_COOKIES_PATH))
                 log.info("[Twikit] 저장된 쿠키로 세션 복원")
                 return _client
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 log.warning(f"[Twikit] 쿠키 로드 실패: {e} -- 재로그인 시도")
 
         # 첫 로그인
@@ -78,7 +84,7 @@ async def _get_client() -> TwikitClient | None:
             )
             log.info("[Twikit] 로그인 성공, 쿠키 저장됨")
             return _client
-        except Exception as e:
+        except (ValueError, RuntimeError, ConnectionError, TimeoutError) as e:
             log.warning(f"[Twikit] 로그인 실패: {e}")
             _client = None
             return None
@@ -93,38 +99,39 @@ def is_available() -> bool:
     return bool(username and password)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, ValueError)),
+    retry_error_callback=lambda rs: []
+)
 async def search_tweets(keyword: str, count: int = 10) -> list[dict[str, Any]]:
-    """키워드로 최신 트윗 검색. 실패 시 빈 리스트 반환."""
+    """키워드로 최신 트윗 검색. 실패 시 3회 재시도 후 빈 리스트 반환."""
     client = await _get_client()
     if client is None:
         return []
 
     await asyncio.sleep(random.uniform(1.5, 4.0))  # 봇 감지 회피
-
-    try:
-        tweets = await client.search_tweet(keyword, "Latest", count=count)
-        results = []
-        for tweet in tweets:
-            metrics = {
-                "likes": getattr(tweet, "favorite_count", 0) or 0,
-                "retweets": getattr(tweet, "retweet_count", 0) or 0,
-                "views": getattr(tweet, "view_count", 0) or 0,
-                "replies": getattr(tweet, "reply_count", 0) or 0,
-                "quotes": getattr(tweet, "quote_count", 0) or 0,
+    tweets = await client.search_tweet(keyword, "Latest", count=count)
+    results = []
+    for tweet in tweets:
+        metrics = {
+            "likes": getattr(tweet, "favorite_count", 0) or 0,
+            "retweets": getattr(tweet, "retweet_count", 0) or 0,
+            "views": getattr(tweet, "view_count", 0) or 0,
+            "replies": getattr(tweet, "reply_count", 0) or 0,
+            "quotes": getattr(tweet, "quote_count", 0) or 0,
+        }
+        results.append(
+            {
+                "id": getattr(tweet, "id", ""),
+                "text": getattr(tweet, "text", ""),
+                "user": getattr(tweet.user, "screen_name", "") if tweet.user else "",
+                "created_at": getattr(tweet, "created_at", ""),
+                **metrics,
             }
-            results.append(
-                {
-                    "id": getattr(tweet, "id", ""),
-                    "text": getattr(tweet, "text", ""),
-                    "user": getattr(tweet.user, "screen_name", "") if tweet.user else "",
-                    "created_at": getattr(tweet, "created_at", ""),
-                    **metrics,
-                }
-            )
-        return results
-    except Exception as e:
-        log.debug(f"[Twikit] 트윗 검색 실패 ({keyword}): {e}")
-        return []
+        )
+    return results
 
 
 async def search_tweets_formatted(keyword: str, count: int = 10) -> str:
@@ -157,7 +164,7 @@ async def search_tweets_formatted(keyword: str, count: int = 10) -> str:
                 dt_utc = datetime.strptime(raw_ts, "%a %b %d %H:%M:%S %z %Y")
                 dt_local = dt_utc.astimezone(timezone(timedelta(hours=9)))  # KST
                 time_label = dt_local.strftime("%m/%d %H:%M")
-            except Exception:
+            except ValueError:
                 pass
 
         prefix = f"[{time_label}] " if time_label else ""
@@ -166,40 +173,42 @@ async def search_tweets_formatted(keyword: str, count: int = 10) -> str:
     return "\n".join(summaries)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, ValueError)),
+    retry_error_callback=lambda rs: []
+)
 async def fetch_trends(category: str = "trending") -> list[dict[str, Any]]:
-    """X 트렌딩 토픽 직접 수집. 실패 시 빈 리스트."""
+    """X 트렌딩 토픽 직접 수집. 실패 시 3회 재시도 후 빈 리스트."""
     client = await _get_client()
     if client is None:
         return []
 
     await asyncio.sleep(random.uniform(1.0, 3.0))
-
-    try:
-        trends = await client.get_trends(category)
-        return [{"name": getattr(t, "name", str(t)), "tweet_count": getattr(t, "tweet_count", 0) or 0} for t in trends]
-    except Exception as e:
-        log.debug(f"[Twikit] 트렌드 수집 실패: {e}")
-        return []
+    trends = await client.get_trends(category)
+    return [{"name": getattr(t, "name", str(t)), "tweet_count": getattr(t, "tweet_count", 0) or 0} for t in trends]
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, ValueError)),
+    retry_error_callback=lambda rs: None
+)
 async def get_tweet_metrics(tweet_id: str) -> dict[str, Any] | None:
-    """트윗 ID로 참여도 메트릭 조회."""
+    """트윗 ID로 참여도 메트릭 조회. 3회 재시도 수행."""
     client = await _get_client()
     if client is None:
         return None
 
     await asyncio.sleep(random.uniform(1.0, 3.0))
-
-    try:
-        tweet = await client.get_tweet_by_id(tweet_id)
-        return {
-            "tweet_id": tweet_id,
-            "likes": getattr(tweet, "favorite_count", 0) or 0,
-            "retweets": getattr(tweet, "retweet_count", 0) or 0,
-            "quotes": getattr(tweet, "quote_count", 0) or 0,
-            "replies": getattr(tweet, "reply_count", 0) or 0,
-            "views": getattr(tweet, "view_count", 0) or 0,
-        }
-    except Exception as e:
-        log.debug(f"[Twikit] 메트릭 조회 실패 ({tweet_id}): {e}")
-        return None
+    tweet = await client.get_tweet_by_id(tweet_id)
+    return {
+        "tweet_id": tweet_id,
+        "likes": getattr(tweet, "favorite_count", 0) or 0,
+        "retweets": getattr(tweet, "retweet_count", 0) or 0,
+        "quotes": getattr(tweet, "quote_count", 0) or 0,
+        "replies": getattr(tweet, "reply_count", 0) or 0,
+        "views": getattr(tweet, "view_count", 0) or 0,
+    }

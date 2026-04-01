@@ -6,7 +6,10 @@ analyzer.py에서 추출. 교차 검증, 신선도, 시그널 점수 계산.
 import math
 import re
 
-from models import MultiSourceContext
+try:
+    from ..models import MultiSourceContext
+except ImportError:
+    from models import MultiSourceContext
 
 
 def _compute_cross_source_confidence(

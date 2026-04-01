@@ -21,20 +21,35 @@ from loguru import logger as log
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
-from config import AppConfig
-from models import GeneratedTweet, ScoredTrend, TweetBatch
-from utils import run_async, sanitize_keyword
+try:
+    from .config import AppConfig
+    from .models import GeneratedTweet, ScoredTrend, TweetBatch
+    from .utils import run_async, sanitize_keyword
+except ImportError:
+    from config import AppConfig
+    from models import GeneratedTweet, ScoredTrend, TweetBatch
+    from utils import run_async, sanitize_keyword
 
 # [Phase 1] Instructor 구조화된 출력 (선택 의존성)
 try:
-    from structured_output import (
-        INSTRUCTOR_AVAILABLE as _INST_OK,
-    )
-    from structured_output import (
-        TweetGenerationResponse,
-        TweetItem,
-        extract_structured,
-    )
+    try:
+        from .structured_output import (
+            INSTRUCTOR_AVAILABLE as _INST_OK,
+        )
+        from .structured_output import (
+            TweetGenerationResponse,
+            TweetItem,
+            extract_structured,
+        )
+    except ImportError:
+        from structured_output import (
+            INSTRUCTOR_AVAILABLE as _INST_OK,
+        )
+        from structured_output import (
+            TweetGenerationResponse,
+            TweetItem,
+            extract_structured,
+        )
 except ImportError:
     _INST_OK = False
 
@@ -44,35 +59,66 @@ _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
 # -- prompt builder import --
 # -- 추출된 모듈 re-export (후방 호환) --
-from generation.marl import (  # noqa: F401
-    _should_use_marl,
-    generate_tweets_with_marl_async,
-)
-from prompt_builder import (  # noqa: F401
-    _LANG_NAME_MAP,
-    _REPORT_BLOG_SYSTEM,
-    _build_account_identity_section,
-    _build_audience_format_section,
-    _build_available_facts_section,
-    _build_category_tone_hint,
-    _build_context_section,
-    _build_deep_why_section,
-    _build_diversity_section,
-    _build_fact_guardrail_section,
-    _build_golden_reference_section,
-    _build_pattern_weights_section,
-    _build_scoring_section,
-    _parse_json,
-    _resolve_language,
-    _retry_generate,
-    _select_generation_tier,
-    _system_long_form,
-    _system_thread,
-    _system_threads,
-    _system_tweets,
-    _system_tweets_and_threads,
-    _use_report_profile,
-)
+try:
+    from .generation.marl import (  # noqa: F401
+        _should_use_marl,
+        generate_tweets_with_marl_async,
+    )
+    from .prompt_builder import (  # noqa: F401
+        _LANG_NAME_MAP,
+        _REPORT_BLOG_SYSTEM,
+        _build_account_identity_section,
+        _build_audience_format_section,
+        _build_available_facts_section,
+        _build_category_tone_hint,
+        _build_context_section,
+        _build_deep_why_section,
+        _build_diversity_section,
+        _build_fact_guardrail_section,
+        _build_golden_reference_section,
+        _build_pattern_weights_section,
+        _build_scoring_section,
+        _parse_json,
+        _resolve_language,
+        _retry_generate,
+        _select_generation_tier,
+        _system_long_form,
+        _system_thread,
+        _system_threads,
+        _system_tweets,
+        _system_tweets_and_threads,
+        _use_report_profile,
+    )
+except ImportError:
+    from generation.marl import (  # noqa: F401
+        _should_use_marl,
+        generate_tweets_with_marl_async,
+    )
+    from prompt_builder import (  # noqa: F401
+        _LANG_NAME_MAP,
+        _REPORT_BLOG_SYSTEM,
+        _build_account_identity_section,
+        _build_audience_format_section,
+        _build_available_facts_section,
+        _build_category_tone_hint,
+        _build_context_section,
+        _build_deep_why_section,
+        _build_diversity_section,
+        _build_fact_guardrail_section,
+        _build_golden_reference_section,
+        _build_pattern_weights_section,
+        _build_scoring_section,
+        _parse_json,
+        _resolve_language,
+        _retry_generate,
+        _select_generation_tier,
+        _system_long_form,
+        _system_thread,
+        _system_threads,
+        _system_tweets,
+        _system_tweets_and_threads,
+        _use_report_profile,
+    )
 
 # ══════════════════════════════════════════════════════
 #  1) 단문 트윗 5종 (280자) — Haiku tier
@@ -135,8 +181,8 @@ async def generate_tweets_async(
             if inst_result and inst_result.tweets:
                 data = inst_result.model_dump()
                 log.info(f"[Instructor] 트윗 생성 파싱 성공: '{trend.keyword}'")
-        except Exception as e:
-            log.debug(f"[Instructor] 트윗 생성 폴백: {e}")
+        except (RuntimeError, ConnectionError, TimeoutError) as e:
+            log.debug(f"[Instructor] 트윗 생성 폴백: {type(e).__name__}: {e}")
 
     if data is None:
         try:
@@ -148,8 +194,11 @@ async def generate_tweets_async(
                 messages=[{"role": "user", "content": user_message}],
             )
             data = _parse_json(response.text)
+        except (RuntimeError, ConnectionError, TimeoutError) as e:
+            log.error(f"트윗 생성 LLM 실패 ({trend.keyword}): {type(e).__name__}: {e}")
+            return None
         except Exception as e:
-            log.error(f"트윗 생성 실패 ({trend.keyword}): {e}")
+            log.error(f"트윗 생성 예상외 오류 ({trend.keyword}): {type(e).__name__}: {e}")
             return None
 
     if not data:
@@ -182,16 +231,28 @@ async def generate_tweets_async(
 
 
 # -- 추출된 모듈 re-export (후방 호환) --
-from generation.long_form import (  # noqa: F401
-    _BLOG_SYSTEM_JOONGYEON,
-    _system_blog_post,
-    generate_blog_async,
-    generate_long_form_async,
-)
-from generation.threads import (
-    generate_thread_async,
-    generate_threads_content_async,
-)
+try:
+    from .generation.long_form import (  # noqa: F401
+        _BLOG_SYSTEM_JOONGYEON,
+        _system_blog_post,
+        generate_blog_async,
+        generate_long_form_async,
+    )
+    from .generation.threads import (
+        generate_thread_async,
+        generate_threads_content_async,
+    )
+except ImportError:
+    from generation.long_form import (  # noqa: F401
+        _BLOG_SYSTEM_JOONGYEON,
+        _system_blog_post,
+        generate_blog_async,
+        generate_long_form_async,
+    )
+    from generation.threads import (
+        generate_thread_async,
+        generate_threads_content_async,
+    )
 
 # ══════════════════════════════════════════════════════
 #  5) 통합 배치 생성: 단문 5종 + Threads 2종 (1회 호출) — Haiku tier
@@ -449,17 +510,30 @@ async def generate_ab_variant_async(
         log.info(f"A/B 변형 B 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
         return TweetBatch(topic=data.get("topic", trend.keyword), tweets=tweets, viral_score=trend.viral_potential)
 
+    except (RuntimeError, ConnectionError, TimeoutError) as e:
+        log.error(f"A/B 변형 B LLM 실패 ({trend.keyword}): {type(e).__name__}: {e}")
+        return None
     except Exception as e:
-        log.error(f"A/B 변형 B 생성 실패 ({trend.keyword}): {e}")
+        log.error(f"A/B 변형 B 예상외 오류 ({trend.keyword}): {type(e).__name__}: {e}")
         return None
 
 
 # -- backward-compat re-exports --
-from content_qa import (  # noqa: F401
-    audit_generated_content,
-    regenerate_content_groups,
-)
-from generation.persona import _round_robin_counter, select_persona  # noqa: F401
-from multilang import (  # noqa: F401
-    generate_for_trend_multilang_async,
-)
+try:
+    from .content_qa import (  # noqa: F401
+        audit_generated_content,
+        regenerate_content_groups,
+    )
+    from .generation.persona import _round_robin_counter, select_persona  # noqa: F401
+    from .multilang import (  # noqa: F401
+        generate_for_trend_multilang_async,
+    )
+except ImportError:
+    from content_qa import (  # noqa: F401
+        audit_generated_content,
+        regenerate_content_groups,
+    )
+    from generation.persona import _round_robin_counter, select_persona  # noqa: F401
+    from multilang import (  # noqa: F401
+        generate_for_trend_multilang_async,
+    )

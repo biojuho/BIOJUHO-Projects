@@ -13,9 +13,14 @@ from datetime import UTC
 import httpx
 from loguru import logger as log
 
-from config import AppConfig
-from models import MultiSourceContext, RawTrend, TrendSource
-from utils import run_async
+try:
+    from ..config import AppConfig
+    from ..models import MultiSourceContext, RawTrend, TrendSource
+    from ..utils import run_async
+except ImportError:
+    from config import AppConfig
+    from models import MultiSourceContext, RawTrend, TrendSource
+    from utils import run_async
 
 # Timeout settings (from scraper)
 _DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=6.0)
@@ -104,7 +109,10 @@ async def _async_fetch_x_via_twikit_or_jina(
     """Twikit 우선 시도, 실패 시 Jina AI Reader 폴백."""
     # Phase 1: Twikit (비공식 API — 무료, 구조화된 데이터)
     try:
-        from x_client import is_available, search_tweets_formatted
+        try:
+            from ..x_client import is_available, search_tweets_formatted
+        except ImportError:
+            from x_client import is_available, search_tweets_formatted
 
         if is_available():
             result = await search_tweets_formatted(keyword, count=10)
@@ -470,7 +478,10 @@ async def _async_fetch_single_source(
     if conn is not None:
         latency_ms = (time.perf_counter() - t0) * 1000
         quality_score = _calc_quality_score(result_text) if success else 0.0
-        from db import record_source_quality
+        try:
+            from ..db import record_source_quality
+        except ImportError:
+            from db import record_source_quality
 
         await record_source_quality(conn, source_name, success, latency_ms, 1 if success else 0, quality_score)
 
@@ -497,7 +508,10 @@ async def _async_collect_contexts(
     source_timeouts: dict[str, float] = {}  # 소스별 동적 타임아웃 (초)
     if conn is not None and getattr(config, "enable_source_quality_tracking", True):
         try:
-            from db import get_source_quality_summary
+            try:
+                from ..db import get_source_quality_summary
+            except ImportError:
+                from db import get_source_quality_summary
 
             quality_summary = await get_source_quality_summary(conn, days=7)
             for src_name, stats in quality_summary.items():
@@ -588,7 +602,10 @@ async def _async_collect_contexts(
 
         # [Phase 4] Scrapling 뉴스 보강 — RSS 인사이트가 부족하면 직접 스크래핑
         try:
-            from news_scraper import enrich_news_context
+            try:
+                from ..news_scraper import enrich_news_context
+            except ImportError:
+                from news_scraper import enrich_news_context
 
             news_insight = enrich_news_context(keyword, news_insight)
         except ImportError:

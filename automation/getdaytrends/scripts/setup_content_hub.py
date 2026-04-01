@@ -137,6 +137,7 @@ def main():
         # .env 파일에 자동 추가 제안
         env_path = Path(__file__).resolve().parents[1] / ".env"
         print("\n📝 .env 파일에 다음을 추가하세요:")
+        print("   ENABLE_CONTENT_HUB=true")
         print(f"   CONTENT_HUB_DATABASE_ID={new_db_id}")
         print("   TARGET_PLATFORMS=x,threads,naver_blog")
 
@@ -145,6 +146,7 @@ def main():
         if auto_add == "y" and env_path.exists():
             with open(env_path, "a", encoding="utf-8") as f:
                 f.write("\n\n# [v12.0] 멀티플랫폼 Content Hub (자동 생성: setup_content_hub.py)\n")
+                f.write("ENABLE_CONTENT_HUB=true\n")
                 f.write(f"CONTENT_HUB_DATABASE_ID={new_db_id}\n")
                 f.write("TARGET_PLATFORMS=x,threads,naver_blog\n")
                 f.write("BLOG_MIN_SCORE=70\n")

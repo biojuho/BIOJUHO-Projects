@@ -15,8 +15,12 @@ except ImportError:
         "dashboard 실행을 위해 fastapi와 uvicorn이 필요합니다:\n" "  pip install fastapi uvicorn[standard]"
     )
 
-from config import VERSION, AppConfig
-from db import get_connection, get_source_quality_summary, get_trend_stats, init_db
+try:
+    from .config import VERSION, AppConfig
+    from .db import get_connection, get_source_quality_summary, get_trend_stats, init_db
+except ImportError:
+    from config import VERSION, AppConfig
+    from db import get_connection, get_source_quality_summary, get_trend_stats, init_db
 
 app = FastAPI(title="getdaytrends Dashboard", version=VERSION)
 

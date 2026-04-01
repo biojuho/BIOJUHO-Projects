@@ -3,7 +3,7 @@
 import unittest
 
 from analyzer import _parse_json, _parse_json_array
-from models import MultiSourceContext
+from models import MultiSourceContext, ScoredTrend
 
 
 class TestParseJson(unittest.TestCase):

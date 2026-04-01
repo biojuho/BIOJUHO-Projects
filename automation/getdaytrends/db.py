@@ -1,6 +1,6 @@
 """
 getdaytrends v3.0 - Database Layer (CRUD Functions)
-?몃젋???덉뒪?좊━ ??? CRUD ?ы띁 ?⑥닔.
+트렌드 히스토리 및 CRUD 유틸리티 함수.
 """
 
 import json
@@ -8,21 +8,37 @@ from datetime import datetime, timedelta
 
 from loguru import logger as log
 
-# -- schema/connection imports --
-from db_schema import (  # noqa: F401
-    _backfill_fingerprints,
-    _normalize_name,
-    _normalize_volume,
-    _PgAdapter,
-    close_pg_pool,
-    compute_fingerprint,
-    db_transaction,
-    get_connection,
-    get_pg_pool,
-    init_db,
-    sqlite_write_lock,
-)
-from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
+try:
+    # -- schema/connection imports --
+    from .db_schema import (  # noqa: F401
+        _backfill_fingerprints,
+        _normalize_name,
+        _normalize_volume,
+        _PgAdapter,
+        close_pg_pool,
+        compute_fingerprint,
+        db_transaction,
+        get_connection,
+        get_pg_pool,
+        init_db,
+        sqlite_write_lock,
+    )
+    from .models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
+except ImportError:
+    from db_schema import (  # noqa: F401
+        _backfill_fingerprints,
+        _normalize_name,
+        _normalize_volume,
+        _PgAdapter,
+        close_pg_pool,
+        compute_fingerprint,
+        db_transaction,
+        get_connection,
+        get_pg_pool,
+        init_db,
+        sqlite_write_lock,
+    )
+    from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
 
 
 async def save_run(conn, run: RunResult) -> int:
@@ -67,7 +83,7 @@ async def update_run(conn, run: RunResult, row_id: int) -> None:
 
 
 async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) -> int:
-    """?몃젋????? bucket? config.cache_volume_bucket?먯꽌 ?꾨떖諛쏆븘 fingerprint ?뺣???議곗젙."""
+    """트렌드를 저장. bucket은 config.cache_volume_bucket에서 전달받아 fingerprint 정밀도 조정."""
     fingerprint = compute_fingerprint(trend.keyword, trend.volume_last_24h, bucket)
     cursor = await conn.execute(
         """INSERT INTO trends (run_id, keyword, rank, volume_raw, volume_numeric,
@@ -101,7 +117,7 @@ async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) 
             trend.joongyeon_angle,
         ),
     )
-    # commit? ?몄텧??db_transaction)媛 ?대떦 ???먯껜 commit ?쒓굅濡??몃옖??뀡 以묐┰ 蹂댁옣
+    # commit은 상위의 db_transaction이 담당 — 여기서는 commit 하지 않으므로 트랜잭션 중복 방지
     return cursor.lastrowid
 
 
@@ -159,7 +175,7 @@ async def save_tweets_batch(
     is_thread: bool = False,
     saved_to: list[str] | None = None,
 ) -> None:
-    """?몄쐵 諛곗튂 ??? variant_id, language 而щ읆 ?ы븿 (v3.0)."""
+    """트윗 배치 저장. variant_id, language 컬럼 포함 (v3.0)."""
     saved_to_json = json.dumps(saved_to or ["sqlite"], ensure_ascii=False)
     now = datetime.now().isoformat()
     if is_thread:
@@ -197,7 +213,7 @@ async def save_tweets_batch(
                VALUES (?, ?, ?, ?, ?, 0, 0, 'queued', ?, ?, ?, ?, ?)""",
             rows,
         )
-    # commit? ?몄텧??db_transaction)媛 ?대떦
+    # commit은 상위의 db_transaction이 담당
 
 
 async def _resolve_tweet_row_id_for_publish(
@@ -401,7 +417,7 @@ async def _cleanup_old_records_unlocked(conn, days: int = 90) -> int:
     await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     total = tweets_deleted + trends_deleted
     if total:
-        log.info(f"DB ?뺣━ ?꾨즺: tweets {tweets_deleted}媛?+ trends {trends_deleted}媛???젣 ({days}??珥덇낵)")
+        log.info(f"DB 정리 완료: tweets {tweets_deleted}건 + trends {trends_deleted}건 삭제 ({days}일 초과)")
     return total
 
 
@@ -498,9 +514,9 @@ async def _record_source_quality_unlocked(
     quality_score: float = 0.0,
 ) -> None:
     """
-    ?뚯뒪 ?섏쭛 硫뷀듃由?湲곕줉.
+    소스 수집 메트릭 기록.
     source: 'getdaytrends' | 'google_trends' | 'twitter' | 'reddit' | 'news' | 'youtube'
-    quality_score: 0.0~1.0 (?좎슜???댁슜 鍮꾩쑉)
+    quality_score: 0.0~1.0 (유용/무용 비율)
     """
     try:
         await conn.execute(
@@ -510,7 +526,7 @@ async def _record_source_quality_unlocked(
         )
         await conn.commit()
     except Exception as e:
-        log.warning(f"source_quality 湲곕줉 ?ㅽ뙣: {e}")
+        log.warning(f"source_quality 기록 실패: {e}")
 
 
 async def record_source_quality(
@@ -533,7 +549,7 @@ async def record_source_quality(
 
 
 async def get_source_quality_summary(conn, days: int = 7) -> dict:
-    """?뚯뒪蹂??덉쭏 ?붿빟 (success_rate, avg_latency_ms, avg_quality_score, total_calls)."""
+    """소스별 수집 요약 (success_rate, avg_latency_ms, avg_quality_score, total_calls)."""
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute(
         """SELECT source,
@@ -553,8 +569,8 @@ async def get_source_quality_summary(conn, days: int = 7) -> dict:
 
 async def get_volume_velocity(conn, keyword: str, lookback_runs: int = 3) -> float:
     """
-    吏곸쟾 N?곗쓽 蹂쇰ⅷ ?됯퇏 利앷???諛섑솚 (????諛곗쑉).
-    ?곗씠??遺議???0.0 諛섑솚.
+    직전 N건의 볼륨 변화량 반환 (증감 비율).
+    데이터 부족 시 0.0 반환.
     """
     cursor = await conn.execute(
         "SELECT volume_numeric, scored_at FROM trends WHERE keyword = ? " "ORDER BY scored_at DESC LIMIT ?",
@@ -571,8 +587,8 @@ async def get_volume_velocity(conn, keyword: str, lookback_runs: int = 3) -> flo
 
 async def get_recent_tweet_contents(conn, keyword: str, hours: int = 24, limit: int = 5) -> list[str]:
     """
-    理쒓렐 N?쒓컙 ???뱀젙 ?ㅼ썙?쒕줈 ?앹꽦???몄쐵 ?댁슜 紐⑸줉 諛섑솚.
-    肄섑뀗痢??ㅼ뼇???꾨＼?꾪듃 二쇱엯???ъ슜.
+    최근 N시간 내 특정 키워드로 생성된 트윗 내용 목록 반환.
+    콘텐츠 다양성 프롬프트 주입에 사용.
     """
     cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
     cursor = await conn.execute(
@@ -589,10 +605,10 @@ async def get_recent_tweet_contents(conn, keyword: str, hours: int = 24, limit: 
 
 async def _record_posting_time_stat_unlocked(conn, category: str, hour: int, engagement_label: str) -> None:
     """
-    寃뚯떆 ?쒓컙?蹂?李몄뿬???숈뒿 湲곕줉.
-    engagement_label: '?믪쓬'=1.0 / '蹂댄넻'=0.5 / '??쓬'=0.2
+    게시 시간대별 참여도 학습 기록.
+    engagement_label: '높음'=1.0 / '보통'=0.5 / '낮음'=0.2
     """
-    score_map = {"?믪쓬": 1.0, "蹂댄넻": 0.5, "??쓬": 0.2}
+    score_map = {"높음": 1.0, "보통": 0.5, "낮음": 0.2}
     score = score_map.get(engagement_label, 0.5)
     try:
         await conn.execute(
@@ -606,7 +622,7 @@ async def _record_posting_time_stat_unlocked(conn, category: str, hour: int, eng
         )
         await conn.commit()
     except Exception as e:
-        log.warning(f"posting_time_stat 湲곕줉 ?ㅽ뙣: {e}")
+        log.warning(f"posting_time_stat 기록 실패: {e}")
 
 
 async def record_posting_time_stat(conn, category: str, hour: int, engagement_label: str) -> None:
@@ -631,7 +647,7 @@ async def get_best_posting_hours(conn, category: str, top_n: int = 3) -> list[in
 
 
 async def _record_watchlist_hit_unlocked(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
-    """Watchlist ?ㅼ썙???깆옣 湲곕줉."""
+    """Watchlist 키워드 감지 기록."""
     try:
         await conn.execute(
             """INSERT INTO watchlist_hits (keyword, watchlist_item, viral_potential, detected_at)
@@ -640,7 +656,7 @@ async def _record_watchlist_hit_unlocked(conn, keyword: str, watchlist_item: str
         )
         await conn.commit()
     except Exception as e:
-        log.debug(f"watchlist_hit 湲곕줉 ?ㅽ뙣 (臾댁떆): {e}")
+        log.debug(f"watchlist_hit 기록 실패 (무시): {e}")
 
 
 async def record_watchlist_hit(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
@@ -650,8 +666,8 @@ async def record_watchlist_hit(conn, keyword: str, watchlist_item: str, viral_po
 
 async def get_trend_history_patterns_batch(conn, keywords: list[str], days: int = 7) -> dict[str, dict]:
     """
-    ?щ윭 ?ㅼ썙?쒖쓽 ?덉뒪?좊━ ?⑦꽩??1??荑쇰━濡??쇨큵 議고쉶.
-    諛섑솚: {keyword: {"seen_count", "avg_score", "score_trend", "is_recurring"}}
+    여러 키워드의 히스토리 패턴을 1번 쿼리로 배치 조회.
+    반환: {keyword: {"seen_count", "avg_score", "score_trend", "is_recurring"}}
     """
     if not keywords:
         return {}
@@ -725,7 +741,7 @@ async def _record_content_feedback_unlocked(
         )
         await conn.commit()
     except Exception as e:
-        log.debug(f"content_feedback 湲곕줉 ?ㅽ뙣 (臾댁떆): {e}")
+        log.debug(f"content_feedback 기록 실패 (무시): {e}")
 
 
 async def record_content_feedback(
@@ -807,8 +823,8 @@ async def get_qa_summary(conn, days: int = 7) -> dict:
 
 async def get_content_hashes(conn, hours: int = 24) -> set[str]:
     """
-    v15.0 Phase B: 理쒓렐 N?쒓컙 ???앹꽦??肄섑뀗痢좎쓽 ?묎굅?꾨┛???댁떆 吏묓빀 諛섑솚.
-    肄섑뀗痢??ㅼ뼇??寃利앹뿉 ?ъ슜.
+    v15.0 Phase B: 최근 N시간 내 생성된 콘텐츠의 핑거프린트 해시 집합 반환.
+    콘텐츠 다양성 검증에 사용.
     """
     cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
     cursor = await conn.execute(

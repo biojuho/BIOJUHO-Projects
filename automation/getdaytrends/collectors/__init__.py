@@ -21,58 +21,104 @@
 """
 
 # ── Trend Collection (collectors/sources.py) ──
-from collectors.sources import (  # noqa: F401
-    _COMMON_HEADERS,
-    _DEFAULT_TIMEOUT,
-    _FETCH_CACHE,
-    _FETCH_CACHE_TTL,
-    _GEO_MAP,
-    _SHORT_TIMEOUT,
-    _YOUTUBE_GEO_MAP,
-    _async_fetch_getdaytrends,
-    _async_fetch_google_trends_rss,
-    _async_fetch_youtube_trending,
-    _fallback_trends,
-    _format_news_age,
-    _is_korean_trend,
-    _is_similar_keyword,
-    _merge_trends,
-    _parse_rss_date,
-    _parse_volume_text,
-    fetch_getdaytrends,
-    fetch_google_trends_rss,
-    fetch_youtube_trending,
-)
+try:
+    from .sources import (  # noqa: F401
+        _COMMON_HEADERS,
+        _DEFAULT_TIMEOUT,
+        _FETCH_CACHE,
+        _FETCH_CACHE_TTL,
+        _GEO_MAP,
+        _SHORT_TIMEOUT,
+        _YOUTUBE_GEO_MAP,
+        _async_fetch_getdaytrends,
+        _async_fetch_google_trends_rss,
+        _async_fetch_youtube_trending,
+        _fallback_trends,
+        _format_news_age,
+        _is_korean_trend,
+        _is_similar_keyword,
+        _merge_trends,
+        _parse_rss_date,
+        _parse_volume_text,
+        fetch_getdaytrends,
+        fetch_google_trends_rss,
+        fetch_youtube_trending,
+    )
+except ImportError:
+    from collectors.sources import (  # noqa: F401
+        _COMMON_HEADERS,
+        _DEFAULT_TIMEOUT,
+        _FETCH_CACHE,
+        _FETCH_CACHE_TTL,
+        _GEO_MAP,
+        _SHORT_TIMEOUT,
+        _YOUTUBE_GEO_MAP,
+        _async_fetch_getdaytrends,
+        _async_fetch_google_trends_rss,
+        _async_fetch_youtube_trending,
+        _fallback_trends,
+        _format_news_age,
+        _is_korean_trend,
+        _is_similar_keyword,
+        _merge_trends,
+        _parse_rss_date,
+        _parse_volume_text,
+        fetch_getdaytrends,
+        fetch_google_trends_rss,
+        fetch_youtube_trending,
+    )
 
 
 # ── Orchestrator (scraper.py) ──
 # NOTE: lazy import to avoid circular dependency (scraper → collectors.sources → collectors/__init__ → scraper)
 def __getattr__(name):
     if name in ("collect_trends", "collect_contexts"):
-        import scraper as _scraper
+        try:
+            from .. import scraper as _scraper
+        except ImportError:
+            import scraper as _scraper
 
         return getattr(_scraper, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ── Context Collection (collectors/context.py) ──
-from collectors.context import (  # noqa: F401
-    _async_collect_contexts,
-    _async_fetch_google_news_trends,
-    _async_fetch_google_suggest,
-    _async_fetch_google_trends_related,
-    _async_fetch_reddit_trends,
-    _async_fetch_twitter_trends,
-    _calc_quality_score,
-    fetch_google_news_trends,
-    fetch_reddit_trends,
-    fetch_twitter_trends,
-    post_to_x,
-    post_to_x_async,
-)
+try:
+    from .context import (  # noqa: F401
+        _async_collect_contexts,
+        _async_fetch_google_news_trends,
+        _async_fetch_google_suggest,
+        _async_fetch_google_trends_related,
+        _async_fetch_reddit_trends,
+        _async_fetch_twitter_trends,
+        _calc_quality_score,
+        fetch_google_news_trends,
+        fetch_reddit_trends,
+        fetch_twitter_trends,
+        post_to_x,
+        post_to_x_async,
+    )
+except ImportError:
+    from collectors.context import (  # noqa: F401
+        _async_collect_contexts,
+        _async_fetch_google_news_trends,
+        _async_fetch_google_suggest,
+        _async_fetch_google_trends_related,
+        _async_fetch_reddit_trends,
+        _async_fetch_twitter_trends,
+        _calc_quality_score,
+        fetch_google_news_trends,
+        fetch_reddit_trends,
+        fetch_twitter_trends,
+        post_to_x,
+        post_to_x_async,
+    )
 
 # ── News Scraping (optional, requires Scrapling) ──
 try:
-    from news_scraper import enrich_news_context  # noqa: F401
+    try:
+        from ..news_scraper import enrich_news_context  # noqa: F401
+    except ImportError:
+        from news_scraper import enrich_news_context  # noqa: F401
 except ImportError:
     pass  # Scrapling 미설치 시 사용 불가

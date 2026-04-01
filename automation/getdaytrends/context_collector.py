@@ -1,6 +1,47 @@
-"""
-context_collector — 후방 호환 shim.
-실제 구현은 collectors/context.py로 이동.
-"""
+"""Compatibility shim for the legacy ``context_collector`` module path."""
 
-from collectors.context import *  # noqa: F403
+try:
+    from .collectors.context import (
+        _async_collect_contexts,
+        _async_fetch_google_news_trends,
+        _async_fetch_google_suggest,
+        _async_fetch_google_trends_related,
+        _async_fetch_reddit_trends,
+        _async_fetch_twitter_trends,
+        _calc_quality_score,
+        fetch_google_news_trends,
+        fetch_reddit_trends,
+        fetch_twitter_trends,
+        post_to_x,
+        post_to_x_async,
+    )
+except ImportError:
+    from collectors.context import (
+        _async_collect_contexts,
+        _async_fetch_google_news_trends,
+        _async_fetch_google_suggest,
+        _async_fetch_google_trends_related,
+        _async_fetch_reddit_trends,
+        _async_fetch_twitter_trends,
+        _calc_quality_score,
+        fetch_google_news_trends,
+        fetch_reddit_trends,
+        fetch_twitter_trends,
+        post_to_x,
+        post_to_x_async,
+    )
+
+__all__ = [
+    "_async_collect_contexts",
+    "_async_fetch_google_news_trends",
+    "_async_fetch_google_suggest",
+    "_async_fetch_google_trends_related",
+    "_async_fetch_reddit_trends",
+    "_async_fetch_twitter_trends",
+    "_calc_quality_score",
+    "fetch_google_news_trends",
+    "fetch_reddit_trends",
+    "fetch_twitter_trends",
+    "post_to_x",
+    "post_to_x_async",
+]

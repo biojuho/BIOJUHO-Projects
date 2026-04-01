@@ -11,8 +11,12 @@ from typing import Any
 
 from loguru import logger as log
 
-from config import AppConfig
-from models import ScoredTrend, TweetBatch
+try:
+    from .config import AppConfig
+    from .models import ScoredTrend, TweetBatch
+except ImportError:
+    from config import AppConfig
+    from models import ScoredTrend, TweetBatch
 
 # 저장 방식별 임포트
 try:
@@ -112,10 +116,16 @@ except ImportError:
 
 
 # -- notion builder imports --
-from notion_builder import (
-    _build_notion_body,
-    _notion_page_exists,
-)
+try:
+    from .notion_builder import (
+        _build_notion_body,
+        _notion_page_exists,
+    )
+except ImportError:
+    from notion_builder import (
+        _build_notion_body,
+        _notion_page_exists,
+    )
 
 
 def save_to_notion(
@@ -186,8 +196,11 @@ def save_to_notion(
         )
         log.info(f"Notion 저장 완료: '{title}' (본문 {len(body_blocks)}블록)")
         return True
-    except Exception as e:
-        log.error(f"Notion 저장 실패: {e}")
+    except (ConnectionError, TimeoutError) as e:
+        log.error(f"Notion 저장 네트워크 오류: {type(e).__name__}: {e}")
+        return False
+    except (ValueError, RuntimeError) as e:
+        log.error(f"Notion 저장 실패 (예상외): {type(e).__name__}: {e}")
         return False
 
 
@@ -416,8 +429,11 @@ def save_to_content_hub(
         )
         log.info(f"Content Hub 저장: [{platform_label}] '{batch.topic}' ({len(blocks)}블록)")
         return True
-    except Exception as e:
-        log.error(f"Content Hub 저장 실패 [{platform_label}]: {e}")
+    except (ConnectionError, TimeoutError) as e:
+        log.error(f"Content Hub 네트워크 오류 [{platform_label}]: {type(e).__name__}: {e}")
+        return False
+    except (ValueError, RuntimeError) as e:
+        log.error(f"Content Hub 저장 실패 [{platform_label}] (예상외): {type(e).__name__}: {e}")
         return False
 
 
@@ -481,6 +497,9 @@ def save_to_google_sheets(
     except FileNotFoundError:
         log.error(f"서비스 계정 JSON을 찾을 수 없습니다: {config.google_service_json}")
         return False
-    except Exception as e:
-        log.error(f"Google Sheets 저장 실패: {e}")
+    except (ConnectionError, TimeoutError) as e:
+        log.error(f"Google Sheets 네트워크 오류: {type(e).__name__}: {e}")
+        return False
+    except (ValueError, RuntimeError) as e:
+        log.error(f"Google Sheets 저장 실패 (예상외): {type(e).__name__}: {e}")
         return False

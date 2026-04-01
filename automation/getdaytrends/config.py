@@ -6,11 +6,21 @@ getdaytrends v4.1 - Configuration Management
 import os
 from dataclasses import dataclass, field
 
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from shared.env_loader import load_workspace_env
+    load_workspace_env()
+except ImportError:
+    from dotenv import load_dotenv
+    load_dotenv()
 
 VERSION = "4.1"
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 COUNTRY_MAP = {
     "korea": "korea",
@@ -26,6 +36,62 @@ COUNTRY_MAP = {
     "global": "",
     "world": "",
 }
+
+
+@dataclass(frozen=True)
+class QualityConfig:
+    """품질 관련 설정의 도메인 뷰."""
+    feedback_min_score: int = 50
+    threads_quality_min_score: int = 65
+    long_form_quality_min_score: int = 70
+    blog_quality_min_score: int = 75
+    fact_check_min_accuracy: float = 0.6
+    fact_check_strict_mode: bool = False
+    hallucination_zero_tolerance: bool = True
+    enable_quality_feedback: bool = True
+    enable_golden_reference_qa: bool = True
+    golden_reference_limit: int = 3
+    min_viral_score: int = 60
+
+
+@dataclass(frozen=True)
+class CostConfig:
+    """비용 관련 설정의 도메인 뷰."""
+    daily_budget_usd: float = 3.0
+    peak_budget_multiplier: float = 0.5
+    cost_alert_pct: float = 70.0
+    heavy_categories: tuple[str, ...] = ("정치", "경제", "테크", "사회", "국제", "과학", "의학", "법률")
+    qa_skip_cached: bool = True
+    qa_skip_high_score: int = 85
+    qa_skip_categories: tuple[str, ...] = ("날씨", "음식", "스포츠")
+    generation_mode_override: str = ""
+
+
+@dataclass(frozen=True)
+class AlertConfig:
+    """알림 채널 설정의 도메인 뷰."""
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    discord_webhook_url: str = ""
+    slack_webhook_url: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    alert_email: str = ""
+    alert_threshold: int = 70
+
+    @property
+    def has_telegram(self) -> bool:
+        return bool(self.telegram_bot_token and self.telegram_chat_id)
+
+    @property
+    def has_discord(self) -> bool:
+        return bool(self.discord_webhook_url)
+
+    @property
+    def has_any_channel(self) -> bool:
+        return self.has_telegram or self.has_discord or bool(self.slack_webhook_url)
 
 
 @dataclass
@@ -219,6 +285,7 @@ class AppConfig:
     target_platforms: list[str] = field(
         default_factory=lambda: ["x", "threads"]
     )  # [v13.0] naver_blog 제거 (X/Threads만)
+    enable_content_hub: bool = False  # Content Hub second Notion DB write
     content_hub_database_id: str = ""  # 멀티플랫폼 Content Hub 노션 DB ID
     blog_min_score: int = 70  # 이 점수 이상만 네이버 블로그 글감 생성
     blog_min_words: int = 2000  # 네이버 블로그 최소 글자 수
@@ -294,9 +361,57 @@ class AppConfig:
         if not self.countries:
             self.countries = [self.country]
 
-    @classmethod
-    def from_env(cls) -> "AppConfig":
-        return cls(
+    @property
+    def quality(self) -> QualityConfig:
+        """품질 관련 설정 도메인 뷰."""
+        return QualityConfig(
+            feedback_min_score=self.quality_feedback_min_score,
+            threads_quality_min_score=self.threads_quality_min_score,
+            long_form_quality_min_score=self.long_form_quality_min_score,
+            blog_quality_min_score=self.blog_quality_min_score,
+            fact_check_min_accuracy=self.fact_check_min_accuracy,
+            fact_check_strict_mode=self.fact_check_strict_mode,
+            hallucination_zero_tolerance=self.hallucination_zero_tolerance,
+            enable_quality_feedback=self.enable_quality_feedback,
+            enable_golden_reference_qa=self.enable_golden_reference_qa,
+            golden_reference_limit=self.golden_reference_limit,
+            min_viral_score=self.min_viral_score,
+        )
+
+    @property
+    def cost(self) -> CostConfig:
+        """비용 관련 설정 도메인 뷰."""
+        return CostConfig(
+            daily_budget_usd=self.daily_budget_usd,
+            peak_budget_multiplier=self.peak_budget_multiplier,
+            cost_alert_pct=self.cost_alert_pct,
+            heavy_categories=tuple(self.heavy_categories),
+            qa_skip_cached=self.qa_skip_cached,
+            qa_skip_high_score=self.qa_skip_high_score,
+            qa_skip_categories=tuple(self.qa_skip_categories),
+            generation_mode_override=self.generation_mode_override,
+        )
+
+    @property
+    def alerts(self) -> AlertConfig:
+        """알림 채널 설정 도메인 뷰."""
+        return AlertConfig(
+            telegram_bot_token=self.telegram_bot_token,
+            telegram_chat_id=self.telegram_chat_id,
+            discord_webhook_url=self.discord_webhook_url,
+            slack_webhook_url=self.slack_webhook_url,
+            smtp_host=self.smtp_host,
+            smtp_port=self.smtp_port,
+            smtp_user=self.smtp_user,
+            smtp_password=self.smtp_password,
+            alert_email=self.alert_email,
+            alert_threshold=self.alert_threshold,
+        )
+
+    @staticmethod
+    def _storage_env() -> dict:
+        """Storage 관련 환경변수 로딩."""
+        return dict(
             notion_token=os.getenv("NOTION_TOKEN", ""),
             notion_database_id=os.getenv("NOTION_DATABASE_ID", ""),
             google_service_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "credentials.json"),
@@ -304,11 +419,28 @@ class AppConfig:
             storage_type=os.getenv("STORAGE_TYPE", "notion").lower(),
             db_path=os.getenv("DB_PATH", "data/getdaytrends.db"),
             database_url=os.getenv("DATABASE_URL", ""),
+            cache_volume_bucket=int(os.getenv("CACHE_VOLUME_BUCKET", "5000")),
+            data_retention_days=int(os.getenv("DATA_RETENTION_DAYS", "90")),
+            notion_sem_limit=int(os.getenv("NOTION_SEM_LIMIT", "10")),
+        )
+
+    @staticmethod
+    def _schedule_env() -> dict:
+        """스케줄·런타임 관련 환경변수 로딩."""
+        return dict(
             schedule_minutes=int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "360")),
             enable_parallel_countries=os.getenv("ENABLE_PARALLEL_COUNTRIES", "true").lower() == "true",
             country_parallel_limit=int(os.getenv("COUNTRY_PARALLEL_LIMIT", "3")),
-            tone=os.getenv("TONE", "친근하고 위트 있는 동네 친구"),
-            editorial_profile=os.getenv("EDITORIAL_PROFILE", "report").lower(),
+            country=os.getenv("DEFAULT_COUNTRY", "korea"),
+            limit=int(os.getenv("DEFAULT_LIMIT", "10")),
+            dedupe_window_hours=int(os.getenv("DEDUPE_WINDOW_HOURS", "6")),
+            max_workers=int(os.getenv("MAX_WORKERS", "10")),
+        )
+
+    @staticmethod
+    def _api_keys_env() -> dict:
+        """외부 API 키·인증 관련 환경변수 로딩."""
+        return dict(
             twitter_bearer_token=os.getenv("TWITTER_BEARER_TOKEN", ""),
             x_access_token=os.getenv("X_ACCESS_TOKEN", ""),
             x_client_id=os.getenv("X_CLIENT_ID", ""),
@@ -316,6 +448,16 @@ class AppConfig:
             twikit_username=os.getenv("TWIKIT_USERNAME", ""),
             twikit_email=os.getenv("TWIKIT_EMAIL", ""),
             twikit_password=os.getenv("TWIKIT_PASSWORD", ""),
+            canva_api_key=os.getenv("CANVA_API_KEY", ""),
+            canva_client_id=os.getenv("CANVA_CLIENT_ID", ""),
+            canva_client_secret=os.getenv("CANVA_CLIENT_SECRET", ""),
+            canva_template_id=os.getenv("CANVA_TEMPLATE_ID", ""),
+        )
+
+    @staticmethod
+    def _alerts_env() -> dict:
+        """알림 채널 관련 환경변수 로딩."""
+        return dict(
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
             discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL", ""),
@@ -326,132 +468,143 @@ class AppConfig:
             smtp_password=os.getenv("SMTP_PASSWORD", ""),
             alert_email=os.getenv("ALERT_EMAIL", ""),
             alert_threshold=int(os.getenv("ALERT_THRESHOLD", "70")),
+        )
+
+    @staticmethod
+    def _feature_flags_env() -> dict:
+        """기능 플래그 환경변수 로딩."""
+        return dict(
             enable_clustering=os.getenv("ENABLE_CLUSTERING", "true").lower() == "true",
             enable_long_form=os.getenv("ENABLE_LONG_FORM", "true").lower() == "true",
             enable_threads=os.getenv("ENABLE_THREADS", "true").lower() == "true",
             smart_schedule=os.getenv("SMART_SCHEDULE", "true").lower() == "true",
             night_mode=os.getenv("NIGHT_MODE", "true").lower() == "true",
+            enable_structured_metrics=os.getenv("ENABLE_STRUCTURED_METRICS", "true").lower() == "true",
+            enable_sentiment_filter=os.getenv("ENABLE_SENTIMENT_FILTER", "true").lower() == "true",
+            enable_canva_visuals=os.getenv("ENABLE_CANVA_VISUALS", "false").lower() == "true",
+            enable_source_quality_tracking=os.getenv("ENABLE_SOURCE_QUALITY_TRACKING", "true").lower() == "true",
+            enable_quality_feedback=os.getenv("ENABLE_QUALITY_FEEDBACK", "true").lower() == "true",
+            enable_history_correction=os.getenv("ENABLE_HISTORY_CORRECTION", "true").lower() == "true",
+            enable_content_diversity=os.getenv("ENABLE_CONTENT_DIVERSITY", "true").lower() == "true",
+            enable_velocity_scoring=os.getenv("ENABLE_VELOCITY_SCORING", "true").lower() == "true",
+            enable_emerging_detection=os.getenv("ENABLE_EMERGING_DETECTION", "true").lower() == "true",
+            enable_adaptive_voice=os.getenv("ENABLE_ADAPTIVE_VOICE", "true").lower() == "true",
+            enable_tiered_collection=os.getenv("ENABLE_TIERED_COLLECTION", "true").lower() == "true",
+            enable_golden_reference_qa=os.getenv("ENABLE_GOLDEN_REFERENCE_QA", "true").lower() == "true",
+            enable_fact_checking=os.getenv("ENABLE_FACT_CHECKING", "true").lower() == "true",
+            enable_trend_genealogy=os.getenv("ENABLE_TREND_GENEALOGY", "true").lower() == "true",
+            enable_zero_content_prevention=os.getenv("ENABLE_ZERO_CONTENT_PREVENTION", "true").lower() == "true",
+            enable_lazy_context=os.getenv("ENABLE_LAZY_CONTEXT", "true").lower() == "true",
+            enable_embedding_clustering=os.getenv("ENABLE_EMBEDDING_CLUSTERING", "true").lower() == "true",
+            require_context=os.getenv("REQUIRE_CONTEXT", "true").lower() == "true",
+            enable_content_hub=_env_flag("ENABLE_CONTENT_HUB", default=False),
+        )
+
+    @staticmethod
+    def _quality_env() -> dict:
+        """품질·QA 관련 환경변수 로딩."""
+        return dict(
+            min_viral_score=int(os.getenv("MIN_VIRAL_SCORE", "60")),
             long_form_min_score=int(os.getenv("LONG_FORM_MIN_SCORE", "95")),
             thread_min_score=int(os.getenv("THREAD_MIN_SCORE", "92")),
             threads_min_score=int(os.getenv("THREADS_MIN_SCORE", "65")),
-            min_viral_score=int(os.getenv("MIN_VIRAL_SCORE", "60")),
-            max_workers=int(os.getenv("MAX_WORKERS", "10")),
-            daily_budget_usd=float(os.getenv("DAILY_BUDGET_USD", "3.0")),
-            heavy_categories=[
-                c.strip()
-                for c in os.getenv("HEAVY_CATEGORIES", "정치,경제,테크,사회,국제,과학,의학,법률").split(",")
-                if c.strip()
-            ],
-            country=os.getenv("DEFAULT_COUNTRY", "korea"),
-            limit=int(os.getenv("DEFAULT_LIMIT", "10")),
-            dedupe_window_hours=int(os.getenv("DEDUPE_WINDOW_HOURS", "6")),
-            peak_budget_multiplier=float(os.getenv("PEAK_BUDGET_MULTIPLIER", "0.5")),
-            cost_alert_pct=float(os.getenv("COST_ALERT_PCT", "70")),
-            target_languages=[lang.strip() for lang in os.getenv("TARGET_LANGUAGES", "ko").split(",") if lang.strip()],
-            canva_api_key=os.getenv("CANVA_API_KEY", ""),
-            canva_client_id=os.getenv("CANVA_CLIENT_ID", ""),
-            canva_client_secret=os.getenv("CANVA_CLIENT_SECRET", ""),
-            canva_template_id=os.getenv("CANVA_TEMPLATE_ID", ""),
-            enable_canva_visuals=os.getenv("ENABLE_CANVA_VISUALS", "false").lower() == "true",
             canva_min_score=int(os.getenv("CANVA_MIN_SCORE", "90")),
-            # v3.0
-            cache_volume_bucket=int(os.getenv("CACHE_VOLUME_BUCKET", "5000")),
-            data_retention_days=int(os.getenv("DATA_RETENTION_DAYS", "90")),
-            notion_sem_limit=int(os.getenv("NOTION_SEM_LIMIT", "10")),
-            enable_structured_metrics=os.getenv("ENABLE_STRUCTURED_METRICS", "true").lower() == "true",
-            enable_sentiment_filter=os.getenv("ENABLE_SENTIMENT_FILTER", "true").lower() == "true",
-            # v4.0
-            min_cross_source_confidence=int(os.getenv("MIN_CROSS_SOURCE_CONFIDENCE", "2")),
-            viral_score_llm_weight=float(os.getenv("VIRAL_SCORE_LLM_WEIGHT", "0.6")),
-            enable_history_correction=os.getenv("ENABLE_HISTORY_CORRECTION", "true").lower() == "true",
-            joongyeon_kick_long_form_threshold=int(os.getenv("JOONGYEON_KICK_LONG_FORM_THRESHOLD", "75")),
-            # v5.0
-            enable_source_quality_tracking=os.getenv("ENABLE_SOURCE_QUALITY_TRACKING", "true").lower() == "true",
-            news_rss_max_items=int(os.getenv("NEWS_RSS_MAX_ITEMS", "5")),
-            # v6.0
-            min_article_count=int(os.getenv("MIN_ARTICLE_COUNT", "3")),
-            max_same_category=int(os.getenv("MAX_SAME_CATEGORY", "2")),
-            enable_quality_feedback=os.getenv("ENABLE_QUALITY_FEEDBACK", "true").lower() == "true",
             quality_feedback_min_score=int(os.getenv("QUALITY_FEEDBACK_MIN_SCORE", "50")),
             threads_quality_min_score=int(os.getenv("THREADS_QUALITY_MIN_SCORE", "65")),
             long_form_quality_min_score=int(os.getenv("LONG_FORM_QUALITY_MIN_SCORE", "70")),
             blog_quality_min_score=int(os.getenv("BLOG_QUALITY_MIN_SCORE", "75")),
-            # v6.1
+            fact_check_min_accuracy=float(os.getenv("FACT_CHECK_MIN_ACCURACY", "0.6")),
+            fact_check_strict_mode=os.getenv("FACT_CHECK_STRICT_MODE", "false").lower() == "true",
+            hallucination_zero_tolerance=os.getenv("HALLUCINATION_ZERO_TOLERANCE", "true").lower() == "true",
+            min_article_count=int(os.getenv("MIN_ARTICLE_COUNT", "3")),
+            max_same_category=int(os.getenv("MAX_SAME_CATEGORY", "2")),
             max_content_age_hours=int(os.getenv("MAX_CONTENT_AGE_HOURS", "24")),
             freshness_penalty_stale=float(os.getenv("FRESHNESS_PENALTY_STALE", "0.85")),
             freshness_penalty_expired=float(os.getenv("FRESHNESS_PENALTY_EXPIRED", "0.7")),
-            # v7.0
-            exclude_categories=[
-                c.strip() for c in os.getenv("EXCLUDE_CATEGORIES", "정치,연예").split(",") if c.strip()
-            ],
-            # v8.0
-            account_niche=os.getenv("ACCOUNT_NICHE", "AI·테크·트렌드"),
-            target_audience=os.getenv("TARGET_AUDIENCE", "IT 종사자, 스타트업 관계자, 테크 트렌드에 관심있는 직장인"),
-            # v9.0 Phase A
-            jaccard_cluster_threshold=float(os.getenv("JACCARD_CLUSTER_THRESHOLD", "0.35")),
-            # v14.0
-            enable_embedding_clustering=os.getenv("ENABLE_EMBEDDING_CLUSTERING", "true").lower() == "true",
-            embedding_cluster_threshold=float(os.getenv("EMBEDDING_CLUSTER_THRESHOLD", "0.75")),
             qa_skip_cached=os.getenv("QA_SKIP_CACHED", "true").lower() == "true",
             qa_skip_high_score=int(os.getenv("QA_SKIP_HIGH_SCORE", "85")),
             qa_skip_categories=[
                 c.strip() for c in os.getenv("QA_SKIP_CATEGORIES", "날씨,음식,스포츠").split(",") if c.strip()
             ],
-            generation_mode_override=os.getenv("GENERATION_MODE", ""),
-            # v10.0 Phase 1
-            require_context=os.getenv("REQUIRE_CONTEXT", "true").lower() == "true",
+            golden_reference_limit=int(os.getenv("GOLDEN_REFERENCE_LIMIT", "3")),
+            golden_reference_auto_update_days=int(os.getenv("GOLDEN_REFERENCE_AUTO_UPDATE_DAYS", "7")),
+            diversity_sim_threshold=float(os.getenv("DIVERSITY_SIM_THRESHOLD", "0.85")),
+        )
+
+    @staticmethod
+    def _scoring_env() -> dict:
+        """스코어링·시그널 관련 환경변수 로딩."""
+        return dict(
+            daily_budget_usd=float(os.getenv("DAILY_BUDGET_USD", "3.0")),
+            peak_budget_multiplier=float(os.getenv("PEAK_BUDGET_MULTIPLIER", "0.5")),
+            cost_alert_pct=float(os.getenv("COST_ALERT_PCT", "70")),
+            heavy_categories=[
+                c.strip()
+                for c in os.getenv("HEAVY_CATEGORIES", "정치,경제,테크,사회,국제,과학,의학,법률").split(",")
+                if c.strip()
+            ],
+            viral_score_llm_weight=float(os.getenv("VIRAL_SCORE_LLM_WEIGHT", "0.6")),
+            min_cross_source_confidence=int(os.getenv("MIN_CROSS_SOURCE_CONFIDENCE", "2")),
+            joongyeon_kick_long_form_threshold=int(os.getenv("JOONGYEON_KICK_LONG_FORM_THRESHOLD", "75")),
+            jaccard_cluster_threshold=float(os.getenv("JACCARD_CLUSTER_THRESHOLD", "0.35")),
+            embedding_cluster_threshold=float(os.getenv("EMBEDDING_CLUSTER_THRESHOLD", "0.75")),
+            emerging_velocity_threshold=float(os.getenv("EMERGING_VELOCITY_THRESHOLD", "2.0")),
+            emerging_volume_cap=int(os.getenv("EMERGING_VOLUME_CAP", "5000")),
+            early_signal_boost_threshold=float(os.getenv("EARLY_SIGNAL_BOOST_THRESHOLD", "2.0")),
+            early_signal_suppress_threshold=float(os.getenv("EARLY_SIGNAL_SUPPRESS_THRESHOLD", "0.3")),
             cache_ttl_rising=int(os.getenv("CACHE_TTL_RISING", "2")),
             cache_ttl_peak=int(os.getenv("CACHE_TTL_PEAK", "6")),
             cache_ttl_falling=int(os.getenv("CACHE_TTL_FALLING", "18")),
             cache_ttl_default=int(os.getenv("CACHE_TTL_DEFAULT", "12")),
-            # v9.0 Phase B
-            watchlist_keywords=[k.strip() for k in os.getenv("WATCHLIST_KEYWORDS", "").split(",") if k.strip()],
-            enable_content_diversity=os.getenv("ENABLE_CONTENT_DIVERSITY", "true").lower() == "true",
-            content_diversity_hours=int(os.getenv("CONTENT_DIVERSITY_HOURS", "24")),
-            enable_velocity_scoring=os.getenv("ENABLE_VELOCITY_SCORING", "true").lower() == "true",
-            # v9.0 Phase C
-            enable_emerging_detection=os.getenv("ENABLE_EMERGING_DETECTION", "true").lower() == "true",
-            emerging_velocity_threshold=float(os.getenv("EMERGING_VELOCITY_THRESHOLD", "2.0")),
-            emerging_volume_cap=int(os.getenv("EMERGING_VOLUME_CAP", "5000")),
-            # v12.0 멀티플랫폼
+            pattern_weight_min_samples=int(os.getenv("PATTERN_WEIGHT_MIN_SAMPLES", "3")),
+            pattern_weight_days=int(os.getenv("PATTERN_WEIGHT_DAYS", "30")),
+            genealogy_history_hours=int(os.getenv("GENEALOGY_HISTORY_HOURS", "72")),
+            genealogy_min_confidence=float(os.getenv("GENEALOGY_MIN_CONFIDENCE", "0.5")),
+            niche_bonus_points=int(os.getenv("NICHE_BONUS_POINTS", "10")),
+        )
+
+    @staticmethod
+    def _platform_env() -> dict:
+        """플랫폼·콘텐츠 관련 환경변수 로딩."""
+        return dict(
+            tone=os.getenv("TONE", "친근하고 위트 있는 동네 친구"),
+            editorial_profile=os.getenv("EDITORIAL_PROFILE", "report").lower(),
+            target_languages=[lang.strip() for lang in os.getenv("TARGET_LANGUAGES", "ko").split(",") if lang.strip()],
+            account_niche=os.getenv("ACCOUNT_NICHE", "AI·테크·트렌드"),
+            target_audience=os.getenv("TARGET_AUDIENCE", "IT 종사자, 스타트업 관계자, 테크 트렌드에 관심있는 직장인"),
             target_platforms=[p.strip() for p in os.getenv("TARGET_PLATFORMS", "x").split(",") if p.strip()],
             content_hub_database_id=os.getenv("CONTENT_HUB_DATABASE_ID", ""),
             blog_min_score=int(os.getenv("BLOG_MIN_SCORE", "70")),
             blog_min_words=int(os.getenv("BLOG_MIN_WORDS", "2000")),
             blog_max_words=int(os.getenv("BLOG_MAX_WORDS", "5000")),
             blog_seo_keywords_count=int(os.getenv("BLOG_SEO_KEYWORDS_COUNT", "5")),
-            # v15.0 Phase A
-            enable_zero_content_prevention=os.getenv("ENABLE_ZERO_CONTENT_PREVENTION", "true").lower() == "true",
+            news_rss_max_items=int(os.getenv("NEWS_RSS_MAX_ITEMS", "5")),
+            exclude_categories=[
+                c.strip() for c in os.getenv("EXCLUDE_CATEGORIES", "정치,연예").split(",") if c.strip()
+            ],
             niche_categories=[c.strip() for c in os.getenv("NICHE_CATEGORIES", "테크,경제").split(",") if c.strip()],
-            niche_bonus_points=int(os.getenv("NICHE_BONUS_POINTS", "10")),
-            enable_lazy_context=os.getenv("ENABLE_LAZY_CONTEXT", "true").lower() == "true",
-            # v15.0 Phase B
-            diversity_sim_threshold=float(os.getenv("DIVERSITY_SIM_THRESHOLD", "0.85")),
+            watchlist_keywords=[k.strip() for k in os.getenv("WATCHLIST_KEYWORDS", "").split(",") if k.strip()],
+            content_diversity_hours=int(os.getenv("CONTENT_DIVERSITY_HOURS", "24")),
+            generation_mode_override=os.getenv("GENERATION_MODE", ""),
             persona_rotation=os.getenv("PERSONA_ROTATION", "category"),
             persona_pool=[
                 p.strip() for p in os.getenv("PERSONA_POOL", "joongyeon,analyst,storyteller").split(",") if p.strip()
             ],
-            # v5.0 B. Adaptive Voice
-            enable_adaptive_voice=os.getenv("ENABLE_ADAPTIVE_VOICE", "true").lower() == "true",
-            pattern_weight_min_samples=int(os.getenv("PATTERN_WEIGHT_MIN_SAMPLES", "3")),
-            pattern_weight_days=int(os.getenv("PATTERN_WEIGHT_DAYS", "30")),
-            # v5.0 D. Real-time Signal
-            enable_tiered_collection=os.getenv("ENABLE_TIERED_COLLECTION", "true").lower() == "true",
-            early_signal_boost_threshold=float(os.getenv("EARLY_SIGNAL_BOOST_THRESHOLD", "2.0")),
-            early_signal_suppress_threshold=float(os.getenv("EARLY_SIGNAL_SUPPRESS_THRESHOLD", "0.3")),
-            # v5.0 E. Benchmark QA
-            enable_golden_reference_qa=os.getenv("ENABLE_GOLDEN_REFERENCE_QA", "true").lower() == "true",
-            golden_reference_limit=int(os.getenv("GOLDEN_REFERENCE_LIMIT", "3")),
-            golden_reference_auto_update_days=int(os.getenv("GOLDEN_REFERENCE_AUTO_UPDATE_DAYS", "7")),
-            enable_fact_checking=os.getenv("ENABLE_FACT_CHECKING", "true").lower() == "true",
-            fact_check_min_accuracy=float(os.getenv("FACT_CHECK_MIN_ACCURACY", "0.6")),
-            fact_check_strict_mode=os.getenv("FACT_CHECK_STRICT_MODE", "false").lower() == "true",
-            hallucination_zero_tolerance=os.getenv("HALLUCINATION_ZERO_TOLERANCE", "true").lower() == "true",
-            # v5.0 A. Trend Genealogy
-            enable_trend_genealogy=os.getenv("ENABLE_TREND_GENEALOGY", "true").lower() == "true",
-            genealogy_history_hours=int(os.getenv("GENEALOGY_HISTORY_HOURS", "72")),
-            genealogy_min_confidence=float(os.getenv("GENEALOGY_MIN_CONFIDENCE", "0.5")),
         )
+
+    @classmethod
+    def from_env(cls) -> "AppConfig":
+        """환경변수에서 설정 로딩. 카테고리별 헬퍼 메서드로 분리."""
+        kwargs: dict = {}
+        kwargs.update(cls._storage_env())
+        kwargs.update(cls._schedule_env())
+        kwargs.update(cls._api_keys_env())
+        kwargs.update(cls._alerts_env())
+        kwargs.update(cls._feature_flags_env())
+        kwargs.update(cls._quality_env())
+        kwargs.update(cls._scoring_env())
+        kwargs.update(cls._platform_env())
+        return cls(**kwargs)
 
     def validate(self) -> list[str]:
         """오류 목록 반환. 빈 리스트이면 유효."""
@@ -473,6 +626,9 @@ class AppConfig:
                 errors.append("GOOGLE_SHEET_ID가 설정되지 않았습니다.")
             if not os.path.exists(self.google_service_json):
                 errors.append(f"Google 서비스 계정 JSON을 찾을 수 없습니다: {self.google_service_json}")
+
+        if self.enable_content_hub and not self.content_hub_database_id:
+            errors.append("ENABLE_CONTENT_HUB=true 이지만 CONTENT_HUB_DATABASE_ID가 비어 있습니다.")
 
         # 수치 범위 검증
         valid_storage = {"notion", "google_sheets", "both", "none"}
@@ -587,4 +743,5 @@ class AppConfig:
                 "trend_genealogy": self.enable_trend_genealogy,
             },
             "target_platforms": self.target_platforms,
+            "enable_content_hub": self.enable_content_hub,
         }

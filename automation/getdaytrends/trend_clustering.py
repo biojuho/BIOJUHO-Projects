@@ -6,7 +6,10 @@ analyzer.py에서 분리됨.
 
 from loguru import logger as log
 
-from models import MultiSourceContext, RawTrend, TrendCluster
+try:
+    from .models import MultiSourceContext, RawTrend, TrendCluster
+except ImportError:
+    from models import MultiSourceContext, RawTrend, TrendCluster
 
 # ══════════════════════════════════════════════════════
 #  Similarity Helpers
@@ -192,29 +195,16 @@ CLUSTERING_PROMPT = """다음 트렌드 키워드 목록에서 의미적으로 �
 ]"""
 
 
-def cluster_trends(
-    raw_trends: list[RawTrend],
-    contexts: dict[str, MultiSourceContext],
-    client,
-) -> tuple[list[RawTrend], dict[str, MultiSourceContext], list[TrendCluster]]:
-    """
-    트렌드 클러스터링: 유사 키워드 그루핑 후 대표만 남김.
-    대표 키워드의 컨텍스트에 멤버 컨텍스트 병합.
-    """
+def _call_cluster_llm(client, raw_trends: list[RawTrend]) -> list | None:
+    """[B] LLM 클러스터링 API 호출 + JSON 파싱."""
     import json
 
     from shared.llm import TaskTier
     from shared.llm.models import LLMPolicy
 
     _JSON_POLICY = LLMPolicy(response_mode="json", task_kind="json_extraction")
-
-    if len(raw_trends) <= 2:
-        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
-        return raw_trends, contexts, clusters
-
     keywords = [t.name for t in raw_trends]
     prompt = CLUSTERING_PROMPT.format(keywords="\n".join(f"- {k}" for k in keywords))
-
     try:
         response = client.create(
             tier=TaskTier.LIGHTWEIGHT,
@@ -225,19 +215,44 @@ def cluster_trends(
         text = response.text.strip()
         if text.startswith("{"):
             text = text[1:].lstrip()
-        parsed = json.loads(text) if text else None
+        return json.loads(text) if text else None
     except Exception as e:
         log.warning(f"클러스터링 API 실패, 스킵: {e}")
-        parsed = None
+        return None
 
-    if not parsed:
-        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
-        return raw_trends, contexts, clusters
 
-    # 클러스터 구성
+def _merge_member_contexts(
+    members: list[str],
+    contexts: dict[str, MultiSourceContext],
+    rep: str,
+) -> MultiSourceContext:
+    """[B] 클러스터 멤버 컨텍스트를 대표 키워드 기준으로 병합."""
+    merged_twitter, merged_reddit, merged_news = [], [], []
+    for m in members:
+        ctx = contexts.get(m, MultiSourceContext())
+        if ctx.twitter_insight and "오류" not in ctx.twitter_insight:
+            merged_twitter.append(ctx.twitter_insight)
+        if ctx.reddit_insight and "없음" not in ctx.reddit_insight:
+            merged_reddit.append(ctx.reddit_insight)
+        if ctx.news_insight and "없음" not in ctx.news_insight:
+            merged_news.append(ctx.news_insight)
+    fallback = contexts.get(rep, MultiSourceContext())
+    return MultiSourceContext(
+        twitter_insight="\n".join(merged_twitter) if merged_twitter else fallback.twitter_insight,
+        reddit_insight="\n".join(merged_reddit) if merged_reddit else fallback.reddit_insight,
+        news_insight="\n".join(merged_news) if merged_news else fallback.news_insight,
+    )
+
+
+def _build_clusters_from_parsed(
+    parsed: list,
+    raw_trends: list[RawTrend],
+    contexts: dict[str, MultiSourceContext],
+) -> tuple[list[RawTrend], dict[str, MultiSourceContext], list[TrendCluster]]:
+    """[B] LLM 응답으로부터 클러스터 목록을 구성하고 미클러스터 항목을 단독 추가."""
+    trend_map = {t.name: t for t in raw_trends}
     clusters_list: list[TrendCluster] = []
     representative_names: set[str] = set()
-    trend_map = {t.name: t for t in raw_trends}
 
     for group in parsed:
         rep = group.get("representative", "")
@@ -247,36 +262,13 @@ def cluster_trends(
             rep = valid[0] if valid else ""
         if not rep:
             continue
-
-        merged_twitter, merged_reddit, merged_news = [], [], []
-        for m in members:
-            ctx = contexts.get(m, MultiSourceContext())
-            if ctx.twitter_insight and "오류" not in ctx.twitter_insight:
-                merged_twitter.append(ctx.twitter_insight)
-            if ctx.reddit_insight and "없음" not in ctx.reddit_insight:
-                merged_reddit.append(ctx.reddit_insight)
-            if ctx.news_insight and "없음" not in ctx.news_insight:
-                merged_news.append(ctx.news_insight)
-
-        merged_ctx = MultiSourceContext(
-            twitter_insight="\n".join(merged_twitter)
-            if merged_twitter
-            else contexts.get(rep, MultiSourceContext()).twitter_insight,
-            reddit_insight="\n".join(merged_reddit)
-            if merged_reddit
-            else contexts.get(rep, MultiSourceContext()).reddit_insight,
-            news_insight="\n".join(merged_news)
-            if merged_news
-            else contexts.get(rep, MultiSourceContext()).news_insight,
-        )
+        merged_ctx = _merge_member_contexts(members, contexts, rep)
         contexts[rep] = merged_ctx
-
         clusters_list.append(TrendCluster(representative=rep, members=members, merged_context=merged_ctx))
         representative_names.add(rep)
 
     filtered = [t for t in raw_trends if t.name in representative_names]
-
-    clustered_all = set()
+    clustered_all: set[str] = set()
     for c in clusters_list:
         clustered_all.update(c.members)
     for t in raw_trends:
@@ -284,8 +276,26 @@ def cluster_trends(
             filtered.append(t)
             clusters_list.append(TrendCluster(representative=t.name, members=[t.name]))
 
+    return filtered, contexts, clusters_list
+
+
+def cluster_trends(
+    raw_trends: list[RawTrend],
+    contexts: dict[str, MultiSourceContext],
+    client,
+) -> tuple[list[RawTrend], dict[str, MultiSourceContext], list[TrendCluster]]:
+    """트렌드 클러스터링: 유사 키워드 그루핑 후 대표만 남김."""
+    if len(raw_trends) <= 2:
+        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
+        return raw_trends, contexts, clusters
+
+    parsed = _call_cluster_llm(client, raw_trends)
+    if not parsed:
+        clusters = [TrendCluster(representative=t.name, members=[t.name]) for t in raw_trends]
+        return raw_trends, contexts, clusters
+
+    filtered, contexts, clusters_list = _build_clusters_from_parsed(parsed, raw_trends, contexts)
     merged_count = sum(len(c.members) for c in clusters_list if len(c.members) > 1)
     if merged_count:
         log.info(f"클러스터링: {len(raw_trends)}개 → {len(filtered)}개 (병합 {merged_count}개 키워드)")
-
     return filtered, contexts, clusters_list

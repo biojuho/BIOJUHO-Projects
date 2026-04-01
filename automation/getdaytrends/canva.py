@@ -16,8 +16,12 @@ from pathlib import Path
 
 from loguru import logger as log
 
-from config import AppConfig
-from models import ScoredTrend
+try:
+    from .config import AppConfig
+    from .models import ScoredTrend
+except ImportError:
+    from config import AppConfig
+    from models import ScoredTrend
 
 
 class CanvaMCPClient:

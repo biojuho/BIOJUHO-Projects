@@ -16,34 +16,64 @@ from loguru import logger as log
 # ══════════════════════════════════════════════════════
 #  Backward-compat re-exports from collectors.sources
 # ══════════════════════════════════════════════════════
-from collectors.sources import (  # noqa: F401
-    _COMMON_HEADERS,
-    _DEFAULT_TIMEOUT,
-    _FETCH_CACHE,
-    _FETCH_CACHE_TTL,
-    _GEO_MAP,
-    _SHORT_TIMEOUT,
-    _YOUTUBE_GEO_MAP,
-    _async_fetch_getdaytrends,
-    _async_fetch_getdaytrends_standalone,
-    _async_fetch_google_trends_rss,
-    _async_fetch_google_trends_rss_standalone,
-    _async_fetch_youtube_trending,
-    _async_fetch_youtube_trending_standalone,
-    _fallback_trends,
-    _format_news_age,
-    _is_korean_trend,
-    _is_similar_keyword,
-    _merge_trends,
-    _parse_rss_date,
-    _parse_volume_text,
-    fetch_getdaytrends,
-    fetch_google_trends_rss,
-    fetch_youtube_trending,
-)
-from config import AppConfig
-from models import MultiSourceContext, RawTrend, TrendSource
-from utils import run_async
+try:
+    from .collectors.sources import (  # noqa: F401
+        _COMMON_HEADERS,
+        _DEFAULT_TIMEOUT,
+        _FETCH_CACHE,
+        _FETCH_CACHE_TTL,
+        _GEO_MAP,
+        _SHORT_TIMEOUT,
+        _YOUTUBE_GEO_MAP,
+        _async_fetch_getdaytrends,
+        _async_fetch_getdaytrends_standalone,
+        _async_fetch_google_trends_rss,
+        _async_fetch_google_trends_rss_standalone,
+        _async_fetch_youtube_trending,
+        _async_fetch_youtube_trending_standalone,
+        _fallback_trends,
+        _format_news_age,
+        _is_korean_trend,
+        _is_similar_keyword,
+        _merge_trends,
+        _parse_rss_date,
+        _parse_volume_text,
+        fetch_getdaytrends,
+        fetch_google_trends_rss,
+        fetch_youtube_trending,
+    )
+    from .config import AppConfig
+    from .models import MultiSourceContext, RawTrend, TrendSource
+    from .utils import run_async
+except ImportError:
+    from collectors.sources import (  # noqa: F401
+        _COMMON_HEADERS,
+        _DEFAULT_TIMEOUT,
+        _FETCH_CACHE,
+        _FETCH_CACHE_TTL,
+        _GEO_MAP,
+        _SHORT_TIMEOUT,
+        _YOUTUBE_GEO_MAP,
+        _async_fetch_getdaytrends,
+        _async_fetch_getdaytrends_standalone,
+        _async_fetch_google_trends_rss,
+        _async_fetch_google_trends_rss_standalone,
+        _async_fetch_youtube_trending,
+        _async_fetch_youtube_trending_standalone,
+        _fallback_trends,
+        _format_news_age,
+        _is_korean_trend,
+        _is_similar_keyword,
+        _merge_trends,
+        _parse_rss_date,
+        _parse_volume_text,
+        fetch_getdaytrends,
+        fetch_google_trends_rss,
+        fetch_youtube_trending,
+    )
+    from config import AppConfig
+    from models import MultiSourceContext, RawTrend, TrendSource
+    from utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  Async Orchestrator
@@ -60,7 +90,10 @@ async def _async_collect_trends(
     2. 최근 N시간 처리된 중복 키워드 제거
     3. 각 트렌드에 대해 Twitter, Reddit, Google News 컨텍스트 병렬 수집
     """
-    from db import get_recently_processed_keywords
+    try:
+        from .db import get_recently_processed_keywords
+    except ImportError:
+        from db import get_recently_processed_keywords
 
     country_slug = config.resolve_country_slug()
     fetch_size = config.limit + 10  # 여유 있게 수집
@@ -103,7 +136,10 @@ async def _async_collect_trends(
 
         # 소스 품질 기록 (v5.0)
         if getattr(config, "enable_source_quality_tracking", True) and conn is not None:
-            from db import record_source_quality
+            try:
+                from .db import record_source_quality
+            except ImportError:
+                from db import record_source_quality
 
             await record_source_quality(
                 conn,
@@ -201,17 +237,33 @@ def collect_contexts(
 
 
 # -- backward-compat re-exports from context_collector --
-from context_collector import (  # noqa: F401
-    _async_collect_contexts,
-    _async_fetch_google_news_trends,
-    _async_fetch_google_suggest,
-    _async_fetch_google_trends_related,
-    _async_fetch_reddit_trends,
-    _async_fetch_twitter_trends,
-    _calc_quality_score,
-    fetch_google_news_trends,
-    fetch_reddit_trends,
-    fetch_twitter_trends,
-    post_to_x,
-    post_to_x_async,
-)
+try:
+    from .context_collector import (  # noqa: F401
+        _async_collect_contexts,
+        _async_fetch_google_news_trends,
+        _async_fetch_google_suggest,
+        _async_fetch_google_trends_related,
+        _async_fetch_reddit_trends,
+        _async_fetch_twitter_trends,
+        _calc_quality_score,
+        fetch_google_news_trends,
+        fetch_reddit_trends,
+        fetch_twitter_trends,
+        post_to_x,
+        post_to_x_async,
+    )
+except ImportError:
+    from context_collector import (  # noqa: F401
+        _async_collect_contexts,
+        _async_fetch_google_news_trends,
+        _async_fetch_google_suggest,
+        _async_fetch_google_trends_related,
+        _async_fetch_reddit_trends,
+        _async_fetch_twitter_trends,
+        _calc_quality_score,
+        fetch_google_news_trends,
+        fetch_reddit_trends,
+        fetch_twitter_trends,
+        post_to_x,
+        post_to_x_async,
+    )

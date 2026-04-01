@@ -14,24 +14,60 @@ from shared.llm import LLMClient, TaskTier, get_client
 from shared.llm.models import LLMPolicy
 
 # -- 추출된 모듈 re-export (후방 호환) --
-from analysis.parsing import (  # noqa: F401
-    INSTRUCTOR_AVAILABLE,
-    _default_scored_trend,
-    _parse_json,
-    _parse_json_array,
-    _parse_scored_trend_from_dict,
-    _score_batch_instructor,
-)
-from config import AppConfig
-from db import compute_fingerprint, get_cached_score
-from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
-from trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local  # noqa: F401
-from trend_genealogy import (  # noqa: F401
-    analyze_trend_genealogy,
-    detect_trend_patterns,
-    enrich_trends_with_genealogy,
-)
-from utils import run_async, sanitize_keyword
+try:
+    from .analysis.parsing import (
+        INSTRUCTOR_AVAILABLE,
+        _default_scored_trend,
+        _parse_json,
+        _parse_json_array,
+        _parse_scored_trend_from_dict,
+        _score_batch_instructor,
+    )
+    from .config import AppConfig
+    from .db import compute_fingerprint, get_cached_score
+    from .models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
+    from .trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local
+    from .trend_genealogy import (
+        analyze_trend_genealogy,
+        detect_trend_patterns,
+        enrich_trends_with_genealogy,
+    )
+    from .utils import run_async, sanitize_keyword
+except ImportError:
+    from analysis.parsing import (  # noqa: F401
+        INSTRUCTOR_AVAILABLE,
+        _default_scored_trend,
+        _parse_json,
+        _parse_json_array,
+        _parse_scored_trend_from_dict,
+        _score_batch_instructor,
+    )
+    from config import AppConfig
+    from db import compute_fingerprint, get_cached_score
+    from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
+    from trend_clustering import _jaccard_similarity, cluster_trends, cluster_trends_local  # noqa: F401
+    from trend_genealogy import (  # noqa: F401
+        analyze_trend_genealogy,
+        detect_trend_patterns,
+        enrich_trends_with_genealogy,
+    )
+    from utils import run_async, sanitize_keyword
+
+
+def _topic_boost(keyword: str) -> int:
+    """DailyNews 활성 카테고리 기반 viral score boost (+0~+20pt)."""
+    try:
+        import pathlib
+        import sys
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "packages"))
+        from shared.intelligence import get_score_boost
+        return get_score_boost(keyword)
+    except ImportError:
+        log.warning("shared.intelligence 모듈 없음 — topic boost 비활성 (packages/ 경로 확인 필요)")
+        return 0
+    except (AttributeError, ValueError, OSError) as e:
+        log.warning(f"topic boost 실패 ({keyword}): {e}")
+        return 0
 
 # ══════════════════════════════════════════════════════
 #  Scoring Prompt
@@ -147,11 +183,18 @@ BATCH_SCORING_PROMPT_TEMPLATE = """당신은 소셜 미디어 트렌드 분석 �
 _JSON_POLICY = LLMPolicy(response_mode="json", task_kind="json_extraction")
 
 
-from analysis.scoring import (  # noqa: F401
-    _compute_cross_source_confidence,
-    _compute_freshness_score,
-    _compute_signal_score,
-)
+try:
+    from .analysis.scoring import (
+        _compute_cross_source_confidence,
+        _compute_freshness_score,
+        _compute_signal_score,
+    )
+except ImportError:
+    from analysis.scoring import (  # noqa: F401
+        _compute_cross_source_confidence,
+        _compute_freshness_score,
+        _compute_signal_score,
+    )
 
 
 async def _score_trend_async(
@@ -231,7 +274,7 @@ async def _score_trend_async(
                 rank=0,
                 volume_last_24h=parsed.get("volume_last_24h", 0),
                 trend_acceleration=parsed.get("trend_acceleration", "+0%"),
-                viral_potential=min(max(parsed.get("viral_potential", 0), 0), 100),
+                viral_potential=min(max(parsed.get("viral_potential", 0), 0) + _topic_boost(keyword), 100),
                 top_insight=parsed.get("top_insight", ""),
                 suggested_angles=parsed.get("suggested_angles", []),
                 best_hook_starter=parsed.get("best_hook_starter", ""),
@@ -250,8 +293,12 @@ async def _score_trend_async(
                 corrected_keyword=parsed.get("corrected_keyword", ""),
             )
 
+        except (RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
+            log.error(f"스코어링 LLM 실패 ({attempt + 1}/2) ({keyword}): {type(e).__name__}: {e}")
+            if attempt == 0:
+                await asyncio.sleep(1)
         except Exception as e:
-            log.error(f"스코어링 실패 ({attempt + 1}/2) ({keyword}): {e}")
+            log.error(f"스코어링 예상외 오류 ({attempt + 1}/2) ({keyword}): {type(e).__name__}: {e}")
             if attempt == 0:
                 await asyncio.sleep(1)
 
@@ -278,8 +325,8 @@ async def _batch_score_async(
     실패 시 각 항목을 개별 스코어링으로 폴백.
     """
     # ── 캐시 분리 ──
-    need_llm: list[tuple["RawTrend", "MultiSourceContext"]] = []
-    cached_results: dict[str, "ScoredTrend"] = {}
+    need_llm: list[tuple[RawTrend, MultiSourceContext]] = []
+    cached_results: dict[str, ScoredTrend] = {}
 
     if conn is not None:
         for trend, ctx in batch:
@@ -314,7 +361,7 @@ async def _batch_score_async(
     else:
         need_llm = list(batch)
 
-    results: list["ScoredTrend"] = []
+    results: list[ScoredTrend] = []
 
     if need_llm:
         # ── 배치 LLM 호출 ──
@@ -353,8 +400,12 @@ async def _batch_score_async(
                         f"배치 스코어링 응답 길이 불일치: {len(parsed_list) if parsed_list else 0} vs {len(need_llm)}"
                     )
                     parsed_list = None
+                except (RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
+                    log.error(f"배치 스코어링 LLM 실패 ({attempt + 1}/2): {type(e).__name__}: {e}")
+                    if attempt == 0:
+                        await asyncio.sleep(1)
                 except Exception as e:
-                    log.error(f"배치 스코어링 실패 ({attempt + 1}/2): {e}")
+                    log.error(f"배치 스코어링 예상외 오류 ({attempt + 1}/2): {type(e).__name__}: {e}")
                     if attempt == 0:
                         await asyncio.sleep(1)
 
@@ -368,7 +419,7 @@ async def _batch_score_async(
                         from db import get_volume_velocity
 
                         vel = await get_volume_velocity(conn, keyword)
-                    except Exception:
+                    except (ImportError, sqlite3.Error, ValueError):
                         pass
                 results.append(
                     _parse_scored_trend_from_dict(item, keyword, trend.volume_numeric, ctx, config, velocity=vel)
@@ -387,7 +438,7 @@ async def _batch_score_async(
                     results.append(res)
 
     # ── 원래 순서대로 병합 ──
-    ordered: list["ScoredTrend"] = []
+    ordered: list[ScoredTrend] = []
     for trend, ctx in batch:
         if trend.name in cached_results:
             ordered.append(cached_results[trend.name])
@@ -491,8 +542,8 @@ async def _analyze_trends_async(
                             news_insight=(ctx.news_insight or "") + cat_hint,
                         )
                 log.info(f"[카테고리 사전분류] {len(raw_trends)}개 트렌드에 임베딩 기반 카테고리 힌트 주입")
-    except Exception as _e:
-        log.debug(f"[카테고리 사전분류] 사용 불가 (무시): {_e}")
+    except (ImportError, RuntimeError, ConnectionError, ValueError) as _e:
+        log.debug(f"[카테고리 사전분류] 사용 불가 (무시): {type(_e).__name__}: {_e}")
 
     # 배치 분할 (5개씩)
     pairs = [(t, contexts.get(t.name, MultiSourceContext())) for t in raw_trends]
@@ -544,8 +595,8 @@ async def _analyze_trends_async(
             from db import get_trend_history_patterns_batch
 
             pattern_map = await get_trend_history_patterns_batch(conn, [r.keyword for r in scored], days=7)
-        except Exception as _e:
-            log.debug(f"배치 히스토리 조회 실패 (무시): {_e}")
+        except (ImportError, sqlite3.Error) as _e:
+            log.debug(f"배치 히스토리 조회 실패 (무시): {type(_e).__name__}: {_e}")
             pattern_map = {}
 
         for result in scored:
@@ -590,8 +641,8 @@ async def _analyze_trends_async(
                         f"velocity={vel:.1f}x, vol={result.volume_last_24h} "
                         f"→ +{bonus}점 ({before}→{result.viral_potential})"
                     )
-        except Exception as _e:
-            log.debug(f"이머징 감지 실패 (무시): {_e}")
+        except (ImportError, sqlite3.Error, ValueError) as _e:
+            log.debug(f"이머징 감지 실패 (무시): {type(_e).__name__}: {_e}")
 
     scored.sort(key=lambda x: x.viral_potential, reverse=True)
     for i, s in enumerate(scored):
