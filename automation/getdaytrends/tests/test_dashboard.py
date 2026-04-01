@@ -108,3 +108,66 @@ class TestC3Watchlist:
         resp = client.get("/api/watchlist")
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
+
+
+# ── DATABASE_URL Routing Tests ──────────────────────────────────────
+
+
+class TestDashboardDatabaseUrlRouting:
+    """dashboard._get_conn이 DATABASE_URL을 올바르게 전달하는지 테스트."""
+
+    @pytest.mark.asyncio
+    async def test_get_conn_passes_database_url_from_config(self):
+        """AppConfig.database_url이 get_connection에 전달되어야 한다."""
+        mock_conn = AsyncMock()
+        with patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn) as mock_gc, \
+             patch("dashboard.init_db", new_callable=AsyncMock), \
+             patch("dashboard._config") as mock_config:
+
+            mock_config.db_path = "data/test.db"
+            mock_config.database_url = "postgresql://user:pass@cloud-host:5432/prod"
+
+            from dashboard import _get_conn
+            conn = await _get_conn()
+
+            mock_gc.assert_called_once_with(
+                "data/test.db",
+                database_url="postgresql://user:pass@cloud-host:5432/prod",
+            )
+            assert conn is mock_conn
+
+    @pytest.mark.asyncio
+    async def test_get_conn_empty_database_url_defaults_sqlite(self):
+        """database_url이 빈 문자열이면 SQLite로 폴백해야 한다."""
+        mock_conn = AsyncMock()
+        with patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn) as mock_gc, \
+             patch("dashboard.init_db", new_callable=AsyncMock), \
+             patch("dashboard._config") as mock_config:
+
+            mock_config.db_path = "data/local.db"
+            mock_config.database_url = ""
+
+            from dashboard import _get_conn
+            await _get_conn()
+
+            mock_gc.assert_called_once_with(
+                "data/local.db",
+                database_url="",
+            )
+
+    @pytest.mark.asyncio
+    async def test_get_conn_calls_init_db(self):
+        """_get_conn은 항상 init_db를 호출해야 한다."""
+        mock_conn = AsyncMock()
+        with patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn), \
+             patch("dashboard.init_db", new_callable=AsyncMock) as mock_init, \
+             patch("dashboard._config") as mock_config:
+
+            mock_config.db_path = "data/test.db"
+            mock_config.database_url = ""
+
+            from dashboard import _get_conn
+            await _get_conn()
+
+            mock_init.assert_called_once_with(mock_conn)
+

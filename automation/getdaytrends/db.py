@@ -632,7 +632,7 @@ async def record_posting_time_stat(conn, category: str, hour: int, engagement_la
 
 async def get_best_posting_hours(conn, category: str, top_n: int = 3) -> list[int]:
     """
-    移댄뀒怨좊━蹂??됯퇏 李몄뿬??湲곗? ?곸쐞 N媛?寃뚯떆 ?쒓컙? 諛섑솚.
+    카테고리별 참여도 기준 상위 N개 게시 시간대 반환.
     데이터 없으면 빈 리스트 반환.
     """
     cursor = await conn.execute(
