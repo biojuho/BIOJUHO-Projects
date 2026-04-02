@@ -8,14 +8,17 @@ from datetime import datetime
 
 import aiosqlite
 import pytest
+import db as db_module
 
 from db import (
     compute_fingerprint,
     get_cached_content,
+    get_cached_score,
     get_recent_avg_viral_score,
     get_recently_processed_keywords,
     get_trend_stats,
     init_db,
+    is_duplicate_trend,
     mark_tweet_posted,
     save_run,
     save_thread,
@@ -76,6 +79,20 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
         columns = {r["name"] for r in row}
         self.assertIn("variant_id", columns)
         self.assertIn("language", columns)
+
+    @pytest.mark.asyncio
+    async def test_hot_path_indexes_exist(self):
+        await init_db(self.conn)
+
+        trend_indexes_cursor = await self.conn.execute("PRAGMA index_list(trends)")
+        trend_indexes = {row["name"] for row in await trend_indexes_cursor.fetchall()}
+
+        tweet_indexes_cursor = await self.conn.execute("PRAGMA index_list(tweets)")
+        tweet_indexes = {row["name"] for row in await tweet_indexes_cursor.fetchall()}
+
+        self.assertIn("idx_trends_fp_scored", trend_indexes)
+        self.assertIn("idx_tweets_generated_at", tweet_indexes)
+        self.assertIn("idx_tweets_posted_at", tweet_indexes)
 
 
 class TestSaveRun(unittest.IsolatedAsyncioTestCase):
@@ -462,6 +479,102 @@ class TestParallelSQLiteWrites(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(row["cnt"], 4)
             finally:
                 await verify_conn.close()
+
+
+class _FakeCache:
+    def __init__(self):
+        self.store = {}
+
+    async def get(self, key):
+        return self.store.get(key)
+
+    async def set(self, key, value, ttl=60):
+        self.store[key] = value
+
+    async def exists(self, key):
+        return key in self.store
+
+
+class TestSharedCacheIntegration(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self._original_redis_ok = db_module._REDIS_OK
+        self._original_get_cache = getattr(db_module, "get_cache", None)
+        self.cache = _FakeCache()
+        db_module._REDIS_OK = True
+        db_module.get_cache = lambda: self.cache
+
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
+        run = RunResult(run_id="shared-cache-test")
+        self.run_id = await save_run(self.conn, run)
+
+    async def asyncTearDown(self):
+        await self.conn.close()
+
+    def tearDown(self):
+        db_module._REDIS_OK = self._original_redis_ok
+        if self._original_get_cache is None:
+            delattr(db_module, "get_cache")
+        else:
+            db_module.get_cache = self._original_get_cache
+
+    @pytest.mark.asyncio
+    async def test_duplicate_trend_reads_cache_before_db(self):
+        fingerprint = compute_fingerprint("cache-first", 12000)
+        self.cache.store[f"gdt:dedup:{fingerprint}"] = True
+
+        is_dup = await is_duplicate_trend(self.conn, "cache-first", 12000)
+        self.assertTrue(is_dup)
+
+    @pytest.mark.asyncio
+    async def test_get_cached_score_populates_and_reuses_cache(self):
+        trend = ScoredTrend(
+            keyword="cache-score",
+            rank=1,
+            volume_last_24h=50000,
+            viral_potential=92,
+            top_insight="cache me",
+            sources=[TrendSource.GETDAYTRENDS],
+        )
+        await save_trend(self.conn, trend, self.run_id)
+        fingerprint = compute_fingerprint("cache-score", 50000)
+
+        first = await get_cached_score(self.conn, fingerprint)
+        self.assertIsNotNone(first)
+        self.assertEqual(first["keyword"], "cache-score")
+        self.assertIn(f"gdt:score:{fingerprint}", self.cache.store)
+
+        await self.conn.execute("DELETE FROM trends")
+        await self.conn.commit()
+
+        second = await get_cached_score(self.conn, fingerprint)
+        self.assertEqual(second, first)
+
+    @pytest.mark.asyncio
+    async def test_get_cached_content_populates_and_reuses_cache(self):
+        trend = ScoredTrend(
+            keyword="cache-content",
+            rank=1,
+            volume_last_24h=40000,
+            sources=[TrendSource.GETDAYTRENDS],
+        )
+        trend_id = await save_trend(self.conn, trend, self.run_id)
+        tweet = GeneratedTweet(tweet_type="short", content="cached body")
+        await save_tweet(self.conn, tweet, trend_id, self.run_id)
+        fingerprint = compute_fingerprint("cache-content", 40000)
+
+        first = await get_cached_content(self.conn, fingerprint)
+        self.assertIsNotNone(first)
+        self.assertEqual(len(first), 1)
+        self.assertIn(f"gdt:content:{fingerprint}", self.cache.store)
+
+        await self.conn.execute("DELETE FROM tweets")
+        await self.conn.commit()
+
+        second = await get_cached_content(self.conn, fingerprint)
+        self.assertEqual(second, first)
 
 
 if __name__ == "__main__":

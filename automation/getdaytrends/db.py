@@ -9,8 +9,14 @@ from datetime import datetime, timedelta
 from loguru import logger as log
 
 try:
+    from shared.cache import get_cache
+    _REDIS_OK = True
+except ImportError:
+    _REDIS_OK = False
+
+try:
     # -- schema/connection imports --
-    from .db_schema import (  # noqa: F401
+    from .db_schema import (
         _backfill_fingerprints,
         _normalize_name,
         _normalize_volume,
@@ -398,10 +404,24 @@ async def get_recently_processed_fingerprints(conn, hours: int = 3) -> set[str]:
 
 async def is_duplicate_trend(conn, name: str, volume: int, hours: int = 3) -> bool:
     fp = compute_fingerprint(name, volume)
+
+    # Redis SET-based dedup (O(1) vs O(n) DB scan at 100x scale)
+    if _REDIS_OK:
+        cache = get_cache()
+        dedup_key = f"gdt:dedup:{fp}"
+        if await cache.exists(dedup_key):
+            return True
+
     cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
     cursor = await conn.execute("SELECT 1 FROM trends WHERE fingerprint = ? AND scored_at >= ? LIMIT 1", (fp, cutoff))
     row = await cursor.fetchone()
-    return row is not None
+    is_dup = row is not None
+
+    # Cache the fingerprint if it's a duplicate
+    if is_dup and _REDIS_OK:
+        await cache.set(dedup_key, True, ttl=hours * 3600)
+
+    return is_dup
 
 
 async def _cleanup_old_records_unlocked(conn, days: int = 90) -> int:
@@ -461,23 +481,51 @@ async def set_meta(conn, key: str, value: str) -> None:
 
 
 async def get_cached_score(conn, fingerprint: str, max_age_hours: int = 6) -> dict | None:
+    # Redis cache first (avoids DB hit for repeated fingerprint lookups)
+    if _REDIS_OK:
+        cache = get_cache()
+        cache_key = f"gdt:score:{fingerprint}"
+        cached = await cache.get(cache_key)
+        if cached is not None:
+            return cached
+
     cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
     cursor = await conn.execute(
         "SELECT keyword, viral_potential, trend_acceleration, top_insight, suggested_angles, best_hook_starter, scored_at FROM trends WHERE fingerprint = ? AND scored_at >= ? ORDER BY scored_at DESC LIMIT 1",
         (fingerprint, cutoff),
     )
     row = await cursor.fetchone()
-    return dict(row) if row else None
+    result = dict(row) if row else None
+
+    # Cache result for 6 hours (match the natural TTL)
+    if result and _REDIS_OK:
+        await cache.set(cache_key, result, ttl=max_age_hours * 3600)
+
+    return result
 
 
 async def get_cached_content(conn, fingerprint: str, max_age_hours: int = 24) -> list[dict] | None:
+    # Redis cache first
+    if _REDIS_OK:
+        cache = get_cache()
+        cache_key = f"gdt:content:{fingerprint}"
+        cached = await cache.get(cache_key)
+        if cached is not None:
+            return cached
+
     cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
     cursor = await conn.execute(
         "SELECT tw.tweet_type, tw.content, tw.content_type, tw.char_count FROM tweets tw JOIN trends tr ON tw.trend_id = tr.id WHERE tr.fingerprint = ? AND tr.scored_at >= ? ORDER BY tw.generated_at DESC",
         (fingerprint, cutoff),
     )
     rows = await cursor.fetchall()
-    return [dict(r) for r in rows] if rows else None
+    result = [dict(r) for r in rows] if rows else None
+
+    # Cache for 6 hours (shorter than max_age to keep fresh)
+    if result and _REDIS_OK:
+        await cache.set(cache_key, result, ttl=6 * 3600)
+
+    return result
 
 
 async def get_recent_avg_viral_score(conn, lookback_hours: int = 3) -> float | None:

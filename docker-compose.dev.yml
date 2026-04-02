@@ -108,7 +108,7 @@ services:
       timeout: 5s
       retries: 3
 
-  # Redis - Caching & Session Store (Future use)
+  # Redis - Caching, Rate Limiting & Session Store
   redis:
     image: redis:7-alpine
     container_name: dev-redis
@@ -119,14 +119,12 @@ services:
       - redis-data:/data
     networks:
       - dev-network
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 3
-    profiles:
-      - full
 
   # GROBID - PDF Scientific Paper Parser (DeSci)
   grobid:

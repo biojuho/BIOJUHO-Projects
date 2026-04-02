@@ -11,7 +11,7 @@ import threading
 import unicodedata
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 import aiosqlite
 from loguru import logger as log
@@ -274,6 +274,7 @@ async def _init_db_unlocked(conn) -> None:
         CREATE INDEX IF NOT EXISTS idx_trends_viral ON trends(viral_potential);
         CREATE INDEX IF NOT EXISTS idx_trends_keyword_scored ON trends(keyword, scored_at);
         CREATE INDEX IF NOT EXISTS idx_trends_fingerprint ON trends(fingerprint);
+        CREATE INDEX IF NOT EXISTS idx_trends_fp_scored ON trends(fingerprint, scored_at);
 
         CREATE TABLE IF NOT EXISTS tweets (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -301,6 +302,8 @@ async def _init_db_unlocked(conn) -> None:
         CREATE INDEX IF NOT EXISTS idx_tweets_status ON tweets(status);
         CREATE INDEX IF NOT EXISTS idx_tweets_run_type ON tweets(run_id, content_type);
         CREATE INDEX IF NOT EXISTS idx_tweets_x_tweet_id ON tweets(x_tweet_id);
+        CREATE INDEX IF NOT EXISTS idx_tweets_generated_at ON tweets(generated_at);
+        CREATE INDEX IF NOT EXISTS idx_tweets_posted_at ON tweets(posted_at);
 
         CREATE INDEX IF NOT EXISTS idx_trends_run_keyword ON trends(run_id, keyword);
         CREATE INDEX IF NOT EXISTS idx_trends_country_scored ON trends(country, scored_at);
@@ -369,7 +372,7 @@ async def _init_db_unlocked(conn) -> None:
 #  Schema Migration Infrastructure
 # ══════════════════════════════════════════════════════
 
-_CURRENT_SCHEMA_VERSION = 5
+_CURRENT_SCHEMA_VERSION = 6
 
 
 async def _get_schema_version(conn) -> int:
@@ -465,6 +468,23 @@ async def _migrate_v5(conn) -> None:
     pass
 
 
+async def _migrate_v6(conn) -> None:
+    """v6: 100x 스케일 대비 누락 인덱스 추가."""
+    # trends: 캐시 조회 최적화 (fingerprint + scored_at 복합)
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_trends_fp_scored ON trends(fingerprint, scored_at)"
+    )
+    # tweets: cleanup/정리 쿼리 최적화
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tweets_generated_at ON tweets(generated_at)"
+    )
+    # tweets: 게시 상태 추적 최적화
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tweets_posted_at ON tweets(posted_at)"
+    )
+    await conn.commit()
+
+
 # 마이그레이션 레지스트리: (버전, 설명, 함수)
 _MIGRATIONS: list[tuple[int, str, any]] = [
     (1, "tweets.content_type 컬럼", _migrate_v1),
@@ -472,6 +492,7 @@ _MIGRATIONS: list[tuple[int, str, any]] = [
     (3, "tweets 성과추적 + A/B + 다국어", _migrate_v3),
     (4, "trends 감성필터 + 교차검증 + 중연킥", _migrate_v4),
     (5, "schema_version 인프라 도입", _migrate_v5),
+    (6, "100x 스케일 누락 인덱스 추가", _migrate_v6),
 ]
 
 
