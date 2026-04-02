@@ -1,4 +1,4 @@
-﻿"""
+"""
 getdaytrends - Database Schema & Connection Layer
 PostgreSQL ?대뙌?? DB ?곌껐, ?ㅽ궎留?珥덇린??諛?留덉씠洹몃젅?댁뀡.
 db.py?먯꽌 遺꾨━??
@@ -723,12 +723,12 @@ async def _migrate_v7(conn) -> None:
 
 
 _MIGRATIONS: list[tuple[int, str, any]] = [
-    (1, "tweets.content_type 而щ읆", _migrate_v1),
-    (2, "trends.fingerprint 而щ읆 + 諛깊븘", _migrate_v2),
-    (3, "tweets ?깃낵異붿쟻 + A/B + ?ㅺ뎅??, _migrate_v3),
-    (4, "trends 媛먯꽦?꾪꽣 + 援먯감寃利?+ 以묒뿰??, _migrate_v4),
-    (5, "schema_version ?명봽???꾩엯", _migrate_v5),
-    (6, "100x ?ㅼ????꾨씫 ?몃뜳??異붽?", _migrate_v6),
+    (1, "tweets.content_type column", _migrate_v1),
+    (2, "trends.fingerprint column + index", _migrate_v2),
+    (3, "tweets metrics + A/B + multi-country", _migrate_v3),
+    (4, "trends sentiment filter + genealogy + dedup", _migrate_v4),
+    (5, "schema_version table init", _migrate_v5),
+    (6, "100x scale composite indexes", _migrate_v6),
     (7, "workflow V2 review queue tables", _migrate_v7),
 ]
 
@@ -806,17 +806,15 @@ def _normalize_name(name: str) -> str:
 
 
 def _normalize_volume(volume: int, bucket: int = 5000) -> int:
-    """蹂쇰ⅷ??bucket ?ш린濡?踰꾪궥?? config.cache_volume_bucket?쇰줈 ?⑥쐞 ?쒖뼱 媛??""
+    """Round volume down to nearest bucket size for cache dedup."""
     if bucket <= 0:
         return volume
     return (volume // bucket) * bucket
 
 
 def compute_fingerprint(name: str, volume: int, bucket: int = 5000) -> str:
-    """
-    ?몃젋???묎굅?꾨┛??怨꾩궛.
-    bucket: 蹂쇰ⅷ 踰꾪궥 ?ш린 (config.cache_volume_bucket). ?묒쓣?섎줉 ?뺣?.
-    """
+    """Compute trend dedup fingerprint. bucket: volume bucketing size."""
+
     normalized_name = _normalize_name(name)
     normalized_volume = _normalize_volume(volume, bucket)
     raw = f"{normalized_name}:{normalized_volume}"
