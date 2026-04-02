@@ -35,6 +35,7 @@ npm run build:all
 - Use `workspace-map.json` as the workspace source of truth
 - Only rely on legacy root paths after running bootstrap
 - Treat `archive/` and `var/` as excluded from normal discovery unless the task is explicitly about them
+- Pull requests now use an intention-first template and a deterministic triage workflow (`.github/workflows/pr-triage.yml`)
 
 ## Helpful docs
 
@@ -44,17 +45,146 @@ npm run build:all
 - `docs/QUALITY_GATE.md`
 - `docs/reports/2026-03/COMPREHENSIVE_PROJECT_HEALTH_REPORT.md`
 
-## Daily Snapshot (2026-03-30)
+## Daily Snapshot (2026-04-02)
+
+### Live Worktree Checkpoint
+
+**Status**: Complete (`18/18 PASS`, caution on release hygiene)
+
+**Evidence**:
+- `var/reports/workspace-smoke-latest.txt`
+- `var/reports/workspace-smoke-all-latest.txt`
+- `TASKS.md`
+
+**TASKS.md**: Active worktree still dirty, but canonical smoke remains green across workspace, apps, and automation checks
+
+## Recent Sessions (2026-04-02)
+
+### Ops Governance Commit
+
+**Status**: Complete
+
+**What**:
+- Isolated PR triage, VibeDebt audit, and heartbeat-monitor improvements into their own standalone commit
+
+**Entry points**:
+- `.github/workflows/pr-triage.yml`
+- `.github/workflows/tech-debt-audit.yml`
+- `ops/scripts/pr_triage.py`
+- `ops/scripts/tech_debt_scanner.py`
+
+### Infra Baseline Commit
+
+**Status**: Complete
+
+**What**:
+- Isolated AgriGuard port policy, backend dependency cleanup, and CI Python baseline alignment into their own standalone commit
+
+**Entry points**:
+- `docker-compose.dev.yml`
+- `apps/AgriGuard/backend/main.py`
+- `.github/workflows/agriguard-ci.yml`
+
+### Dashboard Slice Commit
+
+**Status**: Complete
+
+**What**:
+- Isolated the dashboard app change set into its own standalone commit
+- Left the broader infra, automation, and shared-runtime worktree untouched for later split
+
+**Entry points**:
+- `apps/dashboard/`
+- `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
+
+### Docs Sync + Worktree Revalidation
+
+**Status**: Complete
+
+**What**:
+- Revalidated the current live worktree rather than relying only on the 2026-04-01 notes
+- Confirmed canonical smoke still passes with the current uncommitted diff
+- Recorded the active change clusters so the next session can resume without re-triaging the entire repo
+
+**Entry points**:
+- `HANDOFF.md`
+- `TASKS.md`
+- `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
+- `var/reports/workspace-smoke-latest.txt`
+- `var/reports/workspace-smoke-all-latest.txt`
+
+## Daily Snapshot (2026-04-01)
+
+### Monitoring And Metrics Loop
+
+**Status**: Recorded
+
+**Evidence**:
+- `var/debt/2026-03-31-radon.json`
+- `automation/getdaytrends/data/tweet_metrics_local_smoke.json`
+- `TASKS.md`
+
+**TASKS.md**: TODO 0건 — Pushgateway E2E and tweet-metrics loop hardening recorded
+
+## Recent Sessions (2026-04-01)
+
+### Pushgateway E2E + Metrics Collector Hardening
+
+**Status**: Complete
+
+**What**:
+- Revalidated Pushgateway -> Prometheus ingestion using live `vibedebt_*` metrics
+- Hardened `collect_posted_tweet_metrics.py` for local no-token runs while preserving CI fail-fast semantics
+- Added regression tests for both local skip and CI error modes
+
+**Entry points**:
+- `ops/scripts/push_debt_metrics.py`
+- `.github/workflows/collect-tweet-metrics.yml`
+- `automation/getdaytrends/scripts/collect_posted_tweet_metrics.py`
+- `automation/getdaytrends/tests/test_collect_posted_tweet_metrics.py`
+
+## Daily Snapshot (2026-03-31)
 
 ### Workspace QC
 
 **Status**: Complete (`15/15 PASS`)
 
 **Evidence**:
-- `var/smoke/manual-smoke-2026-03-30.json`
-- `docs/reports/2026-03/QC_REPORT_2026-03-30_DAILY_WORKSPACE.md`
+- `var/smoke/manual-smoke-2026-03-31.json`
+- `docs/reports/2026-03/QC_REPORT_2026-03-31_DAILY_WORKSPACE.md`
 
-**Reading note**: Treat this as a development-health snapshot. The deterministic quality gate passed, but the worktree still had broad in-progress edits when the QC was recorded.
+**TASKS.md**: TODO 0건 — 모든 계류 작업 완료
+
+## Recent Sessions (2026-03-31)
+
+### Docker Port Conflict Resolution + Task Closure
+
+**Status**: ✅ Complete (QC PASS)
+
+**What**:
+- Root compose 포트를 AgriGuard 독립 compose와 분리 (5433/1884/8003)
+- DailyNews/GetDayTrends 프롬프트 마이그레이션 → 불필요 결정 (동적 빌더 유지)
+- Notion 속성 v13 표준 스키마 통합 (20+개 → 8개)
+
+**Entry points**:
+- `docker-compose.dev.yml` (포트 정책 헤더 19~26행)
+- `.env.example` (포트 기본값 11~14행)
+- `docs/DOCKER_SETUP_GUIDE.md` (서비스 포트 목록)
+
+### PR Triage Adaptation
+
+**Status**: Enabled (repo-native adaptation, not full ACPX runtime)
+
+**What**:
+- Added intention-first PR template
+- Added deterministic PR triage workflow and script
+- Added documentation explaining why the repo adopts the principle without autonomous PR close/land behavior
+
+**Entry points**:
+- `.github/pull_request_template.md`
+- `.github/workflows/pr-triage.yml`
+- `ops/scripts/pr_triage.py`
+- `docs/PR_TRIAGE_SYSTEM.md`
 
 ## Recent Sessions (2026-03-26)
 

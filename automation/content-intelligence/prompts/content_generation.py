@@ -19,6 +19,7 @@ def build_content_prompt(
     target_audience: str,
     trend_summary: str,
     regulation_checklist: str,
+    personas: list[dict] | None = None,
 ) -> str:
     """플랫폼별 콘텐츠 생성 프롬프트를 생성한다."""
 
@@ -29,6 +30,7 @@ def build_content_prompt(
     }
 
     guide = platform_guides.get(platform, f"■ {platform} 콘텐츠\n- 일반 포스트 형태로 작성")
+    persona_block = _build_persona_block(platform, personas)
 
     return f"""\
 [컨텍스트 입력]
@@ -39,7 +41,7 @@ def build_content_prompt(
 {trend_summary}
 - 플랫폼 규제 체크리스트:
 {regulation_checklist}
-
+{persona_block}
 [작업]
 위 컨텍스트를 바탕으로 아래 기준에 맞는 콘텐츠를 제작해줘.
 
@@ -68,6 +70,32 @@ def build_content_prompt(
 ```
 
 반드시 JSON만 응답하고, 다른 텍스트는 포함하지 마."""
+
+
+def _build_persona_block(platform: str, personas: list[dict] | None) -> str:
+    """플랫폼 친화적인 페르소나를 선택해 독자 심리 컨텍스트 블록을 생성한다."""
+    if not personas:
+        return ""
+
+    # 플랫폼 친화도 기준으로 가장 적합한 페르소나 선택
+    matched = [p for p in personas if platform in p.get("platform_affinity", [])]
+    if not matched:
+        matched = personas
+
+    # 다수 페르소나 중 pain_points가 가장 많은 것 우선, 동점 시 id 오름차순 (안정 선택)
+    persona = max(matched, key=lambda p: (len(p.get("pain_points", [])), p.get("id", "")))
+
+    pain = "\n".join(f"    · {pt}" for pt in persona.get("pain_points", [])[:3])
+    hooks = " / ".join(f'"{h}"' for h in persona.get("preferred_hooks", [])[:2])
+    triggers = " / ".join(f'"{t}"' for t in persona.get("share_triggers", [])[:2])
+
+    return f"""
+- 독자 페르소나 [{persona.get('name', '')}]: {persona.get('description', '')}
+  페인포인트:
+{pain}
+  선호 Hook 패턴: {hooks}
+  공유 유발 요인: {triggers}
+"""
 
 
 def _x_guide() -> str:
@@ -109,21 +137,37 @@ def _threads_guide() -> str:
 def _naver_guide() -> str:
     return """\
 ■ 네이버 블로그 포스트 (1종 생성)
-- 제목: 검색 키워드를 자연스럽게 포함 (30~50자)
-- 본문 구조:
-  1. 도입 (상황 공감 or 질문으로 시작, 3~4문장)
-  2. 본론 (소제목 2~3개로 구분, 각 300~500자)
-  3. 결론 (핵심 요약 + 다음 글 예고 or CTA)
-- SEO 최적화:
+
+[검색 의도 분류 — 아래 4가지 중 트렌드에 가장 적합한 유형 1가지를 선택해 구조화]
+A. 정보성 (알고 싶다): "AI 에이전트란 무엇인가 — 2026 개념 정리"
+B. 비교형 (고르고 싶다): "ChatGPT vs Claude vs Gemini — 실무자 기준 비교"
+C. How-to (하고 싶다): "Claude API 연동 5단계 — 실제 코드 포함"
+D. 후기형 (믿고 싶다): "AI 자동화 도입 3개월 후 실제로 달라진 것들"
+
+[2026 네이버 제목 패턴 — 검색 CTR 최적화]
+- 숫자 + 핵심어 + 감성어: "AI 자동화 5가지 — 안 쓰면 손해인 이유"
+- 의문형 + 정보 예고: "왜 전문가들은 LLM 프롬프트를 이렇게 짤까?"
+- 비교/대조형: "ChatGPT로 안 됐던 것, Claude로 해결한 방법"
+- 결과 중심형: "AI 글쓰기 도구 바꾸고 하루 3시간 아낀 방법"
+- 제목 길이 30~45자 (모바일 검색 노출 기준)
+
+[본문 구조]
+  1. 도입 (공감 상황 or 문제 제기, 3~4문장) — 독자가 "나 얘기네" 느끼게
+  2. 목차 박스 (소제목 2~3개 미리 보여주기, 체류시간 확보)
+  3. 본론 (소제목 ## 포함, 각 300~500자, 핵심 키워드 자연 삽입)
+  4. 결론 (핵심 1줄 요약 + 다음 글 예고 or 댓글 CTA)
+
+[SEO 최적화]
   - 본문 키워드 밀도 2~3% 유지
   - LSI(잠재 의미 인덱싱) 키워드 자연 배치
   - 소제목(##)에 핵심 키워드 포함
-- C-Rank 친화:
+  - 내부 링크 가이드: "[관련 글: ___에 대한 자세한 내용은 아래 글을 참고하세요]" 형태로 1~2곳 안내
+
+[C-Rank / D.I.A. 최적화]
   - 전문성 있는 정보형 콘텐츠 (1500자 이상)
-  - 카테고리 일관성 유지
   - 원본 이미지 삽입 위치 표시: [이미지: 설명]
-- D.I.A. 최적화:
   - 체류 시간 확보를 위한 단락 구분
-  - 목차/요약 박스 포함
   - 외부 링크 최소화 (저품질 판정 회피)
-- seo_keywords 필드에 3~5개 핵심 키워드를 리스트로 제공"""
+
+- seo_keywords 필드에 3~5개 핵심 키워드를 리스트로 제공
+- search_intent 필드에 선택한 유형 코드 (A/B/C/D) 제공"""

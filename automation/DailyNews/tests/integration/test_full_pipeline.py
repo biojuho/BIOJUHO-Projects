@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from antigravity_mcp.domain.models import ChannelDraft, ContentReport
+from antigravity_mcp.integrations.notion_adapter import NotionAdapter
 from antigravity_mcp.state.store import PipelineStateStore
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -176,14 +177,13 @@ class TestPublishPipeline:
     async def test_publish_creates_notion_page(self, store, saved_report):
         from antigravity_mcp.pipelines.publish import publish_report
 
-        mock_notion = MagicMock()
+        mock_notion = MagicMock(spec=NotionAdapter)
         mock_notion.is_configured.return_value = True
-        mock_notion.create_record = AsyncMock(
-            return_value={
-                "id": "notion-page-123",
-                "url": "https://notion.so/page-123",
-            }
-        )
+        mock_notion.query_database.return_value = ([], "")
+        mock_notion.create_record.return_value = {
+            "id": "notion-page-123",
+            "url": "https://notion.so/page-123",
+        }
         mock_telegram = MagicMock()
         mock_telegram.send_message = AsyncMock(return_value=True)
 

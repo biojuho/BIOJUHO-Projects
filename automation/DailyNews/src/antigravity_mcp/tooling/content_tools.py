@@ -49,47 +49,50 @@ async def content_generate_brief_tool(
     max_items: int = 5,
 ) -> dict:
     store = PipelineStateStore()
-    normalized_categories = _normalize_categories(categories)
     try:
-        items, warnings = await collect_content_items(
-            categories=normalized_categories,
-            window_name=window,
-            max_items=max_items,
-            state_store=store,
-        )
-    except Exception as exc:
-        await _alert_on_error("collect", type(exc).__name__, str(exc))
-        return error_response("collect_failed", f"Collection failed: {exc}")
+        normalized_categories = _normalize_categories(categories)
+        try:
+            items, warnings = await collect_content_items(
+                categories=normalized_categories,
+                window_name=window,
+                max_items=max_items,
+                state_store=store,
+            )
+        except Exception as exc:
+            await _alert_on_error("collect", type(exc).__name__, str(exc))
+            return error_response("collect_failed", f"Collection failed: {exc}")
 
-    if not items:
-        if warnings:
-            return partial({"reports": [], "report_ids": []}, warnings=warnings)
-        return ok({"reports": [], "report_ids": []})
+        if not items:
+            if warnings:
+                return partial({"reports": [], "report_ids": []}, warnings=warnings)
+            return ok({"reports": [], "report_ids": []})
 
-    window_start, window_end = get_window(window)
-    skill = SkillAdapter(state_store=store)
-    try:
-        run_id, reports, llm_warnings, status = await generate_briefs(
-            items=items,
-            window_name=window,
-            window_start=window_start.isoformat(),
-            window_end=window_end.isoformat(),
-            state_store=store,
-            skill_adapter=skill,
-        )
-    except Exception as exc:
-        await _alert_on_error("analyze", type(exc).__name__, str(exc))
-        return error_response("analyze_failed", f"Analysis failed: {exc}")
+        window_start, window_end = get_window(window)
+        skill = SkillAdapter(state_store=store)
+        try:
+            run_id, reports, llm_warnings, status = await generate_briefs(
+                items=items,
+                window_name=window,
+                window_start=window_start.isoformat(),
+                window_end=window_end.isoformat(),
+                state_store=store,
+                skill_adapter=skill,
+            )
+        except Exception as exc:
+            await _alert_on_error("analyze", type(exc).__name__, str(exc))
+            return error_response("analyze_failed", f"Analysis failed: {exc}")
 
-    payload = {
-        "run_id": run_id,
-        "report_ids": [report.report_id for report in reports],
-        "reports": [report.to_dict() for report in reports],
-    }
-    all_warnings = warnings + llm_warnings
-    if status == "partial" or all_warnings:
-        return partial(payload, warnings=all_warnings, meta={"run_id": run_id})
-    return ok(payload, meta={"run_id": run_id})
+        payload = {
+            "run_id": run_id,
+            "report_ids": [report.report_id for report in reports],
+            "reports": [report.to_dict() for report in reports],
+        }
+        all_warnings = warnings + llm_warnings
+        if status == "partial" or all_warnings:
+            return partial(payload, warnings=all_warnings, meta={"run_id": run_id})
+        return ok(payload, meta={"run_id": run_id})
+    finally:
+        store.close()
 
 
 async def content_publish_report_tool(
@@ -99,22 +102,29 @@ async def content_publish_report_tool(
 ) -> dict:
     store = PipelineStateStore()
     try:
-        run_id, publication, warnings, status = await publish_report(
-            report_id=report_id,
-            channels=channels or ["x", "canva"],
-            approval_mode=approval_mode,
-            state_store=store,
-        )
-    except Exception as exc:
-        await _alert_on_error("publish", type(exc).__name__, str(exc), report_id)
-        return error_response("publish_failed", f"Publish failed: {exc}")
+        try:
+            run_id, publication, warnings, status = await publish_report(
+                report_id=report_id,
+                channels=channels or ["x", "canva"],
+                approval_mode=approval_mode,
+                state_store=store,
+            )
+        except Exception as exc:
+            await _alert_on_error("publish", type(exc).__name__, str(exc), report_id)
+            return error_response("publish_failed", f"Publish failed: {exc}")
 
-    if status == "error":
-        await _alert_on_error("publish", "publish_error", warnings[0] if warnings else "Unknown", report_id)
-        return error_response("publish_failed", warnings[0] if warnings else "Publish failed.", data={"run_id": run_id})
-    if warnings:
-        return partial(publication, warnings=warnings, meta={"run_id": run_id})
-    return ok(publication, meta={"run_id": run_id})
+        if status == "error":
+            await _alert_on_error("publish", "publish_error", warnings[0] if warnings else "Unknown", report_id)
+            return error_response(
+                "publish_failed",
+                warnings[0] if warnings else "Publish failed.",
+                data={"run_id": run_id},
+            )
+        if warnings:
+            return partial(publication, warnings=warnings, meta={"run_id": run_id})
+        return ok(publication, meta={"run_id": run_id})
+    finally:
+        store.close()
 
 
 async def content_invoke_skill_tool(

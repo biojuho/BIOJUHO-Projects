@@ -91,30 +91,34 @@ class SkillAdapter:
         window = params.get("window", "manual")
         max_items = int(params.get("max_items", 5))
         store = self._state_store or PipelineStateStore()
+        owns_store = self._state_store is None
+        try:
+            items, collect_warnings = await collect_content_items(
+                categories=[category],
+                window_name=window,
+                max_items=max_items,
+                state_store=store,
+            )
+            if not items:
+                return {"items": [], "reports": [], "warnings": collect_warnings}
 
-        items, collect_warnings = await collect_content_items(
-            categories=[category],
-            window_name=window,
-            max_items=max_items,
-            state_store=store,
-        )
-        if not items:
-            return {"items": [], "reports": [], "warnings": collect_warnings}
-
-        window_start, window_end = get_window(window)
-        _, reports, llm_warnings, _ = await generate_briefs(
-            items=items,
-            window_name=window,
-            window_start=window_start.isoformat(),
-            window_end=window_end.isoformat(),
-            state_store=store,
-            llm_adapter=self._llm_adapter,
-        )
-        return {
-            "items_collected": len(items),
-            "reports": [r.to_dict() for r in reports],
-            "warnings": collect_warnings + llm_warnings,
-        }
+            window_start, window_end = get_window(window)
+            _, reports, llm_warnings, _ = await generate_briefs(
+                items=items,
+                window_name=window,
+                window_start=window_start.isoformat(),
+                window_end=window_end.isoformat(),
+                state_store=store,
+                llm_adapter=self._llm_adapter,
+            )
+            return {
+                "items_collected": len(items),
+                "reports": [r.to_dict() for r in reports],
+                "warnings": collect_warnings + llm_warnings,
+            }
+        finally:
+            if owns_store:
+                store.close()
 
     async def _skill_market_snapshot(self, params: dict[str, Any]) -> dict[str, Any]:
         """Get market price snapshots. Params: tickers (list[str]) or keywords (list[str])."""

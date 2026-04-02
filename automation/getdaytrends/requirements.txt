@@ -33,3 +33,5 @@ scrapling>=0.4.0
 prometheus_client>=0.21.0
 loguru>=0.7.0,<1.0
 aiosqlite>=0.20.0,<1.0
+# 쿠키 암호화 (Twikit 세션 보안)
+cryptography>=42.0.0,<45.0

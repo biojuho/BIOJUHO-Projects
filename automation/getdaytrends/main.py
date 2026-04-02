@@ -13,6 +13,7 @@
 import argparse
 import asyncio
 import io
+import os
 import signal
 import sys
 import threading
@@ -57,6 +58,66 @@ except ImportError:
     from core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
     from db import close_pg_pool, get_connection, get_trend_stats, init_db
     from utils import run_async
+
+# ══════════════════════════════════════════════════════
+#  프로세스 Lockfile (동시 실행 방지)
+# ══════════════════════════════════════════════════════
+
+_LOCK_FILE = Path(__file__).parent / "data" / "getdaytrends.lock"
+
+
+def _is_pid_alive(pid: int) -> bool:
+    """PID가 현재 실행 중인지 확인 (크로스 플랫폼)."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            SYNCHRONIZE = 0x00100000
+            handle = ctypes.windll.kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+            if handle:
+                ctypes.windll.kernel32.CloseHandle(handle)
+                return True
+            return False
+        except (OSError, PermissionError):
+            return False
+    # POSIX
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, PermissionError):
+        return False
+
+
+def _acquire_lock() -> bool:
+    """Lockfile을 획득해 중복 실행을 방지. 이미 실행 중이면 False 반환."""
+    _LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    if _LOCK_FILE.exists():
+        try:
+            pid = int(_LOCK_FILE.read_text().strip())
+            if _is_pid_alive(pid):
+                print(f"\n  [오류] GetDayTrends가 이미 실행 중입니다 (PID {pid}).")
+                print("  중복 실행을 방지하기 위해 종료합니다.\n")
+                return False
+            # 스테일 lockfile (이전 프로세스가 비정상 종료)
+            _LOCK_FILE.unlink(missing_ok=True)
+        except (ValueError, OSError):
+            _LOCK_FILE.unlink(missing_ok=True)
+
+    _LOCK_FILE.write_text(str(os.getpid()))
+    return True
+
+
+def _release_lock() -> None:
+    """Lockfile 해제. 자신이 생성한 lockfile만 삭제."""
+    try:
+        if _LOCK_FILE.exists():
+            pid = int(_LOCK_FILE.read_text().strip())
+            if pid == os.getpid():
+                _LOCK_FILE.unlink(missing_ok=True)
+    except (ValueError, OSError):
+        pass
+
 
 # ══════════════════════════════════════════════════════
 #  우아한 종료 (SIGTERM / SIGINT)
@@ -318,6 +379,20 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
 
 
 def main():
+    # 중복 실행 방지 (--stats, --serve 는 lockfile 불필요)
+    _pre_args = sys.argv[1:]
+    _skip_lock = any(a in _pre_args for a in ("--stats", "--serve"))
+    if not _skip_lock and not _acquire_lock():
+        sys.exit(1)
+
+    try:
+        _main_body()
+    finally:
+        if not _skip_lock:
+            _release_lock()
+
+
+def _main_body():
     args = parse_args()
 
     # 설정 로드

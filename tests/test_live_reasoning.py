@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 # Ensure shared package is importable
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -18,8 +20,9 @@ if str(ROOT) not in sys.path:
 os.environ["REASONING_PREFER_LOCAL"] = "true"
 os.environ["REASONING_ENGINE_ENABLED"] = "true"
 
+pytestmark = [pytest.mark.integration, pytest.mark.external]
 
-def test_ollama_connectivity():
+def _check_ollama_connectivity():
     """Test 1: Verify Ollama server is reachable."""
     print("=" * 60)
     print("[TEST 1] Ollama 서버 연결 확인")
@@ -39,7 +42,7 @@ def test_ollama_connectivity():
         return False, []
 
 
-def test_smart_router_complexity():
+def _check_smart_router_complexity():
     """Test 2: SmartRouter complexity estimation (no LLM call)."""
     print("\n" + "=" * 60)
     print("[TEST 2] SmartRouter 복잡도 판단 (LLM 호출 없음)")
@@ -60,10 +63,7 @@ def test_smart_router_complexity():
         print(f"  → Complexity: {result.value} ({expected})")
         print()
 
-    return True
-
-
-def test_reasoning_config():
+def _check_reasoning_config():
     """Test 3: Verify REASONING_CONFIG loaded correctly."""
     print("=" * 60)
     print("[TEST 3] REASONING_CONFIG 확인")
@@ -79,14 +79,18 @@ def test_reasoning_config():
 
     assert REASONING_CONFIG["prefer_local"] is True, "REASONING_PREFER_LOCAL should be true!"
     print("  ✅ REASONING_PREFER_LOCAL=true confirmed")
-    return True
-
-
-def test_live_reasoning(models):
+def test_live_reasoning():
     """Test 4: Live create_with_reasoning() call via Ollama."""
     print("\n" + "=" * 60)
     print("[TEST 4] Live Reasoning 테스트 (Ollama 직접 호출)")
     print("=" * 60)
+
+    ok, models = _check_ollama_connectivity()
+    if not ok:
+        pytest.skip("Ollama server is not running")
+
+    _check_smart_router_complexity()
+    _check_reasoning_config()
 
     from shared.llm import get_client, reset_client
 
@@ -139,25 +143,22 @@ def test_live_reasoning(models):
     except Exception as e:
         print(f"  ⚠️ Error: {e}")
 
-    return True
-
-
 def main():
     print("🚀 Self-Hosted Inference Engine — Live Test")
     print("=" * 60)
     print()
 
     # Test 1: Connectivity
-    ok, models = test_ollama_connectivity()
+    ok, models = _check_ollama_connectivity()
     if not ok:
         print("\n❌ Ollama not running. Start with: ollama serve")
         return
 
     # Test 2: SmartRouter (no LLM)
-    test_smart_router_complexity()
+    _check_smart_router_complexity()
 
     # Test 3: Config
-    test_reasoning_config()
+    _check_reasoning_config()
 
     # Test 4: Live LLM call
     has_qwen = any("qwen3-coder" in m for m in models)
@@ -167,7 +168,7 @@ def main():
         print(f"\n⚠️ qwen3-coder not found in Ollama (available: {models})")
         print("  → Will fallback to other backends")
 
-    test_live_reasoning(models)
+    test_live_reasoning()
 
     print("\n" + "=" * 60)
     print("🏁 Live Test Complete")

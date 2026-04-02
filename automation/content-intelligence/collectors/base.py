@@ -57,5 +57,5 @@ async def llm_analyze(
         return _parse_json_response(resp.text)
     except json.JSONDecodeError as e:
         log.error(f"  LLM JSON 파싱 실패: {e}")
-        log.debug(f"  원본 응답: {resp.text[:500]}")
-        return {}
+        log.error(f"  원본 응답: {resp.text[:500]}")
+        raise RuntimeError(f"LLM이 유효한 JSON을 반환하지 않았습니다: {e}") from e

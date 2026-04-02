@@ -48,6 +48,7 @@ jobs:
           LOOKBACK="${{ github.event.inputs.lookback_hours || '72' }}"
           python scripts/collect_posted_tweet_metrics.py \
             --lookback-hours "$LOOKBACK" \
+            --require-token \
             --json-out data/tweet_metrics_$(date -u +%Y%m%d_%H%M%S).json
 
       - name: Upload metrics artifact

@@ -5,6 +5,7 @@ getdaytrends v4.1 - Configuration Management
 
 import os
 from dataclasses import dataclass, field
+from functools import cached_property
 
 try:
     from shared.env_loader import load_workspace_env
@@ -361,9 +362,10 @@ class AppConfig:
         if not self.countries:
             self.countries = [self.country]
 
-    @property
+    # [QA 수정] @property → @cached_property: 매 호출 객체 생성 방지
+    @cached_property
     def quality(self) -> QualityConfig:
-        """품질 관련 설정 도메인 뷰."""
+        """품질 관련 설정 도메인 뷰 (cached)."""
         return QualityConfig(
             feedback_min_score=self.quality_feedback_min_score,
             threads_quality_min_score=self.threads_quality_min_score,
@@ -378,9 +380,9 @@ class AppConfig:
             min_viral_score=self.min_viral_score,
         )
 
-    @property
+    @cached_property
     def cost(self) -> CostConfig:
-        """비용 관련 설정 도메인 뷰."""
+        """비용 관련 설정 도메인 뷰 (cached)."""
         return CostConfig(
             daily_budget_usd=self.daily_budget_usd,
             peak_budget_multiplier=self.peak_budget_multiplier,
@@ -392,9 +394,9 @@ class AppConfig:
             generation_mode_override=self.generation_mode_override,
         )
 
-    @property
+    @cached_property
     def alerts(self) -> AlertConfig:
-        """알림 채널 설정 도메인 뷰."""
+        """알림 채널 설정 도메인 뷰 (cached)."""
         return AlertConfig(
             telegram_bot_token=self.telegram_bot_token,
             telegram_chat_id=self.telegram_chat_id,

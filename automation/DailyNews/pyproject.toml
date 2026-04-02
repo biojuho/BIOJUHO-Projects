@@ -43,6 +43,7 @@ viz = [
 dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.24",
+  "pytest-cov>=7.0",
   "respx>=0.21.0",
 ]
 
@@ -58,6 +59,23 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "."]
+addopts = "-m \"not integration\" --ignore-glob=\"**/manual/*\""
+markers = [
+  "integration: tests requiring local services, live DB, or credentials",
+  "external: tests that call external APIs",
+]
 filterwarnings = [
   "ignore:'_UnionGenericAlias' is deprecated and slated for removal in Python 3.17:DeprecationWarning:google\\.genai\\.types",
 ]
+
+[tool.coverage.run]
+source = ["src/antigravity_mcp"]
+omit = [
+  "tests/*",
+  "*/manual/*",
+  "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

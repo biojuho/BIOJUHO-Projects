@@ -10,8 +10,12 @@ Jina 스크래핑 대신 Twikit으로 트렌드/트윗을 직접 수집한다.
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import json
 import os
 import random
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -32,9 +36,79 @@ except ImportError:
     TWIKIT_AVAILABLE = False
 
 _COOKIES_PATH = Path(__file__).parent / "data" / "x_cookies.json"
+_COOKIES_ENC_PATH = Path(__file__).parent / "data" / "x_cookies.enc"
 _client: TwikitClient | None = None
 _client_lock = asyncio.Lock()
 _login_attempted = False
+
+# ══════════════════════════════════════════════════════
+#  쿠키 암호화 유틸리티
+# ══════════════════════════════════════════════════════
+
+
+def _derive_fernet_key() -> bytes | None:
+    """TWIKIT_COOKIE_SECRET(우선) 또는 TWIKIT_PASSWORD에서 Fernet 키 도출.
+    설정 없으면 None 반환 (암호화 비활성)."""
+    secret = os.environ.get("TWIKIT_COOKIE_SECRET") or os.environ.get("TWIKIT_PASSWORD", "")
+    if not secret:
+        return None
+    raw = hashlib.pbkdf2_hmac("sha256", secret.encode(), b"gdt-twikit-cookie-v1", 200_000)
+    return base64.urlsafe_b64encode(raw)
+
+
+def _load_encrypted_cookies(client: "TwikitClient") -> bool:
+    """암호화된 쿠키(.enc)를 복호화해 클라이언트에 로드. 성공하면 True."""
+    if not _COOKIES_ENC_PATH.exists():
+        return False
+    key = _derive_fernet_key()
+    if not key:
+        return False
+    try:
+        from cryptography.fernet import Fernet, InvalidToken
+
+        f = Fernet(key)
+        decrypted = f.decrypt(_COOKIES_ENC_PATH.read_bytes())
+        cookies = json.loads(decrypted)
+        # Twikit은 파일 경로를 요구하므로 임시 파일 경유
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
+            json.dump(cookies, tmp)
+            tmp_path = tmp.name
+        try:
+            client.load_cookies(tmp_path)
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+        return True
+    except ImportError:
+        log.debug("[Twikit] cryptography 미설치 — 암호화 쿠키 로드 불가")
+        return False
+    except Exception as e:
+        log.warning(f"[Twikit] 암호화 쿠키 로드 실패: {e}")
+        return False
+
+
+def _save_encrypted_cookies(plain_path: Path) -> None:
+    """로그인 후 생성된 평문 쿠키를 암호화 저장하고 원본 삭제.
+    cryptography 미설치 또는 시크릿 미설정 시 평문 유지 + 경고."""
+    key = _derive_fernet_key()
+    if not key:
+        log.warning(
+            "[Twikit] TWIKIT_COOKIE_SECRET 미설정 — 쿠키가 평문으로 저장됩니다. "
+            "보안 강화를 위해 .env에 TWIKIT_COOKIE_SECRET=<무작위 긴 문자열> 을 추가하세요."
+        )
+        return
+    try:
+        from cryptography.fernet import Fernet
+
+        f = Fernet(key)
+        encrypted = f.encrypt(plain_path.read_bytes())
+        _COOKIES_ENC_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _COOKIES_ENC_PATH.write_bytes(encrypted)
+        plain_path.unlink(missing_ok=True)
+        log.info("[Twikit] 쿠키 암호화 저장 완료 (원본 삭제)")
+    except ImportError:
+        log.warning("[Twikit] cryptography 미설치 — 쿠키 암호화 건너뜀. pip install cryptography")
+    except OSError as e:
+        log.warning(f"[Twikit] 쿠키 암호화 저장 실패: {e}")
 
 
 async def _get_client() -> TwikitClient | None:
@@ -63,11 +137,17 @@ async def _get_client() -> TwikitClient | None:
 
         _client = TwikitClient("ko")
 
-        # 쿠키 파일이 있으면 재사용 (로그인 API 호출 회피)
+        # 1순위: 암호화 쿠키 (.enc)
+        if _load_encrypted_cookies(_client):
+            log.info("[Twikit] 암호화 쿠키로 세션 복원")
+            return _client
+
+        # 2순위: 평문 쿠키 잔존 시 로드 후 즉시 암호화 전환
         if _COOKIES_PATH.exists():
             try:
                 _client.load_cookies(str(_COOKIES_PATH))
-                log.info("[Twikit] 저장된 쿠키로 세션 복원")
+                log.info("[Twikit] 평문 쿠키 로드 → 암호화 전환 중")
+                _save_encrypted_cookies(_COOKIES_PATH)
                 return _client
             except (OSError, ValueError, RuntimeError) as e:
                 log.warning(f"[Twikit] 쿠키 로드 실패: {e} -- 재로그인 시도")
@@ -82,7 +162,8 @@ async def _get_client() -> TwikitClient | None:
                 password=password,
                 cookies_file=str(_COOKIES_PATH),
             )
-            log.info("[Twikit] 로그인 성공, 쿠키 저장됨")
+            log.info("[Twikit] 로그인 성공, 쿠키 암호화 저장 중")
+            _save_encrypted_cookies(_COOKIES_PATH)
             return _client
         except (ValueError, RuntimeError, ConnectionError, TimeoutError) as e:
             log.warning(f"[Twikit] 로그인 실패: {e}")

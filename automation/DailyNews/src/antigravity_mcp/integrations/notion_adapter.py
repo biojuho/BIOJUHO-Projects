@@ -11,7 +11,7 @@ from notion_client import AsyncClient
 from antigravity_mcp.config import AppSettings, get_settings
 from antigravity_mcp.domain.markdown_blocks import block_to_text, markdown_to_blocks
 from antigravity_mcp.domain.models import PageSummary
-from antigravity_mcp.integrations.circuit_breaker import CircuitBreaker
+from shared.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 

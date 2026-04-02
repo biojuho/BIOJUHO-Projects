@@ -42,6 +42,21 @@ services:
       retries: 3
       start_period: 10s
 
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: mon-pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    networks:
+      - mon-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9091/-/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   grafana:
     image: grafana/grafana:latest
     container_name: mon-grafana
@@ -60,6 +75,8 @@ services:
       - ./ops/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       prometheus:
+        condition: service_healthy
+      pushgateway:
         condition: service_healthy
     networks:
       - mon-network

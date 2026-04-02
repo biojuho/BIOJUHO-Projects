@@ -102,8 +102,13 @@ def db_conn():
     conn.close()
 
 
+@pytest.mark.integration
 class TestDatabaseState:
-    """Validate the current state of the pipeline database."""
+    """Validate the current state of the pipeline database.
+
+    NOTE: These tests query the live pipeline_state.db file.
+    They are excluded from default test runs (requires -m integration).
+    """
 
     def test_today_has_reports(self, db_conn):
         cur = db_conn.cursor()
@@ -149,8 +154,12 @@ class TestDatabaseState:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestScriptFileValidation:
-    """Validate the PowerShell scheduler script is correctly patched."""
+    """Validate the PowerShell scheduler script is correctly patched.
+
+    NOTE: Depends on local PS1 script files. Excluded from default runs.
+    """
 
     @pytest.fixture(autouse=True)
     def load_ps1(self):
@@ -181,8 +190,12 @@ class TestScriptFileValidation:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestConfigValidation:
-    """Validate configuration files and environment setup."""
+    """Validate configuration files and environment setup.
+
+    NOTE: Depends on local venv, .env, and config files.
+    """
 
     def test_news_sources_has_all_categories(self):
         sources_path = os.path.join(PROJECT_ROOT, "config", "news_sources.json")
@@ -207,8 +220,12 @@ class TestConfigValidation:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestPotentialIssues:
-    """Detect potential issues that may need attention (non-blocking)."""
+    """Detect potential issues that may need attention (non-blocking).
+
+    NOTE: Depends on local source files and DB. Excluded from default runs.
+    """
 
     def test_publish_truthy_check_warning(self):
         """publish.py uses truthy check which works but could be clearer."""

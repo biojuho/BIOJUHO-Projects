@@ -16,24 +16,33 @@ logger = logging.getLogger(__name__)
 
 async def ops_get_run_status_tool(run_id: str) -> dict:
     store = PipelineStateStore()
-    run = store.get_run(run_id)
-    if run is None:
-        return error_response("run_not_found", f"Unknown run_id: {run_id}")
-    return ok({"run": run.to_dict()})
+    try:
+        run = store.get_run(run_id)
+        if run is None:
+            return error_response("run_not_found", f"Unknown run_id: {run_id}")
+        return ok({"run": run.to_dict()})
+    finally:
+        store.close()
 
 
 async def ops_list_runs_tool(job_name: str = "", status: str = "", limit: int = 20) -> dict:
     store = PipelineStateStore()
-    runs = store.list_runs(job_name=job_name or None, status=status or None, limit=limit)
-    return ok({"runs": [run.to_dict() for run in runs]})
+    try:
+        runs = store.list_runs(job_name=job_name or None, status=status or None, limit=limit)
+        return ok({"runs": [run.to_dict() for run in runs]})
+    finally:
+        store.close()
 
 
 async def ops_refresh_dashboard_tool() -> dict:
     store = PipelineStateStore()
-    run_id, payload, warnings, status = await refresh_dashboard(state_store=store)
-    if status == "partial":
-        return partial(payload, warnings=warnings, meta={"run_id": run_id})
-    return ok(payload, meta={"run_id": run_id})
+    try:
+        run_id, payload, warnings, status = await refresh_dashboard(state_store=store)
+        if status == "partial":
+            return partial(payload, warnings=warnings, meta={"run_id": run_id})
+        return ok(payload, meta={"run_id": run_id})
+    finally:
+        store.close()
 
 
 async def ops_run_frozen_eval_tool(
@@ -72,18 +81,21 @@ async def ops_cleanup_tool(dry_run: bool = False) -> dict:
     Pass dry_run=True to preview counts without deleting.
     """
     store = PipelineStateStore()
-    if dry_run:
-        return ok({"dry_run": True, "message": "No deletions performed in dry_run mode."})
+    try:
+        if dry_run:
+            return ok({"dry_run": True, "message": "No deletions performed in dry_run mode."})
 
-    llm_pruned = store.prune_llm_cache()
-    articles_pruned = store.prune_old_articles(days=30)
-    return ok(
-        {
-            "dry_run": False,
-            "llm_cache_entries_pruned": llm_pruned,
-            "article_cache_entries_pruned": articles_pruned,
-        }
-    )
+        llm_pruned = store.prune_llm_cache()
+        articles_pruned = store.prune_old_articles(days=30)
+        return ok(
+            {
+                "dry_run": False,
+                "llm_cache_entries_pruned": llm_pruned,
+                "article_cache_entries_pruned": articles_pruned,
+            }
+        )
+    finally:
+        store.close()
 
 
 async def ops_check_health_tool(
@@ -143,11 +155,14 @@ async def ops_auto_collect_metrics_tool(hours: int = 48) -> dict:
     from antigravity_mcp.pipelines.metrics import collect_recent_metrics
 
     store = PipelineStateStore()
-    run_id, count, warnings = await collect_recent_metrics(state_store=store, hours=hours)
-    payload = {"run_id": run_id, "tweets_updated": count, "hours_window": hours}
-    if warnings:
-        return partial(payload, warnings=warnings, meta={"run_id": run_id})
-    return ok(payload, meta={"run_id": run_id})
+    try:
+        run_id, count, warnings = await collect_recent_metrics(state_store=store, hours=hours)
+        payload = {"run_id": run_id, "tweets_updated": count, "hours_window": hours}
+        if warnings:
+            return partial(payload, warnings=warnings, meta={"run_id": run_id})
+        return ok(payload, meta={"run_id": run_id})
+    finally:
+        store.close()
 
 
 async def ops_collect_tweet_metrics_tool(tweet_ids: list[str], report_id: str = "") -> dict:
@@ -156,28 +171,34 @@ async def ops_collect_tweet_metrics_tool(tweet_ids: list[str], report_id: str = 
     Requires X_BEARER_TOKEN to be configured.
     """
     store = PipelineStateStore()
-    adapter = XMetricsAdapter(state_store=store)
-    if not adapter.is_available:
-        return error_response(
-            "x_bearer_missing",
-            "X_BEARER_TOKEN not configured. Cannot fetch tweet metrics.",
-        )
-    count = await adapter.collect_and_store(tweet_ids, report_id=report_id)
-    return ok({"tweets_updated": count, "tweet_ids": tweet_ids})
+    try:
+        adapter = XMetricsAdapter(state_store=store)
+        if not adapter.is_available:
+            return error_response(
+                "x_bearer_missing",
+                "X_BEARER_TOKEN not configured. Cannot fetch tweet metrics.",
+            )
+        count = await adapter.collect_and_store(tweet_ids, report_id=report_id)
+        return ok({"tweets_updated": count, "tweet_ids": tweet_ids})
+    finally:
+        store.close()
 
 
 async def ops_get_cost_report_tool(days: int = 7) -> dict:
     """Get LLM cost breakdown by model for the last N days."""
     store = PipelineStateStore()
-    stats = store.get_token_usage_stats(hours=days * 24)
     try:
-        from shared.llm import export_usage_csv, get_daily_stats
+        stats = store.get_token_usage_stats(hours=days * 24)
+        try:
+            from shared.llm import export_usage_csv, get_daily_stats
 
-        daily = get_daily_stats(days=days)
-        stats["daily_breakdown"] = daily
-    except ImportError:
-        pass
-    return ok(stats)
+            daily = get_daily_stats(days=days)
+            stats["daily_breakdown"] = daily
+        except ImportError:
+            pass
+        return ok(stats)
+    finally:
+        store.close()
 
 
 async def ops_export_analytics_tool(date: str = "", days: int = 30) -> dict:
@@ -185,14 +206,17 @@ async def ops_export_analytics_tool(date: str = "", days: int = 30) -> dict:
     from antigravity_mcp.pipelines.export import export_daily_report_json, export_performance_csv
 
     store = PipelineStateStore()
-    json_result = export_daily_report_json(date=date, state_store=store)
-    csv_result = export_performance_csv(days=days, state_store=store)
-    return ok(
-        {
-            "json_export": json_result,
-            "csv_export": csv_result,
-        }
-    )
+    try:
+        json_result = export_daily_report_json(date=date, state_store=store)
+        csv_result = export_performance_csv(days=days, state_store=store)
+        return ok(
+            {
+                "json_export": json_result,
+                "csv_export": csv_result,
+            }
+        )
+    finally:
+        store.close()
 
 
 async def ops_get_content_calendar_tool(days: int = 7) -> dict:
@@ -200,27 +224,33 @@ async def ops_get_content_calendar_tool(days: int = 7) -> dict:
     from antigravity_mcp.integrations.scheduler_adapter import SchedulerAdapter
 
     store = PipelineStateStore()
-    scheduler = SchedulerAdapter(state_store=store)
-    optimal = scheduler.get_optimal_hours(count=6)
-    should_post = scheduler.should_post_now()
-    next_slot = scheduler.get_next_posting_slot()
-    return ok(
-        {
-            "optimal_hours_today": optimal,
-            "should_post_now": should_post,
-            "next_slot": next_slot,
-        }
-    )
+    try:
+        scheduler = SchedulerAdapter(state_store=store)
+        optimal = scheduler.get_optimal_hours(count=6)
+        should_post = scheduler.should_post_now()
+        next_slot = scheduler.get_next_posting_slot()
+        return ok(
+            {
+                "optimal_hours_today": optimal,
+                "should_post_now": should_post,
+                "next_slot": next_slot,
+            }
+        )
+    finally:
+        store.close()
 
 
 async def ops_get_tweet_performance_tool(days: int = 7, limit: int = 10, sort_by: str = "impressions") -> dict:
     """Get top-performing tweets and aggregate metrics summary."""
     store = PipelineStateStore()
-    top_tweets = store.get_top_tweets(days=days, limit=limit, sort_by=sort_by)
-    summary = store.get_metrics_summary(days=days)
-    return ok(
-        {
-            "summary": summary,
-            "top_tweets": top_tweets,
-        }
-    )
+    try:
+        top_tweets = store.get_top_tweets(days=days, limit=limit, sort_by=sort_by)
+        summary = store.get_metrics_summary(days=days)
+        return ok(
+            {
+                "summary": summary,
+                "top_tweets": top_tweets,
+            }
+        )
+    finally:
+        store.close()

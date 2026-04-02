@@ -193,7 +193,7 @@ async def step_generate_content(config, trend_report, checklist):
 
 
 async def step_save(config, trend_report=None, regulation_reports=None, batch=None):
-    """Step 4: 로컬 DB 저장."""
+    """Step 4: 로컬 DB 저장 + GDT 역피드백 주입."""
     log.info("\n" + "─" * 40)
     log.info("💾 STEP 4: 저장")
     log.info("─" * 40)
@@ -210,6 +210,31 @@ async def step_save(config, trend_report=None, regulation_reports=None, batch=No
             save_contents(conn, batch)
     finally:
         conn.close()
+
+    # GDT 역피드백: CIE QA 점수 → GetDayTrends content_feedback 테이블
+    if batch and batch.contents:
+        from collectors.gdt_bridge import write_content_feedback_batch
+
+        feedback_items = []
+        for c in batch.contents:
+            if c.qa_report is None:
+                continue
+            # 트렌드 키워드별로 각각 피드백 주입 (없으면 제목/플랫폼으로 대체)
+            keywords = c.trend_keywords_used or ([c.title] if c.title else [c.platform])
+            regenerated = c.qa_report.total_score < config.qa_min_score
+            reason = "; ".join(c.qa_report.warnings[:2]) if c.qa_report.warnings else ""
+            for kw in keywords[:3]:
+                feedback_items.append(
+                    {
+                        "keyword": kw,
+                        "category": c.platform,
+                        "qa_score": float(c.qa_report.total_score),
+                        "regenerated": regenerated,
+                        "reason": reason,
+                    }
+                )
+
+        write_content_feedback_batch(config, feedback_items)
 
 
 async def step_publish(config: CIEConfig, batch):
@@ -256,7 +281,7 @@ async def step_publish_only(config: CIEConfig):
 
     conn = get_connection(config)
     try:
-        contents = load_unpublished_contents(conn)
+        contents = load_unpublished_contents(conn, min_qa_score=config.qa_min_score)
         if not contents:
             log.info("  ℹ️ 발행할 미발행 콘텐츠가 없습니다.")
             return
@@ -357,6 +382,9 @@ def main() -> None:
     setup_logging(args.verbose)
     config = CIEConfig()
     print_banner(config, args.mode, args.publish)
+
+    if not args.dry_run:
+        config.validate()
 
     if args.dry_run:
         log.info("🧪 DRY RUN 모드 — LLM 호출 없이 구조 검증만 수행")

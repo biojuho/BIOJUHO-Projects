@@ -53,7 +53,6 @@ class MergedTrendReport:
         for report in self.platform_reports:
             lines.append(f"\n■ {report.platform.upper()} 트렌드:")
             for t in report.trends:
-                tags = ", ".join(t.hashtags) if t.hashtags else "(없음)"
                 lines.append(f"  - {t.keyword} (볼륨:{t.volume}) | " f"포맷:{t.format_trend} | 톤:{t.tone_trend}")
                 if t.sentiment != "neutral":
                     lines.append(f"    ↳ 감성: {t.sentiment} | 신뢰도: {t.confidence}%")
@@ -109,13 +108,44 @@ class UnifiedChecklist:
 
 
 # ═══════════════════════════════════════════════════════
-#  3단계: 콘텐츠 생성
+#  3단계: 콘텐츠 생성 — Pro QA 진단 모델
 # ═══════════════════════════════════════════════════════
 
 
 @dataclass
+class QAAxisDiagnostic:
+    """단일 QA 축의 진단 결과 — 점수 + 이유 + 개선안."""
+
+    axis: str            # "hook", "fact", ... "credibility"
+    score: int = 0
+    max_score: int = 0
+    reason: str = ""     # 이 점수를 받은 이유
+    suggestion: str = "" # 구체적 개선 방향
+
+    @property
+    def score_ratio(self) -> float:
+        """0~1 사이 점수 비율."""
+        return self.score / self.max_score if self.max_score > 0 else 0.0
+
+    @property
+    def is_weak(self) -> bool:
+        """50% 미만이면 약점으로 판정."""
+        return self.score_ratio < 0.5
+
+
+@dataclass
+class PersonaFitScore:
+    """특정 페르소나에 대한 콘텐츠 적합도."""
+
+    persona_id: str
+    persona_name: str
+    fit_score: int = 0   # 0~10
+    reason: str = ""     # 적합/부적합 근거
+
+
+@dataclass
 class QAReport:
-    """7축 품질 검증 리포트."""
+    """7축 품질 검증 리포트 + 3축 보조 독자가치 지표 + Pro 진단."""
 
     hook_score: int = 0  # 0~20 첫 문장 주목도
     fact_score: int = 0  # 0~15 사실 일관성
@@ -125,6 +155,16 @@ class QAReport:
     regulation_score: int = 0  # 0~10 규제 준수
     algorithm_score: int = 0  # 0~10 알고리즘 최적화
     warnings: list[str] = field(default_factory=list)
+    # v2.0 보조 독자가치 지표 (total_score에 미포함, 진단용)
+    reader_value_score: int = 0   # 0~10 독자 페인포인트 해소
+    originality_score: int = 0    # 0~10 정보 희소성/독창성
+    credibility_score: int = 0    # 0~10 신뢰성 근거 제시
+    # 검증 시점의 합격 기준 (validate_content에서 설정)
+    applied_min_score: int = 70
+    # ── Pro 진단 필드 ──
+    diagnostics: list[QAAxisDiagnostic] = field(default_factory=list)
+    persona_fits: list[PersonaFitScore] = field(default_factory=list)
+    rewrite_suggestion: str = ""  # 전체 콘텐츠에 대한 리라이트 방향
 
     @property
     def total_score(self) -> int:
@@ -138,9 +178,39 @@ class QAReport:
             + self.algorithm_score
         )
 
+    def passes(self, min_score: int) -> bool:
+        """설정값 기반 합격 여부 판정."""
+        return self.total_score >= min_score
+
     @property
     def pass_threshold(self) -> bool:
-        return self.total_score >= 70
+        """하위 호환용 — 가능하면 passes(config.qa_min_score)를 사용할 것."""
+        return self.total_score >= self.applied_min_score
+
+    @property
+    def weak_axes(self) -> list[QAAxisDiagnostic]:
+        """50% 미만인 약점 축만 반환 (재생성 피드백용)."""
+        return [d for d in self.diagnostics if d.is_weak]
+
+    @property
+    def top_persona(self) -> PersonaFitScore | None:
+        """가장 적합한 페르소나."""
+        return max(self.persona_fits, key=lambda p: p.fit_score) if self.persona_fits else None
+
+    def to_retry_feedback(self) -> str:
+        """재생성 시 LLM에 주입할 실패 진단 피드백 텍스트."""
+        if not self.diagnostics:
+            # 진단 없으면 기존 warnings 기반 폴백
+            return "\n".join(f"- {w}" for w in self.warnings[:3]) if self.warnings else ""
+
+        lines = [f"[이전 생성 결과: {self.total_score}/100 — 아래 약점을 반드시 개선]"]
+        for d in self.weak_axes:
+            lines.append(f"- {d.axis} ({d.score}/{d.max_score}): {d.reason}")
+            if d.suggestion:
+                lines.append(f"  → 개선: {d.suggestion}")
+        if self.rewrite_suggestion:
+            lines.append(f"\n[리라이트 방향]\n{self.rewrite_suggestion}")
+        return "\n".join(lines)
 
     def to_emoji_report(self) -> str:
         """이모지 기반 요약 리포트."""
@@ -154,7 +224,23 @@ class QAReport:
             f"Algo: {self.algorithm_score}/10",
         ]
         status = "✅ PASS" if self.pass_threshold else "❌ FAIL"
-        return f"{status} ({self.total_score}/100) | " + " | ".join(checks)
+        main_line = f"{status} ({self.total_score}/100) | " + " | ".join(checks)
+        sup = (
+            f"  [보조] RV: {self.reader_value_score}/10"
+            f" | Orig: {self.originality_score}/10"
+            f" | Cred: {self.credibility_score}/10"
+        )
+        # Pro: 약점 축 하이라이트
+        weak_summary = ""
+        if self.weak_axes:
+            names = ", ".join(d.axis for d in self.weak_axes)
+            weak_summary = f"\n  [약점] {names}"
+        # Pro: 페르소나 적합도
+        persona_summary = ""
+        if self.persona_fits:
+            fits = " | ".join(f"{p.persona_name}:{p.fit_score}" for p in self.persona_fits)
+            persona_summary = f"\n  [페르소나] {fits}"
+        return f"{main_line}\n{sup}{weak_summary}{persona_summary}"
 
 
 @dataclass

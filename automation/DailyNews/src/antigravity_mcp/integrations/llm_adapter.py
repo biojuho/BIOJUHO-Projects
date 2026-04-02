@@ -15,7 +15,7 @@ from antigravity_mcp.integrations.llm_providers import (
     call_google_genai,
     call_openai,
 )
-from antigravity_mcp.integrations.circuit_breaker import CircuitBreaker
+from shared.circuit_breaker import CircuitBreaker
 from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
 from antigravity_mcp.state.store import PipelineStateStore
 
@@ -182,6 +182,87 @@ class LLMAdapter:
         warnings.extend(parse_warnings)
         return payload, warnings
 
+    async def _try_shared_llm(
+        self,
+        *,
+        prompt: str | tuple[str, str],
+        max_tokens: int,
+        temperature: float,
+        meta: dict[str, Any],
+        warnings: list[str],
+    ) -> str:
+        """shared.llm 클라이언트 호출. 성공 시 텍스트 반환, 실패/미사용 시 빈 문자열."""
+        shared_breaker = _llm_breakers["shared.llm"]
+        if self._llm_client is None or self._task_tier is None or not shared_breaker.allow_request():
+            reason = "circuit open" if not shared_breaker.allow_request() else "unavailable"
+            warnings.append(f"shared.llm {reason}; trying direct API fallback providers.")
+            return ""
+        try:
+            system_prompt, user_prompt = prompt if isinstance(prompt, tuple) else ("", prompt)
+            request_kwargs: dict[str, Any] = {
+                "tier": self._task_tier,
+                "max_tokens": max_tokens,
+                "messages": [{"role": "user", "content": user_prompt}],
+                "temperature": temperature,
+            }
+            if system_prompt:
+                request_kwargs["system"] = system_prompt
+            policy = self._build_policy()
+            if policy is not None:
+                request_kwargs["policy"] = policy
+            try:
+                response = await self._llm_client.acreate(**request_kwargs)
+            except TypeError as exc:
+                if "temperature" in str(exc) and "unexpected keyword argument" in str(exc):
+                    logger.info("shared.llm client does not accept temperature; retrying without it")
+                    request_kwargs.pop("temperature", None)
+                    response = await self._llm_client.acreate(**request_kwargs)
+                else:
+                    raise
+            meta["provider"] = "shared.llm"
+            meta["model_name"] = getattr(response, "model", "")
+            meta["input_tokens"] = int(getattr(response, "input_tokens", 0) or 0)
+            meta["output_tokens"] = int(getattr(response, "output_tokens", 0) or 0)
+            shared_breaker.record_success()
+            return response.text or ""
+        except Exception as exc:
+            shared_breaker.record_failure()
+            warnings.append(f"shared.llm failed ({type(exc).__name__}); trying fallback providers.")
+            logger.warning("shared.llm failed: %s", exc)
+            return ""
+
+    async def _try_fallback_providers(
+        self,
+        merged_prompt: str,
+        meta: dict[str, Any],
+        warnings: list[str],
+    ) -> str:
+        """Gemini → Anthropic → OpenAI 순서로 fallback 시도. 성공 시 텍스트 반환."""
+        _breaker_keys = {"gemini-2.5-flash": "gemini", "claude-haiku-4-5": "anthropic", "gpt-4o-mini": "openai"}
+        fallback_providers: list[tuple[str, str, Any]] = [
+            ("gemini-2.5-flash", self.settings.google_api_key, call_google_genai),
+            ("claude-haiku-4-5", self.settings.anthropic_api_key, call_anthropic),
+            ("gpt-4o-mini", self.settings.openai_api_key, call_openai),
+        ]
+        for provider_name, api_key, call_fn in fallback_providers:
+            if not api_key:
+                continue
+            breaker = _llm_breakers.get(_breaker_keys.get(provider_name, ""), None)
+            if breaker and not breaker.allow_request():
+                warnings.append(f"Skipping {provider_name}: circuit breaker open.")
+                continue
+            text = await call_fn(merged_prompt, api_key, timeout_sec=self.settings.pipeline_http_timeout_sec)
+            if text:
+                meta["provider"] = provider_name
+                meta["model_name"] = provider_name
+                warnings.append(f"Used fallback provider: {provider_name}")
+                if breaker:
+                    breaker.record_success()
+                return text
+            if breaker:
+                breaker.record_failure()
+        return ""
+
     async def _complete_text(
         self,
         *,
@@ -214,75 +295,12 @@ class LLMAdapter:
                 meta["provider"] = "sqlite-cache"
                 return cached_text, meta, warnings
 
-        text = ""
-        shared_breaker = _llm_breakers["shared.llm"]
-        if self._llm_client is not None and self._task_tier is not None and shared_breaker.allow_request():
-            try:
-                system_prompt, user_prompt = prompt if isinstance(prompt, tuple) else ("", prompt)
-                request_kwargs: dict[str, Any] = {
-                    "tier": self._task_tier,
-                    "max_tokens": max_tokens,
-                    "messages": [{"role": "user", "content": user_prompt}],
-                    "temperature": temperature,
-                }
-                if system_prompt:
-                    request_kwargs["system"] = system_prompt
-                policy = self._build_policy()
-                if policy is not None:
-                    request_kwargs["policy"] = policy
-                try:
-                    response = await self._llm_client.acreate(**request_kwargs)
-                except TypeError as exc:
-                    if "temperature" in str(exc) and "unexpected keyword argument" in str(exc):
-                        logger.info("shared.llm client does not accept temperature; retrying without it")
-                        request_kwargs.pop("temperature", None)
-                        response = await self._llm_client.acreate(**request_kwargs)
-                    else:
-                        raise
-                text = response.text or ""
-                meta["provider"] = "shared.llm"
-                meta["model_name"] = getattr(response, "model", "")
-                meta["input_tokens"] = int(getattr(response, "input_tokens", 0) or 0)
-                meta["output_tokens"] = int(getattr(response, "output_tokens", 0) or 0)
-                shared_breaker.record_success()
-            except Exception as exc:
-                shared_breaker.record_failure()
-                warnings.append(f"shared.llm failed ({type(exc).__name__}); trying fallback providers.")
-                logger.warning("shared.llm failed: %s", exc)
-        else:
-            reason = "circuit open" if not shared_breaker.allow_request() else "unavailable"
-            warnings.append(f"shared.llm {reason}; trying direct API fallback providers.")
-
+        text = await self._try_shared_llm(
+            prompt=prompt, max_tokens=max_tokens, temperature=temperature, meta=meta, warnings=warnings
+        )
         if not text:
             merged_prompt = f"{prompt[0]}\n\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
-            _breaker_keys = {"gemini-2.5-flash": "gemini", "claude-haiku-4-5": "anthropic", "gpt-4o-mini": "openai"}
-            fallback_providers: list[tuple[str, str, Any]] = [
-                ("gemini-2.5-flash", self.settings.google_api_key, call_google_genai),
-                ("claude-haiku-4-5", self.settings.anthropic_api_key, call_anthropic),
-                ("gpt-4o-mini", self.settings.openai_api_key, call_openai),
-            ]
-            for provider_name, api_key, call_fn in fallback_providers:
-                if not api_key:
-                    continue
-                breaker = _llm_breakers.get(_breaker_keys.get(provider_name, ""), None)
-                if breaker and not breaker.allow_request():
-                    warnings.append(f"Skipping {provider_name}: circuit breaker open.")
-                    continue
-                fallback_text = await call_fn(
-                    merged_prompt,
-                    api_key,
-                    timeout_sec=self.settings.pipeline_http_timeout_sec,
-                )
-                if fallback_text:
-                    text = fallback_text
-                    meta["provider"] = provider_name
-                    meta["model_name"] = provider_name
-                    warnings.append(f"Used fallback provider: {provider_name}")
-                    if breaker:
-                        breaker.record_success()
-                    break
-                if breaker:
-                    breaker.record_failure()
+            text = await self._try_fallback_providers(merged_prompt, meta, warnings)
 
         if not text:
             logger.error("All LLM providers failed for cache_scope=%s", cache_scope)

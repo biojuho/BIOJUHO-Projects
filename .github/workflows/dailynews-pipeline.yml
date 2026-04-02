@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r automation/DailyNews/requirements.txt
-          pip install -r packages/shared/pyproject.toml 2>/dev/null || true
+          pip install -e packages/shared/ 2>/dev/null || true
 
       - name: Create .env file
         working-directory: automation/DailyNews
@@ -41,9 +41,10 @@ jobs:
           GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
-          NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}
-          CONTENT_HUB_DATABASE_ID=${{ secrets.CONTENT_HUB_DATABASE_ID || '' }}
+          NOTION_API_KEY=${{ secrets.NOTION_API_KEY || secrets.NOTION_TOKEN || '' }}
+          NOTION_TASKS_DATABASE_ID=${{ secrets.NOTION_TASKS_DATABASE_ID || secrets.ANTIGRAVITY_TASKS_DB_ID || secrets.ANTIGRAVITY_DB_ID || '' }}
+          NOTION_REPORTS_DATABASE_ID=${{ secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID || '' }}
+          NOTION_DASHBOARD_PAGE_ID=${{ secrets.NOTION_DASHBOARD_PAGE_ID || secrets.DASHBOARD_PAGE_ID || '' }}
           TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
@@ -70,6 +71,20 @@ jobs:
             automation/DailyNews/run_output*.log
           retention-days: 7
 
+      - name: Cleanup .env
+        if: always()
+        working-directory: automation/DailyNews
+        run: rm -f .env
+
+      - name: Discord notification on failure
+        if: failure() && env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          curl -s -H "Content-Type: application/json" \
+            -d "{\"content\":\"🔴 DailyNews #${{ github.run_number }} failed\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$DISCORD_WEBHOOK_URL" || true
+
       - name: Telegram notification on failure
         if: failure()
         env:
@@ -79,7 +94,7 @@ jobs:
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] DailyNews #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"🔴 DailyNews #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
           fi
 
       - name: Telegram heartbeat on success
@@ -91,5 +106,5 @@ jobs:
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews #${{ github.run_number }} completed\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"✅ DailyNews #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nMode: ${{ github.event.inputs.mode || 'full' }}\"}" || true
           fi

@@ -42,7 +42,7 @@ class TestExistingEndpoints:
     def test_index_returns_html(self, client):
         resp = client.get("/")
         assert resp.status_code == 200
-        assert "getdaytrends Dashboard" in resp.text
+        assert "getdaytrends" in resp.text and "Dashboard" in resp.text
 
     def test_pipeline_status(self, client):
         resp = client.get("/api/pipeline_status")

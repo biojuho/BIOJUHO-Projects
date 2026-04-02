@@ -1,0 +1,188 @@
+name: Content Intelligence Pipeline
+
+# 목적: Viral Score 예측 정확도 교정 + ROI 리포트 생성
+# - calibrate_viral_model.py: 예측 정확도 측정 및 prompt_hints 갱신
+# - roi_report.py: LLM 비용 대비 인게이지먼트 ROI 분석
+
+on:
+  schedule:
+    # 매주 월요일 01:00 UTC (10:00 KST) — 주간 인텔리전스 리포트
+    - cron: "0 1 * * 1"
+    # 매일 02:00 UTC (11:00 KST) — 일별 calibration 업데이트
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "분석 기간 (일)"
+        required: false
+        default: "14"
+      skip_roi:
+        description: "ROI 리포트 건너뜀 (true/false)"
+        required: false
+        default: "false"
+      skip_calibration:
+        description: "Calibration 건너뜀 (true/false)"
+        required: false
+        default: "false"
+
+jobs:
+  calibrate:
+    name: Viral Score Calibration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event.inputs.skip_calibration != 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: automation/getdaytrends/requirements.txt
+
+      - name: Install GetDayTrends dependencies
+        run: pip install -r automation/getdaytrends/requirements.txt
+
+      - name: Create data directory
+        run: mkdir -p automation/getdaytrends/data
+
+      - name: Download latest DB artifact (if available)
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: getdaytrends.yml
+          name: getdaytrends-db
+          path: automation/getdaytrends/data
+        continue-on-error: true
+
+      - name: Run viral model calibration
+        working-directory: automation/getdaytrends
+        run: |
+          LOOKBACK="${{ github.event.inputs.lookback_days || '14' }}"
+          python scripts/calibrate_viral_model.py \
+            --lookback-days "$LOOKBACK" \
+            --json-out data/calibration_report_$(date -u +%Y%m%d).json
+
+      - name: Upload calibration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-report-${{ github.run_number }}
+          path: automation/getdaytrends/data/calibration_report_*.json
+          retention-days: 90
+
+      - name: Post calibration summary
+        if: success()
+        run: |
+          REPORT=$(ls automation/getdaytrends/data/calibration_report_*.json 2>/dev/null | tail -1)
+          if [ -n "$REPORT" ]; then
+            PEARSON=$(python3 -c "import json,sys; d=json.load(open('$REPORT')); print(d.get('accuracy',{}).get('pearson_r', 'N/A'))" 2>/dev/null || echo "N/A")
+            MAE=$(python3 -c "import json,sys; d=json.load(open('$REPORT')); print(d.get('accuracy',{}).get('mae', 'N/A'))" 2>/dev/null || echo "N/A")
+            SAMPLES=$(python3 -c "import json,sys; d=json.load(open('$REPORT')); print(d.get('sample_count', 'N/A'))" 2>/dev/null || echo "N/A")
+            echo "### Viral Score Calibration ✅" >> $GITHUB_STEP_SUMMARY
+            echo "| 지표 | 값 |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+            echo "| 샘플 수 | $SAMPLES |" >> $GITHUB_STEP_SUMMARY
+            echo "| Pearson r | $PEARSON |" >> $GITHUB_STEP_SUMMARY
+            echo "| MAE | $MAE |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Telegram notification on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] Viral Calibration #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+          fi
+
+  roi-report:
+    name: Content ROI Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # 주간(월요일)만 실행하거나 workflow_dispatch 시 skip_roi 조건 확인
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 1 * * 1') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_roi != 'true')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: automation/getdaytrends/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r automation/getdaytrends/requirements.txt
+          pip install httpx 2>/dev/null || true
+
+      - name: Create output directories
+        run: mkdir -p automation/getdaytrends/data var/reports
+
+      - name: Download latest GetDayTrends DB (if available)
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: getdaytrends.yml
+          name: getdaytrends-db
+          path: automation/getdaytrends/data
+        continue-on-error: true
+
+      - name: Run ROI report
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_ROI_DATABASE_ID: ${{ secrets.NOTION_ROI_DATABASE_ID }}
+        run: |
+          LOOKBACK="${{ github.event.inputs.lookback_days || '7' }}"
+          python ops/scripts/roi_report.py \
+            --lookback-days "$LOOKBACK" \
+            --json-out var/reports/roi_$(date -u +%Y%m%d).json
+
+      - name: Upload ROI report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roi-report-${{ github.run_number }}
+          path: var/reports/roi_*.json
+          retention-days: 90
+
+      - name: Post ROI summary
+        if: success()
+        run: |
+          REPORT=$(ls var/reports/roi_*.json 2>/dev/null | tail -1)
+          if [ -n "$REPORT" ]; then
+            ROI=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('engagement',{}).get('roi_per_usd','N/A'))" 2>/dev/null || echo "N/A")
+            COST=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('llm_cost',{}).get('total_usd','N/A'))" 2>/dev/null || echo "N/A")
+            TWEETS=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('tweet_count','N/A'))" 2>/dev/null || echo "N/A")
+            BEST_H=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('posting_time',{}).get('best_hour_kst','N/A'))" 2>/dev/null || echo "N/A")
+            echo "### Content ROI Report ✅" >> $GITHUB_STEP_SUMMARY
+            echo "| 지표 | 값 |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+            echo "| 분석 트윗 수 | $TWEETS |" >> $GITHUB_STEP_SUMMARY
+            echo "| LLM 비용 | \$$COST |" >> $GITHUB_STEP_SUMMARY
+            echo "| ROI (\$1당 인게이지먼트) | $ROI |" >> $GITHUB_STEP_SUMMARY
+            echo "| 최적 발행시간 (KST) | ${BEST_H}:00 |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Telegram notification on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] ROI Report #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+          fi

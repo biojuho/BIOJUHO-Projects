@@ -1,8 +1,313 @@
-﻿# Handoff Document
+# Handoff Document
 
-**Last Updated**: 2026-03-30
-**Session Status**: Healthy / Daily QC 15-15 PASS / Worktree Active / PostgreSQL Live / Phase 3 Monitoring Complete / All 4 services instrumented / AlertManager + Loki deployed
+**Last Updated**: 2026-04-02
+**Session Status**: Healthy / Dashboard + Infra + Ops slices committed / Remaining worktree narrowed but still broad
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### Ops governance slice isolated into a standalone commit
+
+**Status**: PASS
+
+- Separated the repo-governance and debt-observability cluster into its own focused commit:
+  - `b6b8cd3 feat(ops): add pr triage and vibedebt audit`
+- The committed slice includes:
+  - intention-first PR template and deterministic PR triage workflow
+  - VibeDebt scanner, Pushgateway metrics export, Grafana dashboard, and Prometheus scrape config
+  - updated scheduler heartbeat monitor that checks both GetDayTrends and DailyNews
+- Validation:
+  - `python -m pytest tests/test_pr_triage.py -q`
+  - `python -m py_compile ops/scripts/pr_triage.py`
+  - `python ops/scripts/tech_debt_scanner.py --json-out var/debt/triage-check.json`
+  - `python ops/scripts/push_debt_metrics.py --report-file var/debt/triage-check.json --dry-run`
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### Infra baseline slice isolated into a standalone commit
+
+**Status**: PASS
+
+- Separated the infra baseline alignment into its own focused commit:
+  - `db27e71 chore(infra): align agriguard ports and ci baselines`
+- The committed slice includes:
+  - root compose port separation for AgriGuard coexistence
+  - AgriGuard backend dependency pinning and safer session secret fallback
+  - Python 3.13 alignment across the affected CI workflows
+- Validation:
+  - `docker compose -f docker-compose.dev.yml config --services`
+  - `python -m pytest tests -q` in `apps/AgriGuard/backend`
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### Dashboard slice isolated into a standalone commit
+
+**Status**: PASS
+
+- Separated the dashboard cluster from the dirty worktree into its own focused commit:
+  - `b06f8f3 feat(dashboard): add ab performance panel and frontend tests`
+- The committed slice includes:
+  - `/api/ab_performance` backend endpoint in `apps/dashboard/api.py`
+  - lazy-loaded chart wrappers and the new A/B performance panel in `apps/dashboard/src/App.jsx`
+  - frontend lint/test/bundle-budget tooling
+  - first Vitest coverage for the dashboard app
+- Validation:
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`
+  - `npm run check:bundle`
+- Important remaining reality:
+  - the dashboard app is now isolated cleanly
+  - the rest of the repo still has a large unsplit worktree and should continue from the triage guide
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### Workspace checkpoint revalidated against live worktree
+
+**Status**: PASS WITH CAUTION
+
+- Rechecked the repo after the 2026-04-01 notes to make sure the current live worktree still matches reality.
+- Current git state at checkpoint time (before the dashboard slice was split out):
+  - branch: `main...origin/main [ahead 4]`
+  - file counts: `79 modified / 50 untracked / 10 deleted`
+- The active uncommitted work is concentrated in these areas:
+  - `automation/content-intelligence`
+  - `apps/dashboard`
+  - `automation/DailyNews`
+  - `ops`, `.github`, `docs`, and `packages/shared`
+- The latest direct code touch observed during this checkpoint was a small comment-language cleanup in `automation/getdaytrends/db.py`.
+- Validation:
+  - `python ops/scripts/run_workspace_smoke.py --scope workspace` -> `5/5 PASS`
+  - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
+  - `python -m pytest automation/content-intelligence/tests/test_smoke.py -q` -> `34 passed`
+- Artifacts:
+  - `var/reports/workspace-smoke-latest.txt`
+  - `var/reports/workspace-smoke-all-latest.txt`
+- Commit split guide:
+  - `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
+- Important remaining reality:
+  - the workspace is development-safe right now
+  - it is still not release-clean because the diff is broad and unsplit across multiple product areas
+
+---
+
+## Latest Follow-Up (2026-04-01)
+
+### VibeDebt Pushgateway path revalidated
+
+**Status**: PASS
+
+- Re-ran the monitoring compose stack in-place and confirmed the Prometheus, Grafana, and Pushgateway containers remained healthy.
+- Pushed the latest VibeDebt snapshot from `var/debt/2026-03-31-radon.json` into Pushgateway.
+- Verified the pipeline from producer to scraper:
+  - Pushgateway `/metrics` exposes `vibedebt_workspace_score`
+  - Prometheus query API returns the same score (`34.7`)
+- Command evidence:
+  - `docker compose -f docker-compose.monitoring.yml up -d`
+  - `python ops/scripts/push_debt_metrics.py --report-file var/debt/2026-03-31-radon.json`
+  - `Invoke-WebRequest -Uri http://localhost:9091/metrics`
+  - `Invoke-WebRequest -Uri 'http://localhost:9090/api/v1/query?query=vibedebt_workspace_score'`
+
+---
+
+### GetDayTrends tweet metrics collector hardened for local vs CI execution
+
+**Status**: PASS WITH FOLLOW-UP
+
+- `automation/getdaytrends/scripts/collect_posted_tweet_metrics.py` no longer crashes on local smoke runs when `TWITTER_BEARER_TOKEN` is absent.
+- Local behavior now emits a structured skip payload:
+  - `status='skipped'`
+  - `reason='missing_bearer_token'`
+- CI behavior remains strict because `.github/workflows/collect-tweet-metrics.yml` now passes `--require-token`.
+- Added regression coverage for both paths:
+  - missing token -> local skip
+  - missing token + `--require-token` -> exit `1`
+- Validation:
+  - `python -m pytest automation/getdaytrends/tests/test_collect_posted_tweet_metrics.py -q` -> `2 passed`
+  - `python automation/getdaytrends/scripts/collect_posted_tweet_metrics.py --json-out automation/getdaytrends/data/tweet_metrics_local_smoke.json` -> skip payload written
+  - `python automation/getdaytrends/scripts/collect_posted_tweet_metrics.py --require-token` -> fails as expected without token
+- Important remaining reality:
+  - this hardening fixes the operational loop and observability story
+  - actual measured X engagement labels still require a valid `TWITTER_BEARER_TOKEN` in GitHub Actions or the local environment
+
+---
+
+## Latest Follow-Up (2026-03-31)
+
+### GetDayTrends Notion single-DB upload revalidated
+
+**Status**: PASS
+
+- Rechecked the `automation/getdaytrends` Notion upload path after the user's report that uploads were unstable and only one DB should be used.
+- Final behavior now matches the requirement:
+  - primary `Getdaytrends` Notion DB writes succeed
+  - Content Hub secondary DB writes remain off by default
+  - `save_to_notion()` false returns are surfaced as real save failures
+- Effective runtime state during QC:
+  - `storage_type='notion'`
+  - `enable_content_hub=False`
+  - `content_hub_active=False`
+  - `validation_errors=[]`
+- Regression and smoke validation:
+  - `python -m pytest tests/test_notion_content_hub.py tests/test_e2e.py tests/test_main.py tests/test_scraper.py -q` -> `43 passed`
+  - `python main.py --one-shot --dry-run --limit 1 --no-alerts` -> exit `0`
+  - `python main.py --one-shot --limit 1 --no-alerts` -> exit `0`
+- Important interpretation:
+  - the live one-shot run saved `0/0`, but that was because the collected trend did not clear the quality threshold, not because Notion upload failed
+- Direct live save-path QC confirmed the actual write target:
+  - `step_save_success_count=1`
+  - `run_errors=[]`
+  - main DB matches: `1`
+  - hub DB matches: `0`
+- Latest verified page created in the main DB:
+  - `[트렌드 #1] [QC] single-db pipeline 2026-03-31 22:18:16 — 2026-03-31 22:18`
+- Detailed record:
+  - `docs/reports/2026-03/QC_REPORT_2026-03-31_GETDAYTRENDS_NOTION_SINGLE_DB.md`
+
+---
+
+### VibeDebt — 기술 부채 자동 진단 시스템 도입
+
+**Status**: IMPLEMENTED (베이스라인 스캔 실행 대기)
+
+**배경**: 바이브 코딩 방식의 빠른 개발로 누적된 기술 부채를 정량화·가시화하기 위한 시스템 도입.
+기존 인프라(smoke test, CI, Grafana)에 부채 측정 레이어를 추가하는 방식으로 구현.
+
+**구현 파일**:
+
+- `ops/scripts/tech_debt_scanner.py` — CLI 스캐너 (복잡도, 중복, TODO 밀도, 타입 어노테이션)
+- `ops/scripts/push_debt_metrics.py` — Prometheus Pushgateway 메트릭 푸셔
+- `.github/workflows/tech-debt-audit.yml` — 주간 CI 자동화 + PR 코멘트
+- `ops/monitoring/grafana/dashboards/tech-debt.json` — Grafana 대시보드 (7개 패널)
+- `docs/reports/2026-03/VIBEDEBT_PROPOSAL.md` — 도입 제안서 및 설계 문서
+- `ops/monitoring/prometheus.yml` — Pushgateway scrape job 추가
+
+**부채 점수 산식**:
+
+```text
+Score = 0.30×복잡도위반 + 0.25×커버리지부족 + 0.20×중복률 + 0.15×TODO밀도 + 0.10×타입미비
+```
+
+등급: A(0-15) / B(16-30) / C(31-50) / D(51+)
+
+**즉시 실행 필요**:
+
+```bash
+# 1. 베이스라인 스캔
+python ops/scripts/tech_debt_scanner.py --json-out var/debt/2026-03-31-baseline.json --verbose
+
+# 2. radon 설치 (복잡도 분석 정확도 향상)
+python -m pip install -e ".[dev]"
+
+# 3. Pushgateway가 실행 중이면 메트릭 전송
+python ops/scripts/push_debt_metrics.py
+```
+
+**Validation**:
+
+- `python -m py_compile ops/scripts/tech_debt_scanner.py` → exit 0
+- `python -m py_compile ops/scripts/push_debt_metrics.py` → exit 0
+
+---
+
+### TASKS.md TODO cleared — all pending items resolved
+
+**Status**: COMPLETE (TODO 0건)
+
+**1. Docker 포트 충돌 정리**
+
+- `docker-compose.dev.yml`의 호스트 포트를 AgriGuard 독립 compose와 분리:
+
+| 서비스 | root compose (신규) | AgriGuard 독립 compose | 환경변수 |
+|--------|:-------------------:|:----------------------:|----------|
+| PostgreSQL | **5433** | 5432 | `POSTGRES_PORT` |
+| MQTT | **1884** | 1883 | `MQTT_PORT` |
+| AgriGuard Backend | **8003** | 8002 | `AGRIGUARD_PORT` |
+
+- 컨테이너 내부 포트(5432/1883/8002)는 변경 없음 — 호스트 매핑만 분리
+- AgriGuard Frontend의 `VITE_API_URL`과 `VITE_MQTT_BROKER_URL`이 환경변수 참조로 연동됨
+- `.env.example`, `docs/DOCKER_SETUP_GUIDE.md` 포트 기본값 동기화 완료
+- `prometheus.yml`의 AgriGuard 타겟은 `host.docker.internal:8002` 유지 (현재 독립 compose 기준 정상)
+
+**2. DailyNews/GetDayTrends 프롬프트 마이그레이션 스코프 재평가**
+
+- **판정: 마이그레이션 불필요** → 현행 동적 빌더 유지
+- GetDayTrends `prompt_builder.py` (741줄): 페르소나(중연), 카테고리별 톤 힌팅, 팩트 가드레일, 앵글 기반 생성 등 동적 섹션 합성 패턴
+- DailyNews `llm_prompts.py`: 유사하게 동적 프롬프트 빌더 패턴
+- `PromptManager` (YAML 정적 템플릿)와 패턴 불일치 → ROI 부족
+- BioLinker 프롬프트 마이그레이션(정적 프롬프트에 적합)은 이미 Phase 4에서 완료됨
+
+**3. Notion 속성 구조 통합 (이전 세션에서 완료)**
+
+- 20+개 속성을 8개 표준 속성(Name/Status/Category/Date/Tags/Score/Platform/URL)으로 통합
+- GetDayTrends, Content Intelligence, Archive(NotebookLM) 코드 수정 완료
+- DailyNews는 이미 표준 사용 중 (변경 불필요)
+
+**QC 결과**: PASS ✅
+- Compose 구문 검증: `config --quiet` → OK
+- Workspace smoke: **15/15 PASS**
+- CRITICAL/HIGH 이슈: 0건
+- Smoke artifact: `var/smoke/manual-smoke-2026-03-31.json`
+- QC report: `docs/reports/2026-03/QC_REPORT_2026-03-31_DAILY_WORKSPACE.md`
+
+---
+
+### Intention-first PR triage adapted from ACPX concepts
+
+**Status**: ENABLED (lightweight repo-native version)
+
+- Reviewed the `openclaw/acpx` `pr-triage` example and kept the useful principle:
+  - intention-first review
+- Intentionally did not adopt the full ACPX runtime:
+  - no persistent ACP session
+  - no autonomous PR closing / landing behavior
+  - no hidden stateful approval lane outside normal GitHub workflows
+
+**What was added**:
+- PR authoring template now asks for:
+  - plain-language intent
+  - underlying problem
+  - why this approach solves it
+  - whether human product / architecture judgment is still needed
+  - exact validation commands
+- New workflow:
+  - `.github/workflows/pr-triage.yml`
+- New deterministic triage script:
+  - `ops/scripts/pr_triage.py`
+- New repo doc explaining the adaptation decision:
+  - `docs/PR_TRIAGE_SYSTEM.md`
+- New tests:
+  - `tests/test_pr_triage.py`
+
+**Behavior**:
+- Runs on PR open / edit / sync / ready-for-review
+- Produces:
+  - GitHub step summary
+  - triage artifact (`var/pr-triage/`)
+  - sticky PR comment
+- Flags likely human-attention cases such as:
+  - missing intent / problem framing
+  - explicit architecture or product judgment requests
+  - workflow / CI changes
+  - shared-code changes spanning multiple product areas
+  - very large diffs
+
+**Validation**:
+- `python -m pytest tests/test_pr_triage.py -q` -> `9 passed`
+- `python -m py_compile ops/scripts/pr_triage.py` -> exit `0`
+
+**Operational stance**:
+- Safe to enable as a review aid
+- Not a merge bot
+- Not a replacement for human architecture judgment on cross-cutting PRs
 
 ---
 
@@ -699,9 +1004,9 @@ docker compose -f docker-compose.dev.yml --profile monitoring up -d
 - The monitoring containers were intentionally brought back down after QC
 
 ### Important Operational Note
-- The root `docker-compose.dev.yml` default stack reuses ports already used by the current `apps/AgriGuard/docker-compose.yml` stack
-- Overlapping ports include `5432`, `8002`, and `1883`
-- Before bringing up the full root dev stack, first decide whether to stop the current AgriGuard stack or remap ports
+- The root `docker-compose.dev.yml` stack now uses offset host ports so it can coexist with `apps/AgriGuard/docker-compose.yml`
+- Root dev stack host ports: PostgreSQL `5433`, MQTT `1884`, AgriGuard API `8003`
+- Standalone AgriGuard stack host ports remain PostgreSQL `5432`, MQTT `1883`, AgriGuard API `8002`
 
 ---
 

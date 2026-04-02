@@ -29,7 +29,13 @@ function loadWorkspaceMap() {
 }
 
 function discoverPackageDirs(dir, results = []) {
-  const entries = readdirSync(dir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch (error) {
+    console.warn(`[workspace] skipping ${relative(ROOT, dir) || "."}: ${error.message}`);
+    return results;
+  }
   const hasPackageJson = entries.some((entry) => entry.isFile() && entry.name === "package.json");
 
   if (hasPackageJson && dir !== ROOT) {
@@ -37,7 +43,7 @@ function discoverPackageDirs(dir, results = []) {
   }
 
   for (const entry of entries) {
-    if (!entry.isDirectory() || EXCLUDED_DIRS.has(entry.name)) {
+    if (!entry.isDirectory() || entry.name.startsWith(".") || EXCLUDED_DIRS.has(entry.name)) {
       continue;
     }
     discoverPackageDirs(join(dir, entry.name), results);

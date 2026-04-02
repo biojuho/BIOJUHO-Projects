@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 
 
 def count_rows(db_path: Path, table: str) -> int:
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         return connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
 
 

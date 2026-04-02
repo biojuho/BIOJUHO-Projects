@@ -50,6 +50,110 @@ class BriefAdapters:
     digest: Any | None = None
 
 
+def _resolve_adapters(
+    state_store: "PipelineStateStore",
+    adapters: "BriefAdapters | None",
+    llm_adapter: "LLMAdapter | None",
+    embedding_adapter: "EmbeddingAdapter | None",
+    insight_adapter: Any,
+    sentiment_adapter: Any,
+    brain_adapter: Any,
+    proofreader_adapter: Any,
+    notebooklm_adapter: Any,
+    skill_adapter: Any,
+    reasoning_adapter: Any,
+    digest_adapter: Any,
+) -> "BriefAdapters":
+    """Merge legacy kwargs into a BriefAdapters bag (explicit kwargs win over bag defaults)."""
+    a = adapters or BriefAdapters()
+    llm = llm_adapter or a.llm or LLMAdapter(state_store=state_store)
+    emb = embedding_adapter or a.embedding or EmbeddingAdapter()
+    insight = insight_adapter or a.insight
+    if insight is None and hasattr(llm, "generate_text"):
+        try:
+            insight = InsightAdapter(llm_adapter=llm, state_store=state_store)
+        except Exception as e:
+            logger.warning("InsightAdapter 초기화 실패 — insight 기능 비활성: %s", e)
+            insight = None
+    return BriefAdapters(
+        llm=llm,
+        embedding=emb,
+        insight=insight,
+        sentiment=sentiment_adapter or a.sentiment,
+        brain=brain_adapter or a.brain,
+        proofreader=proofreader_adapter or a.proofreader,
+        notebooklm=notebooklm_adapter or a.notebooklm,
+        skill=skill_adapter or a.skill,
+        reasoning=reasoning_adapter or a.reasoning,
+        digest=digest_adapter or a.digest,
+    )
+
+
+async def _process_category(
+    category: str,
+    category_items: list,
+    cluster_meta: dict,
+    window_name: str,
+    window_start: str,
+    window_end: str,
+    state_store: "PipelineStateStore",
+    run_id: str,
+    resolved: "BriefAdapters",
+    reports: list,
+    warnings: list[str],
+) -> None:
+    """단일 카테고리 브리프 생성 → reports/warnings에 인플레이스 추가."""
+    ctx, existing = prepare_category_batch(
+        category=category,
+        category_items=category_items,
+        cluster_meta=cluster_meta,
+        window_name=window_name,
+        window_start=window_start,
+        window_end=window_end,
+        state_store=state_store,
+    )
+    if existing:
+        reports.append(existing)
+        warnings.append(f"Reused existing report for {category}.")
+        return
+
+    await generate_base_payload(ctx, resolved.llm)
+    await apply_proofreading(ctx, resolved.proofreader)
+    await apply_enrichments(
+        ctx,
+        sentiment_adapter=resolved.sentiment,
+        brain_adapter=resolved.brain,
+        skill_adapter=resolved.skill,
+        notebooklm_adapter=resolved.notebooklm,
+        reasoning_adapter=resolved.reasoning,
+        insight_adapter=resolved.insight if hasattr(resolved.insight, "generate_insights") else None,
+    )
+    await finalize_quality(ctx)
+
+    report = persist_report(ctx)
+    maybe_enqueue_digest(ctx=ctx, report=report, digest_adapter=resolved.digest)
+    record_topics_and_articles(ctx=ctx, cluster_meta=cluster_meta, run_id=run_id)
+    warnings.extend(ctx.warnings)
+    reports.append(report)
+
+
+async def _alert_blocked_reports(blocked_reports: list, run_id: str) -> None:
+    """블록된 리포트에 대한 Telegram fire-and-forget 알림."""
+    try:
+        telegram = TelegramAdapter()
+        if telegram.is_configured:
+            categories = ", ".join(r.category for r in blocked_reports)
+            await telegram.send_error_alert(
+                pipeline_stage="generate_briefs",
+                error_type="LLM_BLOCKED",
+                error_message=f"{len(blocked_reports)} report(s) blocked (all LLM providers failed): {categories}",
+                run_id=run_id,
+                retryable=True,
+            )
+    except Exception as exc:
+        logger.warning("Telegram alert failed: %s", exc)
+
+
 async def generate_briefs(
     *,
     items: list[ContentItem],
@@ -71,21 +175,12 @@ async def generate_briefs(
     reasoning_adapter: Any | None = None,
     digest_adapter: Any | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
-    # Merge: explicit kwargs override adapters bag (backward compat).
-    a = adapters or BriefAdapters()
-    llm = llm_adapter or a.llm or LLMAdapter(state_store=state_store)
-    emb = embedding_adapter or a.embedding or EmbeddingAdapter()
-    insight = insight_adapter or a.insight
-    if insight is None and hasattr(llm, "generate_text"):
-        insight = InsightAdapter(llm_adapter=llm, state_store=state_store)
-    sentiment = sentiment_adapter or a.sentiment
-    brain = brain_adapter or a.brain
-    proofreader = proofreader_adapter or a.proofreader
-    notebooklm = notebooklm_adapter or a.notebooklm
-    skill = skill_adapter or a.skill
-    reasoning = reasoning_adapter or a.reasoning
-    digest = digest_adapter or a.digest
-
+    resolved = _resolve_adapters(
+        state_store, adapters,
+        llm_adapter, embedding_adapter, insight_adapter,
+        sentiment_adapter, brain_adapter, proofreader_adapter,
+        notebooklm_adapter, skill_adapter, reasoning_adapter, digest_adapter,
+    )
     run_id = run_id or generate_run_id("generate_brief")
 
     with trace_context(run_id):
@@ -106,43 +201,15 @@ async def generate_briefs(
             summary={"window_name": window_name, "categories": list(grouped), "max_items": len(items)},
         )
 
-        cluster_meta, cluster_warnings = await build_cluster_meta(grouped, emb)
+        cluster_meta, cluster_warnings = await build_cluster_meta(grouped, resolved.embedding)
         warnings.extend(cluster_warnings)
 
         for category, category_items in grouped.items():
-            ctx, existing = prepare_category_batch(
-                category=category,
-                category_items=category_items,
-                cluster_meta=cluster_meta,
-                window_name=window_name,
-                window_start=window_start,
-                window_end=window_end,
-                state_store=state_store,
+            await _process_category(
+                category, category_items, cluster_meta,
+                window_name, window_start, window_end,
+                state_store, run_id, resolved, reports, warnings,
             )
-            if existing:
-                reports.append(existing)
-                warnings.append(f"Reused existing report for {category}.")
-                continue
-
-            await generate_base_payload(ctx, llm)
-            await apply_proofreading(ctx, proofreader)
-            await apply_enrichments(
-                ctx,
-                sentiment_adapter=sentiment,
-                brain_adapter=brain,
-                skill_adapter=skill,
-                notebooklm_adapter=notebooklm,
-                reasoning_adapter=reasoning,
-                insight_adapter=insight if hasattr(insight, "generate_insights") else None,
-            )
-            await finalize_quality(ctx)
-
-            report = persist_report(ctx)
-            maybe_enqueue_digest(ctx=ctx, report=report, digest_adapter=digest)
-            record_topics_and_articles(ctx=ctx, cluster_meta=cluster_meta, run_id=run_id)
-
-            warnings.extend(ctx.warnings)
-            reports.append(report)
 
         blocked_reports = [r for r in reports if r.quality_state == "blocked"]
         final_status = "partial" if warnings else "success"
@@ -167,20 +234,7 @@ async def generate_briefs(
             published_count=0,
         )
 
-        # Fire-and-forget Telegram alert for blocked reports or pipeline failures.
         if blocked_reports:
-            try:
-                telegram = TelegramAdapter()
-                if telegram.is_configured:
-                    categories = ", ".join(r.category for r in blocked_reports)
-                    await telegram.send_error_alert(
-                        pipeline_stage="generate_briefs",
-                        error_type="LLM_BLOCKED",
-                        error_message=f"{len(blocked_reports)} report(s) blocked (all LLM providers failed): {categories}",
-                        run_id=run_id,
-                        retryable=True,
-                    )
-            except Exception as exc:
-                logger.warning("Telegram alert failed: %s", exc)
+            await _alert_blocked_reports(blocked_reports, run_id)
 
     return run_id, reports, warnings, "partial" if warnings else "ok"

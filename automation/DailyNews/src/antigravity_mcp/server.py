@@ -180,10 +180,13 @@ def build_server() -> FastMCP:
     async def get_token_usage(hours: int = 24) -> dict:
         """Get LLM token usage stats and estimated cost for the last N hours."""
         store = PipelineStateStore()
-        stats = store.get_token_usage_stats(hours=hours)
-        cache_pruned = store.prune_llm_cache()
-        stats["cache_entries_pruned"] = cache_pruned
-        return ok(stats)
+        try:
+            stats = store.get_token_usage_stats(hours=hours)
+            cache_pruned = store.prune_llm_cache()
+            stats["cache_entries_pruned"] = cache_pruned
+            return ok(stats)
+        finally:
+            store.close()
 
     @server.tool()
     async def search_notion(query: str) -> dict:

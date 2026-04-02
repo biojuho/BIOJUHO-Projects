@@ -16,9 +16,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, r"D:\AI project\automation\DailyNews\src")
-sys.path.insert(0, r"D:\AI project\automation\DailyNews\scripts")
-sys.path.insert(0, r"D:\AI project\packages")
+SCRIPT_PATH = Path(__file__).resolve()
+PROJECT_ROOT = SCRIPT_PATH.parents[1]
+WORKSPACE_ROOT = SCRIPT_PATH.parents[3]
+
+for candidate in (
+    PROJECT_ROOT / "src",
+    PROJECT_ROOT / "scripts",
+    WORKSPACE_ROOT / "packages",
+):
+    candidate_str = str(candidate)
+    if candidate.exists() and candidate_str not in sys.path:
+        sys.path.insert(0, candidate_str)
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -213,9 +222,10 @@ def evaluate_content_quality(content: str, version_name: str) -> dict:
 # ============================================================================
 
 
-async def run_ab_test():
+async def run_ab_test() -> int:
     settings = get_settings()
     state_store = PipelineStateStore(settings.pipeline_state_db)
+    run_label = datetime.now().strftime("%Y-%m-%d")
 
     print("=" * 80)
     print("Economy_KR A/B Test v2.0 — Audience-First Validation")
@@ -275,7 +285,7 @@ async def run_ab_test():
 
     if not items:
         print("[ERROR] No articles collected. Check RSS feeds.")
-        return
+        return 1
 
     # Prepare articles dict
     articles = []
@@ -294,7 +304,7 @@ async def run_ab_test():
     brain = BrainAdapter()
     if not brain.is_available():
         print("[ERROR] BrainAdapter not available (LLM client missing)")
-        return
+        return 1
 
     # Stage 2 + 3: Editorial Filter + Deep Analysis
     print("\n[Stage 2+3] Editorial Filter + Deep Analysis")
@@ -302,12 +312,12 @@ async def run_ab_test():
     result_new = await brain.analyze_news(
         category="Economy_KR",
         articles=articles,
-        time_window="2026-03-26 오전~오후",
+        time_window=f"{run_label} weekly_ab_test",
     )
 
     if not result_new:
         print("[ERROR] Brain analysis returned None")
-        return
+        return 1
 
     new_post = result_new.get("x_thread", [""])[0].replace("\\n", "\n")
     print(f"✅ NEW 버전 생성 완료 ({len(new_post)} chars)")
@@ -411,7 +421,8 @@ async def run_ab_test():
     print("5. 파이프라인 업데이트: 승리 버전의 프롬프트/구조를 표준으로 설정")
 
     # Step 9: Save Report
-    output_dir = Path(r"D:\AI project\automation\DailyNews\output")
+    output_dir = settings.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "ab_test_economy_kr_v2.json"
 
     report = {
@@ -485,7 +496,8 @@ async def run_ab_test():
         f.write(f"```\n{new_post}\n```\n\n")
 
     print(f"✅ Markdown Report saved: {md_path}")
+    return 0
 
 
 if __name__ == "__main__":
-    asyncio.run(run_ab_test())
+    raise SystemExit(asyncio.run(run_ab_test()))

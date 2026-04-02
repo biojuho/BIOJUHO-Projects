@@ -32,9 +32,13 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
 
     assert {check.scope for check in checks} == {"workspace", "desci", "agriguard", "mcp", "getdaytrends"}
     assert any(check.name == "workspace regression tests" for check in checks)
+    assert any(check.name == "dashboard frontend lint" for check in checks)
+    assert any(check.name == "dashboard frontend tests" for check in checks)
     assert any(check.name == "dashboard frontend build" for check in checks)
+    assert any(check.name == "dashboard bundle budget" for check in checks)
     assert any(check.name == "desci frontend unit tests" for check in checks)
     assert any(check.name == "desci bundle budget" for check in checks)
+    assert any(check.name == "agriguard backend tests" for check in checks)
     assert any(check.name == "notebooklm compile" for check in checks)
     assert any(check.name == "DailyNews unit tests" for check in checks)
     assert any(check.name == "getdaytrends tests" for check in checks)
@@ -79,6 +83,23 @@ def test_command_for_check_appends_workspace_local_basetemp() -> None:
     command = smoke.command_for_check(check, temp_dir)
 
     assert command[-2:] == ["--basetemp", str(temp_dir / "pytest")]
+
+
+def test_run_one_cleans_stale_temp_dir(tmp_path, monkeypatch) -> None:
+    smoke = load_smoke_module()
+    temp_dir = tmp_path / "workspace-smoke-temp"
+    stale_file = temp_dir / "stale.txt"
+    temp_dir.mkdir(parents=True)
+    stale_file.write_text("stale", encoding="utf-8")
+
+    monkeypatch.setattr(smoke, "runtime_temp_dir", lambda root, item: temp_dir)
+    check = smoke.Check("workspace", "temp cleanup", ".", [sys.executable, "-c", "print('ok')"])
+
+    result = smoke.run_one(PROJECT_ROOT, check)
+
+    assert result.ok is True
+    assert temp_dir.exists()
+    assert stale_file.exists() is False
 
 
 def test_run_one_reports_missing_working_directory() -> None:

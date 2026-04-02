@@ -11,6 +11,12 @@ dependencies = [
     "python-dotenv",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "radon>=6.0",
+    "pytest-cov>=5.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["shared*", "content_intelligence*"]
@@ -43,6 +49,42 @@ known-first-party = ["shared", "getdaytrends", "content_intelligence"]
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.12"
+# 점진적 모드: 새 코드부터 엄격하게, 기존 코드는 warn만
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+check_untyped_defs = true
+ignore_missing_imports = true          # 외부 패키지 stubs 없어도 통과
+no_implicit_optional = true
+strict_equality = true
+# 아직 strict=true 아님 — 단계적 적용
+disallow_untyped_defs = false          # Phase 2에서 true로 전환
+disallow_any_generics = false          # Phase 3에서 true로 전환
+
+[[tool.mypy.overrides]]
+module = "shared.*"
+# shared 패키지는 가장 먼저 엄격하게
+disallow_untyped_defs = true
+disallow_any_generics = true
+
+[[tool.mypy.overrides]]
+module = [
+    "anthropic.*",
+    "google.*",
+    "openai.*",
+    "loguru.*",
+    "notion_client.*",
+    "tweepy.*",
+    "deepeval.*",
+    "crawl4ai.*",
+    "firecrawl.*",
+    "instructor.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

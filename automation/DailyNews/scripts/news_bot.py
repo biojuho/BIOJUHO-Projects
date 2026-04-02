@@ -1103,29 +1103,29 @@ async def run_news_bot(
     run_id = run_id or generate_run_id("news_bot")
     logger = get_logger("news_bot", run_id)
     state = PipelineStateStore()
-    state.record_job_start(run_id, "news_bot")
-
-    if not NOTION_API_KEY:
-        logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
-        state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
-        return 1
-    if not NOTION_TASKS_DATABASE_ID:
-        logger.error("bootstrap", "failed", "NOTION_TASKS_DATABASE_ID missing")
-        state.record_job_finish(run_id, status="failed", error_text="NOTION_TASKS_DATABASE_ID missing")
-        return 1
-
-    notion = AsyncClient(auth=NOTION_API_KEY)
-    llm_client = load_summarizer()
-    brain = load_brain(logger)
-    x_radar = load_x_radar(logger)
-    market_data = load_market_data(logger)
-    canva = load_canva(logger)
-    sentiment_analyzer = load_sentiment_analyzer(logger)
-    skill_integrator_mod = load_skill_integrator(logger)
-    proofreader = load_proofreader(logger)
     summary = {"categories_success": 0, "categories_failed": 0, "categories_skipped": 0, "articles": 0}
 
     try:
+        state.record_job_start(run_id, "news_bot")
+
+        if not NOTION_API_KEY:
+            logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
+            state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
+            return 1
+        if not NOTION_TASKS_DATABASE_ID:
+            logger.error("bootstrap", "failed", "NOTION_TASKS_DATABASE_ID missing")
+            state.record_job_finish(run_id, status="failed", error_text="NOTION_TASKS_DATABASE_ID missing")
+            return 1
+
+        notion = AsyncClient(auth=NOTION_API_KEY)
+        llm_client = load_summarizer()
+        brain = load_brain(logger)
+        x_radar = load_x_radar(logger)
+        market_data = load_market_data(logger)
+        canva = load_canva(logger)
+        sentiment_analyzer = load_sentiment_analyzer(logger)
+        skill_integrator_mod = load_skill_integrator(logger)
+        proofreader = load_proofreader(logger)
         with JobLock("news_bot", run_id):
             sources = load_sources()
             if categories:
@@ -1186,6 +1186,8 @@ async def run_news_bot(
         logger.error("complete", "failed", "news_bot failed", error=str(exc))
         state.record_job_finish(run_id, status="failed", summary=summary, error_text=str(exc))
         return 1
+    finally:
+        state.close()
 
 
 def parse_args() -> argparse.Namespace:

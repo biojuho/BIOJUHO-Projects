@@ -5,20 +5,16 @@ from pathlib import Path
 
 import pytest
 
-# Ensure canonical workspace paths are importable without relying on legacy
-# junctions such as shared/ or DailyNews/.
+# Ensure canonical workspace paths are importable.
+# shared.paths adds the workspace root, packages/, automation/, etc.
 _ROOT = Path(__file__).resolve().parents[1]
-for candidate in (
-    _ROOT,
-    _ROOT / "packages",
-    _ROOT / "automation",
-    _ROOT / "apps" / "desci-platform",
-    _ROOT / "automation" / "DailyNews" / "src",
-    _ROOT / "automation" / "DailyNews" / "scripts",
-):
-    candidate_text = str(candidate)
-    if candidate.exists() and candidate_text not in sys.path:
-        sys.path.insert(0, candidate_text)
+# Bootstrap: ensure shared/ is importable before importing shared.paths
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from shared.paths import ensure_importable  # noqa: E402
+
+ensure_importable(include_dailynews=True)
 
 
 @pytest.fixture(autouse=True)

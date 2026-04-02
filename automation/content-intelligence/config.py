@@ -88,9 +88,48 @@ class CIEConfig:
     # ── v2.0: GetDayTrends DB 연동 ──
     gdt_db_path: str = os.getenv("CIE_GDT_DB_PATH", "")
 
+    # ── v2.0: 독자 페르소나 ──
+    personas_file: str = os.getenv("CIE_PERSONAS_FILE", str(_CIE_DIR / "personas.json"))
+
     # ── 경로 ──
     project_root: Path = _AUTOMATION_ROOT
     cie_dir: Path = _CIE_DIR
+
+    def load_personas(self) -> list[dict]:
+        """독자 페르소나 JSON을 로드한다. 파일이 없으면 빈 리스트를 반환."""
+        import json
+
+        path = Path(self.personas_file)
+        if not path.exists():
+            return []
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[CIE] personas.json 로드 실패: {e}", file=sys.stderr)
+            return []
+
+    def validate(self) -> None:
+        """필수 시크릿과 설정값을 파이프라인 시작 전에 검증한다.
+
+        Raises:
+            ValueError: 필수 값이 누락되었거나 설정과 시크릿이 불일치할 때.
+        """
+        errors: list[str] = []
+
+        if self.enable_notion_publish:
+            if not self.notion_token:
+                errors.append("CIE_NOTION_PUBLISH=true 이지만 NOTION_TOKEN 이 없습니다.")
+            if not self.notion_database_id:
+                errors.append("CIE_NOTION_PUBLISH=true 이지만 CIE_NOTION_DATABASE_ID 가 없습니다.")
+
+        if self.enable_x_publish:
+            if not self.x_access_token:
+                errors.append("CIE_X_PUBLISH=true 이지만 X_ACCESS_TOKEN 이 없습니다.")
+
+        if errors:
+            for msg in errors:
+                print(f"[CIE CONFIG ERROR] {msg}", file=sys.stderr)
+            raise ValueError(f"설정 오류 {len(errors)}건 — 파이프라인을 시작할 수 없습니다.")
 
     def get_tier(self, stage: str) -> str:
         """단계명에 따른 LLM 티어 반환."""

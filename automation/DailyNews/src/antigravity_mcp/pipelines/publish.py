@@ -137,6 +137,118 @@ def _has_notion_page_id(report: ContentReport) -> bool:
     return report.has_notion_sync()
 
 
+def _resolve_approval_mode(report: ContentReport, settings, approval_mode: str, warnings: list[str]) -> str:
+    """설정/품질 상태에 따라 approval_mode 확정."""
+    if settings.content_approval_mode == "manual" and approval_mode != "manual":
+        warnings.append("Automatic publishing is disabled. Falling back to manual approval.")
+        return "manual"
+    if approval_mode == "auto":
+        fallback_x = any(d.channel == "x" and d.is_fallback for d in report.channel_drafts)
+        if report.quality_state != "ok" or fallback_x:
+            warnings.append(
+                "Auto publishing downgraded to manual because the report quality state is not ok "
+                "or the X draft is a fallback draft."
+            )
+            return "manual"
+    return approval_mode
+
+
+async def _publish_to_notion(
+    report: ContentReport,
+    notion_adapter: NotionAdapter,
+    settings,
+    publication: dict[str, str],
+    warnings: list[str],
+) -> None:
+    """Notion 발행 (중복 방지 포함). 결과를 publication/report에 인플레이스로 기록."""
+    if not (notion_adapter.is_configured() and settings.notion_reports_database_id):
+        warnings.append("Notion reports database is not configured; report saved only to local state.")
+        return
+
+    today_iso = datetime.now().date().isoformat()
+    sentiment_meta = (report.analysis_meta or {}).get("sentiment", {})
+    properties: dict = {
+        "Name": {"title": [{"type": "text", "text": {"content": f"{report.category} Brief {datetime.now().date()}"}}]},
+        "Date": {"date": {"start": today_iso}},
+        "Type": {"select": {"name": "News"}},
+    }
+    if sentiment_meta.get("overall"):
+        properties["Sentiment"] = {"select": {"name": sentiment_meta["overall"]}}
+    if sentiment_meta.get("entities"):
+        properties["Entities"] = {"multi_select": [{"name": e[:100]} for e in sentiment_meta["entities"][:5]]}
+
+    try:
+        existing_pages, _ = await notion_adapter.query_database(
+            database_id=settings.notion_reports_database_id,
+            filter_payload={"and": [
+                {"property": "Date", "date": {"equals": today_iso}},
+                {"property": "Name", "title": {"contains": report.category}},
+            ]},
+            limit=1,
+        )
+    except NotionAdapterError:
+        existing_pages = []
+
+    if existing_pages:
+        report.notion_page_id = existing_pages[0].get("id", "")
+        publication["notion_page_id"] = report.notion_page_id
+        publication["notion_url"] = existing_pages[0].get("url", "")
+        warnings.append(f"Notion record already exists for {report.category} on {today_iso}; skipped duplicate creation.")
+        return
+
+    try:
+        created = await notion_adapter.create_record(
+            database_id=settings.notion_reports_database_id,
+            properties=properties,
+            markdown=_report_markdown(report),
+        )
+        report.notion_page_id = created.get("id", "")
+        publication["notion_page_id"] = report.notion_page_id
+        publication["notion_url"] = created.get("url", "")
+    except NotionAdapterError as exc:
+        warnings.append(str(exc))
+
+
+async def _publish_x_draft(
+    draft,
+    report: ContentReport,
+    report_id: str,
+    x_adapter: XAdapter,
+    state_store: PipelineStateStore,
+    approval_mode: str,
+    publication: dict[str, str],
+    warnings: list[str],
+) -> None:
+    """X 채널 발행: 길이에 따라 단일 트윗 또는 스레드 자동 분기."""
+    if len(draft.content) > 280 and approval_mode == "auto":
+        thread_results = await x_adapter.post_thread(XAdapter.split_to_thread(draft.content))
+        published_ids = [r["tweet_id"] for r in thread_results if r.get("status") == "published"]
+        if published_ids:
+            x_status = "published"
+            publication["x_thread_ids"] = ",".join(published_ids)
+            publication["x_url"] = f"https://twitter.com/i/web/status/{published_ids[0]}"
+            for tid in published_ids:
+                state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
+        else:
+            x_status = thread_results[0].get("status", "error") if thread_results else "error"
+            if thread_results and thread_results[0].get("message"):
+                warnings.append(thread_results[0]["message"])
+        state_store.set_channel_publication(report_id, draft.channel, x_status)
+        publication[f"{draft.channel}_status"] = x_status
+    else:
+        x_result = await x_adapter.publish(report, draft.content, approval_mode=approval_mode)
+        state_store.set_channel_publication(report_id, draft.channel, x_result["status"])
+        publication[f"{draft.channel}_status"] = x_result["status"]
+        if x_result.get("tweet_url"):
+            publication["x_url"] = x_result["tweet_url"]
+            tweet_url = x_result["tweet_url"]
+            if "/status/" in tweet_url:
+                tid = tweet_url.rsplit("/status/", 1)[-1].split("?")[0]
+                state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
+        if x_result.get("message"):
+            warnings.append(x_result["message"])
+
+
 async def publish_report(
     *,
     report_id: str,
@@ -156,8 +268,7 @@ async def publish_report(
     telegram_adapter = telegram_adapter or TelegramAdapter()
     run_id = run_id or generate_run_id("publish_report")
     state_store.record_job_start(
-        run_id,
-        "publish_report",
+        run_id, "publish_report",
         summary={"report_id": report_id, "channels": channels, "approval_mode": approval_mode},
     )
 
@@ -169,85 +280,17 @@ async def publish_report(
     warnings: list[str] = []
     publication: dict[str, str] = {"report_id": report_id}
 
-    if settings.content_approval_mode == "manual" and approval_mode != "manual":
-        warnings.append("Automatic publishing is disabled. Falling back to manual approval.")
-        approval_mode = "manual"
+    approval_mode = _resolve_approval_mode(report, settings, approval_mode, warnings)
 
     if report.quality_state == "blocked":
         warnings.append(
             "Publishing blocked: report was generated by fallback template due to total LLM failure. "
             "Manual review required."
         )
-        state_store.record_job_finish(
-            run_id, status="blocked", summary={"report_id": report_id, "reason": "quality_blocked"}
-        )
+        state_store.record_job_finish(run_id, status="blocked", summary={"report_id": report_id, "reason": "quality_blocked"})
         return run_id, {"report_id": report_id, "blocked": True}, warnings, "error"
 
-    fallback_x_draft = any(draft.channel == "x" and draft.is_fallback for draft in report.channel_drafts)
-    if approval_mode == "auto" and (report.quality_state != "ok" or fallback_x_draft):
-        warnings.append(
-            "Auto publishing downgraded to manual because the report quality state is not ok "
-            "or the X draft is a fallback draft."
-        )
-        approval_mode = "manual"
-
-    if notion_adapter.is_configured() and settings.notion_reports_database_id:
-        today_iso = datetime.now().date().isoformat()
-        properties = {
-            "Name": {
-                "title": [{"type": "text", "text": {"content": f"{report.category} Brief {datetime.now().date()}"}}]
-            },
-            "Date": {"date": {"start": today_iso}},
-            "Type": {"select": {"name": "News"}},
-        }
-        # Map sentiment from analysis_meta (populated by analyze_steps)
-        sentiment_meta = (report.analysis_meta or {}).get("sentiment", {})
-        overall_sentiment = sentiment_meta.get("overall", "")
-        if overall_sentiment:
-            properties["Sentiment"] = {"select": {"name": overall_sentiment}}
-        # Map entities from analysis_meta
-        entities = sentiment_meta.get("entities", [])
-        if entities:
-            properties["Entities"] = {"multi_select": [{"name": e[:100]} for e in entities[:5]]}
-
-        # Duplicate prevention: check if same category+date already exists
-        try:
-            existing_pages, _ = await notion_adapter.query_database(
-                database_id=settings.notion_reports_database_id,
-                filter_payload={
-                    "and": [
-                        {"property": "Date", "date": {"equals": today_iso}},
-                        {"property": "Name", "title": {"contains": report.category}},
-                    ]
-                },
-                limit=1,
-            )
-        except NotionAdapterError:
-            existing_pages = []
-
-        if existing_pages:
-            existing_id = existing_pages[0].get("id", "")
-            existing_url = existing_pages[0].get("url", "")
-            report.notion_page_id = existing_id
-            publication["notion_page_id"] = existing_id
-            publication["notion_url"] = existing_url
-            warnings.append(
-                f"Notion record already exists for {report.category} on {today_iso}; skipped duplicate creation."
-            )
-        else:
-            try:
-                created = await notion_adapter.create_record(
-                    database_id=settings.notion_reports_database_id,
-                    properties=properties,
-                    markdown=_report_markdown(report),
-                )
-                report.notion_page_id = created.get("id", "")
-                publication["notion_page_id"] = report.notion_page_id
-                publication["notion_url"] = created.get("url", "")
-            except NotionAdapterError as exc:
-                warnings.append(str(exc))
-    else:
-        warnings.append("Notion reports database is not configured; report saved only to local state.")
+    await _publish_to_notion(report, notion_adapter, settings, publication, warnings)
 
     canva_result = canva_adapter.create_draft(report)
     publication["canva_status"] = canva_result.get("status", "disabled")
@@ -258,44 +301,13 @@ async def publish_report(
         if draft.channel not in channels:
             continue
         if draft.channel == "x":
-            # Auto-detect thread mode: if content > 280 chars, split into thread
-            if len(draft.content) > 280 and approval_mode == "auto":
-                thread_tweets = XAdapter.split_to_thread(draft.content)
-                thread_results = await x_adapter.post_thread(thread_tweets)
-                published_ids = [r["tweet_id"] for r in thread_results if r.get("status") == "published"]
-                if published_ids:
-                    x_status = "published"
-                    publication["x_thread_ids"] = ",".join(published_ids)
-                    publication["x_url"] = f"https://twitter.com/i/web/status/{published_ids[0]}"
-                    for tid in published_ids:
-                        state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
-                else:
-                    x_status = thread_results[0].get("status", "error") if thread_results else "error"
-                    if thread_results and thread_results[0].get("message"):
-                        warnings.append(thread_results[0]["message"])
-                state_store.set_channel_publication(report_id, draft.channel, x_status)
-                publication[f"{draft.channel}_status"] = x_status
-            else:
-                x_result = await x_adapter.publish(report, draft.content, approval_mode=approval_mode)
-                state_store.set_channel_publication(report_id, draft.channel, x_result["status"])
-                publication[f"{draft.channel}_status"] = x_result["status"]
-                if x_result.get("tweet_url"):
-                    publication["x_url"] = x_result["tweet_url"]
-                    # Extract tweet ID from URL for metrics tracking
-                    tweet_url = x_result["tweet_url"]
-                    if "/status/" in tweet_url:
-                        tid = tweet_url.rsplit("/status/", 1)[-1].split("?")[0]
-                        state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
-                if x_result.get("message"):
-                    warnings.append(x_result["message"])
+            await _publish_x_draft(draft, report, report_id, x_adapter, state_store, approval_mode, publication, warnings)
         else:
             state_store.set_channel_publication(report_id, draft.channel, "draft")
             publication[f"{draft.channel}_status"] = "draft"
 
-    # Send Telegram notification after publishing
     try:
-        tg_message = _build_telegram_message(report, publication)
-        await telegram_adapter.send_message(tg_message)
+        await telegram_adapter.send_message(_build_telegram_message(report, publication))
     except Exception as exc:
         logger.warning("Telegram notification failed: %s", exc)
 

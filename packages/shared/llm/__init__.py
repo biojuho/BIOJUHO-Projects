@@ -7,6 +7,11 @@ Usage:
     resp = client.create(tier=TaskTier.HEAVY, messages=[...], system="...")
     resp = await client.acreate(tier=TaskTier.LIGHTWEIGHT, messages=[...])
 """
+from __future__ import annotations
+
+import atexit
+from pathlib import Path
+from typing import Any
 
 from .client import LLMClient
 from .errors import (
@@ -31,6 +36,18 @@ from .tool_schema import ToolDefinition, ToolRegistry, ToolResult
 _client: LLMClient | None = None
 
 
+def _close_client() -> None:
+    global _client
+    if _client is not None:
+        try:
+            _client.close()
+        finally:
+            _client = None
+
+
+atexit.register(_close_client)
+
+
 def get_client(**key_overrides: str) -> LLMClient:
     """Get or create the singleton LLMClient instance."""
     global _client
@@ -43,18 +60,21 @@ def reset_client() -> None:
     """Reset the singleton (for testing or key rotation)."""
     global _client
     if _client is not None:
-        _client.reset()
+        try:
+            _client.reset()
+        finally:
+            _client.close()
     _client = None
 
 
-def export_usage_csv(days: int = 30):
+def export_usage_csv(days: int = 30) -> Path | None:
     """Export LLM usage to CSV. Returns path or None."""
     if _client is not None:
         return _client._tracker.export_csv(days)
     return None
 
 
-def get_daily_stats(days: int = 30) -> list[dict]:
+def get_daily_stats(days: int = 30) -> list[dict[str, Any]]:
     """Get daily aggregated stats from persistent storage."""
     if _client is not None:
         return _client._tracker.get_daily_stats(days)

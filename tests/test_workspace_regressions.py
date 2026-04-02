@@ -33,9 +33,35 @@ def test_notion_server_reads_db_id_from_env() -> None:
 def test_getdaytrends_package_imports_from_repo_root() -> None:
     collectors = importlib.import_module("getdaytrends.collectors")
     generation = importlib.import_module("getdaytrends.generation")
+    analyzer = importlib.import_module("getdaytrends.analyzer")
+    db_module = importlib.import_module("getdaytrends.db")
 
     assert hasattr(collectors, "_async_collect_contexts")
     assert callable(generation.select_persona)
+    assert callable(analyzer.analyze_trends)
+    assert hasattr(db_module, "compute_fingerprint")
+
+
+def test_getdaytrends_pipeline_modules_import_from_repo_root() -> None:
+    scraper = importlib.import_module("getdaytrends.scraper")
+    generator = importlib.import_module("getdaytrends.generator")
+    storage = importlib.import_module("getdaytrends.storage")
+    pipeline = importlib.import_module("getdaytrends.core.pipeline")
+    pipeline_steps = importlib.import_module("getdaytrends.core.pipeline_steps")
+    main_module = importlib.import_module("getdaytrends.main")
+    canva = importlib.import_module("getdaytrends.canva")
+    fact_checker = importlib.import_module("getdaytrends.fact_checker")
+    prompts = importlib.import_module("getdaytrends.generation.prompts")
+
+    assert callable(scraper.collect_trends)
+    assert callable(generator.generate_for_trend_async)
+    assert callable(storage.save_to_notion)
+    assert callable(pipeline.run_pipeline)
+    assert callable(pipeline_steps._step_generate)
+    assert callable(main_module.parse_args)
+    assert hasattr(canva, "CanvaMCPClient")
+    assert callable(fact_checker.verify_content)
+    assert hasattr(prompts, "_select_generation_tier")
 
 
 @patch("biolinker.services.pdf_parser.pypdf.PdfReader")

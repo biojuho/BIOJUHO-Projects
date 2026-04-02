@@ -222,23 +222,29 @@ class PipelineStateStore:
     def __init__(self, path: Path = PIPELINE_STATE_DB) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn: sqlite3.Connection | None = None
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path)
+        if self._conn is None:
+            self._conn = sqlite3.connect(self.path, check_same_thread=False)
+        return self._conn
 
     def close(self) -> None:
-        """No-op for the legacy store (connections are short-lived per call).
-
-        Provided for API compatibility with the src store so tests can call
-        ``store.close()`` or use it as a context manager regardless of which
-        implementation is in use.
-        """
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+            self._conn = None
 
     def __enter__(self) -> PipelineStateStore:
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        self.close()
+
+    def __del__(self) -> None:
         self.close()
 
     def _ensure_schema(self) -> None:

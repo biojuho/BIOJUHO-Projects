@@ -16,6 +16,9 @@ class CheckpointStore:
     def __init__(self) -> None:
         self.db = CheckpointDBClient()
 
+    def close(self) -> None:
+        self.db.close()
+
     def save_checkpoint(self, job_id: str, pipeline_name: str, step: str, state_payload: dict[str, Any]) -> None:
         """Save a checkpoint at a specific step in the pipeline."""
         payload_str = json.dumps(state_payload, ensure_ascii=False)

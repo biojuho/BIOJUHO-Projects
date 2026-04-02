@@ -131,10 +131,10 @@ def load_rich_trends(
         # 테이블 구조가 다를 경우 단순 쿼리
         return _load_simple_trends(conn, hours, limit)
 
+    import json
+
     results = []
     for row in rows:
-        import json
-
         angles_raw = row["suggested_angles"]
         try:
             angles = json.loads(angles_raw) if angles_raw else []
@@ -253,6 +253,101 @@ def load_watchlist_alerts(
         return []
 
 
+# ── 역피드백 쓰기 ──────────────────────────────────────
+
+
+def write_content_feedback(
+    config: CIEConfig,
+    keyword: str,
+    category: str,
+    qa_score: float,
+    regenerated: bool = False,
+    reason: str = "",
+) -> bool:
+    """CIE QA 결과를 GetDayTrends content_feedback 테이블에 역주입한다.
+
+    GetDayTrends의 PerformanceTracker.get_optimal_pattern_weights()가
+    이 데이터를 활용하여 프롬프트 패턴 가중치를 개선한다.
+
+    Returns:
+        True if written successfully, False on error or DB not found.
+    """
+    db_path = _find_gdt_db(config)
+    if db_path is None:
+        return False
+
+    conn = None
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.execute(
+            """INSERT INTO content_feedback
+               (keyword, category, qa_score, regenerated, reason, created_at)
+               VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+            (keyword, category, qa_score, int(regenerated), reason),
+        )
+        conn.commit()
+        log.debug(f"  ↩️ GDT 역피드백: {keyword} / QA={qa_score:.0f} / regen={regenerated}")
+        return True
+    except Exception as e:
+        log.warning(f"  ⚠️ GDT content_feedback 쓰기 실패 (피드백 루프 단절): {e}")
+        return False
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def write_content_feedback_batch(
+    config: CIEConfig,
+    items: list[dict],
+) -> int:
+    """콘텐츠 피드백을 배치로 역주입한다.
+
+    Args:
+        items: [{"keyword", "category", "qa_score", "regenerated", "reason"}, ...]
+
+    Returns:
+        Number of rows written.
+    """
+    if not items:
+        return 0
+
+    db_path = _find_gdt_db(config)
+    if db_path is None:
+        return 0
+
+    written = 0
+    conn = None
+    try:
+        conn = sqlite3.connect(str(db_path))
+        for item in items:
+            try:
+                conn.execute(
+                    """INSERT INTO content_feedback
+                       (keyword, category, qa_score, regenerated, reason, created_at)
+                       VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+                    (
+                        item.get("keyword", ""),
+                        item.get("category", ""),
+                        float(item.get("qa_score", 0.0)),
+                        int(item.get("regenerated", False)),
+                        item.get("reason", ""),
+                    ),
+                )
+                written += 1
+            except Exception as e:
+                log.warning(f"  ⚠️ content_feedback 행 쓰기 실패: {e}")
+        conn.commit()
+        if written:
+            log.info(f"  ↩️ GDT 역피드백 배치: {written}건 주입 완료")
+    except Exception as e:
+        log.warning(f"  ⚠️ GDT content_feedback 배치 실패: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
+
+    return written
+
+
 # ── 통합 로드 함수 ──────────────────────────────────────
 
 
@@ -266,6 +361,7 @@ def load_all(config: CIEConfig) -> GdtBridgeResult | None:
         log.info("  ℹ️ GetDayTrends DB 미발견 → LLM 모드로 전환")
         return None
 
+    conn = None
     try:
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
@@ -274,8 +370,6 @@ def load_all(config: CIEConfig) -> GdtBridgeResult | None:
         posting_slots = load_posting_stats(conn)
         top_kw = load_top_performing_keywords(conn)
         watchlist = load_watchlist_alerts(conn)
-
-        conn.close()
 
         result = GdtBridgeResult(
             trends=trends,
@@ -296,3 +390,6 @@ def load_all(config: CIEConfig) -> GdtBridgeResult | None:
     except Exception as e:
         log.warning(f"  ⚠️ GDT Bridge 로드 실패: {e}")
         return None
+    finally:
+        if conn is not None:
+            conn.close()

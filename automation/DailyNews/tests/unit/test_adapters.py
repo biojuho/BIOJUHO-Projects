@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -12,7 +14,9 @@ from antigravity_mcp.state.store import PipelineStateStore
 
 @pytest.fixture
 def state_store(tmp_path):
-    return PipelineStateStore(path=tmp_path / "test_adapters.db")
+    store = PipelineStateStore(path=tmp_path / "test_adapters.db")
+    yield store
+    store.close()
 
 
 # ─── SkillAdapter ─────────────────────────────────────────────────────────────
@@ -88,10 +92,8 @@ class TestSkillAdapter:
                     return {"ticker": "NVDA", "price": 950.0, "change_pct": 2.5}
                 return None
 
-        monkeypatch.setattr(
-            "antigravity_mcp.integrations.market_adapter.MarketAdapter",
-            FakeMarketAdapter,
-        )
+        fake_market_module = SimpleNamespace(MarketAdapter=FakeMarketAdapter)
+        monkeypatch.setitem(sys.modules, "antigravity_mcp.integrations.market_adapter", fake_market_module)
 
         adapter = SkillAdapter()
         result = await adapter.invoke("market_snapshot", {"tickers": ["NVDA"], "keywords": ["Nvidia"]})

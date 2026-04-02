@@ -434,35 +434,46 @@ def _collect_evidence_quality_warnings(parser_meta: dict[str, Any]) -> list[str]
     return warnings
 
 
+def _quality_review_warnings(ctx: ReportAssemblyContext, draft_text: str, parser_meta: dict) -> list[str]:
+    """CTA, 잘린 인사이트, 증거 품질 경고 수집."""
+    warnings: list[str] = []
+    if _has_generic_cta("\n".join(ctx.insights) + "\n" + draft_text):
+        warnings.append("Generic CTA detected without timeframe.")
+    if any("..." in insight for insight in ctx.insights):
+        warnings.append("Truncated insight text detected.")
+    warnings.extend(_collect_evidence_quality_warnings(parser_meta))
+    return warnings
+
+
+async def _run_fact_check(ctx: ReportAssemblyContext, draft_text: str, review_warnings: list[str]) -> None:
+    """팩트 체크 실행 — 실패 시 무시, 결과를 ctx에 인플레이스 기록."""
+    try:
+        adapter = FactCheckAdapter()
+        if not adapter.is_available():
+            return
+        result = await adapter.check_report(
+            summary_lines=ctx.summary_lines,
+            insights=ctx.insights,
+            drafts_text=draft_text,
+            source_articles=[
+                {"title": item.title, "description": item.summary[:200], "source_name": item.source_name}
+                for item in ctx.items
+            ],
+        )
+        ctx.fact_check_score = result.get("fact_check_score", 0.0)
+        ctx.analysis_meta["fact_check"] = result
+        if not result.get("passed", True):
+            review_warnings.extend(result.get("issues", [])[:3])
+    except Exception as exc:
+        logger.debug("Final fact-check skipped for %s: %s", ctx.category, exc)
+
+
 async def finalize_quality(ctx: ReportAssemblyContext) -> None:
-    review_warnings: list[str] = []
     draft_text = "\n".join(draft.content for draft in ctx.channel_drafts if draft.content)
     parser_meta = ctx.analysis_meta.get("parser", {})
 
-    if _has_generic_cta("\n".join(ctx.insights) + "\n" + draft_text):
-        review_warnings.append("Generic CTA detected without timeframe.")
-    if any("..." in insight for insight in ctx.insights):
-        review_warnings.append("Truncated insight text detected.")
-    review_warnings.extend(_collect_evidence_quality_warnings(parser_meta))
-
-    try:
-        adapter = FactCheckAdapter()
-        if adapter.is_available():
-            result = await adapter.check_report(
-                summary_lines=ctx.summary_lines,
-                insights=ctx.insights,
-                drafts_text=draft_text,
-                source_articles=[
-                    {"title": item.title, "description": item.summary[:200], "source_name": item.source_name}
-                    for item in ctx.items
-                ],
-            )
-            ctx.fact_check_score = result.get("fact_check_score", 0.0)
-            ctx.analysis_meta["fact_check"] = result
-            if not result.get("passed", True):
-                review_warnings.extend(result.get("issues", [])[:3])
-    except Exception as exc:
-        logger.debug("Final fact-check skipped for %s: %s", ctx.category, exc)
+    review_warnings = _quality_review_warnings(ctx, draft_text, parser_meta)
+    await _run_fact_check(ctx, draft_text, review_warnings)
 
     has_fallback_draft = any(draft.channel == "x" and draft.is_fallback for draft in ctx.channel_drafts)
     insight_error = ctx.analysis_meta.get("insight_generator", {}).get("error", "")
@@ -474,10 +485,7 @@ async def finalize_quality(ctx: ReportAssemblyContext) -> None:
     else:
         ctx.quality_state = "ok"
 
-    ctx.analysis_meta["quality_review"] = {
-        "warnings": review_warnings,
-        "evidence": parser_meta.get("evidence", {}),
-    }
+    ctx.analysis_meta["quality_review"] = {"warnings": review_warnings, "evidence": parser_meta.get("evidence", {})}
     if review_warnings:
         ctx.warnings.extend(f"[Quality] {warning}" for warning in review_warnings)
 

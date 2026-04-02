@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import time
+from typing import Any
 
 from .backends import BackendManager
 from .config import (
@@ -233,7 +234,7 @@ class LLMClient:
             async_mode=True,
         )
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         s = self._tracker.get_stats()
         bridge_calls = max(self._bridge_metrics["bridge_calls"], 1)
         deepseek_calls = max(self._bridge_metrics["deepseek_calls"], 1)
@@ -260,6 +261,13 @@ class LLMClient:
             ),
             "per_task_latency_ms": per_task_latency,
         }
+
+    def close(self) -> None:
+        """Release tracker resources held by the singleton client."""
+        try:
+            self._tracker.close()
+        except Exception:
+            pass
 
     @staticmethod
     def reset() -> None:
@@ -317,7 +325,7 @@ class LLMClient:
         response.bridge_meta = BridgeMeta(
             bridge_applied=True,
             quality_flags=[],
-            fallback_reason=None,
+            fallback_reason="",
             detected_input_language="",
             detected_output_language="",
         )
@@ -357,7 +365,7 @@ class LLMClient:
         response.bridge_meta = BridgeMeta(
             bridge_applied=True,
             quality_flags=[],
-            fallback_reason=None,
+            fallback_reason="",
             detected_input_language="",
             detected_output_language="",
         )
@@ -473,6 +481,79 @@ class LLMClient:
         except ImportError:
             pass
 
+    def _prepare_backend_call(
+        self,
+        *,
+        resolved_tier: TaskTier,
+        backend_name: str,
+        messages: list[dict],
+        system: str,
+        policy: LLMPolicy,
+    ) -> tuple | None:
+        """Prepare a backend call. Returns None if this backend should be skipped."""
+        if _is_failed(resolved_tier, backend_name) or not self._backends.has_key(backend_name):
+            return None
+        wrapped_system, wrapped_messages, request_meta, resolved_policy = prepare_request(
+            system, messages, policy, backend_name
+        )
+        return wrapped_system, wrapped_messages, request_meta, resolved_policy
+
+    def _handle_backend_result(
+        self,
+        *,
+        response: LLMResponse,
+        t0: float,
+        resolved_tier: TaskTier,
+        backend_name: str,
+        default_model: str,
+        request_meta,
+        resolved_policy: LLMPolicy,
+        rejected_meta: BridgeMeta | None,
+        repaired_from_deepseek: bool,
+    ) -> tuple[LLMResponse | None, BridgeMeta | None, bool, Exception | None]:
+        """Process a successful backend response.
+
+        Returns:
+            (final_response, updated_rejected_meta, updated_repaired_flag, quality_error)
+            If final_response is not None, dispatch is complete.
+            If quality_error is not None, this backend was rejected and should fallback.
+        """
+        response.latency_ms = (time.perf_counter() - t0) * 1000
+        response.policy = resolved_policy
+        self._record_success_usage(
+            resolved_tier=resolved_tier,
+            backend_name=backend_name,
+            default_model=default_model,
+            response=response,
+        )
+        response.bridge_meta = inspect_response(response.text, resolved_policy, request_meta)
+        self._record_bridge_attempt(response, resolved_policy)
+
+        if should_retry_after_quality_gate(backend_name, resolved_policy, response.bridge_meta):
+            self._bridge_metrics["bridge_fallbacks"] += 1
+            rejected = BridgeMeta(
+                bridge_applied=response.bridge_meta.bridge_applied,
+                detected_input_language=response.bridge_meta.detected_input_language,
+                detected_output_language=response.bridge_meta.detected_output_language,
+                quality_flags=list(response.bridge_meta.quality_flags),
+                fallback_reason="deepseek_quality_gate_failed",
+            )
+            rejected_meta = rejected if rejected_meta is None else merge_bridge_meta(rejected_meta, rejected)
+            repaired_from_deepseek = repaired_from_deepseek or backend_name == "deepseek"
+            quality_error = RuntimeError(
+                f"Language bridge rejected {backend_name}/{default_model}: {response.bridge_meta.quality_flags}"
+            )
+            log.warning(str(quality_error))
+            return None, rejected_meta, repaired_from_deepseek, quality_error
+
+        final = self._finalize_success(
+            response=response,
+            backend_name=backend_name,
+            rejected_meta=rejected_meta,
+            repaired_from_deepseek=repaired_from_deepseek,
+        )
+        return final, rejected_meta, repaired_from_deepseek, None
+
     def _dispatch(
         self,
         *,
@@ -484,9 +565,6 @@ class LLMClient:
         async_mode: bool,
     ):
         chain = self._iter_chain(resolved_tier, policy)
-        last_error: Exception | None = None
-        rejected_meta: BridgeMeta | None = None
-        repaired_from_deepseek = False
 
         if async_mode:
             return self._dispatch_async(
@@ -496,18 +574,24 @@ class LLMClient:
                 max_tokens=max_tokens,
                 system=system,
                 policy=policy,
-                rejected_meta=rejected_meta,
-                repaired_from_deepseek=repaired_from_deepseek,
-                last_error=last_error,
             )
+
+        last_error: Exception | None = None
+        rejected_meta: BridgeMeta | None = None
+        repaired_from_deepseek = False
 
         for backend_name, default_model in chain:
-            if _is_failed(resolved_tier, backend_name) or not self._backends.has_key(backend_name):
+            prepared = self._prepare_backend_call(
+                resolved_tier=resolved_tier,
+                backend_name=backend_name,
+                messages=messages,
+                system=system,
+                policy=policy,
+            )
+            if prepared is None:
                 continue
 
-            wrapped_system, wrapped_messages, request_meta, resolved_policy = prepare_request(
-                system, messages, policy, backend_name
-            )
+            wrapped_system, wrapped_messages, request_meta, resolved_policy = prepared
             t0 = time.perf_counter()
             try:
                 response = self._backends.call(
@@ -519,38 +603,21 @@ class LLMClient:
                     tier=resolved_tier,
                     response_mode=policy.response_mode,
                 )
-                response.latency_ms = (time.perf_counter() - t0) * 1000
-                response.policy = resolved_policy
-                self._record_success_usage(
+                final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
+                    response=response,
+                    t0=t0,
                     resolved_tier=resolved_tier,
                     backend_name=backend_name,
                     default_model=default_model,
-                    response=response,
-                )
-                response.bridge_meta = inspect_response(response.text, resolved_policy, request_meta)
-                self._record_bridge_attempt(response, resolved_policy)
-                if should_retry_after_quality_gate(backend_name, resolved_policy, response.bridge_meta):
-                    self._bridge_metrics["bridge_fallbacks"] += 1
-                    rejected = BridgeMeta(
-                        bridge_applied=response.bridge_meta.bridge_applied,
-                        detected_input_language=response.bridge_meta.detected_input_language,
-                        detected_output_language=response.bridge_meta.detected_output_language,
-                        quality_flags=list(response.bridge_meta.quality_flags),
-                        fallback_reason="deepseek_quality_gate_failed",
-                    )
-                    rejected_meta = rejected if rejected_meta is None else merge_bridge_meta(rejected_meta, rejected)
-                    repaired_from_deepseek = repaired_from_deepseek or backend_name == "deepseek"
-                    last_error = RuntimeError(
-                        f"Language bridge rejected {backend_name}/{default_model}: {response.bridge_meta.quality_flags}"
-                    )
-                    log.warning(str(last_error))
-                    continue
-                return self._finalize_success(
-                    response=response,
-                    backend_name=backend_name,
+                    request_meta=request_meta,
+                    resolved_policy=resolved_policy,
                     rejected_meta=rejected_meta,
                     repaired_from_deepseek=repaired_from_deepseek,
                 )
+                if final is not None:
+                    return final
+                last_error = quality_error
+                continue
             except Exception as error:
                 elapsed = (time.perf_counter() - t0) * 1000
                 last_error = self._record_failure(
@@ -575,17 +642,23 @@ class LLMClient:
         max_tokens: int,
         system: str,
         policy: LLMPolicy,
-        rejected_meta: BridgeMeta | None,
-        repaired_from_deepseek: bool,
-        last_error: Exception | None,
     ) -> LLMResponse:
+        last_error: Exception | None = None
+        rejected_meta: BridgeMeta | None = None
+        repaired_from_deepseek = False
+
         for backend_name, default_model in chain:
-            if _is_failed(resolved_tier, backend_name) or not self._backends.has_key(backend_name):
+            prepared = self._prepare_backend_call(
+                resolved_tier=resolved_tier,
+                backend_name=backend_name,
+                messages=messages,
+                system=system,
+                policy=policy,
+            )
+            if prepared is None:
                 continue
 
-            wrapped_system, wrapped_messages, request_meta, resolved_policy = prepare_request(
-                system, messages, policy, backend_name
-            )
+            wrapped_system, wrapped_messages, request_meta, resolved_policy = prepared
             t0 = time.perf_counter()
             try:
                 response = await self._backends.acall(
@@ -597,38 +670,21 @@ class LLMClient:
                     tier=resolved_tier,
                     response_mode=policy.response_mode,
                 )
-                response.latency_ms = (time.perf_counter() - t0) * 1000
-                response.policy = resolved_policy
-                self._record_success_usage(
+                final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
+                    response=response,
+                    t0=t0,
                     resolved_tier=resolved_tier,
                     backend_name=backend_name,
                     default_model=default_model,
-                    response=response,
-                )
-                response.bridge_meta = inspect_response(response.text, resolved_policy, request_meta)
-                self._record_bridge_attempt(response, resolved_policy)
-                if should_retry_after_quality_gate(backend_name, resolved_policy, response.bridge_meta):
-                    self._bridge_metrics["bridge_fallbacks"] += 1
-                    rejected = BridgeMeta(
-                        bridge_applied=response.bridge_meta.bridge_applied,
-                        detected_input_language=response.bridge_meta.detected_input_language,
-                        detected_output_language=response.bridge_meta.detected_output_language,
-                        quality_flags=list(response.bridge_meta.quality_flags),
-                        fallback_reason="deepseek_quality_gate_failed",
-                    )
-                    rejected_meta = rejected if rejected_meta is None else merge_bridge_meta(rejected_meta, rejected)
-                    repaired_from_deepseek = repaired_from_deepseek or backend_name == "deepseek"
-                    last_error = RuntimeError(
-                        f"Language bridge rejected {backend_name}/{default_model}: {response.bridge_meta.quality_flags}"
-                    )
-                    log.warning(str(last_error))
-                    continue
-                return self._finalize_success(
-                    response=response,
-                    backend_name=backend_name,
+                    request_meta=request_meta,
+                    resolved_policy=resolved_policy,
                     rejected_meta=rejected_meta,
                     repaired_from_deepseek=repaired_from_deepseek,
                 )
+                if final is not None:
+                    return final
+                last_error = quality_error
+                continue
             except Exception as error:
                 elapsed = (time.perf_counter() - t0) * 1000
                 last_error = self._record_failure(

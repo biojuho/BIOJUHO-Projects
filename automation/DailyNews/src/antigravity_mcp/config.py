@@ -7,7 +7,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from shared.env_loader import load_workspace_env as _load_env
+except ImportError:
+    from dotenv import load_dotenv as _load_env
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -19,7 +22,11 @@ DOCS_DIR = PROJECT_ROOT / "docs"
 APPS_DIR = PROJECT_ROOT / "apps"
 ENV_PATH = PROJECT_ROOT / ".env"
 
-load_dotenv(ENV_PATH)
+try:
+    _load_env(project_dir=PROJECT_ROOT)
+except TypeError:
+    # Fallback for plain load_dotenv which doesn't accept project_dir
+    _load_env(ENV_PATH)
 
 for directory in (DATA_DIR, LOG_DIR, OUTPUT_DIR, CONFIG_DIR, DOCS_DIR, APPS_DIR):
     directory.mkdir(parents=True, exist_ok=True)

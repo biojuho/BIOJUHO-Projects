@@ -4,6 +4,7 @@ import argparse
 import os
 import random
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -105,7 +106,7 @@ def main() -> int:
         db_path = Path(__file__).resolve().parent / db_path
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         ensure_schema(connection)
         if args.reset:
             connection.execute("DELETE FROM post_history")

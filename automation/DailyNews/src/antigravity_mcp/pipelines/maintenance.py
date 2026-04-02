@@ -22,25 +22,30 @@ def backup_db(
 
     Returns the path to the backup file.
     """
-    store = state_store or PipelineStateStore()
-    settings = get_settings()
-    dest_dir = dest_dir or settings.data_dir / "backups"
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    backup_path = dest_dir / f"pipeline_state_{timestamp}.db"
-
-    import sqlite3
-
-    src_conn = store._connect()
-    dst_conn = sqlite3.connect(str(backup_path))
     try:
-        src_conn.backup(dst_conn)
-    finally:
-        dst_conn.close()
+        store = state_store or PipelineStateStore()
+        owns_store = state_store is None
+        settings = get_settings()
+        dest_dir = dest_dir or settings.data_dir / "backups"
+        dest_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Database backed up to %s", backup_path)
-    return str(backup_path)
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        backup_path = dest_dir / f"pipeline_state_{timestamp}.db"
+
+        import sqlite3
+
+        src_conn = store._connect()
+        dst_conn = sqlite3.connect(str(backup_path))
+        try:
+            src_conn.backup(dst_conn)
+        finally:
+            dst_conn.close()
+
+        logger.info("Database backed up to %s", backup_path)
+        return str(backup_path)
+    finally:
+        if "owns_store" in locals() and owns_store:
+            store.close()
 
 
 async def run_daily_maintenance(
@@ -57,44 +62,49 @@ async def run_daily_maintenance(
     - Clean up old backups
     """
     store = state_store or PipelineStateStore()
-    run_id = generate_run_id("maintenance")
-    store.record_job_start(run_id, "daily_maintenance")
-
-    results: dict = {"run_id": run_id}
-
-    # 1. Backup DB
+    owns_store = state_store is None
     try:
-        backup_path = backup_db(state_store=store)
-        results["backup_path"] = backup_path
-    except Exception as exc:
-        results["backup_error"] = str(exc)
-        logger.error("DB backup failed: %s", exc)
+        run_id = generate_run_id("maintenance")
+        store.record_job_start(run_id, "daily_maintenance")
 
-    # 2. Prune old articles
-    articles_pruned = store.prune_old_articles(days=prune_articles_days)
-    results["articles_pruned"] = articles_pruned
+        results: dict = {"run_id": run_id}
 
-    # 3. Prune LLM cache
-    cache_pruned = store.prune_llm_cache()
-    results["llm_cache_pruned"] = cache_pruned
+        # 1. Backup DB
+        try:
+            backup_path = backup_db(state_store=store)
+            results["backup_path"] = backup_path
+        except Exception as exc:
+            results["backup_error"] = str(exc)
+            logger.error("DB backup failed: %s", exc)
 
-    # 4. Clean old backups
-    settings = get_settings()
-    backup_dir = settings.data_dir / "backups"
-    if backup_dir.exists():
-        backups = sorted(backup_dir.glob("pipeline_state_*.db"), reverse=True)
-        removed = 0
-        for old_backup in backups[keep_backups:]:
-            try:
-                old_backup.unlink()
-                removed += 1
-            except OSError:
-                pass
-        results["old_backups_removed"] = removed
+        # 2. Prune old articles
+        articles_pruned = store.prune_old_articles(days=prune_articles_days)
+        results["articles_pruned"] = articles_pruned
 
-    store.record_job_finish(
-        run_id,
-        status="success",
-        summary=results,
-    )
-    return results
+        # 3. Prune LLM cache
+        cache_pruned = store.prune_llm_cache()
+        results["llm_cache_pruned"] = cache_pruned
+
+        # 4. Clean old backups
+        settings = get_settings()
+        backup_dir = settings.data_dir / "backups"
+        if backup_dir.exists():
+            backups = sorted(backup_dir.glob("pipeline_state_*.db"), reverse=True)
+            removed = 0
+            for old_backup in backups[keep_backups:]:
+                try:
+                    old_backup.unlink()
+                    removed += 1
+                except OSError:
+                    pass
+            results["old_backups_removed"] = removed
+
+        store.record_job_finish(
+            run_id,
+            status="success",
+            summary=results,
+        )
+        return results
+    finally:
+        if owns_store:
+            store.close()

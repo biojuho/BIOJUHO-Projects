@@ -32,7 +32,12 @@ from services.web3_service import get_web3_service
 load_dotenv()
 
 # Firestore DB (singleton managed in firestore_db.py)
-from firestore_db import db  # noqa: E402 — after load_dotenv
+try:
+    from firestore_db import db  # noqa: E402 — after load_dotenv
+except Exception as _fs_err:  # noqa: BLE001
+    import sys
+    log.error("Firestore 초기화 실패 — 서버를 시작할 수 없습니다: %s", _fs_err)
+    sys.exit(1)
 
 
 @asynccontextmanager

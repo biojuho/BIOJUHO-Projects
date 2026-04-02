@@ -1,4 +1,20 @@
-"""2단계 — 플랫폼별 규제 점검 + 통합 체크리스트 생성."""
+"""2단계 — 플랫폼별 규제 점검 + 통합 체크리스트 생성.
+
+⚠️ 알려진 한계 (M4):
+  이 모듈은 LLM에게 "최근 N일간 플랫폼 정책 변경을 파악해서 보고해"라고 요청한다.
+  LLM은 학습 컷오프 이후 발생한 실제 정책 변경을 알지 못하며, 존재하지 않는 정책을
+  환각으로 생성할 수 있다. 따라서:
+
+  - regulation_compliant=True 가 실제 규정 준수를 보장하지 않는다.
+  - 중요 발행 전 플랫폼 공식 정책 페이지를 직접 확인할 것:
+      X:       https://help.twitter.com/en/rules-and-policies
+      Threads: https://help.instagram.com/threads
+      Naver:   https://policy.naver.com/
+
+  장기 개선 방향:
+  - 알려진 금지 키워드/패턴을 static JSON 파일로 관리하고 LLM과 AND 조건으로 적용
+  - 플랫폼 정책 RSS/공지 페이지를 주기적으로 크롤링해 변경 감지
+"""
 
 from __future__ import annotations
 

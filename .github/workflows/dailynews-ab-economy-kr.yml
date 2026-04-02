@@ -1,0 +1,126 @@
+name: DailyNews Economy_KR A/B Test
+
+on:
+  schedule:
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: dailynews-ab-economy-kr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ab-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: automation/DailyNews/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r automation/DailyNews/requirements.txt
+
+      - name: Create .env file
+        working-directory: automation/DailyNews
+        run: |
+          cat <<EOF > .env
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          NOTION_API_KEY=${{ secrets.NOTION_API_KEY || secrets.NOTION_TOKEN || '' }}
+          NOTION_TASKS_DATABASE_ID=${{ secrets.NOTION_TASKS_DATABASE_ID || secrets.ANTIGRAVITY_TASKS_DB_ID || secrets.ANTIGRAVITY_DB_ID || '' }}
+          NOTION_REPORTS_DATABASE_ID=${{ secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID || '' }}
+          NOTION_DASHBOARD_PAGE_ID=${{ secrets.NOTION_DASHBOARD_PAGE_ID || secrets.DASHBOARD_PAGE_ID || '' }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
+          EOF
+
+      - name: Run Economy_KR A/B test
+        working-directory: automation/DailyNews
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/ab_test_economy_kr_v2.py
+
+      - name: Append summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path("automation/DailyNews/output/ab_test_economy_kr_v2.json")
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+          if not report_path.exists():
+              summary_path.write_text(
+                  "## DailyNews Economy_KR A/B Test\n\nReport was not generated.\n",
+                  encoding="utf-8",
+              )
+              raise SystemExit(0)
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          decision = report.get("decision", {})
+          evaluation = report.get("evaluation", {})
+          old_eval = evaluation.get("version_a", {})
+          new_eval = evaluation.get("version_b", {})
+
+          lines = [
+              "## DailyNews Economy_KR A/B Test",
+              "",
+              f"- Verdict: {decision.get('verdict', 'unknown')}",
+              f"- KPI difference: {decision.get('kpi_difference', 'n/a')}",
+              f"- Version A KPI: {old_eval.get('primary_kpi', 'n/a')}",
+              f"- Version B KPI: {new_eval.get('primary_kpi', 'n/a')}",
+              f"- Confidence: {decision.get('confidence', 'n/a')}",
+          ]
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Upload A/B test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailynews-ab-economy-kr-${{ github.run_number }}
+          path: |
+            automation/DailyNews/output/ab_test_economy_kr_v2.json
+            automation/DailyNews/output/ab_test_economy_kr_v2.md
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Telegram notification on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] DailyNews Economy_KR A/B test #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+          fi
+
+      - name: Telegram heartbeat on success
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews Economy_KR A/B test #${{ github.run_number }} completed\"}" || true
+          fi

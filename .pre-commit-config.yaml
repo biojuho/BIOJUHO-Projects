@@ -47,7 +47,7 @@ repos:
 
 # Global configuration
 default_language_version:
-  python: python3.14
+  python: python3.13
 
 # Exclude patterns
 exclude: |

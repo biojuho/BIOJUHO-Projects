@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -176,7 +177,10 @@ def default_checks(python_exe: str) -> list[Check]:
             ".",
             [python_exe, "-m", "pytest", "tests/test_workspace_regressions.py", "tests/test_workspace_smoke.py", "-q"],
         ),
+        Check("workspace", "dashboard frontend lint", rel_unit_path("dashboard"), [npm_exe, "run", "lint"]),
+        Check("workspace", "dashboard frontend tests", rel_unit_path("dashboard"), [npm_exe, "run", "test"]),
         Check("workspace", "dashboard frontend build", rel_unit_path("dashboard"), [npm_exe, "run", "build"]),
+        Check("workspace", "dashboard bundle budget", rel_unit_path("dashboard"), [npm_exe, "run", "check:bundle"]),
         Check("desci", "desci frontend lint", desci_frontend, [npm_exe, "run", "lint"]),
         Check("desci", "desci frontend unit tests", desci_frontend, [npm_exe, "run", "test:lts"]),
         Check("desci", "desci frontend build", desci_frontend, [npm_exe, "run", "build:lts"]),
@@ -189,7 +193,7 @@ def default_checks(python_exe: str) -> list[Check]:
         ),
         Check("agriguard", "agriguard frontend lint", agriguard_frontend, [npm_exe, "run", "lint"]),
         Check("agriguard", "agriguard frontend build", agriguard_frontend, [npm_exe, "run", "build:lts"]),
-        Check("agriguard", "agriguard backend compile", ".", compile_command(python_exe, agriguard_backend)),
+        Check("agriguard", "agriguard backend tests", agriguard_backend, [python_exe, "-m", "pytest", "tests", "-q"]),
         Check(
             "mcp",
             "notebooklm compile",
@@ -211,6 +215,12 @@ def runtime_temp_dir(root: Path, item: Check) -> Path:
     return root / "var" / "tmp" / "workspace-smoke" / item.scope / slugify_check_name(item.name)
 
 
+def reset_temp_dir(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path, ignore_errors=True)
+    path.mkdir(parents=True, exist_ok=True)
+
+
 def command_for_check(item: Check, temp_dir: Path) -> list[str]:
     command = list(item.command)
     if is_pytest_command(command) and "--basetemp" not in command:
@@ -230,7 +240,7 @@ def run_one(root: Path, item: Check) -> Result:
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONPATH"] = build_pythonpath(root, env)
     temp_dir = runtime_temp_dir(root, item)
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    reset_temp_dir(temp_dir)
     env["TMP"] = str(temp_dir)
     env["TEMP"] = str(temp_dir)
     env["TMPDIR"] = str(temp_dir)

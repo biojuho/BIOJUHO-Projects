@@ -347,6 +347,76 @@ class TestUtils:
 class TestGdtBridge:
     """GDT Bridge 모듈의 데이터 모델과 로직 검증."""
 
+    def test_write_content_feedback_no_db(self, tmp_path):
+        """GDT DB 없을 때 역피드백이 False 반환하고 예외 없이 종료.
+
+        project_root를 tmp_path로 격리해 기본 candidate 경로에서
+        실제 getdaytrends.db가 탐지되지 않도록 한다.
+        """
+        from config import CIEConfig
+        from collectors.gdt_bridge import write_content_feedback
+
+        config = CIEConfig()
+        config.gdt_db_path = str(tmp_path / "nonexistent.db")
+        # fallback candidate 탐색도 막기 위해 project_root를 빈 임시 디렉터리로 격리
+        config.project_root = tmp_path
+        result = write_content_feedback(config, "AI", "x", 85.0)
+        assert result is False
+
+    def test_write_content_feedback_batch_empty(self):
+        """빈 배치 입력 시 0 반환."""
+        from config import CIEConfig
+        from collectors.gdt_bridge import write_content_feedback_batch
+
+        config = CIEConfig()
+        result = write_content_feedback_batch(config, [])
+        assert result == 0
+
+    def test_write_content_feedback_batch_with_db(self, tmp_path):
+        """임시 GDT DB에 content_feedback 배치 주입 검증."""
+        import sqlite3
+
+        from config import CIEConfig
+        from collectors.gdt_bridge import write_content_feedback_batch
+
+        # 임시 GDT DB 생성 (content_feedback 테이블만)
+        db_path = tmp_path / "gdt_test.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.execute(
+            """CREATE TABLE content_feedback (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               keyword TEXT NOT NULL,
+               category TEXT DEFAULT '',
+               qa_score REAL DEFAULT 0.0,
+               regenerated INTEGER DEFAULT 0,
+               reason TEXT DEFAULT '',
+               content_age_hours REAL DEFAULT 0.0,
+               freshness_grade TEXT DEFAULT 'unknown',
+               created_at TEXT NOT NULL
+            )"""
+        )
+        conn.commit()
+        conn.close()
+
+        config = CIEConfig()
+        config.gdt_db_path = str(db_path)
+
+        items = [
+            {"keyword": "AI 자동화", "category": "x", "qa_score": 87.0, "regenerated": False, "reason": ""},
+            {"keyword": "LLM 트렌드", "category": "threads", "qa_score": 72.0, "regenerated": True, "reason": "hook 미달"},
+        ]
+        written = write_content_feedback_batch(config, items)
+        assert written == 2
+
+        # DB에서 확인
+        conn = sqlite3.connect(str(db_path))
+        rows = conn.execute("SELECT keyword, qa_score, regenerated FROM content_feedback ORDER BY id").fetchall()
+        conn.close()
+        assert len(rows) == 2
+        assert rows[0][0] == "AI 자동화"
+        assert rows[0][1] == 87.0
+        assert rows[1][2] == 1  # regenerated=True → 1
+
     def test_rich_trend_creation(self):
         from collectors.gdt_bridge import RichTrend
 
@@ -425,3 +495,416 @@ class TestLocalDB:
         contents = load_unpublished_contents(conn)
         assert contents == []
         conn.close()
+
+
+# ═══════════════════════════════════════════════════════
+#  Phase 1 테스트: 페르소나, 보조 QA 축, Naver SEO
+# ═══════════════════════════════════════════════════════
+
+
+class TestPersonas:
+    """독자 페르소나 시스템 테스트."""
+
+    def test_load_personas_from_file(self, tmp_path):
+        """personas.json이 있으면 정상 로드."""
+        import json
+
+        from config import CIEConfig
+
+        personas_data = [
+            {"id": "test_persona", "name": "테스트", "pain_points": ["문제1"]}
+        ]
+        pf = tmp_path / "personas.json"
+        pf.write_text(json.dumps(personas_data, ensure_ascii=False), encoding="utf-8")
+
+        config = CIEConfig()
+        config.personas_file = str(pf)
+        result = config.load_personas()
+        assert len(result) == 1
+        assert result[0]["id"] == "test_persona"
+
+    def test_load_personas_missing_file(self, tmp_path):
+        """personas.json이 없으면 빈 리스트 반환."""
+        from config import CIEConfig
+
+        config = CIEConfig()
+        config.personas_file = str(tmp_path / "nonexistent.json")
+        assert config.load_personas() == []
+
+    def test_load_personas_invalid_json(self, tmp_path):
+        """잘못된 JSON이면 빈 리스트 반환 (에러 무시)."""
+        from config import CIEConfig
+
+        pf = tmp_path / "bad.json"
+        pf.write_text("{invalid", encoding="utf-8")
+
+        config = CIEConfig()
+        config.personas_file = str(pf)
+        assert config.load_personas() == []
+
+    def test_build_persona_block_with_personas(self):
+        """페르소나가 있으면 컨텍스트 블록이 생성된다."""
+        from prompts.content_generation import _build_persona_block
+
+        personas = [
+            {
+                "id": "tester",
+                "name": "테스터",
+                "description": "테스트용 페르소나",
+                "pain_points": ["문제A", "문제B"],
+                "preferred_hooks": ["hook1"],
+                "share_triggers": ["trigger1"],
+                "platform_affinity": ["x"],
+            }
+        ]
+        block = _build_persona_block("x", personas)
+        assert "테스터" in block
+        assert "문제A" in block
+        assert "hook1" in block
+
+    def test_build_persona_block_empty(self):
+        """페르소나가 없으면 빈 문자열."""
+        from prompts.content_generation import _build_persona_block
+
+        assert _build_persona_block("x", None) == ""
+        assert _build_persona_block("x", []) == ""
+
+    def test_build_persona_block_platform_affinity(self):
+        """플랫폼 친화도 기준 페르소나 선택."""
+        from prompts.content_generation import _build_persona_block
+
+        personas = [
+            {
+                "id": "x_user",
+                "name": "X유저",
+                "description": "X 전문",
+                "pain_points": ["p1"],
+                "preferred_hooks": [],
+                "share_triggers": [],
+                "platform_affinity": ["x"],
+            },
+            {
+                "id": "naver_user",
+                "name": "네이버유저",
+                "description": "네이버 전문",
+                "pain_points": ["p1", "p2"],
+                "preferred_hooks": [],
+                "share_triggers": [],
+                "platform_affinity": ["naver"],
+            },
+        ]
+        block = _build_persona_block("x", personas)
+        assert "X유저" in block
+        assert "네이버유저" not in block
+
+
+class TestQAReportV2:
+    """QAReport v2.0 보조 축 테스트."""
+
+    def test_supplementary_scores_default_zero(self):
+        """보조 3축 기본값은 0."""
+        from storage.models import QAReport
+
+        qa = QAReport()
+        assert qa.reader_value_score == 0
+        assert qa.originality_score == 0
+        assert qa.credibility_score == 0
+
+    def test_supplementary_scores_not_in_total(self):
+        """보조 축은 total_score에 포함되지 않는다."""
+        from storage.models import QAReport
+
+        qa = QAReport(
+            hook_score=20, fact_score=15, tone_score=15,
+            kick_score=15, angle_score=15,
+            regulation_score=10, algorithm_score=10,
+            reader_value_score=10, originality_score=10, credibility_score=10,
+        )
+        assert qa.total_score == 100  # 보조 30점은 미포함
+
+    def test_applied_min_score_controls_pass_threshold(self):
+        """applied_min_score가 pass_threshold 판정 기준이 된다."""
+        from storage.models import QAReport
+
+        qa = QAReport(hook_score=15, fact_score=10, tone_score=10,
+                      kick_score=10, angle_score=10,
+                      regulation_score=7, algorithm_score=7)
+        # total = 69
+        assert qa.total_score == 69
+        assert qa.pass_threshold is False  # 기본 applied_min_score=70
+
+        qa.applied_min_score = 65
+        assert qa.pass_threshold is True  # 65 이상이면 통과
+
+    def test_emoji_report_includes_supplementary(self):
+        """to_emoji_report()에 보조 축이 포함된다."""
+        from storage.models import QAReport
+
+        qa = QAReport(reader_value_score=8, originality_score=6, credibility_score=9)
+        report = qa.to_emoji_report()
+        assert "RV: 8/10" in report
+        assert "Orig: 6/10" in report
+        assert "Cred: 9/10" in report
+
+
+class TestProQADiagnostic:
+    """Pro QA 진단 시스템 테스트."""
+
+    def test_axis_diagnostic_is_weak(self):
+        """50% 미만이면 약점."""
+        from storage.models import QAAxisDiagnostic
+
+        strong = QAAxisDiagnostic(axis="hook", score=15, max_score=20)
+        weak = QAAxisDiagnostic(axis="kick", score=3, max_score=15)
+        assert strong.is_weak is False
+        assert weak.is_weak is True
+
+    def test_axis_diagnostic_score_ratio(self):
+        from storage.models import QAAxisDiagnostic
+
+        d = QAAxisDiagnostic(axis="tone", score=10, max_score=15)
+        assert abs(d.score_ratio - 0.6667) < 0.01
+
+    def test_qa_report_weak_axes(self):
+        """weak_axes는 50% 미만 축만 반환."""
+        from storage.models import QAAxisDiagnostic, QAReport
+
+        qa = QAReport(
+            hook_score=18, fact_score=3,
+            diagnostics=[
+                QAAxisDiagnostic(axis="hook", score=18, max_score=20),
+                QAAxisDiagnostic(axis="fact", score=3, max_score=15),
+            ],
+        )
+        weak = qa.weak_axes
+        assert len(weak) == 1
+        assert weak[0].axis == "fact"
+
+    def test_persona_fit_score(self):
+        from storage.models import PersonaFitScore
+
+        pf = PersonaFitScore(persona_id="test", persona_name="테스트", fit_score=8, reason="좋음")
+        assert pf.fit_score == 8
+
+    def test_top_persona(self):
+        from storage.models import PersonaFitScore, QAReport
+
+        qa = QAReport(persona_fits=[
+            PersonaFitScore(persona_id="a", persona_name="A", fit_score=5),
+            PersonaFitScore(persona_id="b", persona_name="B", fit_score=9),
+        ])
+        assert qa.top_persona is not None
+        assert qa.top_persona.persona_id == "b"
+
+    def test_to_retry_feedback_with_diagnostics(self):
+        """진단이 있으면 약점 기반 피드백 텍스트 생성."""
+        from storage.models import QAAxisDiagnostic, QAReport
+
+        qa = QAReport(
+            hook_score=5, fact_score=12, tone_score=8, kick_score=5,
+            angle_score=5, regulation_score=3, algorithm_score=2,
+            diagnostics=[
+                QAAxisDiagnostic(axis="hook", score=5, max_score=20,
+                                 reason="도입이 약하다", suggestion="질문으로 시작"),
+                QAAxisDiagnostic(axis="fact", score=12, max_score=15),
+            ],
+        )
+        feedback = qa.to_retry_feedback()
+        assert "hook" in feedback
+        assert "질문으로 시작" in feedback
+        assert "fact" not in feedback  # fact는 약점이 아님 (12/15 > 50%)
+
+    def test_to_retry_feedback_fallback_warnings(self):
+        """진단 없으면 warnings 기반 폴백."""
+        from storage.models import QAReport
+
+        qa = QAReport(warnings=["과장 수식어 사용"])
+        feedback = qa.to_retry_feedback()
+        assert "과장 수식어" in feedback
+
+    def test_emoji_report_with_weak_axes_and_personas(self):
+        """Pro 이모지 리포트에 약점/페르소나 표시."""
+        from storage.models import PersonaFitScore, QAAxisDiagnostic, QAReport
+
+        qa = QAReport(
+            hook_score=5,
+            diagnostics=[
+                QAAxisDiagnostic(axis="hook", score=5, max_score=20),
+            ],
+            persona_fits=[
+                PersonaFitScore(persona_id="ea", persona_name="얼리어답터", fit_score=7),
+            ],
+        )
+        report = qa.to_emoji_report()
+        assert "약점" in report
+        assert "hook" in report
+        assert "얼리어답터:7" in report
+
+    def test_parse_pro_qa_flat_scores(self):
+        """_parse_pro_qa가 flat scores 구조도 처리."""
+        from generators.content_engine import _parse_pro_qa
+
+        class FakeConfig:
+            qa_min_score = 70
+
+        data = {
+            "scores": {"hook": 15, "fact": 10, "tone": 12, "kick": 10,
+                       "angle": 10, "regulation": 8, "algorithm": 7,
+                       "reader_value": 6, "originality": 5, "credibility": 7},
+            "diagnostics": {
+                "hook": {"reason": "강한 시작", "suggestion": ""},
+                "fact": {"reason": "정확함", "suggestion": ""},
+            },
+            "persona_fits": [
+                {"persona_id": "practitioner", "fit_score": 8, "reason": "실무 관련"}
+            ],
+            "rewrite_suggestion": "도입부를 질문으로",
+            "warnings": [],
+        }
+        qa = _parse_pro_qa(data, FakeConfig())
+        assert qa.hook_score == 15
+        assert qa.total_score == 72
+        assert len(qa.diagnostics) == 10  # 모든 축
+        assert qa.diagnostics[0].reason == "강한 시작"
+        assert len(qa.persona_fits) == 1
+        assert qa.persona_fits[0].persona_id == "practitioner"
+        assert qa.rewrite_suggestion == "도입부를 질문으로"
+
+    def test_parse_pro_qa_legacy_flat(self):
+        """scores 키 없이 flat한 구조도 하위호환."""
+        from generators.content_engine import _parse_pro_qa
+
+        class FakeConfig:
+            qa_min_score = 70
+
+        data = {"hook": 10, "fact": 8, "tone": 7, "kick": 6, "angle": 5,
+                "regulation": 4, "algorithm": 3,
+                "reader_value": 2, "originality": 1, "credibility": 0,
+                "warnings": ["test"]}
+        qa = _parse_pro_qa(data, FakeConfig())
+        assert qa.hook_score == 10
+        assert qa.total_score == 43
+        assert qa.warnings == ["test"]
+
+
+class TestSafeInt:
+    """_safe_int LLM 응답 안전 파싱 테스트."""
+
+    def test_normal_int(self):
+        from generators.content_engine import _safe_int
+
+        assert _safe_int(15, 20) == 15
+
+    def test_string_int(self):
+        from generators.content_engine import _safe_int
+
+        assert _safe_int("12", 15) == 12
+
+    def test_over_cap(self):
+        from generators.content_engine import _safe_int
+
+        assert _safe_int(25, 20) == 20
+
+    def test_negative(self):
+        from generators.content_engine import _safe_int
+
+        assert _safe_int(-5, 10) == 0
+
+    def test_none(self):
+        from generators.content_engine import _safe_int
+
+        assert _safe_int(None, 10) == 0
+
+    def test_fraction_string(self):
+        """LLM이 '15/20' 같은 문자열 반환 시 첫 숫자 추출."""
+        from generators.content_engine import _safe_int
+
+        assert _safe_int("15/20", 20) == 15
+
+    def test_tilde_prefix(self):
+        """LLM이 '~12' 같은 문자열 반환 시 숫자 추출."""
+        from generators.content_engine import _safe_int
+
+        assert _safe_int("~12", 15) == 12
+
+    def test_garbage_string(self):
+        """숫자 없는 문자열은 0."""
+        from generators.content_engine import _safe_int
+
+        assert _safe_int("high", 10) == 0
+
+
+class TestNaverGuide:
+    """네이버 가이드 검색의도 분류 테스트."""
+
+    def test_naver_guide_has_search_intent(self):
+        """네이버 가이드에 검색 의도 분류가 포함된다."""
+        from prompts.content_generation import build_content_prompt
+
+        prompt = build_content_prompt(
+            platform="naver",
+            project_name="테스트",
+            core_message="테스트 메시지",
+            target_audience="개발자",
+            trend_summary="트렌드 요약",
+            regulation_checklist="체크리스트",
+        )
+        assert "검색 의도 분류" in prompt
+        assert "정보성" in prompt
+        assert "비교형" in prompt
+        assert "How-to" in prompt
+        assert "후기형" in prompt
+        assert "search_intent" in prompt
+
+    def test_naver_guide_has_title_patterns(self):
+        """네이버 가이드에 2026 제목 패턴이 포함된다."""
+        from prompts.content_generation import build_content_prompt
+
+        prompt = build_content_prompt(
+            platform="naver",
+            project_name="테스트",
+            core_message="메시지",
+            target_audience="대상",
+            trend_summary="요약",
+            regulation_checklist="리스트",
+        )
+        assert "제목 패턴" in prompt
+        assert "30~45자" in prompt
+
+
+class TestConfigValidation:
+    """config.validate() 테스트."""
+
+    def test_validate_notion_missing_token(self):
+        """Notion 발행 활성인데 토큰 없으면 ValueError."""
+        import pytest
+
+        from config import CIEConfig
+
+        config = CIEConfig()
+        config.enable_notion_publish = True
+        config.notion_token = ""
+        config.notion_database_id = ""
+        with pytest.raises(ValueError):
+            config.validate()
+
+    def test_validate_x_missing_token(self):
+        """X 발행 활성인데 토큰 없으면 ValueError."""
+        import pytest
+
+        from config import CIEConfig
+
+        config = CIEConfig()
+        config.enable_x_publish = True
+        config.x_access_token = ""
+        with pytest.raises(ValueError):
+            config.validate()
+
+    def test_validate_passes_when_disabled(self):
+        """발행 비활성이면 검증 통과."""
+        from config import CIEConfig
+
+        config = CIEConfig()
+        config.enable_notion_publish = False
+        config.enable_x_publish = False
+        config.validate()  # 예외 없음

@@ -627,6 +627,33 @@ class TestPublishPipeline:
 
 
 class TestDashboardPipeline:
+    def test_dashboard_markdown_uses_na_for_missing_latency_and_empty_models(self):
+        from antigravity_mcp.pipelines.dashboard import _cost_markdown, _health_markdown
+
+        health = _health_markdown(
+            {
+                "last_run_at": None,
+                "last_run_status": None,
+                "success_count_24h": 0,
+                "failure_count_24h": 0,
+                "total_runs_24h": 0,
+                "avg_latency_seconds": None,
+                "error_rate": 0.0,
+            }
+        )
+        cost = _cost_markdown(
+            {
+                "call_count": 0,
+                "cache_hit_count": 0,
+                "estimated_cost_usd": 0.0,
+                "estimated_cost_avoided_usd": 0.0,
+                "cost_by_model": {},
+            }
+        )
+
+        assert "Avg latency: N/A" in health
+        assert "Cache hits: 0 (N/A)" in cost
+
     @pytest.mark.asyncio
     async def test_refresh_dashboard_without_notion(self, state_store):
         from antigravity_mcp.pipelines.dashboard import refresh_dashboard

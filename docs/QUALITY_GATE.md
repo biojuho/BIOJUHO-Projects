@@ -47,13 +47,13 @@ python scripts/run_workspace_smoke.py --scope all
 - `workspace`
   - `tests/test_workspace_regressions.py`
   - `tests/test_workspace_smoke.py`
-  - dashboard frontend build
+  - dashboard frontend lint, unit tests, build, bundle budget
 - `desci`
   - frontend lint, unit tests, build, bundle budget
   - biolinker smoke pytest
 - `agriguard`
   - frontend lint and build
-  - backend compile smoke
+  - backend pytest suite
 - `mcp`
   - compile smoke for tracked MCP paths
   - `automation/DailyNews/tests/unit` pytest suite

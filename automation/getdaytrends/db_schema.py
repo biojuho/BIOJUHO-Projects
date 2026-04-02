@@ -11,6 +11,7 @@ import threading
 import unicodedata
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, UTC
 
 import aiosqlite
 from loguru import logger as log
@@ -349,57 +350,162 @@ async def _init_db_unlocked(conn) -> None:
             detected_at     TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_wh_keyword ON watchlist_hits(keyword, detected_at);
+
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version     INTEGER PRIMARY KEY,
+            description TEXT NOT NULL DEFAULT '',
+            applied_at  TEXT NOT NULL
+        );
     """)
     await conn.commit()
 
-    # 기존 데이터 호환성 (마이그레이션)
+    # ── 버전 기반 마이그레이션 ──
+    await _run_migrations(conn)
+
+
+# ══════════════════════════════════════════════════════
+#  Schema Migration Infrastructure
+# ══════════════════════════════════════════════════════
+
+_CURRENT_SCHEMA_VERSION = 5
+
+
+async def _get_schema_version(conn) -> int:
+    """현재 DB 스키마 버전 조회. schema_version 테이블 없으면 0."""
     try:
-        await conn.execute("SELECT content_type FROM tweets LIMIT 1")
+        cursor = await conn.execute(
+            "SELECT MAX(version) as v FROM schema_version"
+        )
+        row = await cursor.fetchone()
+        v = row["v"] if row else None
+        return v if v is not None else 0
     except Exception:
+        return 0
+
+
+async def _set_schema_version(conn, version: int, description: str) -> None:
+    await conn.execute(
+        "INSERT OR REPLACE INTO schema_version (version, description, applied_at) VALUES (?, ?, ?)",
+        (version, description, datetime.now(UTC).isoformat()),
+    )
+    await conn.commit()
+
+
+async def _table_columns(conn, table: str) -> set[str]:
+    """테이블의 컬럼 이름 목록 반환 (SQLite PRAGMA / PostgreSQL information_schema 호환)."""
+    if isinstance(conn, _PgAdapter):
+        cursor = await conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+            (table,),
+        )
+        rows = await cursor.fetchall()
+        return {r["column_name"] if isinstance(r, dict) else r[0] for r in rows}
+    # SQLite
+    cursor = await conn.execute(f"PRAGMA table_info({table})")
+    rows = await cursor.fetchall()
+    return {(row["name"] if isinstance(row, dict) else row[1]) for row in rows}
+
+
+async def _migrate_v1(conn) -> None:
+    """v1: tweets.content_type 추가 (단문/장문 구분)."""
+    cols = await _table_columns(conn, "tweets")
+    if "content_type" not in cols:
         await conn.execute("ALTER TABLE tweets ADD COLUMN content_type TEXT DEFAULT 'short'")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_run_type ON tweets(run_id, content_type)")
         await conn.commit()
 
-    try:
-        await conn.execute("SELECT fingerprint FROM trends LIMIT 1")
-    except Exception:
+
+async def _migrate_v2(conn) -> None:
+    """v2: trends.fingerprint 추가 (캐시 키)."""
+    cols = await _table_columns(conn, "trends")
+    if "fingerprint" not in cols:
         await conn.execute("ALTER TABLE trends ADD COLUMN fingerprint TEXT DEFAULT ''")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_trends_fingerprint ON trends(fingerprint)")
         await conn.commit()
         await _backfill_fingerprints(conn)
 
-    for _col_name, _col_def in [
+
+async def _migrate_v3(conn) -> None:
+    """v3: tweets 성과추적 + A/B 변형 + 다국어 컬럼."""
+    cols = await _table_columns(conn, "tweets")
+    for col_name, col_def in [
         ("posted_at", "TEXT DEFAULT NULL"),
         ("x_tweet_id", "TEXT DEFAULT ''"),
         ("impressions", "INTEGER DEFAULT 0"),
         ("engagements", "INTEGER DEFAULT 0"),
         ("engagement_rate", "REAL DEFAULT 0.0"),
-        # v3.0: A/B 변형 + 다국어
         ("variant_id", "TEXT DEFAULT ''"),
         ("language", "TEXT DEFAULT 'ko'"),
     ]:
-        try:
-            await conn.execute(f"SELECT {_col_name} FROM tweets LIMIT 1")
-        except Exception:
-            await conn.execute(f"ALTER TABLE tweets ADD COLUMN {_col_name} {_col_def}")
-            await conn.commit()
+        if col_name not in cols:
+            await conn.execute(f"ALTER TABLE tweets ADD COLUMN {col_name} {col_def}")
     await conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_x_tweet_id ON tweets(x_tweet_id)")
     await conn.commit()
 
-    # v3.0: trends 테이블에 sentiment, safety_flag 컬럼 추가
-    for _col_name, _col_def in [
+
+async def _migrate_v4(conn) -> None:
+    """v4: trends 감성필터 + 교차검증 + 중연킥."""
+    cols = await _table_columns(conn, "trends")
+    for col_name, col_def in [
         ("sentiment", "TEXT DEFAULT 'neutral'"),
         ("safety_flag", "INTEGER DEFAULT 0"),
-        # v4.0: 트렌드 교차검증 & 중연 킥 컬럼
         ("cross_source_confidence", "INTEGER DEFAULT 0"),
         ("joongyeon_kick", "INTEGER DEFAULT 0"),
         ("joongyeon_angle", "TEXT DEFAULT ''"),
     ]:
+        if col_name not in cols:
+            await conn.execute(f"ALTER TABLE trends ADD COLUMN {col_name} {col_def}")
+    await conn.commit()
+
+
+async def _migrate_v5(conn) -> None:
+    """v5: schema_version 테이블 자체 (이미 CREATE TABLE로 생성됨). 마커 전용."""
+    pass
+
+
+# 마이그레이션 레지스트리: (버전, 설명, 함수)
+_MIGRATIONS: list[tuple[int, str, any]] = [
+    (1, "tweets.content_type 컬럼", _migrate_v1),
+    (2, "trends.fingerprint 컬럼 + 백필", _migrate_v2),
+    (3, "tweets 성과추적 + A/B + 다국어", _migrate_v3),
+    (4, "trends 감성필터 + 교차검증 + 중연킥", _migrate_v4),
+    (5, "schema_version 인프라 도입", _migrate_v5),
+]
+
+
+async def _run_migrations(conn) -> None:
+    """현재 버전 확인 후 미적용 마이그레이션 순차 실행."""
+    current = await _get_schema_version(conn)
+
+    if current >= _CURRENT_SCHEMA_VERSION:
+        return
+
+    # 기존 DB (schema_version 없이 이미 컬럼이 있는 경우) → 상태 감지
+    if current == 0:
         try:
-            await conn.execute(f"SELECT {_col_name} FROM trends LIMIT 1")
+            cols = await _table_columns(conn, "trends")
+            if "joongyeon_angle" in cols:
+                # v4까지 이미 적용된 기존 DB → v4로 점프
+                current = 4
+                for v in range(1, 5):
+                    desc = next(d for ver, d, _ in _MIGRATIONS if ver == v)
+                    await _set_schema_version(conn, v, f"{desc} (기존 감지)")
         except Exception:
-            await conn.execute(f"ALTER TABLE trends ADD COLUMN {_col_name} {_col_def}")
-            await conn.commit()
+            pass
+
+    pending = [(v, d, fn) for v, d, fn in _MIGRATIONS if v > current]
+    if not pending:
+        # 최신인데 schema_version 레코드만 없는 경우
+        if current == 0:
+            await _set_schema_version(conn, _CURRENT_SCHEMA_VERSION, "초기 설치")
+        return
+
+    for version, description, migrate_fn in pending:
+        log.info(f"[DB Migration] v{version}: {description}")
+        await migrate_fn(conn)
+        await _set_schema_version(conn, version, description)
+
+    log.info(f"[DB Migration] 완료: v{current} → v{_CURRENT_SCHEMA_VERSION}")
 
 
 async def init_db(conn) -> None:

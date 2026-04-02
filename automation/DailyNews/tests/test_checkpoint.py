@@ -14,13 +14,16 @@ class MockSettings:
 @pytest.fixture
 def mock_db_client(monkeypatch):
     monkeypatch.setattr("antigravity_mcp.state.db_client.get_settings", lambda: MockSettings())
-    return CheckpointDBClient()
+    client = CheckpointDBClient()
+    yield client
+    client.close()
 
 @pytest.fixture
 def checkpoint_store(mock_db_client, monkeypatch):
     store = CheckpointStore()
     store.db = mock_db_client
-    return store
+    yield store
+    store.close()
 
 def test_checkpoint_save_and_load_sqlite(checkpoint_store):
     """Test saving and loading a checkpoint using the SQLite fallback."""

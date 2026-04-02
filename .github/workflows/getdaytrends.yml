@@ -61,6 +61,7 @@ jobs:
           TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
           FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY || '' }}
+          DATABASE_URL=${{ secrets.DATABASE_URL || '' }}
           DEFAULT_COUNTRY=${{ github.event.inputs.country || 'korea' }}
           DEFAULT_LIMIT=${{ github.event.inputs.limit || '5' }}
           SCHEDULE_INTERVAL_MINUTES=240
@@ -85,6 +86,11 @@ jobs:
           fi
           python main.py $FLAGS
 
+      - name: Cleanup .env
+        if: always()
+        working-directory: automation/getdaytrends
+        run: rm -f .env
+
       - name: Upload log artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,7 +105,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           curl -s -H "Content-Type: application/json" \
-            -d "{\"content\":\"GetDayTrends run failed (#${{ github.run_number }})\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            -d "{\"content\":\"🔴 GetDayTrends #${{ github.run_number }} failed\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
             "$DISCORD_WEBHOOK_URL" || true
 
       - name: Telegram notification on failure
@@ -111,7 +117,7 @@ jobs:
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] GetDayTrends #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"🔴 GetDayTrends #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
           fi
 
       - name: Telegram heartbeat on success
@@ -124,5 +130,5 @@ jobs:
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] GetDayTrends #${{ github.run_number }} completed\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"✅ GetDayTrends #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nCountry: ${{ github.event.inputs.country || 'korea' }}\"}" || true
           fi
