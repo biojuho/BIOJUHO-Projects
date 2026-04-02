@@ -42,11 +42,15 @@ for candidate in (
         sys.path.insert(0, candidate_text)
 
 app = FastAPI(title="AI Projects Dashboard API", version="1.0")
+
+_raw_origins = os.environ.get("DASHBOARD_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_allowed_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # ── Prometheus Metrics (/metrics) ──────────────────────────
@@ -376,6 +380,77 @@ def dailynews():
     result["table_counts"] = table_counts
 
     return result
+
+
+@app.get("/api/ab_performance")
+def ab_performance():
+    """A/B 패턴 성과 — hook/kick/angle 패턴별 평균 참여율 및 역피드백 현황."""
+    # hook 패턴별 성과
+    hook_stats = _sqlite_read(
+        GDT_DB,
+        """SELECT hook_pattern, COUNT(*) as count,
+                  AVG(engagement_rate) as avg_eng,
+                  AVG(impressions) as avg_imp
+           FROM tweet_performance
+           WHERE hook_pattern != '' AND collected_at >= datetime('now', '-30 days')
+           GROUP BY hook_pattern
+           ORDER BY avg_eng DESC""",
+    )
+
+    # kick 패턴별 성과
+    kick_stats = _sqlite_read(
+        GDT_DB,
+        """SELECT kick_pattern, COUNT(*) as count,
+                  AVG(engagement_rate) as avg_eng
+           FROM tweet_performance
+           WHERE kick_pattern != '' AND collected_at >= datetime('now', '-30 days')
+           GROUP BY kick_pattern
+           ORDER BY avg_eng DESC""",
+    )
+
+    # angle 타입별 성과
+    angle_stats = _sqlite_read(
+        GDT_DB,
+        """SELECT angle_type, COUNT(*) as count,
+                  AVG(engagement_rate) as avg_eng
+           FROM tweet_performance
+           WHERE angle_type != '' AND collected_at >= datetime('now', '-30 days')
+           GROUP BY angle_type
+           ORDER BY avg_eng DESC""",
+    )
+
+    # 총 성과 데이터 포인트 수
+    total_samples = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM tweet_performance") or 0
+
+    # CIE → GDT 역피드백 현황 (content_feedback)
+    feedback_stats = _sqlite_read(
+        GDT_DB,
+        """SELECT
+             COUNT(*) as total,
+             AVG(qa_score) as avg_qa,
+             SUM(CASE WHEN regenerated = 1 THEN 1 ELSE 0 END) as regenerated_count
+           FROM content_feedback
+           WHERE created_at >= datetime('now', '-30 days')""",
+    )
+
+    # 역피드백 일별 추이 (최근 7일)
+    feedback_trend = _sqlite_read(
+        GDT_DB,
+        """SELECT DATE(created_at) as date, COUNT(*) as count, AVG(qa_score) as avg_qa
+           FROM content_feedback
+           WHERE created_at >= datetime('now', '-7 days')
+           GROUP BY DATE(created_at)
+           ORDER BY date""",
+    )
+
+    return {
+        "total_samples": total_samples,
+        "hook_stats": hook_stats,
+        "kick_stats": kick_stats,
+        "angle_stats": angle_stats,
+        "feedback": feedback_stats[0] if feedback_stats else {},
+        "feedback_trend": feedback_trend,
+    }
 
 
 @app.get("/api/costs")
