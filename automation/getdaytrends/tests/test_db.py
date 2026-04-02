@@ -68,6 +68,15 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
         columns = {r["name"] for r in row}
         self.assertIn("content_type", columns)
 
+    @pytest.mark.asyncio
+    async def test_variant_and_language_columns_exist(self):
+        await init_db(self.conn)
+        cursor = await self.conn.execute("PRAGMA table_info(tweets)")
+        row = await cursor.fetchall()
+        columns = {r["name"] for r in row}
+        self.assertIn("variant_id", columns)
+        self.assertIn("language", columns)
+
 
 class TestSaveRun(unittest.IsolatedAsyncioTestCase):
     """실행 기록 저장/업데이트."""

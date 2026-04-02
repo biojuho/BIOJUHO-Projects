@@ -1,8 +1,32 @@
 # Handoff Document
 
 **Last Updated**: 2026-04-02
-**Session Status**: Healthy / Dashboard + Infra + Ops slices committed / Remaining worktree narrowed but still broad
+**Session Status**: Healthy / Workspace QC green / Dashboard + Infra + Ops slices committed / Remaining worktree narrowed
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### GetDayTrends QC restored after schema drift fix
+
+**Status**: PASS
+
+- During workspace QC, `getdaytrends tests` was the only failing scope (`17/18 PASS` before the fix).
+- Root cause:
+  - fresh or drifted DB schemas could miss `tweets.variant_id` and `tweets.language`
+  - save-stage paths in `save_tweets_batch()` and `_step_save()` then failed with SQLite column errors
+- Fixes applied:
+  - added `variant_id` and `language` to the base `tweets` table in `automation/getdaytrends/db_schema.py`
+  - added `_reconcile_latest_schema()` so `init_db()` repairs drifted schemas even when the version marker is already current
+  - added regression coverage in `automation/getdaytrends/tests/test_db.py`
+- Validation:
+  - `python -m pytest tests/test_storage.py tests/test_e2e.py tests/test_notion_content_hub.py tests/test_db.py -q` -> `41 passed`
+  - `python -m pytest tests -q` in `automation/getdaytrends` -> `453 passed, 6 skipped, 1 deselected`
+  - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
+- Important remaining reality:
+  - workspace QC is green again
+  - uncommitted tracked changes still remain in `automation/getdaytrends/dashboard.py`, `automation/getdaytrends/db_schema.py`, `automation/getdaytrends/tests/test_db.py`, `docker-compose.monitoring.yml`, and `ops/monitoring/promtail.yml`
 
 ---
 

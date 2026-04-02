@@ -47,18 +47,31 @@ npm run build:all
 
 ## Daily Snapshot (2026-04-02)
 
-### Live Worktree Checkpoint
+### Workspace QC Restored
 
-**Status**: Complete (`18/18 PASS`, caution on release hygiene)
+**Status**: Complete (`18/18 PASS` after targeted repair)
 
 **Evidence**:
-- `var/reports/workspace-smoke-latest.txt`
-- `var/reports/workspace-smoke-all-latest.txt`
+- `python -m pytest tests -q` in `automation/getdaytrends` -> `453 passed, 6 skipped, 1 deselected`
+- `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
 - `TASKS.md`
 
-**TASKS.md**: Active worktree still dirty, but canonical smoke remains green across workspace, apps, and automation checks
+**TASKS.md**: The save-path schema drift in GetDayTrends was repaired and the workspace is green again, but the worktree is still not release-clean.
 
 ## Recent Sessions (2026-04-02)
+
+### GetDayTrends QC Recovery
+
+**Status**: Complete
+
+**What**:
+- Repaired `init_db()` / migration drift so fresh or drifted DBs regain `tweets.variant_id` and `tweets.language`.
+- Re-ran the focused storage/save-path regressions, the full `automation/getdaytrends` suite, and the workspace smoke matrix.
+
+**Entry points**:
+- `automation/getdaytrends/db_schema.py`
+- `automation/getdaytrends/tests/test_db.py`
+- `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
 
 ### Ops Governance Commit
 

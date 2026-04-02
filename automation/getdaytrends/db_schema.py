@@ -288,6 +288,8 @@ async def _init_db_unlocked(conn) -> None:
             saved_to      TEXT DEFAULT '[]',
             generated_at  TEXT NOT NULL,
             content_type  TEXT DEFAULT 'short',
+            variant_id    TEXT DEFAULT '',
+            language      TEXT DEFAULT 'ko',
             posted_at     TEXT DEFAULT NULL,
             x_tweet_id    TEXT DEFAULT '',
             impressions   INTEGER DEFAULT 0,
@@ -473,11 +475,20 @@ _MIGRATIONS: list[tuple[int, str, any]] = [
 ]
 
 
+async def _reconcile_latest_schema(conn) -> None:
+    """Backfill required columns when the schema marker drifted from actual columns."""
+    await _migrate_v1(conn)
+    await _migrate_v2(conn)
+    await _migrate_v3(conn)
+    await _migrate_v4(conn)
+
+
 async def _run_migrations(conn) -> None:
     """현재 버전 확인 후 미적용 마이그레이션 순차 실행."""
     current = await _get_schema_version(conn)
 
     if current >= _CURRENT_SCHEMA_VERSION:
+        await _reconcile_latest_schema(conn)
         return
 
     # 기존 DB (schema_version 없이 이미 컬럼이 있는 경우) → 상태 감지
@@ -498,12 +509,15 @@ async def _run_migrations(conn) -> None:
         # 최신인데 schema_version 레코드만 없는 경우
         if current == 0:
             await _set_schema_version(conn, _CURRENT_SCHEMA_VERSION, "초기 설치")
+        await _reconcile_latest_schema(conn)
         return
 
     for version, description, migrate_fn in pending:
         log.info(f"[DB Migration] v{version}: {description}")
         await migrate_fn(conn)
         await _set_schema_version(conn, version, description)
+
+    await _reconcile_latest_schema(conn)
 
     log.info(f"[DB Migration] 완료: v{current} → v{_CURRENT_SCHEMA_VERSION}")
 

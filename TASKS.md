@@ -13,17 +13,19 @@
 
 ## IN_PROGRESS
 
-- [ ] **Live worktree checkpoint kept green while changes remain uncommitted**
-  - **Status**: Validation complete, commit split still pending
-  - **Current worktree shape**:
-    - before this record refresh: `70 modified / 38 untracked / 12 deleted`
-    - branch state: `main...origin/main [ahead 3]`
-  - **Active change clusters**:
-    - `automation/content-intelligence` - collector, storage, generator, and smoke coverage updates
-    - `automation/DailyNews` - pipeline refactor, adapter changes, and broader unit coverage
-    - `packages/shared`, `automation/getdaytrends`, and shared runtime / observability alignment
-    - workspace smoke + quality gate docs + remaining session records
-  - **Release stance**: Safe to continue development, not yet release-clean until the active diff is split or committed
+- [ ] **Live worktree remains green while final cleanup and split decisions are still pending**
+  - **Status**: QC repaired and revalidated; commit/cleanup follow-up still pending
+  - **Current tracked changes**:
+    - branch state: `main...origin/main [ahead 4]`
+    - `automation/getdaytrends/dashboard.py`
+    - `automation/getdaytrends/db_schema.py`
+    - `automation/getdaytrends/tests/test_db.py`
+    - `docker-compose.monitoring.yml`
+    - `ops/monitoring/promtail.yml`
+  - **Scratch / generated follow-ups still present**:
+    - local helper files in the repo root
+    - runtime outputs under `var/`
+  - **Release stance**: Safe to continue development, not yet release-clean until the remaining tracked changes are either committed or cleared
   - **Commit guide**:
     - `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
 
@@ -33,6 +35,15 @@
 
 ### 2026-04-02
 
+- [x] **GetDayTrends schema drift fixed and workspace QC restored**
+  - **Result**: Repaired fresh/drifted DB initialization so `tweets.variant_id` and `tweets.language` are present again, which restored save-path tests and the full workspace smoke gate.
+  - **Files**:
+    - `automation/getdaytrends/db_schema.py`
+    - `automation/getdaytrends/tests/test_db.py`
+  - **Validation**:
+    - `python -m pytest tests/test_storage.py tests/test_e2e.py tests/test_notion_content_hub.py tests/test_db.py -q` -> `41 passed`
+    - `python -m pytest tests -q` in `automation/getdaytrends` -> `453 passed, 6 skipped, 1 deselected`
+    - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
 - [x] **Ops governance slice isolated into a standalone commit**
   - **Result**: Split PR triage, debt audit, and monitoring governance changes out of the broad dirty tree into their own commit.
   - **Commit**:

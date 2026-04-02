@@ -26,6 +26,11 @@ Checkpoint created after validating the live worktree against the canonical smok
   - `npm run test`
   - `npm run build`
   - `npm run check:bundle`
+- Validation completed after the later GetDayTrends QC recovery:
+  - root cause repaired: `tweets.variant_id` / `tweets.language` schema drift in fresh or marker-drifted DBs
+  - `python -m pytest tests/test_storage.py tests/test_e2e.py tests/test_notion_content_hub.py tests/test_db.py -q` -> `41 passed`
+  - `python -m pytest tests -q` in `automation/getdaytrends` -> `453 passed, 6 skipped, 1 deselected`
+  - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
 
 ## Snapshot
 
