@@ -24,3 +24,16 @@ scrape_configs:
         target_label: service
       - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
         target_label: project
+
+  - job_name: local_pipelines
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: getdaytrends
+          __path__: /workspace/automation/getdaytrends/*.log
+      - targets:
+          - localhost
+        labels:
+          job: dailynews
+          __path__: /workspace/automation/DailyNews/logs/*.log

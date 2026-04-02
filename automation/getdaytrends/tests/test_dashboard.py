@@ -110,6 +110,58 @@ class TestC3Watchlist:
         assert isinstance(resp.json(), list)
 
 
+class TestDashboardEnhancements:
+    """Tests for newly added log/A-B dashboard helpers."""
+
+    def test_logs_endpoint_falls_back_to_local_file(self, client, tmp_path):
+        base_dir = tmp_path / "getdaytrends"
+        base_dir.mkdir(parents=True)
+        (base_dir / "tweet_bot.log").write_text("line-1\nline-2\nline-3\n", encoding="utf-8")
+
+        mock_http_client = AsyncMock()
+        mock_http_client.get.side_effect = RuntimeError("loki unavailable")
+
+        with patch("dashboard._config") as mock_config, patch("dashboard.httpx.AsyncClient") as mock_client_cls:
+            mock_config.base_dir = base_dir
+            mock_client_cls.return_value.__aenter__.return_value = mock_http_client
+
+            resp = client.get("/api/logs?limit=2")
+
+        assert resp.status_code == 200
+        assert resp.json() == {"logs": ["line-2", "line-3"], "source": "local"}
+
+    def test_ab_test_endpoint_reads_dailynews_results(self, client, tmp_path):
+        workspace_dir = tmp_path / "workspace"
+        base_dir = workspace_dir / "getdaytrends"
+        ab_dir = workspace_dir / "DailyNews" / "output"
+        base_dir.mkdir(parents=True)
+        ab_dir.mkdir(parents=True)
+        (ab_dir / "ab_test_economy_kr_v2.json").write_text(
+            """
+            {
+              "evaluation": {
+                "version_a": {"primary_kpi": 45},
+                "version_b": {"primary_kpi": 90}
+              }
+            }
+            """,
+            encoding="utf-8",
+        )
+
+        with patch("dashboard._config") as mock_config:
+            mock_config.base_dir = base_dir
+
+            resp = client.get("/api/ab_test")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "metrics": {
+                "group_a": {"ctr": 4.5, "conversion": 1.5},
+                "group_b": {"ctr": 9.0, "conversion": 3.0},
+            }
+        }
+
+
 # ── DATABASE_URL Routing Tests ──────────────────────────────────────
 
 

@@ -87,6 +87,34 @@ services:
       retries: 3
       start_period: 15s
 
+  loki:
+    image: grafana/loki:latest
+    container_name: mon-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - mon-network
+    volumes:
+      - mon-loki-data:/loki
+      - ./ops/monitoring/loki.yml:/etc/loki/local-config.yaml:ro
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: mon-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./ops/monitoring/promtail.yml:/etc/promtail/config.yml:ro
+      - .:/workspace:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - mon-network
+    depends_on:
+      loki:
+        condition: service_started
+
 networks:
   mon-network:
     name: ai-projects-mon-network
@@ -97,3 +125,5 @@ volumes:
     name: mon-prometheus-data
   mon-grafana-data:
     name: mon-grafana-data
+  mon-loki-data:
+    name: mon-loki-data
