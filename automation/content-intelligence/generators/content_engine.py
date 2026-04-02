@@ -19,6 +19,7 @@ from storage.models import (
     PersonaFitScore,
     QAAxisDiagnostic,
     QAReport,
+    ThreadPost,
     UnifiedChecklist,
 )
 
@@ -61,6 +62,19 @@ async def generate_platform_content(
     contents = []
     for item in data.get("contents", []):
         self_check = item.get("self_check", {})
+
+        # X 스레드 thread_posts 파싱
+        thread_posts = []
+        for tp in item.get("thread_posts", []):
+            if isinstance(tp, dict):
+                body_text = str(tp.get("body", ""))
+                thread_posts.append(ThreadPost(
+                    index=int(tp.get("index", len(thread_posts))),
+                    role=str(tp.get("role", "body")),
+                    body=body_text,
+                    char_count=len(body_text),
+                ))
+
         content = GeneratedContent(
             platform=platform,
             content_type=item.get("content_type", "post"),
@@ -71,6 +85,7 @@ async def generate_platform_content(
             regulation_compliant=self_check.get("regulation_compliant", False),
             algorithm_optimized=self_check.get("algorithm_optimized", False),
             created_at=datetime.now(),
+            thread_posts=thread_posts,
         )
         contents.append(content)
 

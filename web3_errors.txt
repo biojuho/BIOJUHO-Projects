@@ -1,0 +1,7 @@
+Success: 5
+Failed: 5
+- Fallback invoked for PROD-1 due to internal web3 error
+- Fallback invoked for PROD-3 due to internal web3 error
+- Fallback invoked for PROD-2 due to internal web3 error
+- Fallback invoked for PROD-0 due to internal web3 error
+- Fallback invoked for PROD-4 due to internal web3 error

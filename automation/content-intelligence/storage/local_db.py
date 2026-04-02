@@ -77,6 +77,24 @@ CREATE TABLE IF NOT EXISTS monthly_reviews (
     created_at      TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS content_actual_performance (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_id      INTEGER NOT NULL,
+    platform        TEXT NOT NULL,
+    content_type    TEXT NOT NULL,
+    tweet_id        TEXT DEFAULT '',
+    impressions     INTEGER DEFAULT 0,
+    likes           INTEGER DEFAULT 0,
+    retweets        INTEGER DEFAULT 0,
+    quotes          INTEGER DEFAULT 0,
+    replies         INTEGER DEFAULT 0,
+    bookmarks       INTEGER DEFAULT 0,
+    engagement_rate REAL DEFAULT 0.0,
+    collected_at    TEXT NOT NULL,
+    UNIQUE(content_id, platform)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cap_er ON content_actual_performance(engagement_rate);
 CREATE INDEX IF NOT EXISTS idx_tr_platform ON trend_reports(platform, collected_at);
 CREATE INDEX IF NOT EXISTS idx_gc_platform ON generated_contents(platform, created_at);
 CREATE INDEX IF NOT EXISTS idx_gc_qa ON generated_contents(qa_total_score);

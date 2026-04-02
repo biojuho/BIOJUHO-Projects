@@ -244,11 +244,21 @@ class QAReport:
 
 
 @dataclass
+class ThreadPost:
+    """X 스레드 내 개별 트윗."""
+
+    index: int = 0           # 0-based position in thread
+    role: str = "body"       # "hook" | "body" | "kick"
+    body: str = ""
+    char_count: int = 0
+
+
+@dataclass
 class GeneratedContent:
     """생성된 플랫폼별 콘텐츠."""
 
     platform: str  # "x" | "threads" | "naver"
-    content_type: str  # "post" | "thread" | "blog"
+    content_type: str  # "post" | "thread" | "blog" | "x_thread"
     title: str = ""  # 네이버 블로그 제목
     body: str = ""
     hashtags: list[str] = field(default_factory=list)
@@ -262,6 +272,8 @@ class GeneratedContent:
     publish_target: str = ""  # "notion" | "x" | "naver" | "" (미발행)
     notion_page_id: str = ""  # Notion 페이지 ID
     publish_error: str = ""  # 발행 실패 시 에러 메시지
+    # v3.0: X 스레드 구조
+    thread_posts: list[ThreadPost] = field(default_factory=list)
 
     @property
     def qa_passed(self) -> bool:
@@ -272,6 +284,17 @@ class GeneratedContent:
     @property
     def is_published(self) -> bool:
         return self.published_at is not None
+
+    @property
+    def is_thread(self) -> bool:
+        return self.content_type == "x_thread" and len(self.thread_posts) > 0
+
+    @property
+    def thread_summary(self) -> str:
+        if not self.is_thread:
+            return self.body[:100]
+        parts = [f"[{p.role}] {p.body[:60]}..." for p in self.thread_posts[:3]]
+        return " → ".join(parts)
 
 
 @dataclass

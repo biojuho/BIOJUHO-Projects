@@ -908,3 +908,98 @@ class TestConfigValidation:
         config.enable_notion_publish = False
         config.enable_x_publish = False
         config.validate()  # 예외 없음
+
+
+# ═══════════════════════════════════════════════════
+#  Phase 2: X 스레드 + 성과 수집
+# ═══════════════════════════════════════════════════
+
+
+class TestThreadPost:
+    """X 스레드 모델 테스트."""
+
+    def test_thread_post_creation(self):
+        from storage.models import ThreadPost
+
+        tp = ThreadPost(index=0, role="hook", body="첫 트윗", char_count=3)
+        assert tp.role == "hook"
+        assert tp.index == 0
+
+    def test_generated_content_is_thread(self):
+        from storage.models import GeneratedContent, ThreadPost
+
+        # 스레드가 아닌 일반 콘텐츠
+        normal = GeneratedContent(platform="x", content_type="post", body="test")
+        assert normal.is_thread is False
+
+        # 스레드 콘텐츠
+        thread = GeneratedContent(
+            platform="x", content_type="x_thread",
+            thread_posts=[
+                ThreadPost(index=0, role="hook", body="Hook!"),
+                ThreadPost(index=1, role="body", body="본문"),
+                ThreadPost(index=2, role="kick", body="Kick!"),
+            ],
+        )
+        assert thread.is_thread is True
+        assert "hook" in thread.thread_summary
+        assert "kick" in thread.thread_summary
+
+    def test_thread_summary_empty(self):
+        from storage.models import GeneratedContent
+
+        c = GeneratedContent(platform="x", content_type="post", body="short body")
+        assert c.thread_summary == "short body"
+
+    def test_x_thread_guide_exists(self):
+        """x_thread 플랫폼 가이드가 존재한다."""
+        from prompts.content_generation import build_content_prompt
+
+        prompt = build_content_prompt(
+            platform="x_thread",
+            project_name="테스트",
+            core_message="메시지",
+            target_audience="대상",
+            trend_summary="요약",
+            regulation_checklist="리스트",
+        )
+        assert "Hook 트윗" in prompt
+        assert "Kick 트윗" in prompt
+        assert "thread_posts" in prompt
+
+
+class TestPerformanceTable:
+    """실측 성과 수집 테스트."""
+
+    def test_perf_table_creation(self, tmp_path):
+        """content_actual_performance 테이블이 스키마에 포함."""
+        from config import CIEConfig
+        from storage.local_db import get_connection
+
+        config = CIEConfig()
+        config.sqlite_path = str(tmp_path / "test_perf.db")
+        conn = get_connection(config)
+
+        # 성과 테이블 존재 확인
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+        table_names = [t["name"] for t in tables]
+        assert "content_actual_performance" in table_names
+        conn.close()
+
+    def test_calc_engagement_rate(self):
+        """ER 계산이 정확한지 확인."""
+        from scripts.collect_post_performance import calc_engagement_rate
+
+        metrics = {"impressions": 1000, "likes": 50, "retweets": 10,
+                   "quotes": 5, "replies": 3, "bookmarks": 12}
+        er = calc_engagement_rate(metrics)
+        # (50+10+5+3+12)/1000 = 80/1000 = 8%
+        assert abs(er - 8.0) < 0.01
+
+    def test_calc_engagement_rate_zero_impressions(self):
+        """impression이 0이면 ER도 0."""
+        from scripts.collect_post_performance import calc_engagement_rate
+
+        assert calc_engagement_rate({"impressions": 0}) == 0.0
