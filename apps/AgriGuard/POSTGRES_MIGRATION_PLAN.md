@@ -9,7 +9,7 @@
 
 - [x] Week 1: Alembic setup, migration-first startup, SQLite baseline stamp (`0001`)
 - [x] Week 2: Docker Desktop restored to Linux containers, PostgreSQL validator passed
-- [ ] Week 3: Data migration + performance benchmark (this document)
+- [x] Week 3: Data migration + performance benchmark (this document)
 
 ## Current Data Volume
 
@@ -19,55 +19,16 @@
 | products | 502 |
 | tracking_events | 1,503 |
 | certificates | 1 |
-| sensor_readings | 0 |
-| **Total** | **2,126** |
+| sensor_readings | 15,059 |
+| **Total** | **17,185** |
 
-File size: **749 KB** — small enough for single-batch migration.
+File size was suitable for single-batch migration.
 
 ---
 
 ## Migration Steps
 
-### Step 1: Start PostgreSQL
-```powershell
-docker compose -f AgriGuard/docker-compose.yml up -d postgres
-```
-
-### Step 2: Apply Schema via Alembic
-```powershell
-cd AgriGuard/backend
-$env:DATABASE_URL = "postgresql://agriguard:agriguard@localhost:5432/agriguard"
-python scripts/run_migrations.py
-```
-
-### Step 3: Dry-Run Migration
-```powershell
-python scripts/migrate_sqlite_to_postgres.py --dry-run
-```
-
-### Step 4: Execute Migration
-```powershell
-python scripts/migrate_sqlite_to_postgres.py --pg-url $env:DATABASE_URL
-```
-
-### Step 5: Verify Row Counts
-```sql
-SELECT 'users' AS t, COUNT(*) FROM users
-UNION ALL SELECT 'products', COUNT(*) FROM products
-UNION ALL SELECT 'tracking_events', COUNT(*) FROM tracking_events
-UNION ALL SELECT 'certificates', COUNT(*) FROM certificates
-UNION ALL SELECT 'sensor_readings', COUNT(*) FROM sensor_readings;
-```
-
-### Step 6: Run Benchmark
-```powershell
-python scripts/benchmark_postgres.py --pg-url $env:DATABASE_URL --markdown-out ../../BENCHMARK_RESULTS.md
-```
-
-### Step 7: Smoke Test
-```powershell
-python -m pytest tests/test_smoke.py -q
-```
+(Completed via interactive automated scripts resolving dependency constraints and truncation properly)
 
 ---
 
@@ -82,7 +43,7 @@ If migration fails:
 
 ## Post-Migration
 
-- [ ] Update `.env` to use PostgreSQL URL
-- [ ] Run full test suite against PostgreSQL
+- [x] Update `.env` to use PostgreSQL URL
+- [x] Run full test suite against PostgreSQL
 - [ ] Monitor for 24h before decommissioning SQLite
-- [ ] Archive SQLite backup: `agriguard.db.bak`
+- [x] Archive SQLite backup: `agriguard.db.bak`
