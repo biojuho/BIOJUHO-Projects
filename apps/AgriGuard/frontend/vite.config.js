@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import process from 'node:process'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
+    // Flag chunks over 200KB to catch bundle bloat before deploy
+    chunkSizeWarningLimit: 200,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -17,6 +20,10 @@ export default defineConfig({
         },
       },
     },
+  },
+  // Strip console.log/debugger in production builds
+  esbuild: {
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
   server: {
     proxy: {
