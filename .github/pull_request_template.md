@@ -1,29 +1,53 @@
-## 📋 PR 개요
+## Plain-Language Intent
 
-<!-- 이 PR이 무엇을 변경하는지 간략히 설명해주세요 -->
+<!-- 이 PR이 사람 기준으로 무엇을 바꾸는지 적어주세요.
+기술 용어보다 "누가 무엇을 더 잘 하게 되는지"를 먼저 설명해주세요. -->
 
-**관련 프로젝트**: <!-- DeSci / AgriGuard / GetDayTrends / DailyNews / 기타 -->
-**변경 유형**: <!-- 🐛 버그 수정 / ✨ 기능 추가 / ♻️ 리팩토링 / 📝 문서 / 🔧 인프라 -->
+## Underlying Problem
 
-### 변경 사항
+<!-- 해결하려는 근본 문제를 적어주세요.
+증상만 막는 변경인지, 왜 지금 이 작업이 필요한지도 함께 적어주세요. -->
 
--
--
+## Why This Approach
 
-### 테스트
+<!-- 이 구현이 왜 근본 문제를 푸는 방향인지 적어주세요.
+임시 처방, 국소 패치, 우회 로직이 아니라는 근거가 있으면 같이 적어주세요. -->
 
-- [ ] 단위 테스트 추가/수정
-- [ ] 로컬 빌드 성공 확인
-- [ ] 기존 테스트 통과 확인
+## Human Judgment Needed
 
-### 체크리스트
+- [ ] No special human decision needed
+- [ ] Product behavior or UX decision needed
+- [ ] Architecture or scope decision needed
 
-- [ ] 엣지 케이스 처리 확인
-- [ ] 환경변수 하드코딩 없음
-- [ ] `.env.example` 업데이트 (새 환경변수 추가 시)
-- [ ] 관련 문서 업데이트
-- [ ] 보안 민감 정보 노출 없음
+## Scope
 
-### 스크린샷 (UI 변경 시)
+**Affected projects**: <!-- DeSci / AgriGuard / GetDayTrends / DailyNews / Shared / Ops / Docs / Other -->
+**Change type**: <!-- bug fix / feature / refactor / docs / infra / maintenance -->
+
+### Changes
+
+- change 1
+- change 2
+
+## Validation Plan
+
+- [ ] Unit or integration tests were added or updated where needed
+- [ ] Local build or targeted command succeeded
+- [ ] Existing relevant tests still pass
+- [ ] The exact validation commands are listed below
+
+```bash
+# paste the exact commands you ran
+```
+
+## Checklist
+
+- [ ] Edge cases were considered
+- [ ] No environment variable is hardcoded
+- [ ] `.env.example` was updated if a new environment variable was added
+- [ ] Related docs or runbooks were updated
+- [ ] No security-sensitive data is exposed
+
+## Screenshots (if UI changed)
 
 <!-- 변경 전/후 스크린샷 첨부 -->

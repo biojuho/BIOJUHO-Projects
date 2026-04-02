@@ -1,0 +1,223 @@
+name: Tech Debt Audit
+
+on:
+  schedule:
+    # 매주 월요일 09:00 KST (00:00 UTC)
+    - cron: "0 0 * * 1"
+  push:
+    paths:
+      - "packages/shared/**"
+      - "automation/**/*.py"
+      - "apps/**/*.py"
+      - "ops/scripts/tech_debt_scanner.py"
+  pull_request:
+    paths:
+      - "packages/shared/**"
+      - "automation/**/*.py"
+      - "apps/**/*.py"
+  workflow_dispatch:
+    inputs:
+      unit:
+        description: "특정 unit ID만 스캔 (빈칸 = 전체)"
+        required: false
+        default: ""
+      fail_on_grade:
+        description: "이 등급 이상이면 실패 (A/B/C/D, 빈칸 = 실패 없음)"
+        required: false
+        default: ""
+
+concurrency:
+  group: tech-debt-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debt-audit:
+    name: VibeDebt Scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            automation/DailyNews/requirements.txt
+            automation/getdaytrends/requirements.txt
+
+      - name: Install scanner dependencies
+        run: |
+          pip install --quiet radon
+          # DailyNews/getdaytrends imports 필요 (AST 파싱만 사용하므로 최소 설치)
+          pip install --quiet --no-deps \
+            anthropic httpx aiosqlite structlog pydantic || true
+
+      - name: Run VibeDebt Scanner
+        id: scan
+        run: |
+          mkdir -p var/debt
+
+          SCAN_DATE=$(date -u +%Y-%m-%d)
+          OUTFILE="var/debt/${SCAN_DATE}.json"
+
+          UNIT_ARG=""
+          if [ -n "${{ github.event.inputs.unit }}" ]; then
+            UNIT_ARG="--unit ${{ github.event.inputs.unit }}"
+          fi
+
+          FAIL_ARG=""
+          if [ -n "${{ github.event.inputs.fail_on_grade }}" ]; then
+            FAIL_ARG="--fail-on-grade ${{ github.event.inputs.fail_on_grade }}"
+          fi
+
+          python ops/scripts/tech_debt_scanner.py \
+            --verbose \
+            --json-out "$OUTFILE" \
+            $UNIT_ARG \
+            $FAIL_ARG \
+            | tee /tmp/debt_report.txt
+
+          echo "report_file=$OUTFILE" >> "$GITHUB_OUTPUT"
+          echo "scan_date=$SCAN_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Push metrics to Pushgateway
+        if: success() && env.PUSHGATEWAY_URL != ''
+        env:
+          PUSHGATEWAY_URL: ${{ secrets.PUSHGATEWAY_URL }}
+        run: |
+          python ops/scripts/push_debt_metrics.py \
+            --report-file "${{ steps.scan.outputs.report_file }}" \
+            --gateway "$PUSHGATEWAY_URL" || echo "[WARN] Pushgateway push failed (non-blocking)"
+
+      - name: Parse scores for summary
+        id: parse
+        if: always()
+        run: |
+          OUTFILE="${{ steps.scan.outputs.report_file }}"
+          if [ -f "$OUTFILE" ]; then
+            WS_SCORE=$(python3 -c "import json; d=json.load(open('$OUTFILE')); print(d['workspace_debt_score'])")
+            WS_GRADE=$(python3 -c "import json; d=json.load(open('$OUTFILE')); print(d['workspace_grade'])")
+            TOTAL_H=$(python3 -c "import json; d=json.load(open('$OUTFILE')); print(d['total_remediation_hours'])")
+            TOTAL_TODO=$(python3 -c "import json; d=json.load(open('$OUTFILE')); print(d['summary']['total_todo_count'])")
+            echo "ws_score=$WS_SCORE" >> "$GITHUB_OUTPUT"
+            echo "ws_grade=$WS_GRADE" >> "$GITHUB_OUTPUT"
+            echo "total_hours=$TOTAL_H" >> "$GITHUB_OUTPUT"
+            echo "total_todo=$TOTAL_TODO" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate GitHub Step Summary
+        if: always()
+        run: |
+          SCAN_DATE="${{ steps.scan.outputs.scan_date }}"
+          WS_SCORE="${{ steps.parse.outputs.ws_score }}"
+          WS_GRADE="${{ steps.parse.outputs.ws_grade }}"
+          TOTAL_H="${{ steps.parse.outputs.total_hours }}"
+          TOTAL_TODO="${{ steps.parse.outputs.total_todo }}"
+
+          # 등급별 이모지
+          case "$WS_GRADE" in
+            A) EMOJI="✅" ;;
+            B) EMOJI="🟡" ;;
+            C) EMOJI="🟠" ;;
+            D) EMOJI="🔴" ;;
+            *) EMOJI="⚪" ;;
+          esac
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## ${EMOJI} VibeDebt Audit — ${SCAN_DATE}
+
+          | 지표 | 값 |
+          |------|-----|
+          | 워크스페이스 부채 점수 | **${WS_SCORE}** / 100 |
+          | 등급 | **${WS_GRADE}** |
+          | 예상 해결 시간 (원금) | ${TOTAL_H}h |
+          | TODO/FIXME 총계 | ${TOTAL_TODO}개 |
+
+          ### 등급 기준
+          - **A** (0–15): 건강 — 정기 모니터링
+          - **B** (16–30): 주의 — 주간 리뷰 권장
+          - **C** (31–50): 경고 — 스프린트에 부채 청산 태스크 배정
+          - **D** (51+): 위험 — 리팩토링 우선
+
+          <details>
+          <summary>Full Report</summary>
+
+          \`\`\`
+          $(cat /tmp/debt_report.txt 2>/dev/null || echo "Report not available")
+          \`\`\`
+
+          </details>
+          EOF
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const score = '${{ steps.parse.outputs.ws_score }}';
+            const grade = '${{ steps.parse.outputs.ws_grade }}';
+            const hours = '${{ steps.parse.outputs.total_hours }}';
+            const todo  = '${{ steps.parse.outputs.total_todo }}';
+
+            if (!score) return;
+
+            const emoji = { A: '✅', B: '🟡', C: '🟠', D: '🔴' }[grade] || '⚪';
+            const body = [
+              `## ${emoji} VibeDebt Audit`,
+              '',
+              `| 지표 | 값 |`,
+              `|------|-----|`,
+              `| 부채 점수 | **${score}** / 100 |`,
+              `| 등급 | **${grade}** |`,
+              `| 예상 해결 시간 | ${hours}h |`,
+              `| TODO/FIXME | ${todo}개 |`,
+              '',
+              grade === 'D'
+                ? '> ⚠️ **등급 D**: 심각한 부채 누적. 리팩토링을 우선 검토하세요.'
+                : grade === 'C'
+                ? '> 🔶 **등급 C**: 다음 스프린트에 부채 청산 태스크를 배정하세요.'
+                : '',
+            ].join('\n');
+
+            // 기존 VibeDebt 코멘트 찾아 업데이트
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.login === 'github-actions[bot]' && c.body.includes('VibeDebt Audit')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Upload debt report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debt-report-${{ steps.scan.outputs.scan_date }}
+          path: var/debt/${{ steps.scan.outputs.scan_date }}.json
+          retention-days: 90
+          if-no-files-found: warn

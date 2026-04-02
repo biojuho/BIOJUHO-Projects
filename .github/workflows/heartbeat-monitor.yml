@@ -16,91 +16,85 @@ jobs:
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
-      - name: Check GetDayTrends last run
+      - name: Check pipeline health
         id: check
         uses: actions/github-script@v7
         with:
           script: |
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: "getdaytrends.yml",
-              per_page: 6,
-              status: "completed",
-            });
+            const ONE_DAY = 24 * 60 * 60 * 1000;
+            const oneDayAgo = new Date(Date.now() - ONE_DAY);
 
-            const now = new Date();
-            const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
+            async function checkWorkflow(workflowId, label) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflowId,
+                per_page: 6,
+                status: "completed",
+              });
 
-            const recentSuccess = runs.data.workflow_runs.find(
-              (run) => run.conclusion === "success" && new Date(run.updated_at) > oneDayAgo,
-            );
+              const recent = runs.data.workflow_runs.filter(
+                (r) => new Date(r.updated_at) > oneDayAgo,
+              );
+              const success = recent.find((r) => r.conclusion === "success");
+              const failure = recent.find((r) => r.conclusion === "failure");
 
-            const recentFailure = runs.data.workflow_runs.find(
-              (run) => run.conclusion === "failure" && new Date(run.updated_at) > oneDayAgo,
-            );
+              let status = "healthy";
+              if (failure && !success) status = "failing";
+              else if (!success && !failure) status = "silent";
 
-            let status = "healthy";
-            let message = "";
-
-            if (recentFailure && !recentSuccess) {
-              status = "failing";
-              message = `Recent workflow run failed: ${recentFailure.html_url}`;
-            } else if (!recentSuccess && !recentFailure) {
-              status = "silent";
-              message = "No completed GetDayTrends run was recorded in the last 24 hours.";
-              const lastRun = runs.data.workflow_runs[0];
-              if (lastRun) {
-                message += ` Last run: ${lastRun.updated_at} (${lastRun.conclusion}).`;
-              }
+              return { label, status, runs24h: recent.length, lastRun: runs.data.workflow_runs[0] };
             }
 
-            core.setOutput("status", status);
-            core.setOutput("message", message);
-            core.setOutput(
-              "total_runs_24h",
-              runs.data.workflow_runs.filter((run) => new Date(run.updated_at) > oneDayAgo).length,
-            );
+            const gdt = await checkWorkflow("getdaytrends.yml", "GetDayTrends");
+            const dn = await checkWorkflow("dailynews-pipeline.yml", "DailyNews");
+
+            const allHealthy = gdt.status === "healthy" && dn.status === "healthy";
+            const results = [gdt, dn];
+
+            let summary = results.map((r) => {
+              const emoji = r.status === "healthy" ? "✅" : r.status === "failing" ? "🔴" : "⚠️";
+              const last = r.lastRun ? `${r.lastRun.updated_at} (${r.lastRun.conclusion})` : "never";
+              return `${emoji} ${r.label}: ${r.status} (${r.runs24h} runs/24h, last: ${last})`;
+            }).join("\n");
+
+            core.setOutput("all_healthy", allHealthy);
+            core.setOutput("summary", summary);
+            core.setOutput("gdt_status", gdt.status);
+            core.setOutput("dn_status", dn.status);
 
       - name: Alert on heartbeat failure
-        if: steps.check.outputs.status != 'healthy'
+        if: steps.check.outputs.all_healthy != 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          STATUS="${{ steps.check.outputs.status }}"
-          MSG="${{ steps.check.outputs.message }}"
-          RUNS="${{ steps.check.outputs.total_runs_24h }}"
-
-          if [ "$STATUS" = "silent" ]; then
-            TITLE="Scheduler heartbeat missing"
-          else
-            TITLE="Scheduler heartbeat failing"
-          fi
+          SUMMARY="${{ steps.check.outputs.summary }}"
 
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
             curl -s -H "Content-Type: application/json" \
-              -d "{\"content\":\"${TITLE}\\n24h runs: ${RUNS}\\n${MSG}\"}" \
+              -d "{\"content\":\"⚠️ **Daily Heartbeat Alert**\n${SUMMARY}\"}" \
               "$DISCORD_WEBHOOK_URL" || true
           fi
 
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"${TITLE}\n24h runs: ${RUNS}\n${MSG}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"⚠️ Daily Heartbeat Alert\n${SUMMARY}\"}" || true
           fi
 
       - name: Heartbeat summary
         if: always()
         run: |
-          STATUS="${{ steps.check.outputs.status }}"
-          RUNS="${{ steps.check.outputs.total_runs_24h }}"
-
           cat <<EOF >> $GITHUB_STEP_SUMMARY
-          ### Scheduler Heartbeat
+          ### 📊 Daily Scheduler Heartbeat
 
-          - Status: ${STATUS}
-          - Runs in last 24h: ${RUNS}
-          - Message: ${{ steps.check.outputs.message || 'healthy' }}
+          | Pipeline | Status |
+          |:---|:---|
+          | GetDayTrends | ${{ steps.check.outputs.gdt_status }} |
+          | DailyNews | ${{ steps.check.outputs.dn_status }} |
+
+          **Details:**
+          ${{ steps.check.outputs.summary }}
           EOF
