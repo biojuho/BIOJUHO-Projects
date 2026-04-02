@@ -16,6 +16,14 @@
 #   - .env 파일 설정 (루트 및 각 프로젝트)
 #   - 최소 8GB RAM, 20GB 디스크 여유 공간
 #
+# 포트 정책:
+#   이 통합 compose는 apps/AgriGuard/docker-compose.yml과
+#   동시에 실행할 수 있도록 분리된 포트를 사용합니다.
+#   - PostgreSQL: 5433 (AgriGuard 독립: 5432)
+#   - MQTT:       1884 (AgriGuard 독립: 1883)
+#   - Backend:    8003 (AgriGuard 독립: 8002)
+#   환경변수로 포트를 오버라이드할 수 있습니다.
+#
 # ===================================================
 
 # ─────────────────────────────────────────────────
@@ -29,7 +37,7 @@ services:
     container_name: dev-postgres
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"  # 5433: AgriGuard 독립 compose(5432)와 충돌 방지
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -86,8 +94,8 @@ services:
     container_name: dev-mosquitto
     restart: unless-stopped
     ports:
-      - "1883:1883"  # MQTT
-      - "9001:9001"  # WebSocket (선택)
+      - "${MQTT_PORT:-1884}:1883"  # 1884: AgriGuard 독립 compose(1883)와 충돌 방지
+      - "${MQTT_WS_PORT:-9001}:9001"  # WebSocket (선택)
     volumes:
       - ./apps/AgriGuard/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
@@ -247,11 +255,11 @@ services:
     container_name: dev-agriguard-backend
     restart: unless-stopped
     ports:
-      - "8002:8002"
+      - "${AGRIGUARD_PORT:-8003}:8002"  # 8003: AgriGuard 독립 compose(8002)와 충돌 방지
     environment:
       - ENV=development
       - ALLOW_TEST_BYPASS=true
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agriguard
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agriguard  # 컨테이너 내부 포트(5432) 사용 — 호스트 포트와 무관
       - AUTO_CREATE_SCHEMA=false  # Use Alembic migrations
       - MQTT_BROKER_HOST=mosquitto
       - MQTT_BROKER_PORT=1883
@@ -291,8 +299,8 @@ services:
     ports:
       - "5174:5174"
     environment:
-      - VITE_API_URL=http://localhost:8002
-      - VITE_MQTT_BROKER_URL=ws://localhost:9001
+      - VITE_API_URL=http://localhost:${AGRIGUARD_PORT:-8003}
+      - VITE_MQTT_BROKER_URL=ws://localhost:${MQTT_WS_PORT:-9001}
     volumes:
       - ./apps/AgriGuard/frontend/src:/app/src:cached
       - /app/node_modules

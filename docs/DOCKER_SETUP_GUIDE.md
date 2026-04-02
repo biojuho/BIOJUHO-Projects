@@ -114,7 +114,10 @@ ANTHROPIC_API_KEY=your_anthropic_api_key (선택)
 # PostgreSQL
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_postgres_password
-POSTGRES_PORT=5432
+POSTGRES_PORT=5433
+MQTT_PORT=1884
+MQTT_WS_PORT=9001
+AGRIGUARD_PORT=8003
 
 # Firebase (DeSci Platform)
 VITE_FIREBASE_API_KEY=your_firebase_api_key
@@ -147,13 +150,15 @@ docker compose -f docker-compose.dev.yml ps
 ```
 
 **실행되는 서비스:**
-- PostgreSQL (5432)
+- PostgreSQL (5433)
 - ChromaDB (8001)
-- Mosquitto MQTT (1883)
+- Mosquitto MQTT (1884)
 - DeSci BioLinker API (8000)
 - DeSci Frontend (5173)
-- AgriGuard Backend API (8002)
+- AgriGuard Backend API (8003)
 - AgriGuard Frontend (5174)
+
+`apps/AgriGuard/docker-compose.yml` 독립 스택은 기존 포트 `5432`, `1883`, `8002`를 계속 사용합니다.
 
 ### 2. 특정 프로젝트만 실행
 
@@ -176,7 +181,7 @@ docker compose -f docker-compose.dev.yml up postgres mosquitto agriguard-backend
 | **DeSci Frontend** | http://localhost:5173 | Research Matching UI |
 | **DeSci API Docs** | http://localhost:8000/docs | Swagger UI |
 | **AgriGuard Frontend** | http://localhost:5174 | Supply Chain Tracking UI |
-| **AgriGuard API Docs** | http://localhost:8002/docs | Swagger UI |
+| **AgriGuard API Docs** | http://localhost:8003/docs | Swagger UI |
 | **ChromaDB** | http://localhost:8001 | Vector DB Dashboard |
 | **pgAdmin** | http://localhost:5050 | PostgreSQL UI (--profile tools) |
 
@@ -199,7 +204,7 @@ docker compose -f docker-compose.dev.yml down -v
 
 ### 1. 공유 인프라
 
-#### PostgreSQL (포트: 5432)
+#### PostgreSQL (포트: 5433)
 - **용도**: 메인 데이터베이스 (DeSci, AgriGuard)
 - **데이터베이스**: `biolinker`, `agriguard`, `getdaytrends`, `dailynews`
 - **Health Check**: `pg_isready`
@@ -210,9 +215,9 @@ docker compose -f docker-compose.dev.yml down -v
 - **API**: http://localhost:8001
 - **볼륨**: `dev-chroma-data`
 
-#### Mosquitto MQTT (포트: 1883, 9001)
+#### Mosquitto MQTT (포트: 1884, 9001)
 - **용도**: IoT 센서 메시지 브로커 (AgriGuard)
-- **MQTT**: 1883 (TCP)
+- **MQTT**: 1884 (TCP)
 - **WebSocket**: 9001
 - **볼륨**: `dev-mosquitto-data`
 
@@ -239,7 +244,7 @@ docker compose -f docker-compose.dev.yml down -v
 
 ### 3. AgriGuard Platform
 
-#### AgriGuard Backend API (포트: 8002)
+#### AgriGuard Backend API (포트: 8003)
 - **Framework**: FastAPI
 - **Features**:
   - Supply Chain Tracking
@@ -469,6 +474,8 @@ kill -9 <PID>
 ```env
 # .env 파일에서 포트 변경
 POSTGRES_PORT=5433
+MQTT_PORT=1884
+AGRIGUARD_PORT=8003
 ```
 
 ### 3. 볼륨 권한 문제 (Linux/macOS)

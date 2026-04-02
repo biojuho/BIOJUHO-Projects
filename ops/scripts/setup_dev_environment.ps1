@@ -320,11 +320,13 @@ if ($waited -ge $maxWait) {
 
 Write-Header "4. Access Information"
 
+$agriguardPort = if ($env:AGRIGUARD_PORT) { $env:AGRIGUARD_PORT } else { "8003" }
+
 $services = @{
     "DeSci Frontend" = "http://localhost:5173"
     "DeSci API (Swagger)" = "http://localhost:8000/docs"
     "AgriGuard Frontend" = "http://localhost:5174"
-    "AgriGuard API (Swagger)" = "http://localhost:8002/docs"
+    "AgriGuard API (Swagger)" = "http://localhost:$agriguardPort/docs"
     "ChromaDB" = "http://localhost:8001"
 }
 

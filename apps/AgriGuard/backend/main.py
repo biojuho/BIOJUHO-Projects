@@ -19,15 +19,19 @@ from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 # ── Observability (Logfire) ─────────────────────────────────
-for candidate in Path(__file__).resolve().parents:
-    if (candidate / "shared" / "observability.py").exists():
-        sys.path.insert(0, str(candidate))
-        break
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
+if str(_WORKSPACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(_WORKSPACE_ROOT))
+
 try:
     from shared.observability import setup_observability
 
     _LOGFIRE_OK = True
 except ImportError:
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "shared.observability를 찾을 수 없습니다 — Logfire 비활성 (WORKSPACE_ROOT=%s)", _WORKSPACE_ROOT
+    )
     _LOGFIRE_OK = False
 
 try:
@@ -82,9 +86,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+_SECRET_KEY = os.environ.get("SECRET_KEY", "")
+if not _SECRET_KEY:
+    import warnings  # noqa: E402
+    warnings.warn(
+        "SECRET_KEY is not set! Using an insecure default. "
+        "Set SECRET_KEY environment variable for production.",
+        stacklevel=1,
+    )
+    _SECRET_KEY = "INSECURE-DEV-ONLY-" + os.urandom(16).hex()
+
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ.get("SECRET_KEY", "agriguard-dev-secret-change-me"),
+    secret_key=_SECRET_KEY,
 )
 
 # ── Admin Panel (/admin) ────────────────────────────────────
@@ -174,7 +188,7 @@ def read_root():
 def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
     farmer_count = db.query(models.User).filter(models.User.role == "Farmer").count()
     total_products = db.query(models.Product).count()
-    harvested_products = db.query(models.Product).filter(models.Product.harvest_date != None).count()
+    harvested_products = db.query(models.Product).filter(models.Product.harvest_date != None).count()  # noqa: E711 — SQLAlchemy requires != None for IS NOT NULL
     active_cycles = total_products - harvested_products
 
     recent_events = db.query(models.TrackingEvent).order_by(models.TrackingEvent.timestamp.desc()).limit(5).all()
@@ -322,7 +336,7 @@ def add_certification(
         return product
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Certification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Certification failed: {str(e)}") from e
 
 
 @app.post("/products/{product_id}/track")
@@ -361,7 +375,7 @@ def add_tracking_event(
         return {"status": "success", "event": {"id": event.id, "status": event.status, "location": event.location}}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Tracking event failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Tracking event failed: {str(e)}") from e
 
 
 @app.post("/qr-events", response_model=schemas.QRScanEventResponse)
@@ -395,7 +409,7 @@ def capture_qr_scan_event(payload: schemas.QRScanEventCreate, db: Session = Depe
         return {"status": "success", "event_id": event.id}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"QR event capture failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"QR event capture failed: {str(e)}") from e
 
 
 @app.get("/qr-events/summary")
