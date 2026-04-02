@@ -1,8 +1,135 @@
 # Handoff Document
 
-**Last Updated**: 2026-04-02
-**Session Status**: Healthy / Workspace QC green / Dashboard + Infra + Ops slices committed / Remaining worktree narrowed
+**Last Updated**: 2026-04-03
+**Session Status**: Healthy / Full QC GREEN (924 tests) / P0-P1 hardening applied to getdaytrends
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-03)
+
+### GetDayTrends P0/P1 심층 리뷰 + 즉시 수정 + Full QC
+
+**Status**: PASS
+
+- 제3자 풀스택 관점 심층 리뷰 후 P0 3건 + P1 3건 즉시 수정:
+  - **P0-1**: Twikit 쿠키 Fernet 암호화 (`x_client.py`) — `TWIKIT_COOKIE_SECRET` 환경변수 기반 PBKDF2 키 도출
+  - **P0-2**: 프로세스 lockfile (`main.py`) — `data/getdaytrends.lock` PID 기반 중복 실행 방지
+  - **P0-3**: 예산 90% 세이프티 버퍼 (`core/pipeline.py`) — 동시 읽기 race condition 방어
+  - **P1-1**: 데드코드 `fix_mojibake*.py` 2개 → `archive/`
+  - **P1-2**: `db_schema.py` schema_version 테이블 + 버전 기반 마이그레이션 레지스트리 (v1~v5)
+  - **P1-3**: V9.0 문서 혼재 정리 → `archive/`
+- 리뷰 오진 정정: `storage.py`(1개만 존재), `context_collector.py`/`content_qa.py`/`canva.py`(활발히 임포트) → 데드코드 아님
+- Full workspace QC:
+  - `pytest automation/getdaytrends/tests/` → **459 passed**, 6 skipped
+  - `pytest automation/DailyNews/tests/` → **249 passed**
+  - `pytest tests/` → **216 passed**
+  - **총 924 tests GREEN**
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### getdaytrends V2.0 scope narrowed and X auto-publish excluded
+
+**Status**: READY FOR APPROVAL
+
+- Added `getdaytrends`-specific PM reset docs:
+  - `docs/reports/2026-04/GETDAYTRENDS_V2_PRD_2026-04-02.md`
+  - `docs/reports/2026-04/GETDAYTRENDS_V2_WORKFLOW_2026-04-02.md`
+- Key direction locked in these drafts:
+  - the core product output is `publish-ready draft queue`, not autonomous external posting
+  - X remains a manual-assisted channel only
+  - full X auto-publish is excluded from the V2.0 default path because of account risk
+- This follow-up was documentation-only.
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### PM reset docs drafted for Content Automation V2.0
+
+**Status**: READY FOR APPROVAL
+
+- Added the product reset documents requested before implementation resumes:
+  - `docs/reports/2026-04/CONTENT_AUTOMATION_V2_PRD_2026-04-02.md`
+  - `docs/reports/2026-04/CONTENT_AUTOMATION_V2_MODULE_CONTRACT_2026-04-02.md`
+- The new docs define:
+  - the North Star and canonical workflow for the content automation product
+  - explicit milestone non-goals and success metrics
+  - module ownership boundaries, DTO contracts, event contracts, and forbidden integration patterns
+- No code changes were made in this follow-up; this was a planning/documentation-only pass.
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### Architecture review checklist created and first hardening slice applied
+
+**Status**: PASS WITH LIVE WORKTREE FOLLOW-UP
+
+- Added a review and execution checklist:
+  - `docs/reports/2026-04/VIBE_CODING_ARCH_REVIEW_2026-04-02.md`
+- Applied the first two architecture-hardening fixes from that review:
+  - AgriGuard cache fallback in `apps/AgriGuard/backend/main.py` now preserves the `incr/delete/exists/close` contract even when the shared cache package cannot be imported.
+  - `automation/content-intelligence/storage/x_publisher.py` no longer depends on an imaginary `XClient`; it now uses async `httpx` calls with an explicit OAuth 2.0 user-context token expectation.
+  - `automation/content-intelligence/config.py` and `.env.example` now describe the X token as a PKCE user-context token instead of a generic bearer token.
+  - Added regression coverage in `automation/content-intelligence/tests/test_smoke.py`.
+- Validation:
+  - forced cache-fallback regression check with both `shared.cache` import paths blocked -> `cache.incr(...) == 1`
+  - `python -m pytest automation/content-intelligence/tests/test_smoke.py -q` -> `77 passed`
+  - `python -m pytest apps/AgriGuard/backend/tests/test_smoke.py -q -k "not test_qr_ab_script_handles_missing_variant_data"` -> `5 passed, 1 deselected`
+  - `python ops/scripts/run_workspace_smoke.py --scope workspace` -> `5/5 PASS`
+  - `python ops/scripts/run_workspace_smoke.py --scope agriguard` -> `3/3 PASS`
+- Important reality after the hardening slice:
+  - the latest targeted validation is green
+  - `python ops/scripts/run_workspace_smoke.py --scope all` was retried twice but timed out locally, so no fresh all-scope number was recorded in this follow-up
+  - the live worktree is no longer AgriGuard-only because the X publish hardening touched `automation/content-intelligence/` and added the architecture review report
+
+---
+
+## Latest Follow-Up (2026-04-02)
+
+### Push-prep checkpoint synced to the current ahead-12 branch state
+
+**Status**: PASS WITH REMAINING AGRIGUARD WORKTREE
+
+- Current git state at checkpoint time:
+  - branch: `main...origin/main [ahead 12]`
+  - remaining uncommitted files:
+    - `apps/AgriGuard/backend/iot_service.py`
+    - `apps/AgriGuard/backend/main.py`
+    - `apps/AgriGuard/backend/models.py`
+    - `apps/AgriGuard/frontend/src/components/ColdChainMonitor.jsx`
+    - `apps/AgriGuard/frontend/vite.config.js`
+    - `apps/AgriGuard/frontend/src/hooks/`
+- Ahead commit stack recorded for push prep:
+  - `b06f8f3 feat(dashboard): add ab performance panel and frontend tests`
+  - `db27e71 chore(infra): align agriguard ports and ci baselines`
+  - `b6b8cd3 feat(ops): add pr triage and vibedebt audit`
+  - `2f0bb37 feat(workspace): Stabilize pipelines, unify shared modules, upgrade Pro Dashboard`
+  - `a3522b6 chore(agriguard): Complete PostgreSQL Week 3 migration locally`
+  - `bc1a2cd fix(getdaytrends): restore qc after schema drift`
+  - `13e2393 feat(getdaytrends): add dashboard logs and monitoring stack`
+  - `15afa12 chore(getdaytrends): add TWIKIT_COOKIE_SECRET to .env.example`
+  - `c2eed30 [Infra & Web3] Zero-Risk 모니터링 Healthcheck 복구 및 통합 논스 분리`
+  - `8f4cd3c chore(cleanup): remove temporary error outputs`
+  - `cd7ffb5 fix(agriguard): satisfy vite config lint`
+  - `7ad6552 feat(getdaytrends): add shared cache and hot-path indexes`
+- Latest validation chain:
+  - full workspace smoke after the AgriGuard lint fix: `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
+  - dashboard/monitoring slice:
+    - `python -m pytest tests/test_dashboard.py -q` in `automation/getdaytrends` -> `13 passed`
+    - `docker compose -f docker-compose.monitoring.yml config` -> valid
+    - Loki `/ready` -> `ready`
+  - shared-cache + DB hardening slice:
+    - `python -m pytest automation/getdaytrends/tests/test_db.py -q` -> `27 passed`
+    - `python -m pytest packages/shared/tests/test_cache.py -q` -> `15 passed`
+    - `python ops/scripts/run_workspace_smoke.py --scope getdaytrends` -> `2/2 PASS`
+    - `docker compose -f docker-compose.dev.yml config --services` -> valid, `redis` included
+- Important remaining reality:
+  - push readiness is strong from a QC perspective
+  - the repo is still not worktree-clean because the remaining unsplit diff is concentrated in AgriGuard only
 
 ---
 

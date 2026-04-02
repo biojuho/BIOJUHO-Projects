@@ -44,21 +44,115 @@ npm run build:all
 - `CONTRIBUTING.md`
 - `docs/QUALITY_GATE.md`
 - `docs/reports/2026-03/COMPREHENSIVE_PROJECT_HEALTH_REPORT.md`
+- `docs/reports/2026-04/GETDAYTRENDS_V2_PRD_2026-04-02.md`
+- `docs/reports/2026-04/GETDAYTRENDS_V2_WORKFLOW_2026-04-02.md`
+- `docs/reports/2026-04/CONTENT_AUTOMATION_V2_PRD_2026-04-02.md`
+- `docs/reports/2026-04/CONTENT_AUTOMATION_V2_MODULE_CONTRACT_2026-04-02.md`
 
 ## Daily Snapshot (2026-04-02)
 
-### Workspace QC Restored
+### getdaytrends V2.0 Reset
 
-**Status**: Complete (`18/18 PASS` after targeted repair)
+**Status**: Drafted
 
 **Evidence**:
-- `python -m pytest tests -q` in `automation/getdaytrends` -> `453 passed, 6 skipped, 1 deselected`
+- `docs/reports/2026-04/GETDAYTRENDS_V2_PRD_2026-04-02.md`
+- `docs/reports/2026-04/GETDAYTRENDS_V2_WORKFLOW_2026-04-02.md`
+
+**TASKS.md**: `getdaytrends` V2.0 is now framed around `publish-ready draft queue`; X auto-publish is excluded from the default workflow.
+
+### PM Reset Docs
+
+**Status**: Drafted
+
+**Evidence**:
+- `docs/reports/2026-04/CONTENT_AUTOMATION_V2_PRD_2026-04-02.md`
+- `docs/reports/2026-04/CONTENT_AUTOMATION_V2_MODULE_CONTRACT_2026-04-02.md`
+
+**TASKS.md**: Implementation should now be guided by the approved V2 workflow and module contracts, not by local issue-by-issue expansion.
+
+### Architecture Review Follow-up
+
+**Status**: In progress (`main...origin/main [ahead 12]`)
+
+**Evidence**:
+- `python -m pytest automation/content-intelligence/tests/test_smoke.py -q` -> `77 passed`
+- `python ops/scripts/run_workspace_smoke.py --scope workspace` -> `5/5 PASS`
+- `python ops/scripts/run_workspace_smoke.py --scope agriguard` -> `3/3 PASS`
+- `docs/reports/2026-04/VIBE_CODING_ARCH_REVIEW_2026-04-02.md`
+
+**TASKS.md**: The live worktree is no longer AgriGuard-only; it now includes content-intelligence X-publish hardening and the architecture review report.
+
+### Push-prep Branch Checkpoint
+
+**Status**: Recorded (`main...origin/main [ahead 12]`)
+
+**Evidence**:
 - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
+- `python -m pytest automation/getdaytrends/tests/test_db.py -q` -> `27 passed`
+- `python -m pytest packages/shared/tests/test_cache.py -q` -> `15 passed`
+- `python ops/scripts/run_workspace_smoke.py --scope getdaytrends` -> `2/2 PASS`
 - `TASKS.md`
 
-**TASKS.md**: The save-path schema drift in GetDayTrends was repaired and the workspace is green again, but the worktree is still not release-clean.
+**TASKS.md**: Most split commits are now recorded; the remaining live worktree now spans AgriGuard plus content-intelligence hardening.
 
 ## Recent Sessions (2026-04-02)
+
+### Push-prep Docs Sync
+
+**Status**: Complete
+
+**What**:
+- Re-synced `HANDOFF.md`, `TASKS.md`, `CONTEXT.md`, and the triage report to the actual ahead-12 branch state.
+- Recorded the full commit stack, current QC posture, and the remaining live AgriGuard diff so the next session can resume without re-triaging.
+
+**Entry points**:
+- `HANDOFF.md`
+- `TASKS.md`
+- `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
+
+### Shared Cache + Hot-path Index Commit
+
+**Status**: Complete
+
+**What**:
+- Added `shared.cache` as a repo-wide Redis-backed cache layer with no-op fallback.
+- Wired `automation/getdaytrends/db.py` into the cache for duplicate detection and content reuse.
+- Added DB indexes for hot query paths and regression tests for both cache and schema behavior.
+
+**Entry points**:
+- `automation/getdaytrends/db.py`
+- `automation/getdaytrends/db_schema.py`
+- `automation/getdaytrends/tests/test_db.py`
+- `packages/shared/cache.py`
+- `packages/shared/tests/test_cache.py`
+- `docker-compose.dev.yml`
+
+### AgriGuard Lint Gate Closure
+
+**Status**: Complete
+
+**What**:
+- Fixed the only failing workspace smoke check by making the AgriGuard Vite config explicit about `process` in Node ESM.
+- Re-ran the full workspace smoke matrix to confirm `18/18 PASS`.
+
+**Entry points**:
+- `apps/AgriGuard/frontend/vite.config.js`
+- `ops/scripts/run_workspace_smoke.py`
+
+### Dashboard Monitoring Commit
+
+**Status**: Complete
+
+**What**:
+- Added GetDayTrends dashboard-side log viewing, DailyNews A/B result visibility, and Loki/Promtail monitoring support.
+- Verified the monitoring compose file and Loki readiness locally.
+
+**Entry points**:
+- `automation/getdaytrends/dashboard.py`
+- `automation/getdaytrends/tests/test_dashboard.py`
+- `docker-compose.monitoring.yml`
+- `ops/monitoring/promtail.yml`
 
 ### GetDayTrends QC Recovery
 

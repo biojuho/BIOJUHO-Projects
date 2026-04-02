@@ -1,0 +1,35 @@
+﻿ M CONTEXT.md
+ M HANDOFF.md
+ M TASKS.md
+ M apps/AgriGuard/backend/iot_service.py
+ M apps/AgriGuard/backend/main.py
+ M apps/AgriGuard/backend/models.py
+ M apps/AgriGuard/frontend/src/components/ColdChainMonitor.jsx
+ M apps/AgriGuard/frontend/vite.config.js
+ M automation/content-intelligence/.env.example
+ M automation/content-intelligence/config.py
+ M automation/content-intelligence/storage/x_publisher.py
+ M automation/content-intelligence/tests/test_smoke.py
+ M docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md
+?? .dn_logs_tmp.txt
+?? .gdt_last_run.txt
+?? .gdt_logs_tmp.txt
+?? .gh_runs_tmp.txt
+?? .git_log_tmp.txt
+?? .git_status.txt
+?? .remote_tmp.txt
+?? .schtasks_detail.txt
+?? .schtasks_gdt.txt
+?? apps/AgriGuard/frontend/src/hooks/
+?? docs/reports/2026-04/CONTENT_AUTOMATION_V2_MODULE_CONTRACT_2026-04-02.md
+?? docs/reports/2026-04/CONTENT_AUTOMATION_V2_PRD_2026-04-02.md
+?? docs/reports/2026-04/GETDAYTRENDS_V2_PRD_2026-04-02.md
+?? docs/reports/2026-04/GETDAYTRENDS_V2_WORKFLOW_2026-04-02.md
+?? docs/reports/2026-04/VIBE_CODING_ARCH_REVIEW_2026-04-02.md
+b7a2e29 test(getdaytrends): expand PgAdapter test suite (1??6) + dashboard DB routing tests + fix db.py Mojibake
+7401bf0 chore(getdaytrends): Finalize PostgreSQL migration test infrastructure and clean residual mojibake
+23d026c chore(getdaytrends): full infrastructure stabilization, encoding fixes, and testing
+---
+7ad6552 feat(getdaytrends): add shared cache and hot-path indexes
+cd7ffb5 fix(agriguard): satisfy vite config lint
+8f4cd3c chore(cleanup): remove temporary error outputs

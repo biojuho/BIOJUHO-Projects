@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # ── CIE 루트를 PYTHONPATH에 추가 ──
 _CIE_DIR = Path(__file__).resolve().parents[1]
@@ -908,6 +910,102 @@ class TestConfigValidation:
         config.enable_notion_publish = False
         config.enable_x_publish = False
         config.validate()  # 예외 없음
+
+
+class TestXPublisher:
+    @staticmethod
+    def _make_content():
+        from storage.models import GeneratedContent, QAReport
+
+        return GeneratedContent(
+            platform="x",
+            content_type="post",
+            body="테스트용 게시물 본문입니다.",
+            hashtags=["ai", "automation"],
+            regulation_compliant=True,
+            qa_report=QAReport(
+                hook_score=15,
+                fact_score=12,
+                tone_score=12,
+                kick_score=11,
+                angle_score=11,
+                regulation_score=8,
+                algorithm_score=9,
+            ),
+        )
+
+    def test_validate_x_requires_user_context_token_message(self, capsys):
+        import pytest
+
+        from config import CIEConfig
+
+        config = CIEConfig()
+        config.enable_x_publish = True
+        config.x_access_token = "   "
+
+        with pytest.raises(ValueError) as excinfo:
+            config.validate()
+
+        captured = capsys.readouterr()
+        assert "Authorization Code with PKCE" in captured.err
+        assert "설정 오류" in str(excinfo.value)
+
+    def test_publish_to_x_uses_async_httpx(self):
+        from config import CIEConfig
+        from storage.x_publisher import publish_to_x
+
+        response = MagicMock()
+        response.status_code = 201
+        response.json.return_value = {"data": {"id": "42"}}
+        response.text = ""
+
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.__aexit__.return_value = False
+        client.post.return_value = response
+
+        config = CIEConfig()
+        config.enable_x_publish = True
+        config.x_access_token = "user-context-token"
+
+        content = self._make_content()
+
+        with patch("storage.x_publisher.httpx.AsyncClient", return_value=client):
+            result = asyncio.run(publish_to_x(content, config))
+
+        assert result.success is True
+        assert result.page_id == "42"
+        assert content.publish_target == "x"
+        assert content.publish_error == ""
+        assert client.post.await_count == 1
+        assert client.post.await_args.kwargs["headers"]["Authorization"] == "Bearer user-context-token"
+
+    def test_publish_to_x_surfaces_api_errors(self):
+        from config import CIEConfig
+        from storage.x_publisher import publish_to_x
+
+        response = MagicMock()
+        response.status_code = 403
+        response.json.return_value = {"title": "Forbidden"}
+        response.text = '{"title":"Forbidden"}'
+
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.__aexit__.return_value = False
+        client.post.return_value = response
+
+        config = CIEConfig()
+        config.enable_x_publish = True
+        config.x_access_token = "user-context-token"
+
+        content = self._make_content()
+
+        with patch("storage.x_publisher.httpx.AsyncClient", return_value=client):
+            result = asyncio.run(publish_to_x(content, config))
+
+        assert result.success is False
+        assert "Forbidden" in result.error
+        assert content.publish_target == ""
 
 
 # ═══════════════════════════════════════════════════

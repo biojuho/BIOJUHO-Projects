@@ -2,10 +2,12 @@ import asyncio
 import json
 import os
 import sys
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import models
 import schemas
@@ -13,9 +15,10 @@ from auth import get_current_user
 from database import SessionLocal, initialize_database, verify_database_connection
 from fastapi import Depends, FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from iot_service import get_current_status, get_latest_readings, handle_ws_connection, sensor_simulation_loop
+from iot_service import batch_flush_loop, get_current_status, get_latest_readings, handle_ws_connection, redis_subscriber_loop, sensor_simulation_loop
 from services.chain_simulator import get_chain
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import selectinload
 from starlette.middleware.sessions import SessionMiddleware
 
 # ── Observability (Logfire) ─────────────────────────────────
@@ -46,6 +49,41 @@ except ImportError:
     except ImportError:
         _METRICS_OK = False
 
+try:
+    from shared.cache import close_cache, get_cache
+except ImportError:
+    try:
+        from packages.shared.cache import close_cache, get_cache
+    except ImportError:
+        class _NoOpCache:
+            """Safe fallback when the shared cache package is unavailable."""
+
+            async def get(self, key: str) -> Any:
+                return None
+
+            async def set(self, key: str, value: Any, ttl: int = 60) -> None:
+                pass
+
+            async def delete(self, key: str) -> None:
+                pass
+
+            async def exists(self, key: str) -> bool:
+                return False
+
+            async def incr(self, key: str, ttl: int = 60) -> int:
+                return 1
+
+            async def close(self) -> None:
+                pass
+
+        _CACHE_FALLBACK = _NoOpCache()
+
+        def get_cache():
+            return _CACHE_FALLBACK
+
+        async def close_cache() -> None:
+            await _CACHE_FALLBACK.close()
+
 
 @asynccontextmanager
 async def lifespan(app):
@@ -54,6 +92,12 @@ async def lifespan(app):
 
     # Start IoT simulation
     sim_task = asyncio.create_task(sensor_simulation_loop())
+
+    # Start IoT batch flush worker (100x scale: reduces DB commits by ~200x)
+    flush_task = asyncio.create_task(batch_flush_loop())
+
+    # Start Redis Pub/Sub subscriber (multi-worker WS broadcasting)
+    pubsub_task = asyncio.create_task(redis_subscriber_loop())
 
     # Start MQTT if broker is configured
     mqtt_host = os.environ.get("MQTT_BROKER_HOST", "")
@@ -72,6 +116,9 @@ async def lifespan(app):
     yield
 
     sim_task.cancel()
+    flush_task.cancel()
+    pubsub_task.cancel()
+    await close_cache()
     if mqtt_task:
         mqtt_task.cancel()
 
@@ -133,6 +180,36 @@ try:
 except ImportError:
     pass
 
+# ── Rate Limiting (100x scale) ─────────────────────────────
+_RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "100"))  # per minute
+_RATE_LIMIT_WINDOW = 60  # seconds
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    """Redis-backed rate limiter: 100 req/min per IP."""
+    # Skip rate limiting for WebSocket upgrades and health checks
+    if request.url.path in ("/health", "/ws/iot", "/metrics"):
+        return await call_next(request)
+
+    client_ip = request.client.host if request.client else "unknown"
+    cache = get_cache()
+    key = f"ratelimit:{client_ip}:{int(time.time()) // _RATE_LIMIT_WINDOW}"
+    count = await cache.incr(key, ttl=_RATE_LIMIT_WINDOW)
+
+    if count > _RATE_LIMIT_MAX:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests. Please try again later."},
+            headers={"Retry-After": str(_RATE_LIMIT_WINDOW)},
+        )
+
+    response = await call_next(request)
+    response.headers["X-RateLimit-Limit"] = str(_RATE_LIMIT_MAX)
+    response.headers["X-RateLimit-Remaining"] = str(max(0, _RATE_LIMIT_MAX - count))
+    return response
+
 # Fallback values used when the DB has no real data yet (demo mode)
 DEMO_TOTAL_FARMS = 142
 DEMO_SENSORS_PER_PRODUCT = 3
@@ -185,7 +262,13 @@ def read_root():
 
 
 @app.get("/api/v1/dashboard/summary", response_model=schemas.DashboardResponse)
-def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
+async def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
+    # Redis cache — 30s TTL (500 concurrent users → 1 DB hit per 30s)
+    cache = get_cache()
+    cached = await cache.get("agriguard:dashboard:frontend")
+    if cached is not None:
+        return cached
+
     farmer_count = db.query(models.User).filter(models.User.role == "Farmer").count()
     total_products = db.query(models.Product).count()
     harvested_products = db.query(models.Product).filter(models.Product.harvest_date != None).count()  # noqa: E711 — SQLAlchemy requires != None for IS NOT NULL
@@ -200,7 +283,7 @@ def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
         ]
 
     has_real_data = total_products > 0
-    return {
+    result = {
         "status": "success",
         "data": {
             "total_farms": farmer_count if has_real_data else DEMO_TOTAL_FARMS,
@@ -213,17 +296,33 @@ def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
             "recent_activity": recent_activity,
         },
     }
+    await cache.set("agriguard:dashboard:frontend", result, ttl=30)
+    return result
 
 
 @app.get("/dashboard/summary")
-def get_supply_chain_summary(db: Session = Depends(get_db)):
-    products = db.query(models.Product).all()
+async def get_supply_chain_summary(db: Session = Depends(get_db)):
+    # Redis cache — 30s TTL
+    cache = get_cache()
+    cached = await cache.get("agriguard:dashboard:supply_chain")
+    if cached is not None:
+        return cached
+
+    # Eager-load relationships to avoid N+1 queries (28,400 → 3 at 100x scale)
+    products = (
+        db.query(models.Product)
+        .options(
+            selectinload(models.Product.certificates),
+            selectinload(models.Product.tracking_history),
+        )
+        .all()
+    )
 
     certified_count = sum(1 for p in products if p.certificates)
     cold_chain_count = sum(1 for p in products if p.requires_cold_chain)
     total_tracking_events = sum(len(p.tracking_history) for p in products)
 
-    return {
+    result = {
         "total_products": len(products),
         "certified_products": certified_count,
         "cold_chain_products": cold_chain_count,
@@ -231,6 +330,8 @@ def get_supply_chain_summary(db: Session = Depends(get_db)):
         "status_distribution": _build_status_distribution(products),
         "origin_distribution": _build_origin_distribution(products),
     }
+    await cache.set("agriguard:dashboard:supply_chain", result, ttl=30)
+    return result
 
 
 @app.post("/users/", response_model=schemas.User)

@@ -16,35 +16,47 @@ from loguru import logger as log
 from shared.llm import get_client
 
 try:
-    from ..config import AppConfig
+    from ..config import AppConfig, VERSION
     from ..db import (
+        attach_draft_to_notion_page,
         compute_fingerprint,
         db_transaction,
         get_best_posting_hours,
         get_cached_content,
         get_recent_tweet_contents,
+        promote_draft_to_ready,
         record_posting_time_stat,
+        save_draft_bundle,
+        save_qa_report,
         save_trend,
         save_tweets_batch,
+        save_validated_trend,
     )
     from ..generator import generate_for_trend_async, regenerate_content_groups
     from ..models import GeneratedTweet, RunResult, TweetBatch
     from ..storage import save_to_content_hub, save_to_google_sheets, save_to_notion
+    from ..workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
 except ImportError:
-    from config import AppConfig
+    from config import AppConfig, VERSION
     from db import (
+        attach_draft_to_notion_page,
         compute_fingerprint,
         db_transaction,
         get_best_posting_hours,
         get_cached_content,
         get_recent_tweet_contents,
+        promote_draft_to_ready,
         record_posting_time_stat,
+        save_draft_bundle,
+        save_qa_report,
         save_trend,
         save_tweets_batch,
+        save_validated_trend,
     )
     from generator import generate_for_trend_async, regenerate_content_groups
     from models import GeneratedTweet, RunResult, TweetBatch
     from storage import save_to_content_hub, save_to_google_sheets, save_to_notion
+    from workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
 
 
 
@@ -202,6 +214,7 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
             return primary
 
         # QA 조건부 스킵
+        final_qa: dict | None = None
         if not _should_skip_qa(trend, is_cached, config):
             try:
                 from ..generator import audit_generated_content
@@ -209,6 +222,7 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
                 from generator import audit_generated_content
 
             qa = await audit_generated_content(primary, trend, config, client)
+            final_qa = qa
             failed_groups = qa.get("failed_groups", []) if qa else []
             if failed_groups:
                 details = qa.get("group_results", {})
@@ -228,6 +242,7 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
                     recent_tweets=recent_tweets,
                 )
                 qa_after = await audit_generated_content(primary, trend, config, client)
+                final_qa = qa_after or qa
                 if qa_after and qa_after.get("failed_groups"):
                     log.warning(
                         f"  [QA 재검사 미달] '{trend.keyword}' {', '.join(qa_after['failed_groups'])} (사유: {qa_after.get('reason', '-')})"

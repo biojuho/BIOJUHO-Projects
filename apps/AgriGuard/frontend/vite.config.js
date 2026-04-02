@@ -13,7 +13,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-charts': ['recharts'],
+          // recharts excluded — lazy-loaded via LazyCharts.jsx for code-splitting
           'vendor-motion': ['framer-motion'],
           'vendor-i18n': ['i18next', 'react-i18next'],
           'vendor-icons': ['lucide-react'],

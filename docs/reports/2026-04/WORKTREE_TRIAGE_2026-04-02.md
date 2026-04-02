@@ -31,6 +31,42 @@ Checkpoint created after validating the live worktree against the canonical smok
   - `python -m pytest tests/test_storage.py tests/test_e2e.py tests/test_notion_content_hub.py tests/test_db.py -q` -> `41 passed`
   - `python -m pytest tests -q` in `automation/getdaytrends` -> `453 passed, 6 skipped, 1 deselected`
   - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
+- Completed:
+  - `4. GetDayTrends dashboard monitoring stack`
+  - commit: `13e2393 feat(getdaytrends): add dashboard logs and monitoring stack`
+- Validation completed on the dashboard/monitoring slice:
+  - `python -m pytest automation/getdaytrends/tests/test_dashboard.py -q` -> `13 passed`
+  - `python -m py_compile automation/getdaytrends/dashboard.py`
+  - `docker compose -f docker-compose.monitoring.yml config`
+  - Loki `/ready` -> `ready`
+- Completed:
+  - `5. Temporary scratch/error output cleanup`
+  - commit: `8f4cd3c chore(cleanup): remove temporary error outputs`
+- Completed:
+  - `6. AgriGuard lint gate closure`
+  - commit: `cd7ffb5 fix(agriguard): satisfy vite config lint`
+- Validation completed after the lint fix:
+  - `npm run lint` in `apps/AgriGuard/frontend`
+  - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
+- Completed:
+  - `7. Shared cache + GetDayTrends hot-path index hardening`
+  - commit: `7ad6552 feat(getdaytrends): add shared cache and hot-path indexes`
+- Validation completed on the cache/index slice:
+  - `python -m pytest automation/getdaytrends/tests/test_db.py -q` -> `27 passed`
+  - `python -m pytest packages/shared/tests/test_cache.py -q` -> `15 passed`
+  - `python ops/scripts/run_workspace_smoke.py --scope getdaytrends` -> `2/2 PASS`
+  - `docker compose -f docker-compose.dev.yml config --services` -> includes `redis`
+- Follow-up architecture hardening was applied after the push-prep checkpoint:
+  - added `docs/reports/2026-04/VIBE_CODING_ARCH_REVIEW_2026-04-02.md`
+  - hardened AgriGuard cache fallback so the rate limiter remains safe even when shared cache imports fail
+  - rewrote `automation/content-intelligence/storage/x_publisher.py` to use async `httpx` with an explicit X user-context token contract
+  - updated `automation/content-intelligence/config.py`, `.env.example`, and `tests/test_smoke.py` to lock the contract in place
+- Validation completed on the architecture hardening slice:
+  - forced cache-fallback regression check with both cache import paths blocked -> `cache.incr(...) == 1`
+  - `python -m pytest automation/content-intelligence/tests/test_smoke.py -q` -> `77 passed`
+  - `python -m pytest apps/AgriGuard/backend/tests/test_smoke.py -q -k "not test_qr_ab_script_handles_missing_variant_data"` -> `5 passed, 1 deselected`
+  - `python ops/scripts/run_workspace_smoke.py --scope workspace` -> `5/5 PASS`
+  - `python ops/scripts/run_workspace_smoke.py --scope agriguard` -> `3/3 PASS`
 
 ## Snapshot
 
@@ -40,6 +76,31 @@ Checkpoint created after validating the live worktree against the canonical smok
   - `python ops/scripts/run_workspace_smoke.py --scope workspace` -> `5/5 PASS`
   - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
   - `python -m pytest automation/content-intelligence/tests/test_smoke.py -q` -> `34 passed`
+
+## Current Push-prep Snapshot
+
+- Git state now: `main...origin/main [ahead 12]`
+- The broad multi-area worktree described above has mostly been split into standalone commits.
+- Remaining live unsplit worktree now spans AgriGuard plus content-intelligence hardening:
+  - `apps/AgriGuard/backend/iot_service.py`
+  - `apps/AgriGuard/backend/main.py`
+  - `apps/AgriGuard/backend/models.py`
+  - `apps/AgriGuard/frontend/src/components/ColdChainMonitor.jsx`
+  - `apps/AgriGuard/frontend/vite.config.js`
+  - `automation/content-intelligence/.env.example`
+  - `automation/content-intelligence/config.py`
+  - `automation/content-intelligence/storage/x_publisher.py`
+  - `automation/content-intelligence/tests/test_smoke.py`
+  - `apps/AgriGuard/frontend/src/hooks/`
+  - `docs/reports/2026-04/VIBE_CODING_ARCH_REVIEW_2026-04-02.md`
+- Latest full-workspace validation still green:
+  - `python ops/scripts/run_workspace_smoke.py --scope all` -> `18/18 PASS`
+- Latest targeted follow-up validation:
+  - `python -m pytest automation/content-intelligence/tests/test_smoke.py -q` -> `77 passed`
+  - `python ops/scripts/run_workspace_smoke.py --scope workspace` -> `5/5 PASS`
+  - `python ops/scripts/run_workspace_smoke.py --scope agriguard` -> `3/3 PASS`
+- Interpretation:
+  - push-readiness is still primarily blocked by review/commit hygiene now, not by known targeted regressions
 
 ## Suggested Commit Order
 

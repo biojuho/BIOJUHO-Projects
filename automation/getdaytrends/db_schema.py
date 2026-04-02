@@ -1,7 +1,7 @@
-"""
+﻿"""
 getdaytrends - Database Schema & Connection Layer
-PostgreSQL 어댑터, DB 연결, 스키마 초기화 및 마이그레이션.
-db.py에서 분리됨.
+PostgreSQL ?대뙌?? DB ?곌껐, ?ㅽ궎留?珥덇린??諛?留덉씠洹몃젅?댁뀡.
+db.py?먯꽌 遺꾨━??
 """
 
 import hashlib
@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 import aiosqlite
 from loguru import logger as log
 
-# === PostgreSQL 선택적 지원 ===
+# === PostgreSQL ?좏깮??吏??===
 try:
     import asyncpg
 
@@ -25,12 +25,12 @@ except ImportError:
     asyncpg = None  # type: ignore[assignment]
     _PG_AVAILABLE = False
 
-# asyncpg 커넥션 풀 (싱글톤)
+# asyncpg 而ㅻ꽖??? (?깃???
 _PG_POOL: "asyncpg.Pool | None" = None
 _SQLITE_WRITE_LOCK = threading.RLock()
 
 
-# === 트랜잭션 컨텍스트 매니저 ===
+# === ?몃옖??뀡 而⑦뀓?ㅽ듃 留ㅻ땲? ===
 
 
 @asynccontextmanager
@@ -50,10 +50,10 @@ async def sqlite_write_lock(conn) -> AsyncIterator[None]:
 @asynccontextmanager
 async def db_transaction(conn) -> AsyncIterator[None]:
     """
-    aiosqlite / asyncpg 공용 트랜잭션 컨텍스트 매니저.
-    예외 발생 시 자동 rollback, 정상 종료 시 commit.
+    aiosqlite / asyncpg 怨듭슜 ?몃옖??뀡 而⑦뀓?ㅽ듃 留ㅻ땲?.
+    ?덉쇅 諛쒖깮 ???먮룞 rollback, ?뺤긽 醫낅즺 ??commit.
 
-    사용 예:
+    ?ъ슜 ??
         async with db_transaction(conn):
             trend_id = await save_trend(conn, trend, run_id)
             await save_tweets_batch(conn, tweets, trend_id, run_id)
@@ -72,7 +72,7 @@ async def db_transaction(conn) -> AsyncIterator[None]:
 
 class _PgAdapter:
     """
-    asyncpg 연결을 aiosqlite.Connection 인터페이스와 유사하게 래핑.
+    asyncpg ?곌껐??aiosqlite.Connection ?명꽣?섏씠?ㅼ? ?좎궗?섍쾶 ?섑븨.
     """
 
     def __init__(self, conn: "asyncpg.Connection") -> None:
@@ -81,10 +81,10 @@ class _PgAdapter:
     @staticmethod
     def _ph(sql: str) -> str:
         """
-        ? 를 $1, $2 ... PostgreSQL 플레이스홀더로 변환.
-        문자열 리터럴 내부의 ?는 변환하지 않도록 처리.
+        ? 瑜?$1, $2 ... PostgreSQL ?뚮젅?댁뒪??붾줈 蹂??
+        臾몄옄??由ы꽣???대??????蹂?섑븯吏 ?딅룄濡?泥섎━.
         """
-        # 문자열 밖에 있는 ? 만 순서대로 $N 으로 교체
+        # 臾몄옄??諛뽰뿉 ?덈뒗 ? 留??쒖꽌?濡?$N ?쇰줈 援먯껜
         result = []
         counter = 0
         in_str = False
@@ -167,7 +167,7 @@ class _PgAdapter:
                 await self._conn.execute(stmt)
             except Exception as e:
                 if "already exists" in str(e).lower():
-                    log.debug(f"PostgreSQL DDL 스킵 (이미 존재): {stmt[:60]}...")
+                    log.debug(f"PostgreSQL DDL ?ㅽ궢 (?대? 議댁옱): {stmt[:60]}...")
                 else:
                     raise
 
@@ -182,16 +182,16 @@ class _PgAdapter:
 
 
 async def get_pg_pool(url: str, min_size: int = 2, max_size: int = 10) -> "asyncpg.Pool":
-    """asyncpg 커넥션 풀 싱글톤 반환."""
+    """asyncpg 而ㅻ꽖??? ?깃???諛섑솚."""
     global _PG_POOL
     if _PG_POOL is None or _PG_POOL._closed:  # type: ignore[union-attr]
         _PG_POOL = await asyncpg.create_pool(url, min_size=min_size, max_size=max_size)
-        log.info(f"asyncpg Pool 생성: min={min_size} max={max_size} @ {url.split('@')[-1]}")
+        log.info(f"asyncpg Pool ?앹꽦: min={min_size} max={max_size} @ {url.split('@')[-1]}")
     return _PG_POOL
 
 
 async def close_pg_pool() -> None:
-    """앱 종료 시 asyncpg Pool 정리."""
+    """??醫낅즺 ??asyncpg Pool ?뺣━."""
     global _PG_POOL
     if _PG_POOL and not _PG_POOL._closed:  # type: ignore[union-attr]
         await _PG_POOL.close()
@@ -202,11 +202,11 @@ async def get_connection(
     db_path: str = "data/getdaytrends.db",
     database_url: str = "",
 ):
-    """DB 연결 반환. DATABASE_URL 설정 시 asyncpg Pool에서 연결 획득."""
+    """DB ?곌껐 諛섑솚. DATABASE_URL ?ㅼ젙 ??asyncpg Pool?먯꽌 ?곌껐 ?띾뱷."""
     url = database_url or os.getenv("DATABASE_URL", "")
     if url.startswith(("postgresql://", "postgres://")):
         if not _PG_AVAILABLE:
-            raise ImportError("PostgreSQL 사용을 위해 asyncpg 설치 필요:\n  pip install asyncpg")
+            raise ImportError("PostgreSQL ?ъ슜???꾪빐 asyncpg ?ㅼ튂 ?꾩슂:\n  pip install asyncpg")
         pool = await get_pg_pool(url)
         pg_conn = await pool.acquire()
         return _PgAdapter(pg_conn)
@@ -285,7 +285,7 @@ async def _init_db_unlocked(conn) -> None:
             char_count    INTEGER DEFAULT 0,
             is_thread     INTEGER DEFAULT 0,
             thread_order  INTEGER DEFAULT 0,
-            status        TEXT DEFAULT '대기중',
+            status        TEXT DEFAULT '?湲곗쨷',
             saved_to      TEXT DEFAULT '[]',
             generated_at  TEXT NOT NULL,
             content_type  TEXT DEFAULT 'short',
@@ -356,6 +356,121 @@ async def _init_db_unlocked(conn) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_wh_keyword ON watchlist_hits(keyword, detected_at);
 
+        CREATE TABLE IF NOT EXISTS trend_quarantine (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id           INTEGER REFERENCES runs(id),
+            keyword          TEXT DEFAULT '',
+            fingerprint      TEXT DEFAULT '',
+            reason_code      TEXT NOT NULL,
+            reason_detail    TEXT DEFAULT '',
+            source_count     INTEGER DEFAULT 0,
+            freshness_minutes INTEGER DEFAULT 0,
+            payload_json     TEXT DEFAULT '{}',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tq_reason_created ON trend_quarantine(reason_code, created_at);
+
+        CREATE TABLE IF NOT EXISTS validated_trends (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            trend_id         TEXT NOT NULL UNIQUE,
+            trend_row_id     INTEGER REFERENCES trends(id),
+            run_id           INTEGER REFERENCES runs(id),
+            keyword          TEXT NOT NULL,
+            confidence_score REAL DEFAULT 0.0,
+            source_count     INTEGER DEFAULT 0,
+            evidence_refs    TEXT DEFAULT '[]',
+            freshness_minutes INTEGER DEFAULT 0,
+            dedup_fingerprint TEXT DEFAULT '',
+            lifecycle_status TEXT DEFAULT 'validated',
+            scoring_axes     TEXT DEFAULT '{}',
+            scoring_reasons  TEXT DEFAULT '{}',
+            created_at       TEXT NOT NULL,
+            updated_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_vt_keyword_status ON validated_trends(keyword, lifecycle_status);
+        CREATE INDEX IF NOT EXISTS idx_vt_fingerprint ON validated_trends(dedup_fingerprint);
+
+        CREATE TABLE IF NOT EXISTS draft_bundles (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL UNIQUE,
+            trend_id         TEXT NOT NULL REFERENCES validated_trends(trend_id),
+            trend_row_id     INTEGER REFERENCES trends(id),
+            platform         TEXT NOT NULL,
+            content_type     TEXT NOT NULL,
+            body             TEXT NOT NULL,
+            hashtags         TEXT DEFAULT '[]',
+            prompt_version   TEXT DEFAULT '',
+            generator_provider TEXT DEFAULT '',
+            generator_model  TEXT DEFAULT '',
+            source_evidence_ref TEXT DEFAULT '',
+            degraded_mode    INTEGER DEFAULT 0,
+            lifecycle_status TEXT DEFAULT 'drafted',
+            review_status    TEXT DEFAULT 'Draft',
+            qa_score         REAL DEFAULT 0.0,
+            blocking_reasons TEXT DEFAULT '[]',
+            notion_page_id   TEXT DEFAULT '',
+            published_url    TEXT DEFAULT '',
+            published_at     TEXT DEFAULT NULL,
+            receipt_id       TEXT DEFAULT '',
+            created_at       TEXT NOT NULL,
+            updated_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_db_status_platform ON draft_bundles(review_status, platform);
+        CREATE INDEX IF NOT EXISTS idx_db_lifecycle ON draft_bundles(lifecycle_status, updated_at);
+
+        CREATE TABLE IF NOT EXISTS qa_reports (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            total_score      REAL DEFAULT 0.0,
+            passed           INTEGER DEFAULT 0,
+            warnings         TEXT DEFAULT '[]',
+            blocking_reasons TEXT DEFAULT '[]',
+            report_payload   TEXT DEFAULT '{}',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_qa_draft_created ON qa_reports(draft_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS review_decisions (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            decision         TEXT NOT NULL,
+            reviewed_by      TEXT DEFAULT '',
+            reviewed_at      TEXT NOT NULL,
+            review_note      TEXT DEFAULT '',
+            source           TEXT DEFAULT 'manual',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_rd_draft_created ON review_decisions(draft_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS publish_receipts (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            receipt_id       TEXT NOT NULL UNIQUE,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            platform         TEXT NOT NULL,
+            success          INTEGER DEFAULT 0,
+            published_url    TEXT DEFAULT '',
+            published_at     TEXT DEFAULT NULL,
+            failure_code     TEXT DEFAULT '',
+            failure_reason   TEXT DEFAULT '',
+            collector_due_at TEXT DEFAULT NULL,
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_pr_draft_created ON publish_receipts(draft_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS feedback_summaries (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            receipt_id       TEXT NOT NULL REFERENCES publish_receipts(receipt_id),
+            metric_window    TEXT DEFAULT '',
+            impressions      INTEGER DEFAULT 0,
+            engagements      INTEGER DEFAULT 0,
+            clicks           INTEGER DEFAULT 0,
+            collector_status TEXT DEFAULT '',
+            strategy_notes   TEXT DEFAULT '',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_fs_receipt_created ON feedback_summaries(receipt_id, created_at);
+
         CREATE TABLE IF NOT EXISTS schema_version (
             version     INTEGER PRIMARY KEY,
             description TEXT NOT NULL DEFAULT '',
@@ -364,19 +479,19 @@ async def _init_db_unlocked(conn) -> None:
     """)
     await conn.commit()
 
-    # ── 버전 기반 마이그레이션 ──
+    # ?? 踰꾩쟾 湲곕컲 留덉씠洹몃젅?댁뀡 ??
     await _run_migrations(conn)
 
 
-# ══════════════════════════════════════════════════════
+# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
 #  Schema Migration Infrastructure
-# ══════════════════════════════════════════════════════
+# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
 
-_CURRENT_SCHEMA_VERSION = 6
+_CURRENT_SCHEMA_VERSION = 7
 
 
 async def _get_schema_version(conn) -> int:
-    """현재 DB 스키마 버전 조회. schema_version 테이블 없으면 0."""
+    """?꾩옱 DB ?ㅽ궎留?踰꾩쟾 議고쉶. schema_version ?뚯씠釉??놁쑝硫?0."""
     try:
         cursor = await conn.execute(
             "SELECT MAX(version) as v FROM schema_version"
@@ -397,7 +512,7 @@ async def _set_schema_version(conn, version: int, description: str) -> None:
 
 
 async def _table_columns(conn, table: str) -> set[str]:
-    """테이블의 컬럼 이름 목록 반환 (SQLite PRAGMA / PostgreSQL information_schema 호환)."""
+    """?뚯씠釉붿쓽 而щ읆 ?대쫫 紐⑸줉 諛섑솚 (SQLite PRAGMA / PostgreSQL information_schema ?명솚)."""
     if isinstance(conn, _PgAdapter):
         cursor = await conn.execute(
             "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
@@ -412,7 +527,7 @@ async def _table_columns(conn, table: str) -> set[str]:
 
 
 async def _migrate_v1(conn) -> None:
-    """v1: tweets.content_type 추가 (단문/장문 구분)."""
+    """v1: tweets.content_type 異붽? (?⑤Ц/?λЦ 援щ텇)."""
     cols = await _table_columns(conn, "tweets")
     if "content_type" not in cols:
         await conn.execute("ALTER TABLE tweets ADD COLUMN content_type TEXT DEFAULT 'short'")
@@ -421,7 +536,7 @@ async def _migrate_v1(conn) -> None:
 
 
 async def _migrate_v2(conn) -> None:
-    """v2: trends.fingerprint 추가 (캐시 키)."""
+    """v2: trends.fingerprint 異붽? (罹먯떆 ??."""
     cols = await _table_columns(conn, "trends")
     if "fingerprint" not in cols:
         await conn.execute("ALTER TABLE trends ADD COLUMN fingerprint TEXT DEFAULT ''")
@@ -431,7 +546,7 @@ async def _migrate_v2(conn) -> None:
 
 
 async def _migrate_v3(conn) -> None:
-    """v3: tweets 성과추적 + A/B 변형 + 다국어 컬럼."""
+    """v3: tweets ?깃낵異붿쟻 + A/B 蹂??+ ?ㅺ뎅??而щ읆."""
     cols = await _table_columns(conn, "tweets")
     for col_name, col_def in [
         ("posted_at", "TEXT DEFAULT NULL"),
@@ -449,7 +564,7 @@ async def _migrate_v3(conn) -> None:
 
 
 async def _migrate_v4(conn) -> None:
-    """v4: trends 감성필터 + 교차검증 + 중연킥."""
+    """v4: trends 媛먯꽦?꾪꽣 + 援먯감寃利?+ 以묒뿰??"""
     cols = await _table_columns(conn, "trends")
     for col_name, col_def in [
         ("sentiment", "TEXT DEFAULT 'neutral'"),
@@ -464,35 +579,157 @@ async def _migrate_v4(conn) -> None:
 
 
 async def _migrate_v5(conn) -> None:
-    """v5: schema_version 테이블 자체 (이미 CREATE TABLE로 생성됨). 마커 전용."""
+    """v5: schema_version ?뚯씠釉??먯껜 (?대? CREATE TABLE濡??앹꽦??. 留덉빱 ?꾩슜."""
     pass
 
 
 async def _migrate_v6(conn) -> None:
-    """v6: 100x 스케일 대비 누락 인덱스 추가."""
-    # trends: 캐시 조회 최적화 (fingerprint + scored_at 복합)
+    """v6: 100x ?ㅼ????鍮??꾨씫 ?몃뜳??異붽?."""
+    # trends: 罹먯떆 議고쉶 理쒖쟻??(fingerprint + scored_at 蹂듯빀)
     await conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_trends_fp_scored ON trends(fingerprint, scored_at)"
     )
-    # tweets: cleanup/정리 쿼리 최적화
+    # tweets: cleanup/?뺣━ 荑쇰━ 理쒖쟻??
     await conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tweets_generated_at ON tweets(generated_at)"
     )
-    # tweets: 게시 상태 추적 최적화
+    # tweets: 寃뚯떆 ?곹깭 異붿쟻 理쒖쟻??
     await conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tweets_posted_at ON tweets(posted_at)"
     )
     await conn.commit()
 
 
-# 마이그레이션 레지스트리: (버전, 설명, 함수)
+# 留덉씠洹몃젅?댁뀡 ?덉??ㅽ듃由? (踰꾩쟾, ?ㅻ챸, ?⑥닔)
+async def _migrate_v7(conn) -> None:
+    """v7: workflow V2 tables for review queue, manual publish, and feedback."""
+    await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS trend_quarantine (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id           INTEGER REFERENCES runs(id),
+            keyword          TEXT DEFAULT '',
+            fingerprint      TEXT DEFAULT '',
+            reason_code      TEXT NOT NULL,
+            reason_detail    TEXT DEFAULT '',
+            source_count     INTEGER DEFAULT 0,
+            freshness_minutes INTEGER DEFAULT 0,
+            payload_json     TEXT DEFAULT '{}',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tq_reason_created ON trend_quarantine(reason_code, created_at);
+
+        CREATE TABLE IF NOT EXISTS validated_trends (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            trend_id         TEXT NOT NULL UNIQUE,
+            trend_row_id     INTEGER REFERENCES trends(id),
+            run_id           INTEGER REFERENCES runs(id),
+            keyword          TEXT NOT NULL,
+            confidence_score REAL DEFAULT 0.0,
+            source_count     INTEGER DEFAULT 0,
+            evidence_refs    TEXT DEFAULT '[]',
+            freshness_minutes INTEGER DEFAULT 0,
+            dedup_fingerprint TEXT DEFAULT '',
+            lifecycle_status TEXT DEFAULT 'validated',
+            scoring_axes     TEXT DEFAULT '{}',
+            scoring_reasons  TEXT DEFAULT '{}',
+            created_at       TEXT NOT NULL,
+            updated_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_vt_keyword_status ON validated_trends(keyword, lifecycle_status);
+        CREATE INDEX IF NOT EXISTS idx_vt_fingerprint ON validated_trends(dedup_fingerprint);
+
+        CREATE TABLE IF NOT EXISTS draft_bundles (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL UNIQUE,
+            trend_id         TEXT NOT NULL REFERENCES validated_trends(trend_id),
+            trend_row_id     INTEGER REFERENCES trends(id),
+            platform         TEXT NOT NULL,
+            content_type     TEXT NOT NULL,
+            body             TEXT NOT NULL,
+            hashtags         TEXT DEFAULT '[]',
+            prompt_version   TEXT DEFAULT '',
+            generator_provider TEXT DEFAULT '',
+            generator_model  TEXT DEFAULT '',
+            source_evidence_ref TEXT DEFAULT '',
+            degraded_mode    INTEGER DEFAULT 0,
+            lifecycle_status TEXT DEFAULT 'drafted',
+            review_status    TEXT DEFAULT 'Draft',
+            qa_score         REAL DEFAULT 0.0,
+            blocking_reasons TEXT DEFAULT '[]',
+            notion_page_id   TEXT DEFAULT '',
+            published_url    TEXT DEFAULT '',
+            published_at     TEXT DEFAULT NULL,
+            receipt_id       TEXT DEFAULT '',
+            created_at       TEXT NOT NULL,
+            updated_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_db_status_platform ON draft_bundles(review_status, platform);
+        CREATE INDEX IF NOT EXISTS idx_db_lifecycle ON draft_bundles(lifecycle_status, updated_at);
+
+        CREATE TABLE IF NOT EXISTS qa_reports (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            total_score      REAL DEFAULT 0.0,
+            passed           INTEGER DEFAULT 0,
+            warnings         TEXT DEFAULT '[]',
+            blocking_reasons TEXT DEFAULT '[]',
+            report_payload   TEXT DEFAULT '{}',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_qa_draft_created ON qa_reports(draft_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS review_decisions (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            decision         TEXT NOT NULL,
+            reviewed_by      TEXT DEFAULT '',
+            reviewed_at      TEXT NOT NULL,
+            review_note      TEXT DEFAULT '',
+            source           TEXT DEFAULT 'manual',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_rd_draft_created ON review_decisions(draft_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS publish_receipts (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            receipt_id       TEXT NOT NULL UNIQUE,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            platform         TEXT NOT NULL,
+            success          INTEGER DEFAULT 0,
+            published_url    TEXT DEFAULT '',
+            published_at     TEXT DEFAULT NULL,
+            failure_code     TEXT DEFAULT '',
+            failure_reason   TEXT DEFAULT '',
+            collector_due_at TEXT DEFAULT NULL,
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_pr_draft_created ON publish_receipts(draft_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS feedback_summaries (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            draft_id         TEXT NOT NULL REFERENCES draft_bundles(draft_id),
+            receipt_id       TEXT NOT NULL REFERENCES publish_receipts(receipt_id),
+            metric_window    TEXT DEFAULT '',
+            impressions      INTEGER DEFAULT 0,
+            engagements      INTEGER DEFAULT 0,
+            clicks           INTEGER DEFAULT 0,
+            collector_status TEXT DEFAULT '',
+            strategy_notes   TEXT DEFAULT '',
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_fs_receipt_created ON feedback_summaries(receipt_id, created_at);
+    """)
+    await conn.commit()
+
+
 _MIGRATIONS: list[tuple[int, str, any]] = [
-    (1, "tweets.content_type 컬럼", _migrate_v1),
-    (2, "trends.fingerprint 컬럼 + 백필", _migrate_v2),
-    (3, "tweets 성과추적 + A/B + 다국어", _migrate_v3),
-    (4, "trends 감성필터 + 교차검증 + 중연킥", _migrate_v4),
-    (5, "schema_version 인프라 도입", _migrate_v5),
-    (6, "100x 스케일 누락 인덱스 추가", _migrate_v6),
+    (1, "tweets.content_type 而щ읆", _migrate_v1),
+    (2, "trends.fingerprint 而щ읆 + 諛깊븘", _migrate_v2),
+    (3, "tweets ?깃낵異붿쟻 + A/B + ?ㅺ뎅??, _migrate_v3),
+    (4, "trends 媛먯꽦?꾪꽣 + 援먯감寃利?+ 以묒뿰??, _migrate_v4),
+    (5, "schema_version ?명봽???꾩엯", _migrate_v5),
+    (6, "100x ?ㅼ????꾨씫 ?몃뜳??異붽?", _migrate_v6),
+    (7, "workflow V2 review queue tables", _migrate_v7),
 ]
 
 
@@ -502,34 +739,35 @@ async def _reconcile_latest_schema(conn) -> None:
     await _migrate_v2(conn)
     await _migrate_v3(conn)
     await _migrate_v4(conn)
+    await _migrate_v7(conn)
 
 
 async def _run_migrations(conn) -> None:
-    """현재 버전 확인 후 미적용 마이그레이션 순차 실행."""
+    """?꾩옱 踰꾩쟾 ?뺤씤 ??誘몄쟻??留덉씠洹몃젅?댁뀡 ?쒖감 ?ㅽ뻾."""
     current = await _get_schema_version(conn)
 
     if current >= _CURRENT_SCHEMA_VERSION:
         await _reconcile_latest_schema(conn)
         return
 
-    # 기존 DB (schema_version 없이 이미 컬럼이 있는 경우) → 상태 감지
+    # 湲곗〈 DB (schema_version ?놁씠 ?대? 而щ읆???덈뒗 寃쎌슦) ???곹깭 媛먯?
     if current == 0:
         try:
             cols = await _table_columns(conn, "trends")
             if "joongyeon_angle" in cols:
-                # v4까지 이미 적용된 기존 DB → v4로 점프
+                # v4源뚯? ?대? ?곸슜??湲곗〈 DB ??v4濡??먰봽
                 current = 4
                 for v in range(1, 5):
                     desc = next(d for ver, d, _ in _MIGRATIONS if ver == v)
-                    await _set_schema_version(conn, v, f"{desc} (기존 감지)")
+                    await _set_schema_version(conn, v, f"{desc} (湲곗〈 媛먯?)")
         except Exception:
             pass
 
     pending = [(v, d, fn) for v, d, fn in _MIGRATIONS if v > current]
     if not pending:
-        # 최신인데 schema_version 레코드만 없는 경우
+        # 理쒖떊?몃뜲 schema_version ?덉퐫?쒕쭔 ?녿뒗 寃쎌슦
         if current == 0:
-            await _set_schema_version(conn, _CURRENT_SCHEMA_VERSION, "초기 설치")
+            await _set_schema_version(conn, _CURRENT_SCHEMA_VERSION, "珥덇린 ?ㅼ튂")
         await _reconcile_latest_schema(conn)
         return
 
@@ -540,7 +778,7 @@ async def _run_migrations(conn) -> None:
 
     await _reconcile_latest_schema(conn)
 
-    log.info(f"[DB Migration] 완료: v{current} → v{_CURRENT_SCHEMA_VERSION}")
+    log.info(f"[DB Migration] ?꾨즺: v{current} ??v{_CURRENT_SCHEMA_VERSION}")
 
 
 async def init_db(conn) -> None:
@@ -568,7 +806,7 @@ def _normalize_name(name: str) -> str:
 
 
 def _normalize_volume(volume: int, bucket: int = 5000) -> int:
-    """볼륨을 bucket 크기로 버킷팅. config.cache_volume_bucket으로 단위 제어 가능"""
+    """蹂쇰ⅷ??bucket ?ш린濡?踰꾪궥?? config.cache_volume_bucket?쇰줈 ?⑥쐞 ?쒖뼱 媛??""
     if bucket <= 0:
         return volume
     return (volume // bucket) * bucket
@@ -576,10 +814,11 @@ def _normalize_volume(volume: int, bucket: int = 5000) -> int:
 
 def compute_fingerprint(name: str, volume: int, bucket: int = 5000) -> str:
     """
-    트렌드 핑거프린트 계산.
-    bucket: 볼륨 버킷 크기 (config.cache_volume_bucket). 작을수록 정밀.
+    ?몃젋???묎굅?꾨┛??怨꾩궛.
+    bucket: 蹂쇰ⅷ 踰꾪궥 ?ш린 (config.cache_volume_bucket). ?묒쓣?섎줉 ?뺣?.
     """
     normalized_name = _normalize_name(name)
     normalized_volume = _normalize_volume(volume, bucket)
     raw = f"{normalized_name}:{normalized_volume}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+

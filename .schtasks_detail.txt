@@ -1,0 +1,30 @@
+﻿
+폴더: \
+호스트 이름:                       JUHOPARK
+작업 이름:                         \GetDayTrends_CurrentUser
+다음 실행 시간:                    N/A
+상태:                              사용 안 함
+로그온 모드:                       대화형만
+마지막 실행 시간:                  2026-03-31 오후 9:00:01
+마지막 결과:                       1073807364
+만든 이:                           JUHOPARK\bioju
+실행할 작업:                       powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\AI 프로젝트\getdaytrends\run_scheduled_getdaytrends.ps1"
+시작 위치:                         D:\AI 프로젝트\getdaytrends
+주석:                              GetDayTrends automated trend pipeline (every 3 hours)
+예약된 작업 상태:                  사용 안 함
+유휴 시간:                         사용 안 함
+전원 관리:                         
+다음 사용자 이름으로 실행:         bioju
+다시 예약되지 않으면 작업 삭제:    사용 안 함
+다음 시간 동안 실행되면 작업 중지: 03:00:00
+일정:                              이 형식으로 데이터를 예약할 수 없습니다.
+일정 유형:                         매일 
+시작 시간:                         오후 6:00:00
+시작 날짜:                         2026-03-23
+끝 날짜:                           N/A
+일:                                1일마다
+월:                                N/A
+반복: 매:                          3시간, 0분
+반복: 시간까지:                    없음
+반복: 기간까지:                    사용 안 함
+반복: 아직 실행 중이면 중지:       사용 안 함

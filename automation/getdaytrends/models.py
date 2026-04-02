@@ -1,8 +1,12 @@
+﻿"""
+getdaytrends data models.
+
+This module keeps the existing pipeline models stable while adding the V2.0
+workflow contracts used by the review queue, manual publish loop, and feedback
+summary tracking.
 """
-getdaytrends v3.0 - Data Models (Pydantic V2)
-모든 모듈에서 사용하는 공유 데이터 구조 정의.
-v3.0: ScoredTrend에 sentiment/safety_flag, GeneratedTweet에 variant_id/language 추가.
-"""
+
+from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
@@ -16,7 +20,7 @@ class TrendSource(Enum):
     REDDIT = "reddit"
     GOOGLE_NEWS = "google_news"
     GOOGLE_TRENDS = "google_trends"
-    YOUTUBE = "youtube"  # [v5.0] YouTube Trending
+    YOUTUBE = "youtube"
 
 
 class TweetStatus(Enum):
@@ -25,8 +29,29 @@ class TweetStatus(Enum):
     SKIPPED = "건너뜀"
 
 
+class WorkflowLifecycleStatus(str, Enum):
+    COLLECTED = "collected"
+    VALIDATED = "validated"
+    SCORED = "scored"
+    DRAFTED = "drafted"
+    READY = "ready"
+    APPROVED = "approved"
+    PUBLISHED = "published"
+    MEASURED = "measured"
+    LEARNED = "learned"
+
+
+class ReviewQueueStatus(str, Enum):
+    DRAFT = "Draft"
+    READY = "Ready"
+    APPROVED = "Approved"
+    PUBLISHED = "Published"
+    REJECTED = "Rejected"
+    EXPIRED = "Expired"
+
+
 class RawTrend(BaseModel):
-    """단일 소스에서 수집된 트렌드."""
+    """One raw trend collected from an upstream source."""
 
     name: str
     source: TrendSource
@@ -36,55 +61,53 @@ class RawTrend(BaseModel):
     country: str = "korea"
     extra: dict = Field(default_factory=dict)
     fetched_at: datetime = Field(default_factory=datetime.now)
-    published_at: datetime | None = None  # [v6.1] 소스 콘텐츠 발행 시점 (RSS pubDate)
+    published_at: datetime | None = None
 
 
 class TrendContext(BaseModel):
-    """[v10.0] 구조화된 트렌드 배경 분석 — '왜 지금 이게 터졌는지' 인과관계 체인."""
+    """Structured context explaining why the trend is happening now."""
 
-    trigger_event: str = ""  # "OO장관의 XX 발언 (3시간 전)"
-    chain_reaction: str = ""  # "해당 발언 → 커뮤니티 확산 → 언론 보도"
-    why_now: str = ""  # "총선 D-30과 맞물려 정치적 프레임 전쟁으로 확대"
-    key_positions: list[str] = Field(default_factory=list)  # 찬/반 주요 입장 2-3개
-    real_tweets_summary: str = ""  # 실제 X 반응 핵심 요약
+    trigger_event: str = ""
+    chain_reaction: str = ""
+    why_now: str = ""
+    key_positions: list[str] = Field(default_factory=list)
+    real_tweets_summary: str = ""
 
     def to_prompt_text(self) -> str:
-        """생성 프롬프트에 주입할 구조화된 배경 텍스트."""
-        parts = []
+        parts: list[str] = []
         if self.trigger_event:
-            parts.append(f"[발단] {self.trigger_event}")
+            parts.append(f"[Trigger] {self.trigger_event}")
         if self.chain_reaction:
-            parts.append(f"[전개] {self.chain_reaction}")
+            parts.append(f"[Chain Reaction] {self.chain_reaction}")
         if self.why_now:
-            parts.append(f"[지금 터진 이유] {self.why_now}")
+            parts.append(f"[Why Now] {self.why_now}")
         if self.key_positions:
-            positions = " / ".join(self.key_positions)
-            parts.append(f"[쟁점] {positions}")
+            parts.append(f"[Key Positions] {' / '.join(self.key_positions)}")
         if self.real_tweets_summary:
-            parts.append(f"[실제 반응] {self.real_tweets_summary}")
+            parts.append(f"[Live Reactions] {self.real_tweets_summary}")
         return "\n".join(parts)
 
 
 class MultiSourceContext(BaseModel):
-    """하나의 키워드에 대한 멀티소스 컨텍스트."""
+    """Source-specific context merged for one keyword."""
 
     twitter_insight: str = ""
     reddit_insight: str = ""
     news_insight: str = ""
 
     def to_combined_text(self) -> str:
-        sections = []
+        sections: list[str] = []
         if self.twitter_insight:
-            sections.append(f"[X 실시간 반응]\n{self.twitter_insight}")
+            sections.append(f"[X Reactions]\n{self.twitter_insight}")
         if self.reddit_insight:
-            sections.append(f"[Reddit 커뮤니티]\n{self.reddit_insight}")
+            sections.append(f"[Reddit]\n{self.reddit_insight}")
         if self.news_insight:
-            sections.append(f"[뉴스 헤드라인]\n{self.news_insight}")
+            sections.append(f"[News]\n{self.news_insight}")
         return "\n\n".join(sections)
 
 
 class ScoredTrend(BaseModel):
-    """바이럴 분석 완료된 트렌드."""
+    """Trend after scoring and quality checks."""
 
     keyword: str
     rank: int
@@ -94,48 +117,39 @@ class ScoredTrend(BaseModel):
     top_insight: str = ""
     suggested_angles: list[str] = Field(default_factory=list)
     best_hook_starter: str = ""
-    category: str = ""  # 트렌드 카테고리 (연예/스포츠/정치/경제/테크 등)
+    category: str = ""
     context: MultiSourceContext | None = None
     sources: list[TrendSource] = Field(default_factory=list)
     country: str = "korea"
     scored_at: datetime = Field(default_factory=datetime.now)
-    # [v3.0] 감성 분석 + 안전 필터
-    sentiment: str = "neutral"  # positive | neutral | negative | harmful
-    safety_flag: bool = False  # True면 콘텐츠 생성 스킵 (재난/혐오/사망 관련)
-    # [v4.0] 트렌드 검증 & 중연 관점 필드
-    cross_source_confidence: int = 0  # 0~4: 멀티소스 교차 검증 점수 (볼륨+X+뉴스+Reddit)
-    joongyeon_kick: int = 0  # 0~100: 중연 킥 포인트 잠재력 (현상 역설, 관점 반전 정도)
-    joongyeon_angle: str = ""  # 중연 스타일 최적 앵글 (한 문장)
-    # [v6.1] 최신성 검증
-    content_age_hours: float = 0.0  # 콘텐츠 발행~현재 경과 시간
-    freshness_grade: str = "unknown"  # fresh | recent | stale | expired | unknown
-    # [v8.0] 트렌드 분석 강화 (프롬프트 ①)
-    why_trending: str = ""  # 왜 지금 뜨는지 원인 1-2문장 추론
-    peak_status: str = ""  # 상승중|정점|하락중
-    relevance_score: int = 0  # 1-10: X에서 활발히 논의하기 적합한 정도
-    # [v10.0] 구조화된 트렌드 배경 (Deep Why)
+    sentiment: str = "neutral"
+    safety_flag: bool = False
+    cross_source_confidence: int = 0
+    joongyeon_kick: int = 0
+    joongyeon_angle: str = ""
+    content_age_hours: float = 0.0
+    freshness_grade: str = "unknown"
+    why_trending: str = ""
+    peak_status: str = ""
+    relevance_score: int = 0
     trend_context: TrendContext | None = None
-    # [v9.0] 벨로시티 + 이머징 트렌드
-    velocity: float = 0.0  # 런 간 볼륨 증가율 (B-1)
-    is_emerging: bool = False  # 저볼륨 + 고벨로시티 이머징 트렌드 (C-6)
-    # [v13.0] 게시 가능성 게이트 (Publishability Gate)
-    publishable: bool = True  # False면 콘텐츠 생성 스킵 (의미없는 키워드, 문장 조각 등)
-    publishability_reason: str = ""  # publishable=false 사유 (예: "문장 조각", "오타 키워드")
-    corrected_keyword: str = ""  # 오타 키워드의 교정된 원본 (예: "카이로류" → "아카이로 류")
-    # [v5.0] Trend Genealogy — 트렌드 계보 추적
-    parent_trends: list[str] = Field(default_factory=list)  # 이 트렌드의 원인이 된 상위 트렌드
-    predicted_children: list[str] = Field(default_factory=list)  # LLM이 예측한 파생 트렌드
-    genealogy_depth: int = 0  # 계보 깊이 (0=원본, 1=1차 파생, 2=2차 파생)
-    # [v6.0] 정보 정확성 검증
-    source_credibility: float = 0.0  # 0~1: 뉴스 출처 신뢰도 가중 평균
-    fact_check_score: float = 1.0  # 0~1: 생성 콘텐츠 팩트 체크 정확도
-    hallucination_flags: list[str] = Field(default_factory=list)  # 환각 감지된 항목 목록
-    cross_source_consistent: bool = True  # 소스 간 정보 일관성 여부
-    cross_source_agreement: float = 0.5  # 0~1: 소스 간 엔터티 일치도 점수
+    velocity: float = 0.0
+    is_emerging: bool = False
+    publishable: bool = True
+    publishability_reason: str = ""
+    corrected_keyword: str = ""
+    parent_trends: list[str] = Field(default_factory=list)
+    predicted_children: list[str] = Field(default_factory=list)
+    genealogy_depth: int = 0
+    source_credibility: float = 0.0
+    fact_check_score: float = 1.0
+    hallucination_flags: list[str] = Field(default_factory=list)
+    cross_source_consistent: bool = True
+    cross_source_agreement: float = 0.5
 
 
 class TrendCluster(BaseModel):
-    """의미적으로 유사한 트렌드 그룹."""
+    """Cluster of semantically similar trends."""
 
     representative: str
     members: list[str] = Field(default_factory=list)
@@ -143,22 +157,19 @@ class TrendCluster(BaseModel):
 
 
 class GeneratedTweet(BaseModel):
-    """생성된 단일 트윗/포스트."""
+    """One generated content unit."""
 
     tweet_type: str
     content: str
-    content_type: str = "short"  # "short" (280자) | "long" (X Premium+) | "threads" (Meta Threads)
+    content_type: str = "short"
     char_count: int = 0
-    # [v3.0] A/B 변형 + 멀티언어 지원
-    variant_id: str = ""  # A/B 테스트 변형 식별자 (예: "A", "B"). 기본값 빈 문자열(단일 변형)
-    language: str = "ko"  # 생성 언어 코드 (예: "ko", "en", "ja")
-    # [v8.0] 멘션 메타데이터 (프롬프트 ②)
-    best_posting_time: str = ""  # 추천 게시 시간 (예: 오전 8-10시)
-    expected_engagement: str = ""  # 높음|보통|낮음
-    reasoning: str = ""  # 이 멘션이 효과적인 이유 한 문장
-    # [v12.0] 멀티플랫폼
-    platform: str = "x"  # 대상 플랫폼: "x" | "threads" | "naver_blog"
-    seo_keywords: list[str] = Field(default_factory=list)  # SEO 키워드 (블로그용)
+    variant_id: str = ""
+    language: str = "ko"
+    best_posting_time: str = ""
+    expected_engagement: str = ""
+    reasoning: str = ""
+    platform: str = "x"
+    seo_keywords: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _compute_char_count(self) -> "GeneratedTweet":
@@ -168,30 +179,114 @@ class GeneratedTweet(BaseModel):
 
 
 class GeneratedThread(BaseModel):
-    """고바이럴 트렌드용 멀티트윗 쓰레드."""
+    """Thread representation for multi-post content."""
 
     tweets: list[str]
     hook: str = ""
 
 
 class TweetBatch(BaseModel):
-    """하나의 트렌드에 대한 전체 생성 결과."""
+    """All generated outputs for one trend."""
 
     topic: str
     tweets: list[GeneratedTweet] = Field(default_factory=list)
     long_posts: list[GeneratedTweet] = Field(default_factory=list)
     threads_posts: list[GeneratedTweet] = Field(default_factory=list)
-    blog_posts: list[GeneratedTweet] = Field(default_factory=list)  # [v12.0] 네이버 블로그 글감
+    blog_posts: list[GeneratedTweet] = Field(default_factory=list)
     thread: GeneratedThread | None = None
     viral_score: int = 0
-    language: str = ""  # [v3.0] 멀티언어 배치 언어 코드 (예: "en", "ja"). 기본값 "" = 기본 언어
-    metadata: dict = Field(default_factory=dict)  # [B-4] 런타임 메타 (best_posting_hours 등)
-    visual_urls: list[str] = Field(default_factory=list)  # [C-4] Canva 비주얼 자산 URL
+    language: str = ""
+    metadata: dict = Field(default_factory=dict)
+    visual_urls: list[str] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=datetime.now)
 
 
+class ValidatedTrend(BaseModel):
+    """V2.0 validated trend contract for downstream workflow steps."""
+
+    trend_id: str
+    keyword: str
+    confidence_score: float = 0.0
+    source_count: int = 0
+    evidence_refs: list[str] = Field(default_factory=list)
+    freshness_minutes: int = 0
+    dedup_fingerprint: str = ""
+    lifecycle_status: WorkflowLifecycleStatus = WorkflowLifecycleStatus.VALIDATED
+    scoring_axes: dict[str, float] = Field(default_factory=dict)
+    scoring_reasons: dict[str, str] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class DraftBundle(BaseModel):
+    """V2.0 publish-ready draft contract."""
+
+    draft_id: str
+    trend_id: str
+    platform: str
+    content_type: str
+    body: str
+    hashtags: list[str] = Field(default_factory=list)
+    prompt_version: str = ""
+    generator_provider: str = ""
+    generator_model: str = ""
+    source_evidence_ref: str = ""
+    degraded_mode: bool = False
+    lifecycle_status: WorkflowLifecycleStatus = WorkflowLifecycleStatus.DRAFTED
+    review_status: ReviewQueueStatus = ReviewQueueStatus.DRAFT
+    notion_page_id: str = ""
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class QAReport(BaseModel):
+    """V2.0 QA gate output for one draft bundle."""
+
+    draft_id: str
+    total_score: float = 0.0
+    passed: bool = False
+    warnings: list[str] = Field(default_factory=list)
+    blocking_reasons: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class ReviewDecision(BaseModel):
+    """Manual review decision captured from the canonical queue."""
+
+    draft_id: str
+    decision: str
+    reviewed_by: str = ""
+    reviewed_at: datetime = Field(default_factory=datetime.now)
+    review_note: str = ""
+
+
+class PublishReceipt(BaseModel):
+    """Receipt recorded after a manual external publish."""
+
+    draft_id: str
+    platform: str
+    success: bool = False
+    published_url: str = ""
+    published_at: datetime | None = None
+    failure_code: str = ""
+    failure_reason: str = ""
+    receipt_id: str = ""
+
+
+class FeedbackSummary(BaseModel):
+    """Closed-loop feedback summary linked to a publish receipt."""
+
+    draft_id: str
+    metric_window: str = ""
+    impressions: int = 0
+    engagements: int = 0
+    clicks: int = 0
+    collector_status: str = ""
+    strategy_notes: str = ""
+    receipt_id: str = ""
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
 class RunResult(BaseModel):
-    """파이프라인 실행 결과 요약."""
+    """Pipeline run result summary."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -205,7 +300,6 @@ class RunResult(BaseModel):
     tweets_saved: int = 0
     alerts_sent: int = 0
     errors: list[str] = Field(default_factory=list)
-    # [v6.0] 품질 피드백 메트릭
     avg_qa_score: float = 0.0
     regeneration_count: int = 0
     category_distribution: dict = Field(default_factory=dict)

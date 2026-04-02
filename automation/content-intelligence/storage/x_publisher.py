@@ -1,15 +1,16 @@
-"""X(Twitter) 자동 발행 모듈.
+"""Async X publishing helpers for Content Intelligence Engine.
 
-QA 통과한 X 콘텐츠를 getdaytrends의 x_client.py를 활용하여 자동 발행한다.
+The publish flow requires an OAuth 2.0 user-context access token obtained
+through Authorization Code with PKCE. We keep the boundary small here so
+publishing does not depend on getdaytrends internals or blocking HTTP calls.
 """
 
 from __future__ import annotations
 
-import sys
 from datetime import datetime
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import httpx
 from loguru import logger as log
 
 if TYPE_CHECKING:
@@ -17,159 +18,159 @@ if TYPE_CHECKING:
     from storage.models import ContentBatch, GeneratedContent, PublishResult
 
 
-def _ensure_gdt_path() -> None:
-    """getdaytrends를 임포트 가능하도록 경로 추가."""
-    gdt_dir = Path(__file__).resolve().parents[2] / "getdaytrends"
-    if str(gdt_dir) not in sys.path:
-        sys.path.insert(0, str(gdt_dir))
+X_CREATE_TWEET_URL = "https://api.twitter.com/2/tweets"
+X_PUBLISH_TIMEOUT_SEC = 30.0
+
+
+def _get_x_access_token(config: "CIEConfig") -> str:
+    return config.x_access_token.strip()
 
 
 async def publish_to_x(
-    content: GeneratedContent,
-    config: CIEConfig,
-) -> PublishResult:
-    """단일 콘텐츠를 X(Twitter)에 발행한다."""
+    content: "GeneratedContent",
+    config: "CIEConfig",
+) -> "PublishResult":
+    """Publish a single approved content item to X."""
     from storage.models import PublishResult
 
-    if not config.can_publish_x:
+    access_token = _get_x_access_token(config)
+    if not config.enable_x_publish or not access_token:
         return PublishResult(
             platform="x",
             success=False,
             target="x",
-            error="X 발행 미설정 (CIE_X_PUBLISH=true + X_ACCESS_TOKEN 필요)",
+            error=(
+                "X publish is not configured. Set CIE_X_PUBLISH=true and provide "
+                "X_ACCESS_TOKEN as an OAuth 2.0 user-context token."
+            ),
         )
 
-    # QA 점수 확인 (X는 더 높은 기준)
     if content.qa_report and content.qa_report.total_score < config.x_min_qa_score:
         return PublishResult(
             platform="x",
             success=False,
             target="x",
-            error=f"QA 점수 미달: {content.qa_report.total_score} < {config.x_min_qa_score}",
+            error=f"QA score below threshold: {content.qa_report.total_score} < {config.x_min_qa_score}",
         )
 
-    # 규제 준수 확인
     if not content.regulation_compliant:
         return PublishResult(
             platform="x",
             success=False,
             target="x",
-            error="규제 미준수 콘텐츠 — 발행 차단",
+            error="Regulation compliance check failed; publishing blocked.",
         )
-
-    try:
-        _ensure_gdt_path()
-
-        # getdaytrends의 x_client 활용 시도
-        try:
-            from x_client import XClient
-
-            client = XClient(
-                access_token=config.x_access_token,
-                client_id=config.x_client_id,
-                client_secret=config.x_client_secret,
-            )
-
-            # 본문 + 해시태그 조합
-            tweet_text = _compose_tweet(content)
-            result = await client.post_tweet(tweet_text)
-
-            if result.get("success"):
-                content.published_at = datetime.now()
-                content.publish_target = "x"
-                tweet_id = result.get("tweet_id", "")
-                log.info(f"  ✅ X 발행 성공: {tweet_id}")
-                return PublishResult(
-                    platform="x",
-                    success=True,
-                    target="x",
-                    page_id=tweet_id,
-                )
-            else:
-                error = result.get("error", "알 수 없는 오류")
-                content.publish_error = error
-                return PublishResult(
-                    platform="x",
-                    success=False,
-                    target="x",
-                    error=error,
-                )
-
-        except ImportError:
-            # x_client 없을 경우 직접 X API v2 호출
-            return await _direct_x_post(content, config)
-
-    except Exception as e:
-        error = str(e)
-        log.error(f"  ❌ X 발행 에러: {error}")
-        content.publish_error = error
-        return PublishResult(
-            platform="x",
-            success=False,
-            target="x",
-            error=error,
-        )
-
-
-async def _direct_x_post(
-    content: GeneratedContent,
-    config: CIEConfig,
-) -> PublishResult:
-    """x_client 없을 경우 직접 X API v2 호출."""
-    import requests
-    from storage.models import PublishResult
 
     tweet_text = _compose_tweet(content)
+    result = await _post_tweet(tweet_text, access_token=access_token)
+    if result.get("ok"):
+        tweet_id = str(result.get("tweet_id", "") or "")
+        content.published_at = datetime.now()
+        content.publish_target = "x"
+        content.publish_error = ""
+        log.info("X publish succeeded: {}", tweet_id)
+        return PublishResult(
+            platform="x",
+            success=True,
+            target="x",
+            page_id=tweet_id,
+        )
+
+    error = str(result.get("error", "Unknown X publish error"))
+    content.publish_error = error
+    log.warning("X publish failed: {}", error)
+    return PublishResult(
+        platform="x",
+        success=False,
+        target="x",
+        error=error,
+    )
+
+
+async def _post_tweet(
+    tweet_text: str,
+    *,
+    access_token: str,
+    session: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """Post a single tweet through the X API with async I/O."""
+    if not access_token:
+        return {
+            "ok": False,
+            "error": (
+                "Missing X user-context token. Set X_ACCESS_TOKEN with an "
+                "Authorization Code with PKCE access token."
+            ),
+            "code": 0,
+        }
+
+    if len(tweet_text) > 280:
+        return {"ok": False, "error": f"Tweet exceeds 280 characters ({len(tweet_text)})", "code": 0}
 
     headers = {
-        "Authorization": f"Bearer {config.x_access_token}",
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
+        "User-Agent": "ContentIntelligenceEngine/2.0",
     }
     payload = {"text": tweet_text}
 
-    try:
-        resp = requests.post(
-            "https://api.twitter.com/2/tweets",
-            headers=headers,
-            json=payload,
-            timeout=30,
-        )
+    async def _send(client: httpx.AsyncClient) -> dict[str, Any]:
+        try:
+            response = await client.post(X_CREATE_TWEET_URL, headers=headers, json=payload)
+        except httpx.HTTPError as exc:
+            return {"ok": False, "error": str(exc), "code": 0}
+        return _parse_post_response(response)
 
-        if resp.status_code in (200, 201):
-            data = resp.json().get("data", {})
-            tweet_id = data.get("id", "")
-            content.published_at = datetime.now()
-            content.publish_target = "x"
-            log.info(f"  ✅ X 직접 발행 성공: {tweet_id}")
-            return PublishResult(
-                platform="x",
-                success=True,
-                target="x",
-                page_id=tweet_id,
-            )
-        else:
-            error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-            content.publish_error = error
-            return PublishResult(
-                platform="x",
-                success=False,
-                target="x",
-                error=error,
-            )
-    except Exception as e:
-        return PublishResult(
-            platform="x",
-            success=False,
-            target="x",
-            error=str(e),
-        )
+    if session is not None:
+        return await _send(session)
+
+    async with httpx.AsyncClient(timeout=X_PUBLISH_TIMEOUT_SEC) as client:
+        return await _send(client)
+
+
+def _parse_post_response(response: httpx.Response) -> dict[str, Any]:
+    body = _safe_json(response)
+    if response.status_code in (200, 201):
+        tweet_id = str(body.get("data", {}).get("id", "") or "")
+        return {"ok": True, "tweet_id": tweet_id}
+
+    error = _extract_x_error(body, response)
+    return {"ok": False, "error": error, "code": response.status_code}
+
+
+def _safe_json(response: httpx.Response) -> dict[str, Any]:
+    try:
+        payload = response.json()
+    except ValueError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _extract_x_error(body: dict[str, Any], response: httpx.Response) -> str:
+    errors = body.get("errors")
+    if isinstance(errors, list) and errors:
+        first = errors[0]
+        if isinstance(first, dict):
+            detail = first.get("detail") or first.get("message") or first.get("title")
+            if detail:
+                return str(detail)
+
+    for key in ("detail", "title", "error"):
+        value = body.get(key)
+        if value:
+            return str(value)
+
+    text = response.text.strip()
+    if text:
+        return f"HTTP {response.status_code}: {text[:200]}"
+    return f"HTTP {response.status_code}"
 
 
 async def publish_batch_to_x(
-    batch: ContentBatch,
-    config: CIEConfig,
-) -> list[PublishResult]:
-    """배치 내 X 플랫폼 콘텐츠 중 QA 통과한 것만 발행한다."""
+    batch: "ContentBatch",
+    config: "CIEConfig",
+) -> list["PublishResult"]:
+    """Publish all approved X content items from a batch."""
     results = []
     for content in batch.contents:
         if content.platform == "x" and content.qa_passed:
@@ -178,20 +179,17 @@ async def publish_batch_to_x(
     return results
 
 
-def _compose_tweet(content: GeneratedContent) -> str:
-    """콘텐츠 본문 + 해시태그를 트윗 형식으로 조합한다."""
+def _compose_tweet(content: "GeneratedContent") -> str:
+    """Compose body plus hashtags within the X 280-char limit."""
     body = content.body or ""
 
-    # 해시태그 추가
     if content.hashtags:
-        hashtag_str = " ".join(f"#{h}" for h in content.hashtags[:5])
-        # 280자 제한 고려
+        hashtag_str = " ".join(f"#{tag}" for tag in content.hashtags[:5])
         max_body = 280 - len(hashtag_str) - 2
         if len(body) > max_body:
-            body = body[: max_body - 1] + "…"
+            body = body[: max(0, max_body - 3)] + "..."
         return f"{body}\n\n{hashtag_str}"
 
-    # 해시태그 없는 경우
     if len(body) > 280:
-        body = body[:279] + "…"
+        body = body[:277] + "..."
     return body

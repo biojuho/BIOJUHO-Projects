@@ -92,6 +92,7 @@ class SensorReading(Base):
         Index("ix_sensor_readings_timestamp", "timestamp"),
         Index("ix_sensor_readings_zone", "zone"),
         Index("ix_sensor_reading_sensor_ts", "sensor_id", "timestamp"),
+        Index("ix_sensor_readings_zone_ts", "zone", "timestamp"),
     )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

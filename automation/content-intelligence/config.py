@@ -81,7 +81,7 @@ class CIEConfig:
     enable_notion_publish: bool = os.getenv("CIE_NOTION_PUBLISH", "false").lower() == "true"
     enable_x_publish: bool = os.getenv("CIE_X_PUBLISH", "false").lower() == "true"
     x_min_qa_score: int = int(os.getenv("CIE_X_MIN_QA_SCORE", "75"))
-    x_access_token: str = os.getenv("X_ACCESS_TOKEN", "")
+    x_access_token: str = os.getenv("X_ACCESS_TOKEN", "")  # OAuth 2.0 user-context token (PKCE)
     x_client_id: str = os.getenv("X_CLIENT_ID", "")
     x_client_secret: str = os.getenv("X_CLIENT_SECRET", "")
 
@@ -123,8 +123,11 @@ class CIEConfig:
                 errors.append("CIE_NOTION_PUBLISH=true 이지만 CIE_NOTION_DATABASE_ID 가 없습니다.")
 
         if self.enable_x_publish:
-            if not self.x_access_token:
-                errors.append("CIE_X_PUBLISH=true 이지만 X_ACCESS_TOKEN 이 없습니다.")
+            if not self.x_access_token.strip():
+                errors.append(
+                    "CIE_X_PUBLISH=true 이지만 X_ACCESS_TOKEN "
+                    "(OAuth 2.0 user-context token from Authorization Code with PKCE) 이 없습니다."
+                )
 
         if errors:
             for msg in errors:
@@ -149,7 +152,7 @@ class CIEConfig:
     @property
     def can_publish_x(self) -> bool:
         """X 발행 가능 여부."""
-        return bool(self.enable_x_publish and self.x_access_token)
+        return bool(self.enable_x_publish and self.x_access_token.strip())
 
     def summary(self) -> str:
         """설정 요약 출력."""

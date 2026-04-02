@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Thermometer, Droplets, AlertTriangle, Activity, Wifi, WifiOff } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useToast } from '../contexts/ToastContext';
 import { cn } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Badge } from './ui/Badge';
+import { useThrottledWebSocket } from '../hooks/useThrottledWebSocket';
 
 const ZONE_COLORS = {
   'Cold Storage A': '#3b82f6',
@@ -14,38 +15,21 @@ const ZONE_COLORS = {
 };
 
 export default function ColdChainMonitor() {
-  const [readings, setReadings] = useState([]);
   const [status, setStatus] = useState(null);
-  const [connected, setConnected] = useState(false);
-  const wsRef = useRef(null);
   const { showToast } = useToast();
+
+  const wsUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/ws/iot`;
+  const { data: readings, connected } = useThrottledWebSocket(wsUrl, {
+    throttleMs: 150,   // Flush at most ~7 times/sec (vs 10,000/sec unthrottled)
+    maxItems: 200,     // Keep latest 200 readings for chart
+    onAlert: (alert) => showToast(alert, 'error'),
+  });
 
   useEffect(() => {
     fetch('/api/iot/status')
       .then((r) => r.json())
       .then(setStatus)
       .catch(() => showToast('IoT status unavailable', 'warning'));
-
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/ws/iot`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'history') {
-        setReadings(data.data);
-      } else {
-        setReadings((prev) => [...prev.slice(-100), data]);
-        if (data.alerts && data.alerts.length > 0) {
-          showToast(data.alerts[0], 'error');
-        }
-      }
-    };
-
-    return () => ws.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
