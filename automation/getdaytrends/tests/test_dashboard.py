@@ -161,6 +161,19 @@ class TestDashboardEnhancements:
             }
         }
 
+    def test_review_queue_endpoint_returns_snapshot(self, client):
+        payload = {
+            "counts": {"Ready": 1, "Approved": 1},
+            "items": [{"draft_id": "draft-1", "review_status": "Ready"}],
+        }
+        with patch("dashboard.get_review_queue_snapshot", new_callable=AsyncMock, return_value=payload) as mock_snapshot:
+            resp = client.get("/api/review_queue?limit=25")
+
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        mock_snapshot.assert_awaited_once()
+        assert mock_snapshot.await_args.kwargs["limit"] == 25
+
 
 # ── DATABASE_URL Routing Tests ──────────────────────────────────────
 

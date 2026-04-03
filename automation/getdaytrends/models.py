@@ -98,11 +98,11 @@ class MultiSourceContext(BaseModel):
     def to_combined_text(self) -> str:
         sections: list[str] = []
         if self.twitter_insight:
-            sections.append(f"[X Reactions]\n{self.twitter_insight}")
+            sections.append(f"[X 실시간 반응]\n{self.twitter_insight}")
         if self.reddit_insight:
-            sections.append(f"[Reddit]\n{self.reddit_insight}")
+            sections.append(f"[Reddit 커뮤니티]\n{self.reddit_insight}")
         if self.news_insight:
-            sections.append(f"[News]\n{self.news_insight}")
+            sections.append(f"[뉴스 헤드라인]\n{self.news_insight}")
         return "\n\n".join(sections)
 
 

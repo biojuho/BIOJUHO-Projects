@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from pathlib import Path
 
 import aiosqlite
@@ -43,7 +44,17 @@ def parse_args() -> argparse.Namespace:
         "--json-out",
         help="Optional JSON summary output path.",
     )
+    parser.add_argument(
+        "--manual-assisted",
+        action="store_true",
+        help="Explicitly allow manual-assisted X publishing for this run.",
+    )
     return parser.parse_args()
+
+
+def _manual_publish_enabled(args: argparse.Namespace) -> bool:
+    env_flag = os.getenv("ENABLE_X_MANUAL_ASSISTED_PUBLISH", "").strip().lower() in {"1", "true", "yes", "on"}
+    return bool(args.manual_assisted or env_flag)
 
 
 async def fetch_queued_rows(db_path: str, *, content_type: str, limit: int) -> list[dict]:
@@ -81,6 +92,12 @@ async def publish_rows(args: argparse.Namespace) -> dict:
                 }
             )
         return {"queued_count": len(rows), "results": results}
+
+    if not _manual_publish_enabled(args):
+        raise RuntimeError(
+            "X publishing is disabled by default. Re-run with --manual-assisted "
+            "or set ENABLE_X_MANUAL_ASSISTED_PUBLISH=true for an explicit human-triggered session."
+        )
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         for row in rows:

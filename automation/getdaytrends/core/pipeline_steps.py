@@ -26,11 +26,13 @@ try:
         get_recent_tweet_contents,
         promote_draft_to_ready,
         record_posting_time_stat,
+        record_trend_quarantine,
         save_draft_bundle,
         save_qa_report,
         save_trend,
         save_tweets_batch,
         save_validated_trend,
+        update_draft_bundle_status,
     )
     from ..generator import generate_for_trend_async, regenerate_content_groups
     from ..models import GeneratedTweet, RunResult, TweetBatch
@@ -47,11 +49,13 @@ except ImportError:
         get_recent_tweet_contents,
         promote_draft_to_ready,
         record_posting_time_stat,
+        record_trend_quarantine,
         save_draft_bundle,
         save_qa_report,
         save_trend,
         save_tweets_batch,
         save_validated_trend,
+        update_draft_bundle_status,
     )
     from generator import generate_for_trend_async, regenerate_content_groups
     from models import GeneratedTweet, RunResult, TweetBatch
@@ -249,6 +253,27 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
                     )
         else:
             log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
+            final_qa = {
+                "failed_groups": [],
+                "warnings": [],
+                "reason": "qa_skipped",
+                "group_results": {},
+                "total_score": float(getattr(trend, "viral_potential", 0) or 0),
+            }
+
+        if not hasattr(primary, "metadata") or primary.metadata is None:
+            primary.metadata = {}
+        primary.metadata["qa_report"] = final_qa or {
+            "failed_groups": [],
+            "warnings": [],
+            "reason": "qa_not_available",
+            "group_results": {},
+            "total_score": float(getattr(trend, "viral_potential", 0) or 0),
+        }
+        primary.metadata.setdefault("prompt_version", f"getdaytrends-v2.{VERSION}")
+        primary.metadata.setdefault("generator_provider", "shared.llm")
+        primary.metadata.setdefault("generator_model", "shared.llm.default")
+        primary.metadata.setdefault("degraded_mode", False)
 
         # 교차 출처 일관성 검증
         if not is_cached and trend.context:
@@ -344,6 +369,145 @@ async def _run_diversity_qa(batch: TweetBatch, trend, run: RunResult) -> None:
         pass
 
 
+def _qa_group_for_bundle(bundle) -> str:
+    if bundle.platform == "threads":
+        return "threads_posts"
+    if bundle.platform == "naver_blog":
+        return "blog_posts"
+    if bundle.content_type == "long":
+        return "long_posts"
+    return "tweets"
+
+
+async def _record_v2_workflow_bundle(
+    conn,
+    *,
+    trend,
+    batch: TweetBatch,
+    trend_row_id: int,
+    run_row_id: int,
+    config: AppConfig,
+) -> dict:
+    fingerprint = compute_fingerprint(trend.keyword, trend.volume_last_24h, bucket=config.cache_volume_bucket)
+    validated, quarantine = validate_trend_candidate(
+        trend,
+        dedup_fingerprint=fingerprint,
+        trend_id=f"trend-{trend_row_id}",
+    )
+    if validated is None:
+        await record_trend_quarantine(
+            conn,
+            run_id=run_row_id,
+            keyword=trend.keyword,
+            fingerprint=fingerprint,
+            reason_code=quarantine.get("reason_code", "validation_failed"),
+            reason_detail=quarantine.get("reason_detail", ""),
+            source_count=len(getattr(trend, "sources", []) or []),
+            freshness_minutes=int(round(float(getattr(trend, "content_age_hours", 0.0) or 0.0) * 60)),
+            payload={"keyword": trend.keyword, "viral_potential": getattr(trend, "viral_potential", 0)},
+        )
+        return {"ready_platforms": set(), "drafts": []}
+
+    validated.lifecycle_status = "scored"
+    await save_validated_trend(
+        conn,
+        trend_id=validated.trend_id,
+        keyword=validated.keyword,
+        confidence_score=validated.confidence_score,
+        source_count=validated.source_count,
+        evidence_refs=validated.evidence_refs,
+        freshness_minutes=validated.freshness_minutes,
+        dedup_fingerprint=validated.dedup_fingerprint,
+        lifecycle_status="scored",
+        scoring_axes=validated.scoring_axes,
+        scoring_reasons=validated.scoring_reasons,
+        trend_row_id=trend_row_id,
+        run_id=run_row_id,
+    )
+
+    bundles = build_draft_bundles(
+        trend_id=validated.trend_id,
+        trend=trend,
+        batch=batch,
+        prompt_version=(batch.metadata or {}).get("prompt_version", f"getdaytrends-v2.{VERSION}"),
+        generator_provider=(batch.metadata or {}).get("generator_provider", "shared.llm"),
+        generator_model=(batch.metadata or {}).get("generator_model", "shared.llm.default"),
+    )
+    qa_meta = (batch.metadata or {}).get("qa_report", {}) or {}
+    failed_groups = qa_meta.get("failed_groups", []) or []
+    warnings = qa_meta.get("warnings", []) or []
+    group_results = qa_meta.get("group_results", {}) or {}
+
+    ready_platforms: set[str] = set()
+    recorded: list[dict] = []
+    for bundle in bundles:
+        await save_draft_bundle(
+            conn,
+            draft_id=bundle.draft_id,
+            trend_id=bundle.trend_id,
+            trend_row_id=trend_row_id,
+            platform=bundle.platform,
+            content_type=bundle.content_type,
+            body=bundle.body,
+            hashtags=bundle.hashtags,
+            prompt_version=bundle.prompt_version,
+            generator_provider=bundle.generator_provider,
+            generator_model=bundle.generator_model,
+            source_evidence_ref=bundle.source_evidence_ref,
+            degraded_mode=bundle.degraded_mode,
+            lifecycle_status="drafted",
+            review_status="Draft",
+        )
+        group_name = _qa_group_for_bundle(bundle)
+        threshold = float(config.get_quality_threshold(group_name))
+        total_score = float(
+            group_results.get(group_name, {}).get(
+                "total",
+                qa_meta.get("total_score", batch.viral_score or getattr(trend, "viral_potential", 0)),
+            )
+        )
+        report = build_qa_report(
+            bundle,
+            total_score=total_score,
+            threshold=threshold,
+            warnings=warnings,
+            failed_groups=failed_groups,
+        )
+        await save_qa_report(
+            conn,
+            draft_id=report.draft_id,
+            total_score=report.total_score,
+            passed=report.passed,
+            warnings=report.warnings,
+            blocking_reasons=report.blocking_reasons,
+            report_payload={"failed_groups": failed_groups, "group_name": group_name},
+        )
+        if report.passed:
+            await promote_draft_to_ready(conn, report.draft_id)
+            ready_platforms.add(bundle.platform)
+        else:
+            await update_draft_bundle_status(
+                conn,
+                draft_id=report.draft_id,
+                lifecycle_status="drafted",
+                review_status="Rejected",
+            )
+        recorded.append(
+            {
+                "draft_id": bundle.draft_id,
+                "trend_id": bundle.trend_id,
+                "platform": bundle.platform,
+                "content_type": bundle.content_type,
+                "passed": report.passed,
+                "qa_score": report.total_score,
+                "blocking_reasons": report.blocking_reasons,
+                "prompt_version": bundle.prompt_version,
+            }
+        )
+
+    return {"ready_platforms": ready_platforms, "drafts": recorded, "trend_id": validated.trend_id}
+
+
 async def _save_single_trend_db(
     batch: TweetBatch,
     trend,
@@ -382,6 +546,17 @@ async def _save_single_trend_db(
                     saved_to=saved_to,
                 )
                 run.tweets_saved += len(batch.thread.tweets)
+            workflow_v2 = await _record_v2_workflow_bundle(
+                conn,
+                trend=trend,
+                batch=batch,
+                trend_row_id=trend_id,
+                run_row_id=run_row_id,
+                config=config,
+            )
+            if not hasattr(batch, "metadata") or batch.metadata is None:
+                batch.metadata = {}
+            batch.metadata["workflow_v2"] = workflow_v2
     except (ImportError, sqlite3.Error, ValueError) as e:
         log.error(f"SQLite 저장 실패 ({trend.keyword}): {type(e).__name__}: {e}")
         run.errors.append(f"DB 저장 실패: {trend.keyword}")
@@ -428,7 +603,11 @@ async def _save_external(
         return
     platforms = getattr(config, "target_platforms", ["x"])
     for b, t in ext_pairs:
+        workflow_v2 = (getattr(b, "metadata", {}) or {}).get("workflow_v2", {}) or {}
+        ready_platforms = set(workflow_v2.get("ready_platforms", set()) or [])
         for plat in platforms:
+            if ready_platforms and plat not in ready_platforms:
+                continue
             has_content = (
                 (plat == "x" and b.tweets)
                 or (plat == "threads" and b.threads_posts)

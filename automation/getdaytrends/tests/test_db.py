@@ -56,6 +56,12 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
         self.assertIn("runs", table_names)
         self.assertIn("trends", table_names)
         self.assertIn("tweets", table_names)
+        self.assertIn("validated_trends", table_names)
+        self.assertIn("draft_bundles", table_names)
+        self.assertIn("qa_reports", table_names)
+        self.assertIn("review_decisions", table_names)
+        self.assertIn("publish_receipts", table_names)
+        self.assertIn("feedback_summaries", table_names)
 
     @pytest.mark.asyncio
     async def test_idempotent(self):

@@ -124,3 +124,59 @@ class TestNotionRetryLogic(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_content_hub_upsert_is_idempotent():
+    from storage import save_to_content_hub
+
+    cfg = AppConfig()
+    cfg.notion_token = "secret"
+    cfg.content_hub_database_id = "hub-db"
+    batch = _make_batch()
+    batch.metadata["workflow_v2"] = {
+        "drafts": [
+            {
+                "draft_id": "draft-123",
+                "trend_id": "trend-123",
+                "platform": "x",
+                "passed": True,
+                "prompt_version": "getdaytrends-v2",
+                "qa_score": 88.0,
+                "blocking_reasons": [],
+            }
+        ]
+    }
+    trend = _make_trend()
+
+    mock_notion = MagicMock()
+    mock_notion.databases.retrieve.return_value = {
+        "properties": {
+            "Name": {},
+            "Status": {},
+            "Category": {},
+            "Date": {},
+            "Score": {},
+            "Platform": {},
+            "Trend ID": {},
+            "Draft ID": {},
+            "Prompt Version": {},
+            "QA Score": {},
+            "Blocking Reasons": {},
+            "Published URL": {},
+            "Published At": {},
+            "Receipt ID": {},
+        }
+    }
+    mock_notion.databases.query.return_value = {"results": [{"id": "existing-page"}]}
+
+    with (
+        patch("storage.NOTION_AVAILABLE", True),
+        patch("storage.NotionClient", return_value=mock_notion),
+        patch("storage._build_notion_body", return_value=[]),
+        patch("storage._persist_content_hub_link") as persist_link,
+    ):
+        assert save_to_content_hub(batch, trend, cfg, platform="x") is True
+
+    mock_notion.pages.update.assert_called_once()
+    mock_notion.pages.create.assert_not_called()
+    persist_link.assert_called_once_with(cfg, "draft-123", "existing-page", "Ready")

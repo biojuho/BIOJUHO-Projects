@@ -19,10 +19,10 @@ except ImportError as e:
 
 try:
     from .config import VERSION, AppConfig
-    from .db import get_connection, get_source_quality_summary, get_trend_stats, init_db
+    from .db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_trend_stats, init_db
 except ImportError:
     from config import VERSION, AppConfig
-    from db import get_connection, get_source_quality_summary, get_trend_stats, init_db
+    from db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_trend_stats, init_db
 
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION)
 
@@ -780,6 +780,17 @@ async def api_watchlist(limit: int = Query(50, ge=1, le=200)):
         return JSONResponse([dict(r) for r in rows])
     except Exception:
         return JSONResponse([])
+    finally:
+        await conn.close()
+
+
+@app.get("/api/review_queue")
+async def api_review_queue(limit: int = Query(50, ge=1, le=200)):
+    """Read-only mirror of the V2 review queue lifecycle."""
+    conn = await _get_conn()
+    try:
+        snapshot = await get_review_queue_snapshot(conn, limit=limit)
+        return JSONResponse(snapshot)
     finally:
         await conn.close()
 

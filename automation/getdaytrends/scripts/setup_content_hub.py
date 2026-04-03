@@ -81,6 +81,8 @@ def main():
                     {"name": "Ready", "color": "yellow"},
                     {"name": "Approved", "color": "blue"},
                     {"name": "Published", "color": "green"},
+                    {"name": "Rejected", "color": "red"},
+                    {"name": "Expired", "color": "orange"},
                     {"name": "Archived", "color": "brown"},
                 ]
             }
@@ -115,6 +117,14 @@ def main():
             }
         },
         "URL": {"url": {}},
+        "Trend ID": {"rich_text": {}},
+        "Draft ID": {"rich_text": {}},
+        "Prompt Version": {"rich_text": {}},
+        "QA Score": {"number": {"format": "number"}},
+        "Blocking Reasons": {"rich_text": {}},
+        "Published URL": {"url": {}},
+        "Published At": {"date": {}},
+        "Receipt ID": {"rich_text": {}},
     }
 
     print("\n🔨 Content Hub DB 생성 중...")
