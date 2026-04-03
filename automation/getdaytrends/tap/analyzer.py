@@ -12,9 +12,12 @@ Graceful Degradation:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from loguru import logger as log
 
-from .detector import ArbitrageOpportunity
+if TYPE_CHECKING:
+    from .detector import ArbitrageOpportunity
 
 
 class ArbitrageAnalyzer:

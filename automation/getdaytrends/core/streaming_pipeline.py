@@ -104,6 +104,12 @@ class StreamingPipeline:
         Returns:
             PipelineEvent 리스트 (각 트렌드의 처리 결과)
         """
+        # [QA 수정] 재실행 시 이전 상태 초기화 — re-entrant safety
+        self._results = []
+        self._errors = []
+        self._scored_queue = asyncio.Queue(maxsize=self.QUEUE_MAX_SIZE)
+        self._generated_queue = asyncio.Queue(maxsize=self.QUEUE_MAX_SIZE)
+
         log.info(f"[Streaming] 파이프라인 시작 — {len(raw_trends)}개 트렌드, "
                  f"gen_concurrency={self._gen_concurrency}")
 
@@ -152,7 +158,7 @@ class StreamingPipeline:
                 event.stage = "scored"
                 event.complete(result=scored)
                 await self._scored_queue.put(event)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 event.complete(error="scoring_timeout")
                 self._errors.append(f"[Scorer] 타임아웃: {trend}")
                 log.warning(f"[Streaming] 스코어링 타임아웃: {trend}")
@@ -187,7 +193,7 @@ class StreamingPipeline:
                     batch = None  # dry-run 모드
                 event.stage = "generated"
                 event.complete(result=batch)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 event.complete(error="generation_timeout")
                 self._errors.append(f"[Gen-{worker_id}] 타임아웃: {scored_trend}")
                 log.warning(f"[Streaming-{worker_id}] 생성 타임아웃")
@@ -221,9 +227,9 @@ class StreamingPipeline:
                     )
                 event.stage = "saved"
                 event.complete(result=event.result)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 event.complete(error="save_timeout")
-                self._errors.append(f"[Saver] 타임아웃")
+                self._errors.append("[Saver] 타임아웃")
             except Exception as e:
                 event.complete(error=f"save_error: {e}")
                 self._errors.append(f"[Saver] {type(e).__name__}: {e}")

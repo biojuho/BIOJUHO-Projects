@@ -182,20 +182,20 @@ def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | None, s
 
     # ── EDAPE: Engagement-Driven Adaptive Prompt Engine ──
     if getattr(config, "enable_edape", True):
-      try:
-        from edape import build_adaptive_context
+        try:
+            from edape import build_adaptive_context
 
-        adaptive_ctx = build_adaptive_context(config)
-        edape_block = adaptive_ctx.to_prompt_block()
-        if edape_block:
-            log.info(
-                f"  [EDAPE] 적응형 프롬프트 주입 준비 완료 "
-                f"(angles={len(adaptive_ctx.top_angles)} "
-                f"golden={len(adaptive_ctx.golden_snippets)} "
-                f"suppressed={len(adaptive_ctx.suppressed_angles)+len(adaptive_ctx.suppressed_hooks)+len(adaptive_ctx.suppressed_kicks)})"
-            )
-      except Exception as _edape_err:
-        log.debug(f"  [EDAPE] 로드 실패 (무시, 기존 경로 사용): {type(_edape_err).__name__}: {_edape_err}")
+            adaptive_ctx = build_adaptive_context(config)
+            edape_block = adaptive_ctx.to_prompt_block()
+            if edape_block:
+                log.info(
+                    f"  [EDAPE] 적응형 프롬프트 주입 준비 완료 "
+                    f"(angles={len(adaptive_ctx.top_angles)} "
+                    f"golden={len(adaptive_ctx.golden_snippets)} "
+                    f"suppressed={len(adaptive_ctx.suppressed_angles)+len(adaptive_ctx.suppressed_hooks)+len(adaptive_ctx.suppressed_kicks)})"
+                )
+        except Exception as _edape_err:
+            log.debug(f"  [EDAPE] 로드 실패 (무시, 기존 경로 사용): {type(_edape_err).__name__}: {_edape_err}")
     else:
         log.debug("  [EDAPE] 비활성화 상태 (config.enable_edape=False)")
 

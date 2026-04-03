@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -218,3 +217,33 @@ class TestPipelineEventMetrics:
         await asyncio.sleep(0.01)
         ev.complete(result="done")
         assert ev.elapsed_ms > 0
+
+
+class TestRegressionReEntrant:
+    """[QA 수정] 회귀 테스트: re-entrant run() 호출 안정성."""
+
+    @pytest.mark.asyncio
+    async def test_regression_reentrant_run_20260404(self):
+        """run()을 두 번 호출해도 결과가 누적되지 않아야 함."""
+        from core.streaming_pipeline import StreamingPipeline
+
+        trends_a = [_make_mock_trend(f"a_{i}") for i in range(2)]
+        trends_b = [_make_mock_trend(f"b_{i}") for i in range(3)]
+        ctx_a = {t.name: None for t in trends_a}
+        ctx_b = {t.name: None for t in trends_b}
+
+        config = MagicMock()
+        conn = MagicMock()
+
+        sp = StreamingPipeline(config, conn, generator_concurrency=1)
+
+        # 1차 실행
+        results_a = await sp.run(trends_a, ctx_a)
+        assert len(results_a) == 2
+        assert sp.success_count == 2
+
+        # 2차 실행 — 1차 결과가 누적되면 안 됨
+        results_b = await sp.run(trends_b, ctx_b)
+        assert len(results_b) == 3
+        assert sp.success_count == 3  # 2 + 3 = 5 가 아닌 3이어야 함
+

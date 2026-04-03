@@ -221,7 +221,7 @@ def _time_priority_factor(hours: float) -> float:
     if hours < 0.5:
         return 0.2  # 너무 빨리 잡힌 건 아직 불확실
     if hours <= 2:
-        return 0.5 + (hours - 0.5) * 0.33  # 0.5h→0.2, 2h→1.0 선형 증가
+        return 0.5 + (hours - 0.5) * 0.33  # 0.5h→0.5, 2h→1.0 선형 증가
     if hours <= 8:
         return 1.0  # sweet spot
     if hours <= 12:
