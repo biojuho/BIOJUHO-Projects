@@ -13,59 +13,29 @@
 
 ## IN_PROGRESS
 
-- [ ] **Approve the getdaytrends V2.0 reset docs before restarting product work**
-  - **Status**: Drafted and waiting for approval
-  - **Docs**:
-    - `docs/reports/2026-04/GETDAYTRENDS_V2_PRD_2026-04-02.md`
-    - `docs/reports/2026-04/GETDAYTRENDS_V2_WORKFLOW_2026-04-02.md`
-  - **Important policy**:
-    - V2.0 output is `publish-ready draft queue`
-    - X auto-publish is excluded from the default workflow
-
-- [ ] **Approve the Content Automation V2.0 reset docs before reopening broad implementation**
-  - **Status**: Drafted and waiting for product-level confirmation
-  - **Docs**:
-    - `docs/reports/2026-04/CONTENT_AUTOMATION_V2_PRD_2026-04-02.md`
-    - `docs/reports/2026-04/CONTENT_AUTOMATION_V2_MODULE_CONTRACT_2026-04-02.md`
-  - **Why this matters**:
-    - these docs re-center the milestone on the canonical content pipeline instead of local implementation drift
-    - implementation should now follow the approved workflow and contracts rather than continue expanding implicit module boundaries
-
-- [ ] **Push-prep checkpoint is still green, but the live worktree now spans AgriGuard plus content-intelligence hardening**
-  - **Status**: Architecture review follow-up is applied in-place; targeted validation is green; the broad commit stack still remains ahead by 12
-  - **Current git state**:
-    - branch state: `main...origin/main [ahead 12]`
-    - remaining modified files:
-      - `apps/AgriGuard/backend/iot_service.py`
-      - `apps/AgriGuard/backend/main.py`
-      - `apps/AgriGuard/backend/models.py`
-      - `apps/AgriGuard/frontend/src/components/ColdChainMonitor.jsx`
-      - `apps/AgriGuard/frontend/vite.config.js`
-      - `automation/content-intelligence/.env.example`
-      - `automation/content-intelligence/config.py`
-      - `automation/content-intelligence/storage/x_publisher.py`
-      - `automation/content-intelligence/tests/test_smoke.py`
-      - `HANDOFF.md`
-      - `TASKS.md`
-      - `CONTEXT.md`
-      - `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
-    - remaining untracked paths:
-      - `apps/AgriGuard/frontend/src/hooks/`
-      - `docs/reports/2026-04/VIBE_CODING_ARCH_REVIEW_2026-04-02.md`
-  - **Latest validation**:
-    - `python -m pytest automation/content-intelligence/tests/test_smoke.py -q` -> `77 passed`
-    - `python ops/scripts/run_workspace_smoke.py --scope workspace` -> `5/5 PASS`
-    - `python ops/scripts/run_workspace_smoke.py --scope agriguard` -> `3/3 PASS`
-  - **Release stance**: Push-ready from a targeted QC perspective, but not worktree-clean until the AgriGuard + content-intelligence hardening slice is either committed or intentionally discarded
-  - **Guides**:
-    - `docs/reports/2026-04/WORKTREE_TRIAGE_2026-04-02.md`
-    - `docs/reports/2026-04/VIBE_CODING_ARCH_REVIEW_2026-04-02.md`
+*No pending tasks*
 
 ---
 
 ## DONE (Last 7 Days)
 
 ### 2026-04-03
+
+- [x] **Verify and commit Content Automation / GetDayTrends V2.0 Workflow Implementation**
+  - **Context**: The uncommitted draft code matching the V2 PRD has been successfully validated via `pytest` (473 passing tests).
+  - **Result**: Checked in the V2 workflow (`feat(getdaytrends): implement V2.0 workflow with publish-ready draft queue`). Tests passed locally and branch is green.
+  
+- [x] **Clear remaining worktree and finish push-prep checkpoint**
+  - **Context**: Resolving the remaining AgriGuard and content-intelligence uncommitted footprint to return to a clean worktree state.
+  - **Result**: Worktree is now clean. The V2 implementation was the final uncommitted piece, and the repo is now solely ahead of `origin/main` by the newly created commits, ready for `git push`.
+
+- [x] **Approve the GetDayTrends & Content Automation V2.0 reset docs**
+  - **Context**: Captured the product reset into canonical PRD and Workflow documentation focusing on a pure draft-queue model without automated X publishing. User approved.
+  - **Docs**:
+    - `docs/reports/2026-04/GETDAYTRENDS_V2_PRD_2026-04-02.md`
+    - `docs/reports/2026-04/GETDAYTRENDS_V2_WORKFLOW_2026-04-02.md`
+    - `docs/reports/2026-04/CONTENT_AUTOMATION_V2_PRD_2026-04-02.md`
+    - `docs/reports/2026-04/CONTENT_AUTOMATION_V2_MODULE_CONTRACT_2026-04-02.md`
 
 - [x] **GetDayTrends P0/P1 심층 리뷰 + 즉시 수정 6건**
   - **Context**: 제3자 풀스택 개발자 관점에서 getdaytrends 코드베이스 심층 검토 후 우선순위별 즉시 실행
