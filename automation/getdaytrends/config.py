@@ -348,6 +348,27 @@ class AppConfig:
     enable_cross_source_consistency: bool = True  # 소스 간 일관성 검증 활성화
     hallucination_zero_tolerance: bool = True  # True면 환각 감지 시 무조건 재생성
 
+    # ===================================================
+    # [v16.0] EDAPE — Engagement-Driven Adaptive Prompt Engine
+    # ===================================================
+    enable_edape: bool = True  # EDAPE 적응형 프롬프트 엔진 활성화
+    edape_lookback_days: int = 7  # 성과 데이터 조회 기간 (일)
+    edape_max_suppression_ratio: float = 0.3  # 하위 패턴 억제 최대 비율
+
+    # ===================================================
+    # [v16.0] TAP — Trend Arbitrage Publisher
+    # ===================================================
+    enable_tap: bool = True  # 교차국가 트렌드 차익거래 감지 활성화
+    tap_lookback_hours: int = 12  # 차익거래 감지 조회 기간 (시간)
+    tap_min_viral_score: int = 60  # 차익거래 감지 최소 바이럴 스코어
+
+    # ===================================================
+    # [v16.0] Streaming Pipeline — Event-Driven 스트리밍
+    # ===================================================
+    enable_streaming_pipeline: bool = False  # asyncio.Queue 스트리밍 모드 활성화 (실험적)
+    streaming_generator_concurrency: int = 3  # 스트리밍 모드 동시 LLM 호출 수
+    streaming_stage_timeout: int = 120  # 단일 스테이지 타임아웃 (초)
+
     # Runtime options (CLI overrides)
     country: str = "korea"
     countries: list = field(default_factory=list)
@@ -500,6 +521,16 @@ class AppConfig:
             enable_embedding_clustering=os.getenv("ENABLE_EMBEDDING_CLUSTERING", "true").lower() == "true",
             require_context=os.getenv("REQUIRE_CONTEXT", "true").lower() == "true",
             enable_content_hub=_env_flag("ENABLE_CONTENT_HUB", default=False),
+            # v16.0 EDAPE + TAP + Streaming
+            enable_edape=os.getenv("ENABLE_EDAPE", "true").lower() == "true",
+            edape_lookback_days=int(os.getenv("EDAPE_LOOKBACK_DAYS", "7")),
+            edape_max_suppression_ratio=float(os.getenv("EDAPE_MAX_SUPPRESSION_RATIO", "0.3")),
+            enable_tap=os.getenv("ENABLE_TAP", "true").lower() == "true",
+            tap_lookback_hours=int(os.getenv("TAP_LOOKBACK_HOURS", "12")),
+            tap_min_viral_score=int(os.getenv("TAP_MIN_VIRAL_SCORE", "60")),
+            enable_streaming_pipeline=os.getenv("ENABLE_STREAMING_PIPELINE", "false").lower() == "true",
+            streaming_generator_concurrency=int(os.getenv("STREAMING_GENERATOR_CONCURRENCY", "3")),
+            streaming_stage_timeout=int(os.getenv("STREAMING_STAGE_TIMEOUT", "120")),
         )
 
     @staticmethod
@@ -743,6 +774,9 @@ class AppConfig:
                 "tiered_collection": self.enable_tiered_collection,
                 "golden_reference_qa": self.enable_golden_reference_qa,
                 "trend_genealogy": self.enable_trend_genealogy,
+                "edape": self.enable_edape,
+                "tap": self.enable_tap,
+                "streaming_pipeline": self.enable_streaming_pipeline,
             },
             "target_platforms": self.target_platforms,
             "enable_content_hub": self.enable_content_hub,

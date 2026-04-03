@@ -15,6 +15,35 @@ import schedule
 from loguru import logger as log
 from shared.llm import get_client
 
+# Optional dependencies — gracefully degrade when unavailable
+try:
+    try:
+        from ..performance_tracker import PerformanceTracker
+    except ImportError:
+        from performance_tracker import PerformanceTracker
+except ImportError:
+    PerformanceTracker = None  # type: ignore[assignment,misc]
+
+try:
+    try:
+        from ..fact_checker import check_cross_source_consistency, verify_batch as verify_fact_batch
+    except ImportError:
+        from fact_checker import check_cross_source_consistency, verify_batch as verify_fact_batch
+except ImportError:
+    check_cross_source_consistency = None  # type: ignore[assignment]
+    verify_fact_batch = None  # type: ignore[assignment]
+
+try:
+    from shared.business_metrics import biz as _biz
+except ImportError:
+    _biz = None  # type: ignore[assignment]
+
+try:
+    from shared.embeddings import cosine_similarity as _cosine_similarity, embed_texts as _embed_texts
+except ImportError:
+    _cosine_similarity = None  # type: ignore[assignment]
+    _embed_texts = None  # type: ignore[assignment]
+
 try:
     from ..config import AppConfig, VERSION
     from ..db import (
@@ -34,7 +63,7 @@ try:
         save_validated_trend,
         update_draft_bundle_status,
     )
-    from ..generator import generate_for_trend_async, regenerate_content_groups
+    from ..generator import audit_generated_content, generate_for_trend_async, regenerate_content_groups
     from ..models import GeneratedTweet, RunResult, TweetBatch
     from ..storage import save_to_content_hub, save_to_google_sheets, save_to_notion
     from ..workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
@@ -57,7 +86,7 @@ except ImportError:
         save_validated_trend,
         update_draft_bundle_status,
     )
-    from generator import generate_for_trend_async, regenerate_content_groups
+    from generator import audit_generated_content, generate_for_trend_async, regenerate_content_groups
     from models import GeneratedTweet, RunResult, TweetBatch
     from storage import save_to_content_hub, save_to_google_sheets, save_to_notion
     from workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
@@ -141,204 +170,266 @@ def _batch_from_cache(topic: str, rows: list[dict]) -> TweetBatch:
     )
 
 
-async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
-    """Step 3: 트윗/쓰레드 전체 병렬 생성 (캐시 우선)."""
-    print(f"\n[3/4] 트윗 병렬 생성 중... ({len(quality_trends)}개 동시)")
-    client = get_client()
+def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | None, str]:
+    """Adaptive Voice 패턴 가중치 + 골든 레퍼런스 + EDAPE 적응형 컨텍스트 로드.
 
-    # Adaptive Voice 패턴 가중치 로드
+    Returns:
+        (golden_refs, pattern_weights, edape_prompt_block)
+    """
     golden_refs = None
     pattern_weights = None
-    if getattr(config, "enable_adaptive_voice", False) or getattr(config, "enable_golden_reference_qa", False):
-        try:
-            try:
-                from ..performance_tracker import PerformanceTracker
-            except ImportError:
-                from performance_tracker import PerformanceTracker
+    edape_block = ""
 
-            tracker = PerformanceTracker(db_path=config.db_path, bearer_token=config.twitter_bearer_token)
-            if getattr(config, "enable_adaptive_voice", False):
-                pattern_weights = tracker.get_optimal_pattern_weights(
-                    days=getattr(config, "pattern_weight_days", 30),
-                    min_samples=getattr(config, "pattern_weight_min_samples", 3),
+    # ── EDAPE: Engagement-Driven Adaptive Prompt Engine ──
+    if getattr(config, "enable_edape", True):
+      try:
+        from edape import build_adaptive_context
+
+        adaptive_ctx = build_adaptive_context(config)
+        edape_block = adaptive_ctx.to_prompt_block()
+        if edape_block:
+            log.info(
+                f"  [EDAPE] 적응형 프롬프트 주입 준비 완료 "
+                f"(angles={len(adaptive_ctx.top_angles)} "
+                f"golden={len(adaptive_ctx.golden_snippets)} "
+                f"suppressed={len(adaptive_ctx.suppressed_angles)+len(adaptive_ctx.suppressed_hooks)+len(adaptive_ctx.suppressed_kicks)})"
+            )
+      except Exception as _edape_err:
+        log.debug(f"  [EDAPE] 로드 실패 (무시, 기존 경로 사용): {type(_edape_err).__name__}: {_edape_err}")
+    else:
+        log.debug("  [EDAPE] 비활성화 상태 (config.enable_edape=False)")
+
+    # ── 기존 Adaptive Voice (EDAPE가 데이터 부족할 때 폴백) ──
+    if not (getattr(config, "enable_adaptive_voice", False) or getattr(config, "enable_golden_reference_qa", False)):
+        return golden_refs, pattern_weights, edape_block
+    if PerformanceTracker is None:
+        log.debug("  성과 데이터 로드 실패 (무시): PerformanceTracker 미설치")
+        return golden_refs, pattern_weights, edape_block
+    try:
+        tracker = PerformanceTracker(db_path=config.db_path, bearer_token=config.twitter_bearer_token)
+        if getattr(config, "enable_adaptive_voice", False):
+            pattern_weights = tracker.get_optimal_pattern_weights(
+                days=getattr(config, "pattern_weight_days", 30),
+                min_samples=getattr(config, "pattern_weight_min_samples", 3),
+            )
+            angle_w = pattern_weights.get("angle_weights", {})
+            top_angle = max(angle_w, key=angle_w.get, default="-") if angle_w else "-"
+            log.info(f"  [Adaptive Voice] 패턴 가중치 로드 완료 (최우선 앵글: {top_angle})")
+        if getattr(config, "enable_golden_reference_qa", False):
+            golden_refs = tracker.get_golden_references(limit=getattr(config, "golden_reference_limit", 3))
+            log.info(f"  [Benchmark QA] 골든 레퍼런스 {len(golden_refs)}개 로드")
+    except (RuntimeError, ValueError) as _e:
+        log.debug(f"  성과 데이터 로드 실패 (무시): {type(_e).__name__}: {_e}")
+    return golden_refs, pattern_weights, edape_block
+
+
+async def _try_cache_hit(trend, config: AppConfig, conn) -> TweetBatch | None:
+    """캐시 히트 시 배치 반환, 미스 시 None. 키워드 교정도 적용."""
+    effective_keyword = getattr(trend, "corrected_keyword", "") or trend.keyword
+    if effective_keyword != trend.keyword:
+        log.info(f"  [키워드 교정 적용] '{trend.keyword}' → '{effective_keyword}'")
+        trend.keyword = effective_keyword
+
+    fp = compute_fingerprint(trend.keyword, trend.volume_last_24h, bucket=config.cache_volume_bucket)
+    peak_status = getattr(trend, "peak_status", "")
+    cache_ttl = config.get_cache_ttl(peak_status)
+    cached = await get_cached_content(conn, fp, max_age_hours=cache_ttl)
+    if cached:
+        log.info(f"  [콘텐츠 캐시] '{trend.keyword}' 재사용 ({len(cached)}개 항목, TTL={cache_ttl}h)")
+        return _batch_from_cache(trend.keyword, cached)
+    return None
+
+
+async def _load_recent_tweets(trend, config: AppConfig, conn) -> list[str]:
+    """콘텐츠 다양성을 위한 이전 생성 트윗 조회."""
+    if not getattr(config, "enable_content_diversity", True):
+        return []
+    try:
+        hours = getattr(config, "content_diversity_hours", 24)
+        return await get_recent_tweet_contents(conn, trend.keyword, hours=hours)
+    except (ImportError, sqlite3.Error, ValueError) as _e:
+        log.debug(f"  이전 트윗 조회 실패 (무시): {type(_e).__name__}: {_e}")
+        return []
+
+
+def _build_empty_qa(trend, *, reason: str = "qa_skipped") -> dict:
+    """QA가 스킵되었거나 사용 불가할 때의 기본 QA 딕셔너리."""
+    return {
+        "failed_groups": [],
+        "warnings": [],
+        "reason": reason,
+        "group_results": {},
+        "total_score": float(getattr(trend, "viral_potential", 0) or 0),
+    }
+
+
+async def _run_qa_pipeline(
+    primary: TweetBatch,
+    trend,
+    config: AppConfig,
+    effective_config: AppConfig,
+    client,
+    is_cached: bool,
+    recent_tweets: list[str],
+) -> tuple[TweetBatch, dict]:
+    """QA 검사 + 미달 시 재생성. (primary, final_qa) 반환."""
+    if _should_skip_qa(trend, is_cached, config):
+        log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
+        return primary, _build_empty_qa(trend)
+
+    qa = await audit_generated_content(primary, trend, config, client)
+    final_qa = qa
+    failed_groups = qa.get("failed_groups", []) if qa else []
+
+    if failed_groups:
+        details = qa.get("group_results", {})
+        failed_summary = ", ".join(
+            f"{group}={details.get(group, {}).get('total', '?')}/{details.get(group, {}).get('threshold', '?')}"
+            for group in failed_groups
+        )
+        log.warning(
+            f"  [QA 미달] '{trend.keyword}' → {failed_summary} (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성"
+        )
+        primary = await regenerate_content_groups(
+            primary, trend, effective_config, client, failed_groups, recent_tweets=recent_tweets,
+        )
+        qa_after = await audit_generated_content(primary, trend, config, client)
+        final_qa = qa_after or qa
+        if qa_after and qa_after.get("failed_groups"):
+            log.warning(
+                f"  [QA 재검사 미달] '{trend.keyword}' {', '.join(qa_after['failed_groups'])} (사유: {qa_after.get('reason', '-')})"
+            )
+
+    return primary, final_qa
+
+
+def _run_cross_source_check(trend) -> None:
+    """교차 출처 일관성 검증 — trend 객체를 직접 갱신."""
+    if check_cross_source_consistency is None:
+        return
+    try:
+        csc = check_cross_source_consistency(trend)
+        trend.cross_source_agreement = csc.get("agreement_score", 0.5)
+        trend.cross_source_consistent = csc.get("consistent", True)
+        if not csc.get("consistent", True):
+            conflicts_str = "; ".join(csc.get("conflicts", [])[:3])
+            log.warning(
+                f"  [CrossSource 충돌] '{trend.keyword}' agreement={trend.cross_source_agreement:.2f} 충돌: {conflicts_str}"
+            )
+    except (RuntimeError, ValueError) as _csc_err:
+        log.debug(f"  [CrossSource] 실행 실패 (무시): {type(_csc_err).__name__}: {_csc_err}")
+
+
+async def _run_fact_check(
+    primary: TweetBatch,
+    trend,
+    effective_config: AppConfig,
+    client,
+    recent_tweets: list[str],
+) -> TweetBatch:
+    """팩트 체크 + 환각 감지 시 재생성. 갱신된 primary 반환."""
+    if not getattr(effective_config, "enable_fact_checking", True):
+        return primary
+    if verify_fact_batch is None:
+        return primary
+    try:
+        fc_results = verify_fact_batch(
+            primary,
+            trend,
+            strict_mode=getattr(effective_config, "fact_check_strict_mode", False),
+            min_accuracy=getattr(effective_config, "fact_check_min_accuracy", 0.6),
+        )
+        any_failed = False
+        for group_name, fc_result in fc_results.items():
+            if not fc_result.passed:
+                any_failed = True
+                log.warning(f"  [FactCheck 실패] '{trend.keyword}' {group_name}: {fc_result.summary}")
+            trend.fact_check_score = min(trend.fact_check_score, fc_result.accuracy_score)
+            trend.source_credibility = max(trend.source_credibility, fc_result.source_credibility)
+            if fc_result.hallucinated_claims > 0:
+                trend.hallucination_flags.extend(
+                    f"[{group_name}] {issue}" for issue in fc_result.issues if "환각" in issue
                 )
-                angle_w = pattern_weights.get("angle_weights", {})
-                top_angle = max(angle_w, key=angle_w.get, default="-") if angle_w else "-"
-                log.info(f"  [Adaptive Voice] 패턴 가중치 로드 완료 (최우선 앵글: {top_angle})")
-            if getattr(config, "enable_golden_reference_qa", False):
-                golden_refs = tracker.get_golden_references(limit=getattr(config, "golden_reference_limit", 3))
-                log.info(f"  [Benchmark QA] 골든 레퍼런스 {len(golden_refs)}개 로드")
-        except (ImportError, RuntimeError, ValueError) as _e:
-            log.debug(f"  성과 데이터 로드 실패 (무시): {type(_e).__name__}: {_e}")
 
-    # 시간대별 생성 모드
+        if any_failed and getattr(effective_config, "hallucination_zero_tolerance", True):
+            halluc_groups = [gn for gn, r in fc_results.items() if r.hallucinated_claims > 0]
+            if halluc_groups:
+                log.warning(
+                    f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}"
+                )
+                primary = await regenerate_content_groups(
+                    primary, trend, effective_config, client, halluc_groups, recent_tweets=recent_tweets,
+                )
+    except (RuntimeError, ConnectionError, TimeoutError, ValueError) as _fc_err:
+        log.debug(f"  [FactCheck] 실행 실패 (무시): {type(_fc_err).__name__}: {_fc_err}")
+    return primary
+
+
+def _attach_generation_metadata(primary: TweetBatch, trend, final_qa: dict) -> None:
+    """QA 리포트 + 프롬프트/모델 메타데이터를 배치에 부착."""
+    if not hasattr(primary, "metadata") or primary.metadata is None:
+        primary.metadata = {}
+    primary.metadata["qa_report"] = final_qa or _build_empty_qa(trend, reason="qa_not_available")
+    primary.metadata.setdefault("prompt_version", f"getdaytrends-v2.{VERSION}")
+    primary.metadata.setdefault("generator_provider", "shared.llm")
+    primary.metadata.setdefault("generator_model", "shared.llm.default")
+    primary.metadata.setdefault("degraded_mode", False)
+
+
+async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
+    """Step 3: 트윗/쓰레드 전체 병렬 생성 (캐시 우선 + EDAPE 적응형 프롬프트 + TAP 선점)."""
+    print(f"\n[3/4] 트윗 병렬 생성 중... ({len(quality_trends)}개 동시)")
+    client = get_client()
+    golden_refs, pattern_weights, edape_block = _load_adaptive_voice(config)
+
+    # ── TAP: 교차국가 트렌드 차익거래 감지 ──
+    if getattr(config, "enable_tap", True) and len(getattr(config, "countries", [])) > 1:
+        try:
+            from tap import detect_arbitrage_opportunities
+            from tap.analyzer import ArbitrageAnalyzer
+
+            tap_opps = await detect_arbitrage_opportunities(conn, config=config)
+            if tap_opps:
+                analyzer = ArbitrageAnalyzer(tap_opps)
+                analyzer.log_summary()
+                tap_block = analyzer.to_prompt_block(target_country=config.country)
+                if tap_block:
+                    edape_block = (edape_block or "") + "\n" + tap_block
+        except Exception as _tap_err:
+            log.debug(f"  [TAP] 감지 실패 (무시): {type(_tap_err).__name__}: {_tap_err}")
+
     gen_mode = config.get_generation_mode()
     if gen_mode == "lite":
         log.info("  [생성 모드] lite (비피크 시간) — 장문 생성 생략")
 
     async def _get_or_generate(trend):
         """콘텐츠 캐시 히트 시 LLM 건너뜀. 가속도 기반 TTL 차등화."""
-        fp = compute_fingerprint(trend.keyword, trend.volume_last_24h, bucket=config.cache_volume_bucket)
+        cached_batch = await _try_cache_hit(trend, config, conn)
+        if cached_batch is not None:
+            return cached_batch
 
-        # 키워드 교정 적용
-        effective_keyword = getattr(trend, "corrected_keyword", "") or trend.keyword
-        if effective_keyword != trend.keyword:
-            log.info(f"  [키워드 교정 적용] '{trend.keyword}' → '{effective_keyword}'")
-            trend.keyword = effective_keyword
+        recent_tweets = await _load_recent_tweets(trend, config, conn)
 
-        # 동적 캐시 TTL
-        peak_status = getattr(trend, "peak_status", "")
-        cache_ttl = config.get_cache_ttl(peak_status)
-        cached = await get_cached_content(conn, fp, max_age_hours=cache_ttl)
-        is_cached = bool(cached)
-
-        if is_cached:
-            log.info(f"  [콘텐츠 캐시] '{trend.keyword}' 재사용 ({len(cached)}개 항목, TTL={cache_ttl}h)")
-            return _batch_from_cache(trend.keyword, cached)
-
-        # 콘텐츠 다양성: 이전 생성 트윗 조회
-        recent_tweets: list[str] = []
-        if getattr(config, "enable_content_diversity", True):
-            try:
-                hours = getattr(config, "content_diversity_hours", 24)
-                recent_tweets = await get_recent_tweet_contents(conn, trend.keyword, hours=hours)
-            except (ImportError, sqlite3.Error, ValueError) as _e:
-                log.debug(f"  이전 트윗 조회 실패 (무시): {type(_e).__name__}: {_e}")
-
-        # 시간대별 생성 모드: lite면 장문 생성 생략
         effective_config = config
         if gen_mode == "lite" and config.enable_long_form:
             effective_config = dataclasses.replace(config, enable_long_form=False)
 
-        # 기본 생성
         primary = await generate_for_trend_async(
-            trend, effective_config, client, recent_tweets, golden_refs, pattern_weights
+            trend, effective_config, client, recent_tweets, golden_refs, pattern_weights,
+            edape_block=edape_block,
         )
         if primary is None:
             return primary
 
-        # QA 조건부 스킵
-        final_qa: dict | None = None
-        if not _should_skip_qa(trend, is_cached, config):
-            try:
-                from ..generator import audit_generated_content
-            except ImportError:
-                from generator import audit_generated_content
+        primary, final_qa = await _run_qa_pipeline(
+            primary, trend, config, effective_config, client, is_cached=False, recent_tweets=recent_tweets,
+        )
+        _attach_generation_metadata(primary, trend, final_qa)
 
-            qa = await audit_generated_content(primary, trend, config, client)
-            final_qa = qa
-            failed_groups = qa.get("failed_groups", []) if qa else []
-            if failed_groups:
-                details = qa.get("group_results", {})
-                failed_summary = ", ".join(
-                    f"{group}={details.get(group, {}).get('total', '?')}/{details.get(group, {}).get('threshold', '?')}"
-                    for group in failed_groups
-                )
-                log.warning(
-                    f"  [QA 미달] '{trend.keyword}' → {failed_summary} (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성"
-                )
-                primary = await regenerate_content_groups(
-                    primary,
-                    trend,
-                    effective_config,
-                    client,
-                    failed_groups,
-                    recent_tweets=recent_tweets,
-                )
-                qa_after = await audit_generated_content(primary, trend, config, client)
-                final_qa = qa_after or qa
-                if qa_after and qa_after.get("failed_groups"):
-                    log.warning(
-                        f"  [QA 재검사 미달] '{trend.keyword}' {', '.join(qa_after['failed_groups'])} (사유: {qa_after.get('reason', '-')})"
-                    )
-        else:
-            log.debug(f"  [QA 스킵] '{trend.keyword}' (cached={is_cached}, score={trend.viral_potential})")
-            final_qa = {
-                "failed_groups": [],
-                "warnings": [],
-                "reason": "qa_skipped",
-                "group_results": {},
-                "total_score": float(getattr(trend, "viral_potential", 0) or 0),
-            }
+        if trend.context:
+            _run_cross_source_check(trend)
 
-        if not hasattr(primary, "metadata") or primary.metadata is None:
-            primary.metadata = {}
-        primary.metadata["qa_report"] = final_qa or {
-            "failed_groups": [],
-            "warnings": [],
-            "reason": "qa_not_available",
-            "group_results": {},
-            "total_score": float(getattr(trend, "viral_potential", 0) or 0),
-        }
-        primary.metadata.setdefault("prompt_version", f"getdaytrends-v2.{VERSION}")
-        primary.metadata.setdefault("generator_provider", "shared.llm")
-        primary.metadata.setdefault("generator_model", "shared.llm.default")
-        primary.metadata.setdefault("degraded_mode", False)
-
-        # 교차 출처 일관성 검증
-        if not is_cached and trend.context:
-            try:
-                try:
-                    from ..fact_checker import check_cross_source_consistency as _csc
-                except ImportError:
-                    from fact_checker import check_cross_source_consistency as _csc
-
-                csc = _csc(trend)
-                trend.cross_source_agreement = csc.get("agreement_score", 0.5)
-                trend.cross_source_consistent = csc.get("consistent", True)
-                if not csc.get("consistent", True):
-                    conflicts_str = "; ".join(csc.get("conflicts", [])[:3])
-                    log.warning(
-                        f"  [CrossSource 충돌] '{trend.keyword}' agreement={trend.cross_source_agreement:.2f} 충돌: {conflicts_str}"
-                    )
-            except (ImportError, RuntimeError, ValueError) as _csc_err:
-                log.debug(f"  [CrossSource] 실행 실패 (무시): {type(_csc_err).__name__}: {_csc_err}")
-
-        # 팩트 체크
-        if getattr(effective_config, "enable_fact_checking", True) and not is_cached:
-            try:
-                try:
-                    from ..fact_checker import verify_batch as _fc_verify
-                except ImportError:
-                    from fact_checker import verify_batch as _fc_verify
-
-                fc_results = _fc_verify(
-                    primary,
-                    trend,
-                    strict_mode=getattr(effective_config, "fact_check_strict_mode", False),
-                    min_accuracy=getattr(effective_config, "fact_check_min_accuracy", 0.6),
-                )
-                any_failed = False
-                fc_issues: list[str] = []
-                for group_name, fc_result in fc_results.items():
-                    if not fc_result.passed:
-                        any_failed = True
-                        fc_issues.extend(fc_result.issues[:2])
-                        log.warning(f"  [FactCheck 실패] '{trend.keyword}' {group_name}: {fc_result.summary}")
-                    trend.fact_check_score = min(trend.fact_check_score, fc_result.accuracy_score)
-                    trend.source_credibility = max(trend.source_credibility, fc_result.source_credibility)
-                    if fc_result.hallucinated_claims > 0:
-                        trend.hallucination_flags.extend(
-                            f"[{group_name}] {issue}" for issue in fc_result.issues if "환각" in issue
-                        )
-
-                # 환각 감지 시 재생성
-                if any_failed and getattr(effective_config, "hallucination_zero_tolerance", True):
-                    halluc_groups = [gn for gn, r in fc_results.items() if r.hallucinated_claims > 0]
-                    if halluc_groups:
-                        log.warning(
-                            f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}"
-                        )
-                        primary = await regenerate_content_groups(
-                            primary,
-                            trend,
-                            effective_config,
-                            client,
-                            halluc_groups,
-                            recent_tweets=recent_tweets,
-                        )
-            except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError) as _fc_err:
-                log.debug(f"  [FactCheck] 실행 실패 (무시): {type(_fc_err).__name__}: {_fc_err}")
+        primary = await _run_fact_check(primary, trend, effective_config, client, recent_tweets)
 
         return primary
 
@@ -347,25 +438,22 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
 
 async def _run_diversity_qa(batch: TweetBatch, trend, run: RunResult) -> None:
     """생성물 다양성 QA — 코사인 유사도 0.88 초과 쌍 경고."""
-    if len(batch.tweets) < 2:
+    if len(batch.tweets) < 2 or _embed_texts is None or _cosine_similarity is None:
         return
     try:
-        from shared.embeddings import cosine_similarity as _cos
-        from shared.embeddings import embed_texts as _embed
-
-        vectors = _embed([t.content for t in batch.tweets], task_type="SEMANTIC_SIMILARITY")
+        vectors = _embed_texts([t.content for t in batch.tweets], task_type="SEMANTIC_SIMILARITY")
         if not vectors:
             return
         dupes = [
-            f"트윗{i + 1}↔트윗{j + 1} (유사도={_cos(vectors[i], vectors[j]):.2f})"
+            f"트윗{i + 1}↔트윗{j + 1} (유사도={_cosine_similarity(vectors[i], vectors[j]):.2f})"
             for i in range(len(vectors))
             for j in range(i + 1, len(vectors))
-            if _cos(vectors[i], vectors[j]) > 0.88
+            if _cosine_similarity(vectors[i], vectors[j]) > 0.88
         ]
         if dupes:
             log.warning(f"[다양성 QA] '{trend.keyword}' 유사도 높음: " + ", ".join(dupes))
             run.errors.append(f"다양성 경고: {trend.keyword} ({len(dupes)}쌍)")
-    except (ImportError, RuntimeError, ConnectionError, ValueError):
+    except (RuntimeError, ConnectionError, ValueError):
         pass
 
 
@@ -520,12 +608,8 @@ async def _save_single_trend_db(
     try:
         async with db_transaction(conn):
             trend_id = await save_trend(conn, trend, run_row_id, bucket=config.cache_volume_bucket)
-            try:
-                from shared.business_metrics import biz
-
-                biz.trend_scored()
-            except ImportError:
-                pass
+            if _biz is not None:
+                _biz.trend_scored()
             saved_to: list[str] = []
             for content_list, _is_thread in [
                 (batch.tweets, False),
