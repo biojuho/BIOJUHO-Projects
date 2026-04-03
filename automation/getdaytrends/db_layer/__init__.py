@@ -1,10 +1,7 @@
-"""
-getdaytrends v3.0 - Database Layer (Facade)
-트렌드 히스토리 및 CRUD 유틸리티 함수.
-db_layer 이하로 분리된 레포지토리를 통합 제공합니다.
-"""
+"""DB Repositories Layer — 공용 import 및 유틸리티."""
 
 import json
+from datetime import datetime, timedelta
 
 from loguru import logger as log
 
@@ -15,7 +12,7 @@ except ImportError:
     _REDIS_OK = False
 
 try:
-    from .db_schema import (
+    from ..db_schema import (
         _backfill_fingerprints,
         _normalize_name,
         _normalize_volume,
@@ -28,13 +25,7 @@ try:
         init_db,
         sqlite_write_lock,
     )
-    from .models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-    from .db_layer.run_repository import *
-    from .db_layer.trend_repository import *
-    from .db_layer.tweet_repository import *
-    from .db_layer.metrics_repository import *
-    from .db_layer.draft_repository import *
-    from .db_layer.admin_repository import *
+    from ..models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
 except ImportError:
     from db_schema import (
         _backfill_fingerprints,
@@ -50,21 +41,6 @@ except ImportError:
         sqlite_write_lock,
     )
     from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-    from db_layer.run_repository import *
-    from db_layer.trend_repository import *
-    from db_layer.tweet_repository import *
-    from db_layer.metrics_repository import *
-    from db_layer.draft_repository import *
-    from db_layer.admin_repository import *
-
-_WORKFLOW_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "drafted": {"ready"},
-    "ready": {"approved"},
-    "approved": {"published"},
-    "published": {"measured", "learned"},
-    "measured": {"learned"},
-    "learned": set(),
-}
 
 _REVIEW_STATUS_BY_LIFECYCLE = {
     "drafted": "Draft",
@@ -73,6 +49,15 @@ _REVIEW_STATUS_BY_LIFECYCLE = {
     "published": "Published",
     "measured": "Published",
     "learned": "Published",
+}
+
+_WORKFLOW_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "drafted": {"ready"},
+    "ready": {"approved"},
+    "approved": {"published"},
+    "published": {"measured", "learned"},
+    "measured": {"learned"},
+    "learned": set(),
 }
 
 

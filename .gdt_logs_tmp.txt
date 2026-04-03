@@ -1,5 +1,0 @@
-﻿2026-04-02 05:03 1628.5KB D:\AI project\automation\getdaytrends\tweet_bot.log
-2026-03-31 21:03 9.7KB D:\AI project\automation\getdaytrends\logs\scheduler\run_2026-03-31_210010.log
-2026-03-31 21:00 44.7KB D:\AI project\automation\getdaytrends\run_scheduled.log
-2026-03-31 18:00 1.5KB D:\AI project\automation\getdaytrends\logs\scheduler\run_2026-03-31_180004.log
-2026-03-31 15:00 1.5KB D:\AI project\automation\getdaytrends\logs\scheduler\run_2026-03-31_150004.log
