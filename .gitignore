@@ -51,6 +51,11 @@ test-results/
 **/run_output*.log
 **/run_output*.txt
 **/debug_log.txt
+.cred_helper.txt
+.git_staged.txt
+.push_result.txt
+.fix_*.py
+automation/getdaytrends/.gdt_dryrun*.txt
 
 # Build artifacts
 node_modules/
