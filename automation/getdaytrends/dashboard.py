@@ -19,10 +19,24 @@ except ImportError as e:
 
 try:
     from .config import VERSION, AppConfig
-    from .db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_trend_stats, init_db
+    from .db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_tap_alert_queue_snapshot, get_trend_stats, init_db
+    from .tap import (
+        TapBoardRequest,
+        build_tap_board_snapshot,
+        dispatch_tap_alert_queue,
+        empty_tap_board,
+        get_latest_tap_board_snapshot,
+    )
 except ImportError:
     from config import VERSION, AppConfig
-    from db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_trend_stats, init_db
+    from db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_tap_alert_queue_snapshot, get_trend_stats, init_db
+    from tap import (
+        TapBoardRequest,
+        build_tap_board_snapshot,
+        dispatch_tap_alert_queue,
+        empty_tap_board,
+        get_latest_tap_board_snapshot,
+    )
 
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION)
 
@@ -126,6 +140,68 @@ _HTML = """<!DOCTYPE html>
   tr:hover td{{background:rgba(99,102,241,.06)}}
 
   /* ── Score chip ── */
+  .tap-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}}
+  @media(max-width:1200px){{.tap-grid{{grid-template-columns:1fr}}}}
+  .tap-card{{background:linear-gradient(145deg,#0f172a,#131a2b);border:1px solid rgba(99,102,241,.12);border-radius:12px;padding:16px;min-height:180px}}
+  .tap-head{{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}}
+  .tap-title{{font-size:1rem;font-weight:700;color:#f8fafc;line-height:1.3}}
+  .tap-badge{{padding:4px 8px;border-radius:999px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}}
+  .tap-free{{background:rgba(34,197,94,.14);color:#22c55e}}
+  .tap-premium{{background:rgba(245,158,11,.14);color:#f59e0b}}
+  .tap-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}}
+  .tap-chip{{padding:3px 8px;border-radius:999px;background:rgba(99,102,241,.12);color:#a5b4fc;font-size:.72rem}}
+  .tap-copy{{color:#cbd5e1;font-size:.84rem;line-height:1.5;margin-bottom:10px}}
+  .tap-notes{{color:#94a3b8;font-size:.76rem;line-height:1.45}}
+  .tap-lock{{color:#64748b;font-size:.72rem;margin-top:10px}}
+  .tap-actions{{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px}}
+  .tap-btn{{
+    appearance:none;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;
+    background:linear-gradient(135deg,#f59e0b,#f97316);color:#0f172a;font-size:.78rem;
+    font-weight:700;letter-spacing:.01em;transition:transform .15s ease,opacity .15s ease
+  }}
+  .tap-btn:hover{{transform:translateY(-1px)}}
+  .tap-btn:disabled{{opacity:.55;cursor:wait;transform:none}}
+  .tap-btn-ghost{{background:rgba(99,102,241,.14);color:#c7d2fe;border:1px solid rgba(99,102,241,.18)}}
+  .tap-summary{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:8px}}
+  .tap-summary-card{{background:#0f172a;border:1px solid rgba(99,102,241,.1);border-radius:10px;padding:12px}}
+  .tap-summary-label{{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}}
+  .tap-summary-value{{font-size:1.15rem;color:#f8fafc;font-weight:700}}
+  .tap-control-row{{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;margin:12px 0 8px}}
+  .tap-control{{display:flex;flex-direction:column;gap:6px}}
+  .tap-control span{{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}}
+  .tap-input{{
+    width:100%;border-radius:10px;border:1px solid rgba(99,102,241,.18);
+    background:#0f172a;color:#e2e8f0;padding:10px 12px;font-size:.78rem;outline:none
+  }}
+  .tap-input:focus{{border-color:rgba(99,102,241,.4);box-shadow:0 0 0 2px rgba(99,102,241,.12)}}
+  .tap-preset-strip{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}}
+  .tap-preset-btn{{
+    appearance:none;border:1px solid rgba(99,102,241,.14);border-radius:999px;
+    background:#0f172a;color:#cbd5e1;padding:6px 10px;font-size:.72rem;cursor:pointer;
+    transition:transform .15s ease,border-color .15s ease,background .15s ease
+  }}
+  .tap-preset-btn:hover{{transform:translateY(-1px);border-color:rgba(99,102,241,.35)}}
+  .tap-preset-btn-active{{background:rgba(99,102,241,.16);color:#eef2ff;border-color:rgba(99,102,241,.38)}}
+  .tap-preset-empty{{font-size:.72rem;color:#64748b}}
+  .tap-alert-list{{display:grid;gap:10px}}
+  .tap-alert-item{{background:#0f172a;border:1px solid rgba(99,102,241,.1);border-radius:10px;padding:12px}}
+  .tap-alert-top{{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}}
+  .tap-alert-title{{font-size:.88rem;font-weight:700;color:#f8fafc}}
+  .tap-alert-body{{font-size:.78rem;color:#cbd5e1;line-height:1.45}}
+  .tap-alert-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}}
+  .tap-outcome-title{{margin-top:14px;margin-bottom:10px;font-size:.72rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em}}
+  .tap-outcome-list{{display:grid;gap:10px}}
+  .tap-outcome-card{{background:#0f172a;border:1px solid rgba(99,102,241,.1);border-radius:10px;padding:12px}}
+  .tap-outcome-card-failed{{border-color:rgba(239,68,68,.24)}}
+  .tap-outcome-card-success{{border-color:rgba(34,197,94,.24)}}
+  .tap-outcome-time{{font-size:.72rem;color:#64748b}}
+  .tap-outcome-details{{margin-top:10px;border-top:1px solid rgba(99,102,241,.08);padding-top:10px}}
+  .tap-outcome-details summary{{cursor:pointer;color:#a5b4fc;font-size:.74rem}}
+  .tap-outcome-detail-list{{display:grid;gap:8px;margin-top:10px}}
+  .tap-outcome-detail-item{{font-size:.74rem;color:#cbd5e1;line-height:1.45}}
+  .tap-outcome-error{{color:#fca5a5}}
+  .tap-status{{min-height:22px;font-size:.76rem;color:#94a3b8}}
+  @media(max-width:1200px){{.tap-summary{{grid-template-columns:1fr 1fr}}.tap-control-row{{grid-template-columns:1fr}}}}
   .chip{{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600}}
   .chip-high{{background:rgba(34,197,94,.15);color:#22c55e}}
   .chip-mid{{background:rgba(245,158,11,.15);color:#f59e0b}}
@@ -216,6 +292,74 @@ _HTML = """<!DOCTYPE html>
       <div class="skeleton sk-block"></div>
       <div class="skeleton sk-block" style="width:70%"></div>
       <div class="skeleton sk-block" style="width:40%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAP Board -->
+<div class="charts-row">
+  <div class="panel">
+    <h3>⚡ TAP Pro: Cross-country First-Mover Radar</h3>
+    <div id="tap-board" class="tap-grid">
+      <div class="skeleton sk-block" style="height:180px"></div>
+      <div class="skeleton sk-block" style="height:180px"></div>
+      <div class="skeleton sk-block" style="height:180px"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>??TAP Alert Queue Ops</h3>
+    <div id="tap-alert-summary" class="tap-summary">
+      <div class="tap-summary-card"><div class="tap-summary-label">Queued</div><div class="tap-summary-value skeleton sk-block" style="height:24px"></div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Dispatched</div><div class="tap-summary-value skeleton sk-block" style="height:24px"></div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Failed</div><div class="tap-summary-value skeleton sk-block" style="height:24px"></div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Channels</div><div class="tap-summary-value skeleton sk-block" style="height:24px"></div></div>
+    </div>
+    <div class="tap-control-row">
+      <label class="tap-control">
+        <span>Target market</span>
+        <input id="tap-target-country" class="tap-input" placeholder="all markets" onchange="syncTapOpsView()">
+      </label>
+      <label class="tap-control">
+        <span>Lifecycle</span>
+        <select id="tap-alert-lifecycle" class="tap-input" onchange="loadTapAlerts()">
+          <option value="queued">Queued</option>
+          <option value="">All states</option>
+          <option value="dispatched">Dispatched</option>
+          <option value="failed">Failed</option>
+        </select>
+      </label>
+      <label class="tap-control">
+        <span>Batch size</span>
+        <select id="tap-alert-limit" class="tap-input" onchange="loadTapAlerts()">
+          <option value="5">5</option>
+          <option value="6" selected>6</option>
+          <option value="10">10</option>
+          <option value="20">20</option>
+        </select>
+      </label>
+    </div>
+    <div class="tap-preset-strip">
+      <div id="tap-preset-strip" class="tap-preset-strip">
+        <span class="tap-preset-empty">Preset markets will appear here.</span>
+      </div>
+      <button id="tap-save-preset-btn" class="tap-btn tap-btn-ghost" onclick="saveCurrentTapPreset()">Save preset</button>
+      <button id="tap-clear-presets-btn" class="tap-btn tap-btn-ghost" onclick="resetTapPresets()">Reset presets</button>
+    </div>
+    <div class="tap-actions">
+      <button id="tap-dispatch-btn" class="tap-btn" onclick="dispatchTapAlerts(false)">Dispatch queued</button>
+      <button id="tap-dry-run-btn" class="tap-btn tap-btn-ghost" onclick="dispatchTapAlerts(true)">Dry run</button>
+      <button id="tap-refresh-btn" class="tap-btn tap-btn-ghost" onclick="syncTapOpsView()">Refresh queue</button>
+    </div>
+    <div id="tap-alert-status" class="tap-status">Queue status will appear here.</div>
+    <div id="tap-alert-list" class="tap-alert-list">
+      <div class="skeleton sk-block" style="height:86px"></div>
+      <div class="skeleton sk-block" style="height:86px"></div>
+      <div class="skeleton sk-block" style="height:86px"></div>
+    </div>
+    <div class="tap-outcome-title">Recent dispatch outcomes</div>
+    <div id="tap-outcome-list" class="tap-outcome-list">
+      <div class="skeleton sk-block" style="height:78px"></div>
+      <div class="skeleton sk-block" style="height:78px"></div>
     </div>
   </div>
 </div>
@@ -528,8 +672,399 @@ async function loadAbTest() {{
 }}
 
 // ── Init ──
+function getTapTargetCountry() {{
+  return (document.getElementById('tap-target-country')?.value || '').trim().toLowerCase();
+}}
+
+function getTapAlertLifecycle() {{
+  return (document.getElementById('tap-alert-lifecycle')?.value || '').trim().toLowerCase();
+}}
+
+function getTapAlertLimit() {{
+  const value = parseInt(document.getElementById('tap-alert-limit')?.value || '6', 10);
+  return Number.isFinite(value) && value > 0 ? value : 6;
+}}
+
+function buildTapQuery(params) {{
+  const query = new URLSearchParams();
+  Object.entries(params || {{}}).forEach(([key, value]) => {{
+    if (value === undefined || value === null || value === '') return;
+    query.set(key, String(value));
+  }});
+  return query.toString();
+}}
+
+const TAP_PRESET_STORAGE_KEY = 'getdaytrends.tap-target-presets';
+
+function normalizeTapPreset(value) {{
+  return String(value || '').trim().toLowerCase();
+}}
+
+function getDefaultTapPresets() {{
+  return ['', 'korea', 'united-states', 'japan'];
+}}
+
+function dedupeTapPresets(values) {{
+  const seen = new Set();
+  const normalized = [];
+  values.forEach(value => {{
+    const candidate = normalizeTapPreset(value);
+    if (seen.has(candidate)) return;
+    seen.add(candidate);
+    normalized.push(candidate);
+  }});
+  if (!seen.has('')) normalized.unshift('');
+  return normalized.slice(0, 8);
+}}
+
+function readTapPresets() {{
+  try {{
+    const raw = localStorage.getItem(TAP_PRESET_STORAGE_KEY);
+    if (!raw) return dedupeTapPresets(getDefaultTapPresets());
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return dedupeTapPresets(getDefaultTapPresets());
+    return dedupeTapPresets(parsed);
+  }} catch(e) {{
+    return dedupeTapPresets(getDefaultTapPresets());
+  }}
+}}
+
+function writeTapPresets(presets) {{
+  try {{
+    localStorage.setItem(TAP_PRESET_STORAGE_KEY, JSON.stringify(dedupeTapPresets(presets)));
+  }} catch(e) {{}}
+}}
+
+function renderTapPresetStrip() {{
+  const container = document.getElementById('tap-preset-strip');
+  if (!container) return;
+  const activeCountry = getTapTargetCountry();
+  const presets = readTapPresets();
+  container.innerHTML = presets.map(value => {{
+    const label = value ? safeHtml(value.toUpperCase()) : 'ALL';
+    const activeCls = value === activeCountry ? ' tap-preset-btn-active' : '';
+    return `<button class="tap-preset-btn${{activeCls}}" onclick="applyTapPreset('${{safeHtml(value)}}')">${{label}}</button>`;
+  }}).join('');
+}}
+
+function rememberTapPreset(value) {{
+  const candidate = normalizeTapPreset(value);
+  if (!candidate) return;
+  writeTapPresets([candidate, ...readTapPresets()]);
+  renderTapPresetStrip();
+}}
+
+function applyTapPreset(value = '') {{
+  const input = document.getElementById('tap-target-country');
+  if (!input) return;
+  input.value = normalizeTapPreset(value);
+  renderTapPresetStrip();
+  syncTapOpsView();
+}}
+
+function saveCurrentTapPreset() {{
+  const current = getTapTargetCountry();
+  if (!current) {{
+    toast('Enter a market before saving a preset.');
+    return;
+  }}
+  rememberTapPreset(current);
+  toast(`Saved preset for ${{current.toUpperCase()}}.`);
+}}
+
+function resetTapPresets() {{
+  writeTapPresets(getDefaultTapPresets());
+  renderTapPresetStrip();
+  toast('Preset markets reset.');
+}}
+
+async function loadTapBoard() {{
+  try {{
+    const board = document.getElementById('tap-board');
+    const targetCountry = getTapTargetCountry();
+    const query = buildTapQuery({{ limit: 6, teaser_count: 2, target_country: targetCountry }});
+    const data = await fetch(`/api/tap/opportunities?${{query}}`).then(r => r.json());
+    if (!data.items || !data.items.length) {{
+      const scope = targetCountry ? ` for ${{safeHtml(targetCountry.toUpperCase())}}` : '';
+      board.innerHTML = `
+        <div class="tap-card">
+          <div class="tap-title">No live arbitrage slots${{scope}}</div>
+          <div class="tap-copy">Cross-country divergence is quiet right now. The board will refill when a market gap opens.</div>
+        </div>
+      `;
+      return;
+    }}
+
+    board.innerHTML = data.items.map(item => {{
+      const badgeCls = item.paywall_tier === 'free_teaser' ? 'tap-free' : 'tap-premium';
+      const badgeLabel = item.paywall_tier === 'free_teaser' ? 'Free teaser' : 'Premium';
+      const platforms = (item.recommended_platforms || []).map(p => `<span class="tap-chip">${{safeHtml(p)}}</span>`).join('');
+      const targets = (item.target_countries || []).map(c => safeHtml(String(c).toUpperCase())).join(', ');
+      const notes = (item.execution_notes || []).slice(0, 2).map(note => `<div>${{safeHtml(note)}}</div>`).join('');
+      const windowText = item.publish_window
+        ? `${{item.publish_window.urgency_label}} · closes in ${{item.publish_window.closes_in_minutes}}m`
+        : 'window pending';
+
+      return `
+        <div class="tap-card">
+          <div class="tap-head">
+            <div class="tap-title">${{safeHtml(item.keyword)}}</div>
+            <div class="tap-badge ${{badgeCls}}">${{badgeLabel}}</div>
+          </div>
+          <div class="tap-meta">
+            <span class="tap-chip">score ${{item.viral_score}}</span>
+            <span class="tap-chip">priority ${{item.priority}}</span>
+            <span class="tap-chip">${{item.source_country.toUpperCase()}} → ${{targets || 'GLOBAL'}}</span>
+          </div>
+          <div class="tap-copy">${{safeHtml(item.public_teaser || item.recommended_angle || '')}}</div>
+          <div class="tap-copy" style="font-size:.78rem;color:#a5b4fc;">${{platforms}}</div>
+          <div class="tap-notes">${{notes}}</div>
+          <div class="tap-lock">${{windowText}}</div>
+        </div>
+      `;
+    }}).join('');
+  }} catch(e) {{}}
+}}
+
+function setTapDispatchBusy(isBusy) {{
+  ['tap-dispatch-btn', 'tap-dry-run-btn', 'tap-refresh-btn'].forEach(id => {{
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = isBusy;
+  }});
+}}
+
+function safeHtml(value) {{
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}}
+
+async function syncTapOpsView() {{
+  await Promise.all([loadTapBoard(), loadTapAlerts()]);
+}}
+
+function getTapOutcomeTimestamp(item) {{
+  return item.dispatched_at || item.last_attempt_at || item.queued_at || '';
+}}
+
+function renderTapOutcomes(items, scopeLabel) {{
+  const container = document.getElementById('tap-outcome-list');
+  if (!container) return;
+  if (!items.length) {{
+    container.innerHTML = `
+      <div class="tap-outcome-card">
+        <div class="tap-alert-title">No dispatch attempts yet${{scopeLabel}}</div>
+        <div class="tap-alert-body">Dispatch and failed outcomes will appear here after the first delivery attempt.</div>
+      </div>
+    `;
+    return;
+  }}
+
+  container.innerHTML = items.map(item => {{
+    const status = String(item.lifecycle_status || '').toLowerCase();
+    const cardCls = status === 'failed' ? 'tap-outcome-card tap-outcome-card-failed' : 'tap-outcome-card tap-outcome-card-success';
+    const meta = item.metadata || {{}};
+    const delivery = meta.last_delivery || {{}};
+    const channels = ((delivery.channels || meta.channels || []))
+      .map(channel => `<span class="tap-chip">${{safeHtml(channel)}}</span>`)
+      .join('');
+    const timestamp = safeHtml(String(getTapOutcomeTimestamp(item)).slice(0, 16).replace('T', ' ') || 'pending');
+    const channelResults = Object.entries(delivery.channel_results || {{}})
+      .map(([channel, result]) => {{
+        const ok = !!(result && result.ok);
+        const label = ok ? 'ok' : 'failed';
+        const errorText = !ok && result && result.error
+          ? `<div class="tap-outcome-error">${{safeHtml(result.error)}}</div>`
+          : '';
+        return `
+          <div class="tap-outcome-detail-item">
+            <strong>${{safeHtml(channel)}}</strong> · ${{label}}
+            ${{errorText}}
+          </div>
+        `;
+      }})
+      .join('');
+    const failureReason = delivery.failure_reason
+      ? `<div class="tap-outcome-detail-item tap-outcome-error"><strong>failure</strong> · ${{safeHtml(delivery.failure_reason)}}</div>`
+      : '';
+    const detailBlock = channelResults || failureReason
+      ? `
+        <details class="tap-outcome-details">
+          <summary>delivery detail</summary>
+          <div class="tap-outcome-detail-list">
+            ${{failureReason}}
+            ${{channelResults}}
+          </div>
+        </details>
+      `
+      : '';
+    return `
+      <div class="${{cardCls}}">
+        <div class="tap-alert-top">
+          <div>
+            <div class="tap-alert-title">${{safeHtml(item.keyword || 'Untitled outcome')}}</div>
+            <div class="tap-alert-body">${{safeHtml(item.alert_message || 'Recent dispatch outcome')}}</div>
+          </div>
+          <span class="tap-chip">${{safeHtml(status || 'unknown')}}</span>
+        </div>
+        <div class="tap-alert-meta">
+          <span class="tap-chip">priority ${{item.priority ?? '-'}}</span>
+          <span class="tap-chip">score ${{item.viral_score ?? '-'}}</span>
+          ${{channels}}
+        </div>
+        <div class="tap-outcome-time">last activity ${{timestamp}}</div>
+        ${{detailBlock}}
+      </div>
+    `;
+  }}).join('');
+}}
+
+async function loadTapAlerts() {{
+  const summary = document.getElementById('tap-alert-summary');
+  const list = document.getElementById('tap-alert-list');
+  const status = document.getElementById('tap-alert-status');
+  const targetCountry = getTapTargetCountry();
+  const lifecycleStatus = getTapAlertLifecycle();
+  const limit = getTapAlertLimit();
+  const scopeLabel = targetCountry ? ` for ${{safeHtml(targetCountry.toUpperCase())}}` : '';
+  try {{
+    const countsQuery = buildTapQuery({{ limit: 50, lifecycle_status: '', target_country: targetCountry }});
+    const queueQuery = buildTapQuery({{
+      limit,
+      lifecycle_status: lifecycleStatus,
+      target_country: targetCountry,
+    }});
+    const dispatchedQuery = buildTapQuery({{ limit: 3, lifecycle_status: 'dispatched', target_country: targetCountry }});
+    const failedQuery = buildTapQuery({{ limit: 3, lifecycle_status: 'failed', target_country: targetCountry }});
+    const [countsResp, queueResp, dispatchedResp, failedResp] = await Promise.all([
+      fetch(`/api/tap/alerts?${{countsQuery}}`),
+      fetch(`/api/tap/alerts?${{queueQuery}}`),
+      fetch(`/api/tap/alerts?${{dispatchedQuery}}`),
+      fetch(`/api/tap/alerts?${{failedQuery}}`),
+    ]);
+    if (!countsResp.ok || !queueResp.ok || !dispatchedResp.ok || !failedResp.ok) throw new Error('tap_alert_queue_load_failed');
+    const [countsData, queueData, dispatchedData, failedData] = await Promise.all([
+      countsResp.json(),
+      queueResp.json(),
+      dispatchedResp.json(),
+      failedResp.json(),
+    ]);
+    const counts = countsData.counts || {{}};
+    const items = queueData.items || [];
+    const visibleChannels = [...new Set(items.flatMap(item => ((item.metadata || {{}}).channels || [])))];
+    const recentOutcomes = [...(dispatchedData.items || []), ...(failedData.items || [])]
+      .sort((a, b) => String(getTapOutcomeTimestamp(b)).localeCompare(String(getTapOutcomeTimestamp(a))))
+      .slice(0, 4);
+
+    summary.innerHTML = `
+      <div class="tap-summary-card"><div class="tap-summary-label">Queued</div><div class="tap-summary-value">${{counts.queued || 0}}</div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Dispatched</div><div class="tap-summary-value">${{counts.dispatched || 0}}</div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Failed</div><div class="tap-summary-value">${{counts.failed || 0}}</div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Channels</div><div class="tap-summary-value">${{visibleChannels.length}}</div></div>
+    `;
+    renderTapOutcomes(recentOutcomes, scopeLabel);
+
+    if (!items.length) {{
+      const stateLabel = lifecycleStatus || 'all';
+      list.innerHTML = `
+        <div class="tap-alert-item">
+          <div class="tap-alert-title">No ${{safeHtml(stateLabel)}} alerts${{scopeLabel}}</div>
+          <div class="tap-alert-body">Fresh TAP signals will appear here once the queue is refilled or the selected lifecycle changes.</div>
+        </div>
+      `;
+      status.textContent = `Queue view is empty${{scopeLabel}}.`;
+      return;
+    }}
+
+    list.innerHTML = items.map(item => {{
+      const meta = item.metadata || {{}};
+      const route = [item.source_country, item.target_country]
+        .filter(Boolean)
+        .map(country => safeHtml(String(country).toUpperCase()))
+        .join(' -> ');
+      const chips = [
+        `priority ${{item.priority ?? '-'}}`,
+        `score ${{item.viral_score ?? '-'}}`,
+        item.paywall_tier || 'premium',
+      ].map(value => `<span class="tap-chip">${{safeHtml(value)}}</span>`).join('');
+      const channels = (meta.channels || [])
+        .map(channel => `<span class="tap-chip">${{safeHtml(channel)}}</span>`)
+        .join('');
+      const queuedAt = item.queued_at
+        ? safeHtml(String(item.queued_at).slice(0, 16).replace('T', ' '))
+        : 'pending';
+
+      return `
+        <div class="tap-alert-item">
+          <div class="tap-alert-top">
+            <div>
+              <div class="tap-alert-title">${{safeHtml(item.keyword || 'Untitled alert')}}</div>
+              <div class="tap-alert-body">${{safeHtml(item.alert_message || 'Queued TAP alert')}}</div>
+            </div>
+            <span class="tap-chip">${{safeHtml(item.lifecycle_status || 'queued')}}</span>
+          </div>
+          <div class="tap-alert-meta">${{chips}}${{channels}}</div>
+          <div class="tap-lock">${{route || 'Route pending'}} | queued ${{queuedAt}}</div>
+        </div>
+      `;
+    }}).join('');
+    const stateLabel = lifecycleStatus || 'all';
+    status.textContent = `${{items.length}} ${{stateLabel}} alert(s) loaded${{scopeLabel}}.`;
+  }} catch(e) {{
+    summary.innerHTML = `
+      <div class="tap-summary-card"><div class="tap-summary-label">Queued</div><div class="tap-summary-value">-</div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Dispatched</div><div class="tap-summary-value">-</div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Failed</div><div class="tap-summary-value">-</div></div>
+      <div class="tap-summary-card"><div class="tap-summary-label">Channels</div><div class="tap-summary-value">-</div></div>
+    `;
+    list.innerHTML = `
+      <div class="tap-alert-item">
+        <div class="tap-alert-title">Queue unavailable</div>
+        <div class="tap-alert-body">The dashboard could not load queued TAP alerts.</div>
+      </div>
+    `;
+    renderTapOutcomes([], scopeLabel);
+    status.textContent = `Unable to load TAP alert queue${{scopeLabel}}.`;
+  }}
+}}
+
+async function dispatchTapAlerts(dryRun = false) {{
+  const status = document.getElementById('tap-alert-status');
+  const targetCountry = getTapTargetCountry();
+  const limit = getTapAlertLimit();
+  const scopeLabel = targetCountry ? ` for ${{targetCountry.toUpperCase()}}` : '';
+  setTapDispatchBusy(true);
+  status.textContent = dryRun ? `Running dry run${{scopeLabel}}...` : `Dispatching queued alerts${{scopeLabel}}...`;
+  try {{
+    const query = buildTapQuery({{
+      limit,
+      dry_run: dryRun ? 'true' : 'false',
+      target_country: targetCountry,
+    }});
+    const resp = await fetch(`/api/tap/alerts/dispatch?${{query}}`, {{ method: 'POST' }});
+    if (!resp.ok) throw new Error('tap_alert_dispatch_failed');
+    const data = await resp.json();
+    const message = dryRun
+      ? `Dry run checked ${{(data.items || []).length}} alert(s) across ${{(data.channels || []).length}} channel(s)${{scopeLabel}}.`
+      : `Dispatch finished${{scopeLabel}}: ${{data.dispatched || 0}} sent, ${{data.failed || 0}} failed, ${{data.skipped || 0}} skipped.`;
+    status.textContent = message;
+    toast(message);
+    await syncTapOpsView();
+  }} catch(e) {{
+    const message = dryRun ? `Dry run failed${{scopeLabel}}.` : `Dispatch failed${{scopeLabel}}.`;
+    status.textContent = message;
+    toast(message);
+  }} finally {{
+    setTapDispatchBusy(false);
+  }}
+}}
+
 async function init() {{
-  await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest()]);
+  renderTapPresetStrip();
+  await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest(), loadTapBoard(), loadTapAlerts()]);
   toast('✅ 대시보드 로드 완료');
 }}
 init();
@@ -537,7 +1072,7 @@ init();
 // Auto-refresh: pipeline status & logs 30s, full data 5min
 setInterval(() => {{ loadPipeline(); loadLogs(); }}, 30000);
 setInterval(async () => {{
-  await Promise.all([loadStats(), loadTimeline(), loadCategories(), loadSourceQuality()]);
+  await Promise.all([loadStats(), loadTimeline(), loadCategories(), loadSourceQuality(), loadTapBoard(), loadTapAlerts()]);
   toast('🔄 데이터 갱신 완료');
 }}, 300000);
 </script>
@@ -791,6 +1326,110 @@ async def api_review_queue(limit: int = Query(50, ge=1, le=200)):
     try:
         snapshot = await get_review_queue_snapshot(conn, limit=limit)
         return JSONResponse(snapshot)
+    finally:
+        await conn.close()
+
+
+@app.get("/api/tap/alerts")
+async def api_tap_alert_queue(
+    limit: int = Query(20, ge=1, le=200),
+    lifecycle_status: str = Query("queued", min_length=0, max_length=32),
+    target_country: str = Query("", min_length=0, max_length=64),
+):
+    """Operational snapshot of the TAP premium alert queue."""
+    conn = await _get_conn()
+    try:
+        snapshot = await get_tap_alert_queue_snapshot(
+            conn,
+            limit=limit,
+            lifecycle_status=lifecycle_status,
+            target_country=target_country,
+        )
+        return JSONResponse(snapshot)
+    finally:
+        await conn.close()
+
+
+@app.post("/api/tap/alerts/dispatch")
+async def api_dispatch_tap_alert_queue(
+    limit: int = Query(5, ge=1, le=100),
+    target_country: str = Query("", min_length=0, max_length=64),
+    dry_run: bool = Query(False),
+):
+    """Manually drain queued TAP alerts into configured channels."""
+    conn = await _get_conn()
+    try:
+        summary = await dispatch_tap_alert_queue(
+            conn,
+            _config,
+            limit=limit,
+            target_country=target_country,
+            dry_run=dry_run,
+        )
+        return JSONResponse(summary.to_dict())
+    finally:
+        await conn.close()
+
+
+@app.get("/api/tap/opportunities")
+async def api_tap_opportunities(
+    target_country: str = Query("", min_length=0, max_length=64),
+    limit: int = Query(10, ge=1, le=50),
+    teaser_count: int = Query(3, ge=0, le=10),
+    force_refresh: bool = Query(False),
+):
+    """Phase-1 product feed for TAP arbitrage opportunities."""
+    conn = await _get_conn()
+    board_country = (target_country or _config.country or "").strip().lower()
+    try:
+        board = await build_tap_board_snapshot(
+            conn,
+            _config,
+            TapBoardRequest(
+                target_country=board_country,
+                limit=limit,
+                teaser_count=teaser_count,
+                force_refresh=force_refresh,
+                snapshot_source="dashboard_api",
+            ),
+        )
+        return JSONResponse(board.to_dict())
+    except Exception:
+        board = empty_tap_board(target_country=board_country, teaser_count=teaser_count)
+        return JSONResponse(board.to_dict())
+    finally:
+        await conn.close()
+
+
+@app.get("/api/tap/opportunities/latest")
+async def api_tap_opportunities_latest(
+    target_country: str = Query("", min_length=0, max_length=64),
+    limit: int = Query(10, ge=1, le=50),
+    teaser_count: int = Query(3, ge=0, le=10),
+    max_age_minutes: int = Query(180, ge=0, le=1440),
+):
+    """Read the most recent TAP snapshot without forcing a rebuild."""
+    conn = await _get_conn()
+    board_country = (target_country or _config.country or "").strip().lower()
+    try:
+        board = await get_latest_tap_board_snapshot(
+            conn,
+            _config,
+            TapBoardRequest(
+                target_country=board_country,
+                limit=limit,
+                teaser_count=teaser_count,
+                persist_snapshot=False,
+                snapshot_max_age_minutes=max_age_minutes,
+                snapshot_source="dashboard_api",
+            ),
+        )
+        if board is None:
+            board = empty_tap_board(target_country=board_country, teaser_count=teaser_count)
+        return JSONResponse(board.to_dict())
+    except Exception:
+        board = empty_tap_board(target_country=board_country, teaser_count=teaser_count)
+        return JSONResponse(board.to_dict())
     finally:
         await conn.close()
 

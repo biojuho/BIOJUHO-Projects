@@ -12,8 +12,12 @@ import db as db_module
 
 from db import (
     compute_fingerprint,
+    enqueue_tap_alerts,
     get_cached_content,
     get_cached_score,
+    get_tap_alert_delivery_batch,
+    get_tap_alert_queue_snapshot,
+    get_latest_tap_board_snapshot,
     get_recent_avg_viral_score,
     get_recently_processed_keywords,
     get_trend_stats,
@@ -21,10 +25,12 @@ from db import (
     is_duplicate_trend,
     mark_tweet_posted,
     save_run,
+    save_tap_board_snapshot,
     save_thread,
     save_trend,
     save_tweet,
     sync_tweet_metrics,
+    update_tap_alert_delivery_status,
     update_run,
 )
 from models import (
@@ -35,6 +41,7 @@ from models import (
     ScoredTrend,
     TrendSource,
 )
+from tap.product_feed import PublishWindow, RevenuePlay, TapBoard, TapBoardItem
 
 
 class TestInitDb(unittest.IsolatedAsyncioTestCase):
@@ -62,6 +69,9 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
         self.assertIn("review_decisions", table_names)
         self.assertIn("publish_receipts", table_names)
         self.assertIn("feedback_summaries", table_names)
+        self.assertIn("tap_snapshots", table_names)
+        self.assertIn("tap_snapshot_items", table_names)
+        self.assertIn("tap_alert_queue", table_names)
 
     @pytest.mark.asyncio
     async def test_idempotent(self):
@@ -138,6 +148,253 @@ class TestSaveRun(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["trends_collected"], 5)
         self.assertEqual(row["tweets_generated"], 10)
         self.assertIsNotNone(row["finished_at"])
+
+
+class TestTapBoardSnapshots(unittest.IsolatedAsyncioTestCase):
+    """TAP product snapshots should round-trip through the DB facade."""
+
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
+
+    async def asyncTearDown(self):
+        await self.conn.close()
+
+    @pytest.mark.asyncio
+    async def test_save_and_load_latest_snapshot(self):
+        board = TapBoard(
+            generated_at="2026-04-04T10:00:00",
+            target_country="united-states",
+            total_detected=2,
+            teaser_count=1,
+            items=[
+                TapBoardItem(
+                    keyword="AI regulation",
+                    source_country="korea",
+                    target_countries=["united-states"],
+                    viral_score=88,
+                    priority=82.5,
+                    time_gap_hours=3.0,
+                    public_teaser="teaser",
+                    recommended_platforms=["x", "threads"],
+                    recommended_angle="angle",
+                    execution_notes=["note"],
+                    publish_window=PublishWindow(
+                        urgency_label="first_wave",
+                        opens_in_minutes=0,
+                        closes_in_minutes=180,
+                        rationale="Fresh gap.",
+                    ),
+                    revenue_play=RevenuePlay(
+                        playbook_type="lead_magnet",
+                        pricing_hint="email_capture",
+                        cta_strategy="gate full playbook",
+                        reasoning="Convert curiosity into signups.",
+                    ),
+                )
+            ],
+        )
+
+        snapshot_id = await save_tap_board_snapshot(self.conn, board, source="test_suite")
+        restored = await get_latest_tap_board_snapshot(self.conn, target_country="united-states")
+
+        self.assertEqual(board.snapshot_id, snapshot_id)
+        self.assertIsNotNone(restored)
+        assert restored is not None
+        self.assertEqual(restored.snapshot_id, snapshot_id)
+        self.assertEqual(restored.snapshot_source, "test_suite")
+        self.assertEqual(restored.delivery_mode, "cached")
+        self.assertEqual(restored.items[0].keyword, "AI regulation")
+        self.assertEqual(restored.items[0].recommended_platforms, ["x", "threads"])
+
+    @pytest.mark.asyncio
+    async def test_latest_snapshot_respects_target_country(self):
+        await save_tap_board_snapshot(
+            self.conn,
+            TapBoard(generated_at="2026-04-04T10:00:00", target_country="japan"),
+            source="test_suite",
+        )
+
+        restored = await get_latest_tap_board_snapshot(self.conn, target_country="united-states")
+
+        self.assertIsNone(restored)
+
+    @pytest.mark.asyncio
+    async def test_enqueue_tap_alerts_respects_cooldown(self):
+        board = TapBoard(
+            generated_at="2026-04-04T10:00:00",
+            target_country="united-states",
+            total_detected=1,
+            teaser_count=0,
+            items=[
+                TapBoardItem(
+                    keyword="AI regulation",
+                    source_country="korea",
+                    target_countries=["united-states"],
+                    viral_score=92,
+                    priority=86.0,
+                    time_gap_hours=2.0,
+                    recommended_platforms=["x", "threads"],
+                    recommended_angle="angle",
+                )
+            ],
+        )
+        await save_tap_board_snapshot(self.conn, board, source="test_suite")
+
+        first = await enqueue_tap_alerts(
+            self.conn,
+            board,
+            target_country="united-states",
+            top_k=3,
+            min_priority=80.0,
+            min_viral_score=75,
+            cooldown_minutes=180,
+        )
+        second = await enqueue_tap_alerts(
+            self.conn,
+            board,
+            target_country="united-states",
+            top_k=3,
+            min_priority=80.0,
+            min_viral_score=75,
+            cooldown_minutes=180,
+        )
+        snapshot = await get_tap_alert_queue_snapshot(self.conn, limit=10)
+
+        self.assertEqual(first, 1)
+        self.assertEqual(second, 0)
+        self.assertEqual(snapshot["counts"]["queued"], 1)
+        self.assertEqual(snapshot["items"][0]["keyword"], "AI regulation")
+
+    @pytest.mark.asyncio
+    async def test_tap_alert_delivery_batch_and_status_update(self):
+        board = TapBoard(
+            generated_at="2026-04-04T10:00:00",
+            target_country="united-states",
+            total_detected=1,
+            teaser_count=0,
+            items=[
+                TapBoardItem(
+                    keyword="AI regulation",
+                    source_country="korea",
+                    target_countries=["united-states"],
+                    viral_score=92,
+                    priority=86.0,
+                    time_gap_hours=2.0,
+                    recommended_platforms=["x"],
+                    recommended_angle="angle",
+                )
+            ],
+        )
+        await save_tap_board_snapshot(self.conn, board, source="test_suite")
+        await enqueue_tap_alerts(
+            self.conn,
+            board,
+            target_country="united-states",
+            top_k=1,
+            min_priority=80.0,
+            min_viral_score=75,
+            cooldown_minutes=0,
+        )
+
+        batch = await get_tap_alert_delivery_batch(
+            self.conn,
+            limit=5,
+            target_country="united-states",
+        )
+        self.assertEqual(len(batch), 1)
+        self.assertEqual(batch[0]["keyword"], "AI regulation")
+
+        updated = await update_tap_alert_delivery_status(
+            self.conn,
+            alert_id=batch[0]["alert_id"],
+            lifecycle_status="dispatched",
+            dispatched_at="2026-04-04T10:05:00",
+            last_attempt_at="2026-04-04T10:05:00",
+            metadata_patch={
+                "last_delivery": {
+                    "status": "dispatched",
+                    "attempted_at": "2026-04-04T10:05:00",
+                    "channels": ["telegram"],
+                    "channel_results": {"telegram": {"ok": True}},
+                }
+            },
+        )
+        snapshot = await get_tap_alert_queue_snapshot(self.conn, limit=5, lifecycle_status="dispatched")
+
+        self.assertTrue(updated)
+        self.assertEqual(snapshot["counts"]["dispatched"], 1)
+        self.assertEqual(snapshot["items"][0]["dispatched_at"], "2026-04-04T10:05:00")
+        self.assertEqual(snapshot["items"][0]["last_attempt_at"], "2026-04-04T10:05:00")
+        self.assertEqual(snapshot["items"][0]["metadata"]["last_delivery"]["status"], "dispatched")
+        self.assertEqual(snapshot["items"][0]["metadata"]["last_delivery"]["channels"], ["telegram"])
+
+    @pytest.mark.asyncio
+    async def test_tap_alert_queue_snapshot_filters_by_target_country(self):
+        us_board = TapBoard(
+            generated_at="2026-04-04T10:00:00",
+            target_country="united-states",
+            total_detected=1,
+            teaser_count=0,
+            items=[
+                TapBoardItem(
+                    keyword="AI regulation",
+                    source_country="korea",
+                    target_countries=["united-states"],
+                    viral_score=92,
+                    priority=86.0,
+                    time_gap_hours=2.0,
+                    recommended_platforms=["x"],
+                    recommended_angle="angle",
+                )
+            ],
+        )
+        jp_board = TapBoard(
+            generated_at="2026-04-04T11:00:00",
+            target_country="japan",
+            total_detected=1,
+            teaser_count=0,
+            items=[
+                TapBoardItem(
+                    keyword="Anime comeback",
+                    source_country="korea",
+                    target_countries=["japan"],
+                    viral_score=88,
+                    priority=84.0,
+                    time_gap_hours=3.0,
+                    recommended_platforms=["threads"],
+                    recommended_angle="angle",
+                )
+            ],
+        )
+        await save_tap_board_snapshot(self.conn, us_board, source="test_suite")
+        await save_tap_board_snapshot(self.conn, jp_board, source="test_suite")
+        await enqueue_tap_alerts(
+            self.conn,
+            us_board,
+            target_country="united-states",
+            top_k=1,
+            min_priority=80.0,
+            min_viral_score=75,
+            cooldown_minutes=0,
+        )
+        await enqueue_tap_alerts(
+            self.conn,
+            jp_board,
+            target_country="japan",
+            top_k=1,
+            min_priority=80.0,
+            min_viral_score=75,
+            cooldown_minutes=0,
+        )
+
+        snapshot = await get_tap_alert_queue_snapshot(self.conn, limit=10, target_country="japan")
+
+        self.assertEqual(snapshot["counts"]["queued"], 1)
+        self.assertEqual(len(snapshot["items"]), 1)
+        self.assertEqual(snapshot["items"][0]["target_country"], "japan")
+        self.assertEqual(snapshot["items"][0]["keyword"], "Anime comeback")
 
 
 class TestSaveTrend(unittest.IsolatedAsyncioTestCase):
@@ -458,9 +715,15 @@ class TestParallelSQLiteWrites(unittest.IsolatedAsyncioTestCase):
 
     @pytest.mark.asyncio
     async def test_parallel_init_and_save_run_on_shared_file(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "parallel-lock.db")
-
+        temp_file = tempfile.NamedTemporaryFile(
+            prefix="gdt-parallel-",
+            suffix=".db",
+            dir=os.getcwd(),
+            delete=False,
+        )
+        temp_file.close()
+        db_path = temp_file.name
+        try:
             def worker(index: int) -> int:
                 async def _inner() -> int:
                     conn = await aiosqlite.connect(db_path)
@@ -485,6 +748,11 @@ class TestParallelSQLiteWrites(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(row["cnt"], 4)
             finally:
                 await verify_conn.close()
+        finally:
+            for suffix in ("", "-wal", "-shm"):
+                path = f"{db_path}{suffix}"
+                if os.path.exists(path):
+                    os.remove(path)
 
 
 class _FakeCache:

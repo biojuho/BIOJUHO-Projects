@@ -1,13 +1,19 @@
 """Tests for C-3 dashboard enhancement endpoints."""
 
+import importlib.util
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
 # Ensure project root is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+_DASHBOARD_IMPORT_DEPS_OK = (
+    importlib.util.find_spec("fastapi") is not None and importlib.util.find_spec("httpx") is not None
+)
 
 
 @pytest.fixture
@@ -36,6 +42,15 @@ def client(mock_db_conn):
             yield c
 
 
+@pytest.fixture
+def local_tmp_path():
+    base_dir = Path.cwd() / "getdaytrends" / ".smoke-tmp" / "pytest-dashboard"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = base_dir / f"dashboard-{uuid4().hex}"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    yield tmp_dir
+
+
 class TestExistingEndpoints:
     """기존 endpoint 회귀 테스트."""
 
@@ -43,6 +58,13 @@ class TestExistingEndpoints:
         resp = client.get("/")
         assert resp.status_code == 200
         assert "getdaytrends" in resp.text and "Dashboard" in resp.text
+        assert "tap-dispatch-btn" in resp.text
+        assert "tap-alert-list" in resp.text
+        assert "tap-target-country" in resp.text
+        assert "tap-alert-lifecycle" in resp.text
+        assert "tap-save-preset-btn" in resp.text
+        assert "tap-preset-strip" in resp.text
+        assert "tap-outcome-list" in resp.text
 
     def test_pipeline_status(self, client):
         resp = client.get("/api/pipeline_status")
@@ -113,8 +135,8 @@ class TestC3Watchlist:
 class TestDashboardEnhancements:
     """Tests for newly added log/A-B dashboard helpers."""
 
-    def test_logs_endpoint_falls_back_to_local_file(self, client, tmp_path):
-        base_dir = tmp_path / "getdaytrends"
+    def test_logs_endpoint_falls_back_to_local_file(self, client, local_tmp_path):
+        base_dir = local_tmp_path / "getdaytrends"
         base_dir.mkdir(parents=True)
         (base_dir / "tweet_bot.log").write_text("line-1\nline-2\nline-3\n", encoding="utf-8")
 
@@ -130,8 +152,8 @@ class TestDashboardEnhancements:
         assert resp.status_code == 200
         assert resp.json() == {"logs": ["line-2", "line-3"], "source": "local"}
 
-    def test_ab_test_endpoint_reads_dailynews_results(self, client, tmp_path):
-        workspace_dir = tmp_path / "workspace"
+    def test_ab_test_endpoint_reads_dailynews_results(self, client, local_tmp_path):
+        workspace_dir = local_tmp_path / "workspace"
         base_dir = workspace_dir / "getdaytrends"
         ab_dir = workspace_dir / "DailyNews" / "output"
         base_dir.mkdir(parents=True)
@@ -178,6 +200,7 @@ class TestDashboardEnhancements:
 # ── DATABASE_URL Routing Tests ──────────────────────────────────────
 
 
+@pytest.mark.skipif(not _DASHBOARD_IMPORT_DEPS_OK, reason="dashboard import deps not installed")
 class TestDashboardDatabaseUrlRouting:
     """dashboard._get_conn이 DATABASE_URL을 올바르게 전달하는지 테스트."""
 
@@ -235,4 +258,129 @@ class TestDashboardDatabaseUrlRouting:
             await _get_conn()
 
             mock_init.assert_called_once_with(mock_conn)
+
+
+class TestTapOpportunities:
+    """Tests for the productized TAP feed endpoint."""
+
+    def test_tap_endpoint_returns_board_payload(self, client):
+        payload = {
+            "generated_at": "2026-04-04T00:00:00",
+            "target_country": "united-states",
+            "total_detected": 1,
+            "teaser_count": 1,
+            "items": [
+                {
+                    "keyword": "AI regulation",
+                    "source_country": "korea",
+                    "target_countries": ["united-states"],
+                    "viral_score": 88,
+                    "priority": 82.5,
+                    "time_gap_hours": 3.0,
+                    "paywall_tier": "free_teaser",
+                    "public_teaser": "teaser",
+                    "recommended_platforms": ["x", "threads"],
+                    "recommended_angle": "angle",
+                    "execution_notes": ["note"],
+                    "publish_window": None,
+                    "revenue_play": None,
+                }
+            ],
+            "future_dependencies": ["rapidfuzz>=3.9.0"],
+        }
+        board_stub = MagicMock()
+        board_stub.to_dict.return_value = payload
+
+        with patch(
+            "dashboard.build_tap_board_snapshot",
+            new_callable=AsyncMock,
+            return_value=board_stub,
+        ) as mock_build:
+            resp = client.get("/api/tap/opportunities?target_country=united-states&teaser_count=1")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["target_country"] == "united-states"
+        assert data["total_detected"] == 1
+        assert data["items"][0]["keyword"] == "AI regulation"
+        assert data["items"][0]["paywall_tier"] == "free_teaser"
+        mock_build.assert_awaited_once()
+
+    def test_tap_latest_endpoint_returns_cached_snapshot(self, client):
+        payload = {
+            "snapshot_id": "tap_cached",
+            "generated_at": "2026-04-04T00:00:00",
+            "target_country": "united-states",
+            "total_detected": 1,
+            "teaser_count": 1,
+            "items": [],
+            "snapshot_source": "dashboard_api",
+            "delivery_mode": "cached",
+            "future_dependencies": [],
+        }
+        board_stub = MagicMock()
+        board_stub.to_dict.return_value = payload
+
+        with patch(
+            "dashboard.get_latest_tap_board_snapshot",
+            new_callable=AsyncMock,
+            return_value=board_stub,
+        ) as mock_latest:
+            resp = client.get("/api/tap/opportunities/latest?target_country=united-states&teaser_count=1")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["snapshot_id"] == "tap_cached"
+        assert data["delivery_mode"] == "cached"
+        mock_latest.assert_awaited_once()
+
+    def test_tap_alert_queue_endpoint_returns_snapshot(self, client):
+        payload = {
+            "counts": {"queued": 2},
+            "items": [
+                {
+                    "alert_id": "tapa_1",
+                    "keyword": "AI regulation",
+                    "target_country": "united-states",
+                }
+            ],
+        }
+
+        with patch(
+            "dashboard.get_tap_alert_queue_snapshot",
+            new_callable=AsyncMock,
+            return_value=payload,
+        ) as mock_queue:
+            resp = client.get("/api/tap/alerts?limit=10&lifecycle_status=queued&target_country=united-states")
+
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        mock_queue.assert_awaited_once()
+        assert mock_queue.await_args.kwargs["target_country"] == "united-states"
+
+    def test_tap_alert_dispatch_endpoint_returns_summary(self, client):
+        payload = {
+            "target_country": "united-states",
+            "dry_run": False,
+            "channels": ["telegram"],
+            "attempted": 1,
+            "dispatched": 1,
+            "failed": 0,
+            "skipped": 0,
+            "items": [{"alert_id": "tapa_1", "status": "dispatched"}],
+        }
+        summary_stub = MagicMock()
+        summary_stub.to_dict.return_value = payload
+
+        with patch(
+            "dashboard.dispatch_tap_alert_queue",
+            new_callable=AsyncMock,
+            return_value=summary_stub,
+        ) as mock_dispatch:
+            resp = client.post("/api/tap/alerts/dispatch?limit=5&target_country=united-states")
+
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        mock_dispatch.assert_awaited_once()
+        assert mock_dispatch.await_args.kwargs["target_country"] == "united-states"
 

@@ -3,10 +3,7 @@
 import json
 from datetime import datetime, timedelta
 
-from . import GeneratedThread, GeneratedTweet, _REDIS_OK, log, sqlite_write_lock
-
-if _REDIS_OK:
-    from . import get_cache
+from . import GeneratedThread, GeneratedTweet, _get_cache_client, _redis_enabled, log, sqlite_write_lock
 
 async def _save_tweet_unlocked(
     conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None
@@ -58,44 +55,55 @@ async def save_tweets_batch(
     is_thread: bool = False,
     saved_to: list[str] | None = None,
 ) -> None:
-    """트윗 배치 저장. variant_id, language 컬럼 포함 (v3.0)."""
+    """트윗 배치 저장. variant_id, language 컬럼 포함 (v3.0).
+    빈 리스트 시 no-op, executemany 실패 시 롤백 후 재raise."""
+    if not tweets:
+        return
     saved_to_json = json.dumps(saved_to or ["sqlite"], ensure_ascii=False)
     now = datetime.now().isoformat()
-    if is_thread:
-        rows = [
-            (trend_id, run_id, "thread", text, len(text), 1, i, "queued", '["sqlite"]', now, "short", "", "ko")
-            for i, text in enumerate(tweets)
-        ]
-        await conn.executemany(
-            """INSERT INTO tweets (trend_id, run_id, tweet_type, content, char_count,
-                is_thread, thread_order, status, saved_to, generated_at, content_type,
-                variant_id, language)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            rows,
-        )
-    else:
-        rows = [
-            (
-                trend_id,
-                run_id,
-                getattr(t, "tweet_type", ""),
-                getattr(t, "content", ""),
-                getattr(t, "char_count", len(getattr(t, "content", ""))),
-                saved_to_json,
-                now,
-                getattr(t, "content_type", "short"),
-                getattr(t, "variant_id", ""),
-                getattr(t, "language", "ko"),
+    try:
+        if is_thread:
+            rows = [
+                (trend_id, run_id, "thread", text, len(text), 1, i, "queued", '["sqlite"]', now, "short", "", "ko")
+                for i, text in enumerate(tweets)
+            ]
+            await conn.executemany(
+                """INSERT INTO tweets (trend_id, run_id, tweet_type, content, char_count,
+                    is_thread, thread_order, status, saved_to, generated_at, content_type,
+                    variant_id, language)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                rows,
             )
-            for t in tweets
-        ]
-        await conn.executemany(
-            """INSERT INTO tweets (trend_id, run_id, tweet_type, content, char_count,
-                is_thread, thread_order, status, saved_to, generated_at, content_type,
-                variant_id, language)
-               VALUES (?, ?, ?, ?, ?, 0, 0, 'queued', ?, ?, ?, ?, ?)""",
-            rows,
-        )
+        else:
+            rows = [
+                (
+                    trend_id,
+                    run_id,
+                    getattr(t, "tweet_type", ""),
+                    getattr(t, "content", ""),
+                    getattr(t, "char_count", len(getattr(t, "content", ""))),
+                    saved_to_json,
+                    now,
+                    getattr(t, "content_type", "short"),
+                    getattr(t, "variant_id", ""),
+                    getattr(t, "language", "ko"),
+                )
+                for t in tweets
+            ]
+            await conn.executemany(
+                """INSERT INTO tweets (trend_id, run_id, tweet_type, content, char_count,
+                    is_thread, thread_order, status, saved_to, generated_at, content_type,
+                    variant_id, language)
+                   VALUES (?, ?, ?, ?, ?, 0, 0, 'queued', ?, ?, ?, ?, ?)""",
+                rows,
+            )
+    except Exception:
+        # partial write 방지: 롤백 후 상위로 전파
+        try:
+            await conn.rollback()
+        except Exception:
+            pass
+        raise
 
 async def _resolve_tweet_row_id_for_publish(
     conn,
@@ -237,13 +245,16 @@ async def sync_tweet_metrics(
         )
 
 async def get_cached_content(conn, fingerprint: str, max_age_hours: int = 24) -> list[dict] | None:
-    # Redis cache first
-    if _REDIS_OK:
-        cache = get_cache()
+    cache = _get_cache_client() if _redis_enabled() else None
+    # Redis cache first — 장애 시 DB fallback
+    if cache is not None:
         cache_key = f"gdt:content:{fingerprint}"
-        cached = await cache.get(cache_key)
-        if cached is not None:
-            return cached
+        try:
+            cached = await cache.get(cache_key)
+            if cached is not None and isinstance(cached, list):
+                return cached
+        except Exception:
+            cache = None
 
     cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
     cursor = await conn.execute(
@@ -254,8 +265,11 @@ async def get_cached_content(conn, fingerprint: str, max_age_hours: int = 24) ->
     result = [dict(r) for r in rows] if rows else None
 
     # Cache for 6 hours (shorter than max_age to keep fresh)
-    if result and _REDIS_OK:
-        await cache.set(cache_key, result, ttl=6 * 3600)
+    if result and cache is not None:
+        try:
+            await cache.set(cache_key, result, ttl=6 * 3600)
+        except Exception:
+            pass
 
     return result
 

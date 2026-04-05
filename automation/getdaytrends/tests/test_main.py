@@ -1,11 +1,11 @@
 import threading
 import time
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from config import AppConfig
-from main import _normalize_countries, _run_countries_parallel_job
+from main import _normalize_countries, _refresh_tap_products_after_parallel_runs, _run_countries_parallel_job
 from models import RunResult
 
 
@@ -36,11 +36,13 @@ async def test_parallel_runner_disables_smart_schedule_for_each_country():
         seen.append((country_config.country, country_config.smart_schedule))
         return _make_run(country_config.country)
 
-    with patch("main.run_pipeline", side_effect=fake_run_pipeline):
+    with patch("main.run_pipeline", side_effect=fake_run_pipeline), \
+         patch("main._refresh_tap_products_after_parallel_runs", new_callable=AsyncMock, return_value={}) as mock_refresh:
         results = await _run_countries_parallel_job(config)
 
     assert [result.country for result in results] == ["korea", "us"]
     assert sorted(seen) == [("korea", False), ("us", False)]
+    mock_refresh.assert_awaited_once_with(config, ["korea", "us"])
 
 
 @pytest.mark.asyncio
@@ -63,11 +65,13 @@ async def test_parallel_runner_respects_country_parallel_limit():
             current -= 1
         return _make_run(country_config.country)
 
-    with patch("main.run_pipeline", side_effect=fake_run_pipeline):
+    with patch("main.run_pipeline", side_effect=fake_run_pipeline), \
+         patch("main._refresh_tap_products_after_parallel_runs", new_callable=AsyncMock, return_value={}) as mock_refresh:
         results = await _run_countries_parallel_job(config)
 
     assert len(results) == 3
     assert peak == 2
+    mock_refresh.assert_awaited_once_with(config, ["korea", "us", "japan"])
 
 
 @pytest.mark.asyncio
@@ -79,6 +83,65 @@ async def test_parallel_runner_raises_when_every_country_fails():
     def fake_run_pipeline(country_config, schedule_callback=None):
         raise RuntimeError(f"{country_config.country} failed")
 
-    with patch("main.run_pipeline", side_effect=fake_run_pipeline):
+    with patch("main.run_pipeline", side_effect=fake_run_pipeline), \
+         patch("main._refresh_tap_products_after_parallel_runs", new_callable=AsyncMock, return_value={}) as mock_refresh:
         with pytest.raises(RuntimeError, match="All parallel country runs failed"):
             await _run_countries_parallel_job(config)
+    mock_refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_parallel_runner_refreshes_tap_with_only_successful_countries():
+    config = AppConfig()
+    config.countries = ["korea", "us", "japan"]
+    config.country_parallel_limit = 3
+
+    def fake_run_pipeline(country_config, schedule_callback=None):
+        if country_config.country == "us":
+            raise RuntimeError("us failed")
+        return _make_run(country_config.country)
+
+    with patch("main.run_pipeline", side_effect=fake_run_pipeline), \
+         patch("main._refresh_tap_products_after_parallel_runs", new_callable=AsyncMock, return_value={}) as mock_refresh:
+        results = await _run_countries_parallel_job(config)
+
+    assert [result.country for result in results] == ["korea", "japan"]
+    mock_refresh.assert_awaited_once_with(config, ["korea", "japan"])
+
+
+@pytest.mark.asyncio
+async def test_refresh_tap_products_after_parallel_runs_dispatches_when_enabled():
+    config = AppConfig()
+    config.enable_tap = True
+    config.enable_tap_alert_dispatch = True
+    config.tap_alert_dispatch_batch_size = 4
+    config.countries = ["korea", "us"]
+
+    conn = AsyncMock()
+    summary_stub = type(
+        "Summary",
+        (),
+        {"to_dict": lambda self: {"snapshots_built": 2, "alerts_queued": 2, "total_detected": 4}},
+    )()
+    dispatch_stub = type(
+        "DispatchSummary",
+        (),
+        {
+            "to_dict": lambda self: {
+                "attempted": 2,
+                "dispatched": 2,
+                "failed": 0,
+                "skipped": 0,
+                "items": [],
+            }
+        },
+    )()
+
+    with patch("main.get_connection", new_callable=AsyncMock, return_value=conn), \
+         patch("main.init_db", new_callable=AsyncMock), \
+         patch("tap.refresh_tap_market_surfaces", new_callable=AsyncMock, return_value=summary_stub), \
+         patch("tap.dispatch_tap_alert_queue", new_callable=AsyncMock, return_value=dispatch_stub) as mock_dispatch:
+        payload = await _refresh_tap_products_after_parallel_runs(config, ["korea", "us"])
+
+    assert payload["dispatch"]["dispatched"] == 2
+    mock_dispatch.assert_awaited_once()

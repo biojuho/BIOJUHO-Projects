@@ -12,11 +12,41 @@ Usage:
 
 from .detector import TrendArbitrageDetector, ArbitrageOpportunity
 from .analyzer import ArbitrageAnalyzer
+from .product_feed import (
+    OpportunityTier,
+    TapBoard,
+    TapBoardBuilder,
+    TapBoardItem,
+    empty_tap_board,
+    required_tap_product_dependencies,
+)
+from .service import (
+    TapAlertDispatchSummary,
+    TapBoardRequest,
+    TapRefreshSummary,
+    build_tap_board_snapshot,
+    dispatch_tap_alert_queue,
+    get_latest_tap_board_snapshot,
+    refresh_tap_market_surfaces,
+)
 
 __all__ = [
     "TrendArbitrageDetector",
     "ArbitrageOpportunity",
     "ArbitrageAnalyzer",
+    "OpportunityTier",
+    "TapBoard",
+    "TapBoardBuilder",
+    "TapBoardItem",
+    "TapAlertDispatchSummary",
+    "TapBoardRequest",
+    "TapRefreshSummary",
+    "build_tap_board_snapshot",
+    "dispatch_tap_alert_queue",
+    "get_latest_tap_board_snapshot",
+    "refresh_tap_market_surfaces",
+    "empty_tap_board",
+    "required_tap_product_dependencies",
     "detect_arbitrage_opportunities",
 ]
 

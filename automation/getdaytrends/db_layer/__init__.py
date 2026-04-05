@@ -1,6 +1,7 @@
 """DB Repositories Layer — 공용 import 및 유틸리티."""
 
 import json
+import sys
 from datetime import datetime, timedelta
 
 from loguru import logger as log
@@ -73,3 +74,27 @@ def _json_list(value: str | None) -> list[str]:
     except json.JSONDecodeError:
         return []
     return parsed if isinstance(parsed, list) else []
+
+
+def _facade_module():
+    for name in ("db", "automation.getdaytrends.db"):
+        module = sys.modules.get(name)
+        if module is not None:
+            return module
+    return None
+
+
+def _redis_enabled() -> bool:
+    facade = _facade_module()
+    if facade is not None and hasattr(facade, "_REDIS_OK"):
+        return bool(getattr(facade, "_REDIS_OK"))
+    return _REDIS_OK
+
+
+def _get_cache_client():
+    facade = _facade_module()
+    if facade is not None and hasattr(facade, "get_cache"):
+        return facade.get_cache()
+    if _REDIS_OK:
+        return get_cache()
+    return None

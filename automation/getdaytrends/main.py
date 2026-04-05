@@ -12,6 +12,7 @@
 
 import argparse
 import asyncio
+import dataclasses
 import io
 import os
 import signal
@@ -320,6 +321,56 @@ def _normalize_countries(countries: list[str]) -> list[str]:
     return normalized
 
 
+async def _refresh_tap_products_after_parallel_runs(config: AppConfig, countries: list[str]) -> dict:
+    """Refresh TAP snapshots after parallel country runs complete."""
+
+    normalized_countries = _normalize_countries(countries)
+    if not config.enable_tap or len(normalized_countries) < 2:
+        return {}
+
+    try:
+        try:
+            from .tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
+        except ImportError:
+            from tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
+
+        tap_config = dataclasses.replace(
+            config,
+            country=normalized_countries[0],
+            countries=normalized_countries,
+        )
+        conn = await get_connection(config.db_path, database_url=config.database_url)
+        try:
+            await init_db(conn)
+            summary = await refresh_tap_market_surfaces(conn, tap_config, snapshot_source="parallel_batch")
+            payload = summary.to_dict()
+            if payload.get("alerts_queued") and getattr(config, "enable_tap_alert_dispatch", False):
+                dispatch_summary = await dispatch_tap_alert_queue(
+                    conn,
+                    tap_config,
+                    limit=max(1, int(getattr(config, "tap_alert_dispatch_batch_size", 5) or 5)),
+                )
+                payload["dispatch"] = dispatch_summary.to_dict()
+        finally:
+            await conn.close()
+
+        if payload.get("snapshots_built"):
+            print(
+                "  TAP refresh       : "
+                f"{payload['snapshots_built']} snapshots / {payload['alerts_queued']} alerts queued"
+            )
+        if payload.get("dispatch"):
+            dispatch = payload["dispatch"]
+            print(
+                "  TAP dispatch      : "
+                f"{dispatch['dispatched']} sent / {dispatch['failed']} failed / {dispatch['skipped']} skipped"
+            )
+        return payload
+    except Exception as exc:
+        log.warning(f"TAP parallel refresh failed (ignored): {type(exc).__name__}: {exc}")
+        return {}
+
+
 async def _run_countries_parallel_job(config: AppConfig) -> list:
     countries = _normalize_countries(config.countries)
     if not countries:
@@ -369,6 +420,9 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
         log.error(f"Parallel country run failed: {failed_countries}")
         if len(failures) == len(countries):
             raise RuntimeError(f"All parallel country runs failed: {failed_countries}") from failures[0][1]
+
+    successful_countries = [country for country, _, _, error in country_results if error is None]
+    await _refresh_tap_products_after_parallel_runs(config, successful_countries)
 
     return [result for _, result, _, error in country_results if error is None]
 

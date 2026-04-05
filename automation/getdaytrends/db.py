@@ -34,6 +34,7 @@ try:
     from .db_layer.tweet_repository import *
     from .db_layer.metrics_repository import *
     from .db_layer.draft_repository import *
+    from .db_layer.tap_repository import *
     from .db_layer.admin_repository import *
 except ImportError:
     from db_schema import (
@@ -55,6 +56,7 @@ except ImportError:
     from db_layer.tweet_repository import *
     from db_layer.metrics_repository import *
     from db_layer.draft_repository import *
+    from db_layer.tap_repository import *
     from db_layer.admin_repository import *
 
 _WORKFLOW_STATUS_TRANSITIONS: dict[str, set[str]] = {

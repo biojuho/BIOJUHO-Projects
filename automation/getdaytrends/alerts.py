@@ -1,11 +1,16 @@
 """
-getdaytrends v2.0 - Alert System
-Telegram + Discord 웹훅 알림. trend_monitor/webhook.py에서 포팅.
+getdaytrends alert helpers.
+
+This module intentionally keeps alert fan-out small and dependency-light so it
+can be reused by the pipeline, TAP dispatch, and health checks.
 """
 
+from __future__ import annotations
+
+import asyncio
 import json
-import urllib.parse
 import urllib.request
+from datetime import date
 
 from loguru import logger as log
 
@@ -18,24 +23,29 @@ except ImportError:
 
 
 def format_trend_alert(trend: ScoredTrend) -> str:
-    """고바이럴 트렌드를 읽기 쉬운 알림 메시지로 포맷."""
-    angles = ", ".join(trend.suggested_angles[:3]) if trend.suggested_angles else "없음"
-    sources = ", ".join(s.value for s in trend.sources)
+    """Render one high-signal trend alert in a human-readable format."""
+
+    angles = ", ".join(trend.suggested_angles[:3]) if trend.suggested_angles else "none"
+    sources = ", ".join(getattr(source, "value", str(source)) for source in (trend.sources or [])) or "unknown"
+    insight = trend.top_insight or "No summary available."
+    acceleration = trend.trend_acceleration or "unknown"
+    hook = trend.best_hook_starter or ""
 
     return (
-        f"🔥 *고바이럴 트렌드 감지!*\n"
-        f"📊 주제: *{trend.keyword}*\n"
-        f"⚡ 바이럴 점수: {trend.viral_potential}/100\n"
-        f"📈 가속도: {trend.trend_acceleration}\n"
-        f"💡 핵심: {trend.top_insight}\n"
-        f"🎯 앵글: {angles}\n"
-        f"🌐 소스: {sources}\n"
-        f"🚀 훅: {trend.best_hook_starter}"
+        f"*High-viral trend detected!*\n"
+        f"Topic: *{trend.keyword}*\n"
+        f"Viral score: {trend.viral_potential}/100\n"
+        f"Acceleration: {acceleration}\n"
+        f"Insight: {insight}\n"
+        f"Angles: {angles}\n"
+        f"Sources: {sources}\n"
+        f"Hook: {hook}"
     )
 
 
 def send_telegram_alert(message: str, config: AppConfig) -> dict:
-    """Telegram Bot API로 메시지 전송."""
+    """Send one message through the Telegram Bot API."""
+
     if not config.telegram_bot_token or not config.telegram_chat_id:
         return {"ok": False, "error": "Telegram 설정 없음"}
 
@@ -56,22 +66,20 @@ def send_telegram_alert(message: str, config: AppConfig) -> dict:
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode("utf-8"))
-        log.info("Telegram 알림 전송 완료")
+        log.info("Telegram alert sent")
         return result
-    except Exception as e:
-        log.error(f"Telegram 전송 실패: {e}")
-        return {"ok": False, "error": str(e)}
+    except Exception as exc:  # pragma: no cover - network failure path
+        log.error(f"Telegram send failed: {exc}")
+        return {"ok": False, "error": str(exc)}
 
 
 def send_discord_alert(message: str, config: AppConfig) -> dict:
-    """Discord Webhook으로 메시지 전송."""
+    """Send one message through a Discord webhook."""
+
     if not config.discord_webhook_url:
         return {"ok": False, "error": "Discord 설정 없음"}
 
-    # Discord는 Markdown bold가 ** 형식
-    discord_message = message.replace("*", "**")
-
-    payload = json.dumps({"content": discord_message[:2000]}).encode("utf-8")
+    payload = json.dumps({"content": message.replace("*", "**")[:2000]}).encode("utf-8")
 
     try:
         req = urllib.request.Request(
@@ -82,21 +90,21 @@ def send_discord_alert(message: str, config: AppConfig) -> dict:
                 "User-Agent": "BIOJUHO-Notifier/1.0",
             },
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            pass  # Discord returns 204 No Content on success
-        log.info("Discord 알림 전송 완료")
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+        log.info("Discord alert sent")
         return {"ok": True}
-    except Exception as e:
-        log.error(f"Discord 전송 실패: {e}")
-        return {"ok": False, "error": str(e)}
+    except Exception as exc:  # pragma: no cover - network failure path
+        log.error(f"Discord send failed: {exc}")
+        return {"ok": False, "error": str(exc)}
 
 
 def send_slack_alert(message: str, config: AppConfig) -> dict:
-    """[C-5] Slack Incoming Webhook으로 메시지 전송."""
+    """Send one message through a Slack incoming webhook."""
+
     if not config.slack_webhook_url:
         return {"ok": False, "error": "Slack 설정 없음"}
 
-    # Slack mrkdwn: *bold* 형식 그대로 사용 가능
     payload = json.dumps({"text": message[:3000]}).encode("utf-8")
 
     try:
@@ -110,27 +118,25 @@ def send_slack_alert(message: str, config: AppConfig) -> dict:
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = resp.read().decode("utf-8", errors="replace")
-        # Slack returns "ok" on success
-        log.info("Slack 알림 전송 완료")
+        log.info("Slack alert sent")
         return {"ok": True, "body": body}
-    except Exception as e:
-        log.error(f"Slack 전송 실패: {e}")
-        return {"ok": False, "error": str(e)}
+    except Exception as exc:  # pragma: no cover - network failure path
+        log.error(f"Slack send failed: {exc}")
+        return {"ok": False, "error": str(exc)}
 
 
 def send_email_alert(message: str, config: AppConfig) -> dict:
-    """[C-5] SMTP 기반 이메일 알림 전송."""
+    """Send one plain-text alert via SMTP."""
+
     if not config.smtp_host or not config.alert_email:
         return {"ok": False, "error": "SMTP/이메일 설정 없음"}
 
     import smtplib
     from email.mime.text import MIMEText
 
-    # Markdown 제거하여 플레인텍스트 이메일 생성
     plain = message.replace("*", "").replace("`", "")
-
     msg = MIMEText(plain, "plain", "utf-8")
-    msg["Subject"] = "[GetDayTrends] 트렌드 알림"
+    msg["Subject"] = "[GetDayTrends] Trend alert"
     msg["From"] = config.smtp_user or config.alert_email
     msg["To"] = config.alert_email
 
@@ -146,16 +152,17 @@ def send_email_alert(message: str, config: AppConfig) -> dict:
 
         server.send_message(msg)
         server.quit()
-        log.info(f"이메일 알림 전송 완료 → {config.alert_email}")
+        log.info(f"Email alert sent -> {config.alert_email}")
         return {"ok": True}
-    except Exception as e:
-        log.error(f"이메일 전송 실패: {e}")
-        return {"ok": False, "error": str(e)}
+    except Exception as exc:  # pragma: no cover - network failure path
+        log.error(f"Email send failed: {exc}")
+        return {"ok": False, "error": str(exc)}
 
 
 def send_alert(message: str, config: AppConfig) -> dict:
-    """모든 설정된 채널로 알림 전송."""
-    results = {}
+    """Send to every configured alert channel."""
+
+    results: dict[str, dict] = {}
     if config.telegram_bot_token and config.telegram_chat_id:
         results["telegram"] = send_telegram_alert(message, config)
     if config.discord_webhook_url:
@@ -168,219 +175,171 @@ def send_alert(message: str, config: AppConfig) -> dict:
 
 
 def send_weekly_cost_report(config: AppConfig) -> bool:
-    """
-    주간 LLM 비용 리포트를 Telegram으로 전송.
-    shared.llm.stats.CostTracker에서 7일 집계 데이터를 읽어 포맷.
-    전송 성공 여부 반환.
-    """
+    """Send a compact 7-day LLM cost report to Telegram when available."""
+
+    if not config.telegram_bot_token or not config.telegram_chat_id:
+        return False
+
     try:
         from shared.llm.stats import _DB_PATH as llm_db_path
         from shared.llm.stats import CostTracker
+    except Exception:
+        return False
 
-        if not llm_db_path.exists():
-            return False
+    if not llm_db_path.exists():
+        return False
 
+    try:
         tracker = CostTracker(persist=True)
         daily = tracker.get_daily_stats(7)
         tracker.close()
-
-        if not daily:
-            return False
-
-        # 일별 집계
-        by_day: dict = {}
-        for row in daily:
-            d = row["date"]
-            by_day.setdefault(d, {"cost": 0.0, "calls": 0})
-            by_day[d]["cost"] += row["cost_usd"]
-            by_day[d]["calls"] += row["calls"]
-
-        total_7d = sum(v["cost"] for v in by_day.values())
-        monthly_est = total_7d / 7 * 30
-
-        lines = ["📊 *주간 LLM 비용 리포트*\n"]
-        for day in sorted(by_day.keys(), reverse=True):
-            v = by_day[day]
-            bar = "█" * min(int(v["cost"] * 100), 10)
-            lines.append(f"  `{day}` {bar} ${v['cost']:.4f} ({v['calls']}콜)")
-        lines.append(f"\n💰 7일 합계: *${total_7d:.4f}*")
-        lines.append(f"📈 월 추정: *${monthly_est:.2f}*")
-
-        message = "\n".join(lines)
-        result = send_telegram_alert(message, config)
-        if result.get("ok"):
-            log.info("주간 비용 리포트 Telegram 전송 완료")
-            return True
+    except Exception as exc:  # pragma: no cover - external dependency path
+        log.warning(f"Weekly cost report unavailable: {exc}")
         return False
 
-    except Exception as e:
-        log.warning(f"주간 비용 리포트 전송 실패: {e}")
+    if not daily:
         return False
 
+    by_day: dict[str, dict[str, float | int]] = {}
+    for row in daily:
+        day_key = row["date"]
+        by_day.setdefault(day_key, {"cost": 0.0, "calls": 0})
+        by_day[day_key]["cost"] += row["cost_usd"]
+        by_day[day_key]["calls"] += row["calls"]
 
-def check_watchlist(
-    trends: list[ScoredTrend],
-    config: AppConfig,
-    conn=None,
-) -> int:
-    """
-    [v9.0] Watchlist 키워드가 트렌드에 등장하면 즉시 알림.
-    conn이 주어지면 watchlist_hits 테이블에 기록.
-    반환: 감지된 Watchlist 항목 수
-    """
-    if not config.watchlist_keywords or config.no_alerts:
+    total_7d = sum(float(v["cost"]) for v in by_day.values())
+    monthly_estimate = total_7d / 7 * 30
+
+    lines = ["*Weekly LLM Cost Report*\n"]
+    for day_key in sorted(by_day.keys(), reverse=True):
+        stats = by_day[day_key]
+        bar = "#" * min(int(float(stats["cost"]) * 100), 10)
+        lines.append(f"  `{day_key}` {bar} ${float(stats['cost']):.4f} ({int(stats['calls'])} calls)")
+    lines.append(f"\n7-day total: *${total_7d:.4f}*")
+    lines.append(f"Monthly estimate: *${monthly_estimate:.2f}*")
+
+    result = send_telegram_alert("\n".join(lines), config)
+    return bool(result.get("ok"))
+
+
+def check_watchlist(trends: list[ScoredTrend], config: AppConfig, conn=None) -> int:
+    """Send an immediate alert when a watchlist keyword appears."""
+
+    if not getattr(config, "watchlist_keywords", None) or config.no_alerts:
         return 0
 
     detected: list[tuple[ScoredTrend, str]] = []
     for trend in trends:
-        for wk in config.watchlist_keywords:
-            if wk.lower() in trend.keyword.lower():
-                detected.append((trend, wk))
+        for keyword in config.watchlist_keywords:
+            if keyword.lower() in trend.keyword.lower():
+                detected.append((trend, keyword))
                 break
 
     if not detected:
         return 0
 
-    # 알림 메시지
-    lines = ["*[WATCHLIST] 관심 키워드 등장!*\n"]
-    for trend, wk in detected:
+    lines = ["*[WATCHLIST] Keyword detected!*\n"]
+    for trend, keyword in detected:
         lines.append(
-            f"  - *{trend.keyword}* (감지어: `{wk}`)"
-            f" | 바이럴 {trend.viral_potential}점"
+            f"  - *{trend.keyword}* (matched `{keyword}`)"
+            f" | viral {trend.viral_potential}"
             f" | {trend.trend_acceleration}"
         )
-    message = "\n".join(lines)
-    send_alert(message, config)
 
-    # DB 기록 (비동기 conn이므로 asyncio 없이 별도 코루틴으로 처리)
+    send_alert("\n".join(lines), config)
+
     if conn is not None:
-        import asyncio
-
         try:
-            from .db import record_watchlist_hit
-        except ImportError:
-            from db import record_watchlist_hit
-
-        for trend, wk in detected:
             try:
-                asyncio.get_event_loop().run_until_complete(
-                    record_watchlist_hit(conn, trend.keyword, wk, trend.viral_potential)
-                )
-            except Exception as _e:
-                log.debug(f"watchlist_hit 기록 실패 (무시): {_e}")
+                from .db import record_watchlist_hit
+            except ImportError:
+                from db import record_watchlist_hit
 
-    log.info(f"[Watchlist] {len(detected)}건 감지: {[t.keyword for t, _ in detected]}")
+            async def _persist_hits() -> None:
+                for trend, keyword in detected:
+                    await record_watchlist_hit(conn, trend.keyword, keyword, trend.viral_potential)
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                asyncio.run(_persist_hits())
+            else:
+                loop.create_task(_persist_hits())
+        except Exception as exc:  # pragma: no cover - persistence is best effort
+            log.debug(f"Watchlist persistence skipped: {exc}")
+
     return len(detected)
 
 
-def check_and_alert(
-    trends: list[ScoredTrend],
-    config: AppConfig,
-) -> int:
-    """threshold 이상 트렌드에 대해 알림 전송. 전송 건수 반환."""
+def check_and_alert(trends: list[ScoredTrend], config: AppConfig) -> int:
+    """Send alerts for trends above the configured viral threshold."""
+
     if config.no_alerts:
         return 0
 
-    has_channels = (config.telegram_bot_token and config.telegram_chat_id) or config.discord_webhook_url
-    if not has_channels:
-        return 0
-
     sent = 0
+    threshold = int(getattr(config, "alert_threshold", 70) or 70)
     for trend in trends:
-        if trend.viral_potential >= config.alert_threshold:
-            message = format_trend_alert(trend)
-            result = send_alert(message, config)
-            if any(r.get("ok") for r in result.values()):
-                sent += 1
-                log.info(f"알림 전송: '{trend.keyword}' (점수: {trend.viral_potential})")
-
+        if trend.viral_potential < threshold:
+            continue
+        result = send_alert(format_trend_alert(trend), config)
+        if any(channel_result.get("ok") for channel_result in result.values()):
+            sent += 1
     return sent
 
 
 def format_cost_summary(daily_cost: float, daily_budget: float) -> str:
-    """[C3] 비용 요약 문자열 생성."""
+    """Build one compact cost/budget summary line."""
+
     pct = (daily_cost / daily_budget * 100) if daily_budget > 0 else 0
     bar_len = min(int(pct / 10), 10)
-    bar = "█" * bar_len + "░" * (10 - bar_len)
-    status = "🟢" if pct < 70 else ("🟡" if pct < 90 else "🔴")
+    bar = "#" * bar_len + "-" * (10 - bar_len)
+    status = "OK" if pct < 70 else ("WARN" if pct < 90 else "CRITICAL")
     return f"{status} ${daily_cost:.4f}/${daily_budget:.2f} ({pct:.0f}%) [{bar}]"
 
 
 def send_daily_cost_alert(config: AppConfig) -> bool:
-    """
-    [C3] 일일 비용 알림 전송.
-    오늘 누적 비용이 예산의 70% 이상이면 경고, 90% 이상이면 긴급 알림.
-    """
-    if config.daily_budget_usd <= 0:
+    """Send a daily budget alert when LLM usage crosses warning thresholds."""
+
+    if config.daily_budget_usd <= 0 or config.no_alerts:
         return False
 
     try:
-        from datetime import date as _date
-
         from shared.llm.stats import _DB_PATH as llm_db_path
         from shared.llm.stats import CostTracker
+    except Exception:
+        return False
 
-        if not llm_db_path.exists():
-            return False
+    if not llm_db_path.exists():
+        return False
 
+    try:
         tracker = CostTracker(persist=True)
         daily = tracker.get_daily_stats(1)
         tracker.close()
-
-        today = str(_date.today())
-        today_cost = sum(r["cost_usd"] for r in daily if r.get("date") == today)
-
-        pct = today_cost / config.daily_budget_usd * 100
-
-        if pct < 70:
-            return False  # 정상 범위 → 알림 불필요
-
-        summary = format_cost_summary(today_cost, config.daily_budget_usd)
-        today_calls = sum(r["calls"] for r in daily if r.get("date") == today)
-
-        if pct >= 90:
-            message = (
-                f"🔴 *일일 예산 임박!*\n" f"{summary}\n" f"📞 호출: {today_calls}회\n" f"⚠️ Sonnet 비활성화 임계 도달"
-            )
-        else:
-            message = f"🟡 *일일 비용 경고*\n" f"{summary}\n" f"📞 호출: {today_calls}회"
-
-        result = send_alert(message, config)
-        if any(r.get("ok") for r in result.values()):
-            log.info(f"일일 비용 알림 전송: {summary}")
-            return True
+    except Exception as exc:  # pragma: no cover - external dependency path
+        log.debug(f"Daily cost alert unavailable: {exc}")
         return False
 
-    except Exception as e:
-        log.debug(f"일일 비용 알림 실패: {e}")
+    today = str(date.today())
+    today_cost = sum(row["cost_usd"] for row in daily if row.get("date") == today)
+    pct = today_cost / config.daily_budget_usd * 100 if config.daily_budget_usd > 0 else 0
+    if pct < 70:
         return False
 
+    summary = format_cost_summary(today_cost, config.daily_budget_usd)
+    today_calls = sum(row["calls"] for row in daily if row.get("date") == today)
+    if pct >= 90:
+        message = (
+            f"*Daily budget critical!*\n{summary}\n"
+            f"Calls today: {today_calls}\n"
+            "Consider disabling heavy Sonnet paths."
+        )
+    else:
+        message = f"*Daily cost alert*\n{summary}\nCalls today: {today_calls}"
 
-def send_heartbeat(
-    config: AppConfig,
-    *,
-    trends_collected: int = 0,
-    tweets_saved: int = 0,
-    elapsed_sec: float = 0,
-    cost_usd: float = 0,
-) -> bool:
-    """
-    [v18.0] 파이프라인 완료 시 하트비트 전송.
-    shared.notifications.Notifier가 없는 환경에서도 Telegram으로 직접 전송.
-    """
-    if not config.telegram_bot_token or not config.telegram_chat_id:
-        return False
-
-    from datetime import datetime as _dt
-
-    now = _dt.now().strftime("%Y-%m-%d %H:%M")
-    message = (
-        f"💚 *GetDayTrends 하트비트*\n"
-        f"⏰ {now}\n"
-        f"📊 수집: {trends_collected}개\n"
-        f"💾 저장: {tweets_saved}개\n"
-        f"⏱️ 소요: {elapsed_sec:.0f}초\n"
-        f"💰 비용: ${cost_usd:.4f}"
-    )
-    result = send_telegram_alert(message, config)
-    return result.get("ok", False)
+    results = send_alert(message, config)
+    if any(result.get("ok") for result in results.values()):
+        log.info(f"Daily cost alert sent: {summary}")
+        return True
+    return False

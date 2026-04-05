@@ -16,6 +16,7 @@ import sys
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 
 # ── Path priority ───────────────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ def test_config():
 # ── In-memory DB fixture ───────────────────────────────────────────────────
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def memory_db():
     """인메모리 SQLite 연결 (테스트 격리)."""
     from db import get_connection, init_db

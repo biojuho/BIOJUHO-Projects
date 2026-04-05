@@ -471,6 +471,61 @@ async def _init_db_unlocked(conn) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_fs_receipt_created ON feedback_summaries(receipt_id, created_at);
 
+        CREATE TABLE IF NOT EXISTS tap_snapshots (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id        TEXT NOT NULL UNIQUE,
+            target_country     TEXT DEFAULT '',
+            total_detected     INTEGER DEFAULT 0,
+            teaser_count       INTEGER DEFAULT 0,
+            generated_at       TEXT NOT NULL,
+            future_dependencies TEXT DEFAULT '[]',
+            source             TEXT DEFAULT 'tap_service',
+            created_at         TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_snapshots_country_created ON tap_snapshots(target_country, created_at);
+
+        CREATE TABLE IF NOT EXISTS tap_snapshot_items (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id           TEXT NOT NULL REFERENCES tap_snapshots(snapshot_id) ON DELETE CASCADE,
+            item_order            INTEGER DEFAULT 0,
+            keyword               TEXT NOT NULL,
+            source_country        TEXT DEFAULT '',
+            target_countries      TEXT DEFAULT '[]',
+            viral_score           INTEGER DEFAULT 0,
+            priority              REAL DEFAULT 0.0,
+            time_gap_hours        REAL DEFAULT 0.0,
+            paywall_tier          TEXT DEFAULT 'premium',
+            public_teaser         TEXT DEFAULT '',
+            recommended_platforms TEXT DEFAULT '[]',
+            recommended_angle     TEXT DEFAULT '',
+            execution_notes       TEXT DEFAULT '[]',
+            publish_window_json   TEXT DEFAULT '{}',
+            revenue_play_json     TEXT DEFAULT '{}',
+            created_at            TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_snapshot_items_snapshot_order ON tap_snapshot_items(snapshot_id, item_order);
+
+        CREATE TABLE IF NOT EXISTS tap_alert_queue (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            alert_id           TEXT NOT NULL UNIQUE,
+            snapshot_id        TEXT NOT NULL REFERENCES tap_snapshots(snapshot_id) ON DELETE CASCADE,
+            dedupe_key         TEXT NOT NULL,
+            target_country     TEXT DEFAULT '',
+            keyword            TEXT NOT NULL,
+            source_country     TEXT DEFAULT '',
+            paywall_tier       TEXT DEFAULT 'premium',
+            priority           REAL DEFAULT 0.0,
+            viral_score        INTEGER DEFAULT 0,
+            alert_message      TEXT DEFAULT '',
+            metadata_json      TEXT DEFAULT '{}',
+            lifecycle_status   TEXT DEFAULT 'queued',
+            queued_at          TEXT NOT NULL,
+            dispatched_at      TEXT DEFAULT NULL,
+            last_attempt_at    TEXT DEFAULT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_alert_queue_status_country ON tap_alert_queue(lifecycle_status, target_country, queued_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_alert_queue_dedupe ON tap_alert_queue(dedupe_key, queued_at);
+
         CREATE TABLE IF NOT EXISTS schema_version (
             version     INTEGER PRIMARY KEY,
             description TEXT NOT NULL DEFAULT '',
@@ -487,7 +542,7 @@ async def _init_db_unlocked(conn) -> None:
 #  Schema Migration Infrastructure
 # ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
 
-_CURRENT_SCHEMA_VERSION = 7
+_CURRENT_SCHEMA_VERSION = 9
 
 
 async def _get_schema_version(conn) -> int:
@@ -722,6 +777,73 @@ async def _migrate_v7(conn) -> None:
     await conn.commit()
 
 
+async def _migrate_v8(conn) -> None:
+    """v8: TAP board snapshot tables for premium/public product feeds."""
+    await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS tap_snapshots (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id        TEXT NOT NULL UNIQUE,
+            target_country     TEXT DEFAULT '',
+            total_detected     INTEGER DEFAULT 0,
+            teaser_count       INTEGER DEFAULT 0,
+            generated_at       TEXT NOT NULL,
+            future_dependencies TEXT DEFAULT '[]',
+            source             TEXT DEFAULT 'tap_service',
+            created_at         TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_snapshots_country_created ON tap_snapshots(target_country, created_at);
+
+        CREATE TABLE IF NOT EXISTS tap_snapshot_items (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id           TEXT NOT NULL REFERENCES tap_snapshots(snapshot_id) ON DELETE CASCADE,
+            item_order            INTEGER DEFAULT 0,
+            keyword               TEXT NOT NULL,
+            source_country        TEXT DEFAULT '',
+            target_countries      TEXT DEFAULT '[]',
+            viral_score           INTEGER DEFAULT 0,
+            priority              REAL DEFAULT 0.0,
+            time_gap_hours        REAL DEFAULT 0.0,
+            paywall_tier          TEXT DEFAULT 'premium',
+            public_teaser         TEXT DEFAULT '',
+            recommended_platforms TEXT DEFAULT '[]',
+            recommended_angle     TEXT DEFAULT '',
+            execution_notes       TEXT DEFAULT '[]',
+            publish_window_json   TEXT DEFAULT '{}',
+            revenue_play_json     TEXT DEFAULT '{}',
+            created_at            TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_snapshot_items_snapshot_order ON tap_snapshot_items(snapshot_id, item_order);
+    """)
+    await conn.commit()
+
+
+async def _migrate_v9(conn) -> None:
+    """v9: TAP premium alert queue table for monetizable dispatch workflows."""
+    await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS tap_alert_queue (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            alert_id           TEXT NOT NULL UNIQUE,
+            snapshot_id        TEXT NOT NULL REFERENCES tap_snapshots(snapshot_id) ON DELETE CASCADE,
+            dedupe_key         TEXT NOT NULL,
+            target_country     TEXT DEFAULT '',
+            keyword            TEXT NOT NULL,
+            source_country     TEXT DEFAULT '',
+            paywall_tier       TEXT DEFAULT 'premium',
+            priority           REAL DEFAULT 0.0,
+            viral_score        INTEGER DEFAULT 0,
+            alert_message      TEXT DEFAULT '',
+            metadata_json      TEXT DEFAULT '{}',
+            lifecycle_status   TEXT DEFAULT 'queued',
+            queued_at          TEXT NOT NULL,
+            dispatched_at      TEXT DEFAULT NULL,
+            last_attempt_at    TEXT DEFAULT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_alert_queue_status_country ON tap_alert_queue(lifecycle_status, target_country, queued_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_alert_queue_dedupe ON tap_alert_queue(dedupe_key, queued_at);
+    """)
+    await conn.commit()
+
+
 _MIGRATIONS: list[tuple[int, str, any]] = [
     (1, "tweets.content_type column", _migrate_v1),
     (2, "trends.fingerprint column + index", _migrate_v2),
@@ -730,6 +852,8 @@ _MIGRATIONS: list[tuple[int, str, any]] = [
     (5, "schema_version table init", _migrate_v5),
     (6, "100x scale composite indexes", _migrate_v6),
     (7, "workflow V2 review queue tables", _migrate_v7),
+    (8, "TAP product snapshot tables", _migrate_v8),
+    (9, "TAP premium alert queue", _migrate_v9),
 ]
 
 
@@ -740,6 +864,8 @@ async def _reconcile_latest_schema(conn) -> None:
     await _migrate_v3(conn)
     await _migrate_v4(conn)
     await _migrate_v7(conn)
+    await _migrate_v8(conn)
+    await _migrate_v9(conn)
 
 
 async def _run_migrations(conn) -> None:

@@ -3,10 +3,7 @@
 import json
 from datetime import datetime, timedelta
 
-from . import ScoredTrend, _REDIS_OK, compute_fingerprint, sqlite_write_lock
-
-if _REDIS_OK:
-    from . import get_cache
+from . import ScoredTrend, _get_cache_client, _redis_enabled, compute_fingerprint, sqlite_write_lock
 
 async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) -> int:
     """트렌드를 저장. bucket은 config.cache_volume_bucket에서 전달받아 fingerprint 정밀도 조정."""
@@ -80,13 +77,17 @@ async def get_recently_processed_fingerprints(conn, hours: int = 3) -> set[str]:
 
 async def is_duplicate_trend(conn, name: str, volume: int, hours: int = 3) -> bool:
     fp = compute_fingerprint(name, volume)
+    cache = _get_cache_client() if _redis_enabled() else None
 
     # Redis SET-based dedup (O(1) vs O(n) DB scan at 100x scale)
-    if _REDIS_OK:
-        cache = get_cache()
+    # Redis 장애 시 DB fallback으로 graceful degradation
+    if cache is not None:
         dedup_key = f"gdt:dedup:{fp}"
-        if await cache.exists(dedup_key):
-            return True
+        try:
+            if await cache.exists(dedup_key):
+                return True
+        except Exception:
+            cache = None  # Redis 불가 — DB fallback
 
     cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
     cursor = await conn.execute("SELECT 1 FROM trends WHERE fingerprint = ? AND scored_at >= ? LIMIT 1", (fp, cutoff))
@@ -94,19 +95,28 @@ async def is_duplicate_trend(conn, name: str, volume: int, hours: int = 3) -> bo
     is_dup = row is not None
 
     # Cache the fingerprint if it's a duplicate
-    if is_dup and _REDIS_OK:
-        await cache.set(dedup_key, True, ttl=hours * 3600)
+    if is_dup and cache is not None:
+        try:
+            await cache.set(dedup_key, True, ttl=hours * 3600)
+        except Exception:
+            pass  # cache write 실패는 무시 — 다음 호출 시 DB에서 재확인
 
     return is_dup
 
 async def get_cached_score(conn, fingerprint: str, max_age_hours: int = 6) -> dict | None:
+    cache = _get_cache_client() if _redis_enabled() else None
     # Redis cache first (avoids DB hit for repeated fingerprint lookups)
-    if _REDIS_OK:
-        cache = get_cache()
+    # Redis 장애 시 DB fallback
+    if cache is not None:
         cache_key = f"gdt:score:{fingerprint}"
-        cached = await cache.get(cache_key)
-        if cached is not None:
-            return cached
+        try:
+            cached = await cache.get(cache_key)
+            if cached is not None:
+                if isinstance(cached, dict):
+                    return cached
+                # 캐시 데이터 타입 오염 — 무시하고 DB에서 재조회
+        except Exception:
+            cache = None  # Redis 불가 — DB fallback
 
     cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
     cursor = await conn.execute(
@@ -117,8 +127,11 @@ async def get_cached_score(conn, fingerprint: str, max_age_hours: int = 6) -> di
     result = dict(row) if row else None
 
     # Cache result for 6 hours (match the natural TTL)
-    if result and _REDIS_OK:
-        await cache.set(cache_key, result, ttl=max_age_hours * 3600)
+    if result and cache is not None:
+        try:
+            await cache.set(cache_key, result, ttl=max_age_hours * 3600)
+        except Exception:
+            pass  # cache write 실패는 무시
 
     return result
 

@@ -1,6 +1,6 @@
 """
 getdaytrends v4.1 - Configuration Management
-환경변수 로드, 기본값, 유효성 검사를 중앙 관리.
+????듬젿?怨뚮뼚????棺??짆?삠궘? ??れ삀???筌? ???レ챺????濡ろ떟???? 濚욌꼬?댄꺍?????굿??
 """
 
 import os
@@ -41,7 +41,7 @@ COUNTRY_MAP = {
 
 @dataclass(frozen=True)
 class QualityConfig:
-    """품질 관련 설정의 도메인 뷰."""
+    """???源녿뼥 ???굿?????源놁젳????ш끽維곮????"""
     feedback_min_score: int = 50
     threads_quality_min_score: int = 65
     long_form_quality_min_score: int = 70
@@ -57,20 +57,20 @@ class QualityConfig:
 
 @dataclass(frozen=True)
 class CostConfig:
-    """비용 관련 설정의 도메인 뷰."""
+    """????????굿?????源놁젳????ш끽維곮????"""
     daily_budget_usd: float = 3.0
     peak_budget_multiplier: float = 0.5
     cost_alert_pct: float = 70.0
-    heavy_categories: tuple[str, ...] = ("정치", "경제", "테크", "사회", "국제", "과학", "의학", "법률")
+    heavy_categories: tuple[str, ...] = ("\uC815\uCE58", "\uACBD\uC81C", "\uD14C\uD06C", "\uC0AC\uD68C", "\uAD6D\uC81C", "\uACFC\uD559", "\uC0DD\uD65C", "\uBC95\uB960")
     qa_skip_cached: bool = True
     qa_skip_high_score: int = 85
-    qa_skip_categories: tuple[str, ...] = ("날씨", "음식", "스포츠")
+    qa_skip_categories: tuple[str, ...] = ("\uC720\uBA38", "\uD478\uB4DC", "\uC2A4\uD3EC\uCE20")
     generation_mode_override: str = ""
 
 
 @dataclass(frozen=True)
 class AlertConfig:
-    """알림 채널 설정의 도메인 뷰."""
+    """?????癲???紐????源놁젳????ш끽維곮????"""
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     discord_webhook_url: str = ""
@@ -97,7 +97,7 @@ class AlertConfig:
 
 @dataclass
 class AppConfig:
-    # LLM은 shared.llm 모듈에서 관리 (루트 .env에서 키 로딩)
+    # LLM?? shared.llm 癲ル슢?꾤땟??????????굿??(??룸Ŧ爾??.env????????棺??짆?승?
 
     # Storage: Notion
     notion_token: str = ""
@@ -111,9 +111,9 @@ class AppConfig:
     storage_type: str = "notion"
 
     # Storage: Database
-    # SQLite 기본. PostgreSQL 전환: DATABASE_URL=postgresql://user:pw@host/db
+    # SQLite ??れ삀??? PostgreSQL ??ш낄援?? DATABASE_URL=postgresql://user:pw@host/db
     db_path: str = "data/getdaytrends.db"
-    database_url: str = ""  # 설정 시 PostgreSQL 사용 (SQLite 무시)
+    database_url: str = ""  # ???源놁젳 ??PostgreSQL ????(SQLite ???뺤깓??
 
     # Schedule
     schedule_minutes: int = 360
@@ -121,254 +121,264 @@ class AppConfig:
     country_parallel_limit: int = 3
 
     # Tone
-    tone: str = "친근하고 위트 있는 동네 친구"
-    editorial_profile: str = "report"  # 장문/Threads/블로그용 편집 프로필
+    tone: str = "\uCE5C\uADFC\uD558\uACE0 \uC704\uD2B8 \uC788\uB294 \uB3D9\uB124 \uCE5C\uAD6C"
+    editorial_profile: str = "report"  # ?潁뺛깺猷?Threads/??怨?繞벿삳쎖??쇱춻熬곣뫖裕??嶺뚮ㅎ?당빊???ш끽維곩ㅇ??
 
     # Multi-source API keys
     twitter_bearer_token: str = ""
-    # X OAuth 2.0 (포스팅용): PKCE 플로우로 발급한 유저 액세스 토큰
-    x_access_token: str = ""  # 트윗 게시용 OAuth 2.0 Bearer
+    # X OAuth 2.0 (??????怨룸츛): PKCE ???鸚???ㅻ깹鸚??袁⑸즵獒?????? ????녿룵?????ャ뀕??
+    x_access_token: str = ""  # ?嶺뚮ㅎ?댐쭕??濡ろ뜐????OAuth 2.0 Bearer
     x_client_id: str = ""  # X Developer App Client ID
     x_client_secret: str = ""  # X Developer App Client Secret
 
-    # Twikit (비공식 X 클라이언트 — 읽기 전용 폴백)
-    twikit_username: str = ""  # 전용 X 계정 사용자명
-    twikit_email: str = ""  # 전용 X 계정 이메일
-    twikit_password: str = ""  # 전용 X 계정 비밀번호
+    # Twikit (??????X ???????⑤９苑??????熬곣뱿逾???ш끽維???????
+    twikit_username: str = ""  # ??ш끽維??X ??節뚮쳮??????????
+    twikit_email: str = ""  # ??ш끽維??X ??節뚮쳮?????嶺??
+    twikit_password: str = ""  # ??ш끽維??X ??節뚮쳮???????類????
 
     # Alerts
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     discord_webhook_url: str = ""
     slack_webhook_url: str = ""  # [C-5] Slack Incoming Webhook URL
-    smtp_host: str = ""  # [C-5] SMTP 서버 호스트
-    smtp_port: int = 587  # [C-5] SMTP 포트 (587=STARTTLS, 465=SSL)
-    smtp_user: str = ""  # [C-5] SMTP 인증 사용자
-    smtp_password: str = ""  # [C-5] SMTP 인증 비밀번호
-    alert_email: str = ""  # [C-5] 알림 수신 이메일 주소
+    smtp_host: str = ""  # [C-5] SMTP ??筌먦끉裕??嶺뚮ㅎ?ц짆??
+    smtp_port: int = 587  # [C-5] SMTP ????(587=STARTTLS, 465=SSL)
+    smtp_user: str = ""  # [C-5] SMTP ?嶺뚮ㅎ?댐ℓ??????
+    smtp_password: str = ""  # [C-5] SMTP ?嶺뚮ㅎ?댐ℓ??????類????
+    alert_email: str = ""  # [C-5] ???????筌뚯슜堉????嶺????낆뒩???
     alert_threshold: int = 70
 
-    # v2.4 기능 플래그
+    # v2.4 ??れ삀????????μ쐺?
     enable_clustering: bool = True
     enable_long_form: bool = True
     enable_threads: bool = True
     smart_schedule: bool = True
     night_mode: bool = True
-    long_form_min_score: int = 95  # 이상만 장문 생성 (Sonnet 비용 절감) [C1: 90→95]
-    thread_min_score: int = 999  # 쓰레드 비활성화 (비용 절감)
-    threads_min_score: int = 65  # 이상만 Meta Threads 생성
-    min_viral_score: int = 60  # 품질 필터: 미만이면 콘텐츠 생성 건너뜀 [기존 55 → 60]
-    max_workers: int = 10  # 동시 HTTP 요청 수 [기존 6 → 10]
-    daily_budget_usd: float = 3.0  # 일 예산 상한 ($). 초과 시 Sonnet 자동 비활성화 [v13.0: $2→$3]
-    # 카테고리별 LLM 티어 라우팅: 해당 카테고리만 Sonnet(HEAVY) 사용, 나머지는 Haiku
+    long_form_min_score: int = 95  # ???⑤?彛쒙┼??潁뺛깺猷???獄쏅똻??(Sonnet ?????????ル춪) [C1: 90??5]
+    thread_min_score: int = 999  # ???ㅻ깹????????濚밸Ŧ遊??(?????????ル춪)
+    threads_min_score: int = 65  # ???⑤?彛쒙┼?Meta Threads ??獄쏅똻??
+    min_viral_score: int = 60  # ???源녿뼥 ??ш낄援?? 雅?퍔瑗띰㎖?뱁맪??????熬곣뫕????????獄쏅똻??癲꾧퀗????? [??れ삀???55 ??60]
+    max_workers: int = 10  # ????덈빰 HTTP ??釉먯뒜????[??れ삀???6 ??10]
+    daily_budget_usd: float = 3.0  # ???????????ㅺ강??($). ?縕?????Sonnet ???筌??????濚밸Ŧ遊??[v13.0: $2??3]
+    # ?怨멸텭??沃섅뀙??關履?????LLM ???Β?ш퐨 ??繹먮끏裕?? ??????怨멸텭??沃섅뀙??關履??⑥궡異?Sonnet(HEAVY) ???? ??嚥?猷ワ┼??넊???Haiku
     heavy_categories: list = field(
-        default_factory=lambda: ["정치", "경제", "테크", "사회", "국제", "과학", "의학", "법률"]
+        default_factory=lambda: ["\uC815\uCE58", "\uACBD\uC81C", "\uD14C\uD06C", "\uC0AC\uD68C", "\uAD6D\uC81C", "\uACFC\uD559", "\uC0DD\uD65C", "\uBC95\uB960"]
     )
-    # [C2] 시간대별 예산: 비피크 시간(야간/새벽) 예산 비율 (1.0=동일, 0.5=절반)
-    peak_budget_multiplier: float = 0.5  # off-peak(22~07시) 예산 = daily * 0.5
-    cost_alert_pct: float = 70.0  # 일일 예산의 70% 도달 시 경고
+    # [C2] ??癰???????????? ????ㅒ????癰??????館??????숇젿) ???????????(1.0=????곕럡, 0.5=????고떘)
+    peak_budget_multiplier: float = 0.5  # off-peak(22~07?? ??????= daily * 0.5
+    cost_alert_pct: float = 70.0  # ??繹먮끏?????????70% ??ш끽維?????濡ろ뜑???
 
     # ===================================================
     # [v2.5] High-Quality / Transcreation
     # ===================================================
-    target_languages: list[str] = field(default_factory=lambda: ["ko"])  # 트랜스크리에이션 대상 언어
+    target_languages: list[str] = field(default_factory=lambda: ["ko"])  # ?嶺뚮ㅎ?????袁⑹뵫?域밸Ŧ遊????⑤젰???????嶺뚮ㅎ???
 
     # Canva API Integration
     canva_api_key: str = ""
     canva_client_id: str = ""
     canva_client_secret: str = ""
     canva_template_id: str = ""
-    enable_canva_visuals: bool = False  # [C-4] 고바이럴 트렌드 비주얼 자동 생성
-    canva_min_score: int = 90  # [C-4] 이 점수 이상에만 비주얼 생성
+    enable_canva_visuals: bool = False  # [C-4] ??關履???????嶺뚮ㅎ????????뱀낄?????筌???獄쏅똻??
+    canva_min_score: int = 90  # [C-4] ??????????⑤?彛?????????뱀낄????獄쏅똻??
 
     # ===================================================
-    # [v3.0] 품질·최적화·고도화
+    # [v3.0] ???源녿뼥勇싲８???筌믨퀣???釉띾엮塋???ш낄援??
     # ===================================================
-    # Phase 1: 신뢰성
-    cache_volume_bucket: int = 5000  # 핑거프린트 볼륨 버킷 크기 (작을수록 정밀)
-    data_retention_days: int = 90  # DB 데이터 보존 기간 (일)
-    notion_sem_limit: int = 10  # Notion 동시 저장 최대 세마포어 수
+    # Phase 1: ???ル굔??
+    cache_volume_bucket: int = 5000  # ???쒋???ш끽諭욥???怨뚮옩????類???앹쒜?????(????獄??嚥?흮 ?嶺?)
+    data_retention_days: int = 90  # DB ???Β?????怨뚮옖?????れ삀??㉱?(??
+    notion_sem_limit: int = 10  # Notion ????덈빰 ????癲ル슔?됭짆? ?嶺뚮ㅎ?붺빊??????
 
-    # Phase 3: 관측 가능성
-    enable_structured_metrics: bool = True  # 파이프라인 완료 후 JSON 구조화 메트릭 로깅
+    # Phase 3: ???굿癲???좊읈????묐빝?
+    enable_structured_metrics: bool = True  # ??????ш끽維곲????ш끽維????JSON ????깼???癲ル슢????용끏???棺??짆??
 
-    # Phase 4: 고도화
-    enable_sentiment_filter: bool = True  # 유해 트렌드 자동 필터 (safety_flag=True 스킵)
-
-    # ===================================================
-    # [v4.0] 트렌드 검증 & 하이브리드 스코어링
-    # ===================================================
-    # Phase 1: 멀티소스 교차 검증
-    min_cross_source_confidence: int = 2  # 이 점수(0~4) 미만이면 viral_potential 65% 패널티
-    # Phase 2: 하이브리드 스코어링 가중치
-    viral_score_llm_weight: float = 0.6  # LLM 점수 비중 (나머지는 시그널 점수)
-    # Phase 3: 히스토리 패턴 보정
-    enable_history_correction: bool = True  # 반복·하락 트렌드 자동 점수 보정
-    # Phase 4: 중연 킥 포인트
-    joongyeon_kick_long_form_threshold: int = 75  # 이상이면 장문 min_score 우회 생성
+    # Phase 4: ??關履???
+    enable_sentiment_filter: bool = True  # ???ャ뀖???嶺뚮ㅎ???????筌???ш낄援??(safety_flag=True ???袁⑤툞)
 
     # ===================================================
-    # [v5.0] 소스 품질 피드백 + YouTube
+    # [v4.0] ?嶺뚮ㅎ?????濡ろ떟?癲?& ???쒓낮???怨쀫뮛???????몄????鶯?
     # ===================================================
-    enable_source_quality_tracking: bool = True  # 소스 품질 DB 기록 활성화
-    news_rss_max_items: int = 5  # Google News RSS 최대 수집 수
+    # Phase 1: 癲ル슢議????Β?ろ떖???????뤆??濡ろ떟?癲?
+    min_cross_source_confidence: int = 2  # ???????0~4) 雅?퍔瑗띰㎖?뱁맪?????viral_potential 65% ???釉먭숱??
+    # Phase 2: ???쒓낮???怨쀫뮛???????몄????鶯???좊읈?濚욌꼬?댄꺍??
+    viral_score_llm_weight: float = 0.6  # LLM ?????????룔뀋?(??嚥?猷ワ┼??넊?????癰궽쇱읇???????
+    # Phase 3: ???怨뺤릇???ル깼????????怨뚮옖???
+    enable_history_correction: bool = True  # ?袁⑸즵??????嚥????嶺뚮ㅎ???????筌???????怨뚮옖???
+    # Phase 4: 濚욌꼬?댄꺍?????????
+    joongyeon_kick_long_form_threshold: int = 75  # ???⑤?彛??????潁뺛깺猷?min_score ???μ쪠????獄쏅똻??
 
     # ===================================================
-    # [v6.0] 품질 피드백 루프 + 카테고리 다양성
+    # [v5.0] ???獒????源녿뼥 ???⑤벚???+ YouTube
     # ===================================================
-    min_article_count: int = 3  # 파이프라인 최소 기사 수 보장 [v13.0: 5→3, 저품질 강제포함 방지]
-    max_same_category: int = 2  # 동일 카테고리 최대 기사 수
-    enable_quality_feedback: bool = True  # 생성 후 LLM 품질 검증 활성화
-    quality_feedback_min_score: int = 50  # QA 점수 이 미만이면 재생성
-    threads_quality_min_score: int = 65  # Threads QA 최소 점수
-    long_form_quality_min_score: int = 70  # X 장문 QA 최소 점수
-    blog_quality_min_score: int = 75  # 네이버 블로그 QA 최소 점수
+    enable_source_quality_tracking: bool = True  # ???獒????源녿뼥 DB ??れ삀??쎈뭄???筌????
+    news_rss_max_items: int = 5  # Google News RSS 癲ル슔?됭짆? ???쒓낯????
 
     # ===================================================
-    # [v6.1] 최신성 검증 (Freshness Validation)
+    # [v6.0] ???源녿뼥 ???⑤벚?????룸Ŧ爾??+ ?怨멸텭??沃섅뀙??關履?????怨좊젳??
     # ===================================================
-    max_content_age_hours: int = 24  # 이 시간 초과 트렌드는 expired 등급
-    freshness_penalty_stale: float = 0.85  # stale (6~12h) 패널티 배율
-    freshness_penalty_expired: float = 0.7  # expired (12h+) 패널티 배율
+    min_article_count: int = 3  # ??????ш끽維곲??癲ル슔?됭짆????れ삀?節놁쒜????怨뚮옖???[v13.0: 5??, ?????源녿뼥 ??좊즴甕??????袁⑸젻泳?]
+    max_same_category: int = 2  # ????곕럡 ?怨멸텭??沃섅뀙??關履??癲ル슔?됭짆? ??れ삀?節놁쒜???
+    enable_quality_feedback: bool = True  # ??獄쏅똻????LLM ???源녿뼥 ?濡ろ떟?癲???筌????
+    quality_feedback_min_score: int = 50  # QA ???????雅?퍔瑗띰㎖?뱁맪???????濚??
+    threads_quality_min_score: int = 65  # Threads QA 癲ル슔?됭짆???????
+    long_form_quality_min_score: int = 70  # X ?潁뺛깺猷?QA 癲ル슔?됭짆???????
+    blog_quality_min_score: int = 75  # ???源낇꼧????怨?繞벿삳쎖??QA 癲ル슔?됭짆???????
 
     # ===================================================
-    # [v7.0] 카테고리 제외 필터
+    # [v6.1] 癲ル슔?됭짆????濡ろ떟?癲?(Freshness Validation)
+    # ===================================================
+    max_content_age_hours: int = 24  # ????癰????縕????嶺뚮ㅎ????筌먲퐢痢?expired ?濚밸Þ???
+    freshness_penalty_stale: float = 0.85  # stale (6~12h) ???釉먭숱???袁⑸즲???
+    freshness_penalty_expired: float = 0.7  # expired (12h+) ???釉먭숱???袁⑸즲???
+
+    # ===================================================
+    # [v7.0] ?怨멸텭??沃섅뀙??關履????筌믨퀡????ш낄援??
     # ===================================================
     exclude_categories: list[str] = field(
-        default_factory=lambda: ["정치", "연예"]
-    )  # 이 카테고리의 트렌드를 파이프라인에서 자동 제외
+        default_factory=lambda: ["\uC815\uCE58", "\uC5F0\uC608"]
+    )  # ???怨멸텭??沃섅뀙??關履????嶺뚮ㅎ????? ??????ш끽維곲?嶺뚮ㅎ???????筌???筌믨퀡??
 
     # ===================================================
-    # [v8.0] 계정 정체성 (프롬프트 ②: 멘션 작성 컨텍스트)
+    # [v8.0] ??節뚮쳮???嶺뚮Ĳ????(??ш끽維???ш낄援θキ??? 癲ル슢?섊몭???????????爾?????덉쉐)
     # ===================================================
-    account_niche: str = "AI·테크·트렌드"  # 계정 분야
-    target_audience: str = "IT 종사자, 스타트업 관계자, 테크 트렌드에 관심있는 직장인"  # 타겟 오디언스
+    account_niche: str = "AI/\uD14C\uD06C/\uD2B8\uB80C\uB4DC"  # account niche
+    target_audience: str = "IT \uC885\uC0AC\uC790, \uC2A4\uD0C0\uD2B8\uC5C5 \uAD00\uACC4\uC790"  # target audience
 
     # ===================================================
-    # [v9.0] Phase A: 비용 최적화
+    # [v9.0] Phase A: ?????癲ル슔?됭짆???
     # ===================================================
-    jaccard_cluster_threshold: float = 0.35  # 로컬 클러스터링 유사도 임계값
-    # [v14.0] Gemini Embedding 2 의미적 클러스터링
-    enable_embedding_clustering: bool = True  # True=Gemini Embedding 기반 의미적 유사도 (Jaccard 자동 폴백)
-    embedding_cluster_threshold: float = 0.75  # 코사인 유사도 임계값 (0.0~1.0, 높을수록 엄격)
-    qa_skip_cached: bool = True  # 캐시 재사용 콘텐츠 QA 스킵
-    qa_skip_high_score: int = 85  # 이 점수 이상 트렌드 QA 스킵
-    qa_skip_categories: list[str] = field(default_factory=lambda: ["날씨", "음식", "스포츠"])
-    generation_mode_override: str = ""  # "" = auto | "full" = 장문 포함 | "lite" = 단문만
+    jaccard_cluster_threshold: float = 0.35  # ?棺??짆?쏆춾????????袁⑸뙃癲????モ?????ш낄猷?嚥♂쇱씀?
+    # [v14.0] Gemini Embedding 2 ????????????袁⑸뙃癲?
+    enable_embedding_clustering: bool = True  # True=Gemini Embedding ??れ삀??뫢?????????モ???(Jaccard ???筌??????
+    embedding_cluster_threshold: float = 0.75  # ?熬곣뫀毓쇌벧?????モ?????ш낄猷?嚥♂쇱씀?(0.0~1.0, ?亦껋꼨援?キ??嚥?흮 ??ш낄猷볣걡?
+    qa_skip_cached: bool = True  # 癲??????雅???熬곣뫕??????QA ???袁⑤툞
+    qa_skip_high_score: int = 85  # ??????????⑤?彛??嶺뚮ㅎ????QA ???袁⑤툞
+    qa_skip_categories: list[str] = field(default_factory=lambda: ["\uB0A0\uC528", "\uC74C\uC2DD", "\uC2A4\uD3EC\uCE20"])
+    generation_mode_override: str = ""  # "" = auto | "full" = ?潁뺛깺猷?????| "lite" = ????壤?
 
     # ===================================================
-    # [v10.0] Phase 1: 컨텍스트 강화
+    # [v10.0] Phase 1: ???爾?????덉쉐 ??좊즴甕??
     # ===================================================
-    require_context: bool = True  # True=컨텍스트 없으면 생성 안 함 (필수화)
-    cache_ttl_rising: int = 2  # 상승중 트렌드 캐시 TTL (시간)
-    cache_ttl_peak: int = 6  # 정점 트렌드 캐시 TTL (시간)
-    cache_ttl_falling: int = 18  # 하락중 트렌드 캐시 TTL (시간)
-    cache_ttl_default: int = 12  # 미분류 캐시 TTL (시간)
+    require_context: bool = True  # True=???爾?????덉쉐 ???⑤챶?뺧┼???獄쏅똻??????(??ш끽維???
+    cache_ttl_rising: int = 2  # ???ㅼ굡獄?옋夷??嶺뚮ㅎ????癲????TTL (??癰???
+    cache_ttl_peak: int = 6  # ?嶺뚮Ĳ????嶺뚮ㅎ????癲????TTL (??癰???
+    cache_ttl_falling: int = 18  # ??嚥??끿튊??嶺뚮ㅎ????癲????TTL (??癰???
+    cache_ttl_default: int = 12  # 雅?퍔瑗띰㎖??誘⒲걫?癲????TTL (??癰???
 
     # ===================================================
-    # [v9.0] Phase B: 품질 최적화
+    # [v9.0] Phase B: ???源녿뼥 癲ル슔?됭짆???
     # ===================================================
-    watchlist_keywords: list[str] = field(default_factory=list)  # 관심 키워드 (쉼표 구분)
-    enable_content_diversity: bool = True  # 이전 생성 표현을 프롬프트에 주입해 중복 방지
-    content_diversity_hours: int = 24  # 이전 트윗 조회 범위 (시간)
-    enable_velocity_scoring: bool = True  # 볼륨 상승 속도 지표 신호 점수 반영
+    watchlist_keywords: list[str] = field(default_factory=list)  # ???굿?????源낆맫??(???硫κ괴 ????㎦??
+    enable_content_diversity: bool = True  # ???⑤챷????獄쏅똻??????猿????ш끽維???ш낄援θキ????낆뒩????濚욌꼬?댄꺇???袁⑸젻泳?
+    content_diversity_hours: int = 24  # ???⑤챷???嶺뚮ㅎ?댐쭕??釉뚰????類????(??癰???
+    enable_velocity_scoring: bool = True  # ?怨뚮옩??????ㅼ굡獄?????뽦뵣 癲ル슣???????レ챺繹???????袁⑸즵???
 
     # ===================================================
-    # [v9.0] Phase C: 이머징 트렌드 예측
+    # [v9.0] Phase C: ?????????嶺뚮ㅎ????????
     # ===================================================
-    enable_emerging_detection: bool = True  # 저볼륨+고벨로시티 이머징 감지 활성화
-    emerging_velocity_threshold: float = 2.0  # 이 배율 이상이면 이머징 후보
-    emerging_volume_cap: int = 5000  # 이 볼륨 이하만 이머징 후보
+    enable_emerging_detection: bool = True  # ???怨뚮옩?????關履?怨쀫눛??筌?六????????????좊즴?? ??筌????
+    emerging_velocity_threshold: float = 2.0  # ???袁⑸즲??????⑤?彛???????????????ш끽維亦?
+    emerging_volume_cap: int = 5000  # ???怨뚮옩?????熬곣뫀?껓┼???????????ш끽維亦?
 
     # ===================================================
-    # [v12.0] 멀티플랫폼 콘텐츠 운영
+    # [v12.0] 癲ル슢議????μ쪚????鸚??熬곣뫕?????????⑤㈇猿
     # ===================================================
     target_platforms: list[str] = field(
         default_factory=lambda: ["x", "threads"]
-    )  # [v13.0] naver_blog 제거 (X/Threads만)
+    )  # [v13.0] naver_blog ??癰귙끋源?(X/Threads癲?
     enable_content_hub: bool = False  # Content Hub second Notion DB write
-    content_hub_database_id: str = ""  # 멀티플랫폼 Content Hub 노션 DB ID
-    blog_min_score: int = 70  # 이 점수 이상만 네이버 블로그 글감 생성
-    blog_min_words: int = 2000  # 네이버 블로그 최소 글자 수
-    blog_max_words: int = 5000  # 네이버 블로그 최대 글자 수
-    blog_seo_keywords_count: int = 5  # SEO 키워드 추천 수
+    content_hub_database_id: str = ""  # 癲ル슢議????μ쪚????鸚?Content Hub ?嶺뚮ㅎ???DB ID
+    blog_min_score: int = 70  # ??????????⑤?彛쒙┼????源낇꼧????怨?繞벿삳쎖????れ꽔?????獄쏅똻??
+    blog_min_words: int = 2000  # ???源낇꼧????怨?繞벿삳쎖??癲ル슔?됭짆????れ꽔?????
+    blog_max_words: int = 5000  # ???源낇꼧????怨?繞벿삳쎖??癲ル슔?됭짆? ??れ꽔?????
+    blog_seo_keywords_count: int = 5  # SEO ???源낆맫????⑤베毓????
 
     # ===================================================
     # [v15.0] Phase A: Zero Content Prevention + Niche Scoring
     # ===================================================
-    enable_zero_content_prevention: bool = True  # 모든 트렌드가 제외 카테고리일 때 최소 1개 보장
-    niche_categories: list[str] = field(default_factory=lambda: ["테크", "경제"])  # 니치 보너스 대상 카테고리
-    niche_bonus_points: int = 10  # 니치 카테고리 보너스 점수
-    enable_lazy_context: bool = True  # 지연 컨텍스트 로딩 활성화
+    enable_zero_content_prevention: bool = True  # 癲ル슢?꾤땟????嶺뚮ㅎ????? ??筌믨퀡???怨멸텭??沃섅뀙??關履?????癲ル슔?됭짆??1???怨뚮옖???
+    niche_categories: list[str] = field(default_factory=lambda: ["AI", "\uD14C\uD06C"])  # niche bonus targets
+    niche_bonus_points: int = 10  # ????萸??怨멸텭??沃섅뀙??關履???怨뚮옖?????????
+    enable_lazy_context: bool = True  # 癲ル슣???????爾?????덉쉐 ?棺??짆?승???筌????
 
     # ===================================================
     # [v15.0] Phase B: Content Diversity + Persona Rotation
     # ===================================================
-    diversity_sim_threshold: float = 0.85  # 콘텐츠 유사도 임계값 (이상이면 중복 판정)
-    persona_rotation: str = "category"  # 퍼소나 선택 모드: category | round_robin | fixed
+    diversity_sim_threshold: float = 0.85  # ?熬곣뫕?????????モ?????ш낄猷?嚥♂쇱씀?(???⑤?彛?????濚욌꼬?댄꺇???????
+    persona_rotation: str = "category"  # ??繹먮굛??????ャ뀕??癲ル슢?꾤땟??? category | round_robin | fixed
     persona_pool: list[str] = field(default_factory=lambda: ["joongyeon", "analyst", "storyteller"])
 
     # ===================================================
-    # [v5.0] B. Adaptive Voice — 성과 기반 패턴 가중치
+    # [v5.0] B. Adaptive Voice ???濚밸Þ?볠쾮???れ삀??뫢????????좊읈?濚욌꼬?댄꺍??
     # ===================================================
-    enable_adaptive_voice: bool = True  # 훅/킥 패턴별 성과 가중치 프롬프트 주입
-    pattern_weight_min_samples: int = 3  # 가중치 계산 최소 샘플 수
-    pattern_weight_days: int = 30  # 가중치 계산 기간 (일)
+    enable_adaptive_voice: bool = True  # ?????????딆녃??濚밸Þ?볠쾮???좊읈?濚욌꼬?댄꺍????ш끽維???ш낄援θキ???낆뒩???
+    pattern_weight_min_samples: int = 3  # ??좊읈?濚욌꼬?댄꺍????節뚮쳮雅?癲ル슔?됭짆?????얜?源???
+    pattern_weight_days: int = 30  # ??좊읈?濚욌꼬?댄꺍????節뚮쳮雅???れ삀??㉱?(??
 
     # ===================================================
-    # [v5.0] D. Real-time Signal — 3단계 수집
+    # [v5.0] D. Real-time Signal ??3??影?됀????쒓낯??
     # ===================================================
-    enable_tiered_collection: bool = True  # 3단계 수집 활성화 (1h/6h/48h)
-    early_signal_boost_threshold: float = 2.0  # 초기 ER이 평균의 N배 이상이면 후속 콘텐츠 트리거
-    early_signal_suppress_threshold: float = 0.3  # 초기 ER이 평균의 N배 이하이면 앵글 가중치 하향
+    enable_tiered_collection: bool = True  # 3??影?됀????쒓낯????筌????(1h/6h/48h)
+    early_signal_boost_threshold: float = 2.0  # ?縕?猿녿뎨?ER????????N?????⑤?彛???????ш끽維뽫댆??熬곣뫕???????嶺뚮ㅎ遊뉔걡酉멥??
+    early_signal_suppress_threshold: float = 0.3  # ?縕?猿녿뎨?ER????????N????熬곣뫀????????? ??좊읈?濚욌꼬?댄꺍?????얜Ŋ源?
 
     # ===================================================
-    # [v5.0] E. Benchmark QA — 골든 레퍼런스
+    # [v5.0] E. Benchmark QA ????貫???????녿군???Β?レ릇
     # ===================================================
-    enable_golden_reference_qa: bool = True  # 골든 레퍼런스 기반 비교 평가 QA
-    golden_reference_limit: int = 3  # QA 프롬프트에 주입할 레퍼런스 수
-    golden_reference_auto_update_days: int = 7  # 자동 갱신 조회 기간 (일)
+    enable_golden_reference_qa: bool = True  # ??貫???????녿군???Β?レ릇 ??れ삀??뫢????????? QA
+    golden_reference_limit: int = 3  # QA ??ш끽維???ш낄援θキ????낆뒩????????녿군???Β?レ릇 ??
+    golden_reference_auto_update_days: int = 7  # ???筌???좊즲????釉뚰?????れ삀??㉱?(??
 
     # ===================================================
-    # [v5.0] A. Trend Genealogy — 트렌드 계보 분석
+    # [v5.0] A. Trend Genealogy ???嶺뚮ㅎ??????節뚮쳥????됰슣維??
     # ===================================================
-    enable_trend_genealogy: bool = True  # 트렌드 계보 분석 활성화
-    genealogy_history_hours: int = 72  # 계보 히스토리 조회 기간 (시간)
-    genealogy_min_confidence: float = 0.5  # 계보 연결 최소 확신도
+    enable_trend_genealogy: bool = True  # ?嶺뚮ㅎ??????節뚮쳥????됰슣維????筌????
+    genealogy_history_hours: int = 72  # ??節뚮쳥?????怨뺤릇???ル깼???釉뚰?????れ삀??㉱?(??癰???
+    genealogy_min_confidence: float = 0.5  # ??節뚮쳥?????ㅼ뒦??癲ル슔?됭짆???嶺뚮Ĳ?뉛쭛??
 
     # ===================================================
-    # [v6.0] 정보 정확성 검증
+    # [v6.0] ?嶺뚮㉡?€쾮??嶺뚮쮳?곌섈???濡ろ떟?癲?
     # ===================================================
-    enable_fact_checking: bool = True  # 생성 콘텐츠 팩트 체크 활성화
-    fact_check_min_accuracy: float = 0.6  # 팩트 체크 최소 정확도 (0~1, 미만이면 재생성)
-    fact_check_strict_mode: bool = False  # True면 인용/비교도 엄격 검증
-    enable_source_credibility: bool = True  # 출처 신뢰도 가중치 적용
-    credibility_penalty_threshold: float = 0.3  # 이 신뢰도 미만이면 viral_potential 패널티
-    credibility_penalty_factor: float = 0.85  # 저신뢰 출처 패널티 배율
-    enable_cross_source_consistency: bool = True  # 소스 간 일관성 검증 활성화
-    hallucination_zero_tolerance: bool = True  # True면 환각 감지 시 무조건 재생성
+    enable_fact_checking: bool = True  # ??獄쏅똻???熬곣뫕?????????됰씭肄?癲ル슪???띿물???筌????
+    fact_check_min_accuracy: float = 0.6  # ???됰씭肄?癲ル슪???띿물?癲ル슔?됭짆???嶺뚮쮳?곌섈??(0~1, 雅?퍔瑗띰㎖?뱁맪???????濚??
+    fact_check_strict_mode: bool = False  # True癲??嶺뚮ㅎ???????????ш낄猷볣걡??濡ろ떟?癲?
+    enable_source_credibility: bool = True  # ??⑥レ툔?????ル굔????좊읈?濚욌꼬?댄꺍?????ㅼ굣??
+    credibility_penalty_threshold: float = 0.3  # ?????ル굔??雅?퍔瑗띰㎖?뱁맪?????viral_potential ???釉먭숱??
+    credibility_penalty_factor: float = 0.85  # ?????ル굔???⑥レ툔?????釉먭숱???袁⑸즲???
+    enable_cross_source_consistency: bool = True  # ???獒?????????濡ろ떟?癲???筌????
+    hallucination_zero_tolerance: bool = True  # True癲?????깅쐺 ??좊즴?? ?????뺤깓??濡????濚??
 
     # ===================================================
-    # [v16.0] EDAPE — Engagement-Driven Adaptive Prompt Engine
+    # [v16.0] EDAPE ??Engagement-Driven Adaptive Prompt Engine
     # ===================================================
-    enable_edape: bool = True  # EDAPE 적응형 프롬프트 엔진 활성화
-    edape_lookback_days: int = 7  # 성과 데이터 조회 기간 (일)
-    edape_max_suppression_ratio: float = 0.3  # 하위 패턴 억제 최대 비율
+    enable_edape: bool = True  # EDAPE ???ㅼ굣甕????ш끽維???ш낄援θキ???釉먯뒭????筌????
+    edape_lookback_days: int = 7  # ?濚밸Þ?볠쾮????Β?????釉뚰?????れ삀??㉱?(??
+    edape_max_suppression_ratio: float = 0.3  # ???쒓낮彛???????????癲ル슔?됭짆? ?????
 
     # ===================================================
-    # [v16.0] TAP — Trend Arbitrage Publisher
+    # [v16.0] TAP ??Trend Arbitrage Publisher
     # ===================================================
-    enable_tap: bool = True  # 교차국가 트렌드 차익거래 감지 활성화
-    tap_lookback_hours: int = 12  # 차익거래 감지 조회 기간 (시간)
-    tap_min_viral_score: int = 60  # 차익거래 감지 최소 바이럴 스코어
+    enable_tap: bool = True  # ?????뤆?끚곻쭔?? ?嶺뚮ㅎ????癲ル슓堉곁땟???깊??ㅻ깹????좊즴?? ??筌????
+    tap_lookback_hours: int = 12  # 癲ル슓堉곁땟???깊??ㅻ깹????좊즴?? ?釉뚰?????れ삀??㉱?(??癰???
+    tap_min_viral_score: int = 60  # 癲ル슓堉곁땟???깊??ㅻ깹????좊즴?? 癲ル슔?됭짆???袁⑸즴????????몄???
 
     # ===================================================
-    # [v16.0] Streaming Pipeline — Event-Driven 스트리밍
+    # [v16.0] Streaming Pipeline ??Event-Driven ????덉쉐?域밸Ŧ留⑶뜮?
     # ===================================================
-    enable_streaming_pipeline: bool = False  # asyncio.Queue 스트리밍 모드 활성화 (실험적)
-    streaming_generator_concurrency: int = 3  # 스트리밍 모드 동시 LLM 호출 수
-    streaming_stage_timeout: int = 120  # 단일 스테이지 타임아웃 (초)
+    enable_streaming_pipeline: bool = False  # asyncio.Queue ????덉쉐?域밸Ŧ留⑶뜮?癲ル슢?꾤땟?????筌????(????딅쾷??
+    streaming_generator_concurrency: int = 3  # ????덉쉐?域밸Ŧ留⑶뜮?癲ル슢?꾤땟???????덈빰 LLM ?嶺뚮ㅎ?????
+    streaming_stage_timeout: int = 120  # ???쒒?????읐??? ????ш끽維???(??
 
+    tap_snapshot_max_age_minutes: int = 30
+    tap_board_limit: int = 10
+    tap_teaser_count: int = 3
+    enable_tap_alert_queue: bool = True
+    tap_alert_top_k: int = 3
+    tap_alert_min_priority: float = 80.0
+    tap_alert_min_viral_score: int = 75
+    tap_alert_cooldown_minutes: int = 180
+    enable_tap_alert_dispatch: bool = False
+    tap_alert_dispatch_batch_size: int = 5
     # Runtime options (CLI overrides)
     country: str = "korea"
     countries: list = field(default_factory=list)
@@ -383,10 +393,10 @@ class AppConfig:
         if not self.countries:
             self.countries = [self.country]
 
-    # [QA 수정] @property → @cached_property: 매 호출 객체 생성 방지
+    # [QA ???쒓낯?? @property ??@cached_property: 癲??嶺뚮ㅎ?????좊즵??꼯????獄쏅똻???袁⑸젻泳?
     @cached_property
     def quality(self) -> QualityConfig:
-        """품질 관련 설정 도메인 뷰 (cached)."""
+        """???源녿뼥 ???굿?????源놁젳 ??ш끽維곮????(cached)."""
         return QualityConfig(
             feedback_min_score=self.quality_feedback_min_score,
             threads_quality_min_score=self.threads_quality_min_score,
@@ -403,7 +413,7 @@ class AppConfig:
 
     @cached_property
     def cost(self) -> CostConfig:
-        """비용 관련 설정 도메인 뷰 (cached)."""
+        """????????굿?????源놁젳 ??ш끽維곮????(cached)."""
         return CostConfig(
             daily_budget_usd=self.daily_budget_usd,
             peak_budget_multiplier=self.peak_budget_multiplier,
@@ -417,7 +427,7 @@ class AppConfig:
 
     @cached_property
     def alerts(self) -> AlertConfig:
-        """알림 채널 설정 도메인 뷰 (cached)."""
+        """?????癲???紐????源놁젳 ??ш끽維곮????(cached)."""
         return AlertConfig(
             telegram_bot_token=self.telegram_bot_token,
             telegram_chat_id=self.telegram_chat_id,
@@ -433,7 +443,7 @@ class AppConfig:
 
     @staticmethod
     def _storage_env() -> dict:
-        """Storage 관련 환경변수 로딩."""
+        """Storage ???굿??????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
             notion_token=os.getenv("NOTION_TOKEN", ""),
             notion_database_id=os.getenv("NOTION_DATABASE_ID", ""),
@@ -449,7 +459,7 @@ class AppConfig:
 
     @staticmethod
     def _schedule_env() -> dict:
-        """스케줄·런타임 관련 환경변수 로딩."""
+        """???濚욌꼬釉먮뮎?猷몄굣????????굿??????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
             schedule_minutes=int(os.getenv("SCHEDULE_INTERVAL_MINUTES", "360")),
             enable_parallel_countries=os.getenv("ENABLE_PARALLEL_COUNTRIES", "true").lower() == "true",
@@ -462,7 +472,7 @@ class AppConfig:
 
     @staticmethod
     def _api_keys_env() -> dict:
-        """외부 API 키·인증 관련 환경변수 로딩."""
+        """?嶺? API ??沃섃뫜?????????굿??????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
             twitter_bearer_token=os.getenv("TWITTER_BEARER_TOKEN", ""),
             x_access_token=os.getenv("X_ACCESS_TOKEN", ""),
@@ -479,7 +489,7 @@ class AppConfig:
 
     @staticmethod
     def _alerts_env() -> dict:
-        """알림 채널 관련 환경변수 로딩."""
+        """?????癲???紐????굿??????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
@@ -495,7 +505,7 @@ class AppConfig:
 
     @staticmethod
     def _feature_flags_env() -> dict:
-        """기능 플래그 환경변수 로딩."""
+        """??れ삀????????μ쐺?????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
             enable_clustering=os.getenv("ENABLE_CLUSTERING", "true").lower() == "true",
             enable_long_form=os.getenv("ENABLE_LONG_FORM", "true").lower() == "true",
@@ -528,6 +538,16 @@ class AppConfig:
             enable_tap=os.getenv("ENABLE_TAP", "true").lower() == "true",
             tap_lookback_hours=int(os.getenv("TAP_LOOKBACK_HOURS", "12")),
             tap_min_viral_score=int(os.getenv("TAP_MIN_VIRAL_SCORE", "60")),
+            tap_snapshot_max_age_minutes=int(os.getenv("TAP_SNAPSHOT_MAX_AGE_MINUTES", "30")),
+            tap_board_limit=int(os.getenv("TAP_BOARD_LIMIT", "10")),
+            tap_teaser_count=int(os.getenv("TAP_TEASER_COUNT", "3")),
+            enable_tap_alert_queue=os.getenv("ENABLE_TAP_ALERT_QUEUE", "true").lower() == "true",
+            tap_alert_top_k=int(os.getenv("TAP_ALERT_TOP_K", "3")),
+            tap_alert_min_priority=float(os.getenv("TAP_ALERT_MIN_PRIORITY", "80")),
+            tap_alert_min_viral_score=int(os.getenv("TAP_ALERT_MIN_VIRAL_SCORE", "75")),
+            enable_tap_alert_dispatch=os.getenv("ENABLE_TAP_ALERT_DISPATCH", "false").lower() == "true",
+            tap_alert_dispatch_batch_size=int(os.getenv("TAP_ALERT_DISPATCH_BATCH_SIZE", "5")),
+            tap_alert_cooldown_minutes=int(os.getenv("TAP_ALERT_COOLDOWN_MINUTES", "180")),
             enable_streaming_pipeline=os.getenv("ENABLE_STREAMING_PIPELINE", "false").lower() == "true",
             streaming_generator_concurrency=int(os.getenv("STREAMING_GENERATOR_CONCURRENCY", "3")),
             streaming_stage_timeout=int(os.getenv("STREAMING_STAGE_TIMEOUT", "120")),
@@ -535,7 +555,7 @@ class AppConfig:
 
     @staticmethod
     def _quality_env() -> dict:
-        """품질·QA 관련 환경변수 로딩."""
+        """???源녿뼥勇싲８?딞 ???굿??????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
             min_viral_score=int(os.getenv("MIN_VIRAL_SCORE", "60")),
             long_form_min_score=int(os.getenv("LONG_FORM_MIN_SCORE", "95")),
@@ -557,7 +577,7 @@ class AppConfig:
             qa_skip_cached=os.getenv("QA_SKIP_CACHED", "true").lower() == "true",
             qa_skip_high_score=int(os.getenv("QA_SKIP_HIGH_SCORE", "85")),
             qa_skip_categories=[
-                c.strip() for c in os.getenv("QA_SKIP_CATEGORIES", "날씨,음식,스포츠").split(",") if c.strip()
+                c.strip() for c in os.getenv("QA_SKIP_CATEGORIES", "\uB0A0\uC528,\uC74C\uC2DD,\uC2A4\uD3EC\uCE20").split(",") if c.strip()
             ],
             golden_reference_limit=int(os.getenv("GOLDEN_REFERENCE_LIMIT", "3")),
             golden_reference_auto_update_days=int(os.getenv("GOLDEN_REFERENCE_AUTO_UPDATE_DAYS", "7")),
@@ -566,14 +586,14 @@ class AppConfig:
 
     @staticmethod
     def _scoring_env() -> dict:
-        """스코어링·시그널 관련 환경변수 로딩."""
+        """????몄????鶯ㅼ룆援욄??癰궽쇱읇?????굿??????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
             daily_budget_usd=float(os.getenv("DAILY_BUDGET_USD", "3.0")),
             peak_budget_multiplier=float(os.getenv("PEAK_BUDGET_MULTIPLIER", "0.5")),
             cost_alert_pct=float(os.getenv("COST_ALERT_PCT", "70")),
             heavy_categories=[
                 c.strip()
-                for c in os.getenv("HEAVY_CATEGORIES", "정치,경제,테크,사회,국제,과학,의학,법률").split(",")
+                for c in os.getenv("HEAVY_CATEGORIES", "\uC815\uCE58,\uACBD\uC81C,\uD14C\uD06C,\uC0AC\uD68C,\uAD6D\uC81C,\uACFC\uD559,\uC0DD\uD65C,\uBC95\uB960").split(",")
                 if c.strip()
             ],
             viral_score_llm_weight=float(os.getenv("VIRAL_SCORE_LLM_WEIGHT", "0.6")),
@@ -598,13 +618,13 @@ class AppConfig:
 
     @staticmethod
     def _platform_env() -> dict:
-        """플랫폼·콘텐츠 관련 환경변수 로딩."""
+        """?????????룑?????????굿??????듬젿?怨뚮뼚????棺??짆?승?"""
         return dict(
-            tone=os.getenv("TONE", "친근하고 위트 있는 동네 친구"),
+            tone=os.getenv("TONE", "\uCE5C\uADFC\uD558\uACE0 \uC704\uD2B8 \uC788\uB294 \uB3D9\uB124 \uCE5C\uAD6C"),
             editorial_profile=os.getenv("EDITORIAL_PROFILE", "report").lower(),
             target_languages=[lang.strip() for lang in os.getenv("TARGET_LANGUAGES", "ko").split(",") if lang.strip()],
-            account_niche=os.getenv("ACCOUNT_NICHE", "AI·테크·트렌드"),
-            target_audience=os.getenv("TARGET_AUDIENCE", "IT 종사자, 스타트업 관계자, 테크 트렌드에 관심있는 직장인"),
+            account_niche=os.getenv("ACCOUNT_NICHE", "AI/\uD14C\uD06C/\uD2B8\uB80C\uB4DC"),
+            target_audience=os.getenv("TARGET_AUDIENCE", "IT \uC885\uC0AC\uC790, \uC2A4\uD0C0\uD2B8\uC5C5 \uAD00\uACC4\uC790"),
             target_platforms=[p.strip() for p in os.getenv("TARGET_PLATFORMS", "x").split(",") if p.strip()],
             content_hub_database_id=os.getenv("CONTENT_HUB_DATABASE_ID", ""),
             blog_min_score=int(os.getenv("BLOG_MIN_SCORE", "70")),
@@ -613,9 +633,9 @@ class AppConfig:
             blog_seo_keywords_count=int(os.getenv("BLOG_SEO_KEYWORDS_COUNT", "5")),
             news_rss_max_items=int(os.getenv("NEWS_RSS_MAX_ITEMS", "5")),
             exclude_categories=[
-                c.strip() for c in os.getenv("EXCLUDE_CATEGORIES", "정치,연예").split(",") if c.strip()
+                c.strip() for c in os.getenv("EXCLUDE_CATEGORIES", "\uC815\uCE58,\uC5F0\uC608").split(",") if c.strip()
             ],
-            niche_categories=[c.strip() for c in os.getenv("NICHE_CATEGORIES", "테크,경제").split(",") if c.strip()],
+            niche_categories=[c.strip() for c in os.getenv("NICHE_CATEGORIES", "AI,\uD14C\uD06C").split(",") if c.strip()],
             watchlist_keywords=[k.strip() for k in os.getenv("WATCHLIST_KEYWORDS", "").split(",") if k.strip()],
             content_diversity_hours=int(os.getenv("CONTENT_DIVERSITY_HOURS", "24")),
             generation_mode_override=os.getenv("GENERATION_MODE", ""),
@@ -627,7 +647,7 @@ class AppConfig:
 
     @classmethod
     def from_env(cls) -> "AppConfig":
-        """환경변수에서 설정 로딩. 카테고리별 헬퍼 메서드로 분리."""
+        """????듬젿?怨뚮뼚???筌뚯슧諭?????源놁젳 ?棺??짆?승? ?怨멸텭??沃섅뀙??關履?????????癲ル슢??袁λ빝??筌먦끉큔 ??됰슣維??"""
         kwargs: dict = {}
         kwargs.update(cls._storage_env())
         kwargs.update(cls._schedule_env())
@@ -640,68 +660,68 @@ class AppConfig:
         return cls(**kwargs)
 
     def validate(self) -> list[str]:
-        """오류 목록 반환. 빈 리스트이면 유효."""
+        """????곸씔 癲ル슢?꾤땟戮⑤뭄??袁⑸즵??? ???域밸Ŧ遊얕짆?嶺뚮ㅎ?닻얠쥉異????レ챺??"""
         from shared.llm.config import load_keys
 
         errors = []
         keys = load_keys()
         if not any(keys.values()):
-            errors.append("LLM API 키가 설정되지 않았습니다 (루트 .env 확인).")
+            errors.append("LLM API ??? ???源놁젳??? ????⒱봼??????(??룸Ŧ爾??.env ?嶺뚮Ĳ?됮?.")
 
         if self.storage_type in ("notion", "both"):
             if not self.notion_token or "your_" in self.notion_token:
-                errors.append("NOTION_TOKEN이 설정되지 않았습니다.")
+                errors.append("NOTION_TOKEN?????源놁젳??? ????⒱봼??????")
             if not self.notion_database_id or "your_" in self.notion_database_id:
-                errors.append("NOTION_DATABASE_ID가 설정되지 않았습니다.")
+                errors.append("NOTION_DATABASE_ID??좊읈? ???源놁젳??? ????⒱봼??????")
 
         if self.storage_type in ("google_sheets", "both"):
             if not self.google_sheet_id or "your_" in self.google_sheet_id:
-                errors.append("GOOGLE_SHEET_ID가 설정되지 않았습니다.")
+                errors.append("GOOGLE_SHEET_ID??좊읈? ???源놁젳??? ????⒱봼??????")
             if not os.path.exists(self.google_service_json):
-                errors.append(f"Google 서비스 계정 JSON을 찾을 수 없습니다: {self.google_service_json}")
+                errors.append(f"Google ??筌먐삳４????節뚮쳮??JSON??癲ル슓??젆???????⑤８?????덊렡: {self.google_service_json}")
 
         if self.enable_content_hub and not self.content_hub_database_id:
-            errors.append("ENABLE_CONTENT_HUB=true 이지만 CONTENT_HUB_DATABASE_ID가 비어 있습니다.")
+            errors.append("ENABLE_CONTENT_HUB=true ???癲?CONTENT_HUB_DATABASE_ID??좊읈? ????룹젂????怨?????덊렡.")
 
-        # 수치 범위 검증
+        # ???쒓랜萸??類?????濡ろ떟?癲?
         valid_storage = {"notion", "google_sheets", "both", "none"}
         valid_editorial_profiles = {"report", "classic"}
         if self.storage_type not in valid_storage:
-            errors.append(f"STORAGE_TYPE이 유효하지 않습니다: '{self.storage_type}' (허용: {valid_storage})")
+            errors.append(f"STORAGE_TYPE?????レ챺???? ?????????덊렡: '{self.storage_type}' (???源낅츛: {valid_storage})")
         if self.editorial_profile not in valid_editorial_profiles:
             errors.append(
-                f"EDITORIAL_PROFILE이 유효하지 않습니다: '{self.editorial_profile}' "
-                f"(허용: {valid_editorial_profiles})"
+                f"EDITORIAL_PROFILE?????レ챺???? ?????????덊렡: '{self.editorial_profile}' "
+                f"(???源낅츛: {valid_editorial_profiles})"
             )
         if not 1 <= self.schedule_minutes <= 1440:
-            errors.append(f"SCHEDULE_INTERVAL_MINUTES 범위 초과: {self.schedule_minutes} (1~1440)")
+            errors.append(f"SCHEDULE_INTERVAL_MINUTES ?類?????縕??? {self.schedule_minutes} (1~1440)")
         if not 1 <= self.country_parallel_limit <= 10:
             errors.append(f"COUNTRY_PARALLEL_LIMIT out of range: {self.country_parallel_limit} (1~10)")
         if self.daily_budget_usd < 0:
-            errors.append(f"DAILY_BUDGET_USD는 0 이상이어야 합니다: {self.daily_budget_usd}")
+            errors.append(f"DAILY_BUDGET_USD??0 ???⑤?彛???⑤９苑????筌뤾퍓??? {self.daily_budget_usd}")
         if not 1 <= self.max_workers <= 50:
-            errors.append(f"MAX_WORKERS 범위 초과: {self.max_workers} (1~50)")
+            errors.append(f"MAX_WORKERS ?類?????縕??? {self.max_workers} (1~50)")
         if not 1 <= self.limit <= 100:
-            errors.append(f"DEFAULT_LIMIT 범위 초과: {self.limit} (1~100)")
+            errors.append(f"DEFAULT_LIMIT ?類?????縕??? {self.limit} (1~100)")
         if not 1 <= self.notion_sem_limit <= 50:
-            errors.append(f"NOTION_SEM_LIMIT 범위 초과: {self.notion_sem_limit} (1~50)")
+            errors.append(f"NOTION_SEM_LIMIT ?類?????縕??? {self.notion_sem_limit} (1~50)")
         if not 1 <= self.data_retention_days <= 3650:
-            errors.append(f"DATA_RETENTION_DAYS 범위 초과: {self.data_retention_days} (1~3650)")
+            errors.append(f"DATA_RETENTION_DAYS ?類?????縕??? {self.data_retention_days} (1~3650)")
 
         return errors
 
     def resolve_country_slug(self) -> str:
-        """국가 코드를 getdaytrends.com URL 슬러그로 변환."""
+        """??? ?熬곣뫀????ｏ쭗?getdaytrends.com URL ??????쇱춻?용뿭큔 ?怨뚮뼚???"""
         return COUNTRY_MAP.get(self.country.lower(), self.country.lower())
 
     def for_country(self, country: str) -> "AppConfig":
-        """지정 국가로 설정을 복제해 반환 (다국가 병렬 실행용)."""
+        """癲ル슣????????????源놁젳???怨뚮옖甕????袁⑸즵???(???됰씭???좊읈? ?怨뚮옖筌??????덈틖??."""
         import dataclasses
 
         return dataclasses.replace(self, country=country, countries=[country])
 
     def get_effective_budget(self) -> float:
-        """[C2] 시간대별 유효 예산 반환. 비피크(22~07시) 예산 절감."""
+        """[C2] ??癰?????????レ챺?????????袁⑸즵??? ????ㅒ??22~07?? ??????????ル춪."""
         from datetime import datetime
 
         hour = datetime.now().hour
@@ -710,30 +730,30 @@ class AppConfig:
         return self.daily_budget_usd
 
     def get_cache_ttl(self, peak_status: str = "") -> int:
-        """[v10.0] peak_status 기반 동적 캐시 TTL (시간) 반환."""
+        """[v10.0] peak_status ??れ삀??뫢?????깆뱾 癲????TTL (??癰??? ?袁⑸즵???"""
         return {
-            "상승중": self.cache_ttl_rising,
-            "정점": self.cache_ttl_peak,
-            "하락중": self.cache_ttl_falling,
+            "\uC0C1\uC2B9\uC911": self.cache_ttl_rising,
+            "\uC815\uC810": self.cache_ttl_peak,
+            "\uD558\uB77D\uC911": self.cache_ttl_falling,
         }.get(peak_status, self.cache_ttl_default)
 
     def get_generation_mode(self) -> str:
-        """[v9.0] 시간대 기반 생성 모드 반환.
-        'full': 장문 포함 전체 생성 (피크 시간)
-        'lite': 단문 트윗만 (비피크)
+        """[v9.0] ??癰???? ??れ삀??뫢???獄쏅똻??癲ル슢?꾤땟????袁⑸즵???
+        'full': ?潁뺛깺猷???????ш끽維????獄쏅똻??(???醫롮뵫 ??癰???
+        'lite': ?????嶺뚮ㅎ?댐쭕?異?(????ㅒ??
         """
         if self.generation_mode_override in ("full", "lite"):
             return self.generation_mode_override
         from datetime import datetime
 
         hour = datetime.now().hour
-        # 피크: 아침(7-10), 점심(12-14), 저녁(19-22)
+        # ???醫롮뵫: ??ш끽維뽳ℓ?7-10), ?????12-14), ????19-22)
         if hour in range(7, 11) or hour in range(12, 15) or hour in range(19, 23):
             return "full"
         return "lite"
 
     def get_quality_threshold(self, content_group: str) -> int:
-        """콘텐츠 그룹별 QA 최소 점수 반환."""
+        """?熬곣뫕????????숆강筌?쓣爾?猿롫룱?QA 癲ル슔?됭짆????????袁⑸즵???"""
         return {
             "tweets": self.quality_feedback_min_score,
             "threads_posts": self.threads_quality_min_score,
@@ -742,7 +762,7 @@ class AppConfig:
         }.get(content_group, self.quality_feedback_min_score)
 
     def export_stats(self) -> dict:
-        """[O3] 대시보드용 설정 상태 내보내기."""
+        """[O3] ????筌먲퐡???筌믨퀡裕????源놁젳 ???ㅺ컼??????????깅탿."""
         return {
             "version": VERSION,
             "country": self.country,
