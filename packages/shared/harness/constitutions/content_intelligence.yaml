@@ -1,0 +1,142 @@
+agent_name: "content-intelligence-pipeline"
+max_budget_usd: 3.0
+max_tokens_per_turn: 8000
+
+metadata:
+  version: "1.0.0"
+  author: "AI Architecture Team"
+  description: "Governance rules for the Content-Intelligence multi-platform pipeline"
+  phase: "Phase 1 — initial governance integration"
+
+tools:
+  # --- Step 1: Trend Collection (READ_ONLY) ---
+  - name: "collect_x_trends"
+    allowed: true
+    max_calls: 20
+
+  - name: "collect_threads_trends"
+    allowed: true
+    max_calls: 20
+
+  - name: "collect_naver_trends"
+    allowed: true
+    max_calls: 20
+
+  - name: "merge_trends"
+    allowed: true
+    max_calls: 10
+
+  # --- Step 2: Regulation Check (READ_ONLY) ---
+  - name: "check_platform_regulation"
+    allowed: true
+    max_calls: 30
+
+  - name: "check_all_regulations"
+    allowed: true
+    max_calls: 10
+
+  - name: "generate_unified_checklist"
+    allowed: true
+    max_calls: 10
+
+  # --- Step 3: Content Generation (READ_ONLY LLM calls) ---
+  - name: "generate_platform_content"
+    allowed: true
+    max_calls: 50
+
+  - name: "generate_all_content"
+    allowed: true
+    max_calls: 10
+
+  - name: "validate_content"
+    allowed: true
+    max_calls: 100
+
+  - name: "validate_and_regenerate"
+    allowed: true
+    max_calls: 30
+
+  - name: "llm_call"
+    allowed: true
+    max_calls: 300
+
+  # --- Step 4: Save/Storage (WRITE_SYSTEM) ---
+  - name: "save_trends"
+    allowed: true
+    max_calls: 20
+
+  - name: "save_regulations"
+    allowed: true
+    max_calls: 20
+
+  - name: "save_contents"
+    allowed: true
+    max_calls: 50
+
+  - name: "database_read"
+    allowed: true
+    max_calls: 200
+
+  - name: "database_write"
+    allowed: true
+    max_calls: 100
+
+  # --- Step 5: Publishing (WRITE_EXTERNAL, requires approval) ---
+  - name: "publish_batch_to_notion"
+    allowed: true
+    max_calls: 10
+    requires_approval: true
+
+  - name: "publish_batch_to_x"
+    allowed: true
+    max_calls: 10
+    requires_approval: true
+
+  - name: "write_content_feedback_batch"
+    allowed: true
+    max_calls: 20
+
+  # --- Shared / Utility ---
+  - name: "web_search"
+    allowed: true
+    max_calls: 50
+
+  - name: "file_read"
+    allowed: true
+    max_calls: 100
+    allowed_paths:
+      - "d:/AI project/automation/content-intelligence/**"
+      - "d:/AI project/packages/shared/**"
+
+  - name: "file_write"
+    allowed: true
+    max_calls: 20
+    allowed_paths:
+      - "d:/AI project/automation/content-intelligence/output/**"
+      - "d:/AI project/automation/content-intelligence/logs/**"
+    blocked_patterns:
+      - '.*\.env$'
+      - '.*\.bat$'
+
+  # --- Explicitly Forbidden ---
+  - name: "shell_execute"
+    allowed: false
+
+  - name: "file_delete"
+    allowed: false
+
+  - name: "code_run"
+    allowed: false
+
+  # --- Monthly Review (READ_ONLY) ---
+  - name: "run_monthly_review"
+    allowed: true
+    max_calls: 5
+
+risk_patterns:
+  - "rm -rf"
+  - "DROP TABLE"
+  - 'os\.system\('
+  - 'subprocess\.call\('
+  - 'eval\('
+  - '__import__\('

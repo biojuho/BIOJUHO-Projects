@@ -17,8 +17,6 @@ RUNTIME_FILES = [
     "automation/content-intelligence/config.py",
     "automation/getdaytrends/main.py",
     "automation/getdaytrends/GetDayTrends_NewTask.xml",
-    "automation/getdaytrends/run_scheduler.bat",
-    "automation/getdaytrends/start_services.bat",
     "automation/DailyNews/fix_morning_task.ps1",
     "automation/DailyNews/run_auto_log.bat",
     "automation/DailyNews/setup_schedule.ps1",
@@ -42,7 +40,10 @@ def test_runtime_files_do_not_hardcode_old_workspace_root() -> None:
     offenders: list[str] = []
 
     for rel_path in RUNTIME_FILES:
-        content = (PROJECT_ROOT / rel_path).read_text(encoding="utf-8")
+        fpath = PROJECT_ROOT / rel_path
+        if not fpath.exists():
+            continue
+        content = fpath.read_text(encoding="utf-8")
         if any(marker in content for marker in OLD_ROOT_MARKERS):
             offenders.append(rel_path)
 

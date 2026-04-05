@@ -1,0 +1,80 @@
+# GetDayTrends Pipeline — Agent Constitution
+# -------------------------------------------
+# Defines what the getdaytrends-pipeline agent is allowed to do.
+# Principle: Deny by default, explicitly whitelist allowed tools.
+
+agent_name: "getdaytrends-pipeline"
+max_budget_usd: 2.0
+max_tokens_per_turn: 8000
+
+metadata:
+  version: "1.0.0"
+  author: "AI Architecture Team"
+  description: "Governance rules for the GetDayTrends automated pipeline"
+
+tools:
+  - name: "web_search"
+    allowed: true
+    max_calls: 50
+    requires_approval: false
+
+  - name: "rss_fetch"
+    allowed: true
+    max_calls: 30
+    requires_approval: false
+
+  - name: "file_read"
+    allowed: true
+    max_calls: 100
+    requires_approval: false
+    allowed_paths:
+      - "d:/AI project/getdaytrends/**"
+      - "d:/AI project/shared/**"
+
+  - name: "file_write"
+    allowed: true
+    max_calls: 20
+    requires_approval: false
+    allowed_paths:
+      - "d:/AI project/getdaytrends/output/**"
+      - "d:/AI project/getdaytrends/logs/**"
+    blocked_patterns:
+      - '.*\.env$'
+      - '.*\.bat$'
+      - '.*/shared/.*'
+
+  - name: "database_read"
+    allowed: true
+    max_calls: 100
+    requires_approval: false
+
+  - name: "database_write"
+    allowed: true
+    max_calls: 100
+    requires_approval: false
+
+  - name: "llm_call"
+    allowed: true
+    max_calls: 200
+    requires_approval: false
+
+  - name: "notion_api"
+    allowed: true
+    max_calls: 30
+    requires_approval: false
+
+  - name: "shell_execute"
+    allowed: true
+    max_calls: 10
+    requires_approval: true  # Always require human approval for shell
+
+  - name: "file_delete"
+    allowed: false  # Never allow file deletion
+
+risk_patterns:
+  - "rm -rf"
+  - "DROP TABLE"
+  - 'os\.system\('
+  - 'subprocess\.call\('
+  - 'eval\('
+  - '__import__\('
