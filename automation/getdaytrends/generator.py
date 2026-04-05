@@ -56,6 +56,55 @@ except ImportError:
 _JSON_POLICY = LLMPolicy(response_mode="json")
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
+_TWEET_MAX_CHARS = 280
+
+
+def _parse_tweets_to_batch(
+    data: dict,
+    trend: ScoredTrend,
+    *,
+    variant_id: str = "",
+    language: str = "",
+    include_extras: bool = True,
+) -> TweetBatch | None:
+    """JSON 응답을 GeneratedTweet 리스트 → TweetBatch로 변환하는 공통 파서.
+
+    Args:
+        include_extras: True면 best_posting_time/expected_engagement/reasoning 포함.
+                        A/B 변형 생성에서는 False.
+    """
+    if not data:
+        log.error(f"트윗 생성 JSON 파싱 실패: {trend.keyword}")
+        return None
+
+    tweets = []
+    for t in data.get("tweets", []):
+        content = t.get("content", "")
+        if len(content) > _TWEET_MAX_CHARS:
+            content = content[: _TWEET_MAX_CHARS - 3] + "..."
+            log.warning(f"트윗 {_TWEET_MAX_CHARS}자 초과 트리밍: {trend.keyword} [{t.get('type', '')}]")
+        kwargs: dict = {
+            "tweet_type": t.get("type", ""),
+            "content": content,
+            "content_type": "short",
+        }
+        if variant_id:
+            kwargs["variant_id"] = variant_id
+        if language:
+            kwargs["language"] = language
+        if include_extras:
+            kwargs["best_posting_time"] = t.get("best_posting_time", "")
+            kwargs["expected_engagement"] = t.get("expected_engagement", "")
+            kwargs["reasoning"] = t.get("reasoning", "")
+        tweets.append(GeneratedTweet(**kwargs))
+
+    log.info(f"트윗 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
+    return TweetBatch(
+        topic=data.get("topic", trend.keyword),
+        tweets=tweets,
+        viral_score=trend.viral_potential,
+    )
+
 
 # -- prompt builder import --
 # -- 추출된 모듈 re-export (후방 호환) --
@@ -132,6 +181,8 @@ async def generate_tweets_async(
     recent_tweets: list[str] | None = None,
     golden_refs: list | None = None,
     pattern_weights: dict | None = None,
+    *,
+    edape_block: str = "",
 ) -> TweetBatch | None:
     """5종 단문 트윗 비동기 생성 (Haiku — 비용 절감).
     [v9.0] recent_tweets: 이전 생성 내용 주입으로 표현 다양성 보장.
@@ -158,7 +209,8 @@ async def generate_tweets_async(
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
         f"{identity_section}{deep_why_section}{context_section}{scoring_section}"
-        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}{audience_format_section}\n"
+        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}{audience_format_section}"
+        f"{edape_block}\n"
         "위 배경과 컨텍스트를 깊이 소화한 뒤, 쟁점을 추출하고 각 쟁점별로 날카로운 각도의 트윗 작성.\n"
         "중요: 너는 뉴스를 '전달'하는 사람이 아니라 뉴스를 보고 '한마디 하는' 사람임.\n"
         "정보 전달 30% + 너의 해석/시각 70% 비율로 작성.\n"
@@ -201,33 +253,22 @@ async def generate_tweets_async(
             log.error(f"트윗 생성 예상외 오류 ({trend.keyword}): {type(e).__name__}: {e}")
             return None
 
-    if not data:
-        log.error(f"트윗 생성 JSON 파싱 실패: {trend.keyword}")
-        return None
-
-    tweets = []
-    for t in data.get("tweets", []):
-        content = t.get("content", "")
-        if len(content) > 280:
-            content = content[:277] + "..."
-            log.warning(f"트윗 280자 초과 트리밍: {trend.keyword} [{t.get('type', '')}]")
-        tweets.append(
-            GeneratedTweet(
-                tweet_type=t.get("type", ""),
-                content=content,
-                content_type="short",
-                best_posting_time=t.get("best_posting_time", ""),
-                expected_engagement=t.get("expected_engagement", ""),
-                reasoning=t.get("reasoning", ""),
+    # JSON 파싱 실패 시 1회 재시도 (LLM 응답이 깨진 JSON인 경우)
+    if data is None:
+        log.warning(f"[재시도] JSON 파싱 실패 → 1회 재생성 시도: '{trend.keyword}'")
+        try:
+            response = await client.acreate(
+                tier=TaskTier.LIGHTWEIGHT,
+                max_tokens=1500,
+                policy=_JSON_POLICY,
+                system=_system_tweets(config.tone),
+                messages=[{"role": "user", "content": user_message}],
             )
-        )
+            data = _parse_json(response.text)
+        except Exception as e:
+            log.error(f"[재시도] 트윗 재생성 실패 ({trend.keyword}): {type(e).__name__}: {e}")
 
-    log.info(f"트윗 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
-    return TweetBatch(
-        topic=data.get("topic", trend.keyword),
-        tweets=tweets,
-        viral_score=trend.viral_potential,
-    )
+    return _parse_tweets_to_batch(data, trend)
 
 
 # -- 추출된 모듈 re-export (후방 호환) --
@@ -266,12 +307,15 @@ async def generate_tweets_and_threads_async(
     recent_tweets: list[str] | None = None,
     golden_refs: list | None = None,
     pattern_weights: dict | None = None,
+    *,
+    edape_block: str = "",
 ) -> TweetBatch | None:
     """단문 트윗과 Threads를 품질 우선으로 분리 생성한 뒤 배치로 합친다."""
     if _PY314_SERIAL_GENERATION:
         try:
             tweet_result = await generate_tweets_async(
-                trend, config, client, recent_tweets, golden_refs, pattern_weights
+                trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                edape_block=edape_block,
             )
         except Exception as exc:
             tweet_result = exc
@@ -282,7 +326,8 @@ async def generate_tweets_and_threads_async(
             threads_result = exc
     else:
         tweet_result, threads_result = await asyncio.gather(
-            generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights),
+            generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                  edape_block=edape_block),
             generate_threads_content_async(trend, config, client),
             return_exceptions=True,
         )
@@ -318,6 +363,8 @@ async def _resolve_combined_fallback(
     client: LLMClient,
     golden_refs: list | None,
     pattern_weights: dict | None,
+    *,
+    edape_block: str = "",
 ) -> TweetBatch | None:
     """'combined' 키 결과에서 배치를 추출하고 실패 시 개별 폴백 실행."""
     combined = result_map["combined"]
@@ -326,7 +373,8 @@ async def _resolve_combined_fallback(
     if isinstance(combined, Exception):
         log.warning(f"통합 생성 예외, 개별 폴백: {combined}")
     fallback_results = await asyncio.gather(
-        generate_tweets_async(trend, config, client, None, golden_refs, pattern_weights),
+        generate_tweets_async(trend, config, client, None, golden_refs, pattern_weights,
+                              edape_block=edape_block),
         generate_threads_content_async(trend, config, client),
         return_exceptions=True,
     )
@@ -351,6 +399,8 @@ async def generate_for_trend_async(
     recent_tweets: list[str] | None = None,
     golden_refs: list | None = None,
     pattern_weights: dict | None = None,
+    *,
+    edape_block: str = "",
 ) -> TweetBatch | None:
     """
     오케스트레이터 (비동기): 트윗 5종 + 조건부 장문/Threads/쓰레드/블로그 동시 생성.
@@ -384,9 +434,11 @@ async def generate_for_trend_async(
         result_map: dict[str, Any] = {}
         primary_key = "combined" if threads_enabled else "tweets"
         primary_coro = (
-            generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+            generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                             edape_block=edape_block)
             if threads_enabled
-            else generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+            else generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                       edape_block=edape_block)
         )
         try:
             result_map[primary_key] = await primary_coro
@@ -410,11 +462,13 @@ async def generate_for_trend_async(
         tasks: dict[str, asyncio.Task] = {}
         if threads_enabled:
             tasks["combined"] = asyncio.ensure_future(
-                generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+                generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                                 edape_block=edape_block)
             )
         else:
             tasks["tweets"] = asyncio.ensure_future(
-                generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+                generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                      edape_block=edape_block)
             )
         if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
             tasks["long"] = asyncio.ensure_future(generate_long_form_async(trend, config, client, tier=gen_tier))
@@ -428,7 +482,8 @@ async def generate_for_trend_async(
 
     # 기본 배치 추출 (combined 또는 tweets)
     if "combined" in result_map:
-        batch = await _resolve_combined_fallback(result_map, trend, config, client, golden_refs, pattern_weights)
+        batch = await _resolve_combined_fallback(result_map, trend, config, client, golden_refs, pattern_weights,
+                                                edape_block=edape_block)
     else:
         batch = result_map.get("tweets")
 
@@ -489,26 +544,8 @@ async def generate_ab_variant_async(
             messages=[{"role": "user", "content": user_message}],
         )
         data = _parse_json(response.text)
-        if not data:
-            return None
-
-        tweets = []
-        for t in data.get("tweets", []):
-            content = t.get("content", "")
-            if len(content) > 280:
-                content = content[:277] + "..."
-            tweets.append(
-                GeneratedTweet(
-                    tweet_type=t.get("type", ""),
-                    content=content,
-                    content_type="short",
-                    variant_id="B",
-                    language=config.target_languages[0] if config.target_languages else "ko",
-                )
-            )
-
-        log.info(f"A/B 변형 B 생성 완료: '{trend.keyword}' ({len(tweets)}개)")
-        return TweetBatch(topic=data.get("topic", trend.keyword), tweets=tweets, viral_score=trend.viral_potential)
+        lang = config.target_languages[0] if config.target_languages else "ko"
+        return _parse_tweets_to_batch(data, trend, variant_id="B", language=lang, include_extras=False)
 
     except (RuntimeError, ConnectionError, TimeoutError) as e:
         log.error(f"A/B 변형 B LLM 실패 ({trend.keyword}): {type(e).__name__}: {e}")

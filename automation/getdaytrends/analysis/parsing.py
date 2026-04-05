@@ -34,12 +34,18 @@ except ImportError:
 
 
 def _parse_json(text: str | None) -> dict | None:
-    """JSON 파싱. response_mode=json 덕분에 단순 loads로 충분."""
+    """JSON 파싱. response_mode=json 덕분에 단순 loads로 충분.
+
+    파싱 실패 시 로그를 남기고 None 반환 — 호출자가 재시도 판단.
+    """
     if not text:
         return None
     try:
         return json.loads(text.strip())
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        # 파싱 실패를 명시적으로 로깅 (silent None 반환 방지)
+        preview = text[:200].replace("\n", "\\n")
+        log.warning(f"[_parse_json] JSON 파싱 실패: {exc} | 원본 미리보기: {preview}")
         return None
 
 

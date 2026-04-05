@@ -363,7 +363,9 @@ def _parse_json(raw: str | None) -> dict | None:
         return None
     try:
         return json.loads(raw.strip())
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        preview = raw[:200].replace("\n", "\\n")
+        log.warning(f"[_parse_json] JSON 파싱 실패: {exc} | 원본 미리보기: {preview}")
         return None
 
 

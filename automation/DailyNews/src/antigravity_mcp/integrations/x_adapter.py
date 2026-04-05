@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import date
 from typing import Any
 
@@ -25,6 +26,32 @@ from antigravity_mcp.domain.models import ContentReport
 from antigravity_mcp.integrations.x_token_store import has_credentials, load_token
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Newsletter CTA injection for X ↔ Newsletter cross-pollination
+# ---------------------------------------------------------------------------
+
+NEWSLETTER_CTA = "\n\n\ud83d\udce7 \ub9e4\uc77c \uc544\uce68 \uacbd\uc81c \uc778\uc0ac\uc774\ud2b8 \u2192 {signup_url}"
+
+
+def _inject_newsletter_cta(content: str, *, signup_url: str = "") -> str:
+    """Append newsletter signup CTA to X posts if space allows.
+
+    Only injects if:
+    1. NEWSLETTER_CTA_ENABLED=1 is set (disabled by default)
+    2. signup_url is configured
+    3. Total length stays under 280 chars
+    """
+    if not os.getenv("NEWSLETTER_CTA_ENABLED", ""):
+        return content
+    if not signup_url:
+        signup_url = os.getenv("NEWSLETTER_SIGNUP_URL", "")
+    if not signup_url:
+        return content
+    cta = NEWSLETTER_CTA.format(signup_url=signup_url)
+    if len(content) + len(cta) <= 280:
+        return content + cta
+    return content  # Don't sacrifice content for CTA
 
 # ---------------------------------------------------------------------------
 # Optional tweepy import
@@ -115,7 +142,8 @@ class XAdapter:
         if client is None:
             return {"status": "error", "message": "Failed to initialise X client."}
 
-        tweet_text = content[:280]  # Twitter's character limit
+        tweet_text = _inject_newsletter_cta(content[:270])
+        tweet_text = tweet_text[:280]  # Final safety trim
         try:
             response = await asyncio.to_thread(client.create_tweet, text=tweet_text)
             tweet_id = response.data["id"]
@@ -144,6 +172,7 @@ class XAdapter:
         """Post a thread of tweets.
 
         Returns a list of result dicts per tweet.
+        On mid-thread failure: logs partial thread state, marks remaining as skipped.
         """
         if not _TWEEPY_AVAILABLE or not has_credentials():
             return [{"status": "error", "message": "X not configured."}] * len(tweets)
@@ -152,9 +181,20 @@ class XAdapter:
         if client is None:
             return [{"status": "error", "message": "X client unavailable."}] * len(tweets)
 
+        # 일일 제한 사전 체크 — 스레드 전체를 게시할 여유가 있는지 확인
+        today_str = date.today().isoformat()
+        limit = self.settings.x_daily_post_limit
+        current_count = self._state_store.get_x_post_count(today_str) if self._state_store is not None else 0
+        if current_count + len(tweets) > limit:
+            logger.warning(
+                "X daily limit would be exceeded by thread (%d + %d > %d); skipping.",
+                current_count, len(tweets), limit,
+            )
+            return [{"status": "blocked", "message": f"Daily limit ({limit}) would be exceeded."}] * len(tweets)
+
         results: list[dict[str, str]] = []
         reply_to: str | None = None
-        for tweet_text in tweets:
+        for i, tweet_text in enumerate(tweets):
             try:
                 kwargs: dict[str, Any] = {"text": tweet_text[:280]}
                 if reply_to:
@@ -163,11 +203,26 @@ class XAdapter:
                 tweet_id = str(response.data["id"])
                 reply_to = tweet_id
                 if self._state_store is not None:
-                    self._state_store.increment_x_post_count(date.today().isoformat())
-                results.append({"status": "published", "tweet_id": tweet_id})
+                    self._state_store.increment_x_post_count(today_str)
+                results.append({"status": "published", "tweet_id": tweet_id, "tweet_index": str(i + 1)})
             except Exception as exc:
-                results.append({"status": "error", "message": str(exc)})
-                break  # stop thread on first failure
+                error_msg = f"{type(exc).__name__}: {exc}"
+                logger.error(
+                    "Thread tweet %d/%d failed: %s (published %d so far)",
+                    i + 1, len(tweets), error_msg, len(results),
+                )
+                results.append({"status": "error", "message": error_msg, "tweet_index": str(i + 1)})
+                # 나머지 트윗을 skipped로 표시 (silent 유실 방지)
+                remaining = len(tweets) - len(results)
+                results.extend(
+                    {
+                        "status": "skipped",
+                        "message": f"Skipped: prior tweet {i + 1} failed",
+                        "tweet_index": str(i + 2 + offset),
+                    }
+                    for offset in range(remaining)
+                )
+                break
         return results
 
     @staticmethod
