@@ -1,6 +1,6 @@
 # Task Board
 
-**Last Updated**: 2026-04-03
+**Last Updated**: 2026-04-06
 **Board Type**: Kanban (TODO / IN_PROGRESS / DONE)
 
 ---
@@ -18,6 +18,63 @@
 ---
 
 ## DONE (Last 7 Days)
+
+### 2026-04-06
+
+- [x] **Workspace QC sweep + worktree commit organization**
+  - **Context**: 3일간(4/4~4/6) 미기록/미커밋 작업을 정리하고 워크스페이스 건강상태 확인
+  - **Test Results**:
+    - `tests/` → **216 passed** (path_resilience 1건 수정 후 green)
+    - `automation/getdaytrends/tests/` → **602 passed**, 7 skipped
+    - `automation/DailyNews/tests/` → **402 passed**, 16 deselected
+    - **총 1,220 tests GREEN**
+  - **Commits organized**:
+    - `d4061e5` chore(deps): migrate requirements.txt to pyproject.toml + update CI (32 files)
+    - `cb81fb4` refactor(agriguard): extract routers + dependency injection (14 files)
+    - `11926d1` feat(getdaytrends): v16.0 TAP + EDAPE + streaming pipeline (34 files)
+    - `6bea6fb` feat(dailynews): Signal Watch + Newsletter + Jina integration (35 files)
+    - `68e9397` feat(shared): add harness framework + expand test suites (46 files)
+  - **Fix**: `test_path_resilience.py` — 삭제된 bat 파일 참조 제거 + 존재 체크 가드 추가
+  - **Worktree**: CLEAN (`.pytest-root/`, `.venv/` gitignore 대상만 남음)
+
+### 2026-04-04 ~ 2026-04-05
+
+- [x] **GetDayTrends v16.0 — TAP + Streaming Pipeline + Config integration**
+  - **Context**: Trend-Aware Publishing(TAP), EDAPE(anti-pattern detection, temporal persona), streaming pipeline 도입
+  - **New modules**: `tap/`, `edape/`, `constitution.yaml`, `harness_integration.py`
+  - **Validation**: `pytest automation/getdaytrends/tests/` → 602 passed
+
+- [x] **GetDayTrends QA/QC v16.0 — 5 bugs fixed, 1 regression test added**
+  - **Commit**: `15a08bf`
+
+- [x] **Pipeline crash defense — 외부 API/LLM 장애 시 크래시 방어 + 9 regression tests**
+  - **Commit**: `2d9688e`
+
+- [x] **Generator/X Adapter — JSON 파싱 silent 실패 재시도 + X 스레드 부분실패 방어**
+  - **Commit**: `6473be8`
+
+- [x] **Publish/Context — DB 잠금 크래시 방어 + 컨텍스트 수집 글로벌 타임아웃**
+  - **Commit**: `55ae6e4`
+
+- [x] **DailyNews Signal Watch + Newsletter + Jina deep-research integration**
+  - **Context**: Phase 5 확장 — 신호 기반 트렌드 감지, 이메일 뉴스레터 구독, Jina.ai 딥리서치 컨텐츠 합성
+  - **New files**: signal_collector, signal_scorer, newsletter_adapter, subscriber_store, jina_adapter, landing page
+  - **Validation**: `pytest automation/DailyNews/tests/` → 402 passed
+
+- [x] **requirements.txt → pyproject.toml 마이그레이션**
+  - **Context**: 7개 서브프로젝트(AgriGuard, DeSci backend/biolinker, GetDayTrends, DailyNews, 3 MCP servers) 의존성 관리 현대화
+  - **CI**: 12개 GitHub Actions 워크플로우 동시 업데이트
+
+- [x] **AgriGuard 라우터 리팩토링**
+  - **Context**: 모놀리식 main.py에서 모듈 라우터(dashboard, iot, products, qr_events, users) + 의존성 주입 패턴으로 분리
+  - **Validation**: 관련 테스트 추가 (dashboard_routes, product_and_qr_routes)
+
+- [x] **shared harness framework + 전체 테스트 스위트 확장**
+  - **Context**: sandboxed execution, constitution enforcement, risk assessment, HITL coordination, adapters, validators
+  - **New tests**: shared(8), content-intelligence(8), harness(5) = 21개 테스트 파일 추가
+
+- [x] **TOCTOU race condition in draft lifecycle + boilerplate deduplication**
+  - **Commit**: `a978ad6`
 
 ### 2026-04-03
 

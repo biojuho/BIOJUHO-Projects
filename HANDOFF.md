@@ -1,8 +1,36 @@
 # Handoff Document
 
-**Last Updated**: 2026-04-03
-**Session Status**: Healthy / getdaytrends V2 workflow pushed after QC / main synced with origin
+**Last Updated**: 2026-04-06
+**Session Status**: Healthy / 1,220 tests GREEN / worktree clean / 8 commits ahead of origin
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-06)
+
+### Workspace QC sweep + 3일간 미기록 작업 정리
+
+**Status**: PASS / WORKTREE CLEAN
+
+- Ran full test suites:
+  - `tests/` → **216 passed** (1 fix applied: `test_path_resilience.py` deleted bat references)
+  - `automation/getdaytrends/tests/` → **602 passed**, 7 skipped
+  - `automation/DailyNews/tests/` → **402 passed**, 16 deselected
+  - **Total: 1,220 tests GREEN**
+- Organized 125 changed files into 5 logical commits:
+  1. `d4061e5` chore(deps): requirements.txt → pyproject.toml + CI updates (32 files)
+  2. `cb81fb4` refactor(agriguard): router extraction + DI pattern (14 files)
+  3. `11926d1` feat(getdaytrends): v16.0 TAP + EDAPE + streaming pipeline (34 files)
+  4. `6bea6fb` feat(dailynews): Signal Watch + Newsletter + Jina integration (35 files)
+  5. `68e9397` feat(shared): harness framework + 21 test files (46 files)
+- Plus 3 pre-existing unpushed commits from 4/4-4/5:
+  - `2d9688e` fix(pipeline): external API/LLM crash defense + 9 regression tests
+  - `6473be8` fix(generator,x_adapter): JSON parse retry + X thread partial failure defense
+  - `55ae6e4` fix(publish,context): DB lock crash defense + context collection global timeout
+- Current git state:
+  - `main...origin/main [ahead 8]`
+  - worktree CLEAN
+- **Pending**: `git push origin main` to sync with remote
 
 ---
 
