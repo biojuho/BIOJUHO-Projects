@@ -27,14 +27,17 @@ jobs:
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: automation/getdaytrends/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r automation/getdaytrends/requirements.txt
+        run: uv sync --all-packages
 
       - name: Create data directory
         run: mkdir -p automation/getdaytrends/data
@@ -46,7 +49,7 @@ jobs:
           X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
         run: |
           LOOKBACK="${{ github.event.inputs.lookback_hours || '72' }}"
-          python scripts/collect_posted_tweet_metrics.py \
+          uv run python scripts/collect_posted_tweet_metrics.py \
             --lookback-hours "$LOOKBACK" \
             --require-token \
             --json-out data/tweet_metrics_$(date -u +%Y%m%d_%H%M%S).json

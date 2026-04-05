@@ -24,24 +24,28 @@ jobs:
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest requests python-dotenv
+          uv pip install --system pytest requests python-dotenv
 
       - name: Syntax check all Python scripts
-        run: python -m py_compile scripts/create_repo.py scripts/fetch_info.py
+        run: uv run python -m py_compile scripts/create_repo.py scripts/fetch_info.py
 
       - name: Run tests
         env:
           PYTHONIOENCODING: utf-8
         run: |
           if [ -d tests ] && compgen -G "tests/*.py" > /dev/null; then
-            pytest tests/ -v --tb=short
+            uv run pytest tests/ -v --tb=short
           else
             echo "::warning::github-mcp has no Python tests yet"
           fi

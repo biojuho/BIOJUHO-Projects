@@ -1,58 +1,33 @@
 [project]
 name = "getdaytrends"
-version = "4.0.0"
-description = "X/Threads Trend Auto-Content Generator with Multi-Source Collection & Hybrid Scoring"
+version = "0.1.0"
+description = "Part of ai-projects workspace"
 requires-python = ">=3.12"
-
-[tool.ruff]
-target-version = "py312"
-line-length = 120
-src = ["."]
-
-[tool.ruff.lint]
-select = [
-    "E",     # pycodestyle errors
-    "W",     # pycodestyle warnings
-    "F",     # pyflakes
-    "I",     # isort
-    "UP",    # pyupgrade
-    "B",     # bugbear
-    "SIM",   # simplify
-    "RUF",   # ruff-specific
-    "ASYNC", # async
-]
-ignore = [
-    "E501",   # line too long (handled by formatter)
-    "B008",   # function call in default arg
-    "RUF001", # ambiguous unicode (한글 사용)
-    "RUF003", # ambiguous unicode comment
-    "SIM108", # ternary operator
-]
-
-[tool.ruff.lint.isort]
-known-first-party = ["config", "models", "scraper", "analyzer", "generator", "storage", "db", "alerts", "utils", "dashboard"]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-ignore_missing_imports = true
-check_untyped_defs = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
-asyncio_mode = "auto"
-addopts = "-m 'not integration' -v --tb=short"
-markers = [
-    "integration: tests requiring live network or API keys",
-    "slow: tests that take more than 5 seconds",
-]
-filterwarnings = [
-    "ignore::DeprecationWarning",
+dependencies = [
+    "anthropic>=0.45.0,<1.0",
+    "requests>=2.32.0,<3.0",
+    "beautifulsoup4>=4.12.3,<5.0",
+    "lxml>=5.0.0,<6.0",
+    "schedule>=1.2.0,<2.0",
+    "python-dotenv>=1.0.0,<2.0",
+    "notion-client>=2.2.1,<3.0",
+    "gspread>=6.0.0,<7.0",
+    "google-auth>=2.27.0,<3.0",
+    "colorama>=0.4.6,<1.0",
+    "aiohttp>=3.10.0,<4.0",
+    "google-genai>=1.0.0",
+    "fastapi>=0.115.0,<1.0",
+    "uvicorn[standard]>=0.30.0,<1.0",
+    "httpx>=0.27.0,<1.0",
+    "asyncpg>=0.29.0,<1.0",
+    "selectolax>=0.3.21,<1.0",
+    "twikit>=2.3.0,<3.0",
+    "instructor>=1.14.5",
+    "deepeval>=3.9.0",
+    "scrapling>=0.4.0",
+    "prometheus_client>=0.21.0",
+    "loguru>=0.7.0,<1.0",
+    "aiosqlite>=0.20.0,<1.0",
+    "redis>=5.0.0,<8.0",
+    "cryptography>=42.0.0,<45.0",
 ]

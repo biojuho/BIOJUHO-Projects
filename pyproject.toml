@@ -96,3 +96,15 @@ markers = [
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+
+[tool.uv.workspace]
+members = [
+    "apps/AgriGuard/backend",
+    "apps/desci-platform/backend",
+    "apps/desci-platform/biolinker",
+    "automation/DailyNews",
+    "automation/getdaytrends",
+    "mcp/desci-research-mcp",
+    "mcp/notebooklm-mcp",
+    "mcp/telegram-mcp"
+]

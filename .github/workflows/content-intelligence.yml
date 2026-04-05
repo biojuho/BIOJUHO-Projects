@@ -38,14 +38,17 @@ jobs:
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: automation/getdaytrends/requirements.txt
 
       - name: Install GetDayTrends dependencies
-        run: pip install -r automation/getdaytrends/requirements.txt
+        run: uv sync --all-packages
 
       - name: Create data directory
         run: mkdir -p automation/getdaytrends/data
@@ -62,7 +65,7 @@ jobs:
         working-directory: automation/getdaytrends
         run: |
           LOOKBACK="${{ github.event.inputs.lookback_days || '14' }}"
-          python scripts/calibrate_viral_model.py \
+          uv run python scripts/calibrate_viral_model.py \
             --lookback-days "$LOOKBACK" \
             --json-out data/calibration_report_$(date -u +%Y%m%d).json
 
@@ -117,16 +120,17 @@ jobs:
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: automation/getdaytrends/requirements.txt
 
       - name: Install dependencies
-        run: |
-          pip install -r automation/getdaytrends/requirements.txt
-          pip install httpx 2>/dev/null || true
+        run: uv sync --all-packages
 
       - name: Create output directories
         run: mkdir -p automation/getdaytrends/data var/reports
@@ -145,7 +149,7 @@ jobs:
           NOTION_ROI_DATABASE_ID: ${{ secrets.NOTION_ROI_DATABASE_ID }}
         run: |
           LOOKBACK="${{ github.event.inputs.lookback_days || '7' }}"
-          python ops/scripts/roi_report.py \
+          uv run python ops/scripts/roi_report.py \
             --lookback-days "$LOOKBACK" \
             --json-out var/reports/roi_$(date -u +%Y%m%d).json
 

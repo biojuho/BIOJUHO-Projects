@@ -1,4 +1,4 @@
-﻿name: Security & Quality Gate
+name: Security & Quality Gate
 
 on:
   pull_request:
@@ -38,6 +38,12 @@ jobs:
         run: python3 bootstrap_legacy_paths.py
 
       # Python dependency audit
+      - name: Install uv
+        if: matrix.lang == 'python'
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - name: Set up Python
         if: matrix.lang == 'python'
         uses: actions/setup-python@v5
@@ -46,7 +52,7 @@ jobs:
       - name: pip-audit
         if: matrix.lang == 'python'
         run: |
-          pip install pip-audit
+          uv tool install pip-audit
           find . -name "requirements.txt" -not -path "*/node_modules/*" -not -path "*/.venv/*" | while read req; do
             echo "::group::Auditing $req"
             pip-audit -r "$req" --ignore-vuln PYSEC- || true
@@ -95,6 +101,12 @@ jobs:
           echo "py_count=$PY_COUNT" >> $GITHUB_OUTPUT
           echo "js_count=$JS_COUNT" >> $GITHUB_OUTPUT
 
+      - name: Install uv
+        if: steps.changed.outputs.py_count > 0
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - name: Set up Python
         if: steps.changed.outputs.py_count > 0
         uses: actions/setup-python@v5
@@ -104,7 +116,8 @@ jobs:
       - name: Python QA Checks
         if: steps.changed.outputs.py_count > 0
         run: |
-          pip install ruff bandit
+          uv tool install ruff
+          uv tool install bandit
           # Functional & Code Quality
           echo "::group::Ruff Lint"
           ruff check --select=E,F,W,I,N,UP,S,B --output-format=github . || true

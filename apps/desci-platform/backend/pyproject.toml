@@ -1,0 +1,11 @@
+[project]
+name = "desci-backend"
+version = "0.1.0"
+description = "Part of ai-projects workspace"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0,<1.0",
+    "uvicorn[standard]>=0.32.0,<1.0",
+    "firebase-admin>=6.4.0,<7.0",
+    "python-dotenv>=1.0.0",
+]
