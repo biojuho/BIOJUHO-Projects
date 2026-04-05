@@ -7,20 +7,30 @@ import json
 import os
 import sqlite3
 import subprocess
-import tempfile
+import uuid
 
 backend_dir = os.path.join(os.path.dirname(__file__), "..")
+workspace_dir = os.path.abspath(os.path.join(backend_dir, "..", "..", ".."))
+temp_root = os.path.join(workspace_dir, ".smoke-tmp", "agriguard-backend")
+os.makedirs(temp_root, exist_ok=True)
 
+
+def _subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["TMP"] = temp_root
+    env["TEMP"] = temp_root
+    env["TMPDIR"] = temp_root
+    return env
 
 def test_imports():
     """Verify all core modules can be imported without error."""
-    result = subprocess.run(["python", "-c", "import models, database, seed_db"], cwd=backend_dir)
+    result = subprocess.run(["python", "-c", "import models, database, seed_db"], cwd=backend_dir, env=_subprocess_env())
     assert result.returncode == 0
 
 
 def test_seed_db_creates_data():
     """Run seed_db and verify data counts."""
-    result = subprocess.run(["python", "seed_db.py"], cwd=backend_dir, capture_output=True)
+    result = subprocess.run(["python", "seed_db.py"], cwd=backend_dir, capture_output=True, env=_subprocess_env())
     assert result.returncode == 0
 
 
@@ -40,7 +50,7 @@ try:
 finally:
     db.close()
 """
-    result = subprocess.run(["python", "-c", code], cwd=backend_dir)
+    result = subprocess.run(["python", "-c", code], cwd=backend_dir, env=_subprocess_env())
     assert result.returncode == 0
 
 
@@ -48,17 +58,16 @@ def test_qr_event_summary_funnel_metrics():
     """Verify QR funnel summary math with a temporary SQLite database."""
     code = """
 import os
-import tempfile
+import uuid
 from datetime import datetime, timezone
 
-tmpdir = tempfile.mkdtemp()
-db_path = os.path.join(tmpdir, "qr-events-smoke.db")
+db_path = os.path.join(os.environ["TMP"], f"qr-events-smoke-{uuid.uuid4().hex}.db")
 os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
 os.environ["AUTO_CREATE_SCHEMA"] = "1"
 
 from database import SessionLocal, initialize_database
 import models
-from main import get_qr_event_summary
+from routers.qr_events import get_qr_event_summary
 
 initialize_database()
 db = SessionLocal()
@@ -93,19 +102,18 @@ try:
 finally:
     db.close()
 """
-    result = subprocess.run(["python", "-c", code], cwd=backend_dir)
+    result = subprocess.run(["python", "-c", code], cwd=backend_dir, env=_subprocess_env())
     assert result.returncode == 0
 
 
 def test_run_migrations_script_applies_head_revision():
     """Verify the Alembic migration runner upgrades a fresh database to the latest revision."""
-    fd, db_path = tempfile.mkstemp(suffix="-migrations-smoke.db")
-    os.close(fd)
+    db_path = os.path.join(temp_root, f"{uuid.uuid4().hex}-migrations-smoke.db")
     if os.path.exists(db_path):
         os.remove(db_path)
 
     try:
-        env = os.environ.copy()
+        env = _subprocess_env()
         env["DATABASE_URL"] = f"sqlite:///{db_path}"
         env["AUTO_CREATE_SCHEMA"] = "0"
 
@@ -136,8 +144,8 @@ def test_run_migrations_script_applies_head_revision():
 
 def test_qr_ab_script_handles_missing_variant_data():
     """Verify the QR A/B helper exits cleanly when one variant has no samples yet."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        dataset_path = os.path.join(tmpdir, "qr-ab.json")
+    dataset_path = os.path.join(temp_root, f"qr-ab-{uuid.uuid4().hex}.json")
+    try:
         payload = {
             "dataset_name": "single-arm sample",
             "sessions": [
@@ -161,7 +169,13 @@ def test_qr_ab_script_handles_missing_variant_data():
             cwd=backend_dir,
             capture_output=True,
             text=True,
+            env=_subprocess_env(),
         )
 
         assert result.returncode == 0, result.stderr or result.stdout
         assert "Need samples for both variants before making a decision" in result.stdout
+    finally:
+        try:
+            os.remove(dataset_path)
+        except OSError:
+            pass
