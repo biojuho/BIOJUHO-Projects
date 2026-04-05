@@ -104,8 +104,9 @@ Rules:
 - Do not write explicit labels such as "핵심 사실:", "배경/디테일:", or "전망/의미:".
 - Use exactly one emoji per section heading.
 - Keep the tone crisp and editorial, like a sharp morning briefing note.
-- Draft must be one short X-ready post in 3 to 5 short lines, roughly 180 to 260 characters total.
-- No hashtags, no emojis, no hook formulas, no rhetorical padding, no bold headings.
+- Draft must be one short X/Threads-ready post in 3 to 5 short lines, roughly 180 to 260 characters total.
+- For Draft: Use natural line breaks, engaging hooks, and a professional yet conversational tone suitable for social media distribution.
+- No spammy hashtags, no hook formulas, no rhetorical padding, no bold headings.
 - Do not output separate sections like Signal, Pattern, Ripple Effects, Counterpoint, or Action Items.
 - Use only the article set. If evidence is thin, say so briefly instead of filling space.
 """.strip()
@@ -162,7 +163,8 @@ Rules:
 - Action items must name one audience from this set only: {audiences}
 - No more than 2 audience types in the final output.
 - Every analytic bullet or sentence in Signal / Pattern / Ripple Effects / Counterpoint / Action Items must end with exactly one evidence tag.
-- Draft Post must be clean reader-facing prose with no evidence tags.
+- Draft Post must be clean reader-facing prose designed for X/Threads and Naver Blog.
+- For Draft Post: Use engaging hooks, natural spacing, and conversational tone to drive organic inbound traffic. Avoid evidence tags here.
 """.strip()
     else:
         user_prompt += (
@@ -198,6 +200,7 @@ Rules:
 - Action items must include an explicit timeframe and concrete target.
 - No more than 2 audience types in the final output.
 - Every analytic bullet or sentence in Signal / Pattern / Ripple Effects / Counterpoint / Action Items must end with exactly one evidence tag.
-- Draft Post must be clean reader-facing prose with no evidence tags.
+- Draft Post must be clean reader-facing prose designed for X/Threads and Naver Blog.
+- For Draft Post: Use engaging hooks, natural spacing, and conversational tone to drive organic inbound traffic. Avoid evidence tags here.
 """.strip()
     return mode, system_prompt, user_prompt

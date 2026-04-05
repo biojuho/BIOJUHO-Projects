@@ -7,11 +7,16 @@ from antigravity_mcp.evals.frozen_eval import run_frozen_eval
 from antigravity_mcp.integrations.llm_adapter import _SHARED_LLM_IMPORT_ERROR, _get_llm_client
 from antigravity_mcp.integrations.telegram_adapter import TelegramAdapter
 from antigravity_mcp.integrations.x_metrics_adapter import XMetricsAdapter
-from antigravity_mcp.pipelines.dashboard import refresh_dashboard
 from antigravity_mcp.state.events import error_response, ok, partial
 from antigravity_mcp.state.store import PipelineStateStore
 
 logger = logging.getLogger(__name__)
+
+
+async def refresh_dashboard(*args, **kwargs):
+    from antigravity_mcp.pipelines.dashboard import refresh_dashboard as _refresh_dashboard
+
+    return await _refresh_dashboard(*args, **kwargs)
 
 
 async def ops_get_run_status_tool(run_id: str) -> dict:

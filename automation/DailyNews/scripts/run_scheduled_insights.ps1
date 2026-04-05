@@ -6,9 +6,37 @@ param(
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $WorkspaceRoot = (Resolve-Path (Join-Path $ProjectRoot "..\..")).Path
 $LogDir = Join-Path $ProjectRoot "logs\insights"
-$PythonExe = Join-Path $WorkspaceRoot ".venv\Scripts\python.exe"
-if (-not (Test-Path $PythonExe)) {
-    $PythonExe = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+$PythonCandidates = @(
+    (Join-Path $ProjectRoot "venv\Scripts\python.exe"),
+    (Join-Path $WorkspaceRoot ".venv\Scripts\python.exe")
+)
+$PythonExe = $null
+
+function Test-PythonModules {
+    param([string]$PythonPath)
+
+    if (-not (Test-Path $PythonPath)) {
+        return $false
+    }
+
+    & $PythonPath -X utf8 -c "import importlib.util,sys;mods=('feedparser','google.genai','notion_client','httpx');sys.exit(0 if all(importlib.util.find_spec(m) for m in mods) else 1)" *> $null
+    return $LASTEXITCODE -eq 0
+}
+
+foreach ($Candidate in $PythonCandidates) {
+    if (Test-PythonModules -PythonPath $Candidate) {
+        $PythonExe = $Candidate
+        break
+    }
+}
+
+if (-not $PythonExe) {
+    foreach ($Candidate in $PythonCandidates) {
+        if (Test-Path $Candidate) {
+            $PythonExe = $Candidate
+            break
+        }
+    }
 }
 $Timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
 $LogFile = Join-Path $LogDir ("{0}_{1}.log" -f $Window, $Timestamp)
@@ -54,6 +82,11 @@ Write-Log ("DailyNews {0} insight generation started" -f $Window)
 Write-Log ("Mode: {0}" -f $Config.PromptMode)
 Write-Log ("Started: {0}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
 Write-Log ("ProjectRoot: {0}" -f $ProjectRoot)
+if ($PythonExe) {
+    Write-Log ("PythonExe: {0}" -f $PythonExe)
+} else {
+    Write-Log "PythonExe: not found"
+}
 Write-Log "========================================="
 
 if (-not (Test-Path $PythonExe)) {
@@ -106,27 +139,34 @@ try {
     $GenerateOutput | ForEach-Object { Add-Content -Path $LogFile -Value $_ -Encoding utf8 }
     $GenerateExitCode = $LASTEXITCODE
 
-    # Extract report IDs — Method 1: regex (encoding-safe)
+    # Extract report IDs from the top-level report_ids array only.
     $ReportIds = @()
     try {
         $GenerateText = ($GenerateOutput | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
-        $RegexResult = [regex]::Matches($GenerateText, '"(report-[a-z_]+-\d{8}T\d{6}Z)"')
-        $Seen = @{}
-        foreach ($m in $RegexResult) {
-            $rid = $m.Groups[1].Value
-            if (-not $Seen.ContainsKey($rid)) {
-                $ReportIds += $rid
-                $Seen[$rid] = $true
+        $ReportIdsSection = [regex]::Match(
+            $GenerateText,
+            '"report_ids"\s*:\s*\[(.*?)\]',
+            [System.Text.RegularExpressions.RegexOptions]::Singleline
+        )
+        if ($ReportIdsSection.Success) {
+            $RegexResult = [regex]::Matches($ReportIdsSection.Groups[1].Value, '"(report-[a-z_]+-\d{8}T\d{6}Z)"')
+            $Seen = @{}
+            foreach ($m in $RegexResult) {
+                $rid = $m.Groups[1].Value
+                if (-not $Seen.ContainsKey($rid)) {
+                    $ReportIds += $rid
+                    $Seen[$rid] = $true
+                }
             }
         }
         if ($ReportIds.Count -gt 0) {
-            Write-Log ("[EXTRACT] Regex extracted {0} report ID(s)" -f $ReportIds.Count)
+            Write-Log ("[EXTRACT] Top-level report_ids yielded {0} report ID(s)" -f $ReportIds.Count)
         }
     } catch {
-        Write-Log ("[WARNING] Regex extraction failed: {0}" -f $_.Exception.Message)
+        Write-Log ("[WARNING] Report ID extraction failed: {0}" -f $_.Exception.Message)
     }
 
-    # Extract report IDs — Method 2: DB fallback (if regex found nothing)
+    # Extract report IDs ??Method 2: DB fallback (if regex found nothing)
     if ($ReportIds.Count -eq 0) {
         Write-Log "[EXTRACT] Regex found 0 IDs; querying DB for recent draft reports..."
         $DbFallbackScript = @"

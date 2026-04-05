@@ -5,10 +5,26 @@ import asyncio
 import json
 import sys
 
-from antigravity_mcp.pipelines.dashboard import refresh_dashboard
 from antigravity_mcp.state.events import json_dumps
 from antigravity_mcp.state.store import PipelineStateStore
-from antigravity_mcp.tooling.ops_tools import ops_get_run_status_tool, ops_run_frozen_eval_tool
+
+
+async def refresh_dashboard(*args, **kwargs):
+    from antigravity_mcp.pipelines.dashboard import refresh_dashboard as _refresh_dashboard
+
+    return await _refresh_dashboard(*args, **kwargs)
+
+
+async def ops_get_run_status_tool(*args, **kwargs):
+    from antigravity_mcp.tooling.ops_tools import ops_get_run_status_tool as _ops_get_run_status_tool
+
+    return await _ops_get_run_status_tool(*args, **kwargs)
+
+
+async def ops_run_frozen_eval_tool(*args, **kwargs):
+    from antigravity_mcp.tooling.ops_tools import ops_run_frozen_eval_tool as _ops_run_frozen_eval_tool
+
+    return await _ops_run_frozen_eval_tool(*args, **kwargs)
 
 
 async def run_ops_refresh_dashboard() -> int:

@@ -507,6 +507,97 @@ class TestPublishPipeline:
         assert any("already exists" in w for w in warnings)
 
     @pytest.mark.asyncio
+    async def test_duplicate_check_uses_exact_window_title_20260405(self, state_store, sample_report):
+        from antigravity_mcp.pipelines.publish import publish_report
+
+        class FrozenDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls(2026, 3, 4, 8, 30, tzinfo=tz)
+
+        state_store.save_report(sample_report)
+
+        mock_notion = MagicMock()
+        mock_notion.is_configured.return_value = True
+        mock_notion.query_database = AsyncMock(return_value=([], ""))
+        mock_notion.create_record = AsyncMock(return_value={"id": "new-page-id", "url": "https://notion.so/new"})
+
+        mock_telegram = MagicMock()
+        mock_telegram.send_message = AsyncMock(return_value=True)
+
+        fake_settings = MagicMock(
+            content_approval_mode="manual",
+            notion_reports_database_id="db-123",
+            auto_push_enabled=False,
+        )
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings), patch(
+            "antigravity_mcp.pipelines.publish.datetime",
+            FrozenDateTime,
+        ):
+            await publish_report(
+                report_id=sample_report.report_id,
+                channels=[],
+                approval_mode="manual",
+                state_store=state_store,
+                notion_adapter=mock_notion,
+                telegram_adapter=mock_telegram,
+            )
+
+        filter_payload = mock_notion.query_database.await_args.kwargs["filter_payload"]
+        assert filter_payload == {
+            "and": [
+                {"property": "Date", "date": {"equals": "2026-03-04"}},
+                {"property": "Name", "title": {"equals": "Tech Morning Brief 2026-03-04"}},
+            ]
+        }
+
+        create_properties = mock_notion.create_record.await_args.kwargs["properties"]
+        assert create_properties["Name"]["title"][0]["text"]["content"] == "Tech Morning Brief 2026-03-04"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_check_failure_skips_creation_20260405(self, state_store, sample_report):
+        from antigravity_mcp.integrations.notion_adapter import NotionAdapterError
+        from antigravity_mcp.pipelines.publish import publish_report
+
+        state_store.save_report(sample_report)
+
+        mock_notion = MagicMock()
+        mock_notion.is_configured.return_value = True
+        mock_notion.query_database = AsyncMock(
+            side_effect=NotionAdapterError("notion_query_failed", "timeout during duplicate lookup")
+        )
+        mock_notion.create_record = AsyncMock()
+
+        mock_telegram = MagicMock()
+        mock_telegram.send_message = AsyncMock(return_value=True)
+
+        fake_settings = MagicMock(
+            content_approval_mode="manual",
+            notion_reports_database_id="db-123",
+            auto_push_enabled=False,
+        )
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings):
+            _, publication, warnings, status = await publish_report(
+                report_id=sample_report.report_id,
+                channels=[],
+                approval_mode="manual",
+                state_store=state_store,
+                notion_adapter=mock_notion,
+                telegram_adapter=mock_telegram,
+            )
+
+        mock_notion.create_record.assert_not_called()
+        assert publication["notion_status"] == "duplicate_check_failed"
+        assert publication["report_status"] == "draft"
+        assert status == "partial"
+        assert any("duplicate check failed" in w for w in warnings)
+
+        saved = state_store.get_report(sample_report.report_id)
+        assert saved is not None
+        assert saved.status == "draft"
+        assert saved.has_notion_sync() is False
+
+    @pytest.mark.asyncio
     async def test_regression_properties_include_type_sentiment_entities_20260331(self, state_store, sample_report):
         """Regression: publish_report should set Type=News and map Sentiment/Entities from analysis_meta."""
         from antigravity_mcp.pipelines.publish import publish_report
@@ -597,6 +688,60 @@ class TestPublishPipeline:
         assert fake_x.approval_modes == ["manual"]
         assert any("Auto publishing downgraded to manual" in warning for warning in warnings)
         get_settings.cache_clear()
+
+    @pytest.mark.asyncio
+    async def test_publish_marks_partial_thread_when_x_thread_fails_midway(self, state_store, sample_report):
+        from antigravity_mcp.pipelines.publish import publish_report
+
+        sample_report.channel_drafts = [
+            ChannelDraft(channel="x", status="draft", content="L" * 900),
+        ]
+        state_store.save_report(sample_report)
+
+        class FakeNotion:
+            def is_configured(self) -> bool:
+                return False
+
+        class FakeX:
+            async def post_thread(self, tweets: list[str]):
+                assert tweets == ["tweet-1", "tweet-2", "tweet-3"]
+                return [
+                    {"status": "published", "tweet_id": "tweet-101", "tweet_index": "1"},
+                    {"status": "published", "tweet_id": "tweet-102", "tweet_index": "2"},
+                    {"status": "error", "message": "429 rate limited", "tweet_index": "3"},
+                ]
+
+        mock_telegram = MagicMock()
+        mock_telegram.send_message = AsyncMock(return_value=True)
+
+        fake_settings = MagicMock(
+            content_approval_mode="auto",
+            notion_reports_database_id="",
+            auto_push_enabled=True,
+        )
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings), patch(
+            "antigravity_mcp.pipelines.publish.XAdapter.split_to_thread",
+            return_value=["tweet-1", "tweet-2", "tweet-3"],
+        ):
+            _, publication, warnings, status = await publish_report(
+                report_id=sample_report.report_id,
+                channels=["x"],
+                approval_mode="auto",
+                state_store=state_store,
+                notion_adapter=FakeNotion(),
+                x_adapter=FakeX(),
+                telegram_adapter=mock_telegram,
+            )
+
+        assert publication["x_status"] == "partial_thread"
+        assert publication["x_thread_ids"] == "tweet-101,tweet-102"
+        assert publication["x_failed_index"] == "3"
+        assert publication["x_failed_status"] == "error"
+        assert publication["x_published_count"] == "2"
+        assert status == "partial"
+        assert any("partially published" in warning for warning in warnings)
+        assert "429 rate limited" in warnings
+        assert set(state_store.get_recent_tweet_ids(hours=1)) >= {"tweet-101", "tweet-102"}
 
     def test_report_markdown_includes_analysis_meta(self, sample_report):
         from antigravity_mcp.pipelines.publish import _report_markdown

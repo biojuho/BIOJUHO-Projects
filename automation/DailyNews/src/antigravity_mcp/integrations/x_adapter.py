@@ -142,7 +142,7 @@ class XAdapter:
         if client is None:
             return {"status": "error", "message": "Failed to initialise X client."}
 
-        tweet_text = _inject_newsletter_cta(content[:270])
+        tweet_text = _inject_newsletter_cta(content[:280])
         tweet_text = tweet_text[:280]  # Final safety trim
         try:
             response = await asyncio.to_thread(client.create_tweet, text=tweet_text)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -136,4 +137,35 @@ async def test_daily_limit_blocks_after_cap(sample_report, tmp_path):
     assert r1["status"] == "published"
     assert r2["status"] == "published"
     assert r3["status"] == "blocked"
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_post_thread_marks_failure_index_and_skips_remaining(tmp_path):
+    from antigravity_mcp.state.store import PipelineStateStore
+
+    store = PipelineStateStore(path=tmp_path / "test_x_thread.db")
+    mock_client = MagicMock()
+    mock_client.create_tweet.side_effect = [
+        SimpleNamespace(data={"id": "101"}),
+        SimpleNamespace(data={"id": "102"}),
+        RuntimeError("rate limited"),
+    ]
+
+    with (
+        patch("antigravity_mcp.integrations.x_adapter._TWEEPY_AVAILABLE", True),
+        patch("antigravity_mcp.integrations.x_adapter.has_credentials", return_value=True),
+        patch.object(XAdapter, "_build_client", return_value=mock_client),
+    ):
+        adapter = XAdapter(state_store=store)
+        adapter.settings = _auto_settings(x_daily_post_limit=10)
+        results = await adapter.post_thread(["1/4 one", "2/4 two", "3/4 three", "4/4 four"])
+
+    assert results == [
+        {"status": "published", "tweet_id": "101", "tweet_index": "1"},
+        {"status": "published", "tweet_id": "102", "tweet_index": "2"},
+        {"status": "error", "message": "RuntimeError: rate limited", "tweet_index": "3"},
+        {"status": "skipped", "message": "Skipped: prior tweet 3 failed", "tweet_index": "4"},
+    ]
+    assert store.get_x_post_count(date.today().isoformat()) == 2
     store.close()

@@ -131,7 +131,7 @@ async def test_collect_default_feed_adapter_receives_state_store(monkeypatch, tm
         async def fetch_entries(self, url: str):
             return []
 
-    monkeypatch.setattr("antigravity_mcp.pipelines.collect.FeedAdapter", FakeFeedAdapter)
+    monkeypatch.setattr("antigravity_mcp.integrations.feed_adapter.FeedAdapter", FakeFeedAdapter)
     monkeypatch.setattr(
         "antigravity_mcp.pipelines.collect.load_sources",
         lambda: {"Tech": [{"name": "Feed", "url": "https://example.com/rss"}]},

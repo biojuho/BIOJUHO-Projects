@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DailyNews 구독을 환영합니다!</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+      font-size: 16px; line-height: 1.6; color: #1a1a2e;
+      background-color: #f4f4f8;
+    }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+    .header {
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff; padding: 40px 24px; text-align: center;
+    }
+    .header h1 { margin: 0 0 8px; font-size: 32px; }
+    .header p { color: #b8b8cc; margin: 0; font-size: 16px; }
+    .body { padding: 32px 24px; }
+    .body h2 { color: #302b63; font-size: 20px; margin: 0 0 16px; }
+    .body p { margin: 0 0 16px; color: #444; }
+    .checklist {
+      background: #f8f7ff; border-radius: 12px; padding: 24px;
+      margin: 24px 0;
+    }
+    .checklist-item {
+      padding: 8px 0; font-size: 15px;
+      border-bottom: 1px solid #eef0f5;
+    }
+    .checklist-item:last-child { border-bottom: none; }
+    .checklist-item::before { content: "✅ "; }
+    .cta-container { text-align: center; padding: 24px; }
+    .cta {
+      display: inline-block; background: #6c63ff; color: #ffffff !important;
+      padding: 14px 32px; border-radius: 8px; text-decoration: none;
+      font-weight: 600; font-size: 16px;
+    }
+    .footer {
+      padding: 24px; text-align: center;
+      font-size: 12px; color: #999; background: #fafafa;
+    }
+    .footer a { color: #6c63ff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <center>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+           style="background: #f4f4f8;">
+      <tr>
+        <td align="center" style="padding: 16px 0;">
+          <div class="container">
+            <div class="header">
+              <h1>환영합니다! 🎉</h1>
+              <p>DailyNews 구독이 완료되었습니다</p>
+            </div>
+
+            <div class="body">
+              <h2>무엇을 받게 되나요?</h2>
+              <p>매일 아침 7시, 오후 6시 — AI가 큐레이션한 경제·테크·AI 인사이트가 인박스로 도착합니다.</p>
+
+              <div class="checklist">
+                <div class="checklist-item">경제 핵심 뉴스 3분 요약</div>
+                <div class="checklist-item">AI/테크 산업 인사이트</div>
+                <div class="checklist-item">실행 가능한 투자 아이디어</div>
+                <div class="checklist-item">주간 딥다이브 리포트</div>
+              </div>
+
+              <p>첫 번째 브리핑은 <strong>내일 아침 7시</strong>에 만나요! ☀️</p>
+            </div>
+
+            {% if signup_url %}
+            <div class="cta-container">
+              <a href="{{ signup_url }}" class="cta">카테고리 맞춤 설정 →</a>
+            </div>
+            {% endif %}
+
+            <div class="footer">
+              <p>이 메일은 <strong>{{ subscriber_email }}</strong>으로 발송되었습니다.</p>
+              <p>© DailyNews by Antigravity</p>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </center>
+</body>
+</html>

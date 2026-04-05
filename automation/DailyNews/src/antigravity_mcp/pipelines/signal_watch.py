@@ -1,0 +1,292 @@
+"""Signal Watch Pipeline — standalone trend monitoring for DailyNews.
+
+Runs independently of the main batch pipeline. Can be triggered:
+  - CLI: `antigravity-mcp signal watch`
+  - GitHub Actions cron (every 3 hours)
+  - Manual invocation
+
+Outputs signal reports to state DB and optionally triggers draft generation.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import sqlite3
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+from antigravity_mcp.config import DATA_DIR
+from antigravity_mcp.domain.models import ContentItem
+from antigravity_mcp.integrations.signal_collector import MultiSourceCollector
+from antigravity_mcp.integrations.signal_scorer import ScoredSignal, SignalScorer
+from antigravity_mcp.pipelines.analyze import generate_briefs
+from antigravity_mcp.state.store import PipelineStateStore
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Signal State Store (lightweight SQLite for signal history)
+# ---------------------------------------------------------------------------
+
+_SIGNAL_DB_PATH = DATA_DIR / "signal_watch.db"
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS signal_history (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword       TEXT NOT NULL,
+    composite_score REAL NOT NULL,
+    sources       TEXT NOT NULL,       -- JSON array
+    source_count  INTEGER NOT NULL,
+    arbitrage_type TEXT NOT NULL,
+    recommended_action TEXT NOT NULL,
+    velocity      REAL DEFAULT 0.0,
+    category_hint TEXT DEFAULT '',
+    detected_at   TEXT NOT NULL,
+    raw_data      TEXT DEFAULT '{}'    -- JSON
+);
+CREATE INDEX IF NOT EXISTS idx_sh_keyword_detected ON signal_history(keyword, detected_at);
+CREATE INDEX IF NOT EXISTS idx_sh_detected ON signal_history(detected_at);
+CREATE INDEX IF NOT EXISTS idx_sh_score ON signal_history(composite_score);
+"""
+
+
+class SignalStateStore:
+    """Lightweight SQLite store for signal watch history."""
+
+    def __init__(self, *, db_path: Path | str | None = None) -> None:
+        self._db_path = str(db_path or _SIGNAL_DB_PATH)
+        self._initialised = False
+
+    def _ensure_init(self) -> None:
+        if self._initialised:
+            return
+        os.makedirs(os.path.dirname(self._db_path) or ".", exist_ok=True)
+        with sqlite3.connect(self._db_path) as conn:
+            conn.executescript(_SCHEMA)
+        self._initialised = True
+
+    def save_signals(self, signals: list[ScoredSignal]) -> int:
+        """Persist scored signals. Returns count saved."""
+        self._ensure_init()
+        now = datetime.now(UTC).isoformat()
+        rows = []
+        for s in signals:
+            rows.append((
+                s.keyword,
+                s.composite_score,
+                json.dumps(s.sources),
+                s.source_count,
+                s.arbitrage_type,
+                s.recommended_action,
+                s.velocity,
+                s.category_hint,
+                now,
+                json.dumps({"raw_count": len(s.raw_signals)}),
+            ))
+
+        with sqlite3.connect(self._db_path) as conn:
+            conn.executemany(
+                """
+                INSERT INTO signal_history
+                    (keyword, composite_score, sources, source_count,
+                     arbitrage_type, recommended_action, velocity,
+                     category_hint, detected_at, raw_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+        return len(rows)
+
+    def get_signal_history(self, *, hours: int = 24, min_score: float = 0.0, limit: int = 50) -> list[dict[str, Any]]:
+        """Get recent signal history."""
+        self._ensure_init()
+        cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
+        with sqlite3.connect(self._db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT keyword, composite_score, sources, source_count,
+                       arbitrage_type, recommended_action, velocity,
+                       category_hint, detected_at
+                FROM signal_history
+                WHERE detected_at >= ? AND composite_score >= ?
+                ORDER BY composite_score DESC
+                LIMIT ?
+                """,
+                (cutoff, min_score, limit),
+            )
+            rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    def is_duplicate(self, keyword: str, *, within_hours: int = 3) -> bool:
+        """Check if we already recorded this keyword recently."""
+        self._ensure_init()
+        cutoff = (datetime.now(UTC) - timedelta(hours=within_hours)).isoformat()
+        with sqlite3.connect(self._db_path) as conn:
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM signal_history WHERE keyword = ? AND detected_at >= ?",
+                (keyword, cutoff),
+            )
+            row = cursor.fetchone()
+            return (row[0] or 0) > 0
+
+
+# ---------------------------------------------------------------------------
+# Pipeline Entry Point
+# ---------------------------------------------------------------------------
+
+
+async def run_signal_watch(
+    *,
+    threshold: float = 0.6,
+    auto_draft: bool = False,
+    categories: list[str] | None = None,
+    country: str = "KR",
+    limit_per_source: int = 20,
+    dedup_hours: int = 3,
+    db_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Run one cycle of signal watch.
+
+    1. Collect signals from all sources (parallel)
+    2. Cross-verify and score
+    3. De-duplicate against recent history
+    4. Save to state DB
+    5. Return actionable signals
+
+    Args:
+        threshold: Minimum composite score to report.
+        auto_draft: If True, trigger draft generation for top signals.
+        categories: Target categories for affinity scoring.
+        country: Country for Google Trends.
+        limit_per_source: Max signals per source.
+        dedup_hours: Skip keywords seen within this window.
+        db_path: Override signal DB path (for testing).
+
+    Returns:
+        {
+            "status": "ok",
+            "total_collected": int,
+            "total_scored": int,
+            "actionable": int,
+            "signals": [...],
+            "sources": [...],
+        }
+    """
+    started_at = datetime.now(UTC)
+    store = SignalStateStore(db_path=db_path)
+
+    # Step 1: Collect
+    collector = MultiSourceCollector(country=country)
+    raw_signals = await collector.collect_all(limit_per_source=limit_per_source)
+
+    if not raw_signals:
+        return {
+            "status": "ok",
+            "total_collected": 0,
+            "total_scored": 0,
+            "actionable": 0,
+            "signals": [],
+            "sources": collector.source_names,
+            "elapsed_sec": (datetime.now(UTC) - started_at).total_seconds(),
+        }
+
+    # Step 2: Score
+    scorer = SignalScorer(target_categories=categories)
+    scored = scorer.score_signals(raw_signals, min_score=threshold)
+
+    # Step 3: De-duplicate
+    actionable: list[ScoredSignal] = []
+    for signal in scored:
+        if not store.is_duplicate(signal.keyword, within_hours=dedup_hours):
+            actionable.append(signal)
+
+    # Step 4: Save
+    if actionable:
+        store.save_signals(actionable)
+
+    # Step 5: Format output
+    signal_dicts = []
+    for s in actionable:
+        signal_dicts.append({
+            "keyword": s.keyword,
+            "score": s.composite_score,
+            "sources": s.sources,
+            "source_count": s.source_count,
+            "type": s.arbitrage_type,
+            "action": s.recommended_action,
+            "velocity": s.velocity,
+            "category": s.category_hint,
+        })
+
+    # Step 6: Auto-draft Trigger
+    if auto_draft and actionable:
+        draft_candidates = [s for s in actionable if s.recommended_action in ("draft_now", "series")]
+        if draft_candidates:
+            await _trigger_auto_draft(draft_candidates, run_id=f"signal_{started_at.strftime('%Y%m%d%H%M')}")
+
+    elapsed = (datetime.now(UTC) - started_at).total_seconds()
+
+    logger.info(
+        "Signal Watch complete: %d collected → %d scored → %d actionable (%.1fs)",
+        len(raw_signals),
+        len(scored),
+        len(actionable),
+        elapsed,
+    )
+
+    return {
+        "status": "ok",
+        "total_collected": len(raw_signals),
+        "total_scored": len(scored),
+        "actionable": len(actionable),
+        "signals": signal_dicts,
+        "sources": collector.source_names,
+        "elapsed_sec": round(elapsed, 2),
+    }
+
+
+async def _trigger_auto_draft(signals: list[ScoredSignal], run_id: str) -> None:
+    """Generate synthetic ContentItems for signals and push to analyze pipeline."""
+    items = []
+    now_iso = datetime.now(UTC).isoformat()
+    for s in signals:
+        # Create synthetic ContentItem mapped from signal
+        items.append(
+            ContentItem(
+                source_name="SignalArbitrage",
+                category="TrendAlert",
+                title=f"🚀 Trending Alert: {s.keyword} ({s.arbitrage_type})",
+                link=f"https://www.google.com/search?q={s.keyword}&tbm=nws",  # Fallback query
+                published_at=now_iso,
+                summary=(
+                    f"Trend detected via {', '.join(s.sources)} with score {s.composite_score:.2f}. "
+                    f"Velocity: {s.velocity:.2f}. Suggested action: {s.recommended_action}."
+                ),
+            )
+        )
+
+    logger.info("Auto-drafting %d trending signals...", len(items))
+    state_store = PipelineStateStore()
+    
+    try:
+        # We can bypass collect.py and directly trigger analyze
+        run_id_out, reports, warnings, status = await generate_briefs(
+            items=items,
+            window_name="Trending_Alert",
+            window_start=now_iso,
+            window_end=now_iso,
+            state_store=state_store,
+            run_id=run_id,
+        )
+        logger.info(
+            "Auto-draft finished: status=%s, %d reports generated. Warnings: %s",
+            status, len(reports), warnings
+        )
+    except Exception as exc:
+        logger.error("Auto-draft pipeline failed: %s", exc)

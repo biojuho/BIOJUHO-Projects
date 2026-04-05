@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>DailyNews {{ edition | title }} Brief</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    /* Reset */
+    body, table, td, p, a, li { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; outline: none; text-decoration: none; }
+
+    /* Base */
+    body {
+      margin: 0; padding: 0; width: 100%;
+      font-family: -apple-system, 'Pretendard', 'Noto Sans KR', 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px; line-height: 1.6; color: #1a1a2e;
+      background-color: #f4f4f8;
+    }
+
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #ffffff; padding: 32px 24px; text-align: center;
+    }
+    .header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    .header .meta { font-size: 14px; color: #b8b8cc; margin: 0; }
+
+    /* Edition Badge */
+    .badge {
+      display: inline-block; padding: 4px 12px; border-radius: 12px;
+      font-size: 12px; font-weight: 600; text-transform: uppercase;
+      background: rgba(255,255,255,0.15); color: #e0e0ff;
+      margin-bottom: 12px;
+    }
+
+    /* Section */
+    .section {
+      padding: 24px; border-bottom: 1px solid #eef0f5;
+    }
+    .section:last-of-type { border-bottom: none; }
+
+    .section h2 {
+      margin: 0 0 16px; font-size: 18px; font-weight: 700;
+      color: #302b63; border-left: 4px solid #6c63ff; padding-left: 12px;
+    }
+    .section p { margin: 0 0 12px; color: #333; }
+
+    /* Insight callout */
+    .insight {
+      background: #f8f7ff; border-left: 3px solid #6c63ff;
+      padding: 12px 16px; margin: 16px 0; border-radius: 0 8px 8px 0;
+      font-size: 15px; color: #302b63;
+    }
+    .insight::before { content: "💡 "; }
+
+    /* CTA button */
+    .cta-container { text-align: center; padding: 32px 24px; }
+    .cta {
+      display: inline-block; background: #6c63ff; color: #ffffff !important;
+      padding: 14px 32px; border-radius: 8px; text-decoration: none;
+      font-weight: 600; font-size: 16px; letter-spacing: 0.3px;
+    }
+    .cta:hover { background: #574bdb; }
+
+    /* Divider */
+    .divider { height: 1px; background: #eef0f5; margin: 0; }
+
+    /* Footer */
+    .footer {
+      padding: 24px; text-align: center;
+      font-size: 12px; color: #999; background: #fafafa;
+    }
+    .footer a { color: #6c63ff; text-decoration: none; }
+    .footer p { margin: 4px 0; }
+
+    /* Responsive */
+    @media only screen and (max-width: 600px) {
+      .container { width: 100% !important; }
+      .header { padding: 24px 16px; }
+      .header h1 { font-size: 24px; }
+      .section { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <center>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #f4f4f8;">
+      <tr>
+        <td align="center" style="padding: 16px 0;">
+          <div class="container">
+            <!-- Header -->
+            <div class="header">
+              <div class="badge">{{ edition | upper }}</div>
+              <h1>DailyNews</h1>
+              <p class="meta">{{ date }} · {{ report_count }}개 카테고리 인사이트</p>
+            </div>
+
+            <!-- Reports -->
+            {% for report in reports %}
+            <div class="section">
+              <h2>{{ report.category }}</h2>
+              {% for line in report.summary_lines[:3] %}
+              <p>{{ line }}</p>
+              {% endfor %}
+              {% if report.insights %}
+              <div class="insight">{{ report.insights[0] }}</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+
+            <!-- CTA: X Discussion -->
+            {% if x_discussion_url %}
+            <div class="cta-container">
+              <a href="{{ x_discussion_url }}" class="cta">X에서 토론 참여 →</a>
+            </div>
+            {% endif %}
+
+            <!-- CTA: Share -->
+            {% if signup_url %}
+            <div class="section" style="text-align: center; background: #f8f7ff; padding: 20px;">
+              <p style="margin: 0 0 8px; font-size: 14px; color: #666;">이 뉴스레터가 유용했다면?</p>
+              <a href="{{ signup_url }}" style="color: #6c63ff; font-weight: 600; text-decoration: none;">
+                동료에게 공유하기 →
+              </a>
+            </div>
+            {% endif %}
+
+            <!-- Footer -->
+            <div class="footer">
+              <p>이 메일은 <strong>{{ subscriber_email }}</strong>으로 발송되었습니다.</p>
+              <p>
+                <a href="{{ unsubscribe_url }}">구독 해제</a>
+                {% if signup_url %} · <a href="{{ signup_url }}">카테고리 변경</a>{% endif %}
+              </p>
+              <p style="margin-top: 12px; color: #ccc;">© DailyNews by Antigravity</p>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </center>
+</body>
+</html>

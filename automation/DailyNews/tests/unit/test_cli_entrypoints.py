@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import builtins
+import importlib
 import io
 import runpy
 import sys
@@ -17,6 +18,23 @@ class _StdoutBuffer:
 
 
 class TestCliModule:
+    def test_import_defers_ops_dependencies(self, monkeypatch):
+        sys.modules.pop("antigravity_mcp.cli", None)
+        sys.modules.pop("antigravity_mcp.cli_ops", None)
+        sys.modules.pop("antigravity_mcp.tooling.content_tools", None)
+        original_import = builtins.__import__
+
+        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name in {"antigravity_mcp.cli_ops", "antigravity_mcp.tooling.content_tools"}:
+                raise AssertionError(f"{name} imported eagerly")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+        module = importlib.import_module("antigravity_mcp.cli")
+
+        assert module.__name__ == "antigravity_mcp.cli"
+
     @pytest.mark.asyncio
     async def test_run_jobs_helpers_return_expected_exit_codes(self, monkeypatch):
         import antigravity_mcp.cli as cli
@@ -84,6 +102,22 @@ class TestCliModule:
 
 
 class TestCliOpsModule:
+    def test_import_defers_dashboard_dependencies(self, monkeypatch):
+        sys.modules.pop("antigravity_mcp.cli_ops", None)
+        sys.modules.pop("antigravity_mcp.tooling.ops_tools", None)
+        original_import = builtins.__import__
+
+        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name in {"antigravity_mcp.pipelines.dashboard", "antigravity_mcp.tooling.ops_tools"}:
+                raise AssertionError(f"{name} imported eagerly")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+        module = importlib.import_module("antigravity_mcp.cli_ops")
+
+        assert module.__name__ == "antigravity_mcp.cli_ops"
+
     @pytest.mark.asyncio
     async def test_run_ops_refresh_dashboard_and_frozen_eval(self, monkeypatch):
         import antigravity_mcp.cli_ops as cli_ops

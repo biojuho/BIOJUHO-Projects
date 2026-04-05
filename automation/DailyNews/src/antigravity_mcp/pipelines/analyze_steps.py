@@ -80,7 +80,9 @@ def _coerce_generated_payload(
 
 
 def _normalize_text_for_fingerprint(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip().lower()
+    # Strip Jina deep context so fingerprint stays stable across re-runs
+    base = text.split("\n\n[Deep Context (Jina.ai)]")[0] if "[Deep Context (Jina.ai)]" in text else text
+    return re.sub(r"\s+", " ", base).strip().lower()
 
 
 def build_report_fingerprint(

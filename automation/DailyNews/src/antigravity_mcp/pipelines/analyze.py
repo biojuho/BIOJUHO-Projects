@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
-
-import logging
 
 from antigravity_mcp.config import emit_metric
 from antigravity_mcp.domain.models import ContentItem, ContentReport
 from antigravity_mcp.integrations.embedding_adapter import EmbeddingAdapter
 from antigravity_mcp.integrations.insight_adapter import InsightAdapter
+from antigravity_mcp.integrations.jina_adapter import JinaAdapter
 from antigravity_mcp.integrations.llm_adapter import LLMAdapter
 from antigravity_mcp.integrations.telegram_adapter import TelegramAdapter
 from antigravity_mcp.pipelines.analyze_steps import (
@@ -48,13 +48,14 @@ class BriefAdapters:
     insight: Any | None = None
     reasoning: Any | None = None
     digest: Any | None = None
+    jina: JinaAdapter | None = None
 
 
 def _resolve_adapters(
-    state_store: "PipelineStateStore",
-    adapters: "BriefAdapters | None",
-    llm_adapter: "LLMAdapter | None",
-    embedding_adapter: "EmbeddingAdapter | None",
+    state_store: PipelineStateStore,
+    adapters: BriefAdapters | None,
+    llm_adapter: LLMAdapter | None,
+    embedding_adapter: EmbeddingAdapter | None,
     insight_adapter: Any,
     sentiment_adapter: Any,
     brain_adapter: Any,
@@ -63,7 +64,7 @@ def _resolve_adapters(
     skill_adapter: Any,
     reasoning_adapter: Any,
     digest_adapter: Any,
-) -> "BriefAdapters":
+) -> BriefAdapters:
     """Merge legacy kwargs into a BriefAdapters bag (explicit kwargs win over bag defaults)."""
     a = adapters or BriefAdapters()
     llm = llm_adapter or a.llm or LLMAdapter(state_store=state_store)
@@ -86,6 +87,7 @@ def _resolve_adapters(
         skill=skill_adapter or a.skill,
         reasoning=reasoning_adapter or a.reasoning,
         digest=digest_adapter or a.digest,
+        jina=a.jina or JinaAdapter(),
     )
 
 
@@ -96,13 +98,16 @@ async def _process_category(
     window_name: str,
     window_start: str,
     window_end: str,
-    state_store: "PipelineStateStore",
+    state_store: PipelineStateStore,
     run_id: str,
-    resolved: "BriefAdapters",
+    resolved: BriefAdapters,
     reports: list,
     warnings: list[str],
 ) -> None:
     """단일 카테고리 브리프 생성 → reports/warnings에 인플레이스 추가."""
+
+    # Fingerprint must be computed BEFORE Jina enrichment to ensure
+    # idempotent dedup (Jina mutates item.summary, changing the hash).
     ctx, existing = prepare_category_batch(
         category=category,
         category_items=category_items,
@@ -116,6 +121,17 @@ async def _process_category(
         reports.append(existing)
         warnings.append(f"Reused existing report for {category}.")
         return
+
+    # 🌟 Jina AI Deep Research Fetching (after fingerprint, before LLM)
+    if resolved.jina:
+        urls_to_fetch = [item.link for item in category_items if item.link and str(item.link).startswith("http")]
+        if urls_to_fetch:
+            logger.info("Fetching deep context via Jina.ai for %d URLs in %s", len(urls_to_fetch), category)
+            contexts = await resolved.jina.fetch_contexts_for_urls(urls_to_fetch)
+            for item in category_items:
+                if item.link in contexts and "[Deep Context (Jina.ai)]" not in item.summary:
+                    deep_text = contexts[item.link]
+                    item.summary = f"{item.summary}\n\n[Deep Context (Jina.ai)]\n{deep_text}"
 
     await generate_base_payload(ctx, resolved.llm)
     await apply_proofreading(ctx, resolved.proofreader)

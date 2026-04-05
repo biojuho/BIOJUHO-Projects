@@ -4,12 +4,7 @@ import argparse
 import asyncio
 import sys
 
-from antigravity_mcp.cli_ops import dispatch_ops_command
 from antigravity_mcp.state.events import json_dumps
-from antigravity_mcp.tooling.content_tools import (
-    content_generate_brief_tool,
-    content_publish_report_tool,
-)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,6 +39,14 @@ def build_parser() -> argparse.ArgumentParser:
     frozen_eval.add_argument("--output", default="")
     frozen_eval.add_argument("--state-db", default="")
 
+    # Newsletter management (v2.0)
+    from antigravity_mcp.cli_newsletter import register_newsletter_parser
+    register_newsletter_parser(subparsers)
+
+    # Signal Arbitrage (v2.1)
+    from antigravity_mcp.cli_signal import register_signal_parser
+    register_signal_parser(subparsers)
+
     return parser
 
 
@@ -68,6 +71,28 @@ async def _run_jobs_publish_report(args: argparse.Namespace) -> int:
     return 0 if result["status"] != "error" else 1
 
 
+async def content_generate_brief_tool(*args, **kwargs):
+    from antigravity_mcp.tooling.content_tools import (
+        content_generate_brief_tool as _content_generate_brief_tool,
+    )
+
+    return await _content_generate_brief_tool(*args, **kwargs)
+
+
+async def content_publish_report_tool(*args, **kwargs):
+    from antigravity_mcp.tooling.content_tools import (
+        content_publish_report_tool as _content_publish_report_tool,
+    )
+
+    return await _content_publish_report_tool(*args, **kwargs)
+
+
+def dispatch_ops_command(args: argparse.Namespace) -> int:
+    from antigravity_mcp.cli_ops import dispatch_ops_command as _dispatch_ops_command
+
+    return _dispatch_ops_command(args)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -83,5 +108,11 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_run_jobs_publish_report(args))
     if args.command == "ops":
         return dispatch_ops_command(args)
+    if args.command == "newsletter":
+        from antigravity_mcp.cli_newsletter import dispatch_newsletter_command
+        return dispatch_newsletter_command(args)
+    if args.command == "signal":
+        from antigravity_mcp.cli_signal import dispatch_signal_command
+        return dispatch_signal_command(args)
     parser.print_help()
     return 1

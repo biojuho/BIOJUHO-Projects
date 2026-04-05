@@ -169,3 +169,26 @@ class DigestEntry:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(slots=True)
+class SubscriberPreference:
+    """Subscriber's content preference for the adaptive newsletter funnel.
+
+    Used by NewsletterComposer to filter ContentReports per subscriber.
+    """
+
+    subscriber_id: str
+    categories: list[str] = field(default_factory=list)
+    preferred_length: str = "brief"  # brief | detailed
+    preferred_format: str = "mixed"  # mixed | text_only | visual
+    timezone_offset: int = 9  # KST default
+
+    def matches_report(self, report: "ContentReport") -> bool:
+        """Check if a report matches this subscriber's preferences."""
+        if not self.categories:
+            return True  # No preference = get everything
+        return report.category in self.categories
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)

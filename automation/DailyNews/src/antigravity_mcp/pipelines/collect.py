@@ -4,14 +4,19 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from dateutil import parser as date_parser
+try:
+    from dateutil import parser as date_parser
+except ImportError:  # pragma: no cover - optional dependency
+    date_parser = None
 
 from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ContentItem
-from antigravity_mcp.integrations.feed_adapter import FeedAdapter
 from antigravity_mcp.state.store import PipelineStateStore
+
+if TYPE_CHECKING:
+    from antigravity_mcp.integrations.feed_adapter import FeedAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +44,43 @@ async def fetch_article_body(url: str, max_chars: int = 1500) -> str:
 
 def load_sources() -> dict[str, list[dict[str, str]]]:
     settings = get_settings()
-    with settings.news_sources_file.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    try:
+        with settings.news_sources_file.open("r", encoding="utf-8") as handle:
+            raw_sources = json.load(handle)
+    except (FileNotFoundError, OSError, json.JSONDecodeError) as exc:
+        logger.warning("Failed to load news sources from %s: %s", settings.news_sources_file, exc)
+        return {}
+
+    if not isinstance(raw_sources, dict):
+        logger.warning("News sources config must be a JSON object, got %s", type(raw_sources).__name__)
+        return {}
+
+    normalized: dict[str, list[dict[str, str]]] = {}
+    for category, raw_entries in raw_sources.items():
+        if not isinstance(category, str):
+            logger.warning("Skipping non-string category key in news sources config: %r", category)
+            continue
+        if not isinstance(raw_entries, list):
+            logger.warning("Skipping category %s because sources are not a list", category)
+            continue
+
+        valid_entries: list[dict[str, str]] = []
+        for entry in raw_entries:
+            if not isinstance(entry, dict):
+                logger.warning("Skipping malformed source entry in %s: %r", category, entry)
+                continue
+
+            name = entry.get("name")
+            url = entry.get("url")
+            if not isinstance(name, str) or not name.strip() or not isinstance(url, str) or not url.strip():
+                logger.warning("Skipping incomplete source entry in %s: %r", category, entry)
+                continue
+
+            valid_entries.append({"name": name.strip(), "url": url.strip()})
+
+        normalized[category] = valid_entries
+
+    return normalized
 
 
 def get_window(window_name: str) -> tuple[datetime, datetime]:
@@ -79,7 +119,10 @@ def is_within_window(value: Any, start: datetime, end: datetime, *, allow_missin
         return False
     try:
         if isinstance(value, str):
-            parsed = date_parser.parse(value)
+            if date_parser is not None:
+                parsed = date_parser.parse(value)
+            else:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         else:
             parsed = datetime(*value[:6])
         # Normalize both sides to UTC-aware for consistent comparison
@@ -103,22 +146,29 @@ async def collect_content_items(
     fetch_bodies: bool = True,
 ) -> tuple[list[ContentItem], list[str]]:
     settings = get_settings()
-    feed_adapter = feed_adapter or FeedAdapter(state_store=state_store)
+    if feed_adapter is None:
+        from antigravity_mcp.integrations.feed_adapter import FeedAdapter
+
+        feed_adapter = FeedAdapter(state_store=state_store)
     source_map = load_sources()
+    warnings: list[str] = []
+    items: list[ContentItem] = []
+
+    if not source_map:
+        warnings.append("Source configuration unavailable or empty.")
+        return items, warnings
+
     selected_categories = categories or list(source_map.keys())
     start, end = get_window(window_name)
     semaphore = asyncio.Semaphore(max(1, settings.pipeline_max_concurrency))
 
     import math
 
-    warnings: list[str] = []
-    items: list[ContentItem] = []
-
     async def _collect_category(category: str) -> tuple[list[ContentItem], list[str]]:
         """Collect items for a single category (runs concurrently)."""
         sources = source_map.get(category, [])
         if not sources:
-            return [], []
+            return [], [f"No sources configured for category '{category}'."]
 
         cat_warnings: list[str] = []
         cat_items: list[ContentItem] = []
