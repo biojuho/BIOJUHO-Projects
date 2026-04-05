@@ -164,20 +164,41 @@ def prepare_category_batch(
 
 
 async def generate_base_payload(ctx: ReportAssemblyContext, llm_adapter: LLMAdapter) -> GeneratedPayload:
-    payload, warnings = await llm_adapter.build_report_payload(
-        category=ctx.category,
-        items=ctx.enriched_items,
-        window_name=ctx.window_name,
-    )
+    if not ctx.enriched_items:
+        # 빈 아이템으로 LLM 호출 방지 — 빈 페이로드 반환
+        logger.warning("generate_base_payload: enriched_items 비어있음, LLM 호출 스킵")
+        ctx.warnings.append(f"No enriched items for {ctx.category}")
+        return GeneratedPayload(
+            summary_lines=[], insights=[], channel_drafts=[],
+            generation_mode=ctx.generation_mode,
+            parse_meta={"used_fallback": True, "missing_sections": [], "sections_found": {}},
+            quality_state="empty",
+        )
+    try:
+        payload, warnings = await llm_adapter.build_report_payload(
+            category=ctx.category,
+            items=ctx.enriched_items,
+            window_name=ctx.window_name,
+        )
+    except Exception as exc:
+        # LLM 타임아웃/JSON 파싱 실패 등 — 파이프라인 크래시 대신 빈 페이로드로 graceful degradation
+        logger.error(f"generate_base_payload LLM 호출 실패: {type(exc).__name__}: {exc}")
+        ctx.warnings.append(f"LLM generation failed for {ctx.category}: {type(exc).__name__}")
+        return GeneratedPayload(
+            summary_lines=[], insights=[], channel_drafts=[],
+            generation_mode=ctx.generation_mode,
+            parse_meta={"used_fallback": True, "missing_sections": [], "sections_found": {}},
+            quality_state="llm_error",
+        )
     payload = _coerce_generated_payload(payload, generation_mode=ctx.generation_mode)
     ctx.warnings.extend(warnings)
-    ctx.summary_lines = payload.summary_lines
-    ctx.insights = payload.insights
-    ctx.channel_drafts = payload.channel_drafts
+    ctx.summary_lines = getattr(payload, "summary_lines", None) or []
+    ctx.insights = getattr(payload, "insights", None) or []
+    ctx.channel_drafts = getattr(payload, "channel_drafts", None) or []
     ctx.generation_mode = payload.generation_mode or ctx.generation_mode
-    ctx.quality_state = payload.quality_state
-    ctx.analysis_meta["parser"] = payload.parse_meta
-    brief_body = _normalize_brief_body(str(payload.parse_meta.get("brief_body", "") or ""))
+    ctx.quality_state = getattr(payload, "quality_state", "ok") or "ok"
+    ctx.analysis_meta["parser"] = getattr(payload, "parse_meta", {}) or {}
+    brief_body = _normalize_brief_body(str((ctx.analysis_meta["parser"]).get("brief_body", "") or ""))
     if brief_body:
         payload.parse_meta["brief_body"] = brief_body
         ctx.analysis_meta["parser"]["brief_body"] = brief_body

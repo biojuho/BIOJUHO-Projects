@@ -16,6 +16,28 @@ from typing import Any
 from loguru import logger as log
 from shared.llm import get_client
 
+# ── Harness Governance (optional, graceful fallback) ──
+try:
+    from getdaytrends.harness_integration import (
+        get_pipeline_harness,
+        governed_step,
+        print_harness_summary,
+    )
+    _HARNESS_AVAILABLE = True
+except ImportError:
+    try:
+        from harness_integration import (
+            get_pipeline_harness,
+            governed_step,
+            print_harness_summary,
+        )
+        _HARNESS_AVAILABLE = True
+    except ImportError:
+        _HARNESS_AVAILABLE = False
+        get_pipeline_harness = None  # type: ignore
+        governed_step = None  # type: ignore
+        print_harness_summary = None  # type: ignore
+
 try:
     from ..alerts import check_and_alert, check_watchlist
     from ..analyzer import analyze_trends
@@ -54,6 +76,39 @@ except ImportError:
     from utils import run_async
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
+
+
+async def _step_refresh_tap_products(conn, config: AppConfig) -> dict:
+    """Refresh TAP snapshots/alert queue after a multi-country run."""
+
+    countries = list(getattr(config, "countries", []) or [])
+    if not getattr(config, "enable_tap", True) or len(countries) < 2:
+        return {}
+
+    try:
+        try:
+            from ..tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
+        except ImportError:
+            from tap import dispatch_tap_alert_queue, refresh_tap_market_surfaces
+
+        summary = await refresh_tap_market_surfaces(conn, config, snapshot_source="pipeline")
+        payload = summary.to_dict()
+        if payload["alerts_queued"] and getattr(config, "enable_tap_alert_dispatch", False):
+            dispatch_summary = await dispatch_tap_alert_queue(
+                conn,
+                config,
+                limit=max(1, int(getattr(config, "tap_alert_dispatch_batch_size", 5) or 5)),
+            )
+            payload["dispatch"] = dispatch_summary.to_dict()
+        if payload["snapshots_built"]:
+            log.info(
+                f"  [TAP Refresh] snapshots={payload['snapshots_built']} "
+                f"alerts_queued={payload['alerts_queued']} detected={payload['total_detected']}"
+            )
+        return payload
+    except Exception as tap_err:
+        log.warning(f"  [TAP Refresh] 실패 (무시): {type(tap_err).__name__}: {tap_err}")
+        return {}
 
 # ══════════════════════════════════════════════════════
 #  Helper Functions
@@ -121,7 +176,13 @@ async def _check_budget_and_adjust_limit(config: AppConfig, conn) -> tuple[AppCo
 def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
     """Step 1: 멀티소스 트렌드 수집 + 심층 컨텍스트 조건부 수집."""
     print("\n[1/4] 멀티소스 트렌드 수집 중...")
-    raw_trends, contexts = collect_trends(config, conn)
+    try:
+        raw_trends, contexts = collect_trends(config, conn)
+    except Exception as exc:
+        # 외부 API(Google Trends, getdaytrends.com 등) 장애 시 파이프라인 전체 크래시 방지
+        log.error(f"  [수집 실패] collect_trends 예외: {type(exc).__name__}: {exc}")
+        run.errors.append(f"collect_trends 예외: {type(exc).__name__}: {exc}")
+        return [], {}
     run.trends_collected = len(raw_trends)
     print(f"  수집 완료: {len(raw_trends)}개 트렌드")
 
@@ -136,7 +197,12 @@ def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
 
         if needs_deep:
             print(f"  심층 컨텍스트 수집 중 ({len(needs_deep)}/{len(raw_trends)}개 부족)...")
-            deep_contexts = collect_contexts(needs_deep, config, conn)
+            try:
+                deep_contexts = collect_contexts(needs_deep, config, conn)
+            except Exception as exc:
+                # 심층 컨텍스트 수집 실패는 치명적이지 않음 — 기존 컨텍스트로 계속 진행
+                log.warning(f"  [심층 컨텍스트 실패] collect_contexts 예외: {type(exc).__name__}: {exc}")
+                deep_contexts = {}
             for name, deep_ctx in deep_contexts.items():
                 base = contexts.get(name)
                 if base:
@@ -571,6 +637,15 @@ except ImportError:
 
 async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[..., Any] | None = None) -> RunResult:
     """전체 파이프라인 (비동기): 수집 → 스코어링 → 알림 → 병렬생성 → 저장."""
+    # ── Harness Governance init ──
+    harness = None
+    if _HARNESS_AVAILABLE and get_pipeline_harness is not None:
+        harness = get_pipeline_harness(config)
+        if harness:
+            # Sync budget from config into harness
+            effective_budget = getattr(config, 'daily_budget_usd', 2.0)
+            log.info(f"[Harness] Pipeline governance active — budget=${effective_budget:.2f}")
+
     conn = await get_connection(config.db_path, database_url=config.database_url)
     try:
         await init_db(conn)
@@ -586,9 +661,16 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         # Pre: 예산 + 적응형 limit 조정
         pipeline_config, _budget_disabled = await _check_budget_and_adjust_limit(config, conn)
 
-        # Step 1: 수집
+        # Step 1: 수집 (governed)
         _t0 = time.time()
-        raw_trends, contexts = _step_collect(pipeline_config, conn, run)
+        if harness and governed_step:
+            raw_trends, contexts = await governed_step(
+                "collect_trends", _step_collect,
+                pipeline_config, conn, run,
+                harness=harness,
+            )
+        else:
+            raw_trends, contexts = _step_collect(pipeline_config, conn, run)
         _t1 = time.time()
         log.info(f"  [타이밍] 수집: {_t1 - _t0:.1f}초")
         if not raw_trends:
@@ -597,8 +679,15 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
             await update_run(conn, run, run_row_id)
             return run
 
-        # Step 2-3: 스코어링 + 알림
-        scored_trends, quality_trends = await _step_score_and_alert(raw_trends, contexts, pipeline_config, conn, run)
+        # Step 2-3: 스코어링 + 알림 (governed)
+        if harness and governed_step:
+            scored_trends, quality_trends = await governed_step(
+                "score_trends", _step_score_and_alert,
+                raw_trends, contexts, pipeline_config, conn, run,
+                harness=harness,
+            )
+        else:
+            scored_trends, quality_trends = await _step_score_and_alert(raw_trends, contexts, pipeline_config, conn, run)
         _t2 = time.time()
         log.info(f"  [타이밍] 스코어링+알림: {_t2 - _t1:.1f}초")
 
@@ -606,8 +695,16 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         if getattr(pipeline_config, "enable_trend_genealogy", False) and quality_trends:
             quality_trends = await _step_genealogy(quality_trends, pipeline_config)
 
-        # Step 4: 생성
-        batch_results = await _step_generate(quality_trends, pipeline_config, conn)
+        # Step 4: 생성 (governed)
+        if harness and governed_step:
+            batch_results = await governed_step(
+                "generate_content", _step_generate,
+                quality_trends, pipeline_config, conn,
+                harness=harness,
+                cost_estimate=0.01 * len(quality_trends),  # LLM call estimate per trend
+            )
+        else:
+            batch_results = await _step_generate(quality_trends, pipeline_config, conn)
         _t3 = time.time()
         log.info(f"  [타이밍] 생성: {_t3 - _t2:.1f}초")
 
@@ -618,12 +715,22 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         # Step 4.6: Cross-Trend Inductive Reasoning (optional)
         await _step_reasoning(quality_trends, pipeline_config, conn, run)
 
-        # Step 5: 저장
-        success_count = await _step_save(quality_trends, batch_results, pipeline_config, conn, run, run_row_id)
+        # Step 5: 저장 (governed)
+        if harness and governed_step:
+            success_count = await governed_step(
+                "save_results", _step_save,
+                quality_trends, batch_results, pipeline_config, conn, run, run_row_id,
+                harness=harness,
+            )
+        else:
+            success_count = await _step_save(quality_trends, batch_results, pipeline_config, conn, run, run_row_id)
         _t4 = time.time()
         log.info(f"  [타이밍] 저장: {_t4 - _t3:.1f}초")
 
         # Post: 완료 기록
+        # Step 5.5: TAP snapshot/alert queue refresh (multi-country only)
+        await _step_refresh_tap_products(conn, pipeline_config)
+
         run.finished_at = datetime.now()
         await update_run(conn, run, run_row_id)
 
@@ -633,6 +740,10 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         print(f"  소요: {elapsed:.1f}초")
 
         await _step_post_run(pipeline_config, run, elapsed, scored_trends, config, schedule_callback, separator)
+
+        # ── Harness Governance Summary ──
+        if harness and print_harness_summary:
+            print_harness_summary(harness)
 
         return run
     except Exception as _pipeline_err:
