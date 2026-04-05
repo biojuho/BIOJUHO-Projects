@@ -581,15 +581,21 @@ async def _async_collect_contexts(
         return await asyncio.gather(*tasks, return_exceptions=True)
 
     # O1-1: 제공된 세션 재사용, 없으면 독립 세션 생성
-    if session is not None:
-        gathered = await _run_all(session)
-    else:
-        async with httpx.AsyncClient() as _session:
-            gathered = await _run_all(_session)
+    # 전체 컨텍스트 수집에 글로벌 타임아웃 적용 — 개별 소스 타임아웃과 별도로 전체 hang 방지
+    _GLOBAL_TIMEOUT = getattr(config, "context_global_timeout", 120)  # 기본 120초
+    try:
+        if session is not None:
+            gathered = await asyncio.wait_for(_run_all(session), timeout=_GLOBAL_TIMEOUT)
+        else:
+            async with httpx.AsyncClient() as _session:
+                gathered = await asyncio.wait_for(_run_all(_session), timeout=_GLOBAL_TIMEOUT)
+    except (asyncio.TimeoutError, TimeoutError):
+        log.error(f"[컨텍스트 수집] 글로벌 타임아웃 ({_GLOBAL_TIMEOUT}s) 초과 — 부분 결과로 진행")
+        gathered = []
 
     for item in gathered:
         if isinstance(item, Exception):
-            log.warning(f"컨텍스트 수집 예외: {item}")
+            log.warning(f"컨텍스트 수집 예외: {type(item).__name__}: {item}")
             continue
         keyword, source, text = item
         if keyword in results:

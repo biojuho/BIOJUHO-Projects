@@ -6,13 +6,29 @@ from datetime import datetime
 from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ContentReport
 from antigravity_mcp.integrations.canva_adapter import CanvaAdapter
+from antigravity_mcp.integrations.newsletter_adapter import NewsletterAdapter
 from antigravity_mcp.integrations.notion_adapter import NotionAdapter, NotionAdapterError
+from antigravity_mcp.integrations.subscriber_store import SubscriberStore
 from antigravity_mcp.integrations.telegram_adapter import TelegramAdapter
 from antigravity_mcp.integrations.x_adapter import XAdapter
 from antigravity_mcp.state.events import generate_run_id
 from antigravity_mcp.state.store import PipelineStateStore
 
 logger = logging.getLogger(__name__)
+
+
+def _notion_report_title(report: ContentReport, *, publish_date: str) -> str:
+    window_label = str(report.window_name or "manual").replace("_", " ").title()
+    return f"{report.category} {window_label} Brief {publish_date}"
+
+
+def _notion_duplicate_filter(report: ContentReport, *, publish_date: str) -> dict[str, list[dict[str, dict[str, str]]]]:
+    return {
+        "and": [
+            {"property": "Date", "date": {"equals": publish_date}},
+            {"property": "Name", "title": {"equals": _notion_report_title(report, publish_date=publish_date)}},
+        ]
+    }
 
 
 def _styled_brief_markdown(report: ContentReport) -> str:
@@ -166,9 +182,10 @@ async def _publish_to_notion(
         return
 
     today_iso = datetime.now().date().isoformat()
+    notion_title = _notion_report_title(report, publish_date=today_iso)
     sentiment_meta = (report.analysis_meta or {}).get("sentiment", {})
     properties: dict = {
-        "Name": {"title": [{"type": "text", "text": {"content": f"{report.category} Brief {datetime.now().date()}"}}]},
+        "Name": {"title": [{"type": "text", "text": {"content": notion_title}}]},
         "Date": {"date": {"start": today_iso}},
         "Type": {"select": {"name": "News"}},
     }
@@ -180,20 +197,23 @@ async def _publish_to_notion(
     try:
         existing_pages, _ = await notion_adapter.query_database(
             database_id=settings.notion_reports_database_id,
-            filter_payload={"and": [
-                {"property": "Date", "date": {"equals": today_iso}},
-                {"property": "Name", "title": {"contains": report.category}},
-            ]},
+            filter_payload=_notion_duplicate_filter(report, publish_date=today_iso),
             limit=1,
         )
-    except NotionAdapterError:
-        existing_pages = []
+    except NotionAdapterError as exc:
+        publication["notion_status"] = "duplicate_check_failed"
+        warnings.append(
+            "Notion duplicate check failed; skipped creation to avoid duplicate publish: "
+            f"{exc}"
+        )
+        return
 
     if existing_pages:
         report.notion_page_id = existing_pages[0].get("id", "")
         publication["notion_page_id"] = report.notion_page_id
         publication["notion_url"] = existing_pages[0].get("url", "")
-        warnings.append(f"Notion record already exists for {report.category} on {today_iso}; skipped duplicate creation.")
+        publication["notion_status"] = "existing"
+        warnings.append(f"Notion record already exists for {notion_title}; skipped duplicate creation.")
         return
 
     try:
@@ -205,8 +225,20 @@ async def _publish_to_notion(
         report.notion_page_id = created.get("id", "")
         publication["notion_page_id"] = report.notion_page_id
         publication["notion_url"] = created.get("url", "")
+        publication["notion_status"] = "created"
     except NotionAdapterError as exc:
+        publication["notion_status"] = "create_failed"
         warnings.append(str(exc))
+
+
+def _safe_db_write(fn, *args, warnings: list[str], label: str = "DB write", **kwargs) -> None:
+    """DB 쓰기를 안전하게 수행 — 잠금/오류 시 경고 기록 후 계속 진행."""
+    try:
+        fn(*args, **kwargs)
+    except Exception as exc:
+        msg = f"{label} failed: {type(exc).__name__}: {exc}"
+        logger.error(msg)
+        warnings.append(msg)
 
 
 async def _publish_x_draft(
@@ -221,32 +253,118 @@ async def _publish_x_draft(
 ) -> None:
     """X 채널 발행: 길이에 따라 단일 트윗 또는 스레드 자동 분기."""
     if len(draft.content) > 280 and approval_mode == "auto":
-        thread_results = await x_adapter.post_thread(XAdapter.split_to_thread(draft.content))
+        thread_tweets = XAdapter.split_to_thread(draft.content)
+        thread_results = await x_adapter.post_thread(thread_tweets)
         published_ids = [r["tweet_id"] for r in thread_results if r.get("status") == "published"]
-        if published_ids:
+        failed_results = [r for r in thread_results if r.get("status") not in {"published"}]
+        if published_ids and failed_results:
+            x_status = "partial_thread"
+            publication["x_thread_ids"] = ",".join(published_ids)
+            publication["x_url"] = f"https://twitter.com/i/web/status/{published_ids[0]}"
+            publication["x_published_count"] = str(len(published_ids))
+            first_failure = failed_results[0]
+            if first_failure.get("tweet_index"):
+                publication["x_failed_index"] = first_failure["tweet_index"]
+            publication["x_failed_status"] = first_failure.get("status", "error")
+            for tid in published_ids:
+                _safe_db_write(
+                    state_store.record_published_tweet_id, report_id, tid, draft.content[:200],
+                    warnings=warnings, label="record_published_tweet_id",
+                )
+            failure_msg = f"X thread partially published: {len(published_ids)}/{len(thread_tweets)} tweets posted"
+            if first_failure.get("tweet_index"):
+                failure_msg += f" before failure at item {first_failure['tweet_index']}"
+            warnings.append(failure_msg + ".")
+            if first_failure.get("message"):
+                warnings.append(first_failure["message"])
+        elif published_ids:
             x_status = "published"
             publication["x_thread_ids"] = ",".join(published_ids)
             publication["x_url"] = f"https://twitter.com/i/web/status/{published_ids[0]}"
+            publication["x_published_count"] = str(len(published_ids))
             for tid in published_ids:
-                state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
+                _safe_db_write(
+                    state_store.record_published_tweet_id, report_id, tid, draft.content[:200],
+                    warnings=warnings, label="record_published_tweet_id",
+                )
         else:
             x_status = thread_results[0].get("status", "error") if thread_results else "error"
             if thread_results and thread_results[0].get("message"):
                 warnings.append(thread_results[0]["message"])
-        state_store.set_channel_publication(report_id, draft.channel, x_status)
+        _safe_db_write(
+            state_store.set_channel_publication, report_id, draft.channel, x_status, publication.get("x_url", ""),
+            warnings=warnings, label="set_channel_publication",
+        )
         publication[f"{draft.channel}_status"] = x_status
     else:
         x_result = await x_adapter.publish(report, draft.content, approval_mode=approval_mode)
-        state_store.set_channel_publication(report_id, draft.channel, x_result["status"])
+        _safe_db_write(
+            state_store.set_channel_publication, report_id, draft.channel, x_result["status"], x_result.get("tweet_url", ""),
+            warnings=warnings, label="set_channel_publication",
+        )
         publication[f"{draft.channel}_status"] = x_result["status"]
         if x_result.get("tweet_url"):
             publication["x_url"] = x_result["tweet_url"]
             tweet_url = x_result["tweet_url"]
             if "/status/" in tweet_url:
                 tid = tweet_url.rsplit("/status/", 1)[-1].split("?")[0]
-                state_store.record_published_tweet_id(report_id, tid, draft.content[:200])
+                _safe_db_write(
+                    state_store.record_published_tweet_id, report_id, tid, draft.content[:200],
+                    warnings=warnings, label="record_published_tweet_id",
+                )
         if x_result.get("message"):
             warnings.append(x_result["message"])
+
+
+async def _publish_newsletter(
+    report: ContentReport,
+    newsletter_adapter: NewsletterAdapter | None,
+    subscriber_store: SubscriberStore | None,
+    publication: dict[str, str],
+    warnings: list[str],
+) -> None:
+    """Deliver report as newsletter to matching subscribers (v2.0 channel)."""
+    if newsletter_adapter is None:
+        try:
+            subscriber_store = subscriber_store or SubscriberStore()
+            newsletter_adapter = NewsletterAdapter(subscriber_store=subscriber_store)
+        except Exception as exc:
+            warnings.append(f"Newsletter adapter init failed: {exc}")
+            return
+
+    if not newsletter_adapter.is_configured:
+        warnings.append("Newsletter not configured (RESEND_API_KEY missing); skipping email delivery.")
+        return
+
+    if subscriber_store is None:
+        try:
+            subscriber_store = SubscriberStore()
+        except Exception as exc:
+            warnings.append(f"Subscriber store init failed: {exc}")
+            return
+
+    try:
+        subscribers = subscriber_store.get_active_subscribers(
+            categories=[report.category],
+        )
+        if not subscribers:
+            warnings.append(f"No active subscribers for category '{report.category}'.")
+            publication["newsletter_status"] = "no_subscribers"
+            return
+
+        result = await newsletter_adapter.send_daily_brief(
+            reports=[report],
+            subscribers=subscribers,
+            edition=report.window_name,
+        )
+        publication["newsletter_sent"] = str(result.get("sent", 0))
+        publication["newsletter_failed"] = str(result.get("failed", 0))
+        publication["newsletter_status"] = "delivered" if result.get("sent", 0) > 0 else "failed"
+
+    except Exception as exc:
+        logger.warning("Newsletter delivery failed: %s", exc)
+        warnings.append(f"Newsletter delivery error: {exc}")
+        publication["newsletter_status"] = "error"
 
 
 async def publish_report(
@@ -259,6 +377,8 @@ async def publish_report(
     x_adapter: XAdapter | None = None,
     canva_adapter: CanvaAdapter | None = None,
     telegram_adapter: TelegramAdapter | None = None,
+    newsletter_adapter: NewsletterAdapter | None = None,
+    subscriber_store: SubscriberStore | None = None,
     run_id: str | None = None,
 ) -> tuple[str, dict[str, str], list[str], str]:
     settings = get_settings()
@@ -301,10 +421,29 @@ async def publish_report(
         if draft.channel not in channels:
             continue
         if draft.channel == "x":
-            await _publish_x_draft(draft, report, report_id, x_adapter, state_store, approval_mode, publication, warnings)
+            try:
+                await _publish_x_draft(draft, report, report_id, x_adapter, state_store, approval_mode, publication, warnings)
+            except Exception as exc:
+                # X 발행 크래시가 전체 publish_report를 죽이지 않도록 방어
+                logger.error("X draft publish crashed: %s: %s", type(exc).__name__, exc)
+                warnings.append(f"X publish crashed: {type(exc).__name__}: {exc}")
+                publication[f"{draft.channel}_status"] = "error"
         else:
-            state_store.set_channel_publication(report_id, draft.channel, "draft")
+            _safe_db_write(
+                state_store.set_channel_publication, report_id, draft.channel, "draft",
+                warnings=warnings, label="set_channel_publication",
+            )
             publication[f"{draft.channel}_status"] = "draft"
+
+    # ── Newsletter channel (v2.0) ──────────────────────────────────────
+    if "newsletter" in channels:
+        await _publish_newsletter(
+            report=report,
+            newsletter_adapter=newsletter_adapter,
+            subscriber_store=subscriber_store,
+            publication=publication,
+            warnings=warnings,
+        )
 
     try:
         await telegram_adapter.send_message(_build_telegram_message(report, publication))
@@ -315,12 +454,16 @@ async def publish_report(
     publication["report_status"] = report.status
     publication["report_delivery_state"] = report.delivery_state
     report.approval_state = approval_mode
-    state_store.save_report(report)
-    state_store.record_job_finish(
+    _safe_db_write(state_store.save_report, report, warnings=warnings, label="save_report")
+    _safe_db_write(
+        state_store.record_job_finish,
         run_id,
-        status="partial" if warnings else "success",
-        summary=publication,
-        processed_count=1,
-        published_count=1 if _has_notion_page_id(report) else 0,
+        warnings=warnings, label="record_job_finish",
+        **{  # keyword args for record_job_finish
+            "status": "partial" if warnings else "success",
+            "summary": publication,
+            "processed_count": 1,
+            "published_count": 1 if _has_notion_page_id(report) else 0,
+        },
     )
     return run_id, publication, warnings, "partial" if warnings else "ok"
