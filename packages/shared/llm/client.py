@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 import time
+from collections import OrderedDict
 from typing import Any
 
 from .backends import BackendManager
@@ -44,21 +46,27 @@ _failed_backends: dict[TaskTier, dict[str, float]] = {
     TaskTier.HEAVY: {},
 }
 
-_response_cache: dict[str, tuple[LLMResponse, float]] = {}
+# BUG-002 fix: thread-safe lock for all mutable global state
+_cache_lock = threading.Lock()
+
+# BUG-010 fix: LRU-style OrderedDict (most recently used move to end)
+_response_cache: OrderedDict[str, tuple[LLMResponse, float]] = OrderedDict()
 
 
 def _is_failed(tier: TaskTier, backend: str) -> bool:
-    ts = _failed_backends[tier].get(backend)
-    if ts is None:
-        return False
-    if time.monotonic() - ts > _FAIL_TTL:
-        del _failed_backends[tier][backend]
-        return False
-    return True
+    with _cache_lock:
+        ts = _failed_backends[tier].get(backend)
+        if ts is None:
+            return False
+        if time.monotonic() - ts > _FAIL_TTL:
+            del _failed_backends[tier][backend]
+            return False
+        return True
 
 
 def _mark_failed(tier: TaskTier, backend: str) -> None:
-    _failed_backends[tier][backend] = time.monotonic()
+    with _cache_lock:
+        _failed_backends[tier][backend] = time.monotonic()
 
 
 def _should_fallback(error: Exception) -> bool:
@@ -95,7 +103,8 @@ def _make_cache_key(
         sort_keys=True,
         ensure_ascii=False,
     )
-    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+    # BUG-020 fix: SHA-256 instead of MD5 for cache key integrity
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
 def _get_cache_ttl(tier: TaskTier) -> int:
@@ -103,22 +112,40 @@ def _get_cache_ttl(tier: TaskTier) -> int:
 
 
 def _get_cached(key: str, tier: TaskTier) -> LLMResponse | None:
-    entry = _response_cache.get(key)
-    if entry is None:
-        return None
-    resp, ts = entry
-    if time.monotonic() - ts > _get_cache_ttl(tier):
-        del _response_cache[key]
-        return None
-    log.debug("Cache HIT: %s...", key[:8])
-    return resp
+    with _cache_lock:
+        entry = _response_cache.get(key)
+        if entry is None:
+            return None
+        resp, ts = entry
+        if time.monotonic() - ts > _get_cache_ttl(tier):
+            del _response_cache[key]
+            return None
+        # BUG-010 fix: LRU — move accessed key to end
+        _response_cache.move_to_end(key)
+        log.debug("Cache HIT: %s...", key[:8])
+        return resp
+
+
+def _purge_expired_cache() -> None:
+    """Remove all TTL-expired entries to prevent stale memory accumulation."""
+    now = time.monotonic()
+    expired = [k for k, (_, ts) in _response_cache.items() if now - ts > _CACHE_TTL_HEAVY]
+    for k in expired:
+        del _response_cache[k]
 
 
 def _put_cache(key: str, resp: LLMResponse) -> None:
-    if len(_response_cache) >= _CACHE_MAX:
-        oldest_key = next(iter(_response_cache))
-        del _response_cache[oldest_key]
-    _response_cache[key] = (resp, time.monotonic())
+    with _cache_lock:
+        # M-11 fix: 주기적으로 만료 엔트리 퍼지
+        if len(_response_cache) >= _CACHE_MAX:
+            _purge_expired_cache()
+        if key in _response_cache:
+            _response_cache.move_to_end(key)
+            _response_cache[key] = (resp, time.monotonic())
+            return
+        if len(_response_cache) >= _CACHE_MAX:
+            _response_cache.popitem(last=False)
+        _response_cache[key] = (resp, time.monotonic())
 
 
 class LLMClient:
@@ -225,7 +252,14 @@ class LLMClient:
 
         resolved_tier = self._resolve_tier(tier, model)
         resolved_policy = normalize_policy(policy)
-        return await self._dispatch(
+
+        # BUG-004 fix: Apply cache to acreate() (was only on sync create())
+        cache_key = _make_cache_key(resolved_tier, messages, system, resolved_policy)
+        cached = _get_cached(cache_key, resolved_tier)
+        if cached is not None:
+            return cached
+
+        response = await self._dispatch(
             resolved_tier=resolved_tier,
             messages=messages,
             max_tokens=max_tokens,
@@ -233,6 +267,8 @@ class LLMClient:
             policy=resolved_policy,
             async_mode=True,
         )
+        _put_cache(cache_key, response)
+        return response
 
     def get_stats(self) -> dict[str, Any]:
         s = self._tracker.get_stats()
@@ -271,9 +307,10 @@ class LLMClient:
 
     @staticmethod
     def reset() -> None:
-        for tier in _failed_backends:
-            _failed_backends[tier].clear()
-        _response_cache.clear()
+        with _cache_lock:
+            for tier in _failed_backends:
+                _failed_backends[tier].clear()
+            _response_cache.clear()
 
     def create_with_reasoning(
         self,

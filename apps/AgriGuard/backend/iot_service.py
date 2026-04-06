@@ -213,15 +213,19 @@ async def broadcast_reading(reading: dict):
 
 # Reusable publisher connection (avoids creating one per broadcast)
 _publish_conn = None
+_publish_conn_lock = asyncio.Lock()
 
 
 async def _get_publish_conn():
-    """Lazy singleton for the Pub/Sub publisher connection."""
+    """Lazy singleton for the Pub/Sub publisher connection (thread-safe)."""
     global _publish_conn
-    if _publish_conn is None:
-        _publish_conn = aioredis.from_url(
-            _REDIS_URL, decode_responses=True, socket_connect_timeout=1
-        )
+    if _publish_conn is not None:
+        return _publish_conn
+    async with _publish_conn_lock:
+        if _publish_conn is None:
+            _publish_conn = aioredis.from_url(
+                _REDIS_URL, decode_responses=True, socket_connect_timeout=1
+            )
     return _publish_conn
 
 
@@ -357,8 +361,9 @@ async def handle_ws_connection(websocket: WebSocket):
         # Keep alive
         while True:
             await websocket.receive_text()
-    except Exception:
-        pass
+    except Exception as e:
+        if not isinstance(e, asyncio.CancelledError):
+            logger.debug("WebSocket client disconnected: %s", e)
     finally:
         async with _ws_lock:
             if websocket in _ws_clients:

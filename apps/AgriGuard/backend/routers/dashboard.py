@@ -10,15 +10,37 @@ from datetime import UTC, datetime, timedelta
 from auth import get_current_user
 from services.chain_simulator import get_chain
 
-try:
-    from shared.cache import get_cache
-except ImportError:
-    pass # Handle fallback if needed, but dependencies might provide it
 
-try:
-    from dependencies import get_cache
-except:
-    pass
+class _NoOpCache:
+    """Redis 미설정 시 안전하게 동작하는 fallback 캐시."""
+
+    async def get(self, key: str):
+        return None
+
+    async def set(self, key: str, value, ttl: int = 60):
+        pass
+
+
+_noop_cache = _NoOpCache()
+
+
+def _resolve_cache():
+    """get_cache를 안전하게 해석. 실패 시 NoOp 반환."""
+    try:
+        from dependencies import get_cache as _dep_get_cache
+        cache = _dep_get_cache()
+        if cache is not None:
+            return cache
+    except (ImportError, Exception):
+        pass
+    try:
+        from shared.cache import get_cache as _shared_get_cache
+        cache = _shared_get_cache()
+        if cache is not None:
+            return cache
+    except (ImportError, Exception):
+        pass
+    return _noop_cache
 
 
 router = APIRouter()
@@ -29,14 +51,6 @@ DEMO_SENSORS_PER_PRODUCT = 3
 DEMO_ACTIVE_SENSORS = 450
 DEMO_ACTIVE_CYCLES = 25
 DEMO_COMPLETED_CYCLES = 102
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def _get_latest_status_per_product(product: models.Product) -> str | None:
@@ -77,7 +91,7 @@ def read_root():
 @router.get("/api/v1/dashboard/summary", response_model=schemas.DashboardResponse)
 async def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
     # Redis cache — 30s TTL (500 concurrent users → 1 DB hit per 30s)
-    cache = get_cache()
+    cache = _resolve_cache()
     cached = await cache.get("agriguard:dashboard:frontend")
     if cached is not None:
         return cached
@@ -116,7 +130,7 @@ async def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
 @router.get("/dashboard/summary")
 async def get_supply_chain_summary(db: Session = Depends(get_db)):
     # Redis cache — 30s TTL
-    cache = get_cache()
+    cache = _resolve_cache()
     cached = await cache.get("agriguard:dashboard:supply_chain")
     if cached is not None:
         return cached

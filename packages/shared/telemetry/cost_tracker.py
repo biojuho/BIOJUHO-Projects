@@ -32,11 +32,13 @@ def get_daily_cost_summary(db_path: Path = LLM_DB_PATH, days: int = 1) -> dict:
     if not db_path.exists():
         return {"total_cost": 0.0, "total_calls": 0, "projects": {}}
 
+    conn = None
     try:
+        if not isinstance(days, int) or days < 0:
+            days = 1
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
 
-        # 전일(또는 최근 24시간) 기준 합산
         cursor.execute(
             """
             SELECT project, COUNT(*), SUM(cost_usd)
@@ -58,8 +60,9 @@ def get_daily_cost_summary(db_path: Path = LLM_DB_PATH, days: int = 1) -> dict:
             total_cost += cost or 0.0
 
         cursor.close()
-        conn.close()
-
         return {"total_cost": round(total_cost, 4), "total_calls": total_calls, "projects": projects}
     except Exception as e:
         return {"error": str(e), "total_cost": 0.0, "total_calls": 0, "projects": {}}
+    finally:
+        if conn is not None:
+            conn.close()

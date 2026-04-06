@@ -93,9 +93,9 @@ def _retry_notion_call(
                     retry_after = body.get("retry_after")
 
             if retry_after and isinstance(retry_after, (int, float)):
-                delay = float(retry_after)
+                delay = min(float(retry_after), 60.0)  # H-06 fix: 최대 60초 캡
             else:
-                delay = base_delay * (2**attempt)
+                delay = min(base_delay * (2**attempt), 60.0)
 
             log.warning(
                 f"Notion API ?먮윭 (HTTP {status}), " f"{delay:.1f}珥????ъ떆??({attempt + 1}/{max_retries})..."
@@ -233,7 +233,16 @@ def _persist_content_hub_link(config: AppConfig, draft_id: str, page_id: str, re
             finally:
                 await conn.close()
 
-        asyncio.run(_runner())
+        # C-04 fix: 이벤트루프 내부에서는 create_task, 외부에서는 asyncio.run
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            asyncio.ensure_future(_runner())
+        else:
+            asyncio.run(_runner())
     except Exception as exc:
         log.debug(f"Content Hub link persistence failed: {exc}")
 

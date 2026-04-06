@@ -193,7 +193,7 @@ def verify_text_against_sources(
     if not text or not text.strip():
         return result
 
-    claims = extract_claims(text)
+    claims = extract_claims(text) or []
     result.total_claims = len(claims)
 
     if not claims:

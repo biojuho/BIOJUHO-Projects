@@ -127,10 +127,18 @@ class StreamingPipeline:
             self._saver_worker(save_fn, expected_count=len(raw_trends))
         )
 
-        # 모든 Worker 완료 대기
-        await scorer_task
-        await asyncio.gather(*gen_tasks)
-        await saver_task
+        # 모든 Worker 완료 대기 (전체 파이프라인 타임아웃 = 트렌드당 STAGE_TIMEOUT × 3단계)
+        total_timeout = self.STAGE_TIMEOUT_SECONDS * 3 * max(len(raw_trends), 1)
+        try:
+            await asyncio.wait_for(
+                self._await_all_workers(scorer_task, gen_tasks, saver_task),
+                timeout=total_timeout,
+            )
+        except TimeoutError:
+            log.error(f"[Streaming] 전체 파이프라인 타임아웃 ({total_timeout}s) — 강제 종료")
+            for task in [scorer_task, *gen_tasks, saver_task]:
+                task.cancel()
+            self._errors.append(f"pipeline_timeout ({total_timeout}s)")
 
         elapsed = (datetime.now() - started_at).total_seconds()
         success_count = sum(1 for e in self._results if not e.error)
@@ -142,6 +150,12 @@ class StreamingPipeline:
         )
 
         return self._results
+
+    @staticmethod
+    async def _await_all_workers(scorer_task, gen_tasks, saver_task):
+        await scorer_task
+        await asyncio.gather(*gen_tasks)
+        await saver_task
 
     async def _scorer_worker(self, raw_trends, contexts, score_fn):
         """Stage 1: 트렌드를 하나씩 스코어링하고 scored_queue에 넣는다."""

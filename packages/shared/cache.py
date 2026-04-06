@@ -104,7 +104,7 @@ class RedisCache:
             if r is not None:
                 return json.loads(r)
         except Exception as e:
-            logger.debug("Redis GET error (key=%s): %s", key, e)
+            logger.warning("Redis GET error (key=%s): %s", key, e)
         return None
 
     async def set(self, key: str, value: Any, ttl: int = 60) -> None:
@@ -112,13 +112,13 @@ class RedisCache:
             data = json.dumps(value, ensure_ascii=False, default=str)
             await (await self._get_conn()).setex(key, ttl, data)
         except Exception as e:
-            logger.debug("Redis SET error (key=%s): %s", key, e)
+            logger.warning("Redis SET error (key=%s): %s", key, e)
 
     async def delete(self, key: str) -> None:
         try:
             await (await self._get_conn()).delete(key)
         except Exception as e:
-            logger.debug("Redis DELETE error (key=%s): %s", key, e)
+            logger.warning("Redis DELETE error (key=%s): %s", key, e)
 
     async def exists(self, key: str) -> bool:
         try:
@@ -130,12 +130,13 @@ class RedisCache:
         """Increment counter with TTL (for rate limiting)."""
         try:
             conn = await self._get_conn()
-            pipe = conn.pipeline()
-            pipe.incr(key)
-            pipe.expire(key, ttl)
-            results = await pipe.execute()
+            async with conn.pipeline(transaction=True) as pipe:
+                pipe.incr(key)
+                pipe.expire(key, ttl)
+                results = await pipe.execute()
             return results[0]
-        except Exception:
+        except Exception as e:
+            logger.warning("Redis INCR error (key=%s): %s — rate limit may be inaccurate", key, e)
             return 1
 
     async def close(self) -> None:

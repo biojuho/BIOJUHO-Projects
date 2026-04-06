@@ -127,10 +127,15 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
 
     valid_reports = []
     for r in reports:
-        if isinstance(r, Exception):
+        if isinstance(r, BaseException):
             log.error(f"  ❌ 수집 실패: {r}")
         else:
             valid_reports.append(r)
+
+    if not valid_reports:
+        log.error("  🚫 모든 트렌드 수집기 실패 — 빈 데이터로 콘텐츠 생성 불가, 파이프라인 중단")
+        from storage.models import MergedTrendReport
+        return MergedTrendReport(platform_reports=[], cross_platform_keywords=[], top_insights=[])
 
     # 교차 플랫폼 키워드 식별
     all_keywords: dict[str, int] = {}

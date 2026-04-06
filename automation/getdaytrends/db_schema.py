@@ -59,6 +59,10 @@ async def db_transaction(conn) -> AsyncIterator[None]:
             await save_tweets_batch(conn, tweets, trend_id, run_id)
     """
     async with sqlite_write_lock(conn):
+        # C-03 fix: PgAdapter에서 실제 트랜잭션을 시작
+        if isinstance(conn, _PgAdapter) and conn._txn is None:
+            conn._txn = conn._conn.transaction()
+            await conn._txn.start()
         try:
             yield
             await conn.commit()
@@ -75,8 +79,10 @@ class _PgAdapter:
     asyncpg ?곌껐??aiosqlite.Connection ?명꽣?섏씠?ㅼ? ?좎궗?섍쾶 ?섑븨.
     """
 
-    def __init__(self, conn: "asyncpg.Connection") -> None:
+    def __init__(self, conn: "asyncpg.Connection", pool: "asyncpg.Pool | None" = None) -> None:
         self._conn = conn
+        self._pool = pool
+        self._txn = None  # asyncpg transaction handle
 
     @staticmethod
     def _ph(sql: str) -> str:
@@ -93,8 +99,12 @@ class _PgAdapter:
         while i < len(sql):
             ch = sql[i]
             if in_str:
-                result.append(ch)
-                if ch == str_char and (i == 0 or sql[i - 1] != "\\"):
+                if ch == str_char:
+                    # BUG-018 fix: Handle '' (SQL standard doubled-quote escape)
+                    if i + 1 < len(sql) and sql[i + 1] == str_char:
+                        result.append(sql[i + 1])
+                        i += 2
+                        continue
                     in_str = False
             elif ch in ("'", '"'):
                 in_str = True
@@ -172,13 +182,29 @@ class _PgAdapter:
                     raise
 
     async def commit(self):
-        pass
+        # BUG-006 fix: commit the active transaction if one exists
+        if self._txn is not None:
+            await self._txn.commit()
+            self._txn = None
 
     async def rollback(self):
-        pass
+        # BUG-006 fix: rollback the active transaction if one exists
+        if self._txn is not None:
+            await self._txn.rollback()
+            self._txn = None
 
     async def close(self):
-        await self._conn.close()
+        # BUG-005 fix: release connection back to pool instead of closing it
+        if self._txn is not None:
+            try:
+                await self._txn.rollback()
+            except Exception:
+                pass
+            self._txn = None
+        if self._pool is not None:
+            await self._pool.release(self._conn)
+        else:
+            await self._conn.close()
 
 
 async def get_pg_pool(url: str, min_size: int = 2, max_size: int = 10) -> "asyncpg.Pool":
@@ -209,13 +235,14 @@ async def get_connection(
             raise ImportError("PostgreSQL ?ъ슜???꾪빐 asyncpg ?ㅼ튂 ?꾩슂:\n  pip install asyncpg")
         pool = await get_pg_pool(url)
         pg_conn = await pool.acquire()
-        return _PgAdapter(pg_conn)
+        # BUG-005 fix: pass pool reference so close() can release
+        return _PgAdapter(pg_conn, pool=pool)
 
     os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
     conn = await aiosqlite.connect(db_path)
     conn.row_factory = aiosqlite.Row
     await conn.execute("PRAGMA journal_mode=WAL")
-    await conn.execute("PRAGMA busy_timeout=5000")
+    await conn.execute("PRAGMA busy_timeout=30000")
     await conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
@@ -224,7 +251,7 @@ async def _init_db_unlocked(conn) -> None:
     try:
         await conn.execute("PRAGMA journal_mode=WAL")
         await conn.execute("PRAGMA synchronous=NORMAL")
-        await conn.execute("PRAGMA busy_timeout=5000")
+        await conn.execute("PRAGMA busy_timeout=30000")
     except Exception:
         pass
 
@@ -526,6 +553,28 @@ async def _init_db_unlocked(conn) -> None:
         CREATE INDEX IF NOT EXISTS idx_tap_alert_queue_status_country ON tap_alert_queue(lifecycle_status, target_country, queued_at);
         CREATE INDEX IF NOT EXISTS idx_tap_alert_queue_dedupe ON tap_alert_queue(dedupe_key, queued_at);
 
+        CREATE TABLE IF NOT EXISTS tap_deal_room_events (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id           TEXT NOT NULL UNIQUE,
+            snapshot_id        TEXT DEFAULT '',
+            keyword            TEXT NOT NULL,
+            target_country     TEXT DEFAULT '',
+            audience_segment   TEXT DEFAULT '',
+            package_tier       TEXT DEFAULT 'premium_alert_bundle',
+            offer_tier         TEXT DEFAULT 'premium',
+            event_type         TEXT NOT NULL,
+            price_anchor       TEXT DEFAULT '',
+            checkout_handle    TEXT DEFAULT '',
+            session_id         TEXT DEFAULT '',
+            actor_id           TEXT DEFAULT '',
+            revenue_value      REAL DEFAULT 0.0,
+            metadata_json      TEXT DEFAULT '{}',
+            created_at         TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_keyword_type_created ON tap_deal_room_events(keyword, event_type, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_country_package_created ON tap_deal_room_events(target_country, package_tier, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_session_created ON tap_deal_room_events(session_id, created_at);
+
         CREATE TABLE IF NOT EXISTS schema_version (
             version     INTEGER PRIMARY KEY,
             description TEXT NOT NULL DEFAULT '',
@@ -542,7 +591,7 @@ async def _init_db_unlocked(conn) -> None:
 #  Schema Migration Infrastructure
 # ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
 
-_CURRENT_SCHEMA_VERSION = 9
+_CURRENT_SCHEMA_VERSION = 10
 
 
 async def _get_schema_version(conn) -> int:
@@ -844,6 +893,34 @@ async def _migrate_v9(conn) -> None:
     await conn.commit()
 
 
+async def _migrate_v10(conn) -> None:
+    """v10: TAP deal-room funnel events for teaser/click/purchase learning."""
+    await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS tap_deal_room_events (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id           TEXT NOT NULL UNIQUE,
+            snapshot_id        TEXT DEFAULT '',
+            keyword            TEXT NOT NULL,
+            target_country     TEXT DEFAULT '',
+            audience_segment   TEXT DEFAULT '',
+            package_tier       TEXT DEFAULT 'premium_alert_bundle',
+            offer_tier         TEXT DEFAULT 'premium',
+            event_type         TEXT NOT NULL,
+            price_anchor       TEXT DEFAULT '',
+            checkout_handle    TEXT DEFAULT '',
+            session_id         TEXT DEFAULT '',
+            actor_id           TEXT DEFAULT '',
+            revenue_value      REAL DEFAULT 0.0,
+            metadata_json      TEXT DEFAULT '{}',
+            created_at         TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_keyword_type_created ON tap_deal_room_events(keyword, event_type, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_country_package_created ON tap_deal_room_events(target_country, package_tier, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_session_created ON tap_deal_room_events(session_id, created_at);
+    """)
+    await conn.commit()
+
+
 _MIGRATIONS: list[tuple[int, str, any]] = [
     (1, "tweets.content_type column", _migrate_v1),
     (2, "trends.fingerprint column + index", _migrate_v2),
@@ -854,6 +931,7 @@ _MIGRATIONS: list[tuple[int, str, any]] = [
     (7, "workflow V2 review queue tables", _migrate_v7),
     (8, "TAP product snapshot tables", _migrate_v8),
     (9, "TAP premium alert queue", _migrate_v9),
+    (10, "TAP deal-room funnel events", _migrate_v10),
 ]
 
 
@@ -866,6 +944,7 @@ async def _reconcile_latest_schema(conn) -> None:
     await _migrate_v7(conn)
     await _migrate_v8(conn)
     await _migrate_v9(conn)
+    await _migrate_v10(conn)
 
 
 async def _run_migrations(conn) -> None:

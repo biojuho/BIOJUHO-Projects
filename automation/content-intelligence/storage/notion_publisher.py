@@ -31,7 +31,7 @@ async def publish_to_notion(
         )
 
     try:
-        import requests
+        import httpx
 
         # Notion API 페이지 생성
         headers = {
@@ -71,16 +71,25 @@ async def publish_to_notion(
             "children": body_blocks,
         }
 
-        # Hashtags are already merged into Tags above
+        # C-06 fix: async httpx로 교체 — 이벤트루프 블로킹 방지
+        # M-08 fix: 429 Rate Limit 재시도 (최대 2회)
+        import asyncio as _asyncio
 
-        resp = requests.post(
-            "https://api.notion.com/v1/pages",
-            headers=headers,
-            json=payload,
-            timeout=30,
-        )
+        resp = None
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for _attempt in range(3):
+                resp = await client.post(
+                    "https://api.notion.com/v1/pages",
+                    headers=headers,
+                    json=payload,
+                )
+                if resp.status_code != 429:
+                    break
+                retry_after = min(int(resp.headers.get("retry-after", "2")), 30)
+                log.warning(f"  ⏳ Notion 429 Rate Limit — {retry_after}s 대기 후 재시도")
+                await _asyncio.sleep(retry_after)
 
-        if resp.status_code == 200:
+        if resp is not None and resp.status_code == 200:
             page_id = resp.json().get("id", "")
             content.notion_page_id = page_id
             content.published_at = datetime.now()

@@ -463,8 +463,11 @@ async def validate_and_regenerate(
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             log.error(f"  ❌ QA 검증 중 예외: {result}")
+            continue
+        if not isinstance(result, tuple) or len(result) != 2:
+            log.error(f"  ❌ QA 검증 예상 외 반환값: {type(result)}")
             continue
         idx, final_content = result
         batch.contents[idx] = final_content

@@ -102,17 +102,19 @@ def check_health() -> dict:
         try:
             if path.exists():
                 conn = sqlite3.connect(str(path))
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
-                table_count = cursor.fetchone()[0]
-                size_kb = path.stat().st_size / 1024
-                conn.close()
-                results[name] = {
-                    "status": "ok",
-                    "tables": table_count,
-                    "size_kb": round(size_kb, 1),
-                    "backend": "sqlite",
-                }
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+                    table_count = cursor.fetchone()[0]
+                    size_kb = path.stat().st_size / 1024
+                    results[name] = {
+                        "status": "ok",
+                        "tables": table_count,
+                        "size_kb": round(size_kb, 1),
+                        "backend": "sqlite",
+                    }
+                finally:
+                    conn.close()
             else:
                 results[name] = {"status": "missing", "path": str(path)}
         except Exception as e:

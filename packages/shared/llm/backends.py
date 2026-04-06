@@ -43,10 +43,12 @@ _LITELLM_MODEL_MAP: dict[tuple[str, str], str] = {
 
 
 import json as _json
+import threading as _threading
 
 _ollama_models_cache: list[str] | None = None
 _ollama_cache_ts: float = 0.0
 _OLLAMA_CACHE_TTL = 60.0  # refresh model list every 60s
+_ollama_lock = _threading.Lock()
 
 
 def _ollama_is_running() -> bool:
@@ -60,27 +62,34 @@ def _ollama_is_running() -> bool:
 
 
 def _ollama_list_models() -> list[str]:
-    """Fetch list of locally available Ollama models (cached)."""
+    """Fetch list of locally available Ollama models (cached, thread-safe)."""
     import time as _time
 
     global _ollama_models_cache, _ollama_cache_ts
     now = _time.monotonic()
+    # 락 없이 빠른 경로 확인 (읽기 전용, 최악의 경우 한 번 더 fetch)
     if _ollama_models_cache is not None and (now - _ollama_cache_ts) < _OLLAMA_CACHE_TTL:
         return _ollama_models_cache
 
-    try:
-        req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            data = _json.loads(resp.read().decode("utf-8"))
-            models = [m.get("name", "") for m in data.get("models", [])]
-            _ollama_models_cache = models
+    with _ollama_lock:
+        # 이중 검사: 다른 스레드가 이미 갱신했을 수 있음
+        now = _time.monotonic()
+        if _ollama_models_cache is not None and (now - _ollama_cache_ts) < _OLLAMA_CACHE_TTL:
+            return _ollama_models_cache
+
+        try:
+            req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = _json.loads(resp.read().decode("utf-8"))
+                models = [m.get("name", "") for m in data.get("models", [])]
+                _ollama_models_cache = models
+                _ollama_cache_ts = now
+                log.debug("Ollama models detected: %s", models)
+                return models
+        except Exception:
+            _ollama_models_cache = []
             _ollama_cache_ts = now
-            log.debug("Ollama models detected: %s", models)
-            return models
-    except Exception:
-        _ollama_models_cache = []
-        _ollama_cache_ts = now
-        return []
+            return []
 
 
 def _ollama_has_model(model_name: str) -> bool:
