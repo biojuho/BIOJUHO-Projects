@@ -8,7 +8,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Union
 
 from .backends import BackendManager
 from .config import (
@@ -205,7 +205,7 @@ class LLMClient:
         *,
         tier: TaskTier | None = None,
         model: str | None = None,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         max_tokens: int = 1000,
         system: str = "",
         policy: LLMPolicy | None = None,
@@ -239,7 +239,7 @@ class LLMClient:
         *,
         tier: TaskTier | None = None,
         model: str | None = None,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         max_tokens: int = 1000,
         system: str = "",
         policy: LLMPolicy | None = None,
@@ -272,11 +272,13 @@ class LLMClient:
 
     def get_stats(self) -> dict[str, Any]:
         s = self._tracker.get_stats()
-        bridge_calls = max(self._bridge_metrics["bridge_calls"], 1)
-        deepseek_calls = max(self._bridge_metrics["deepseek_calls"], 1)
-        per_task_latency = {}
-        for task_kind, total in self._bridge_metrics["task_latency_totals"].items():
-            calls = self._bridge_metrics["task_call_counts"].get(task_kind, 1)
+        bridge_calls = max(int(self._bridge_metrics["bridge_calls"]), 1)
+        deepseek_calls = max(int(self._bridge_metrics["deepseek_calls"]), 1)
+        per_task_latency: dict[str, float] = {}
+        latency_totals: dict[str, float] = self._bridge_metrics["task_latency_totals"]  # type: ignore[assignment]
+        call_counts: dict[str, int] = self._bridge_metrics["task_call_counts"]  # type: ignore[assignment]
+        for task_kind, total in latency_totals.items():
+            calls = call_counts.get(task_kind, 1)
             per_task_latency[task_kind] = round(total / max(calls, 1), 1)
         return {
             "total_calls": s.total_calls,
@@ -316,7 +318,7 @@ class LLMClient:
         self,
         *,
         tier: TaskTier | None = None,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         max_tokens: int = 2000,
         system: str = "",
         policy: LLMPolicy | None = None,
@@ -372,7 +374,7 @@ class LLMClient:
         self,
         *,
         tier: TaskTier | None = None,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         max_tokens: int = 2000,
         system: str = "",
         policy: LLMPolicy | None = None,
@@ -417,21 +419,19 @@ class LLMClient:
 
     def _record_bridge_attempt(self, response: LLMResponse, policy: LLMPolicy) -> None:
         if response.bridge_meta.bridge_applied:
-            self._bridge_metrics["bridge_calls"] += 1
+            self._bridge_metrics["bridge_calls"] = int(self._bridge_metrics["bridge_calls"]) + 1
         if response.backend == "deepseek":
-            self._bridge_metrics["deepseek_calls"] += 1
+            self._bridge_metrics["deepseek_calls"] = int(self._bridge_metrics["deepseek_calls"]) + 1
         if "json_invalid" in response.bridge_meta.quality_flags:
-            self._bridge_metrics["structured_parse_failures"] += 1
+            self._bridge_metrics["structured_parse_failures"] = int(self._bridge_metrics["structured_parse_failures"]) + 1
         if response.bridge_meta.bridge_applied and not response.bridge_meta.quality_flags:
-            self._bridge_metrics["bridge_passes"] += 1
+            self._bridge_metrics["bridge_passes"] = int(self._bridge_metrics["bridge_passes"]) + 1
 
         task_kind = policy.task_kind or "generic"
-        self._bridge_metrics["task_latency_totals"][task_kind] = (
-            self._bridge_metrics["task_latency_totals"].get(task_kind, 0.0) + response.latency_ms
-        )
-        self._bridge_metrics["task_call_counts"][task_kind] = (
-            self._bridge_metrics["task_call_counts"].get(task_kind, 0) + 1
-        )
+        latency_totals: dict[str, float] = self._bridge_metrics["task_latency_totals"]  # type: ignore[assignment]
+        call_counts: dict[str, int] = self._bridge_metrics["task_call_counts"]  # type: ignore[assignment]
+        latency_totals[task_kind] = latency_totals.get(task_kind, 0.0) + response.latency_ms
+        call_counts[task_kind] = call_counts.get(task_kind, 0) + 1
 
     def _finalize_success(
         self,
@@ -523,10 +523,10 @@ class LLMClient:
         *,
         resolved_tier: TaskTier,
         backend_name: str,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         system: str,
         policy: LLMPolicy,
-    ) -> tuple | None:
+    ) -> tuple[str, list[dict[str, Any]], Any, LLMPolicy] | None:
         """Prepare a backend call. Returns None if this backend should be skipped."""
         if _is_failed(resolved_tier, backend_name) or not self._backends.has_key(backend_name):
             return None
@@ -543,7 +543,7 @@ class LLMClient:
         resolved_tier: TaskTier,
         backend_name: str,
         default_model: str,
-        request_meta,
+        request_meta: Any,
         resolved_policy: LLMPolicy,
         rejected_meta: BridgeMeta | None,
         repaired_from_deepseek: bool,
@@ -595,12 +595,12 @@ class LLMClient:
         self,
         *,
         resolved_tier: TaskTier,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         max_tokens: int,
         system: str,
         policy: LLMPolicy,
         async_mode: bool,
-    ):
+    ) -> Union[LLMResponse, Any]:  # Any covers coroutine in async_mode=True
         chain = self._iter_chain(resolved_tier, policy)
 
         if async_mode:
@@ -675,7 +675,7 @@ class LLMClient:
         *,
         chain: list[tuple[str, str]],
         resolved_tier: TaskTier,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         max_tokens: int,
         system: str,
         policy: LLMPolicy,
