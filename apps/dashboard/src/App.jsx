@@ -1,4 +1,6 @@
 import { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react'
+import { MetricCard } from './components/MetricCard.jsx'
+import { Button } from './components/Button.jsx'
 
 const LazyBarChart = lazy(() =>
   import('./components/charts').then((module) => ({ default: module.BarChart })),
@@ -111,16 +113,7 @@ function ChartLoading({ height = 220 }) {
   )
 }
 
-function StatusCard({ icon, name, value, detail, status = 'ok' }) {
-  return (
-    <div className={`status-card ${status}`}>
-      <div className="icon">{icon}</div>
-      <div className="name">{name}</div>
-      <div className="value">{value}</div>
-      {detail && <div className="detail">{detail}</div>}
-    </div>
-  )
-}
+// StatusCard → MetricCard 컴포넌트로 대체됨 (하단 참조)
 
 /* ─── GetDayTrends Panel ─── */
 function GdtPanel({ data }) {
@@ -494,44 +487,64 @@ export default function App() {
           <div className="subtitle">BIOJUHO Lab — 통합 모니터링</div>
         </div>
         <div className="header-right">
+          <div className="status-indicator">
+            <span className="status-dot" aria-hidden="true" />
+            LIVE
+          </div>
           <span className="last-updated">
-            마지막 업데이트: {lastUpdated.toLocaleTimeString('ko-KR')}
+            {lastUpdated.toLocaleTimeString('ko-KR')} 업데이트
           </span>
-          <button className="refresh-btn" onClick={refreshAll}>
-            ↻ 새로고침
-          </button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={refreshAll}
+            leftIcon="↻"
+            aria-label="데이터 새로고침"
+          >
+            새로고침
+          </Button>
         </div>
       </header>
 
       {/* ── Status Overview ── */}
       <section className="status-bar">
-        <StatusCard
+        <MetricCard
           icon="📡"
           name="GetDayTrends"
           value={projects.getdaytrends?.total_runs || '—'}
           detail={projects.getdaytrends?.latest_run?.started_at?.slice(0, 16) || ''}
           status={(projects.getdaytrends?.status || 'warn').toLowerCase()}
+          badge={(projects.getdaytrends?.status || 'warn').toUpperCase()}
+          progress={projects.getdaytrends?.total_runs ? Math.min(100, (projects.getdaytrends.total_runs / 100) * 100) : 0}
         />
-        <StatusCard
+        <MetricCard
           icon="✍️"
           name="CIE v2.0"
           value={`QA ${projects.cie?.avg_qa_score || 0}`}
           detail={`${projects.cie?.total_contents || 0} 콘텐츠`}
           status={(projects.cie?.status || 'warn').toLowerCase()}
+          badge={(projects.cie?.status || 'WARN').toUpperCase()}
+          progress={projects.cie?.avg_qa_score || 0}
         />
-        <StatusCard
+        <MetricCard
           icon="🌱"
           name="AgriGuard"
           value={projects.agriguard?.sensor_readings?.toLocaleString() || '—'}
           detail={`${projects.agriguard?.products || 0}개 제품`}
           status={(projects.agriguard?.status || 'error').toLowerCase()}
+          badge={(projects.agriguard?.status || 'error').toUpperCase()}
         />
-        <StatusCard
+        <MetricCard
           icon="💰"
           name="API 비용"
           value={`$${(projects.costs?.total_cost || 0).toFixed(2)}`}
           detail={`${projects.costs?.total_calls || 0} 호출`}
           status={(projects.costs?.total_cost || 0) > 2 ? 'warn' : 'ok'}
+          trend={{
+            direction: (projects.costs?.total_cost || 0) > 1.5 ? 'up' : 'flat',
+            label: `일예산 $2.00 대비`,
+          }}
+          progress={Math.min(100, ((projects.costs?.total_cost || 0) / 2) * 100)}
         />
       </section>
 

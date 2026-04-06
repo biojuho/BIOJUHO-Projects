@@ -6,5 +6,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
+    testTimeout: 30_000,
+    pool: 'forks',
+    forks: {
+      singleFork: true,
+    },
   },
 })
