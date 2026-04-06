@@ -75,7 +75,15 @@ async def check_all_regulations(
 ) -> list[RegulationReport]:
     """모든 대상 플랫폼의 규제를 병렬 점검한다."""
     tasks = [check_platform_regulation(p, config) for p in config.platforms]
-    return await asyncio.gather(*tasks, return_exceptions=False)
+    # BUG-009 fix: return_exceptions=True so one failure doesn't crash all
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    valid: list[RegulationReport] = []
+    for r in results:
+        if isinstance(r, Exception):
+            log.warning(f"규제 점검 실패 (무시): {r}")
+        else:
+            valid.append(r)
+    return valid
 
 
 # ───────────────────────────────────────────────────

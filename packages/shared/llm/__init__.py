@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import atexit
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -34,37 +35,43 @@ from .stats import CostTracker
 from .tool_schema import ToolDefinition, ToolRegistry, ToolResult
 
 _client: LLMClient | None = None
+_client_lock = threading.Lock()  # BUG-017 fix: thread-safe singleton
 
 
 def _close_client() -> None:
     global _client
-    if _client is not None:
-        try:
-            _client.close()
-        finally:
-            _client = None
+    with _client_lock:
+        if _client is not None:
+            try:
+                _client.close()
+            finally:
+                _client = None
 
 
 atexit.register(_close_client)
 
 
 def get_client(**key_overrides: str) -> LLMClient:
-    """Get or create the singleton LLMClient instance."""
+    """Get or create the singleton LLMClient instance (thread-safe)."""
     global _client
-    if _client is None:
-        _client = LLMClient(**key_overrides)
-    return _client
+    if _client is not None:  # fast path (no lock)
+        return _client
+    with _client_lock:
+        if _client is None:  # double-checked locking
+            _client = LLMClient(**key_overrides)
+        return _client
 
 
 def reset_client() -> None:
     """Reset the singleton (for testing or key rotation)."""
     global _client
-    if _client is not None:
-        try:
-            _client.reset()
-        finally:
-            _client.close()
-    _client = None
+    with _client_lock:
+        if _client is not None:
+            try:
+                _client.reset()
+            finally:
+                _client.close()
+        _client = None
 
 
 def export_usage_csv(days: int = 30) -> Path | None:

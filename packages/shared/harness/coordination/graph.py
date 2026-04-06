@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Annotated, Callable, Awaitable, Optional, Sequence
+from datetime import UTC, datetime
+from typing import Any, Callable, Awaitable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +35,13 @@ try:
 except ImportError:
     LANGGRAPH_AVAILABLE = False
     END = "end"
-    StateGraph = None  # type: ignore[assignment,misc]
+    StateGraph = None  # type: ignore[assignment]
 
 from ..constitution import Constitution
 from ..adapters.native import NativeHarnessAdapter
 
 
 # --- State ---
-
-def _append_reducer(existing: list, new: list | Any) -> list:
-    """Accumulator reducer for list fields."""
-    if isinstance(new, list):
-        return existing + new
-    return existing + [new]
-
 
 class PipelineState(dict):
     """State for the content generation pipeline graph.
@@ -106,7 +99,7 @@ class ContentPipelineGraph:
 
     def _trace_entry(self, step_name: str, status: str, detail: str = "") -> dict:
         return {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "step": step_name,
             "status": status,
             "detail": detail[:500],

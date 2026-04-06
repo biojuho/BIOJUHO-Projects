@@ -575,6 +575,34 @@ async def _init_db_unlocked(conn) -> None:
         CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_country_package_created ON tap_deal_room_events(target_country, package_tier, created_at);
         CREATE INDEX IF NOT EXISTS idx_tap_deal_room_events_session_created ON tap_deal_room_events(session_id, created_at);
 
+        CREATE TABLE IF NOT EXISTS tap_checkout_sessions (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            checkout_session_id TEXT NOT NULL UNIQUE,
+            checkout_handle     TEXT DEFAULT '',
+            snapshot_id         TEXT DEFAULT '',
+            keyword             TEXT NOT NULL,
+            target_country      TEXT DEFAULT '',
+            audience_segment    TEXT DEFAULT '',
+            package_tier        TEXT DEFAULT 'premium_alert_bundle',
+            offer_tier          TEXT DEFAULT 'premium',
+            session_status      TEXT DEFAULT 'created',
+            payment_status      TEXT DEFAULT '',
+            currency            TEXT DEFAULT 'usd',
+            quoted_price_value  REAL DEFAULT 0.0,
+            revenue_value       REAL DEFAULT 0.0,
+            checkout_url        TEXT DEFAULT '',
+            actor_id            TEXT DEFAULT '',
+            stripe_customer_id  TEXT DEFAULT '',
+            stripe_event_id     TEXT DEFAULT '',
+            metadata_json       TEXT DEFAULT '{}',
+            created_at          TEXT NOT NULL,
+            updated_at          TEXT NOT NULL,
+            completed_at        TEXT DEFAULT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_checkout_sessions_status_created ON tap_checkout_sessions(session_status, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_checkout_sessions_keyword_created ON tap_checkout_sessions(keyword, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_checkout_sessions_handle_created ON tap_checkout_sessions(checkout_handle, created_at);
+
         CREATE TABLE IF NOT EXISTS schema_version (
             version     INTEGER PRIMARY KEY,
             description TEXT NOT NULL DEFAULT '',
@@ -591,7 +619,7 @@ async def _init_db_unlocked(conn) -> None:
 #  Schema Migration Infrastructure
 # ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
 
-_CURRENT_SCHEMA_VERSION = 10
+_CURRENT_SCHEMA_VERSION = 11
 
 
 async def _get_schema_version(conn) -> int:
@@ -921,6 +949,40 @@ async def _migrate_v10(conn) -> None:
     await conn.commit()
 
 
+async def _migrate_v11(conn) -> None:
+    """v11: TAP checkout session ops table for Stripe session tracking."""
+    await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS tap_checkout_sessions (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            checkout_session_id TEXT NOT NULL UNIQUE,
+            checkout_handle     TEXT DEFAULT '',
+            snapshot_id         TEXT DEFAULT '',
+            keyword             TEXT NOT NULL,
+            target_country      TEXT DEFAULT '',
+            audience_segment    TEXT DEFAULT '',
+            package_tier        TEXT DEFAULT 'premium_alert_bundle',
+            offer_tier          TEXT DEFAULT 'premium',
+            session_status      TEXT DEFAULT 'created',
+            payment_status      TEXT DEFAULT '',
+            currency            TEXT DEFAULT 'usd',
+            quoted_price_value  REAL DEFAULT 0.0,
+            revenue_value       REAL DEFAULT 0.0,
+            checkout_url        TEXT DEFAULT '',
+            actor_id            TEXT DEFAULT '',
+            stripe_customer_id  TEXT DEFAULT '',
+            stripe_event_id     TEXT DEFAULT '',
+            metadata_json       TEXT DEFAULT '{}',
+            created_at          TEXT NOT NULL,
+            updated_at          TEXT NOT NULL,
+            completed_at        TEXT DEFAULT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tap_checkout_sessions_status_created ON tap_checkout_sessions(session_status, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_checkout_sessions_keyword_created ON tap_checkout_sessions(keyword, created_at);
+        CREATE INDEX IF NOT EXISTS idx_tap_checkout_sessions_handle_created ON tap_checkout_sessions(checkout_handle, created_at);
+    """)
+    await conn.commit()
+
+
 _MIGRATIONS: list[tuple[int, str, any]] = [
     (1, "tweets.content_type column", _migrate_v1),
     (2, "trends.fingerprint column + index", _migrate_v2),
@@ -932,6 +994,7 @@ _MIGRATIONS: list[tuple[int, str, any]] = [
     (8, "TAP product snapshot tables", _migrate_v8),
     (9, "TAP premium alert queue", _migrate_v9),
     (10, "TAP deal-room funnel events", _migrate_v10),
+    (11, "TAP checkout session ops", _migrate_v11),
 ]
 
 
@@ -945,6 +1008,7 @@ async def _reconcile_latest_schema(conn) -> None:
     await _migrate_v8(conn)
     await _migrate_v9(conn)
     await _migrate_v10(conn)
+    await _migrate_v11(conn)
 
 
 async def _run_migrations(conn) -> None:

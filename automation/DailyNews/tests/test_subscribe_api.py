@@ -346,6 +346,22 @@ class TestFastApiEndpoints:
         assert response.status_code == 404
         assert response.json()["error"] == "not_found"
 
+    def test_unsubscribe_endpoint_accepts_existing_email(self, client, store: SubscriberStore) -> None:
+        store.add_subscriber("leave@example.com")
+
+        response = client.post("/api/unsubscribe", json={"email": "  leave@example.com  "})
+
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+
+    def test_root_serves_landing_page(self, client) -> None:
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert "Signal Desk" in response.text
+        assert "data-form-mode=\"unsubscribe\"" in response.text
+        assert "placeholder=\"keyword, category, source\"" in response.text
+
     def test_signals_endpoint_returns_serialized_feed(self, client) -> None:
         with patch(
             "antigravity_mcp.apps.subscribe_api._load_signal_history",

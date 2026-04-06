@@ -17,6 +17,8 @@ from db import (
     get_cached_score,
     get_tap_alert_delivery_batch,
     get_tap_alert_queue_snapshot,
+    get_tap_deal_room_funnel,
+    get_tap_deal_room_offer_stats,
     get_latest_tap_board_snapshot,
     get_recent_avg_viral_score,
     get_recently_processed_keywords,
@@ -24,6 +26,7 @@ from db import (
     init_db,
     is_duplicate_trend,
     mark_tweet_posted,
+    record_tap_deal_room_event,
     save_run,
     save_tap_board_snapshot,
     save_thread,
@@ -72,6 +75,7 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
         self.assertIn("tap_snapshots", table_names)
         self.assertIn("tap_snapshot_items", table_names)
         self.assertIn("tap_alert_queue", table_names)
+        self.assertIn("tap_deal_room_events", table_names)
 
     @pytest.mark.asyncio
     async def test_idempotent(self):
@@ -266,6 +270,138 @@ class TestTapBoardSnapshots(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second, 0)
         self.assertEqual(snapshot["counts"]["queued"], 1)
         self.assertEqual(snapshot["items"][0]["keyword"], "AI regulation")
+
+
+class TestTapDealRoomFunnel(unittest.IsolatedAsyncioTestCase):
+    """TAP deal-room event storage should feed offer-level learning stats."""
+
+    async def asyncSetUp(self):
+        self.conn = await aiosqlite.connect(":memory:")
+        self.conn.row_factory = aiosqlite.Row
+        await init_db(self.conn)
+
+    async def asyncTearDown(self):
+        await self.conn.close()
+
+    @pytest.mark.asyncio
+    async def test_record_and_summarize_deal_room_events(self):
+        await record_tap_deal_room_event(
+            self.conn,
+            keyword="AI regulation",
+            event_type="view",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            session_id="session-1",
+        )
+        await record_tap_deal_room_event(
+            self.conn,
+            keyword="AI regulation",
+            event_type="click",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            session_id="session-1",
+        )
+        await record_tap_deal_room_event(
+            self.conn,
+            keyword="AI regulation",
+            event_type="checkout",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            session_id="session-1",
+        )
+        await record_tap_deal_room_event(
+            self.conn,
+            keyword="AI regulation",
+            event_type="buy",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            session_id="session-1",
+            revenue_value=99.0,
+        )
+        await record_tap_deal_room_event(
+            self.conn,
+            keyword="AI regulation",
+            event_type="impression",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            session_id="session-2",
+        )
+
+        summary = await get_tap_deal_room_funnel(
+            self.conn,
+            days=30,
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            limit=10,
+        )
+        offer_stats = await get_tap_deal_room_offer_stats(
+            self.conn,
+            days=30,
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+        )
+
+        self.assertEqual(summary["totals"]["views"], 2)
+        self.assertEqual(summary["totals"]["clicks"], 1)
+        self.assertEqual(summary["totals"]["checkout_opens"], 1)
+        self.assertEqual(summary["totals"]["purchases"], 1)
+        self.assertEqual(summary["totals"]["revenue"], 99.0)
+        self.assertAlmostEqual(summary["totals"]["ctr"], 0.5, places=4)
+        self.assertAlmostEqual(summary["totals"]["purchase_rate"], 1.0, places=4)
+        self.assertEqual(summary["items"][0]["keyword"], "AI regulation")
+        self.assertEqual(summary["items"][0]["offer_tier"], "premium")
+        self.assertIn("airegulation::premium", offer_stats)
+        self.assertEqual(offer_stats["airegulation::premium"]["purchases"], 1)
+
+    @pytest.mark.asyncio
+    async def test_record_tap_deal_room_event_is_idempotent_by_event_id(self):
+        first = await record_tap_deal_room_event(
+            self.conn,
+            keyword="AI regulation",
+            event_type="purchase",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            revenue_value=99.0,
+            event_id="evt_stripe_1",
+        )
+        second = await record_tap_deal_room_event(
+            self.conn,
+            keyword="AI regulation",
+            event_type="purchase",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            revenue_value=99.0,
+            event_id="evt_stripe_1",
+        )
+        summary = await get_tap_deal_room_funnel(
+            self.conn,
+            days=30,
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            limit=10,
+        )
+
+        self.assertEqual(first, "evt_stripe_1")
+        self.assertEqual(second, "evt_stripe_1")
+        self.assertEqual(summary["totals"]["purchases"], 1)
+        self.assertEqual(summary["totals"]["revenue"], 99.0)
 
     @pytest.mark.asyncio
     async def test_tap_alert_delivery_batch_and_status_update(self):

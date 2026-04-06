@@ -71,7 +71,7 @@ class KoreanQualityResult:
     """
 
     passed: bool
-    flags: list[str] = field(default_factory=list)
+    flags: tuple[str, ...] = ()
     hangul_ratio: float = 0.0
     hanzi_ratio: float = 0.0
     latin_ratio: float = 0.0
@@ -139,7 +139,7 @@ def validate_korean_output(
     if not body:
         return KoreanQualityResult(
             passed=False,
-            flags=["empty_response"],
+            flags=("empty_response",),
             text_length=0,
         )
 
@@ -183,7 +183,7 @@ def validate_korean_output(
 
     return KoreanQualityResult(
         passed=passed,
-        flags=flags,
+        flags=tuple(flags),
         hangul_ratio=round(hangul_ratio, 4),
         hanzi_ratio=round(hanzi_ratio, 4),
         latin_ratio=round(latin_ratio, 4),

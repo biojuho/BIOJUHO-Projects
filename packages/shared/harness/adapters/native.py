@@ -24,7 +24,7 @@ Usage::
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime  # noqa: UTC requires Python 3.11+
 from typing import Any, Awaitable, Callable, Optional
 
 from ..constitution import Constitution
@@ -101,7 +101,7 @@ class NativeHarnessAdapter(AbstractHarnessAdapter):
         policy = get_sandbox_policy(tool_name, self._tool_level_overrides)
 
         trace_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "agent_name": self._harness.constitution.agent_name,
             "action": tool_name,
             "permission_level": level.value,
@@ -228,7 +228,7 @@ class NativeHarnessAdapter(AbstractHarnessAdapter):
         )
 
         trace_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "agent_name": self._harness.constitution.agent_name,
             "action": "spawn_subagent",
             "result_summary": f"spawned {agent_name}",

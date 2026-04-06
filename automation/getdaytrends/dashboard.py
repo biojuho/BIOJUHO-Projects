@@ -5,12 +5,14 @@ FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소�
 실행: uvicorn dashboard:app --reload --port 8010
 """
 
-from datetime import date, datetime, timedelta
 import json
+import re
+from datetime import date, datetime, timedelta
+from urllib.parse import quote_plus
 
 try:
     import httpx
-    from fastapi import FastAPI, Query
+    from fastapi import FastAPI, Query, Request
     from fastapi.responses import HTMLResponse, JSONResponse
 except ImportError as e:
     raise ImportError(
@@ -19,9 +21,23 @@ except ImportError as e:
 
 try:
     from .config import VERSION, AppConfig
-    from .db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_tap_alert_queue_snapshot, get_trend_stats, init_db
+    from .db import (
+        get_tap_checkout_session_summary,
+        get_connection,
+        mark_tap_checkout_session_completed,
+        get_review_queue_snapshot,
+        get_source_quality_summary,
+        get_tap_alert_queue_snapshot,
+        get_tap_deal_room_funnel,
+        get_trend_stats,
+        init_db,
+        record_tap_deal_room_event,
+        upsert_tap_checkout_session,
+    )
     from .tap import (
+        DealRoomRequest,
         TapBoardRequest,
+        build_tap_deal_room_snapshot,
         build_tap_board_snapshot,
         dispatch_tap_alert_queue,
         empty_tap_board,
@@ -29,9 +45,23 @@ try:
     )
 except ImportError:
     from config import VERSION, AppConfig
-    from db import get_connection, get_review_queue_snapshot, get_source_quality_summary, get_tap_alert_queue_snapshot, get_trend_stats, init_db
+    from db import (
+        get_tap_checkout_session_summary,
+        get_connection,
+        mark_tap_checkout_session_completed,
+        get_review_queue_snapshot,
+        get_source_quality_summary,
+        get_tap_alert_queue_snapshot,
+        get_tap_deal_room_funnel,
+        get_trend_stats,
+        init_db,
+        record_tap_deal_room_event,
+        upsert_tap_checkout_session,
+    )
     from tap import (
+        DealRoomRequest,
         TapBoardRequest,
+        build_tap_deal_room_snapshot,
         build_tap_board_snapshot,
         dispatch_tap_alert_queue,
         empty_tap_board,
@@ -143,6 +173,14 @@ _HTML = """<!DOCTYPE html>
   .tap-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}}
   @media(max-width:1200px){{.tap-grid{{grid-template-columns:1fr}}}}
   .tap-card{{background:linear-gradient(145deg,#0f172a,#131a2b);border:1px solid rgba(99,102,241,.12);border-radius:12px;padding:16px;min-height:180px}}
+  .tap-deal-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+  @media(max-width:1200px){{.tap-deal-grid{{grid-template-columns:1fr}}}}
+  .tap-deal-card{{background:linear-gradient(145deg,#0f172a,#151e34);border:1px solid rgba(245,158,11,.18);border-radius:12px;padding:16px}}
+  .tap-deal-top{{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}}
+  .tap-price{{font-size:1.1rem;font-weight:800;color:#fbbf24}}
+  .tap-cta{{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 12px;background:rgba(245,158,11,.16);color:#fcd34d;font-size:.75rem;font-weight:700;margin-top:10px}}
+  .tap-outline{{display:grid;gap:6px;margin-top:12px}}
+  .tap-outline-item{{font-size:.76rem;color:#cbd5e1;line-height:1.45}}
   .tap-head{{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}}
   .tap-title{{font-size:1rem;font-weight:700;color:#f8fafc;line-height:1.3}}
   .tap-badge{{padding:4px 8px;border-radius:999px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}}
@@ -360,6 +398,17 @@ _HTML = """<!DOCTYPE html>
     <div id="tap-outcome-list" class="tap-outcome-list">
       <div class="skeleton sk-block" style="height:78px"></div>
       <div class="skeleton sk-block" style="height:78px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAP Deal Room -->
+<div class="charts-row">
+  <div class="panel">
+    <h3>??TAP Deal Room: Teaser to Premium Conversion</h3>
+    <div id="tap-deal-room" class="tap-deal-grid">
+      <div class="skeleton sk-block" style="height:180px"></div>
+      <div class="skeleton sk-block" style="height:180px"></div>
     </div>
   </div>
 </div>
@@ -778,6 +827,157 @@ function resetTapPresets() {{
   toast('Preset markets reset.');
 }}
 
+function getTapDealRoomSessionId() {{
+  const storageKey = 'getdaytrends.tap-session-id';
+  try {{
+    let sessionId = localStorage.getItem(storageKey);
+    if (!sessionId) {{
+      sessionId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+        ? window.crypto.randomUUID()
+        : `tap-${{Date.now().toString(36)}}-${{Math.random().toString(36).slice(2, 10)}}`;
+      localStorage.setItem(storageKey, sessionId);
+    }}
+    return sessionId;
+  }} catch (e) {{
+    return `tap-${{Date.now().toString(36)}}`;
+  }}
+}}
+
+function getTapDealRoomImpressionKey(room, offer) {{
+  return [
+    'tap-deal-room',
+    room.snapshot_id || 'snapshot',
+    room.target_country || 'global',
+    room.audience_segment || 'creator',
+    offer.keyword || 'unknown',
+    offer.tier || 'premium',
+  ].join(':').toLowerCase();
+}}
+
+function formatTapPct(value) {{
+  return `${{(Number(value || 0) * 100).toFixed(1)}}%`;
+}}
+
+function formatTapMoney(value) {{
+  return `$${{Number(value || 0).toFixed(0)}}`;
+}}
+
+async function trackTapDealRoomEvent({{ room, offer, eventType, revenueValue = 0 }}) {{
+  try {{
+    const params = new URLSearchParams();
+    const payload = {{
+      keyword: offer.keyword || '',
+      event_type: eventType || '',
+      snapshot_id: room.snapshot_id || '',
+      target_country: room.target_country || getTapTargetCountry(),
+      audience_segment: room.audience_segment || 'creator',
+      package_tier: room.package_tier || 'premium_alert_bundle',
+      offer_tier: offer.tier || 'premium',
+      price_anchor: offer.price_anchor || '',
+      checkout_handle: offer.checkout_handle || '',
+      session_id: getTapDealRoomSessionId(),
+      actor_id: 'dashboard',
+      revenue_value: String(revenueValue || 0),
+    }};
+    Object.entries(payload).forEach(([key, value]) => {{
+      if (value !== undefined && value !== null && String(value).length) {{
+        params.set(key, String(value));
+      }}
+    }});
+    await fetch(`/api/tap/deal-room/events?${{params.toString()}}`, {{ method: 'POST' }});
+  }} catch (e) {{}}
+}}
+
+async function trackTapDealRoomImpressions(room) {{
+  const tracked = [];
+  (room.offers || []).forEach(offer => {{
+    const key = getTapDealRoomImpressionKey(room, offer);
+    try {{
+      if (!sessionStorage.getItem(key)) {{
+        sessionStorage.setItem(key, getTapDealRoomSessionId());
+        tracked.push(trackTapDealRoomEvent({{ room, offer, eventType: 'view' }}));
+      }}
+    }} catch (e) {{
+      tracked.push(trackTapDealRoomEvent({{ room, offer, eventType: 'view' }}));
+    }}
+  }});
+  if (tracked.length) {{
+    await Promise.allSettled(tracked);
+  }}
+}}
+
+async function openTapDealRoomCheckout(room, offer) {{
+  const response = await fetch('/api/tap/deal-room/checkout', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{
+      keyword: offer.keyword || '',
+      snapshot_id: room.snapshot_id || '',
+      target_country: room.target_country || getTapTargetCountry(),
+      audience_segment: room.audience_segment || 'creator',
+      package_tier: room.package_tier || 'premium_alert_bundle',
+      offer_tier: offer.tier || 'premium',
+      price_anchor: offer.price_anchor || '',
+      premium_title: offer.premium_title || offer.keyword || '',
+      teaser_body: offer.teaser_body || '',
+      checkout_handle: offer.checkout_handle || '',
+      currency: 'usd',
+      actor_id: getTapDealRoomSessionId(),
+    }}),
+  }});
+  const payload = await response.json().catch(() => ({{}}));
+  if (!response.ok) {{
+    throw new Error(payload.error || 'Checkout is unavailable');
+  }}
+  if (!payload.url) {{
+    throw new Error('Stripe checkout URL is missing');
+  }}
+  window.location.assign(payload.url);
+}}
+
+function bindTapDealRoomActions(room) {{
+  document.querySelectorAll('[data-tap-offer-index]').forEach(node => {{
+    node.addEventListener('click', async () => {{
+      const offerIndex = Number(node.getAttribute('data-tap-offer-index') || '-1');
+      const offer = (room.offers || [])[offerIndex];
+      if (!offer) return;
+      node.disabled = true;
+      try {{
+        await trackTapDealRoomEvent({{ room, offer, eventType: 'click' }});
+        if (offer.checkout_handle) {{
+          await openTapDealRoomCheckout(room, offer);
+          return;
+        }}
+        toast(`Offer click tracked for ${{offer.keyword}}.`);
+      }} catch (e) {{
+        toast(e && e.message ? e.message : `Checkout unavailable for ${{offer.keyword}}.`);
+      }} finally {{
+        node.disabled = false;
+      }}
+    }});
+  }});
+}}
+
+function handleTapCheckoutStateFromUrl() {{
+  try {{
+    const params = new URLSearchParams(window.location.search);
+    const state = params.get('tap_checkout');
+    const keyword = params.get('tap_keyword');
+    if (!state) return;
+    if (state === 'success') {{
+      toast(keyword ? `Purchase completed for ${{keyword}}.` : 'Purchase completed.');
+      loadTapDealRoom();
+    }} else if (state === 'cancel') {{
+      toast(keyword ? `Checkout canceled for ${{keyword}}.` : 'Checkout canceled.');
+    }}
+    params.delete('tap_checkout');
+    params.delete('tap_keyword');
+    const query = params.toString();
+    const nextUrl = `${{window.location.pathname}}${{query ? `?${{query}}` : ''}}${{window.location.hash || ''}}`;
+    window.history.replaceState({{}}, '', nextUrl);
+  }} catch (e) {{}}
+}}
+
 async function loadTapBoard() {{
   try {{
     const board = document.getElementById('tap-board');
@@ -826,6 +1026,116 @@ async function loadTapBoard() {{
   }} catch(e) {{}}
 }}
 
+async function loadTapDealRoom() {{
+  const container = document.getElementById('tap-deal-room');
+  if (!container) return;
+  try {{
+    const targetCountry = getTapTargetCountry();
+    const roomQuery = buildTapQuery({{
+      limit: 4,
+      teaser_count: 2,
+      target_country: targetCountry,
+      audience_segment: 'creator',
+      include_checkout: 'true',
+    }});
+    const funnelQuery = buildTapQuery({{
+      days: 30,
+      limit: 8,
+      target_country: targetCountry,
+      audience_segment: 'creator',
+      package_tier: 'premium_alert_bundle',
+    }});
+    const [data, funnel] = await Promise.all([
+      fetch(`/api/tap/deal-room?${{roomQuery}}`).then(r => r.json()),
+      fetch(`/api/tap/deal-room/funnel?${{funnelQuery}}`).then(r => r.json()).catch(() => null),
+    ]);
+    if (!data.offers || !data.offers.length) {{
+      const scope = targetCountry ? ` for ${{safeHtml(targetCountry.toUpperCase())}}` : '';
+      container.innerHTML = `
+        <div class="tap-deal-card">
+          <div class="tap-title">No monetizable bundle ready${{scope}}</div>
+          <div class="tap-copy">When the next arbitrage gap opens, this room will package a teaser lane and a premium conversion lane automatically.</div>
+        </div>
+      `;
+      return;
+    }}
+
+    const totals = funnel && funnel.totals ? funnel.totals : null;
+    const summaryCard = totals ? `
+      <div class="tap-deal-card" style="grid-column:1 / -1;">
+        <div class="tap-title">Conversion learning loop</div>
+        <div class="tap-copy">Recent deal-room behavior is now feeding the ranking layer for each offer lane.</div>
+        <div class="tap-summary">
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">Views</div>
+            <div class="tap-summary-value">${{safeHtml(String(totals.views || 0))}}</div>
+          </div>
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">CTR</div>
+            <div class="tap-summary-value">${{safeHtml(formatTapPct(totals.ctr || 0))}}</div>
+          </div>
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">Purchases</div>
+            <div class="tap-summary-value">${{safeHtml(String(totals.purchases || 0))}}</div>
+          </div>
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">Revenue</div>
+            <div class="tap-summary-value">${{safeHtml(formatTapMoney(totals.revenue || 0))}}</div>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    container.innerHTML = summaryCard + data.offers.map((offer, index) => {{
+      const outline = (offer.bundle_outline || [])
+        .slice(0, 4)
+        .map(item => `<div class="tap-outline-item">${{safeHtml(item)}}</div>`)
+        .join('');
+      const sponsorFit = (offer.sponsor_fit || [])
+        .slice(0, 4)
+        .map(item => `<span class="tap-chip">${{safeHtml(item)}}</span>`)
+        .join('');
+      const funnelStats = offer.funnel_stats || {{}};
+      const learningNote = offer.learning_note
+        ? `<div class="tap-notes">${{safeHtml(offer.learning_note)}}</div>`
+        : '';
+      return `
+        <div class="tap-deal-card">
+          <div class="tap-deal-top">
+            <div>
+              <div class="tap-title">${{safeHtml(offer.teaser_headline || offer.keyword)}}</div>
+              <div class="tap-lock">${{safeHtml(offer.tier)}} lane</div>
+            </div>
+            <div class="tap-price">${{safeHtml(offer.price_anchor || '$0')}}</div>
+          </div>
+          <div class="tap-copy">${{safeHtml(offer.teaser_body || '')}}</div>
+          <div class="tap-copy" style="font-size:.78rem;color:#f8fafc;">${{safeHtml(offer.premium_title || '')}}</div>
+          <div class="tap-meta">${{sponsorFit}}</div>
+          <div class="tap-meta">
+            <span class="tap-chip">views ${{safeHtml(String(funnelStats.views || 0))}}</span>
+            <span class="tap-chip">ctr ${{safeHtml(formatTapPct(funnelStats.ctr || 0))}}</span>
+            <span class="tap-chip">purchases ${{safeHtml(String(funnelStats.purchases || 0))}}</span>
+          </div>
+          <div class="tap-outline">${{outline}}</div>
+          ${{learningNote}}
+          <div class="tap-actions">
+            <button type="button" class="tap-btn" data-tap-offer-index="${{index}}">${{safeHtml(offer.cta_label || 'Open bundle')}}</button>
+          </div>
+        </div>
+      `;
+    }}).join('');
+    await trackTapDealRoomImpressions(data);
+    bindTapDealRoomActions(data);
+  }} catch(e) {{
+    container.innerHTML = `
+      <div class="tap-deal-card">
+        <div class="tap-title">Deal room unavailable</div>
+        <div class="tap-copy">The dashboard could not load the monetization view right now.</div>
+      </div>
+    `;
+  }}
+}}
+
 function setTapDispatchBusy(isBusy) {{
   ['tap-dispatch-btn', 'tap-dry-run-btn', 'tap-refresh-btn'].forEach(id => {{
     const btn = document.getElementById(id);
@@ -843,7 +1153,7 @@ function safeHtml(value) {{
 }}
 
 async function syncTapOpsView() {{
-  await Promise.all([loadTapBoard(), loadTapAlerts()]);
+  await Promise.all([loadTapBoard(), loadTapDealRoom(), loadTapAlerts()]);
 }}
 
 function getTapOutcomeTimestamp(item) {{
@@ -1064,7 +1374,8 @@ async function dispatchTapAlerts(dryRun = false) {{
 
 async function init() {{
   renderTapPresetStrip();
-  await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest(), loadTapBoard(), loadTapAlerts()]);
+  handleTapCheckoutStateFromUrl();
+  await Promise.all([loadStats(), loadPipeline(), loadTimeline(), loadCategories(), loadSourceQuality(), loadLogs(), loadAbTest(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts()]);
   toast('✅ 대시보드 로드 완료');
 }}
 init();
@@ -1072,7 +1383,7 @@ init();
 // Auto-refresh: pipeline status & logs 30s, full data 5min
 setInterval(() => {{ loadPipeline(); loadLogs(); }}, 30000);
 setInterval(async () => {{
-  await Promise.all([loadStats(), loadTimeline(), loadCategories(), loadSourceQuality(), loadTapBoard(), loadTapAlerts()]);
+  await Promise.all([loadStats(), loadTimeline(), loadCategories(), loadSourceQuality(), loadTapBoard(), loadTapDealRoom(), loadTapAlerts()]);
   toast('🔄 데이터 갱신 완료');
 }}, 300000);
 </script>
@@ -1430,6 +1741,528 @@ async def api_tap_opportunities_latest(
     except Exception:
         board = empty_tap_board(target_country=board_country, teaser_count=teaser_count)
         return JSONResponse(board.to_dict())
+    finally:
+        await conn.close()
+
+
+@app.get("/api/tap/deal-room")
+async def api_tap_deal_room(
+    target_country: str = Query("", min_length=0, max_length=64),
+    limit: int = Query(10, ge=1, le=50),
+    teaser_count: int = Query(3, ge=0, le=10),
+    audience_segment: str = Query("creator", min_length=1, max_length=64),
+    package_tier: str = Query("premium_alert_bundle", min_length=1, max_length=64),
+    currency: str = Query("USD", min_length=1, max_length=8),
+    include_public_teasers: bool = Query(True),
+    include_checkout: bool = Query(False),
+):
+    """Commercial scaffolding for teaser-to-premium TAP conversion."""
+    conn = await _get_conn()
+    try:
+        room = await build_tap_deal_room_snapshot(
+            conn,
+            _config,
+            DealRoomRequest(
+                target_country=target_country,
+                limit=limit,
+                teaser_count=teaser_count,
+                audience_segment=audience_segment,
+                package_tier=package_tier,
+                currency=currency,
+                include_public_teasers=include_public_teasers,
+                include_checkout=include_checkout,
+            ),
+        )
+        return JSONResponse(room.to_dict())
+    finally:
+        await conn.close()
+
+
+@app.post("/api/tap/deal-room/events")
+async def api_tap_deal_room_event(
+    keyword: str = Query(..., min_length=1, max_length=200),
+    event_type: str = Query(..., min_length=1, max_length=64),
+    snapshot_id: str = Query("", min_length=0, max_length=128),
+    target_country: str = Query("", min_length=0, max_length=64),
+    audience_segment: str = Query("creator", min_length=1, max_length=64),
+    package_tier: str = Query("premium_alert_bundle", min_length=1, max_length=64),
+    offer_tier: str = Query("premium", min_length=1, max_length=32),
+    price_anchor: str = Query("", min_length=0, max_length=32),
+    checkout_handle: str = Query("", min_length=0, max_length=256),
+    session_id: str = Query("", min_length=0, max_length=128),
+    actor_id: str = Query("", min_length=0, max_length=128),
+    revenue_value: float = Query(0.0, ge=0.0),
+):
+    """Track one TAP deal-room funnel event."""
+    conn = await _get_conn()
+    try:
+        event_id = await record_tap_deal_room_event(
+            conn,
+            keyword=keyword,
+            event_type=event_type,
+            snapshot_id=snapshot_id,
+            target_country=target_country,
+            audience_segment=audience_segment,
+            package_tier=package_tier,
+            offer_tier=offer_tier,
+            price_anchor=price_anchor,
+            checkout_handle=checkout_handle,
+            session_id=session_id,
+            actor_id=actor_id,
+            revenue_value=revenue_value,
+        )
+        return JSONResponse({"ok": True, "event_id": event_id})
+    finally:
+        await conn.close()
+
+
+@app.get("/api/tap/deal-room/funnel")
+async def api_tap_deal_room_funnel(
+    days: int = Query(30, ge=1, le=365),
+    target_country: str = Query("", min_length=0, max_length=64),
+    audience_segment: str = Query("", min_length=0, max_length=64),
+    package_tier: str = Query("", min_length=0, max_length=64),
+    limit: int = Query(20, ge=1, le=200),
+):
+    """Read aggregated TAP deal-room funnel performance."""
+    conn = await _get_conn()
+    try:
+        summary = await get_tap_deal_room_funnel(
+            conn,
+            days=days,
+            target_country=target_country,
+            audience_segment=audience_segment,
+            package_tier=package_tier,
+            limit=limit,
+        )
+        return JSONResponse(summary)
+    finally:
+        await conn.close()
+
+
+@app.get("/api/tap/deal-room/checkouts")
+async def api_tap_deal_room_checkouts(
+    days: int = Query(30, ge=1, le=365),
+    target_country: str = Query("", min_length=0, max_length=64),
+    package_tier: str = Query("", min_length=0, max_length=64),
+    limit: int = Query(10, ge=1, le=100),
+):
+    """Read checkout-session ops summary for TAP deal-room commerce."""
+    conn = await _get_conn()
+    try:
+        summary = await get_tap_checkout_session_summary(
+            conn,
+            days=days,
+            target_country=target_country,
+            package_tier=package_tier,
+            limit=limit,
+        )
+        return JSONResponse(summary)
+    finally:
+        await conn.close()
+
+
+def _stripe_amount_divisor(currency: str) -> int:
+    zero_decimal_currencies = {
+        "bif",
+        "clp",
+        "djf",
+        "gnf",
+        "jpy",
+        "kmf",
+        "krw",
+        "mga",
+        "pyg",
+        "rwf",
+        "ugx",
+        "vnd",
+        "vuv",
+        "xaf",
+        "xof",
+        "xpf",
+    }
+    return 1 if (currency or "").strip().lower() in zero_decimal_currencies else 100
+
+
+def _format_stripe_price_anchor(amount_total: int | float | None, currency: str) -> str:
+    if amount_total in (None, ""):
+        return ""
+    normalized_currency = (currency or "usd").strip().lower()
+    value = float(amount_total) / _stripe_amount_divisor(normalized_currency)
+    if normalized_currency == "usd":
+        return f"${value:.0f}"
+    return f"{normalized_currency.upper()} {value:.0f}"
+
+
+def _parse_tap_checkout_handle(checkout_handle: str) -> dict[str, str]:
+    handle = (checkout_handle or "").strip()
+    if not handle:
+        return {}
+    parts = handle.split(":", 3)
+    if len(parts) < 4:
+        return {}
+    return {
+        "provider": parts[0].strip().lower(),
+        "package_tier": parts[1].strip().lower(),
+        "target_country": parts[2].strip().lower(),
+        "keyword": parts[3].strip(),
+    }
+
+
+def _extract_price_anchor_amount(price_anchor: str) -> float:
+    match = re.search(r"(\d+(?:\.\d+)?)", str(price_anchor or ""))
+    if not match:
+        raise ValueError("Invalid TAP deal-room price anchor")
+    return float(match.group(1))
+
+
+def _build_tap_checkout_redirect_urls(request: Request, keyword: str) -> tuple[str, str]:
+    base_url = str(request.base_url).rstrip("/")
+    encoded_keyword = quote_plus(str(keyword or ""))
+    success_url = f"{base_url}/?tap_checkout=success&tap_keyword={encoded_keyword}"
+    cancel_url = f"{base_url}/?tap_checkout=cancel&tap_keyword={encoded_keyword}"
+    return success_url, cancel_url
+
+
+def _create_stripe_checkout_session(
+    *,
+    secret_key: str,
+    currency: str,
+    unit_amount: int,
+    keyword: str,
+    premium_title: str,
+    teaser_body: str,
+    checkout_handle: str,
+    metadata: dict[str, str],
+    success_url: str,
+    cancel_url: str,
+) -> dict:
+    if not secret_key:
+        raise RuntimeError("STRIPE_SECRET_KEY is not configured")
+    if unit_amount <= 0:
+        raise ValueError("Stripe checkout requires a positive unit amount")
+    try:
+        import stripe  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("stripe package is required for Stripe checkout") from exc
+
+    stripe.api_key = secret_key
+    session = stripe.checkout.Session.create(
+        mode="payment",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        client_reference_id=checkout_handle,
+        metadata=metadata,
+        line_items=[
+            {
+                "quantity": 1,
+                "price_data": {
+                    "currency": currency,
+                    "unit_amount": unit_amount,
+                    "product_data": {
+                        "name": premium_title or keyword,
+                        "description": (teaser_body or f"Premium execution bundle for {keyword}")[:500],
+                    },
+                },
+            }
+        ],
+    )
+    return dict(session)
+
+
+def _construct_stripe_event(payload: bytes, stripe_signature: str, signing_secret: str) -> dict:
+    if not signing_secret:
+        raise RuntimeError("STRIPE_WEBHOOK_SECRET is not configured")
+    if not stripe_signature:
+        raise ValueError("Missing Stripe-Signature header")
+    try:
+        import stripe  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("stripe package is required for Stripe webhook verification") from exc
+
+    try:
+        event = stripe.Webhook.construct_event(payload, stripe_signature, signing_secret)
+    except Exception as exc:
+        raise ValueError("Invalid Stripe webhook signature") from exc
+    return dict(event)
+
+
+def _extract_tap_purchase_from_stripe_event(event: dict) -> dict:
+    event_type = str(event.get("type") or "").strip()
+    if event_type not in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
+        return {"handled": False, "reason": "unsupported_event_type", "event_type": event_type}
+
+    data = event.get("data") or {}
+    session = data.get("object") or {}
+    metadata = dict(session.get("metadata") or {})
+    checkout_handle = metadata.get("checkout_handle") or session.get("client_reference_id") or ""
+    parsed_handle = _parse_tap_checkout_handle(checkout_handle)
+    payment_status = str(session.get("payment_status") or "").strip().lower()
+    if event_type == "checkout.session.completed" and payment_status and payment_status != "paid":
+        return {"handled": False, "reason": "session_not_paid", "event_type": event_type}
+
+    keyword = metadata.get("keyword") or parsed_handle.get("keyword") or ""
+    if not keyword:
+        return {"handled": False, "reason": "missing_keyword", "event_type": event_type}
+
+    amount_total = session.get("amount_total")
+    currency = str(session.get("currency") or metadata.get("currency") or "usd")
+    customer_details = session.get("customer_details") or {}
+    revenue_value = 0.0
+    if amount_total not in (None, ""):
+        revenue_value = round(float(amount_total) / _stripe_amount_divisor(currency), 2)
+
+    return {
+        "handled": True,
+        "event_id": str(event.get("id") or ""),
+        "event_type": "purchase",
+        "provider_event_type": event_type,
+        "keyword": keyword,
+        "snapshot_id": metadata.get("snapshot_id") or "",
+        "target_country": metadata.get("target_country") or parsed_handle.get("target_country") or "",
+        "audience_segment": metadata.get("audience_segment") or "creator",
+        "package_tier": metadata.get("package_tier") or parsed_handle.get("package_tier") or "premium_alert_bundle",
+        "offer_tier": metadata.get("offer_tier") or "premium",
+        "price_anchor": metadata.get("price_anchor") or _format_stripe_price_anchor(amount_total, currency),
+        "checkout_handle": checkout_handle,
+        "session_id": str(session.get("id") or ""),
+        "actor_id": (
+            metadata.get("actor_id")
+            or session.get("customer_email")
+            or customer_details.get("email")
+            or session.get("customer")
+            or ""
+        ),
+        "revenue_value": revenue_value,
+        "metadata": {
+            "provider": "stripe",
+            "stripe_event_type": event_type,
+            "stripe_session_id": session.get("id") or "",
+            "stripe_payment_intent": session.get("payment_intent") or "",
+            "stripe_customer_id": session.get("customer") or "",
+            "payment_status": payment_status,
+            "currency": currency.lower(),
+            "amount_total": amount_total if amount_total is not None else 0,
+            "customer_email": session.get("customer_email") or customer_details.get("email") or "",
+        },
+    }
+
+
+@app.post("/api/tap/deal-room/checkout")
+async def api_tap_deal_room_checkout(request: Request):
+    """Create a Stripe Checkout Session for one TAP deal-room offer."""
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid JSON payload"}, status_code=400)
+
+    keyword = str(payload.get("keyword") or "").strip()
+    checkout_handle = str(payload.get("checkout_handle") or "").strip()
+    if not keyword:
+        return JSONResponse({"ok": False, "error": "keyword is required"}, status_code=400)
+    parsed_handle = _parse_tap_checkout_handle(checkout_handle)
+    if parsed_handle.get("provider") != "stripe":
+        return JSONResponse({"ok": False, "error": "Unsupported checkout handle"}, status_code=400)
+
+    currency = str(payload.get("currency") or "usd").strip().lower()
+    price_anchor = str(payload.get("price_anchor") or "").strip()
+    try:
+        price_value = _extract_price_anchor_amount(price_anchor)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+    premium_title = str(payload.get("premium_title") or keyword).strip()
+    teaser_body = str(payload.get("teaser_body") or "").strip()
+    snapshot_id = str(payload.get("snapshot_id") or "").strip()
+    target_country = str(payload.get("target_country") or parsed_handle.get("target_country") or "").strip().lower()
+    audience_segment = str(payload.get("audience_segment") or "creator").strip().lower()
+    package_tier = str(payload.get("package_tier") or parsed_handle.get("package_tier") or "premium_alert_bundle").strip().lower()
+    offer_tier = str(payload.get("offer_tier") or "premium").strip().lower()
+    actor_id = str(payload.get("actor_id") or "").strip()
+
+    success_url, cancel_url = _build_tap_checkout_redirect_urls(request, keyword)
+    unit_amount = int(round(price_value * _stripe_amount_divisor(currency)))
+    metadata = {
+        "keyword": keyword,
+        "snapshot_id": snapshot_id,
+        "target_country": target_country,
+        "audience_segment": audience_segment,
+        "package_tier": package_tier,
+        "offer_tier": offer_tier,
+        "price_anchor": price_anchor,
+        "checkout_handle": checkout_handle,
+        "currency": currency,
+        "actor_id": actor_id,
+    }
+
+    try:
+        session = _create_stripe_checkout_session(
+            secret_key=getattr(_config, "stripe_secret_key", ""),
+            currency=currency,
+            unit_amount=unit_amount,
+            keyword=keyword,
+            premium_title=premium_title,
+            teaser_body=teaser_body,
+            checkout_handle=checkout_handle,
+            metadata=metadata,
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+    except RuntimeError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=503)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+    session_id = str(session.get("id") or "")
+    session_url = str(session.get("url") or "")
+
+    conn = await _get_conn()
+    try:
+        await upsert_tap_checkout_session(
+            conn,
+            checkout_session_id=session_id,
+            checkout_handle=checkout_handle,
+            snapshot_id=snapshot_id,
+            keyword=keyword,
+            target_country=target_country,
+            audience_segment=audience_segment,
+            package_tier=package_tier,
+            offer_tier=offer_tier,
+            session_status="created",
+            payment_status="pending",
+            currency=currency,
+            quoted_price_value=price_value,
+            revenue_value=0.0,
+            checkout_url=session_url,
+            actor_id=actor_id,
+            metadata={
+                "provider": "stripe",
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        )
+        await record_tap_deal_room_event(
+            conn,
+            keyword=keyword,
+            event_type="checkout_open",
+            snapshot_id=snapshot_id,
+            target_country=target_country,
+            audience_segment=audience_segment,
+            package_tier=package_tier,
+            offer_tier=offer_tier,
+            price_anchor=price_anchor,
+            checkout_handle=checkout_handle,
+            session_id=session_id,
+            actor_id=actor_id,
+            revenue_value=0.0,
+            metadata={
+                "provider": "stripe",
+                "quoted_price_value": price_value,
+                "checkout_url": session_url,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            },
+        )
+    finally:
+        await conn.close()
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "provider": "stripe",
+            "session_id": session_id,
+            "url": session_url,
+            "checkout_handle": checkout_handle,
+        }
+    )
+
+
+@app.post("/api/tap/deal-room/webhooks/stripe")
+async def api_tap_deal_room_stripe_webhook(request: Request):
+    """Verify Stripe checkout completion webhooks and store purchase events."""
+    payload = await request.body()
+    stripe_signature = request.headers.get("Stripe-Signature", "")
+    signing_secret = getattr(_config, "stripe_webhook_secret", "")
+
+    try:
+        event = _construct_stripe_event(payload, stripe_signature, signing_secret)
+    except RuntimeError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=503)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+    purchase = _extract_tap_purchase_from_stripe_event(event)
+    if not purchase.get("handled"):
+        return JSONResponse(
+            {
+                "ok": True,
+                "ignored": True,
+                "reason": purchase.get("reason", "unhandled"),
+                "event_type": purchase.get("event_type", ""),
+            }
+        )
+
+    conn = await _get_conn()
+    try:
+        completed = await mark_tap_checkout_session_completed(
+            conn,
+            checkout_session_id=purchase.get("session_id", ""),
+            payment_status=(purchase.get("metadata", {}) or {}).get("payment_status", "paid"),
+            revenue_value=float(purchase.get("revenue_value", 0.0) or 0.0),
+            stripe_customer_id=(purchase.get("metadata", {}) or {}).get("stripe_customer_id", ""),
+            stripe_event_id=purchase.get("event_id", ""),
+            metadata=purchase.get("metadata", {}),
+        )
+        if not completed and purchase.get("session_id"):
+            await upsert_tap_checkout_session(
+                conn,
+                checkout_session_id=purchase.get("session_id", ""),
+                checkout_handle=purchase.get("checkout_handle", ""),
+                snapshot_id=purchase.get("snapshot_id", ""),
+                keyword=purchase["keyword"],
+                target_country=purchase.get("target_country", ""),
+                audience_segment=purchase.get("audience_segment", "creator"),
+                package_tier=purchase.get("package_tier", "premium_alert_bundle"),
+                offer_tier=purchase.get("offer_tier", "premium"),
+                session_status="completed",
+                payment_status=(purchase.get("metadata", {}) or {}).get("payment_status", "paid"),
+                currency=(purchase.get("metadata", {}) or {}).get("currency", "usd"),
+                quoted_price_value=float(purchase.get("revenue_value", 0.0) or 0.0),
+                revenue_value=float(purchase.get("revenue_value", 0.0) or 0.0),
+                checkout_url="",
+                actor_id=purchase.get("actor_id", ""),
+                stripe_customer_id=(purchase.get("metadata", {}) or {}).get("stripe_customer_id", ""),
+                stripe_event_id=purchase.get("event_id", ""),
+                metadata=purchase.get("metadata", {}),
+                completed_at=datetime.utcnow().isoformat(),
+            )
+        event_id = await record_tap_deal_room_event(
+            conn,
+            keyword=purchase["keyword"],
+            event_type="purchase",
+            snapshot_id=purchase.get("snapshot_id", ""),
+            target_country=purchase.get("target_country", ""),
+            audience_segment=purchase.get("audience_segment", "creator"),
+            package_tier=purchase.get("package_tier", "premium_alert_bundle"),
+            offer_tier=purchase.get("offer_tier", "premium"),
+            price_anchor=purchase.get("price_anchor", ""),
+            checkout_handle=purchase.get("checkout_handle", ""),
+            session_id=purchase.get("session_id", ""),
+            actor_id=purchase.get("actor_id", ""),
+            revenue_value=float(purchase.get("revenue_value", 0.0) or 0.0),
+            metadata=purchase.get("metadata", {}),
+            event_id=purchase.get("event_id", ""),
+        )
+        return JSONResponse(
+            {
+                "ok": True,
+                "processed": True,
+                "event_id": event_id,
+                "keyword": purchase["keyword"],
+                "event_type": "purchase",
+                "revenue_value": round(float(purchase.get("revenue_value", 0.0) or 0.0), 2),
+            }
+        )
     finally:
         await conn.close()
 

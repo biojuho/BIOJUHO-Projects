@@ -29,7 +29,7 @@ from pathlib import Path
 # 프로젝트 루트를 sys.path에 추가
 _current_file = Path(__file__).resolve()
 _getdaytrends_dir = _current_file.parent
-_workspace_root = _getdaytrends_dir.parents[1]
+_workspace_root = _getdaytrends_dir.parent  # BUG-019 fix: parent (not parents[1])
 
 for candidate in (_workspace_root, _workspace_root / "packages"):
     candidate_text = str(candidate)
@@ -565,7 +565,7 @@ def _main_body():
                 now_hour = datetime.now().hour
                 if 2 <= now_hour < 7:
                     wake_at = datetime.now().replace(hour=7, minute=0, second=0, microsecond=0)
-                    sleep_seconds = (wake_at - datetime.now()).total_seconds()
+                    sleep_seconds = max(0, (wake_at - datetime.now()).total_seconds())  # BUG-013 fix: guard against negative
                     if sleep_seconds > 0:
                         log.info(f"야간 슬립: 07:00까지 {sleep_seconds/60:.0f}분 대기")
                         print(f"  야간 슬립 중... (07:00 기상, {sleep_seconds/60:.0f}분 후)")

@@ -136,6 +136,9 @@ class AppConfig:
     twikit_email: str = ""  # ??ш끽維??X ??節뚮쳮?????嶺??
     twikit_password: str = ""  # ??ш끽維??X ??節뚮쳮???????類????
 
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+
     # Alerts
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -481,6 +484,8 @@ class AppConfig:
             twikit_username=os.getenv("TWIKIT_USERNAME", ""),
             twikit_email=os.getenv("TWIKIT_EMAIL", ""),
             twikit_password=os.getenv("TWIKIT_PASSWORD", ""),
+            stripe_secret_key=os.getenv("STRIPE_SECRET_KEY", ""),
+            stripe_webhook_secret=os.getenv("STRIPE_WEBHOOK_SECRET", ""),
             canva_api_key=os.getenv("CANVA_API_KEY", ""),
             canva_client_id=os.getenv("CANVA_CLIENT_ID", ""),
             canva_client_secret=os.getenv("CANVA_CLIENT_SECRET", ""),

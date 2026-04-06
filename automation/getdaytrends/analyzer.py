@@ -416,7 +416,10 @@ async def _batch_score_async(
                 vel = 0.0
                 if conn is not None:
                     try:
-                        from db import get_volume_velocity
+                        try:
+                            from .db import get_volume_velocity
+                        except ImportError:
+                            from db import get_volume_velocity
 
                         vel = await get_volume_velocity(conn, keyword)
                     except (ImportError, sqlite3.Error, ValueError):
@@ -566,8 +569,9 @@ async def _analyze_trends_async(
         scored.extend(batch)
 
     # 소스 정보 보완 및 랜킹 재정렬
+    # BUG-015 fix: Build trend_map once outside the loop (was O(N²))
+    trend_map = {t.name: t for t in raw_trends}
     for result in scored:
-        trend_map = {t.name: t for t in raw_trends}
         trend = trend_map.get(result.keyword)
         if trend:
             result.rank = trend.volume_numeric

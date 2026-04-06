@@ -26,7 +26,7 @@ Usage (future)::
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Awaitable, Callable, Optional
 
 from ..constitution import Constitution
@@ -110,7 +110,7 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
         tool_input = task.get("input", {})
 
         trace_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "agent_name": self._constitution.agent_name,
             "action": tool_name,
             "adapter": "deepagents" if DEEPAGENTS_AVAILABLE else "deepagents-fallback",
@@ -131,6 +131,7 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
                 result = AdapterResult(
                     success=True,
                     output=output,
+                    metadata={"permission_level": "unknown"},
                     cost_usd=self._harness.session_cost,
                     tool_calls=self._harness.total_calls,
                 )
@@ -222,7 +223,7 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
         )
 
         self._trace.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "agent_name": self._constitution.agent_name,
             "action": "spawn_subagent",
             "result_summary": f"spawned {agent_name}",
@@ -236,6 +237,8 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
             metadata={
                 "subagent_name": agent_name,
                 "role": role,
+                "budget_usd": sub_constitution.max_budget_usd,
+                "allowed_tools": list(scoped_perms.keys()),
                 "framework": "deepagents" if DEEPAGENTS_AVAILABLE else "fallback",
             },
         )

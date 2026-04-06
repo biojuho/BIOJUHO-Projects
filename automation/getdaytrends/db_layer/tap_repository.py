@@ -42,6 +42,18 @@ def _normalize_keyword(keyword: str) -> str:
     return "".join(ch for ch in (keyword or "").strip().lower() if ch.isalnum())
 
 
+def _normalize_event_type(event_type: str) -> str:
+    normalized = (event_type or "").strip().lower()
+    aliases = {
+        "open": "view",
+        "impression": "view",
+        "cta_click": "click",
+        "buy": "purchase",
+        "checkout": "checkout_open",
+    }
+    return aliases.get(normalized, normalized)
+
+
 def _merge_json_dict(base: dict | None, patch: dict | None) -> dict:
     merged = dict(base or {})
     if patch:
@@ -223,6 +235,12 @@ def _build_alert_message(item: TapBoardItem, target_country: str) -> str:
         f"Priority {item.priority:.1f}, viral {item.viral_score}. "
         f"Ship on {platforms} before the gap closes."
     )
+
+
+def _safe_rate(numerator: float, denominator: float) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(numerator / denominator, 4)
 
 
 async def _has_recent_alert(
@@ -479,3 +497,484 @@ async def update_tap_alert_delivery_status(
         await conn.commit()
 
     return bool(cursor.rowcount)
+
+
+async def record_tap_deal_room_event(
+    conn,
+    *,
+    keyword: str,
+    event_type: str,
+    snapshot_id: str = "",
+    target_country: str = "",
+    audience_segment: str = "",
+    package_tier: str = "premium_alert_bundle",
+    offer_tier: str = "premium",
+    price_anchor: str = "",
+    checkout_handle: str = "",
+    session_id: str = "",
+    actor_id: str = "",
+    revenue_value: float = 0.0,
+    metadata: dict | None = None,
+    event_id: str = "",
+) -> str:
+    """Persist one TAP deal-room funnel event."""
+
+    normalized_keyword = (keyword or "").strip()
+    normalized_event_type = _normalize_event_type(event_type)
+    if not normalized_keyword:
+        raise ValueError("keyword is required")
+    if normalized_event_type not in {"view", "click", "checkout_open", "purchase"}:
+        raise ValueError(f"unsupported deal-room event_type: {event_type}")
+
+    resolved_event_id = event_id or f"tapde_{uuid4().hex}"
+    if event_id:
+        existing_cursor = await conn.execute(
+            "SELECT event_id FROM tap_deal_room_events WHERE event_id = ? LIMIT 1",
+            (resolved_event_id,),
+        )
+        existing_row = await existing_cursor.fetchone()
+        if existing_row:
+            return resolved_event_id
+    payload = _merge_json_dict(
+        metadata or {},
+        {
+            "event_type": normalized_event_type,
+            "package_tier": package_tier,
+            "offer_tier": offer_tier,
+        },
+    )
+
+    async with sqlite_write_lock(conn):
+        try:
+            await conn.execute(
+                """INSERT INTO tap_deal_room_events (
+                       event_id, snapshot_id, keyword, target_country, audience_segment,
+                       package_tier, offer_tier, event_type, price_anchor, checkout_handle,
+                       session_id, actor_id, revenue_value, metadata_json, created_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    resolved_event_id,
+                    snapshot_id,
+                    normalized_keyword,
+                    _normalize_country(target_country),
+                    (audience_segment or "").strip().lower(),
+                    (package_tier or "").strip().lower(),
+                    (offer_tier or "").strip().lower(),
+                    normalized_event_type,
+                    price_anchor,
+                    checkout_handle,
+                    session_id,
+                    actor_id,
+                    float(revenue_value or 0.0),
+                    _json_text(payload),
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            await conn.commit()
+        except Exception as exc:
+            message = str(exc).lower()
+            if event_id and "event_id" in message and ("unique" in message or "duplicate" in message):
+                return resolved_event_id
+            raise
+
+    return resolved_event_id
+
+
+async def upsert_tap_checkout_session(
+    conn,
+    *,
+    checkout_session_id: str,
+    checkout_handle: str = "",
+    snapshot_id: str = "",
+    keyword: str,
+    target_country: str = "",
+    audience_segment: str = "",
+    package_tier: str = "premium_alert_bundle",
+    offer_tier: str = "premium",
+    session_status: str = "created",
+    payment_status: str = "",
+    currency: str = "usd",
+    quoted_price_value: float = 0.0,
+    revenue_value: float = 0.0,
+    checkout_url: str = "",
+    actor_id: str = "",
+    stripe_customer_id: str = "",
+    stripe_event_id: str = "",
+    metadata: dict | None = None,
+    completed_at: str | None = None,
+) -> str:
+    """Insert or refresh one TAP checkout session row."""
+
+    normalized_session_id = (checkout_session_id or "").strip()
+    normalized_keyword = (keyword or "").strip()
+    if not normalized_session_id:
+        raise ValueError("checkout_session_id is required")
+    if not normalized_keyword:
+        raise ValueError("keyword is required")
+
+    now = datetime.utcnow().isoformat()
+    normalized_status = (session_status or "created").strip().lower() or "created"
+    normalized_payment = (payment_status or "").strip().lower()
+    payload = _merge_json_dict(
+        metadata or {},
+        {
+            "checkout_handle": checkout_handle,
+            "session_status": normalized_status,
+            "payment_status": normalized_payment,
+        },
+    )
+
+    async with sqlite_write_lock(conn):
+        existing_cursor = await conn.execute(
+            "SELECT metadata_json FROM tap_checkout_sessions WHERE checkout_session_id = ? LIMIT 1",
+            (normalized_session_id,),
+        )
+        existing_row = await existing_cursor.fetchone()
+        if existing_row:
+            merged_metadata = _merge_json_dict(_json_dict(existing_row["metadata_json"]), payload)
+            await conn.execute(
+                """UPDATE tap_checkout_sessions
+                   SET checkout_handle = ?,
+                       snapshot_id = ?,
+                       keyword = ?,
+                       target_country = ?,
+                       audience_segment = ?,
+                       package_tier = ?,
+                       offer_tier = ?,
+                       session_status = ?,
+                       payment_status = ?,
+                       currency = ?,
+                       quoted_price_value = ?,
+                       revenue_value = ?,
+                       checkout_url = ?,
+                       actor_id = ?,
+                       stripe_customer_id = ?,
+                       stripe_event_id = ?,
+                       metadata_json = ?,
+                       updated_at = ?,
+                       completed_at = COALESCE(?, completed_at)
+                 WHERE checkout_session_id = ?""",
+                (
+                    checkout_handle,
+                    snapshot_id,
+                    normalized_keyword,
+                    _normalize_country(target_country),
+                    (audience_segment or "").strip().lower(),
+                    (package_tier or "").strip().lower(),
+                    (offer_tier or "").strip().lower(),
+                    normalized_status,
+                    normalized_payment,
+                    (currency or "usd").strip().lower(),
+                    float(quoted_price_value or 0.0),
+                    float(revenue_value or 0.0),
+                    checkout_url,
+                    actor_id,
+                    stripe_customer_id,
+                    stripe_event_id,
+                    _json_text(merged_metadata),
+                    now,
+                    completed_at,
+                    normalized_session_id,
+                ),
+            )
+        else:
+            await conn.execute(
+                """INSERT INTO tap_checkout_sessions (
+                       checkout_session_id, checkout_handle, snapshot_id, keyword,
+                       target_country, audience_segment, package_tier, offer_tier,
+                       session_status, payment_status, currency, quoted_price_value,
+                       revenue_value, checkout_url, actor_id, stripe_customer_id,
+                       stripe_event_id, metadata_json, created_at, updated_at, completed_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    normalized_session_id,
+                    checkout_handle,
+                    snapshot_id,
+                    normalized_keyword,
+                    _normalize_country(target_country),
+                    (audience_segment or "").strip().lower(),
+                    (package_tier or "").strip().lower(),
+                    (offer_tier or "").strip().lower(),
+                    normalized_status,
+                    normalized_payment,
+                    (currency or "usd").strip().lower(),
+                    float(quoted_price_value or 0.0),
+                    float(revenue_value or 0.0),
+                    checkout_url,
+                    actor_id,
+                    stripe_customer_id,
+                    stripe_event_id,
+                    _json_text(payload),
+                    now,
+                    now,
+                    completed_at,
+                ),
+            )
+        await conn.commit()
+
+    return normalized_session_id
+
+
+async def mark_tap_checkout_session_completed(
+    conn,
+    *,
+    checkout_session_id: str,
+    payment_status: str = "paid",
+    revenue_value: float = 0.0,
+    stripe_customer_id: str = "",
+    stripe_event_id: str = "",
+    metadata: dict | None = None,
+) -> bool:
+    """Mark one TAP checkout session as completed/paid."""
+
+    normalized_session_id = (checkout_session_id or "").strip()
+    if not normalized_session_id:
+        return False
+
+    completed_at = datetime.utcnow().isoformat()
+    async with sqlite_write_lock(conn):
+        existing_cursor = await conn.execute(
+            "SELECT metadata_json FROM tap_checkout_sessions WHERE checkout_session_id = ? LIMIT 1",
+            (normalized_session_id,),
+        )
+        existing_row = await existing_cursor.fetchone()
+        if existing_row is None:
+            return False
+        merged_metadata = _merge_json_dict(_json_dict(existing_row["metadata_json"]), metadata or {})
+        cursor = await conn.execute(
+            """UPDATE tap_checkout_sessions
+               SET session_status = 'completed',
+                   payment_status = ?,
+                   revenue_value = ?,
+                   stripe_customer_id = COALESCE(NULLIF(?, ''), stripe_customer_id),
+                   stripe_event_id = COALESCE(NULLIF(?, ''), stripe_event_id),
+                   metadata_json = ?,
+                   updated_at = ?,
+                   completed_at = ?
+             WHERE checkout_session_id = ?""",
+            (
+                (payment_status or "paid").strip().lower(),
+                float(revenue_value or 0.0),
+                stripe_customer_id,
+                stripe_event_id,
+                _json_text(merged_metadata),
+                completed_at,
+                completed_at,
+                normalized_session_id,
+            ),
+        )
+        await conn.commit()
+
+    return bool(cursor.rowcount)
+
+
+async def get_tap_checkout_session_summary(
+    conn,
+    *,
+    days: int = 30,
+    target_country: str = "",
+    package_tier: str = "",
+    limit: int = 10,
+) -> dict:
+    """Return checkout-session ops summary for TAP deal-room commerce."""
+
+    cutoff = datetime.utcnow().timestamp() - (max(1, days) * 86400)
+    cutoff_iso = datetime.utcfromtimestamp(cutoff).isoformat()
+    clauses = ["created_at >= ?"]
+    params: list = [cutoff_iso]
+
+    normalized_country = _normalize_country(target_country)
+    normalized_package = (package_tier or "").strip().lower()
+    if normalized_country:
+        clauses.append("target_country = ?")
+        params.append(normalized_country)
+    if normalized_package:
+        clauses.append("package_tier = ?")
+        params.append(normalized_package)
+
+    where_clause = f"WHERE {' AND '.join(clauses)}"
+    totals_cursor = await conn.execute(
+        f"""SELECT
+                  COUNT(*) AS created,
+                  COALESCE(SUM(CASE WHEN session_status = 'completed' THEN 1 ELSE 0 END), 0) AS completed,
+                  COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END), 0) AS paid,
+                  COALESCE(ROUND(SUM(quoted_price_value), 2), 0.0) AS quoted_revenue,
+                  COALESCE(ROUND(SUM(CASE WHEN session_status = 'completed' THEN revenue_value ELSE 0 END), 2), 0.0) AS captured_revenue
+           FROM tap_checkout_sessions
+           {where_clause}""",
+        tuple(params),
+    )
+    totals_row = await totals_cursor.fetchone()
+    totals = dict(totals_row) if totals_row else {}
+    totals.setdefault("created", 0)
+    totals.setdefault("completed", 0)
+    totals.setdefault("paid", 0)
+    totals.setdefault("quoted_revenue", 0.0)
+    totals.setdefault("captured_revenue", 0.0)
+    totals["completion_rate"] = _safe_rate(float(totals["completed"]), float(totals["created"]))
+
+    items_cursor = await conn.execute(
+        f"""SELECT checkout_session_id, checkout_handle, snapshot_id, keyword,
+                  target_country, audience_segment, package_tier, offer_tier,
+                  session_status, payment_status, currency, quoted_price_value,
+                  revenue_value, checkout_url, actor_id, stripe_customer_id,
+                  stripe_event_id, metadata_json, created_at, updated_at, completed_at
+           FROM tap_checkout_sessions
+           {where_clause}
+           ORDER BY updated_at DESC, id DESC
+           LIMIT ?""",
+        tuple(params + [max(1, limit)]),
+    )
+    item_rows = await items_cursor.fetchall()
+
+    return {
+        "window_days": max(1, days),
+        "filters": {
+            "target_country": normalized_country,
+            "package_tier": normalized_package,
+        },
+        "totals": totals,
+        "items": [
+            {
+                "checkout_session_id": row["checkout_session_id"],
+                "checkout_handle": row["checkout_handle"],
+                "snapshot_id": row["snapshot_id"],
+                "keyword": row["keyword"],
+                "target_country": row["target_country"],
+                "audience_segment": row["audience_segment"],
+                "package_tier": row["package_tier"],
+                "offer_tier": row["offer_tier"],
+                "session_status": row["session_status"],
+                "payment_status": row["payment_status"],
+                "currency": row["currency"],
+                "quoted_price_value": row["quoted_price_value"],
+                "revenue_value": row["revenue_value"],
+                "checkout_url": row["checkout_url"],
+                "actor_id": row["actor_id"],
+                "stripe_customer_id": row["stripe_customer_id"],
+                "stripe_event_id": row["stripe_event_id"],
+                "metadata": _json_dict(row["metadata_json"]),
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "completed_at": row["completed_at"],
+            }
+            for row in item_rows
+        ],
+    }
+
+
+async def get_tap_deal_room_funnel(
+    conn,
+    *,
+    days: int = 30,
+    target_country: str = "",
+    audience_segment: str = "",
+    package_tier: str = "",
+    limit: int = 20,
+) -> dict:
+    """Summarize TAP deal-room funnel performance for learning loops."""
+
+    cutoff = datetime.utcnow().timestamp() - (max(1, days) * 86400)
+    cutoff_iso = datetime.utcfromtimestamp(cutoff).isoformat()
+    clauses = ["created_at >= ?"]
+    params: list = [cutoff_iso]
+
+    normalized_country = _normalize_country(target_country)
+    normalized_segment = (audience_segment or "").strip().lower()
+    normalized_package = (package_tier or "").strip().lower()
+
+    if normalized_country:
+        clauses.append("target_country = ?")
+        params.append(normalized_country)
+    if normalized_segment:
+        clauses.append("audience_segment = ?")
+        params.append(normalized_segment)
+    if normalized_package:
+        clauses.append("package_tier = ?")
+        params.append(normalized_package)
+
+    where_clause = f"WHERE {' AND '.join(clauses)}"
+    totals_cursor = await conn.execute(
+        f"""SELECT
+                  COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views,
+                  COALESCE(SUM(CASE WHEN event_type = 'click' THEN 1 ELSE 0 END), 0) AS clicks,
+                  COALESCE(SUM(CASE WHEN event_type = 'checkout_open' THEN 1 ELSE 0 END), 0) AS checkout_opens,
+                  COALESCE(SUM(CASE WHEN event_type = 'purchase' THEN 1 ELSE 0 END), 0) AS purchases,
+                  COALESCE(ROUND(SUM(revenue_value), 2), 0.0) AS revenue
+           FROM tap_deal_room_events
+           {where_clause}""",
+        tuple(params),
+    )
+    totals_row = await totals_cursor.fetchone()
+    totals = dict(totals_row) if totals_row else {}
+    totals.setdefault("views", 0)
+    totals.setdefault("clicks", 0)
+    totals.setdefault("checkout_opens", 0)
+    totals.setdefault("purchases", 0)
+    totals.setdefault("revenue", 0.0)
+    totals["ctr"] = _safe_rate(float(totals["clicks"]), float(totals["views"]))
+    totals["checkout_rate"] = _safe_rate(float(totals["checkout_opens"]), float(totals["clicks"]))
+    totals["purchase_rate"] = _safe_rate(float(totals["purchases"]), float(totals["clicks"]))
+    totals["view_to_purchase_rate"] = _safe_rate(float(totals["purchases"]), float(totals["views"]))
+
+    items_cursor = await conn.execute(
+        f"""SELECT keyword, package_tier, offer_tier,
+                  COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views,
+                  COALESCE(SUM(CASE WHEN event_type = 'click' THEN 1 ELSE 0 END), 0) AS clicks,
+                  COALESCE(SUM(CASE WHEN event_type = 'checkout_open' THEN 1 ELSE 0 END), 0) AS checkout_opens,
+                  COALESCE(SUM(CASE WHEN event_type = 'purchase' THEN 1 ELSE 0 END), 0) AS purchases,
+                  COALESCE(ROUND(SUM(revenue_value), 2), 0.0) AS revenue,
+                  MAX(created_at) AS last_event_at
+           FROM tap_deal_room_events
+           {where_clause}
+           GROUP BY keyword, package_tier, offer_tier
+           ORDER BY purchases DESC, clicks DESC, views DESC, revenue DESC
+           LIMIT ?""",
+        tuple(params + [max(1, limit)]),
+    )
+    item_rows = await items_cursor.fetchall()
+
+    items = []
+    for row in item_rows:
+        item = dict(row)
+        item["ctr"] = _safe_rate(float(item["clicks"]), float(item["views"]))
+        item["checkout_rate"] = _safe_rate(float(item["checkout_opens"]), float(item["clicks"]))
+        item["purchase_rate"] = _safe_rate(float(item["purchases"]), float(item["clicks"]))
+        item["view_to_purchase_rate"] = _safe_rate(float(item["purchases"]), float(item["views"]))
+        items.append(item)
+
+    return {
+        "window_days": max(1, days),
+        "filters": {
+            "target_country": normalized_country,
+            "audience_segment": normalized_segment,
+            "package_tier": normalized_package,
+        },
+        "totals": totals,
+        "items": items,
+    }
+
+
+async def get_tap_deal_room_offer_stats(
+    conn,
+    *,
+    days: int = 30,
+    target_country: str = "",
+    audience_segment: str = "",
+    package_tier: str = "",
+) -> dict[str, dict]:
+    """Return a compact keyword+tier stats map for deal-room personalization."""
+
+    summary = await get_tap_deal_room_funnel(
+        conn,
+        days=days,
+        target_country=target_country,
+        audience_segment=audience_segment,
+        package_tier=package_tier,
+        limit=200,
+    )
+    stats_map: dict[str, dict] = {}
+    for item in summary.get("items", []):
+        key = f"{_normalize_keyword(item['keyword'])}::{(item.get('offer_tier') or '').strip().lower()}"
+        stats_map[key] = item
+    return stats_map

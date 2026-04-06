@@ -20,6 +20,14 @@ from .product_feed import (
     empty_tap_board,
     required_tap_product_dependencies,
 )
+from .deal_room import (
+    DealRoomOffer,
+    DealRoomRequest,
+    TapDealRoom,
+    TapDealRoomBuilder,
+    build_tap_deal_room_snapshot,
+    required_tap_deal_room_dependencies,
+)
 from .service import (
     TapAlertDispatchSummary,
     TapBoardRequest,
@@ -38,15 +46,21 @@ __all__ = [
     "TapBoard",
     "TapBoardBuilder",
     "TapBoardItem",
+    "DealRoomOffer",
+    "DealRoomRequest",
+    "TapDealRoom",
+    "TapDealRoomBuilder",
     "TapAlertDispatchSummary",
     "TapBoardRequest",
     "TapRefreshSummary",
     "build_tap_board_snapshot",
+    "build_tap_deal_room_snapshot",
     "dispatch_tap_alert_queue",
     "get_latest_tap_board_snapshot",
     "refresh_tap_market_surfaces",
     "empty_tap_board",
     "required_tap_product_dependencies",
+    "required_tap_deal_room_dependencies",
     "detect_arbitrage_opportunities",
 ]
 

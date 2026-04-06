@@ -65,6 +65,7 @@ class TestExistingEndpoints:
         assert "tap-save-preset-btn" in resp.text
         assert "tap-preset-strip" in resp.text
         assert "tap-outcome-list" in resp.text
+        assert "tap-deal-room" in resp.text
 
     def test_pipeline_status(self, client):
         resp = client.get("/api/pipeline_status")
@@ -383,4 +384,218 @@ class TestTapOpportunities:
         assert resp.json() == payload
         mock_dispatch.assert_awaited_once()
         assert mock_dispatch.await_args.kwargs["target_country"] == "united-states"
+
+    def test_tap_deal_room_endpoint_returns_offer_payload(self, client):
+        payload = {
+            "generated_at": "2026-04-06T00:00:00",
+            "snapshot_id": "tap_deal_1",
+            "target_country": "united-states",
+            "audience_segment": "creator",
+            "package_tier": "premium_alert_bundle",
+            "teaser_count": 2,
+            "total_detected": 3,
+            "offers": [
+                {
+                    "keyword": "AI regulation",
+                    "tier": "teaser",
+                    "teaser_headline": "headline",
+                    "teaser_body": "body",
+                    "premium_title": "AI regulation premium alert bundle",
+                    "price_anchor": "$99",
+                    "cta_label": "Unlock premium playbook",
+                    "checkout_handle": "",
+                    "bundle_outline": ["outline"],
+                    "sponsor_fit": ["creator"],
+                    "locked_sections": ["publish_window"],
+                    "execution_deadline_minutes": 90,
+                }
+            ],
+            "future_dependencies": ["stripe>=10.12.0"],
+        }
+        room_stub = MagicMock()
+        room_stub.to_dict.return_value = payload
+
+        with patch(
+            "dashboard.build_tap_deal_room_snapshot",
+            new_callable=AsyncMock,
+            return_value=room_stub,
+        ) as mock_room:
+            resp = client.get(
+                "/api/tap/deal-room?target_country=united-states"
+                "&audience_segment=creator&include_checkout=true"
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        mock_room.assert_awaited_once()
+        request = mock_room.await_args.args[2]
+        assert request.target_country == "united-states"
+        assert request.include_checkout is True
+
+    def test_tap_deal_room_event_endpoint_tracks_event(self, client):
+        with patch(
+            "dashboard.record_tap_deal_room_event",
+            new_callable=AsyncMock,
+            return_value="tapde_1",
+        ) as mock_record:
+            resp = client.post(
+                "/api/tap/deal-room/events"
+                "?keyword=AI%20regulation"
+                "&event_type=view"
+                "&target_country=united-states"
+                "&session_id=session-1"
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True, "event_id": "tapde_1"}
+        mock_record.assert_awaited_once()
+        assert mock_record.await_args.kwargs["keyword"] == "AI regulation"
+        assert mock_record.await_args.kwargs["event_type"] == "view"
+        assert mock_record.await_args.kwargs["target_country"] == "united-states"
+
+    def test_tap_deal_room_funnel_endpoint_returns_summary(self, client):
+        payload = {
+            "window_days": 30,
+            "filters": {
+                "target_country": "united-states",
+                "audience_segment": "creator",
+                "package_tier": "premium_alert_bundle",
+            },
+            "totals": {
+                "views": 12,
+                "clicks": 4,
+                "checkout_opens": 3,
+                "purchases": 1,
+                "revenue": 99.0,
+                "ctr": 0.3333,
+                "checkout_rate": 0.75,
+                "purchase_rate": 0.25,
+                "view_to_purchase_rate": 0.0833,
+            },
+            "items": [],
+        }
+        with patch(
+            "dashboard.get_tap_deal_room_funnel",
+            new_callable=AsyncMock,
+            return_value=payload,
+        ) as mock_funnel:
+            resp = client.get(
+                "/api/tap/deal-room/funnel"
+                "?days=30&target_country=united-states"
+                "&audience_segment=creator&package_tier=premium_alert_bundle"
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        mock_funnel.assert_awaited_once()
+        assert mock_funnel.await_args.kwargs["target_country"] == "united-states"
+        assert mock_funnel.await_args.kwargs["audience_segment"] == "creator"
+
+    def test_tap_deal_room_checkout_endpoint_creates_session(self, client):
+        payload = {
+            "keyword": "AI regulation",
+            "snapshot_id": "tap_deal_1",
+            "target_country": "united-states",
+            "audience_segment": "creator",
+            "package_tier": "premium_alert_bundle",
+            "offer_tier": "premium",
+            "price_anchor": "$99",
+            "premium_title": "AI regulation premium alert bundle",
+            "teaser_body": "body",
+            "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+            "currency": "usd",
+            "actor_id": "dashboard-session-1",
+        }
+        session_payload = {"id": "cs_test_123", "url": "https://checkout.stripe.com/pay/cs_test_123"}
+
+        with patch("dashboard._config") as mock_config, \
+             patch("dashboard._create_stripe_checkout_session", return_value=session_payload) as mock_checkout, \
+             patch("dashboard.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+            mock_config.stripe_secret_key = "sk_test_123"
+            resp = client.post("/api/tap/deal-room/checkout", json=payload)
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "ok": True,
+            "provider": "stripe",
+            "session_id": "cs_test_123",
+            "url": "https://checkout.stripe.com/pay/cs_test_123",
+            "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+        }
+        mock_checkout.assert_called_once()
+        assert mock_checkout.call_args.kwargs["unit_amount"] == 9900
+        mock_record.assert_awaited_once()
+        assert mock_record.await_args.kwargs["event_type"] == "checkout_open"
+        assert mock_record.await_args.kwargs["session_id"] == "cs_test_123"
+
+    def test_tap_deal_room_checkout_endpoint_rejects_invalid_handle(self, client):
+        resp = client.post(
+            "/api/tap/deal-room/checkout",
+            json={
+                "keyword": "AI regulation",
+                "price_anchor": "$99",
+                "checkout_handle": "email:premium_alert_bundle:united-states:AI regulation",
+            },
+        )
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "Unsupported checkout handle"}
+
+    def test_tap_deal_room_stripe_webhook_records_purchase(self, client):
+        purchase_payload = {
+            "handled": True,
+            "event_id": "evt_123",
+            "keyword": "AI regulation",
+            "snapshot_id": "tap_deal_1",
+            "target_country": "united-states",
+            "audience_segment": "creator",
+            "package_tier": "premium_alert_bundle",
+            "offer_tier": "premium",
+            "price_anchor": "$99",
+            "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+            "session_id": "cs_test_123",
+            "actor_id": "buyer@example.com",
+            "revenue_value": 99.0,
+            "metadata": {"provider": "stripe"},
+        }
+
+        with patch("dashboard._config") as mock_config, \
+             patch("dashboard._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
+             patch("dashboard._extract_tap_purchase_from_stripe_event", return_value=purchase_payload), \
+             patch("dashboard.record_tap_deal_room_event", new_callable=AsyncMock, return_value="evt_123") as mock_record:
+            mock_config.stripe_webhook_secret = "whsec_test"
+            resp = client.post(
+                "/api/tap/deal-room/webhooks/stripe",
+                data=b'{"id":"evt_123"}',
+                headers={"Stripe-Signature": "sig_test"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "ok": True,
+            "processed": True,
+            "event_id": "evt_123",
+            "keyword": "AI regulation",
+            "event_type": "purchase",
+            "revenue_value": 99.0,
+        }
+        mock_record.assert_awaited_once()
+        assert mock_record.await_args.kwargs["event_id"] == "evt_123"
+        assert mock_record.await_args.kwargs["event_type"] == "purchase"
+        assert mock_record.await_args.kwargs["revenue_value"] == 99.0
+
+    def test_tap_deal_room_stripe_webhook_rejects_invalid_signature(self, client):
+        with patch("dashboard._config") as mock_config, patch(
+            "dashboard._construct_stripe_event",
+            side_effect=ValueError("Invalid Stripe webhook signature"),
+        ):
+            mock_config.stripe_webhook_secret = "whsec_test"
+            resp = client.post(
+                "/api/tap/deal-room/webhooks/stripe",
+                data=b"{}",
+                headers={"Stripe-Signature": "bad_sig"},
+            )
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "Invalid Stripe webhook signature"}
 

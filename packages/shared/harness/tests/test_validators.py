@@ -26,7 +26,7 @@ class TestValidateKoreanOutput:
     def test_pure_korean_passes(self):
         result = validate_korean_output("안녕하세요 여러분 오늘 날씨가 좋습니다")
         assert result.passed
-        assert result.flags == []
+        assert result.flags == ()
         assert result.hangul_ratio > 0.5
 
     def test_empty_string_fails(self):
@@ -144,7 +144,7 @@ class TestKoreanQualityResult:
     def test_blocking_flags_filters(self):
         result = KoreanQualityResult(
             passed=False,
-            flags=["contains_excessive_hanzi", "literal_translation_pattern"],
+            flags=("contains_excessive_hanzi", "literal_translation_pattern"),
         )
         # literal_translation_pattern is not blocking
         assert result.blocking_flags == ["contains_excessive_hanzi"]
@@ -152,7 +152,7 @@ class TestKoreanQualityResult:
     def test_no_blocking_flags(self):
         result = KoreanQualityResult(
             passed=True,
-            flags=["literal_translation_pattern", "forbidden_script_pattern"],
+            flags=("literal_translation_pattern", "forbidden_script_pattern"),
         )
         assert result.blocking_flags == []
 
