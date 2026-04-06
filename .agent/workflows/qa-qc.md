@@ -2,7 +2,7 @@
 description: "Vibe Coding QA/QC 워크플로. 코드 작성 시 개발→QA→수정→QC 4단계 품질 관리 프로세스. '/qa-qc'로 실행"
 ---
 
-# 🔧 Vibe Coding QA/QC 워크플로우 (v4.0 - GStack Enhanced)
+# 🔧 Vibe Coding QA/QC 워크플로우 (v4.1 - PowerShell Safe)
 
 > 사용법: `/qa-qc` 또는 코드 작성 요청 시 "QA/QC 포함" 키워드로 트리거
 > 워크플로우 순서: STEP 1 → STEP 2 → STEP 3 → STEP 4
@@ -31,6 +31,42 @@ QA/QC 실행 전 변경 유형을 판별하여 자동으로 적용 수준을 결
 | 주석/포맷팅만 변경 | ⏭️ 스킵 | 비기능적 변경 |
 | 보안 관련 변경 (`.env`, auth, crypto) | 🔴 강화 모드 | 보안축 가중치 2배 + 추가 체크 |
 | 인프라/CI 변경 (Dockerfile, workflow) | ⚡ STEP 2만 | 구성 검토만 |
+
+---
+
+## ⚠️ PowerShell 실행 환경 규칙 (Windows 필수)
+
+이 워크스페이스는 **Windows PowerShell** 환경입니다. `run_command` 사용 시 반드시 아래 규칙을 따른다.
+
+### ❌ 절대 금지
+
+```powershell
+# 금지: python -c "..." — PowerShell이 내부 작은따옴표를 파싱
+python -c "import re; print(re.search(r'\d+', 'text'))"
+```
+
+### ✅ 올바른 패턴 — `Set-Content` + `python file.py`
+
+> **핵심 규칙**: Python 코드가 2줄 이상이거나 따옴표를 포함하면 반드시 스크립트 파일로 분리한다.
+
+```powershell
+# Step 1: 스크립트 생성 (Set-Content + @"..."@ here-string 사용)
+New-Item -ItemType Directory -Force -Path "tmp" | Out-Null
+Set-Content -Path "tmp\_script.py" -Encoding UTF8 -Value @"
+import re
+result = re.search(r'\d+', 'abc123')
+print(result.group())
+"@
+# Step 2: 실행
+python tmp\_script.py
+```
+
+### 한 줄 Python 허용 패턴 (따옴표 없을 때만)
+
+```powershell
+# OK: 따옴표 없는 단순 표현식
+python -c "import sys; print(sys.version)"
+```
 
 ---
 
