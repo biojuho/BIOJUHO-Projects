@@ -6,8 +6,10 @@ FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소�
 """
 
 import json
+import logging
 import re
 from datetime import date, datetime, timedelta
+from typing import Any, Awaitable, Callable
 from urllib.parse import quote_plus
 
 try:
@@ -71,6 +73,7 @@ except ImportError:
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION)
 
 _config = AppConfig.from_env()
+logger = logging.getLogger(__name__)
 
 # 파이프라인 상태 추적 (인메모리)
 _pipeline_status: dict = {
@@ -87,6 +90,127 @@ async def _get_conn():
     conn = await get_connection(_config.db_path, database_url=_config.database_url)
     await init_db(conn)
     return conn
+
+
+async def _close_conn(conn) -> None:
+    if conn is None:
+        return
+    try:
+        await conn.close()
+    except Exception:
+        logger.warning("Failed to close dashboard DB connection", exc_info=True)
+
+
+def _stats_fallback() -> dict[str, Any]:
+    return {
+        "total_runs": 0,
+        "total_trends": 0,
+        "avg_viral_score": 0,
+        "total_tweets": 0,
+        "llm_cost_7d": 0.0,
+        "llm_daily": [],
+    }
+
+
+def _review_queue_fallback() -> dict[str, Any]:
+    return {"counts": {}, "items": []}
+
+
+def _tap_alert_queue_fallback() -> dict[str, Any]:
+    return {"counts": {}, "items": []}
+
+
+def _tap_deal_room_fallback(
+    *,
+    target_country: str,
+    teaser_count: int,
+    audience_segment: str,
+    package_tier: str,
+) -> dict[str, Any]:
+    return {
+        "generated_at": datetime.utcnow().isoformat(),
+        "snapshot_id": "",
+        "target_country": (target_country or "").strip().lower(),
+        "audience_segment": audience_segment,
+        "package_tier": package_tier,
+        "teaser_count": teaser_count,
+        "total_detected": 0,
+        "offers": [],
+        "future_dependencies": ["stripe>=10.12.0", "jinja2>=3.1.4", "rapidfuzz>=3.9.0"],
+    }
+
+
+def _tap_deal_room_funnel_fallback(
+    *,
+    days: int,
+    target_country: str,
+    audience_segment: str,
+    package_tier: str,
+) -> dict[str, Any]:
+    return {
+        "window_days": days,
+        "filters": {
+            "target_country": target_country,
+            "audience_segment": audience_segment,
+            "package_tier": package_tier,
+        },
+        "totals": {
+            "views": 0,
+            "clicks": 0,
+            "checkout_opens": 0,
+            "purchases": 0,
+            "revenue": 0.0,
+            "ctr": 0.0,
+            "checkout_rate": 0.0,
+            "purchase_rate": 0.0,
+            "view_to_purchase_rate": 0.0,
+        },
+        "items": [],
+    }
+
+
+def _tap_checkout_summary_fallback(
+    *,
+    days: int,
+    target_country: str,
+    audience_segment: str,
+    package_tier: str,
+) -> dict[str, Any]:
+    return {
+        "window_days": days,
+        "filters": {
+            "target_country": target_country,
+            "audience_segment": audience_segment,
+            "package_tier": package_tier,
+        },
+        "totals": {
+            "created": 0,
+            "completed": 0,
+            "paid": 0,
+            "quoted_revenue": 0.0,
+            "captured_revenue": 0.0,
+            "completion_rate": 0.0,
+        },
+        "items": [],
+    }
+
+
+async def _run_db_json_with_fallback(
+    endpoint_name: str,
+    handler: Callable[[Any], Awaitable[Any]],
+    fallback_payload: Callable[[], Any] | Any,
+) -> JSONResponse:
+    conn = None
+    try:
+        conn = await _get_conn()
+        payload = await handler(conn)
+        return JSONResponse(payload)
+    except Exception:
+        logger.warning("Dashboard endpoint degraded: %s", endpoint_name, exc_info=True)
+        payload = fallback_payload() if callable(fallback_payload) else fallback_payload
+        return JSONResponse(payload)
+    finally:
+        await _close_conn(conn)
 
 
 # ── Pro HTML Dashboard ─────────────────────────────────────────────
@@ -915,14 +1039,17 @@ async function openTapDealRoomCheckout(room, offer) {{
       snapshot_id: room.snapshot_id || '',
       target_country: room.target_country || getTapTargetCountry(),
       audience_segment: room.audience_segment || 'creator',
-      package_tier: room.package_tier || 'premium_alert_bundle',
+      package_tier: offer.package_tier || room.package_tier || 'premium_alert_bundle',
       offer_tier: offer.tier || 'premium',
       price_anchor: offer.price_anchor || '',
+      quoted_price_value: Number(offer.price_value || 0),
       premium_title: offer.premium_title || offer.keyword || '',
       teaser_body: offer.teaser_body || '',
       checkout_handle: offer.checkout_handle || '',
       currency: 'usd',
       actor_id: getTapDealRoomSessionId(),
+      pricing_variant: offer.pricing_variant || '',
+      pricing_context: offer.pricing_context || {{}},
     }}),
   }});
   const payload = await response.json().catch(() => ({{}}));
@@ -1045,9 +1172,17 @@ async function loadTapDealRoom() {{
       audience_segment: 'creator',
       package_tier: 'premium_alert_bundle',
     }});
-    const [data, funnel] = await Promise.all([
+    const checkoutQuery = buildTapQuery({{
+      days: 30,
+      limit: 4,
+      target_country: targetCountry,
+      audience_segment: 'creator',
+      package_tier: 'premium_alert_bundle',
+    }});
+    const [data, funnel, checkoutSummary] = await Promise.all([
       fetch(`/api/tap/deal-room?${{roomQuery}}`).then(r => r.json()),
       fetch(`/api/tap/deal-room/funnel?${{funnelQuery}}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/tap/deal-room/checkouts?${{checkoutQuery}}`).then(r => r.json()).catch(() => null),
     ]);
     if (!data.offers || !data.offers.length) {{
       const scope = targetCountry ? ` for ${{safeHtml(targetCountry.toUpperCase())}}` : '';
@@ -1061,6 +1196,7 @@ async function loadTapDealRoom() {{
     }}
 
     const totals = funnel && funnel.totals ? funnel.totals : null;
+    const checkoutTotals = checkoutSummary && checkoutSummary.totals ? checkoutSummary.totals : null;
     const summaryCard = totals ? `
       <div class="tap-deal-card" style="grid-column:1 / -1;">
         <div class="tap-title">Conversion learning loop</div>
@@ -1085,8 +1221,32 @@ async function loadTapDealRoom() {{
         </div>
       </div>
     ` : '';
+    const checkoutCard = checkoutTotals ? `
+      <div class="tap-deal-card" style="grid-column:1 / -1;">
+        <div class="tap-title">Checkout ops</div>
+        <div class="tap-copy">Stripe session creation and purchase completion are now tracked separately for pricing and drop-off analysis.</div>
+        <div class="tap-summary">
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">Created</div>
+            <div class="tap-summary-value">${{safeHtml(String(checkoutTotals.created || 0))}}</div>
+          </div>
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">Completed</div>
+            <div class="tap-summary-value">${{safeHtml(String(checkoutTotals.completed || 0))}}</div>
+          </div>
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">Close rate</div>
+            <div class="tap-summary-value">${{safeHtml(formatTapPct(checkoutTotals.completion_rate || 0))}}</div>
+          </div>
+          <div class="tap-summary-card">
+            <div class="tap-summary-label">Captured</div>
+            <div class="tap-summary-value">${{safeHtml(formatTapMoney(checkoutTotals.captured_revenue || 0))}}</div>
+          </div>
+        </div>
+      </div>
+    ` : '';
 
-    container.innerHTML = summaryCard + data.offers.map((offer, index) => {{
+    container.innerHTML = summaryCard + checkoutCard + data.offers.map((offer, index) => {{
       const outline = (offer.bundle_outline || [])
         .slice(0, 4)
         .map(item => `<div class="tap-outline-item">${{safeHtml(item)}}</div>`)
@@ -1096,6 +1256,7 @@ async function loadTapDealRoom() {{
         .map(item => `<span class="tap-chip">${{safeHtml(item)}}</span>`)
         .join('');
       const funnelStats = offer.funnel_stats || {{}};
+      const pricingContext = offer.pricing_context || {{}};
       const learningNote = offer.learning_note
         ? `<div class="tap-notes">${{safeHtml(offer.learning_note)}}</div>`
         : '';
@@ -1115,6 +1276,7 @@ async function loadTapDealRoom() {{
             <span class="tap-chip">views ${{safeHtml(String(funnelStats.views || 0))}}</span>
             <span class="tap-chip">ctr ${{safeHtml(formatTapPct(funnelStats.ctr || 0))}}</span>
             <span class="tap-chip">purchases ${{safeHtml(String(funnelStats.purchases || 0))}}</span>
+            <span class="tap-chip">pricing ${{safeHtml(String(pricingContext.experiment_strategy || 'baseline'))}}</span>
           </div>
           <div class="tap-outline">${{outline}}</div>
           ${{learningNote}}
@@ -1844,6 +2006,7 @@ async def api_tap_deal_room_funnel(
 async def api_tap_deal_room_checkouts(
     days: int = Query(30, ge=1, le=365),
     target_country: str = Query("", min_length=0, max_length=64),
+    audience_segment: str = Query("", min_length=0, max_length=64),
     package_tier: str = Query("", min_length=0, max_length=64),
     limit: int = Query(10, ge=1, le=100),
 ):
@@ -1854,6 +2017,7 @@ async def api_tap_deal_room_checkouts(
             conn,
             days=days,
             target_country=target_country,
+            audience_segment=audience_segment,
             package_tier=package_tier,
             limit=limit,
         )
@@ -2044,6 +2208,8 @@ def _extract_tap_purchase_from_stripe_event(event: dict) -> dict:
             "currency": currency.lower(),
             "amount_total": amount_total if amount_total is not None else 0,
             "customer_email": session.get("customer_email") or customer_details.get("email") or "",
+            "pricing_variant": metadata.get("pricing_variant") or "",
+            "quoted_price_value": metadata.get("quoted_price_value") or "",
         },
     }
 
@@ -2066,10 +2232,13 @@ async def api_tap_deal_room_checkout(request: Request):
 
     currency = str(payload.get("currency") or "usd").strip().lower()
     price_anchor = str(payload.get("price_anchor") or "").strip()
+    quoted_price_value = payload.get("quoted_price_value")
     try:
-        price_value = _extract_price_anchor_amount(price_anchor)
-    except ValueError as exc:
+        price_value = float(quoted_price_value if quoted_price_value not in (None, "") else _extract_price_anchor_amount(price_anchor))
+    except (TypeError, ValueError) as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    if price_value <= 0:
+        return JSONResponse({"ok": False, "error": "quoted_price_value must be positive"}, status_code=400)
 
     premium_title = str(payload.get("premium_title") or keyword).strip()
     teaser_body = str(payload.get("teaser_body") or "").strip()
@@ -2079,6 +2248,8 @@ async def api_tap_deal_room_checkout(request: Request):
     package_tier = str(payload.get("package_tier") or parsed_handle.get("package_tier") or "premium_alert_bundle").strip().lower()
     offer_tier = str(payload.get("offer_tier") or "premium").strip().lower()
     actor_id = str(payload.get("actor_id") or "").strip()
+    pricing_variant = str(payload.get("pricing_variant") or "").strip()
+    pricing_context = payload.get("pricing_context") if isinstance(payload.get("pricing_context"), dict) else {}
 
     success_url, cancel_url = _build_tap_checkout_redirect_urls(request, keyword)
     unit_amount = int(round(price_value * _stripe_amount_divisor(currency)))
@@ -2090,9 +2261,11 @@ async def api_tap_deal_room_checkout(request: Request):
         "package_tier": package_tier,
         "offer_tier": offer_tier,
         "price_anchor": price_anchor,
+        "quoted_price_value": f"{price_value:.2f}",
         "checkout_handle": checkout_handle,
         "currency": currency,
         "actor_id": actor_id,
+        "pricing_variant": pricing_variant,
     }
 
     try:
@@ -2139,6 +2312,8 @@ async def api_tap_deal_room_checkout(request: Request):
                 "provider": "stripe",
                 "success_url": success_url,
                 "cancel_url": cancel_url,
+                "pricing_variant": pricing_variant,
+                "pricing_context": pricing_context,
             },
         )
         await record_tap_deal_room_event(
@@ -2161,6 +2336,8 @@ async def api_tap_deal_room_checkout(request: Request):
                 "checkout_url": session_url,
                 "success_url": success_url,
                 "cancel_url": cancel_url,
+                "pricing_variant": pricing_variant,
+                "pricing_context": pricing_context,
             },
         )
     finally:

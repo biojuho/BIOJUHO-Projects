@@ -773,6 +773,7 @@ async def get_tap_checkout_session_summary(
     *,
     days: int = 30,
     target_country: str = "",
+    audience_segment: str = "",
     package_tier: str = "",
     limit: int = 10,
 ) -> dict:
@@ -784,10 +785,14 @@ async def get_tap_checkout_session_summary(
     params: list = [cutoff_iso]
 
     normalized_country = _normalize_country(target_country)
+    normalized_segment = (audience_segment or "").strip().lower()
     normalized_package = (package_tier or "").strip().lower()
     if normalized_country:
         clauses.append("target_country = ?")
         params.append(normalized_country)
+    if normalized_segment:
+        clauses.append("audience_segment = ?")
+        params.append(normalized_segment)
     if normalized_package:
         clauses.append("package_tier = ?")
         params.append(normalized_package)
@@ -831,6 +836,7 @@ async def get_tap_checkout_session_summary(
         "window_days": max(1, days),
         "filters": {
             "target_country": normalized_country,
+            "audience_segment": normalized_segment,
             "package_tier": normalized_package,
         },
         "totals": totals,

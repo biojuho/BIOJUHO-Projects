@@ -491,6 +491,38 @@ class TestTapOpportunities:
         assert mock_funnel.await_args.kwargs["target_country"] == "united-states"
         assert mock_funnel.await_args.kwargs["audience_segment"] == "creator"
 
+    def test_tap_deal_room_checkout_summary_endpoint_returns_payload(self, client):
+        payload = {
+            "window_days": 30,
+            "filters": {
+                "target_country": "united-states",
+                "package_tier": "premium_alert_bundle",
+            },
+            "totals": {
+                "created": 4,
+                "completed": 2,
+                "paid": 2,
+                "quoted_revenue": 198.0,
+                "captured_revenue": 198.0,
+                "completion_rate": 0.5,
+            },
+            "items": [],
+        }
+        with patch(
+            "dashboard.get_tap_checkout_session_summary",
+            new_callable=AsyncMock,
+            return_value=payload,
+        ) as mock_summary:
+            resp = client.get(
+                "/api/tap/deal-room/checkouts"
+                "?days=30&target_country=united-states&package_tier=premium_alert_bundle"
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        mock_summary.assert_awaited_once()
+        assert mock_summary.await_args.kwargs["target_country"] == "united-states"
+
     def test_tap_deal_room_checkout_endpoint_creates_session(self, client):
         payload = {
             "keyword": "AI regulation",
@@ -510,6 +542,7 @@ class TestTapOpportunities:
 
         with patch("dashboard._config") as mock_config, \
              patch("dashboard._create_stripe_checkout_session", return_value=session_payload) as mock_checkout, \
+             patch("dashboard.upsert_tap_checkout_session", new_callable=AsyncMock) as mock_upsert, \
              patch("dashboard.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
             mock_config.stripe_secret_key = "sk_test_123"
             resp = client.post("/api/tap/deal-room/checkout", json=payload)
@@ -524,6 +557,9 @@ class TestTapOpportunities:
         }
         mock_checkout.assert_called_once()
         assert mock_checkout.call_args.kwargs["unit_amount"] == 9900
+        mock_upsert.assert_awaited_once()
+        assert mock_upsert.await_args.kwargs["checkout_session_id"] == "cs_test_123"
+        assert mock_upsert.await_args.kwargs["session_status"] == "created"
         mock_record.assert_awaited_once()
         assert mock_record.await_args.kwargs["event_type"] == "checkout_open"
         assert mock_record.await_args.kwargs["session_id"] == "cs_test_123"
@@ -562,6 +598,7 @@ class TestTapOpportunities:
         with patch("dashboard._config") as mock_config, \
              patch("dashboard._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
              patch("dashboard._extract_tap_purchase_from_stripe_event", return_value=purchase_payload), \
+             patch("dashboard.mark_tap_checkout_session_completed", new_callable=AsyncMock, return_value=True) as mock_mark, \
              patch("dashboard.record_tap_deal_room_event", new_callable=AsyncMock, return_value="evt_123") as mock_record:
             mock_config.stripe_webhook_secret = "whsec_test"
             resp = client.post(
@@ -579,6 +616,8 @@ class TestTapOpportunities:
             "event_type": "purchase",
             "revenue_value": 99.0,
         }
+        mock_mark.assert_awaited_once()
+        assert mock_mark.await_args.kwargs["checkout_session_id"] == "cs_test_123"
         mock_record.assert_awaited_once()
         assert mock_record.await_args.kwargs["event_id"] == "evt_123"
         assert mock_record.await_args.kwargs["event_type"] == "purchase"

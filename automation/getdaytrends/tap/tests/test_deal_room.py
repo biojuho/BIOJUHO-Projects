@@ -74,8 +74,11 @@ def test_builder_creates_teaser_and_premium_offer_shapes():
     assert room.target_country == "united-states"
     assert len(room.offers) == 2
     assert room.offers[0].tier == "teaser"
+    assert room.offers[0].package_tier == "premium_alert_bundle"
     assert room.offers[0].price_anchor == "$99"
+    assert room.offers[0].price_value == 99.0
     assert room.offers[0].checkout_handle.startswith("stripe:premium_alert_bundle:united-states")
+    assert room.offers[0].pricing_variant.endswith("baseline_v1")
     assert room.offers[1].tier == "premium"
     assert room.offers[1].checkout_handle.startswith("stripe:premium_alert_bundle:united-states")
 
@@ -97,6 +100,34 @@ def test_builder_can_hide_public_teasers():
 
     assert len(room.offers) == 1
     assert room.offers[0].tier == "premium"
+
+
+def test_builder_applies_segment_pricing_experiment():
+    builder = TapDealRoomBuilder()
+    room = builder.build(
+        _sample_board(),
+        request=DealRoomRequest(
+            include_checkout=True,
+            target_country="united-kingdom",
+            audience_segment="agency",
+        ),
+        funnel_stats_map={
+            "aiphone::teaser": {
+                "views": 25,
+                "clicks": 8,
+                "purchases": 0,
+                "ctr": 0.32,
+                "purchase_rate": 0.0,
+            }
+        },
+        checkout_summary={"totals": {"completion_rate": 0.12}},
+    )
+
+    assert room.offers[0].price_value > 99.0
+    assert room.offers[0].pricing_context["experiment_strategy"] == "recovery"
+    assert room.offers[0].pricing_context["audience_multiplier"] == 1.35
+    assert room.offers[0].pricing_variant.startswith("united_kingdom__agency__premium_alert_bundle__recovery")
+    assert "recovery mode" in room.offers[0].learning_note.lower()
 
 
 @pytest.mark.asyncio

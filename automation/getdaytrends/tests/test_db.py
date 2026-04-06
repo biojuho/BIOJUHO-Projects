@@ -17,6 +17,7 @@ from db import (
     get_cached_score,
     get_tap_alert_delivery_batch,
     get_tap_alert_queue_snapshot,
+    get_tap_checkout_session_summary,
     get_tap_deal_room_funnel,
     get_tap_deal_room_offer_stats,
     get_latest_tap_board_snapshot,
@@ -26,6 +27,7 @@ from db import (
     init_db,
     is_duplicate_trend,
     mark_tweet_posted,
+    mark_tap_checkout_session_completed,
     record_tap_deal_room_event,
     save_run,
     save_tap_board_snapshot,
@@ -33,6 +35,7 @@ from db import (
     save_trend,
     save_tweet,
     sync_tweet_metrics,
+    upsert_tap_checkout_session,
     update_tap_alert_delivery_status,
     update_run,
 )
@@ -76,6 +79,7 @@ class TestInitDb(unittest.IsolatedAsyncioTestCase):
         self.assertIn("tap_snapshot_items", table_names)
         self.assertIn("tap_alert_queue", table_names)
         self.assertIn("tap_deal_room_events", table_names)
+        self.assertIn("tap_checkout_sessions", table_names)
 
     @pytest.mark.asyncio
     async def test_idempotent(self):
@@ -402,6 +406,52 @@ class TestTapDealRoomFunnel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second, "evt_stripe_1")
         self.assertEqual(summary["totals"]["purchases"], 1)
         self.assertEqual(summary["totals"]["revenue"], 99.0)
+
+    @pytest.mark.asyncio
+    async def test_checkout_session_summary_tracks_created_and_completed(self):
+        await upsert_tap_checkout_session(
+            self.conn,
+            checkout_session_id="cs_test_1",
+            checkout_handle="stripe:premium_alert_bundle:united-states:AI regulation",
+            snapshot_id="tap_deal_1",
+            keyword="AI regulation",
+            target_country="united-states",
+            audience_segment="creator",
+            package_tier="premium_alert_bundle",
+            offer_tier="premium",
+            session_status="created",
+            payment_status="pending",
+            currency="usd",
+            quoted_price_value=99.0,
+            checkout_url="https://checkout.stripe.com/pay/cs_test_1",
+            actor_id="dashboard-session-1",
+        )
+        completed = await mark_tap_checkout_session_completed(
+            self.conn,
+            checkout_session_id="cs_test_1",
+            payment_status="paid",
+            revenue_value=99.0,
+            stripe_customer_id="cus_123",
+            stripe_event_id="evt_123",
+            metadata={"provider": "stripe"},
+        )
+        summary = await get_tap_checkout_session_summary(
+            self.conn,
+            days=30,
+            target_country="united-states",
+            package_tier="premium_alert_bundle",
+            limit=10,
+        )
+
+        self.assertTrue(completed)
+        self.assertEqual(summary["totals"]["created"], 1)
+        self.assertEqual(summary["totals"]["completed"], 1)
+        self.assertEqual(summary["totals"]["paid"], 1)
+        self.assertEqual(summary["totals"]["quoted_revenue"], 99.0)
+        self.assertEqual(summary["totals"]["captured_revenue"], 99.0)
+        self.assertAlmostEqual(summary["totals"]["completion_rate"], 1.0, places=4)
+        self.assertEqual(summary["items"][0]["checkout_session_id"], "cs_test_1")
+        self.assertEqual(summary["items"][0]["payment_status"], "paid")
 
     @pytest.mark.asyncio
     async def test_tap_alert_delivery_batch_and_status_update(self):
