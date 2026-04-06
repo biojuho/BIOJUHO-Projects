@@ -2,8 +2,8 @@ name: Scheduler Heartbeat Monitor
 
 on:
   schedule:
-    - cron: "0 1 * * *"
-  workflow_dispatch:
+    - cron: "0 1 * * *"   # Daily at 01:00 UTC (= 10:00 KST)
+  workflow_dispatch: {}
 
 jobs:
   heartbeat-check:
@@ -27,48 +27,64 @@ jobs:
             async function checkWorkflow(workflowId, label) {
               const runs = await github.rest.actions.listWorkflowRuns({
                 owner: context.repo.owner,
-                repo: context.repo.repo,
+                repo:  context.repo.repo,
                 workflow_id: workflowId,
-                per_page: 6,
+                per_page: 10,
                 status: "completed",
               });
 
-              const recent = runs.data.workflow_runs.filter(
-                (r) => new Date(r.updated_at) > oneDayAgo,
-              );
-              const success = recent.find((r) => r.conclusion === "success");
-              const failure = recent.find((r) => r.conclusion === "failure");
+              const recent  = runs.data.workflow_runs.filter(r => new Date(r.updated_at) > oneDayAgo);
+              const success = recent.find(r => r.conclusion === "success");
+              const failure = recent.find(r => r.conclusion === "failure");
 
               let status = "healthy";
-              if (failure && !success) status = "failing";
-              else if (!success && !failure) status = "silent";
+              if (failure && !success)          status = "failing";
+              else if (!success && !failure)    status = "silent";
 
-              return { label, status, runs24h: recent.length, lastRun: runs.data.workflow_runs[0] };
+              const last = runs.data.workflow_runs[0];
+              return { label, status, runs24h: recent.length, lastRun: last };
             }
 
-            const gdt = await checkWorkflow("getdaytrends.yml", "GetDayTrends");
-            const dn = await checkWorkflow("dailynews-pipeline.yml", "DailyNews");
+            const pipelines = [
+              await checkWorkflow("getdaytrends.yml",       "GetDayTrends"),
+              await checkWorkflow("dailynews-pipeline.yml", "DailyNews"),
+              await checkWorkflow("getdaytrends-tests.yml", "GDT Tests"),
+              await checkWorkflow("ci.yml",                 "Multi-Project CI"),
+            ];
 
-            const allHealthy = gdt.status === "healthy" && dn.status === "healthy";
-            const results = [gdt, dn];
+            const allHealthy = pipelines.every(p => p.status === "healthy" || p.status === "silent");
 
-            let summary = results.map((r) => {
-              const emoji = r.status === "healthy" ? "✅" : r.status === "failing" ? "🔴" : "⚠️";
-              const last = r.lastRun ? `${r.lastRun.updated_at} (${r.lastRun.conclusion})` : "never";
+            const summary = pipelines.map(r => {
+              const emoji = r.status === "healthy" ? "✅"
+                          : r.status === "failing" ? "🔴" : "⚠️";
+              const last  = r.lastRun
+                ? `${r.lastRun.updated_at.slice(0,16)} (${r.lastRun.conclusion})`
+                : "never";
               return `${emoji} ${r.label}: ${r.status} (${r.runs24h} runs/24h, last: ${last})`;
             }).join("\n");
 
-            core.setOutput("all_healthy", allHealthy);
-            core.setOutput("summary", summary);
-            core.setOutput("gdt_status", gdt.status);
-            core.setOutput("dn_status", dn.status);
+            // Status counts for table
+            const healthy = pipelines.filter(p => p.status === "healthy").length;
+            const failing = pipelines.filter(p => p.status === "failing").length;
+            const silent  = pipelines.filter(p => p.status === "silent").length;
+
+            core.setOutput("all_healthy", String(allHealthy));
+            core.setOutput("summary",     summary);
+            core.setOutput("healthy",     String(healthy));
+            core.setOutput("failing",     String(failing));
+            core.setOutput("silent",      String(silent));
+
+            // Export per-pipeline status
+            for (const p of pipelines) {
+              core.setOutput(p.label.toLowerCase().replace(/\s+/g, "_") + "_status", p.status);
+            }
 
       - name: Alert on heartbeat failure
         if: steps.check.outputs.all_healthy != 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           SUMMARY="${{ steps.check.outputs.summary }}"
 
@@ -87,14 +103,19 @@ jobs:
       - name: Heartbeat summary
         if: always()
         run: |
-          cat <<EOF >> $GITHUB_STEP_SUMMARY
-          ### 📊 Daily Scheduler Heartbeat
+          cat <<'EOF' >> $GITHUB_STEP_SUMMARY
+          ## 📊 Daily Scheduler Heartbeat
 
-          | Pipeline | Status |
-          |:---|:---|
-          | GetDayTrends | ${{ steps.check.outputs.gdt_status }} |
-          | DailyNews | ${{ steps.check.outputs.dn_status }} |
+          | Pipeline | Status | Runs/24h |
+          |:---|:---:|:---:|
+          | GetDayTrends | ${{ steps.check.outputs.getdaytrends_status }} | - |
+          | DailyNews | ${{ steps.check.outputs.dailynews_status }} | - |
+          | GDT Tests | ${{ steps.check.outputs.gdt_tests_status }} | - |
+          | Multi-Project CI | ${{ steps.check.outputs.multi-project_ci_status }} | - |
+
+          **Summary:** 🟢 ${{ steps.check.outputs.healthy }} healthy · 🔴 ${{ steps.check.outputs.failing }} failing · ⚠️ ${{ steps.check.outputs.silent }} silent
 
           **Details:**
+
           ${{ steps.check.outputs.summary }}
           EOF

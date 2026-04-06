@@ -22,7 +22,33 @@ on:
 jobs:
   generate-tweets:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    env:
+      # ── Root-level LLM keys (shared across all projects) ──
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GOOGLE_API_KEY:    ${{ secrets.GOOGLE_API_KEY }}
+      GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY != '' && secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+      OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+      XAI_API_KEY:       ${{ secrets.XAI_API_KEY }}
+      DEEPSEEK_API_KEY:  ${{ secrets.DEEPSEEK_API_KEY }}
+      # ── Notification services ──
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      # ── getdaytrends project-specific ──
+      NOTION_TOKEN:         ${{ secrets.NOTION_TOKEN }}
+      NOTION_DATABASE_ID:   ${{ secrets.NOTION_DATABASE_ID }}
+      TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+      X_ACCESS_TOKEN:       ${{ secrets.X_ACCESS_TOKEN }}
+      X_CLIENT_ID:          ${{ secrets.X_CLIENT_ID }}
+      X_CLIENT_SECRET:      ${{ secrets.X_CLIENT_SECRET }}
+      FIRECRAWL_API_KEY:    ${{ secrets.FIRECRAWL_API_KEY }}
+      DATABASE_URL:         ${{ secrets.DATABASE_URL }}
+      GOOGLE_SERVICE_JSON:  ${{ secrets.GOOGLE_SERVICE_JSON }}
+      GOOGLE_SHEET_ID:      ${{ secrets.GOOGLE_SHEET_ID }}
+      IMGBB_API_KEY:        ${{ secrets.IMGBB_API_KEY }}
+      CONTENT_HUB_DATABASE_ID: ${{ secrets.CONTENT_HUB_DATABASE_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -42,46 +68,66 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages
 
-      - name: Create .env file
+      # ── Subproject .env (non-secret config values only) ──
+      - name: Create project config .env
         working-directory: automation/getdaytrends
         run: |
-          cat <<EOF > .env
-          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          XAI_API_KEY=${{ secrets.XAI_API_KEY }}
-          STORAGE_TYPE=${{ secrets.STORAGE_TYPE || 'notion' }}
-          NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}
-          NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}
-          GOOGLE_SERVICE_JSON=${{ secrets.GOOGLE_SERVICE_JSON || '' }}
-          GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID || '' }}
-          TWITTER_BEARER_TOKEN=${{ secrets.TWITTER_BEARER_TOKEN || '' }}
-          X_ACCESS_TOKEN=${{ secrets.X_ACCESS_TOKEN || '' }}
-          X_CLIENT_ID=${{ secrets.X_CLIENT_ID || '' }}
-          X_CLIENT_SECRET=${{ secrets.X_CLIENT_SECRET || '' }}
-          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
-          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
-          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
-          FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY || '' }}
-          DATABASE_URL=${{ secrets.DATABASE_URL || '' }}
-          DEFAULT_COUNTRY=${{ github.event.inputs.country || 'korea' }}
-          DEFAULT_LIMIT=${{ github.event.inputs.limit || '5' }}
+          cat <<'EOF' > .env
+          STORAGE_TYPE=notion
           SCHEDULE_INTERVAL_MINUTES=240
           ENABLE_PARALLEL_COUNTRIES=true
+          DEFAULT_LIMIT=5
+          DEFAULT_COUNTRY=korea
+          DEDUPE_WINDOW_HOURS=24
+          MIN_VIRAL_SCORE=60
+          SMART_SCHEDULE=true
+          NIGHT_MODE=true
+          MAX_WORKERS=4
+          DAILY_BUDGET_USD=0.50
+          ENABLE_LONG_FORM=true
+          ENABLE_THREADS=true
+          ENABLE_CLUSTERING=true
+          ENABLE_SENTIMENT_FILTER=true
+          ENABLE_HISTORY_CORRECTION=true
+          ENABLE_AB_VARIANTS=false
+          TARGET_PLATFORMS=notion,twitter
+          BLOG_MIN_SCORE=70
+          DATA_RETENTION_DAYS=90
           EOF
 
       - name: Create data directory
         run: mkdir -p automation/getdaytrends/data
 
+      - name: Validate DB connectivity
+        working-directory: automation/getdaytrends
+        run: |
+          if [ -n "$DATABASE_URL" ]; then
+            echo "Checking PostgreSQL connection..."
+            uv run python -c "
+          import asyncio, os, sys
+          async def check():
+              try:
+                  import asyncpg
+                  conn = await asyncpg.connect(os.environ['DATABASE_URL'], timeout=10)
+                  row = await conn.fetchrow('SELECT version()')
+                  print(f'✅ DB connected: {row[0][:50]}...')
+                  await conn.close()
+              except Exception as e:
+                  print(f'⚠️  DB check failed (will use SQLite fallback): {e}', file=sys.stderr)
+          asyncio.run(check())
+          " || true
+          else
+            echo "ℹ️  DATABASE_URL not set — will use local SQLite"
+          fi
+
       - name: Run getdaytrends
         working-directory: automation/getdaytrends
         run: |
           FLAGS="--one-shot --verbose"
-          if [ "${{ github.event.inputs.country }}" != "" ]; then
+          if [ -n "${{ github.event.inputs.country }}" ]; then
             FLAGS="$FLAGS --country ${{ github.event.inputs.country }}"
           fi
-          if [ "${{ github.event.inputs.limit }}" != "" ]; then
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
             FLAGS="$FLAGS --limit ${{ github.event.inputs.limit }}"
           fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
@@ -89,7 +135,7 @@ jobs:
           fi
           uv run python main.py $FLAGS
 
-      - name: Cleanup .env
+      - name: Cleanup project .env
         if: always()
         working-directory: automation/getdaytrends
         run: rm -f .env
@@ -101,21 +147,19 @@ jobs:
           name: getdaytrends-log-${{ github.run_number }}
           path: automation/getdaytrends/tweet_bot.log
           retention-days: 7
+          if-no-files-found: ignore
 
       - name: Discord notification on failure
-        if: failure() && env.DISCORD_WEBHOOK_URL != ''
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        if: failure()
         run: |
-          curl -s -H "Content-Type: application/json" \
-            -d "{\"content\":\"🔴 GetDayTrends #${{ github.run_number }} failed\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
-            "$DISCORD_WEBHOOK_URL" || true
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -s -H "Content-Type: application/json" \
+              -d "{\"content\":\"🔴 GetDayTrends #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+              "$DISCORD_WEBHOOK_URL" || true
+          fi
 
       - name: Telegram notification on failure
         if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -125,9 +169,6 @@ jobs:
 
       - name: Telegram heartbeat on success
         if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           echo "GetDayTrends run #${{ github.run_number }} completed successfully at $(date -u +%FT%TZ)"
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then

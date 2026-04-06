@@ -6,11 +6,14 @@ on:
     paths:
       - "automation/getdaytrends/**"
       - "packages/shared/**"
+      - "getdaytrends/**"
   pull_request:
     branches: ["main", "dev"]
     paths:
       - "automation/getdaytrends/**"
       - "packages/shared/**"
+      - "getdaytrends/**"
+  workflow_dispatch: {}
 
 concurrency:
   group: gdt-tests-${{ github.ref }}
@@ -19,7 +22,15 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+      # Stub values so env_loader doesn't warn during tests
+      ANTHROPIC_API_KEY: "test-stub"
+      GOOGLE_API_KEY:    "test-stub"
+      OPENAI_API_KEY:    "test-stub"
 
     steps:
       - uses: actions/checkout@v4
@@ -39,15 +50,22 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages
 
-      - name: Run tests
-        env:
-          PYTHONIOENCODING: utf-8
-          PYTHONUTF8: "1"
+      # ── Shared package tests ──
+      - name: Run shared tests
         run: |
           mkdir -p test-results
-          uv run python -m pytest automation/getdaytrends/tests/ -v --tb=short \
-            --junitxml=test-results/getdaytrends.xml
+          uv run python -m pytest packages/shared/tests/ -v --tb=short \
+            --junitxml=test-results/shared.xml \
+            -q --no-header
 
+      # ── GetDayTrends automation tests ──
+      - name: Run getdaytrends tests
+        run: |
+          uv run python -m pytest automation/getdaytrends/tests/ -v --tb=short \
+            --junitxml=test-results/getdaytrends.xml \
+            -q --no-header
+
+      # ── Summary report ──
       - name: Test summary
         if: always()
         run: |
@@ -56,28 +74,36 @@ jobs:
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
-          report = Path("test-results/getdaytrends.xml")
-          if not report.exists():
-              raise SystemExit(0)
+          summary_path = Path(os.environ.get("GITHUB_STEP_SUMMARY", "/tmp/summary.md"))
+          lines = ["## 🧪 Test Results\n\n| Suite | Passed | Failed | Errors |\n|:---|:---:|:---:|:---:|"]
 
-          root = ET.parse(report).getroot()
-          tests = int(root.attrib.get("tests", 0))
-          failures = int(root.attrib.get("failures", 0))
-          errors = int(root.attrib.get("errors", 0))
-          passed = tests - failures - errors
+          total_pass = total_fail = total_err = 0
+          for xml_file in sorted(Path("test-results").glob("*.xml")):
+              try:
+                  root = ET.parse(xml_file).getroot()
+                  tests  = int(root.attrib.get("tests",    0))
+                  fails  = int(root.attrib.get("failures", 0))
+                  errs   = int(root.attrib.get("errors",   0))
+                  passed = tests - fails - errs
+                  total_pass += passed; total_fail += fails; total_err += errs
+                  emoji = "✅" if fails + errs == 0 else "❌"
+                  lines.append(f"| {emoji} {xml_file.stem} | {passed} | {fails} | {errs} |")
+              except Exception as e:
+                  lines.append(f"| ⚠️ {xml_file.stem} | - | - | parse error |")
 
-          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
-          label = "PASS" if failures + errors == 0 else "FAIL"
-          with summary_path.open("a", encoding="utf-8") as handle:
-              handle.write(f"### {label} GetDayTrends: {passed}/{tests} passed\n")
-              if failures + errors > 0:
-                  handle.write(f"- Failures: {failures}, Errors: {errors}\n")
+          grand_ok = total_fail + total_err == 0
+          lines.append(f"\n**Total: {total_pass} passed, {total_fail} failed, {total_err} errors**")
+          lines.append(f"\n{'🟢 All suites green' if grand_ok else '🔴 Some tests failed'}")
+
+          with summary_path.open("a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
           PY
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: getdaytrends-test-results
+          name: test-results-${{ github.run_number }}
           path: test-results/
           retention-days: 14
+          if-no-files-found: ignore
