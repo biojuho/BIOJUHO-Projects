@@ -1,12 +1,38 @@
 # Handoff Document
 
 **Last Updated**: 2026-04-06
-**Session Status**: Healthy / 1,220 tests GREEN / worktree clean / 8 commits ahead of origin
+**Session Status**: Healthy / 1,220 tests GREEN / worktree clean / synced with origin
 **Next Agent**: Claude Code / Gemini / Codex
 
 ---
 
 ## Latest Follow-Up (2026-04-06)
+
+### Dashboard Design System v2.0 도입 + push 완료
+
+**Status**: PASS / PUSHED (`c94aafa`)
+
+- 통합 디자인 시스템 v2.0 구축 및 `apps/dashboard`에 적용:
+  - `src/index.css` 전면 재설계: ~170개 CSS 변수 토큰 (20 섹션)
+    - Color palette: Indigo Primary(`#6366f1`) / Cyan Secondary(`#22d3ee`) / 4-state status
+    - Spacing: 4px 베이스 그리드 (space-1 ~ space-16)
+    - Border Radius: xs(4) → sm(8) → md(12) → lg(16) → xl(20) → full
+    - Typography: Inter + JetBrains Mono (Google Fonts)
+    - Transition: fast(0.15s) / base(0.22s) / slow(0.35s) / spring cubic-bezier
+    - Ambient 배경 오브 (4개 radial-gradient) 으로 depth 부여
+  - `src/components/MetricCard.jsx` [NEW]: 상태 배지, 트렌드 화살표, 프로그레스 바, 호버 scale
+  - `src/components/Button.jsx` [NEW]: 5 variant × 5 size, 리플 클릭, 로딩 스피너, a11y
+  - `src/App.jsx`: MetricCard/Button 통합, 헤더에 LIVE 펄스 도트 추가
+  - `vitest.config.js`: vitest 4 호환 pool 설정 (singleFork, testTimeout 30s)
+- Validation:
+  - `npm run build` → **exit 0** (index.css 18.55 kB gzip, 청크 정상)
+  - `npm run test` → **2/2 passed** (1194ms)
+  - 브라우저 스크린샷 시각 검증 완료
+- Current git state:
+  - `main...origin/main` (synced)
+  - worktree CLEAN
+
+---
 
 ### Workspace QC sweep + 3일간 미기록 작업 정리
 
