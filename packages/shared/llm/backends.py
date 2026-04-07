@@ -13,6 +13,18 @@ import logging
 import urllib.request
 from typing import Any
 
+try:
+    import httpx as _httpx
+    # B-005: LLM API 타임아웃 기본값 (단위: 초)
+    _DEFAULT_TIMEOUT = _httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=5.0)
+    _CHINA_TIMEOUT   = _httpx.Timeout(connect=15.0, read=120.0, write=30.0, pool=5.0)  # DeepSeek/Moonshot
+    _HTTPX_AVAILABLE = True
+except ImportError:
+    _httpx = None  # type: ignore[assignment]
+    _DEFAULT_TIMEOUT = None
+    _CHINA_TIMEOUT = None
+    _HTTPX_AVAILABLE = False
+
 from . import bitnet_runner
 from .model_patches import apply_model_patch
 from .models import LLMResponse, TaskTier
@@ -127,7 +139,17 @@ class BackendManager:
         if "anthropic" not in self._clients:
             import anthropic
 
-            self._clients["anthropic"] = anthropic.Anthropic(api_key=self._keys["anthropic"])
+            # B-005: Anthropic은 httpx 기반 — Timeout 명시
+            _http_client = _httpx.Client(timeout=_DEFAULT_TIMEOUT) if _HTTPX_AVAILABLE else None
+            _async_http = _httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) if _HTTPX_AVAILABLE else None
+            self._clients["anthropic"] = anthropic.Anthropic(
+                api_key=self._keys["anthropic"],
+                http_client=_http_client,
+            )
+            self._clients["anthropic_async"] = anthropic.AsyncAnthropic(
+                api_key=self._keys["anthropic"],
+                http_client=_async_http,
+            )
         return self._clients["anthropic"]
 
     def _get_gemini(self):
@@ -148,9 +170,11 @@ class BackendManager:
         if "grok" not in self._clients:
             import openai
 
+            # B-005: xAI 서버 Timeout 명시
             self._clients["grok"] = openai.OpenAI(
                 api_key=self._keys["grok"],
                 base_url="https://api.x.ai/v1",
+                timeout=_DEFAULT_TIMEOUT,
             )
         return self._clients["grok"]
 
@@ -158,9 +182,11 @@ class BackendManager:
         if "deepseek" not in self._clients:
             import openai
 
+            # B-005: 중국 서버 레이턴시 고려해 CHINA_TIMEOUT 사용
             self._clients["deepseek"] = openai.OpenAI(
                 api_key=self._keys["deepseek"],
                 base_url="https://api.deepseek.com",
+                timeout=_CHINA_TIMEOUT,
             )
         return self._clients["deepseek"]
 
@@ -168,9 +194,11 @@ class BackendManager:
         if "moonshot" not in self._clients:
             import openai
 
+            # B-005: 중국 서버 레이턴시 고려해 CHINA_TIMEOUT 사용
             self._clients["moonshot"] = openai.OpenAI(
                 api_key=self._keys["moonshot"],
                 base_url="https://api.moonshot.cn/v1",
+                timeout=_CHINA_TIMEOUT,
             )
         return self._clients["moonshot"]
 
@@ -178,9 +206,11 @@ class BackendManager:
         if "mimo" not in self._clients:
             import openai
 
+            # B-005: Timeout 명시
             self._clients["mimo"] = openai.OpenAI(
                 api_key=self._keys["mimo"],
                 base_url="https://api.xiaomimimo.com/v1",
+                timeout=_DEFAULT_TIMEOUT,
             )
         return self._clients["mimo"]
 
@@ -246,7 +276,12 @@ class BackendManager:
                 }
             ]
         resp = client.messages.create(**kwargs, extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"})
+        # B-017 fix: Anthropic API가 빈 content 반환 시 IndexError 방어
+        if not resp.content:
+            raise ValueError(f"Anthropic empty response: stop_reason={getattr(resp, 'stop_reason', 'unknown')}")
         text = resp.content[0].text
+        if text is None:
+            raise ValueError(f"Anthropic response content[0].text is None: stop_reason={getattr(resp, 'stop_reason', 'unknown')}")
         # Prepend the prefill character back to reconstruct the full JSON
         if response_mode == "json":
             text = "{" + text
@@ -286,7 +321,11 @@ class BackendManager:
             contents=prompt,
             config=config,
         )
-        text = resp.text
+        try:
+            text = resp.text
+        except (IndexError, AttributeError) as _e:
+            # B-016 fix: Gemini SDK resp.text가 빈 candidates 참조 시 IndexError 발생
+            raise ValueError(f"Gemini response text access failed ({type(_e).__name__}): {_e}") from _e
         if text is None:
             block_reason = ""
             if hasattr(resp, "prompt_feedback") and resp.prompt_feedback:
@@ -344,9 +383,15 @@ class BackendManager:
         if response_mode == "json":
             kwargs["response_format"] = {"type": "json_object"}
         resp = client.chat.completions.create(**kwargs)
+        # B-017 fix: OpenAI-호환 API가 빈 choices 반환 시 방어
+        if not resp.choices or not resp.choices[0].message:
+            raise ValueError(f"[{backend}] Empty response: no choices returned for model={model}")
+        text = resp.choices[0].message.content
+        if text is None:
+            raise ValueError(f"[{backend}] Response message.content is None for model={model}")
         usage = resp.usage
         return LLMResponse(
-            text=resp.choices[0].message.content,
+            text=text,
             model=model,
             backend=backend,
             tier=tier,
@@ -406,8 +451,14 @@ class BackendManager:
         except Exception:
             pass
 
+        # B-017 fix: LiteLLM 빈 응답 방어
+        if not resp.choices or not resp.choices[0].message:
+            raise ValueError(f"[LiteLLM/{backend}] Empty response: no choices for model={model}")
+        text = resp.choices[0].message.content
+        if text is None:
+            raise ValueError(f"[LiteLLM/{backend}] message.content is None for model={model}")
         return LLMResponse(
-            text=resp.choices[0].message.content,
+            text=text,
             model=model,
             backend=backend,
             tier=tier,
@@ -429,6 +480,9 @@ class BackendManager:
             messages=messages,
             max_tokens=max_tokens,
         )
+        # B-017 fix: BitNet 결과 딕셔너리 필수 키 검증
+        if not isinstance(result, dict) or "text" not in result or "model" not in result:
+            raise ValueError(f"BitNet returned invalid result: {type(result).__name__}, keys={list(result.keys()) if isinstance(result, dict) else 'N/A'}")
         return LLMResponse(
             text=result["text"],
             model=result["model"],
@@ -497,9 +551,15 @@ class BackendManager:
             kwargs["api_base"] = "https://api.moonshot.cn/v1"
 
         resp = await litellm.acompletion(**kwargs)
+        # B-017 fix: async LiteLLM 빈 응답 방어
+        if not resp.choices or not resp.choices[0].message:
+            raise ValueError(f"[async LiteLLM/{backend}] Empty response for model={model}")
+        text = resp.choices[0].message.content
+        if text is None:
+            raise ValueError(f"[async LiteLLM/{backend}] message.content is None for model={model}")
         usage = resp.usage
         return LLMResponse(
-            text=resp.choices[0].message.content,
+            text=text,
             model=model,
             backend=backend,
             tier=tier,
@@ -533,7 +593,11 @@ class BackendManager:
             contents=prompt,
             config=config,
         )
-        text = resp.text
+        # B-017 fix: async Gemini도 sync 버전과 동일한 IndexError/AttributeError 방어 적용
+        try:
+            text = resp.text
+        except (IndexError, AttributeError) as _e:
+            raise ValueError(f"Gemini async response text access failed ({type(_e).__name__}): {_e}") from _e
         if text is None:
             block_reason = ""
             if hasattr(resp, "prompt_feedback") and resp.prompt_feedback:
