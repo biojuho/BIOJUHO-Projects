@@ -102,10 +102,12 @@ class _PgAdapter:
                 if ch == str_char:
                     # BUG-018 fix: Handle '' (SQL standard doubled-quote escape)
                     if i + 1 < len(sql) and sql[i + 1] == str_char:
+                        result.append(ch)
                         result.append(sql[i + 1])
                         i += 2
                         continue
                     in_str = False
+                result.append(ch)
             elif ch in ("'", '"'):
                 in_str = True
                 str_char = ch
