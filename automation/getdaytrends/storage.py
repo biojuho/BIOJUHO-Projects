@@ -13,6 +13,9 @@ from typing import Any
 
 from loguru import logger as log
 
+# B-003 fix: fire-and-forget Task가 GC에 수거되지 않도록 강한 참조 유지용 Set
+_bg_tasks: set[asyncio.Task] = set()
+
 try:
     from .config import AppConfig
     from .models import ScoredTrend, TweetBatch
@@ -27,6 +30,7 @@ except ImportError:
     NOTION_AVAILABLE = True
 except ImportError:
     NOTION_AVAILABLE = False
+    NotionClient = None  # type: ignore
     APIResponseError = None  # type: ignore
 
 # Notion API ?ъ떆?????HTTP ?곹깭 肄붾뱶
@@ -109,11 +113,15 @@ def _retry_notion_call(
 
 try:
     import gspread
+    from google.auth.exceptions import GoogleAuthError
     from google.oauth2.service_account import Credentials
 
     GSPREAD_AVAILABLE = True
 except ImportError:
     GSPREAD_AVAILABLE = False
+    gspread = None  # type: ignore
+    Credentials = None  # type: ignore
+    GoogleAuthError = None  # type: ignore
 
 
 # -- notion builder imports --
@@ -127,6 +135,24 @@ except ImportError:
         _build_notion_body,
         _notion_page_exists,
     )
+
+
+def _is_notion_provider_error(exc: Exception) -> bool:
+    return APIResponseError is not None and isinstance(exc, APIResponseError)
+
+
+def _is_gspread_provider_error(exc: Exception) -> bool:
+    candidates: list[type[BaseException]] = []
+    if GSPREAD_AVAILABLE and gspread is not None:
+        gspread_exceptions = getattr(gspread, "exceptions", None)
+        if gspread_exceptions is not None:
+            for name in ("APIError", "GSpreadException", "SpreadsheetNotFound", "WorksheetNotFound"):
+                candidate = getattr(gspread_exceptions, name, None)
+                if isinstance(candidate, type):
+                    candidates.append(candidate)
+    if isinstance(GoogleAuthError, type):
+        candidates.append(GoogleAuthError)
+    return any(isinstance(exc, candidate) for candidate in candidates)
 
 
 def _content_hub_workflow_meta(batch: TweetBatch, platform: str) -> dict:
@@ -216,6 +242,14 @@ def _content_hub_properties(
     return props
 
 
+def _content_hub_default_priority(score: float) -> str:
+    if score >= 85:
+        return "High"
+    if score >= 70:
+        return "Medium"
+    return "Low"
+
+
 def _persist_content_hub_link(config: AppConfig, draft_id: str, page_id: str, review_status: str) -> None:
     if not draft_id:
         return
@@ -240,11 +274,75 @@ def _persist_content_hub_link(config: AppConfig, draft_id: str, page_id: str, re
             loop = None
 
         if loop and loop.is_running():
-            asyncio.ensure_future(_runner())
+            # B-003 fix: Task 객체를 _bg_tasks에 보관하여 GC 수거 방지 + 예외 명시 로깅
+            task = asyncio.ensure_future(_runner())
+            _bg_tasks.add(task)
+
+            def _on_done(t: asyncio.Task) -> None:
+                _bg_tasks.discard(t)
+                exc = t.exception() if not t.cancelled() else None
+                if exc:
+                    log.warning(f"Content Hub link persistence failed (bg): {exc}")
+
+            task.add_done_callback(_on_done)
         else:
             asyncio.run(_runner())
     except Exception as exc:
         log.debug(f"Content Hub link persistence failed: {exc}")
+
+
+def _build_legacy_notion_properties(
+    batch: TweetBatch,
+    trend: ScoredTrend,
+    now: datetime,
+) -> dict[str, Any]:
+    """Map generated tweets to the Korean legacy Notion schema used by 🫒 Getdaytrends."""
+
+    slots: list[tuple[str, tuple[str, ...]]] = [
+        ("공감유도형", ("공감", "자조", "공감형")),
+        ("꿀팁형", ("꿀팁", "실용", "팁")),
+        ("찬반질문형", ("질문", "찬반", "도발")),
+        ("명언형", ("명언", "데이터", "반전", "선언")),
+        ("유머밈형", ("유머", "밈", "핫테이크", "관찰")),
+    ]
+
+    normalized = [(idx, (tweet.tweet_type or "").replace(" ", ""), tweet.content) for idx, tweet in enumerate(batch.tweets)]
+    used_indexes: set[int] = set()
+    slot_values: dict[str, str] = {}
+
+    for slot_name, aliases in slots:
+        for idx, tweet_type, content in normalized:
+            if idx in used_indexes:
+                continue
+            if any(alias in tweet_type for alias in aliases):
+                slot_values[slot_name] = content
+                used_indexes.add(idx)
+                break
+
+    remaining = [content for idx, _tweet_type, content in normalized if idx not in used_indexes]
+    for slot_name, _aliases in slots:
+        if slot_name not in slot_values and remaining:
+            slot_values[slot_name] = remaining.pop(0)
+
+    title = f"[Trend #{trend.rank}] {batch.topic} | {now.strftime('%Y-%m-%d %H:%M')}"
+    properties: dict[str, Any] = {
+        "제목": {"title": [{"text": {"content": title[:200]}}]},
+        "주제": {"rich_text": [{"text": {"content": batch.topic[:1900]}}]},
+        "순위": {"number": trend.rank},
+        "생성시각": {"date": {"start": now.isoformat()}},
+        "상태": {"select": {"name": "대기중"}},
+        "바이럴점수": {"number": trend.viral_potential},
+    }
+
+    for slot_name, content in slot_values.items():
+        if content:
+            properties[slot_name] = {"rich_text": [{"text": {"content": content[:1900]}}]}
+
+    if batch.thread and batch.thread.tweets:
+        thread_text = "\n---\n".join(batch.thread.tweets)
+        properties["쓰레드"] = {"rich_text": [{"text": {"content": thread_text[:1900]}}]}
+
+    return properties
 
 
 def save_to_notion(
@@ -257,12 +355,39 @@ def save_to_notion(
         log.error("notion-client ?⑦궎吏媛 ?ㅼ튂?섏? ?딆븯?듬땲?? pip install notion-client")
         return False
 
-    notion = NotionClient(auth=config.notion_token)
-    now = datetime.now()
+    try:
+        notion = NotionClient(auth=config.notion_token)
+        now = datetime.now()
+    except (ConnectionError, TimeoutError) as e:
+        log.error(f"Notion ??????쎈뱜??곌쾿 ??살첒: {type(e).__name__}: {e}")
+        return False
+    except (ValueError, RuntimeError) as e:
+        log.error(f"Notion ??????쎈솭 (??됯맒??: {type(e).__name__}: {e}")
+        return False
+    except Exception as e:
+        if _is_notion_provider_error(e):
+            log.error(f"Notion provider error: {type(e).__name__}: {e}")
+        else:
+            log.error(f"Notion sync failed unexpectedly: {type(e).__name__}: {e}")
+        return False
 
     # 硫깅벑??泥댄겕: ?ㅻ뒛 ?좎쭨???숈씪 ?ㅼ썙?쒓? ?대? ??λ맂 寃쎌슦 ?ㅽ궢
     today_str = now.strftime("%Y-%m-%d")
-    if _notion_page_exists(notion, config.notion_database_id, batch.topic, today_str):
+    try:
+        notion_page_exists = _notion_page_exists(notion, config.notion_database_id, batch.topic, today_str)
+    except (ConnectionError, TimeoutError) as e:
+        log.error(f"Notion ???????덈콦??怨뚯씩 ???댁쾼: {type(e).__name__}: {e}")
+        return False
+    except (ValueError, RuntimeError) as e:
+        log.error(f"Notion ???????덉넮 (????쭜??: {type(e).__name__}: {e}")
+        return False
+    except Exception as e:
+        if _is_notion_provider_error(e):
+            log.error(f"Notion provider error: {type(e).__name__}: {e}")
+        else:
+            log.error(f"Notion sync failed unexpectedly: {type(e).__name__}: {e}")
+        return False
+    if notion_page_exists:
         log.info(f"Notion 以묐났 ?ㅽ궢: '{batch.topic}' (?ㅻ뒛 ?대? ??λ맖)")
         return True
 
@@ -300,7 +425,20 @@ def save_to_notion(
         properties["Thread"] = {"rich_text": [{"text": {"content": thread_text[:1900]}}]}
 
     # 蹂몃Ц 釉붾줉 ?앹꽦
-    body_blocks = _build_notion_body(batch, trend, image_url)
+    try:
+        body_blocks = _build_notion_body(batch, trend, image_url)
+    except (ConnectionError, TimeoutError) as e:
+        log.error(f"Notion ??????쎈뱜??곌쾿 ??살첒: {type(e).__name__}: {e}")
+        return False
+    except (ValueError, RuntimeError) as e:
+        log.error(f"Notion ??????쎈솭 (??됯맒??: {type(e).__name__}: {e}")
+        return False
+    except Exception as e:
+        if _is_notion_provider_error(e):
+            log.error(f"Notion provider error: {type(e).__name__}: {e}")
+        else:
+            log.error(f"Notion sync failed unexpectedly: {type(e).__name__}: {e}")
+        return False
 
     try:
         _retry_notion_call(
@@ -316,6 +454,86 @@ def save_to_notion(
         return False
     except (ValueError, RuntimeError) as e:
         log.error(f"Notion ????ㅽ뙣 (?덉긽??: {type(e).__name__}: {e}")
+        return False
+
+def save_to_notion(
+    batch: TweetBatch,
+    trend: ScoredTrend,
+    config: AppConfig,
+) -> bool:
+    """Save one trend batch into the legacy Korean-schema Notion database."""
+    if not NOTION_AVAILABLE:
+        log.error("notion-client package is required: pip install notion-client")
+        return False
+
+    try:
+        notion = NotionClient(auth=config.notion_token)
+        now = datetime.now()
+    except (ConnectionError, TimeoutError) as exc:
+        log.error(f"Notion connection failed: {type(exc).__name__}: {exc}")
+        return False
+    except (ValueError, RuntimeError) as exc:
+        log.error(f"Notion configuration is invalid: {type(exc).__name__}: {exc}")
+        return False
+    except Exception as exc:
+        if _is_notion_provider_error(exc):
+            log.error(f"Notion provider error: {type(exc).__name__}: {exc}")
+        else:
+            log.error(f"Notion sync failed unexpectedly: {type(exc).__name__}: {exc}")
+        return False
+
+    today_str = now.strftime("%Y-%m-%d")
+    try:
+        notion_page_exists = _notion_page_exists(notion, config.notion_database_id, batch.topic, today_str)
+    except (ConnectionError, TimeoutError) as exc:
+        log.error(f"Notion duplicate check failed: {type(exc).__name__}: {exc}")
+        return False
+    except (ValueError, RuntimeError) as exc:
+        log.error(f"Notion duplicate check invalid: {type(exc).__name__}: {exc}")
+        return False
+    except Exception as exc:
+        if _is_notion_provider_error(exc):
+            log.error(f"Notion provider error: {type(exc).__name__}: {exc}")
+        else:
+            log.error(f"Notion sync failed unexpectedly: {type(exc).__name__}: {exc}")
+        return False
+    if notion_page_exists:
+        log.info(f"Notion duplicate skipped: '{batch.topic}' already exists today")
+        return True
+
+    properties = _build_legacy_notion_properties(batch, trend, now)
+
+    try:
+        body_blocks = _build_notion_body(batch, trend, "")
+    except (ConnectionError, TimeoutError) as exc:
+        log.error(f"Notion body build failed: {type(exc).__name__}: {exc}")
+        return False
+    except (ValueError, RuntimeError) as exc:
+        log.error(f"Notion body build invalid: {type(exc).__name__}: {exc}")
+        return False
+    except Exception as exc:
+        if _is_notion_provider_error(exc):
+            log.error(f"Notion provider error: {type(exc).__name__}: {exc}")
+        else:
+            log.error(f"Notion sync failed unexpectedly: {type(exc).__name__}: {exc}")
+        return False
+
+    try:
+        _retry_notion_call(
+            notion.pages.create,
+            parent={"database_id": config.notion_database_id},
+            properties=properties,
+            children=body_blocks,
+        )
+        title_items = properties.get("제목", {}).get("title", [])
+        saved_title = title_items[0]["text"]["content"] if title_items else batch.topic
+        log.info(f"Notion save complete: '{saved_title}' ({len(body_blocks)} blocks)")
+        return True
+    except (ConnectionError, TimeoutError) as exc:
+        log.error(f"Notion save network error: {type(exc).__name__}: {exc}")
+        return False
+    except (ValueError, RuntimeError) as exc:
+        log.error(f"Notion save failed: {type(exc).__name__}: {exc}")
         return False
 
 
@@ -347,6 +565,7 @@ def save_to_content_hub(
     category = getattr(trend, "category", "기타") or "기타"
     status = "Ready"
     title = f"[{platform_label}] {batch.topic} | {now.strftime('%m/%d %H:%M')}"
+    review_score = float(workflow_meta.get("qa_score", batch.viral_score or trend.viral_potential))
 
     properties = _content_hub_properties(
         schema,
@@ -354,7 +573,7 @@ def save_to_content_hub(
         status=status,
         category=category,
         platform_label=platform_label,
-        score=float(workflow_meta.get("qa_score", batch.viral_score or trend.viral_potential)),
+        score=review_score,
         draft_meta=workflow_meta,
     )
 
@@ -370,7 +589,7 @@ def save_to_content_hub(
                         "text": {
                             "content": (
                                 f"Platform: {platform_label} | Status: {status}\n"
-                                f"Category: {category} | Score: {workflow_meta.get('qa_score', batch.viral_score or trend.viral_potential)}\n"
+                                f"Category: {category} | Score: {review_score}\n"
                                 f"Draft ID: {workflow_meta.get('draft_id', '')}\n"
                                 f"Prompt Version: {workflow_meta.get('prompt_version', '')}"
                             )
@@ -414,6 +633,13 @@ def save_to_content_hub(
     existing_page_id = ""
     if "Draft ID" in schema and workflow_meta.get("draft_id"):
         existing_page_id = _query_content_hub_by_draft_id(notion, hub_db_id, workflow_meta.get("draft_id", ""))
+    if not existing_page_id:
+        if "Feedback State" in schema:
+            properties["Feedback State"] = {"select": {"name": "Need Review"}}
+        if "Next Action" in schema:
+            properties["Next Action"] = {"select": {"name": "Review Copy"}}
+        if "Priority" in schema:
+            properties["Priority"] = {"select": {"name": _content_hub_default_priority(review_score)}}
 
     try:
         if existing_page_id:
@@ -480,15 +706,17 @@ def save_to_google_sheets(
         tweet_map = {t.tweet_type: t.content for t in batch.tweets}
         thread_text = "\n---\n".join(batch.thread.tweets) if batch.thread else ""
 
+        # B-010 fix: tweet_type 키를 영어로 통일 (Mojibake 컬럼 매핑 오류 방지)
+        # tweet_type 값은 models.py의 영문 상수와 일치해야 함
         row = [
             now,
             trend.rank,
             batch.topic,
-            tweet_map.get("?? ??", ""),
-            tweet_map.get("??? ???", ""),
-            tweet_map.get("?? ???", ""),
-            tweet_map.get("??? ???", ""),
-            tweet_map.get("??/???", ""),
+            tweet_map.get("empathy", tweet_map.get("공감형", "")),
+            tweet_map.get("curiosity", tweet_map.get("호기심형", "")),
+            tweet_map.get("question", tweet_map.get("질문형", "")),
+            tweet_map.get("quote", tweet_map.get("인용형", "")),
+            tweet_map.get("reaction", tweet_map.get("반응/토론형", "")),
             "Ready",
             trend.viral_potential,
             thread_text[:2000],
@@ -504,7 +732,11 @@ def save_to_google_sheets(
     except (ConnectionError, TimeoutError) as e:
         log.error(f"Google Sheets network error: {type(e).__name__}: {e}")
         return False
-    except (ValueError, RuntimeError) as e:
-        log.error(f"Google Sheets sync failed: {type(e).__name__}: {e}")
+    except Exception as e:
+        if _is_gspread_provider_error(e):
+            # B-019 fix: gspread APIError (429 Rate Limit, SpreadsheetNotFound 등) 명시 처리
+            log.error(f"Google Sheets API error (gspread): {type(e).__name__}: {e}")
+        else:
+            log.error(f"Google Sheets sync failed: {type(e).__name__}: {e}")
         return False
 

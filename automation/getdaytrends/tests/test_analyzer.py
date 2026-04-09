@@ -1,9 +1,10 @@
 """analyzer.py 테스트: JSON 파싱, 기본값 폴백, 패턴 감지."""
 
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from analyzer import _parse_json, _parse_json_array
-from models import MultiSourceContext, ScoredTrend
+from models import MultiSourceContext, RawTrend, ScoredTrend, TrendSource
 
 
 class TestParseJson(unittest.TestCase):
@@ -276,6 +277,80 @@ class TestParseScoredTrendV4(unittest.TestCase):
         result = _parse_scored_trend_from_dict(parsed, "테스트", 5000, ctx)
         self.assertGreaterEqual(result.cross_source_confidence, 0)
         self.assertLessEqual(result.cross_source_confidence, 4)
+
+
+class TestBatchScoreIsolation(unittest.IsolatedAsyncioTestCase):
+    """Malformed batch item should not poison healthy siblings."""
+
+    async def test_batch_score_async_recovers_only_malformed_item(self):
+        from analyzer import _batch_score_async
+
+        bad_context = MultiSourceContext(twitter_insight="bad context")
+        good_context = MultiSourceContext(news_insight="good context")
+        batch = [
+            (
+                RawTrend(
+                    name="trendbad",
+                    source=TrendSource.GETDAYTRENDS,
+                    volume="1000",
+                    volume_numeric=1000,
+                ),
+                bad_context,
+            ),
+            (
+                RawTrend(
+                    name="trendgood",
+                    source=TrendSource.GETDAYTRENDS,
+                    volume="2000",
+                    volume_numeric=2000,
+                ),
+                good_context,
+            ),
+        ]
+        parsed_list = [
+            {
+                "viral_potential": "N/A",
+                "trend_acceleration": "+10%",
+                "top_insight": "bad item",
+                "joongyeon_kick": 0,
+                "relevance_score": 5,
+            },
+            {
+                "viral_potential": 81,
+                "trend_acceleration": "+22%",
+                "top_insight": "good item",
+                "suggested_angles": ["angle"],
+                "best_hook_starter": "hook",
+                "category": "tech",
+                "sentiment": "neutral",
+                "safety_flag": False,
+                "joongyeon_kick": 12,
+                "joongyeon_angle": "",
+                "why_trending": "",
+                "peak_status": "rising",
+                "relevance_score": 7,
+            },
+        ]
+        recovered = ScoredTrend(
+            keyword="trendbad",
+            rank=0,
+            viral_potential=42,
+            context=bad_context,
+            sources=[TrendSource.GETDAYTRENDS],
+        )
+
+        with (
+            patch("analyzer._score_batch_instructor", new_callable=AsyncMock, return_value=parsed_list),
+            patch("analyzer._score_trend_async", new_callable=AsyncMock, return_value=recovered) as mock_recover,
+        ):
+            results = await _batch_score_async(batch, client=object(), conn=None, config=None, bucket=5000)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].keyword, "trendbad")
+        self.assertEqual(results[0].viral_potential, 42)
+        self.assertEqual(results[1].keyword, "trendgood")
+        self.assertGreater(results[1].viral_potential, 0)
+        mock_recover.assert_awaited_once()
 
 
 if __name__ == "__main__":

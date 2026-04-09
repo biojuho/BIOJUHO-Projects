@@ -15,18 +15,20 @@ except ImportError:
     _REDIS_OK = False
 
 try:
+    from .db_layer.pg_adapter import PgAdapter as _PgAdapter
+    from .db_layer.connection import (
+        close_pg_pool,
+        db_transaction,
+        get_connection,
+        get_pg_pool,
+        sqlite_write_lock,
+    )
     from .db_schema import (
         _backfill_fingerprints,
         _normalize_name,
         _normalize_volume,
-        _PgAdapter,
-        close_pg_pool,
         compute_fingerprint,
-        db_transaction,
-        get_connection,
-        get_pg_pool,
         init_db,
-        sqlite_write_lock,
     )
     from .models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
     from .db_layer.run_repository import *
@@ -37,18 +39,20 @@ try:
     from .db_layer.tap_repository import *
     from .db_layer.admin_repository import *
 except ImportError:
+    from db_layer.pg_adapter import PgAdapter as _PgAdapter
+    from db_layer.connection import (
+        close_pg_pool,
+        db_transaction,
+        get_connection,
+        get_pg_pool,
+        sqlite_write_lock,
+    )
     from db_schema import (
         _backfill_fingerprints,
         _normalize_name,
         _normalize_volume,
-        _PgAdapter,
-        close_pg_pool,
         compute_fingerprint,
-        db_transaction,
-        get_connection,
-        get_pg_pool,
         init_db,
-        sqlite_write_lock,
     )
     from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
     from db_layer.run_repository import *

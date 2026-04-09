@@ -1,21 +1,26 @@
-"""structured_output.py 테스트 — Instructor 구조화된 출력 모듈."""
+"""Tests for structured_output.py."""
 
+from types import SimpleNamespace
+
+import pytest
+
+import structured_output
 from structured_output import (
     LongPostResponse,
     ScoringResponseItem,
     ThreadResponse,
     TweetGenerationResponse,
     TweetItem,
+    _log_fallback,
+    _instructor_create,
     reset_instructor_client,
 )
 
 
 class TestScoringResponseItem:
-    """ScoringResponseItem Pydantic 모델 테스트."""
-
     def test_default_values(self):
-        item = ScoringResponseItem(keyword="테스트")
-        assert item.keyword == "테스트"
+        item = ScoringResponseItem(keyword="test")
+        assert item.keyword == "test"
         assert item.publishable is True
         assert item.viral_potential == 0
         assert item.sentiment == "neutral"
@@ -23,40 +28,36 @@ class TestScoringResponseItem:
 
     def test_full_construction(self):
         item = ScoringResponseItem(
-            keyword="삼성전자",
+            keyword="semiconductor",
             publishable=True,
             viral_potential=85,
-            top_insight="반도체 투자 확대",
-            why_trending="TSMC 대비 경쟁력 분석",
-            peak_status="상승중",
+            top_insight="Strong growth",
+            why_trending="Market share shift",
+            peak_status="rising",
             relevance_score=8,
-            suggested_angles=["반전", "데이터", "공감"],
-            best_hook_starter="3일 만에 2000억 증발",
-            category="경제",
+            suggested_angles=["reversal", "data", "empathy"],
+            best_hook_starter="Revenue doubled in 3 years",
+            category="economy",
             sentiment="neutral",
-            trigger_event="실적 발표",
-            chain_reaction="커뮤니티 확산",
-            why_now="실적 시즌",
-            key_positions=["긍정론", "부정론"],
+            trigger_event="earnings release",
+            chain_reaction="community spread",
+            why_now="quarterly report",
+            key_positions=["bull", "bear"],
             joongyeon_kick=75,
         )
         assert item.viral_potential == 85
-        assert item.category == "경제"
+        assert item.category == "economy"
         assert len(item.suggested_angles) == 3
 
     def test_model_dump_compatibility(self):
-        """model_dump()가 기존 _parse_json dict와 동일한 키 구조."""
-        item = ScoringResponseItem(keyword="테스트", viral_potential=50)
-        d = item.model_dump()
-        assert "keyword" in d
-        assert "viral_potential" in d
-        assert "publishable" in d
-        assert d["viral_potential"] == 50
+        item = ScoringResponseItem(keyword="test", viral_potential=50)
+        dumped = item.model_dump()
+        assert dumped["keyword"] == "test"
+        assert dumped["viral_potential"] == 50
+        assert dumped["publishable"] is True
 
 
 class TestTweetGenerationResponse:
-    """TweetGenerationResponse 모델 테스트."""
-
     def test_empty(self):
         resp = TweetGenerationResponse()
         assert resp.topic == ""
@@ -64,54 +65,93 @@ class TestTweetGenerationResponse:
 
     def test_with_tweets(self):
         resp = TweetGenerationResponse(
-            topic="삼성전자",
+            topic="trend",
             tweets=[
-                TweetItem(type="반전", content="근데 진짜 포인트는 돈이 아님"),
-                TweetItem(type="데이터", content="3나노 수율 50% 못 넘기고 있는 동안"),
+                TweetItem(type="reversal", content="First tweet"),
+                TweetItem(type="data", content="Second tweet"),
             ],
         )
         assert len(resp.tweets) == 2
-        assert resp.tweets[0].content.startswith("근데")
+        assert resp.tweets[0].content == "First tweet"
 
     def test_model_dump_for_generator(self):
-        """model_dump()가 generator.py의 data.get("tweets", []) 호환."""
         resp = TweetGenerationResponse(
-            topic="테스트",
-            tweets=[TweetItem(type="반전", content="테스트 내용")],
+            topic="test",
+            tweets=[TweetItem(type="reversal", content="payload")],
         )
-        d = resp.model_dump()
-        assert "tweets" in d
-        assert d["tweets"][0]["content"] == "테스트 내용"
-        assert d["tweets"][0]["type"] == "반전"
+        dumped = resp.model_dump()
+        assert dumped["tweets"][0]["content"] == "payload"
+        assert dumped["tweets"][0]["type"] == "reversal"
 
 
 class TestLongPostResponse:
-    """LongPostResponse 모델 테스트."""
-
     def test_with_seo(self):
         resp = LongPostResponse(
             topic="AI",
-            content="장문 콘텐츠...",
-            seo_keywords=["인공지능", "GPT"],
+            content="long form",
+            seo_keywords=["AI", "LLM"],
         )
         assert len(resp.seo_keywords) == 2
 
 
 class TestThreadResponse:
-    """ThreadResponse 모델 테스트."""
-
     def test_thread_structure(self):
         resp = ThreadResponse(
-            topic="트렌드",
-            hook="이거 왜 아무도 모르는 거임?",
-            tweets=["첫 번째", "두 번째", "세 번째"],
+            topic="trend",
+            hook="What are we missing?",
+            tweets=["One", "Two", "Three"],
         )
         assert len(resp.tweets) == 3
         assert resp.hook.endswith("?")
 
 
 class TestResetClient:
-    """클라이언트 리셋 테스트."""
-
     def test_reset_does_not_error(self):
-        reset_instructor_client()  # 초기 상태에서도 에러 없이 동작해야 함
+        reset_instructor_client()
+
+
+class TestInstructorCreate:
+    @pytest.mark.asyncio
+    async def test_handles_sync_create(self):
+        def create(**kwargs):
+            return {"ok": True, "kwargs": kwargs}
+
+        client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+        result = await _instructor_create(client, model="test-model")
+
+        assert result["ok"] is True
+        assert result["kwargs"]["model"] == "test-model"
+
+    @pytest.mark.asyncio
+    async def test_handles_async_create(self):
+        async def create(**kwargs):
+            return {"ok": True, "kwargs": kwargs}
+
+        client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+        result = await _instructor_create(client, model="async-model")
+
+        assert result["ok"] is True
+        assert result["kwargs"]["model"] == "async-model"
+
+
+class TestFallbackLogging:
+    def test_retry_errors_are_downgraded_to_debug(self, monkeypatch):
+        events: list[tuple[str, str]] = []
+
+        monkeypatch.setattr(structured_output.log, "debug", lambda msg: events.append(("debug", msg)))
+        monkeypatch.setattr(structured_output.log, "warning", lambda msg: events.append(("warning", msg)))
+
+        retry_error = type("InstructorRetryException", (Exception,), {})("retry")
+        _log_fallback("List extract fallback", retry_error)
+
+        assert events[0][0] == "debug"
+
+    def test_other_errors_remain_warnings(self, monkeypatch):
+        events: list[tuple[str, str]] = []
+
+        monkeypatch.setattr(structured_output.log, "debug", lambda msg: events.append(("debug", msg)))
+        monkeypatch.setattr(structured_output.log, "warning", lambda msg: events.append(("warning", msg)))
+
+        _log_fallback("List extract fallback", ModuleNotFoundError("jsonref"))
+
+        assert events[0][0] == "warning"

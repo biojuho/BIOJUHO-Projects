@@ -87,6 +87,37 @@ def main():
                 ]
             }
         },
+        "Feedback State": {
+            "select": {
+                "options": [
+                    {"name": "Need Review", "color": "yellow"},
+                    {"name": "Need Revision", "color": "red"},
+                    {"name": "Recheck", "color": "blue"},
+                    {"name": "Approved", "color": "green"},
+                    {"name": "Parked", "color": "gray"},
+                ]
+            }
+        },
+        "Next Action": {
+            "select": {
+                "options": [
+                    {"name": "Review Copy", "color": "blue"},
+                    {"name": "Revise Draft", "color": "orange"},
+                    {"name": "Approve Publish", "color": "green"},
+                    {"name": "Wait Metrics", "color": "gray"},
+                    {"name": "Archive", "color": "brown"},
+                ]
+            }
+        },
+        "Priority": {
+            "select": {
+                "options": [
+                    {"name": "High", "color": "red"},
+                    {"name": "Medium", "color": "yellow"},
+                    {"name": "Low", "color": "gray"},
+                ]
+            }
+        },
         "Category": {
             "select": {
                 "options": [
@@ -101,9 +132,17 @@ def main():
             }
         },
         "Date": {"date": {}},
+        "Due Date": {"date": {}},
+        "Created Time": {"created_time": {}},
         "Tags": {
             "multi_select": {
-                "options": []
+                "options": [
+                    {"name": "Trend", "color": "blue"},
+                    {"name": "Breaking", "color": "red"},
+                    {"name": "Evergreen", "color": "green"},
+                    {"name": "Manual", "color": "gray"},
+                    {"name": "Revised", "color": "orange"},
+                ]
             }
         },
         "Score": {"number": {"format": "number"}},
@@ -116,6 +155,9 @@ def main():
                 ]
             }
         },
+        "Reviewer": {"people": {}},
+        "Owner": {"people": {}},
+        "Feedback Notes": {"rich_text": {}},
         "URL": {"url": {}},
         "Trend ID": {"rich_text": {}},
         "Draft ID": {"rich_text": {}},
@@ -175,6 +217,9 @@ def main():
                 properties={
                     "Name": {"title": [{"text": {"content": "🐦 [X] 테스트 — Content Hub 정상 동작 확인"}}]},
                     "Status": {"select": {"name": "Draft"}},
+                    "Feedback State": {"select": {"name": "Need Review"}},
+                    "Next Action": {"select": {"name": "Review Copy"}},
+                    "Priority": {"select": {"name": "High"}},
                     "Category": {"select": {"name": "테크"}},
                     "Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
                     "Score": {"number": 85},

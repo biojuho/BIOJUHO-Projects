@@ -38,7 +38,9 @@ except ImportError:
 _COOKIES_PATH = Path(__file__).parent / "data" / "x_cookies.json"
 _COOKIES_ENC_PATH = Path(__file__).parent / "data" / "x_cookies.enc"
 _client: TwikitClient | None = None
-_client_lock = asyncio.Lock()
+# B-006 fix: 모듈 레벨 asyncio.Lock() 생성 금지 (이벤트 루프 없는 환경에서 크래시)
+# 첫 사용 시 lazy 초기화
+_client_lock: asyncio.Lock | None = None
 _login_attempted = False
 
 # ══════════════════════════════════════════════════════
@@ -113,10 +115,14 @@ def _save_encrypted_cookies(plain_path: Path) -> None:
 
 async def _get_client() -> TwikitClient | None:
     """Twikit 싱글톤 클라이언트. 쿠키 기반 세션 재사용."""
-    global _client, _login_attempted
+    global _client, _login_attempted, _client_lock
 
     if not TWIKIT_AVAILABLE:
         return None
+
+    # B-006 fix: 이벤트 루프 내에서 첫 사용 시 Lock 생성
+    if _client_lock is None:
+        _client_lock = asyncio.Lock()
 
     async with _client_lock:
         if _client is not None:
@@ -183,7 +189,7 @@ def is_available() -> bool:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, ValueError)),
+    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, asyncio.TimeoutError, ValueError)),  # B-017
     retry_error_callback=lambda rs: []
 )
 async def search_tweets(keyword: str, count: int = 10) -> list[dict[str, Any]]:
@@ -274,7 +280,8 @@ async def fetch_trends(category: str = "trending") -> list[dict[str, Any]]:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, ValueError)),
+    # B-017 fix: asyncio.TimeoutError 명시 적용
+    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, asyncio.TimeoutError, ValueError)),
     retry_error_callback=lambda rs: None
 )
 async def get_tweet_metrics(tweet_id: str) -> dict[str, Any] | None:

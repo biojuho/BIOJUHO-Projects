@@ -2,11 +2,14 @@
 
 import os
 import unittest
+from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 from models import RawTrend, TrendSource
 from scraper import (
     _FETCH_CACHE,
     _FETCH_CACHE_TTL,
+    _async_fetch_google_trends_rss,
     _is_korean_trend,
     _is_similar_keyword,
     _merge_trends,
@@ -143,6 +146,47 @@ class TestFetchCache(unittest.TestCase):
         _FETCH_CACHE["us"] = (expired_ts, [])
         cached_at, _ = _FETCH_CACHE["us"]
         self.assertGreater(_time.time() - cached_at, _FETCH_CACHE_TTL)
+
+
+class TestGoogleTrendsRssResilience(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_empty_on_http_status_error(self):
+        request = httpx.Request("GET", "https://trends.google.com/trending/rss?geo=US")
+        response = httpx.Response(
+            404,
+            text="<html><body>not found</body></html>",
+            headers={"content-type": "text/html"},
+            request=request,
+        )
+        session = MagicMock()
+        session.get = AsyncMock(return_value=response)
+
+        trends = await _async_fetch_google_trends_rss(session, "united-states", limit=5)
+
+        self.assertEqual(trends, [])
+
+    async def test_returns_empty_on_unexpected_root_tag(self):
+        request = httpx.Request("GET", "https://trends.google.com/trending/rss?geo=US")
+        response = httpx.Response(
+            200,
+            text="<html><body>ok but not rss</body></html>",
+            headers={"content-type": "text/html"},
+            request=request,
+        )
+        session = MagicMock()
+        session.get = AsyncMock(return_value=response)
+
+        trends = await _async_fetch_google_trends_rss(session, "united-states", limit=5)
+
+        self.assertEqual(trends, [])
+
+    async def test_returns_empty_on_timeout(self):
+        request = httpx.Request("GET", "https://trends.google.com/trending/rss?geo=US")
+        session = MagicMock()
+        session.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out", request=request))
+
+        trends = await _async_fetch_google_trends_rss(session, "united-states", limit=5)
+
+        self.assertEqual(trends, [])
 
 
 if __name__ == "__main__":

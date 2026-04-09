@@ -85,7 +85,6 @@ def __getattr__(name):
 # ── Context Collection (collectors/context.py) ──
 try:
     from .context import (  # noqa: F401
-        _async_collect_contexts,
         _async_fetch_google_news_trends,
         _async_fetch_google_suggest,
         _async_fetch_google_trends_related,
@@ -98,9 +97,9 @@ try:
         post_to_x,
         post_to_x_async,
     )
+    from .context_runtime import _async_collect_contexts  # noqa: F401
 except ImportError:
     from collectors.context import (  # noqa: F401
-        _async_collect_contexts,
         _async_fetch_google_news_trends,
         _async_fetch_google_suggest,
         _async_fetch_google_trends_related,
@@ -113,6 +112,7 @@ except ImportError:
         post_to_x,
         post_to_x_async,
     )
+    from collectors.context_runtime import _async_collect_contexts  # noqa: F401
 
 # ── News Scraping (optional, requires Scrapling) ──
 try:

@@ -562,6 +562,15 @@ async def _step_post_run(
     except (ImportError, RuntimeError, ConnectionError, TimeoutError, ValueError) as _e:
         log.debug(f"Heartbeat 전송 실패 (무시): {type(_e).__name__}: {_e}")
 
+    # PEE 자동 재학습 (주간, 조건부)
+    try:
+        from shared.prediction.retrain import maybe_retrain
+        retrain_result = await maybe_retrain()
+        if retrain_result.get("retrained"):
+            log.info(f"  [PEE] 모델 재학습 완료: R²={retrain_result['metrics']['r2']:.4f}")
+    except (ImportError, RuntimeError, ValueError, OSError):
+        pass
+
 
 async def _step_score_and_alert(raw_trends, contexts, config: AppConfig, conn, run: RunResult) -> tuple:
     """Step 2-3: 바이럴 스코어링 + 품질 필터 + 알림."""
@@ -646,10 +655,13 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
             effective_budget = getattr(config, 'daily_budget_usd', 2.0)
             log.info(f"[Harness] Pipeline governance active — budget=${effective_budget:.2f}")
 
-    conn = await get_connection(config.db_path, database_url=config.database_url)
+    # B-011 fix: get_connection() 실패 시 conn 미정의 → finally의 NameError 방지
+    conn = None
     try:
+        conn = await get_connection(config.db_path, database_url=config.database_url)
         await init_db(conn)
         run = RunResult(run_id=str(uuid.uuid4()), country=config.country)
+        run.started_at = datetime.now()  # B-015 fix: elapsed 계산 시 AttributeError 방지
         run_row_id = await save_run(conn, run)
 
         separator = "=" * 55
@@ -757,7 +769,8 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
             pass
         raise
     finally:
-        await conn.close()
+        if conn is not None:  # B-011 fix: 연결 실패 시 close() 시도 방지
+            await conn.close()
 
 
 def run_pipeline(config: AppConfig, schedule_callback: Callable[..., Any] | None = None) -> RunResult:

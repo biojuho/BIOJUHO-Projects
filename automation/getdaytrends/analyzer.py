@@ -54,12 +54,20 @@ except ImportError:
     from utils import run_async, sanitize_keyword
 
 
+_PACKAGES_PATH_INJECTED = False  # B-013 fix: sys.path 중복 삽입 방지 플래그
+
+
 def _topic_boost(keyword: str) -> int:
     """DailyNews 활성 카테고리 기반 viral score boost (+0~+20pt)."""
+    global _PACKAGES_PATH_INJECTED
     try:
-        import pathlib
-        import sys
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "packages"))
+        if not _PACKAGES_PATH_INJECTED:
+            import pathlib
+            import sys
+            _pkg_path = str(pathlib.Path(__file__).resolve().parents[3] / "packages")
+            if _pkg_path not in sys.path:
+                sys.path.insert(0, _pkg_path)
+            _PACKAGES_PATH_INJECTED = True
         from shared.intelligence import get_score_boost
         return get_score_boost(keyword)
     except ImportError:
@@ -409,6 +417,27 @@ async def _batch_score_async(
                     if attempt == 0:
                         await asyncio.sleep(1)
 
+        async def _recover_batch_item(trend: RawTrend, ctx: MultiSourceContext, error: Exception) -> ScoredTrend:
+            safe_keyword = sanitize_keyword(trend.name)
+            log.warning(f"배치 스코어링 item fallback '{safe_keyword}': {type(error).__name__}: {error}")
+            try:
+                recovered = await _score_trend_async(
+                    trend.name,
+                    ctx,
+                    trend.volume,
+                    trend.volume_numeric,
+                    client,
+                    conn,
+                )
+                recovered.keyword = safe_keyword
+                return recovered
+            except Exception as fallback_error:
+                log.error(
+                    f"배치 스코어링 item fallback 실패 '{safe_keyword}': "
+                    f"{type(fallback_error).__name__}: {fallback_error}"
+                )
+                return _default_scored_trend(safe_keyword, ctx)
+
         if parsed_list:
             for (trend, ctx), item in zip(need_llm, parsed_list, strict=False):
                 keyword = sanitize_keyword(trend.name)
@@ -424,9 +453,14 @@ async def _batch_score_async(
                         vel = await get_volume_velocity(conn, keyword)
                     except (ImportError, sqlite3.Error, ValueError):
                         pass
-                results.append(
-                    _parse_scored_trend_from_dict(item, keyword, trend.volume_numeric, ctx, config, velocity=vel)
-                )
+                try:
+                    results.append(
+                        _parse_scored_trend_from_dict(item, keyword, trend.volume_numeric, ctx, config, velocity=vel)
+                    )
+                except (AttributeError, KeyError, TypeError, ValueError) as e:
+                    results.append(await _recover_batch_item(trend, ctx, e))
+                except Exception as e:
+                    results.append(await _recover_batch_item(trend, ctx, e))
         else:
             # 배치 실패 → 개별 스코어링 폴백
             log.warning(f"배치 스코어링 실패 → 개별 폴백 ({len(need_llm)}개)")
@@ -630,10 +664,14 @@ async def _analyze_trends_async(
         vel_threshold = getattr(config, "emerging_velocity_threshold", 2.0)
         vol_cap = getattr(config, "emerging_volume_cap", 5000)
         try:
-            from db import get_volume_velocity
+            # B-009 fix: N+1 쿼리 제거 — 배치로 전체 velocity 한 번에 조회
+            from db import get_volume_velocity_batch
+
+            keywords = [result.keyword for result in scored]
+            vel_map = await get_volume_velocity_batch(conn, keywords)
 
             for result in scored:
-                vel = await get_volume_velocity(conn, result.keyword)
+                vel = vel_map.get(result.keyword, 0.0)
                 result.velocity = vel
                 if vel >= vel_threshold and result.volume_last_24h < vol_cap:
                     result.is_emerging = True

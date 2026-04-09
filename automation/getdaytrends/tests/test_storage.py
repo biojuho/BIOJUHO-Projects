@@ -122,6 +122,49 @@ class TestNotionRetryLogic(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result)
 
 
+def test_save_to_notion_returns_false_on_provider_error():
+    from storage import save_to_notion
+
+    class FakeNotionProviderError(Exception):
+        pass
+
+    cfg = AppConfig()
+    cfg.notion_token = "secret"
+    cfg.notion_database_id = "db-123"
+    batch = _make_batch()
+    trend = _make_trend()
+
+    with (
+        patch("storage.NOTION_AVAILABLE", True),
+        patch("storage.NotionClient", return_value=MagicMock()),
+        patch("storage.APIResponseError", FakeNotionProviderError),
+        patch("storage._notion_page_exists", side_effect=FakeNotionProviderError("rate limited")),
+    ):
+        assert save_to_notion(batch, trend, cfg) is False
+
+
+def test_save_to_google_sheets_returns_false_on_provider_error():
+    from storage import save_to_google_sheets
+
+    class FakeSheetsProviderError(Exception):
+        pass
+
+    cfg = AppConfig()
+    cfg.google_service_json = "service-account.json"
+    cfg.google_sheet_id = "sheet-123"
+    batch = _make_batch()
+    trend = _make_trend()
+    mock_credentials = MagicMock()
+    mock_credentials.from_service_account_file.side_effect = FakeSheetsProviderError("bad credentials")
+
+    with (
+        patch("storage.GSPREAD_AVAILABLE", True),
+        patch("storage.GoogleAuthError", FakeSheetsProviderError),
+        patch("storage.Credentials", mock_credentials),
+    ):
+        assert save_to_google_sheets(batch, trend, cfg) is False
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -180,3 +223,64 @@ def test_content_hub_upsert_is_idempotent():
     mock_notion.pages.update.assert_called_once()
     mock_notion.pages.create.assert_not_called()
     persist_link.assert_called_once_with(cfg, "draft-123", "existing-page", "Ready")
+
+
+def test_content_hub_create_seeds_feedback_defaults():
+    from storage import save_to_content_hub
+
+    cfg = AppConfig()
+    cfg.notion_token = "secret"
+    cfg.content_hub_database_id = "hub-db"
+    batch = _make_batch()
+    batch.metadata["workflow_v2"] = {
+        "drafts": [
+            {
+                "draft_id": "draft-456",
+                "trend_id": "trend-456",
+                "platform": "x",
+                "passed": True,
+                "prompt_version": "getdaytrends-v2",
+                "qa_score": 91.0,
+                "blocking_reasons": [],
+            }
+        ]
+    }
+    trend = _make_trend()
+
+    mock_notion = MagicMock()
+    mock_notion.databases.retrieve.return_value = {
+        "properties": {
+            "Name": {},
+            "Status": {},
+            "Category": {},
+            "Date": {},
+            "Score": {},
+            "Platform": {},
+            "Trend ID": {},
+            "Draft ID": {},
+            "Prompt Version": {},
+            "QA Score": {},
+            "Blocking Reasons": {},
+            "Feedback State": {},
+            "Next Action": {},
+            "Priority": {},
+        }
+    }
+    mock_notion.databases.query.return_value = {"results": []}
+    mock_notion.pages.create.return_value = {"id": "new-page"}
+
+    with (
+        patch("storage.NOTION_AVAILABLE", True),
+        patch("storage.NotionClient", return_value=mock_notion),
+        patch("storage._build_notion_body", return_value=[]),
+        patch("storage._persist_content_hub_link") as persist_link,
+    ):
+        assert save_to_content_hub(batch, trend, cfg, platform="x") is True
+
+    mock_notion.pages.update.assert_not_called()
+    mock_notion.pages.create.assert_called_once()
+    created_properties = mock_notion.pages.create.call_args.kwargs["properties"]
+    assert created_properties["Feedback State"]["select"]["name"] == "Need Review"
+    assert created_properties["Next Action"]["select"]["name"] == "Review Copy"
+    assert created_properties["Priority"]["select"]["name"] == "High"
+    persist_link.assert_called_once_with(cfg, "draft-456", "new-page", "Ready")

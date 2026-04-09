@@ -172,6 +172,13 @@ async def _async_fetch_getdaytrends(session: httpx.AsyncClient, country_slug: st
         log.info(f"getdaytrends.com 수집 완료: {len(trends)}개 ({country_slug or 'global'})")
         return trends
 
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code if e.response is not None else "unknown"
+        log.error(f"getdaytrends.com HTTP error ({status_code}): {e}")
+        return _fallback_trends()
+    except httpx.RequestError as e:
+        log.error(f"getdaytrends.com request failed: {type(e).__name__}: {e}")
+        return _fallback_trends()
     except Exception as e:
         log.error(f"getdaytrends.com 수집 실패: {e}")
         return _fallback_trends()
@@ -232,9 +239,20 @@ async def _async_fetch_google_trends_rss(
 
     try:
         resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+        resp.raise_for_status()
         raw = resp.read()
 
-        root = ET.fromstring(raw)
+        try:
+            root = ET.fromstring(raw)
+        except ET.ParseError as e:
+            log.warning(f"Google Trends RSS parse failed: {e}")
+            return []
+
+        root_tag = root.tag.split("}", 1)[-1].lower()
+        if root_tag not in {"rss", "feed"}:
+            log.warning(f"Google Trends RSS unexpected root tag: {root_tag}")
+            return []
+
         ns = {"ht": "https://trends.google.com/trending/rss"}
 
         trends = []
@@ -288,6 +306,13 @@ async def _async_fetch_google_trends_rss(
         log.info(f"Google Trends RSS 수집 완료: {len(trends)}개 ({geo})")
         return trends
 
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code if e.response is not None else "unknown"
+        log.warning(f"Google Trends RSS HTTP error ({status_code}): {e}")
+        return []
+    except httpx.RequestError as e:
+        log.warning(f"Google Trends RSS request failed: {type(e).__name__}: {e}")
+        return []
     except Exception as e:
         log.warning(f"Google Trends RSS 수집 실패: {e}")
         return []

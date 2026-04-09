@@ -44,6 +44,14 @@ except ImportError:
     _cosine_similarity = None  # type: ignore[assignment]
     _embed_texts = None  # type: ignore[assignment]
 
+# ── Predictive Engagement Engine (optional) ──
+try:
+    from shared.prediction import PredictionEngine as _PredictionEngine
+    _PEE_AVAILABLE = True
+except ImportError:
+    _PredictionEngine = None  # type: ignore[assignment,misc]
+    _PEE_AVAILABLE = False
+
 try:
     from ..config import AppConfig, VERSION
     from ..db import (
@@ -739,6 +747,54 @@ def _attach_best_hours(batch, category: str, best_hours: list[int]) -> None:
     print(f"    추천 게시 시간 ({category}): {', '.join(f'{h}시' for h in best_hours)}")
 
 
+async def _annotate_predictions(quality_trends: list, batch_results: list, config: AppConfig) -> None:
+    """PEE로 각 배치의 예상 성과를 예측하고 메타데이터에 기록한다."""
+    from pathlib import Path
+    try:
+        workspace = Path(__file__).resolve().parents[3]
+        engine = _PredictionEngine(
+            gdt_db=workspace / "automation" / "getdaytrends" / "data" / "getdaytrends.db",
+            cie_db=workspace / "automation" / "content-intelligence" / "data" / "cie.db",
+            dn_db=workspace / "automation" / "DailyNews" / "data" / "pipeline_state.db",
+            model_dir=workspace / "var" / "models" / "prediction",
+        )
+        await engine.initialize()
+
+        annotated = 0
+        for trend, batch in zip(quality_trends, batch_results, strict=False):
+            if isinstance(batch, Exception) or not batch:
+                continue
+            best_tweet = batch.tweets[0] if batch.tweets else None
+            if not best_tweet:
+                continue
+            qa_scores = {}
+            if hasattr(batch, "metadata") and batch.metadata:
+                qa_scores = batch.metadata.get("qa_scores", {})
+
+            result = await engine.predict(
+                content=best_tweet.content,
+                trend_keyword=trend.keyword,
+                viral_potential=trend.viral_potential,
+                qa_scores=qa_scores,
+                category=getattr(trend, "category", "other") or "other",
+                content_type="tweet",
+            )
+
+            if not hasattr(batch, "metadata") or batch.metadata is None:
+                batch.metadata = {}
+            batch.metadata["predicted_er"] = result.predicted_engagement_rate
+            batch.metadata["predicted_impressions"] = result.predicted_impressions
+            batch.metadata["viral_probability"] = result.viral_probability
+            batch.metadata["optimal_hours"] = result.optimal_hours
+            batch.metadata["pee_risk"] = result.risk_level
+            annotated += 1
+
+        if annotated:
+            log.info(f"  [PEE] {annotated}건 성과 예측 완료")
+    except (ImportError, OSError, ValueError, RuntimeError) as e:
+        log.warning(f"  [PEE] 예측 실패 (무시): {type(e).__name__}: {e}")
+
+
 async def _step_save(
     quality_trends: list,
     batch_results: list,
@@ -749,6 +805,11 @@ async def _step_save(
 ) -> int:
     """Step 4: SQLite 원자적 트랜잭션 저장 + 외부 저장 병렬 처리."""
     print("\n[4/4] 저장 중...")
+
+    # ── PEE: 예측 성과 주석 달기 (optional) ──
+    if _PEE_AVAILABLE and getattr(config, "enable_prediction", True):
+        await _annotate_predictions(quality_trends, batch_results, config)
+
     success_count = 0
     ext_pairs: list[tuple] = []
     failed_saves: list[str] = []

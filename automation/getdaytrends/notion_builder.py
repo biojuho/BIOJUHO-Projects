@@ -119,6 +119,45 @@ def _build_notion_body(
         }
     )
 
+    # PEE 성과 예측 섹션 (metadata에 predicted_er 있을 때만)
+    meta = getattr(batch, "metadata", {}) or {}
+    if meta.get("predicted_er") is not None:
+        pred_er = meta["predicted_er"]
+        pred_imp = meta.get("predicted_impressions", 0)
+        viral_prob = meta.get("viral_probability", 0)
+        pee_risk = meta.get("pee_risk", "unknown")
+        opt_hours = meta.get("optimal_hours", [])
+
+        risk_emoji = {"low": "🟢", "medium": "🟡", "high": "🔴"}.get(pee_risk, "⚪")
+        er_bar = "█" * min(int(pred_er * 200), 10) + "░" * max(10 - min(int(pred_er * 200), 10), 0)
+        hours_str = ", ".join(f"{h}시" for h in opt_hours[:3]) if opt_hours else "N/A"
+
+        pee_text = (
+            f"AI 성과 예측 (PEE)\n"
+            f"예상 ER: {pred_er:.2%}  [{er_bar}]\n"
+            f"예상 Impression: {pred_imp:,}  |  "
+            f"바이럴 확률: {viral_prob:.0%}\n"
+            f"리스크: {risk_emoji} {pee_risk}  |  "
+            f"최적 발행: {hours_str}"
+        )[:1900]  # Notion rich_text 2000자 제한 방어
+
+        blocks.append(
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "🔮"},
+                    "rich_text": [
+                        {
+                            "type": "text",
+                            "text": {"content": pee_text},
+                        }
+                    ],
+                    "color": "purple_background" if viral_prob > 0.3 else "gray_background",
+                },
+            }
+        )
+
     # 킥(Kick) 하이라이트 섹션
     if trend.top_insight:
         blocks.append(
