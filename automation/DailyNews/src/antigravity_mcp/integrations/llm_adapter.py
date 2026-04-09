@@ -41,6 +41,35 @@ _SHARED_LLM_IMPORT_ERROR: Exception | None = None
 _L1_MAX_SIZE = 128
 _L1_CACHE: OrderedDict[str, str] = OrderedDict()
 
+# P0: LLM 메타응답 감지 패턴 — "죄송합니다", "이전 대화", "기록 없음" 등 거절 응답
+_META_RESPONSE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"죄송(하지만|합니다|해요)", re.I),
+    re.compile(r"이전\s*(대화|리포트|기록|내용).*(없|없음|확인\s*불가)", re.I),
+    re.compile(r"(기록|대화\s*이력|이력).*(남아있지|없|없습니다)", re.I),
+    re.compile(r"(다음\s*중\s*하나|어느\s*쪽).*(원하시|알려주시면)", re.I),
+    re.compile(r"(붙여넣어|공유해|알려주시면)\s*(주시면|주면)\s*(즉시|바로|처리)", re.I),
+    re.compile(r"^(I'm sorry|I don't have|I cannot|As an AI)", re.I | re.MULTILINE),
+)
+
+_MIN_CONTENT_LINES = 3  # 유효 브리프 최소 라인 수
+
+
+def _is_meta_response(text: str, *, check_line_count: bool = True) -> bool:
+    """LLM이 뉴스 브리프 대신 거절/오해 응답을 반환했는지 감지.
+
+    check_line_count=False: 파싱된 섹션 텍스트처럼 한 줄로 합쳐진 경우
+    패턴 매칭만 수행 (라인 수 검사 제외).
+    """
+    for pattern in _META_RESPONSE_PATTERNS:
+        if pattern.search(text):
+            return True
+    if not check_line_count:
+        return False
+    # 전체 응답 텍스트에서만: 실제 내용 라인이 너무 적으면 메타 응답으로 간주
+    content_lines = [l for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
+    return len(content_lines) < _MIN_CONTENT_LINES
+
+
 _SECTION_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
     "signal": (re.compile(r"^(top\s+)?signal\b"),),
     "pattern": (re.compile(r"^pattern\b"),),
@@ -140,6 +169,8 @@ class LLMAdapter:
         category: str,
         items: list[ContentItem],
         window_name: str,
+        quality_feedback: dict[str, Any] | None = None,
+        overlapping_drafts: list[str] | None = None,
     ) -> tuple[GeneratedPayload, list[str]]:
         warnings: list[str] = []
         if not items:
@@ -149,6 +180,8 @@ class LLMAdapter:
             category=category,
             items=items,
             window_name=window_name,
+            quality_feedback=quality_feedback,
+            overlapping_drafts=overlapping_drafts,
         )
         try:
             text, meta, text_warnings = await self._complete_text(
@@ -309,6 +342,40 @@ class LLMAdapter:
                 "Check API keys and provider availability."
             )
 
+        # P0: 메타응답 감지 — LLM이 "이전 대화 없음" 등 거절 응답을 반환한 경우 1회 재시도
+        if _is_meta_response(text):
+            logger.warning(
+                "Meta-response detected for scope=%s (provider=%s); retrying with explicit context.",
+                cache_scope, meta.get("provider"),
+            )
+            warnings.append(f"meta_response_detected:{cache_scope}; retrying")
+            meta2: dict[str, Any] = {k: v for k, v in meta.items()}
+            merged_prompt_retry = (
+                f"{prompt[0]}\n\n"
+                "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
+                "Do NOT reference any previous conversation or report. "
+                "Do NOT ask for clarification. Output the brief directly.\n\n"
+                f"{prompt[1]}"
+                if isinstance(prompt, tuple)
+                else (
+                    "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
+                    "Do NOT reference any previous conversation or report. "
+                    "Do NOT ask for clarification. Output the brief directly.\n\n"
+                    + prompt
+                )
+            )
+            retry_text = await self._try_shared_llm(
+                prompt=merged_prompt_retry if isinstance(prompt, str) else (prompt[0], merged_prompt_retry.split("\n\n", 1)[-1]),
+                max_tokens=max_tokens, temperature=temperature, meta=meta2, warnings=warnings,
+            )
+            if not retry_text:
+                merged = merged_prompt_retry if isinstance(merged_prompt_retry, str) else "\n\n".join(merged_prompt_retry)
+                retry_text = await self._try_fallback_providers(merged, meta2, warnings)
+            if retry_text and not _is_meta_response(retry_text):
+                text = retry_text
+                meta.update(meta2)
+                warnings.append("meta_response_retry_succeeded")
+
         if self._state_store is not None:
             self._state_store.put_llm_cache(
                 prompt_hash,
@@ -457,6 +524,19 @@ class LLMAdapter:
                 reason="v1_parse_failure",
             ), warnings
 
+        # P0: 파서 레벨 메타응답 감지 — 섹션 안에 거절 응답이 들어온 경우
+        parsed_text = " ".join(summary_lines + insights)
+        if _is_meta_response(parsed_text, check_line_count=False):
+            warnings.append(f"meta_response_in_sections:{category}:{window_name}")
+            logger.warning("Meta-response detected inside parsed sections for %s/%s", category, window_name)
+            return self._fallback_report(
+                category=category,
+                items=items,
+                window_name=window_name,
+                generation_mode=generation_mode,
+                reason="meta_response_in_sections",
+            ), warnings
+
         x_fallback = not draft_lines
         brief_body = "\n".join(brief_lines).strip()
         payload = GeneratedPayload(
@@ -551,6 +631,22 @@ class LLMAdapter:
                 reason="v2_parse_failure",
                 missing_sections=missing_sections,
                 sections_found=sections_found,
+            )
+            if legacy_mode:
+                return payload.summary_lines, payload.insights, payload.channel_drafts
+            return payload, warnings
+
+        # P0: 파서 레벨 메타응답 감지 (v2)
+        parsed_text_v2 = " ".join(summary_lines + insights)
+        if _is_meta_response(parsed_text_v2, check_line_count=False):
+            warnings.append(f"meta_response_in_sections:{category}:{window_name}")
+            logger.warning("Meta-response detected inside v2 parsed sections for %s/%s", category, window_name)
+            payload = self._fallback_report(
+                category=category,
+                items=items,
+                window_name=window_name,
+                generation_mode=generation_mode,
+                reason="meta_response_in_sections",
             )
             if legacy_mode:
                 return payload.summary_lines, payload.insights, payload.channel_drafts

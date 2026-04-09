@@ -110,6 +110,13 @@ _COMMON_ENGLISH_WORDS = {
     "launch",
     "market",
     "trend",
+    "space",
+    "external",
+    "research",
+    "article",
+    "report",
+    "information",
+    "content",
 }
 
 

@@ -80,7 +80,7 @@ def frozen_eval_dataset(tmp_path: Path) -> Path:
 
 
 class _FakeLLM:
-    async def build_report_payload(self, *, category, items, window_name):
+    async def build_report_payload(self, *, category, items, window_name, **kwargs):
         mode = resolve_prompt_mode(window_name, len(items))
         if category == "Crypto":
             return (

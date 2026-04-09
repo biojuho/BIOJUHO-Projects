@@ -32,8 +32,15 @@ for d in drafts:
 
 print(f"\nPublishing {len(drafts)} reports via CLI...")
 
+WORKSPACE_ROOT = os.path.normpath(os.path.join(PROJECT_ROOT, "..", ".."))
+
 env = os.environ.copy()
-env["PYTHONPATH"] = os.path.join(PROJECT_ROOT, "src") + os.pathsep + env.get("PYTHONPATH", "")
+env["PYTHONPATH"] = os.pathsep.join([
+    os.path.join(PROJECT_ROOT, "src"),
+    os.path.join(WORKSPACE_ROOT, "packages", "shared"),
+    os.path.join(WORKSPACE_ROOT, "packages"),
+    env.get("PYTHONPATH", ""),
+])
 env["PYTHONUTF8"] = "1"
 env["PYTHONIOENCODING"] = "utf-8"
 

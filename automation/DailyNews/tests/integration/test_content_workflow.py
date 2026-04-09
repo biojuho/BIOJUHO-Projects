@@ -10,7 +10,7 @@ from antigravity_mcp.state.store import PipelineStateStore
 
 
 class FakeLLM:
-    async def build_report_payload(self, *, category, items, window_name):
+    async def build_report_payload(self, *, category, items, window_name, **kwargs):
         return (
             [
                 f"{category} summary",
@@ -64,7 +64,7 @@ def test_generate_briefs_saves_report_and_records_articles(tmp_path):
 
         assert status in ("ok", "partial"), f"Unexpected status: {status}, warnings: {warnings}"
         critical_warnings = [
-            w for w in warnings if not any(skip in w for skip in ("Embedding", "FactCheck", "Skill", "Clustering"))
+            w for w in warnings if not any(skip in w for skip in ("Embedding", "FactCheck", "Skill", "Clustering", "Quality"))
         ]
         assert critical_warnings == [], f"Unexpected critical warnings: {critical_warnings}"
         assert len(reports) == 1

@@ -106,6 +106,30 @@ async def _process_category(
 ) -> None:
     """단일 카테고리 브리프 생성 → reports/warnings에 인플레이스 추가."""
 
+    # P2: 카테고리 오염 방지 — 각 기사의 category 필드가 현재 카테고리와 일치하는지 강제 필터
+    # economy/tech/crypto 계열 간 소스 오염을 차단한다 (getdaytrends의 max_same_category 패턴 차용)
+    _CATEGORY_FAMILY: dict[str, frozenset[str]] = {
+        "Economy_KR": frozenset({"Economy_KR"}),
+        "Economy_Global": frozenset({"Economy_Global"}),
+        "Crypto": frozenset({"Crypto"}),
+        "Tech": frozenset({"Tech"}),
+        "AI_Deep": frozenset({"AI_Deep", "Tech"}),  # AI는 Tech 기사 허용
+        "Global_Affairs": frozenset({"Global_Affairs"}),
+    }
+    allowed_cats = _CATEGORY_FAMILY.get(category, frozenset({category}))
+    pre_filter_count = len(category_items)
+    category_items = [
+        item for item in category_items
+        if not item.category or item.category in allowed_cats or item.category == "unknown"
+    ]
+    if len(category_items) < pre_filter_count:
+        removed = pre_filter_count - len(category_items)
+        logger.info("Category purity filter: removed %d cross-category items from %s", removed, category)
+        warnings.append(f"[CategoryFilter] {category}: {removed}개 타 카테고리 기사 제거 (총 {pre_filter_count}→{len(category_items)})")
+    if not category_items:
+        warnings.append(f"[CategoryFilter] {category}: 필터 후 기사 없음 — 스킵")
+        return
+
     # Fingerprint must be computed BEFORE Jina enrichment to ensure
     # idempotent dedup (Jina mutates item.summary, changing the hash).
     ctx, existing = prepare_category_batch(
@@ -133,7 +157,27 @@ async def _process_category(
                     deep_text = contexts[item.link]
                     item.summary = f"{item.summary}\n\n[Deep Context (Jina.ai)]\n{deep_text}"
 
-    await generate_base_payload(ctx, resolved.llm)
+    # 🔄 QA Feedback Loop: fetch quality history + recent drafts
+    quality_feedback = None
+    overlapping_draft_texts = None
+    try:
+        quality_feedback = state_store.get_category_quality_history(category, days=7)
+    except Exception as exc:
+        logger.debug("Quality history fetch failed for %s: %s", category, exc)
+    try:
+        recent = state_store.get_recent_drafts(category, days=7, channel="x")
+        if recent:
+            overlapping_draft_texts = [d["content"][:300] for d in recent[:3]]
+    except Exception as exc:
+        logger.debug("Recent drafts fetch failed for %s: %s", category, exc)
+
+    await generate_base_payload(
+        ctx, resolved.llm,
+        quality_feedback=quality_feedback,
+        overlapping_drafts=overlapping_draft_texts,
+    )
+    # Auto-heal에서 LLM 재호출할 수 있도록 ctx에 참조 저장
+    ctx._llm_adapter = resolved.llm  # type: ignore[attr-defined]
     await apply_proofreading(ctx, resolved.proofreader)
     await apply_enrichments(
         ctx,
