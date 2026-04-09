@@ -231,6 +231,7 @@ Rules:
 - Start Brief with: "오늘의 핫 이슈: {category}. ..." as a one-line opener.
 - Then write 3 to 5 short sections using markdown headings like "## [emoji] short title".
 - Each section should naturally flow as fact -> background -> implication across 2 to 3 short paragraphs.
+- You MUST cite your sources using tags like [A1], [A2] at the end of relevant sentences in the Brief section to ensure reliability.
 - Do not write explicit labels such as "핵심 사실:", "배경/디테일:", or "전망/의미:".
 - Use exactly one emoji per section heading.
 - Keep the tone crisp and editorial, like a sharp morning briefing note.
