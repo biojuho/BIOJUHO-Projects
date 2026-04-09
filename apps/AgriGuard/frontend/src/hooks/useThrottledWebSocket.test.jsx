@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useThrottledWebSocket } from './useThrottledWebSocket';
 
@@ -37,6 +37,7 @@ describe('useThrottledWebSocket', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    cleanup();
   });
 
   it('ignores malformed frames and flushes valid messages', async () => {

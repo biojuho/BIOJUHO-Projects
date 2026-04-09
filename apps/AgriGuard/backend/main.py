@@ -1,27 +1,27 @@
 import asyncio
-import json
+import logging
 import os
 import sys
 import time
-import uuid
+import warnings
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
-import models
-import schemas
-from auth import get_current_user
-from database import SessionLocal, initialize_database, verify_database_connection
-from fastapi import Depends, FastAPI, HTTPException, WebSocket
+from database import initialize_database, verify_database_connection
+from dependencies import close_cache, get_cache
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from iot_service import batch_flush_loop, get_current_status, get_latest_readings, handle_ws_connection, redis_subscriber_loop, sensor_simulation_loop
-from services.chain_simulator import get_chain
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import selectinload
+from iot_service import (
+    add_reading_from_mqtt,
+    batch_flush_loop,
+    close_iot_resources,
+    redis_subscriber_loop,
+    sensor_simulation_loop,
+)
 from starlette.middleware.sessions import SessionMiddleware
 
-# ── Observability (Logfire) ─────────────────────────────────
+logger = logging.getLogger(__name__)
+
 _WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 if str(_WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(_WORKSPACE_ROOT))
@@ -31,10 +31,7 @@ try:
 
     _LOGFIRE_OK = True
 except ImportError:
-    import logging as _logging
-    _logging.getLogger(__name__).warning(
-        "shared.observability를 찾을 수 없습니다 — Logfire 비활성 (WORKSPACE_ROOT=%s)", _WORKSPACE_ROOT
-    )
+    logger.warning("shared.observability not available; Logfire disabled (WORKSPACE_ROOT=%s)", _WORKSPACE_ROOT)
     _LOGFIRE_OK = False
 
 try:
@@ -49,45 +46,140 @@ except ImportError:
     except ImportError:
         _METRICS_OK = False
 
-from dependencies import close_cache, get_cache
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+class _IngestLeaderLock:
+    def __init__(self, path: Path):
+        self.path = path
+        self._handle = None
+
+    def acquire(self) -> bool:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        handle = self.path.open("a+b")
+        handle.seek(0)
+        if handle.tell() == 0:
+            handle.write(b"0")
+            handle.flush()
+            handle.seek(0)
+
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            handle.close()
+            return False
+
+        handle.seek(0)
+        handle.truncate()
+        handle.write(str(os.getpid()).encode("ascii"))
+        handle.flush()
+        handle.seek(0)
+        self._handle = handle
+        return True
+
+    def release(self) -> None:
+        if self._handle is None:
+            return
+
+        try:
+            self._handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(self._handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            logger.debug("Failed to release IoT ingest lock cleanly", exc_info=True)
+        finally:
+            self._handle.close()
+            self._handle = None
+
+
+def _get_ingest_lock_path() -> Path:
+    configured = os.environ.get("IOT_INGEST_LOCK_PATH", "").strip()
+    if configured:
+        return Path(configured)
+    return Path(__file__).resolve().with_name(".iot-ingest.lock")
 
 
 @asynccontextmanager
-async def lifespan(app):
+async def lifespan(app: FastAPI):
     initialize_database()
     verify_database_connection()
 
-    # Start IoT simulation
-    sim_task = asyncio.create_task(sensor_simulation_loop())
+    background_tasks: list[asyncio.Task] = []
+    ingest_lock: _IngestLeaderLock | None = None
+    mqtt_service = None
 
-    # Start IoT batch flush worker (100x scale: reduces DB commits by ~200x)
-    flush_task = asyncio.create_task(batch_flush_loop())
+    simulation_enabled = _env_flag("IOT_SIMULATION_ENABLED", default=False)
+    mqtt_host = os.environ.get("MQTT_BROKER_HOST", "").strip()
+    mqtt_enabled = bool(mqtt_host) and _env_flag("IOT_MQTT_ENABLED", default=True)
 
-    # Start Redis Pub/Sub subscriber (multi-worker WS broadcasting)
-    pubsub_task = asyncio.create_task(redis_subscriber_loop())
+    try:
+        background_tasks.append(asyncio.create_task(redis_subscriber_loop()))
 
-    # Start MQTT if broker is configured
-    mqtt_host = os.environ.get("MQTT_BROKER_HOST", "")
-    mqtt_task = None
-    if mqtt_host:
-        from iot_service import add_reading_from_mqtt
-        from mqtt_service import MQTTSensorService
+        if simulation_enabled or mqtt_enabled:
+            ingest_lock = _IngestLeaderLock(_get_ingest_lock_path())
+            if ingest_lock.acquire():
+                background_tasks.append(asyncio.create_task(batch_flush_loop()))
 
-        mqtt_service = MQTTSensorService(
-            broker_host=mqtt_host,
-            broker_port=int(os.environ.get("MQTT_BROKER_PORT", "1883")),
-            on_reading=add_reading_from_mqtt,
-        )
-        mqtt_task = asyncio.create_task(mqtt_service.start())
+                if simulation_enabled:
+                    background_tasks.append(asyncio.create_task(sensor_simulation_loop()))
 
-    yield
+                if mqtt_enabled:
+                    from mqtt_service import MQTTSensorService
 
-    sim_task.cancel()
-    flush_task.cancel()
-    pubsub_task.cancel()
-    await close_cache()
-    if mqtt_task:
-        mqtt_task.cancel()
+                    mqtt_service = MQTTSensorService(
+                        broker_host=mqtt_host,
+                        broker_port=int(os.environ.get("MQTT_BROKER_PORT", "1883")),
+                        on_reading=add_reading_from_mqtt,
+                    )
+                    background_tasks.append(asyncio.create_task(mqtt_service.start()))
+
+                logger.info(
+                    "IoT ingest leader active: simulation=%s mqtt=%s lock=%s",
+                    simulation_enabled,
+                    mqtt_enabled,
+                    ingest_lock.path,
+                )
+            else:
+                logger.info(
+                    "Skipping IoT ingest on this worker because another process holds %s",
+                    ingest_lock.path,
+                )
+        else:
+            logger.info("IoT ingest disabled: simulation=%s mqtt=%s", simulation_enabled, mqtt_enabled)
+
+        yield
+    finally:
+        if mqtt_service is not None:
+            await mqtt_service.stop()
+
+        for task in background_tasks:
+            task.cancel()
+        if background_tasks:
+            await asyncio.gather(*background_tasks, return_exceptions=True)
+
+        await close_iot_resources()
+        await close_cache()
+
+        if ingest_lock is not None:
+            ingest_lock.release()
 
 
 app = FastAPI(title="AgriGuard API", version="0.2.0", lifespan=lifespan)
@@ -100,38 +192,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 _SECRET_KEY = os.environ.get("SECRET_KEY", "")
 if not _SECRET_KEY:
-    import warnings  # noqa: E402
     warnings.warn(
-        "SECRET_KEY is not set! Using an insecure default. "
-        "Set SECRET_KEY environment variable for production.",
+        "SECRET_KEY is not set! Using an insecure default. Set SECRET_KEY environment variable for production.",
         stacklevel=1,
     )
     _SECRET_KEY = "INSECURE-DEV-ONLY-" + os.urandom(16).hex()
 
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=_SECRET_KEY,
-)
+app.add_middleware(SessionMiddleware, secret_key=_SECRET_KEY)
 
-# ── Admin Panel (/admin) ────────────────────────────────────
 from admin import setup_admin
 
 setup_admin(app)
 
-# ── Logfire Observability ───────────────────────────────────
 if _LOGFIRE_OK:
-    setup_observability(
-        app,
-        service_name="agriguard",
-    )
+    setup_observability(app, service_name="agriguard")
 
-# ── Prometheus Metrics (/metrics) ──────────────────────────
 if _METRICS_OK:
     setup_metrics(app, service_name="agriguard")
 
-# ── Structured Logging (JSON for Loki) ─────────────────────
 try:
     from shared.structured_logging import setup_logging as setup_structured_logging
 
@@ -139,7 +220,6 @@ try:
 except ImportError:
     pass
 
-# ── Audit Log ──────────────────────────────────────────────
 try:
     from shared.audit import setup_audit_log
 
@@ -147,15 +227,12 @@ try:
 except ImportError:
     pass
 
-# ── Rate Limiting (100x scale) ─────────────────────────────
-_RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "100"))  # per minute
-_RATE_LIMIT_WINDOW = 60  # seconds
+_RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "100"))
+_RATE_LIMIT_WINDOW = 60
 
 
 @app.middleware("http")
 async def rate_limit_middleware(request, call_next):
-    """Redis-backed rate limiter: 100 req/min per IP."""
-    # Skip rate limiting for WebSocket upgrades and health checks
     if request.url.path in ("/health", "/ws/iot", "/metrics"):
         return await call_next(request)
 
@@ -166,6 +243,7 @@ async def rate_limit_middleware(request, call_next):
 
     if count > _RATE_LIMIT_MAX:
         from fastapi.responses import JSONResponse
+
         return JSONResponse(
             status_code=429,
             content={"detail": "Too many requests. Please try again later."},
@@ -177,7 +255,8 @@ async def rate_limit_middleware(request, call_next):
     response.headers["X-RateLimit-Remaining"] = str(max(0, _RATE_LIMIT_MAX - count))
     return response
 
-from routers import dashboard, users, products, qr_events, iot
+
+from routers import dashboard, iot, products, qr_events, users
 
 app.include_router(dashboard.router, tags=["Dashboard"])
 app.include_router(users.router, tags=["Users"])

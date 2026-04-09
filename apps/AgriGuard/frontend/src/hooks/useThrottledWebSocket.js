@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useDeferredValue } from 'react';
+import { useState, useEffect, useRef, useCallback, useDeferredValue, useEffectEvent } from 'react';
 
 /**
  * useThrottledWebSocket — WebSocket messages throttled to prevent React re-render storms.
@@ -23,8 +23,9 @@ export function useThrottledWebSocket(url, options = {}) {
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
   // M-14 fix: ref로 최신 onAlert을 추적하여 stale closure 방지
-  const onAlertRef = useRef(onAlert);
-  onAlertRef.current = onAlert;
+  const emitAlert = useEffectEvent((alert) => {
+    onAlert?.(alert);
+  });
 
   // Use React 19 useDeferredValue to deprioritize chart updates
   const deferredData = useDeferredValue(data);
@@ -89,8 +90,8 @@ export function useThrottledWebSocket(url, options = {}) {
         }
 
         // Alert callback (immediate, not throttled)
-        if (onAlertRef.current && msg.alerts && msg.alerts.length > 0) {
-          onAlertRef.current(msg.alerts[0]);
+        if (msg.alerts && msg.alerts.length > 0) {
+          emitAlert(msg.alerts[0]);
         }
 
         // Buffer the reading

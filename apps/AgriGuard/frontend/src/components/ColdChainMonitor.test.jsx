@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ColdChainMonitor from './ColdChainMonitor';
 
@@ -59,10 +59,11 @@ describe('ColdChainMonitor', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    cleanup();
   });
 
   it('renders zone status from backend aggregates instead of chart buffer samples', async () => {
-    global.fetch.mockResolvedValue({
+    globalThis.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         zones: [
@@ -123,7 +124,7 @@ describe('ColdChainMonitor', () => {
       },
     ];
     let fetchCount = 0;
-    global.fetch.mockImplementation(() => {
+    globalThis.fetch.mockImplementation(() => {
       const index = fetchCount >= 2 ? 1 : 0;
       fetchCount += 1;
       return Promise.resolve({
@@ -140,13 +141,13 @@ describe('ColdChainMonitor', () => {
 
     expect(screen.getAllByText('Zone Overview').length).toBeGreaterThan(0);
     expect(screen.queryByText('1 alerts')).not.toBeInTheDocument();
-    const initialFetchCount = global.fetch.mock.calls.length;
+    const initialFetchCount = globalThis.fetch.mock.calls.length;
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(15000);
     });
 
-    expect(global.fetch.mock.calls.length).toBeGreaterThan(initialFetchCount);
+    expect(globalThis.fetch.mock.calls.length).toBeGreaterThan(initialFetchCount);
     expect(screen.getByText('1 alerts')).toBeInTheDocument();
   });
 });

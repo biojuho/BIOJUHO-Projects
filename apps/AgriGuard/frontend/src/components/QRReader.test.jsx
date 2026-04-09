@@ -6,6 +6,7 @@ import { ToastProvider } from '../contexts/ToastContext';
 import { trackQrEvent } from '../services/qrAnalytics';
 
 const navigateMock = vi.fn();
+let scannerApi;
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -16,19 +17,27 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('@yudiel/react-qr-scanner', () => ({
-  Scanner: ({ onScan, onError }) => (
-    <div data-testid="scanner-mock">
-      <button type="button" onClick={() => onScan([{ rawValue: 'https://agriguard.test/product/prod-1' }])}>
+  Scanner: ({ onScan, onError }) => {
+    scannerApi = {
+      triggerSuccess: () => onScan([{ rawValue: 'https://agriguard.test/product/prod-1' }]),
+      triggerInvalid: () => onScan([{ rawValue: 'not-a-valid-qr' }]),
+      triggerError: () => onError(new Error('permission denied')),
+    };
+
+    return (
+      <div data-testid="scanner-mock">
+        <button type="button" onClick={scannerApi.triggerSuccess}>
         trigger-success
-      </button>
-      <button type="button" onClick={() => onScan([{ rawValue: 'not-a-valid-qr' }])}>
+        </button>
+        <button type="button" onClick={scannerApi.triggerInvalid}>
         trigger-invalid
-      </button>
-      <button type="button" onClick={() => onError(new Error('permission denied'))}>
+        </button>
+        <button type="button" onClick={scannerApi.triggerError}>
         trigger-error
-      </button>
-    </div>
-  ),
+        </button>
+      </div>
+    );
+  },
 }));
 
 vi.mock('framer-motion', () => ({
@@ -61,6 +70,7 @@ function renderReader() {
 describe('QRReader', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    scannerApi = undefined;
   });
 
   afterEach(() => {
@@ -106,5 +116,35 @@ describe('QRReader', () => {
     expect(navigateMock).toHaveBeenCalledWith(
       '/product/prod-1?scan_source=qr_reader&scan_session=qr-session-1234&scan_variant=qr_page_v1',
     );
+  });
+
+  it('does not schedule duplicate navigation for repeated scan callbacks', async () => {
+    vi.useFakeTimers();
+    renderReader();
+
+    act(() => {
+      scannerApi.triggerSuccess();
+      scannerApi.triggerSuccess();
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears pending navigation when unmounted', async () => {
+    vi.useFakeTimers();
+    const { unmount } = renderReader();
+
+    fireEvent.click(screen.getByRole('button', { name: 'trigger-success' }));
+    unmount();
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

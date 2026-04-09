@@ -23,8 +23,17 @@ export default function QRReader() {
   const [lastQrValue, setLastQrValue] = useState('');
   const [sessionId] = useState(() => createQrSessionId());
   const failureSignatureRef = useRef('');
+  const navigationTimerRef = useRef(null);
+  const scanHandledRef = useRef(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
+
+  useEffect(() => () => {
+    if (navigationTimerRef.current) {
+      window.clearTimeout(navigationTimerRef.current);
+      navigationTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     void trackQrEvent({
@@ -61,6 +70,11 @@ export default function QRReader() {
   };
 
   const handleRetry = async () => {
+    if (navigationTimerRef.current) {
+      window.clearTimeout(navigationTimerRef.current);
+      navigationTimerRef.current = null;
+    }
+
     await trackQrEvent({
       session_id: sessionId,
       event_type: 'scan_recovery',
@@ -73,6 +87,7 @@ export default function QRReader() {
     });
 
     failureSignatureRef.current = '';
+    scanHandledRef.current = false;
     setError('');
     setScanSuccess(false);
     setIsScanning(true);
@@ -80,7 +95,7 @@ export default function QRReader() {
   };
 
   const handleScan = (detectedCodes) => {
-    if (!isScanning || !detectedCodes || detectedCodes.length === 0) {
+    if (scanHandledRef.current || !isScanning || !detectedCodes || detectedCodes.length === 0) {
       return;
     }
 
@@ -89,6 +104,7 @@ export default function QRReader() {
       return;
     }
 
+    scanHandledRef.current = true;
     setLastQrValue(code);
     setIsScanning(false);
 
@@ -103,10 +119,11 @@ export default function QRReader() {
       const productId = pathSegments[productIndex + 1];
       setScanSuccess(true);
       showToast('Verification in progress', 'success');
-      window.setTimeout(() => {
+      navigationTimerRef.current = window.setTimeout(() => {
         navigate(
           `/product/${productId}?scan_source=${SCAN_SOURCE}&scan_session=${sessionId}&scan_variant=${QR_EXPERIMENT_VARIANT}`,
         );
+        navigationTimerRef.current = null;
       }, 1200);
     } catch {
       void handleFailure({

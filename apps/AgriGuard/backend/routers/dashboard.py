@@ -1,46 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import selectinload
-from dependencies import get_db
+from datetime import UTC, datetime
+
 import models
 import schemas
-import uuid
-import json
-from datetime import UTC, datetime, timedelta
-from auth import get_current_user
-from services.chain_simulator import get_chain
-
-
-class _NoOpCache:
-    """Redis 미설정 시 안전하게 동작하는 fallback 캐시."""
-
-    async def get(self, key: str):
-        return None
-
-    async def set(self, key: str, value, ttl: int = 60):
-        pass
-
-
-_noop_cache = _NoOpCache()
-
-
-def _resolve_cache():
-    """get_cache를 안전하게 해석. 실패 시 NoOp 반환."""
-    try:
-        from dependencies import get_cache as _dep_get_cache
-        cache = _dep_get_cache()
-        if cache is not None:
-            return cache
-    except (ImportError, Exception):
-        pass
-    try:
-        from shared.cache import get_cache as _shared_get_cache
-        cache = _shared_get_cache()
-        if cache is not None:
-            return cache
-    except (ImportError, Exception):
-        pass
-    return _noop_cache
+from dependencies import get_cache, get_db
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session, selectinload
 
 
 router = APIRouter()
@@ -90,23 +54,34 @@ def read_root():
 
 @router.get("/api/v1/dashboard/summary", response_model=schemas.DashboardResponse)
 async def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
-    # Redis cache — 30s TTL (500 concurrent users → 1 DB hit per 30s)
-    cache = _resolve_cache()
+    cache = get_cache()
     cached = await cache.get("agriguard:dashboard:frontend")
     if cached is not None:
         return cached
 
     farmer_count = db.query(models.User).filter(models.User.role == "Farmer").count()
     total_products = db.query(models.Product).count()
-    harvested_products = db.query(models.Product).filter(models.Product.harvest_date != None).count()  # noqa: E711 — SQLAlchemy requires != None for IS NOT NULL
+    harvested_products = (
+        db.query(models.Product)
+        .filter(models.Product.harvest_date != None)  # noqa: E711 - SQLAlchemy uses IS NOT NULL here
+        .count()
+    )
     active_cycles = total_products - harvested_products
 
-    recent_events = db.query(models.TrackingEvent).order_by(models.TrackingEvent.timestamp.desc()).limit(5).all()
-    recent_activity = [_format_tracking_event_as_activity(e) for e in recent_events]
+    recent_events = (
+        db.query(models.TrackingEvent)
+        .order_by(models.TrackingEvent.timestamp.desc())
+        .limit(5)
+        .all()
+    )
+    recent_activity = [_format_tracking_event_as_activity(event) for event in recent_events]
 
     if not recent_activity:
         recent_activity = [
-            {"timestamp": datetime.now(UTC).isoformat() + "Z", "event": "System initialized. Waiting for sensor data."}
+            {
+                "timestamp": datetime.now(UTC).isoformat() + "Z",
+                "event": "System initialized. Waiting for sensor data.",
+            }
         ]
 
     has_real_data = total_products > 0
@@ -129,13 +104,11 @@ async def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
 
 @router.get("/dashboard/summary")
 async def get_supply_chain_summary(db: Session = Depends(get_db)):
-    # Redis cache — 30s TTL
-    cache = _resolve_cache()
+    cache = get_cache()
     cached = await cache.get("agriguard:dashboard:supply_chain")
     if cached is not None:
         return cached
 
-    # Eager-load relationships to avoid N+1 queries (28,400 → 3 at 100x scale)
     products = (
         db.query(models.Product)
         .options(
@@ -145,9 +118,9 @@ async def get_supply_chain_summary(db: Session = Depends(get_db)):
         .all()
     )
 
-    certified_count = sum(1 for p in products if p.certificates)
-    cold_chain_count = sum(1 for p in products if p.requires_cold_chain)
-    total_tracking_events = sum(len(p.tracking_history) for p in products)
+    certified_count = sum(1 for product in products if product.certificates)
+    cold_chain_count = sum(1 for product in products if product.requires_cold_chain)
+    total_tracking_events = sum(len(product.tracking_history) for product in products)
 
     result = {
         "total_products": len(products),

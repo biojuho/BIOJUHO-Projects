@@ -17,6 +17,9 @@ os.makedirs(temp_root, exist_ok=True)
 
 def _subprocess_env() -> dict[str, str]:
     env = os.environ.copy()
+    env.pop("DATABASE_URL", None)
+    env.pop("AUTO_CREATE_SCHEMA", None)
+    env.pop("AGRIGUARD_ENV_FILE", None)
     env["TMP"] = temp_root
     env["TEMP"] = temp_root
     env["TMPDIR"] = temp_root
