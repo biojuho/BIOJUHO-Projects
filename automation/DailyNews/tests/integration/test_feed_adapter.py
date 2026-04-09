@@ -73,6 +73,26 @@ async def test_fetch_entries_retries_on_network_error():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_fetch_entries_retries_on_retryable_http_status():
+    call_count = 0
+
+    def side_effect(request):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 2:
+            return httpx.Response(503, text="service unavailable", request=request)
+        return httpx.Response(200, text=_RSS_SAMPLE, request=request)
+
+    respx.get(_FEED_URL).mock(side_effect=side_effect)
+    adapter = FeedAdapter()
+    entries = await adapter.fetch_entries(_FEED_URL)
+
+    assert len(entries) == 2
+    assert call_count == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_fetch_entries_raises_after_max_retries():
     """Should raise after exhausting all retries."""
     respx.get(_FEED_URL).mock(side_effect=httpx.NetworkError("persistent failure"))

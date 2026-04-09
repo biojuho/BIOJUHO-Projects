@@ -79,7 +79,10 @@ describe('Dashboard App', () => {
     })
 
     for (const endpoint of Object.keys(RESPONSES)) {
-      expect(global.fetch).toHaveBeenCalledWith(endpoint)
+      expect(global.fetch).toHaveBeenCalledWith(
+        endpoint,
+        expect.objectContaining({ cache: 'no-store' }),
+      )
     }
   })
 
@@ -96,6 +99,34 @@ describe('Dashboard App', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(14)
+    })
+  })
+
+  it('shows a panel error state instead of an infinite loader when a request fails', async () => {
+    global.fetch.mockImplementation(async (url) => {
+      if (url === '/api/getdaytrends') {
+        return {
+          ok: false,
+          status: 503,
+          json: async () => ({}),
+        }
+      }
+
+      return {
+        ok: true,
+        json: async () => RESPONSES[url],
+      }
+    })
+
+    const { default: App } = await import('./App')
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'AI Projects Dashboard' })).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText('Panel unavailable')).toBeInTheDocument()
+      expect(screen.getByText('Request failed with status 503')).toBeInTheDocument()
     })
   })
 })

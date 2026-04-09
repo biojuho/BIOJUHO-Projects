@@ -1,11 +1,19 @@
+import os
 import threading
 import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+import main as main_mod
 from config import AppConfig
-from main import _normalize_countries, _refresh_tap_products_after_parallel_runs, _run_countries_parallel_job
+from main import (
+    _acquire_lock,
+    _normalize_countries,
+    _refresh_tap_products_after_parallel_runs,
+    _release_lock,
+    _run_countries_parallel_job,
+)
 from models import RunResult
 
 
@@ -22,6 +30,44 @@ def test_normalize_countries_removes_blanks_and_duplicates():
     countries = _normalize_countries([" korea ", "", "US", "korea", "Japan", "us"])
 
     assert countries == ["korea", "us", "japan"]
+
+
+def test_acquire_lock_allows_only_one_concurrent_owner(tmp_path, monkeypatch):
+    lock_path = tmp_path / "getdaytrends.lock"
+    monkeypatch.setattr(main_mod, "_LOCK_FILE", lock_path)
+
+    barrier = threading.Barrier(4)
+    results: list[bool] = []
+
+    def worker():
+        barrier.wait()
+        acquired = _acquire_lock()
+        results.append(acquired)
+        if acquired:
+            time.sleep(0.05)
+            _release_lock()
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert sum(results) == 1
+    assert not lock_path.exists()
+
+
+def test_acquire_lock_replaces_stale_lockfile(tmp_path, monkeypatch):
+    lock_path = tmp_path / "getdaytrends.lock"
+    lock_path.write_text("999999", encoding="utf-8")
+    monkeypatch.setattr(main_mod, "_LOCK_FILE", lock_path)
+    monkeypatch.setattr(main_mod, "_is_pid_alive", lambda pid: False)
+
+    assert _acquire_lock() is True
+    assert lock_path.read_text(encoding="utf-8") == str(os.getpid())
+
+    _release_lock()
+    assert not lock_path.exists()
 
 
 @pytest.mark.asyncio

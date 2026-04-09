@@ -9,6 +9,7 @@ LiteLLM 통합 (선택):
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import urllib.request
 from typing import Any
@@ -155,15 +156,22 @@ class BackendManager:
     def _get_gemini(self):
         if "gemini" not in self._clients:
             from google import genai
+            from google.genai import types as genai_types
 
-            self._clients["gemini"] = genai.Client(api_key=self._keys["gemini"])
+            self._clients["gemini"] = genai.Client(
+                api_key=self._keys["gemini"],
+                http_options=genai_types.HttpOptions(timeout=120_000),  # ms (SDK 1.x: seconds was pre-1.60)
+            )
         return self._clients["gemini"]
 
     def _get_openai(self):
         if "openai" not in self._clients:
             import openai
 
-            self._clients["openai"] = openai.OpenAI(api_key=self._keys["openai"])
+            self._clients["openai"] = openai.OpenAI(
+                api_key=self._keys["openai"],
+                timeout=_DEFAULT_TIMEOUT,
+            )
         return self._clients["openai"]
 
     def _get_grok(self):
@@ -221,8 +229,28 @@ class BackendManager:
             self._clients["ollama"] = openai.OpenAI(
                 api_key="ollama",  # Ollama ignores API key, but openai lib requires one
                 base_url="http://localhost:11434/v1",
+                timeout=_DEFAULT_TIMEOUT,
             )
         return self._clients["ollama"]
+
+    def close(self) -> None:
+        """Best-effort cleanup for provider SDK clients and their HTTP transports."""
+        for key, client in list(self._clients.items()):
+            close = getattr(client, "close", None)
+            if not callable(close):
+                continue
+            try:
+                result = close()
+                if inspect.isawaitable(result):
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        asyncio.run(result)
+                    else:
+                        loop.create_task(result)
+            except Exception as exc:
+                log.debug("Failed to close backend client %s: %s", key, exc)
+        self._clients.clear()
 
     # -- Sync calls -------------------------------------------------------
 

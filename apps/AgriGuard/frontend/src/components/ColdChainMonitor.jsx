@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Thermometer, Droplets, AlertTriangle, Activity, Wifi, WifiOff } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useToast } from '../contexts/ToastContext';
@@ -13,6 +13,50 @@ const ZONE_COLORS = {
   'Transport Unit 1': '#f59e0b',
   'Transport Unit 2': '#10b981',
 };
+
+function deriveStatusFromReadings(readings) {
+  if (!Array.isArray(readings) || readings.length === 0) {
+    return null;
+  }
+
+  const zones = new Map();
+
+  readings.forEach((reading) => {
+    if (!reading?.zone) return;
+
+    if (!zones.has(reading.zone)) {
+      zones.set(reading.zone, {
+        zone: reading.zone,
+        temps: [],
+        humidities: [],
+        alertCount: 0,
+      });
+    }
+
+    const zone = zones.get(reading.zone);
+    zone.temps.push(reading.temperature);
+    zone.humidities.push(reading.humidity);
+    if (reading.status === 'alert' || (Array.isArray(reading.alerts) && reading.alerts.length > 0)) {
+      zone.alertCount += 1;
+    }
+  });
+
+  const computedZones = Array.from(zones.values()).map((zone) => ({
+    zone: zone.zone,
+    avg_temp: Number((zone.temps.reduce((sum, value) => sum + value, 0) / zone.temps.length).toFixed(1)),
+    avg_humidity: Number((zone.humidities.reduce((sum, value) => sum + value, 0) / zone.humidities.length).toFixed(1)),
+    min_temp: Math.min(...zone.temps),
+    max_temp: Math.max(...zone.temps),
+    alert_count: zone.alertCount,
+    readings_count: zone.temps.length,
+  }));
+
+  return {
+    zones: computedZones,
+    overall_status: computedZones.some((zone) => zone.alert_count > 0) ? 'alert' : 'normal',
+    total_readings: readings.length,
+  };
+}
 
 export default function ColdChainMonitor() {
   const [status, setStatus] = useState(null);
@@ -32,6 +76,8 @@ export default function ColdChainMonitor() {
       .catch(() => showToast('IoT status unavailable', 'warning'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const liveStatus = useMemo(() => deriveStatusFromReadings(readings) ?? status, [readings, status]);
 
   const chartData = readings.map((r) => ({
     time: new Date(r.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
@@ -86,8 +132,8 @@ export default function ColdChainMonitor() {
         <StatCard
           icon={AlertTriangle}
           label="Alerts"
-          value={status?.zones?.reduce((sum, z) => sum + z.alert_count, 0) || 0}
-          color={status?.overall_status === 'alert' ? 'red' : 'green'}
+          value={liveStatus?.zones?.reduce((sum, z) => sum + z.alert_count, 0) || 0}
+          color={liveStatus?.overall_status === 'alert' ? 'red' : 'green'}
         />
       </div>
 
@@ -130,14 +176,14 @@ export default function ColdChainMonitor() {
       </Card>
 
       {/* Zone Status */}
-      {status?.zones && status.zones.length > 0 && (
+      {liveStatus?.zones && liveStatus.zones.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Zone Overview</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {status.zones.map((zone) => (
+              {liveStatus.zones.map((zone) => (
                 <div key={zone.zone} className={cn(
                   'p-4 rounded-xl border',
                   zone.alert_count > 0

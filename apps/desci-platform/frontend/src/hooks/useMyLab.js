@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -10,6 +10,11 @@ export function useMyLab() {
     const { walletAddress } = useAuth();
     const { showToast } = useToast();
     const { t } = useLocale();
+    const showToastRef = useRef(showToast);
+    const tRef = useRef(t);
+
+    showToastRef.current = showToast;
+    tRef.current = t;
 
     const [papers, setPapers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -18,11 +23,29 @@ export function useMyLab() {
     const [mintResult, setMintResult] = useState(EMPTY_MINT_RESULT);
 
     useEffect(() => {
+        let cancelled = false;
+
         client.get('/papers/me')
-            .then((response) => setPapers(response.data))
-            .catch(() => showToast(t('myLab.loadFailed'), 'error'))
-            .finally(() => setIsLoading(false));
-    }, [showToast, t]);
+            .then((response) => {
+                if (!cancelled) {
+                    setPapers(response.data);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    showToastRef.current(tRef.current('myLab.loadFailed'), 'error');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const mintNFT = async (paper) => {
         if (!walletAddress) {

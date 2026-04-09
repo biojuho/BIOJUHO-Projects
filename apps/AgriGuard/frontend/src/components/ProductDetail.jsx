@@ -42,13 +42,22 @@ export default function ProductDetail() {
   const scanVariant = searchParams.get('scan_variant') || 'qr_page_v1';
 
   const loadProductDetails = useCallback(async (productId) => {
-    const [prodRes, histRes] = await Promise.all([
+    const [prodRes, histRes] = await Promise.allSettled([
       productApi.getById(productId),
       productApi.getHistory(productId)
     ]);
+
+    if (prodRes.status !== 'fulfilled') {
+      throw prodRes.reason;
+    }
+
+    if (histRes.status !== 'fulfilled') {
+      console.error('Failed to load product history', histRes.reason);
+    }
+
     return {
-      product: prodRes.data,
-      history: histRes.data.history
+      product: prodRes.value.data,
+      history: histRes.status === 'fulfilled' ? (histRes.value.data.history || []) : []
     };
   }, []);
 

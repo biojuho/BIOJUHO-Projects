@@ -102,6 +102,18 @@ describe('ProductDetail', () => {
     });
   });
 
+  it('keeps the product visible when only history loading fails', async () => {
+    productApi.getById.mockResolvedValueOnce({ data: mockProduct });
+    productApi.getHistory.mockRejectedValueOnce(new Error('History unavailable'));
+
+    renderWithRouter(<ProductDetail />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Organic Apples')).toBeInTheDocument();
+      expect(screen.queryByText('Product Not Found')).not.toBeInTheDocument();
+    });
+  });
+
   it('retries verification analytics until the event is captured', async () => {
     trackQrEvent.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     productApi.getById.mockResolvedValueOnce({ data: mockProduct });

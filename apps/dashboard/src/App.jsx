@@ -54,55 +54,92 @@ function useFetch(url) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const abortControllerRef = useRef(null)
+  const requestIdRef = useRef(0)
 
-  const refetch = useCallback(async () => {
+  const runFetch = useCallback(async () => {
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setLoading(true)
+
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+
+      if (response.ok === false) {
+        throw new Error(`Request failed with status ${response.status}`)
+      }
+
       const payload = await response.json()
+      if (requestId !== requestIdRef.current || controller.signal.aborted) {
+        return false
+      }
+
       setData(payload)
       setError(null)
+      return true
     } catch (e) {
-      setError(e.message)
+      if (controller.signal.aborted || e.name === 'AbortError') {
+        return false
+      }
+
+      if (requestId === requestIdRef.current) {
+        setError(e.message)
+      }
+      return false
     } finally {
-      setLoading(false)
+      if (requestId === requestIdRef.current && !controller.signal.aborted) {
+        setLoading(false)
+      }
     }
   }, [url])
 
   useEffect(() => {
-    let cancelled = false
-
-    async function loadInitialData() {
-      try {
-        const response = await fetch(url)
-        const payload = await response.json()
-        if (!cancelled) {
-          setData(payload)
-          setError(null)
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e.message)
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void loadInitialData()
+    void runFetch()
 
     return () => {
-      cancelled = true
+      requestIdRef.current += 1
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
     }
-  }, [url])
+  }, [runFetch])
 
-  return { data, loading, error, refetch }
+  return { data, loading, error, refetch: runFetch }
 }
 
 function Loading() {
   return <div className="loading"><div className="spinner" /> 데이터 로딩 중...</div>
+}
+
+function PanelState({ error, onRetry }) {
+  if (!error) {
+    return <Loading />
+  }
+
+  return (
+    <div className="loading" role="alert">
+      <div style={{ display: 'grid', gap: '0.5rem', justifyItems: 'center' }}>
+        <strong>Panel unavailable</strong>
+        <span style={{ fontSize: '0.75rem', color: '#fca5a5' }}>{error}</span>
+        {onRetry ? (
+          <Button variant="secondary" size="sm" onClick={() => void onRetry()}>
+            Retry panel
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 function ChartLoading({ height = 220 }) {
@@ -116,8 +153,8 @@ function ChartLoading({ height = 220 }) {
 // StatusCard → MetricCard 컴포넌트로 대체됨 (하단 참조)
 
 /* ─── GetDayTrends Panel ─── */
-function GdtPanel({ data }) {
-  if (!data) return <Loading />
+function GdtPanel({ data, error, onRetry }) {
+  if (!data) return <PanelState error={error} onRetry={onRetry} />
 
   const chartData = {
     labels: (data.daily_runs || []).map((r) => r.date?.slice(5)),
@@ -185,8 +222,8 @@ function GdtPanel({ data }) {
 }
 
 /* ─── CIE Panel ─── */
-function CiePanel({ data }) {
-  if (!data) return <Loading />
+function CiePanel({ data, error, onRetry }) {
+  if (!data) return <PanelState error={error} onRetry={onRetry} />
 
   const qaData = {
     labels: (data.qa_distribution || []).map((d) => d.grade),
@@ -231,8 +268,8 @@ function CiePanel({ data }) {
 }
 
 /* ─── AgriGuard Panel ─── */
-function AgriGuardPanel({ data }) {
-  if (!data) return <Loading />
+function AgriGuardPanel({ data, error, onRetry }) {
+  if (!data) return <PanelState error={error} onRetry={onRetry} />
 
   const tables = data.tables || {}
 
@@ -267,8 +304,8 @@ function AgriGuardPanel({ data }) {
 }
 
 /* ─── Cost Panel ─── */
-function CostPanel({ data }) {
-  if (!data) return <Loading />
+function CostPanel({ data, error, onRetry }) {
+  if (!data) return <PanelState error={error} onRetry={onRetry} />
 
   const projects = data.projects || {}
   const labels = Object.keys(projects)
@@ -345,8 +382,8 @@ function PatternRow({ name, count, avgEng }) {
   )
 }
 
-function AbPanel({ data }) {
-  if (!data) return <Loading />
+function AbPanel({ data, error, onRetry }) {
+  if (!data) return <PanelState error={error} onRetry={onRetry} />
 
   const fb = data.feedback || {}
   const hasFeedback = fb.total > 0
@@ -419,8 +456,8 @@ function AbPanel({ data }) {
 }
 
 /* ─── DailyNews Panel ─── */
-function DailyNewsPanel({ data }) {
-  if (!data) return <Loading />
+function DailyNewsPanel({ data, error, onRetry }) {
+  if (!data) return <PanelState error={error} onRetry={onRetry} />
 
   const counts = data.table_counts || {}
 
@@ -456,15 +493,20 @@ export default function App() {
 
   const [lastUpdated, setLastUpdated] = useState(new Date())
 
-  const refreshAll = useCallback(() => {
-    overview.refetch()
-    gdt.refetch()
-    cie.refetch()
-    ag.refetch()
-    costs.refetch()
-    dn.refetch()
-    ab.refetch()
-    setLastUpdated(new Date())
+  const refreshAll = useCallback(async () => {
+    const results = await Promise.all([
+      overview.refetch(),
+      gdt.refetch(),
+      cie.refetch(),
+      ag.refetch(),
+      costs.refetch(),
+      dn.refetch(),
+      ab.refetch(),
+    ])
+
+    if (results.every(Boolean)) {
+      setLastUpdated(new Date())
+    }
   }, [overview, gdt, cie, ag, costs, dn, ab])
 
   // [QA 수정] useRef로 stale closure 방지
@@ -550,12 +592,12 @@ export default function App() {
 
       {/* ── Detail Panels ── */}
       <section className="dashboard-grid">
-        <GdtPanel data={gdt.data} />
-        <CiePanel data={cie.data} />
-        <AbPanel data={ab.data} />
-        <AgriGuardPanel data={ag.data} />
-        <CostPanel data={costs.data} />
-        <DailyNewsPanel data={dn.data} />
+        <GdtPanel data={gdt.data} error={gdt.error} onRetry={gdt.refetch} />
+        <CiePanel data={cie.data} error={cie.error} onRetry={cie.refetch} />
+        <AbPanel data={ab.data} error={ab.error} onRetry={ab.refetch} />
+        <AgriGuardPanel data={ag.data} error={ag.error} onRetry={ag.refetch} />
+        <CostPanel data={costs.data} error={costs.error} onRetry={costs.refetch} />
+        <DailyNewsPanel data={dn.data} error={dn.error} onRetry={dn.refetch} />
       </section>
 
       <footer className="footer">

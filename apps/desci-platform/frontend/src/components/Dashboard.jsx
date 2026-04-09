@@ -15,17 +15,17 @@ export default function Dashboard() {
     const { user, walletAddress } = useAuth();
     const { t } = useLocale();
     const [backendUser, setBackendUser] = useState(null);
-    const [error, setError] = useState('');
-    const [stats, setStats] = useState([
-        { id: 'papersUploaded', value: '...', icon: FileText, hint: t('dashboard.statLoading') },
-        { id: 'vectorIndex', value: '...', icon: Activity, hint: t('dashboard.statDocuments') },
-        { id: 'pendingReviews', value: '0', icon: Clock, hint: t('dashboard.statComingSoon') },
-        { id: 'tokenBalance', value: '...', icon: TrendingUp, hint: 'DSCI' },
-    ]);
+    const [backendError, setBackendError] = useState(false);
+    const [dashboardData, setDashboardData] = useState({
+        paperCount: null,
+        vectorCount: null,
+        balance: null,
+    });
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
+                setBackendError(false);
                 const [userRes, papersRes, vectorRes] = await Promise.allSettled([
                     client.get('/me'),
                     client.get('/papers/me'),
@@ -35,7 +35,8 @@ export default function Dashboard() {
                 if (userRes.status === 'fulfilled') {
                     setBackendUser(userRes.value.data);
                 } else {
-                    setError(t('dashboard.backendConnectionFailed'));
+                    setBackendUser(null);
+                    setBackendError(true);
                 }
 
                 const paperCount = papersRes.status === 'fulfilled' ? papersRes.value.data.length : 0;
@@ -51,19 +52,45 @@ export default function Dashboard() {
                     }
                 }
 
-                setStats([
-                    { id: 'papersUploaded', value: String(paperCount), icon: FileText, hint: paperCount ? t('dashboard.statIndexed', { count: paperCount }) : t('dashboard.statUploadToStart') },
-                    { id: 'vectorIndex', value: String(vectorCount), icon: Activity, hint: t('dashboard.statDocuments') },
-                    { id: 'pendingReviews', value: '0', icon: Clock, hint: t('dashboard.statComingSoon') },
-                    { id: 'tokenBalance', value: balance, icon: TrendingUp, hint: 'DSCI' },
-                ]);
+                setDashboardData({
+                    paperCount,
+                    vectorCount,
+                    balance,
+                });
             } catch {
-                setError(t('dashboard.backendConnectionFailed'));
+                setBackendUser(null);
+                setBackendError(true);
             }
         };
 
         fetchDashboardData();
-    }, [t, walletAddress]);
+    }, [walletAddress]);
+
+    const stats = [
+        {
+            id: 'papersUploaded',
+            value: dashboardData.paperCount == null ? '...' : String(dashboardData.paperCount),
+            icon: FileText,
+            hint: dashboardData.paperCount == null
+                ? t('dashboard.statLoading')
+                : dashboardData.paperCount > 0
+                    ? t('dashboard.statIndexed', { count: dashboardData.paperCount })
+                    : t('dashboard.statUploadToStart'),
+        },
+        {
+            id: 'vectorIndex',
+            value: dashboardData.vectorCount == null ? '...' : String(dashboardData.vectorCount),
+            icon: Activity,
+            hint: t('dashboard.statDocuments'),
+        },
+        { id: 'pendingReviews', value: '0', icon: Clock, hint: t('dashboard.statComingSoon') },
+        {
+            id: 'tokenBalance',
+            value: dashboardData.balance ?? '...',
+            icon: TrendingUp,
+            hint: 'DSCI',
+        },
+    ];
 
     const firstName = user?.displayName?.split(' ')[0] || t('dashboard.researcherFallback');
 
@@ -136,7 +163,9 @@ export default function Dashboard() {
                 <GlassCard className="p-7">
                     <div className="mb-5 flex items-center justify-between">
                         <h2 className="font-display text-2xl font-semibold text-ink">{t('dashboard.accountStatus')}</h2>
-                        <Badge variant={error ? 'warning' : 'success'}>{error ? t('dashboard.backendConnectionFailed') : t('dashboard.online')}</Badge>
+                        <Badge variant={backendError ? 'warning' : 'success'}>
+                            {backendError ? t('dashboard.backendConnectionFailed') : t('dashboard.online')}
+                        </Badge>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="clay-panel-pressed rounded-[1.8rem] p-5">
@@ -150,7 +179,7 @@ export default function Dashboard() {
                         <div className="clay-panel-pressed rounded-[1.8rem] p-5">
                             <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-ink-soft">{t('dashboard.systemStatus')}</p>
                             <div className="space-y-3 text-sm text-ink-muted">
-                                <p className="flex justify-between gap-3"><span>{t('dashboard.node')}</span><span className="font-semibold text-ink">{error ? t('dashboard.offline') : t('dashboard.online')}</span></p>
+                                <p className="flex justify-between gap-3"><span>{t('dashboard.node')}</span><span className="font-semibold text-ink">{backendError ? t('dashboard.offline') : t('dashboard.online')}</span></p>
                                 <p className="flex justify-between gap-3"><span>{t('dashboard.role')}</span><span className="font-semibold text-ink">{t('dashboard.rolePrincipalInvestigator')}</span></p>
                                 <p className="flex justify-between gap-3"><span>{t('dashboard.sync')}</span><span className="font-semibold text-ink">{backendUser ? t('dashboard.automated') : t('dashboard.statLoading')}</span></p>
                             </div>

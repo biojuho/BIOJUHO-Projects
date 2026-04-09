@@ -93,6 +93,22 @@ def _acquire_lock() -> bool:
     """Lockfile을 획득해 중복 실행을 방지. 이미 실행 중이면 False 반환."""
     _LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
 
+    def _try_create_lockfile() -> bool:
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        try:
+            fd = os.open(_LOCK_FILE, flags)
+        except FileExistsError:
+            return False
+
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(str(os.getpid()))
+                handle.flush()
+            return True
+        except Exception:
+            _LOCK_FILE.unlink(missing_ok=True)
+            raise
+
     if _LOCK_FILE.exists():
         try:
             pid = int(_LOCK_FILE.read_text().strip())
@@ -105,8 +121,7 @@ def _acquire_lock() -> bool:
         except (ValueError, OSError):
             _LOCK_FILE.unlink(missing_ok=True)
 
-    _LOCK_FILE.write_text(str(os.getpid()))
-    return True
+    return _try_create_lockfile()
 
 
 def _release_lock() -> None:
@@ -180,7 +195,7 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
     logger.add(
-        "tweet_bot.log",
+        Path(__file__).parent / "data" / "tweet_bot.log",  # B-014 fix: 절대 경로 고정
         rotation="10 MB",
         retention=5,
         encoding="utf-8",
@@ -399,7 +414,23 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
                 elapsed = time.perf_counter() - started_at
                 return country, None, elapsed, exc
 
-    country_results = await asyncio.gather(*[_run_single(country) for country in countries])
+    # B-004 fix: return_exceptions=True로 단일 국가 실패 시 전체 gather 중단 방지
+    # _run_single은 내부 try/except로 Exception을 처리하나,
+    # BaseException이 빠져나올 경우 다른 국가 결과 유실 방지
+    raw_results = await asyncio.gather(
+        *[_run_single(country) for country in countries],
+        return_exceptions=True,
+    )
+    # gather 자체가 예외를 반환한 경우 (BaseException 계열) 폴백 처리
+    country_results = []
+    for i, res in enumerate(raw_results):
+        if isinstance(res, BaseException):
+            country = countries[i]
+            log.error(f"  [gather] {country.upper()} 예외 탈출: {type(res).__name__}: {res}")
+            country_results.append((country, None, 0.0, res))
+        else:
+            country_results.append(res)
+
     failures: list[tuple[str, Exception]] = []
 
     for country, result, elapsed, error in country_results:

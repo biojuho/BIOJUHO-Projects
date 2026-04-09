@@ -103,6 +103,43 @@ class TestSkillAdapter:
         assert snapshots["NVDA"]["price"] == 950.0
         assert snapshots["Nvidia"]["ticker"] == "NVDA"
 
+    @pytest.mark.asyncio
+    async def test_brain_analysis_passes_category_and_optional_args(self, monkeypatch):
+        from antigravity_mcp.integrations.skill_adapter import SkillAdapter
+
+        captured = {}
+
+        class FakeBrainAdapter:
+            async def analyze_news(self, category, articles, time_window="", niche_trends=None):
+                captured["category"] = category
+                captured["articles"] = articles
+                captured["time_window"] = time_window
+                captured["niche_trends"] = niche_trends
+                return {"summary": "ok"}
+
+        fake_brain_module = SimpleNamespace(BrainAdapter=FakeBrainAdapter)
+        monkeypatch.setitem(sys.modules, "antigravity_mcp.integrations.brain_adapter", fake_brain_module)
+
+        adapter = SkillAdapter()
+        result = await adapter.invoke(
+            "brain_analysis",
+            {
+                "category": "ai",
+                "articles": [{"title": "A", "summary": "B"}],
+                "time_window": "24h",
+                "niche_trends": [{"keyword": "agents"}],
+            },
+        )
+
+        assert result["status"] == "ok"
+        assert result["result"]["summary"] == "ok"
+        assert captured == {
+            "category": "ai",
+            "articles": [{"title": "A", "summary": "B"}],
+            "time_window": "24h",
+            "niche_trends": [{"keyword": "agents"}],
+        }
+
 
 class TestEmbeddingAdapter:
     @pytest.mark.asyncio

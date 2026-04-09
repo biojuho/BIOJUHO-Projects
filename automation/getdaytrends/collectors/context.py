@@ -443,6 +443,7 @@ async def _async_fetch_single_source(
     bearer_token: str = "",
     extra_news: str = "",
     conn=None,
+    metrics_recorder=None,
     timeout_override: httpx.Timeout | float | None = None,
 ) -> tuple[str, str, str]:
     """단일 소스 수집 (비동기). 소스 품질 메트릭 기록 포함.
@@ -483,7 +484,10 @@ async def _async_fetch_single_source(
         except ImportError:
             from db import record_source_quality
 
-        await record_source_quality(conn, source_name, success, latency_ms, 1 if success else 0, quality_score)
+        try:
+            await record_source_quality(conn, source_name, success, latency_ms, 1 if success else 0, quality_score)
+        except Exception as exc:
+            log.warning(f"소스 품질 기록 실패 ({source_name}/{keyword}): {exc}")
 
     return keyword, source_name, result_text
 
@@ -564,34 +568,54 @@ async def _async_collect_contexts(
                 timeout_override=source_timeouts.get(source),
             )
 
-    async def _run_all(sess: httpx.AsyncClient):
+    def _build_tasks(sess: httpx.AsyncClient):
         tasks = []
         for trend in raw_trends:
             extra_news = extra_news_map.get(trend.name, "")
             for source in active_sources:
                 tasks.append(
-                    _limited_fetch(
-                        sess,
-                        trend.name,
-                        source,
-                        config.twitter_bearer_token,
-                        extra_news if source == "news" else "",
+                    asyncio.create_task(
+                        _limited_fetch(
+                            sess,
+                            trend.name,
+                            source,
+                            config.twitter_bearer_token,
+                            extra_news if source == "news" else "",
+                        )
                     )
                 )
-        return await asyncio.gather(*tasks, return_exceptions=True)
+        return tasks
+
+    async def _collect_with_partial_timeout(sess: httpx.AsyncClient) -> list[tuple[str, str, str] | Exception]:
+        tasks = _build_tasks(sess)
+        if not tasks:
+            return []
+
+        done, pending = await asyncio.wait(tasks, timeout=_GLOBAL_TIMEOUT)
+        if pending:
+            log.error(
+                f"[而⑦뀓?ㅽ듃 ?섏쭛] 湲濡쒕쾶 ??꾩븘??({_GLOBAL_TIMEOUT}s) 珥덇낵 ??{len(done)}媛?寃곌낵 蹂댁〈, {len(pending)}媛?誘몄셿 task瑜?醫낅즺"
+            )
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+
+        gathered: list[tuple[str, str, str] | Exception] = []
+        for task in done:
+            try:
+                gathered.append(task.result())
+            except Exception as exc:
+                gathered.append(exc)
+        return gathered
 
     # O1-1: 제공된 세션 재사용, 없으면 독립 세션 생성
     # 전체 컨텍스트 수집에 글로벌 타임아웃 적용 — 개별 소스 타임아웃과 별도로 전체 hang 방지
     _GLOBAL_TIMEOUT = getattr(config, "context_global_timeout", 120)  # 기본 120초
-    try:
-        if session is not None:
-            gathered = await asyncio.wait_for(_run_all(session), timeout=_GLOBAL_TIMEOUT)
-        else:
-            async with httpx.AsyncClient() as _session:
-                gathered = await asyncio.wait_for(_run_all(_session), timeout=_GLOBAL_TIMEOUT)
-    except (asyncio.TimeoutError, TimeoutError):
-        log.error(f"[컨텍스트 수집] 글로벌 타임아웃 ({_GLOBAL_TIMEOUT}s) 초과 — 부분 결과로 진행")
-        gathered = []
+    if session is not None:
+        gathered = await _collect_with_partial_timeout(session)
+    else:
+        async with httpx.AsyncClient() as _session:
+            gathered = await _collect_with_partial_timeout(_session)
 
     for item in gathered:
         if isinstance(item, Exception):

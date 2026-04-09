@@ -20,27 +20,35 @@ import client from '../services/api';
 // Simple in-memory cache shared across hook instances
 const cache = new Map();
 
-function getCacheKey(url, params) {
-  return `${url}::${JSON.stringify(params ?? {})}`;
+function getCachedSnapshot(cacheKey, cacheTime) {
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < cacheTime) {
+    return cached.data;
+  }
+  return null;
 }
 
 export function useFetch(url, options = {}) {
   const { params = {}, enabled = true, cacheTime = 60_000 } = options;
+  const paramsKey = JSON.stringify(params ?? {});
+  const cacheKey = `${url}::${paramsKey}`;
 
-  const [data, setData] = useState(() => {
-    const key = getCacheKey(url, params);
-    const cached = cache.get(key);
-    if (cached && Date.now() - cached.timestamp < cacheTime) {
-      return cached.data;
-    }
-    return null;
-  });
+  const [data, setData] = useState(() => getCachedSnapshot(cacheKey, cacheTime));
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(!data);
+  const [loading, setLoading] = useState(() => enabled && !!url && getCachedSnapshot(cacheKey, cacheTime) == null);
   const abortControllerRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   const fetchData = useCallback(async () => {
-    if (!enabled || !url) return;
+    if (!enabled || !url) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return false;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
     // Abort previous in-flight request
     if (abortControllerRef.current) {
@@ -59,38 +67,66 @@ export function useFetch(url, options = {}) {
         signal: controller.signal,
       });
 
+      if (requestId !== requestIdRef.current || controller.signal.aborted) {
+        return false;
+      }
+
       const responseData = res.data;
       setData(responseData);
 
       // Update cache
-      const key = getCacheKey(url, params);
-      cache.set(key, { data: responseData, timestamp: Date.now() });
+      cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+      return true;
     } catch (err) {
       // Don't set error state for aborted requests
-      if (err.name !== 'AbortError' && err.code !== 'ERR_CANCELED') {
+      if (err.name === 'AbortError' || err.code === 'ERR_CANCELED' || controller.signal.aborted) {
+        return false;
+      }
+
+      if (requestId === requestIdRef.current) {
         setError(err);
       }
+      return false;
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current && !controller.signal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [url, JSON.stringify(params), enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cacheKey, enabled, paramsKey, url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    const cached = getCachedSnapshot(cacheKey, cacheTime);
+
+    if (!enabled || !url) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return () => {
+        requestIdRef.current += 1;
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+      };
+    }
+
+    setData(cached);
+    setError(null);
+    setLoading(cached == null);
     fetchData();
 
     return () => {
+      requestIdRef.current += 1;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [fetchData]);
+  }, [cacheKey, cacheTime, enabled, fetchData, url]);
 
   const refetch = useCallback(() => {
     // Invalidate cache for this key
-    const key = getCacheKey(url, params);
-    cache.delete(key);
+    cache.delete(cacheKey);
     return fetchData();
-  }, [fetchData, url, params]);
+  }, [cacheKey, fetchData]);
 
   return { data, error, loading, refetch };
 }

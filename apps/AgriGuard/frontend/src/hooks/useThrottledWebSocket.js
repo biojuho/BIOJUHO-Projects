@@ -20,12 +20,15 @@ export function useThrottledWebSocket(url, options = {}) {
   const bufferRef = useRef([]);
   const timerRef = useRef(null);
   const wsRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
   // M-14 fix: ref로 최신 onAlert을 추적하여 stale closure 방지
   const onAlertRef = useRef(onAlert);
   onAlertRef.current = onAlert;
 
   // Use React 19 useDeferredValue to deprioritize chart updates
   const deferredData = useDeferredValue(data);
+  const maxBufferedItems = Math.max(maxItems * 4, maxItems);
 
   const flush = useCallback(() => {
     if (bufferRef.current.length === 0) return;
@@ -38,48 +41,92 @@ export function useThrottledWebSocket(url, options = {}) {
   }, [maxItems]);
 
   useEffect(() => {
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
+    let disposed = false;
 
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-    ws.onerror = () => setConnected(false);
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimerRef.current) return;
 
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
+      const delay = Math.min(1000 * (2 ** reconnectAttemptRef.current), 10000);
+      reconnectAttemptRef.current += 1;
 
-      if (msg.type === 'history') {
-        // Initial history load — set directly
-        setData(msg.data.slice(-maxItems));
-        return;
-      }
-
-      // Alert callback (immediate, not throttled)
-      if (onAlertRef.current && msg.alerts && msg.alerts.length > 0) {
-        onAlertRef.current(msg.alerts[0]);
-      }
-
-      // Buffer the reading
-      bufferRef.current.push(msg);
-
-      // Schedule flush if not already scheduled
-      if (!timerRef.current) {
-        timerRef.current = setTimeout(() => {
-          flush();
-          timerRef.current = null;
-        }, throttleMs);
-      }
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        connect();
+      }, delay);
     };
 
+    const connect = () => {
+      if (disposed) return;
+
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        reconnectAttemptRef.current = 0;
+        setConnected(true);
+      };
+      ws.onerror = () => setConnected(false);
+      ws.onclose = () => {
+        setConnected(false);
+        if (!disposed) {
+          scheduleReconnect();
+        }
+      };
+
+      ws.onmessage = (event) => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+
+        if (msg.type === 'history') {
+          // Initial history load — set directly
+          setData(Array.isArray(msg.data) ? msg.data.slice(-maxItems) : []);
+          bufferRef.current = [];
+          return;
+        }
+
+        // Alert callback (immediate, not throttled)
+        if (onAlertRef.current && msg.alerts && msg.alerts.length > 0) {
+          onAlertRef.current(msg.alerts[0]);
+        }
+
+        // Buffer the reading
+        bufferRef.current.push(msg);
+        if (bufferRef.current.length > maxBufferedItems) {
+          bufferRef.current = bufferRef.current.slice(-maxBufferedItems);
+        }
+
+        // Schedule flush if not already scheduled
+        if (!timerRef.current) {
+          timerRef.current = setTimeout(() => {
+            flush();
+            timerRef.current = null;
+          }, throttleMs);
+        }
+      };
+    };
+
+    connect();
+
     return () => {
-      ws.close();
+      disposed = true;
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, throttleMs, maxItems]);
+  }, [flush, maxBufferedItems, maxItems, throttleMs, url]);
 
   return {
     data: deferredData,

@@ -41,6 +41,7 @@ vi.mock('framer-motion', () => {
     motion: {
       div: ({ children, ...rest }) => <div {...stripFramer(rest)}>{children}</div>,
       span: ({ children, ...rest }) => <span {...stripFramer(rest)}>{children}</span>,
+      button: ({ children, ...rest }) => <button {...stripFramer(rest)}>{children}</button>,
     },
     AnimatePresence: ({ children }) => <>{children}</>,
     useAnimation: () => ({ start: vi.fn(), stop: vi.fn() }),

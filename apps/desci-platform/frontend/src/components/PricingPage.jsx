@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 
 const TIERS = [
   {
@@ -67,24 +68,22 @@ const TIERS = [
   },
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 export default function PricingPage() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [billing, setBilling] = useState('monthly');
   const [loadingTier, setLoadingTier] = useState(null);
   const [currentTier, setCurrentTier] = useState('free');
 
   useEffect(() => {
-    if (token) {
-      fetch(`${API_BASE}/subscription/tier`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => r.json())
-        .then((d) => setCurrentTier(d.tier || 'free'))
-        .catch(() => {});
+    if (!user) {
+      setCurrentTier('free');
+      return;
     }
-  }, [token]);
+
+    api.get('/subscription/tier')
+      .then((response) => setCurrentTier(response.data?.tier || 'free'))
+      .catch(() => {});
+  }, [user]);
 
   const handleCheckout = async (tierId) => {
     if (tierId === 'free' || tierId === currentTier) return;
@@ -96,15 +95,7 @@ export default function PricingPage() {
 
     setLoadingTier(tierId);
     try {
-      const res = await fetch(`${API_BASE}/subscription/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ tier: tierId, billing }),
-      });
-      const data = await res.json();
+      const { data } = await api.post('/subscription/checkout', { tier: tierId, billing });
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
       }

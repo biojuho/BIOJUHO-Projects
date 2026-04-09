@@ -8,7 +8,7 @@ import httpx
 from tenacity import (
     before_sleep_log,
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -17,13 +17,23 @@ from antigravity_mcp.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+_RETRYABLE_HTTP_STATUSES = {429, 500, 502, 503, 504}
+
+
+def _is_retryable_fetch_error(exc: BaseException) -> bool:
+    if isinstance(exc, (httpx.TimeoutException, httpx.NetworkError)):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+        return exc.response.status_code in _RETRYABLE_HTTP_STATUSES
+    return False
+
 
 def _build_retry_decorator(max_retries: int) -> Any:
     return retry(
         reraise=True,
         stop=stop_after_attempt(max_retries),
         wait=wait_exponential(multiplier=1, min=1, max=8),
-        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError)),
+        retry=retry_if_exception(_is_retryable_fetch_error),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
 
@@ -60,7 +70,7 @@ class FeedAdapter:
             if new_etag or new_lm:
                 self._state_store.put_feed_etag(url, new_etag, new_lm)
 
-        parsed = feedparser.parse(response.text)
+        parsed = feedparser.parse(response.content)
         return list(parsed.entries)
 
     async def _fetch_with_retry(
@@ -77,7 +87,7 @@ class FeedAdapter:
             reraise=True,
             stop=stop_after_attempt(max(1, max_retries)),
             wait=wait_exponential(multiplier=1, min=1, max=8),
-            retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+            retry=retry_if_exception(_is_retryable_fetch_error),
             before_sleep=before_sleep_log(logger, logging.WARNING),
         )
         async def _do_fetch() -> httpx.Response | None:

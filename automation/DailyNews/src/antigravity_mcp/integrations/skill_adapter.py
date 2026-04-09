@@ -152,17 +152,27 @@ class SkillAdapter:
         return {"original": text, "corrected": corrected}
 
     async def _skill_brain_analysis(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Cross-article BrainAdapter analysis. Params: articles (list[dict])."""
+        """Cross-article BrainAdapter analysis. Params: category, articles (list[dict])."""
         try:
             from antigravity_mcp.integrations.brain_adapter import BrainAdapter  # type: ignore
         except ImportError:
             raise RuntimeError("brain_adapter not available.")
 
+        category = str(params.get("category", "")).strip()
         articles = params.get("articles", [])
+        time_window = str(params.get("time_window", "") or "")
+        niche_trends = params.get("niche_trends")
+        if not category:
+            raise ValueError("'category' param is required.")
         if not articles:
             raise ValueError("'articles' param (list of dicts with title/summary) is required.")
         adapter = BrainAdapter()
-        result = await adapter.analyze_news(articles)
+        result = await adapter.analyze_news(
+            category,
+            articles,
+            time_window=time_window,
+            niche_trends=niche_trends,
+        )
         return result
 
     async def _skill_sentiment_classify(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -176,5 +186,8 @@ class SkillAdapter:
         if not text:
             raise ValueError("'text' param is required.")
         adapter = SentimentAdapter()
-        result = await adapter.analyze(text)
-        return result
+        results = await adapter.analyze([text])
+        if results:
+            r = results[0]
+            return r.to_dict() if hasattr(r, "to_dict") else {"sentiment": r.sentiment, "topics": r.topics}
+        return {"sentiment": "NEUTRAL", "topics": []}
