@@ -218,3 +218,41 @@ async def get_trend_history_patterns_batch(conn, keywords: list[str], days: int 
             "is_recurring": len(scores) >= 3,
         }
     return result
+
+
+async def get_volume_velocity_batch(
+    conn, keywords: list[str], lookback_runs: int = 3
+) -> dict[str, float]:
+    """
+    B-009 fix: 여러 키워드의 volume velocity를 단일 쿼리로 배치 조회.
+
+    개별 get_volume_velocity() N회 호출 → O(N) 쿼리를 단일 쿼리로 대체.
+    반환: {keyword: velocity_float}  (데이터 부족 시 0.0)
+    """
+    if not keywords:
+        return {}
+    placeholders = ",".join("?" * len(keywords))
+    # 각 키워드별 최근 lookback_runs+1 건의 volume_numeric 조회
+    cursor = await conn.execute(
+        f"SELECT keyword, volume_numeric, scored_at "
+        f"FROM trends WHERE keyword IN ({placeholders}) "
+        f"ORDER BY keyword, scored_at DESC",
+        tuple(keywords),
+    )
+    rows = await cursor.fetchall()
+
+    # keyword → 최근 N+1건 볼륨 목록으로 그룹핑
+    grouped: dict[str, list[int]] = {kw: [] for kw in keywords}
+    for row in rows:
+        kw = row["keyword"]
+        if kw in grouped and len(grouped[kw]) <= lookback_runs:
+            grouped[kw].append(row["volume_numeric"])
+
+    # velocity 계산 (기존 get_volume_velocity와 동일 로직)
+    result: dict[str, float] = {}
+    for kw, volumes in grouped.items():
+        if len(volumes) < 2 or volumes[-1] == 0:
+            result[kw] = 0.0
+        else:
+            result[kw] = (volumes[0] - volumes[-1]) / volumes[-1]
+    return result

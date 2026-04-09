@@ -22,18 +22,21 @@ from getdaytrends.db_schema import (
     sqlite_write_lock,
 )
 
+# PG-related globals now live in db_layer.connection
+_PG_MODULE = "getdaytrends.db_layer.connection"
+
 
 # ── 1. Connection Routing ────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_get_connection_postgres_routing() -> None:
     """DATABASE_URL이 설정되면 asyncpg Pool에서 _PgAdapter를 반환해야 한다."""
-    import getdaytrends.db_schema as dbs
-    dbs._PG_POOL = None
+    import getdaytrends.db_layer.connection as dbconn
+    dbconn._PG_POOL = None
 
     with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@localhost:5432/db"}), \
-         patch("getdaytrends.db_schema._PG_AVAILABLE", True), \
-         patch("getdaytrends.db_schema.asyncpg") as mock_asyncpg:
+         patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
+         patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
 
         mock_pool = AsyncMock()
         mock_pool.acquire = AsyncMock(return_value=MagicMock())
@@ -56,12 +59,12 @@ async def test_get_connection_postgres_routing() -> None:
 @pytest.mark.asyncio
 async def test_get_connection_postgres_scheme_variant() -> None:
     """postgres:// (without 'ql') 스킴도 PostgreSQL로 라우팅해야 한다."""
-    import getdaytrends.db_schema as dbs
-    dbs._PG_POOL = None
+    import getdaytrends.db_layer.connection as dbconn
+    dbconn._PG_POOL = None
 
     with patch.dict(os.environ, {"DATABASE_URL": "postgres://u:p@host:5432/mydb"}), \
-         patch("getdaytrends.db_schema._PG_AVAILABLE", True), \
-         patch("getdaytrends.db_schema.asyncpg") as mock_asyncpg:
+         patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
+         patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
 
         mock_pool = AsyncMock()
         mock_pool.acquire = AsyncMock(return_value=MagicMock())
@@ -90,11 +93,11 @@ async def test_get_connection_falls_back_to_sqlite_without_url(tmp_path) -> None
 @pytest.mark.asyncio
 async def test_get_connection_raises_when_asyncpg_missing() -> None:
     """asyncpg 미설치 상태에서 PostgreSQL URL 사용 시 ImportError를 발생시켜야 한다."""
-    import getdaytrends.db_schema as dbs
-    dbs._PG_POOL = None
+    import getdaytrends.db_layer.connection as dbconn
+    dbconn._PG_POOL = None
 
     with patch.dict(os.environ, {"DATABASE_URL": "postgresql://u:p@host/db"}), \
-         patch("getdaytrends.db_schema._PG_AVAILABLE", False):
+         patch(f"{_PG_MODULE}._PG_AVAILABLE", False):
 
         with pytest.raises(ImportError, match="asyncpg"):
             await get_connection()
@@ -320,11 +323,11 @@ class TestSqliteWriteLock:
 @pytest.mark.asyncio
 async def test_pool_singleton_reuse() -> None:
     """풀이 열려 있으면 재생성하지 않고 기존 풀을 재사용해야 한다."""
-    import getdaytrends.db_schema as dbs
-    dbs._PG_POOL = None
+    import getdaytrends.db_layer.connection as dbconn
+    dbconn._PG_POOL = None
 
-    with patch("getdaytrends.db_schema._PG_AVAILABLE", True), \
-         patch("getdaytrends.db_schema.asyncpg") as mock_asyncpg:
+    with patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
+         patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
 
         mock_pool = AsyncMock()
         mock_pool._closed = False
@@ -345,11 +348,11 @@ async def test_pool_singleton_reuse() -> None:
 @pytest.mark.asyncio
 async def test_pool_recreation_after_close() -> None:
     """풀이 닫힌 후 다시 요청하면 새 풀을 생성해야 한다."""
-    import getdaytrends.db_schema as dbs
-    dbs._PG_POOL = None
+    import getdaytrends.db_layer.connection as dbconn
+    dbconn._PG_POOL = None
 
-    with patch("getdaytrends.db_schema._PG_AVAILABLE", True), \
-         patch("getdaytrends.db_schema.asyncpg") as mock_asyncpg:
+    with patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
+         patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
 
         mock_pool1 = AsyncMock()
         mock_pool1._closed = False
@@ -366,7 +369,7 @@ async def test_pool_recreation_after_close() -> None:
         await close_pg_pool()
 
         # 닫힌 후 _PG_POOL은 None
-        assert dbs._PG_POOL is None
+        assert dbconn._PG_POOL is None
 
         # 재요청 시 새 풀 생성
         pool2 = await get_pg_pool("postgresql://u:p@h/db")

@@ -198,6 +198,215 @@ class TestDashboardEnhancements:
         assert mock_snapshot.await_args.kwargs["limit"] == 25
 
 
+class TestDashboardGracefulDegradation:
+    """Failure-path tests for dashboard read endpoints."""
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("/api/trends", []),
+            ("/api/tweets", []),
+            ("/api/runs", []),
+            ("/api/trends/today", []),
+            ("/api/trends/sample/tweets", []),
+            ("/api/stats/categories", []),
+            ("/api/watchlist", []),
+        ],
+    )
+    def test_list_endpoints_return_empty_payload_when_db_connection_fails(self, client, path, expected):
+        with patch("dashboard._get_conn", side_effect=RuntimeError("db unavailable")):
+            resp = client.get(path)
+
+        assert resp.status_code == 200
+        assert resp.json() == expected
+        assert resp.headers["x-dashboard-degraded"] == "1"
+        assert resp.headers["x-dashboard-degraded-reason"] == "dependency_unavailable"
+
+    def test_stats_endpoint_returns_zeroed_payload_when_db_connection_fails(self, client):
+        with patch("dashboard._get_conn", side_effect=RuntimeError("db unavailable")):
+            resp = client.get("/api/stats")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "total_runs": 0,
+            "total_trends": 0,
+            "avg_viral_score": 0,
+            "total_tweets": 0,
+            "llm_cost_7d": 0.0,
+            "llm_daily": [],
+            "_meta": {
+                "degraded": True,
+                "source": "api_stats",
+                "unavailable_reason": "dependency_unavailable",
+            },
+        }
+        assert resp.headers["x-dashboard-degraded"] == "1"
+        assert resp.headers["x-dashboard-degraded-source"] == "api_stats"
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            (
+                "/api/source/quality",
+                {
+                    "_meta": {
+                        "degraded": True,
+                        "source": "api_source_quality",
+                        "unavailable_reason": "dependency_unavailable",
+                    }
+                },
+            ),
+            (
+                "/api/review_queue",
+                {
+                    "counts": {},
+                    "items": [],
+                    "_meta": {
+                        "degraded": True,
+                        "source": "api_review_queue",
+                        "unavailable_reason": "dependency_unavailable",
+                    },
+                },
+            ),
+            (
+                "/api/tap/alerts",
+                {
+                    "counts": {},
+                    "items": [],
+                    "_meta": {
+                        "degraded": True,
+                        "source": "api_tap_alert_queue",
+                        "unavailable_reason": "dependency_unavailable",
+                    },
+                },
+            ),
+        ],
+    )
+    def test_structured_endpoints_return_safe_fallback_when_db_connection_fails(self, client, path, expected):
+        with patch("dashboard._get_conn", side_effect=RuntimeError("db unavailable")):
+            resp = client.get(path)
+
+        assert resp.status_code == 200
+        assert resp.json() == expected
+        assert resp.headers["x-dashboard-degraded"] == "1"
+        assert resp.headers["x-dashboard-degraded-reason"] == "dependency_unavailable"
+
+    def test_source_quality_endpoint_returns_empty_map_when_repository_raises(self, client):
+        with patch(
+            "dashboard.get_source_quality_summary",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("metrics query failed"),
+        ):
+            resp = client.get("/api/source/quality")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "_meta": {
+                "degraded": True,
+                "source": "api_source_quality",
+                "unavailable_reason": "dependency_unavailable",
+            }
+        }
+        assert resp.headers["x-dashboard-degraded"] == "1"
+
+    def test_tap_deal_room_endpoint_returns_empty_offer_payload_when_builder_raises(self, client):
+        with patch(
+            "dashboard_routes_tap.build_tap_deal_room_snapshot",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("deal room unavailable"),
+        ):
+            resp = client.get(
+                "/api/tap/deal-room?target_country=united-states"
+                "&teaser_count=2&audience_segment=creator&package_tier=premium_alert_bundle"
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "generated_at": resp.json()["generated_at"],
+            "snapshot_id": "",
+            "target_country": "united-states",
+            "audience_segment": "creator",
+            "package_tier": "premium_alert_bundle",
+            "teaser_count": 2,
+            "total_detected": 0,
+            "offers": [],
+            "future_dependencies": ["stripe>=10.12.0", "jinja2>=3.1.4", "rapidfuzz>=3.9.0"],
+            "_meta": {
+                "degraded": True,
+                "source": "api_tap_deal_room",
+                "unavailable_reason": "dependency_unavailable",
+            },
+        }
+        assert resp.headers["x-dashboard-degraded"] == "1"
+
+    def test_tap_deal_room_funnel_endpoint_returns_zero_summary_when_db_connection_fails(self, client):
+        with patch("dashboard._get_conn", side_effect=RuntimeError("db unavailable")):
+            resp = client.get(
+                "/api/tap/deal-room/funnel"
+                "?days=30&target_country=united-states&audience_segment=creator&package_tier=premium_alert_bundle"
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "window_days": 30,
+            "filters": {
+                "target_country": "united-states",
+                "audience_segment": "creator",
+                "package_tier": "premium_alert_bundle",
+            },
+            "totals": {
+                "views": 0,
+                "clicks": 0,
+                "checkout_opens": 0,
+                "purchases": 0,
+                "revenue": 0.0,
+                "ctr": 0.0,
+                "checkout_rate": 0.0,
+                "purchase_rate": 0.0,
+                "view_to_purchase_rate": 0.0,
+            },
+            "items": [],
+            "_meta": {
+                "degraded": True,
+                "source": "api_tap_deal_room_funnel",
+                "unavailable_reason": "dependency_unavailable",
+            },
+        }
+        assert resp.headers["x-dashboard-degraded"] == "1"
+
+    def test_tap_deal_room_checkout_summary_endpoint_returns_zero_summary_when_db_connection_fails(self, client):
+        with patch("dashboard._get_conn", side_effect=RuntimeError("db unavailable")):
+            resp = client.get(
+                "/api/tap/deal-room/checkouts"
+                "?days=30&target_country=united-states&audience_segment=creator&package_tier=premium_alert_bundle"
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "window_days": 30,
+            "filters": {
+                "target_country": "united-states",
+                "audience_segment": "creator",
+                "package_tier": "premium_alert_bundle",
+            },
+            "totals": {
+                "created": 0,
+                "completed": 0,
+                "paid": 0,
+                "quoted_revenue": 0.0,
+                "captured_revenue": 0.0,
+                "completion_rate": 0.0,
+            },
+            "items": [],
+            "_meta": {
+                "degraded": True,
+                "source": "api_tap_deal_room_checkouts",
+                "unavailable_reason": "dependency_unavailable",
+            },
+        }
+        assert resp.headers["x-dashboard-degraded"] == "1"
+
+
 # ── DATABASE_URL Routing Tests ──────────────────────────────────────
 
 
@@ -293,7 +502,7 @@ class TestTapOpportunities:
         board_stub.to_dict.return_value = payload
 
         with patch(
-            "dashboard.build_tap_board_snapshot",
+            "dashboard_routes_tap.build_tap_board_snapshot",
             new_callable=AsyncMock,
             return_value=board_stub,
         ) as mock_build:
@@ -323,7 +532,7 @@ class TestTapOpportunities:
         board_stub.to_dict.return_value = payload
 
         with patch(
-            "dashboard.get_latest_tap_board_snapshot",
+            "dashboard_routes_tap.get_latest_tap_board_snapshot",
             new_callable=AsyncMock,
             return_value=board_stub,
         ) as mock_latest:
@@ -348,7 +557,7 @@ class TestTapOpportunities:
         }
 
         with patch(
-            "dashboard.get_tap_alert_queue_snapshot",
+            "dashboard_routes_tap.get_tap_alert_queue_snapshot",
             new_callable=AsyncMock,
             return_value=payload,
         ) as mock_queue:
@@ -374,7 +583,7 @@ class TestTapOpportunities:
         summary_stub.to_dict.return_value = payload
 
         with patch(
-            "dashboard.dispatch_tap_alert_queue",
+            "dashboard_routes_tap.dispatch_tap_alert_queue",
             new_callable=AsyncMock,
             return_value=summary_stub,
         ) as mock_dispatch:
@@ -416,7 +625,7 @@ class TestTapOpportunities:
         room_stub.to_dict.return_value = payload
 
         with patch(
-            "dashboard.build_tap_deal_room_snapshot",
+            "dashboard_routes_tap.build_tap_deal_room_snapshot",
             new_callable=AsyncMock,
             return_value=room_stub,
         ) as mock_room:
@@ -434,7 +643,7 @@ class TestTapOpportunities:
 
     def test_tap_deal_room_event_endpoint_tracks_event(self, client):
         with patch(
-            "dashboard.record_tap_deal_room_event",
+            "dashboard_routes_tap.record_tap_deal_room_event",
             new_callable=AsyncMock,
             return_value="tapde_1",
         ) as mock_record:
@@ -452,6 +661,34 @@ class TestTapOpportunities:
         assert mock_record.await_args.kwargs["keyword"] == "AI regulation"
         assert mock_record.await_args.kwargs["event_type"] == "view"
         assert mock_record.await_args.kwargs["target_country"] == "united-states"
+
+    def test_tap_deal_room_event_endpoint_rejects_blank_keyword(self, client):
+        with patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+            resp = client.post("/api/tap/deal-room/events?keyword=%20%20%20&event_type=view")
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "keyword is required"}
+        mock_record.assert_not_awaited()
+
+    def test_tap_deal_room_event_endpoint_rejects_unsupported_event_type(self, client):
+        with patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+            resp = client.post("/api/tap/deal-room/events?keyword=AI%20regulation&event_type=share")
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "unsupported deal-room event_type: share"}
+        mock_record.assert_not_awaited()
+
+    def test_tap_deal_room_event_endpoint_translates_repository_value_error(self, client):
+        with patch(
+            "dashboard_routes_tap.record_tap_deal_room_event",
+            new_callable=AsyncMock,
+            side_effect=ValueError("keyword is required"),
+        ) as mock_record:
+            resp = client.post("/api/tap/deal-room/events?keyword=AI%20regulation&event_type=view")
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "keyword is required"}
+        mock_record.assert_awaited_once()
 
     def test_tap_deal_room_funnel_endpoint_returns_summary(self, client):
         payload = {
@@ -475,7 +712,7 @@ class TestTapOpportunities:
             "items": [],
         }
         with patch(
-            "dashboard.get_tap_deal_room_funnel",
+            "dashboard_routes_tap.get_tap_deal_room_funnel",
             new_callable=AsyncMock,
             return_value=payload,
         ) as mock_funnel:
@@ -509,7 +746,7 @@ class TestTapOpportunities:
             "items": [],
         }
         with patch(
-            "dashboard.get_tap_checkout_session_summary",
+            "dashboard_routes_tap.get_tap_checkout_session_summary",
             new_callable=AsyncMock,
             return_value=payload,
         ) as mock_summary:
@@ -540,10 +777,10 @@ class TestTapOpportunities:
         }
         session_payload = {"id": "cs_test_123", "url": "https://checkout.stripe.com/pay/cs_test_123"}
 
-        with patch("dashboard._config") as mock_config, \
-             patch("dashboard._create_stripe_checkout_session", return_value=session_payload) as mock_checkout, \
-             patch("dashboard.upsert_tap_checkout_session", new_callable=AsyncMock) as mock_upsert, \
-             patch("dashboard.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+        with patch("dashboard_routes_tap._config") as mock_config, \
+             patch("dashboard_routes_tap._create_stripe_checkout_session", return_value=session_payload) as mock_checkout, \
+             patch("dashboard_routes_tap.upsert_tap_checkout_session", new_callable=AsyncMock) as mock_upsert, \
+             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
             mock_config.stripe_secret_key = "sk_test_123"
             resp = client.post("/api/tap/deal-room/checkout", json=payload)
 
@@ -554,6 +791,7 @@ class TestTapOpportunities:
             "session_id": "cs_test_123",
             "url": "https://checkout.stripe.com/pay/cs_test_123",
             "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+            "tracking_status": "tracked",
         }
         mock_checkout.assert_called_once()
         assert mock_checkout.call_args.kwargs["unit_amount"] == 9900
@@ -577,6 +815,104 @@ class TestTapOpportunities:
         assert resp.status_code == 400
         assert resp.json() == {"ok": False, "error": "Unsupported checkout handle"}
 
+    def test_tap_deal_room_checkout_endpoint_rejects_keyword_mismatch(self, client):
+        with patch("dashboard_routes_tap._create_stripe_checkout_session") as mock_checkout:
+            resp = client.post(
+                "/api/tap/deal-room/checkout",
+                json={
+                    "keyword": "AI regulation",
+                    "price_anchor": "$99",
+                    "checkout_handle": "stripe:premium_alert_bundle:united-states:Different topic",
+                },
+            )
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "checkout_handle keyword mismatch"}
+        mock_checkout.assert_not_called()
+
+    def test_tap_deal_room_checkout_endpoint_rejects_target_country_mismatch(self, client):
+        with patch("dashboard_routes_tap._create_stripe_checkout_session") as mock_checkout:
+            resp = client.post(
+                "/api/tap/deal-room/checkout",
+                json={
+                    "keyword": "AI regulation",
+                    "target_country": "canada",
+                    "price_anchor": "$99",
+                    "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+                },
+            )
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "checkout_handle target_country mismatch"}
+        mock_checkout.assert_not_called()
+
+    def test_tap_deal_room_checkout_endpoint_rejects_package_tier_mismatch(self, client):
+        with patch("dashboard_routes_tap._create_stripe_checkout_session") as mock_checkout:
+            resp = client.post(
+                "/api/tap/deal-room/checkout",
+                json={
+                    "keyword": "AI regulation",
+                    "package_tier": "single_alert",
+                    "price_anchor": "$99",
+                    "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+                },
+            )
+
+        assert resp.status_code == 400
+        assert resp.json() == {"ok": False, "error": "checkout_handle package_tier mismatch"}
+        mock_checkout.assert_not_called()
+
+    def test_tap_deal_room_checkout_endpoint_rejects_malformed_stripe_response(self, client):
+        payload = {
+            "keyword": "AI regulation",
+            "price_anchor": "$99",
+            "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+        }
+
+        with patch("dashboard_routes_tap._config") as mock_config, \
+             patch("dashboard_routes_tap._create_stripe_checkout_session", return_value={"url": "https://checkout.stripe.com/pay/cs_test_123"}):
+            mock_config.stripe_secret_key = "sk_test_123"
+            resp = client.post("/api/tap/deal-room/checkout", json=payload)
+
+        assert resp.status_code == 502
+        assert resp.json() == {"ok": False, "error": "Stripe checkout session response is missing id"}
+
+    def test_tap_deal_room_checkout_endpoint_degrades_when_tracking_persistence_fails(self, client):
+        payload = {
+            "keyword": "AI regulation",
+            "snapshot_id": "tap_deal_1",
+            "target_country": "united-states",
+            "audience_segment": "creator",
+            "package_tier": "premium_alert_bundle",
+            "offer_tier": "premium",
+            "price_anchor": "$99",
+            "premium_title": "AI regulation premium alert bundle",
+            "teaser_body": "body",
+            "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+            "currency": "usd",
+            "actor_id": "dashboard-session-1",
+        }
+        session_payload = {"id": "cs_test_123", "url": "https://checkout.stripe.com/pay/cs_test_123"}
+
+        with patch("dashboard_routes_tap._config") as mock_config, \
+             patch("dashboard_routes_tap._create_stripe_checkout_session", return_value=session_payload), \
+             patch("dashboard_routes_tap.upsert_tap_checkout_session", new_callable=AsyncMock, side_effect=RuntimeError("db unavailable")), \
+             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+            mock_config.stripe_secret_key = "sk_test_123"
+            resp = client.post("/api/tap/deal-room/checkout", json=payload)
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "ok": True,
+            "provider": "stripe",
+            "session_id": "cs_test_123",
+            "url": "https://checkout.stripe.com/pay/cs_test_123",
+            "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+            "tracking_status": "degraded",
+            "tracking_warning": "Checkout was created, but tracking persistence is temporarily unavailable.",
+        }
+        mock_record.assert_not_awaited()
+
     def test_tap_deal_room_stripe_webhook_records_purchase(self, client):
         purchase_payload = {
             "handled": True,
@@ -595,11 +931,11 @@ class TestTapOpportunities:
             "metadata": {"provider": "stripe"},
         }
 
-        with patch("dashboard._config") as mock_config, \
-             patch("dashboard._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
-             patch("dashboard._extract_tap_purchase_from_stripe_event", return_value=purchase_payload), \
-             patch("dashboard.mark_tap_checkout_session_completed", new_callable=AsyncMock, return_value=True) as mock_mark, \
-             patch("dashboard.record_tap_deal_room_event", new_callable=AsyncMock, return_value="evt_123") as mock_record:
+        with patch("dashboard_routes_tap._config") as mock_config, \
+             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
+             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload), \
+             patch("dashboard_routes_tap.mark_tap_checkout_session_completed", new_callable=AsyncMock, return_value=True) as mock_mark, \
+             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock, return_value="evt_123") as mock_record:
             mock_config.stripe_webhook_secret = "whsec_test"
             resp = client.post(
                 "/api/tap/deal-room/webhooks/stripe",
@@ -624,8 +960,8 @@ class TestTapOpportunities:
         assert mock_record.await_args.kwargs["revenue_value"] == 99.0
 
     def test_tap_deal_room_stripe_webhook_rejects_invalid_signature(self, client):
-        with patch("dashboard._config") as mock_config, patch(
-            "dashboard._construct_stripe_event",
+        with patch("dashboard_routes_tap._config") as mock_config, patch(
+            "dashboard_routes_tap._construct_stripe_event",
             side_effect=ValueError("Invalid Stripe webhook signature"),
         ):
             mock_config.stripe_webhook_secret = "whsec_test"
@@ -637,4 +973,103 @@ class TestTapOpportunities:
 
         assert resp.status_code == 400
         assert resp.json() == {"ok": False, "error": "Invalid Stripe webhook signature"}
+
+    def test_tap_deal_room_stripe_webhook_ignores_missing_session_id(self, client):
+        purchase_payload = {
+            "handled": True,
+            "event_id": "evt_123",
+            "keyword": "AI regulation",
+            "session_id": "",
+            "revenue_value": 99.0,
+            "metadata": {"provider": "stripe"},
+        }
+
+        with patch("dashboard_routes_tap._config") as mock_config, \
+             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
+             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload):
+            mock_config.stripe_webhook_secret = "whsec_test"
+            resp = client.post(
+                "/api/tap/deal-room/webhooks/stripe",
+                data=b'{"id":"evt_123"}',
+                headers={"Stripe-Signature": "sig_test"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "ok": True,
+            "ignored": True,
+            "reason": "missing_session_id",
+            "event_type": "purchase",
+            "keyword": "AI regulation",
+        }
+
+    def test_tap_deal_room_stripe_webhook_ignores_invalid_revenue_value(self, client):
+        purchase_payload = {
+            "handled": True,
+            "event_id": "evt_123",
+            "keyword": "AI regulation",
+            "session_id": "cs_test_123",
+            "revenue_value": "not-a-number",
+            "metadata": {"provider": "stripe"},
+        }
+
+        with patch("dashboard_routes_tap._config") as mock_config, \
+             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
+             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload):
+            mock_config.stripe_webhook_secret = "whsec_test"
+            resp = client.post(
+                "/api/tap/deal-room/webhooks/stripe",
+                data=b'{"id":"evt_123"}',
+                headers={"Stripe-Signature": "sig_test"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "ok": True,
+            "ignored": True,
+            "reason": "invalid_revenue_value",
+            "event_type": "purchase",
+            "keyword": "AI regulation",
+            "session_id": "cs_test_123",
+        }
+
+    def test_tap_deal_room_stripe_webhook_returns_retryable_error_when_persistence_fails(self, client):
+        purchase_payload = {
+            "handled": True,
+            "event_id": "evt_123",
+            "keyword": "AI regulation",
+            "snapshot_id": "tap_deal_1",
+            "target_country": "united-states",
+            "audience_segment": "creator",
+            "package_tier": "premium_alert_bundle",
+            "offer_tier": "premium",
+            "price_anchor": "$99",
+            "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
+            "session_id": "cs_test_123",
+            "actor_id": "buyer@example.com",
+            "revenue_value": 99.0,
+            "metadata": {"provider": "stripe", "payment_status": "paid", "currency": "usd"},
+        }
+
+        with patch("dashboard_routes_tap._config") as mock_config, \
+             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
+             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload), \
+             patch("dashboard_routes_tap.mark_tap_checkout_session_completed", new_callable=AsyncMock, side_effect=RuntimeError("db unavailable")), \
+             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+            mock_config.stripe_webhook_secret = "whsec_test"
+            resp = client.post(
+                "/api/tap/deal-room/webhooks/stripe",
+                data=b'{"id":"evt_123"}',
+                headers={"Stripe-Signature": "sig_test"},
+            )
+
+        assert resp.status_code == 503
+        assert resp.json() == {
+            "ok": False,
+            "error": "Webhook persistence unavailable",
+            "retryable": True,
+            "event_id": "evt_123",
+            "session_id": "cs_test_123",
+        }
+        mock_record.assert_not_awaited()
 
