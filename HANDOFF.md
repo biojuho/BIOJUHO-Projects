@@ -1,8 +1,36 @@
 # Handoff Document
 
-**Last Updated**: 2026-04-08
-**Session Status**: Healthy / 1,330 tests GREEN / worktree has uncommitted changes / synced with origin
+**Last Updated**: 2026-04-10
+**Session Status**: Healthy / 1,095+ tests GREEN / worktree CLEAN / synced with origin
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-10)
+
+### 커밋 정리 + Push (15 commits)
+
+**Status**: PASS / PUSHED (`e3677bb`)
+
+- 세션 시작 시 미push 상태였던 15개 커밋을 origin/main에 push 완료
+- 누락 의존성 설치 (시스템 Python 3.14 환경):
+  - `respx==0.23.1` — getdaytrends/DailyNews HTTP mock
+  - `sqlalchemy` — AgriGuard backend tests
+  - `feedparser` — DailyNews feed adapter
+  - `mcp[cli]` — DailyNews notion server tests
+- 잔여 uncommitted 파일 3개 커밋:
+  - `chore(deps)`: AgriGuard + GDT `pyproject.toml` setuptools config
+  - `fix(DailyNews)`: 브리핑 프롬프트에 출처 인용 태그 의무화
+  - `chore(workspace)`: `.editorconfig`, `.prettierrc`, GDT QC 복구 리포트
+- Validation:
+  - `pytest automation/getdaytrends/tests` → **682 passed**, 7 skipped
+  - `pytest automation/DailyNews/tests` → **403 passed**, 16 deselected
+  - `pytest apps/AgriGuard/backend/tests/test_smoke.py` → **6 passed**
+  - notion server tests → **8 passed**
+- Current git state:
+  - `main...origin/main` (synced)
+  - worktree CLEAN (`.ai/`, `.pytest-root/`, `.venv/` gitignore 대상으로 미추가)
+- Note: 시스템 Python 3.14 직접 사용 (`.venv` psycopg2 누락으로 postgres 테스트 skip)
 
 ---
 
