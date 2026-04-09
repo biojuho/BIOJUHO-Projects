@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -42,9 +43,14 @@ TTL_RATE_LIMIT = 60         # 1 minute — rate limit windows
 
 try:
     import redis.asyncio as aioredis
+    from redis.exceptions import ConnectionError as RedisConnectionError
+    from redis.exceptions import RedisError, TimeoutError as RedisTimeoutError
     _REDIS_AVAILABLE = True
 except ImportError:
     aioredis = None  # type: ignore[assignment]
+    RedisConnectionError = ConnectionError  # type: ignore[assignment]
+    RedisTimeoutError = TimeoutError  # type: ignore[assignment]
+    RedisError = Exception  # type: ignore[assignment]
     _REDIS_AVAILABLE = False
 
 
@@ -86,48 +92,113 @@ class RedisCache:
     def __init__(self, url: str = REDIS_URL) -> None:
         self._url = url
         self._redis: aioredis.Redis | None = None
+        self._disabled_until = 0.0
+        self._suspend_seconds = int(os.getenv("REDIS_SUSPEND_SECONDS", "60"))
+
+    def _is_suspended(self) -> bool:
+        return time.monotonic() < self._disabled_until
+
+    async def _close_conn(self) -> None:
+        if not self._redis:
+            return
+        aclose = getattr(self._redis, "aclose", None)
+        if aclose is not None:
+            await aclose()
+        else:
+            await self._redis.close()
+        self._redis = None
+
+    async def _suspend_cache(self, operation: str, key: str, exc: Exception) -> None:
+        was_suspended = self._is_suspended()
+        self._disabled_until = time.monotonic() + self._suspend_seconds
+        await self._close_conn()
+        if not was_suspended:
+            logger.warning(
+                "Redis unavailable during %s for key=%s; disabling cache for %ss: %s",
+                operation,
+                key,
+                self._suspend_seconds,
+                exc,
+            )
+
+    @staticmethod
+    def _is_connection_error(exc: Exception) -> bool:
+        if isinstance(exc, RuntimeError) and "Event loop is closed" in str(exc):
+            return True
+        return isinstance(
+            exc,
+            (
+                RedisConnectionError,
+                RedisTimeoutError,
+                RedisError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ),
+        )
 
     async def _get_conn(self) -> aioredis.Redis:
         if self._redis is None:
             self._redis = aioredis.from_url(
                 self._url,
                 decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2,
+                socket_connect_timeout=1,
+                socket_timeout=1,
                 retry_on_timeout=True,
             )
         return self._redis
 
     async def get(self, key: str) -> Any:
+        if self._is_suspended():
+            return None
         try:
             r = await (await self._get_conn()).get(key)
             if r is not None:
                 return json.loads(r)
         except Exception as e:
-            logger.warning("Redis GET error (key=%s): %s", key, e)
+            if self._is_connection_error(e):
+                await self._suspend_cache("GET", key, e)
+            else:
+                logger.warning("Redis GET error (key=%s): %s", key, e)
         return None
 
     async def set(self, key: str, value: Any, ttl: int = 60) -> None:
+        if self._is_suspended():
+            return
         try:
             data = json.dumps(value, ensure_ascii=False, default=str)
             await (await self._get_conn()).setex(key, ttl, data)
         except Exception as e:
-            logger.warning("Redis SET error (key=%s): %s", key, e)
+            if self._is_connection_error(e):
+                await self._suspend_cache("SET", key, e)
+            else:
+                logger.warning("Redis SET error (key=%s): %s", key, e)
 
     async def delete(self, key: str) -> None:
+        if self._is_suspended():
+            return
         try:
             await (await self._get_conn()).delete(key)
         except Exception as e:
-            logger.warning("Redis DELETE error (key=%s): %s", key, e)
+            if self._is_connection_error(e):
+                await self._suspend_cache("DELETE", key, e)
+            else:
+                logger.warning("Redis DELETE error (key=%s): %s", key, e)
 
     async def exists(self, key: str) -> bool:
+        if self._is_suspended():
+            return False
         try:
             return bool(await (await self._get_conn()).exists(key))
-        except Exception:
+        except Exception as e:
+            if self._is_connection_error(e):
+                await self._suspend_cache("EXISTS", key, e)
             return False
 
     async def incr(self, key: str, ttl: int = 60) -> int:
         """Increment counter with TTL (for rate limiting)."""
+        if self._is_suspended():
+            return 1
         try:
             conn = await self._get_conn()
             async with conn.pipeline(transaction=True) as pipe:
@@ -136,13 +207,14 @@ class RedisCache:
                 results = await pipe.execute()
             return results[0]
         except Exception as e:
-            logger.warning("Redis INCR error (key=%s): %s — rate limit may be inaccurate", key, e)
+            if self._is_connection_error(e):
+                await self._suspend_cache("INCR", key, e)
+            else:
+                logger.warning("Redis INCR error (key=%s): %s - rate limit may be inaccurate", key, e)
             return 1
 
     async def close(self) -> None:
-        if self._redis:
-            await self._redis.close()
-            self._redis = None
+        await self._close_conn()
 
     def cached(self, ttl: int = 60, prefix: str = "cache"):
         """Decorator for async functions. Caches results by function args."""

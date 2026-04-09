@@ -40,6 +40,7 @@ from .errors import (
     ToolNotAllowedError,
 )
 from .hooks import HookChain
+from .token_tracker import TokenBudget
 from .risk import RiskScanner
 
 # Type alias for tool executor functions
@@ -58,6 +59,7 @@ class HarnessConfig:
     audit_logger: Optional[AuditLogger] = None
     risk_scanner: Optional[RiskScanner] = None
     hook_chain: Optional[HookChain] = None
+    token_budget: Optional[TokenBudget] = None
     tool_executor: Optional[ToolExecutor] = None
     hitl_callback: Optional[Callable[[str, Any], Awaitable[bool]]] = None
     sandbox_tools: frozenset[str] = frozenset({"shell_execute", "code_run"})
@@ -70,6 +72,8 @@ class HarnessConfig:
             self.risk_scanner = RiskScanner(self.constitution)
         if self.hook_chain is None:
             self.hook_chain = HookChain()
+        if self.token_budget is None:
+            self.token_budget = TokenBudget()
 
 
 class HarnessWrapper:
@@ -85,6 +89,7 @@ class HarnessWrapper:
         self._audit = config.audit_logger
         self._risk = config.risk_scanner
         self._hooks = config.hook_chain
+        self._token_budget = config.token_budget
         self._executor = config.tool_executor
 
         # Per-session state
@@ -114,6 +119,11 @@ class HarnessWrapper:
         """Access the audit logger for diagnostics."""
         return self._audit
 
+    @property
+    def token_budget(self) -> TokenBudget:
+        """Access the token budget tracker."""
+        return self._token_budget
+
     def add_cost(self, amount: float) -> None:
         """Manually add cost (e.g., from LLM calls tracked separately)."""
         self._session_cost += amount
@@ -123,6 +133,7 @@ class HarnessWrapper:
         self._tool_call_counts.clear()
         self._session_cost = 0.0
         self._total_calls = 0
+        self._token_budget.reset()
 
     async def execute_tool(
         self,
@@ -131,6 +142,7 @@ class HarnessWrapper:
         *,
         executor: Optional[ToolExecutor] = None,
         cost_estimate: float = 0.0,
+        token_estimate: int = 0,
     ) -> Any:
         """Execute a tool call through the 6-step governance pipeline.
 
@@ -139,6 +151,7 @@ class HarnessWrapper:
             tool_input: Arguments/input for the tool.
             executor: Override tool executor for this call.
             cost_estimate: Estimated cost in USD for budget gating.
+            token_estimate: Estimated token count for token budget gating.
 
         Returns:
             The tool execution result (potentially transformed by hooks).
@@ -148,6 +161,7 @@ class HarnessWrapper:
             SessionLimitError: Per-session call limit exceeded.
             RiskDetectedError: Dangerous pattern found in input.
             BudgetExceededError: Session budget ceiling reached.
+            TokenBudgetExceededError: Token budget ceiling reached.
             PermissionDeniedError: HITL rejection or path violation.
         """
         tool_exec = executor or self._executor
@@ -205,6 +219,19 @@ class HarnessWrapper:
                 limit=self._constitution.max_budget_usd,
             )
 
+        # ── Step 4a: Token Budget Gate ──
+        if token_estimate > 0 and self._token_budget:
+            try:
+                self._token_budget.gate(token_estimate, tool_name=tool_name)
+            except Exception as token_err:
+                self._audit.log_denied(
+                    tool_name,
+                    f"TOKEN_BUDGET_EXCEEDED: {self._token_budget.used_tokens}+{token_estimate}"
+                    f" > {self._token_budget.max_tokens}",
+                    tool_input,
+                )
+                raise
+
         # ── Step 4b: HITL Gate ──
         if self._constitution.requires_human_approval(tool_name):
             if self._config.hitl_callback:
@@ -242,6 +269,13 @@ class HarnessWrapper:
         self._total_calls += 1
         self._session_cost += cost_estimate
 
+        # Record token usage
+        if token_estimate > 0 and self._token_budget:
+            detail = self._token_budget.get_detail_level().value
+            self._token_budget.record(
+                tool_name, token_estimate, detail_level=detail,
+            )
+
         self._audit.log_allowed(
             tool_name,
             tool_input,
@@ -252,8 +286,8 @@ class HarnessWrapper:
 
         return result
 
-    def is_tool_available(self, tool_name: str) -> bool:
-        """Quick check if a tool can be called (permission + budget + rate)."""
+    def is_tool_available(self, tool_name: str, token_estimate: int = 0) -> bool:
+        """Quick check if a tool can be called (permission + budget + rate + tokens)."""
         if not self._constitution.is_tool_allowed(tool_name):
             return False
         perm = self._constitution.get_permission(tool_name)
@@ -263,11 +297,14 @@ class HarnessWrapper:
                 return False
         if self._session_cost >= self._constitution.max_budget_usd:
             return False
+        if token_estimate > 0 and self._token_budget:
+            if not self._token_budget.can_afford(token_estimate):
+                return False
         return True
 
     def get_session_summary(self) -> dict[str, Any]:
         """Return a summary of the current session for diagnostics."""
-        return {
+        summary = {
             "agent_name": self._constitution.agent_name,
             "total_calls": self._total_calls,
             "session_cost_usd": round(self._session_cost, 6),
@@ -278,3 +315,6 @@ class HarnessWrapper:
             "audit_denied_count": self._audit.denied_count,
             "audit_total_count": self._audit.total_count,
         }
+        if self._token_budget:
+            summary["token_budget"] = self._token_budget.get_summary()
+        return summary

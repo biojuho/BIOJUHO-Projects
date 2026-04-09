@@ -39,6 +39,7 @@ _CACHE_TTL: dict[str, int] = {
     "heavy": 600,  # deep analysis — worth reusing longer
 }
 _CACHE_MAX = 128
+_CACHE_TTL_HEAVY = 600  # B-001 fix: 미정의 변수 → heavy 티어 TTL 상수 명시
 
 _failed_backends: dict[TaskTier, dict[str, float]] = {
     TaskTier.LIGHTWEIGHT: {},
@@ -116,8 +117,8 @@ def _get_cached(key: str, tier: TaskTier) -> LLMResponse | None:
         entry = _response_cache.get(key)
         if entry is None:
             return None
-        resp, ts = entry
-        if time.monotonic() - ts > _get_cache_ttl(tier):
+        resp, expires_at = entry
+        if time.monotonic() > expires_at:
             del _response_cache[key]
             return None
         # BUG-010 fix: LRU — move accessed key to end
@@ -127,11 +128,18 @@ def _get_cached(key: str, tier: TaskTier) -> LLMResponse | None:
 
 
 def _purge_expired_cache() -> None:
-    """Remove all TTL-expired entries to prevent stale memory accumulation."""
+    """Remove all TTL-expired entries to prevent stale memory accumulation.
+
+    NOTE: 호출자(_put_cache)가 _cache_lock을 이미 보유한 상태에서 실행됨.
+    B-002 fix: 순회 중 삭제(RuntimeError) 방지를 위해 키 목록을 먼저 수집 후 삭제.
+    B-021 fix: 기존에 _CACHE_TTL_HEAVY(600s) 고정 기준으로 퍼지하여
+    lightweight(60s)/medium(180s) 만료 항목이 메모리에 잔류하던 버그 수정.
+    이제 최소 TTL(60s) 기준으로 퍼지하여 모든 티어의 만료 항목을 제거함.
+    """
     now = time.monotonic()
-    expired = [k for k, (_, ts) in _response_cache.items() if now - ts > _CACHE_TTL_HEAVY]
+    expired = [k for k, (_, expires_at) in list(_response_cache.items()) if now > expires_at]
     for k in expired:
-        del _response_cache[k]
+        _response_cache.pop(k, None)
 
 
 def _put_cache(key: str, resp: LLMResponse) -> None:
@@ -139,13 +147,14 @@ def _put_cache(key: str, resp: LLMResponse) -> None:
         # M-11 fix: 주기적으로 만료 엔트리 퍼지
         if len(_response_cache) >= _CACHE_MAX:
             _purge_expired_cache()
+        expires_at = time.monotonic() + _get_cache_ttl(resp.tier)
         if key in _response_cache:
             _response_cache.move_to_end(key)
-            _response_cache[key] = (resp, time.monotonic())
+            _response_cache[key] = (resp, expires_at)
             return
         if len(_response_cache) >= _CACHE_MAX:
             _response_cache.popitem(last=False)
-        _response_cache[key] = (resp, time.monotonic())
+        _response_cache[key] = (resp, expires_at)
 
 
 class LLMClient:
@@ -162,6 +171,9 @@ class LLMClient:
                 "in your .env file."
             )
         self._tracker = CostTracker()
+        # B-012 fix: SmartRouter lazy-cache slot (매 호출 재생성 방지)
+        self._smart_router: Any = None
+        self._smart_router_lock = threading.Lock()
         self._bridge_metrics = {
             "bridge_calls": 0,
             "bridge_passes": 0,
@@ -306,6 +318,10 @@ class LLMClient:
             self._tracker.close()
         except Exception:
             pass
+        try:
+            self._backends.close()
+        except Exception:
+            pass
 
     @staticmethod
     def reset() -> None:
@@ -340,9 +356,13 @@ class LLMClient:
         Returns:
             LLMResponse with additional reasoning metadata in bridge_meta.
         """
-        from .reasoning.smart_router import SmartRouter
-
-        router = SmartRouter(self)
+        # B-012 fix: SmartRouter 인스턴스 lazy-cache (재생성 방지)
+        if self._smart_router is None:
+            from .reasoning.smart_router import SmartRouter
+            with self._smart_router_lock:
+                if self._smart_router is None:  # double-checked locking
+                    self._smart_router = SmartRouter(self)
+        router = self._smart_router
         result = router.route_and_reason(
             messages=messages,
             system=system,
@@ -381,9 +401,13 @@ class LLMClient:
         force_strategy: str | None = None,
     ) -> LLMResponse:
         """Async version of create_with_reasoning()."""
-        from .reasoning.smart_router import SmartRouter
-
-        router = SmartRouter(self)
+        # B-012 fix: SmartRouter 인스턴스 lazy-cache (재사용)
+        if self._smart_router is None:
+            from .reasoning.smart_router import SmartRouter
+            with self._smart_router_lock:
+                if self._smart_router is None:
+                    self._smart_router = SmartRouter(self)
+        router = self._smart_router
         result = await router.aroute_and_reason(
             messages=messages,
             system=system,

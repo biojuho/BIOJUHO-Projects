@@ -48,6 +48,9 @@ class UsageStats:
 class CostTracker:
     """Thread-safe cost tracking with SQLite persistence and daily CSV export."""
 
+    # B-018 fix: 장기 실행 시 in-memory _records 무한 증가 방지
+    _MAX_RECORDS: int = 10_000
+
     def __init__(self, persist: bool = True) -> None:
         self._records: list[CostRecord] = []
         self._lock = threading.Lock()
@@ -115,12 +118,16 @@ class CostTracker:
             error=error,
         )
         with self._lock:
+            # B-018 fix: in-memory 버퍼 캡 — 초과 시 가장 오래된 항목 제거
+            if len(self._records) >= self._MAX_RECORDS:
+                self._records = self._records[-(self._MAX_RECORDS // 2):]
             self._records.append(rec)
-
-        if self._persist and self._db is not None:
-            self._persist_record(rec, project)
+            # B-007 fix: DB 쓰기도 락 내부로 이동 (멀티스레드 sqlite3 ProgrammingError 방지)
+            if self._persist and self._db is not None:
+                self._persist_record(rec, project)
 
         return rec
+
 
     def _persist_record(self, rec: CostRecord, project: str) -> None:
         try:

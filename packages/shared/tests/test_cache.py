@@ -4,6 +4,8 @@ Tests for shared.cache module — Redis cache layer with NoOp fallback.
 
 import asyncio
 import sys
+from unittest.mock import AsyncMock
+
 import pytest
 
 sys.path.insert(0, "packages")
@@ -109,6 +111,27 @@ class TestRedisCacheUnit:
         assert await compute(10) == 11
         assert await compute(10) == 11
         assert call_count == 2  # Function ran twice (no cache)
+
+    @pytest.mark.asyncio
+    async def test_connection_error_suspends_future_attempts(self, cache):
+        cache._get_conn = AsyncMock(side_effect=ConnectionError("redis down"))
+
+        first = await cache.get("key-1")
+        assert first is None
+        assert cache._disabled_until > 0
+
+        cache._get_conn = AsyncMock(side_effect=AssertionError("should not retry while suspended"))
+        second = await cache.get("key-2")
+        assert second is None
+
+    @pytest.mark.asyncio
+    async def test_event_loop_closed_is_treated_as_connection_error(self, cache):
+        cache._get_conn = AsyncMock(side_effect=RuntimeError("Event loop is closed"))
+
+        result = await cache.get("key-3")
+
+        assert result is None
+        assert cache._disabled_until > 0
 
 
 # ─── get_cache singleton tests ───────────────────────────────
