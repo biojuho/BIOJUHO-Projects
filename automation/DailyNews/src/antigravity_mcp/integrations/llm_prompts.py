@@ -223,15 +223,15 @@ Brief
 Draft
 
 Rules:
-- Summary must contain exactly 3 bullet lines.
+- Summary must contain exactly 3 bullet lines, and MUST include source citations (e.g., [A1]) at the end of each line to ensure reliability.
 - Each summary line must be one short sentence with concrete nouns, timing, and actors when available.
-- Insights must contain exactly 2 bullet lines.
+- Insights must contain exactly 2 bullet lines, and MUST include source citations (e.g., [A1]) at the end of each line.
 - Each insight line should explain why the story matters in plain language using no more than 2 short sentences.
 - Brief must be the main reader-facing briefing body in Korean.
 - Start Brief with: "오늘의 핫 이슈: {category}. ..." as a one-line opener.
 - Then write 3 to 5 short sections using markdown headings like "## [emoji] short title".
 - Each section should naturally flow as fact -> background -> implication across 2 to 3 short paragraphs.
-- You MUST cite your sources using tags like [A1], [A2] at the end of relevant sentences in the Brief section to ensure reliability.
+- Do NOT use source citation tags (e.g., [A1]) inside the Brief section to keep it clean for readers.
 - Do not write explicit labels such as "핵심 사실:", "배경/디테일:", or "전망/의미:".
 - Use exactly one emoji per section heading.
 - Keep the tone crisp and editorial, like a sharp morning briefing note.
