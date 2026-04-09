@@ -25,6 +25,14 @@ TRANSIENT_RETRY_PATTERNS = (
     "Failed to start threads worker",
     "Timeout waiting for worker to respond",
 )
+WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
+    "workspace regression tests": ("fastapi", "sqlalchemy", "aiosqlite", "mcp.server.fastmcp", "pypdf"),
+    "desci biolinker smoke": ("fastapi",),
+    "agriguard backend tests": ("fastapi", "sqlalchemy"),
+    "DailyNews unit tests": ("mcp.server.fastmcp",),
+    "getdaytrends tests": ("aiosqlite",),
+}
+USE_UV_ISOLATED_RUNNER = False
 
 
 @dataclass
@@ -132,9 +140,9 @@ def has_module(python_exe: str, module_name: str) -> bool:
 def resolve_python_executable(root: Path) -> str:
     venv_python = "Scripts/python.exe" if os.name == "nt" else "bin/python"
     candidates = [
-        Path(sys.executable),
         root / ".venv" / venv_python,
         root / "venv" / venv_python,
+        Path(sys.executable),
     ]
 
     existing: list[str] = []
@@ -157,6 +165,65 @@ def resolve_python_executable(root: Path) -> str:
             return candidate
 
     return existing[0]
+
+
+def local_python_candidates(root: Path) -> list[Path]:
+    venv_python = "Scripts/python.exe" if os.name == "nt" else "bin/python"
+    return [
+        root / ".venv" / venv_python,
+        root / "venv" / venv_python,
+    ]
+
+
+def required_modules_for_checks(checks: Sequence[Check]) -> list[str]:
+    modules = {"pytest"}
+    for check in checks:
+        modules.update(WORKSPACE_SYNC_SENTINELS.get(check.name, ()))
+    return sorted(modules)
+
+
+def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[Check]) -> str:
+    global USE_UV_ISOLATED_RUNNER
+
+    required_modules = required_modules_for_checks(checks)
+    target_python = next((candidate for candidate in local_python_candidates(root) if candidate.exists()), None)
+    if target_python is not None:
+        missing_modules = [module for module in required_modules if not has_module(str(target_python), module)]
+    else:
+        missing_modules = required_modules
+    if target_python is not None and not missing_modules:
+        return str(target_python)
+
+    if all(has_module(python_exe, module) for module in required_modules):
+        if target_python is None:
+            print("[smoke] workspace-local Python is unavailable; using selected Python interpreter")
+        else:
+            print(
+                "[smoke] workspace-local Python is incomplete "
+                f"({', '.join(missing_modules)}); using selected Python interpreter"
+            )
+        return python_exe
+
+    uv_executable = shutil.which("uv")
+    if not uv_executable:
+        if target_python is None:
+            print("[smoke] warning: workspace-local Python is unavailable and uv is not installed")
+        else:
+            print(
+                "[smoke] warning: missing workspace-local modules "
+                f"({', '.join(missing_modules)}) and uv is not available for isolated execution"
+            )
+        return python_exe
+
+    USE_UV_ISOLATED_RUNNER = True
+    if target_python is None:
+        print("[smoke] workspace-local Python is unavailable; using uv isolated runner for Python-based checks")
+    else:
+        print(
+            "[smoke] workspace-local Python is incomplete "
+            f"({', '.join(missing_modules)}); using uv isolated runner for Python-based checks"
+        )
+    return python_exe
 
 
 def default_checks(python_exe: str) -> list[Check]:
@@ -211,8 +278,52 @@ def is_pytest_command(command: Sequence[str]) -> bool:
     return len(command) >= 3 and command[1] == "-m" and command[2] == "pytest"
 
 
+def is_python_command(command: Sequence[str]) -> bool:
+    if not command:
+        return False
+    return Path(command[0]).name.lower().startswith("python")
+
+
+def editable_paths_for_check(root: Path, check: Check) -> list[str]:
+    editable_units = {
+        "workspace regression tests": [
+            rel_unit_path("desci-platform", "biolinker"),
+            rel_unit_path("dailynews"),
+            rel_unit_path("getdaytrends"),
+        ],
+        "desci biolinker smoke": [rel_unit_path("desci-platform", "biolinker")],
+        "agriguard backend tests": [rel_unit_path("agriguard", "backend")],
+        "DailyNews unit tests": [rel_unit_path("dailynews")],
+        "getdaytrends tests": [rel_unit_path("getdaytrends")],
+    }
+    return [str((root / path).resolve()) for path in editable_units.get(check.name, [])]
+
+
+def wrap_python_command_with_uv(root: Path, check: Check, command: Sequence[str]) -> list[str]:
+    wrapped = [
+        "uv",
+        "run",
+        "--isolated",
+        "--no-project",
+        "--with",
+        "pytest>=8.0",
+        "--with",
+        "pytest-asyncio>=0.23.0",
+        "--with-editable",
+        str(root.resolve()),
+    ]
+    for editable_path in editable_paths_for_check(root, check):
+        wrapped.extend(["--with-editable", editable_path])
+    wrapped.extend(["python", *command[1:]])
+    return wrapped
+
+
 def runtime_temp_dir(root: Path, item: Check) -> Path:
     return root / "var" / "tmp" / "workspace-smoke" / item.scope / slugify_check_name(item.name)
+
+
+def pytest_temp_dir(temp_dir: Path) -> Path:
+    return temp_dir.parents[2] / f"pytest-{temp_dir.parent.name}-{temp_dir.name}"
 
 
 def reset_temp_dir(path: Path) -> None:
@@ -224,7 +335,7 @@ def reset_temp_dir(path: Path) -> None:
 def command_for_check(item: Check, temp_dir: Path) -> list[str]:
     command = list(item.command)
     if is_pytest_command(command) and "--basetemp" not in command:
-        command.extend(["--basetemp", str(temp_dir / "pytest")])
+        command.extend(["--basetemp", str(pytest_temp_dir(temp_dir))])
     return command
 
 
@@ -241,10 +352,13 @@ def run_one(root: Path, item: Check) -> Result:
     env["PYTHONPATH"] = build_pythonpath(root, env)
     temp_dir = runtime_temp_dir(root, item)
     reset_temp_dir(temp_dir)
-    env["TMP"] = str(temp_dir)
-    env["TEMP"] = str(temp_dir)
-    env["TMPDIR"] = str(temp_dir)
     command = command_for_check(item, temp_dir)
+    if not is_pytest_command(command):
+        env["TMP"] = str(temp_dir)
+        env["TEMP"] = str(temp_dir)
+        env["TMPDIR"] = str(temp_dir)
+    if USE_UV_ISOLATED_RUNNER and is_python_command(command):
+        command = wrap_python_command_with_uv(root, item, command)
     command_text = format_command(command)
 
     try:
@@ -308,6 +422,11 @@ def main() -> int:
     if not checks:
         print("[smoke] no checks to run")
         return 1
+
+    python_exe = ensure_workspace_environment(root, python_exe, checks)
+    checks = default_checks(python_exe)
+    if args.scope != "all":
+        checks = [check for check in checks if check.scope == args.scope]
 
     print(f"[smoke] using python executable: {python_exe}")
     if not has_module(python_exe, "pytest"):

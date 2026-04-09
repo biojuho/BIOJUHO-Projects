@@ -1,8 +1,40 @@
 # Handoff Document
 
-**Last Updated**: 2026-04-06
-**Session Status**: Healthy / 1,220 tests GREEN / worktree clean / synced with origin
+**Last Updated**: 2026-04-08
+**Session Status**: Healthy / 1,330 tests GREEN / worktree has uncommitted changes / synced with origin
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-08)
+
+### Critical Bug Fix — PredictionEngine crash + PgAdapter SQL corruption
+
+**Status**: PASS / PUSHED (`b2299f4`)
+
+- 6개 테스트 실패 원인 조사 및 즉시 수정:
+  - **Bug 1**: `shared/prediction/features.py` — `NameError: name 'log' is not defined`
+    - `FeatureExtractor._safe_query()` 에서 `log.warning()` 호출했지만 모듈 레벨 logger 미정의
+    - `import logging` + `log = logging.getLogger(__name__)` 추가
+    - 영향: `_step_save` → `_annotate_predictions` → `PredictionEngine.initialize()` 경로에서 crash → `test_e2e`, `test_notion_content_hub` 3건 실패
+  - **Bug 2**: `automation/getdaytrends/db_schema.py` — `_PgAdapter._ph()` 문자열 리터럴 내용 소실
+    - SQL `?` → `$N` placeholder 변환 시 따옴표 안의 문자가 전부 drop되는 버그
+    - `in_str` 상태에서 non-closing-quote 문자에 대한 `result.append(ch)` 가 없었음
+    - `'is_ok?'` → `'` 로 변환되어 SQL 무결성 파괴
+    - `result.append(ch)` 추가로 해결 → `test_db_schema_pg` 3건 복구
+- Validation (QC):
+  - `pytest automation/getdaytrends/tests` → **675 passed**, 7 skipped, 1 deselected
+  - `pytest automation/DailyNews/tests` → **407 passed**, 16 deselected
+  - `pytest tests` → **218 passed**, 3 deselected
+  - `pytest packages/shared/llm/tests` → **28 passed**
+  - `npm run build` (dashboard) → exit 0
+  - `npm run test` (dashboard) → **2/2 passed**
+  - `py_compile` (3 fixed files) → exit 0
+  - **총 1,330 tests GREEN**
+- Current git state:
+  - `main...origin/main` (synced)
+  - worktree: ~79 uncommitted files (이전 세션 작업물 포함)
+- Note: `.venv` 의 pytest가 `No module` 에러 발생. 시스템 Python 3.14 직접 사용 시 정상 동작. venv 재생성 고려 필요.
 
 ---
 

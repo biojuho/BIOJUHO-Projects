@@ -82,7 +82,83 @@ def test_command_for_check_appends_workspace_local_basetemp() -> None:
 
     command = smoke.command_for_check(check, temp_dir)
 
-    assert command[-2:] == ["--basetemp", str(temp_dir / "pytest")]
+    assert command[-2:] == ["--basetemp", str(smoke.pytest_temp_dir(temp_dir))]
+
+
+def test_resolve_python_executable_prefers_workspace_venv_over_current_interpreter(
+    tmp_path: Path, monkeypatch
+) -> None:
+    smoke = load_smoke_module()
+    venv_python = tmp_path / ".venv" / "Scripts" / "python.exe"
+    current_python = tmp_path / "current-python.exe"
+    venv_python.parent.mkdir(parents=True)
+    venv_python.write_text("", encoding="utf-8")
+    current_python.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(smoke.sys, "executable", str(current_python))
+    monkeypatch.setattr(smoke, "has_module", lambda python_exe, module_name: True)
+
+    assert smoke.resolve_python_executable(tmp_path) == str(venv_python)
+
+
+def test_ensure_workspace_environment_falls_back_to_uv_runner_when_local_venv_is_incomplete(
+    tmp_path: Path, monkeypatch
+) -> None:
+    smoke = load_smoke_module()
+    local_python = tmp_path / ".venv" / "Scripts" / "python.exe"
+    local_python.parent.mkdir(parents=True)
+    local_python.write_text("", encoding="utf-8")
+    global_python = tmp_path / "global-python.exe"
+    global_python.write_text("", encoding="utf-8")
+    check = smoke.Check("workspace", "workspace regression tests", ".", ["python", "-m", "pytest", "-q"])
+
+    def fake_has_module(python_exe: str, module_name: str) -> bool:
+        return False
+
+    monkeypatch.setattr(smoke, "has_module", fake_has_module)
+    monkeypatch.setattr(smoke.shutil, "which", lambda name: "uv" if name == "uv" else None)
+    monkeypatch.setattr(smoke, "USE_UV_ISOLATED_RUNNER", False)
+
+    result = smoke.ensure_workspace_environment(tmp_path, str(global_python), [check])
+
+    assert result == str(global_python)
+    assert smoke.USE_UV_ISOLATED_RUNNER is True
+
+
+def test_run_one_uses_uv_isolated_runner_for_python_checks_when_bootstrap_fallback_is_enabled(
+    tmp_path: Path, monkeypatch
+) -> None:
+    smoke = load_smoke_module()
+    check = smoke.Check("workspace", "workspace regression tests", ".", ["python", "-m", "pytest", "-q"])
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+
+        class Proc:
+            returncode = 0
+            stdout = b"ok"
+            stderr = b""
+
+        return Proc()
+
+    monkeypatch.setattr(smoke, "USE_UV_ISOLATED_RUNNER", True)
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    result = smoke.run_one(PROJECT_ROOT, check)
+
+    assert result.ok is True
+    assert commands[0][:4] == ["uv", "run", "--isolated", "--no-project"]
+    assert "--with" in commands[0]
+    assert "--with-editable" in commands[0]
+    assert commands[0][-6:] == [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "--basetemp",
+        str(smoke.pytest_temp_dir(smoke.runtime_temp_dir(PROJECT_ROOT, check))),
+    ]
 
 
 def test_run_one_cleans_stale_temp_dir(tmp_path, monkeypatch) -> None:
