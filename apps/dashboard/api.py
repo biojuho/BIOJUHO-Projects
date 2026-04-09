@@ -168,6 +168,15 @@ def _pg_scalar(query: str):
         return None
 
 
+# ── Predictive Engagement Engine ──────────────────────────
+try:
+    from shared.prediction.api import router as prediction_router
+
+    app.include_router(prediction_router, prefix="/api/prediction")
+    log.info("PEE (Predictive Engagement Engine) mounted at /api/prediction")
+except ImportError:
+    log.info("PEE not available (shared.prediction not installed)")
+
 # ══════════════════════════════════════════════
 #  API Endpoints
 # ══════════════════════════════════════════════

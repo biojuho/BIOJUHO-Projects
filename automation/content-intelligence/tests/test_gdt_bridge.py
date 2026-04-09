@@ -76,6 +76,6 @@ class TestFindGdtDb:
 
     def test_no_config_no_candidates(self):
         config = CIEConfig(gdt_db_path="")
-        # project_root candidates won't exist in test environment
+        config.project_root = Path.cwd() / "nonexistent-root"
         result = _find_gdt_db(config)
         assert result is None

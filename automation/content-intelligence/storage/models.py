@@ -46,10 +46,17 @@ class MergedTrendReport:
     cross_platform_keywords: list[str] = field(default_factory=list)
     top_insights: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
+    degraded: bool = False
+    failed_platforms: list[str] = field(default_factory=list)
+    publish_blocked: bool = False
+    quorum_required: int = 0
 
     def to_summary_text(self) -> str:
         """프롬프트 컨텍스트 주입용 요약 텍스트."""
         lines = []
+        if self.degraded:
+            failed = ", ".join(self.failed_platforms) if self.failed_platforms else "unknown"
+            lines.append(f"[Degraded trend collection] failed platforms: {failed}")
         for report in self.platform_reports:
             lines.append(f"\n■ {report.platform.upper()} 트렌드:")
             for t in report.trends:
