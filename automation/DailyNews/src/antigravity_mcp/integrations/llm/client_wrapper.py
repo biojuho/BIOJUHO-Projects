@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from collections import OrderedDict
 from typing import Any
 
@@ -212,16 +213,23 @@ class LLMClientWrapper:
             return None
 
         try:
-            policy = self._policy_cls(tier=self._task_tier, temperature=temperature, max_tokens=max_tokens)
-            if isinstance(prompt, tuple):
-                rs = await self._llm_client.generate_with_policy(
-                    system_prompt=prompt[0], user_prompt=prompt[1], policy=policy
-                )
-            else:
-                rs = await self._llm_client.generate_with_policy(user_prompt=prompt, policy=policy)
+            policy = self._policy_cls()
+            messages = (
+                [{"role": "user", "content": prompt}]
+                if isinstance(prompt, str)
+                else [{"role": "user", "content": prompt[1]}]
+            )
+            system_text = prompt[0] if isinstance(prompt, tuple) else ""
+            rs = await self._llm_client.acreate(
+                tier=self._task_tier,
+                messages=messages,
+                max_tokens=max_tokens,
+                system=system_text,
+                policy=policy,
+            )
             _llm_breakers["shared.llm"].record_success()
             meta["provider"] = "shared.llm"
-            meta["model_name"] = rs.model_name
+            meta["model_name"] = rs.model
             meta["input_tokens"] = rs.input_tokens
             meta["output_tokens"] = rs.output_tokens
             return rs.text
@@ -234,16 +242,26 @@ class LLMClientWrapper:
     async def _try_fallback_providers(
         self, prompt: str, meta: dict[str, Any], warnings: list[str]
     ) -> str | None:
+        # Resolve API keys from environment for each fallback provider
+        _PROVIDER_KEY_MAP = {
+            "gemini": os.getenv("GOOGLE_API_KEY", ""),
+            "anthropic": os.getenv("ANTHROPIC_API_KEY", ""),
+            "openai": os.getenv("OPENAI_API_KEY", ""),
+        }
         clients = [
             ("gemini", call_google_genai),
             ("anthropic", call_anthropic),
             ("openai", call_openai),
         ]
         for provider_name, call_fn in clients:
+            api_key = _PROVIDER_KEY_MAP.get(provider_name, "")
+            if not api_key:
+                logger.debug("Fallback provider %s skipped: no API key configured", provider_name)
+                continue
             if not _llm_breakers[provider_name].allow_request():
                 continue
             try:
-                result = await call_fn(prompt)
+                result = await call_fn(prompt, api_key)
                 _llm_breakers[provider_name].record_success()
                 meta["provider"] = provider_name
                 meta["model_name"] = "fallback_model"

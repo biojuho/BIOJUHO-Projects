@@ -21,11 +21,11 @@ async def test_llm_adapter_reuses_persistent_cache(monkeypatch, tmp_path):
     store = PipelineStateStore(tmp_path / "pipeline_state.db")
     fake_response = SimpleNamespace(
         text="Summary\n- First line\nInsights\n- First insight\nDraft\n- Draft post",
-        model_name="gpt-4o-mini",
+        model="gpt-4o-mini",
         input_tokens=1000,
         output_tokens=500,
     )
-    fake_client = SimpleNamespace(generate_with_policy=AsyncMock(return_value=fake_response))
+    fake_client = SimpleNamespace(acreate=AsyncMock(return_value=fake_response))
 
     adapter = llm_module.LLMAdapter(state_store=store)
     adapter._client._llm_client = fake_client
@@ -54,8 +54,9 @@ async def test_llm_adapter_reuses_persistent_cache(monkeypatch, tmp_path):
 
     assert warnings_1 == []
     assert warnings_2 == []
-    assert fake_client.generate_with_policy.await_count == 1
-    assert fake_client.generate_with_policy.await_args.kwargs["policy"].kwargs["tier"] == "medium"
+    assert fake_client.acreate.await_count == 1
+    # Policy is now constructed with no extra args (tier/temperature/max_tokens are acreate() params)
+    assert isinstance(fake_client.acreate.await_args.kwargs["policy"], FakePolicy)
     assert payload_1[0] == payload_2[0]
     assert payload_2[2][0].channel == "x"
     assert payload_2[2][1].channel == "canva"
