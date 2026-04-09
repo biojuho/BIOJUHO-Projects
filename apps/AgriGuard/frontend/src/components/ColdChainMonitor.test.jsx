@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ColdChainMonitor from './ColdChainMonitor';
 
@@ -30,6 +30,7 @@ vi.mock('recharts', () => ({
 
 describe('ColdChainMonitor', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     socketState.connected = true;
     socketState.data = [
       {
@@ -52,38 +53,100 @@ describe('ColdChainMonitor', () => {
       },
     ];
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          json: async () => ({
-            zones: [
-              {
-                zone: 'Cold Storage A',
-                avg_temp: -17,
-                avg_humidity: 50,
-                min_temp: -17,
-                max_temp: -17,
-                alert_count: 0,
-                readings_count: 1,
-              },
-            ],
-            overall_status: 'normal',
-            total_readings: 1,
-          }),
-        }),
-      ),
-    );
+    vi.stubGlobal('fetch', vi.fn());
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  it('keeps zone status in sync with live websocket readings', async () => {
+  it('renders zone status from backend aggregates instead of chart buffer samples', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        zones: [
+          {
+            zone: 'Cold Storage A',
+            avg_temp: -17,
+            avg_humidity: 50,
+            min_temp: -17,
+            max_temp: -17,
+            alert_count: 0,
+            readings_count: 1,
+          },
+        ],
+        overall_status: 'normal',
+        total_readings: 1,
+      }),
+    });
+
     render(<ColdChainMonitor />);
 
-    expect(await screen.findByText('1 alerts')).toBeInTheDocument();
+    expect(await screen.findByText('Zone Overview')).toBeInTheDocument();
     expect(screen.getAllByText('Cold Storage A').length).toBeGreaterThan(0);
+    expect(screen.queryByText('1 alerts')).not.toBeInTheDocument();
+  });
+
+  it('refreshes backend aggregate status on the polling interval', async () => {
+    vi.useFakeTimers();
+    const responses = [
+      {
+        zones: [
+          {
+            zone: 'Cold Storage A',
+            avg_temp: -17,
+            avg_humidity: 50,
+            min_temp: -17,
+            max_temp: -17,
+            alert_count: 0,
+            readings_count: 1,
+          },
+        ],
+        overall_status: 'normal',
+        total_readings: 1,
+      },
+      {
+        zones: [
+          {
+            zone: 'Cold Storage A',
+            avg_temp: -15,
+            avg_humidity: 52,
+            min_temp: -18,
+            max_temp: 12,
+            alert_count: 1,
+            readings_count: 4,
+          },
+        ],
+        overall_status: 'alert',
+        total_readings: 4,
+      },
+    ];
+    let fetchCount = 0;
+    global.fetch.mockImplementation(() => {
+      const index = fetchCount >= 2 ? 1 : 0;
+      fetchCount += 1;
+      return Promise.resolve({
+        ok: true,
+        json: async () => responses[index],
+      });
+    });
+
+    render(<ColdChainMonitor />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getAllByText('Zone Overview').length).toBeGreaterThan(0);
+    expect(screen.queryByText('1 alerts')).not.toBeInTheDocument();
+    const initialFetchCount = global.fetch.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
+
+    expect(global.fetch.mock.calls.length).toBeGreaterThan(initialFetchCount);
+    expect(screen.getByText('1 alerts')).toBeInTheDocument();
   });
 });

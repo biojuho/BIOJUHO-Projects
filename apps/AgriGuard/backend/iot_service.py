@@ -3,10 +3,12 @@ import json
 import logging
 import os
 import random
+import threading
 import time
 import uuid
 from collections import deque
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from database import SessionLocal
@@ -32,12 +34,37 @@ _ws_lock = asyncio.Lock()
 _WS_SEND_TIMEOUT_SEC = 1.0
 
 _reading_buffer: deque[dict] = deque()
+_BUFFER_MEMORY_LIMIT = 5000
 _BATCH_SIZE = 200
 _FLUSH_INTERVAL_SEC = 2.0
 _MAX_FLUSH_BATCHES_PER_CYCLE = 10
 _BUFFER_WARNING_THRESHOLD = 5000
 _BUFFER_WARNING_INTERVAL_SEC = 30.0
 _last_buffer_warning_at = 0.0
+_buffer_state_lock = threading.Lock()
+_flush_thread_lock = threading.Lock()
+
+
+def _resolve_spool_path() -> Path:
+    configured = os.environ.get("AGRIGUARD_IOT_SPOOL_PATH", "").strip()
+    if configured:
+        return Path(configured)
+    return Path(__file__).resolve().with_name(".iot-reading-spool.jsonl")
+
+
+def _count_spooled_readings(path: Path) -> int:
+    if not path.exists():
+        return 0
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            return sum(1 for line in handle if line.strip())
+    except OSError:
+        logger.warning("Failed to inspect IoT spool backlog at %s", path, exc_info=True)
+        return 0
+
+
+_SPOOL_PATH = _resolve_spool_path()
+_spooled_readings = _count_spooled_readings(_SPOOL_PATH)
 
 _PUBSUB_CHANNEL = "iot:broadcast"
 _WORKER_INSTANCE_ID = os.getenv("AGRIGUARD_WORKER_ID", uuid.uuid4().hex)
@@ -147,8 +174,12 @@ def _generate_mock_reading() -> dict:
 def _buffer_reading(reading: dict) -> None:
     global _last_buffer_warning_at
 
-    _reading_buffer.append(reading)
-    backlog = len(_reading_buffer)
+    with _buffer_state_lock:
+        if len(_reading_buffer) < _BUFFER_MEMORY_LIMIT:
+            _reading_buffer.append(reading)
+        else:
+            _append_spooled_locked([reading])
+        backlog = len(_reading_buffer) + _spooled_readings
     if backlog >= _BUFFER_WARNING_THRESHOLD:
         now = time.monotonic()
         if now - _last_buffer_warning_at >= _BUFFER_WARNING_INTERVAL_SEC:
@@ -156,53 +187,138 @@ def _buffer_reading(reading: dict) -> None:
             _last_buffer_warning_at = now
 
 
-def _flush_reading_buffer() -> int:
-    if not _reading_buffer:
-        return 0
+def _append_spooled_locked(readings: list[dict]) -> None:
+    global _spooled_readings
 
+    if not readings:
+        return
+
+    _SPOOL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _SPOOL_PATH.open("a", encoding="utf-8", newline="\n") as handle:
+        for reading in readings:
+            handle.write(json.dumps(reading, ensure_ascii=False))
+            handle.write("\n")
+    _spooled_readings += len(readings)
+
+
+def _pop_spooled_locked(limit: int) -> list[dict]:
+    global _spooled_readings
+
+    if limit <= 0:
+        return []
+    if _spooled_readings <= 0 or not _SPOOL_PATH.exists():
+        if not _SPOOL_PATH.exists():
+            _spooled_readings = 0
+        return []
+
+    with _SPOOL_PATH.open("r", encoding="utf-8") as handle:
+        lines = [line.rstrip("\n") for line in handle if line.strip()]
+
+    if not lines:
+        _spooled_readings = 0
+        try:
+            _SPOOL_PATH.unlink(missing_ok=True)
+        except OSError:
+            logger.debug("Failed to remove empty IoT spool file", exc_info=True)
+        return []
+
+    selected_lines = lines[:limit]
+    remaining_lines = lines[limit:]
+
+    if remaining_lines:
+        with _SPOOL_PATH.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write("\n".join(remaining_lines))
+            handle.write("\n")
+    else:
+        try:
+            _SPOOL_PATH.unlink(missing_ok=True)
+        except OSError:
+            logger.debug("Failed to remove drained IoT spool file", exc_info=True)
+
+    _spooled_readings = max(0, _spooled_readings - len(selected_lines))
+
+    readings: list[dict] = []
+    for line in selected_lines:
+        try:
+            readings.append(json.loads(line))
+        except json.JSONDecodeError:
+            logger.warning("Skipping corrupt IoT spool entry while draining %s", _SPOOL_PATH)
+    return readings
+
+
+def _has_pending_readings() -> bool:
+    with _buffer_state_lock:
+        return bool(_reading_buffer) or _spooled_readings > 0
+
+
+def _take_buffer_batch_locked(limit: int) -> list[dict]:
     batch: list[dict] = []
-    while _reading_buffer and len(batch) < _BATCH_SIZE:
+    while _reading_buffer and len(batch) < limit:
         batch.append(_reading_buffer.popleft())
+    if len(batch) < limit:
+        batch.extend(_pop_spooled_locked(limit - len(batch)))
+    return batch
 
+
+def _push_batch_front_locked(batch: list[dict]) -> None:
     if not batch:
-        return 0
+        return
 
-    db = SessionLocal()
-    try:
-        objects = [
-            SensorReading(
-                sensor_id=reading["sensor_id"],
-                timestamp=_parse_timestamp(reading["timestamp"]),
-                temperature=reading["temperature"],
-                humidity=reading["humidity"],
-                battery=reading["battery"],
-                zone=reading["zone"],
-                status=reading["status"],
-            )
-            for reading in batch
-        ]
-        db.bulk_save_objects(objects)
-        db.commit()
-        return len(objects)
-    except Exception:
-        db.rollback()
-        logger.exception("Failed to flush %d sensor readings", len(batch))
-        for reading in reversed(batch):
-            _reading_buffer.appendleft(reading)
-        return 0
-    finally:
-        db.close()
+    for reading in reversed(batch):
+        _reading_buffer.appendleft(reading)
+
+    overflow: list[dict] = []
+    while len(_reading_buffer) > _BUFFER_MEMORY_LIMIT:
+        overflow.append(_reading_buffer.pop())
+
+    if overflow:
+        _append_spooled_locked(list(reversed(overflow)))
+
+
+def _flush_reading_buffer() -> int:
+    with _flush_thread_lock:
+        with _buffer_state_lock:
+            batch = _take_buffer_batch_locked(_BATCH_SIZE)
+
+        if not batch:
+            return 0
+
+        db = SessionLocal()
+        try:
+            objects = [
+                SensorReading(
+                    sensor_id=reading["sensor_id"],
+                    timestamp=_parse_timestamp(reading["timestamp"]),
+                    temperature=reading["temperature"],
+                    humidity=reading["humidity"],
+                    battery=reading["battery"],
+                    zone=reading["zone"],
+                    status=reading["status"],
+                )
+                for reading in batch
+            ]
+            db.bulk_save_objects(objects)
+            db.commit()
+            return len(objects)
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to flush %d sensor readings", len(batch))
+            with _buffer_state_lock:
+                _push_batch_front_locked(batch)
+            return 0
+        finally:
+            db.close()
 
 
 async def _flush_pending_readings(*, max_batches: int | None = None) -> int:
-    if not _reading_buffer:
+    if not _has_pending_readings():
         return 0
 
     total_flushed = 0
     batches_flushed = 0
     loop = asyncio.get_running_loop()
 
-    while _reading_buffer and (max_batches is None or batches_flushed < max_batches):
+    while _has_pending_readings() and (max_batches is None or batches_flushed < max_batches):
         count = await loop.run_in_executor(None, _flush_reading_buffer)
         if count <= 0:
             break
@@ -459,7 +575,7 @@ async def sensor_simulation_loop():
 async def batch_flush_loop():
     while True:
         try:
-            if _reading_buffer:
+            if _has_pending_readings():
                 count = await _flush_pending_readings(max_batches=_MAX_FLUSH_BATCHES_PER_CYCLE)
                 if count:
                     logger.debug("Flushed %d sensor readings", count)
@@ -508,13 +624,15 @@ async def handle_ws_connection(websocket: WebSocket):
 async def close_iot_resources() -> None:
     global _publish_conn
 
-    if _reading_buffer:
+    if _has_pending_readings():
         try:
             flushed = await _flush_pending_readings()
             if flushed:
                 logger.info("Drained %d buffered IoT readings during shutdown", flushed)
-            if _reading_buffer:
-                logger.warning("Shutdown completed with %d IoT readings still buffered", len(_reading_buffer))
+            if _has_pending_readings():
+                with _buffer_state_lock:
+                    backlog = len(_reading_buffer) + _spooled_readings
+                logger.warning("Shutdown completed with %d IoT readings still buffered", backlog)
         except Exception:
             logger.exception("Failed to drain buffered IoT readings during shutdown")
 

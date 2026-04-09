@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 
 
 @pytest.fixture()
-def testing_session_local():
+def testing_session_local(tmp_path):
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -29,9 +29,13 @@ def testing_session_local():
 
     original_session_local = iot_service.SessionLocal
     original_history = list(iot_service._sensor_history)
+    original_spool_path = iot_service._SPOOL_PATH
+    original_spooled_readings = iot_service._spooled_readings
     iot_service.SessionLocal = testing_session_local
     iot_service._sensor_history.clear()
     iot_service._reading_buffer.clear()
+    iot_service._SPOOL_PATH = tmp_path / "iot-spool.jsonl"
+    iot_service._spooled_readings = 0
 
     try:
         yield testing_session_local
@@ -39,6 +43,8 @@ def testing_session_local():
         iot_service.SessionLocal = original_session_local
         iot_service._sensor_history[:] = original_history
         iot_service._reading_buffer.clear()
+        iot_service._SPOOL_PATH = original_spool_path
+        iot_service._spooled_readings = original_spooled_readings
         Base.metadata.drop_all(bind=engine)
         engine.dispose()
 
@@ -162,7 +168,7 @@ def test_broadcast_messages_include_origin_and_skip_self_relay():
     assert iot_service._should_relay_broadcast({"origin": "another-worker", "reading": reading}) is True
 
 
-def test_buffer_reading_keeps_backlog_beyond_previous_maxlen(testing_session_local):
+def test_buffer_reading_spools_overflow_once_memory_limit_is_reached(testing_session_local):
     reading = {
         "sensor_id": "sensor-backlog",
         "timestamp": "2026-04-08T00:00:00Z",
@@ -174,10 +180,12 @@ def test_buffer_reading_keeps_backlog_beyond_previous_maxlen(testing_session_loc
         "alerts": [],
     }
 
-    for _ in range(5100):
+    for _ in range(iot_service._BUFFER_MEMORY_LIMIT + 100):
         iot_service._buffer_reading(dict(reading))
 
-    assert len(iot_service._reading_buffer) == 5100
+    assert len(iot_service._reading_buffer) == iot_service._BUFFER_MEMORY_LIMIT
+    assert iot_service._spooled_readings == 100
+    assert iot_service._SPOOL_PATH.exists()
 
 
 def test_flush_reading_buffer_requeues_failed_batch(monkeypatch, testing_session_local):
@@ -235,3 +243,31 @@ async def test_close_iot_resources_flushes_pending_buffer(testing_session_local)
     assert len(rows) == 1
     assert rows[0].sensor_id == "sensor-close"
     assert len(iot_service._reading_buffer) == 0
+
+
+@pytest.mark.asyncio
+async def test_close_iot_resources_drains_spooled_backlog(testing_session_local):
+    reading = {
+        "sensor_id": "sensor-spooled",
+        "timestamp": "2026-04-08T00:00:00Z",
+        "temperature": -18.0,
+        "humidity": 55.0,
+        "battery": 95.0,
+        "zone": "Cold Storage A",
+        "status": "normal",
+        "alerts": [],
+    }
+
+    for index in range(iot_service._BUFFER_MEMORY_LIMIT + 25):
+        item = dict(reading)
+        item["sensor_id"] = f"sensor-spooled-{index}"
+        iot_service._buffer_reading(item)
+
+    await iot_service.close_iot_resources()
+
+    session = testing_session_local()
+    rows = session.query(models.SensorReading).all()
+    assert len(rows) == iot_service._BUFFER_MEMORY_LIMIT + 25
+    assert len(iot_service._reading_buffer) == 0
+    assert iot_service._spooled_readings == 0
+    assert not iot_service._SPOOL_PATH.exists()
