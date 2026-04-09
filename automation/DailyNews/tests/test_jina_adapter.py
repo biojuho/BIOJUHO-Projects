@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from antigravity_mcp.integrations.jina_adapter import JinaAdapter
 
@@ -7,7 +7,7 @@ from antigravity_mcp.integrations.jina_adapter import JinaAdapter
 async def test_jina_adapter_fetch_success():
     adapter = JinaAdapter()
     
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.text = "This is a long deep text context" * 200
     mock_response.raise_for_status.return_value = None
     
@@ -27,7 +27,7 @@ async def test_jina_adapter_fetch_concurrent():
     adapter = JinaAdapter()
     
     async def mock_get(url, **kwargs):
-        resp = AsyncMock()
+        resp = MagicMock()
         resp.text = f"Content for {url}"
         return resp
         

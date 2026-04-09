@@ -1,151 +1,37 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
-import re
-from collections import Counter, OrderedDict
 from typing import Any
 
-from antigravity_mcp.config import emit_metric, get_settings
-from antigravity_mcp.domain.models import ChannelDraft, ContentItem, GeneratedPayload
-from antigravity_mcp.integrations.llm_prompts import build_report_prompt, resolve_prompt_mode
-from antigravity_mcp.integrations.llm_providers import (
-    call_anthropic,
-    call_google_genai,
-    call_openai,
-)
-from shared.circuit_breaker import CircuitBreaker
-from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
+from antigravity_mcp.config import get_settings
+from antigravity_mcp.domain.models import ContentItem, GeneratedPayload
+from antigravity_mcp.integrations.llm_prompts import build_report_prompt
+from shared.harness.token_tracker import TokenBudget
 from antigravity_mcp.state.store import PipelineStateStore
 
-
-class LLMUnavailableError(Exception):
-    """Raised when all LLM providers fail and no text could be generated."""
+from antigravity_mcp.integrations.llm.client_wrapper import LLMClientWrapper, LLMUnavailableError
+from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
 
 logger = logging.getLogger(__name__)
 
-# Per-provider circuit breakers so a single broken provider doesn't block all LLM calls.
-_llm_breakers: dict[str, CircuitBreaker] = {
-    "shared.llm": CircuitBreaker("llm:shared", failure_threshold=3, cooldown_sec=120),
-    "gemini": CircuitBreaker("llm:gemini", failure_threshold=3, cooldown_sec=90),
-    "anthropic": CircuitBreaker("llm:anthropic", failure_threshold=3, cooldown_sec=90),
-    "openai": CircuitBreaker("llm:openai", failure_threshold=3, cooldown_sec=90),
-}
+__all__ = ["LLMAdapter", "LLMUnavailableError", "_get_llm_client", "_SHARED_LLM_IMPORT_ERROR"]
 
-TaskTier = None  # compatibility for tests and monkeypatching
-LLMPolicy = None
-_get_llm_client = None
-_SHARED_LLM_IMPORT_ERROR: Exception | None = None
-
-_L1_MAX_SIZE = 128
-_L1_CACHE: OrderedDict[str, str] = OrderedDict()
-
-# P0: LLM 메타응답 감지 패턴 — "죄송합니다", "이전 대화", "기록 없음" 등 거절 응답
-_META_RESPONSE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"죄송(하지만|합니다|해요)", re.I),
-    re.compile(r"이전\s*(대화|리포트|기록|내용).*(없|없음|확인\s*불가)", re.I),
-    re.compile(r"(기록|대화\s*이력|이력).*(남아있지|없|없습니다)", re.I),
-    re.compile(r"(다음\s*중\s*하나|어느\s*쪽).*(원하시|알려주시면)", re.I),
-    re.compile(r"(붙여넣어|공유해|알려주시면)\s*(주시면|주면)\s*(즉시|바로|처리)", re.I),
-    re.compile(r"^(I'm sorry|I don't have|I cannot|As an AI)", re.I | re.MULTILINE),
-)
-
-_MIN_CONTENT_LINES = 3  # 유효 브리프 최소 라인 수
-
-
-def _is_meta_response(text: str, *, check_line_count: bool = True) -> bool:
-    """LLM이 뉴스 브리프 대신 거절/오해 응답을 반환했는지 감지.
-
-    check_line_count=False: 파싱된 섹션 텍스트처럼 한 줄로 합쳐진 경우
-    패턴 매칭만 수행 (라인 수 검사 제외).
-    """
-    for pattern in _META_RESPONSE_PATTERNS:
-        if pattern.search(text):
-            return True
-    if not check_line_count:
-        return False
-    # 전체 응답 텍스트에서만: 실제 내용 라인이 너무 적으면 메타 응답으로 간주
-    content_lines = [l for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
-    return len(content_lines) < _MIN_CONTENT_LINES
-
-
-_SECTION_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
-    "signal": (re.compile(r"^(top\s+)?signal\b"),),
-    "pattern": (re.compile(r"^pattern\b"),),
-    "ripple": (re.compile(r"^ripple(\s+effects?)?\b"),),
-    "counterpoint": (re.compile(r"^counterpoint\b"),),
-    "action": (re.compile(r"^action(\s+items?)?\b"),),
-    "draft": (re.compile(r"^(draft(\s+post)?)\b"),),
-}
-
-_EVIDENCE_TAG_RE = re.compile(r"\[(?:A\d+|Inference:[A\d+\s]+|Background|Insufficient evidence)\]")
-_ARTICLE_TAG_RE = re.compile(r"\[A\d+\]")
-_INFERENCE_TAG_RE = re.compile(r"\[Inference:[^\]]+\]")
-_BACKGROUND_TAG_RE = re.compile(r"\[Background\]")
-
-
-def _normalize_for_hash(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def _l1_get(key: str) -> str | None:
-    if key not in _L1_CACHE:
-        return None
-    _L1_CACHE.move_to_end(key)
-    return _L1_CACHE[key]
-
-
-def _l1_put(key: str, value: str) -> None:
-    _L1_CACHE[key] = value
-    _L1_CACHE.move_to_end(key)
-    if len(_L1_CACHE) > _L1_MAX_SIZE:
-        _L1_CACHE.popitem(last=False)
-
-
-def _has_evidence_tag(text: str) -> bool:
-    return bool(_EVIDENCE_TAG_RE.search(text))
-
-
-def _collect_evidence_stats(lines: list[str]) -> dict[str, Any]:
-    tagged_lines = [line for line in lines if _has_evidence_tag(line)]
-    missing_lines = [line for line in lines if line.strip() and not _has_evidence_tag(line)]
-    article_refs = sorted(set(_ARTICLE_TAG_RE.findall("\n".join(lines))))
-    inference_refs = _INFERENCE_TAG_RE.findall("\n".join(lines))
-    background_refs = _BACKGROUND_TAG_RE.findall("\n".join(lines))
-    return {
-        "line_count": len(lines),
-        "tagged_line_count": len(tagged_lines),
-        "missing_line_count": len(missing_lines),
-        "missing_lines_preview": missing_lines[:5],
-        "article_ref_count": len(article_refs),
-        "article_refs": article_refs,
-        "inference_count": len(inference_refs),
-        "background_line_count": len(background_refs),
-    }
+TaskTier, LLMPolicy, _get_llm_client, _SHARED_LLM_IMPORT_ERROR = resolve_shared_llm()
 
 
 class LLMAdapter:
-    def __init__(self, *, state_store: PipelineStateStore | None = None) -> None:
+    def __init__(self, *, state_store: PipelineStateStore | None = None, token_budget: TokenBudget | None = None) -> None:
         self.settings = get_settings()
-        self._state_store = state_store
-
-        global TaskTier, LLMPolicy, _get_llm_client, _SHARED_LLM_IMPORT_ERROR
-        if TaskTier is None or _get_llm_client is None:
-            TaskTier, LLMPolicy, _get_llm_client, _SHARED_LLM_IMPORT_ERROR = resolve_shared_llm()
-
-        self._task_tier = getattr(TaskTier, "MEDIUM", None)
-        self._policy_cls = LLMPolicy
-        self._llm_client = None
-        try:
-            self._llm_client = _get_llm_client() if _get_llm_client else None
-        except Exception as exc:
-            logger.error("Failed to initialize shared.llm client: %s — LLM features disabled.", exc)
-            self._llm_client = None
+        self.token_budget = token_budget or TokenBudget()
+        self._client = LLMClientWrapper(state_store=state_store, token_budget=self.token_budget)
+        self._draft_gen = DraftGenerator()
+        self._parser = ResponseParser(self._draft_gen)
 
     @property
     def llm_available(self) -> bool:
-        return self._llm_client is not None and self._task_tier is not None
+        return self._client.is_available
 
     async def generate_text(
         self,
@@ -155,11 +41,11 @@ class LLMAdapter:
         temperature: float = 0.7,
         cache_scope: str = "generic",
     ) -> str:
-        text, _meta, _warnings = await self._complete_text(
+        text, _meta, _warnings = await self._client.generate_text(
             prompt=prompt,
             max_tokens=max_tokens,
             temperature=temperature,
-            cache_scope=cache_scope,
+            cache_scope=cache_scope
         )
         return text
 
@@ -176,15 +62,23 @@ class LLMAdapter:
         if not items:
             return GeneratedPayload(), ["No content items were available."]
 
+        detail_level = "minimal" if self.token_budget.should_minimize() else "standard"
+
         generation_mode, system_prompt, user_prompt = build_report_prompt(
             category=category,
             items=items,
             window_name=window_name,
             quality_feedback=quality_feedback,
             overlapping_drafts=overlapping_drafts,
+            detail_level=detail_level,
         )
+
+        # Budget is already enforced in self._client.generate_text (which checks 500+max_tokens = 2000).
+        # We can also do an explicit check here if we want extra safety,
+        # but _client.generate_text will raise LLMUnavailableError which we catch.
+
         try:
-            text, meta, text_warnings = await self._complete_text(
+            text, meta, text_warnings = await self._client.generate_text(
                 prompt=(system_prompt, user_prompt),
                 max_tokens=1500,
                 temperature=0.2,
@@ -193,7 +87,7 @@ class LLMAdapter:
             warnings.extend(text_warnings)
         except LLMUnavailableError:
             warnings.append(f"all_providers_failed:{category}:{window_name}")
-            fallback = self._fallback_report(
+            fallback = self._draft_gen.fallback_report(
                 category=category,
                 items=items,
                 window_name=window_name,
@@ -203,7 +97,7 @@ class LLMAdapter:
             fallback.quality_state = "blocked"
             return fallback, warnings
 
-        payload, parse_warnings = self._parse_response(
+        payload, parse_warnings = self._parser.parse_response(
             category=category,
             text=text,
             items=items,
@@ -214,555 +108,3 @@ class LLMAdapter:
         payload.parse_meta.setdefault("provider", meta.get("provider", ""))
         warnings.extend(parse_warnings)
         return payload, warnings
-
-    async def _try_shared_llm(
-        self,
-        *,
-        prompt: str | tuple[str, str],
-        max_tokens: int,
-        temperature: float,
-        meta: dict[str, Any],
-        warnings: list[str],
-    ) -> str:
-        """shared.llm 클라이언트 호출. 성공 시 텍스트 반환, 실패/미사용 시 빈 문자열."""
-        shared_breaker = _llm_breakers["shared.llm"]
-        if self._llm_client is None or self._task_tier is None or not shared_breaker.allow_request():
-            reason = "circuit open" if not shared_breaker.allow_request() else "unavailable"
-            warnings.append(f"shared.llm {reason}; trying direct API fallback providers.")
-            return ""
-        try:
-            system_prompt, user_prompt = prompt if isinstance(prompt, tuple) else ("", prompt)
-            request_kwargs: dict[str, Any] = {
-                "tier": self._task_tier,
-                "max_tokens": max_tokens,
-                "messages": [{"role": "user", "content": user_prompt}],
-                "temperature": temperature,
-            }
-            if system_prompt:
-                request_kwargs["system"] = system_prompt
-            policy = self._build_policy()
-            if policy is not None:
-                request_kwargs["policy"] = policy
-            try:
-                response = await self._llm_client.acreate(**request_kwargs)
-            except TypeError as exc:
-                if "temperature" in str(exc) and "unexpected keyword argument" in str(exc):
-                    logger.info("shared.llm client does not accept temperature; retrying without it")
-                    request_kwargs.pop("temperature", None)
-                    response = await self._llm_client.acreate(**request_kwargs)
-                else:
-                    raise
-            meta["provider"] = "shared.llm"
-            meta["model_name"] = getattr(response, "model", "")
-            meta["input_tokens"] = int(getattr(response, "input_tokens", 0) or 0)
-            meta["output_tokens"] = int(getattr(response, "output_tokens", 0) or 0)
-            shared_breaker.record_success()
-            return response.text or ""
-        except Exception as exc:
-            shared_breaker.record_failure()
-            warnings.append(f"shared.llm failed ({type(exc).__name__}); trying fallback providers.")
-            logger.warning("shared.llm failed: %s", exc)
-            return ""
-
-    async def _try_fallback_providers(
-        self,
-        merged_prompt: str,
-        meta: dict[str, Any],
-        warnings: list[str],
-    ) -> str:
-        """Gemini → Anthropic → OpenAI 순서로 fallback 시도. 성공 시 텍스트 반환."""
-        _breaker_keys = {"gemini-2.5-flash": "gemini", "claude-haiku-4-5": "anthropic", "gpt-4o-mini": "openai"}
-        fallback_providers: list[tuple[str, str, Any]] = [
-            ("gemini-2.5-flash", self.settings.google_api_key, call_google_genai),
-            ("claude-haiku-4-5", self.settings.anthropic_api_key, call_anthropic),
-            ("gpt-4o-mini", self.settings.openai_api_key, call_openai),
-        ]
-        for provider_name, api_key, call_fn in fallback_providers:
-            if not api_key:
-                continue
-            breaker = _llm_breakers.get(_breaker_keys.get(provider_name, ""), None)
-            if breaker and not breaker.allow_request():
-                warnings.append(f"Skipping {provider_name}: circuit breaker open.")
-                continue
-            text = await call_fn(merged_prompt, api_key, timeout_sec=self.settings.pipeline_http_timeout_sec)
-            if text:
-                meta["provider"] = provider_name
-                meta["model_name"] = provider_name
-                warnings.append(f"Used fallback provider: {provider_name}")
-                if breaker:
-                    breaker.record_success()
-                return text
-            if breaker:
-                breaker.record_failure()
-        return ""
-
-    async def _complete_text(
-        self,
-        *,
-        prompt: str | tuple[str, str],
-        max_tokens: int,
-        temperature: float,
-        cache_scope: str,
-    ) -> tuple[str, dict[str, Any], list[str]]:
-        warnings: list[str] = []
-        prompt_hash = self._build_prompt_hash(prompt=prompt, cache_scope=cache_scope)
-        meta: dict[str, Any] = {
-            "cache_scope": cache_scope,
-            "provider": "",
-            "model_name": "",
-            "input_tokens": 0,
-            "output_tokens": 0,
-        }
-
-        cached = _l1_get(prompt_hash)
-        if cached is not None:
-            if self._state_store is not None:
-                self._state_store.increment_llm_cache_hits(prompt_hash)
-            meta["provider"] = "l1-cache"
-            return cached, meta, warnings
-
-        if self._state_store is not None:
-            cached_text = self._state_store.get_cached_llm_response(prompt_hash)
-            if cached_text:
-                _l1_put(prompt_hash, cached_text)
-                meta["provider"] = "sqlite-cache"
-                return cached_text, meta, warnings
-
-        text = await self._try_shared_llm(
-            prompt=prompt, max_tokens=max_tokens, temperature=temperature, meta=meta, warnings=warnings
-        )
-        if not text:
-            merged_prompt = f"{prompt[0]}\n\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
-            text = await self._try_fallback_providers(merged_prompt, meta, warnings)
-
-        if not text:
-            logger.error("All LLM providers failed for cache_scope=%s", cache_scope)
-            raise LLMUnavailableError(
-                f"All LLM providers failed for scope '{cache_scope}'. "
-                "Check API keys and provider availability."
-            )
-
-        # P0: 메타응답 감지 — LLM이 "이전 대화 없음" 등 거절 응답을 반환한 경우 1회 재시도
-        if _is_meta_response(text):
-            logger.warning(
-                "Meta-response detected for scope=%s (provider=%s); retrying with explicit context.",
-                cache_scope, meta.get("provider"),
-            )
-            warnings.append(f"meta_response_detected:{cache_scope}; retrying")
-            meta2: dict[str, Any] = {k: v for k, v in meta.items()}
-            merged_prompt_retry = (
-                f"{prompt[0]}\n\n"
-                "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
-                "Do NOT reference any previous conversation or report. "
-                "Do NOT ask for clarification. Output the brief directly.\n\n"
-                f"{prompt[1]}"
-                if isinstance(prompt, tuple)
-                else (
-                    "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
-                    "Do NOT reference any previous conversation or report. "
-                    "Do NOT ask for clarification. Output the brief directly.\n\n"
-                    + prompt
-                )
-            )
-            retry_text = await self._try_shared_llm(
-                prompt=merged_prompt_retry if isinstance(prompt, str) else (prompt[0], merged_prompt_retry.split("\n\n", 1)[-1]),
-                max_tokens=max_tokens, temperature=temperature, meta=meta2, warnings=warnings,
-            )
-            if not retry_text:
-                merged = merged_prompt_retry if isinstance(merged_prompt_retry, str) else "\n\n".join(merged_prompt_retry)
-                retry_text = await self._try_fallback_providers(merged, meta2, warnings)
-            if retry_text and not _is_meta_response(retry_text):
-                text = retry_text
-                meta.update(meta2)
-                warnings.append("meta_response_retry_succeeded")
-
-        if self._state_store is not None:
-            self._state_store.put_llm_cache(
-                prompt_hash,
-                text,
-                model_name=str(meta["model_name"]),
-                input_tokens=int(meta["input_tokens"]),
-                output_tokens=int(meta["output_tokens"]),
-            )
-        _l1_put(prompt_hash, text)
-        emit_metric(
-            "llm_call",
-            provider=meta["provider"],
-            model=meta["model_name"],
-            cache_scope=cache_scope,
-            input_tokens=meta["input_tokens"],
-            output_tokens=meta["output_tokens"],
-        )
-        return text, meta, warnings
-
-    def _build_prompt_hash(self, *, prompt: str | tuple[str, str], cache_scope: str) -> str:
-        prompt_text = f"{prompt[0]}\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
-        raw = json.dumps(
-            {
-                "cache_scope": cache_scope,
-                "prompt": _normalize_for_hash(prompt_text),
-            },
-            sort_keys=True,
-            ensure_ascii=False,
-        )
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-    def _build_policy(self) -> Any | None:
-        if self._policy_cls is None:
-            return None
-        try:
-            return self._policy_cls(task_kind="summary", response_mode="text")
-        except TypeError:
-            return self._policy_cls()
-
-    def _parse_response(
-        self,
-        *,
-        category: str,
-        text: str,
-        items: list[ContentItem],
-        window_name: str,
-        generation_mode: str,
-    ) -> tuple[GeneratedPayload, list[str]]:
-        if generation_mode.startswith("v2"):
-            payload, warnings = self._parse_v2_response(
-                category=category,
-                text=text,
-                items=items,
-                window_name=window_name,
-                generation_mode=generation_mode,
-            )
-            if payload.parse_meta.get("used_fallback") and self._looks_like_v1_response(text):
-                return self._parse_v1_response(
-                    category=category,
-                    text=text,
-                    items=items,
-                    window_name=window_name,
-                    generation_mode=generation_mode,
-                )
-            return payload, warnings
-        return self._parse_v1_response(
-            category=category,
-            text=text,
-            items=items,
-            window_name=window_name,
-            generation_mode=generation_mode,
-        )
-
-    def _looks_like_v1_response(self, text: str) -> bool:
-        lowered_lines = {line.strip().lower().rstrip(":") for line in text.splitlines() if line.strip()}
-        return {"summary", "insights", "draft"}.issubset(lowered_lines)
-
-    def _normalize_header(self, line: str) -> str:
-        header = line.strip()
-        header = re.sub(r"^[#>\-\s]+", "", header)
-        header = header.replace("📌", "").replace("🔗", "").replace("🌊", "")
-        header = header.replace("⚡", "").replace("✅", "").replace("📰", "")
-        header = header.replace("**", "").replace("__", "")
-        header = re.sub(r"\s+", " ", header)
-        return header.strip().lower()
-
-    def _detect_section(self, line: str) -> str | None:
-        header_line = self._normalize_header(line)
-        for section_name, patterns in _SECTION_PATTERNS.items():
-            if any(pattern.match(header_line) for pattern in patterns):
-                return section_name
-        return None
-
-    def _parse_v1_response(
-        self,
-        *,
-        category: str,
-        text: str,
-        items: list[ContentItem],
-        window_name: str,
-        generation_mode: str,
-    ) -> tuple[GeneratedPayload, list[str]]:
-        summary_lines: list[str] = []
-        insights: list[str] = []
-        brief_lines: list[str] = []
-        draft_lines: list[str] = []
-        warnings: list[str] = []
-        current = "summary"
-        insight_limit = 2 if generation_mode == "v1-brief" else 3
-
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            lowered = line.lower().rstrip(":")
-            if lowered == "summary":
-                current = "summary"
-                continue
-            if lowered == "insights":
-                current = "insights"
-                continue
-            if lowered == "brief":
-                current = "brief"
-                continue
-            if lowered == "draft":
-                current = "draft"
-                continue
-            if current == "summary":
-                clean = line.removeprefix("- ").strip()
-                summary_lines.append(clean)
-            elif current == "insights":
-                clean = line.removeprefix("- ").strip()
-                insights.append(clean)
-            elif current == "brief":
-                brief_lines.append(line)
-            else:
-                draft_lines.append(line)
-
-        if not summary_lines or not insights:
-            warnings.append(f"parse_fallback:{category}:{window_name}")
-            return self._fallback_report(
-                category=category,
-                items=items,
-                window_name=window_name,
-                generation_mode=generation_mode,
-                reason="v1_parse_failure",
-            ), warnings
-
-        # P0: 파서 레벨 메타응답 감지 — 섹션 안에 거절 응답이 들어온 경우
-        parsed_text = " ".join(summary_lines + insights)
-        if _is_meta_response(parsed_text, check_line_count=False):
-            warnings.append(f"meta_response_in_sections:{category}:{window_name}")
-            logger.warning("Meta-response detected inside parsed sections for %s/%s", category, window_name)
-            return self._fallback_report(
-                category=category,
-                items=items,
-                window_name=window_name,
-                generation_mode=generation_mode,
-                reason="meta_response_in_sections",
-            ), warnings
-
-        x_fallback = not draft_lines
-        brief_body = "\n".join(brief_lines).strip()
-        payload = GeneratedPayload(
-            summary_lines=summary_lines[:3],
-            insights=insights[:insight_limit],
-            channel_drafts=[
-                ChannelDraft(
-                    channel="x",
-                    status="draft",
-                    content="\n".join(draft_lines)
-                    if draft_lines
-                    else self._build_x_draft(category, summary_lines, items),
-                    source="fallback" if x_fallback else "llm",
-                    is_fallback=x_fallback,
-                ),
-                ChannelDraft(
-                    channel="canva",
-                    status="draft",
-                    content=self._build_canva_draft(category, items),
-                    source="fallback",
-                    is_fallback=True,
-                ),
-            ],
-            generation_mode=generation_mode,
-            parse_meta={
-                "used_fallback": False,
-                "format": "v1",
-                "missing_sections": ["draft"] if x_fallback else [],
-                "sections_found": {
-                    "summary": len(summary_lines),
-                    "insights": len(insights),
-                    "brief": len(brief_lines),
-                    "draft": len(draft_lines),
-                },
-                "brief_body": brief_body,
-            },
-            quality_state="fallback" if x_fallback else "ok",
-        )
-        if x_fallback:
-            warnings.append(f"draft_fallback:{category}:{window_name}")
-        return payload, warnings
-
-    def _parse_v2_response(
-        self,
-        *,
-        category: str,
-        text: str,
-        items: list[ContentItem],
-        window_name: str,
-        generation_mode: str | None = None,
-    ) -> tuple[GeneratedPayload, list[str]] | tuple[list[str], list[str], list[ChannelDraft]]:
-        legacy_mode = generation_mode is None
-        generation_mode = generation_mode or resolve_prompt_mode(window_name, len(items))
-        sections: dict[str, list[str]] = {
-            "signal": [],
-            "pattern": [],
-            "ripple": [],
-            "counterpoint": [],
-            "action": [],
-            "draft": [],
-        }
-        current = "signal"
-        warnings: list[str] = []
-
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            detected = self._detect_section(line)
-            if detected is not None:
-                current = detected
-                continue
-            clean = re.sub(r"^[-*\d\.\)\s]+", "", line).strip()
-            if clean:
-                sections[current].append(clean)
-
-        summary_lines = sections["signal"][:3]
-        insights = (sections["pattern"] + sections["ripple"] + sections["counterpoint"] + sections["action"])[:10]
-        draft_lines = sections["draft"]
-        missing_sections = [
-            name for name in ("signal", "pattern", "ripple", "counterpoint", "action") if not sections[name]
-        ]
-        sections_found = {key: len(value) for key, value in sections.items() if value}
-
-        if not summary_lines or not insights:
-            warnings.append(f"parse_fallback:{category}:{window_name}")
-            payload = self._fallback_report(
-                category=category,
-                items=items,
-                window_name=window_name,
-                generation_mode=generation_mode,
-                reason="v2_parse_failure",
-                missing_sections=missing_sections,
-                sections_found=sections_found,
-            )
-            if legacy_mode:
-                return payload.summary_lines, payload.insights, payload.channel_drafts
-            return payload, warnings
-
-        # P0: 파서 레벨 메타응답 감지 (v2)
-        parsed_text_v2 = " ".join(summary_lines + insights)
-        if _is_meta_response(parsed_text_v2, check_line_count=False):
-            warnings.append(f"meta_response_in_sections:{category}:{window_name}")
-            logger.warning("Meta-response detected inside v2 parsed sections for %s/%s", category, window_name)
-            payload = self._fallback_report(
-                category=category,
-                items=items,
-                window_name=window_name,
-                generation_mode=generation_mode,
-                reason="meta_response_in_sections",
-            )
-            if legacy_mode:
-                return payload.summary_lines, payload.insights, payload.channel_drafts
-            return payload, warnings
-
-        x_fallback = not draft_lines
-        payload = GeneratedPayload(
-            summary_lines=summary_lines,
-            insights=insights,
-            channel_drafts=[
-                ChannelDraft(
-                    channel="x",
-                    status="draft",
-                    content="\n".join(draft_lines)
-                    if draft_lines
-                    else self._build_x_draft(category, summary_lines, items),
-                    source="fallback" if x_fallback else "llm",
-                    is_fallback=x_fallback,
-                ),
-                ChannelDraft(
-                    channel="canva",
-                    status="draft",
-                    content=self._build_canva_draft(category, items),
-                    source="fallback",
-                    is_fallback=True,
-                ),
-            ],
-            generation_mode=generation_mode,
-            parse_meta={
-                "used_fallback": False,
-                "format": "v2",
-                "missing_sections": missing_sections,
-                "sections_found": sections_found,
-                "evidence": _collect_evidence_stats(summary_lines + insights),
-            },
-            quality_state="fallback" if x_fallback else "ok",
-        )
-        if x_fallback:
-            warnings.append(f"draft_fallback:{category}:{window_name}")
-        if legacy_mode:
-            return payload.summary_lines, payload.insights, payload.channel_drafts
-        return payload, warnings
-
-    def _fallback_report(
-        self,
-        *,
-        category: str,
-        items: list[ContentItem],
-        window_name: str,
-        generation_mode: str,
-        reason: str,
-        missing_sections: list[str] | None = None,
-        sections_found: dict[str, int] | None = None,
-    ) -> GeneratedPayload:
-        top_titles = [item.title for item in items[:3]]
-        source_counts = Counter(item.source_name for item in items)
-        summary_lines = [
-            f"{category} {window_name} brief covers {len(items)} curated items.",
-            f"Top signals: {'; '.join(top_titles) if top_titles else 'No titles available.'}",
-            f"Most active sources: {', '.join(f'{source} ({count})' for source, count in source_counts.most_common(3))}.",
-        ]
-        insights = [
-            f"{category} coverage is clustering around {items[0].title}."
-            if items
-            else f"{category} coverage is limited.",
-            f"Operators should review {min(len(items), 3)} candidate stories before publishing.",
-            "External distribution remains manual until approval is granted.",
-        ]
-        return GeneratedPayload(
-            summary_lines=summary_lines,
-            insights=insights,
-            channel_drafts=[
-                ChannelDraft(
-                    channel="x",
-                    status="draft",
-                    content=self._build_x_draft(category, summary_lines, items),
-                    source="fallback",
-                    is_fallback=True,
-                ),
-                ChannelDraft(
-                    channel="canva",
-                    status="draft",
-                    content=self._build_canva_draft(category, items),
-                    source="fallback",
-                    is_fallback=True,
-                ),
-            ],
-            generation_mode=generation_mode,
-            parse_meta={
-                "used_fallback": True,
-                "format": "fallback",
-                "reason": reason,
-                "missing_sections": missing_sections or [],
-                "sections_found": sections_found or {},
-            },
-            quality_state="fallback",
-        )
-
-    def _build_canva_draft(self, category: str, items: list[ContentItem]) -> str:
-        lead = items[0].title if items else category
-        return (
-            f"Create a square hero card for {category} with the lead headline '{lead}' "
-            "and highlight the top three briefing points. "
-            "If a NotebookLM infographic is available, use it as the primary visual asset."
-        )
-
-    def _build_x_draft(self, category: str, summary_lines: list[str], items: list[ContentItem]) -> str:
-        lead = items[0].title if items else f"{category} update"
-        second_line = summary_lines[1] if len(summary_lines) > 1 else "Editorial review pending."
-        return (
-            f"{category} brief\n\n"
-            f"{lead}\n"
-            f"- {summary_lines[0]}\n"
-            f"- {second_line}\n\n"
-            "Draft only. Manual approval required before publishing."
-        )
-
-
-__all__ = ["LLMAdapter", "LLMUnavailableError", "TaskTier", "LLMPolicy", "_get_llm_client", "_SHARED_LLM_IMPORT_ERROR", "resolve_prompt_mode"]

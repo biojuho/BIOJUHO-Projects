@@ -1,0 +1,16 @@
+﻿........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 70%]
+........................................................................ [ 88%]
+...............................................                          [100%]
+============================== warnings summary ===============================
+automation/DailyNews/tests/test_jina_adapter.py::test_jina_adapter_fetch_success
+automation/DailyNews/tests/test_jina_adapter.py::test_jina_adapter_fetch_concurrent
+  D:\AI project\automation\DailyNews\src\antigravity_mcp\integrations\jina_adapter.py:27: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    resp.raise_for_status()
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+407 passed, 16 deselected, 2 warnings in 154.45s (0:02:34)

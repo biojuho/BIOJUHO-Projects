@@ -973,9 +973,10 @@ class TestStateStore:
 
 class TestV2PromptParser:
     def test_parse_v2_response_extracts_all_sections(self):
-        from antigravity_mcp.integrations.llm_adapter import LLMAdapter
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
 
-        adapter = LLMAdapter()
+        parser = ResponseParser(draft_generator=DraftGenerator())
         v2_text = """### Signal
 OpenAI's $40B raise at $340B valuation sets a new floor for frontier AI company valuations.
 
@@ -1008,7 +1009,7 @@ OpenAI just raised $40B. But the real signal is what that does to the funding ba
             ),
         ]
 
-        summary, insights, drafts = adapter._parse_v2_response(
+        summary, insights, drafts = parser._parse_v2_response(
             category="Tech",
             text=v2_text,
             items=items,
@@ -1023,10 +1024,11 @@ OpenAI just raised $40B. But the real signal is what that does to the funding ba
         assert any("$40B" in draft.content for draft in drafts)
 
     def test_parse_response_marks_parse_fallback_metadata(self):
-        from antigravity_mcp.integrations.llm_adapter import LLMAdapter
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
 
-        adapter = LLMAdapter()
-        payload, warnings = adapter._parse_response(
+        parser = ResponseParser(draft_generator=DraftGenerator())
+        payload, warnings = parser.parse_response(
             category="Tech",
             text="### Signal\nOnly one section",
             items=[
@@ -1046,9 +1048,10 @@ OpenAI just raised $40B. But the real signal is what that does to the funding ba
         assert "parse_fallback:Tech:morning" in warnings
 
     def test_parse_v2_response_collects_evidence_metadata(self):
-        from antigravity_mcp.integrations.llm_adapter import LLMAdapter
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
 
-        adapter = LLMAdapter()
+        parser = ResponseParser(draft_generator=DraftGenerator())
         items = [
             ContentItem(
                 source_name="Feed",
@@ -1065,7 +1068,7 @@ OpenAI just raised $40B. But the real signal is what that does to the funding ba
                 summary="Cloud pricing pressure is broadening.",
             ),
         ]
-        payload, warnings = adapter._parse_response(
+        payload, warnings = parser.parse_response(
             category="Tech",
             text="""### Signal
 GPU demand remains sticky through Q3. [A1]
@@ -1098,10 +1101,11 @@ GPU demand is staying tighter for longer than many teams expected.
         assert evidence["article_ref_count"] == 2
 
     def test_parse_v1_brief_response_extracts_brief_body_and_limits_insights(self):
-        from antigravity_mcp.integrations.llm_adapter import LLMAdapter
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
 
-        adapter = LLMAdapter()
-        payload, warnings = adapter._parse_response(
+        parser = ResponseParser(draft_generator=DraftGenerator())
+        payload, warnings = parser.parse_response(
             category="Tech",
             text="""Summary
 - 첫 번째 요약

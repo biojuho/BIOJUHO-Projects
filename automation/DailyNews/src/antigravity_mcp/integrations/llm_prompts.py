@@ -65,7 +65,9 @@ def get_category_contract(category: str) -> dict[str, Any]:
     return _CATEGORY_CONTRACTS["default"]
 
 
-def resolve_prompt_mode(window_name: str, item_count: int) -> str:
+def resolve_prompt_mode(window_name: str, item_count: int, detail_level: str = "standard") -> str:
+    if detail_level == "minimal":
+        return "v1-brief"
     if resolve_brief_style() == "concise":
         return "v1-brief"
     if PROMPT_VERSION in ("v2-deep", "v2-multi"):
@@ -183,9 +185,10 @@ def build_report_prompt(
     window_name: str,
     quality_feedback: dict | None = None,
     overlapping_drafts: list[str] | None = None,
+    detail_level: str = "standard",
 ) -> tuple[str, str, str]:
     contract = get_category_contract(category)
-    mode = resolve_prompt_mode(window_name, len(items))
+    mode = resolve_prompt_mode(window_name, len(items), detail_level=detail_level)
     audiences = ", ".join(contract["audiences"])
     x_length = str(contract["x_length"])
     tone = str(contract["tone"])

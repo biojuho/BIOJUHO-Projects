@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from antigravity_mcp.integrations.fact_check_adapter import FactCheckAdapter
-from antigravity_mcp.integrations.llm_adapter import _is_meta_response
+from antigravity_mcp.integrations.llm import is_meta_response
 from antigravity_mcp.integrations.llm_prompts import get_category_contract
 from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext
 
@@ -246,7 +246,7 @@ async def _auto_heal_once(
             return False
 
         # 메타응답 감지 — "죄송합니다 / 이전 기록 없음" 류를 ctx에 주입하지 않음
-        if _is_meta_response(corrected_text, check_line_count=False):
+        if is_meta_response(corrected_text, check_line_count=False):
             logger.warning("Auto-heal returned meta-response for %s; discarding", ctx.category)
             ctx.analysis_meta["auto_heal"] = {"applied": False, "reason": "meta_response"}
             return False
