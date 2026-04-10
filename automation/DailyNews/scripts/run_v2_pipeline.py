@@ -16,9 +16,13 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-sys.path.insert(0, r"D:\AI project\DailyNews\src")
-sys.path.insert(0, r"D:\AI project\DailyNews\scripts")
-sys.path.insert(0, r"D:\AI project\packages")
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
+_WORKSPACE_ROOT = _PROJECT_ROOT.parents[1]
+
+sys.path.insert(0, str(_PROJECT_ROOT / "src"))
+sys.path.insert(0, str(_SCRIPT_DIR))
+sys.path.insert(0, str(_WORKSPACE_ROOT / "packages"))
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -266,22 +270,35 @@ async def publish_to_notion(results: dict):
             }
         )
 
-        # Post content
+        # Post content — parse markdown headings into Notion heading blocks
         post = r.get("post", "")
-        paragraphs = post.replace("\\n", "\n").split("\n\n")
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
+        for line in post.replace("\\n", "\n").split("\n"):
+            line_stripped = line.strip()
+            if not line_stripped:
                 continue
-            if len(para) > 1990:
-                para = para[:1990] + "..."
-            children.append(
-                {
+            if line_stripped.startswith("## "):
+                heading_text = line_stripped[3:].strip()[:1990]
+                children.append({
+                    "object": "block",
+                    "type": "heading_2",
+                    "heading_2": {"rich_text": [{"type": "text", "text": {"content": heading_text}}]},
+                })
+            elif line_stripped.startswith("# "):
+                heading_text = line_stripped[2:].strip()[:1990]
+                children.append({
+                    "object": "block",
+                    "type": "heading_1",
+                    "heading_1": {"rich_text": [{"type": "text", "text": {"content": heading_text}}]},
+                })
+            elif line_stripped == "---":
+                children.append({"object": "block", "type": "divider", "divider": {}})
+            else:
+                text = line_stripped[:1990]
+                children.append({
                     "object": "block",
                     "type": "paragraph",
-                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para}}]},
-                }
-            )
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": text}}]},
+                })
 
         children.append({"object": "block", "type": "divider", "divider": {}})
 
@@ -332,20 +349,20 @@ async def run_full_pipeline():
         print(f"[{cat}] Starting pipeline...")
         print(f"{'-' * 40}")
 
-        # Stage 1: Deep Collect
+        # Stage 1: Deep Collect (저녁 실행 — 당일 전체 수집 후 24h 폴백)
         items, warnings = await collect_content_items(
             categories=[cat],
-            window_name="evening",
+            window_name="24h",
             max_items=10,
             state_store=state_store,
             fetch_bodies=True,
         )
 
         if not items:
-            # Fallback to 24h window
+            # Fallback to wider window
             items, warnings = await collect_content_items(
                 categories=[cat],
-                window_name="24h",
+                window_name="48h",
                 max_items=10,
                 state_store=state_store,
                 fetch_bodies=True,
@@ -384,12 +401,18 @@ async def run_full_pipeline():
 
         x_thread = result.get("x_thread", [])
         post_text = x_thread[0] if x_thread else ""
+        tagline = result.get("tagline", "")
 
         if not post_text:
             print(f"  ❌ No post generated for {cat}")
             continue
 
-        print(f"  ✅ Post: {len(post_text)} chars")
+        # Prepend newsletter header
+        today_str_header = date.today().isoformat()
+        header = f"# {cat} Morning Brief\n\n*{today_str_header} | 오늘의 키워드: {tagline}*\n\n---\n\n"
+        post_text = header + post_text.replace("\\n", "\n")
+
+        print(f"  ✅ Post: {len(post_text)} chars | tagline: {tagline[:40]}")
 
         # Stage 4: QC Score
         qc = await qc_score(brain, cat, post_text.replace("\\n", "\n"))
@@ -424,6 +447,7 @@ async def run_full_pipeline():
 
         all_results[cat] = {
             "post": post_text,
+            "tagline": tagline,
             "summary": result.get("summary", []),
             "insights": result.get("insights", []),
             "reasoning_patterns": reasoning_patterns,
@@ -479,7 +503,7 @@ async def run_full_pipeline():
     chk_store.mark_completed(job_id)
 
     # Save local backup
-    output_path = Path(r"D:\AI project\automation\DailyNews\output")
+    output_path = _PROJECT_ROOT / "output"
     output_path.mkdir(parents=True, exist_ok=True)
     backup = output_path / f"v2_pipeline_{date.today().isoformat()}.json"
     with open(backup, "w", encoding="utf-8") as f:
