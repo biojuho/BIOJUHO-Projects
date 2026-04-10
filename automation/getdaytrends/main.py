@@ -49,16 +49,10 @@ if sys.platform == "win32" and "pytest" not in sys.modules and hasattr(sys.stdou
 import schedule
 from loguru import logger as log
 
-try:
-    from .config import VERSION, AppConfig
-    from .core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
-    from .db import close_pg_pool, get_connection, get_trend_stats, init_db
-    from .utils import run_async
-except ImportError:
-    from config import VERSION, AppConfig
-    from core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
-    from db import close_pg_pool, get_connection, get_trend_stats, init_db
-    from utils import run_async
+from getdaytrends.config import VERSION, AppConfig
+from getdaytrends.core.pipeline import maybe_cleanup, maybe_send_weekly_cost_report, run_pipeline
+from getdaytrends.db import close_pg_pool, get_connection, get_trend_stats, init_db
+from getdaytrends.utils import run_async
 
 # ══════════════════════════════════════════════════════
 #  프로세스 Lockfile (동시 실행 방지)

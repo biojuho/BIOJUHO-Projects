@@ -25,55 +25,28 @@ try:
     )
     _HARNESS_AVAILABLE = True
 except ImportError:
-    try:
-        from harness_integration import (
-            get_pipeline_harness,
-            governed_step,
-            print_harness_summary,
-        )
-        _HARNESS_AVAILABLE = True
-    except ImportError:
-        _HARNESS_AVAILABLE = False
-        get_pipeline_harness = None  # type: ignore
-        governed_step = None  # type: ignore
-        print_harness_summary = None  # type: ignore
+    _HARNESS_AVAILABLE = False
+    get_pipeline_harness = None  # type: ignore
+    governed_step = None  # type: ignore
+    print_harness_summary = None  # type: ignore
 
-try:
-    from ..alerts import check_and_alert, check_watchlist
-    from ..analyzer import analyze_trends
-    from ..config import AppConfig
-    from ..db import (
-        cleanup_old_records,
-        get_connection,
-        get_meta,
-        get_recent_avg_viral_score,
-        get_trend_history_batch,
-        init_db,
-        save_run,
-        set_meta,
-        update_run,
-    )
-    from ..models import RunResult
-    from ..scraper import collect_contexts, collect_trends
-    from ..utils import run_async
-except ImportError:
-    from alerts import check_and_alert, check_watchlist
-    from analyzer import analyze_trends
-    from config import AppConfig
-    from db import (
-        cleanup_old_records,
-        get_connection,
-        get_meta,
-        get_recent_avg_viral_score,
-        get_trend_history_batch,
-        init_db,
-        save_run,
-        set_meta,
-        update_run,
-    )
-    from models import RunResult
-    from scraper import collect_contexts, collect_trends
-    from utils import run_async
+from getdaytrends.alerts import check_and_alert, check_watchlist
+from getdaytrends.analyzer import analyze_trends
+from getdaytrends.config import AppConfig
+from getdaytrends.db import (
+    cleanup_old_records,
+    get_connection,
+    get_meta,
+    get_recent_avg_viral_score,
+    get_trend_history_batch,
+    init_db,
+    save_run,
+    set_meta,
+    update_run,
+)
+from getdaytrends.models import RunResult
+from getdaytrends.scraper import collect_contexts, collect_trends
+from getdaytrends.utils import run_async
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
