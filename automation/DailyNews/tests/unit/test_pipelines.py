@@ -598,8 +598,8 @@ class TestPublishPipeline:
         assert saved.has_notion_sync() is False
 
     @pytest.mark.asyncio
-    async def test_regression_properties_include_type_sentiment_entities_20260331(self, state_store, sample_report):
-        """Regression: publish_report should set Type=News and map Sentiment/Entities from analysis_meta."""
+    async def test_regression_properties_include_type_20260331(self, state_store, sample_report):
+        """Regression: publish_report should set Type=News (and NOT map Sentiment/Entities)."""
         from antigravity_mcp.pipelines.publish import publish_report
 
         sample_report.analysis_meta = {
@@ -634,8 +634,8 @@ class TestPublishPipeline:
         call_kwargs = mock_notion.create_record.call_args[1]
         props = call_kwargs["properties"]
         assert props["Type"] == {"select": {"name": "News"}}
-        assert props["Sentiment"] == {"select": {"name": "BULLISH"}}
-        assert props["Entities"] == {"multi_select": [{"name": "AI"}, {"name": "Cloud"}]}
+        assert "Sentiment" not in props
+        assert "Entities" not in props
 
     def test_regression_api_version_is_stable_20260331(self):
         """Regression: Notion API version must be 2022-06-28, not the non-existent 2025-09-03."""

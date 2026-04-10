@@ -43,15 +43,13 @@ def load_script_module(monkeypatch, tmp_path):
         module = importlib.import_module(module_name)
         runtime = importlib.import_module("runtime")
 
-        data_dir = tmp_path / "data"
-        log_dir = tmp_path / "logs"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        log_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            from shared.test_utils.fixtures import SystemFixtureFactory
+            SystemFixtureFactory.patch_runtime_paths(monkeypatch, runtime, tmp_path)
+        except ImportError:
+            # Fallback for systems without shared repo module
+            pass
 
-        monkeypatch.setattr(runtime, "DATA_DIR", data_dir, raising=False)
-        monkeypatch.setattr(runtime, "LOG_DIR", log_dir, raising=False)
-        monkeypatch.setattr(runtime, "PIPELINE_STATE_DB", data_dir / "pipeline_state.db", raising=False)
-        monkeypatch.setattr(runtime, "SCHEDULER_LOG_PATH", log_dir / "scheduler.log", raising=False)
         return module, runtime
 
     return _load

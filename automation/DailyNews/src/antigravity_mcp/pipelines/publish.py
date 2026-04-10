@@ -189,10 +189,6 @@ async def _publish_to_notion(
         "Date": {"date": {"start": today_iso}},
         "Type": {"select": {"name": "News"}},
     }
-    if sentiment_meta.get("overall"):
-        properties["Sentiment"] = {"select": {"name": sentiment_meta["overall"]}}
-    if sentiment_meta.get("entities"):
-        properties["Entities"] = {"multi_select": [{"name": e[:100]} for e in sentiment_meta["entities"][:5]]}
 
     try:
         existing_pages, _ = await notion_adapter.query_database(

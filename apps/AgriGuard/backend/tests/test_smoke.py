@@ -7,12 +7,14 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 import uuid
 
 backend_dir = os.path.join(os.path.dirname(__file__), "..")
 workspace_dir = os.path.abspath(os.path.join(backend_dir, "..", "..", ".."))
 temp_root = os.path.join(workspace_dir, ".smoke-tmp", "agriguard-backend")
 os.makedirs(temp_root, exist_ok=True)
+PYTHON = sys.executable
 
 
 def _subprocess_env() -> dict[str, str]:
@@ -27,13 +29,13 @@ def _subprocess_env() -> dict[str, str]:
 
 def test_imports():
     """Verify all core modules can be imported without error."""
-    result = subprocess.run(["python", "-c", "import models, database, seed_db"], cwd=backend_dir, env=_subprocess_env())
+    result = subprocess.run([PYTHON, "-c", "import models, database, seed_db"], cwd=backend_dir, env=_subprocess_env())
     assert result.returncode == 0
 
 
 def test_seed_db_creates_data():
     """Run seed_db and verify data counts."""
-    result = subprocess.run(["python", "seed_db.py"], cwd=backend_dir, capture_output=True, env=_subprocess_env())
+    result = subprocess.run([PYTHON, "seed_db.py"], cwd=backend_dir, capture_output=True, env=_subprocess_env())
     assert result.returncode == 0
 
 
@@ -53,7 +55,7 @@ try:
 finally:
     db.close()
 """
-    result = subprocess.run(["python", "-c", code], cwd=backend_dir, env=_subprocess_env())
+    result = subprocess.run([PYTHON, "-c", code], cwd=backend_dir, env=_subprocess_env())
     assert result.returncode == 0
 
 
@@ -105,7 +107,7 @@ try:
 finally:
     db.close()
 """
-    result = subprocess.run(["python", "-c", code], cwd=backend_dir, env=_subprocess_env())
+    result = subprocess.run([PYTHON, "-c", code], cwd=backend_dir, env=_subprocess_env())
     assert result.returncode == 0
 
 
@@ -121,7 +123,7 @@ def test_run_migrations_script_applies_head_revision():
         env["AUTO_CREATE_SCHEMA"] = "0"
 
         result = subprocess.run(
-            ["python", "scripts/run_migrations.py"],
+            [PYTHON, "scripts/run_migrations.py"],
             cwd=backend_dir,
             env=env,
             capture_output=True,
@@ -168,7 +170,7 @@ def test_qr_ab_script_handles_missing_variant_data():
             json.dump(payload, handle)
 
         result = subprocess.run(
-            ["python", "../scripts/ab_test_qr_page.py", "--dataset", dataset_path],
+            [PYTHON, "../scripts/ab_test_qr_page.py", "--dataset", dataset_path],
             cwd=backend_dir,
             capture_output=True,
             text=True,

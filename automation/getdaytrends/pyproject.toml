@@ -7,7 +7,7 @@ dependencies = [
     "anthropic>=0.45.0,<1.0",
     "requests>=2.32.0,<3.0",
     "beautifulsoup4>=4.12.3,<5.0",
-    "lxml>=5.0.0,<6.0",
+    "lxml>=6.0.2,<7.0",
     "schedule>=1.2.0,<2.0",
     "python-dotenv>=1.0.0,<2.0",
     "notion-client>=2.2.1,<3.0",
@@ -36,3 +36,10 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = [".."]
 include = ["getdaytrends*"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23.0,<1.0",
+    "respx>=0.21.0,<1.0",
+]

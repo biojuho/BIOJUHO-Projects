@@ -30,6 +30,7 @@ _ROOT_ONLY_KEYS = frozenset({
     "OPENAI_API_KEY",
     "DEEPSEEK_API_KEY",
     "OPENROUTER_API_KEY",
+    "DATABASE_URL",
 })
 
 

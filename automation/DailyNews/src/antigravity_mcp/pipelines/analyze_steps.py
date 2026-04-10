@@ -152,6 +152,18 @@ async def generate_base_payload(
         # LLM 타임아웃/JSON 파싱 실패 등 — 파이프라인 크래시 대신 빈 페이로드로 graceful degradation
         logger.error(f"generate_base_payload LLM 호출 실패: {type(exc).__name__}: {exc}")
         ctx.warnings.append(f"LLM generation failed for {ctx.category}: {type(exc).__name__}")
+        # Notifier 연동 (약결합, fire-and-forget)
+        try:
+            from shared.notifications import Notifier
+            notifier = Notifier.from_env()
+            if notifier.has_channels:
+                notifier.send_error(
+                    f"DailyNews LLM 호출 실패 ({ctx.category}): {type(exc).__name__}",
+                    error=exc,
+                    source="DailyNews",
+                )
+        except Exception:
+            pass
         return GeneratedPayload(
             summary_lines=[], insights=[], channel_drafts=[],
             generation_mode=ctx.generation_mode,

@@ -31,6 +31,15 @@ from antigravity_mcp.tracing import trace_context
 
 logger = logging.getLogger(__name__)
 
+
+def _get_notifier():
+    """Lazy-import shared Notifier (never raises)."""
+    try:
+        from shared.notifications import Notifier
+        return Notifier.from_env()
+    except Exception:
+        return None
+
 __all__ = ["BriefAdapters", "ReportAssemblyContext", "build_report_fingerprint", "generate_briefs"]
 
 
@@ -296,5 +305,30 @@ async def generate_briefs(
 
         if blocked_reports:
             await _alert_blocked_reports(blocked_reports, run_id)
+
+        # ── Notifier 연동: heartbeat + error (약결합, fire-and-forget) ──
+        try:
+            notifier = _get_notifier()
+            if notifier and notifier.has_channels:
+                if blocked_reports:
+                    blocked_cats = ", ".join(r.category for r in blocked_reports)
+                    notifier.send_error(
+                        f"DailyNews 리포트 생성 실패: {len(blocked_reports)}건 blocked ({blocked_cats})",
+                        source="DailyNews",
+                    )
+                else:
+                    categories_done = ", ".join(grouped.keys())
+                    notifier.send_heartbeat(
+                        "DailyNews",
+                        status="alive",
+                        details=(
+                            f"window={window_name} | "
+                            f"카테고리={categories_done} | "
+                            f"리포트={len(reports)}건 | "
+                            f"아이템={len(items)}건"
+                        ),
+                    )
+        except Exception as notifier_exc:
+            logger.debug("Notifier send failed (ignored): %s", notifier_exc)
 
     return run_id, reports, warnings, "partial" if warnings else "ok"

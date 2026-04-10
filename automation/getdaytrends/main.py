@@ -449,10 +449,36 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
     if failures:
         failed_countries = ", ".join(country.upper() for country, _ in failures)
         log.error(f"Parallel country run failed: {failed_countries}")
+        try:
+            from shared.notifications import Notifier
+            _notifier = Notifier.from_env()
+            if _notifier.has_channels:
+                _notifier.send_error(
+                    f"병렬 파이프라인 실패 ({failed_countries}): {failures[0][1]}",
+                    error=failures[0][1],
+                    source="GetDayTrends",
+                )
+        except Exception as e:
+            log.warning(f"Failed to send error notification: {e}")
+            
         if len(failures) == len(countries):
             raise RuntimeError(f"All parallel country runs failed: {failed_countries}") from failures[0][1]
 
     successful_countries = [country for country, _, _, error in country_results if error is None]
+    
+    try:
+        if successful_countries:
+            from shared.notifications import Notifier
+            _notifier = Notifier.from_env()
+            if _notifier.has_channels:
+                _notifier.send_heartbeat(
+                    "GetDayTrends",
+                    status="alive",
+                    details=f"병렬 완료: {', '.join(successful_countries)} / 전체: {len(countries)}"
+                )
+    except Exception as e:
+        log.warning(f"Failed to send heartbeat notification: {e}")
+
     await _refresh_tap_products_after_parallel_runs(config, successful_countries)
 
     return [result for _, result, _, error in country_results if error is None]
@@ -472,6 +498,15 @@ def main():
 
     try:
         _main_body()
+    except Exception as exc:
+        try:
+            from shared.notifications import Notifier
+            _notifier = Notifier.from_env()
+            if _notifier.has_channels:
+                _notifier.send_error(f"GetDayTrends 파이프라인 가동 중단 (main): {exc}", error=exc, source="GetDayTrends")
+        except Exception:
+            pass
+        raise
     finally:
         if not _skip_lock:
             _release_lock()
@@ -566,14 +601,40 @@ def _main_body():
 
     # 즉시 1회 실행 (다국가 지원 — 병렬/순차 자동 선택)
     def _run_all_countries():
-        if len(config.countries) > 1 and config.enable_parallel_countries:
-            run_async(_run_countries_parallel_job(config))
-        else:
-            for country in config.countries:
-                country_config = config.for_country(country) if country != config.country else config
-                if len(config.countries) > 1:
-                    print(f"\n  ═══ 국가: {country.upper()} ═══")
-                run_pipeline(country_config, schedule_callback=_run_all_countries)
+        try:
+            if len(config.countries) > 1 and config.enable_parallel_countries:
+                run_async(_run_countries_parallel_job(config))
+            else:
+                for country in config.countries:
+                    country_config = config.for_country(country) if country != config.country else config
+                    if len(config.countries) > 1:
+                        print(f"\n  ═══ 국가: {country.upper()} ═══")
+                    
+                    try:
+                        result = run_pipeline(country_config, schedule_callback=_run_all_countries)
+                        # 단일 실행 시 Heartbeat 연결
+                        from shared.notifications import Notifier
+                        _notifier = Notifier.from_env()
+                        if _notifier.has_channels and result:
+                            _notifier.send_heartbeat(
+                                "GetDayTrends",
+                                status="alive",
+                                details=f"국가: {country_config.country} 완료 (수집: {result.trends_collected})"
+                            )
+                    except Exception as pipe_err:
+                        # 단일 실행 시 에러 알림
+                        from shared.notifications import Notifier
+                        _notifier = Notifier.from_env()
+                        if _notifier.has_channels:
+                            _notifier.send_error(
+                                f"파이프라인 실패 ({country_config.country}): {pipe_err}",
+                                error=pipe_err,
+                                source="GetDayTrends",
+                            )
+                        raise
+        except Exception as run_err:
+            from loguru import logger as log
+            log.error(f"스케줄 파이프라인 실행 중 오류: {run_err}")
 
     _run_all_countries()
 

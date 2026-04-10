@@ -13,6 +13,25 @@ from antigravity_mcp.state.store import PipelineStateStore
 logger = logging.getLogger(__name__)
 
 
+def _get_notifier():
+    """Lazy-import shared Notifier (never raises)."""
+    try:
+        from shared.notifications import Notifier
+        return Notifier.from_env()
+    except Exception:
+        return None
+
+
+def _notify_error(message: str, exc: Exception | None = None, *, source: str = "DailyNews") -> None:
+    """Fire-and-forget Notifier error alert (never raises)."""
+    try:
+        notifier = _get_notifier()
+        if notifier and notifier.has_channels:
+            notifier.send_error(message, error=exc, source=source)
+    except Exception as e:
+        logger.debug("Notifier error send failed (ignored): %s", e)
+
+
 def _normalize_categories(categories: list[str] | None) -> list[str] | None:
     if not categories:
         return None
@@ -60,6 +79,7 @@ async def content_generate_brief_tool(
             )
         except Exception as exc:
             await _alert_on_error("collect", type(exc).__name__, str(exc))
+            _notify_error("수집(collect) 실패", exc, source="DailyNews")
             return error_response("collect_failed", f"Collection failed: {exc}")
 
         if not items:
@@ -80,6 +100,7 @@ async def content_generate_brief_tool(
             )
         except Exception as exc:
             await _alert_on_error("analyze", type(exc).__name__, str(exc))
+            _notify_error("분석(analyze) 실패", exc, source="DailyNews")
             return error_response("analyze_failed", f"Analysis failed: {exc}")
 
         payload = {
@@ -111,6 +132,7 @@ async def content_publish_report_tool(
             )
         except Exception as exc:
             await _alert_on_error("publish", type(exc).__name__, str(exc), report_id)
+            _notify_error(f"발행(publish) 실패 (report={report_id})", exc, source="DailyNews")
             return error_response("publish_failed", f"Publish failed: {exc}")
 
         if status == "error":

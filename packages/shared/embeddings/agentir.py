@@ -407,8 +407,10 @@ def _embed_via_gemini_fallback(texts: list[str]) -> list[list[float]] | None:
 # ══════════════════════════════════════════════════════
 
 
-def cosine_similarity(a: list[float], b: list[float]) -> float:
+def cosine_similarity(a: list[float] | None, b: list[float] | None) -> float:
     """코사인 유사도 (0.0 ~ 1.0)."""
+    if not a or not b:
+        return 0.0
     if len(a) != len(b):
         return 0.0
     dot = sum(x * y for x, y in zip(a, b, strict=False))

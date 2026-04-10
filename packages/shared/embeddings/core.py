@@ -194,8 +194,10 @@ async def embed_texts_async(
 # ══════════════════════════════════════════════════════
 
 
-def cosine_similarity(a: list[float], b: list[float]) -> float:
+def cosine_similarity(a: list[float] | None, b: list[float] | None) -> float:
     """두 벡터 간 코사인 유사도 (0.0 ~ 1.0)."""
+    if not a or not b:
+        return 0.0
     if len(a) != len(b):
         return 0.0
     dot = sum(x * y for x, y in zip(a, b, strict=False))

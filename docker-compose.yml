@@ -131,6 +131,28 @@ services:
     # Override CMD to run scheduler mode instead of one-shot
     command: ["python", "main.py"]
 
+  # DailyNews - Automated News & Notion Synchronization
+  dailynews:
+    build:
+      context: ./automation/DailyNews
+      dockerfile: Dockerfile
+    container_name: dailynews-pipeline
+    environment:
+      NOTION_API_KEY: ${NOTION_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TZ: Asia/Seoul
+    volumes:
+      - ./automation/DailyNews/data:/app/data
+      - ./automation/DailyNews/logs:/app/logs
+      - ./automation/DailyNews/output:/app/output
+      - ./automation/DailyNews/config:/app/config
+    networks:
+      - ai-projects-network
+    restart: unless-stopped
+    command: ["python", "scripts/run_daily_news.py"]
+
   # Redis (for future caching)
   # redis:
   #   image: redis:7-alpine
