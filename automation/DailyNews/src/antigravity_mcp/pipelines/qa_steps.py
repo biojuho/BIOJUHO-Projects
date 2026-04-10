@@ -238,7 +238,6 @@ async def _auto_heal_once(
         corrected_text = await llm.generate_text(
             prompt=heal_prompt,
             max_tokens=1200,
-            temperature=0.15,
             cache_scope=f"heal:{ctx.category}:{ctx.window_name}",
         )
         if not corrected_text or len(corrected_text.strip()) < 50:

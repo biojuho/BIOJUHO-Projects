@@ -76,7 +76,6 @@ class LLMClientWrapper:
         prompt: str | tuple[str, str],
         *,
         max_tokens: int = 2000,
-        temperature: float = 0.7,
         cache_scope: str = "generic",
     ) -> tuple[str, dict[str, Any], list[str]]:
         if not self.token_budget.can_afford(500 + max_tokens):
@@ -86,7 +85,6 @@ class LLMClientWrapper:
         return await self._complete_text(
             prompt=prompt,
             max_tokens=max_tokens,
-            temperature=temperature,
             cache_scope=cache_scope,
         )
 
@@ -95,7 +93,6 @@ class LLMClientWrapper:
         *,
         prompt: str | tuple[str, str],
         max_tokens: int,
-        temperature: float,
         cache_scope: str,
     ) -> tuple[str, dict[str, Any], list[str]]:
         warnings: list[str] = []
@@ -123,7 +120,7 @@ class LLMClientWrapper:
                 return cached_text, meta, warnings
 
         text = await self._try_shared_llm(
-            prompt=prompt, max_tokens=max_tokens, temperature=temperature, meta=meta, warnings=warnings
+            prompt=prompt, max_tokens=max_tokens, meta=meta, warnings=warnings
         )
         if not text:
             merged_prompt = f"{prompt[0]}\n\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
@@ -159,7 +156,7 @@ class LLMClientWrapper:
             )
             retry_text = await self._try_shared_llm(
                 prompt=merged_prompt_retry if isinstance(prompt, str) else (prompt[0], merged_prompt_retry.split("\n\n", 1)[-1]),
-                max_tokens=max_tokens, temperature=temperature, meta=meta2, warnings=warnings,
+                max_tokens=max_tokens, meta=meta2, warnings=warnings,
             )
             if not retry_text:
                 merged = merged_prompt_retry if isinstance(merged_prompt_retry, str) else "\n\n".join(merged_prompt_retry)
@@ -202,7 +199,6 @@ class LLMClientWrapper:
         *,
         prompt: str | tuple[str, str],
         max_tokens: int,
-        temperature: float,
         meta: dict[str, Any],
         warnings: list[str],
     ) -> str | None:

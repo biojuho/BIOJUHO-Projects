@@ -140,7 +140,6 @@ class InsightGenerator:
             response = await self.llm_adapter.generate_text(
                 prompt,
                 max_tokens=2000,
-                temperature=0.4,
                 cache_scope="insight-generator",
             )
         except Exception as exc:

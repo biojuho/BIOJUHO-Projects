@@ -38,13 +38,11 @@ class LLMAdapter:
         prompt: str | tuple[str, str],
         *,
         max_tokens: int = 2000,
-        temperature: float = 0.7,
         cache_scope: str = "generic",
     ) -> str:
         text, _meta, _warnings = await self._client.generate_text(
             prompt=prompt,
             max_tokens=max_tokens,
-            temperature=temperature,
             cache_scope=cache_scope
         )
         return text
@@ -81,7 +79,6 @@ class LLMAdapter:
             text, meta, text_warnings = await self._client.generate_text(
                 prompt=(system_prompt, user_prompt),
                 max_tokens=1500,
-                temperature=0.2,
                 cache_scope=f"report:{category}:{window_name}:{generation_mode}",
             )
             warnings.extend(text_warnings)
