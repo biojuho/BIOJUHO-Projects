@@ -1,8 +1,33 @@
 # Handoff Document
 
 **Last Updated**: 2026-04-10
-**Session Status**: Healthy / 1,095+ tests GREEN / worktree CLEAN / synced with origin
+**Session Status**: Healthy / 1,828 tests GREEN / worktree CLEAN / 2 commits ahead of origin
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-10) — Session QC
+
+### 커밋 정리 + venv 재생성 + 전체 테스트 재검증 + QA/QC
+
+**Status**: PASS / QC APPROVED (`6cf70ff`)
+
+- **커밋 정리**: 54개 uncommitted 파일 → 8개 논리 커밋으로 정리
+- **venv 재생성**: DailyNews / getdaytrends / AgriGuard backend (.venv 신규 생성)
+  - getdaytrends pyproject.toml: setuptools flat-layout 오류 수정
+  - AgriGuard pyproject.toml: `packages=[]` 추가
+- **시스템 Python 누락 패키지**: `pypdf`, `structlog`, `python-dateutil` 설치
+- **QA 발견 수정**:
+  - `generate_text(temperature)` dead parameter 완전 제거 (5개 파일)
+  - `test_backends_timeouts.py`: gemini timeout 기댓값 120 → 120_000 (ms 단위)
+- **최종 테스트**: 1,828 tests GREEN (이전 1,330 대비 +498 신규 테스트)
+  - `tests/`: 219 passed / `shared/`: 519 passed
+  - `DailyNews/`: 408 passed / `getdaytrends/`: 682 passed
+- **잔존 리스크**:
+  - AgriGuard psycopg2-binary Windows 빌드 실패 (LOW)
+  - `.pytest-tmp/` 권한 오류 Windows (LOW, 테스트 무관)
+- QC 보고서: `.agent/qa-reports/2026-04-10-session-qc.md`
+- Note: `origin/main` 대비 2 commits ahead — push 필요
 
 ---
 
