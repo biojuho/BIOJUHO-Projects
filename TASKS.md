@@ -1,13 +1,33 @@
 # Task Board
 
-**Last Updated**: 2026-04-06
+**Last Updated**: 2026-04-10
 **Board Type**: Kanban (TODO / IN_PROGRESS / DONE)
 
 ---
 
 ## TODO
 
-*No pending tasks*
+- [ ] **P2: GetDayTrends 클라우드 이전** (HIGH LEVERAGE)
+  - `getdaytrends.yml` GitHub Actions 검토 → secrets 설정 → cron 활성화
+  - 성공 시 Windows Task Scheduler (`schtasks`) 비활성화
+  - 목표: "3일 연속 장애" 패턴 재발 방지
+
+- [ ] **P2: DailyNews 클라우드 이전**
+  - `dailynews-pipeline.yml` GitHub Actions 검증
+  - Notion API 스키마 안정화 (Sentiment/Entities 속성 불일치 근본 해결)
+
+- [ ] **P2: SQLite → Supabase 실이전**
+  - Supabase 프로젝트 생성
+  - `migrate_sqlite_to_supabase.py` 실행 (이미 작성됨)
+  - `DATABASE_URL` 환경변수 전환
+
+- [ ] **P3: Telegram 알림 실연동**
+  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 설정
+  - Notifier 실제 수신 E2E 테스트
+
+- [ ] **P3: 비용 대시보드 Notion 자동 업로드**
+  - `cost_dashboard.py` 출력 → Notion 페이지 자동 게시
+  - `$2.00 DAILY_BUDGET_USD` 임계치 푸시 알림
 
 ---
 
@@ -18,6 +38,50 @@
 ---
 
 ## DONE (Last 7 Days)
+
+### 2026-04-10
+
+- [x] **로드맵 GAP 분석 + 즉시 정리**
+  - **Context**: 2026-03 시스템 진단 이후 P1~P3 로드맵 이행 현황 종합 분석
+  - **결과**: P1 100% 달성, P2 코드만 준비 (실전환 0%), P3 구현했으나 실운영 미검증
+  - **즉시 조치**: 5 commits push, 8 modified files → 4 logical commits, scratch 파일 5개 삭제
+  - **Validation**: worktree CLEAN, `origin/main` synced
+
+- [x] **GetDayTrends 시스템 최적화 (세션 2회)**
+  - `config.py` 인코딩 복원, 파이프라인 비효율 제거, 테스트 격리 (`pytest.ini`)
+  - 불안정한 `try-except ImportError` 구조 → 절대 import 표준화
+  - Validation: 52 critical tests 100% passed, dry-run 성공
+
+- [x] **인프라 현대화 코드 준비 (P1/P2)**
+  - `shared/env_loader.py` DATABASE_URL, `getdaytrends/config.py` SQLite fallback
+  - `docker-compose.yml` DailyNews 환경 통합
+  - `shared/test_utils/fixtures.py` SystemFixtureFactory 구현
+  - `shared.notifications.Notifier` GetDayTrends + DailyNews 연동
+  - Validation: task 4/4 completed
+
+### 2026-04-09
+
+- [x] **DailyNews 모듈화 리팩토링 (세션 3회)**
+  - `analyze_steps.py` 모듈 분리, `mixins.py` 도메인별 분리
+  - `LLMClientWrapper` DI 패턴 수정 (FakeClient 주입 정상화)
+  - `_publish_to_notion` Sentiment/Entities 속성 제거 (400 에러 수정)
+  - GetDayTrends `dashboard.py` → TAP 라우터 모듈 분리
+  - Validation: DailyNews 408 passed, GetDayTrends 682 passed
+
+- [x] **code-review-graph Token Budget Layer 전체 구현**
+  - Phase 1: `shared/harness/token_tracker.py` (32 tests)
+  - Phase 2: `shared/intelligence/code_graph.py + impact_analyzer.py` (37 tests)
+  - Phase 3: `analyze_steps.py` detail_level + token_budget 통합 (409 tests)
+
+- [x] **Claude Code 7가지 기법 도입**
+  - 6개 규칙 파일 생성/수정 (project-rules, verification-gate, skills-budget-policy 등)
+
+### 2026-04-08
+
+- [x] **Critical Bug Fix — PredictionEngine + PgAdapter SQL corruption**
+  - `shared/prediction/features.py` logger 미정의 → crash 수정
+  - `db_schema.py` `_PgAdapter._ph()` 문자열 리터럴 소실 버그 수정
+  - Validation: **1,330 tests GREEN**
 
 ### 2026-04-06
 
