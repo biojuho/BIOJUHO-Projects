@@ -24,8 +24,8 @@ def test_gemini_client_uses_http_timeout_options():
     ) as mock_http_options:
         manager._get_gemini()
 
-    assert mock_http_options.call_args.kwargs["timeout"] == 120
-    assert mock_client.call_args.kwargs["http_options"]["timeout"] == 120
+    assert mock_http_options.call_args.kwargs["timeout"] == 120_000  # ms (google-genai SDK 1.x)
+    assert mock_client.call_args.kwargs["http_options"]["timeout"] == 120_000
 
 
 def test_close_awaits_async_clients_without_running_loop():
