@@ -23,8 +23,10 @@ TAIL_LINE_COUNT = 20
 TRANSIENT_RETRY_CHECK = "desci frontend unit tests"
 TRANSIENT_RETRY_PATTERNS = (
     "Failed to start threads worker",
+    "Failed to start forks worker",
     "Timeout waiting for worker to respond",
 )
+TRANSIENT_RETRY_MAX = 2
 WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "workspace regression tests": ("fastapi", "sqlalchemy", "aiosqlite", "mcp.server.fastmcp", "pypdf"),
     "desci biolinker smoke": ("fastapi",),
@@ -42,7 +44,6 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "langchain>=0.3.0,<1.0",
         "langchain-openai>=0.3.0,<1.0",
         "langchain-google-genai>=2.0.0,<3.0",
-        "chromadb>=0.5.0,<1.0",
         "qdrant-client>=1.9.1,<2.0",
         "pydantic>=2.0.0,<3.0",
         "pydantic-settings>=2.0.0,<3.0",
@@ -263,6 +264,7 @@ def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[C
 
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
+    vitest_exe = ".\\node_modules\\.bin\\vitest.cmd" if os.name == "nt" else "./node_modules/.bin/vitest"
     desci_frontend = rel_unit_path("desci-platform", "frontend")
     desci_biolinker = rel_unit_path("desci-platform", "biolinker")
     agriguard_frontend = rel_unit_path("agriguard", "frontend")
@@ -284,7 +286,23 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("workspace", "dashboard frontend build", rel_unit_path("dashboard"), [npm_exe, "run", "build"]),
         Check("workspace", "dashboard bundle budget", rel_unit_path("dashboard"), [npm_exe, "run", "check:bundle"]),
         Check("desci", "desci frontend lint", desci_frontend, [npm_exe, "run", "lint"]),
-        Check("desci", "desci frontend unit tests", desci_frontend, [npm_exe, "run", "test:lts"]),
+        Check(
+            "desci",
+            "desci frontend unit tests",
+            desci_frontend,
+            [
+                vitest_exe,
+                "run",
+                "--pool",
+                "forks",
+                "--maxWorkers",
+                "1",
+                "--minWorkers",
+                "1",
+                "--fileParallelism",
+                "false",
+            ],
+        ),
         Check("desci", "desci frontend build", desci_frontend, [npm_exe, "run", "build:lts"]),
         Check("desci", "desci bundle budget", desci_frontend, [npm_exe, "run", "check:bundle"]),
         Check(
@@ -436,8 +454,12 @@ def run_check(root: Path, item: Check) -> Result:
     if not should_retry(item, result):
         return result
 
-    print(f"[smoke] retrying: {item.name} after transient Vitest worker startup timeout")
-    return run_one(root, item)
+    attempt = 0
+    while should_retry(item, result) and attempt < TRANSIENT_RETRY_MAX:
+        attempt += 1
+        print(f"[smoke] retrying: {item.name} (attempt {attempt}/{TRANSIENT_RETRY_MAX})")
+        result = run_one(root, item)
+    return result
 
 
 def main() -> int:
