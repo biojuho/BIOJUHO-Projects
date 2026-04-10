@@ -14,7 +14,7 @@ if "%PYTHON_BIN%"=="" (
 
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
-set "PYTHONPATH=%CD%\src;%PYTHONPATH%"
+set "PYTHONPATH=%CD%\src;%CD%\..\..\packages;%PYTHONPATH%"
 
 "%PYTHON_BIN%" -m antigravity_mcp %*
 set "EXITCODE=%ERRORLEVEL%"

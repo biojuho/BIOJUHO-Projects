@@ -46,7 +46,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-set "PYTHONPATH=%PROJECT_ROOT%\src;%PYTHONPATH%"
+set "PYTHONPATH=%PROJECT_ROOT%\src;%PROJECT_ROOT%\..\..\packages;%PYTHONPATH%"
 echo PYTHONPATH: %PYTHONPATH% >> "%LOGFILE%" 2>&1
 
 REM 파이썬 버전 확인
