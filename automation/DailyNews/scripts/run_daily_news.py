@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from dateutil import parser as date_parser
@@ -23,17 +23,18 @@ from settings import NEWS_SOURCES_FILE, NOTION_API_KEY, NOTION_REPORTS_DATABASE_
 
 
 def get_extraction_window(force: bool) -> tuple[datetime, datetime, str]:
-    now = datetime.now()
-    hour = now.hour
+    KST = timezone(timedelta(hours=9))
+    now_kst = datetime.now(KST).replace(tzinfo=None)  # naive KST
+    hour = now_kst.hour
     if force:
-        return now - timedelta(hours=24), now, "test"
+        return now_kst - timedelta(hours=24), now_kst, "test"
     if 6 <= hour < 8:
-        start = now.replace(hour=18, minute=0, second=0, microsecond=0) - timedelta(days=1)
-        end = now.replace(hour=7, minute=0, second=0, microsecond=0)
+        start = now_kst.replace(hour=18, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        end = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
         return start, end, "morning"
     if 17 <= hour < 19:
-        start = now.replace(hour=7, minute=0, second=0, microsecond=0)
-        end = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        start = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
+        end = now_kst.replace(hour=18, minute=0, second=0, microsecond=0)
         return start, end, "evening"
     raise RuntimeError("outside extraction window; use --force to override")
 

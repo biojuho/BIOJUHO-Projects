@@ -39,7 +39,7 @@ class TestRunCountriesParallel:
             await asyncio.sleep(0.01)
             return FakeRunResult()
 
-        with patch("core.pipeline.async_run_pipeline", side_effect=fake_pipeline):
+        with patch("getdaytrends.core.pipeline.async_run_pipeline", side_effect=fake_pipeline):
             config = FakeConfig(countries=["korea", "us", "japan"])
             configs = [config.for_country(c) for c in config.countries]
             results = await asyncio.gather(

@@ -19,12 +19,12 @@ class TestStepCollectResilience:
 
     def test_collect_trends_exception_returns_empty(self):
         """collect_trends가 예외를 던지면 빈 리스트/딕트를 반환하고 에러를 기록한다."""
-        from core.pipeline import _step_collect
+        from getdaytrends.core.pipeline import _step_collect
 
         run = _make_run()
         cfg = AppConfig()
 
-        with patch("core.pipeline.collect_trends", side_effect=ConnectionError("API timeout")):
+        with patch("getdaytrends.core.pipeline.collect_trends", side_effect=ConnectionError("API timeout")):
             raw_trends, contexts = _step_collect(cfg, conn=MagicMock(), run=run)
 
         assert raw_trends == []
@@ -33,19 +33,19 @@ class TestStepCollectResilience:
 
     def test_collect_trends_exception_preserves_run_state(self):
         """예외 후에도 run.trends_collected가 초기값(0)을 유지한다."""
-        from core.pipeline import _step_collect
+        from getdaytrends.core.pipeline import _step_collect
 
         run = _make_run()
         cfg = AppConfig()
 
-        with patch("core.pipeline.collect_trends", side_effect=RuntimeError("unexpected")):
+        with patch("getdaytrends.core.pipeline.collect_trends", side_effect=RuntimeError("unexpected")):
             _step_collect(cfg, conn=MagicMock(), run=run)
 
         assert run.trends_collected == 0
 
     def test_collect_contexts_exception_keeps_raw_trends(self):
         """collect_contexts가 실패해도 이미 수집된 raw_trends는 보존된다."""
-        from core.pipeline import _step_collect
+        from getdaytrends.core.pipeline import _step_collect
 
         run = _make_run()
         cfg = AppConfig()
@@ -56,8 +56,8 @@ class TestStepCollectResilience:
         fake_ctx.to_combined_text.return_value = "x" * 50  # < _MIN_CTX_LEN(100) → deep 수집 유발
 
         with (
-            patch("core.pipeline.collect_trends", return_value=([fake_trend], {fake_trend.name: fake_ctx})),
-            patch("core.pipeline.collect_contexts", side_effect=TimeoutError("Twitter API timeout")),
+            patch("getdaytrends.core.pipeline.collect_trends", return_value=([fake_trend], {fake_trend.name: fake_ctx})),
+            patch("getdaytrends.core.pipeline.collect_contexts", side_effect=TimeoutError("Twitter API timeout")),
         ):
             raw_trends, contexts = _step_collect(cfg, conn=MagicMock(), run=run)
 
@@ -67,7 +67,7 @@ class TestStepCollectResilience:
 
     def test_collect_normal_path_succeeds(self):
         """정상 경로: 예외 없이 수집 완료."""
-        from core.pipeline import _step_collect
+        from getdaytrends.core.pipeline import _step_collect
 
         run = _make_run()
         cfg = AppConfig()
@@ -77,7 +77,7 @@ class TestStepCollectResilience:
         fake_ctx = MagicMock()
         fake_ctx.to_combined_text.return_value = "x" * 200  # 충분한 컨텍스트
 
-        with patch("core.pipeline.collect_trends", return_value=([fake_trend], {fake_trend.name: fake_ctx})):
+        with patch("getdaytrends.core.pipeline.collect_trends", return_value=([fake_trend], {fake_trend.name: fake_ctx})):
             raw_trends, contexts = _step_collect(cfg, conn=MagicMock(), run=run)
 
         assert len(raw_trends) == 1

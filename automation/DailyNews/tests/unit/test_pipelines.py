@@ -1187,6 +1187,121 @@ Draft
         ]
         assert payload.parse_meta["sections_found"]["draft"] == 1
 
+    def test_parse_v1_brief_response_strips_asterisk_bullets(self):
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+
+        parser = ResponseParser(draft_generator=DraftGenerator())
+        payload, warnings = parser.parse_response(
+            category="Global_Affairs",
+            text="""## Summary
+* First summary line [A1]
+* Second summary line [A2]
+## Insights
+* First insight line [A1]
+## Draft
+Draft text""",
+            items=[
+                ContentItem(
+                    source_name="Reuters",
+                    category="Global_Affairs",
+                    title="Story A",
+                    link="https://example.com/story-a",
+                    summary="Summary A",
+                )
+            ],
+            window_name="morning",
+            generation_mode="v1-brief",
+        )
+
+        assert warnings == []
+        assert payload.summary_lines == [
+            "First summary line [A1]",
+            "Second summary line [A2]",
+        ]
+        assert payload.insights == ["First insight line [A1]"]
+
+    def test_parse_v1_brief_response_ignores_preamble_before_section_headers(self):
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+
+        parser = ResponseParser(draft_generator=DraftGenerator())
+        payload, warnings = parser.parse_response(
+            category="Tech",
+            text="""# Tech 리포트 (수정본)
+
+## Summary
+- First summary line [A1]
+- Second summary line [A2]
+- Third summary line [A3]
+## Insights
+- First insight line [A1]
+- Second insight line [A2]
+## Brief
+Brief body
+## Draft
+Draft text""",
+            items=[
+                ContentItem(
+                    source_name="Reuters",
+                    category="Tech",
+                    title="Story A",
+                    link="https://example.com/story-a",
+                    summary="Summary A",
+                )
+            ],
+            window_name="morning",
+            generation_mode="v1-brief",
+        )
+
+        assert warnings == []
+        assert payload.summary_lines == [
+            "First summary line [A1]",
+            "Second summary line [A2]",
+            "Third summary line [A3]",
+        ]
+        assert "# Tech 리포트 (수정본)" not in payload.summary_lines
+
+    def test_parse_v1_brief_response_accepts_inline_section_content(self):
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+
+        parser = ResponseParser(draft_generator=DraftGenerator())
+        payload, warnings = parser.parse_response(
+            category="Crypto",
+            text="""Summary - First summary line [A1]
+- Second summary line [A2]
+- Third summary line [A3]
+Insights - First insight line [A1]
+- Second insight line [A2]
+Brief - Brief body
+Draft - Draft text""",
+            items=[
+                ContentItem(
+                    source_name="Reuters",
+                    category="Crypto",
+                    title="Story A",
+                    link="https://example.com/story-a",
+                    summary="Summary A",
+                )
+            ],
+            window_name="morning",
+            generation_mode="v1-brief",
+        )
+
+        assert warnings == []
+        assert payload.summary_lines == [
+            "First summary line [A1]",
+            "Second summary line [A2]",
+            "Third summary line [A3]",
+        ]
+        assert payload.insights == [
+            "First insight line [A1]",
+            "Second insight line [A2]",
+        ]
+        assert payload.parse_meta["brief_body"] == "Brief body"
+        assert payload.channel_drafts[0].content == "Draft text"
+
     @pytest.mark.asyncio
     async def test_auto_heal_does_not_overwrite_with_meta_diagnostic_summary(self, state_store):
         from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext

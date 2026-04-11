@@ -25,7 +25,7 @@ def _make_trend(keyword: str) -> ScoredTrend:
 
 @pytest.mark.asyncio
 async def test_step_save_records_false_external_save_result(memory_db):
-    from core.pipeline_steps import _step_save
+    from getdaytrends.core.pipeline_steps import _step_save
 
     config = AppConfig()
     config.storage_type = "notion"
@@ -36,7 +36,7 @@ async def test_step_save_records_false_external_save_result(memory_db):
     run = RunResult(run_id="run-1", country="korea")
     run_id = await save_run(memory_db, run)
 
-    with patch("core.pipeline_steps.save_to_notion", return_value=False) as save_to_notion:
+    with patch("getdaytrends.core.pipeline_steps.save_to_notion", return_value=False) as save_to_notion:
         success = await _step_save(
             [_make_trend("single-db-topic")],
             [make_batch("single-db-topic")],
@@ -53,7 +53,7 @@ async def test_step_save_records_false_external_save_result(memory_db):
 
 @pytest.mark.asyncio
 async def test_step_save_skips_content_hub_when_disabled(memory_db):
-    from core.pipeline_steps import _step_save
+    from getdaytrends.core.pipeline_steps import _step_save
 
     config = AppConfig()
     config.storage_type = "notion"
@@ -67,8 +67,8 @@ async def test_step_save_skips_content_hub_when_disabled(memory_db):
     run = RunResult(run_id="run-2", country="korea")
     run_id = await save_run(memory_db, run)
 
-    with patch("core.pipeline_steps.save_to_notion", return_value=True) as save_to_notion:
-        with patch("core.pipeline_steps.save_to_content_hub", return_value=True) as save_to_content_hub:
+    with patch("getdaytrends.core.pipeline_steps.save_to_notion", return_value=True) as save_to_notion:
+        with patch("getdaytrends.core.pipeline_steps.save_to_content_hub", return_value=True) as save_to_content_hub:
             success = await _step_save(
                 [_make_trend("single-db-topic")],
                 [make_batch("single-db-topic")],

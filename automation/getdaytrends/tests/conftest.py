@@ -23,18 +23,15 @@ import pytest_asyncio
 
 def pytest_configure(config):
     pkg_root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-    workspace_root = os.path.normpath(os.path.join(pkg_root, ".."))
     notebooklm_src = os.path.normpath(os.path.join(pkg_root, "..", "notebooklm-automation", "src"))
-    # Remove any existing entry first, then insert at front
-    for p in (pkg_root, workspace_root):
-        while p in sys.path:
-            sys.path.remove(p)
+    # Ensure getdaytrends package root takes priority for bare 'core', 'models' etc.
+    while pkg_root in sys.path:
+        sys.path.remove(pkg_root)
     sys.path.insert(0, pkg_root)
-    sys.path.insert(1, workspace_root)
     if os.path.isdir(notebooklm_src):
         while notebooklm_src in sys.path:
             sys.path.remove(notebooklm_src)
-        sys.path.insert(2, notebooklm_src)
+        sys.path.insert(1, notebooklm_src)
 
     # loguru 기본 핸들러 제거 후 lambda sink 추가:
     # pytest stdout/stderr 캡처와 충돌로 발생하는

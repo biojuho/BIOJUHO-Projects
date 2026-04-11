@@ -21,7 +21,7 @@ class TestShouldSkipQA:
     """A-2: QA Audit 조건부 스킵 로직 검증."""
 
     def _skip(self, trend, is_cached: bool, config: AppConfig) -> bool:
-        from core.pipeline_steps import _should_skip_qa
+        from getdaytrends.core.pipeline_steps import _should_skip_qa
 
         return _should_skip_qa(trend, is_cached, config)
 
@@ -75,7 +75,7 @@ class TestIsAccelerating:
     """급상승 판별 로직 검증."""
 
     def _check(self, val: str) -> bool:
-        from core.pipeline_steps import _is_accelerating
+        from getdaytrends.core.pipeline_steps import _is_accelerating
 
         return _is_accelerating(val)
 
@@ -107,7 +107,7 @@ class TestBatchFromCache:
     """캐시 → TweetBatch 재구성 검증."""
 
     def test_basic_reconstruction(self):
-        from core.pipeline_steps import _batch_from_cache
+        from getdaytrends.core.pipeline_steps import _batch_from_cache
 
         rows = [
             {"tweet_type": "분석형", "content": "테스트 트윗", "content_type": "short"},
@@ -121,7 +121,7 @@ class TestBatchFromCache:
         assert batch.topic == "테스트"
 
     def test_deduplication(self):
-        from core.pipeline_steps import _batch_from_cache
+        from getdaytrends.core.pipeline_steps import _batch_from_cache
 
         rows = [
             {"tweet_type": "분석형", "content": "첫번째", "content_type": "short"},
@@ -139,11 +139,11 @@ class TestBatchFromCache:
 
 @pytest.mark.asyncio
 async def test_step_generate_handles_empty_trend_list():
-    from core.pipeline_steps import _step_generate
+    from getdaytrends.core.pipeline_steps import _step_generate
 
     cfg = AppConfig()
 
-    with patch("core.pipeline_steps.get_client", return_value=MagicMock()):
+    with patch("getdaytrends.core.pipeline_steps.get_client", return_value=MagicMock()):
         result = await _step_generate([], cfg, conn=MagicMock())
 
     assert result == []

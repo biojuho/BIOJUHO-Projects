@@ -294,7 +294,7 @@ def default_checks(python_exe: str) -> list[Check]:
                 vitest_exe,
                 "run",
                 "--pool",
-                "forks",
+                "threads",
                 "--maxWorkers",
                 "1",
                 "--minWorkers",
@@ -323,7 +323,7 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("mcp", "github-mcp compile", ".", compile_command(python_exe, f"{github_mcp}/scripts")),
         Check("mcp", "DailyNews unit tests", dailynews, [python_exe, "-m", "pytest", "tests/unit", "-q"]),
         Check("getdaytrends", "getdaytrends compile", ".", compile_command(python_exe, getdaytrends)),
-        Check("getdaytrends", "getdaytrends tests", getdaytrends, [python_exe, "-m", "pytest", "tests", "-q"]),
+        Check("getdaytrends", "getdaytrends tests", getdaytrends, [python_exe, "-m", "pytest", "-c", "pytest.ini", "tests", "-q"]),
     ]
 
 

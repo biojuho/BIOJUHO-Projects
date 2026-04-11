@@ -141,6 +141,18 @@ class ResponseParser:
             return header_line
         return None
 
+    def _extract_inline_v1_section(self, line: str) -> tuple[str | None, str]:
+        cleaned = line.strip()
+        cleaned = re.sub(r"^[#>\-\s]+", "", cleaned)
+        cleaned = cleaned.replace("**", "").replace("__", "").strip()
+        match = re.match(r"^(summary|insights|brief|draft)\s*(?::|-)\s*(.+)$", cleaned, re.I)
+        if match is None:
+            return None, ""
+        return match.group(1).lower(), match.group(2).strip()
+
+    def _strip_v1_list_marker(self, line: str) -> str:
+        return re.sub(r"^(?:[-*]|\u2022)\s+", "", line).strip()
+
     def _parse_v1_response(
         self,
         *,
@@ -155,7 +167,7 @@ class ResponseParser:
         brief_lines: list[str] = []
         draft_lines: list[str] = []
         warnings: list[str] = []
-        current = "summary"
+        current: str | None = None
         insight_limit = 2 if generation_mode == "v1-brief" else 3
 
         for raw_line in text.splitlines():
@@ -166,11 +178,17 @@ class ResponseParser:
             if detected is not None:
                 current = detected
                 continue
+            inline_section, remainder = self._extract_inline_v1_section(line)
+            if inline_section is not None:
+                current = inline_section
+                line = remainder
+            if current is None:
+                continue
             if current == "summary":
-                clean = line.removeprefix("- ").strip()
+                clean = self._strip_v1_list_marker(line)
                 summary_lines.append(clean)
             elif current == "insights":
-                clean = line.removeprefix("- ").strip()
+                clean = self._strip_v1_list_marker(line)
                 insights.append(clean)
             elif current == "brief":
                 brief_lines.append(line)

@@ -74,7 +74,7 @@ def _make_trend(
 
 def test_ensure_min_article_count(config):
     """바이럴 점수 낮은 트렌드들 → 최소 5개 보장."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("트렌드1", viral=55, category="연예"),
@@ -95,7 +95,7 @@ def test_ensure_min_article_count(config):
 
 def test_ensure_min_with_sufficient_trends(config):
     """충분한 바이럴 점수 트렌드 → 정상 필터링."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("높은1", viral=90, category="테크"),
@@ -111,7 +111,7 @@ def test_ensure_min_with_sufficient_trends(config):
 
 def test_category_diversity(config):
     """동일 카테고리 5개 → 다른 카테고리 포함 + max_same 제한."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("테크1", viral=90, category="테크"),
@@ -133,7 +133,7 @@ def test_category_diversity(config):
 
 def test_max_same_category_limit(config):
     """같은 카테고리 초과 시 차순위로 대체."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     config.max_same_category = 1
 
@@ -157,7 +157,7 @@ def test_max_same_category_limit(config):
 
 def test_safety_flag_excluded(config):
     """safety_flag=True 트렌드는 다양성 선택에서 제외."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("위험트렌드", viral=95, category="사회", safety=True),
@@ -173,7 +173,7 @@ def test_safety_flag_excluded(config):
 
 def test_empty_trends(config):
     """빈 트렌드 목록 → 빈 결과."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     result = _ensure_quality_and_diversity([], config)
     assert result == []
@@ -181,7 +181,7 @@ def test_empty_trends(config):
 
 def test_diversity_preserves_order(config):
     """결과는 바이럴 점수 내림차순으로 정렬."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("낮음", viral=65, category="연예"),
@@ -197,7 +197,7 @@ def test_diversity_preserves_order(config):
 
 def test_exclude_categories(config):
     """정치·연예 카테고리 트렌드가 결과에서 제외."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     config.exclude_categories = ["정치", "연예"]
 
@@ -219,7 +219,7 @@ def test_exclude_categories(config):
 
 def test_exclude_categories_empty(config):
     """빈 제외 목록이면 모든 카테고리 통과."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     config.exclude_categories = []
 
@@ -235,7 +235,7 @@ def test_exclude_categories_empty(config):
 
 def test_exclude_categories_dynamic_min_count(config):
     """카테고리 제외 후 남은 트렌드가 min_count 미만이면 동적 축소."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     config.exclude_categories = ["정치", "연예"]
     config.min_article_count = 5
@@ -259,7 +259,7 @@ def test_exclude_categories_dynamic_min_count(config):
 
 def test_exclude_all_leaves_empty(config):
     """모든 트렌드가 제외 카테고리면 빈 결과 (zero-content prevention 비활성화 시)."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     config.exclude_categories = ["정치", "연예"]
     config.enable_zero_content_prevention = False  # [v15.0] 명시적 비활성화
@@ -275,7 +275,7 @@ def test_exclude_all_leaves_empty(config):
 
 def test_publishable_false_excluded(config):
     """[v13.0] publishable=false 트렌드는 결과에서 제외."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("정상트렌드", viral=90, category="테크"),
@@ -359,7 +359,7 @@ def test_compute_freshness_score_fallback():
 
 def test_freshness_grade_assignment(config):
     """content_age에 따른 freshness_grade 부여 검증."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("최신", viral=90, category="테크", content_age_hours=1.0),
@@ -379,7 +379,7 @@ def test_freshness_grade_assignment(config):
 
 def test_expired_trend_penalty(config):
     """expired 트렌드 바이럴 점수 70%로 감소."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("최신뉴스", viral=90, category="테크", content_age_hours=0.5),
@@ -397,7 +397,7 @@ def test_expired_trend_penalty(config):
 
 def test_stale_trend_penalty(config):
     """stale 트렌드 바이럴 점수 85%로 감소."""
-    from core.pipeline import _ensure_quality_and_diversity
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
 
     trends = [
         _make_trend("반나절뉴스", viral=100, category="테크", content_age_hours=15.0),
