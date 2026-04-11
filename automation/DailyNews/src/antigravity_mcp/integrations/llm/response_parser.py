@@ -110,8 +110,14 @@ class ResponseParser:
         )
 
     def _looks_like_v1_response(self, text: str) -> bool:
-        lowered_lines = {line.strip().lower().rstrip(":") for line in text.splitlines() if line.strip()}
-        return {"summary", "insights", "draft"}.issubset(lowered_lines)
+        detected_sections = {
+            section
+            for line in text.splitlines()
+            if line.strip()
+            for section in [self._detect_v1_section(line)]
+            if section is not None
+        }
+        return {"summary", "insights", "draft"}.issubset(detected_sections)
 
     def _normalize_header(self, line: str) -> str:
         header = line.strip()
@@ -127,6 +133,12 @@ class ResponseParser:
         for section_name, patterns in _SECTION_PATTERNS.items():
             if any(pattern.match(header_line) for pattern in patterns):
                 return section_name
+        return None
+
+    def _detect_v1_section(self, line: str) -> str | None:
+        header_line = self._normalize_header(line).rstrip(":").strip()
+        if header_line in {"summary", "insights", "brief", "draft"}:
+            return header_line
         return None
 
     def _parse_v1_response(
@@ -150,18 +162,9 @@ class ResponseParser:
             line = raw_line.strip()
             if not line:
                 continue
-            lowered = line.lower().rstrip(":")
-            if lowered == "summary":
-                current = "summary"
-                continue
-            if lowered == "insights":
-                current = "insights"
-                continue
-            if lowered == "brief":
-                current = "brief"
-                continue
-            if lowered == "draft":
-                current = "draft"
+            detected = self._detect_v1_section(line)
+            if detected is not None:
+                current = detected
                 continue
             if current == "summary":
                 clean = line.removeprefix("- ").strip()
