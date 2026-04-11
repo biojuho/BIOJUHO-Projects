@@ -37,7 +37,9 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync --all-packages
+        run: |
+          uv sync --package DailyNews
+          uv pip install -e . --no-deps
 
       - name: Create output directory
         run: mkdir -p automation/DailyNews/output
