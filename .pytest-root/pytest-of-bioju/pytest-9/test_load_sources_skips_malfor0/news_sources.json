@@ -1,0 +1,1 @@
+{"Tech": [{"name": "Valid", "url": "https://example.com/rss"}, {"name": "MissingUrl"}, "not-a-dict"], "Broken": {"name": "WrongShape"}}

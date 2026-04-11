@@ -8,8 +8,7 @@ Thumbs.db
 .env.*
 !.env.example
 venv/
-__pycache__/
-venv/
+.venv/
 __pycache__/
 *.pyc
 
@@ -26,6 +25,9 @@ fun/
 .smoke-tmp/
 **/.smoke-basetemp/
 **/.smoke-tmp/
+**/.pytest-temp/
+**/.pytest-temp-verify/
+**/.test-tmp/
 
 # Claude agent internals
 .agent/

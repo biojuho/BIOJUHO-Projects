@@ -6,15 +6,35 @@ on:
     - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
-      mode:
-        description: "Run mode (morning/evening/full)"
+      force:
+        description: "Force run outside schedule window"
         required: false
-        default: "full"
+        type: boolean
+        default: false
+      max_items:
+        description: "Max articles per category"
+        required: false
+        default: "5"
 
 jobs:
   run-dailynews:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    env:
+      # ── LLM keys ──
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GOOGLE_API_KEY:    ${{ secrets.GOOGLE_API_KEY }}
+      GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY != '' && secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+      OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+      # ── Notification ──
+      TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      # ── Notion ──
+      NOTION_API_KEY:              ${{ secrets.NOTION_TOKEN }}
+      NOTION_TASKS_DATABASE_ID:    ${{ secrets.NOTION_DATABASE_ID }}
+      NOTION_REPORTS_DATABASE_ID:  ${{ secrets.NOTION_DATABASE_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,25 +54,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages
 
-      - name: Create .env file
-        working-directory: automation/DailyNews
-        run: |
-          cat <<EOF > .env
-          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          NOTION_API_KEY=${{ secrets.NOTION_API_KEY || secrets.NOTION_TOKEN || '' }}
-          NOTION_TASKS_DATABASE_ID=${{ secrets.NOTION_TASKS_DATABASE_ID || secrets.ANTIGRAVITY_TASKS_DB_ID || secrets.ANTIGRAVITY_DB_ID || '' }}
-          NOTION_REPORTS_DATABASE_ID=${{ secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID || '' }}
-          NOTION_DASHBOARD_PAGE_ID=${{ secrets.NOTION_DASHBOARD_PAGE_ID || secrets.DASHBOARD_PAGE_ID || '' }}
-          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
-          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
-          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
-          TARGET_PLATFORMS=x,threads,naver_blog
-          BLOG_MIN_SCORE=70
-          EOF
-
       - name: Run DailyNews pipeline
         working-directory: automation/DailyNews
         env:
@@ -60,7 +61,11 @@ jobs:
           PYTHONUTF8: "1"
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          uv run python scripts/run_daily_news.py --mode ${{ github.event.inputs.mode || 'full' }} 2>&1 | head -500
+          FLAGS="--max-items ${{ github.event.inputs.max_items || '5' }}"
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FLAGS="$FLAGS --force"
+          fi
+          uv run python scripts/run_daily_news.py $FLAGS 2>&1 | head -500
 
       - name: Upload logs
         if: always()
