@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -89,7 +90,8 @@ def test_resolve_python_executable_prefers_workspace_venv_over_current_interpret
     tmp_path: Path, monkeypatch
 ) -> None:
     smoke = load_smoke_module()
-    venv_python = tmp_path / ".venv" / "Scripts" / "python.exe"
+    venv_python_rel = "Scripts/python.exe" if os.name == "nt" else "bin/python"
+    venv_python = tmp_path / ".venv" / venv_python_rel
     current_python = tmp_path / "current-python.exe"
     venv_python.parent.mkdir(parents=True)
     venv_python.write_text("", encoding="utf-8")
@@ -105,7 +107,8 @@ def test_ensure_workspace_environment_falls_back_to_uv_runner_when_local_venv_is
     tmp_path: Path, monkeypatch
 ) -> None:
     smoke = load_smoke_module()
-    local_python = tmp_path / ".venv" / "Scripts" / "python.exe"
+    venv_rel = "Scripts/python.exe" if os.name == "nt" else "bin/python"
+    local_python = tmp_path / ".venv" / venv_rel
     local_python.parent.mkdir(parents=True)
     local_python.write_text("", encoding="utf-8")
     global_python = tmp_path / "global-python.exe"
