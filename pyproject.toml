@@ -106,6 +106,8 @@ members = [
     "automation/DailyNews",
     "automation/getdaytrends",
     "mcp/desci-research-mcp",
-    "mcp/notebooklm-mcp",
-    "mcp/telegram-mcp"
+    "mcp/telegram-mcp",
+]
+exclude = [
+    "mcp/notebooklm-mcp",  # heavily pinned deps conflict with workspace
 ]

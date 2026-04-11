@@ -4,22 +4,22 @@ version = "0.1.0"
 description = "Part of ai-projects workspace"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi==0.115.6",
-    "uvicorn==0.32.1",
-    "pydantic==2.10.4",
-    "python-multipart==0.0.20",
-    "python-dotenv==1.0.1",
-    "httpx==0.28.1",
-    "sqlalchemy==2.0.36",
-    "psycopg2-binary==2.9.10",
-    "alembic==1.14.0",
-    "web3==7.6.0",
-    "firebase-admin==6.6.0",
-    "aiomqtt==2.3.0",
-    "sqladmin==0.20.1",
-    "itsdangerous==2.2.0",
-    "prometheus_client==0.21.1",
-    "structlog==24.4.0",
+    "fastapi>=0.115.6",
+    "uvicorn>=0.32.1",
+    "pydantic>=2.10.4",
+    "python-multipart>=0.0.20",
+    "python-dotenv>=1.0.1",
+    "httpx>=0.28.1",
+    "sqlalchemy>=2.0.36",
+    "psycopg2-binary>=2.9.10",
+    "alembic>=1.14.0",
+    "web3>=7.6.0",
+    "firebase-admin>=6.6.0",
+    "aiomqtt>=2.3.0",
+    "sqladmin>=0.20.1",
+    "itsdangerous>=2.2.0",
+    "prometheus_client>=0.21.1",
+    "structlog>=24.4.0",
 ]
 
 [tool.setuptools]
