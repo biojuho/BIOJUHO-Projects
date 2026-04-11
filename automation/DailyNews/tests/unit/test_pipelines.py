@@ -1142,6 +1142,123 @@ Draft
         assert payload.parse_meta["brief_body"].startswith("오늘의 핫 이슈: Tech.")
         assert payload.parse_meta["sections_found"]["brief"] == 4
 
+    def test_parse_v1_brief_response_accepts_markdown_section_headers(self):
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+        from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+
+        parser = ResponseParser(draft_generator=DraftGenerator())
+        payload, warnings = parser.parse_response(
+            category="Global_Affairs",
+            text="""## Summary
+- First summary line [A1]
+- Second summary line [A2]
+- Third summary line [A3]
+**Insights:**
+- First insight line [A1]
+- Second insight line [Inference:A1+A2]
+## Brief
+오늘의 핫 이슈: Global_Affairs. 긴장이 다시 커지고 있습니다.
+## Draft
+초안 텍스트
+""",
+            items=[
+                ContentItem(
+                    source_name="Reuters",
+                    category="Global_Affairs",
+                    title="Story A",
+                    link="https://example.com/story-a",
+                    summary="Summary A",
+                )
+            ],
+            window_name="morning",
+            generation_mode="v1-brief",
+        )
+
+        assert warnings == []
+        assert payload.parse_meta["used_fallback"] is False
+        assert payload.summary_lines == [
+            "First summary line [A1]",
+            "Second summary line [A2]",
+            "Third summary line [A3]",
+        ]
+        assert payload.insights == [
+            "First insight line [A1]",
+            "Second insight line [Inference:A1+A2]",
+        ]
+        assert payload.parse_meta["sections_found"]["draft"] == 1
+
+    @pytest.mark.asyncio
+    async def test_auto_heal_does_not_overwrite_with_meta_diagnostic_summary(self, state_store):
+        from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext
+        from antigravity_mcp.pipelines.qa_steps import finalize_quality
+
+        ctx = ReportAssemblyContext(
+            category="Global_Affairs",
+            items=[
+                ContentItem(
+                    source_name="Reuters",
+                    category="Global_Affairs",
+                    title="Story A",
+                    link="https://example.com/story-a",
+                    summary="Summary A",
+                ),
+                ContentItem(
+                    source_name="AP",
+                    category="Global_Affairs",
+                    title="Story B",
+                    link="https://example.com/story-b",
+                    summary="Summary B",
+                ),
+            ],
+            window_name="morning",
+            window_start="2026-04-10T00:00:00+00:00",
+            window_end="2026-04-10T12:00:00+00:00",
+            state_store=state_store,
+            report_id="report-global-affairs-test",
+            generation_mode="v1-brief",
+            fingerprint="fp-test",
+            source_links=["https://example.com/story-a", "https://example.com/story-b"],
+            enriched_items=[],
+            summary_lines=[
+                "Global_Affairs morning brief covers 2 curated items.",
+                "Top signals: Story A; Story B",
+                "Most active sources: Reuters (1), AP (1).",
+            ],
+            insights=[
+                "Global_Affairs coverage is clustering around Story A.",
+                "Operators should review 2 candidate stories before publishing.",
+                "External distribution remains manual until approval is granted.",
+            ],
+            channel_drafts=[
+                ChannelDraft(channel="x", status="draft", content="Fallback draft", source="fallback", is_fallback=True)
+            ],
+            analysis_meta={"parser": {"used_fallback": True, "format": "fallback", "reason": "v1_parse_failure"}},
+        )
+
+        bad_heal_payload = GeneratedPayload(
+            summary_lines=[
+                "**Summary:**",
+                "This brief addresses a critical quality issue: missing citations.",
+                "**Insights:**",
+                "The absence of citations undermines credibility.",
+            ],
+            insights=["Still missing evidence tags."],
+            channel_drafts=[ChannelDraft(channel="x", status="draft", content="Still fallback")],
+            generation_mode="v1-brief",
+            parse_meta={"used_fallback": False, "format": "v1"},
+            quality_state="ok",
+        )
+        mock_llm = MagicMock()
+        mock_llm.build_report_payload = AsyncMock(return_value=(bad_heal_payload, []))
+        ctx._llm_adapter = mock_llm
+
+        original_summary = list(ctx.summary_lines)
+        await finalize_quality(ctx)
+
+        assert ctx.summary_lines == original_summary
+        assert ctx.analysis_meta["auto_heal"]["applied"] is False
+        assert ctx.analysis_meta["auto_heal"]["reason"] == "no_improvement"
+
     def test_report_markdown_prefers_styled_brief_for_v1_brief(self, sample_report):
         from antigravity_mcp.pipelines.publish import _report_markdown
 
