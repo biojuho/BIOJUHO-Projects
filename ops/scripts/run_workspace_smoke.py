@@ -264,7 +264,6 @@ def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[C
 
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
-    vitest_exe = ".\\node_modules\\.bin\\vitest.cmd" if os.name == "nt" else "./node_modules/.bin/vitest"
     desci_frontend = rel_unit_path("desci-platform", "frontend")
     desci_biolinker = rel_unit_path("desci-platform", "biolinker")
     agriguard_frontend = rel_unit_path("agriguard", "frontend")
@@ -291,8 +290,10 @@ def default_checks(python_exe: str) -> list[Check]:
             "desci frontend unit tests",
             desci_frontend,
             [
-                vitest_exe,
+                npm_exe,
                 "run",
+                "test:lts",
+                "--",
                 "--pool",
                 "threads",
                 "--fileParallelism",
