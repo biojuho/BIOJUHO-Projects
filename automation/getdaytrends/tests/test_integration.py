@@ -255,6 +255,8 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             patch("getdaytrends.core.pipeline_steps.audit_generated_content", new_callable=AsyncMock) as mock_audit,
             patch("getdaytrends.core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
             patch("getdaytrends.core.pipeline_steps.get_client") as mock_client_factory,
+            patch("getdaytrends.core.pipeline_steps._load_adaptive_voice", return_value=(None, None, "")),
+            patch("getdaytrends.core.pipeline_steps.compute_fingerprint", return_value="test_fp"),
         ):
             mock_cached.return_value = None
             mock_recent.return_value = []
