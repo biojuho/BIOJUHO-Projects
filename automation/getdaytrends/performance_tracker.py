@@ -8,13 +8,13 @@ X/Twitter 게시 트윗의 참여 지표(impressions, likes, retweets, replies, 
 import asyncio
 import os
 import re
-import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 from loguru import logger as log
 
+from db_layer.connection import get_connection, db_transaction
 from perf_genealogy import TrendGenealogyMixin
 
 # -- mixin imports (분리된 기능 모듈) --
@@ -63,91 +63,13 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
 
     # -- DB Setup --
 
-    def _get_conn(self) -> sqlite3.Connection:
-        """동기 SQLite 연결 (성과 테이블 전용). 향후 Postgres 확장을 고려한 Adapter Point."""
-        db_url = os.environ.get("DATABASE_URL")
-        if db_url and db_url.startswith("postgresql"):
-            # TODO(Phase 4): Implement psycopg2/asyncpg adapter for Supabase cloud migration
-            log.warning("PostgreSQL DATABASE_URL detected, but PerformanceTracker still uses local SQLite as fallback.")
+    async def _get_conn(self):
+        """비동기 통합 연결 (PgAdapter/aiosqlite) 반환."""
+        return await get_connection(self.db_path)
 
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        return conn
-
-    def init_table(self) -> None:
-        """tweet_performance + golden_references + trend_genealogy 관련 테이블 멱등적 생성."""
-        if self._initialized:
-            return
-        conn = self._get_conn()
-        try:
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS tweet_performance (
-                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                    tweet_id     TEXT NOT NULL UNIQUE,
-                    impressions  INTEGER DEFAULT 0,
-                    likes        INTEGER DEFAULT 0,
-                    retweets     INTEGER DEFAULT 0,
-                    replies      INTEGER DEFAULT 0,
-                    quotes       INTEGER DEFAULT 0,
-                    engagement_rate REAL DEFAULT 0.0,
-                    angle_type   TEXT DEFAULT '',
-                    hook_pattern TEXT DEFAULT '',
-                    kick_pattern TEXT DEFAULT '',
-                    collection_tier TEXT DEFAULT '48h',
-                    collected_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_tp_angle ON tweet_performance(angle_type);
-                CREATE INDEX IF NOT EXISTS idx_tp_collected ON tweet_performance(collected_at);
-                CREATE INDEX IF NOT EXISTS idx_tp_tweet_id ON tweet_performance(tweet_id);
-                CREATE INDEX IF NOT EXISTS idx_tp_hook ON tweet_performance(hook_pattern);
-                CREATE INDEX IF NOT EXISTS idx_tp_kick ON tweet_performance(kick_pattern);
-
-                -- [E] Golden References Schema
-                CREATE TABLE IF NOT EXISTS golden_references (
-                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    tweet_id        TEXT NOT NULL UNIQUE,
-                    content         TEXT NOT NULL,
-                    angle_type      TEXT DEFAULT '',
-                    hook_pattern    TEXT DEFAULT '',
-                    kick_pattern    TEXT DEFAULT '',
-                    engagement_rate REAL DEFAULT 0.0,
-                    impressions     INTEGER DEFAULT 0,
-                    category        TEXT DEFAULT '',
-                    saved_at        TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_gr_angle ON golden_references(angle_type);
-                CREATE INDEX IF NOT EXISTS idx_gr_er ON golden_references(engagement_rate);
-
-                -- [A] Trend Genealogy Schema
-                CREATE TABLE IF NOT EXISTS trend_genealogy (
-                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    keyword         TEXT NOT NULL,
-                    parent_keyword  TEXT DEFAULT '',
-                    predicted_children TEXT DEFAULT '[]',
-                    genealogy_depth INTEGER DEFAULT 0,
-                    first_seen_at   TEXT NOT NULL,
-                    last_seen_at    TEXT NOT NULL,
-                    total_appearances INTEGER DEFAULT 1,
-                    peak_viral_score INTEGER DEFAULT 0,
-                    UNIQUE(keyword, parent_keyword)
-                );
-                CREATE INDEX IF NOT EXISTS idx_tg_keyword ON trend_genealogy(keyword);
-                CREATE INDEX IF NOT EXISTS idx_tg_parent ON trend_genealogy(parent_keyword);
-                CREATE INDEX IF NOT EXISTS idx_tg_last_seen ON trend_genealogy(last_seen_at);
-            """)
-            try:
-                conn.execute("SELECT x_tweet_id FROM tweets LIMIT 1")
-            except sqlite3.OperationalError:
-                conn.execute("ALTER TABLE tweets ADD COLUMN x_tweet_id TEXT DEFAULT ''")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_x_tweet_id ON tweets(x_tweet_id)")
-            conn.commit()
-            self._initialized = True
-            log.debug("DB 테이블 설계 초기화 완료")
-        finally:
-            conn.close()
+    async def init_table(self) -> None:
+        """Legacy. 테이블 초기화는 이제 migrations.py에서 일괄 처리되므로 No-Op."""
+        pass
 
     # -- X API v2 Metric Collection --
 
@@ -290,9 +212,9 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
     def _total_engagements(m: TweetMetrics) -> int:
         return int(m.likes + m.retweets + m.replies + m.quotes)
 
-    def _sync_tweet_summary(self, conn: sqlite3.Connection, metrics: TweetMetrics) -> None:
+    async def _sync_tweet_summary(self, conn, metrics: TweetMetrics) -> None:
         engagements = self._total_engagements(metrics)
-        cursor = conn.execute(
+        cursor = await conn.execute(
             """UPDATE tweets
                SET impressions = ?,
                    engagements = ?,
@@ -300,11 +222,11 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                WHERE x_tweet_id = ?""",
             (metrics.impressions, engagements, metrics.engagement_rate, metrics.tweet_id),
         )
-        if cursor.rowcount:
+        if hasattr(cursor, "rowcount") and cursor.rowcount:
             return
 
         if metrics.tweet_id.isdigit():
-            conn.execute(
+            await conn.execute(
                 """UPDATE tweets
                    SET impressions = ?,
                        engagements = ?,
@@ -313,50 +235,47 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                 (metrics.impressions, engagements, metrics.engagement_rate, int(metrics.tweet_id)),
             )
 
-    def save_metrics(self, metrics: TweetMetrics) -> None:
+    async def save_metrics(self, metrics: TweetMetrics) -> None:
         """단일 TweetMetrics를 DB에 저장/갱신."""
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         try:
-            conn.execute(self._UPSERT_SQL, self._metrics_to_tuple(metrics))
-            self._sync_tweet_summary(conn, metrics)
-            conn.commit()
+            async with db_transaction(conn):
+                await conn.execute(self._UPSERT_SQL, self._metrics_to_tuple(metrics))
+                await self._sync_tweet_summary(conn, metrics)
         finally:
-            conn.close()
+            await conn.close()
 
-    def save_metrics_batch(self, metrics_list: list[TweetMetrics]) -> int:
+    async def save_metrics_batch(self, metrics_list: list[TweetMetrics]) -> int:
         """다수의 TweetMetrics를 일괄 저장. 성공 건수 반환."""
         if not metrics_list:
             return 0
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         saved = 0
         try:
-            for m in metrics_list:
-                try:
-                    conn.execute(self._UPSERT_SQL, self._metrics_to_tuple(m))
-                    self._sync_tweet_summary(conn, m)
-                    saved += 1
-                except Exception as e:
-                    log.debug(f"save_metrics_batch 개별 오류 (건너뜀): {m.tweet_id} - {e}")
-            conn.commit()
+            async with db_transaction(conn):
+                for m in metrics_list:
+                    try:
+                        await conn.execute(self._UPSERT_SQL, self._metrics_to_tuple(m))
+                        await self._sync_tweet_summary(conn, m)
+                        saved += 1
+                    except Exception as e:
+                        log.debug(f"save_metrics_batch 개별 오류 (건너뜀): {m.tweet_id} - {e}")
         finally:
-            conn.close()
+            await conn.close()
         return saved
 
     # -- Angle Performance Analytics --
 
-    def get_angle_performance(self, days: int = 30) -> dict[str, AngleStats]:
+    async def get_angle_performance(self, days: int = 30) -> dict[str, AngleStats]:
         """앵글 유형별 성과 집계.
 
         Returns:
             {angle_type: AngleStats} - 최근 N일간의 성과 요약.
         """
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         try:
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-            rows = conn.execute(
+            cursor = await conn.execute(
                 """SELECT angle_type,
                           COUNT(*) as cnt,
                           AVG(impressions) as avg_imp,
@@ -366,7 +285,8 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                    GROUP BY angle_type
                    ORDER BY avg_er DESC""",
                 (cutoff,),
-            ).fetchall()
+            )
+            rows = await cursor.fetchall()
 
             result: dict[str, AngleStats] = {}
             for row in rows:
@@ -384,9 +304,9 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
 
             return result
         finally:
-            conn.close()
+            await conn.close()
 
-    def get_optimal_angle_weights(
+    async def get_optimal_angle_weights(
         self,
         days: int = 30,
         min_samples: int = 5,
@@ -397,7 +317,7 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
         Returns:
             {angle_type: weight} - 확률 모델에 사용될 가중치 (합계 1.0).
         """
-        stats = _precomputed_stats or self.get_angle_performance(days)
+        stats = _precomputed_stats or await self.get_angle_performance(days)
         n = len(ANGLE_TYPES)
         default_weight = 1.0 / n
 
@@ -443,11 +363,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
         Returns:
             업데이트된 DB 행수.
         """
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         try:
             cutoff = (datetime.now() - timedelta(hours=lookback_hours)).isoformat()
-            rows = conn.execute(
+            cursor = await conn.execute(
                 """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id, t.content
                    FROM tweets t
                    WHERE t.posted_at IS NOT NULL
@@ -467,9 +386,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                    ORDER BY t.posted_at DESC
                    LIMIT 200""",
                 (cutoff,),
-            ).fetchall()
+            )
+            rows = await cursor.fetchall()
         finally:
-            conn.close()
+            await conn.close()
 
         if not rows:
             return 0
@@ -512,17 +432,16 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                 )
             )
 
-        collected_count = self.save_metrics_batch(all_metrics)
+        collected_count = await self.save_metrics_batch(all_metrics)
         return collected_count
 
     # -- [B] Hook/Kick Pattern Analytics --
 
-    def get_hook_performance(self, days: int = 30) -> dict[str, PatternStats]:
-        self.init_table()
-        conn = self._get_conn()
+    async def get_hook_performance(self, days: int = 30) -> dict[str, PatternStats]:
+        conn = await self._get_conn()
         try:
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-            rows = conn.execute(
+            cursor = await conn.execute(
                 """SELECT hook_pattern,
                           COUNT(*) as cnt,
                           AVG(impressions) as avg_imp,
@@ -532,7 +451,8 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                    GROUP BY hook_pattern
                    ORDER BY avg_er DESC""",
                 (cutoff,),
-            ).fetchall()
+            )
+            rows = await cursor.fetchall()
 
             result: dict[str, PatternStats] = {}
             for row in rows:
@@ -549,14 +469,13 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                     result[p] = PatternStats(pattern=p, pattern_type="hook")
             return result
         finally:
-            conn.close()
+            await conn.close()
 
-    def get_kick_performance(self, days: int = 30) -> dict[str, PatternStats]:
-        self.init_table()
-        conn = self._get_conn()
+    async def get_kick_performance(self, days: int = 30) -> dict[str, PatternStats]:
+        conn = await self._get_conn()
         try:
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-            rows = conn.execute(
+            cursor = await conn.execute(
                 """SELECT kick_pattern,
                           COUNT(*) as cnt,
                           AVG(impressions) as avg_imp,
@@ -566,7 +485,8 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                    GROUP BY kick_pattern
                    ORDER BY avg_er DESC""",
                 (cutoff,),
-            ).fetchall()
+            )
+            rows = await cursor.fetchall()
 
             result: dict[str, PatternStats] = {}
             for row in rows:
@@ -583,15 +503,15 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                     result[p] = PatternStats(pattern=p, pattern_type="kick")
             return result
         finally:
-            conn.close()
+            await conn.close()
 
-    def get_optimal_pattern_weights(
+    async def get_optimal_pattern_weights(
         self,
         days: int = 30,
         min_samples: int = 3,
     ) -> dict[str, dict[str, float]]:
-        hook_stats = self.get_hook_performance(days)
-        kick_stats = self.get_kick_performance(days)
+        hook_stats = await self.get_hook_performance(days)
+        kick_stats = await self.get_kick_performance(days)
 
         def _compute_weights(stats: dict[str, PatternStats], all_patterns: list[str]) -> dict[str, float]:
             n = len(all_patterns)
@@ -618,8 +538,8 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                 weights = {k: round(v / w_total, 4) for k, v in weights.items()}
             return weights
 
-        angle_stats = self.get_angle_performance(days)
-        angle_weights = self.get_optimal_angle_weights(days, min_samples=min_samples, _precomputed_stats=angle_stats)
+        angle_stats = await self.get_angle_performance(days)
+        angle_weights = await self.get_optimal_angle_weights(days, min_samples=min_samples, _precomputed_stats=angle_stats)
 
         return {
             "hook_weights": _compute_weights(hook_stats, HOOK_PATTERNS),
@@ -629,16 +549,15 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
 
     # -- Utility --
 
-    def get_summary(self, days: int = 30) -> dict:
-        stats = self.get_angle_performance(days)
-        weights = self.get_optimal_angle_weights(days, _precomputed_stats=stats)
-        pattern_weights = self.get_optimal_pattern_weights(days)
+    async def get_summary(self, days: int = 30) -> dict:
+        stats = await self.get_angle_performance(days)
+        weights = await self.get_optimal_angle_weights(days, _precomputed_stats=stats)
+        pattern_weights = await self.get_optimal_pattern_weights(days)
 
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         try:
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-            row = conn.execute(
+            cursor = await conn.execute(
                 """SELECT COUNT(*) as total,
                           AVG(engagement_rate) as avg_er,
                           AVG(impressions) as avg_imp,
@@ -646,10 +565,11 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                    FROM tweet_performance
                    WHERE collected_at >= ?""",
                 (cutoff,),
-            ).fetchone()
+            )
+            row = await cursor.fetchone()
             overview = dict(row) if row else {}
         finally:
-            conn.close()
+            await conn.close()
 
         return {
             "period_days": days,

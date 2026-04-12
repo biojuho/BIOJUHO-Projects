@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import urllib.error
 import urllib.request
 from datetime import date
 
@@ -22,6 +23,24 @@ except ImportError:
     from models import ScoredTrend
 
 
+def _escape_md(text: str) -> str:
+    """Escape characters that break Telegram legacy Markdown parsing.
+
+    Underscores in keywords like '버니즈는_언제나_다니편' otherwise trigger
+    HTTP 400 from the Bot API.
+    """
+    if not text:
+        return ""
+    return (
+        str(text)
+        .replace("\\", "\\\\")
+        .replace("_", "\\_")
+        .replace("*", "\\*")
+        .replace("[", "\\[")
+        .replace("`", "\\`")
+    )
+
+
 def format_trend_alert(trend: ScoredTrend) -> str:
     """Render one high-signal trend alert in a human-readable format."""
 
@@ -33,13 +52,13 @@ def format_trend_alert(trend: ScoredTrend) -> str:
 
     return (
         f"*High-viral trend detected!*\n"
-        f"Topic: *{trend.keyword}*\n"
+        f"Topic: *{_escape_md(trend.keyword)}*\n"
         f"Viral score: {trend.viral_potential}/100\n"
-        f"Acceleration: {acceleration}\n"
-        f"Insight: {insight}\n"
-        f"Angles: {angles}\n"
-        f"Sources: {sources}\n"
-        f"Hook: {hook}"
+        f"Acceleration: {_escape_md(acceleration)}\n"
+        f"Insight: {_escape_md(insight)}\n"
+        f"Angles: {_escape_md(angles)}\n"
+        f"Sources: {_escape_md(sources)}\n"
+        f"Hook: {_escape_md(hook)}"
     )
 
 
@@ -68,6 +87,15 @@ def send_telegram_alert(message: str, config: AppConfig) -> dict:
             result = json.loads(resp.read().decode("utf-8"))
         log.info("Telegram alert sent")
         return result
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network failure path
+        # Capture the response body so 400/403 surface the real reason
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        log.error(f"Telegram send failed: HTTP {exc.code} {exc.reason} | body={body[:300]}")
+        return {"ok": False, "error": f"HTTP {exc.code}: {body[:200]}"}
     except Exception as exc:  # pragma: no cover - network failure path
         log.error(f"Telegram send failed: {exc}")
         return {"ok": False, "error": str(exc)}

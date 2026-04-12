@@ -6,76 +6,80 @@ PerformanceTracker에서 분리된 골든 레퍼런스 CRUD 기능.
 """
 
 
+import json
 from datetime import UTC, datetime, timedelta
 
 from loguru import logger as log
 
 from perf_models import GoldenReference
+from db_layer.connection import db_transaction
 
 
 class GoldenReferenceMixin:
     """[E] Golden Reference 관리 기능 (PerformanceTracker Mixin)."""
 
-    def save_golden_reference(self, ref: GoldenReference) -> None:
+    async def save_golden_reference(self, ref: GoldenReference) -> None:
         """[E] 골든 레퍼런스 저장. 최대 20개 유지 (최저 ER 자동 교체)."""
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         try:
-            count = conn.execute("SELECT COUNT(*) FROM golden_references").fetchone()[0]
-            if count >= 20:
-                conn.execute(
-                    """DELETE FROM golden_references WHERE id = (
-                        SELECT id FROM golden_references ORDER BY engagement_rate ASC LIMIT 1
-                    )"""
+            async with db_transaction(conn):
+                count_cursor = await conn.execute("SELECT COUNT(*) FROM golden_references")
+                count = (await count_cursor.fetchone())[0]
+                if count >= 20:
+                    await conn.execute(
+                        """DELETE FROM golden_references WHERE id = (
+                            SELECT id FROM golden_references ORDER BY engagement_rate ASC LIMIT 1
+                        )"""
+                    )
+                await conn.execute(
+                    """INSERT INTO golden_references
+                       (tweet_id, content, angle_type, hook_pattern, kick_pattern,
+                        engagement_rate, impressions, category, saved_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(tweet_id) DO UPDATE SET
+                           engagement_rate=excluded.engagement_rate,
+                           impressions=excluded.impressions,
+                           saved_at=excluded.saved_at""",
+                    (
+                        ref.tweet_id,
+                        ref.content,
+                        ref.angle_type,
+                        ref.hook_pattern,
+                        ref.kick_pattern,
+                        ref.engagement_rate,
+                        ref.impressions,
+                        ref.category,
+                        (ref.saved_at or datetime.now(UTC)).isoformat(),
+                    ),
                 )
-            conn.execute(
-                """INSERT INTO golden_references
-                   (tweet_id, content, angle_type, hook_pattern, kick_pattern,
-                    engagement_rate, impressions, category, saved_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(tweet_id) DO UPDATE SET
-                       engagement_rate=excluded.engagement_rate,
-                       impressions=excluded.impressions,
-                       saved_at=excluded.saved_at""",
-                (
-                    ref.tweet_id,
-                    ref.content,
-                    ref.angle_type,
-                    ref.hook_pattern,
-                    ref.kick_pattern,
-                    ref.engagement_rate,
-                    ref.impressions,
-                    ref.category,
-                    (ref.saved_at or datetime.now(UTC)).isoformat(),
-                ),
-            )
-            conn.commit()
-            log.debug(f"골든 레퍼런스 저장: tweet_id={ref.tweet_id}, ER={ref.engagement_rate}")
+                log.debug(f"골든 레퍼런스 저장: tweet_id={ref.tweet_id}, ER={ref.engagement_rate}")
         finally:
-            conn.close()
+            await conn.close()
 
-    def get_golden_references(self, limit: int = 5, category: str = "") -> list[GoldenReference]:
+    async def get_golden_references(self, limit: int = 5, category: str = "") -> list[GoldenReference]:
         """[E] 상위 골든 레퍼런스 조회 (QA 벤치마크)."""
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         try:
             if category:
-                rows = conn.execute(
+                cursor = await conn.execute(
                     """SELECT * FROM golden_references
                        WHERE category = ?
                        ORDER BY engagement_rate DESC LIMIT ?""",
                     (category, limit),
-                ).fetchall()
+                )
+                rows = await cursor.fetchall()
                 if not rows:
-                    rows = conn.execute(
+                    cursor = await conn.execute(
                         "SELECT * FROM golden_references ORDER BY engagement_rate DESC LIMIT ?",
                         (limit,),
-                    ).fetchall()
+                    )
+                    rows = await cursor.fetchall()
             else:
-                rows = conn.execute(
+                cursor = await conn.execute(
                     "SELECT * FROM golden_references ORDER BY engagement_rate DESC LIMIT ?",
                     (limit,),
-                ).fetchall()
+                )
+                rows = await cursor.fetchall()
 
             return [
                 GoldenReference(
@@ -91,19 +95,18 @@ class GoldenReferenceMixin:
                 for r in rows
             ]
         finally:
-            conn.close()
+            await conn.close()
 
-    def auto_update_golden_references(self, days: int = 7, top_n: int = 10) -> int:
+    async def auto_update_golden_references(self, days: int = 7, top_n: int = 10) -> int:
         """[E] 최근 N일간 상위 트윗을 자동으로 골든 레퍼런스에 등록.
 
         Returns: 새로 등록된 건수.
         """
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         saved = 0
         try:
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-            rows = conn.execute(
+            cursor = await conn.execute(
                 """SELECT tp.tweet_id, tp.angle_type, tp.hook_pattern, tp.kick_pattern,
                           tp.engagement_rate, tp.impressions,
                           t.content, t.tweet_type
@@ -115,7 +118,8 @@ class GoldenReferenceMixin:
                    ORDER BY tp.engagement_rate DESC
                    LIMIT ?""",
                 (cutoff, top_n),
-            ).fetchall()
+            )
+            rows = await cursor.fetchall()
 
             for r in rows:
                 content = r["content"] if r["content"] else ""
@@ -131,10 +135,11 @@ class GoldenReferenceMixin:
                     impressions=r["impressions"],
                     saved_at=datetime.now(UTC),
                 )
-                self.save_golden_reference(ref)
+                # auto_update internally calls save_golden_reference which requests a separate connection pool resource
+                await self.save_golden_reference(ref)
                 saved += 1
 
             log.info(f"Golden references auto-updated: {saved}/{len(rows)}")
         finally:
-            conn.close()
+            await conn.close()
         return saved

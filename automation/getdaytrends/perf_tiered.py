@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from loguru import logger as log
 
 from perf_models import TweetMetrics, normalize_angle
+from db_layer.connection import db_transaction
 
 
 class TieredCollectionMixin:
@@ -23,25 +24,25 @@ class TieredCollectionMixin:
         for m in metrics:
             m.collection_tier = tier
         if metrics:
-            self.save_metrics_batch(metrics)
+            await self.save_metrics_batch(metrics)
         return metrics
 
-    def get_early_signal_analysis(self, hours: int = 2) -> dict:
+    async def get_early_signal_analysis(self, hours: int = 2) -> dict:
         """[D] 최근 N시간 내 수집된 초기 시그널 분석.
 
         Returns: {boost_candidates: [...], suppress_candidates: [...], avg_metrics: {...}}
         """
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         try:
             cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
-            rows = conn.execute(
+            cursor = await conn.execute(
                 """SELECT tweet_id, impressions, engagement_rate, angle_type
                    FROM tweet_performance
                    WHERE collection_tier = '1h' AND collected_at >= ?
                    ORDER BY engagement_rate DESC""",
                 (cutoff,),
-            ).fetchall()
+            )
+            rows = await cursor.fetchall()
 
             if not rows:
                 return {"boost_candidates": [], "suppress_candidates": [], "avg_metrics": {}}
@@ -62,7 +63,7 @@ class TieredCollectionMixin:
                 },
             }
         finally:
-            conn.close()
+            await conn.close()
 
     async def run_tiered_collection(self, lookback_hours: int = 48) -> dict:
         """[D] 3단계 수집 스케줄러.
@@ -73,8 +74,7 @@ class TieredCollectionMixin:
 
         Returns: {tier_1h: N, tier_6h: N, tier_48h: N}
         """
-        self.init_table()
-        conn = self._get_conn()
+        conn = await self._get_conn()
         result = {"tier_1h": 0, "tier_6h": 0, "tier_48h": 0}
 
         try:
@@ -91,7 +91,7 @@ class TieredCollectionMixin:
                 ("6h", t6h_start, t6h_end),
                 ("48h", t48h_start, t48h_end),
             ]:
-                rows = conn.execute(
+                cursor = await conn.execute(
                     """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id
                        FROM tweets t
                        WHERE t.posted_at IS NOT NULL
@@ -111,7 +111,8 @@ class TieredCollectionMixin:
                          )
                        LIMIT 100""",
                     (start, end, tier, tier),
-                ).fetchall()
+                )
+                rows = await cursor.fetchall()
 
                 if not rows:
                     continue
@@ -136,11 +137,11 @@ class TieredCollectionMixin:
                         m.collection_tier = tier
                         row_info = id_map.get(m.tweet_id, {})
                         m.angle_type = normalize_angle(row_info.get("tweet_type", ""))
-                    count = self.save_metrics_batch(metrics)
+                    count = await self.save_metrics_batch(metrics)
                     result[f"tier_{tier}"] = count
 
             log.info(f"3단계 수집 완료: 1h={result['tier_1h']}, 6h={result['tier_6h']}, 48h={result['tier_48h']}")
         finally:
-            conn.close()
+            await conn.close()
 
         return result

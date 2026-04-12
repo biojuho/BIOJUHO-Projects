@@ -46,7 +46,7 @@ async def run_collection(args: argparse.Namespace) -> dict:
 
     tracker = PerformanceTracker(db_path=args.db_path, bearer_token=args.bearer_token)
     collected = await tracker.run_collection_cycle(lookback_hours=args.lookback_hours)
-    summary = tracker.get_summary(days=max(1, round(args.lookback_hours / 24)))
+    summary = await tracker.get_summary(days=max(1, round(args.lookback_hours / 24)))
     return {
         "generated_at": datetime.now(UTC).astimezone().isoformat(),
         "db_path": str(Path(args.db_path).resolve()),

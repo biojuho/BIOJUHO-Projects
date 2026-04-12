@@ -23,7 +23,8 @@ except ImportError:
     from config import AppConfig
     from models import ScoredTrend, TweetBatch
 
-# ???諛⑹떇蹂??꾪룷??try:
+# Notion client (optional dependency)
+try:
     from notion_client import Client as NotionClient
     from notion_client.errors import APIResponseError
 

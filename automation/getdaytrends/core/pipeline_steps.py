@@ -178,7 +178,7 @@ def _batch_from_cache(topic: str, rows: list[dict]) -> TweetBatch:
     )
 
 
-def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | None, str]:
+async def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | None, str]:
     """Adaptive Voice 패턴 가중치 + 골든 레퍼런스 + EDAPE 적응형 컨텍스트 로드.
 
     Returns:
@@ -216,7 +216,7 @@ def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | None, s
     try:
         tracker = PerformanceTracker(db_path=config.db_path, bearer_token=config.twitter_bearer_token)
         if getattr(config, "enable_adaptive_voice", False):
-            pattern_weights = tracker.get_optimal_pattern_weights(
+            pattern_weights = await tracker.get_optimal_pattern_weights(
                 days=getattr(config, "pattern_weight_days", 30),
                 min_samples=getattr(config, "pattern_weight_min_samples", 3),
             )
@@ -224,7 +224,7 @@ def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | None, s
             top_angle = max(angle_w, key=angle_w.get, default="-") if angle_w else "-"
             log.info(f"  [Adaptive Voice] 패턴 가중치 로드 완료 (최우선 앵글: {top_angle})")
         if getattr(config, "enable_golden_reference_qa", False):
-            golden_refs = tracker.get_golden_references(limit=getattr(config, "golden_reference_limit", 3))
+            golden_refs = await tracker.get_golden_references(limit=getattr(config, "golden_reference_limit", 3))
             log.info(f"  [Benchmark QA] 골든 레퍼런스 {len(golden_refs)}개 로드")
     except (RuntimeError, ValueError) as _e:
         log.debug(f"  성과 데이터 로드 실패 (무시): {type(_e).__name__}: {_e}")
@@ -390,7 +390,7 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
         return []
     print(f"\n[3/4] 트윗 병렬 생성 중... ({len(quality_trends)}개 동시)")
     client = get_client()
-    golden_refs, pattern_weights, edape_block = _load_adaptive_voice(config)
+    golden_refs, pattern_weights, edape_block = await _load_adaptive_voice(config)
 
     # ── TAP: 교차국가 트렌드 차익거래 감지 ──
     if getattr(config, "enable_tap", True) and len(getattr(config, "countries", [])) > 1:
