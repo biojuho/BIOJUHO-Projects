@@ -386,6 +386,8 @@ def _attach_generation_metadata(primary: TweetBatch, trend, final_qa: dict) -> N
 
 async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
     """Step 3: 트윗/쓰레드 전체 병렬 생성 (캐시 우선 + EDAPE 적응형 프롬프트 + TAP 선점)."""
+    if not quality_trends:
+        return []
     print(f"\n[3/4] 트윗 병렬 생성 중... ({len(quality_trends)}개 동시)")
     client = get_client()
     golden_refs, pattern_weights, edape_block = _load_adaptive_voice(config)

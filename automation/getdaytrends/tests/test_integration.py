@@ -252,7 +252,7 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             patch("getdaytrends.core.pipeline_steps.get_cached_content", new_callable=AsyncMock) as mock_cached,
             patch("getdaytrends.core.pipeline_steps.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent,
             patch("getdaytrends.core.pipeline_steps.generate_for_trend_async", new_callable=AsyncMock) as mock_generate,
-            patch("generator.audit_generated_content", new_callable=AsyncMock) as mock_audit,
+            patch("getdaytrends.core.pipeline_steps.audit_generated_content", new_callable=AsyncMock) as mock_audit,
             patch("getdaytrends.core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
             patch("getdaytrends.core.pipeline_steps.get_client") as mock_client_factory,
         ):
