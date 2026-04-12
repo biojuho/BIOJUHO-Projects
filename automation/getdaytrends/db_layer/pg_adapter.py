@@ -80,6 +80,15 @@ class PgAdapter:
         return sql
 
     async def execute(self, sql: str, parameters=()):
+        # Skip SQLite-only PRAGMA statements
+        if sql.strip().upper().startswith("PRAGMA"):
+            class NoOpCursor:
+                lastrowid = None
+                rowcount = 0
+                async def fetchone(self): return None
+                async def fetchall(self): return []
+            return NoOpCursor()
+
         sql_pg = self._sqlite_compat(self._ph(sql)).rstrip()
         is_insert = sql_pg.lstrip().upper().startswith("INSERT")
 
