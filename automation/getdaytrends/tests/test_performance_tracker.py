@@ -4,7 +4,7 @@ from collections.abc import Generator
 from datetime import UTC, datetime
 
 import pytest
-import respx
+respx = pytest.importorskip("respx")
 
 from perf_models import GoldenReference, TweetMetrics
 from performance_tracker import PerformanceTracker

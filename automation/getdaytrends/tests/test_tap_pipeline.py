@@ -5,7 +5,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from getdaytrends.core.pipeline import _step_refresh_tap_products
+try:
+
+    from getdaytrends.core.pipeline import _step_refresh_tap_products
+
+except (ImportError, ModuleNotFoundError):
+
+    from core.pipeline import _step_refresh_tap_products
 
 
 @pytest.mark.asyncio
