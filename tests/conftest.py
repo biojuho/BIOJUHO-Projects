@@ -19,9 +19,21 @@ ensure_importable(include_dailynews=True)
 
 @pytest.fixture(autouse=True)
 def _reset_llm_singleton():
-    """Auto-reset the shared.llm singleton between tests to prevent pollution."""
-    from shared.llm import reset_client
-    from shared.llm.client import LLMClient
+    """Auto-reset the shared.llm singleton between tests when available.
+
+    Some isolated QC environments intentionally install only the dependencies
+    needed for a narrow test slice. In those cases shared.llm may be
+    unavailable because optional packages such as pydantic are not present.
+    Tests that do not touch shared.llm should still be able to run.
+    """
+    try:
+        from shared.llm import reset_client
+        from shared.llm.client import LLMClient
+    except ModuleNotFoundError as exc:
+        if exc.name in {"pydantic"}:
+            yield
+            return
+        raise
 
     reset_client()
     LLMClient.reset()
