@@ -1,25 +1,11 @@
 # Task Board
 
-**Last Updated**: 2026-04-10
+**Last Updated**: 2026-04-12
 **Board Type**: Kanban (TODO / IN_PROGRESS / DONE)
 
 ---
 
 ## TODO
-
-- [ ] **P2: GetDayTrends 클라우드 이전** (HIGH LEVERAGE)
-  - `getdaytrends.yml` GitHub Actions 검토 → secrets 설정 → cron 활성화
-  - 성공 시 Windows Task Scheduler (`schtasks`) 비활성화
-  - 목표: "3일 연속 장애" 패턴 재발 방지
-
-- [ ] **P2: DailyNews 클라우드 이전**
-  - `dailynews-pipeline.yml` GitHub Actions 검증
-  - Notion API 스키마 안정화 (Sentiment/Entities 속성 불일치 근본 해결)
-
-- [ ] **P2: SQLite → Supabase 실이전**
-  - Supabase 프로젝트 생성
-  - `migrate_sqlite_to_supabase.py` 실행 (이미 작성됨)
-  - `DATABASE_URL` 환경변수 전환
 
 - [ ] **P3: Telegram 알림 실연동**
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 설정
@@ -38,6 +24,23 @@
 ---
 
 ## DONE (Last 7 Days)
+
+### 2026-04-12
+
+- [x] **P2: GetDayTrends 클라우드 이전**
+  - GitHub Secrets 17개 일괄 등록 (`_setup_github_secrets.py`)
+  - `getdaytrends.yml` workflow dispatch 테스트 → 46s 성공, Telegram heartbeat 전송
+  - cron 4시간 간격 이미 활성화 확인
+
+- [x] **P2: DailyNews 클라우드 이전**
+  - `dailynews-pipeline.yml` workflow dispatch 테스트 → 17s 성공
+  - cron 매일 07:00/18:00 KST 활성화 확인
+
+- [x] **P2: SQLite → Supabase 실이전**
+  - Supabase 프로젝트 생성 (Seoul, oeoboplyxfnuiireeoiy)
+  - getdaytrends: 28 테이블, 5,428행 → 100% 이전 (에러 0)
+  - dailynews: 15 테이블, 5,657행 → 100% 이전 (에러 0)
+  - `DATABASE_URL` → `.env` + GitHub Secret 등록 완료
 
 ### 2026-04-10
 

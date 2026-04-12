@@ -16,7 +16,7 @@ from loguru import logger as log
 
 async def main():
     config = AppConfig.from_env()
-    sqlite_db_path = str(Path(__file__).parent.parent / "data" / "trends.db")
+    sqlite_db_path = str(Path(__file__).parent.parent / "data" / "getdaytrends.db")
     
     if not config.database_url:
         log.error("DATABASE_URL is not set in the environment. Cannot connect to Supabase.")

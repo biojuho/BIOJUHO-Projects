@@ -55,8 +55,32 @@ class PgAdapter:
             i += 1
         return "".join(result)
 
+    @staticmethod
+    def _sqlite_compat(sql: str) -> str:
+        """Convert SQLite-specific INSERT syntax to PostgreSQL equivalents."""
+        upper = sql.lstrip().upper()
+        if "INSERT OR REPLACE" in upper:
+            # INSERT OR REPLACE INTO table (cols) VALUES (...)
+            # → INSERT INTO table (cols) VALUES (...) ON CONFLICT DO UPDATE SET ...
+            sql = re.sub(r"INSERT\s+OR\s+REPLACE\s+INTO", "INSERT INTO", sql, flags=re.IGNORECASE)
+            # Extract column names for ON CONFLICT clause
+            m = re.search(r"INTO\s+\w+\s*\(([^)]+)\)", sql, re.IGNORECASE)
+            if m:
+                cols = [c.strip() for c in m.group(1).split(",")]
+                # Assume first column is the conflict target (PK)
+                conflict_col = cols[0]
+                update_parts = [f"{c} = EXCLUDED.{c}" for c in cols[1:]]
+                if update_parts:
+                    sql = sql.rstrip(";") + f" ON CONFLICT ({conflict_col}) DO UPDATE SET {', '.join(update_parts)}"
+                else:
+                    sql = sql.rstrip(";") + f" ON CONFLICT ({conflict_col}) DO NOTHING"
+        elif "INSERT OR IGNORE" in upper:
+            sql = re.sub(r"INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", sql, flags=re.IGNORECASE)
+            sql = sql.rstrip(";") + " ON CONFLICT DO NOTHING"
+        return sql
+
     async def execute(self, sql: str, parameters=()):
-        sql_pg = self._ph(sql).rstrip()
+        sql_pg = self._sqlite_compat(self._ph(sql)).rstrip()
         is_insert = sql_pg.lstrip().upper().startswith("INSERT")
 
         if is_insert and "RETURNING" not in sql_pg.upper():

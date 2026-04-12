@@ -79,7 +79,10 @@ async def get_pg_pool(url: str, min_size: int = 2, max_size: int = 10) -> "async
     """asyncpg 커넥션 풀 반환."""
     global _PG_POOL
     if _PG_POOL is None or _PG_POOL._closed:  # type: ignore[union-attr]
-        _PG_POOL = await asyncpg.create_pool(url, min_size=min_size, max_size=max_size)
+        _PG_POOL = await asyncpg.create_pool(
+            url, min_size=min_size, max_size=max_size,
+            statement_cache_size=0,  # required for Supabase transaction-mode pooler
+        )
         log.info(f"asyncpg Pool 생성: min={min_size} max={max_size} @ {url.split('@')[-1]}")
     return _PG_POOL
 
