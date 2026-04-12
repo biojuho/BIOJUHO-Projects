@@ -7,13 +7,7 @@
 
 ## TODO
 
-- [ ] **P3: Telegram 알림 실연동**
-  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 설정
-  - Notifier 실제 수신 E2E 테스트
-
-- [ ] **P3: 비용 대시보드 Notion 자동 업로드**
-  - `cost_dashboard.py` 출력 → Notion 페이지 자동 게시
-  - `$2.00 DAILY_BUDGET_USD` 임계치 푸시 알림
+*No pending tasks — P1~P3 전체 완료*
 
 ---
 
@@ -41,6 +35,17 @@
   - getdaytrends: 28 테이블, 5,428행 → 100% 이전 (에러 0)
   - dailynews: 15 테이블, 5,657행 → 100% 이전 (에러 0)
   - `DATABASE_URL` → `.env` + GitHub Secret 등록 완료
+  - PgAdapter 호환성 수정: PRAGMA 스킵, INSERT OR 변환, statement_cache_size=0
+
+- [x] **P3: Telegram 알림 실연동**
+  - E2E 테스트 성공 (message_id: 265)
+  - Notifier.send_cost_alert + send_heartbeat 정상 동작 확인
+  - GDT/DailyNews workflow heartbeat 수신 확인
+
+- [x] **P3: 비용 대시보드 Telegram 알림**
+  - `cost_dashboard.py` 인코딩 수정 (cp949 깨짐 → UTF-8)
+  - `--notify` 플래그로 Telegram 비용 리포트 전송 확인
+  - 7일 통계: 807건, $2.90 (예산 $2.00 초과 경고 정상 동작)
 
 ### 2026-04-10
 
