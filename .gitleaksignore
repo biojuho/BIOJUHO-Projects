@@ -3,13 +3,11 @@
 # .venv, node_modules 등 서드파티 패키지도 제외
 
 # 서드파티 패키지의 테스트 픽스처
-.venv/
-
-# node_modules
-node_modules/
-
-# 빌드 아티팩트
-**/dist/
+# NOTE: Directory exclusions (.venv/, node_modules/, **/dist/) are NOT supported
+# in .gitleaksignore. Use .gitleaks.toml [allowlist] paths instead.
+# .venv/
+# node_modules/
+# **/dist/
 
 # 스킬 문서의 예시 토큰 (실제 키 아님)
 # (moved to fingerprint-based allowlist below)

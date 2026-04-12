@@ -1,0 +1,14 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "AI Project Gitleaks Config"
+
+[allowlist]
+  description = "Exclude third-party, build artifacts, and virtual environments"
+  paths = [
+    '''\.venv''',
+    '''node_modules''',
+    '''dist''',
+    '''\.pytest_cache''',
+    '''__pycache__''',
+  ]
