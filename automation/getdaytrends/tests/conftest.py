@@ -45,6 +45,77 @@ def pytest_configure(config):
         pass
 
 
+def pytest_runtest_setup(item):
+    """Reset the *system* default event loop before any fixture setup.
+
+    FastAPI TestClient and other sync-wrapper code call
+    ``asyncio.get_event_loop()`` during import / startup.  If a previous
+    pytest-asyncio test closed that loop, the system default is stale.
+    This hook fires before fixture resolution, so the loop is always
+    available.
+    """
+    import asyncio
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            asyncio.set_event_loop(asyncio.new_event_loop())
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+@pytest.fixture(autouse=True)
+def isolate_database_url():
+    """Keep workspace DATABASE_URL from leaking into SQLite-focused tests."""
+    original = os.environ.pop("DATABASE_URL", None)
+    try:
+        yield
+    finally:
+        if original is not None:
+            os.environ["DATABASE_URL"] = original
+
+
+@pytest.fixture
+def event_loop():
+    """Override default event_loop fixture to always provide a fresh loop.
+
+    On Python 3.14+, pytest-asyncio may reuse a closed event loop from
+    prior test functions.  Creating a new loop per test function prevents
+    'RuntimeError: Event loop is closed' cascade failures.
+    """
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
+    # Immediately replace with a fresh loop so the *next* test's
+    # hook / fixture / TestClient can find an open default loop.
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+@pytest.fixture(autouse=True)
+def _reset_pg_pool():
+    """Prevent asyncpg connection pool leakage between tests.
+
+    Some tests (test_db_schema_pg, test_dashboard) mock or set _PG_POOL /
+    DATABASE_URL.  Without cleanup, subsequent tests that call
+    get_connection(\":memory:\") may get routed to a real or mock asyncpg
+    pool instead of aiosqlite.
+    """
+    import os
+    import db_layer.connection as _dbconn
+
+    _dbconn._PG_POOL = None
+    old_url = os.environ.pop("DATABASE_URL", None)
+    yield
+    _dbconn._PG_POOL = None
+    if old_url is not None:
+        os.environ["DATABASE_URL"] = old_url
+    else:
+        os.environ.pop("DATABASE_URL", None)
+
+
 @pytest.fixture(autouse=True)
 def reset_notebooklm_config():
     try:
@@ -88,13 +159,28 @@ def test_config():
 
 @pytest_asyncio.fixture
 async def memory_db():
-    """인메모리 SQLite 연결 (테스트 격리)."""
+    """인메모리 SQLite 연결 (테스트 격리).
+
+    Guard: clear any leaked _PG_POOL and DATABASE_URL so get_connection
+    always returns an aiosqlite connection, even when prior tests (e.g.
+    test_dashboard / test_db_schema_pg) leave module-level state behind.
+    """
+    import os
+    import db_layer.connection as _dbconn
+
+    _dbconn._PG_POOL = None
+    old_url = os.environ.pop("DATABASE_URL", None)
+
     from db import get_connection, init_db
 
     db = await get_connection(":memory:")
     await init_db(db)
     yield db
     await db.close()
+
+    # Restore DATABASE_URL if it was set
+    if old_url is not None:
+        os.environ["DATABASE_URL"] = old_url
 
 
 # ── Trend / Batch factory functions ─────────────────────────────────────────

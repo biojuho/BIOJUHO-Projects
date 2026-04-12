@@ -49,6 +49,7 @@ async def test_get_connection_postgres_routing() -> None:
             "postgresql://user:pass@localhost:5432/db",
             min_size=2,
             max_size=10,
+            statement_cache_size=0,
         )
         assert isinstance(conn, _PgAdapter)
         mock_pool.acquire.assert_called_once()

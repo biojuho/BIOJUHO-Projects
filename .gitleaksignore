@@ -12,8 +12,24 @@ node_modules/
 **/dist/
 
 # 스킬 문서의 예시 토큰 (실제 키 아님)
-.agents/skills/whatsmolt/SKILL.md
-.agents/skills/clawshot/README.md
+# (moved to fingerprint-based allowlist below)
 
 # chain_simulator의 테스트용 고정 주소 (Hardhat 테스트 키)
-AgriGuard/backend/services/chain_simulator.py
+# (moved to fingerprint-based allowlist below)
+
+# ── Fingerprint-based allowlist (2026-04-12) ─────────────────────────────
+
+# Hardhat Account #0/#1 well-known test private keys (public knowledge)
+c2eed30594446a5340c24c69efb628611a33e868:packages/shared/test_utils/web3_integration_test.py:generic-api-key:16
+c2eed30594446a5340c24c69efb628611a33e868:packages/shared/test_utils/web3_integration_test.py:generic-api-key:17
+
+# Documentation example tokens (not real secrets)
+8e7db461179c59a2b74b0f77dde37accac0959df:.github/ISSUE_TEMPLATES/03-gitleaks-pre-commit.md:generic-api-key:91
+759043977e47e7d8a2512b2bbfdd7832e105880d:docs/GITHUB_SECURITY_SETUP.md:generic-api-key:165
+759043977e47e7d8a2512b2bbfdd7832e105880d:SECURITY.md:generic-api-key:77
+
+# AgriGuard chain_simulator Hardhat test account (public well-known key)
+fdffe1d0fae57edbdc392485d43fadd062ccb528:AgriGuard/backend/services/chain_simulator.py:generic-api-key:7
+
+# Google OAuth2 Desktop app client credentials (installed type - not secret per OAuth2 spec)
+77d6fa55ab8bcc3e74c61015238517126ec03a38:notebooklm-mcp/credentials.json:generic-api-key:1

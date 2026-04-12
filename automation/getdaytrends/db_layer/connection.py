@@ -28,6 +28,11 @@ _PG_POOL: "asyncpg.Pool | None" = None
 _SQLITE_WRITE_LOCK = threading.RLock()
 
 
+def _uses_in_memory_sqlite(db_path: str) -> bool:
+    normalized = (db_path or "").strip().lower()
+    return normalized == ":memory:" or normalized.startswith("file::memory:")
+
+
 # === 트랜잭션 컨텍스트 매니저 ===
 
 
@@ -100,7 +105,9 @@ async def get_connection(
     database_url: str = "",
 ):
     """DB 연결 반환. DATABASE_URL 설정 시 asyncpg Pool에서 연결 획득."""
-    url = database_url or os.getenv("DATABASE_URL", "")
+    # Explicit in-memory SQLite requests should not be overridden by a
+    # workspace-level DATABASE_URL leaking in from the shell environment.
+    url = "" if _uses_in_memory_sqlite(db_path) else (database_url or os.getenv("DATABASE_URL", ""))
     if url.startswith(("postgresql://", "postgres://")):
         if not _PG_AVAILABLE:
             raise ImportError("PostgreSQL 사용을 위해 asyncpg 설치 필요:\n  pip install asyncpg")

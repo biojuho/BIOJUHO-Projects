@@ -30,12 +30,27 @@ def mock_db_conn():
 @pytest.fixture
 def client(mock_db_conn):
     """FastAPI TestClient with mocked DB connection."""
+    import asyncio
+
     try:
         from fastapi.testclient import TestClient
     except ImportError:
         pytest.skip("fastapi not installed")
 
-    with patch("dashboard._get_conn", return_value=mock_db_conn):
+    # Reset event loop to prevent "Event loop is closed" from prior async tests
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            asyncio.set_event_loop(asyncio.new_event_loop())
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
+    mock_get_conn = AsyncMock(return_value=mock_db_conn)
+    mock_close_conn = AsyncMock()
+
+    with patch("dashboard._get_conn", mock_get_conn), \
+         patch("dashboard_routes_tap._get_conn", mock_get_conn), \
+         patch("dashboard_routes_tap._close_conn", mock_close_conn):
         from dashboard import app
 
         with TestClient(app) as c:

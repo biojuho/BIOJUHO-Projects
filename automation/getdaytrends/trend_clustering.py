@@ -148,26 +148,26 @@ def cluster_trends_local(
         parent[find(x)] = find(y)
 
     # [v14.0] 1차: 임베딩 기반 의미적 유사도 시도
-    used_embedding = False
+    embedding_available = False
     if use_embedding:
         embedding_pairs = _compute_similarity_pairs_embedding(names, embedding_threshold)
         if embedding_pairs is not None:
             for i, j in embedding_pairs:
                 union(i, j)
-            used_embedding = True
+            embedding_available = True
             log.info(
                 f"[임베딩 클러스터링] {len(names)}개 키워드 → "
                 f"{len(embedding_pairs)}쌍 유사 감지 (threshold={embedding_threshold})"
             )
 
     # 2차: 임베딩 실패 시 Jaccard 폴백
-    if not used_embedding:
-        for i in range(n):
-            for j in range(i + 1, n):
-                if _jaccard_similarity(names[i], names[j]) >= threshold:
-                    union(i, j)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if _jaccard_similarity(names[i], names[j]) >= threshold:
+                union(i, j)
 
     # 클러스터 그룹핑
+    used_embedding = embedding_available
     groups: dict[int, list[int]] = {}
     for i in range(n):
         root = find(i)
