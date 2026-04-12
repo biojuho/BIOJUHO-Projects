@@ -4,6 +4,7 @@ asyncpg 연결을 aiosqlite.Connection 인터페이스와 유사하게 래핑.
 db_schema.py에서 분리됨.
 """
 
+import asyncio
 import re
 
 from loguru import logger as log
@@ -18,6 +19,7 @@ class PgAdapter:
         self._conn = conn
         self._pool = pool
         self._txn = None  # asyncpg transaction handle
+        self._lock = asyncio.Lock()
 
     @staticmethod
     def _ph(sql: str) -> str:
@@ -104,11 +106,14 @@ class PgAdapter:
                 # Try with RETURNING id first, fall back without if column doesn't exist
                 if sql_pg_with_returning:
                     try:
-                        row = await self._conn.fetchrow(sql_pg_with_returning, *parameters)
+                        async with self._lock:
+                            row = await self._conn.fetchrow(sql_pg_with_returning, *parameters)
                     except Exception:
-                        row = await self._conn.fetchrow(sql_pg, *parameters)
+                        async with self._lock:
+                            row = await self._conn.fetchrow(sql_pg, *parameters)
                 else:
-                    row = await self._conn.fetchrow(sql_pg, *parameters)
+                    async with self._lock:
+                        row = await self._conn.fetchrow(sql_pg, *parameters)
 
                 class DummyCursor:
                     lastrowid = dict(row).get("id") if row else None
@@ -122,7 +127,8 @@ class PgAdapter:
 
                 return DummyCursor()
             else:
-                rows = await self._conn.fetch(sql_pg, *parameters)
+                async with self._lock:
+                    rows = await self._conn.fetch(sql_pg, *parameters)
 
                 class DummyCursor:
                     lastrowid = None
@@ -141,7 +147,8 @@ class PgAdapter:
 
     async def executemany(self, sql: str, parameters):
         sql_pg = self._ph(sql)
-        await self._conn.executemany(sql_pg, parameters)
+        async with self._lock:
+            await self._conn.executemany(sql_pg, parameters)
 
     async def executescript(self, sql: str):
         sql_pg = re.sub(
@@ -155,7 +162,8 @@ class PgAdapter:
             if stmt.upper().startswith("PRAGMA"):
                 continue
             try:
-                await self._conn.execute(stmt)
+                async with self._lock:
+                    await self._conn.execute(stmt)
             except Exception as e:
                 if "already exists" in str(e).lower():
                     log.debug(f"PostgreSQL DDL 스킵 (이미 존재): {stmt[:60]}...")
@@ -165,24 +173,34 @@ class PgAdapter:
     async def commit(self):
         # BUG-006 fix: commit the active transaction if one exists
         if self._txn is not None:
-            await self._txn.commit()
+            async with self._lock:
+                await self._txn.commit()
             self._txn = None
 
     async def rollback(self):
         # BUG-006 fix: rollback the active transaction if one exists
         if self._txn is not None:
-            await self._txn.rollback()
+            async with self._lock:
+                await self._txn.rollback()
             self._txn = None
 
     async def close(self):
         # BUG-005 fix: release connection back to pool instead of closing it
         if self._txn is not None:
             try:
-                await self._txn.rollback()
+                async with self._lock:
+                    await self._txn.rollback()
             except Exception:
                 pass
             self._txn = None
-        if self._pool is not None:
-            await self._pool.release(self._conn)
-        else:
-            await self._conn.close()
+            
+        async with self._lock:
+            if self._pool is not None:
+                # Supabase transaction-mode pooler requires connections to be idle before release.
+                # The lock ensures no concurrent queries are running.
+                try:
+                    await self._pool.release(self._conn)
+                except Exception as e:
+                    log.error(f"Failed to release asyncpg connection: {e}")
+            else:
+                await self._conn.close()

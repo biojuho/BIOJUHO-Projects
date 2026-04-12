@@ -29,7 +29,10 @@ from pathlib import Path
 # 프로젝트 루트를 sys.path에 추가
 _current_file = Path(__file__).resolve()
 _getdaytrends_dir = _current_file.parent
-_workspace_root = _getdaytrends_dir.parent  # BUG-019 fix: parent (not parents[1])
+# 워크스페이스 재구성 이후 main.py는 automation/getdaytrends/ 아래에 있으므로
+# 프로젝트 루트는 parents[1] (= d:/AI project). parent로 가면 automation/만 잡혀
+# packages/shared 를 찾지 못한다.
+_workspace_root = _getdaytrends_dir.parents[1]
 
 for candidate in (_workspace_root, _workspace_root / "packages"):
     candidate_text = str(candidate)
@@ -44,6 +47,12 @@ if "pytest" not in sys.modules and str(_getdaytrends_dir) not in sys.path:
 if sys.platform == "win32" and "pytest" not in sys.modules and hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+# asyncpg + SSL은 Windows ProactorEventLoop와 호환되지 않아 'NoneType.send' →
+# 'Event loop is closed' 연쇄 오류를 일으킨다. Selector 루프로 강제한다.
+# Python 3.16부터 set_event_loop_policy가 제거되므로 set_event_loop를 직접 호출.
+if sys.platform == "win32":
+    asyncio.set_event_loop(asyncio.SelectorEventLoop())
 
 
 import schedule
@@ -628,7 +637,7 @@ def _main_body():
                         raise
         except Exception as run_err:
             from loguru import logger as log
-            log.error(f"스케줄 파이프라인 실행 중 오류: {run_err}")
+            log.exception(f"스케줄 파이프라인 실행 중 오류: {run_err}")
 
     _run_all_countries()
 
@@ -666,11 +675,13 @@ def _main_body():
     except KeyboardInterrupt:
         _SHUTDOWN_FLAG.set()
     finally:
-
         async def _cleanup():
             await close_pg_pool()
 
-        run_async(_cleanup())
+        try:
+            run_async(_cleanup())
+        except Exception:
+            pass
         print("\n\n  스케줄러 종료. 수고하셨습니다!")
 
 

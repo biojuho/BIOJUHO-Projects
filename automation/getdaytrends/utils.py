@@ -45,6 +45,18 @@ def sanitize_keyword(keyword: str, max_len: int = 200) -> str:
 _PY314_SHUTDOWN_TIMEOUT_MSG = "Timeout should be used inside a task"
 
 
+async def _run_with_pool_cleanup(coro):
+    """루프 종료 전에 해당 루프에 바인딩된 asyncpg pool을 정리한다."""
+    try:
+        return await coro
+    finally:
+        try:
+            from getdaytrends.db_layer.connection import close_pg_pool
+            await close_pg_pool()
+        except Exception:
+            pass
+
+
 def _run_coroutine_in_new_loop(coro):
     """
     새 이벤트 루프에서 코루틴 실행.
@@ -58,7 +70,15 @@ def _run_coroutine_in_new_loop(coro):
     loop = asyncio.new_event_loop()
     try:
         asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(coro)
+        result = loop.run_until_complete(_run_with_pool_cleanup(coro))
+
+        # 잔여 백그라운드 태스크를 취소·수확하여 루프 종료 시 경고 방지
+        tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+        if tasks:
+            for task in tasks:
+                task.cancel()
+            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+
         loop.run_until_complete(loop.shutdown_asyncgens())
 
         shutdown_default_executor = getattr(loop, "shutdown_default_executor", None)

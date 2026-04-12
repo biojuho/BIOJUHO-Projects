@@ -51,9 +51,9 @@ async def get_source_quality_summary(conn, days: int = 7) -> dict:
     cursor = await conn.execute(
         """SELECT source,
                   COUNT(*) as total_calls,
-                  ROUND(AVG(success) * 100, 1) as success_rate,
-                  ROUND(AVG(latency_ms), 0) as avg_latency_ms,
-                  ROUND(AVG(quality_score), 3) as avg_quality_score
+                  ROUND(CAST(AVG(success) AS NUMERIC) * 100, 1) as success_rate,
+                  ROUND(CAST(AVG(latency_ms) AS NUMERIC), 0) as avg_latency_ms,
+                  ROUND(CAST(AVG(quality_score) AS NUMERIC), 3) as avg_quality_score
            FROM source_quality
            WHERE recorded_at >= ?
            GROUP BY source

@@ -31,7 +31,7 @@ except ImportError:
     print_harness_summary = None  # type: ignore
 
 from getdaytrends.alerts import check_and_alert, check_watchlist
-from getdaytrends.analyzer import analyze_trends
+from getdaytrends.analyzer import _analyze_trends_async
 from getdaytrends.config import AppConfig
 from getdaytrends.db import (
     cleanup_old_records,
@@ -45,7 +45,7 @@ from getdaytrends.db import (
     update_run,
 )
 from getdaytrends.models import RunResult
-from getdaytrends.scraper import collect_contexts, collect_trends
+from getdaytrends.scraper import _async_collect_contexts, _async_collect_trends
 from getdaytrends.utils import run_async
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
@@ -146,11 +146,11 @@ async def _check_budget_and_adjust_limit(config: AppConfig, conn) -> tuple[AppCo
     return pipeline_config, budget_disabled
 
 
-def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
+async def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
     """Step 1: 멀티소스 트렌드 수집 + 심층 컨텍스트 조건부 수집."""
     print("\n[1/4] 멀티소스 트렌드 수집 중...")
     try:
-        raw_trends, contexts = collect_trends(config, conn)
+        raw_trends, contexts = await _async_collect_trends(config, conn)
     except Exception as exc:
         # 외부 API(Google Trends, getdaytrends.com 등) 장애 시 파이프라인 전체 크래시 방지
         log.error(f"  [수집 실패] collect_trends 예외: {type(exc).__name__}: {exc}")
@@ -171,7 +171,7 @@ def _step_collect(config: AppConfig, conn, run: RunResult) -> tuple:
         if needs_deep:
             print(f"  심층 컨텍스트 수집 중 ({len(needs_deep)}/{len(raw_trends)}개 부족)...")
             try:
-                deep_contexts = collect_contexts(needs_deep, config, conn)
+                deep_contexts = await _async_collect_contexts(needs_deep, config, conn=conn)
             except Exception as exc:
                 # 심층 컨텍스트 수집 실패는 치명적이지 않음 — 기존 컨텍스트로 계속 진행
                 log.warning(f"  [심층 컨텍스트 실패] collect_contexts 예외: {type(exc).__name__}: {exc}")
@@ -548,7 +548,7 @@ async def _step_post_run(
 async def _step_score_and_alert(raw_trends, contexts, config: AppConfig, conn, run: RunResult) -> tuple:
     """Step 2-3: 바이럴 스코어링 + 품질 필터 + 알림."""
     print("\n[2/4] 바이럴 스코어링 중 (병렬)...")
-    scored_trends = analyze_trends(raw_trends, contexts, config, conn)
+    scored_trends = await _analyze_trends_async(raw_trends, contexts, config, conn=conn)
     run.trends_scored = len(scored_trends)
 
     quality_trends = _ensure_quality_and_diversity(scored_trends, config)
@@ -655,7 +655,7 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
                 harness=harness,
             )
         else:
-            raw_trends, contexts = _step_collect(pipeline_config, conn, run)
+            raw_trends, contexts = await _step_collect(pipeline_config, conn, run)
         _t1 = time.time()
         log.info(f"  [타이밍] 수집: {_t1 - _t0:.1f}초")
         if not raw_trends:

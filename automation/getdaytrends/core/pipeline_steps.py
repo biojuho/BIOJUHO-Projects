@@ -412,13 +412,15 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
     if gen_mode == "lite":
         log.info("  [생성 모드] lite (비피크 시간) — 장문 생성 생략")
 
+    db_lock = asyncio.Lock()
+
     async def _get_or_generate(trend):
         """콘텐츠 캐시 히트 시 LLM 건너뜀. 가속도 기반 TTL 차등화."""
-        cached_batch = await _try_cache_hit(trend, config, conn)
-        if cached_batch is not None:
-            return cached_batch
-
-        recent_tweets = await _load_recent_tweets(trend, config, conn)
+        async with db_lock:
+            cached_batch = await _try_cache_hit(trend, config, conn)
+            if cached_batch is not None:
+                return cached_batch
+            recent_tweets = await _load_recent_tweets(trend, config, conn)
 
         effective_config = config
         if gen_mode == "lite" and config.enable_long_form:

@@ -486,6 +486,8 @@ async def _async_fetch_single_source(
 
         try:
             await record_source_quality(conn, source_name, success, latency_ms, 1 if success else 0, quality_score)
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             log.warning(f"소스 품질 기록 실패 ({source_name}/{keyword}): {exc}")
 
