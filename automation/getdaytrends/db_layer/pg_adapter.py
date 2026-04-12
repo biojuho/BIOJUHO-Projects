@@ -83,12 +83,23 @@ class PgAdapter:
         sql_pg = self._sqlite_compat(self._ph(sql)).rstrip()
         is_insert = sql_pg.lstrip().upper().startswith("INSERT")
 
-        if is_insert and "RETURNING" not in sql_pg.upper():
-            sql_pg = sql_pg.rstrip(";") + " RETURNING id"
+        # Only add RETURNING id when there's no ON CONFLICT and no existing RETURNING
+        has_conflict = "ON CONFLICT" in sql_pg.upper()
+        if is_insert and "RETURNING" not in sql_pg.upper() and not has_conflict:
+            sql_pg_with_returning = sql_pg.rstrip(";") + " RETURNING id"
+        else:
+            sql_pg_with_returning = None
 
         try:
             if is_insert:
-                row = await self._conn.fetchrow(sql_pg, *parameters)
+                # Try with RETURNING id first, fall back without if column doesn't exist
+                if sql_pg_with_returning:
+                    try:
+                        row = await self._conn.fetchrow(sql_pg_with_returning, *parameters)
+                    except Exception:
+                        row = await self._conn.fetchrow(sql_pg, *parameters)
+                else:
+                    row = await self._conn.fetchrow(sql_pg, *parameters)
 
                 class DummyCursor:
                     lastrowid = dict(row).get("id") if row else None
