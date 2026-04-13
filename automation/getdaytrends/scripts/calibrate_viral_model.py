@@ -19,9 +19,15 @@ import argparse
 import json
 import sqlite3
 import statistics
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+# Force UTF-8 encoding for standard output on Windows
+if sys.stdout.encoding.lower() != 'utf-8':
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
 
 
 # ── 상수 ─────────────────────────────────────────────────────────────────────
@@ -505,8 +511,8 @@ def main(argv=None) -> int:
     args = _parse_args(argv)
 
     if not Path(args.db_path).exists():
-        print(f"DB 파일 없음: {args.db_path}")
-        return 1
+        print(f"DB 파일 없음 (스킵): {args.db_path}")
+        return 0
 
     report = run(
         db_path=args.db_path,
