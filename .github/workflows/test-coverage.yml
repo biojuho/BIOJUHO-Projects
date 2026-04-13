@@ -45,16 +45,14 @@ jobs:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
         run: |
+          cd automation/getdaytrends
           uv run pytest \
-            --rootdir=automation/getdaytrends \
-            -c automation/getdaytrends/pytest.ini \
-            --cov=getdaytrends \
-            --cov-report=xml:coverage.xml \
-            --cov-report=html:coverage-html \
+            -c pytest.ini \
+            --cov=. \
+            --cov-report=xml:../../coverage.xml \
+            --cov-report=html:../../coverage-html \
             --cov-report=term-missing \
-            -v --tb=short \
-            automation/getdaytrends/tests
-
+            -v --tb=short
 
 
       - name: Coverage summary
