@@ -30,7 +30,7 @@ dependencies = [
     "loguru>=0.7.0,<1.0",
     "aiosqlite>=0.20.0,<1.0",
     "redis>=5.0.0,<8.0",
-    "cryptography>=42.0.0,<45.0",
+    "cryptography>=46.0.7,<47.0",
 ]
 
 [tool.setuptools.packages.find]
