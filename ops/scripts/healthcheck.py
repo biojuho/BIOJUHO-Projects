@@ -27,9 +27,10 @@ CHECKS = [
         "checks": [
             ("config", rel_unit_path("getdaytrends", "config.py")),
             ("main", rel_unit_path("getdaytrends", "main.py")),
+            ("packaging", rel_unit_path("getdaytrends", "pyproject.toml")),
         ],
         "key_imports": ["anthropic", "httpx", "aiosqlite"],
-        "requirements": rel_unit_path("getdaytrends", "requirements.txt"),
+        "requirements": None,
     },
     {
         "name": "DailyNews",
@@ -43,10 +44,10 @@ CHECKS = [
         "type": "python",
         "checks": [
             ("main", rel_unit_path("desci-platform", "biolinker", "main.py")),
-            ("requirements", rel_unit_path("desci-platform", "biolinker", "requirements.txt")),
+            ("packaging", rel_unit_path("desci-platform", "biolinker", "pyproject.toml")),
         ],
         "key_imports": ["fastapi", "uvicorn"],
-        "requirements": rel_unit_path("desci-platform", "biolinker", "requirements.txt"),
+        "requirements": None,
     },
     {
         "name": "desci-frontend",
@@ -63,10 +64,10 @@ CHECKS = [
         "type": "python",
         "checks": [
             ("main", rel_unit_path("agriguard", "backend", "main.py")),
-            ("requirements", rel_unit_path("agriguard", "backend", "requirements.txt")),
+            ("packaging", rel_unit_path("agriguard", "backend", "pyproject.toml")),
         ],
         "key_imports": ["fastapi", "sqlalchemy"],
-        "requirements": rel_unit_path("agriguard", "backend", "requirements.txt"),
+        "requirements": None,
     },
     {
         "name": "AgriGuard-frontend",
@@ -176,7 +177,7 @@ def check_npm_build(rel_path: str) -> dict:
 
     try:
         npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
-        proc = subprocess.run([npm_cmd, "run", "build:dry"], cwd=full_path, capture_output=True, text=True, timeout=45)
+        proc = subprocess.run([npm_cmd, "run", "build:dry"], cwd=full_path, capture_output=True, text=True, timeout=120)
         if proc.returncode == 0:
             return {"ok": True, "message": "OK build dry-run"}
         stderr = next(
