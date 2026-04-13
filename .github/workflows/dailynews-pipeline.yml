@@ -67,7 +67,12 @@ jobs:
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             FLAGS="$FLAGS --force"
           fi
-          uv run python scripts/run_daily_news.py $FLAGS 2>&1 | head -500
+          # Do NOT pipe through `head` — once head closes the pipe, Python
+          # gets SIGPIPE and dies mid-run, which silently hides category
+          # failures. The structured log file under logs/ is uploaded as
+          # an artifact so full output is still available.
+          set -o pipefail
+          uv run python -u scripts/run_daily_news.py $FLAGS 2>&1
 
       - name: Upload logs
         if: always()
