@@ -31,10 +31,10 @@ jobs:
       TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      # ── Notion ──
-      NOTION_API_KEY:              ${{ secrets.NOTION_TOKEN }}
-      NOTION_TASKS_DATABASE_ID:    ${{ secrets.NOTION_DATABASE_ID }}
-      NOTION_REPORTS_DATABASE_ID:  ${{ secrets.NOTION_DATABASE_ID }}
+      # ── Notion (DailyNews-dedicated integration + reports DB) ──
+      NOTION_API_KEY:              ${{ secrets.DAILYNEWS_NOTION_TOKEN }}
+      NOTION_TASKS_DATABASE_ID:    ${{ secrets.DAILYNEWS_NOTION_REPORTS_DB_ID }}
+      NOTION_REPORTS_DATABASE_ID:  ${{ secrets.DAILYNEWS_NOTION_REPORTS_DB_ID }}
 
     steps:
       - uses: actions/checkout@v4
