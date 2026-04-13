@@ -61,7 +61,7 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/automation/DailyNews/src
         run: |
           FLAGS="--max-items ${{ github.event.inputs.max_items || '5' }}"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
