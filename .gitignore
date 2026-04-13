@@ -27,7 +27,9 @@ fun/
 **/.smoke-tmp/
 **/.pytest-temp/
 **/.pytest-temp-verify/
+**/.pytest-tmp/
 **/.test-tmp/
+**/gdt-parallel-*/
 
 # Claude agent internals
 .agent/

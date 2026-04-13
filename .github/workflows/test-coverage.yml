@@ -36,21 +36,22 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --package getdaytrends
-          uv pip install -e . --no-deps
+          uv sync --all-packages
 
       - name: Run tests with coverage
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
+        working-directory: automation/getdaytrends
         run: |
           uv run pytest \
+            -c pytest.ini \
             --cov=getdaytrends \
-            --cov=shared \
-            --cov-report=xml:coverage.xml \
-            --cov-report=html:coverage-html \
+            --cov-report=xml:../../coverage.xml \
+            --cov-report=html:../../coverage-html \
             --cov-report=term-missing \
             -v --tb=short
+
 
       - name: Coverage summary
         if: always()
