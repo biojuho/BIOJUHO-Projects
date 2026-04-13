@@ -411,11 +411,11 @@ async def run_pipeline(
     """CIE 메인 파이프라인"""
     start = datetime.now()
 
-    # [Observability] Notifier 초기화
+    # [Observability] Notifier 초기화 — [QA 수정] from_env()로 환경변수 로드
     try:
         from shared.notifications import Notifier
-        notifier = Notifier()
-    except ImportError:
+        notifier = Notifier.from_env()
+    except Exception:
         notifier = None
 
     try:
@@ -460,8 +460,8 @@ async def run_pipeline(
                 )
                 elapsed = (datetime.now() - start).total_seconds()
                 log.info(f"\nElapsed time: {elapsed:.1f}s")
-                if notifier:
-                    await notifier.send_heartbeat(f"⚠️ *CIE Pipeline* 중단: Trend quorum missed (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초")
+                if notifier:  # [QA 수정] sync 메서드 — await 제거
+                    notifier.send(f"⚠️ *CIE Pipeline* 중단: Trend quorum missed (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초")
                 return
 
             # Step 2
@@ -505,17 +505,22 @@ async def run_pipeline(
         elapsed = (datetime.now() - start).total_seconds()
         log.info(f"\nElapsed time: {elapsed:.1f}s")
         
-        if notifier:
-            msg = f"📡 *CIE Pipeline* 성공적으로 완료 (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초"
-            await notifier.send_heartbeat(msg)
+        if notifier:  # [QA 수정] sync 메서드 — await 제거
+            notifier.send_heartbeat(
+                "CIE-Pipeline",
+                details=f"모드: {mode}, 소요시간: {int(elapsed)}초",
+            )
 
     except Exception as e:
         log.error(f"[CIE Pipeline Error] {e}")
         import traceback
-        if notifier:
+        if notifier:  # [QA 수정] send_alert → send_error (정식 API), await 제거
             try:
-                error_msg = f"💥 *CIE Pipeline Critical Failure (모드: {mode})*\n```{traceback.format_exc()[:1500]}```"
-                await notifier.send_alert(error_msg)
+                notifier.send_error(
+                    f"CIE Pipeline Critical Failure (모드: {mode})\n{traceback.format_exc()[:1000]}",
+                    error=e,
+                    source="CIE-Pipeline",
+                )
             except Exception as notify_err:
                 log.error(f"[Notification Error] {notify_err}")
         sys.exit(1)
