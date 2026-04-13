@@ -44,15 +44,17 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
-        working-directory: automation/getdaytrends
         run: |
           uv run pytest \
-            -c pytest.ini \
+            --rootdir=automation/getdaytrends \
+            -c automation/getdaytrends/pytest.ini \
             --cov=getdaytrends \
-            --cov-report=xml:../../coverage.xml \
-            --cov-report=html:../../coverage-html \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:coverage-html \
             --cov-report=term-missing \
-            -v --tb=short
+            -v --tb=short \
+            automation/getdaytrends/tests
+
 
 
       - name: Coverage summary
