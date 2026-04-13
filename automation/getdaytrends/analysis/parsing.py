@@ -103,6 +103,21 @@ def _default_scored_trend(keyword: str, context: MultiSourceContext) -> ScoredTr
     )
 
 
+def _coerce_nullable_int(value, default: int) -> int:
+    """Treat null-ish numeric fields as defaults, while preserving malformed values."""
+    if value is None or value == "":
+        return default
+    return int(value)
+
+
+def _coerce_nullable_str(value, default: str) -> str:
+    """Treat null-ish string fields as defaults."""
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text or default
+
+
 def _compute_hybrid_viral(
     config: "AppConfig | None",
     llm_viral: int,
@@ -228,8 +243,10 @@ def _parse_scored_trend_from_dict(
     """
     raw_category = parsed.get("category", "")
     category = raw_category.split("|")[0].strip() if raw_category else ""
-    trend_acceleration = parsed.get("trend_acceleration", "+0%")
-    llm_viral = min(max(int(parsed.get("viral_potential", 0)), 0), 100)
+    trend_acceleration = _coerce_nullable_str(parsed.get("trend_acceleration"), "+0%")
+    llm_viral = min(max(_coerce_nullable_int(parsed.get("viral_potential"), 0), 0), 100)
+    volume_last_24h = _coerce_nullable_int(parsed.get("volume_last_24h"), volume_numeric)
+    suggested_angles = parsed.get("suggested_angles") or []
 
     confidence = _compute_cross_source_confidence(volume_numeric, context)
     hybrid_viral = _compute_hybrid_viral(config, llm_viral, volume_numeric, trend_acceleration, confidence, velocity, keyword, category)
@@ -240,23 +257,23 @@ def _parse_scored_trend_from_dict(
     return ScoredTrend(
         keyword=keyword,
         rank=0,
-        volume_last_24h=parsed.get("volume_last_24h", volume_numeric),
+        volume_last_24h=volume_last_24h,
         trend_acceleration=trend_acceleration,
         viral_potential=min(hybrid_viral, 100),
-        top_insight=parsed.get("top_insight", ""),
-        suggested_angles=parsed.get("suggested_angles", []),
-        best_hook_starter=parsed.get("best_hook_starter", ""),
+        top_insight=_coerce_nullable_str(parsed.get("top_insight"), ""),
+        suggested_angles=suggested_angles,
+        best_hook_starter=_coerce_nullable_str(parsed.get("best_hook_starter"), ""),
         category=category,
         context=context,
         sources=[TrendSource.GETDAYTRENDS],
-        sentiment=parsed.get("sentiment", "neutral"),
+        sentiment=_coerce_nullable_str(parsed.get("sentiment"), "neutral"),
         safety_flag=bool(parsed.get("safety_flag", False)),
         cross_source_confidence=confidence,
-        joongyeon_kick=min(max(int(parsed.get("joongyeon_kick", 0)), 0), 100),
-        joongyeon_angle=parsed.get("joongyeon_angle", ""),
-        why_trending=parsed.get("why_trending", ""),
-        peak_status=parsed.get("peak_status", ""),
-        relevance_score=min(max(int(parsed.get("relevance_score", 0)), 0), 10),
+        joongyeon_kick=min(max(_coerce_nullable_int(parsed.get("joongyeon_kick"), 0), 0), 100),
+        joongyeon_angle=_coerce_nullable_str(parsed.get("joongyeon_angle"), ""),
+        why_trending=_coerce_nullable_str(parsed.get("why_trending"), ""),
+        peak_status=_coerce_nullable_str(parsed.get("peak_status"), ""),
+        relevance_score=min(max(_coerce_nullable_int(parsed.get("relevance_score"), 0), 0), 10),
         trend_context=trend_ctx,
         publishable=bool(publishable),
         publishability_reason=publishability_reason,

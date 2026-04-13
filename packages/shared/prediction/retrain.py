@@ -126,7 +126,7 @@ async def retrain(force: bool = False) -> dict:
             },
         }
     else:
-        log.warning("[PEE Retrain] 학습 데이터 부족 — fallback 모드 유지")
+        log.info("[PEE Retrain] 학습 데이터 부족 — fallback 모드 유지")
         return {
             "retrained": False,
             "reason": "학습 데이터 부족",

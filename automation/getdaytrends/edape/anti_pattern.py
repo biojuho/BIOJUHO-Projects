@@ -11,10 +11,17 @@ EDAPE — Anti-Pattern Suppressor
 
 from __future__ import annotations
 
+import inspect
 import math
 from typing import Any
 
 from loguru import logger as log
+
+
+async def _maybe_await(value):
+    if inspect.isawaitable(value):
+        return await value
+    return value
 
 
 class AntiPatternSuppressor:
@@ -32,7 +39,7 @@ class AntiPatternSuppressor:
         self.percentile = suppression_percentile
         self.min_samples = min_samples
 
-    def analyze(self, tracker: Any) -> dict[str, list[str]]:
+    async def analyze(self, tracker: Any) -> dict[str, list[str]]:
         """
         tracker에서 앵글/훅/킥 성과를 읽고 하위 percentile 패턴을 반환.
 
@@ -46,19 +53,19 @@ class AntiPatternSuppressor:
         }
 
         try:
-            angle_stats = tracker.get_angle_performance(self.lookback_days)
+            angle_stats = await _maybe_await(tracker.get_angle_performance(self.lookback_days))
             result["angles"] = self._find_bottom(angle_stats)
         except Exception as e:
             log.debug(f"[AntiPattern] 앵글 분석 실패: {e}")
 
         try:
-            hook_stats = tracker.get_hook_performance(self.lookback_days)
+            hook_stats = await _maybe_await(tracker.get_hook_performance(self.lookback_days))
             result["hooks"] = self._find_bottom(hook_stats)
         except Exception as e:
             log.debug(f"[AntiPattern] 훅 분석 실패: {e}")
 
         try:
-            kick_stats = tracker.get_kick_performance(self.lookback_days)
+            kick_stats = await _maybe_await(tracker.get_kick_performance(self.lookback_days))
             result["kicks"] = self._find_bottom(kick_stats)
         except Exception as e:
             log.debug(f"[AntiPattern] 킥 분석 실패: {e}")

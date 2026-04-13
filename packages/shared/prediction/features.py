@@ -21,6 +21,11 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
+_OPTIONAL_SCHEMA_COLUMNS = {
+    "run_date",
+    "cross_source_confidence",
+}
+
 
 # ── Feature Schema ──────────────────────────────────────────
 
@@ -222,7 +227,17 @@ class FeatureExtractor:
         try:
             return [dict(r) for r in conn.execute(query, params).fetchall()]
         except sqlite3.OperationalError as e:
-            log.warning("PEE DB query failed (%s): %s", db_path.name, e)
+            message = str(e).lower()
+            if "no such table" in message:
+                log.info("PEE DB query skipped (%s): %s", db_path.name, e)
+            elif "no such column" in message:
+                missing_column = message.split(":", 1)[-1].strip().split(".")[-1]
+                if missing_column in _OPTIONAL_SCHEMA_COLUMNS:
+                    log.info("PEE DB query skipped (%s): %s", db_path.name, e)
+                else:
+                    log.warning("PEE DB query failed (%s): %s", db_path.name, e)
+            else:
+                log.warning("PEE DB query failed (%s): %s", db_path.name, e)
             return []
         finally:
             conn.close()

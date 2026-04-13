@@ -309,7 +309,7 @@ class EngagementModel:
         sig_path = load_dir / self.HMAC_FILE
 
         if not model_path.exists():
-            log.warning("모델 파일 없음: %s", model_path)
+            log.info("모델 파일 없음: %s", model_path)
             return False
 
         # HMAC 무결성 검증 (서명 파일 있을 때만 — 레거시 호환)

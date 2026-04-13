@@ -1,6 +1,8 @@
 # X 트렌드 자동 트윗 생성기 v2.0
 
 > 멀티소스 트렌드 수집 + 바이럴 스코어링 + Claude AI 트윗/쓰레드 생성 + 자동 저장 + 알림
+>
+> Runtime path note: `automation/getdaytrends/` is the canonical repo path. The workspace-root `getdaytrends/` path is a Windows junction kept for legacy commands and points to the same files.
 
 ---
 ## Target Audience

@@ -302,8 +302,8 @@ async def _record_posting_time_stat_unlocked(conn, category: str, hour: int, eng
             """INSERT INTO posting_time_stats (category, hour, total_score, sample_count, updated_at)
                VALUES (?, ?, ?, 1, ?)
                ON CONFLICT(category, hour) DO UPDATE SET
-                   total_score = total_score + excluded.total_score,
-                   sample_count = sample_count + 1,
+                   total_score = posting_time_stats.total_score + excluded.total_score,
+                   sample_count = posting_time_stats.sample_count + 1,
                    updated_at = excluded.updated_at""",
             (category, hour, score, datetime.now().isoformat()),
         )

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -135,21 +135,22 @@ class TestAntiPatternSuppressor:
         bottom = suppressor._find_bottom(stats)
         assert bottom == []
 
-    def test_analyze_with_mock_tracker(self):
+    @pytest.mark.asyncio
+    async def test_analyze_with_mock_tracker(self):
         from edape.anti_pattern import AntiPatternSuppressor
 
         tracker = MagicMock()
-        tracker.get_angle_performance.return_value = {
+        tracker.get_angle_performance = AsyncMock(return_value={
             "a": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.05),
             "b": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.03),
             "c": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.01),
             "d": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.02),
-        }
-        tracker.get_hook_performance.return_value = {}
-        tracker.get_kick_performance.return_value = {}
+        })
+        tracker.get_hook_performance = AsyncMock(return_value={})
+        tracker.get_kick_performance = AsyncMock(return_value={})
 
         suppressor = AntiPatternSuppressor(min_samples=3)
-        result = suppressor.analyze(tracker)
+        result = await suppressor.analyze(tracker)
 
         assert isinstance(result, dict)
         assert "angles" in result
@@ -208,7 +209,8 @@ class TestAdaptiveContext:
 
 
 class TestPromptInjector:
-    def test_build_without_tracker_returns_empty(self):
+    @pytest.mark.asyncio
+    async def test_build_without_tracker_returns_empty(self):
         """PerformanceTracker import 실패 시 빈 컨텍스트 반환."""
         from edape.prompt_injector import PromptInjector
 
@@ -216,11 +218,12 @@ class TestPromptInjector:
         injector = PromptInjector(config)
 
         with patch.object(injector, "_get_tracker", return_value=None):
-            ctx = injector.build()
+            ctx = await injector.build()
 
         assert ctx.is_empty
 
-    def test_build_with_mock_tracker(self):
+    @pytest.mark.asyncio
+    async def test_build_with_mock_tracker(self):
         """Mock tracker로 전체 빌드 경로 검증."""
         from edape.prompt_injector import PromptInjector
 
@@ -228,7 +231,7 @@ class TestPromptInjector:
         injector = PromptInjector(config)
 
         mock_tracker = MagicMock()
-        mock_tracker.get_angle_performance.return_value = {
+        mock_tracker.get_angle_performance = AsyncMock(return_value={
             "hot_take": FakeAngleStats(
                 total_tweets=20,
                 avg_engagement_rate=0.05,
@@ -239,20 +242,49 @@ class TestPromptInjector:
                 avg_engagement_rate=0.03,
                 avg_impressions=800.0,
             ),
-        }
-        mock_tracker.get_hook_performance.return_value = {}
-        mock_tracker.get_kick_performance.return_value = {}
-        mock_tracker.get_optimal_pattern_weights.return_value = {
+        })
+        mock_tracker.get_hook_performance = AsyncMock(return_value={})
+        mock_tracker.get_kick_performance = AsyncMock(return_value={})
+        mock_tracker.get_optimal_pattern_weights = AsyncMock(return_value={
             "angle_weights": {"hot_take": 0.6, "empathy": 0.4},
             "hook_weights": {},
             "kick_weights": {},
-        }
-        mock_tracker.get_top_golden_references.return_value = [
+        })
+        mock_tracker.get_golden_references = AsyncMock(return_value=[
             FakeGoldenRef(),
-        ]
+        ])
+
+        mock_tracker.get_angle_performance = AsyncMock(side_effect=RuntimeError("DB 이상"))
+        mock_tracker.get_hook_performance = AsyncMock(side_effect=RuntimeError("DB 이상"))
+        mock_tracker.get_kick_performance = AsyncMock(side_effect=RuntimeError("DB 이상"))
+        mock_tracker.get_optimal_pattern_weights = AsyncMock(side_effect=RuntimeError("DB 이상"))
+        mock_tracker.get_golden_references = AsyncMock(side_effect=RuntimeError("DB 이상"))
+
+        mock_tracker.get_angle_performance = AsyncMock(return_value={
+            "hot_take": FakeAngleStats(
+                total_tweets=20,
+                avg_engagement_rate=0.05,
+                avg_impressions=1500.0,
+            ),
+            "empathy": FakeAngleStats(
+                total_tweets=15,
+                avg_engagement_rate=0.03,
+                avg_impressions=800.0,
+            ),
+        })
+        mock_tracker.get_hook_performance = AsyncMock(return_value={})
+        mock_tracker.get_kick_performance = AsyncMock(return_value={})
+        mock_tracker.get_optimal_pattern_weights = AsyncMock(return_value={
+            "angle_weights": {"hot_take": 0.6, "empathy": 0.4},
+            "hook_weights": {},
+            "kick_weights": {},
+        })
+        mock_tracker.get_golden_references = AsyncMock(return_value=[
+            FakeGoldenRef(),
+        ])
 
         with patch.object(injector, "_get_tracker", return_value=mock_tracker):
-            ctx = injector.build()
+            ctx = await injector.build()
 
         assert not ctx.is_empty
         assert len(ctx.top_angles) >= 1
@@ -260,7 +292,8 @@ class TestPromptInjector:
         assert len(ctx.golden_snippets) == 1
         assert ctx.persona_hint  # 시간대별 힌트가 존재
 
-    def test_build_survives_tracker_exception(self):
+    @pytest.mark.asyncio
+    async def test_build_survives_tracker_exception(self):
         """Tracker가 예외를 던져도 파이프라인은 중단되지 않는다."""
         from edape.prompt_injector import PromptInjector
 
@@ -275,7 +308,7 @@ class TestPromptInjector:
         mock_tracker.get_top_golden_references.side_effect = RuntimeError("DB 손상")
 
         with patch.object(injector, "_get_tracker", return_value=mock_tracker):
-            ctx = injector.build()
+            ctx = await injector.build()
 
         # 실패해도 빈 컨텍스트 반환 (파이프라인 중단 없음)
         assert isinstance(ctx.built_at, str)

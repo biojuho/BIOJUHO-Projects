@@ -70,6 +70,66 @@ class TestFeatureExtractor:
         assert X.shape[0] == 0
         assert y.shape[0] == 0
 
+    def test_safe_query_missing_table_is_logged_as_info(self, tmp_path, monkeypatch):
+        import sqlite3
+
+        db_path = tmp_path / "missing-table.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY)")
+        conn.commit()
+        conn.close()
+
+        ext = FeatureExtractor(gdt_db=db_path)
+        events: list[tuple[str, str]] = []
+
+        monkeypatch.setattr("shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args)))
+        monkeypatch.setattr("shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args)))
+
+        rows = ext._safe_query(db_path, "SELECT * FROM x_tweet_metrics")
+
+        assert rows == []
+        assert events[0][0] == "info"
+
+    def test_safe_query_missing_column_is_logged_as_warning(self, tmp_path, monkeypatch):
+        import sqlite3
+
+        db_path = tmp_path / "missing-column.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY)")
+        conn.commit()
+        conn.close()
+
+        ext = FeatureExtractor(gdt_db=db_path)
+        events: list[tuple[str, str]] = []
+
+        monkeypatch.setattr("shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args)))
+        monkeypatch.setattr("shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args)))
+
+        rows = ext._safe_query(db_path, "SELECT missing_column FROM sample")
+
+        assert rows == []
+        assert events[0][0] == "warning"
+
+    def test_safe_query_optional_schema_column_is_logged_as_info(self, tmp_path, monkeypatch):
+        import sqlite3
+
+        db_path = tmp_path / "missing-optional-column.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY)")
+        conn.commit()
+        conn.close()
+
+        ext = FeatureExtractor(gdt_db=db_path)
+        events: list[tuple[str, str]] = []
+
+        monkeypatch.setattr("shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args)))
+        monkeypatch.setattr("shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args)))
+
+        rows = ext._safe_query(db_path, "SELECT run_date FROM sample")
+
+        assert rows == []
+        assert events[0][0] == "info"
+
 
 # ── Model Tests ────────────────────────────────────────────
 

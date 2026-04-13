@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 respx = pytest.importorskip("respx")
 
-from perf_models import GoldenReference, TweetMetrics
+from perf_models import ANGLE_TYPES, GoldenReference, HOOK_PATTERNS, KICK_PATTERNS, TweetMetrics
 from performance_tracker import PerformanceTracker
 
 @pytest.fixture
@@ -232,3 +232,78 @@ async def test_auto_update_golden_references(tracker: PerformanceTracker) -> Non
     assert len(refs) == 1
     assert refs[0].tweet_id == "123"
     assert refs[0].content == "My viral tweet"
+
+
+@pytest.mark.asyncio
+async def test_run_tiered_collection_skips_when_metrics_table_missing(temp_db: str) -> None:
+    tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
+
+    result = await tracker.run_tiered_collection()
+
+    assert result == {"tier_1h": 0, "tier_6h": 0, "tier_48h": 0}
+
+
+@pytest.mark.asyncio
+async def test_auto_update_golden_references_skips_when_metrics_table_missing(temp_db: str) -> None:
+    tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
+
+    saved_count = await tracker.auto_update_golden_references(days=1, top_n=5)
+
+    assert saved_count == 0
+
+
+@pytest.mark.asyncio
+async def test_get_trend_history_skips_when_genealogy_table_missing(temp_db: str) -> None:
+    tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
+
+    history = await tracker.get_trend_history(keyword="", hours=72)
+
+    assert history == []
+
+
+@pytest.mark.asyncio
+async def test_save_trend_genealogy_skips_when_genealogy_table_missing(temp_db: str) -> None:
+    tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
+
+    await tracker.save_trend_genealogy(
+        keyword="weekend plans",
+        parent_keyword="travel",
+        predicted_children=["picnic"],
+        viral_score=91,
+    )
+
+    assert await tracker.get_predicted_children("weekend plans") == []
+
+
+@pytest.mark.asyncio
+async def test_angle_and_pattern_weights_fall_back_when_metrics_table_missing(temp_db: str) -> None:
+    tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
+
+    angle_stats = await tracker.get_angle_performance(days=7)
+    pattern_weights = await tracker.get_optimal_pattern_weights(days=7)
+
+    assert set(ANGLE_TYPES).issubset(angle_stats)
+    assert all(angle_stats[angle].total_tweets == 0 for angle in ANGLE_TYPES)
+    assert set(HOOK_PATTERNS) == set(pattern_weights["hook_weights"])
+    assert set(KICK_PATTERNS) == set(pattern_weights["kick_weights"])
+    assert set(ANGLE_TYPES) == set(pattern_weights["angle_weights"])
+
+
+@pytest.mark.asyncio
+async def test_golden_reference_reads_and_writes_skip_when_table_missing(temp_db: str) -> None:
+    tracker = PerformanceTracker(db_path=temp_db, bearer_token="")
+
+    await tracker.save_golden_reference(
+        GoldenReference(
+            tweet_id="gold-1",
+            content="placeholder",
+            angle_type="story",
+            hook_pattern="question",
+            kick_pattern="call_to_action",
+            engagement_rate=0.0,
+            impressions=0,
+            saved_at=datetime.now(UTC),
+        )
+    )
+
+    assert await tracker.get_golden_references(limit=3) == []

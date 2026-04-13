@@ -11,6 +11,7 @@ from antigravity_mcp.config import emit_metric, get_settings
 from antigravity_mcp.integrations.llm_providers import (
     call_anthropic,
     call_google_genai,
+    call_ollama,
     call_openai,
 )
 from shared.circuit_breaker import CircuitBreaker
@@ -30,6 +31,7 @@ class LLMUnavailableError(Exception):
 _llm_breakers: dict[str, CircuitBreaker] = {
     "shared.llm": CircuitBreaker("llm:shared", failure_threshold=3, cooldown_sec=120),
     "gemini": CircuitBreaker("llm:gemini", failure_threshold=3, cooldown_sec=90),
+    "ollama": CircuitBreaker("llm:ollama", failure_threshold=2, cooldown_sec=120),
     "anthropic": CircuitBreaker("llm:anthropic", failure_threshold=3, cooldown_sec=90),
     "openai": CircuitBreaker("llm:openai", failure_threshold=3, cooldown_sec=90),
 }
@@ -241,11 +243,13 @@ class LLMClientWrapper:
         # Resolve API keys from environment for each fallback provider
         _PROVIDER_KEY_MAP = {
             "gemini": os.getenv("GOOGLE_API_KEY", ""),
+            "ollama": "local",  # No API key required for local Ollama
             "anthropic": os.getenv("ANTHROPIC_API_KEY", ""),
             "openai": os.getenv("OPENAI_API_KEY", ""),
         }
         clients = [
             ("gemini", call_google_genai),
+            ("ollama", call_ollama),
             ("anthropic", call_anthropic),
             ("openai", call_openai),
         ]

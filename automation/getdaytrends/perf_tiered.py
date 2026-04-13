@@ -18,6 +18,21 @@ from db_layer.connection import db_transaction
 class TieredCollectionMixin:
     """[D] Real-time Signal 3-Tier Collection (PerformanceTracker Mixin)."""
 
+    async def _table_exists(self, conn, table_name: str) -> bool:
+        if conn.__class__.__name__ == "PgAdapter":
+            cursor = await conn.execute(
+                "SELECT to_regclass(?) AS table_name",
+                (f"public.{table_name}",),
+            )
+            row = await cursor.fetchone()
+            return bool(row and row["table_name"])
+
+        cursor = await conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+            (table_name,),
+        )
+        return await cursor.fetchone() is not None
+
     async def collect_early_signal(self, tweet_ids: list[str], tier: str = "1h") -> list[TweetMetrics]:
         """[D] 초기 시그널 수집 (발행 1시간 후). 높은 초기 ER 시 후속 콘텐츠 트리거."""
         metrics = await self.batch_collect(tweet_ids)
@@ -78,6 +93,10 @@ class TieredCollectionMixin:
         result = {"tier_1h": 0, "tier_6h": 0, "tier_48h": 0}
 
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("[Tiered Collection] skipped: tweet_performance table missing")
+                return result
+
             now = datetime.now()
             t1h_start = (now - timedelta(minutes=90)).isoformat()
             t1h_end = (now - timedelta(minutes=45)).isoformat()

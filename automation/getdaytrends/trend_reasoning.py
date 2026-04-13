@@ -141,8 +141,8 @@ async def upsert_pattern(conn, pattern_id: str, pattern_text: str, category: str
         """INSERT INTO trend_patterns (pattern_id, pattern_text, category, strength, survival_count, created_at, updated_at)
            VALUES (?, ?, ?, 'emerging', 1, ?, ?)
            ON CONFLICT(pattern_id) DO UPDATE SET
-               survival_count = survival_count + 1,
-               strength = CASE WHEN survival_count + 1 >= 3 THEN 'strong' ELSE 'emerging' END,
+               survival_count = trend_patterns.survival_count + 1,
+               strength = CASE WHEN trend_patterns.survival_count + 1 >= 3 THEN 'strong' ELSE 'emerging' END,
                updated_at = ?""",
         (pattern_id, pattern_text, category, now, now, now),
     )

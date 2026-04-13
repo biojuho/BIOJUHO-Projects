@@ -51,13 +51,31 @@ async def _run_watch(args: argparse.Namespace) -> int:
     """Execute a signal watch cycle."""
     from antigravity_mcp.pipelines.signal_watch import run_signal_watch
 
-    result = await run_signal_watch(
-        threshold=args.threshold,
-        auto_draft=getattr(args, "auto_draft", False),
-        categories=args.categories,
-        country=args.country,
-        limit_per_source=args.limit,
-    )
+    # Lazy-load Notifier (fail-safe)
+    try:
+        from shared.notifications import Notifier
+        notifier = Notifier.from_env()
+    except Exception as exc:
+        logger.debug("Notifier disabled or failed to load: %s", exc)
+        notifier = None
+
+    try:
+        result = await run_signal_watch(
+            threshold=args.threshold,
+            auto_draft=getattr(args, "auto_draft", False),
+            categories=args.categories,
+            country=args.country,
+            limit_per_source=args.limit,
+        )
+    except Exception as exc:
+        logger.error("Signal watch cycle failed: %s", exc)
+        print(f"❌ Error during signal watch: {exc}")
+        if notifier:
+            try:
+                notifier.send_error("Signal watch cycle failed", error=exc)
+            except Exception as notify_exc:
+                logger.debug("Notifier send_error failed: %s", notify_exc)
+        return 1
 
     if getattr(args, "json_output", False):
         sys.stdout.buffer.write((json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
@@ -65,36 +83,49 @@ async def _run_watch(args: argparse.Namespace) -> int:
     else:
         _print_watch_result(result)
 
-    return 0 if result["status"] == "ok" else 1
+    if result.get("status") == "ok":
+        if notifier:
+            try:
+                # Silent heartbeat for Grafana/metrics
+                notifier.send_heartbeat("signal_watch")
+                # Daily visibility message for chat (only if actionable signals were found)
+                actionable_count = result.get("actionable", 0)
+                if actionable_count > 0:
+                    notifier.send(f"📡 *Signal Watch*\n탐지된 유효 트렌드: {actionable_count} 건")
+            except Exception as notify_exc:
+                logger.debug("Notifier send failed: %s", notify_exc)
+        return 0
+
+    return 1
 
 
 def _print_watch_result(result: dict) -> None:
     """Pretty-print signal watch results."""
-    _safe_print(f"{'='*60}")
-    _safe_print("  Signal Watch Results")
-    _safe_print(f"{'='*60}")
-    _safe_print(f"  Sources:    {', '.join(result.get('sources', []))}")
-    _safe_print(f"  Collected:  {result.get('total_collected', 0)}")
-    _safe_print(f"  Scored:     {result.get('total_scored', 0)}")
-    _safe_print(f"  Actionable: {result.get('actionable', 0)}")
-    _safe_print(f"  Elapsed:    {result.get('elapsed_sec', 0):.1f}s")
-    _safe_print(f"{'─'*60}")
+    print(f"{'='*60}")
+    print("  Signal Watch Results")
+    print(f"{'='*60}")
+    print(f"  Sources:    {', '.join(result.get('sources', []))}")
+    print(f"  Collected:  {result.get('total_collected', 0)}")
+    print(f"  Scored:     {result.get('total_scored', 0)}")
+    print(f"  Actionable: {result.get('actionable', 0)}")
+    print(f"  Elapsed:    {result.get('elapsed_sec', 0):.1f}s")
+    print(f"{'─'*60}")
 
     signals = result.get("signals", [])
     if not signals:
-        _safe_print("  No actionable signals detected.")
+        print("  No actionable signals detected.")
     else:
         for _i, s in enumerate(signals, 1):
             icon = {"draft_now": "🔴", "differentiate": "🟡", "series": "🟢", "skip": "⚪"}.get(s["action"], "⚪")
-            _safe_print(
+            print(
                 f"  {icon} [{s['score']:.2f}] {s['keyword']}"
                 f"  ({s['type']}, {s['source_count']} sources)"
             )
-            _safe_print(f"       Action: {s['action']} | Velocity: {s['velocity']:.2f}")
+            print(f"       Action: {s['action']} | Velocity: {s['velocity']:.2f}")
             if s.get("category"):
-                _safe_print(f"       Category: {s['category']}")
+                print(f"       Category: {s['category']}")
 
-    _safe_print(f"{'='*60}\n")
+    print(f"{'='*60}\n")
 
 
 def _run_history(args: argparse.Namespace) -> int:
@@ -102,7 +133,7 @@ def _run_history(args: argparse.Namespace) -> int:
     from antigravity_mcp.pipelines.signal_watch import SignalStateStore
 
     store = SignalStateStore()
-    records = store.get_recent(
+    records = store.get_signal_history(
         hours=args.last,
         min_score=args.min_score,
         limit=args.limit,
@@ -119,30 +150,21 @@ def _run_history(args: argparse.Namespace) -> int:
 
 def _print_history(records: list[dict], *, hours: int = 24) -> None:
     """Pretty-print signal history."""
-    _safe_print(f"\n{'='*60}")
-    _safe_print(f"  Signal History (last {hours}h)")
-    _safe_print(f"{'='*60}")
+    print(f"\n{'='*60}")
+    print(f"  Signal History (last {hours}h)")
+    print(f"{'='*60}")
 
     if not records:
-        _safe_print("  No signals found.")
+        print("  No signals found.")
     else:
         for r in records:
             sources = r.get("sources", "[]")
             if isinstance(sources, str):
                 sources = json.loads(sources)
-            _safe_print(
+            print(
                 f"  [{r['composite_score']:.2f}] {r['keyword']}"
                 f"  ({r['arbitrage_type']}, {r.get('source_count', 0)} sources)"
             )
-            _safe_print(f"       Action: {r['recommended_action']} | Detected: {r['detected_at'][:19]}")
+            print(f"       Action: {r['recommended_action']} | Detected: {r['detected_at'][:19]}")
 
-    _safe_print(f"{'='*60}\n")
-
-
-def _safe_print(text: str) -> None:
-    """Print with UTF-8 encoding to avoid Windows encoding issues."""
-    try:
-        sys.stdout.buffer.write((text + "\n").encode("utf-8", errors="replace"))
-        sys.stdout.buffer.flush()
-    except (AttributeError, OSError):
-        print(text)
+    print(f"{'='*60}\n")

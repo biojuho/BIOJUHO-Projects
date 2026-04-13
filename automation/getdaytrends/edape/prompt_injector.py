@@ -13,10 +13,18 @@ PerformanceTracker로부터 실시간 성과 데이터를 읽어
 from __future__ import annotations
 
 import dataclasses
+import inspect
 from datetime import datetime
 from typing import Any
 
 from loguru import logger as log
+
+
+async def _maybe_await(value):
+    """Support both async tracker APIs and older synchronous test doubles."""
+    if inspect.isawaitable(value):
+        return await value
+    return value
 
 
 # ══════════════════════════════════════════════════════
@@ -175,7 +183,7 @@ class PromptInjector:
             config, "edape_max_golden_refs", self.MAX_GOLDEN_REFS
         )
 
-    def build(self) -> AdaptiveContext:
+    async def build(self) -> AdaptiveContext:
         """
         메인 빌드 메서드. 실패 시 빈 AdaptiveContext 반환 (절대 파이프라인 중단 안 함).
         """
@@ -185,19 +193,19 @@ class PromptInjector:
         )
 
         try:
-            tracker = self._get_tracker()
+            tracker = await self._get_tracker()
             if tracker is None:
                 log.debug("[EDAPE] PerformanceTracker 미사용 → 빈 컨텍스트")
                 return ctx
 
             # 1. 앵글/훅/킥 패턴 분석
-            self._inject_pattern_weights(tracker, ctx)
+            await self._inject_pattern_weights(tracker, ctx)
 
             # 2. Anti-pattern 억제
-            self._inject_suppressions(tracker, ctx)
+            await self._inject_suppressions(tracker, ctx)
 
             # 3. 골든 레퍼런스
-            self._inject_golden_refs(tracker, ctx)
+            await self._inject_golden_refs(tracker, ctx)
 
             # 4. 시간대 페르소나
             self._inject_temporal_persona(ctx)
@@ -217,7 +225,7 @@ class PromptInjector:
 
     # ── Internal ──
 
-    def _get_tracker(self):
+    async def _get_tracker(self):
         """PerformanceTracker 인스턴스 반환. import 실패 시 None."""
         try:
             from performance_tracker import PerformanceTracker
@@ -231,19 +239,19 @@ class PromptInjector:
             db_path=self._db_path,
             bearer_token=self._bearer_token,
         )
-        tracker.init_table()
+        await _maybe_await(tracker.init_table())
         return tracker
 
-    def _inject_pattern_weights(self, tracker, ctx: AdaptiveContext) -> None:
+    async def _inject_pattern_weights(self, tracker, ctx: AdaptiveContext) -> None:
         """앵글/훅/킥 성과 상위 패턴을 ctx에 주입."""
         try:
-            pattern_data = tracker.get_optimal_pattern_weights(
+            pattern_data = await _maybe_await(tracker.get_optimal_pattern_weights(
                 days=self._lookback_days,
                 min_samples=self.MIN_SAMPLES_FOR_CONFIDENCE,
-            )
+            ))
 
             # 앵글
-            angle_stats = tracker.get_angle_performance(self._lookback_days)
+            angle_stats = await _maybe_await(tracker.get_angle_performance(self._lookback_days))
             angle_weights = pattern_data.get("angle_weights", {})
             ctx.top_angles = self._extract_top_patterns(
                 angle_stats, angle_weights, "angle"
@@ -253,14 +261,14 @@ class PromptInjector:
             )
 
             # 훅
-            hook_stats = tracker.get_hook_performance(self._lookback_days)
+            hook_stats = await _maybe_await(tracker.get_hook_performance(self._lookback_days))
             hook_weights = pattern_data.get("hook_weights", {})
             ctx.top_hooks = self._extract_top_patterns(
                 hook_stats, hook_weights, "hook"
             )
 
             # 킥
-            kick_stats = tracker.get_kick_performance(self._lookback_days)
+            kick_stats = await _maybe_await(tracker.get_kick_performance(self._lookback_days))
             kick_weights = pattern_data.get("kick_weights", {})
             ctx.top_kicks = self._extract_top_patterns(
                 kick_stats, kick_weights, "kick"
@@ -290,7 +298,7 @@ class PromptInjector:
         candidates.sort(key=lambda x: x.avg_engagement_rate, reverse=True)
         return candidates[: self.MAX_TOP_PATTERNS]
 
-    def _inject_suppressions(self, tracker, ctx: AdaptiveContext) -> None:
+    async def _inject_suppressions(self, tracker, ctx: AdaptiveContext) -> None:
         """하위 20% 패턴을 금지 목록에 추가."""
         try:
             from .anti_pattern import AntiPatternSuppressor
@@ -300,17 +308,23 @@ class PromptInjector:
                 suppression_percentile=self.SUPPRESSION_PERCENTILE,
                 min_samples=self.MIN_SAMPLES_FOR_CONFIDENCE,
             )
-            result = suppressor.analyze(tracker)
+            result = await suppressor.analyze(tracker)
             ctx.suppressed_angles = result.get("angles", [])
             ctx.suppressed_hooks = result.get("hooks", [])
             ctx.suppressed_kicks = result.get("kicks", [])
         except Exception as e:
             log.debug(f"[EDAPE] Anti-pattern 분석 실패: {e}")
 
-    def _inject_golden_refs(self, tracker, ctx: AdaptiveContext) -> None:
+    async def _inject_golden_refs(self, tracker, ctx: AdaptiveContext) -> None:
         """골든 레퍼런스 상위 N개를 스니펫으로 변환."""
         try:
-            refs = tracker.get_top_golden_references(limit=self._max_golden)
+            loader = getattr(tracker, "get_golden_references", None)
+            if loader is None:
+                loader = getattr(tracker, "get_top_golden_references", None)
+            if loader is None:
+                return
+
+            refs = await _maybe_await(loader(limit=self._max_golden))
             for ref in refs:
                 ctx.golden_snippets.append(
                     GoldenSnippet(

@@ -239,6 +239,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
         """단일 TweetMetrics를 DB에 저장/갱신."""
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("save_metrics skipped: tweet_performance table missing")
+                return
+
             async with db_transaction(conn):
                 await conn.execute(self._UPSERT_SQL, self._metrics_to_tuple(metrics))
                 await self._sync_tweet_summary(conn, metrics)
@@ -252,6 +256,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
         conn = await self._get_conn()
         saved = 0
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("save_metrics_batch skipped: tweet_performance table missing")
+                return 0
+
             async with db_transaction(conn):
                 for m in metrics_list:
                     try:
@@ -274,6 +282,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
         """
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("Angle performance lookup skipped: tweet_performance table missing")
+                return {a: AngleStats(angle=a) for a in ANGLE_TYPES}
+
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             cursor = await conn.execute(
                 """SELECT angle_type,
@@ -365,6 +377,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
         """
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("run_collection_cycle skipped: tweet_performance table missing")
+                return 0
+
             cutoff = (datetime.now() - timedelta(hours=lookback_hours)).isoformat()
             cursor = await conn.execute(
                 """SELECT t.id, t.tweet_type, t.posted_at, t.x_tweet_id, t.content
@@ -440,6 +456,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
     async def get_hook_performance(self, days: int = 30) -> dict[str, PatternStats]:
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("Hook performance lookup skipped: tweet_performance table missing")
+                return {p: PatternStats(pattern=p, pattern_type="hook") for p in HOOK_PATTERNS}
+
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             cursor = await conn.execute(
                 """SELECT hook_pattern,
@@ -474,6 +494,10 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
     async def get_kick_performance(self, days: int = 30) -> dict[str, PatternStats]:
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("Kick performance lookup skipped: tweet_performance table missing")
+                return {p: PatternStats(pattern=p, pattern_type="kick") for p in KICK_PATTERNS}
+
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             cursor = await conn.execute(
                 """SELECT kick_pattern,
@@ -556,18 +580,21 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
 
         conn = await self._get_conn()
         try:
-            cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-            cursor = await conn.execute(
-                """SELECT COUNT(*) as total,
-                          AVG(engagement_rate) as avg_er,
-                          AVG(impressions) as avg_imp,
-                          MAX(engagement_rate) as max_er
-                   FROM tweet_performance
-                   WHERE collected_at >= ?""",
-                (cutoff,),
-            )
-            row = await cursor.fetchone()
-            overview = dict(row) if row else {}
+            if not await self._table_exists(conn, "tweet_performance"):
+                overview = {}
+            else:
+                cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+                cursor = await conn.execute(
+                    """SELECT COUNT(*) as total,
+                              AVG(engagement_rate) as avg_er,
+                              AVG(impressions) as avg_imp,
+                              MAX(engagement_rate) as max_er
+                       FROM tweet_performance
+                       WHERE collected_at >= ?""",
+                    (cutoff,),
+                )
+                row = await cursor.fetchone()
+                overview = dict(row) if row else {}
         finally:
             await conn.close()
 

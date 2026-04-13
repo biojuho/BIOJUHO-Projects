@@ -1,6 +1,6 @@
 # Task Board
 
-**Last Updated**: 2026-04-12
+**Last Updated**: 2026-04-13
 **Board Type**: Kanban (TODO / IN_PROGRESS / DONE)
 
 ---
@@ -13,11 +13,37 @@
 
 ## IN_PROGRESS
 
-*No pending tasks*
+- [ ] **P2: Review and commit the current hardening slice**
+  - `automation/getdaytrends`: nullable parsing, schema-light guards, quieter expected fallback logging, PostgreSQL upsert compatibility fixes
+  - `packages/shared/prediction`: expected fallback paths downgraded from warning to info, fitted-model gate tightened
+  - validation complete: `pytest automation/getdaytrends/tests/test_analyzer.py automation/getdaytrends/tests/test_performance_tracker.py automation/getdaytrends/tests/test_structured_output.py automation/getdaytrends/tests/test_pipeline_genealogy.py automation/getdaytrends/tests/test_trend_reasoning.py -q` -> `73 passed`
+  - validation complete: `pytest automation/getdaytrends/tests/test_tweet_repository.py::TestPostingTimeStats -q` -> `3 passed`
+  - validation complete: `pytest packages/shared/prediction/tests/test_prediction.py -q` -> `23 passed`
+  - validation complete: `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` -> exit code `0`
+  - remaining action: final review and commit/push when ready
 
 ---
 
 ## DONE (Last 7 Days)
+
+### 2026-04-13
+
+- [x] **P3: Claude Code startup handshake recovery recheck**
+  - post-fix `claude-vscode` session artifacts found at `2026-04-13 10:46:32 KST` and `2026-04-13 20:41:18 KST`
+  - status doc updated from pending runtime recheck to recorded post-fix evidence
+
+- [x] **P3: GetDayTrends runtime path clarification**
+  - confirmed workspace-root `getdaytrends/` is a Windows junction to `automation/getdaytrends/`
+  - incident and README docs updated so future triage uses the canonical path
+
+- [x] **P3: Local repo noise cleanup**
+  - added non-destructive ignore rules for `.venv_bak/`, `.claude/scheduled_tasks.lock`, `.claude/settings.json`, and one-off root helper scripts
+  - kept the files on disk while removing them from routine `git status` noise
+
+- [x] **P2: GetDayTrends runtime hardening verified in schema-light mode**
+  - added missing-table guards for `trend_genealogy`, `tweet_performance`, and `golden_references`
+  - fixed PostgreSQL upsert ambiguity in `trend_reasoning` and `posting_time_stats`
+  - dry-run now completes successfully in the current Supabase-backed environment
 
 ### 2026-04-12
 

@@ -146,6 +146,16 @@ class TestFallbackLogging:
 
         assert events[0][0] == "debug"
 
+    def test_missing_instructor_is_downgraded_to_debug(self, monkeypatch):
+        events: list[tuple[str, str]] = []
+
+        monkeypatch.setattr(structured_output.log, "debug", lambda msg: events.append(("debug", msg)))
+        monkeypatch.setattr(structured_output.log, "warning", lambda msg: events.append(("warning", msg)))
+
+        _log_fallback("List extract fallback", ModuleNotFoundError("No module named 'instructor'"))
+
+        assert events[0][0] == "debug"
+
     def test_other_errors_remain_warnings(self, monkeypatch):
         events: list[tuple[str, str]] = []
 

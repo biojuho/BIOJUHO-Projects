@@ -192,6 +192,48 @@ async def _init_db_unlocked(conn) -> None:
             description TEXT NOT NULL DEFAULT '',
             applied_at  TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS tweet_performance (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            tweet_id     TEXT NOT NULL UNIQUE,
+            impressions  INTEGER DEFAULT 0,
+            likes        INTEGER DEFAULT 0,
+            retweets     INTEGER DEFAULT 0,
+            replies      INTEGER DEFAULT 0,
+            quotes       INTEGER DEFAULT 0,
+            engagement_rate REAL DEFAULT 0.0,
+            angle_type   TEXT DEFAULT '',
+            hook_pattern TEXT DEFAULT '',
+            kick_pattern TEXT DEFAULT '',
+            collection_tier TEXT DEFAULT '48h',
+            collected_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS golden_references (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            tweet_id        TEXT NOT NULL UNIQUE,
+            content         TEXT NOT NULL,
+            angle_type      TEXT DEFAULT '',
+            hook_pattern    TEXT DEFAULT '',
+            kick_pattern    TEXT DEFAULT '',
+            engagement_rate REAL DEFAULT 0.0,
+            impressions     INTEGER DEFAULT 0,
+            category        TEXT DEFAULT '',
+            saved_at        TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS trend_genealogy (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword         TEXT NOT NULL,
+            parent_keyword  TEXT DEFAULT '',
+            predicted_children TEXT DEFAULT '[]',
+            genealogy_depth INTEGER DEFAULT 0,
+            first_seen_at   TEXT NOT NULL,
+            last_seen_at    TEXT NOT NULL,
+            total_appearances INTEGER DEFAULT 1,
+            peak_viral_score INTEGER DEFAULT 0,
+            UNIQUE(keyword, parent_keyword)
+        );
     """)
     await conn.commit()
 

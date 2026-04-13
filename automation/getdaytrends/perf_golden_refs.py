@@ -18,10 +18,29 @@ from db_layer.connection import db_transaction
 class GoldenReferenceMixin:
     """[E] Golden Reference 관리 기능 (PerformanceTracker Mixin)."""
 
+    async def _table_exists(self, conn, table_name: str) -> bool:
+        if conn.__class__.__name__ == "PgAdapter":
+            cursor = await conn.execute(
+                "SELECT to_regclass(?) AS table_name",
+                (f"public.{table_name}",),
+            )
+            row = await cursor.fetchone()
+            return bool(row and row["table_name"])
+
+        cursor = await conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+            (table_name,),
+        )
+        return await cursor.fetchone() is not None
+
     async def save_golden_reference(self, ref: GoldenReference) -> None:
         """[E] 골든 레퍼런스 저장. 최대 20개 유지 (최저 ER 자동 교체)."""
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "golden_references"):
+                log.info("Golden reference save skipped: golden_references table missing")
+                return
+
             async with db_transaction(conn):
                 count_cursor = await conn.execute("SELECT COUNT(*) FROM golden_references")
                 count = (await count_cursor.fetchone())[0]
@@ -60,6 +79,10 @@ class GoldenReferenceMixin:
         """[E] 상위 골든 레퍼런스 조회 (QA 벤치마크)."""
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "golden_references"):
+                log.info("Golden reference lookup skipped: golden_references table missing")
+                return []
+
             if category:
                 cursor = await conn.execute(
                     """SELECT * FROM golden_references
@@ -105,6 +128,10 @@ class GoldenReferenceMixin:
         conn = await self._get_conn()
         saved = 0
         try:
+            if not await self._table_exists(conn, "tweet_performance"):
+                log.info("Golden references auto-update skipped: tweet_performance table missing")
+                return 0
+
             cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             cursor = await conn.execute(
                 """SELECT tp.tweet_id, tp.angle_type, tp.hook_pattern, tp.kick_pattern,

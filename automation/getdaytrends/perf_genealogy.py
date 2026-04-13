@@ -9,10 +9,26 @@ import json
 from datetime import UTC, datetime, timedelta
 
 from db_layer.connection import db_transaction
+from loguru import logger as log
 
 
 class TrendGenealogyMixin:
     """[A] Trend Genealogy 관리 기능 (PerformanceTracker Mixin)."""
+
+    async def _table_exists(self, conn, table_name: str) -> bool:
+        if conn.__class__.__name__ == "PgAdapter":
+            cursor = await conn.execute(
+                "SELECT to_regclass(?) AS table_name",
+                (f"public.{table_name}",),
+            )
+            row = await cursor.fetchone()
+            return bool(row and row["table_name"])
+
+        cursor = await conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+            (table_name,),
+        )
+        return await cursor.fetchone() is not None
 
     async def save_trend_genealogy(
         self,
@@ -26,6 +42,10 @@ class TrendGenealogyMixin:
         now = datetime.now(UTC).isoformat()
         children_json = json.dumps(predicted_children or [], ensure_ascii=False)
         try:
+            if not await self._table_exists(conn, "trend_genealogy"):
+                log.info("Trend genealogy save skipped: trend_genealogy table missing")
+                return
+
             async with db_transaction(conn):
                 cursor = await conn.execute(
                     "SELECT id, total_appearances, peak_viral_score FROM trend_genealogy WHERE keyword = ? AND parent_keyword = ?",
@@ -67,6 +87,10 @@ class TrendGenealogyMixin:
         """[A] 최근 N시간 이내 트렌드 히스토리 (계보 연결)."""
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "trend_genealogy"):
+                log.info("Trend genealogy lookup skipped: trend_genealogy table missing")
+                return []
+
             cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
             cursor = await conn.execute(
                 """SELECT keyword, parent_keyword, predicted_children,
@@ -86,6 +110,9 @@ class TrendGenealogyMixin:
         """[A] 특정 트렌드의 예측된 파생 트렌드 목록."""
         conn = await self._get_conn()
         try:
+            if not await self._table_exists(conn, "trend_genealogy"):
+                return []
+
             cursor = await conn.execute(
                 "SELECT predicted_children FROM trend_genealogy WHERE keyword = ? ORDER BY last_seen_at DESC LIMIT 1",
                 (keyword,),

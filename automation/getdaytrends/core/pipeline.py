@@ -392,8 +392,8 @@ async def _step_genealogy(quality_trends: list, config: AppConfig) -> list:
                     viral_score=next((t.viral_potential for t in quality_trends if t.keyword == g["keyword"]), 0),
                 )
         log.info(f"  [Genealogy] 계보 저장 완료 ({len(genealogy)}개)")
-    except (ImportError, RuntimeError, ValueError) as _e:
-        log.debug(f"  [Genealogy] 분석 실패 (무시): {type(_e).__name__}: {_e}")
+    except Exception as _e:
+        log.warning(f"  [Genealogy] 건너뜀: {type(_e).__name__}: {_e}")
     return quality_trends
 
 

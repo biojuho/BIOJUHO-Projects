@@ -28,11 +28,16 @@ def get_extraction_window(force: bool) -> tuple[datetime, datetime, str]:
     hour = now_kst.hour
     if force:
         return now_kst - timedelta(hours=24), now_kst, "test"
-    if 6 <= hour < 8:
+    # Widened to absorb GHA cron drift — schedules fire at 07/18 KST but can
+    # queue up to several hours late. The 2026-04-13 evening run fired at
+    # 19:49 KST (1h49m late) and was rejected as "outside extraction window",
+    # so the whole brief was skipped. Accept anything up to ~6h after the
+    # scheduled slot and still classify it correctly.
+    if 6 <= hour < 13:
         start = now_kst.replace(hour=18, minute=0, second=0, microsecond=0) - timedelta(days=1)
         end = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
         return start, end, "morning"
-    if 17 <= hour < 19:
+    if 17 <= hour < 24:
         start = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
         end = now_kst.replace(hour=18, minute=0, second=0, microsecond=0)
         return start, end, "evening"
@@ -617,16 +622,23 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                 else:
                     summary["categories_skipped"] += 1
 
-            # 전체 업로드 실패는 가짜 success로 가리지 말고 명시적 failure로 마감
-            if summary["categories_success"] == 0 and summary["categories_failed"] > 0:
+            # 어떤 카테고리라도 업로드 실패하면 명시적 failure로 마감한다.
+            # Partial (예: 5/6)도 heartbeat에만 남기면 알림이 조용히 묻혀서,
+            # 카테고리 하나가 며칠 연속 실패해도 아무도 모르게 된다.
+            if summary["categories_failed"] > 0:
+                total = summary["categories_success"] + summary["categories_failed"]
+                status_name = (
+                    "failed" if summary["categories_success"] == 0 else "partial_failed"
+                )
                 error_msg = (
-                    f"all {summary['categories_failed']} categories failed to publish"
+                    f"{summary['categories_failed']}/{total} categories failed to publish"
                 )
                 state.record_job_finish(
-                    run_id, status="failed", summary=summary, error_text=error_msg
+                    run_id, status=status_name, summary=summary, error_text=error_msg
                 )
                 logger.error(
-                    "complete", "failed", "run_daily_news all categories failed", **summary
+                    "complete", "failed", "run_daily_news categories failed",
+                    **summary,
                 )
                 try:
                     from shared.notifications import Notifier
@@ -634,8 +646,8 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                     _notifier = Notifier.from_env()
                     if _notifier.has_channels:
                         _notifier.send_error(
-                            f"DailyNews 파이프라인 실패: "
-                            f"0/{summary['categories_failed']} 카테고리 발행 "
+                            f"DailyNews 파이프라인 {'실패' if status_name == 'failed' else '부분 실패'}: "
+                            f"{summary['categories_success']}/{total} 카테고리 발행 "
                             f"(window={summary['window']}, 기사={summary['articles']})",
                             source="DailyNews",
                         )
@@ -643,11 +655,10 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                     pass
                 return 1
 
-            final_status = "partial" if summary["categories_failed"] > 0 else "success"
-            state.record_job_finish(run_id, status=final_status, summary=summary)
-            logger.info("complete", final_status, "run_daily_news finished", **summary)
+            state.record_job_finish(run_id, status="success", summary=summary)
+            logger.info("complete", "success", "run_daily_news finished", **summary)
 
-            # [v2.0] Heartbeat: 파이프라인 성공/부분성공 시 Discord/Telegram 알림
+            # [v2.0] Heartbeat: 파이프라인 성공 시 Discord/Telegram 알림
             try:
                 from shared.notifications import Notifier
 
@@ -655,7 +666,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                 if _notifier.has_channels:
                     _notifier.send_heartbeat(
                         "DailyNews",
-                        status="alive" if final_status == "success" else "degraded",
+                        status="alive",
                         details=(
                             f"window={summary['window']} "
                             f"성공={summary['categories_success']} "

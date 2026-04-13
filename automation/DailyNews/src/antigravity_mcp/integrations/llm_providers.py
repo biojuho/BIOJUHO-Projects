@@ -31,11 +31,23 @@ async def call_anthropic(prompt: str, api_key: str, *, timeout_sec: int = 30) ->
                     "x-api-key": api_key,
                     "anthropic-version": "2023-06-01",
                     "content-type": "application/json",
+                    "anthropic-beta": "prompt-caching-2024-07-31",
                 },
                 json={
                     "model": "claude-haiku-4-5-20251001",
                     "max_tokens": 1500,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt,
+                                    "cache_control": {"type": "ephemeral"},
+                                }
+                            ],
+                        }
+                    ],
                 },
             )
             if resp.status_code == 200:
@@ -43,6 +55,22 @@ async def call_anthropic(prompt: str, api_key: str, *, timeout_sec: int = 30) ->
                 return data["content"][0]["text"]
     except Exception as exc:
         logger.warning("Anthropic Claude fallback failed: %s", exc)
+    return None
+
+
+async def call_ollama(prompt: str, api_key: str, *, timeout_sec: int = 60) -> str | None:
+    try:
+        async with httpx.AsyncClient(timeout=timeout_sec) as client:
+            # Using llama3 as a widely available lightweight local choice
+            resp = await client.post(
+                "http://localhost:11434/api/generate",
+                json={"model": "llama3", "prompt": prompt, "stream": False},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("response")
+    except Exception as exc:
+        logger.warning("Ollama fallback failed: %s", exc)
     return None
 
 

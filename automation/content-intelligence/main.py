@@ -1,4 +1,4 @@
-﻿"""
+"""
 =======================================================
   Content Intelligence Engine (CIE) v2.0
   ?몃젋??& ?뚮옯??洹쒖젣 諛섏쁺 肄섑뀗痢?李쎌옉 + ?먮룞 諛쒗뻾 ?쒖뒪??
@@ -408,92 +408,117 @@ async def run_pipeline(
     mode: str = "full",
     publish: bool = False,
 ) -> None:
-    """CIE 硫붿씤 ?뚯씠?꾨씪??"""
+    """CIE 메인 파이프라인"""
     start = datetime.now()
 
-    if mode == "trend":
-        trend_report = await step_collect_trends(config)
-        await step_save(config, trend_report=trend_report)
+    # [Observability] Notifier 초기화
+    try:
+        from shared.notifications import Notifier
+        notifier = Notifier()
+    except ImportError:
+        notifier = None
 
-    elif mode == "regulation":
-        reports, checklist = await step_check_regulations(config)
-        await step_save(config, regulation_reports=reports)
-        log.info(f"\n?뱥 泥댄겕由ъ뒪??\n{checklist.to_checklist_text()}")
-
-    elif mode == "review":
-        from review.monthly_review import run_monthly_review
-        from storage.local_db import get_connection, save_review
-
-        review = await run_monthly_review(config)
-        conn = get_connection(config)
-        try:
-            save_review(conn, review)
-        finally:
-            conn.close()
-
-        log.info("\n?뱤 ?붽컙 ?뚭퀬 寃곌낵:")
-        for s in review.next_month_strategy:
-            log.info(f"  ?뱦 {s}")
-        for imp in review.system_improvements:
-            log.info(f"  ?뵩 {imp}")
-
-    elif mode == "publish-only":
-        await step_publish_only(config)
-
-    else:  # full
-        # Step 1
-        trend_report = await step_collect_trends(config)
-        if trend_report.publish_blocked and not _has_trend_quorum(trend_report):
+    try:
+        if mode == "trend":
+            trend_report = await step_collect_trends(config)
             await step_save(config, trend_report=trend_report)
-            log.error(
-                f"[pipeline halted] trend quorum missed: {len(trend_report.platform_reports)}/"
-                f"{max(len(config.platforms), 1)} platforms collected "
-                f"(required={trend_report.quorum_required})"
-            )
-            elapsed = (datetime.now() - start).total_seconds()
-            log.info(f"\nElapsed time: {elapsed:.1f}s")
-            return
 
-        # Step 2
-        reports, checklist = await step_check_regulations(config)
+        elif mode == "regulation":
+            reports, checklist = await step_check_regulations(config)
+            await step_save(config, regulation_reports=reports)
+            log.info(f"\n?뱥 泥댄겕由ъ뒪??\n{checklist.to_checklist_text()}")
 
-        # Step 3
-        batch = await step_generate_content(config, trend_report, checklist)
+        elif mode == "review":
+            from review.monthly_review import run_monthly_review
+            from storage.local_db import get_connection, save_review
 
-        # Step 3.5: PEE ?깃낵 ?덉륫 (optional)
-        await _step_predict_engagement(batch, trend_report, config)
+            review = await run_monthly_review(config)
+            conn = get_connection(config)
+            try:
+                save_review(conn, review)
+            finally:
+                conn.close()
 
-        # Step 4
-        await step_save(config, trend_report, reports, batch)
+            log.info("\n?뱤 ?붽컙 ?뚭퀬 寃곌낵:")
+            for s in review.next_month_strategy:
+                log.info(f"  ?뱦 {s}")
+            for imp in review.system_improvements:
+                log.info(f"  ?뵩 {imp}")
 
-        # Step 5 (諛쒗뻾 ??--publish ?뚮옒洹??꾩슂)
-        if publish and trend_report.publish_blocked:
-            log.warning(
-                f"[publish skipped] degraded trend collection; failed platforms: "
-                f"{', '.join(trend_report.failed_platforms) or 'unknown'}"
-            )
-        elif publish:
-            await step_publish(config, batch)
+        elif mode == "publish-only":
+            await step_publish_only(config)
 
-        # 寃곌낵 ?붿빟
-        log.info("\n" + "=" * 55)
-        log.info("  ?벀 ?뚯씠?꾨씪??寃곌낵 ?붿빟")
-        log.info("=" * 55)
-        log.info(f"  {batch.summary()}")
-        for c in batch.contents:
-            qa_str = c.qa_report.to_emoji_report() if c.qa_report else "(誘멸?利?"
-            pub_str = f" | 諛쒗뻾: {c.publish_target}" if c.is_published else ""
-            pee_str = ""
-            pee = getattr(c, "pee_prediction", None)
-            if pee:
-                pee_str = f" | PEE: ER={pee['predicted_er']:.2%} 諛붿씠??{pee['viral_probability']:.0%}"
-            log.info(f"  [{c.platform.upper()}/{c.content_type}] {qa_str}{pub_str}{pee_str}")
-            if c.body:
-                preview = c.body[:100].replace("\n", " ") + "..."
-                log.info(f"    ?뱷 {preview}")
+        else:  # full
+            # Step 1
+            trend_report = await step_collect_trends(config)
+            if trend_report.publish_blocked and not _has_trend_quorum(trend_report):
+                await step_save(config, trend_report=trend_report)
+                log.error(
+                    f"[pipeline halted] trend quorum missed: {len(trend_report.platform_reports)}/"
+                    f"{max(len(config.platforms), 1)} platforms collected "
+                    f"(required={trend_report.quorum_required})"
+                )
+                elapsed = (datetime.now() - start).total_seconds()
+                log.info(f"\nElapsed time: {elapsed:.1f}s")
+                if notifier:
+                    await notifier.send_heartbeat(f"⚠️ *CIE Pipeline* 중단: Trend quorum missed (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초")
+                return
 
-    elapsed = (datetime.now() - start).total_seconds()
-    log.info(f"\nElapsed time: {elapsed:.1f}s")
+            # Step 2
+            reports, checklist = await step_check_regulations(config)
+
+            # Step 3
+            batch = await step_generate_content(config, trend_report, checklist)
+
+            # Step 3.5: PEE ?깃낵 ?덉륫 (optional)
+            await _step_predict_engagement(batch, trend_report, config)
+
+            # Step 4
+            await step_save(config, trend_report, reports, batch)
+
+            # Step 5 (諛쒗뻾 ??--publish ?뚮옒洹??꾩슂)
+            if publish and trend_report.publish_blocked:
+                log.warning(
+                    f"[publish skipped] degraded trend collection; failed platforms: "
+                    f"{', '.join(trend_report.failed_platforms) or 'unknown'}"
+                )
+            elif publish:
+                await step_publish(config, batch)
+
+            # 寃곌낵 ?붿빟
+            log.info("\n" + "=" * 55)
+            log.info("  ?벀 ?뚯씠?꾨씪??寃곌낵 ?붿빟")
+            log.info("=" * 55)
+            log.info(f"  {batch.summary()}")
+            for c in batch.contents:
+                qa_str = c.qa_report.to_emoji_report() if c.qa_report else "(誘멸?利?"
+                pub_str = f" | 諛쒗뻾: {c.publish_target}" if c.is_published else ""
+                pee_str = ""
+                pee = getattr(c, "pee_prediction", None)
+                if pee:
+                    pee_str = f" | PEE: ER={pee['predicted_er']:.2%} 諛붿씠??{pee['viral_probability']:.0%}"
+                log.info(f"  [{c.platform.upper()}/{c.content_type}] {qa_str}{pub_str}{pee_str}")
+                if c.body:
+                    preview = c.body[:100].replace("\n", " ") + "..."
+                    log.info(f"    ?뱷 {preview}")
+
+        elapsed = (datetime.now() - start).total_seconds()
+        log.info(f"\nElapsed time: {elapsed:.1f}s")
+        
+        if notifier:
+            msg = f"📡 *CIE Pipeline* 성공적으로 완료 (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초"
+            await notifier.send_heartbeat(msg)
+
+    except Exception as e:
+        log.error(f"[CIE Pipeline Error] {e}")
+        import traceback
+        if notifier:
+            try:
+                error_msg = f"💥 *CIE Pipeline Critical Failure (모드: {mode})*\n```{traceback.format_exc()[:1500]}```"
+                await notifier.send_alert(error_msg)
+            except Exception as notify_err:
+                log.error(f"[Notification Error] {notify_err}")
+        sys.exit(1)
 
 
 # ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧

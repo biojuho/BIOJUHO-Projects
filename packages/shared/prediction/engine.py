@@ -116,7 +116,7 @@ class PredictionEngine:
             )
 
             if X.shape[0] < self.MIN_TRAINING_SAMPLES:
-                log.warning(
+                log.info(
                     "학습 데이터 부족: %d건 (최소 %d건). 규칙 기반 fallback 사용.",
                     X.shape[0], self.MIN_TRAINING_SAMPLES,
                 )
@@ -165,7 +165,7 @@ class PredictionEngine:
         )
 
         # ML 모델 사용 가능한 경우
-        if self._model.is_fitted is not None:
+        if self._model.is_fitted:
             return await asyncio.to_thread(
                 self._model.predict,
                 features.to_array(),

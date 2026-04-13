@@ -94,6 +94,13 @@ def dispatch_ops_command(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
     parser = build_parser()
     args = parser.parse_args(argv)
 

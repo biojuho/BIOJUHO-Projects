@@ -13,6 +13,11 @@ Usage:
 
 from __future__ import annotations
 
+try:
+    from getdaytrends.utils import run_async
+except ImportError:
+    from utils import run_async
+
 from .anti_pattern import AntiPatternSuppressor
 from .prompt_injector import AdaptiveContext, PromptInjector
 from .temporal_persona import TemporalPersonaTuner
@@ -23,10 +28,11 @@ __all__ = [
     "PromptInjector",
     "TemporalPersonaTuner",
     "build_adaptive_context",
+    "build_adaptive_context_async",
 ]
 
 
-def build_adaptive_context(config) -> AdaptiveContext:
+async def build_adaptive_context_async(config) -> AdaptiveContext:
     """
     One-call entry point: 성과 데이터 분석 → AdaptiveContext 빌드.
 
@@ -35,4 +41,9 @@ def build_adaptive_context(config) -> AdaptiveContext:
         config = dataclasses.replace(config, adaptive_context=ctx)
     """
     injector = PromptInjector(config)
-    return injector.build()
+    return await injector.build()
+
+
+def build_adaptive_context(config) -> AdaptiveContext:
+    """Sync compatibility wrapper for scripts and older call sites."""
+    return run_async(build_adaptive_context_async(config))

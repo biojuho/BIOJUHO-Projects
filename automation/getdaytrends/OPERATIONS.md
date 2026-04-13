@@ -183,6 +183,10 @@ Get-Content "d:\AI 프로젝트\getdaytrends\run_scheduled.log" -Tail 20
     └─ DB 실패 → 파이프라인 중단 + 알림
 ```
 
+Related incident records:
+
+- [INCIDENT-2026-04-13-runtime-troubleshooting.md](docs/INCIDENT-2026-04-13-runtime-troubleshooting.md)
+
 ---
 
 ## 5. 비용 관리

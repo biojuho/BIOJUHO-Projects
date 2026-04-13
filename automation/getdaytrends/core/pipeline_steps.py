@@ -191,9 +191,9 @@ async def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | N
     # ── EDAPE: Engagement-Driven Adaptive Prompt Engine ──
     if getattr(config, "enable_edape", True):
         try:
-            from edape import build_adaptive_context
+            from edape import build_adaptive_context_async
 
-            adaptive_ctx = build_adaptive_context(config)
+            adaptive_ctx = await build_adaptive_context_async(config)
             edape_block = adaptive_ctx.to_prompt_block()
             if edape_block:
                 log.info(
