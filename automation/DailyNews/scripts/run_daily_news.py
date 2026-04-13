@@ -85,6 +85,36 @@ def normalize_analysis(analysis: dict[str, Any]) -> tuple[list[str], str, list[s
     return summary, insight_text, x_posts
 
 
+async def resolve_title_property(notion: AsyncClient, database_id: str) -> str:
+    """Find the title-typed property name on a Notion DB.
+
+    Why: The new Notion API routes schema through data sources, and the title
+    column is no longer guaranteed to be called "Name". A previous outage
+    burned six categories when DAILYNEWS_NOTION_REPORTS_DB_ID pointed to a DB
+    whose title property had a different name.
+    """
+    try:
+        db = await notion.databases.retrieve(database_id=database_id)
+    except Exception:
+        return "Name"
+    props = db.get("properties") or {}
+    for name, spec in props.items():
+        if isinstance(spec, dict) and spec.get("type") == "title":
+            return name
+    for ds in db.get("data_sources") or []:
+        ds_id = ds.get("id")
+        if not ds_id:
+            continue
+        try:
+            ds_obj = await notion.data_sources.retrieve(data_source_id=ds_id)
+        except Exception:
+            continue
+        for name, spec in (ds_obj.get("properties") or {}).items():
+            if isinstance(spec, dict) and spec.get("type") == "title":
+                return name
+    return "Name"
+
+
 async def upload_to_notion(
     *,
     category: str,
@@ -92,6 +122,7 @@ async def upload_to_notion(
     notion: AsyncClient,
     logger,
     today_str: str,
+    title_property: str = "Name",
     canva_result: dict | None = None,
     nlm_result: dict | None = None,
 ) -> dict[str, Any]:
@@ -230,7 +261,7 @@ async def upload_to_notion(
         notion_client=notion,
         parent={"database_id": NOTION_REPORTS_DATABASE_ID},
         properties={
-            "Name": {"title": [{"text": {"content": f"[{category}] Daily Report - {today_str}"}}]},
+            title_property: {"title": [{"text": {"content": f"[{category}] Daily Report - {today_str}"}}]},
         },
         children=children,
         logger=logger,
@@ -252,6 +283,7 @@ async def process_category(
     logger,
     today_str: str,
     window_name: str,
+    title_property: str = "Name",
 ) -> dict[str, Any]:
     all_articles: list[dict[str, Any]] = []
     seen_links: set[str] = set()
@@ -442,6 +474,7 @@ async def process_category(
             notion=notion,
             logger=logger,
             today_str=today_str,
+            title_property=title_property,
             canva_result=canva_result,
             nlm_result=nlm_result,
         )
@@ -526,7 +559,13 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
         logger.warning("bootstrap", "degraded", "notebooklm unavailable", error=str(exc))
 
     notion = AsyncClient(auth=NOTION_API_KEY)
-    today_str = date.today().isoformat()
+    # Use the END of the extraction window as the report date so the morning
+    # brief that runs at 22:32 UTC (07:32 KST next day) is labeled with the
+    # KST date the user actually sees, not the UTC server's calendar date.
+    today_str = end.date().isoformat()
+    title_property = await resolve_title_property(notion, NOTION_REPORTS_DATABASE_ID)
+    if title_property != "Name":
+        logger.info("bootstrap", "success", "resolved title property", title_property=title_property)
     summary: dict[str, Any] = {
         "window": window_name,
         "categories_success": 0,
@@ -562,6 +601,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                         logger=logger,
                         today_str=today_str,
                         window_name=window_name,
+                        title_property=title_property,
                     )
                 except Exception as exc:
                     logger.error("category", "failed", "unhandled category error", category=category, error=str(exc))
