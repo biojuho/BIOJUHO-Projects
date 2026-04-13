@@ -12,6 +12,7 @@ class JinaAdapter:
 
     async def fetch_deep_context(self, url: str) -> str:
         """Fetches the main content of an article via Jina AI API."""
+        import os
         if not url or not url.startswith("http"):
             return ""
 
@@ -21,6 +22,10 @@ class JinaAdapter:
             "X-Target-URI": url
         }
         
+        jina_api_key = os.getenv("JINA_API_KEY")
+        if jina_api_key:
+            headers["Authorization"] = f"Bearer {jina_api_key}"
+            
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.get(jina_url, headers=headers)
@@ -48,3 +53,31 @@ class JinaAdapter:
                 results[url] = content
                 
         return results
+
+    async def search_topic(self, query: str, limit: int = 3, max_length: int = 4000) -> str:
+        """Searches Jina AI for a topic and returns a text summary containing top results."""
+        import os
+        if not query:
+            return ""
+
+        # Using s.jina.ai with query
+        jina_url = f"https://s.jina.ai/{query}"
+        headers = {
+            "User-Agent": "Antigravity/DeepResearch",
+            "X-Retain-Images": "none",
+        }
+        
+        jina_api_key = os.getenv("JINA_API_KEY")
+        if jina_api_key:
+            headers["Authorization"] = f"Bearer {jina_api_key}"
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.get(jina_url, headers=headers)
+                resp.raise_for_status()
+                # Return up to the max_length to prevent overwhelming context
+                return resp.text[:max_length]
+        except Exception as exc:
+            logger.debug(f"Failed to search topic via Jina.ai for '{query}': {exc}")
+            return ""
+

@@ -253,9 +253,26 @@ async def run_signal_watch(
 
 async def _trigger_auto_draft(signals: list[ScoredSignal], run_id: str) -> None:
     """Generate synthetic ContentItems for signals and push to analyze pipeline."""
+    from antigravity_mcp.integrations.jina_adapter import JinaAdapter
+
+    jina = JinaAdapter(timeout=15.0)
     items = []
     now_iso = datetime.now(UTC).isoformat()
+    
     for s in signals:
+        query = f'"{s.keyword}" news 2026'
+        logger.info("Fetching deep search context for signal: %s", s.keyword)
+        deep_context = await jina.search_topic(query, max_length=4000)
+        
+        summary = (
+            f"Trend detected via {', '.join(s.sources)} with score {s.composite_score:.2f}. "
+            f"Velocity: {s.velocity:.2f}. Suggested action: {s.recommended_action}.\n\n"
+        )
+        if deep_context:
+            summary += f"[Deep Context (Jina.ai Search)]\n{deep_context}"
+        else:
+            summary += "[Deep Context (Jina.ai Search)]\n(No deep context could be retrieved via search)"
+
         # Create synthetic ContentItem mapped from signal
         items.append(
             ContentItem(
@@ -264,10 +281,7 @@ async def _trigger_auto_draft(signals: list[ScoredSignal], run_id: str) -> None:
                 title=f"🚀 Trending Alert: {s.keyword} ({s.arbitrage_type})",
                 link=f"https://www.google.com/search?q={s.keyword}&tbm=nws",  # Fallback query
                 published_at=now_iso,
-                summary=(
-                    f"Trend detected via {', '.join(s.sources)} with score {s.composite_score:.2f}. "
-                    f"Velocity: {s.velocity:.2f}. Suggested action: {s.recommended_action}."
-                ),
+                summary=summary,
             )
         )
 

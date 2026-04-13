@@ -374,7 +374,10 @@ async def _step_genealogy(quality_trends: list, config: AppConfig) -> list:
             from performance_tracker import PerformanceTracker
 
         tracker = PerformanceTracker(db_path=config.db_path)
-        history = tracker.get_trend_history(keyword="", hours=getattr(config, "genealogy_history_hours", 72))
+        history = await tracker.get_trend_history(
+            keyword="",
+            hours=getattr(config, "genealogy_history_hours", 72),
+        )
         genealogy = await analyze_trend_genealogy(quality_trends, history, get_client(), config)
         if not genealogy:
             return quality_trends
@@ -382,7 +385,7 @@ async def _step_genealogy(quality_trends: list, config: AppConfig) -> list:
         min_conf = getattr(config, "genealogy_min_confidence", 0.5)
         for g in genealogy:
             if g.get("confidence", 0) >= min_conf:
-                tracker.save_trend_genealogy(
+                await tracker.save_trend_genealogy(
                     keyword=g["keyword"],
                     parent_keyword=g.get("parent_keyword", ""),
                     predicted_children=g.get("predicted_children", []),
@@ -472,11 +475,11 @@ async def _step_post_run(
             if getattr(pipeline_config, "enable_tiered_collection", False):
                 log.info(f"  [Tiered Collection] {await pt.run_tiered_collection()}")
             if getattr(pipeline_config, "enable_golden_reference_qa", False):
-                count = pt.auto_update_golden_references(
+                count = await pt.auto_update_golden_references(
                     days=getattr(pipeline_config, "golden_reference_auto_update_days", 7)
                 )
                 log.info(f"  [Golden Ref] 자동 갱신: {count}건")
-        except (ImportError, RuntimeError, ValueError) as _e:
+        except Exception as _e:
             log.debug(f"  성과 수집/갱신 실패 (무시): {type(_e).__name__}: {_e}")
 
     # 구조화 메트릭 로깅

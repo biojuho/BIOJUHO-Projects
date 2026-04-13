@@ -22,7 +22,10 @@ Usage:
 import os
 import sqlite3
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
 
 WORKSPACE = Path(__file__).resolve().parents[2]
 
@@ -42,15 +45,16 @@ SQLITE_PATHS = {
 }
 
 
-def get_backend() -> Literal["sqlite", "postgresql"]:
+def get_backend(override_url: str | None = None) -> Literal["sqlite", "postgresql"]:
     """현재 활성화된 DB 백엔드를 반환합니다."""
-    if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
+    url = override_url or DATABASE_URL
+    if url and url.startswith("postgresql"):
         return "postgresql"
     return "sqlite"
 
 
 def get_sqlite_connection(db_name: str, path: Path | None = None) -> sqlite3.Connection:
-    """SQLite 연결을 반환합니다.
+    """[Legacy DB-API] SQLite 연결을 반환합니다.
 
     Args:
         db_name: SQLITE_PATHS 키 또는 커스텀 이름
@@ -64,15 +68,15 @@ def get_sqlite_connection(db_name: str, path: Path | None = None) -> sqlite3.Con
         raise ValueError(f"Unknown database: {db_name}. Available: {list(SQLITE_PATHS.keys())}")
 
     db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    if not (db_path.parent.name == "tests" and "tmp" in str(db_path)):
+        db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 
 def get_connection(db_name: str, **kwargs):
-    """데이터베이스 연결을 반환합니다.
+    """[Legacy DB-API] 데이터베이스 연결을 반환합니다.
 
-    현재는 SQLite만 지원합니다.
-    DATABASE_URL이 설정되면 PostgreSQL로 자동 전환됩니다 (Phase 2에서 구현).
+    현재는 DB-API 스펙 기반의 SQLite만 지원합니다.
 
     Args:
         db_name: 데이터베이스 식별자
@@ -84,15 +88,50 @@ def get_connection(db_name: str, **kwargs):
     backend = get_backend()
 
     if backend == "postgresql":
-        # Phase 2: Supabase PostgreSQL 지원
-        # psycopg2 또는 sqlalchemy로 연결
         raise NotImplementedError(
-            "PostgreSQL backend is not yet implemented. "
-            "Set DATABASE_URL to a PostgreSQL connection string and install psycopg2. "
-            "Coming in P2 Phase 2."
+            "Legacy DB-API connection for PostgreSQL is not implemented. "
+            "Please use get_sqlalchemy_engine() instead."
         )
 
     return get_sqlite_connection(db_name, path=kwargs.get("path"))
+
+
+def get_sqlalchemy_engine(db_name: str, database_url: str | None = None) -> "Engine":
+    """주어진 환경에 최적화된 SQLAlchemy Engine을 반환합니다.
+
+    Args:
+        db_name: SQLITE_PATHS 조회를 위한 데이터베이스 식별자
+        database_url: 명시적 연결 문자열 (값이 없으면 os.environ 활용)
+    
+    Returns:
+        sqlalchemy.engine.Engine
+    """
+    from sqlalchemy import create_engine
+    
+    url = database_url or DATABASE_URL
+    if not url:
+        # Fallback to local sqlite path
+        db_path = SQLITE_PATHS.get(db_name)
+        if db_path is None:
+             raise ValueError(f"Unknown database: {db_name}")
+        url = f"sqlite:///{db_path.as_posix()}"
+
+    backend = get_backend(url)
+
+    if backend == "sqlite":
+        # Check thread compliance for SQLite
+        return create_engine(
+            url,
+            connect_args={"check_same_thread": False},
+        )
+    
+    # PostgreSQL Configuration
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+    )
 
 
 def check_health() -> dict:

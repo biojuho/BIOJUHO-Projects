@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-03-08T10:17:50.003598",
-  "version": "2.0",
-  "workspace": "D:\\AI 프로젝트",
+  "timestamp": "2026-04-13T11:54:07.257988",
+  "version": "3.0",
+  "workspace": "D:\\AI project",
   "projects": [
     {
       "name": "getdaytrends",
@@ -10,44 +10,37 @@
         {
           "name": "config",
           "ok": true,
-          "message": "✅ getdaytrends/config.py"
+          "message": "OK automation\\getdaytrends\\config.py"
         },
         {
           "name": "main",
           "ok": true,
-          "message": "✅ getdaytrends/main.py"
+          "message": "OK automation\\getdaytrends\\main.py"
         },
         {
-          "name": "db_dir",
+          "name": "packaging",
           "ok": true,
-          "message": "✅ getdaytrends/data"
+          "message": "OK automation\\getdaytrends\\pyproject.toml"
         }
       ],
       "imports": [
         {
           "package": "anthropic",
           "ok": true,
-          "message": "✅ anthropic"
+          "message": "OK anthropic"
         },
         {
           "package": "httpx",
           "ok": true,
-          "message": "✅ httpx"
+          "message": "OK httpx"
         },
         {
           "package": "aiosqlite",
-          "ok": true,
-          "message": "✅ aiosqlite"
+          "ok": false,
+          "message": "MISSING aiosqlite: No module named 'aiosqlite'"
         }
       ],
-      "drift": [
-        {
-          "package": "selectolax",
-          "required": "any",
-          "installed": "NOT FOUND",
-          "drift": "MISSING"
-        }
-      ],
+      "drift": [],
       "healthy": true
     },
     {
@@ -57,19 +50,14 @@
         {
           "name": "server",
           "ok": true,
-          "message": "✅ DailyNews/server.py"
-        },
-        {
-          "name": "config",
-          "ok": true,
-          "message": "✅ DailyNews/config"
+          "message": "OK automation\\DailyNews\\server.py"
         }
       ],
       "imports": [
         {
           "package": "notion_client",
           "ok": true,
-          "message": "✅ notion_client"
+          "message": "OK notion_client"
         }
       ],
       "drift": [],
@@ -82,24 +70,24 @@
         {
           "name": "main",
           "ok": true,
-          "message": "✅ desci-platform/biolinker/main.py"
+          "message": "OK apps\\desci-platform\\biolinker\\main.py"
         },
         {
-          "name": "requirements",
+          "name": "packaging",
           "ok": true,
-          "message": "✅ desci-platform/biolinker/requirements.txt"
+          "message": "OK apps\\desci-platform\\biolinker\\pyproject.toml"
         }
       ],
       "imports": [
         {
           "package": "fastapi",
-          "ok": true,
-          "message": "✅ fastapi"
+          "ok": false,
+          "message": "MISSING fastapi: No module named 'fastapi'"
         },
         {
           "package": "uvicorn",
           "ok": true,
-          "message": "✅ uvicorn"
+          "message": "OK uvicorn"
         }
       ],
       "drift": [],
@@ -112,12 +100,12 @@
         {
           "name": "package",
           "ok": true,
-          "message": "✅ desci-platform/frontend/package.json"
+          "message": "OK apps\\desci-platform\\frontend\\package.json"
         },
         {
           "name": "src",
           "ok": true,
-          "message": "✅ desci-platform/frontend/src"
+          "message": "OK apps\\desci-platform\\frontend\\src"
         }
       ],
       "imports": [],
@@ -131,46 +119,27 @@
         {
           "name": "main",
           "ok": true,
-          "message": "✅ AgriGuard/backend/main.py"
+          "message": "OK apps\\AgriGuard\\backend\\main.py"
         },
         {
-          "name": "requirements",
+          "name": "packaging",
           "ok": true,
-          "message": "✅ AgriGuard/backend/requirements.txt"
+          "message": "OK apps\\AgriGuard\\backend\\pyproject.toml"
         }
       ],
       "imports": [
         {
           "package": "fastapi",
-          "ok": true,
-          "message": "✅ fastapi"
+          "ok": false,
+          "message": "MISSING fastapi: No module named 'fastapi'"
         },
         {
           "package": "sqlalchemy",
-          "ok": true,
-          "message": "✅ sqlalchemy"
+          "ok": false,
+          "message": "MISSING sqlalchemy: No module named 'sqlalchemy'"
         }
       ],
-      "drift": [
-        {
-          "package": "psycopg2_binary",
-          "required": "any",
-          "installed": "NOT FOUND",
-          "drift": "MISSING"
-        },
-        {
-          "package": "alembic",
-          "required": "any",
-          "installed": "NOT FOUND",
-          "drift": "MISSING"
-        },
-        {
-          "package": "aiomqtt",
-          "required": "any",
-          "installed": "NOT FOUND",
-          "drift": "MISSING"
-        }
-      ],
+      "drift": [],
       "healthy": true
     },
     {
@@ -180,17 +149,17 @@
         {
           "name": "package",
           "ok": true,
-          "message": "✅ AgriGuard/frontend/package.json"
+          "message": "OK apps\\AgriGuard\\frontend\\package.json"
         },
         {
           "name": "src",
           "ok": true,
-          "message": "✅ AgriGuard/frontend/src"
+          "message": "OK apps\\AgriGuard\\frontend\\src"
         },
         {
           "name": "build_check",
           "ok": true,
-          "message": "✅ 빌드 체크 성공"
+          "message": "OK build dry-run"
         }
       ],
       "imports": [],
@@ -199,18 +168,18 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 20,
+    "uncommitted_changes": 10,
     "files": [
-      "M AgriGuard/backend/tests/test_smoke.py",
-      " M AgriGuard/frontend/package.json",
-      " M DailyNews/config/news_sources.json",
-      " M DailyNews/output/daily_tweets_2026-03-07_test.txt",
-      " M DailyNews/scripts/news_bot.py",
-      " M DailyNews/src/antigravity_mcp/pipelines/collect.py",
-      " m canva-mcp",
-      " M getdaytrends/main.py",
-      " M getdaytrends/scraper.py",
-      " M scripts/healthcheck.py"
+      "M apps/AgriGuard/backend/database.py",
+      " M automation/DailyNews/src/antigravity_mcp/integrations/jina_adapter.py",
+      " M automation/DailyNews/src/antigravity_mcp/pipelines/signal_watch.py",
+      " M ops/scripts/.healthcheck-history.json",
+      " M ops/scripts/healthcheck.py",
+      " M packages/shared/db/engine.py",
+      "?? .claude/scheduled_tasks.lock",
+      "?? .claude/settings.json",
+      "?? .venv_bak/",
+      "?? docs/reports/2026-04/CLAUDE_CODE_STARTUP_HANDSHAKE_RECOVERY_2026-04-13.md"
     ]
   },
   "env_files": [
@@ -227,6 +196,10 @@
       "env_exists": true
     },
     {
+      "example": "content-intelligence\\.env.example",
+      "env_exists": false
+    },
+    {
       "example": "DailyNews\\.env.example",
       "env_exists": true
     },
@@ -235,7 +208,31 @@
       "env_exists": true
     },
     {
+      "example": "desci-research-mcp\\.env.example",
+      "env_exists": false
+    },
+    {
       "example": "getdaytrends\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "telegram-mcp\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "var\\legacy-root-backups\\instagram-automation\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "mcp\\canva-mcp\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "mcp\\desci-research-mcp\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "mcp\\telegram-mcp\\.env.example",
       "env_exists": true
     },
     {
@@ -255,13 +252,73 @@
       "env_exists": true
     },
     {
-      "example": "AgriGuard\\backend\\.env.example",
+      "example": "automation\\content-intelligence\\.env.example",
       "env_exists": false
+    },
+    {
+      "example": "automation\\DailyNews\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "automation\\getdaytrends\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "archive\\instagram-automation\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "archive\\lyria-music-player\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "archive\\notebooklm-automation\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "apps\\AgriGuard\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "apps\\desci-platform\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "apps\\desci-platform\\backend\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "apps\\desci-platform\\biolinker\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "apps\\desci-platform\\contracts\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "apps\\desci-platform\\frontend\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "apps\\AgriGuard\\backend\\.env.example",
+      "env_exists": true
+    },
+    {
+      "example": "apps\\AgriGuard\\frontend\\.env.example",
+      "env_exists": false
+    },
+    {
+      "example": "AgriGuard\\backend\\.env.example",
+      "env_exists": true
     },
     {
       "example": "AgriGuard\\frontend\\.env.example",
       "env_exists": false
     }
   ],
-  "status_changes": []
+  "status_changes": [
+    "RECOVERY desci-backend: unhealthy -> healthy",
+    "RECOVERY AgriGuard-backend: unhealthy -> healthy",
+    "RECOVERY AgriGuard-frontend: unhealthy -> healthy"
+  ]
 }

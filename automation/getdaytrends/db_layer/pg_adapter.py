@@ -79,6 +79,15 @@ class PgAdapter:
         elif "INSERT OR IGNORE" in upper:
             sql = re.sub(r"INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", sql, flags=re.IGNORECASE)
             sql = sql.rstrip(";") + " ON CONFLICT DO NOTHING"
+
+        # SQLite GLOB is unsupported in PostgreSQL. For the numeric-only filter
+        # used by tweet metric backfills, translate it to a regex match.
+        sql = re.sub(
+            r"(?P<expr>[A-Za-z_][A-Za-z0-9_\.]*)\s+GLOB\s+'\[0-9\]\*'",
+            r"\g<expr> ~ '^[0-9]+$'",
+            sql,
+            flags=re.IGNORECASE,
+        )
         return sql
 
     async def execute(self, sql: str, parameters=()):

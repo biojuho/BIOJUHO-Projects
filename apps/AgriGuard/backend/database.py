@@ -2,8 +2,7 @@ import os
 from pathlib import Path
 
 from env_loader import load_backend_env
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from sqlalchemy import text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Load the backend-local .env before resolving DATABASE_URL so local uvicorn runs
@@ -36,25 +35,12 @@ def should_auto_create_schema(database_url: str | None = None) -> bool:
     return is_sqlite_url(database_url or get_database_url())
 
 
-def create_db_engine(database_url: str | None = None) -> Engine:
-    database_url = database_url or get_database_url()
-
-    if is_sqlite_url(database_url):
-        return create_engine(
-            database_url,
-            connect_args={"check_same_thread": False},
-        )
-
-    return create_engine(
-        database_url,
-        pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
-    )
-
-
 DATABASE_URL = get_database_url()
-engine = create_db_engine(DATABASE_URL)
+
+# Use shared db engine factory for standardizations
+from shared.db.engine import get_sqlalchemy_engine
+engine = get_sqlalchemy_engine("agriguard", DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

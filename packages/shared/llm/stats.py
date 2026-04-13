@@ -4,20 +4,38 @@ from __future__ import annotations
 
 import csv
 import logging
-import sqlite3
 import threading
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from sqlalchemy import MetaData, Table, Column, Integer, String, Float, select, func, text, case
 
 from .config import MODEL_COSTS
 from .models import CostRecord, TaskTier
+from shared.db.engine import get_sqlalchemy_engine
 
 log = logging.getLogger("shared.llm")
 
 _DATA_DIR = Path(__file__).resolve().parents[2] / "shared" / "llm" / "data"
-_DB_PATH = _DATA_DIR / "llm_costs.db"
 _CSV_DIR = _DATA_DIR / "logs"
+
+metadata = MetaData()
+llm_calls_table = Table(
+    "llm_calls",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("timestamp", String, nullable=False, index=True),
+    Column("backend", String, nullable=False, index=True),
+    Column("model", String, nullable=False),
+    Column("tier", String, nullable=False),
+    Column("input_tokens", Integer, default=0),
+    Column("output_tokens", Integer, default=0),
+    Column("cost_usd", Float, default=0.0),
+    Column("success", Integer, default=1),
+    Column("error", String, default=""),
+    Column("project", String, default=""),
+)
 
 
 def _ensure_dirs() -> None:
@@ -46,50 +64,27 @@ class UsageStats:
 
 
 class CostTracker:
-    """Thread-safe cost tracking with SQLite persistence and daily CSV export."""
+    """Thread-safe cost tracking with SQLAlchemy persistence and daily CSV export."""
 
-    # B-018 fix: 장기 실행 시 in-memory _records 무한 증가 방지
     _MAX_RECORDS: int = 10_000
 
     def __init__(self, persist: bool = True) -> None:
         self._records: list[CostRecord] = []
         self._lock = threading.Lock()
         self._persist = persist
-        self._db: sqlite3.Connection | None = None
+        self._engine = None
         if persist:
             self._init_db()
 
     def _init_db(self) -> None:
         try:
             _ensure_dirs()
-            self._db = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
-            self._db.execute("""
-                CREATE TABLE IF NOT EXISTS llm_calls (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    backend TEXT NOT NULL,
-                    model TEXT NOT NULL,
-                    tier TEXT NOT NULL,
-                    input_tokens INTEGER DEFAULT 0,
-                    output_tokens INTEGER DEFAULT 0,
-                    cost_usd REAL DEFAULT 0.0,
-                    success INTEGER DEFAULT 1,
-                    error TEXT DEFAULT '',
-                    project TEXT DEFAULT ''
-                )
-            """)
-            self._db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_llm_calls_timestamp
-                ON llm_calls(timestamp)
-            """)
-            self._db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_llm_calls_backend
-                ON llm_calls(backend)
-            """)
-            self._db.commit()
+            # Utilizes shared factory which dynamically pivots to PostgreSQL if DATABASE_URL is set
+            self._engine = get_sqlalchemy_engine("llm_costs")
+            metadata.create_all(self._engine)
         except Exception as e:
             log.warning("Failed to init cost DB: %s (falling back to in-memory)", e)
-            self._db = None
+            self._engine = None
 
     def record(
         self,
@@ -118,38 +113,32 @@ class CostTracker:
             error=error,
         )
         with self._lock:
-            # B-018 fix: in-memory 버퍼 캡 — 초과 시 가장 오래된 항목 제거
             if len(self._records) >= self._MAX_RECORDS:
                 self._records = self._records[-(self._MAX_RECORDS // 2):]
             self._records.append(rec)
-            # B-007 fix: DB 쓰기도 락 내부로 이동 (멀티스레드 sqlite3 ProgrammingError 방지)
-            if self._persist and self._db is not None:
+            
+            if self._persist and self._engine is not None:
                 self._persist_record(rec, project)
 
         return rec
 
-
     def _persist_record(self, rec: CostRecord, project: str) -> None:
         try:
-            self._db.execute(  # type: ignore[union-attr]
-                """INSERT INTO llm_calls
-                   (timestamp, backend, model, tier, input_tokens, output_tokens,
-                    cost_usd, success, error, project)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    rec.timestamp.isoformat(),
-                    rec.backend,
-                    rec.model,
-                    rec.tier.value,
-                    rec.input_tokens,
-                    rec.output_tokens,
-                    rec.cost_usd,
-                    1 if rec.success else 0,
-                    rec.error,
-                    project,
-                ),
-            )
-            self._db.commit()  # type: ignore[union-attr]
+            with self._engine.begin() as conn:
+                conn.execute(
+                    llm_calls_table.insert().values(
+                        timestamp=rec.timestamp.isoformat(),
+                        backend=rec.backend,
+                        model=rec.model,
+                        tier=rec.tier.value,
+                        input_tokens=rec.input_tokens,
+                        output_tokens=rec.output_tokens,
+                        cost_usd=rec.cost_usd,
+                        success=1 if rec.success else 0,
+                        error=rec.error,
+                        project=project,
+                    )
+                )
         except Exception as e:
             log.warning("Failed to persist cost record: %s", e)
 
@@ -181,36 +170,43 @@ class CostTracker:
         return stats
 
     def get_daily_stats(self, days: int = 30) -> list[dict]:
-        """Retrieve daily aggregated stats from SQLite."""
-        if self._db is None:
+        """Retrieve daily aggregated stats from DB (Safe for Postgres and SQLite)."""
+        if self._engine is None:
             return []
         try:
-            cursor = self._db.execute(
-                """SELECT
-                    DATE(timestamp) as day,
-                    COUNT(*) as calls,
-                    SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as errors,
-                    SUM(cost_usd) as cost,
-                    SUM(input_tokens) as input_tokens,
-                    SUM(output_tokens) as output_tokens,
-                    backend
-                FROM llm_calls
-                WHERE timestamp >= datetime('now', ?)
-                GROUP BY day, backend
-                ORDER BY day DESC""",
-                (f"-{days} days",),
+            cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+            
+            # Using substr(1, 10) to parse YYYY-MM-DD from ISO-8601 strings globally
+            day_col = func.substr(llm_calls_table.c.timestamp, 1, 10).label("day")
+            query = (
+                select(
+                    day_col,
+                    func.count().label("calls"),
+                    func.sum(case((llm_calls_table.c.success == 0, 1), else_=0)).label("errors"),
+                    func.sum(llm_calls_table.c.cost_usd).label("cost_usd"),
+                    func.sum(llm_calls_table.c.input_tokens).label("input_tokens"),
+                    func.sum(llm_calls_table.c.output_tokens).label("output_tokens"),
+                    llm_calls_table.c.backend
+                )
+                .where(llm_calls_table.c.timestamp >= cutoff_date)
+                .group_by("day", llm_calls_table.c.backend)
+                .order_by(text("day DESC"))
             )
+
+            with self._engine.connect() as conn:
+                rows = conn.execute(query).fetchall()
+                
             return [
                 {
                     "date": row[0],
                     "calls": row[1],
-                    "errors": row[2],
-                    "cost_usd": round(row[3], 6),
-                    "input_tokens": row[4],
-                    "output_tokens": row[5],
+                    "errors": row[2] or 0,
+                    "cost_usd": round(row[3] or 0.0, 6),
+                    "input_tokens": row[4] or 0,
+                    "output_tokens": row[5] or 0,
                     "backend": row[6],
                 }
-                for row in cursor.fetchall()
+                for row in rows
             ]
         except Exception as e:
             log.warning("Failed to query daily stats: %s", e)
@@ -218,34 +214,49 @@ class CostTracker:
 
     def get_today_cost(self) -> float:
         """Return total USD cost spent today (UTC)."""
-        if self._db is None:
+        if self._engine is None:
             return 0.0
         try:
-            cursor = self._db.execute(
-                "SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls " "WHERE DATE(timestamp) = DATE('now')"
-            )
-            return round(cursor.fetchone()[0], 6)
+            today_prefix = datetime.now(UTC).strftime("%Y-%m-%d")
+            query = select(
+                func.coalesce(func.sum(llm_calls_table.c.cost_usd), 0)
+            ).where(func.substr(llm_calls_table.c.timestamp, 1, 10) == today_prefix)
+            
+            with self._engine.connect() as conn:
+                return round(conn.execute(query).scalar() or 0.0, 6)
         except Exception:
             return 0.0
 
     def export_csv(self, days: int = 30) -> Path | None:
         """Export recent records to a daily CSV file."""
-        if self._db is None:
+        if self._engine is None:
             return None
         try:
             _ensure_dirs()
             today = datetime.now(UTC).strftime("%Y-%m-%d")
             csv_path = _CSV_DIR / f"llm_usage_{today}.csv"
-            cursor = self._db.execute(
-                """SELECT timestamp, backend, model, tier,
-                          input_tokens, output_tokens, cost_usd,
-                          success, error, project
-                   FROM llm_calls
-                   WHERE timestamp >= datetime('now', ?)
-                   ORDER BY timestamp""",
-                (f"-{days} days",),
+            
+            cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+            query = (
+                select(
+                    llm_calls_table.c.timestamp,
+                    llm_calls_table.c.backend,
+                    llm_calls_table.c.model,
+                    llm_calls_table.c.tier,
+                    llm_calls_table.c.input_tokens,
+                    llm_calls_table.c.output_tokens,
+                    llm_calls_table.c.cost_usd,
+                    llm_calls_table.c.success,
+                    llm_calls_table.c.error,
+                    llm_calls_table.c.project
+                )
+                .where(llm_calls_table.c.timestamp >= cutoff_date)
+                .order_by(llm_calls_table.c.timestamp)
             )
-            rows = cursor.fetchall()
+
+            with self._engine.connect() as conn:
+                rows = conn.execute(query).fetchall()
+
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(
@@ -275,7 +286,7 @@ class CostTracker:
             self._records.clear()
 
     def close(self) -> None:
-        """Close the SQLite connection."""
-        if self._db is not None:
-            self._db.close()
-            self._db = None
+        """Close the Engine component if necessary."""
+        if self._engine is not None:
+            self._engine.dispose()
+            self._engine = None
