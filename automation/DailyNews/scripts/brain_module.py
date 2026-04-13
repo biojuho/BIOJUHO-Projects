@@ -26,8 +26,29 @@ class BrainModule:
     def __init__(self):
         self._adapter = BrainAdapter()
 
+    async def analyze_news_async(
+        self,
+        category: str,
+        articles: list,
+        time_window: str = "",
+        niche_trends: list | None = None,
+    ) -> dict | None:
+        """Native async entry — preferred inside an already-running event loop.
+
+        Keeps the shared LLM client bound to the caller's loop so its httpx
+        resources stay valid across categories (avoids 'Event loop is closed').
+        """
+        if not articles:
+            return None
+        return await self._adapter.analyze_news(category, articles, time_window, niche_trends)
+
     def analyze_news(self, category: str, articles: list, time_window: str = "", niche_trends: list = None) -> dict:
-        """Synchronous bridge to ``BrainAdapter.analyze_news``."""
+        """Synchronous bridge to ``BrainAdapter.analyze_news``.
+
+        Prefer :meth:`analyze_news_async` from async callers — this sync path
+        creates an ephemeral event loop per call, which breaks shared async
+        clients (see: the 'Event loop is closed' incident on 2026-04-13).
+        """
         if not articles:
             return None
         try:

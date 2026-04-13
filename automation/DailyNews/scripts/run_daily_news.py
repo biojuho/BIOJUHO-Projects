@@ -332,10 +332,17 @@ async def process_category(
         return {"category": category, "status": "skipped", "articles": len(all_articles)}
 
     try:
-        analysis = await run_with_timeout(
-            asyncio.to_thread(brain.analyze_news, category, all_articles[:max_items]),
-            60,
-        )
+        # Prefer native async path so the shared LLM client stays bound to the
+        # main event loop across categories. Fall back to the sync bridge only
+        # for legacy BrainModule implementations without analyze_news_async.
+        _brain_async = getattr(brain, "analyze_news_async", None)
+        if _brain_async is not None:
+            analysis_coro = _brain_async(category, all_articles[:max_items])
+        else:
+            analysis_coro = asyncio.to_thread(
+                brain.analyze_news, category, all_articles[:max_items]
+            )
+        analysis = await run_with_timeout(analysis_coro, 60)
     except Exception as exc:
         logger.error("analysis", "failed", "analysis failed", category=category, error=str(exc))
         return {"category": category, "status": "failed", "articles": len(all_articles), "error": str(exc)}
@@ -570,10 +577,37 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                 else:
                     summary["categories_skipped"] += 1
 
-            state.record_job_finish(run_id, status="success", summary=summary)
-            logger.info("complete", "success", "run_daily_news finished", **summary)
+            # 전체 업로드 실패는 가짜 success로 가리지 말고 명시적 failure로 마감
+            if summary["categories_success"] == 0 and summary["categories_failed"] > 0:
+                error_msg = (
+                    f"all {summary['categories_failed']} categories failed to publish"
+                )
+                state.record_job_finish(
+                    run_id, status="failed", summary=summary, error_text=error_msg
+                )
+                logger.error(
+                    "complete", "failed", "run_daily_news all categories failed", **summary
+                )
+                try:
+                    from shared.notifications import Notifier
 
-            # [v2.0] Heartbeat: 파이프라인 성공 시 Discord/Telegram 알림
+                    _notifier = Notifier.from_env()
+                    if _notifier.has_channels:
+                        _notifier.send_error(
+                            f"DailyNews 파이프라인 실패: "
+                            f"0/{summary['categories_failed']} 카테고리 발행 "
+                            f"(window={summary['window']}, 기사={summary['articles']})",
+                            source="DailyNews",
+                        )
+                except Exception:
+                    pass
+                return 1
+
+            final_status = "partial" if summary["categories_failed"] > 0 else "success"
+            state.record_job_finish(run_id, status=final_status, summary=summary)
+            logger.info("complete", final_status, "run_daily_news finished", **summary)
+
+            # [v2.0] Heartbeat: 파이프라인 성공/부분성공 시 Discord/Telegram 알림
             try:
                 from shared.notifications import Notifier
 
@@ -581,7 +615,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                 if _notifier.has_channels:
                     _notifier.send_heartbeat(
                         "DailyNews",
-                        status="alive",
+                        status="alive" if final_status == "success" else "degraded",
                         details=(
                             f"window={summary['window']} "
                             f"성공={summary['categories_success']} "
