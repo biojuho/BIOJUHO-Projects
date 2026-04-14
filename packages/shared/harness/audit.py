@@ -11,12 +11,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +77,7 @@ class AuditLogger:
     def __init__(
         self,
         agent_name: str = "default",
-        log_path: Optional[str | Path] = None,
+        log_path: str | Path | None = None,
         emit_to_logging: bool = True,
         max_input_chars: int = 200,
     ):
@@ -136,7 +135,7 @@ class AuditLogger:
     ) -> AuditRecord:
         """Log a successful (allowed) tool execution."""
         record = AuditRecord(
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             agent_name=self.agent_name,
             tool_name=tool_name,
             verdict=AuditVerdict.ALLOWED,
@@ -158,7 +157,7 @@ class AuditLogger:
     ) -> AuditRecord:
         """Log a denied tool execution attempt."""
         record = AuditRecord(
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             agent_name=self.agent_name,
             tool_name=tool_name,
             verdict=AuditVerdict.DENIED,
@@ -178,7 +177,7 @@ class AuditLogger:
     ) -> AuditRecord:
         """Log an error during tool execution."""
         record = AuditRecord(
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             agent_name=self.agent_name,
             tool_name=tool_name,
             verdict=AuditVerdict.ERROR,

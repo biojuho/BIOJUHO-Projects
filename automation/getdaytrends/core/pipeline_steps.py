@@ -13,6 +13,7 @@ from datetime import datetime
 
 import schedule
 from loguru import logger as log
+
 from shared.llm import get_client
 
 # Optional dependencies — gracefully degrade when unavailable
@@ -26,9 +27,11 @@ except ImportError:
 
 try:
     try:
-        from ..fact_checker import check_cross_source_consistency, verify_batch as verify_fact_batch
+        from ..fact_checker import check_cross_source_consistency
+        from ..fact_checker import verify_batch as verify_fact_batch
     except ImportError:
-        from fact_checker import check_cross_source_consistency, verify_batch as verify_fact_batch
+        from fact_checker import check_cross_source_consistency
+        from fact_checker import verify_batch as verify_fact_batch
 except ImportError:
     check_cross_source_consistency = None  # type: ignore[assignment]
     verify_fact_batch = None  # type: ignore[assignment]
@@ -39,7 +42,8 @@ except ImportError:
     _biz = None  # type: ignore[assignment]
 
 try:
-    from shared.embeddings import cosine_similarity as _cosine_similarity, embed_texts as _embed_texts
+    from shared.embeddings import cosine_similarity as _cosine_similarity
+    from shared.embeddings import embed_texts as _embed_texts
 except ImportError:
     _cosine_similarity = None  # type: ignore[assignment]
     _embed_texts = None  # type: ignore[assignment]
@@ -53,7 +57,7 @@ except ImportError:
     _PEE_AVAILABLE = False
 
 try:
-    from ..config import AppConfig, VERSION
+    from ..config import VERSION, AppConfig
     from ..db import (
         attach_draft_to_notion_page,
         compute_fingerprint,
@@ -81,9 +85,8 @@ try:
     from ..storage import save_to_content_hub, save_to_google_sheets, save_to_notion
     from ..workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
 except ImportError:
-    from config import AppConfig, VERSION
+    from config import VERSION, AppConfig
     from db import (
-        attach_draft_to_notion_page,
         compute_fingerprint,
         db_transaction,
         get_best_posting_hours,
@@ -400,13 +403,13 @@ async def _run_fact_check(
         )
         any_failed = False
         fact_check_feedback = build_regeneration_feedback(fact_check_results=fc_results)
-        
+
         if not hasattr(primary, "metadata") or primary.metadata is None:
             primary.metadata = {}
         primary.metadata["fact_check_report"] = {
             k: {
-                "passed": v.passed, 
-                "hallucinated_claims": v.hallucinated_claims, 
+                "passed": v.passed,
+                "hallucinated_claims": v.hallucinated_claims,
                 "accuracy_score": v.accuracy_score,
                 "issues": v.issues
             } for k, v in fc_results.items()
@@ -531,7 +534,7 @@ async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfi
         vectors = _embed_texts([t.content for t in batch.tweets], task_type="SEMANTIC_SIMILARITY")
         if not vectors:
             return
-            
+
         dupe_indices = set()
         dupes_log = []
         for i in range(len(vectors)):
@@ -540,10 +543,10 @@ async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfi
                 if sim > threshold:
                     dupes_log.append(f"트윗{i + 1}↔트윗{j + 1} (유사도={sim:.2f})")
                     dupe_indices.add(j)
-                    
+
         if dupes_log:
             log.warning(f"[다양성 QA] '{trend.keyword}' 유사도 임계치({threshold}) 초과 감지: " + ", ".join(dupes_log))
-            
+
             # 메타데이터에 다양성 경고 스탬프 추가
             if not hasattr(batch, 'metadata') or batch.metadata is None:
                 batch.metadata = {}
@@ -552,16 +555,16 @@ async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfi
             if 'warnings' not in batch.metadata['qa_report']:
                 batch.metadata['qa_report']['warnings'] = []
             batch.metadata['qa_report']['warnings'].append(f"다양성 재작성: {trend.keyword} ({len(dupes_log)}쌍)")
-            
+
             # 중복 트윗들 프레이밍 비틀어 재작성
             from shared.llm import TaskTier
             lang = config.target_languages[0] if getattr(config, "target_languages", None) else "ko"
-            
+
             async def _rewrite_tweet(idx: int):
                 original_tweet = batch.tweets[idx].content
                 other_tweets = [batch.tweets[k].content for k in range(len(batch.tweets)) if k != idx and k not in dupe_indices]
                 others_text = "\n".join(f"- {o}" for o in other_tweets)
-                
+
                 prompt = (
                     f"다음 트윗은 다른 시안들과 겹치는 시각/문체가 너무 많습니다.\n"
                     f"아래의 '피해야 할 시안들'에서 사용된 구조(hook), 감정, 리듬을 피해서 완전히 180도 다른 분위기로 재작성해 주세요.\n\n"
@@ -583,11 +586,11 @@ async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfi
                         batch.tweets[idx].content = rewritten
                 except Exception as e:
                     log.warning(f"  [다양성 재작성 실패] {type(e).__name__}: {e}")
-                    
+
             if dupe_indices:
                 log.info(f"  [다양성 실행] 중복도 높은 {len(dupe_indices)}개 트윗에 대해 강제 재작성 진행")
                 await asyncio.gather(*[_rewrite_tweet(idx) for idx in dupe_indices])
-                
+
     except (RuntimeError, ConnectionError, ValueError) as e:
         log.debug(f"[다양성 QA 오류] {type(e).__name__}: {e}")
 

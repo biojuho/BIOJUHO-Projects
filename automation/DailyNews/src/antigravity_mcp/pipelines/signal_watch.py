@@ -14,9 +14,10 @@ import json
 import logging
 import os
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -381,12 +382,12 @@ async def _trigger_auto_draft(signals: list[ScoredSignal], run_id: str) -> None:
     jina = JinaAdapter(timeout=15.0)
     items = []
     now_iso = datetime.now(UTC).isoformat()
-    
+
     for s in signals:
         query = f'"{s.keyword}" news 2026'
         logger.info("Fetching deep search context for signal: %s", s.keyword)
         deep_context = await jina.search_topic(query, max_length=4000)
-        
+
         summary = (
             f"Trend detected via {', '.join(s.sources)} with score {s.composite_score:.2f}. "
             f"Velocity: {s.velocity:.2f}. Suggested action: {s.recommended_action}.\n\n"
@@ -410,7 +411,7 @@ async def _trigger_auto_draft(signals: list[ScoredSignal], run_id: str) -> None:
 
     logger.info("Auto-drafting %d trending signals...", len(items))
     state_store = PipelineStateStore()
-    
+
     try:
         # We can bypass collect.py and directly trigger analyze
         run_id_out, reports, warnings, status = await generate_briefs(

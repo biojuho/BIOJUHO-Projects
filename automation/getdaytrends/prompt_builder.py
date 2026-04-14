@@ -5,12 +5,14 @@ generator.py에서 분리됨.
 """
 
 import asyncio
+import contextlib
 import json
 import re
 from collections.abc import Callable, Coroutine
 from typing import Any
 
 from loguru import logger as log
+
 from shared.llm import TaskTier
 
 try:
@@ -193,10 +195,8 @@ def _build_revision_feedback_section(revision_feedback: dict | None) -> str:
         if fact_check.get("summary"):
             lines.append(f"- FactCheck 요약: {fact_check['summary']}")
         if accuracy_score is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 lines.append(f"- 검증 정확도: {float(accuracy_score):.0%}")
-            except (TypeError, ValueError):
-                pass
         if fact_check.get("hallucinated_claims", 0):
             lines.append(
                 f"- 환각 의심 주장 수: {fact_check.get('hallucinated_claims', 0)}"
@@ -330,7 +330,7 @@ def _build_audience_format_section(trend: ScoredTrend) -> str:
     viral_score = trend.viral_potential
     if viral_score < 70:
         return ""
-    
+
     return (
         f"\n[Audience-First 포맷팅 규칙]\n"
         f"- 대상 독자: 트렌드를 빠르게 파악하고 큐레이션하려는 '콘텐츠 크리에이터/마케터'.\n"

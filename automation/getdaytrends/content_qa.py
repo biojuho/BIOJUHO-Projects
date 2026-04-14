@@ -5,9 +5,11 @@ generator.py에서 분리됨.
 """
 
 import asyncio
+import contextlib
 import re
 
 from loguru import logger as log
+
 from shared.llm import LLMClient
 from shared.llm.models import LLMPolicy
 
@@ -134,10 +136,8 @@ def _score_fact(combined: str, trend: ScoredTrend) -> tuple[int, bool, list[str]
     if len(content_numbers) >= 2:
         by_unit: dict[str, list[float]] = {}
         for num_str, unit in content_numbers:
-            try:
+            with contextlib.suppress(ValueError):
                 by_unit.setdefault(unit, []).append(float(num_str.replace(",", "")))
-            except ValueError:
-                pass
         for unit, vals in by_unit.items():
             if len(vals) >= 2 and max(vals) / max(min(vals), 0.01) > 100:
                 score = max(0, score - 3)
