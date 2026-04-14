@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-14T11:41:12.034953",
+  "timestamp": "2026-04-14T14:24:27.296546",
   "version": "3.0",
   "workspace": "D:\\AI project",
   "projects": [
@@ -168,15 +168,18 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 7,
+    "uncommitted_changes": 11,
     "files": [
-      "M TASKS.md",
-      " M automation/getdaytrends/QC_LOG.md",
-      " M automation/getdaytrends/core/pipeline_steps.py",
-      " M docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md",
-      " M ops/scripts/.healthcheck-history.json",
-      " M ops/scripts/healthcheck.py",
-      " M ops/scripts/run_workspace_smoke.py"
+      "M .agent/workflows/session-workflow.md",
+      " M CLAUDE.md",
+      " M apps/desci-platform/frontend/src/components/VCDashboard.jsx",
+      " M packages/shared/notifications/__init__.py",
+      " M packages/shared/notifications/notifier.py",
+      "?? LESSONS.md",
+      "?? _check_schema.py",
+      "?? apps/desci-platform/frontend/src/components/vc/",
+      "?? apps/desci-platform/frontend/src/utils/",
+      "?? next-actions.md"
     ]
   },
   "env_files": [

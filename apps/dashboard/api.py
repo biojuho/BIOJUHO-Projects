@@ -479,6 +479,321 @@ def _get_cost_summary() -> dict:
         return {"error": str(e), "total_cost": 0, "total_calls": 0, "projects": {}}
 
 
+@app.get("/api/qa_reports")
+def qa_reports(limit: int = 50):
+    """QA 리포트 상세 — qa_report_first_pass + fact_check_report 시각화용.
+
+    draft_bundles와 qa_reports를 JOIN하여 트렌드별 QA 점수,
+    통과/탈락, 차단 사유를 반환한다. Metabase/외부 대시보드에서
+    직접 연동 가능한 구조.
+    """
+    import json as _json
+
+    # QA 리포트 + 드래프트 번들 JOIN
+    rows = _sqlite_read(
+        GDT_DB,
+        """SELECT
+             q.id, q.draft_id, q.total_score, q.passed,
+             q.warnings, q.blocking_reasons, q.report_payload, q.created_at,
+             d.trend_id, d.platform, d.content_type,
+             d.lifecycle_status, d.review_status,
+             t.keyword
+           FROM qa_reports q
+           LEFT JOIN draft_bundles d ON q.draft_id = d.draft_id
+           LEFT JOIN validated_trends v ON d.trend_id = v.trend_id
+           LEFT JOIN trends t ON v.trend_row_id = t.id
+           ORDER BY q.created_at DESC
+           LIMIT ?""",
+        (min(limit, 200),),
+    )
+
+    # JSON 문자열 필드를 파싱
+    for row in rows:
+        for field in ("warnings", "blocking_reasons", "report_payload"):
+            val = row.get(field)
+            if isinstance(val, str):
+                try:
+                    row[field] = _json.loads(val)
+                except (ValueError, TypeError):
+                    pass
+
+    # 집계 통계
+    total = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM qa_reports") or 0
+    passed = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM qa_reports WHERE passed = 1") or 0
+    avg_score = _sqlite_scalar(GDT_DB, "SELECT AVG(total_score) FROM qa_reports") or 0
+
+    # 플랫폼별 통과율
+    platform_stats = _sqlite_read(
+        GDT_DB,
+        """SELECT d.platform,
+                  COUNT(*) as total,
+                  SUM(CASE WHEN q.passed = 1 THEN 1 ELSE 0 END) as passed,
+                  ROUND(AVG(q.total_score), 1) as avg_score
+           FROM qa_reports q
+           LEFT JOIN draft_bundles d ON q.draft_id = d.draft_id
+           GROUP BY d.platform""",
+    )
+
+    # 일별 QA 추이 (최근 14일)
+    daily_trend = _sqlite_read(
+        GDT_DB,
+        """SELECT DATE(q.created_at) as date,
+                  COUNT(*) as total,
+                  SUM(CASE WHEN q.passed = 1 THEN 1 ELSE 0 END) as passed,
+                  ROUND(AVG(q.total_score), 1) as avg_score
+           FROM qa_reports q
+           WHERE q.created_at >= date('now', '-14 days')
+           GROUP BY DATE(q.created_at)
+           ORDER BY date""",
+    )
+
+    return {
+        "summary": {
+            "total_reports": total,
+            "passed": passed,
+            "failed": total - passed,
+            "pass_rate": round(passed / total * 100, 1) if total else 0,
+            "avg_score": round(avg_score, 1),
+        },
+        "platform_stats": platform_stats,
+        "daily_trend": daily_trend,
+        "reports": rows,
+    }
+
+
+@app.get("/api/quality_overview")
+def quality_overview():
+    """품질 종합 대시보드 — QA + FactCheck + 다양성 통합 뷰.
+
+    getdaytrends의 콘텐츠 품질 지표를 한 화면에 보여주기 위한
+    종합 엔드포인트. Metabase 대시보드의 메인 패널용.
+    """
+    # QA 점수 분포 (등급별)
+    qa_grade_dist = _sqlite_read(
+        GDT_DB,
+        """SELECT
+             CASE
+               WHEN total_score >= 90 THEN 'A (90+)'
+               WHEN total_score >= 80 THEN 'B (80-89)'
+               WHEN total_score >= 70 THEN 'C (70-79)'
+               ELSE 'D (<70)'
+             END as grade,
+             COUNT(*) as count,
+             ROUND(AVG(total_score), 1) as avg_score
+           FROM qa_reports
+           GROUP BY grade
+           ORDER BY grade""",
+    )
+
+    # 차단 사유 Top 10
+    blocking_reasons_raw = _sqlite_read(
+        GDT_DB,
+        """SELECT blocking_reasons
+           FROM qa_reports
+           WHERE passed = 0 AND blocking_reasons IS NOT NULL AND blocking_reasons != '[]'
+           ORDER BY created_at DESC LIMIT 100""",
+    )
+    reason_counter: dict[str, int] = {}
+    import json as _json
+    for row in blocking_reasons_raw:
+        val = row.get("blocking_reasons", "")
+        if isinstance(val, str):
+            try:
+                reasons = _json.loads(val)
+            except (ValueError, TypeError):
+                reasons = []
+        else:
+            reasons = val or []
+        for r in reasons:
+            reason_counter[str(r)[:80]] = reason_counter.get(str(r)[:80], 0) + 1
+    top_blockers = sorted(reason_counter.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    # 드래프트 파이프라인 현황 (lifecycle_status 분포)
+    lifecycle_dist = _sqlite_read(
+        GDT_DB,
+        """SELECT lifecycle_status, review_status, COUNT(*) as count
+           FROM draft_bundles
+           GROUP BY lifecycle_status, review_status
+           ORDER BY count DESC""",
+    )
+
+    # 최근 7일간 일별 생산량
+    daily_production = _sqlite_read(
+        GDT_DB,
+        """SELECT DATE(created_at) as date,
+                  COUNT(*) as drafts,
+                  SUM(CASE WHEN review_status = 'Approved' THEN 1 ELSE 0 END) as approved,
+                  SUM(CASE WHEN review_status = 'Rejected' THEN 1 ELSE 0 END) as rejected
+           FROM draft_bundles
+           WHERE created_at >= date('now', '-7 days')
+           GROUP BY DATE(created_at)
+           ORDER BY date""",
+    )
+
+    # 검증된 트렌드 신뢰도 분포
+    confidence_dist = _sqlite_read(
+        GDT_DB,
+        """SELECT
+             CASE
+               WHEN confidence_score >= 0.9 THEN 'Very High (0.9+)'
+               WHEN confidence_score >= 0.7 THEN 'High (0.7-0.9)'
+               WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.7)'
+               ELSE 'Low (<0.5)'
+             END as tier,
+             COUNT(*) as count
+           FROM validated_trends
+           GROUP BY tier
+           ORDER BY tier""",
+    )
+
+    return {
+        "qa_grades": qa_grade_dist,
+        "top_blocking_reasons": [{"reason": r, "count": c} for r, c in top_blockers],
+        "lifecycle_distribution": lifecycle_dist,
+        "daily_production": daily_production,
+        "confidence_distribution": confidence_dist,
+    }
+
+@app.get("/api/sla_status")
+def sla_status():
+    """파이프라인 SLA 현황 — 성공률, 평균 실행 시간, 최근 장애."""
+    from datetime import datetime, timedelta
+
+    sla_target = float(os.environ.get("SLA_TARGET_PERCENT", "99.0"))
+    lookback_days = int(os.environ.get("SLA_LOOKBACK_DAYS", "30"))
+
+    pipelines = []
+
+    # ── GetDayTrends SLA ──
+    gdt_runs = _sqlite_read(
+        GDT_DB,
+        """SELECT started_at, finished_at, errors
+           FROM runs
+           WHERE started_at >= date('now', ?)
+           ORDER BY id DESC""",
+        (f"-{lookback_days} days",),
+    )
+    if gdt_runs:
+        gdt_total = len(gdt_runs)
+        gdt_success = sum(
+            1 for r in gdt_runs
+            if r.get("errors", "[]") in ("[]", "", None)
+        )
+        gdt_success_rate = round(gdt_success / gdt_total * 100, 2) if gdt_total else 0
+
+        # 평균 실행 시간 (분)
+        durations = []
+        for r in gdt_runs:
+            if r.get("started_at") and r.get("finished_at"):
+                try:
+                    start = datetime.fromisoformat(r["started_at"].replace("Z", "+00:00"))
+                    end = datetime.fromisoformat(r["finished_at"].replace("Z", "+00:00"))
+                    durations.append((end - start).total_seconds() / 60)
+                except (ValueError, TypeError):
+                    pass
+        avg_duration = round(sum(durations) / len(durations), 1) if durations else 0
+
+        recent_failures = [
+            {
+                "time": r.get("started_at", ""),
+                "errors": r.get("errors", ""),
+            }
+            for r in gdt_runs[:5]
+            if r.get("errors", "[]") not in ("[]", "", None)
+        ]
+
+        pipelines.append({
+            "name": "GetDayTrends",
+            "total_runs": gdt_total,
+            "successful_runs": gdt_success,
+            "success_rate": gdt_success_rate,
+            "sla_met": gdt_success_rate >= sla_target,
+            "avg_duration_min": avg_duration,
+            "recent_failures": recent_failures[:3],
+        })
+
+    # ── DailyNews SLA ──
+    dn_runs = _sqlite_read(
+        DN_DB,
+        """SELECT run_id, job_name, started_at, finished_at, status, error_text
+           FROM job_runs
+           WHERE started_at >= date('now', ?)
+           ORDER BY started_at DESC""",
+        (f"-{lookback_days} days",),
+    )
+    if dn_runs:
+        dn_total = len(dn_runs)
+        dn_success = sum(1 for r in dn_runs if r.get("status") == "completed")
+        dn_success_rate = round(dn_success / dn_total * 100, 2) if dn_total else 0
+
+        dn_durations = []
+        for r in dn_runs:
+            if r.get("started_at") and r.get("finished_at"):
+                try:
+                    start = datetime.fromisoformat(r["started_at"].replace("Z", "+00:00"))
+                    end = datetime.fromisoformat(r["finished_at"].replace("Z", "+00:00"))
+                    dn_durations.append((end - start).total_seconds() / 60)
+                except (ValueError, TypeError):
+                    pass
+        dn_avg = round(sum(dn_durations) / len(dn_durations), 1) if dn_durations else 0
+
+        dn_failures = [
+            {
+                "job": r.get("job_name", ""),
+                "time": r.get("started_at", ""),
+                "error": (r.get("error_text") or "")[:200],
+            }
+            for r in dn_runs[:10]
+            if r.get("status") == "failed"
+        ]
+
+        pipelines.append({
+            "name": "DailyNews",
+            "total_runs": dn_total,
+            "successful_runs": dn_success,
+            "success_rate": dn_success_rate,
+            "sla_met": dn_success_rate >= sla_target,
+            "avg_duration_min": dn_avg,
+            "recent_failures": dn_failures[:3],
+        })
+
+    # ── Content Intelligence SLA ──
+    cie_contents = _sqlite_read(
+        CIE_DB,
+        """SELECT created_at, qa_total_score
+           FROM generated_contents
+           WHERE created_at >= date('now', ?)
+           ORDER BY created_at DESC""",
+        (f"-{lookback_days} days",),
+    )
+    if cie_contents:
+        cie_total = len(cie_contents)
+        cie_pass = sum(1 for c in cie_contents if (c.get("qa_total_score") or 0) >= 3.0)
+        cie_rate = round(cie_pass / cie_total * 100, 2) if cie_total else 0
+        pipelines.append({
+            "name": "ContentIntelligence",
+            "total_runs": cie_total,
+            "successful_runs": cie_pass,
+            "success_rate": cie_rate,
+            "sla_met": cie_rate >= sla_target,
+            "avg_duration_min": 0,
+            "recent_failures": [],
+        })
+
+    # ── Overall ──
+    overall_runs = sum(p["total_runs"] for p in pipelines)
+    overall_success = sum(p["successful_runs"] for p in pipelines)
+    overall_rate = round(overall_success / overall_runs * 100, 2) if overall_runs else 0
+
+    return {
+        "sla_target": sla_target,
+        "lookback_days": lookback_days,
+        "overall_success_rate": overall_rate,
+        "overall_sla_met": overall_rate >= sla_target,
+        "pipelines": pipelines,
+    }
+
+
 # ══════════════════════════════════════════════
 #  Entry Point
 # ══════════════════════════════════════════════

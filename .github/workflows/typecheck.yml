@@ -1,0 +1,66 @@
+name: Type Check (pyright)
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "packages/shared/**"
+      - "automation/**"
+      - "apps/dashboard/**"
+      - "pyrightconfig.json"
+  pull_request:
+    branches: ["main", "dev"]
+    paths:
+      - "packages/shared/**"
+      - "automation/**"
+      - "apps/dashboard/**"
+      - "pyrightconfig.json"
+
+jobs:
+  typecheck:
+    name: Pyright Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap legacy paths
+        run: python3 bootstrap_legacy_paths.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-packages
+          uv pip install pyright
+
+      - name: Run pyright
+        run: |
+          uv run pyright --outputjson > pyright-report.json 2>&1 || true
+          uv run pyright 2>&1 | tee pyright-output.txt
+          # error 카운트 추출
+          ERROR_COUNT=$(grep -c '"severity":"error"' pyright-report.json 2>/dev/null || echo "0")
+          echo "### Pyright Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Errors: $ERROR_COUNT" >> $GITHUB_STEP_SUMMARY
+          # coroutine-not-awaited 에러만 hard fail
+          AWAIT_ERRORS=$(grep -c 'reportCoroutineNotAwaited' pyright-output.txt 2>/dev/null || echo "0")
+          if [ "$AWAIT_ERRORS" -gt 0 ]; then
+            echo "::error::Found $AWAIT_ERRORS coroutine-not-awaited errors"
+            exit 1
+          fi
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyright-report
+          path: |
+            pyright-report.json
+            pyright-output.txt
+          retention-days: 7

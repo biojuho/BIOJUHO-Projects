@@ -14,6 +14,6 @@ Telegram Bot API, Discord Webhook을 통해 에러 알림, heartbeat,
     notifier.send_heartbeat("getdaytrends")
 """
 
-from shared.notifications.notifier import Notifier, send_discord, send_telegram
+from shared.notifications.notifier import ErrorSpikeDetector, Notifier, send_discord, send_telegram
 
-__all__ = ["Notifier", "send_discord", "send_telegram"]
+__all__ = ["ErrorSpikeDetector", "Notifier", "send_discord", "send_telegram"]

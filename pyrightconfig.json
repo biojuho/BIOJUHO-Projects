@@ -1,0 +1,27 @@
+{
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.13",
+  "pythonPlatform": "All",
+  "include": [
+    "packages/shared",
+    "automation/getdaytrends",
+    "automation/content-intelligence",
+    "apps/dashboard"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/.venv",
+    "**/venv",
+    "**/archive",
+    "**/var",
+    "**/.smoke-tmp",
+    "**/dist",
+    "**/build"
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": false,
+  "reportGeneralClassIssues": "warning",
+  "reportUnnecessaryTypeIgnoreComment": false,
+  "reportCoroutineNotAwaited": "error",
+  "reportUnusedImport": "warning"
+}

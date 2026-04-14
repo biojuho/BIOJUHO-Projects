@@ -2,6 +2,7 @@
 
 * @biojuho
 
+# ── Project-level ownership ──
 /apps/desci-platform/ @biojuho
 /apps/AgriGuard/ @biojuho
 /apps/dashboard/ @biojuho
@@ -16,3 +17,26 @@
 /packages/shared/ @biojuho
 /ops/ @biojuho
 /docs/ @biojuho
+
+# ── High-risk paths (QC 강화 대상) ──
+# 인프라 & CI — 실패 경로 #1 방어
+/.github/ @biojuho
+/.pre-commit-config.yaml @biojuho
+/.gitleaks.toml @biojuho
+/pyrightconfig.json @biojuho
+
+# 보안 관련 — 실패 경로 #2 방어
+**/auth.py @biojuho
+**/.env* @biojuho
+**/serviceAccountKey* @biojuho
+
+# DB 스키마 — 실패 경로 #5 방어
+**/db_schema.py @biojuho
+**/database.py @biojuho
+**/init_schema.py @biojuho
+
+# 프로젝트 규칙
+/CLAUDE.md @biojuho
+/LESSONS.md @biojuho
+/pytest.ini @biojuho
+

@@ -50,6 +50,13 @@ dir "d:\AI 프로젝트\.agent\session-history" /o:-d /b
 - `다음 TODO`
 - `검증 결과`
 
+### Step 1.5: Next Actions 큐 확인 ← VSC3
+
+`next-actions.md` 파일이 존재하면 읽어서 현재 작업 큐를 파악한다:
+- `[safe_auto]` 항목이 있으면 → "해줘" 입력 시 바로 실행 가능한 작업으로 표시
+- `[needs_approval]`만 남아 있으면 → 사용자에게 선택지 안내
+- 파일이 없으면 → 스킵 (session-history의 "다음 TODO"로 대체)
+
 ### Step 2: Knowledge Base 컨텍스트 복원
 
 대화에 제공된 KI 요약 목록을 확인하고, 현재 사용자의 활성 문서와 관련된 KI 아티팩트를 읽는다.
@@ -150,6 +157,14 @@ git -C "d:\AI 프로젝트" log --oneline -5
 저장 경로: `d:\AI 프로젝트\.agent\session-history\YYYY-MM-DD.md`
 
 > ⚠️ **누적 저장**: 같은 날짜의 파일이 이미 존재하면 **덮어쓰지 않고** 하단에 `---` 구분선 후 새 세션 섹션을 추가한다. 세션 번호는 기존 파일의 마지막 세션 번호 + 1로 자동 할당한다.
+
+### Step 4.5: Next Actions 큐 갱신 제안 ← VSC3
+
+세션 히스토리의 "다음 TODO"를 `next-actions.md` 형식으로 분류하여 갱신을 제안한다:
+- 자동 진행 가능한 항목 → `[safe_auto]`
+- 패키지 설치·DB 변경·인증 변경 등 → `[needs_approval]`
+- 완료된 항목은 제거 제안
+- 사용자 승인 후에만 실제 파일 수정
 
 ### Step 5: Git 커밋 제안 (선택)
 

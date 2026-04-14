@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
 import urllib.request
 from datetime import UTC, datetime
 from typing import Any
@@ -81,6 +83,78 @@ def send_discord(
         return {"ok": False, "error": str(e)}
 
 
+class ErrorSpikeDetector:
+    """에러 스파이크 감지 — 단시간 다수 에러 시 알림 throttle + 집계.
+
+    - window_sec 내 threshold건 이상 에러 → 개별 알림 억제, 집계 1건 전송
+    - 동일 source의 동일 메시지는 cooldown_sec 동안 중복 억제
+    """
+
+    def __init__(
+        self,
+        *,
+        window_sec: int = 300,
+        threshold: int = 3,
+        cooldown_sec: int = 600,
+    ):
+        self.window_sec = window_sec
+        self.threshold = threshold
+        self.cooldown_sec = cooldown_sec
+        self._lock = threading.Lock()
+        # source → list of (timestamp, message)
+        self._recent_errors: dict[str, list[tuple[float, str]]] = {}
+        # (source, message_hash) → last_sent_timestamp
+        self._dedup: dict[tuple[str, str], float] = {}
+
+    def _prune(self, source: str, now: float) -> None:
+        """window 밖의 오래된 에러 기록을 정리한다."""
+        entries = self._recent_errors.get(source, [])
+        self._recent_errors[source] = [
+            (ts, msg) for ts, msg in entries if now - ts < self.window_sec
+        ]
+
+    def should_send(
+        self, source: str, error_message: str
+    ) -> tuple[bool, str | None]:
+        """에러 알림을 전송해야 하는지 판단.
+
+        Returns:
+            (True, None) — 정상 전송
+            (False, None) — 억제 (중복 or 스파이크 중)
+            (True, summary) — 스파이크 집계 전송
+        """
+        now = time.monotonic()
+        msg_key = (source, error_message[:100])
+
+        with self._lock:
+            # 1) 중복 메시지 cooldown 체크
+            last_sent = self._dedup.get(msg_key, 0.0)
+            if now - last_sent < self.cooldown_sec:
+                return False, None
+
+            # 2) 기록 추가 + 정리
+            self._recent_errors.setdefault(source, []).append((now, error_message))
+            self._prune(source, now)
+            recent = self._recent_errors[source]
+
+            # 3) 스파이크 감지
+            if len(recent) >= self.threshold:
+                # 집계 요약 생성 후 기록 초기화
+                unique_msgs = {msg[:80] for _, msg in recent}
+                summary = (
+                    f"🔴 *에러 스파이크 감지* [{source}]\n"
+                    f"⚡ {len(recent)}건의 에러가 {self.window_sec // 60}분 내 발생\n"
+                    f"📝 유형: {', '.join(list(unique_msgs)[:5])}"
+                )
+                self._recent_errors[source] = []
+                self._dedup[msg_key] = now
+                return True, summary
+
+            # 4) 정상 전송
+            self._dedup[msg_key] = now
+            return True, None
+
+
 class Notifier:
     """통합 알림 전송기.
 
@@ -98,18 +172,36 @@ class Notifier:
         discord_webhook_url: str = "",
         telegram_bot_token: str = "",
         telegram_chat_id: str = "",
+        spike_detector: ErrorSpikeDetector | None = None,
     ):
         self.discord_webhook_url = discord_webhook_url
         self.telegram_bot_token = telegram_bot_token
         self.telegram_chat_id = telegram_chat_id
+        # v4 Smart Continue: 에러 스파이크 감지 내장
+        self._spike = spike_detector or ErrorSpikeDetector()
 
     @classmethod
     def from_env(cls) -> Notifier:
-        """환경 변수에서 알림 채널 설정 자동 로드."""
+        """환경 변수에서 알림 채널 + 스파이크 감지 설정 자동 로드.
+
+        지원하는 환경 변수:
+            DISCORD_WEBHOOK_URL   — Discord 웹훅 URL
+            TELEGRAM_BOT_TOKEN    — Telegram Bot API 토큰
+            TELEGRAM_CHAT_ID      — Telegram 채팅 ID
+            SPIKE_WINDOW_SEC      — 스파이크 감지 윈도우 (기본: 300초)
+            SPIKE_THRESHOLD       — 윈도우 내 에러 N건 이상 시 집계 (기본: 3)
+            SPIKE_COOLDOWN_SEC    — 동일 메시지 중복 억제 시간 (기본: 600초)
+        """
+        spike = ErrorSpikeDetector(
+            window_sec=int(os.getenv("SPIKE_WINDOW_SEC", "300")),
+            threshold=int(os.getenv("SPIKE_THRESHOLD", "3")),
+            cooldown_sec=int(os.getenv("SPIKE_COOLDOWN_SEC", "600")),
+        )
         return cls(
             discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL", ""),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
+            spike_detector=spike,
         )
 
     @property
@@ -133,7 +225,17 @@ class Notifier:
         error: Exception | None = None,
         source: str = "system",
     ) -> dict[str, dict]:
-        """에러 알림 전송 (포맷팅 포함)."""
+        """에러 알림 전송 (스파이크 감지 + throttle 적용)."""
+        should_send, spike_summary = self._spike.should_send(source, error_message)
+
+        if not should_send:
+            return {}  # throttled — 알림 억제
+
+        if spike_summary:
+            # 스파이크 집계 알림 전송
+            return self.send(spike_summary)
+
+        # 정상 개별 에러 알림
         now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         lines = [
             f"🔴 *에러 알림* [{source}]",

@@ -79,6 +79,21 @@ jobs:
               handle.write(f"- Current: {rate:.1f}%\n")
           PY
 
+      - name: Delta coverage (changed lines only)
+        if: github.event_name == 'pull_request'
+        run: |
+          uv pip install diff-cover
+          uv run diff-cover coverage.xml \
+            --compare-branch=origin/${{ github.base_ref }} \
+            --fail-under=80 \
+            --html-report=diff-coverage.html \
+            2>&1 | tee diff-cover-output.txt
+          # Append to step summary
+          DELTA=$(grep "Total:" diff-cover-output.txt | head -1 || echo "N/A")
+          echo "### Delta Coverage (changed lines)" >> $GITHUB_STEP_SUMMARY
+          echo "- $DELTA" >> $GITHUB_STEP_SUMMARY
+          echo "- Threshold: 80%" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,4 +102,6 @@ jobs:
           path: |
             coverage.xml
             coverage-html/
+            diff-coverage.html
           retention-days: 14
+
