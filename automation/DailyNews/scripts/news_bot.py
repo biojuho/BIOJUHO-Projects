@@ -1175,27 +1175,11 @@ async def run_news_bot(
                 else:
                     summary["categories_skipped"] += 1
 
-            succ = summary["categories_success"]
-            fail = summary["categories_failed"]
-            skip = summary["categories_skipped"]
-            total = succ + fail + skip
-
-            # 0 success + 0 failed + N skipped는 degraded — 전 카테고리 수집 0건을
-            # 묵음 성공으로 마감하지 않는다. run_daily_news.py Minor 1 수정의 병렬.
-            if total > 0 and succ == 0 and fail == 0 and skip == total:
-                error_msg = (
-                    f"{skip}/{total} categories skipped — zero articles collected"
-                )
-                state.record_job_finish(
-                    run_id, status="degraded", summary=summary, error_text=error_msg
-                )
-                logger.error(
-                    "complete", "degraded",
-                    "news_bot collected zero articles across all categories",
-                    **summary,
-                )
-                return 1
-
+            # NOTE: news_bot.py uses state.has_article() dedup, so "all categories
+            # skipped" is a legitimate rerun outcome (every article was already
+            # processed). Do NOT port the degraded branch from run_daily_news.py
+            # here — it would page on every legitimate hourly rerun. The Minor 1
+            # fix only applies to run_daily_news.py, which has no persistent dedup.
             state.record_job_finish(run_id, status="success", summary=summary)
             logger.info("complete", "success", "news_bot finished", **summary)
             return 0
