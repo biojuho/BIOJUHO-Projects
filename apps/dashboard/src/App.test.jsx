@@ -49,6 +49,20 @@ const RESPONSES = {
     feedback: {},
     feedback_trend: [],
   },
+  '/api/quality_overview': {
+    qa_grades: [],
+    top_blocking_reasons: [],
+    lifecycle_distribution: [],
+    daily_production: [],
+    confidence_distribution: [],
+  },
+  '/api/sla_status': {
+    sla_target: 99.0,
+    lookback_days: 30,
+    overall_success_rate: 100,
+    overall_sla_met: true,
+    pipelines: [],
+  },
 }
 
 beforeEach(() => {
@@ -75,7 +89,7 @@ describe('Dashboard App', () => {
     expect(await screen.findByRole('heading', { name: 'AI Projects Dashboard' })).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(7)
+      expect(global.fetch).toHaveBeenCalledTimes(9)
     })
 
     for (const endpoint of Object.keys(RESPONSES)) {
@@ -92,13 +106,13 @@ describe('Dashboard App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(7)
+      expect(global.fetch).toHaveBeenCalledTimes(9)
     })
 
     fireEvent.click(screen.getByRole('button'))
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(14)
+      expect(global.fetch).toHaveBeenCalledTimes(18)
     })
   })
 
