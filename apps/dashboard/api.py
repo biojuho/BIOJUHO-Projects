@@ -793,6 +793,74 @@ def sla_status():
         "pipelines": pipelines,
     }
 
+@app.get("/api/mcp_health")
+def mcp_health():
+    """MCP 서버 헬스 체크 — 설정/바이너리 존재 여부 + 최근 수정일."""
+    import json as _json
+    from datetime import datetime
+
+    mcp_dir = WORKSPACE / "mcp"
+    servers = []
+
+    # Read from workspace-map.json
+    ws_map = WORKSPACE / "workspace-map.json"
+    mcp_units = []
+    if ws_map.exists():
+        try:
+            with open(ws_map, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+            mcp_units = [u for u in data.get("units", []) if u.get("category") == "mcp"]
+        except Exception:
+            pass
+
+    for unit in mcp_units:
+        unit_id = unit["id"]
+        unit_path = WORKSPACE / unit.get("canonical_path", f"mcp/{unit_id}")
+
+        info = {
+            "name": unit_id,
+            "path": str(unit_path.relative_to(WORKSPACE)),
+            "exists": unit_path.exists(),
+            "has_package_json": (unit_path / "package.json").exists(),
+            "has_src": (unit_path / "src").exists(),
+            "has_dist": (unit_path / "dist").exists(),
+            "has_dockerfile": (unit_path / "Dockerfile").exists(),
+            "last_modified": None,
+            "status": "unknown",
+        }
+
+        if unit_path.exists():
+            # Find most recently modified file
+            try:
+                src_files = list(unit_path.glob("src/**/*"))
+                if src_files:
+                    latest = max(f.stat().st_mtime for f in src_files if f.is_file())
+                    info["last_modified"] = datetime.fromtimestamp(latest).isoformat()
+            except Exception:
+                pass
+
+            # Status logic
+            if info["has_dist"] and info["has_src"]:
+                info["status"] = "ready"
+            elif info["has_src"]:
+                info["status"] = "needs_build"
+            else:
+                info["status"] = "incomplete"
+        else:
+            info["status"] = "missing"
+
+        servers.append(info)
+
+    ready = sum(1 for s in servers if s["status"] == "ready")
+    total = len(servers)
+
+    return {
+        "total_servers": total,
+        "ready": ready,
+        "needs_attention": total - ready,
+        "servers": servers,
+    }
+
 
 # ══════════════════════════════════════════════
 #  Entry Point

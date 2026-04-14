@@ -40,6 +40,7 @@ ENDPOINTS = [
     "/api/qa_reports",
     "/api/quality_overview",
     "/api/sla_status",
+    "/api/mcp_health",
 ]
 
 
@@ -193,4 +194,30 @@ class TestSlaStatus:
         data = client.get("/api/sla_status").json()
         assert "lookback_days" in data
         assert data["lookback_days"] > 0
+
+
+# ── /api/mcp_health structure ──────────────────────────────────────
+
+class TestMcpHealth:
+
+    def test_has_total_servers(self):
+        data = client.get("/api/mcp_health").json()
+        assert "total_servers" in data
+        assert isinstance(data["total_servers"], int)
+
+    def test_has_servers_list(self):
+        data = client.get("/api/mcp_health").json()
+        assert "servers" in data
+        assert isinstance(data["servers"], list)
+
+    def test_server_structure(self):
+        data = client.get("/api/mcp_health").json()
+        for s in data["servers"]:
+            for key in ("name", "status", "exists"):
+                assert key in s, f"Server missing key: {key}"
+
+    def test_has_ready_count(self):
+        data = client.get("/api/mcp_health").json()
+        assert "ready" in data
+        assert "needs_attention" in data
 
