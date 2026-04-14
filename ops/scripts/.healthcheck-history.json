@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-14T14:24:27.296546",
+  "timestamp": "2026-04-14T19:59:21.871419",
   "version": "3.0",
   "workspace": "D:\\AI project",
   "projects": [
@@ -168,18 +168,9 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 11,
+    "uncommitted_changes": 1,
     "files": [
-      "M .agent/workflows/session-workflow.md",
-      " M CLAUDE.md",
-      " M apps/desci-platform/frontend/src/components/VCDashboard.jsx",
-      " M packages/shared/notifications/__init__.py",
-      " M packages/shared/notifications/notifier.py",
-      "?? LESSONS.md",
-      "?? _check_schema.py",
-      "?? apps/desci-platform/frontend/src/components/vc/",
-      "?? apps/desci-platform/frontend/src/utils/",
-      "?? next-actions.md"
+      "M next-actions.md"
     ]
   },
   "env_files": [

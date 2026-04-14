@@ -27,6 +27,8 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 # ── 경로 설정 ──
 WORKSPACE = Path(__file__).resolve().parents[2]
@@ -860,6 +862,23 @@ def mcp_health():
         "needs_attention": total - ready,
         "servers": servers,
     }
+
+
+# ══════════════════════════════════════════════
+#  Static Files (SPA)
+# ══════════════════════════════════════════════
+
+_DIST_DIR = Path(__file__).resolve().parent / "dist"
+if _DIST_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(_DIST_DIR / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        """SPA fallback — serve index.html for all non-API routes."""
+        file_path = _DIST_DIR / full_path
+        if full_path and file_path.exists() and file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(_DIST_DIR / "index.html"))
 
 
 # ══════════════════════════════════════════════
