@@ -1,5 +1,52 @@
 # QC Log
 
+## 2026-04-14 - Content Quality Retry Feedback QC
+
+### Scope
+- Recorded the quality-improvement implementation that converts QA and FactCheck failures into structured regeneration feedback
+- Rechecked the tweet retry path so FactCheck-triggered regeneration also includes fact-grounding guardrails
+- Added regression coverage for both QA retry handoff and FactCheck retry handoff
+
+### Files Checked
+- `content_qa.py`
+- `prompt_builder.py`
+- `generator.py`
+- `generation/threads.py`
+- `generation/long_form.py`
+- `core/pipeline_steps.py`
+- `tests/test_prompt_builder.py`
+- `tests/test_content_qa_scoring.py`
+- `tests/test_generator.py`
+- `tests/test_integration.py`
+- `tests/test_pipeline_steps.py`
+
+### QC Checks
+- Syntax compile check:
+  - `python -X utf8 -m py_compile content_qa.py prompt_builder.py generator.py generation/threads.py generation/long_form.py core/pipeline_steps.py`
+  - Result: passed
+- Targeted quality regression suite:
+  - `python -X utf8 -m pytest tests/test_prompt_builder.py tests/test_content_qa_scoring.py tests/test_generator.py tests/test_integration.py tests/test_pipeline_steps.py -q`
+  - Result: `88 passed`
+- Runtime smoke:
+  - `python -X utf8 .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1`
+  - Result: passed (`exit code 0`)
+
+### Review Notes
+- No blocking issues remain in the implemented retry-feedback path
+- QA warnings now include the weakest axis and representative issue instead of only `total/threshold`
+- FactCheck-triggered regeneration now has dedicated regression coverage so the `fact_check_feedback` handoff cannot silently drop out
+- Tweet retry prompts now include both the new revision feedback block and the existing fact guardrail block
+
+### Residual Risks
+- Diversity warnings are still passive; near-duplicate tweet variants are not yet automatically rewritten before save
+- Real model quality can still vary by trend category even with better retry guidance, so the next slice should focus on enforced diversity rewrite
+
+### Status
+- QC passed
+- Recorded after targeted regression verification and dry-run validation on 2026-04-14
+
+---
+
 ## 2026-03-23 19:15 - Docker Deployment + v9.0 Sprint 1 Audit ✅
 
 ### Scope

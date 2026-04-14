@@ -11,6 +11,27 @@ Checkpoint recorded after the runtime-hardening pass was validated and the remai
 - Trigger run: `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1`
 - Trigger result: exit code `0`, but repeated QA / FactCheck / diversity warnings remained
 
+## Progress Update (2026-04-14)
+
+- Implemented Workstream A core path:
+  - structured QA retry feedback now flows through `regenerate_content_groups(...)`
+  - retry prompts now receive per-group fail reason, weakest axis, regulation context, and top issues
+- Implemented most of Workstream B:
+  - fact-check retry feedback now carries hallucination / accuracy / issue summaries into regeneration
+  - tweet retries were updated to include fact guardrails as well as revision feedback
+- Implemented part of Workstream D:
+  - QA and FactCheck warning logs now surface the real failure dimension instead of only `total/threshold`
+  - targeted regression coverage was added for prompt injection, QA feedback extraction, QA retry handoff, and FactCheck retry handoff
+- Latest verification after implementation:
+  - `pytest automation/getdaytrends/tests/test_prompt_builder.py automation/getdaytrends/tests/test_content_qa_scoring.py automation/getdaytrends/tests/test_generator.py automation/getdaytrends/tests/test_integration.py automation/getdaytrends/tests/test_pipeline_steps.py -q` → `88 passed`
+  - `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` → exit code `0`
+
+## Remaining Focus
+
+- Primary remaining workstream: Workstream C (enforced diversity rewrite)
+- Secondary follow-up: final telemetry polish after diversity rewrites are wired into the save path
+- Current status after this slice: runtime remains green, and the largest remaining quality gap is duplicate or near-duplicate tweet framing
+
 ## What Is Still Failing
 
 ### 1. QA retries are not reason-aware

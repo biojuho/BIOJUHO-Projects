@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-13T11:54:07.257988",
+  "timestamp": "2026-04-14T11:41:12.034953",
   "version": "3.0",
   "workspace": "D:\\AI project",
   "projects": [
@@ -36,8 +36,8 @@
         },
         {
           "package": "aiosqlite",
-          "ok": false,
-          "message": "MISSING aiosqlite: No module named 'aiosqlite'"
+          "ok": true,
+          "message": "OK aiosqlite"
         }
       ],
       "drift": [],
@@ -81,8 +81,8 @@
       "imports": [
         {
           "package": "fastapi",
-          "ok": false,
-          "message": "MISSING fastapi: No module named 'fastapi'"
+          "ok": true,
+          "message": "OK fastapi"
         },
         {
           "package": "uvicorn",
@@ -130,13 +130,13 @@
       "imports": [
         {
           "package": "fastapi",
-          "ok": false,
-          "message": "MISSING fastapi: No module named 'fastapi'"
+          "ok": true,
+          "message": "OK fastapi"
         },
         {
           "package": "sqlalchemy",
-          "ok": false,
-          "message": "MISSING sqlalchemy: No module named 'sqlalchemy'"
+          "ok": true,
+          "message": "OK sqlalchemy"
         }
       ],
       "drift": [],
@@ -168,18 +168,15 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 10,
+    "uncommitted_changes": 7,
     "files": [
-      "M apps/AgriGuard/backend/database.py",
-      " M automation/DailyNews/src/antigravity_mcp/integrations/jina_adapter.py",
-      " M automation/DailyNews/src/antigravity_mcp/pipelines/signal_watch.py",
+      "M TASKS.md",
+      " M automation/getdaytrends/QC_LOG.md",
+      " M automation/getdaytrends/core/pipeline_steps.py",
+      " M docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md",
       " M ops/scripts/.healthcheck-history.json",
       " M ops/scripts/healthcheck.py",
-      " M packages/shared/db/engine.py",
-      "?? .claude/scheduled_tasks.lock",
-      "?? .claude/settings.json",
-      "?? .venv_bak/",
-      "?? docs/reports/2026-04/CLAUDE_CODE_STARTUP_HANDSHAKE_RECOVERY_2026-04-13.md"
+      " M ops/scripts/run_workspace_smoke.py"
     ]
   },
   "env_files": [
@@ -316,9 +313,5 @@
       "env_exists": false
     }
   ],
-  "status_changes": [
-    "RECOVERY desci-backend: unhealthy -> healthy",
-    "RECOVERY AgriGuard-backend: unhealthy -> healthy",
-    "RECOVERY AgriGuard-frontend: unhealthy -> healthy"
-  ]
+  "status_changes": []
 }

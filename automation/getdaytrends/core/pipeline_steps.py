@@ -324,6 +324,10 @@ async def _run_qa_pipeline(
     final_qa = qa
     failed_groups = qa.get("failed_groups", []) if qa else []
 
+    if not hasattr(primary, "metadata") or primary.metadata is None:
+        primary.metadata = {}
+    primary.metadata["qa_report_first_pass"] = qa
+
     if failed_groups:
         details = qa.get("group_results", {})
         failed_summary = ", ".join(
@@ -396,6 +400,18 @@ async def _run_fact_check(
         )
         any_failed = False
         fact_check_feedback = build_regeneration_feedback(fact_check_results=fc_results)
+        
+        if not hasattr(primary, "metadata") or primary.metadata is None:
+            primary.metadata = {}
+        primary.metadata["fact_check_report"] = {
+            k: {
+                "passed": v.passed, 
+                "hallucinated_claims": v.hallucinated_claims, 
+                "accuracy_score": v.accuracy_score,
+                "issues": v.issues
+            } for k, v in fc_results.items()
+        }
+
         for group_name, fc_result in fc_results.items():
             if not fc_result.passed:
                 any_failed = True
@@ -499,31 +515,81 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
             _run_cross_source_check(trend)
 
         primary = await _run_fact_check(primary, trend, effective_config, client, recent_tweets)
+        await _run_diversity_rewrite_pass(primary, trend, config, client)
 
         return primary
 
     return await asyncio.gather(*[_get_or_generate(t) for t in quality_trends], return_exceptions=True)
 
 
-async def _run_diversity_qa(batch: TweetBatch, trend, run: RunResult) -> None:
-    """생성물 다양성 QA — 코사인 유사도 0.88 초과 쌍 경고."""
+async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfig, client) -> None:
+    """생성물 다양성 판단 및 강제 재작성 (코사인 유사도 기반)."""
     if len(batch.tweets) < 2 or _embed_texts is None or _cosine_similarity is None:
         return
     try:
+        threshold = getattr(config, "diversity_sim_threshold", 0.85)
         vectors = _embed_texts([t.content for t in batch.tweets], task_type="SEMANTIC_SIMILARITY")
         if not vectors:
             return
-        dupes = [
-            f"트윗{i + 1}↔트윗{j + 1} (유사도={_cosine_similarity(vectors[i], vectors[j]):.2f})"
-            for i in range(len(vectors))
-            for j in range(i + 1, len(vectors))
-            if _cosine_similarity(vectors[i], vectors[j]) > 0.88
-        ]
-        if dupes:
-            log.warning(f"[다양성 QA] '{trend.keyword}' 유사도 높음: " + ", ".join(dupes))
-            run.errors.append(f"다양성 경고: {trend.keyword} ({len(dupes)}쌍)")
-    except (RuntimeError, ConnectionError, ValueError):
-        pass
+            
+        dupe_indices = set()
+        dupes_log = []
+        for i in range(len(vectors)):
+            for j in range(i + 1, len(vectors)):
+                sim = _cosine_similarity(vectors[i], vectors[j])
+                if sim > threshold:
+                    dupes_log.append(f"트윗{i + 1}↔트윗{j + 1} (유사도={sim:.2f})")
+                    dupe_indices.add(j)
+                    
+        if dupes_log:
+            log.warning(f"[다양성 QA] '{trend.keyword}' 유사도 임계치({threshold}) 초과 감지: " + ", ".join(dupes_log))
+            
+            # 메타데이터에 다양성 경고 스탬프 추가
+            if not hasattr(batch, 'metadata') or batch.metadata is None:
+                batch.metadata = {}
+            if 'qa_report' not in batch.metadata:
+                batch.metadata['qa_report'] = {}
+            if 'warnings' not in batch.metadata['qa_report']:
+                batch.metadata['qa_report']['warnings'] = []
+            batch.metadata['qa_report']['warnings'].append(f"다양성 재작성: {trend.keyword} ({len(dupes_log)}쌍)")
+            
+            # 중복 트윗들 프레이밍 비틀어 재작성
+            from shared.llm import TaskTier
+            lang = config.target_languages[0] if getattr(config, "target_languages", None) else "ko"
+            
+            async def _rewrite_tweet(idx: int):
+                original_tweet = batch.tweets[idx].content
+                other_tweets = [batch.tweets[k].content for k in range(len(batch.tweets)) if k != idx and k not in dupe_indices]
+                others_text = "\n".join(f"- {o}" for o in other_tweets)
+                
+                prompt = (
+                    f"다음 트윗은 다른 시안들과 겹치는 시각/문체가 너무 많습니다.\n"
+                    f"아래의 '피해야 할 시안들'에서 사용된 구조(hook), 감정, 리듬을 피해서 완전히 180도 다른 분위기로 재작성해 주세요.\n\n"
+                    f"[키워드]: {trend.keyword}\n"
+                    f"[피해야 할 시안들]:\n{others_text}\n\n"
+                    f"[원래 내용]:\n{original_tweet}\n\n"
+                    f"반드시 {lang} 언어로 작성하고, 다른 설명 없이 재작성된 텍스트만 출력하세요. 최대 280자."
+                )
+                try:
+                    resp = await client.acreate(
+                        tier=TaskTier.LIGHTWEIGHT,
+                        system="당신은 트윗 프레이밍을 다르게 비틀어 재작성하는 숙련된 소셜 에디터입니다.",
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=300,
+                    )
+                    rewritten = resp.text.strip().strip('"\'')
+                    if rewritten and len(rewritten) > 10:
+                        log.info(f"  [다양성 재작성] '{trend.keyword}' 트윗{idx + 1} 완료")
+                        batch.tweets[idx].content = rewritten
+                except Exception as e:
+                    log.warning(f"  [다양성 재작성 실패] {type(e).__name__}: {e}")
+                    
+            if dupe_indices:
+                log.info(f"  [다양성 실행] 중복도 높은 {len(dupe_indices)}개 트윗에 대해 강제 재작성 진행")
+                await asyncio.gather(*[_rewrite_tweet(idx) for idx in dupe_indices])
+                
+    except (RuntimeError, ConnectionError, ValueError) as e:
+        log.debug(f"[다양성 QA 오류] {type(e).__name__}: {e}")
 
 
 def _qa_group_for_bundle(bundle) -> str:
@@ -899,7 +965,6 @@ async def _step_save(
         run.tweets_generated += (
             len(batch.tweets) + len(batch.long_posts) + len(batch.threads_posts) + len(getattr(batch, "blog_posts", []))
         )
-        await _run_diversity_qa(batch, trend, run)
         await _preview_and_record_stats(batch, category, conn)
         _attach_best_hours(batch, category, best_hours)
 

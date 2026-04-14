@@ -7,11 +7,7 @@
 
 ## TODO
 
-- [ ] **P2: Reduce GetDayTrends content-quality warning rate**
-  - scope: QA retry path, fact-check retry path, diversity rewrite, and quality telemetry
-  - priority order: real fail-reason logging -> reason-aware QA regeneration -> claim-aware fact-check regeneration -> enforced diversity rewrite
-  - reference doc: `docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md`
-  - acceptance target: `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` stays green while reducing repeated QA / FactCheck / diversity warnings
+*No pending tasks*
 
 ---
 
@@ -24,6 +20,19 @@
 ## DONE (Last 7 Days)
 
 ### 2026-04-14
+
+- [x] **P2: Finish GetDayTrends content-quality warning reduction**
+  - completed slices: real fail-reason logging, reason-aware QA regeneration, claim-aware fact-check regeneration, tweet retry fact-guardrail injection
+  - completed scope: enforced diversity rewrite plus final telemetry/quality tuning
+  - reference doc: `docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md`
+  - latest validation: `pytest automation/getdaytrends/tests/test_prompt_builder.py automation/getdaytrends/tests/test_content_qa_scoring.py automation/getdaytrends/tests/test_generator.py automation/getdaytrends/tests/test_integration.py automation/getdaytrends/tests/test_pipeline_steps.py -q` → `88 passed`
+  - runtime baseline: `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` → exit code `0`
+
+- [x] **P2: Implement GetDayTrends structured retry feedback path**
+  - QA and FactCheck failures now flow into per-group regeneration feedback for tweets, Threads, long-form, and blog prompts
+  - retry prompts now include concrete fail reasons, weakest axis, hallucination details, and evidence-constrained rewrite guidance
+  - QC follow-up added tweet retry fact guardrails plus a regression test that locks FactCheck feedback handoff into `regenerate_content_groups(...)`
+  - validation: targeted quality suite `88 passed`; `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` exited `0`
 
 - [x] **P2: Hardening slice reviewed & committed**
   - getdaytrends parsing nullable coercion + missing-table guards + Postgres ON CONFLICT column qualification

@@ -195,6 +195,8 @@ def print_recent_runs():
             status_display = "[OK]" + status[4:]
         elif status == "failed":
             status_display = "[X]" + status[4:]
+        elif status == "degraded":
+            status_display = "[!]" + status[8:]
 
         print(f"  {run_id_short:<35s} | {job_name_short:<20s} | {status_display:<12s} | {started_short:<19s}")
 
