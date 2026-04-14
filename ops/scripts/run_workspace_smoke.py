@@ -32,7 +32,7 @@ WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "desci biolinker smoke": ("fastapi",),
     "agriguard backend tests": ("fastapi", "sqlalchemy"),
     "DailyNews unit tests": ("mcp.server.fastmcp",),
-    "getdaytrends tests": ("aiosqlite",),
+    "getdaytrends tests": ("aiosqlite", "sqlalchemy"),
 }
 UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "workspace regression tests": ("pypdf>=4.0.0,<5.0",),
@@ -62,11 +62,16 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "stripe>=9.0.0,<12.0",
         "prometheus_client>=0.21.0",
     ),
-    "getdaytrends tests": ("respx>=0.21.0,<1.0",),
+    "getdaytrends tests": (
+        "respx>=0.21.0,<1.0",
+        "sqlalchemy>=2.0.0,<3.0",
+        "redis>=5.0.0,<8.0",
+    ),
 }
 FORCE_UV_CHECKS = {
     "desci biolinker smoke",
     "agriguard backend tests",
+    "getdaytrends tests",
 }
 USE_UV_ISOLATED_RUNNER = False
 

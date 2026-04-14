@@ -92,7 +92,15 @@ def check_file_exists(rel_path: str) -> tuple[bool, str]:
 
 def check_git_status() -> dict:
     try:
-        result = subprocess.run(["git", "status", "--short"], capture_output=True, text=True, cwd=WORKSPACE, timeout=10)
+        result = subprocess.run(
+            ["git", "status", "--short"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=WORKSPACE,
+            timeout=10,
+        )
         lines = [line for line in result.stdout.strip().splitlines() if line.strip()]
         return {"uncommitted_changes": len(lines), "files": lines[:10]}
     except Exception as exc:
@@ -127,7 +135,12 @@ def check_dependency_drift(req_path: str) -> list[dict]:
 
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "pip", "list", "--format=json"], capture_output=True, text=True, timeout=15
+            [sys.executable, "-m", "pip", "list", "--format=json"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
         )
         installed: dict[str, str] = {}
         if proc.returncode == 0:
@@ -177,7 +190,15 @@ def check_npm_build(rel_path: str) -> dict:
 
     try:
         npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
-        proc = subprocess.run([npm_cmd, "run", "build:dry"], cwd=full_path, capture_output=True, text=True, timeout=120)
+        proc = subprocess.run(
+            [npm_cmd, "run", "build:dry"],
+            cwd=full_path,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
         if proc.returncode == 0:
             return {"ok": True, "message": "OK build dry-run"}
         stderr = next(
