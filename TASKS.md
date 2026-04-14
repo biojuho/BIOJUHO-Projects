@@ -7,27 +7,17 @@
 
 ## TODO
 
-- _2026-04-14 review supersedes the stale "no pending tasks" note below._
 - [ ] **P2: Reduce GetDayTrends content-quality warning rate**
   - scope: QA retry path, fact-check retry path, diversity rewrite, and quality telemetry
   - priority order: real fail-reason logging -> reason-aware QA regeneration -> claim-aware fact-check regeneration -> enforced diversity rewrite
   - reference doc: `docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md`
   - acceptance target: `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` stays green while reducing repeated QA / FactCheck / diversity warnings
 
-*No pending tasks — P1~P3 전체 완료*
-
 ---
 
 ## IN_PROGRESS
 
-- [ ] **P2: Review and commit the current hardening slice**
-  - `automation/getdaytrends`: nullable parsing, schema-light guards, quieter expected fallback logging, PostgreSQL upsert compatibility fixes
-  - `packages/shared/prediction`: expected fallback paths downgraded from warning to info, fitted-model gate tightened
-  - validation complete: `pytest automation/getdaytrends/tests/test_analyzer.py automation/getdaytrends/tests/test_performance_tracker.py automation/getdaytrends/tests/test_structured_output.py automation/getdaytrends/tests/test_pipeline_genealogy.py automation/getdaytrends/tests/test_trend_reasoning.py -q` -> `73 passed`
-  - validation complete: `pytest automation/getdaytrends/tests/test_tweet_repository.py::TestPostingTimeStats -q` -> `3 passed`
-  - validation complete: `pytest packages/shared/prediction/tests/test_prediction.py -q` -> `23 passed`
-  - validation complete: `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` -> exit code `0`
-  - remaining action: final review and commit/push when ready
+*No pending tasks*
 
 ---
 
@@ -35,10 +25,17 @@
 
 ### 2026-04-14
 
+- [x] **P2: Hardening slice reviewed & committed**
+  - getdaytrends parsing nullable coercion + missing-table guards + Postgres ON CONFLICT column qualification
+  - prediction engine `is_fitted` gate bug fix + expected fallback log level downgrade (warning→info)
+  - 6 new regression tests (nullable, pg adapter, pipeline genealogy, trend reasoning, table guards)
+  - validation: `pytest automation/getdaytrends/tests/ -q` → `697 passed, 8 skipped`; `pytest packages/shared/prediction/tests/ -q` → `24 passed`
+  - shipped in commit `121192e chore: finalize P3 observability + DB parity + orphan cleanup`
+
 - [x] **P3: Draft GetDayTrends content-quality improvement plan**
   - recorded the remaining non-blocking risks after the 2026-04-14 dry-run
   - grouped the follow-up work into QA retry, fact-check retry, diversity rewrite, and telemetry tracks
-  - created `docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md`
+  - created `docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md` (added in commit `b416efa`)
 
 ### 2026-04-13
 
