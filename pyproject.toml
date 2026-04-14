@@ -98,6 +98,12 @@ filterwarnings = [
     "ignore::DeprecationWarning",
 ]
 
+[tool.uv]
+# Project lives on D: while UV cache lives on C:, so hardlinking always falls
+# back to a full copy and prints a noisy warning on every uv run/uv sync.
+# Force copy mode to silence the warning without changing semantics.
+link-mode = "copy"
+
 [tool.uv.workspace]
 members = [
     "apps/AgriGuard/backend",
