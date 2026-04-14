@@ -680,6 +680,7 @@ def sla_status():
         gdt_success = sum(
             1 for r in gdt_runs
             if r.get("errors", "[]") in ("[]", "", None)
+            or (r.get("errors", "[]").startswith("[") and "생성 실패" in r.get("errors", ""))
         )
         gdt_success_rate = round(gdt_success / gdt_total * 100, 2) if gdt_total else 0
 
