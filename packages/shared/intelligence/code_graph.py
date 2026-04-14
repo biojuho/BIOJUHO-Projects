@@ -24,7 +24,6 @@ from __future__ import annotations
 import ast
 import hashlib
 import logging
-import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -371,17 +370,20 @@ class CodeGraphStore:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
         if self._is_async:
-            self._conn = await aiosqlite.connect(str(self._db_path))
-            await self._conn.execute("PRAGMA journal_mode=WAL")
-            await self._conn.execute("PRAGMA foreign_keys=ON")
-            await self._conn.executescript(_SCHEMA_SQL)
-            await self._conn.commit()
+            import aiosqlite # type: ignore
+            conn = await aiosqlite.connect(str(self._db_path))
+            self._conn = conn
+            await conn.execute("PRAGMA journal_mode=WAL")
+            await conn.execute("PRAGMA foreign_keys=ON")
+            await conn.executescript(_SCHEMA_SQL)
+            await conn.commit()
         else:
-            self._conn = sqlite3.connect(str(self._db_path), timeout=30)
-            self._conn.execute("PRAGMA journal_mode=WAL")
-            self._conn.execute("PRAGMA foreign_keys=ON")
-            self._conn.executescript(_SCHEMA_SQL)
-            self._conn.commit()
+            conn = sqlite3.connect(str(self._db_path), timeout=30)
+            self._conn = conn
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.executescript(_SCHEMA_SQL)
+            conn.commit()
 
     async def close(self) -> None:
         """Close database connection."""
@@ -391,6 +393,11 @@ class CodeGraphStore:
             else:
                 self._conn.close()
             self._conn = None
+
+    def _require_conn(self) -> Any:
+        if self._conn is None:
+            raise RuntimeError("CodeGraphStore.connect() must be called before database operations")
+        return self._conn
 
     # --- Indexing ---
 
@@ -554,6 +561,7 @@ class CodeGraphStore:
 
     async def _insert_parse_result(self, result: FileParseResult) -> None:
         """Batch insert nodes and edges from a parse result."""
+        conn = self._require_conn()
         for node in result.nodes:
             await self._execute(
                 "INSERT OR REPLACE INTO nodes (id, name, type, file_path, line_start, line_end, file_hash) "
@@ -568,28 +576,31 @@ class CodeGraphStore:
                 [edge.source_id, edge.target_id, edge.edge_type, edge.weight],
             )
         if self._is_async:
-            await self._conn.commit()
+            await conn.commit()
         else:
-            self._conn.commit()
+            conn.commit()
 
     async def _execute(self, sql: str, params: list | None = None) -> None:
+        conn = self._require_conn()
         if self._is_async:
-            await self._conn.execute(sql, params or [])
+            await conn.execute(sql, params or [])
         else:
-            self._conn.execute(sql, params or [])
+            conn.execute(sql, params or [])
 
     async def _fetch_all(self, sql: str, params: list | None = None) -> list:
+        conn = self._require_conn()
         if self._is_async:
-            cursor = await self._conn.execute(sql, params or [])
+            cursor = await conn.execute(sql, params or [])
             return await cursor.fetchall()
         else:
-            cursor = self._conn.execute(sql, params or [])
+            cursor = conn.execute(sql, params or [])
             return cursor.fetchall()
 
     async def _fetch_one(self, sql: str, params: list | None = None):
+        conn = self._require_conn()
         if self._is_async:
-            cursor = await self._conn.execute(sql, params or [])
+            cursor = await conn.execute(sql, params or [])
             return await cursor.fetchone()
         else:
-            cursor = self._conn.execute(sql, params or [])
+            cursor = conn.execute(sql, params or [])
             return cursor.fetchone()

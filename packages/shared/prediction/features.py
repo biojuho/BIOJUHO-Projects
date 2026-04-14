@@ -10,10 +10,9 @@ Feature Extractor — 기존 DB에서 ML 피처 추출.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, UTC
 from pathlib import Path
-from typing import Any
 
 import logging
 

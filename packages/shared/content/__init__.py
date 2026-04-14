@@ -11,9 +11,6 @@ Phase 3 리펙토링: GetDayTrends ↔ DailyNews ↔ content-intelligence 간
 
 import json
 import re
-from typing import Any
-
-from loguru import logger as log
 
 
 def parse_json_response(text: str | None) -> dict | None:

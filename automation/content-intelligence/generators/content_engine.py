@@ -108,7 +108,7 @@ async def generate_all_content(
 
     all_contents = []
     for platform, result in zip(config.platforms, results):
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             log.error(f"  ❌ {platform.upper()} 콘텐츠 생성 실패: {result}")
         else:
             all_contents.extend(result)

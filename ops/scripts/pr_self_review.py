@@ -68,30 +68,37 @@ class DiffStats:
 def get_diff_stats(base: str = "main") -> DiffStats:
     """Get git diff statistics against base branch."""
     stats = DiffStats()
+    
+    # Use triple dot diff for accurate branch comparison if a simple branch name is provided.
+    target = f"{base}...HEAD" if "..." not in base and "~" not in base else base
 
-    # File list
+    # Instead of error-prone --stat parsing, use --numstat to get accurate files and line counts.
     result = subprocess.run(
-        ["git", "diff", "--name-only", base],
+        ["git", "diff", "--numstat", target],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
-    stats.files_changed = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
-
-    # Stat summary
-    result = subprocess.run(
-        ["git", "diff", "--stat", base],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-    )
-    for line in result.stdout.split("\n"):
-        m = re.search(r"(\d+)\s+insertion", line)
-        if m:
-            stats.insertions = int(m.group(1))
-        m = re.search(r"(\d+)\s+deletion", line)
-        if m:
-            stats.deletions = int(m.group(1))
+    
+    files_changed = []
+    insertions = 0
+    deletions = 0
+    
+    for line in result.stdout.strip().split("\n"):
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) == 3:
+            ins, dl, fname = parts
+            if ins != "-": insertions += int(ins)
+            if dl != "-": deletions += int(dl)
+            files_changed.append(fname)
+            
+    stats.insertions = insertions
+    stats.deletions = deletions
+    stats.files_changed = files_changed
 
     # Full diff content
     result = subprocess.run(
-        ["git", "diff", base],
+        ["git", "diff", target],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     stats.diff_content = result.stdout

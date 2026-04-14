@@ -7,14 +7,22 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Force run outside schedule window"
+        description: "Ignore the schedule window and process the last 24 hours"
         required: false
         type: boolean
         default: false
       max_items:
-        description: "Max articles per category"
+        description: "Max articles per category (1-10)"
         required: false
-        default: "5"
+        type: number
+        default: 5
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dailynews-pipeline-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   run-dailynews:
@@ -22,21 +30,18 @@ jobs:
     timeout-minutes: 20
 
     env:
-      # ── Database ──
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      # ── LLM keys ──
+      SUPABASE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GOOGLE_API_KEY:    ${{ secrets.GOOGLE_API_KEY }}
-      GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY != '' && secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
-      OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
-      # ── Notification ──
-      TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' && secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      # ── Notion (DailyNews-dedicated integration + reports DB) ──
-      NOTION_API_KEY:              ${{ secrets.DAILYNEWS_NOTION_TOKEN }}
-      NOTION_TASKS_DATABASE_ID:    ${{ secrets.DAILYNEWS_NOTION_REPORTS_DB_ID }}
-      NOTION_REPORTS_DATABASE_ID:  ${{ secrets.DAILYNEWS_NOTION_REPORTS_DB_ID }}
+      NOTION_API_KEY: ${{ secrets.DAILYNEWS_NOTION_TOKEN || secrets.NOTION_API_KEY || secrets.NOTION_TOKEN }}
+      NOTION_TASKS_DATABASE_ID: ${{ secrets.DAILYNEWS_NOTION_TASKS_DB_ID || secrets.NOTION_TASKS_DATABASE_ID || secrets.ANTIGRAVITY_TASKS_DB_ID || secrets.ANTIGRAVITY_DB_ID || secrets.DAILYNEWS_NOTION_REPORTS_DB_ID }}
+      NOTION_REPORTS_DATABASE_ID: ${{ secrets.DAILYNEWS_NOTION_REPORTS_DB_ID || secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -53,10 +58,67 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Normalize run inputs
+        id: run_context
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MAX_ITEMS="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.max_items || '5' }}"
+          if ! [[ "$MAX_ITEMS" =~ ^[0-9]+$ ]]; then
+            echo "::error::max_items must be an integer, got '$MAX_ITEMS'"
+            exit 1
+          fi
+          if (( MAX_ITEMS < 1 || MAX_ITEMS > 10 )); then
+            echo "::error::max_items must be between 1 and 10, got $MAX_ITEMS"
+            exit 1
+          fi
+
+          FORCE_FLAG=""
+          WINDOW_LABEL="scheduled-window"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            WINDOW_LABEL="manual-window"
+            if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
+              FORCE_FLAG="--force"
+              WINDOW_LABEL="manual-force"
+            fi
+          fi
+
+          echo "max_items=$MAX_ITEMS" >> "$GITHUB_OUTPUT"
+          echo "force_flag=$FORCE_FLAG" >> "$GITHUB_OUTPUT"
+          echo "window_label=$WINDOW_LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Verify required runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=()
+          for name in NOTION_API_KEY NOTION_REPORTS_DATABASE_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [[ -z "${GOOGLE_API_KEY:-}" && -z "${GEMINI_API_KEY:-}" && -z "${ANTHROPIC_API_KEY:-}" && -z "${OPENAI_API_KEY:-}" ]]; then
+            missing+=("one_of:GOOGLE_API_KEY|GEMINI_API_KEY|ANTHROPIC_API_KEY|OPENAI_API_KEY")
+          fi
+
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Missing required runtime configuration: %s\n' "$(IFS=', '; echo "${missing[*]}")"
+            exit 1
+          fi
+
       - name: Install dependencies
         run: |
           uv sync --package DailyNews
           uv pip install -e . --no-deps
+
+      - name: Run DailyNews smoke tests
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          pytest automation/DailyNews/tests/test_run_daily_news.py automation/DailyNews/tests/unit/test_config_aliases.py -q
 
       - name: Run DailyNews pipeline
         working-directory: automation/DailyNews
@@ -65,16 +127,30 @@ jobs:
           PYTHONUTF8: "1"
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/automation/DailyNews/src
         run: |
-          FLAGS="--max-items ${{ github.event.inputs.max_items || '5' }}"
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then
-            FLAGS="$FLAGS --force"
+          set -euo pipefail
+          FLAGS=(--max-items "${{ steps.run_context.outputs.max_items }}")
+          if [[ -n "${{ steps.run_context.outputs.force_flag }}" ]]; then
+            FLAGS+=("${{ steps.run_context.outputs.force_flag }}")
           fi
-          # Do NOT pipe through `head` — once head closes the pipe, Python
-          # gets SIGPIPE and dies mid-run, which silently hides category
-          # failures. The structured log file under logs/ is uploaded as
-          # an artifact so full output is still available.
-          set -o pipefail
-          uv run python -u scripts/run_daily_news.py $FLAGS 2>&1
+
+          # Do not pipe through head. If the pipe closes early, Python can die
+          # with SIGPIPE and hide category-level failures. Full logs are
+          # uploaded as artifacts after every run.
+          uv run python -u scripts/run_daily_news.py "${FLAGS[@]}" 2>&1
+
+      - name: Write step summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## DailyNews Workflow Context"
+            echo
+            echo "- Event: ${{ github.event_name }}"
+            echo "- Window label: ${{ steps.run_context.outputs.window_label }}"
+            echo "- Max items: ${{ steps.run_context.outputs.max_items }}"
+            echo "- Force enabled: ${{ steps.run_context.outputs.force_flag != '' && 'yes' || 'no' }}"
+            echo "- Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload logs
         if: always()
@@ -85,6 +161,7 @@ jobs:
             automation/DailyNews/logs/
             automation/DailyNews/run_output*.log
           retention-days: 7
+          if-no-files-found: warn
 
       - name: Cleanup .env
         if: always()
@@ -93,33 +170,28 @@ jobs:
 
       - name: Discord notification on failure
         if: failure() && env.DISCORD_WEBHOOK_URL != ''
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        shell: bash
         run: |
           curl -s -H "Content-Type: application/json" \
-            -d "{\"content\":\"🔴 DailyNews #${{ github.run_number }} failed\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            -d "{\"content\":\"[FAIL] DailyNews #${{ github.run_number }} (${{ steps.run_context.outputs.window_label }})\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
             "$DISCORD_WEBHOOK_URL" || true
 
       - name: Telegram notification on failure
         if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        shell: bash
         run: |
-          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+          if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"🔴 DailyNews #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[FAIL] DailyNews #${{ github.run_number }} (${{ steps.run_context.outputs.window_label }})\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
           fi
 
       - name: Telegram heartbeat on success
         if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        shell: bash
         run: |
-          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+          if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"✅ DailyNews #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nMode: ${{ github.event.inputs.mode || 'full' }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nWindow: ${{ steps.run_context.outputs.window_label }}\nMax items: ${{ steps.run_context.outputs.max_items }}\nRef: ${{ github.ref_name }}\"}" || true
           fi

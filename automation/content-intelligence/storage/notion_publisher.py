@@ -1,12 +1,9 @@
-"""Notion Content Hub 자동 발행 모듈.
-
-CIE에서 생성 + QA 통과한 콘텐츠를 Notion 데이터베이스에 페이지로 발행한다.
-"""
+"""Utilities for publishing generated content to Notion."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger as log
 
@@ -19,7 +16,7 @@ async def publish_to_notion(
     content: GeneratedContent,
     config: CIEConfig,
 ) -> PublishResult:
-    """단일 콘텐츠를 Notion Content Hub에 발행한다."""
+    """Publish a single generated content item to the Notion content hub."""
     from storage.models import PublishResult
 
     if not config.can_publish_notion:
@@ -27,29 +24,28 @@ async def publish_to_notion(
             platform=content.platform,
             success=False,
             target="notion",
-            error="Notion 발행 미설정 (CIE_NOTION_PUBLISH=true 필요)",
+            error="Notion publishing is disabled (set CIE_NOTION_PUBLISH=true)",
         )
 
     try:
+        import asyncio as _asyncio
+
         import httpx
 
-        # Notion API 페이지 생성
         headers = {
             "Authorization": f"Bearer {config.notion_token}",
             "Content-Type": "application/json",
             "Notion-Version": "2022-06-28",
         }
 
-        # 본문을 Notion 블록으로 변환 (최대 2000자)
-        body_text = content.body[:2000] if content.body else "(본문 없음)"
+        body_text = content.body[:2000] if content.body else "(No body)"
         body_blocks = _split_to_blocks(body_text)
 
-        # v13 표준 스키마 — 8개 속성
-        # Tags = keywords + hashtags 통합
         tag_items = [{"name": kw[:100]} for kw in content.trend_keywords_used[:5]]
         if content.hashtags:
-            tag_items.extend([{"name": h[:100]} for h in content.hashtags[:5]])
+            tag_items.extend({"name": hashtag[:100]} for hashtag in content.hashtags[:5])
 
+        default_title = content.trend_keywords_used[0] if content.trend_keywords_used else "CIE Content"
         payload = {
             "parent": {"database_id": config.notion_database_id},
             "properties": {
@@ -57,8 +53,7 @@ async def publish_to_notion(
                     "title": [
                         {
                             "text": {
-                                "content": content.title
-                                or f"[{content.platform.upper()}] {content.trend_keywords_used[0] if content.trend_keywords_used else 'CIE 콘텐츠'}"
+                                "content": content.title or f"[{content.platform.upper()}] {default_title}",
                             }
                         }
                     ]
@@ -71,11 +66,7 @@ async def publish_to_notion(
             "children": body_blocks,
         }
 
-        # C-06 fix: async httpx로 교체 — 이벤트루프 블로킹 방지
-        # M-08 fix: 429 Rate Limit 재시도 (최대 2회)
-        import asyncio as _asyncio
-
-        resp = None
+        resp: httpx.Response | None = None
         async with httpx.AsyncClient(timeout=30.0) as client:
             for _attempt in range(3):
                 resp = await client.post(
@@ -86,7 +77,7 @@ async def publish_to_notion(
                 if resp.status_code != 429:
                     break
                 retry_after = min(int(resp.headers.get("retry-after", "2")), 30)
-                log.warning(f"  ⏳ Notion 429 Rate Limit — {retry_after}s 대기 후 재시도")
+                log.warning("Notion rate limited; retrying in {}s", retry_after)
                 await _asyncio.sleep(retry_after)
 
         if resp is not None and resp.status_code == 200:
@@ -95,27 +86,36 @@ async def publish_to_notion(
             content.published_at = datetime.now()
             content.publish_target = "notion"
 
-            log.info(f"  ✅ Notion 발행 성공: {content.platform}/{content.content_type} → {page_id}")
+            log.info(
+                "Notion publish succeeded: {}/{} -> {}",
+                content.platform,
+                content.content_type,
+                page_id,
+            )
             return PublishResult(
                 platform=content.platform,
                 success=True,
                 target="notion",
                 page_id=page_id,
             )
+
+        if resp is None:
+            error = "No response received from Notion API"
         else:
             error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-            log.warning(f"  ❌ Notion 발행 실패: {error}")
-            content.publish_error = error
-            return PublishResult(
-                platform=content.platform,
-                success=False,
-                target="notion",
-                error=error,
-            )
 
-    except Exception as e:
-        error = str(e)
-        log.error(f"  ❌ Notion 발행 에러: {error}")
+        log.warning("Notion publish failed: {}", error)
+        content.publish_error = error
+        return PublishResult(
+            platform=content.platform,
+            success=False,
+            target="notion",
+            error=error,
+        )
+
+    except Exception as exc:
+        error = str(exc)
+        log.error("Notion publish error: {}", error)
         content.publish_error = error
         return PublishResult(
             platform=content.platform,
@@ -129,8 +129,8 @@ async def publish_batch_to_notion(
     batch: ContentBatch,
     config: CIEConfig,
 ) -> list[PublishResult]:
-    """배치 내 모든 QA 통과 콘텐츠를 Notion에 발행한다."""
-    results = []
+    """Publish all QA-passed content items in a batch to Notion."""
+    results: list[PublishResult] = []
     for content in batch.contents:
         if content.qa_passed:
             result = await publish_to_notion(content, config)
@@ -138,9 +138,9 @@ async def publish_batch_to_notion(
     return results
 
 
-def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict]:
-    """텍스트를 Notion 블록 리스트로 변환한다."""
-    blocks = []
+def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict[str, Any]]:
+    """Convert plain text into simple Notion paragraph blocks."""
+    blocks: list[dict[str, Any]] = []
     paragraphs = text.split("\n\n")
 
     for para in paragraphs:
@@ -148,13 +148,14 @@ def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict]:
         if not para:
             continue
 
-        # 2000자 제한 처리
         while len(para) > max_len:
             blocks.append(
                 {
                     "object": "block",
                     "type": "paragraph",
-                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para[:max_len]}}]},
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": para[:max_len]}}]
+                    },
                 }
             )
             para = para[max_len:]
@@ -164,7 +165,9 @@ def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict]:
                 {
                     "object": "block",
                     "type": "paragraph",
-                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para}}]},
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": para}}]
+                    },
                 }
             )
 
@@ -172,6 +175,6 @@ def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict]:
         {
             "object": "block",
             "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "text", "text": {"content": "(빈 본문)"}}]},
+            "paragraph": {"rich_text": [{"type": "text", "text": {"content": "(Empty body)"}}]},
         }
     ]

@@ -107,28 +107,22 @@ async def _check_budget_and_adjust_limit(config: AppConfig, conn) -> tuple[AppCo
     effective_budget = config.get_effective_budget()
     if effective_budget > 0:
         try:
-            from shared.llm.stats import _DB_PATH as _llm_db
             from shared.llm.stats import CostTracker
 
-            if _llm_db.exists():
-                _tracker = CostTracker(persist=True)
-                _daily = _tracker.get_daily_stats(1)
-                _tracker.close()
-                from datetime import date as _date
-
-                _today = str(_date.today())
-                _today_cost = sum(r["cost_usd"] for r in _daily if r.get("date") == _today)
-                # 동시 실행 시 예산 초과 방지: 90% 도달 시 Sonnet 비활성화
-                # (두 프로세스가 동시에 읽을 경우 각각 최대 ~10% 오버런 가능)
-                _BUDGET_SAFETY_RATIO = 0.90
-                if _today_cost >= effective_budget * _BUDGET_SAFETY_RATIO:
-                    overrides["enable_long_form"] = False
-                    overrides["thread_min_score"] = 999
-                    budget_disabled = True
-                    print(
-                        f"\n  [예산 상한] 오늘 누적 ${_today_cost:.4f} ≥ ${effective_budget * _BUDGET_SAFETY_RATIO:.2f}"
-                        f" (일 예산 ${config.daily_budget_usd:.2f}의 90%) → Sonnet 비활성화"
-                    )
+            _tracker = CostTracker(persist=True)
+            _today_cost = _tracker.get_today_cost()
+            _tracker.close()
+            # 동시 실행 시 예산 초과 방지: 90% 도달 시 Sonnet 비활성화
+            # (두 프로세스가 동시에 읽을 경우 각각 최대 ~10% 오버런 가능)
+            _BUDGET_SAFETY_RATIO = 0.90
+            if _today_cost >= effective_budget * _BUDGET_SAFETY_RATIO:
+                overrides["enable_long_form"] = False
+                overrides["thread_min_score"] = 999
+                budget_disabled = True
+                print(
+                    f"\n  [예산 상한] 오늘 누적 ${_today_cost:.4f} ≥ ${effective_budget * _BUDGET_SAFETY_RATIO:.2f}"
+                    f" (일 예산 ${config.daily_budget_usd:.2f}의 90%) → Sonnet 비활성화"
+                )
         except (ImportError, ValueError, OSError) as _e:
             log.debug(f"예산 체크 실패 (무시): {type(_e).__name__}: {_e}")
 
@@ -486,17 +480,11 @@ async def _step_post_run(
     total_cost = 0.0
     if pipeline_config.enable_structured_metrics:
         try:
-            from datetime import date as _date
-
-            from shared.llm.stats import _DB_PATH as _llm_db
             from shared.llm.stats import CostTracker
 
-            if _llm_db.exists():
-                tracker = CostTracker(persist=True)
-                daily = tracker.get_daily_stats(1)
-                tracker.close()
-                today = str(_date.today())
-                total_cost = sum(r["cost_usd"] for r in daily if r.get("date") == today)
+            tracker = CostTracker(persist=True)
+            total_cost = tracker.get_today_cost()
+            tracker.close()
         except (ImportError, ValueError, KeyError, OSError):
             pass
         log.info(

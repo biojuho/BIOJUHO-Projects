@@ -1,0 +1,1586 @@
+d:\AI project\automation\content-intelligence\collectors\base.py
+  d:\AI project\automation\content-intelligence\collectors\base.py:8:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\collectors\gdt_bridge.py
+  d:\AI project\automation\content-intelligence\collectors\gdt_bridge.py:22:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\collectors\naver_collector.py
+  d:\AI project\automation\content-intelligence\collectors\naver_collector.py:10:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\collectors\threads_collector.py
+  d:\AI project\automation\content-intelligence\collectors\threads_collector.py:9:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\collectors\x_collector.py
+  d:\AI project\automation\content-intelligence\collectors\x_collector.py:14:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\generators\content_engine.py
+  d:\AI project\automation\content-intelligence\generators\content_engine.py:10:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\main.py
+  d:\AI project\automation\content-intelligence\main.py:42:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\regulators\checklist.py
+  d:\AI project\automation\content-intelligence\regulators\checklist.py:26:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\content-intelligence\regulators\checklist.py:85:26 - error: "RegulationReport | BaseException" 형식의 인수를 "append" 함수에서 "RegulationReport" 형식의 "object" 매개 변수에 할당할 수 없습니다.
+    형식 "RegulationReport | BaseException"은 형식 "RegulationReport"에 할당할 수 없습니다.
+      "BaseException"은 "RegulationReport"에 할당할 수 없습니다. (reportArgumentType)
+d:\AI project\automation\content-intelligence\review\monthly_review.py
+  d:\AI project\automation\content-intelligence\review\monthly_review.py:9:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\scripts\collect_post_performance.py
+  d:\AI project\automation\content-intelligence\scripts\collect_post_performance.py:14:8 - warning: 가져오기 "json"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\scripts\collect_post_performance.py:26:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\storage\local_db.py
+  d:\AI project\automation\content-intelligence\storage\local_db.py:11:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\storage\notion_publisher.py
+  d:\AI project\automation\content-intelligence\storage\notion_publisher.py:8:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\storage\x_publisher.py
+  d:\AI project\automation\content-intelligence\storage\x_publisher.py:14:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\content-intelligence\tests\test_checklist.py
+  d:\AI project\automation\content-intelligence\tests\test_checklist.py:8:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\content-intelligence\tests\test_config.py
+  d:\AI project\automation\content-intelligence\tests\test_config.py:9:27 - warning: 가져오기 "patch"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\content-intelligence\tests\test_content_engine.py
+  d:\AI project\automation\content-intelligence\tests\test_content_engine.py:7:27 - warning: 가져오기 "AsyncMock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_content_engine.py:7:38 - warning: 가져오기 "patch"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_content_engine.py:9:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\content-intelligence\tests\test_gdt_bridge.py
+  d:\AI project\automation\content-intelligence\tests\test_gdt_bridge.py:8:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\content-intelligence\tests\test_local_db.py
+  d:\AI project\automation\content-intelligence\tests\test_local_db.py:6:8 - warning: 가져오기 "sqlite3"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_local_db.py:8:8 - warning: 가져오기 "tempfile"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_local_db.py:38:5 - warning: 가져오기 "UnifiedChecklist"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\content-intelligence\tests\test_models.py
+  d:\AI project\automation\content-intelligence\tests\test_models.py:7:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:20:5 - warning: 가져오기 "MonthlyReview"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:24:5 - warning: 가져오기 "PublishResult"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:27:5 - warning: 가져오기 "RegulationReport"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:92:27 - error: "int" 형식의 인수를 "__init__" 함수에서 "list[str]" 형식의 "warnings" 매개 변수에 할당할 수 없습니다.
+    "int"은 "list[str]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:92:27 - error: "int" 형식의 인수를 "__init__" 함수에서 "list[QAAxisDiagnostic]" 형식의 "diagnostics" 매개 변수에 할당할 수 없습니다.
+    "int"은 "list[QAAxisDiagnostic]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:92:27 - error: "int" 형식의 인수를 "__init__" 함수에서 "list[PersonaFitScore]" 형식의 "persona_fits" 매개 변수에 할당할 수 없습니다.
+    "int"은 "list[PersonaFitScore]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:92:27 - error: "int" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "rewrite_suggestion" 매개 변수에 할당할 수 없습니다.
+    "int"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\content-intelligence\tests\test_models.py:132:30 - error: "persona_id"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\content-intelligence\tests\test_prompts.py
+  d:\AI project\automation\content-intelligence\tests\test_prompts.py:8:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\alerts.py
+  d:\AI project\automation\getdaytrends\alerts.py:16:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\alerts.py:212:38 - error: "_DB_PATH"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\alerts.py:336:38 - error: "_DB_PATH"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\analysis\__init__.py
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:14:5 - warning: 가져오기 "_default_scored_trend"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:15:5 - warning: 가져오기 "_parse_json"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:16:5 - warning: 가져오기 "_parse_json_array"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:17:5 - warning: 가져오기 "_parse_scored_trend_from_dict"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:18:5 - warning: 가져오기 "_score_batch_instructor"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:21:5 - warning: 가져오기 "_compute_cross_source_confidence"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:22:5 - warning: 가져오기 "_compute_freshness_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analysis\__init__.py:23:5 - warning: 가져오기 "_compute_signal_score"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\analysis\parsing.py
+  d:\AI project\automation\getdaytrends\analysis\parsing.py:8:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\analyzer.py
+  d:\AI project\automation\getdaytrends\analyzer.py:12:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\analyzer.py:19:9 - warning: 가져오기 "INSTRUCTOR_AVAILABLE"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:29:35 - warning: 가져오기 "_jaccard_similarity"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:29:56 - warning: 가져오기 "cluster_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:31:9 - warning: 가져오기 "analyze_trend_genealogy"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:32:9 - warning: 가져오기 "detect_trend_patterns"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:33:9 - warning: 가져오기 "enrich_trends_with_genealogy"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:38:9 - warning: 가져오기 "INSTRUCTOR_AVAILABLE"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:48:34 - warning: 가져오기 "_jaccard_similarity"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:48:55 - warning: 가져오기 "cluster_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:50:9 - warning: 가져오기 "analyze_trend_genealogy"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:51:9 - warning: 가져오기 "detect_trend_patterns"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:52:9 - warning: 가져오기 "enrich_trends_with_genealogy"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:197:9 - warning: 가져오기 "_compute_freshness_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:198:9 - warning: 가져오기 "_compute_signal_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:203:9 - warning: 가져오기 "_compute_freshness_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:204:9 - warning: 가져오기 "_compute_signal_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\analyzer.py:475:36 - error: "ScoredTrend | BaseException" 형식의 인수를 "append" 함수에서 "ScoredTrend" 형식의 "object" 매개 변수에 할당할 수 없습니다.
+    형식 "ScoredTrend | BaseException"은 형식 "ScoredTrend"에 할당할 수 없습니다.
+      "BaseException"은 "ScoredTrend"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\analyzer.py:571:32 - error: 제공된 인수와 일치하는 "max"에 대한 오버로드가 없습니다. (reportCallIssue)
+  d:\AI project\automation\getdaytrends\analyzer.py:571:48 - error: "Overload[(key: str, default: None = None, /) -> (float | None), (key: str, default: float, /) -> float, (key: str, default: _T@get, /) -> (float | _T@get)]" 형식의 인수를 "max" 함수에서 "(_T@max) -> SupportsRichComparison" 형식의 "key" 매개 변수에 할당할 수 없습니다.
+    "(str) -> SupportsRichComparison" 형식과 일치하는 오버로드된 함수가 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\analyzer.py:603:23 - error: "list[ScoredTrend] | BaseException" 형식의 인수를 "extend" 함수에서 "Iterable[ScoredTrend]" 형식의 "iterable" 매개 변수에 할당할 수 없습니다.
+    형식 "list[ScoredTrend] | BaseException"은 형식 "Iterable[ScoredTrend]"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Iterable[ScoredTrend]’ 프로토콜과 호환되지 않습니다.
+        "__iter__"이(가) 없습니다. (reportArgumentType)
+d:\AI project\automation\getdaytrends\canva.py
+  d:\AI project\automation\getdaytrends\canva.py:17:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\canva.py:93:39 - error: "write"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\canva.py:94:39 - error: "flush"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\canva.py:100:95 - error: "readline"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\canva.py:184:33 - error: "ScoredTrend" 클래스의 "volume" 특성에 액세스할 수 없음
+    특성 "volume" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\collectors\__init__.py
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:26:9 - warning: 가져오기 "_COMMON_HEADERS"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:27:9 - warning: 가져오기 "_DEFAULT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:28:9 - warning: 가져오기 "_FETCH_CACHE"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:29:9 - warning: 가져오기 "_FETCH_CACHE_TTL"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:30:9 - warning: 가져오기 "_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:31:9 - warning: 가져오기 "_SHORT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:32:9 - warning: 가져오기 "_YOUTUBE_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:33:9 - warning: 가져오기 "_async_fetch_getdaytrends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:34:9 - warning: 가져오기 "_async_fetch_google_trends_rss"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:35:9 - warning: 가져오기 "_async_fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:36:9 - warning: 가져오기 "_fallback_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:37:9 - warning: 가져오기 "_format_news_age"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:38:9 - warning: 가져오기 "_is_korean_trend"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:39:9 - warning: 가져오기 "_is_similar_keyword"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:40:9 - warning: 가져오기 "_merge_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:41:9 - warning: 가져오기 "_parse_rss_date"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:42:9 - warning: 가져오기 "_parse_volume_text"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:43:9 - warning: 가져오기 "fetch_getdaytrends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:44:9 - warning: 가져오기 "fetch_google_trends_rss"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:45:9 - warning: 가져오기 "fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:49:9 - warning: 가져오기 "_COMMON_HEADERS"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:50:9 - warning: 가져오기 "_DEFAULT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:51:9 - warning: 가져오기 "_FETCH_CACHE"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:52:9 - warning: 가져오기 "_FETCH_CACHE_TTL"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:53:9 - warning: 가져오기 "_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:54:9 - warning: 가져오기 "_SHORT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:55:9 - warning: 가져오기 "_YOUTUBE_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:56:9 - warning: 가져오기 "_async_fetch_getdaytrends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:57:9 - warning: 가져오기 "_async_fetch_google_trends_rss"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:58:9 - warning: 가져오기 "_async_fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:59:9 - warning: 가져오기 "_fallback_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:60:9 - warning: 가져오기 "_format_news_age"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:61:9 - warning: 가져오기 "_is_korean_trend"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:62:9 - warning: 가져오기 "_is_similar_keyword"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:63:9 - warning: 가져오기 "_merge_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:64:9 - warning: 가져오기 "_parse_rss_date"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:65:9 - warning: 가져오기 "_parse_volume_text"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:66:9 - warning: 가져오기 "fetch_getdaytrends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:67:9 - warning: 가져오기 "fetch_google_trends_rss"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:68:9 - warning: 가져오기 "fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:88:9 - warning: 가져오기 "_async_fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:89:9 - warning: 가져오기 "_async_fetch_google_suggest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:90:9 - warning: 가져오기 "_async_fetch_google_trends_related"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:91:9 - warning: 가져오기 "_async_fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:92:9 - warning: 가져오기 "_async_fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:93:9 - warning: 가져오기 "_calc_quality_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:94:9 - warning: 가져오기 "fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:95:9 - warning: 가져오기 "fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:96:9 - warning: 가져오기 "fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:97:9 - warning: 가져오기 "post_to_x"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:98:9 - warning: 가져오기 "post_to_x_async"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:100:34 - warning: 가져오기 "_async_collect_contexts"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:103:9 - warning: 가져오기 "_async_fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:104:9 - warning: 가져오기 "_async_fetch_google_suggest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:105:9 - warning: 가져오기 "_async_fetch_google_trends_related"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:106:9 - warning: 가져오기 "_async_fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:107:9 - warning: 가져오기 "_async_fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:108:9 - warning: 가져오기 "_calc_quality_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:109:9 - warning: 가져오기 "fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:110:9 - warning: 가져오기 "fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:111:9 - warning: 가져오기 "fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:112:9 - warning: 가져오기 "post_to_x"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:113:9 - warning: 가져오기 "post_to_x_async"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:115:44 - warning: 가져오기 "_async_collect_contexts"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:120:36 - warning: 가져오기 "enrich_news_context"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\collectors\__init__.py:122:34 - warning: 가져오기 "enrich_news_context"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\collectors\context.py
+  d:\AI project\automation\getdaytrends\collectors\context.py:14:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\collectors\context.py:43:47 - error: "datetime"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+d:\AI project\automation\getdaytrends\collectors\sources.py
+  d:\AI project\automation\getdaytrends\collectors\sources.py:17:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\collectors\sources.py:49:47 - error: "datetime"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+  d:\AI project\automation\getdaytrends\collectors\sources.py:106:10 - warning: 가져오기 "bs4"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\collectors\sources.py:273:43 - error: "strip"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\content_qa.py
+  d:\AI project\automation\getdaytrends\content_qa.py:11:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\content_qa.py:439:39 - error: "BaseException" 클래스의 "tweets" 특성에 액세스할 수 없음
+    특성 "tweets" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\content_qa.py:451:37 - warning: 가져오기 "_CATEGORY_PERSONA_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\content_qa.py:451:60 - warning: 가져오기 "_round_robin_counter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\content_qa.py:451:82 - warning: 가져오기 "select_persona"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\content_qa.py:453:36 - warning: 가져오기 "_CATEGORY_PERSONA_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\content_qa.py:453:59 - warning: 가져오기 "_round_robin_counter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\content_qa.py:453:81 - warning: 가져오기 "select_persona"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\core\pipeline.py
+  d:\AI project\automation\getdaytrends\core\pipeline.py:16:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:21:10 - warning: 가져오기 "getdaytrends.harness_integration"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:33:6 - warning: 가져오기 "getdaytrends.alerts"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:34:6 - warning: 가져오기 "getdaytrends.analyzer"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:35:6 - warning: 가져오기 "getdaytrends.config"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:36:6 - warning: 가져오기 "getdaytrends.db"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:47:6 - warning: 가져오기 "getdaytrends.models"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:48:6 - warning: 가져오기 "getdaytrends.scraper"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline.py:49:6 - warning: 가져오기 "getdaytrends.utils"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\core\pipeline_steps.py
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:14:8 - warning: 가져오기 "schedule"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:15:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:62:9 - warning: 가져오기 "attach_draft_to_notion_page"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:237:25 - error: 제공된 인수와 일치하는 "max"에 대한 오버로드가 없습니다. (reportCallIssue)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:237:42 - error: "Overload[(key: str, default: None = None, /) -> (float | None), (key: str, default: float, /) -> float, (key: str, default: _T@get, /) -> (float | _T@get)]" 형식의 인수를 "max" 함수에서 "(_T1@max) -> SupportsRichComparison" 형식의 "key" 매개 변수에 할당할 수 없습니다.
+    "(str) -> SupportsRichComparison" 형식과 일치하는 오버로드된 함수가 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:335:22 - error: "get"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:342:71 - error: "get"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:365:21 - error: 형식 "tuple[TweetBatch, dict[Unknown, Unknown] | None]"을 형식 "tuple[TweetBatch, dict[Unknown, Unknown]]"에 반환하도록 할당할 수 없습니다.
+    형식 "dict[Unknown, Unknown] | None"은 형식 "dict[Unknown, Unknown]"에 할당할 수 없습니다.
+      "None"은 "dict[Unknown, Unknown]"에 할당할 수 없습니다. (reportReturnType)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:629:36 - error: "get"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:630:38 - error: "get"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:637:34 - error: "ValidatedTrend" 클래스의 "lifecycle_status" 특성에 할당할 수 없음
+    "Literal['scored']"은 "WorkflowLifecycleStatus"에 할당할 수 없습니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:761:64 - error: "tweets"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:764:34 - error: "tweets"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:770:54 - error: "tweets"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:815:61 - error: "BaseException" 클래스의 "items" 특성에 액세스할 수 없음
+    특성 "items" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\core\pipeline_steps.py:885:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+d:\AI project\automation\getdaytrends\core\streaming_pipeline.py
+  d:\AI project\automation\getdaytrends\core\streaming_pipeline.py:33:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\core\tests\test_streaming_pipeline.py
+  d:\AI project\automation\getdaytrends\core\tests\test_streaming_pipeline.py:17:17 - error: "MagicMock" 클래스의 "__str__" 특성에 할당할 수 없음
+    형식 "(self: Unknown) -> Unknown"은 형식 "() -> str"에 할당할 수 없습니다.
+      "self" 추가 매개 변수 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\crawl4ai_adapter.py
+  d:\AI project\automation\getdaytrends\crawl4ai_adapter.py:21:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\crawl4ai_adapter.py:25:10 - warning: 가져오기 "crawl4ai"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\crawl4ai_adapter.py:26:10 - warning: 가져오기 "crawl4ai.content_filter_strategy"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\crawl4ai_adapter.py:27:10 - warning: 가져오기 "crawl4ai.markdown_generation_strategy"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\crawl4ai_adapter.py:54:28 - error: "__aenter__"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\crawl4ai_adapter.py:141:30 - error: "BaseException" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\dashboard.py
+  d:\AI project\automation\getdaytrends\dashboard.py:38:8 - warning: 가져오기 "re"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:41:26 - warning: 가져오기 "quote_plus"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:45:41 - warning: 가져오기 "Request"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:55:9 - warning: 가져오기 "get_tap_checkout_session_summary"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:57:9 - warning: 가져오기 "mark_tap_checkout_session_completed"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:60:9 - warning: 가져오기 "get_tap_alert_queue_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:61:9 - warning: 가져오기 "get_tap_deal_room_funnel"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:64:9 - warning: 가져오기 "record_tap_deal_room_event"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:65:9 - warning: 가져오기 "upsert_tap_checkout_session"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:68:9 - warning: 가져오기 "DealRoomRequest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:69:9 - warning: 가져오기 "TapBoardRequest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:70:9 - warning: 가져오기 "build_tap_deal_room_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:71:9 - warning: 가져오기 "build_tap_board_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:72:9 - warning: 가져오기 "dispatch_tap_alert_queue"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:73:9 - warning: 가져오기 "empty_tap_board"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:74:9 - warning: 가져오기 "get_latest_tap_board_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:79:9 - warning: 가져오기 "get_tap_checkout_session_summary"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:81:9 - warning: 가져오기 "mark_tap_checkout_session_completed"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:84:9 - warning: 가져오기 "get_tap_alert_queue_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:85:9 - warning: 가져오기 "get_tap_deal_room_funnel"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:88:9 - warning: 가져오기 "record_tap_deal_room_event"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:89:9 - warning: 가져오기 "upsert_tap_checkout_session"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:92:9 - warning: 가져오기 "DealRoomRequest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:93:9 - warning: 가져오기 "TapBoardRequest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:94:9 - warning: 가져오기 "build_tap_deal_room_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:95:9 - warning: 가져오기 "build_tap_board_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:96:9 - warning: 가져오기 "dispatch_tap_alert_queue"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:97:9 - warning: 가져오기 "empty_tap_board"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:98:9 - warning: 가져오기 "get_latest_tap_board_snapshot"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:108:9 - warning: 가져오기 "_stripe_amount_divisor"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:109:9 - warning: 가져오기 "_format_stripe_price_anchor"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:110:9 - warning: 가져오기 "_parse_tap_checkout_handle"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:111:9 - warning: 가져오기 "_validate_tap_checkout_payload_matches_handle"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:112:9 - warning: 가져오기 "_extract_price_anchor_amount"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:113:9 - warning: 가져오기 "_coerce_non_negative_float"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:114:9 - warning: 가져오기 "_build_tap_checkout_redirect_urls"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:115:9 - warning: 가져오기 "_create_stripe_checkout_session"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:116:9 - warning: 가져오기 "_validate_stripe_checkout_session_payload"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:117:9 - warning: 가져오기 "_construct_stripe_event"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:118:9 - warning: 가져오기 "_extract_tap_purchase_from_stripe_event"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:122:9 - warning: 가져오기 "_stripe_amount_divisor"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:123:9 - warning: 가져오기 "_format_stripe_price_anchor"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:124:9 - warning: 가져오기 "_parse_tap_checkout_handle"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:125:9 - warning: 가져오기 "_validate_tap_checkout_payload_matches_handle"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:126:9 - warning: 가져오기 "_extract_price_anchor_amount"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:127:9 - warning: 가져오기 "_coerce_non_negative_float"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:128:9 - warning: 가져오기 "_build_tap_checkout_redirect_urls"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:129:9 - warning: 가져오기 "_create_stripe_checkout_session"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:130:9 - warning: 가져오기 "_validate_stripe_checkout_session_payload"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:131:9 - warning: 가져오기 "_construct_stripe_event"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:132:9 - warning: 가져오기 "_extract_tap_purchase_from_stripe_event"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard.py:348:42 - error: "_DB_PATH"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\dashboard.py:442:38 - error: "_DB_PATH"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\dashboard.py:604:24 - error: "AppConfig" 클래스의 "base_dir" 특성에 액세스할 수 없음
+    특성 "base_dir" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\dashboard.py:619:28 - error: "AppConfig" 클래스의 "base_dir" 특성에 액세스할 수 없음
+    특성 "base_dir" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\dashboard_routes_tap.py
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:7:8 - warning: 가져오기 "json"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:9:8 - warning: 가져오기 "re"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:18:9 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:22:9 - warning: 가져오기 "init_db"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:38:9 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:42:9 - warning: 가져오기 "init_db"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:59:9 - warning: 가져오기 "_format_stripe_price_anchor"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:73:9 - warning: 가져오기 "_format_stripe_price_anchor"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:139:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:153:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:175:48 - error: "country"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:190:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:205:48 - error: "country"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:223:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:259:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:262:17 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:305:22 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:326:15 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:348:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:351:17 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:379:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:382:17 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:494:22 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:549:15 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:613:22 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\dashboard_routes_tap.py:686:15 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+d:\AI project\automation\getdaytrends\db.py
+  d:\AI project\automation\getdaytrends\db.py:9:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\db.py:9:30 - warning: 가져오기 "log"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:12:30 - warning: 가져오기 "get_cache"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:18:51 - warning: 가져오기 "_PgAdapter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:20:9 - warning: 가져오기 "close_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:21:9 - warning: 가져오기 "db_transaction"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:22:9 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:23:9 - warning: 가져오기 "get_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:24:9 - warning: 가져오기 "sqlite_write_lock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:27:9 - warning: 가져오기 "_backfill_fingerprints"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:28:9 - warning: 가져오기 "_normalize_name"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:29:9 - warning: 가져오기 "_normalize_volume"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:30:9 - warning: 가져오기 "compute_fingerprint"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:31:9 - warning: 가져오기 "init_db"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:33:25 - warning: 가져오기 "GeneratedThread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:33:42 - warning: 가져오기 "GeneratedTweet"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:33:58 - warning: 가져오기 "RunResult"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:33:69 - warning: 가져오기 "ScoredTrend"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:42:50 - warning: 가져오기 "_PgAdapter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:44:9 - warning: 가져오기 "close_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:45:9 - warning: 가져오기 "db_transaction"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:46:9 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:47:9 - warning: 가져오기 "get_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:48:9 - warning: 가져오기 "sqlite_write_lock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:51:9 - warning: 가져오기 "_backfill_fingerprints"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:52:9 - warning: 가져오기 "_normalize_name"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:53:9 - warning: 가져오기 "_normalize_volume"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:54:9 - warning: 가져오기 "compute_fingerprint"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:55:9 - warning: 가져오기 "init_db"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:57:24 - warning: 가져오기 "GeneratedThread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:57:41 - warning: 가져오기 "GeneratedTweet"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:57:57 - warning: 가져오기 "RunResult"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db.py:57:68 - warning: 가져오기 "ScoredTrend"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\db_layer\__init__.py
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:5:22 - warning: 가져오기 "datetime"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:5:32 - warning: 가져오기 "timedelta"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:7:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:7:30 - warning: 가져오기 "log"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:16:42 - warning: 가져오기 "_PgAdapter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:18:9 - warning: 가져오기 "close_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:19:9 - warning: 가져오기 "db_transaction"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:20:9 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:21:9 - warning: 가져오기 "get_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:22:9 - warning: 가져오기 "sqlite_write_lock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:25:9 - warning: 가져오기 "_backfill_fingerprints"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:26:9 - warning: 가져오기 "_normalize_name"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:27:9 - warning: 가져오기 "_normalize_volume"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:28:9 - warning: 가져오기 "compute_fingerprint"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:29:9 - warning: 가져오기 "init_db"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:31:26 - warning: 가져오기 "GeneratedThread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:31:43 - warning: 가져오기 "GeneratedTweet"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:31:59 - warning: 가져오기 "RunResult"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:31:70 - warning: 가져오기 "ScoredTrend"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:33:50 - warning: 가져오기 "_PgAdapter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:35:9 - warning: 가져오기 "close_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:36:9 - warning: 가져오기 "db_transaction"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:37:9 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:38:9 - warning: 가져오기 "get_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:39:9 - warning: 가져오기 "sqlite_write_lock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:42:9 - warning: 가져오기 "_backfill_fingerprints"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:43:9 - warning: 가져오기 "_normalize_name"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:44:9 - warning: 가져오기 "_normalize_volume"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:45:9 - warning: 가져오기 "compute_fingerprint"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:46:9 - warning: 가져오기 "init_db"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:48:24 - warning: 가져오기 "GeneratedThread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:48:41 - warning: 가져오기 "GeneratedTweet"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:48:57 - warning: 가져오기 "RunResult"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\__init__.py:48:68 - warning: 가져오기 "ScoredTrend"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\db_layer\admin_repository.py
+  d:\AI project\automation\getdaytrends\db_layer\admin_repository.py:5:15 - error: "log"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\db_layer\connection.py
+  d:\AI project\automation\getdaytrends\db_layer\connection.py:13:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\db_layer\connection.py:19:12 - warning: 가져오기 "asyncpg"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\db_layer\connection.py:27:12 - error: 형식 식에는 변수를 사용할 수 없습니다. (reportInvalidTypeForm)
+  d:\AI project\automation\getdaytrends\db_layer\connection.py:84:76 - error: 형식 식에는 변수를 사용할 수 없습니다. (reportInvalidTypeForm)
+  d:\AI project\automation\getdaytrends\db_layer\connection.py:90:30 - error: "create_pool"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\db_layer\draft_repository.py
+  d:\AI project\automation\getdaytrends\db_layer\draft_repository.py:9:5 - warning: 가져오기 "_REDIS_OK"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_layer\draft_repository.py:10:5 - error: "log"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\db_layer\metrics_repository.py
+  d:\AI project\automation\getdaytrends\db_layer\metrics_repository.py:5:15 - error: "log"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\db_layer\migrations.py
+  d:\AI project\automation\getdaytrends\db_layer\migrations.py:9:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\db_layer\migrations.py:384:35 - error: 클래스가 필요하지만 "(iterable: Iterable[object], /) -> bool"이(가) 수신됨 (reportGeneralTypeIssues)
+d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py
+  d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py:10:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py:18:31 - error: "asyncpg"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+  d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py:18:59 - error: "asyncpg"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+  d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py:127:23 - error: 클래스 선언 "DummyCursor"이(가) 같은 이름의 선언으로 가려져 있습니다. (reportRedeclaration)
+  d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py:186:23 - error: “Never“은(는) awaitable이 아닙니다. (reportGeneralTypeIssues)
+  d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py:193:23 - error: “Never“은(는) awaitable이 아닙니다. (reportGeneralTypeIssues)
+  d:\AI project\automation\getdaytrends\db_layer\pg_adapter.py:201:27 - error: “Never“은(는) awaitable이 아닙니다. (reportGeneralTypeIssues)
+d:\AI project\automation\getdaytrends\db_layer\trend_repository.py
+  d:\AI project\automation\getdaytrends\db_layer\trend_repository.py:172:15 - error: "_record_watchlist_hit_unlocked"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+d:\AI project\automation\getdaytrends\db_layer\tweet_repository.py
+  d:\AI project\automation\getdaytrends\db_layer\tweet_repository.py:6:83 - error: "log"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\db_schema.py
+  d:\AI project\automation\getdaytrends\db_schema.py:16:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\db_schema.py:16:30 - warning: 가져오기 "log"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:34:17 - warning: 가져오기 "sqlite_write_lock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:34:36 - warning: 가져오기 "db_transaction"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:34:52 - warning: 가져오기 "get_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:35:17 - warning: 가져오기 "close_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:35:32 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:39:17 - warning: 가져오기 "sqlite_write_lock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:39:36 - warning: 가져오기 "db_transaction"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:39:52 - warning: 가져오기 "get_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:40:17 - warning: 가져오기 "close_pg_pool"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\db_schema.py:40:32 - warning: 가져오기 "get_connection"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\edape\__init__.py
+  d:\AI project\automation\getdaytrends\edape\__init__.py:17:10 - warning: 가져오기 "getdaytrends.utils"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\edape\anti_pattern.py
+  d:\AI project\automation\getdaytrends\edape\anti_pattern.py:18:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\edape\prompt_injector.py
+  d:\AI project\automation\getdaytrends\edape\prompt_injector.py:20:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\fact_checker.py
+  d:\AI project\automation\getdaytrends\fact_checker.py:20:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\fact_checker.py:30:9 - warning: 가져오기 "_CREDIBILITY_WEIGHTS"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:31:9 - warning: 가져오기 "_SOURCE_CREDIBILITY_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:32:9 - warning: 가져오기 "CredibilityTier"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:34:9 - warning: 가져오기 "get_source_credibility"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:38:9 - warning: 가져오기 "_CREDIBILITY_WEIGHTS"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:39:9 - warning: 가져오기 "_SOURCE_CREDIBILITY_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:40:9 - warning: 가져오기 "CredibilityTier"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:42:9 - warning: 가져오기 "get_source_credibility"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\fact_checker.py:735:15 - error: "MultiSourceContext"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+d:\AI project\automation\getdaytrends\firecrawl_bridge.py
+  d:\AI project\automation\getdaytrends\firecrawl_bridge.py:20:10 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\firecrawl_bridge.py:122:46 - error: "enrich_trend_context"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\firecrawl_client.py
+  d:\AI project\automation\getdaytrends\firecrawl_client.py:13:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\firecrawl_client.py:222:34 - error: "BaseException" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\firecrawl_client.py:223:33 - error: "dict[Unknown, Unknown] | BaseException" 형식의 인수를 "append" 함수에서 "dict[Unknown, Unknown]" 형식의 "object" 매개 변수에 할당할 수 없습니다.
+    형식 "dict[Unknown, Unknown] | BaseException"은 형식 "dict[Unknown, Unknown]"에 할당할 수 없습니다.
+      "BaseException"은 "dict[Unknown, Unknown]"에 할당할 수 없습니다. (reportArgumentType)
+d:\AI project\automation\getdaytrends\generation\__init__.py
+  d:\AI project\automation\getdaytrends\generation\__init__.py:55:5 - warning: "generate_for_trend_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:56:5 - warning: "generate_for_trend"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:57:5 - warning: "generate_tweets_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:58:5 - warning: "generate_tweets_and_threads_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:59:5 - warning: "generate_long_form_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:60:5 - warning: "generate_threads_content_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:61:5 - warning: "generate_blog_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:62:5 - warning: "generate_thread_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:63:5 - warning: "generate_ab_variant_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:64:5 - warning: "generate_for_trend_multilang_async"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:65:5 - warning: "audit_generated_content"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+  d:\AI project\automation\getdaytrends\generation\__init__.py:66:5 - warning: "select_persona"이(가) __all__에 지정되었지만 모듈에 없습니다. (reportUnsupportedDunderAll)
+d:\AI project\automation\getdaytrends\generation\long_form.py
+  d:\AI project\automation\getdaytrends\generation\long_form.py:6:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\generation\marl.py
+  d:\AI project\automation\getdaytrends\generation\marl.py:6:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\generation\threads.py
+  d:\AI project\automation\getdaytrends\generation\threads.py:6:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\generator.py
+  d:\AI project\automation\getdaytrends\generator.py:20:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\generator.py:38:13 - error: "INSTRUCTOR_AVAILABLE"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:42:13 - warning: 가져오기 "TweetItem"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:47:13 - error: "INSTRUCTOR_AVAILABLE"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:51:13 - warning: 가져오기 "TweetItem"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:114:9 - warning: 가져오기 "_should_use_marl"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:115:9 - warning: 가져오기 "generate_tweets_with_marl_async"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:118:9 - warning: 가져오기 "_LANG_NAME_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:119:9 - warning: 가져오기 "_REPORT_BLOG_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:122:9 - warning: 가져오기 "_build_available_facts_section"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:134:9 - warning: 가져오기 "_retry_generate"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:136:9 - warning: 가져오기 "_system_long_form"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:137:9 - warning: 가져오기 "_system_thread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:138:9 - warning: 가져오기 "_system_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:140:9 - warning: 가져오기 "_system_tweets_and_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:141:9 - warning: 가져오기 "_use_report_profile"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:145:9 - warning: 가져오기 "_should_use_marl"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:146:9 - warning: 가져오기 "generate_tweets_with_marl_async"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:149:9 - warning: 가져오기 "_LANG_NAME_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:150:9 - warning: 가져오기 "_REPORT_BLOG_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:153:9 - warning: 가져오기 "_build_available_facts_section"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:165:9 - warning: 가져오기 "_retry_generate"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:167:9 - warning: 가져오기 "_system_long_form"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:168:9 - warning: 가져오기 "_system_thread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:169:9 - warning: 가져오기 "_system_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:171:9 - warning: 가져오기 "_system_tweets_and_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:172:9 - warning: 가져오기 "_use_report_profile"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:278:35 - error: "dict[Unknown, Unknown] | dict[str, Any] | None" 형식의 인수를 "_parse_tweets_to_batch" 함수에서 "dict[Unknown, Unknown]" 형식의 "data" 매개 변수에 할당할 수 없습니다.
+    형식 "dict[Unknown, Unknown] | dict[str, Any] | None"은 형식 "dict[Unknown, Unknown]"에 할당할 수 없습니다.
+      "None"은 "dict[Unknown, Unknown]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\generator.py:284:9 - warning: 가져오기 "_BLOG_SYSTEM_JOONGYEON"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:285:9 - warning: 가져오기 "_system_blog_post"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:295:9 - warning: 가져오기 "_BLOG_SYSTEM_JOONGYEON"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:296:9 - warning: 가져오기 "_system_blog_post"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:353:31 - error: "TweetBatch" 클래스의 "threads_posts" 특성에 할당할 수 없음
+    형식 "list[GeneratedTweet] | BaseException"은 형식 "list[GeneratedTweet]"에 할당할 수 없습니다.
+      "BaseException"은 "list[GeneratedTweet]"에 할당할 수 없습니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:353:31 - error: "BaseException" 클래스의 "threads_posts" 특성에 할당할 수 없음
+    형식 "list[GeneratedTweet] | BaseException"은 형식 "list[GeneratedTweet]"에 할당할 수 없습니다.
+      "BaseException"은 "list[GeneratedTweet]"에 할당할 수 없습니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:356:58 - error: "BaseException" 클래스의 "tweets" 특성에 액세스할 수 없음
+    특성 "tweets" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:356:83 - error: "list[GeneratedTweet] | Unknown | BaseException" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[GeneratedTweet] | Unknown | BaseException"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\generator.py:356:89 - error: "BaseException" 클래스의 "threads_posts" 특성에 액세스할 수 없음
+    특성 "threads_posts" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:358:12 - error: 형식 "TweetBatch | BaseException"을 형식 "TweetBatch | None"에 반환하도록 할당할 수 없습니다.
+    형식 "TweetBatch | BaseException"은 형식 "TweetBatch | None"에 할당할 수 없습니다.
+      형식 "BaseException"은 형식 "TweetBatch | None"에 할당할 수 없습니다.
+        "BaseException"은 "TweetBatch"에 할당할 수 없습니다.
+        "BaseException"은 "None"에 할당할 수 없습니다. (reportReturnType)
+  d:\AI project\automation\getdaytrends\generator.py:390:31 - error: "TweetBatch" 클래스의 "threads_posts" 특성에 할당할 수 없음
+    형식 "list[GeneratedTweet] | BaseException"은 형식 "list[GeneratedTweet]"에 할당할 수 없습니다.
+      "BaseException"은 "list[GeneratedTweet]"에 할당할 수 없습니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:390:31 - error: "BaseException" 클래스의 "threads_posts" 특성에 할당할 수 없음
+    형식 "list[GeneratedTweet] | BaseException"은 형식 "list[GeneratedTweet]"에 할당할 수 없습니다.
+      "BaseException"은 "list[GeneratedTweet]"에 할당할 수 없습니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\generator.py:391:12 - error: 형식 "TweetBatch | BaseException | None"을 형식 "TweetBatch | None"에 반환하도록 할당할 수 없습니다.
+    형식 "TweetBatch | BaseException | None"은 형식 "TweetBatch | None"에 할당할 수 없습니다.
+      형식 "BaseException"은 형식 "TweetBatch | None"에 할당할 수 없습니다.
+        "BaseException"은 "TweetBatch"에 할당할 수 없습니다.
+        "BaseException"은 "None"에 할당할 수 없습니다. (reportReturnType)
+  d:\AI project\automation\getdaytrends\generator.py:555:39 - error: "dict[Unknown, Unknown] | None" 형식의 인수를 "_parse_tweets_to_batch" 함수에서 "dict[Unknown, Unknown]" 형식의 "data" 매개 변수에 할당할 수 없습니다.
+    형식 "dict[Unknown, Unknown] | None"은 형식 "dict[Unknown, Unknown]"에 할당할 수 없습니다.
+      "None"은 "dict[Unknown, Unknown]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\generator.py:568:9 - warning: 가져오기 "audit_generated_content"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:569:9 - warning: 가져오기 "build_regeneration_feedback"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:570:9 - warning: 가져오기 "regenerate_content_groups"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:572:37 - warning: 가져오기 "_round_robin_counter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:572:59 - warning: 가져오기 "select_persona"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:574:9 - warning: 가져오기 "generate_for_trend_multilang_async"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:578:9 - warning: 가져오기 "audit_generated_content"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:579:9 - warning: 가져오기 "build_regeneration_feedback"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:580:9 - warning: 가져오기 "regenerate_content_groups"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:582:36 - warning: 가져오기 "_round_robin_counter"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:582:58 - warning: 가져오기 "select_persona"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\generator.py:584:9 - warning: 가져오기 "generate_for_trend_multilang_async"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\korean_nlp.py
+  d:\AI project\automation\getdaytrends\korean_nlp.py:17:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\korean_nlp.py:25:28 - error: ‘util’은(는) ‘importlib’ 모듈의 알려진 특성이 아님 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\korean_nlp.py:28:14 - warning: 가져오기 "kiwipiepy"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\korean_nlp.py:28:39 - warning: 가져오기 "_KiwiClass"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\korean_nlp.py:43:14 - warning: 가져오기 "kiwipiepy"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\korean_nlp.py:51:24 - warning: 가져오기 "kiwipiepy_model"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\main.py
+  d:\AI project\automation\getdaytrends\main.py:58:8 - warning: 가져오기 "schedule"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\main.py:59:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\main.py:61:6 - warning: 가져오기 "getdaytrends.config"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\main.py:62:6 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\main.py:63:6 - warning: 가져오기 "getdaytrends.db"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\main.py:64:6 - warning: 가져오기 "getdaytrends.utils"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\main.py:188:10 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\main.py:299:38 - error: "_DB_PATH"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\main.py:639:18 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\multilang.py
+  d:\AI project\automation\getdaytrends\multilang.py:10:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\multilang.py:120:28 - error: "TweetBatch | BaseException" 형식의 인수를 "append" 함수에서 "TweetBatch" 형식의 "object" 매개 변수에 할당할 수 없습니다.
+    형식 "TweetBatch | BaseException"은 형식 "TweetBatch"에 할당할 수 없습니다.
+      "BaseException"은 "TweetBatch"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\multilang.py:239:42 - error: "to_prompt_text"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\multilang.py:241:36 - error: "to_combined_text"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\news_scraper.py
+  d:\AI project\automation\getdaytrends\news_scraper.py:18:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\news_scraper.py:22:10 - warning: 가져오기 "scrapling"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\news_scraper.py:22:36 - warning: 가져오기 "StealthyFetcher"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\notebooklm_api.py
+  d:\AI project\automation\getdaytrends\notebooklm_api.py:17:10 - warning: 가져오기 "notebooklm_automation.bridge"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_api.py:25:10 - warning: 가져오기 "notebooklm_automation.health"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_api.py:32:10 - warning: 가져오기 "notebooklm_automation.publishers.notion"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_api.py:33:10 - warning: 가져오기 "notebooklm_automation.publishers.twitter"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\notebooklm_bridge.py
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:18:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:58:43 - error: "from_storage"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:114:39 - error: "from_storage"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:203:14 - warning: 가져오기 "notebooklm.rpc.types"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:251:10 - warning: 가져오기 "notebooklm.rpc.types"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:267:39 - error: "from_storage"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:495:9 - error: "dict[str, dict[str, str]]" 형식의 인수를 "__setitem__" 함수에서 "dict[str, list[dict[str, dict[str, str]]]]" 형식의 "value" 매개 변수에 할당할 수 없습니다.
+    "dict[str, dict[str, str]]"은 "dict[str, list[dict[str, dict[str, str]]]]"에 할당할 수 없습니다.
+      "_VT@dict" 형식 매개 변수는 고정이지만 "dict[str, str]"은(는) "list[dict[str, dict[str, str]]]"와 같지 않습니다.
+      값 형식에서 공변(covariant)인 "dict"에서 "Mapping"(매핑)으로 전환하는 것이 좋습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:497:9 - error: "dict[str, dict[str, Unknown]]" 형식의 인수를 "__setitem__" 함수에서 "dict[str, list[dict[str, dict[str, str]]]]" 형식의 "value" 매개 변수에 할당할 수 없습니다.
+    "dict[str, dict[str, Unknown]]"은 "dict[str, list[dict[str, dict[str, str]]]]"에 할당할 수 없습니다.
+      "_VT@dict" 형식 매개 변수는 고정이지만 "dict[str, Unknown]"은(는) "list[dict[str, dict[str, str]]]"와 같지 않습니다.
+      값 형식에서 공변(covariant)인 "dict"에서 "Mapping"(매핑)으로 전환하는 것이 좋습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:578:5 - warning: 가져오기 "analyze_bio_company"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\notebooklm_bridge.py:579:5 - warning: 가져오기 "research_tool"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\notebooklm_health.py
+  d:\AI project\automation\getdaytrends\notebooklm_health.py:21:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\notebooklm_research.py
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:9:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:54:10 - warning: 가져오기 "notebooklm.rpc.types"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:78:39 - error: "from_storage"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:158:10 - warning: 가져오기 "notebooklm.rpc.types"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:179:39 - error: "from_storage"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:270:23 - error: "check_availability"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:277:20 - error: "trend_to_notebook"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+  d:\AI project\automation\getdaytrends\notebooklm_research.py:291:5 - error: "asyncio"이(가) 정의되지 않았습니다. (reportUndefinedVariable)
+d:\AI project\automation\getdaytrends\patch2.py
+  d:\AI project\automation\getdaytrends\patch2.py:1:8 - warning: 가져오기 "sys"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\perf_genealogy.py
+  d:\AI project\automation\getdaytrends\perf_genealogy.py:12:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\perf_genealogy.py:41:27 - error: "TrendGenealogyMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_genealogy.py:88:27 - error: "TrendGenealogyMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_genealogy.py:111:27 - error: "TrendGenealogyMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\perf_golden_refs.py
+  d:\AI project\automation\getdaytrends\perf_golden_refs.py:9:8 - warning: 가져오기 "json"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\perf_golden_refs.py:12:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\perf_golden_refs.py:38:27 - error: "GoldenReferenceMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_golden_refs.py:80:27 - error: "GoldenReferenceMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_golden_refs.py:128:27 - error: "GoldenReferenceMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\perf_tiered.py
+  d:\AI project\automation\getdaytrends\perf_tiered.py:12:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:15:33 - warning: 가져오기 "db_transaction"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:38:30 - error: "TieredCollectionMixin*" 클래스의 "batch_collect" 특성에 액세스할 수 없음
+    특성 "batch_collect" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:42:24 - error: "TieredCollectionMixin*" 클래스의 "save_metrics_batch" 특성에 액세스할 수 없음
+    특성 "save_metrics_batch" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:50:27 - error: "TieredCollectionMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:92:27 - error: "TieredCollectionMixin*" 클래스의 "_get_conn" 특성에 액세스할 수 없음
+    특성 "_get_conn" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:153:39 - error: "TieredCollectionMixin*" 클래스의 "bearer_token" 특성에 액세스할 수 없음
+    특성 "bearer_token" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:154:42 - error: "TieredCollectionMixin*" 클래스의 "batch_collect" 특성에 액세스할 수 없음
+    특성 "batch_collect" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\perf_tiered.py:159:40 - error: "TieredCollectionMixin*" 클래스의 "save_metrics_batch" 특성에 액세스할 수 없음
+    특성 "save_metrics_batch" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\performance_tracker.py
+  d:\AI project\automation\getdaytrends\performance_tracker.py:9:8 - warning: 가져오기 "os"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:12:21 - warning: 가져오기 "Path"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:15:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:25:5 - warning: 가져오기 "_ANGLE_ALIASES"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:26:5 - warning: 가져오기 "_HOOK_ALIASES"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:27:5 - warning: 가져오기 "_KICK_ALIASES"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:32:5 - warning: 가져오기 "GoldenReference"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:36:5 - warning: 가져오기 "normalize_hook"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\performance_tracker.py:37:5 - warning: 가져오기 "normalize_kick"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\pipeline\__init__.py
+  d:\AI project\automation\getdaytrends\pipeline\__init__.py:22:22 - error: "run_pipeline"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\pipeline\__init__.py:29:22 - error: "run_single"은(는) 알 수 없는 가져오기 기호입니다. (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\prompt_builder.py
+  d:\AI project\automation\getdaytrends\prompt_builder.py:14:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:256:47 - error: "to_prompt_text"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:258:41 - error: "to_combined_text"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:445:9 - warning: 가져오기 "_JOONGYEON_RULES"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:446:9 - warning: 가져오기 "_REPORT_BLOG_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:447:9 - warning: 가져오기 "_REPORT_LONG_FORM_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:448:9 - warning: 가져오기 "_REPORT_THREADS_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:449:9 - warning: 가져오기 "_system_long_form"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:450:9 - warning: 가져오기 "_system_long_form_joongyeon"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:451:9 - warning: 가져오기 "_system_thread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:452:9 - warning: 가져오기 "_system_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:453:9 - warning: 가져오기 "_system_threads_joongyeon"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:454:9 - warning: 가져오기 "_system_tweets"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:455:9 - warning: 가져오기 "_system_tweets_and_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:456:9 - warning: 가져오기 "_system_tweets_joongyeon"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:460:9 - warning: 가져오기 "_JOONGYEON_RULES"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:461:9 - warning: 가져오기 "_REPORT_BLOG_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:462:9 - warning: 가져오기 "_REPORT_LONG_FORM_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:463:9 - warning: 가져오기 "_REPORT_THREADS_SYSTEM"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:464:9 - warning: 가져오기 "_system_long_form"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:465:9 - warning: 가져오기 "_system_long_form_joongyeon"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:466:9 - warning: 가져오기 "_system_thread"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:467:9 - warning: 가져오기 "_system_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:468:9 - warning: 가져오기 "_system_threads_joongyeon"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:469:9 - warning: 가져오기 "_system_tweets"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:470:9 - warning: 가져오기 "_system_tweets_and_threads"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\prompt_builder.py:471:9 - warning: 가져오기 "_system_tweets_joongyeon"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\quality_eval.py
+  d:\AI project\automation\getdaytrends\quality_eval.py:24:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\quality_eval.py:28:10 - warning: 가져오기 "deepeval.metrics"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\quality_eval.py:33:10 - warning: 가져오기 "deepeval.test_case"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\scraper.py
+  d:\AI project\automation\getdaytrends\scraper.py:14:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\scraper.py:21:9 - warning: 가져오기 "_COMMON_HEADERS"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:22:9 - warning: 가져오기 "_DEFAULT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:23:9 - warning: 가져오기 "_FETCH_CACHE"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:24:9 - warning: 가져오기 "_FETCH_CACHE_TTL"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:25:9 - warning: 가져오기 "_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:26:9 - warning: 가져오기 "_SHORT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:27:9 - warning: 가져오기 "_YOUTUBE_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:29:9 - warning: 가져오기 "_async_fetch_getdaytrends_standalone"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:31:9 - warning: 가져오기 "_async_fetch_google_trends_rss_standalone"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:32:9 - warning: 가져오기 "_async_fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:33:9 - warning: 가져오기 "_async_fetch_youtube_trending_standalone"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:35:9 - warning: 가져오기 "_format_news_age"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:36:9 - warning: 가져오기 "_is_korean_trend"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:39:9 - warning: 가져오기 "_parse_rss_date"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:40:9 - warning: 가져오기 "_parse_volume_text"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:41:9 - warning: 가져오기 "fetch_getdaytrends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:42:9 - warning: 가져오기 "fetch_google_trends_rss"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:43:9 - warning: 가져오기 "fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:50:9 - warning: 가져오기 "_COMMON_HEADERS"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:51:9 - warning: 가져오기 "_DEFAULT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:52:9 - warning: 가져오기 "_FETCH_CACHE"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:53:9 - warning: 가져오기 "_FETCH_CACHE_TTL"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:54:9 - warning: 가져오기 "_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:55:9 - warning: 가져오기 "_SHORT_TIMEOUT"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:56:9 - warning: 가져오기 "_YOUTUBE_GEO_MAP"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:58:9 - warning: 가져오기 "_async_fetch_getdaytrends_standalone"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:60:9 - warning: 가져오기 "_async_fetch_google_trends_rss_standalone"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:61:9 - warning: 가져오기 "_async_fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:62:9 - warning: 가져오기 "_async_fetch_youtube_trending_standalone"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:64:9 - warning: 가져오기 "_format_news_age"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:65:9 - warning: 가져오기 "_is_korean_trend"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:68:9 - warning: 가져오기 "_parse_rss_date"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:69:9 - warning: 가져오기 "_parse_volume_text"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:70:9 - warning: 가져오기 "fetch_getdaytrends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:71:9 - warning: 가져오기 "fetch_google_trends_rss"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:72:9 - warning: 가져오기 "fetch_youtube_trending"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:149:21 - error: "list[RawTrend] | BaseException" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:150:25 - error: "list[RawTrend] | BaseException" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:153:65 - error: "list[RawTrend] | BaseException" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:153:86 - error: "list[RawTrend] | BaseException" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:157:36 - error: "list[RawTrend] | BaseException" 형식의 인수를 "_merge_trends" 함수에서 "list[RawTrend]" 형식의 "primary" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "list[RawTrend]"에 할당할 수 없습니다.
+      "BaseException"은 "list[RawTrend]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:157:48 - error: "list[RawTrend] | BaseException" 형식의 인수를 "_merge_trends" 함수에서 "list[RawTrend]" 형식의 "secondary" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "list[RawTrend]"에 할당할 수 없습니다.
+      "BaseException"은 "list[RawTrend]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:159:40 - error: "list[RawTrend] | BaseException" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:159:73 - error: "list[RawTrend] | BaseException" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[RawTrend] | BaseException"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘BaseException’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scraper.py:243:9 - warning: 가져오기 "_async_fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:244:9 - warning: 가져오기 "_async_fetch_google_suggest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:245:9 - warning: 가져오기 "_async_fetch_google_trends_related"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:246:9 - warning: 가져오기 "_async_fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:247:9 - warning: 가져오기 "_async_fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:248:9 - warning: 가져오기 "_calc_quality_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:249:9 - warning: 가져오기 "fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:250:9 - warning: 가져오기 "fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:251:9 - warning: 가져오기 "fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:252:9 - warning: 가져오기 "post_to_x"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:253:9 - warning: 가져오기 "post_to_x_async"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:258:9 - warning: 가져오기 "_async_fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:259:9 - warning: 가져오기 "_async_fetch_google_suggest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:260:9 - warning: 가져오기 "_async_fetch_google_trends_related"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:261:9 - warning: 가져오기 "_async_fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:262:9 - warning: 가져오기 "_async_fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:263:9 - warning: 가져오기 "_calc_quality_score"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:264:9 - warning: 가져오기 "fetch_google_news_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:265:9 - warning: 가져오기 "fetch_reddit_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:266:9 - warning: 가져오기 "fetch_twitter_trends"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:267:9 - warning: 가져오기 "post_to_x"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\scraper.py:268:9 - warning: 가져오기 "post_to_x_async"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\scripts\ab_test_viral_scoring.py
+  d:\AI project\automation\getdaytrends\scripts\ab_test_viral_scoring.py:117:35 - error: "Unknown | None" 형식의 인수를 "__new__" 함수에서 "ConvertibleToFloat" 형식의 "x" 매개 변수에 할당할 수 없습니다.
+    형식 "Unknown | None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+      형식 "None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+        "None"은 "str"에 할당할 수 없습니다.
+        ‘None’은(는) ‘Buffer’ 프로토콜과 호환되지 않습니다.
+          "__buffer__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsFloat’ 프로토콜과 호환되지 않습니다.
+          "__float__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsIndex’ 프로토콜과 호환되지 않습니다.
+    ... (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scripts\ab_test_viral_scoring.py:117:35 - error: "Unknown | None" 형식의 인수를 "__new__" 함수에서 "ConvertibleToFloat" 형식의 "x" 매개 변수에 할당할 수 없습니다.
+    형식 "Unknown | None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+      형식 "None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+        "None"은 "str"에 할당할 수 없습니다.
+        ‘None’은(는) ‘Buffer’ 프로토콜과 호환되지 않습니다.
+          "__buffer__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsFloat’ 프로토콜과 호환되지 않습니다.
+          "__float__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsIndex’ 프로토콜과 호환되지 않습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scripts\ab_test_viral_scoring.py:118:34 - error: "Unknown | None" 형식의 인수를 "__new__" 함수에서 "ConvertibleToFloat" 형식의 "x" 매개 변수에 할당할 수 없습니다.
+    형식 "Unknown | None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+      형식 "None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+        "None"은 "str"에 할당할 수 없습니다.
+        ‘None’은(는) ‘Buffer’ 프로토콜과 호환되지 않습니다.
+          "__buffer__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsFloat’ 프로토콜과 호환되지 않습니다.
+          "__float__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsIndex’ 프로토콜과 호환되지 않습니다.
+    ... (reportArgumentType)
+  d:\AI project\automation\getdaytrends\scripts\ab_test_viral_scoring.py:118:34 - error: "Unknown | None" 형식의 인수를 "__new__" 함수에서 "ConvertibleToFloat" 형식의 "x" 매개 변수에 할당할 수 없습니다.
+    형식 "Unknown | None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+      형식 "None"은 형식 "ConvertibleToFloat"에 할당할 수 없습니다.
+        "None"은 "str"에 할당할 수 없습니다.
+        ‘None’은(는) ‘Buffer’ 프로토콜과 호환되지 않습니다.
+          "__buffer__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsFloat’ 프로토콜과 호환되지 않습니다.
+          "__float__"이(가) 없습니다.
+        ‘None’은(는) ‘SupportsIndex’ 프로토콜과 호환되지 않습니다. (reportArgumentType)
+d:\AI project\automation\getdaytrends\scripts\calibrate_viral_model.py
+  d:\AI project\automation\getdaytrends\scripts\calibrate_viral_model.py:30:20 - error: "TextIO" 클래스의 "reconfigure" 특성에 액세스할 수 없음
+    특성 "reconfigure" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\scripts\migrate_sqlite_to_supabase.py
+  d:\AI project\automation\getdaytrends\scripts\migrate_sqlite_to_supabase.py:21:12 - error: "TextIO" 클래스의 "reconfigure" 특성에 액세스할 수 없음
+    특성 "reconfigure" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\migrate_sqlite_to_supabase.py:24:8 - warning: 가져오기 "asyncpg"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\scripts\migrate_sqlite_to_supabase.py:26:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\scripts\migrate_sqlite_to_supabase.py:99:10 - warning: 가져오기 "automation.getdaytrends.db_layer.pg_adapter"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\scripts\migrate_sqlite_to_supabase.py:100:10 - warning: 가져오기 "automation.getdaytrends.db_schema"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\scripts\news_to_blog.py
+  d:\AI project\automation\getdaytrends\scripts\news_to_blog.py:48:14 - warning: 가져오기 "antigravity_mcp.state.store"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\scripts\publishing_workflow.py
+  d:\AI project\automation\getdaytrends\scripts\publishing_workflow.py:105:32 - error: "DatabasesEndpoint" 클래스의 "query" 특성에 액세스할 수 없음
+    특성 "query" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\publishing_workflow.py:155:32 - error: "DatabasesEndpoint" 클래스의 "query" 특성에 액세스할 수 없음
+    특성 "query" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\publishing_workflow.py:195:32 - error: "DatabasesEndpoint" 클래스의 "query" 특성에 액세스할 수 없음
+    특성 "query" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\publishing_workflow.py:243:18 - error: "Awaitable[Any]" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\publishing_workflow.py:315:18 - error: "Awaitable[Any]" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\publishing_workflow.py:344:32 - error: "DatabasesEndpoint" 클래스의 "query" 특성에 액세스할 수 없음
+    특성 "query" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\scripts\setup_content_hub.py
+  d:\AI project\automation\getdaytrends\scripts\setup_content_hub.py:54:30 - error: "Awaitable[Any]" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\setup_content_hub.py:59:42 - error: "Awaitable[Any]" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\setup_content_hub.py:182:21 - error: "__getitem__" 메서드가 "Awaitable[Any]" 형식에 정의되지 않았습니다. (reportIndexIssue)
+  d:\AI project\automation\getdaytrends\scripts\setup_content_hub.py:183:25 - error: "Awaitable[Any]" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\scripts\setup_content_hub.py:249:48 - error: "Awaitable[Any]" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\source_finder.py
+  d:\AI project\automation\getdaytrends\source_finder.py:15:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\source_finder.py:277:21 - error: "BaseException" 반복할 수 없습니다.
+    "__iter__" 메서드가 정의되지 않았습니다. (reportGeneralTypeIssues)
+d:\AI project\automation\getdaytrends\storage.py
+  d:\AI project\automation\getdaytrends\storage.py:8:8 - warning: 가져오기 "json"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\storage.py:14:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\storage.py:116:12 - warning: 가져오기 "gspread"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\storage.py:349:5 - error: 함수 선언 "save_to_notion"이(가) 동일한 이름의 선언으로 가려집니다. (reportRedeclaration)
+  d:\AI project\automation\getdaytrends\storage.py:360:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\storage.py:471:18 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\storage.py:560:14 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\storage.py:686:29 - error: "from_service_account_file"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\storage.py:687:22 - error: "authorize"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\stripe_helpers.py
+  d:\AI project\automation\getdaytrends\stripe_helpers.py:229:85 - error: "Unknown | Literal[''] | None" 형식의 인수를 "_format_stripe_price_anchor" 함수에서 "int | float | None" 형식의 "amount_total" 매개 변수에 할당할 수 없습니다.
+    형식 "Unknown | Literal[''] | None"은 형식 "int | float | None"에 할당할 수 없습니다.
+      형식 "Literal['']"은 형식 "int | float | None"에 할당할 수 없습니다.
+        "Literal['']"은 "int"에 할당할 수 없습니다.
+        "Literal['']"은 "float"에 할당할 수 없습니다.
+        "Literal['']"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+d:\AI project\automation\getdaytrends\structured_output.py
+  d:\AI project\automation\getdaytrends\structured_output.py:15:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\structured_output.py:31:12 - warning: 가져오기 "instructor"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tap\analyzer.py
+  d:\AI project\automation\getdaytrends\tap\analyzer.py:17:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tap\detector.py
+  d:\AI project\automation\getdaytrends\tap\detector.py:20:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tap\tests\test_service.py
+  d:\AI project\automation\getdaytrends\tap\tests\test_service.py:287:47 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\tests\conftest.py
+  d:\AI project\automation\getdaytrends\tests\conftest.py:40:14 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\conftest.py:122:14 - warning: 가져오기 "notebooklm_automation.config"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_analyzer.py
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:14:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:15:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:20:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:36:30 - error: "list[Unknown] | None" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[Unknown] | None"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘None’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:37:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:43:30 - error: "list[Unknown] | None" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[Unknown] | None"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘None’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:56:30 - error: "list[Unknown] | None" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[Unknown] | None"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘None’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:86:47 - error: "Connection" 형식의 인수를 "detect_trend_patterns" 함수에서 "Connection" 형식의 "conn" 매개 변수에 할당할 수 없습니다.
+    "aiosqlite.core.Connection"은 "sqlite3.Connection"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:104:47 - error: "Connection" 형식의 인수를 "detect_trend_patterns" 함수에서 "Connection" 형식의 "conn" 매개 변수에 할당할 수 없습니다.
+    "aiosqlite.core.Connection"은 "sqlite3.Connection"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_analyzer.py:143:62 - error: "None" 형식의 인수를 "_compute_cross_source_confidence" 함수에서 "MultiSourceContext" 형식의 "context" 매개 변수에 할당할 수 없습니다.
+    "None"은 "MultiSourceContext"에 할당할 수 없습니다. (reportArgumentType)
+d:\AI project\automation\getdaytrends\tests\test_collect_posted_tweet_metrics.py
+  d:\AI project\automation\getdaytrends\tests\test_collect_posted_tweet_metrics.py:13:46 - error: "ModuleSpec | None" 형식의 인수를 "module_from_spec" 함수에서 "ModuleSpec" 형식의 "spec" 매개 변수에 할당할 수 없습니다.
+    형식 "ModuleSpec | None"은 형식 "ModuleSpec"에 할당할 수 없습니다.
+      "None"은 "ModuleSpec"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_collect_posted_tweet_metrics.py:14:17 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_collect_posted_tweet_metrics.py:15:10 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\tests\test_collect_resilience.py
+  d:\AI project\automation\getdaytrends\tests\test_collect_resilience.py:13:6 - warning: 가져오기 "getdaytrends.config"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_collect_resilience.py:14:6 - warning: 가져오기 "getdaytrends.models"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_collect_resilience.py:27:14 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_collect_resilience.py:46:14 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_collect_resilience.py:63:14 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_collect_resilience.py:94:14 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_content_qa_scoring.py
+  d:\AI project\automation\getdaytrends\tests\test_content_qa_scoring.py:24:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\tests\test_context_global_timeout.py
+  d:\AI project\automation\getdaytrends\tests\test_context_global_timeout.py:17:9 - error: 이름이 "rank"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\automation\getdaytrends\tests\test_context_global_timeout.py:29:16 - error: "AppConfig" 클래스의 "context_global_timeout" 특성에 할당할 수 없음
+    특성 "context_global_timeout" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\tests\test_context_global_timeout.py:56:16 - error: "AppConfig" 클래스의 "context_global_timeout" 특성에 할당할 수 없음
+    특성 "context_global_timeout" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\automation\getdaytrends\tests\test_context_global_timeout.py:97:16 - error: "AppConfig" 클래스의 "context_global_timeout" 특성에 할당할 수 없음
+    특성 "context_global_timeout" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\tests\test_dashboard.py
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:213:41 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:584:38 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:610:41 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:655:40 - error: "args"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:676:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:677:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:678:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:743:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:744:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:776:40 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:814:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:815:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:817:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:818:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:971:37 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:973:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:974:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_dashboard.py:975:39 - error: "kwargs"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\tests\test_db.py
+  d:\AI project\automation\getdaytrends\tests\test_db.py:141:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:142:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:156:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:157:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:158:30 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:614:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:615:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:641:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:642:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:651:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:680:30 - error: "Iterable[Row]" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    ‘Iterable[Row]’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+      "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:681:26 - error: "__getitem__" 메서드가 "Iterable[Row]" 형식에 정의되지 않았습니다. (reportIndexIssue)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:682:26 - error: "__getitem__" 메서드가 "Iterable[Row]" 형식에 정의되지 않았습니다. (reportIndexIssue)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:775:30 - error: "list[dict[Unknown, Unknown]] | None" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[dict[Unknown, Unknown]] | None"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘None’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:776:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:817:9 - error: 제공된 인수와 일치하는 "assertAlmostEqual"에 대한 오버로드가 없습니다. (reportCallIssue)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:817:40 - error: "float" 형식의 인수를 "assertAlmostEqual" 함수에서 "SupportsRSub[_T@assertAlmostEqual, SupportsAbs[SupportsRound[object]]]" 형식의 "second" 매개 변수에 할당할 수 없습니다.
+    ‘float’은(는) ‘SupportsRSub[float | None, SupportsAbs[SupportsRound[object]]]’ 프로토콜과 호환되지 않습니다.
+      "__rsub__"은(는) 호환되지 않는 형식입니다.
+        형식 "(value: float, /) -> float"은 형식 "(x: _T_contra@SupportsRSub, /) -> _T_co@SupportsRSub"에 할당할 수 없습니다.
+          매개 변수 1: "_T_contra@SupportsRSub" 형식이 "float" 형식과 호환되지 않음
+            형식 "float | None"은 형식 "float"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:886:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:887:30 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:888:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:889:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:890:32 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:934:34 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:1006:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_db.py:1030:30 - error: "list[dict[Unknown, Unknown]] | None" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    형식 "list[dict[Unknown, Unknown]] | None"은 형식 "Sized"에 할당할 수 없습니다.
+      ‘None’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+        "__len__"이(가) 없습니다. (reportArgumentType)
+d:\AI project\automation\getdaytrends\tests\test_db_layer_resilience.py
+  d:\AI project\automation\getdaytrends\tests\test_db_layer_resilience.py:36:67 - warning: 가져오기 "save_trend"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:18:6 - warning: 가져오기 "getdaytrends.db_schema"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:34:12 - warning: 가져오기 "getdaytrends.db_layer.connection"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:63:12 - warning: 가져오기 "getdaytrends.db_layer.connection"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:97:12 - warning: 가져오기 "getdaytrends.db_layer.connection"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:327:12 - warning: 가져오기 "getdaytrends.db_layer.connection"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:337:14 - warning: 가져오기 "getdaytrends.db_schema"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:352:12 - warning: 가져오기 "getdaytrends.db_layer.connection"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_db_schema_pg.py:364:14 - warning: 가져오기 "getdaytrends.db_schema"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "draft_id" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "trend_id" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "platform" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "content_type" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "body" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "list[str] | None" 형식의 "hashtags" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "list[str] | None"에 할당할 수 없습니다.
+      형식 "str"은 형식 "list[str] | None"에 할당할 수 없습니다.
+        "str"은 "list[str]"에 할당할 수 없습니다.
+        "str"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "prompt_version" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "generator_provider" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "generator_model" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "source_evidence_ref" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "bool" 형식의 "degraded_mode" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "bool"에 할당할 수 없습니다.
+      "str"은 "bool"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "lifecycle_status" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "str" 형식의 "review_status" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "str"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:63:42 - error: "str | list[str]" 형식의 인수를 "save_draft_bundle" 함수에서 "int | None" 형식의 "trend_row_id" 매개 변수에 할당할 수 없습니다.
+    형식 "str | list[str]"은 형식 "int | None"에 할당할 수 없습니다.
+      형식 "str"은 형식 "int | None"에 할당할 수 없습니다.
+        "str"은 "int"에 할당할 수 없습니다.
+        "str"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:80:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:81:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:86:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:87:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:98:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:99:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:113:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:222:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:264:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:299:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:309:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:310:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_draft_lifecycle.py:330:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+d:\AI project\automation\getdaytrends\tests\test_e2e.py
+  d:\AI project\automation\getdaytrends\tests\test_e2e.py:142:10 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_generator.py
+  d:\AI project\automation\getdaytrends\tests\test_generator.py:382:23 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_generator.py:384:37 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_generator.py:398:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_generator.py:400:40 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_generator.py:414:23 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_generator.py:416:37 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+d:\AI project\automation\getdaytrends\tests\test_integration.py
+  d:\AI project\automation\getdaytrends\tests\test_integration.py:51:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_integration.py:68:26 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_integration.py:79:30 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_integration.py:151:41 - error: "threads_posts"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_integration.py:198:41 - error: "tweets"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_integration.py:215:14 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_models.py
+  d:\AI project\automation\getdaytrends\tests\test_models.py:82:43 - error: "tweets"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\tests\test_notebooklm.py
+  d:\AI project\automation\getdaytrends\tests\test_notebooklm.py:12:6 - warning: 가져오기 "notebooklm_automation"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_notebooklm.py:13:6 - warning: 가져오기 "notebooklm_automation.config"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_notion_content_hub.py
+  d:\AI project\automation\getdaytrends\tests\test_notion_content_hub.py:28:10 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_notion_content_hub.py:56:10 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_pipeline_genealogy.py
+  d:\AI project\automation\getdaytrends\tests\test_pipeline_genealogy.py:10:6 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_pipeline_steps.py
+  d:\AI project\automation\getdaytrends\tests\test_pipeline_steps.py:24:14 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_pipeline_steps.py:78:14 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_pipeline_steps.py:110:14 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_pipeline_steps.py:124:14 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_pipeline_steps.py:142:10 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_pipeline_steps.py:154:10 - warning: 가져오기 "getdaytrends.core.pipeline_steps"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_publish_saved_tweets.py
+  d:\AI project\automation\getdaytrends\tests\test_publish_saved_tweets.py:13:46 - error: "ModuleSpec | None" 형식의 인수를 "module_from_spec" 함수에서 "ModuleSpec" 형식의 "spec" 매개 변수에 할당할 수 없습니다.
+    형식 "ModuleSpec | None"은 형식 "ModuleSpec"에 할당할 수 없습니다.
+      "None"은 "ModuleSpec"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_publish_saved_tweets.py:14:17 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_publish_saved_tweets.py:15:10 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\tests\test_publishing_workflow.py
+  d:\AI project\automation\getdaytrends\tests\test_publishing_workflow.py:11:46 - error: "ModuleSpec | None" 형식의 인수를 "module_from_spec" 함수에서 "ModuleSpec" 형식의 "spec" 매개 변수에 할당할 수 없습니다.
+    형식 "ModuleSpec | None"은 형식 "ModuleSpec"에 할당할 수 없습니다.
+      "None"은 "ModuleSpec"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_publishing_workflow.py:12:17 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_publishing_workflow.py:13:10 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:77:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:98:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:114:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:136:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:160:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:176:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:184:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:200:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:222:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:238:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:262:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:278:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:362:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:382:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_quality_diversity.py:400:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_storage.py
+  d:\AI project\automation\getdaytrends\tests\test_storage.py:76:17 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_storage.py:88:30 - error: "Iterable[Row]" 형식의 인수를 "len" 함수에서 "Sized" 형식의 "obj" 매개 변수에 할당할 수 없습니다.
+    ‘Iterable[Row]’은(는) ‘Sized’ 프로토콜과 호환되지 않습니다.
+      "__len__"이(가) 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage.py:89:26 - error: "__getitem__" 메서드가 "Iterable[Row]" 형식에 정의되지 않았습니다. (reportIndexIssue)
+  d:\AI project\automation\getdaytrends\tests\test_storage.py:90:26 - error: "__getitem__" 메서드가 "Iterable[Row]" 형식에 정의되지 않았습니다. (reportIndexIssue)
+d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:11:8 - warning: 가져오기 "time"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:12:22 - warning: 가져오기 "datetime"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "keyword" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "int" 형식의 "rank" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "int"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "int"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "int" 형식의 "volume_last_24h" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "int"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "int"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "trend_acceleration" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "int" 형식의 "viral_potential" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "int"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "int"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "top_insight" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "list[str]" 형식의 "suggested_angles" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "list[str]"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "list[str]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "best_hook_starter" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "category" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "MultiSourceContext | None" 형식의 "context" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "MultiSourceContext | None"에 할당할 수 없습니다.
+      형식 "int"은 형식 "MultiSourceContext | None"에 할당할 수 없습니다.
+        "int"은 "MultiSourceContext"에 할당할 수 없습니다.
+        "int"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "list[TrendSource]" 형식의 "sources" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "list[TrendSource]"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "list[TrendSource]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "country" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "datetime" 형식의 "scored_at" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "datetime"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "datetime"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "sentiment" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "bool" 형식의 "safety_flag" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "bool"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "bool"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "int" 형식의 "cross_source_confidence" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "int"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "int"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "int" 형식의 "joongyeon_kick" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "int"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "int"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "joongyeon_angle" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "float" 형식의 "content_age_hours" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "float"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "float"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "freshness_grade" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "why_trending" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "peak_status" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "int" 형식의 "relevance_score" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "int"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "int"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "TrendContext | None" 형식의 "trend_context" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "TrendContext | None"에 할당할 수 없습니다.
+      형식 "MultiSourceContext"은 형식 "TrendContext | None"에 할당할 수 없습니다.
+        "MultiSourceContext"은 "TrendContext"에 할당할 수 없습니다.
+        "MultiSourceContext"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "float" 형식의 "velocity" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "float"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "float"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "bool" 형식의 "is_emerging" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "bool"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "bool"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "bool" 형식의 "publishable" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "bool"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "bool"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "publishability_reason" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "str" 형식의 "corrected_keyword" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "str"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "str"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "list[str]" 형식의 "parent_trends" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "list[str]"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "list[str]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "list[str]" 형식의 "predicted_children" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "list[str]"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "list[str]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "int" 형식의 "genealogy_depth" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "int"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "int"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "float" 형식의 "source_credibility" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "float"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "float"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "float" 형식의 "fact_check_score" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "float"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "float"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "list[str]" 형식의 "hallucination_flags" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "list[str]"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "list[str]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "bool" 형식의 "cross_source_consistent" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "bool"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "bool"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_storage_edge_cases.py:47:26 - error: "str | int | list[str] | MultiSourceContext | list[TrendSource]" 형식의 인수를 "__init__" 함수에서 "float" 형식의 "cross_source_agreement" 매개 변수에 할당할 수 없습니다.
+    형식 "str | int | list[str] | MultiSourceContext | list[TrendSource]"은 형식 "float"에 할당할 수 없습니다.
+      "MultiSourceContext"은 "float"에 할당할 수 없습니다. (reportArgumentType)
+d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:17:27 - warning: 가져오기 "AsyncMock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:20:8 - warning: 가져오기 "pytest_asyncio"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:37:40 - error: "ModuleSpec | None" 형식의 인수를 "module_from_spec" 함수에서 "ModuleSpec" 형식의 "spec" 매개 변수에 할당할 수 없습니다.
+    형식 "ModuleSpec | None"은 형식 "ModuleSpec"에 할당할 수 없습니다.
+      "None"은 "ModuleSpec"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:39:7 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:39:14 - error: "exec_module"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:452:50 - error: "ModuleSpec | None" 형식의 인수를 "module_from_spec" 함수에서 "ModuleSpec" 형식의 "spec" 매개 변수에 할당할 수 없습니다.
+    형식 "ModuleSpec | None"은 형식 "ModuleSpec"에 할당할 수 없습니다.
+      "None"은 "ModuleSpec"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:454:16 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\tests\test_streaming_pipeline.py:454:23 - error: "exec_module"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\tests\test_tap_pipeline.py
+  d:\AI project\automation\getdaytrends\tests\test_tap_pipeline.py:10:10 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_tweet_repository.py
+  d:\AI project\automation\getdaytrends\tests\test_tweet_repository.py:9:5 - warning: 가져오기 "get_recent_tweet_contents"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\tests\test_tweet_repository.py:195:34 - error: "GeneratedTweet" 클래스의 "content_type" 특성에 할당할 수 없음
+    "None"은 "str"에 할당할 수 없습니다. (reportAttributeAccessIssue)
+d:\AI project\automation\getdaytrends\tests\test_v15_zero_content.py
+  d:\AI project\automation\getdaytrends\tests\test_v15_zero_content.py:44:14 - warning: 가져오기 "getdaytrends.core.pipeline"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\tests\test_workflow_v2.py
+  d:\AI project\automation\getdaytrends\tests\test_workflow_v2.py:27:12 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_workflow_v2.py:33:12 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+  d:\AI project\automation\getdaytrends\tests\test_workflow_v2.py:42:12 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+d:\AI project\automation\getdaytrends\tests\test_x_publish.py
+  d:\AI project\automation\getdaytrends\tests\test_x_publish.py:9:6 - warning: 가져오기 "notebooklm_automation.config"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\tests\test_x_publish.py:10:6 - warning: 가져오기 "notebooklm_automation.publishers.twitter"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\trend_clustering.py
+  d:\AI project\automation\getdaytrends\trend_clustering.py:7:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\trend_genealogy.py
+  d:\AI project\automation\getdaytrends\trend_genealogy.py:10:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\trend_reasoning.py
+  d:\AI project\automation\getdaytrends\trend_reasoning.py:192:28 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\automation\getdaytrends\trend_reasoning.py:213:39 - error: "acreate"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\trend_reasoning.py:214:31 - error: "HEAVY"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\trend_reasoning.py:251:39 - error: "acreate"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\trend_reasoning.py:252:31 - error: "HEAVY"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\trend_reasoning.py:285:39 - error: "acreate"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\trend_reasoning.py:286:31 - error: "HEAVY"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\automation\getdaytrends\utils.py
+  d:\AI project\automation\getdaytrends\utils.py:54:18 - warning: 가져오기 "getdaytrends.db_layer.connection"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\automation\getdaytrends\x_client.py
+  d:\AI project\automation\getdaytrends\x_client.py:22:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\x_client.py:32:10 - warning: 가져오기 "twikit"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\automation\getdaytrends\x_client.py:69:49 - warning: 가져오기 "InvalidToken"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\automation\getdaytrends\x_client.py:154:25 - error: "load_cookies"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\automation\getdaytrends\x_client.py:165:27 - error: "login"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\packages\shared\audit.py
+  d:\AI project\packages\shared\audit.py:20:12 - warning: 가져오기 "structlog"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\audit.py:58:17 - error: 이름이 "service"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:59:17 - error: 이름이 "user_id"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:60:17 - error: 이름이 "method"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:61:17 - error: 이름이 "path"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:62:17 - error: 이름이 "status"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:63:17 - error: 이름이 "duration_ms"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:64:17 - error: 이름이 "client_ip"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:71:17 - error: 이름이 "service"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:72:17 - error: 이름이 "user_id"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:73:17 - error: 이름이 "method"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:74:17 - error: 이름이 "path"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:75:17 - error: 이름이 "status"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:76:17 - error: 이름이 "duration_ms"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:77:17 - error: 이름이 "client_ip"인 매개 변수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\audit.py:78:17 - error: 이름이 "error"인 매개 변수가 없습니다. (reportCallIssue)
+d:\AI project\packages\shared\business_metrics.py
+  d:\AI project\packages\shared\business_metrics.py:22:10 - warning: 가져오기 "prometheus_client"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\cache.py
+  d:\AI project\packages\shared\cache.py:45:12 - warning: 가져오기 "redis.asyncio"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\cache.py:46:10 - warning: 가져오기 "redis.exceptions"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\cache.py:47:10 - warning: 가져오기 "redis.exceptions"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\cache.py:84:21 - error: "_Wrapped[..., Unknown, ..., CoroutineType[Any, Any, Unknown]]" 클래스의 "cache_clear" 특성에 할당할 수 없음
+    특성 "cache_clear" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\packages\shared\cache.py:94:22 - error: 형식 식에는 변수를 사용할 수 없습니다. (reportInvalidTypeForm)
+  d:\AI project\packages\shared\cache.py:140:34 - error: 형식 식에는 변수를 사용할 수 없습니다. (reportInvalidTypeForm)
+  d:\AI project\packages\shared\cache.py:142:36 - error: "from_url"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\cache.py:243:21 - error: "_Wrapped[..., Unknown, ..., CoroutineType[Any, Any, Any | Unknown]]" 클래스의 "cache_clear" 특성에 할당할 수 없음
+    특성 "cache_clear" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\packages\shared\content\__init__.py
+  d:\AI project\packages\shared\content\__init__.py:14:20 - warning: 가져오기 "Any"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\content\__init__.py:16:6 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\content\__init__.py:16:30 - warning: 가져오기 "log"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\embeddings\agentir.py
+  d:\AI project\packages\shared\embeddings\agentir.py:39:10 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\embeddings\agentir.py:385:19 - error: ‘error’은(는) ‘urllib’ 모듈의 알려진 특성이 아님 (reportAttributeAccessIssue)
+d:\AI project\packages\shared\embeddings\core.py
+  d:\AI project\packages\shared\embeddings\core.py:23:10 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\embeddings\core.py:157:22 - error: "list[str]" 형식의 인수를 "embed_content" 함수에서 "ContentListUnion | ContentListUnionDict" 형식의 "contents" 매개 변수에 할당할 수 없습니다.
+    형식 "list[str]"은 형식 "ContentListUnion | ContentListUnionDict"에 할당할 수 없습니다.
+      "list[str]"은 "Content"에 할당할 수 없습니다.
+      "list[str]"은 "str"에 할당할 수 없습니다.
+      "list[str]"은 "Image"에 할당할 수 없습니다.
+      "list[str]"은 "File"에 할당할 수 없습니다.
+      "list[str]"은 "Part"에 할당할 수 없습니다.
+      "list[str]"은 "list[str | PIL_Image | File | Part]"에 할당할 수 없습니다.
+        "_T@list" 형식 매개 변수는 고정이지만 "str"은(는) "str | PIL_Image | File | Part"와 같지 않습니다.
+    ... (reportArgumentType)
+  d:\AI project\packages\shared\embeddings\core.py:161:42 - error: "None" 형식의 개체는 반복 가능한 값으로 사용할 수 없습니다. (reportOptionalIterable)
+  d:\AI project\packages\shared\embeddings\core.py:166:13 - error: "tuple[float, list[float] | None]" 형식의 인수를 "__setitem__" 함수에서 "tuple[float, list[float]]" 형식의 "value" 매개 변수에 할당할 수 없습니다.
+    "tuple[float, list[float] | None]"은 "tuple[float, list[float]]"에 할당할 수 없습니다.
+      Tuple 항목 2이(가) 잘못된 형식입니다.
+        형식 "list[float] | None"은 형식 "list[float]"에 할당할 수 없습니다.
+          "None"은 "list[float]"에 할당할 수 없습니다. (reportArgumentType)
+d:\AI project\packages\shared\harness\adapters\native.py
+  d:\AI project\packages\shared\harness\adapters\native.py:33:5 - warning: 가져오기 "SandboxPolicy"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\constitution.py
+  d:\AI project\packages\shared\harness\constitution.py:20:31 - warning: 가져오기 "List"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\constitution.py:23:12 - warning: 원본에서 가져오기 "yaml"을(를) 확인할 수 없습니다. (reportMissingModuleSource)
+d:\AI project\packages\shared\harness\coordination\graph.py
+  d:\AI project\packages\shared\harness\coordination\graph.py:24:36 - warning: 가져오기 "field"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\coordination\graph.py:32:10 - warning: 가져오기 "langgraph.graph"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\harness\coordination\graph.py:225:17 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+d:\AI project\packages\shared\harness\core.py
+  d:\AI project\packages\shared\harness\core.py:29:36 - warning: 가져오기 "field"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\core.py:30:21 - warning: 가져오기 "Path"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\core.py:120:16 - error: 형식 "AuditLogger | None"을 형식 "AuditLogger"에 반환하도록 할당할 수 없습니다.
+    형식 "AuditLogger | None"은 형식 "AuditLogger"에 할당할 수 없습니다.
+      "None"은 "AuditLogger"에 할당할 수 없습니다. (reportReturnType)
+  d:\AI project\packages\shared\harness\core.py:125:16 - error: 형식 "TokenBudget | None"을 형식 "TokenBudget"에 반환하도록 할당할 수 없습니다.
+    형식 "TokenBudget | None"은 형식 "TokenBudget"에 할당할 수 없습니다.
+      "None"은 "TokenBudget"에 할당할 수 없습니다. (reportReturnType)
+  d:\AI project\packages\shared\harness\core.py:136:28 - error: "reset"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:172:25 - error: "log_denied"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:182:25 - error: "log_denied"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:194:34 - error: "scan"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:196:25 - error: "log_denied"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:210:25 - error: "log_denied"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:227:29 - error: "log_denied"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:240:33 - error: "log_denied"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:249:49 - error: "run_pre_hooks"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:259:40 - error: "run_post_hooks"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:263:25 - error: "log_error"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:279:21 - error: "log_allowed"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:315:47 - error: "denied_count"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\harness\core.py:316:46 - error: "total_count"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\packages\shared\harness\risk.py
+  d:\AI project\packages\shared\harness\risk.py:12:25 - warning: 가져오기 "Optional"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\sandbox\docker_runner.py
+  d:\AI project\packages\shared\harness\sandbox\docker_runner.py:27:20 - warning: 가져오기 "Any"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\sandbox\docker_runner.py:29:36 - warning: 가져오기 "ToolPermissionLevel"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\sandbox\policy.py
+  d:\AI project\packages\shared\harness\sandbox\policy.py:22:36 - warning: 가져오기 "field"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\tests\test_adapters_and_sandbox.py
+  d:\AI project\packages\shared\harness\tests\test_adapters_and_sandbox.py:14:8 - warning: 가져오기 "asyncio"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_adapters_and_sandbox.py:27:42 - warning: 가져오기 "AbstractHarnessAdapter"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\tests\test_coordination.py
+  d:\AI project\packages\shared\harness\tests\test_coordination.py:14:27 - warning: 가져오기 "AsyncMock"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_coordination.py:190:24 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+  d:\AI project\packages\shared\harness\tests\test_coordination.py:206:24 - error: ‘None’ 유형의 개체를 호출할 수 없습니다. (reportOptionalCall)
+d:\AI project\packages\shared\harness\tests\test_harness.py
+  d:\AI project\packages\shared\harness\tests\test_harness.py:10:8 - warning: 가져오기 "asyncio"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_harness.py:12:8 - warning: 가져오기 "tempfile"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_harness.py:13:21 - warning: 가져오기 "Path"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_harness.py:32:33 - warning: 가져오기 "RiskResult"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\tests\test_risk_and_pipeline_edge_cases.py
+  d:\AI project\packages\shared\harness\tests\test_risk_and_pipeline_edge_cases.py:19:34 - warning: 가져오기 "AuditLogger"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_risk_and_pipeline_edge_cases.py:24:5 - warning: 가져오기 "RiskDetectedError"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_risk_and_pipeline_edge_cases.py:26:5 - warning: 가져오기 "ToolNotAllowedError"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\tests\test_risk_and_pipeline_edge_cases.py:31:5 - warning: 가져오기 "OutputTruncatorHook"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\tests\test_token_tracker.py
+  d:\AI project\packages\shared\harness\tests\test_token_tracker.py:18:5 - warning: 가져오기 "TokenUsageRecord"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\harness\validators\korean_quality.py
+  d:\AI project\packages\shared\harness\validators\korean_quality.py:32:36 - warning: 가져오기 "field"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\harness\validators\korean_quality.py:296:14 - warning: 가져오기 "guardrails"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\harness\validators\korean_quality.py:297:14 - warning: 가져오기 "guardrails.validators"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\intelligence\code_graph.py
+  d:\AI project\packages\shared\intelligence\code_graph.py:37:12 - warning: 가져오기 "aiosqlite"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\intelligence\impact_analyzer.py
+  d:\AI project\packages\shared\intelligence\impact_analyzer.py:25:20 - warning: 가져오기 "Any"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\intelligence\tests\test_code_graph.py
+  d:\AI project\packages\shared\intelligence\tests\test_code_graph.py:11:8 - warning: 가져오기 "os"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\intelligence\tests\test_code_graph.py:13:21 - warning: 가져오기 "Path"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\intelligence\tests\test_code_graph.py:19:5 - warning: 가져오기 "FileParseResult"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\intelligence\tests\test_code_graph.py:20:5 - warning: 가져오기 "GraphNode"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\intelligence\topic_bridge.py
+  d:\AI project\packages\shared\intelligence\topic_bridge.py:26:8 - warning: 가져오기 "os"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\llm\backends.py
+  d:\AI project\packages\shared\llm\backends.py:37:12 - warning: 가져오기 "litellm"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\backends.py:144:35 - error: "Client"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\llm\backends.py:145:34 - error: "AsyncClient"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\llm\backends.py:248:37 - error: "Awaitable[Any]" 형식의 인수를 "run" 함수에서 "Coroutine[Any, Any, _T@run]" 형식의 "main" 매개 변수에 할당할 수 없습니다.
+    "Awaitable[Any]"은 "Coroutine[Any, Any, _T@run]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\packages\shared\llm\backends.py:250:42 - error: "Awaitable[Any]" 형식의 인수를 "create_task" 함수에서 "_CoroutineLike[_T@create_task]" 형식의 "coro" 매개 변수에 할당할 수 없습니다.
+    "Awaitable[Any]"은 "Coroutine[Any, Any, _T@create_task]"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\packages\shared\llm\backends.py:350:20 - error: "dict[str, Any]" 형식의 인수를 "generate_content" 함수에서 "GenerateContentConfigOrDict | None" 형식의 "config" 매개 변수에 할당할 수 없습니다.
+    형식 "dict[str, Any]"은 형식 "GenerateContentConfigOrDict | None"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "GenerateContentConfig"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "GenerateContentConfigDict"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\packages\shared\llm\backends.py:622:20 - error: "dict[str, Any]" 형식의 인수를 "generate_content" 함수에서 "GenerateContentConfigOrDict | None" 형식의 "config" 매개 변수에 할당할 수 없습니다.
+    형식 "dict[str, Any]"은 형식 "GenerateContentConfigOrDict | None"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "GenerateContentConfig"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "GenerateContentConfigDict"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\packages\shared\llm\backends.py:683:20 - error: "dict[str, Any]" 형식의 인수를 "generate_content_stream" 함수에서 "GenerateContentConfigOrDict | None" 형식의 "config" 매개 변수에 할당할 수 없습니다.
+    형식 "dict[str, Any]"은 형식 "GenerateContentConfigOrDict | None"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "GenerateContentConfig"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "GenerateContentConfigDict"에 할당할 수 없습니다.
+      "dict[str, Any]"은 "None"에 할당할 수 없습니다. (reportArgumentType)
+d:\AI project\packages\shared\llm\client.py
+  d:\AI project\packages\shared\llm\client.py:274:26 - error: “LLMResponse“은(는) awaitable이 아닙니다.
+    ‘LLMResponse’은(는) ‘Awaitable[_T_co@Awaitable]’ 프로토콜과 호환되지 않습니다.
+      "__await__"이(가) 없습니다. (reportGeneralTypeIssues)
+d:\AI project\packages\shared\llm\context_map.py
+  d:\AI project\packages\shared\llm\context_map.py:78:14 - error: "AST" 클래스의 "body" 특성에 액세스할 수 없음
+    특성 "body" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\packages\shared\llm\context_map.py:79:29 - error: "AST" 클래스의 "body" 특성에 액세스할 수 없음
+    특성 "body" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\packages\shared\llm\context_map.py:80:29 - error: "AST" 클래스의 "body" 특성에 액세스할 수 없음
+    특성 "body" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\packages\shared\llm\context_map.py:81:29 - error: "AST" 클래스의 "body" 특성에 액세스할 수 없음
+    특성 "body" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\packages\shared\llm\context_map.py:83:20 - error: "AST" 클래스의 "body" 특성에 액세스할 수 없음
+    특성 "body" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\packages\shared\llm\reasoning\vibe_graph.py
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:14:6 - warning: 가져오기 "langchain_core.messages"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:15:6 - warning: 가져오기 "langgraph.checkpoint.memory"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:16:6 - warning: 가져오기 "langgraph.graph"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:17:6 - warning: 가져오기 "langgraph.prebuilt"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:18:6 - warning: 가져오기 "langgraph.types"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:45:5 - error: "test_results" 선언이 같은 이름의 선언으로 가려집니다. (reportRedeclaration)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:217:22 - warning: 가져오기 "langchain_core.messages"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:274:22 - warning: 가져오기 "langchain_core.messages"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:313:22 - warning: 가져오기 "langchain_core.messages"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\reasoning\vibe_graph.py:374:44 - error: "list[dict[Unknown, Unknown]]" 클래스의 "get" 특성에 액세스할 수 없음
+    특성 "get" 알 수 없음 (reportAttributeAccessIssue)
+d:\AI project\packages\shared\llm\reasoning\vibe_tools.py
+  d:\AI project\packages\shared\llm\reasoning\vibe_tools.py:7:6 - warning: 가져오기 "langchain_core.tools"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\llm\stats.py
+  d:\AI project\packages\shared\llm\stats.py:127:31 - error: "begin"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\packages\shared\llm\test_backends_b017.py
+  d:\AI project\packages\shared\llm\test_backends_b017.py:13:6 - warning: 가져오기 "packages.shared.llm.backends"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\test_backends_b017.py:14:6 - warning: 가져오기 "packages.shared.llm.models"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\test_backends_b017.py:204:16 - warning: 가져오기 "packages.shared.llm.backends"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\llm\test_backends_b017.py:222:16 - warning: 가져오기 "packages.shared.llm.backends"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\llm\tests\test_client_cache_and_dispatch.py
+  d:\AI project\packages\shared\llm\tests\test_client_cache_and_dispatch.py:14:25 - warning: 가져오기 "OrderedDict"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\llm\tool_schema.py
+  d:\AI project\packages\shared\llm\tool_schema.py:138:17 - error: "list[ErrorDetails]" 형식의 인수를 "__init__" 함수에서 "list[dict[Unknown, Unknown]]" 형식의 "errors" 매개 변수에 할당할 수 없습니다.
+    "list[ErrorDetails]"은 "list[dict[Unknown, Unknown]]"에 할당할 수 없습니다.
+      "_T@list" 형식 매개 변수는 고정이지만 "ErrorDetails"은(는) "dict[Unknown, Unknown]"와 같지 않습니다.
+      공변(covariant)인 "list"에서 "Sequence"로 전환하는 것이 좋습니다. (reportArgumentType)
+d:\AI project\packages\shared\metrics.py
+  d:\AI project\packages\shared\metrics.py:20:10 - warning: 가져오기 "prometheus_client"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\observability.py
+  d:\AI project\packages\shared\observability.py:35:12 - warning: 가져오기 "logfire"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\observability.py:91:14 - error: "configure"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:98:18 - error: "instrument_fastapi"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:103:22 - error: "instrument_pydantic_ai"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:110:22 - error: "instrument_sqlalchemy"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:117:18 - warning: 가져오기 "loguru"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\observability.py:119:49 - error: "loguru_handler"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:131:23 - error: "span"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:140:18 - error: "info"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:146:18 - error: "warn"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\observability.py:152:18 - error: "error"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\packages\shared\prediction\api.py
+  d:\AI project\packages\shared\prediction\api.py:22:41 - warning: 가져오기 "HTTPException"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\prediction\api.py:31:19 - warning: 가져오기 "_asyncio"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\prediction\features.py
+  d:\AI project\packages\shared\prediction\features.py:13:36 - warning: 가져오기 "field"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\prediction\features.py:16:20 - warning: 가져오기 "Any"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\prediction\model.py
+  d:\AI project\packages\shared\prediction\model.py:32:12 - warning: 가져오기 "lightgbm"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\prediction\model.py:37:6 - warning: 가져오기 "sklearn.ensemble"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\prediction\model.py:38:6 - warning: 가져오기 "sklearn.model_selection"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\prediction\model.py:39:6 - warning: 가져오기 "sklearn.metrics"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\prediction\model.py:42:12 - warning: 가져오기 "joblib"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\prediction\tests\test_prediction.py
+  d:\AI project\packages\shared\prediction\tests\test_prediction.py:9:8 - warning: 가져오기 "asyncio"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\prediction\tests\test_prediction.py:10:8 - warning: 가져오기 "json"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\prediction\tests\test_prediction.py:11:21 - warning: 가져오기 "Path"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\prediction\tests\test_prediction.py:280:15 - error: 매개 변수 "category", "publish_hour", "content_type", "language"에 대한 인수가 없습니다. (reportCallIssue)
+  d:\AI project\packages\shared\prediction\tests\test_prediction.py:291:13 - error: 매개 변수 "viral_potential", "category", "publish_hour", "content_type", "language"에 대한 인수가 없습니다. (reportCallIssue)
+d:\AI project\packages\shared\prompts\manager.py
+  d:\AI project\packages\shared\prompts\manager.py:38:12 - warning: 원본에서 가져오기 "yaml"을(를) 확인할 수 없습니다. (reportMissingModuleSource)
+d:\AI project\packages\shared\structured_logging.py
+  d:\AI project\packages\shared\structured_logging.py:21:12 - warning: 가져오기 "structlog"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\telemetry\sentry_integration.py
+  d:\AI project\packages\shared\telemetry\sentry_integration.py:37:16 - warning: 가져오기 "sentry_sdk"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\telemetry\sentry_integration.py:67:16 - warning: 가져오기 "sentry_sdk"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\telemetry\sentry_integration.py:93:16 - warning: 가져오기 "sentry_sdk"을(를) 확인할 수 없습니다. (reportMissingImports)
+  d:\AI project\packages\shared\telemetry\sentry_integration.py:116:16 - warning: 가져오기 "sentry_sdk"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\telemetry\workflow_trace.py
+  d:\AI project\packages\shared\telemetry\workflow_trace.py:377:35 - error: "list[LiteralString] | Any" 형식의 인수를 "__init__" 함수에서 "list[str]" 형식의 "pipelines" 매개 변수에 할당할 수 없습니다.
+    형식 "list[LiteralString] | Any"은 형식 "list[str]"에 할당할 수 없습니다.
+      "list[LiteralString]"은 "list[str]"에 할당할 수 없습니다.
+        "_T@list" 형식 매개 변수는 고정이지만 "LiteralString"은(는) "str"와 같지 않습니다.
+        공변(covariant)인 "list"에서 "Sequence"로 전환하는 것이 좋습니다. (reportArgumentType)
+  d:\AI project\packages\shared\telemetry\workflow_trace.py:378:32 - error: "list[LiteralString] | Any" 형식의 인수를 "__init__" 함수에서 "list[str]" 형식의 "stages" 매개 변수에 할당할 수 없습니다.
+    형식 "list[LiteralString] | Any"은 형식 "list[str]"에 할당할 수 없습니다.
+      "list[LiteralString]"은 "list[str]"에 할당할 수 없습니다.
+        "_T@list" 형식 매개 변수는 고정이지만 "LiteralString"은(는) "str"와 같지 않습니다.
+        공변(covariant)인 "list"에서 "Sequence"로 전환하는 것이 좋습니다. (reportArgumentType)
+d:\AI project\packages\shared\test_utils\fixtures.py
+  d:\AI project\packages\shared\test_utils\fixtures.py:6:20 - warning: 가져오기 "Callable"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\test_utils\fixtures.py:58:10 - warning: 가져오기 "antigravity_mcp.state.store"을(를) 확인할 수 없습니다. (reportMissingImports)
+d:\AI project\packages\shared\test_utils\web3_integration_test.py
+  d:\AI project\packages\shared\test_utils\web3_integration_test.py:32:43 - error: "ModuleSpec | None" 형식의 인수를 "module_from_spec" 함수에서 "ModuleSpec" 형식의 "spec" 매개 변수에 할당할 수 없습니다.
+    형식 "ModuleSpec | None"은 형식 "ModuleSpec"에 할당할 수 없습니다.
+      "None"은 "ModuleSpec"에 할당할 수 없습니다. (reportArgumentType)
+  d:\AI project\packages\shared\test_utils\web3_integration_test.py:33:10 - error: "loader"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+  d:\AI project\packages\shared\test_utils\web3_integration_test.py:33:17 - error: "exec_module"은(는) "None"의 알려진 특성이 아님 (reportOptionalMemberAccess)
+d:\AI project\packages\shared\tests\test_cache.py
+  d:\AI project\packages\shared\tests\test_cache.py:5:8 - warning: 가져오기 "asyncio"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\tests\test_circuit_breaker.py
+  d:\AI project\packages\shared\tests\test_circuit_breaker.py:19:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\tests\test_context_condenser.py
+  d:\AI project\packages\shared\tests\test_context_condenser.py:16:49 - warning: 가져오기 "patch"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\tests\test_env_loader.py
+  d:\AI project\packages\shared\tests\test_env_loader.py:19:8 - warning: 가져오기 "importlib"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\tests\test_env_loader.py:29:31 - warning: 가져오기 "_ROOT_ONLY_KEYS"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\tests\test_language_bridge.py
+  d:\AI project\packages\shared\tests\test_language_bridge.py:25:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+  d:\AI project\packages\shared\tests\test_language_bridge.py:307:16 - error: "__getitem__" 메서드가 "object" 형식에 정의되지 않았습니다. (reportIndexIssue)
+  d:\AI project\packages\shared\tests\test_language_bridge.py:307:16 - error: ’None’ 유형의 개체는 아래 첨자를 사용할 수 없습니다. (reportOptionalSubscript)
+d:\AI project\packages\shared\tests\test_llm_errors.py
+  d:\AI project\packages\shared\tests\test_llm_errors.py:15:8 - warning: 가져오기 "pytest"에 액세스하지 않았습니다. (reportUnusedImport)
+d:\AI project\packages\shared\tests\test_tool_schema.py
+  d:\AI project\packages\shared\tests\test_tool_schema.py:117:26 - error: "BaseModel" 클래스의 "city" 특성에 액세스할 수 없음
+    특성 "city" 알 수 없음 (reportAttributeAccessIssue)
+  d:\AI project\packages\shared\tests\test_tool_schema.py:118:26 - error: "BaseModel" 클래스의 "unit" 특성에 액세스할 수 없음
+    특성 "unit" 알 수 없음 (reportAttributeAccessIssue)
+401 errors, 656 warnings, 0 informations

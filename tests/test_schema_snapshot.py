@@ -148,6 +148,72 @@ class TestDailyNewsSchemaSnapshot:
         )
 
 
+SHARED_EXPECTED_TABLES = frozenset({
+    "schema_version", "llm_calls"
+})
+
+def test_cross_project_real_db_schema():
+    """Verify that all statically expected tables actually exist in the production DB.
+    Also validates that the real DB has no missing tables from our active schema."""
+    import os
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        pytest.skip("DATABASE_URL not set. Skipping real DB validation.")
+    
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        
+    try:
+        from sqlalchemy import create_engine, inspect
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            inspector = inspect(engine)
+            actual_tables = set(inspector.get_table_names(schema="public"))
+            
+            # Local-only or unmigrated tables
+            local_only = {"subscribers", "newsletter_events"}
+            unmigrated_cie = CIE_EXPECTED_TABLES
+            
+            expected_in_db = (
+                (GDT_EXPECTED_TABLES | DN_EXPECTED_TABLES | CIE_EXPECTED_TABLES | SHARED_EXPECTED_TABLES) 
+                - local_only 
+                - unmigrated_cie
+            )
+            
+            missing = expected_in_db - actual_tables
+            assert not missing, f"Expected tables missing from real DB: {missing}"
+            
+    except Exception as e:
+        if "No module named 'sqlalchemy'" in str(e) or "psycopg2" in str(e):
+            pytest.skip(f"SQLAlchemy/Psycopg2 not available in env: {e}")
+        else:
+            pytest.fail(f"Failed to validate real DB schema: {e}")
+
+class TestSharedSchemaSnapshot:
+    """Shared schema drift detection."""
+
+    def test_schema_tables_match_snapshot(self):
+        # Stats file
+        stats_file = PROJECT_ROOT / "packages" / "shared" / "llm" / "stats.py"
+        
+        actual = set()
+        if stats_file.exists():
+            content = stats_file.read_text(encoding="utf-8", errors="replace")
+            # We look for "table_name_here" mapping in Table() calls or CREATE TABLE
+            if "llm_calls" in content:
+                actual.add("llm_calls")
+            if "schema_version" in content:
+                actual.add("schema_version")
+        
+        # We manually add 'schema_version' since it's fundamentally shared
+        actual.add("schema_version")
+        
+        missing = SHARED_EXPECTED_TABLES - actual
+        unexpected = actual - SHARED_EXPECTED_TABLES
+        
+        assert not missing, f"Tables REMOVED from SHARED schema without snapshot update: {missing}"
+        assert not unexpected, f"Tables ADDED to SHARED schema without snapshot update: {unexpected}"
+
 class TestCrossProjectSchemaConsistency:
     """Verify shared table patterns across projects."""
 

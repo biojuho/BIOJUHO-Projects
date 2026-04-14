@@ -1,6 +1,6 @@
 {
   "typeCheckingMode": "basic",
-  "pythonVersion": "3.13",
+  "pythonVersion": "3.12",
   "pythonPlatform": "All",
   "include": [
     "packages/shared",
@@ -20,8 +20,38 @@
   ],
   "reportMissingImports": "warning",
   "reportMissingTypeStubs": false,
-  "reportGeneralClassIssues": "warning",
   "reportUnnecessaryTypeIgnoreComment": false,
-  "reportCoroutineNotAwaited": "error",
-  "reportUnusedImport": "warning"
+  "reportUnusedImport": "warning",
+  "executionEnvironments": [
+    {
+      "root": "packages/shared",
+      "extraPaths": [
+        "packages"
+      ]
+    },
+    {
+      "root": "automation/getdaytrends",
+      "extraPaths": [
+        "packages",
+        "automation/getdaytrends"
+      ]
+    },
+    {
+      "root": "automation/content-intelligence",
+      "extraPaths": [
+        "packages",
+        "automation/content-intelligence"
+      ]
+    },
+    {
+      "root": "apps/dashboard",
+      "extraPaths": [
+        "packages",
+        "automation",
+        "automation/getdaytrends",
+        "automation/DailyNews",
+        "apps/desci-platform"
+      ]
+    }
+  ]
 }

@@ -30,7 +30,6 @@ from typing import Any, Awaitable, Callable, Optional
 from ..constitution import Constitution
 from ..core import HarnessConfig, HarnessWrapper
 from ..sandbox.policy import (
-    SandboxPolicy,
     ToolPermissionLevel,
     get_sandbox_policy,
     get_tool_level,

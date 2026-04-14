@@ -24,9 +24,8 @@ import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from .policy import SandboxPolicy, ToolPermissionLevel
+from .policy import SandboxPolicy
 
 logger = logging.getLogger(__name__)
 

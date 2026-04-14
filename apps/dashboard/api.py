@@ -366,7 +366,7 @@ def dailynews():
     )
     table_names = [t["name"] for t in tables]
 
-    result = {"tables": table_names}
+    result: dict[str, object] = {"tables": table_names}
 
     # runs 테이블이 있으면 조회
     if "pipeline_runs" in table_names:
@@ -383,7 +383,7 @@ def dailynews():
         result["recent_runs"] = recent
 
     # 각 테이블 행수
-    table_counts = {}
+    table_counts: dict[str, int] = {}
     for name in table_names:
         if not name.startswith("sqlite_"):
             count = _sqlite_scalar(DN_DB, f'SELECT COUNT(*) FROM "{name}"')
@@ -659,7 +659,7 @@ def quality_overview():
 @app.get("/api/sla_status")
 def sla_status():
     """파이프라인 SLA 현황 — 성공률, 평균 실행 시간, 최근 장애."""
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     sla_target = float(os.environ.get("SLA_TARGET_PERCENT", "99.0"))
     lookback_days = int(os.environ.get("SLA_LOOKBACK_DAYS", "30"))

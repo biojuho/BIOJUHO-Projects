@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ router = APIRouter(tags=["prediction"])
 
 # ── Lazy engine singleton ──────────────────────────────────
 
-import asyncio as _asyncio
 import threading as _threading
 
 _engine = None
