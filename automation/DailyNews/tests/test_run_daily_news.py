@@ -125,6 +125,49 @@ def test_run_daily_news_all_success_exits_zero(load_script_module, monkeypatch):
     assert exit_code == 0
 
 
+def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypatch):
+    """0 success + 0 failed + N skipped는 success가 아니라 degraded여야 한다.
+    success path로 흘러가면 alive heartbeat만 가서 며칠 연속 수집 0건이
+    묵음으로 묻힌다 — 2026-04-14 morning fix Minor 1 회귀 방지."""
+    module, _runtime = load_script_module("run_daily_news")
+    _install_run_daily_news_stubs(
+        module, monkeypatch, sources={"Tech": [], "Economy": []}
+    )
+
+    async def fake_process_category(**kwargs):
+        return {"category": kwargs["category"], "status": "skipped", "articles": 0}
+
+    monkeypatch.setattr(module, "process_category", fake_process_category)
+
+    notifier_calls: dict[str, list[dict]] = {"errors": [], "heartbeats": []}
+
+    class FakeNotifier:
+        has_channels = True
+
+        def send_error(self, message, *, source="system", **_kwargs):
+            notifier_calls["errors"].append({"message": message, "source": source})
+            return {}
+
+        def send_heartbeat(self, service_name, *, status="alive", details=""):
+            notifier_calls["heartbeats"].append(
+                {"service": service_name, "status": status, "details": details}
+            )
+            return {}
+
+    fake_notifications = SimpleNamespace(Notifier=SimpleNamespace(from_env=FakeNotifier))
+    monkeypatch.setitem(sys.modules, "shared.notifications", fake_notifications)
+
+    exit_code = asyncio.run(
+        module.run_daily_news(force=True, max_items=5, run_id="run-daily-news")
+    )
+
+    assert exit_code == 1
+    assert notifier_calls["errors"], "degraded path must fire an error alert"
+    assert "degraded" in notifier_calls["errors"][0]["message"]
+    assert notifier_calls["heartbeats"], "degraded path must emit a heartbeat"
+    assert notifier_calls["heartbeats"][0]["status"] == "degraded"
+
+
 def test_get_extraction_window_absorbs_cron_delay(load_script_module, monkeypatch):
     """GHA cron delays of a few hours should still classify into the right
     window. Previously 12:00 KST or 19:49 KST would raise 'outside extraction

@@ -622,14 +622,15 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                 else:
                     summary["categories_skipped"] += 1
 
+            succ = summary["categories_success"]
+            fail = summary["categories_failed"]
+            skip = summary["categories_skipped"]
+            total = succ + fail + skip
+
             # 어떤 카테고리라도 업로드 실패하면 명시적 failure로 마감한다.
             # Partial (예: 5/6)도 heartbeat에만 남기면 알림이 조용히 묻혀서,
             # 카테고리 하나가 며칠 연속 실패해도 아무도 모르게 된다.
-            if summary["categories_failed"] > 0:
-                succ = summary["categories_success"]
-                fail = summary["categories_failed"]
-                skip = summary["categories_skipped"]
-                total = succ + fail + skip
+            if fail > 0:
                 status_name = "failed" if succ == 0 else "partial_failed"
                 error_msg = (
                     f"{fail}/{total} categories failed to publish "
@@ -652,6 +653,45 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                             f"성공 {succ} / 실패 {fail} / 스킵 {skip} "
                             f"(window={summary['window']}, 기사={summary['articles']})",
                             source="DailyNews",
+                        )
+                except Exception:
+                    pass
+                return 1
+
+            # 0 success + 0 failed + N skipped는 success가 아니라 degraded.
+            # 수집 단계가 모든 카테고리에서 0건을 반환한 경우 (피드 장애·필터 너무
+            # 빡빡함·소스 URL 일괄 만료 등) 알림 없이 success heartbeat가 가면
+            # 며칠씩 묵음 장애가 누적된다.
+            if total > 0 and succ == 0 and skip == total:
+                error_msg = (
+                    f"{skip}/{total} categories skipped — zero articles "
+                    f"in window {summary['window']}"
+                )
+                state.record_job_finish(
+                    run_id, status="degraded", summary=summary, error_text=error_msg
+                )
+                logger.error(
+                    "complete", "degraded",
+                    "run_daily_news collected zero articles across all categories",
+                    **summary,
+                )
+                try:
+                    from shared.notifications import Notifier
+
+                    _notifier = Notifier.from_env()
+                    if _notifier.has_channels:
+                        _notifier.send_error(
+                            f"DailyNews degraded: 전 카테고리({skip}) 수집 0건 "
+                            f"(window={summary['window']})",
+                            source="DailyNews",
+                        )
+                        _notifier.send_heartbeat(
+                            "DailyNews",
+                            status="degraded",
+                            details=(
+                                f"window={summary['window']} "
+                                f"성공={succ} 실패={fail} 스킵={skip} 기사=0"
+                            ),
                         )
                 except Exception:
                     pass
