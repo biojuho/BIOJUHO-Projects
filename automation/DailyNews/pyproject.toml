@@ -15,6 +15,9 @@ dependencies = [
     "openai>=1.0.0,<3.0",
     "tenacity>=8.0.0,<10.0",
     "matplotlib>=3.8.0,<4.0",
+    "sqlalchemy>=2.0.0,<3.0",  # shared.llm.stats uses SQLAlchemy for cost tracking
+    "aiosqlite>=0.19.0,<1.0",  # signal_collector reads GetDayTrends SQLite DB async
+    "fastapi>=0.110.0,<1.0",  # newsletter subscribe/unsubscribe + signals endpoints
 ]
 
 [project.optional-dependencies]

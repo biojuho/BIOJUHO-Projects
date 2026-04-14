@@ -626,12 +626,14 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
             # Partial (예: 5/6)도 heartbeat에만 남기면 알림이 조용히 묻혀서,
             # 카테고리 하나가 며칠 연속 실패해도 아무도 모르게 된다.
             if summary["categories_failed"] > 0:
-                total = summary["categories_success"] + summary["categories_failed"]
-                status_name = (
-                    "failed" if summary["categories_success"] == 0 else "partial_failed"
-                )
+                succ = summary["categories_success"]
+                fail = summary["categories_failed"]
+                skip = summary["categories_skipped"]
+                total = succ + fail + skip
+                status_name = "failed" if succ == 0 else "partial_failed"
                 error_msg = (
-                    f"{summary['categories_failed']}/{total} categories failed to publish"
+                    f"{fail}/{total} categories failed to publish "
+                    f"(success={succ}, skipped={skip})"
                 )
                 state.record_job_finish(
                     run_id, status=status_name, summary=summary, error_text=error_msg
@@ -647,7 +649,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                     if _notifier.has_channels:
                         _notifier.send_error(
                             f"DailyNews 파이프라인 {'실패' if status_name == 'failed' else '부분 실패'}: "
-                            f"{summary['categories_success']}/{total} 카테고리 발행 "
+                            f"성공 {succ} / 실패 {fail} / 스킵 {skip} "
                             f"(window={summary['window']}, 기사={summary['articles']})",
                             source="DailyNews",
                         )

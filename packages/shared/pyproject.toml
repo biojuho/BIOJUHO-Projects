@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "python-dotenv",
     "redis>=5.0.0,<8.0",
+    "sqlalchemy>=2.0.0,<3.0",
 ]
 
 [project.optional-dependencies]
