@@ -18,6 +18,7 @@ from generator import (
     _system_threads,
     _system_tweets,
     audit_generated_content,
+    generate_tweets_async,
     generate_blog_async,
     generate_long_form_async,
     generate_threads_content_async,
@@ -327,6 +328,36 @@ class TestReportProfileGeneration(unittest.IsolatedAsyncioTestCase):
         posts = await generate_blog_async(_make_trend(), _make_config(editorial_profile="report"), client)
         self.assertEqual(posts[0].tweet_type, "심층 분석")
         self.assertIn("## 핵심 정리", posts[0].content)
+
+    async def test_tweet_generation_includes_revision_feedback_section(self):
+        response = MagicMock()
+        response.text = '{"tweets":[{"type":"분석형","content":"첫 문장부터 다시 쓴 트윗"}]}'
+        client = MagicMock()
+        client.acreate = AsyncMock(return_value=response)
+
+        result = await generate_tweets_async(
+            _make_trend(),
+            _make_config(),
+            client,
+            revision_feedback={
+                "qa": {
+                    "total": 61,
+                    "threshold": 75,
+                    "reason": "핵심 정리 불릿 부족",
+                    "issues": ["핵심 정리 불릿 부족"],
+                    "worst_axis": "hook",
+                    "regulation": 2,
+                    "fact_violation": True,
+                }
+            },
+        )
+
+        self.assertIsNotNone(result)
+        prompt = client.acreate.await_args.kwargs["messages"][0]["content"]
+        self.assertIn("[재생성 보정 지시]", prompt)
+        self.assertIn("QA 총점/기준: 61/75", prompt)
+        self.assertIn("가장 약한 축: hook", prompt)
+        self.assertIn("[사실 고정 규칙", prompt)
 
 
 class TestAuditGeneratedContent(unittest.IsolatedAsyncioTestCase):

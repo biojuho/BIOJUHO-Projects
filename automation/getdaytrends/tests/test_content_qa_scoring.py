@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -32,6 +33,7 @@ from content_qa import (
     _score_hook,
     _score_kick,
     _UNVERIFIED_QUOTE_PATTERNS,
+    build_regeneration_feedback,
 )
 from models import GeneratedTweet
 
@@ -249,3 +251,45 @@ class TestUnverifiedQuotes:
         for pattern in _UNVERIFIED_QUOTE_PATTERNS:
             text = f"이번 사안에 대해 {pattern} 밝혔다."
             assert pattern in text
+
+
+class TestBuildRegenerationFeedback:
+
+    def test_collects_failed_qa_feedback_from_failed_groups(self):
+        feedback = build_regeneration_feedback(
+            qa_summary={
+                "failed_groups": ["blog_posts"],
+                "group_results": {
+                    "blog_posts": {
+                        "total": 60,
+                        "threshold": 75,
+                        "reason": "핵심 정리 불릿 부족",
+                        "issues": ["핵심 정리 불릿 부족", "첫 문장이 기사체/상투구에 가까움"],
+                        "worst": "angle",
+                        "regulation": 4,
+                        "fact_violation": False,
+                    }
+                },
+            }
+        )
+
+        assert feedback["blog_posts"]["qa"]["total"] == 60
+        assert feedback["blog_posts"]["qa"]["worst_axis"] == "angle"
+        assert feedback["blog_posts"]["qa"]["issues"][0] == "핵심 정리 불릿 부족"
+
+    def test_collects_fact_check_feedback_for_hallucination_groups(self):
+        feedback = build_regeneration_feedback(
+            fact_check_results={
+                "tweets": SimpleNamespace(
+                    passed=False,
+                    summary="실패 (정확도=50%, 미검증=1, 환각=1)",
+                    issues=["[환각 의심] 수치: '87%' - 소스에서 확인 불가"],
+                    accuracy_score=0.5,
+                    hallucinated_claims=1,
+                    unverified_claims=1,
+                )
+            }
+        )
+
+        assert feedback["tweets"]["fact_check"]["hallucinated_claims"] == 1
+        assert feedback["tweets"]["fact_check"]["accuracy_score"] == 0.5

@@ -16,6 +16,7 @@ try:
         _build_context_section,
         _build_deep_why_section,
         _build_fact_guardrail_section,
+        _build_revision_feedback_section,
         _build_scoring_section,
         _parse_json,
         _resolve_language,
@@ -33,6 +34,7 @@ except ImportError:
         _build_context_section,
         _build_deep_why_section,
         _build_fact_guardrail_section,
+        _build_revision_feedback_section,
         _build_scoring_section,
         _parse_json,
         _resolve_language,
@@ -54,6 +56,8 @@ async def generate_threads_content_async(
     trend: ScoredTrend,
     config: AppConfig,
     client: LLMClient,
+    *,
+    revision_feedback: dict | None = None,
 ) -> list[GeneratedTweet]:
     """Meta Threads 최적화 콘텐츠 비동기 생성 (Haiku — 단문)."""
     from datetime import datetime as _dt
@@ -64,6 +68,7 @@ async def generate_threads_content_async(
     scoring_section = _build_scoring_section(trend)
     deep_why_section = _build_deep_why_section(trend)
     fact_guardrail_section = _build_fact_guardrail_section(trend)
+    revision_feedback_section = _build_revision_feedback_section(revision_feedback)
     identity_section = _build_account_identity_section(config, include_tone=not report_profile)
     audience_format_section = _build_audience_format_section(trend)
     safe_keyword = sanitize_keyword(trend.keyword)
@@ -73,7 +78,8 @@ async def generate_threads_content_async(
         f"주제: {safe_keyword}\n"
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}{audience_format_section}\n"
+        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}"
+        f"{revision_feedback_section}{audience_format_section}\n"
         + (
             "위 배경과 컨텍스트를 소화한 뒤, Threads용 리포트형 포스트 2개를 작성.\n"
             "핵심: 뉴스 전달이 아니라 '이 현상에 대한 내 해석'.\n"

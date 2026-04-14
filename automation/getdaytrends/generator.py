@@ -126,6 +126,7 @@ try:
         _build_fact_guardrail_section,
         _build_golden_reference_section,
         _build_pattern_weights_section,
+        _build_revision_feedback_section,
         _build_scoring_section,
         _parse_json,
         _resolve_language,
@@ -156,6 +157,7 @@ except ImportError:
         _build_fact_guardrail_section,
         _build_golden_reference_section,
         _build_pattern_weights_section,
+        _build_revision_feedback_section,
         _build_scoring_section,
         _parse_json,
         _resolve_language,
@@ -183,6 +185,7 @@ async def generate_tweets_async(
     pattern_weights: dict | None = None,
     *,
     edape_block: str = "",
+    revision_feedback: dict | None = None,
 ) -> TweetBatch | None:
     """5종 단문 트윗 비동기 생성 (Haiku — 비용 절감).
     [v9.0] recent_tweets: 이전 생성 내용 주입으로 표현 다양성 보장.
@@ -195,11 +198,13 @@ async def generate_tweets_async(
     context_section = _build_context_section(trend)
     scoring_section = _build_scoring_section(trend)
     identity_section = _build_account_identity_section(config)
+    fact_guardrail_section = _build_fact_guardrail_section(trend)
     diversity_section = _build_diversity_section(recent_tweets or [])
     category_hint = _build_category_tone_hint(trend)
     deep_why_section = _build_deep_why_section(trend)
     golden_ref_section = _build_golden_reference_section(golden_refs)
     pattern_weights_section = _build_pattern_weights_section(pattern_weights)
+    revision_feedback_section = _build_revision_feedback_section(revision_feedback)
     audience_format_section = _build_audience_format_section(trend)
     safe_keyword = sanitize_keyword(trend.keyword)
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
@@ -208,8 +213,9 @@ async def generate_tweets_async(
         f"주제: {safe_keyword}\n"
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{identity_section}{deep_why_section}{context_section}{scoring_section}"
-        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}{audience_format_section}"
+        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}"
+        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}"
+        f"{revision_feedback_section}{audience_format_section}"
         f"{edape_block}\n"
         "위 배경과 컨텍스트를 깊이 소화한 뒤, 쟁점을 추출하고 각 쟁점별로 날카로운 각도의 트윗 작성.\n"
         "중요: 너는 뉴스를 '전달'하는 사람이 아니라 뉴스를 보고 '한마디 하는' 사람임.\n"
@@ -559,6 +565,7 @@ async def generate_ab_variant_async(
 try:
     from .content_qa import (  # noqa: F401
         audit_generated_content,
+        build_regeneration_feedback,
         regenerate_content_groups,
     )
     from .generation.persona import _round_robin_counter, select_persona  # noqa: F401
@@ -568,6 +575,7 @@ try:
 except ImportError:
     from content_qa import (  # noqa: F401
         audit_generated_content,
+        build_regeneration_feedback,
         regenerate_content_groups,
     )
     from generation.persona import _round_robin_counter, select_persona  # noqa: F401

@@ -143,6 +143,71 @@ def _build_diversity_section(recent_tweets: list[str]) -> str:
     return f"\n[이미 생성된 표현 — 반드시 다른 각도/어휘로 작성할 것]\n{previews}\n"
 
 
+def _build_revision_feedback_section(revision_feedback: dict | None) -> str:
+    """Inject retry-specific QA / fact-check guidance into regeneration prompts."""
+    if not revision_feedback:
+        return ""
+
+    lines = [
+        "",
+        "[재생성 보정 지시]",
+        "- 이번 출력은 자동 QA 또는 FactCheck 실패 후 다시 쓰는 버전이다.",
+        "- 핵심 인사이트는 유지하되, 문장만 조금 고치는 수준이 아니라 처음부터 다시 작성할 것.",
+    ]
+
+    qa = revision_feedback.get("qa") or {}
+    if qa:
+        qa_total = qa.get("total")
+        qa_threshold = qa.get("threshold")
+        weakest_axis = qa.get("worst_axis") or ""
+        axis_guidance = {
+            "hook": "첫 문장은 숫자, 대비, 질문, 강한 관찰 중 하나로 바로 주목도를 만들어라.",
+            "fact": "컨텍스트에 직접 있는 고유명사, 수치, 인용만 사용하고 추정 사실은 새로 만들지 마라.",
+            "tone": "상투구, AI 말투, 기사체 표현을 줄이고 사람이 바로 말하는 듯한 문장으로 바꿔라.",
+            "kick": "마무리는 밋밋한 정리 대신 독자가 가져갈 해석이나 한 줄 관찰로 끝내라.",
+            "angle": "뉴스 요약 반복을 피하고, 왜 중요한지에 대한 명확한 관점이나 해석을 추가하라.",
+            "regulation": "플랫폼 규칙을 엄수하고 길이, 형식, 해시태그 제한을 다시 점검하라.",
+            "algorithm": "스크롤을 멈추게 하는 구조와 참여를 부르는 흐름을 더 분명히 설계하라.",
+        }
+        lines.append(
+            f"- QA 총점/기준: "
+            f"{qa_total if qa_total not in (None, '') else '?'}/"
+            f"{qa_threshold if qa_threshold not in (None, '') else '?'}"
+        )
+        if weakest_axis:
+            lines.append(f"- 가장 약한 축: {weakest_axis}")
+        if qa.get("reason"):
+            lines.append(f"- 대표 실패 사유: {qa['reason']}")
+        for issue in list(qa.get("issues", []) or [])[:3]:
+            lines.append(f"- 보완 포인트: {issue}")
+        if qa.get("fact_violation"):
+            lines.append("- 컨텍스트 밖 고유명사, 수치, 출처 불명 인용은 모두 제거하거나 완곡하게 낮춰라.")
+        if (qa.get("regulation") or 10) <= 3:
+            lines.append("- 이전 출력에서 플랫폼 규칙 위반이 있었으니 형식 규칙을 우선적으로 바로잡아라.")
+        if weakest_axis in axis_guidance:
+            lines.append(f"- 우선 수정 방향: {axis_guidance[weakest_axis]}")
+
+    fact_check = revision_feedback.get("fact_check") or {}
+    if fact_check:
+        accuracy_score = fact_check.get("accuracy_score")
+        if fact_check.get("summary"):
+            lines.append(f"- FactCheck 요약: {fact_check['summary']}")
+        if accuracy_score is not None:
+            try:
+                lines.append(f"- 검증 정확도: {float(accuracy_score):.0%}")
+            except (TypeError, ValueError):
+                pass
+        if fact_check.get("hallucinated_claims", 0):
+            lines.append(
+                f"- 환각 의심 주장 수: {fact_check.get('hallucinated_claims', 0)}"
+            )
+        for issue in list(fact_check.get("issues", []) or [])[:3]:
+            lines.append(f"- 제거 또는 완화할 주장: {issue}")
+        lines.append("- 소스에서 직접 확인된 사실만 단정형으로 쓰고, 불확실한 내용은 추정 표현으로 낮춰라.")
+
+    return "\n".join(lines) + "\n"
+
+
 def _build_deep_why_section(trend: ScoredTrend) -> str:
     """[v10.0] 구조화된 트렌드 배경을 생성 프롬프트에 주입."""
     tc = getattr(trend, "trend_context", None)

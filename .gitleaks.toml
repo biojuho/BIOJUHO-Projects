@@ -11,4 +11,7 @@ title = "AI Project Gitleaks Config"
     '''dist''',
     '''\.pytest_cache''',
     '''__pycache__''',
+    '''logs/''',
+    '''harness_audit\.jsonl''',
+    '''\.log$''',
   ]

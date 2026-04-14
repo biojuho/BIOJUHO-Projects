@@ -71,7 +71,12 @@ try:
         save_validated_trend,
         update_draft_bundle_status,
     )
-    from ..generator import audit_generated_content, generate_for_trend_async, regenerate_content_groups
+    from ..generator import (
+        audit_generated_content,
+        build_regeneration_feedback,
+        generate_for_trend_async,
+        regenerate_content_groups,
+    )
     from ..models import GeneratedTweet, RunResult, TweetBatch
     from ..storage import save_to_content_hub, save_to_google_sheets, save_to_notion
     from ..workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
@@ -94,7 +99,12 @@ except ImportError:
         save_validated_trend,
         update_draft_bundle_status,
     )
-    from generator import audit_generated_content, generate_for_trend_async, regenerate_content_groups
+    from generator import (
+        audit_generated_content,
+        build_regeneration_feedback,
+        generate_for_trend_async,
+        regenerate_content_groups,
+    )
     from models import GeneratedTweet, RunResult, TweetBatch
     from storage import save_to_content_hub, save_to_google_sheets, save_to_notion
     from workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
@@ -271,6 +281,31 @@ def _build_empty_qa(trend, *, reason: str = "qa_skipped") -> dict:
     }
 
 
+def _format_qa_failure_summary(group_name: str, result: dict) -> str:
+    issues = list(result.get("issues", []) or [])
+    extras: list[str] = [f"{result.get('total', '?')}/{result.get('threshold', '?')}"]
+    if result.get("worst"):
+        extras.append(f"worst={result['worst']}")
+    if issues:
+        extras.append(issues[0])
+    return f"{group_name} ({', '.join(extras)})"
+
+
+def _format_fact_check_failure_summary(group_name: str, fc_result) -> str:
+    details: list[str] = []
+    accuracy_score = getattr(fc_result, "accuracy_score", None)
+    if accuracy_score is not None:
+        with contextlib.suppress(TypeError, ValueError):
+            details.append(f"accuracy={float(accuracy_score):.0%}")
+    hallucinated_claims = int(getattr(fc_result, "hallucinated_claims", 0) or 0)
+    if hallucinated_claims > 0:
+        details.append(f"hallucinated={hallucinated_claims}")
+    issues = list(getattr(fc_result, "issues", []) or [])
+    if issues:
+        details.append(issues[0])
+    return f"{group_name} ({', '.join(details)})" if details else group_name
+
+
 async def _run_qa_pipeline(
     primary: TweetBatch,
     trend,
@@ -292,20 +327,32 @@ async def _run_qa_pipeline(
     if failed_groups:
         details = qa.get("group_results", {})
         failed_summary = ", ".join(
-            f"{group}={details.get(group, {}).get('total', '?')}/{details.get(group, {}).get('threshold', '?')}"
+            _format_qa_failure_summary(group, details.get(group, {}))
             for group in failed_groups
         )
+        qa_feedback = build_regeneration_feedback(qa_summary=qa)
         log.warning(
             f"  [QA 미달] '{trend.keyword}' → {failed_summary} (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성"
         )
         primary = await regenerate_content_groups(
-            primary, trend, effective_config, client, failed_groups, recent_tweets=recent_tweets,
+            primary,
+            trend,
+            effective_config,
+            client,
+            failed_groups,
+            recent_tweets=recent_tweets,
+            qa_feedback=qa_feedback,
         )
         qa_after = await audit_generated_content(primary, trend, config, client)
         final_qa = qa_after or qa
         if qa_after and qa_after.get("failed_groups"):
+            qa_after_details = qa_after.get("group_results", {})
+            failed_after_summary = ", ".join(
+                _format_qa_failure_summary(group, qa_after_details.get(group, {}))
+                for group in qa_after["failed_groups"]
+            )
             log.warning(
-                f"  [QA 재검사 미달] '{trend.keyword}' {', '.join(qa_after['failed_groups'])} (사유: {qa_after.get('reason', '-')})"
+                f"  [QA 재검사 미달] '{trend.keyword}' {failed_after_summary} (사유: {qa_after.get('reason', '-')})"
             )
 
     return primary, final_qa
@@ -348,10 +395,14 @@ async def _run_fact_check(
             min_accuracy=getattr(effective_config, "fact_check_min_accuracy", 0.6),
         )
         any_failed = False
+        fact_check_feedback = build_regeneration_feedback(fact_check_results=fc_results)
         for group_name, fc_result in fc_results.items():
             if not fc_result.passed:
                 any_failed = True
-                log.warning(f"  [FactCheck 실패] '{trend.keyword}' {group_name}: {fc_result.summary}")
+                log.warning(
+                    f"  [FactCheck 실패] '{trend.keyword}' "
+                    f"{_format_fact_check_failure_summary(group_name, fc_result)}: {fc_result.summary}"
+                )
             trend.fact_check_score = min(trend.fact_check_score, fc_result.accuracy_score)
             trend.source_credibility = max(trend.source_credibility, fc_result.source_credibility)
             if fc_result.hallucinated_claims > 0:
@@ -366,7 +417,13 @@ async def _run_fact_check(
                     f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}"
                 )
                 primary = await regenerate_content_groups(
-                    primary, trend, effective_config, client, halluc_groups, recent_tweets=recent_tweets,
+                    primary,
+                    trend,
+                    effective_config,
+                    client,
+                    halluc_groups,
+                    recent_tweets=recent_tweets,
+                    fact_check_feedback=fact_check_feedback,
                 )
     except (RuntimeError, ConnectionError, TimeoutError, ValueError) as _fc_err:
         log.debug(f"  [FactCheck] 실행 실패 (무시): {type(_fc_err).__name__}: {_fc_err}")

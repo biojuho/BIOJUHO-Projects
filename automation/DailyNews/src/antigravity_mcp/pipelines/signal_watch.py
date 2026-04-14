@@ -14,13 +14,14 @@ import json
 import logging
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-from antigravity_mcp.config import DATA_DIR
+from antigravity_mcp.config import DATA_DIR, get_settings
 from antigravity_mcp.domain.models import ContentItem
 from antigravity_mcp.integrations.signal_collector import MultiSourceCollector
 from antigravity_mcp.integrations.signal_scorer import ScoredSignal, SignalScorer
@@ -30,24 +31,54 @@ from antigravity_mcp.state.store import PipelineStateStore
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Signal State Store (lightweight SQLite for signal history)
+# psycopg2 optional import
+# ---------------------------------------------------------------------------
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    _PG_AVAILABLE = True
+except ImportError:
+    _PG_AVAILABLE = False
+
+# ---------------------------------------------------------------------------
+# Signal State Store (Supabase PostgreSQL + SQLite dual-mode)
 # ---------------------------------------------------------------------------
 
 _SIGNAL_DB_PATH = DATA_DIR / "signal_watch.db"
 
-_SCHEMA = """
+_SQLITE_SCHEMA = """\
 CREATE TABLE IF NOT EXISTS signal_history (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     keyword       TEXT NOT NULL,
     composite_score REAL NOT NULL,
-    sources       TEXT NOT NULL,       -- JSON array
+    sources       TEXT NOT NULL,
     source_count  INTEGER NOT NULL,
     arbitrage_type TEXT NOT NULL,
     recommended_action TEXT NOT NULL,
     velocity      REAL DEFAULT 0.0,
     category_hint TEXT DEFAULT '',
     detected_at   TEXT NOT NULL,
-    raw_data      TEXT DEFAULT '{}'    -- JSON
+    raw_data      TEXT DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_sh_keyword_detected ON signal_history(keyword, detected_at);
+CREATE INDEX IF NOT EXISTS idx_sh_detected ON signal_history(detected_at);
+CREATE INDEX IF NOT EXISTS idx_sh_score ON signal_history(composite_score);
+"""
+
+_PG_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS signal_history (
+    id            SERIAL PRIMARY KEY,
+    keyword       TEXT NOT NULL,
+    composite_score DOUBLE PRECISION NOT NULL,
+    sources       TEXT NOT NULL,
+    source_count  INTEGER NOT NULL,
+    arbitrage_type TEXT NOT NULL,
+    recommended_action TEXT NOT NULL,
+    velocity      DOUBLE PRECISION DEFAULT 0.0,
+    category_hint TEXT DEFAULT '',
+    detected_at   TEXT NOT NULL,
+    raw_data      TEXT DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_sh_keyword_detected ON signal_history(keyword, detected_at);
 CREATE INDEX IF NOT EXISTS idx_sh_detected ON signal_history(detected_at);
@@ -56,24 +87,121 @@ CREATE INDEX IF NOT EXISTS idx_sh_score ON signal_history(composite_score);
 
 
 class SignalStateStore:
-    """Lightweight SQLite store for signal watch history."""
+    """Dual-mode signal history store: Supabase PostgreSQL when available, SQLite fallback.
+
+    Priority: SUPABASE_DATABASE_URL (env) → explicit db_path → default SQLite path.
+    """
 
     def __init__(self, *, db_path: Path | str | None = None) -> None:
-        self._db_path = str(db_path or _SIGNAL_DB_PATH)
+        self._explicit_db_path = str(db_path) if db_path else None
         self._initialised = False
+
+        # Determine mode
+        try:
+            settings = get_settings()
+            self._pg_url: str = settings.supabase_database_url or ""
+        except Exception:
+            self._pg_url = os.getenv("SUPABASE_DATABASE_URL", "") or os.getenv("DATABASE_URL", "")
+
+        self._use_pg = bool(self._pg_url and _PG_AVAILABLE and not self._explicit_db_path)
+        if self._use_pg:
+            logger.info("SignalStateStore: using PostgreSQL (Supabase)")
+        else:
+            if self._pg_url and not _PG_AVAILABLE:
+                logger.warning("SignalStateStore: SUPABASE_DATABASE_URL set but psycopg2 unavailable — falling back to SQLite")
+            self._sqlite_path = self._explicit_db_path or str(_SIGNAL_DB_PATH)
+            logger.info("SignalStateStore: using SQLite (%s)", self._sqlite_path)
+
+    # -- Connection helpers -------------------------------------------------
+
+    @contextmanager
+    def _get_connection(self) -> Iterator[Any]:
+        """Yield a DB connection (PG or SQLite) with auto-commit semantics."""
+        if self._use_pg:
+            conn = psycopg2.connect(self._pg_url, cursor_factory=RealDictCursor)
+            try:
+                yield conn
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
+        else:
+            os.makedirs(os.path.dirname(self._sqlite_path) or ".", exist_ok=True)
+            conn = sqlite3.connect(self._sqlite_path)
+            conn.row_factory = sqlite3.Row
+            try:
+                yield conn
+                conn.commit()
+            finally:
+                conn.close()
 
     def _ensure_init(self) -> None:
         if self._initialised:
             return
-        os.makedirs(os.path.dirname(self._db_path) or ".", exist_ok=True)
-        with sqlite3.connect(self._db_path) as conn:
-            conn.executescript(_SCHEMA)
+        with self._get_connection() as conn:
+            if self._use_pg:
+                with conn.cursor() as cur:
+                    for stmt in _PG_SCHEMA.strip().split(";"):
+                        stmt = stmt.strip()
+                        if stmt:
+                            cur.execute(stmt)
+            else:
+                conn.executescript(_SQLITE_SCHEMA)
         self._initialised = True
+
+    # -- placeholder helper (? for SQLite, %s for PG) ----------------------
+
+    @property
+    def _ph(self) -> str:
+        return "%s" if self._use_pg else "?"
+
+    def _execute(self, conn: Any, sql: str, params: tuple = ()) -> Any:
+        """Execute a query with the correct placeholder style."""
+        if self._use_pg:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                return cur
+        else:
+            return conn.execute(sql, params)
+
+    def _fetchall(self, conn: Any, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        """Execute and fetchall, returning list of dicts."""
+        if self._use_pg:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                return [dict(row) for row in cur.fetchall()]
+        else:
+            cursor = conn.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def _fetchone(self, conn: Any, sql: str, params: tuple = ()) -> Any:
+        """Execute and fetchone."""
+        if self._use_pg:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                return cur.fetchone()
+        else:
+            cursor = conn.execute(sql, params)
+            return cursor.fetchone()
+
+    # -- Public API ---------------------------------------------------------
 
     def save_signals(self, signals: list[ScoredSignal]) -> int:
         """Persist scored signals. Returns count saved."""
         self._ensure_init()
         now = datetime.now(UTC).isoformat()
+        ph = self._ph
+
+        insert_sql = f"""
+            INSERT INTO signal_history
+                (keyword, composite_score, sources, source_count,
+                 arbitrage_type, recommended_action, velocity,
+                 category_hint, detected_at, raw_data)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+        """
+
         rows = []
         for s in signals:
             rows.append((
@@ -89,50 +217,45 @@ class SignalStateStore:
                 json.dumps({"raw_count": len(s.raw_signals)}),
             ))
 
-        with sqlite3.connect(self._db_path) as conn:
-            conn.executemany(
-                """
-                INSERT INTO signal_history
-                    (keyword, composite_score, sources, source_count,
-                     arbitrage_type, recommended_action, velocity,
-                     category_hint, detected_at, raw_data)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                rows,
-            )
+        with self._get_connection() as conn:
+            if self._use_pg:
+                with conn.cursor() as cur:
+                    for row in rows:
+                        cur.execute(insert_sql, row)
+            else:
+                conn.executemany(insert_sql, rows)
         return len(rows)
 
     def get_signal_history(self, *, hours: int = 24, min_score: float = 0.0, limit: int = 50) -> list[dict[str, Any]]:
         """Get recent signal history."""
         self._ensure_init()
         cutoff = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
-        with sqlite3.connect(self._db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                """
-                SELECT keyword, composite_score, sources, source_count,
-                       arbitrage_type, recommended_action, velocity,
-                       category_hint, detected_at
-                FROM signal_history
-                WHERE detected_at >= ? AND composite_score >= ?
-                ORDER BY composite_score DESC
-                LIMIT ?
-                """,
-                (cutoff, min_score, limit),
-            )
-            rows = cursor.fetchall()
-        return [dict(r) for r in rows]
+        ph = self._ph
+        sql = f"""
+            SELECT keyword, composite_score, sources, source_count,
+                   arbitrage_type, recommended_action, velocity,
+                   category_hint, detected_at
+            FROM signal_history
+            WHERE detected_at >= {ph} AND composite_score >= {ph}
+            ORDER BY composite_score DESC
+            LIMIT {ph}
+        """
+        with self._get_connection() as conn:
+            return self._fetchall(conn, sql, (cutoff, min_score, limit))
 
     def is_duplicate(self, keyword: str, *, within_hours: int = 3) -> bool:
         """Check if we already recorded this keyword recently."""
         self._ensure_init()
         cutoff = (datetime.now(UTC) - timedelta(hours=within_hours)).isoformat()
-        with sqlite3.connect(self._db_path) as conn:
-            cursor = conn.execute(
-                "SELECT COUNT(*) FROM signal_history WHERE keyword = ? AND detected_at >= ?",
-                (keyword, cutoff),
-            )
-            row = cursor.fetchone()
+        ph = self._ph
+        sql = f"SELECT COUNT(*) FROM signal_history WHERE keyword = {ph} AND detected_at >= {ph}"
+        with self._get_connection() as conn:
+            row = self._fetchone(conn, sql, (keyword, cutoff))
+            if row is None:
+                return False
+            # PG returns dict, SQLite returns Row
+            if isinstance(row, dict):
+                return (row.get("count", 0) or 0) > 0
             return (row[0] or 0) > 0
 
 

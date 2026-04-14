@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -147,3 +147,40 @@ async def test_step_generate_handles_empty_trend_list():
         result = await _step_generate([], cfg, conn=MagicMock())
 
     assert result == []
+
+
+@pytest.mark.asyncio
+async def test_run_fact_check_passes_fact_check_feedback_to_regeneration():
+    from getdaytrends.core.pipeline_steps import _run_fact_check
+
+    batch = MagicMock()
+    trend = MagicMock()
+    trend.keyword = "테스트"
+    trend.fact_check_score = 1.0
+    trend.source_credibility = 0.0
+    trend.hallucination_flags = []
+    cfg = AppConfig()
+    cfg.enable_fact_checking = True
+    cfg.hallucination_zero_tolerance = True
+
+    fc_result = MagicMock()
+    fc_result.passed = False
+    fc_result.summary = "실패 (정확도=50%, 미검증=0, 환각=1)"
+    fc_result.accuracy_score = 0.5
+    fc_result.source_credibility = 0.8
+    fc_result.hallucinated_claims = 1
+    fc_result.unverified_claims = 0
+    fc_result.issues = ["[환각 의심] 수치: '87%' - 소스에서 확인 불가"]
+
+    with (
+        patch("getdaytrends.core.pipeline_steps.verify_fact_batch", return_value={"tweets": fc_result}),
+        patch("getdaytrends.core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
+    ):
+        mock_regen.return_value = batch
+        result = await _run_fact_check(batch, trend, cfg, client=MagicMock(), recent_tweets=[])
+
+    assert result is batch
+    mock_regen.assert_called_once()
+    assert mock_regen.call_args.args[4] == ["tweets"]
+    assert mock_regen.call_args.kwargs["fact_check_feedback"]["tweets"]["fact_check"]["hallucinated_claims"] == 1
+    assert "환각 의심" in mock_regen.call_args.kwargs["fact_check_feedback"]["tweets"]["fact_check"]["issues"][0]

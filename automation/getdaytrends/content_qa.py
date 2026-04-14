@@ -289,6 +289,57 @@ async def audit_generated_content(
     return summary
 
 
+def build_regeneration_feedback(
+    *,
+    qa_summary: dict | None = None,
+    fact_check_results: dict | None = None,
+) -> dict[str, dict]:
+    """Normalize QA / fact-check failures into per-group retry feedback."""
+    feedback: dict[str, dict] = {}
+    qa_failed_groups = set((qa_summary or {}).get("failed_groups", []) or [])
+
+    for group_name, result in (qa_summary or {}).get("group_results", {}).items():
+        if not (result.get("failed") or group_name in qa_failed_groups):
+            continue
+        feedback.setdefault(group_name, {})["qa"] = {
+            "total": result.get("total"),
+            "threshold": result.get("threshold"),
+            "reason": result.get("reason", ""),
+            "issues": list(result.get("issues", []) or [])[:3],
+            "worst_axis": result.get("worst", ""),
+            "regulation": result.get("regulation"),
+            "fact_violation": bool(result.get("fact_violation")),
+        }
+
+    for group_name in qa_failed_groups:
+        feedback.setdefault(group_name, {}).setdefault(
+            "qa",
+            {
+                "total": "?",
+                "threshold": "?",
+                "reason": "",
+                "issues": [],
+                "worst_axis": "",
+                "regulation": 10,
+                "fact_violation": False,
+            },
+        )
+
+    for group_name, fc_result in (fact_check_results or {}).items():
+        hallucinated_claims = int(getattr(fc_result, "hallucinated_claims", 0) or 0)
+        if getattr(fc_result, "passed", True) and hallucinated_claims <= 0:
+            continue
+        feedback.setdefault(group_name, {})["fact_check"] = {
+            "summary": getattr(fc_result, "summary", ""),
+            "issues": list(getattr(fc_result, "issues", []) or [])[:3],
+            "accuracy_score": getattr(fc_result, "accuracy_score", None),
+            "hallucinated_claims": hallucinated_claims,
+            "unverified_claims": int(getattr(fc_result, "unverified_claims", 0) or 0),
+        }
+
+    return feedback
+
+
 async def regenerate_content_groups(
     batch: "TweetBatch",
     trend: "ScoredTrend",
@@ -296,6 +347,9 @@ async def regenerate_content_groups(
     client: "LLMClient",
     groups: list[str],
     recent_tweets: list[str] | None = None,
+    *,
+    qa_feedback: dict[str, dict] | None = None,
+    fact_check_feedback: dict[str, dict] | None = None,
 ) -> "TweetBatch":
     """실패한 콘텐츠 그룹만 1회 재생성해 기존 배치에 반영한다."""
     if not groups:
@@ -320,21 +374,57 @@ async def regenerate_content_groups(
             generate_tweets_async,
         )
 
+    def _merge_group_feedback(group_name: str) -> dict | None:
+        merged: dict = {}
+        if qa_feedback and group_name in qa_feedback:
+            merged.update(qa_feedback[group_name])
+        if fact_check_feedback and group_name in fact_check_feedback:
+            merged.update(fact_check_feedback[group_name])
+        return merged or None
+
     regen_tasks: dict[str, asyncio.Task] = {}
     if "tweets" in groups:
-        regen_tasks["tweets"] = asyncio.create_task(generate_tweets_async(trend, config, client, recent_tweets))
+        regen_tasks["tweets"] = asyncio.create_task(
+            generate_tweets_async(
+                trend,
+                config,
+                client,
+                recent_tweets,
+                revision_feedback=_merge_group_feedback("tweets"),
+            )
+        )
     if "threads_posts" in groups:
-        regen_tasks["threads_posts"] = asyncio.create_task(generate_threads_content_async(trend, config, client))
+        regen_tasks["threads_posts"] = asyncio.create_task(
+            generate_threads_content_async(
+                trend,
+                config,
+                client,
+                revision_feedback=_merge_group_feedback("threads_posts"),
+            )
+        )
     if "long_posts" in groups and config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
         regen_tasks["long_posts"] = asyncio.create_task(
-            generate_long_form_async(trend, config, client, tier=_select_generation_tier(trend, config))
+            generate_long_form_async(
+                trend,
+                config,
+                client,
+                tier=_select_generation_tier(trend, config),
+                revision_feedback=_merge_group_feedback("long_posts"),
+            )
         )
     if (
         "blog_posts" in groups
         and "naver_blog" in getattr(config, "target_platforms", [])
         and trend.viral_potential >= getattr(config, "blog_min_score", 70)
     ):
-        regen_tasks["blog_posts"] = asyncio.create_task(generate_blog_async(trend, config, client))
+        regen_tasks["blog_posts"] = asyncio.create_task(
+            generate_blog_async(
+                trend,
+                config,
+                client,
+                revision_feedback=_merge_group_feedback("blog_posts"),
+            )
+        )
 
     if not regen_tasks:
         return batch

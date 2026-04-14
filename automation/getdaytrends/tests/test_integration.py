@@ -235,7 +235,14 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             "failed_groups": ["blog_posts"],
             "group_results": {
                 "tweets": {"total": 80, "threshold": 50},
-                "blog_posts": {"total": 60, "threshold": 75},
+                "blog_posts": {
+                    "total": 60,
+                    "threshold": 75,
+                    "reason": "필수 섹션 누락",
+                    "issues": ["필수 섹션 누락", "핵심 정리 불릿 부족"],
+                    "worst": "angle",
+                    "regulation": 4,
+                },
             },
             "reason": "blog_posts: 필수 섹션 누락",
         }
@@ -273,6 +280,14 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(results[0].blog_posts[0].content, "재생성 블로그")
             mock_regen.assert_called_once()
             self.assertEqual(mock_regen.call_args.args[4], ["blog_posts"])
+            self.assertEqual(
+                mock_regen.call_args.kwargs["qa_feedback"]["blog_posts"]["qa"]["worst_axis"],
+                "angle",
+            )
+            self.assertEqual(
+                mock_regen.call_args.kwargs["qa_feedback"]["blog_posts"]["qa"]["issues"][0],
+                "필수 섹션 누락",
+            )
 
 
 if __name__ == "__main__":

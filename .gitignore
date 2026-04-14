@@ -121,6 +121,9 @@ create_repo.py
 serviceAccountKey.json
 **/canva_url.txt
 
+# Audit / harness logs (may contain secrets in tool_input_summary)
+*.jsonl
+
 # Temp outputs and test files
 # DailyNews output files (generated content, test outputs)
 automation/DailyNews/output/

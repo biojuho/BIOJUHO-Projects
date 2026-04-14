@@ -16,6 +16,7 @@ try:
         _build_context_section,
         _build_deep_why_section,
         _build_fact_guardrail_section,
+        _build_revision_feedback_section,
         _build_scoring_section,
         _parse_json,
         _resolve_language,
@@ -32,6 +33,7 @@ except ImportError:
         _build_context_section,
         _build_deep_why_section,
         _build_fact_guardrail_section,
+        _build_revision_feedback_section,
         _build_scoring_section,
         _parse_json,
         _resolve_language,
@@ -53,6 +55,8 @@ async def generate_long_form_async(
     config: AppConfig,
     client: LLMClient,
     tier: TaskTier = TaskTier.LIGHTWEIGHT,  # [v13.0] HEAVY→LIGHTWEIGHT 비용 절감
+    *,
+    revision_feedback: dict | None = None,
 ) -> list[GeneratedTweet]:
     """X Premium+ 장문 콘텐츠 2종 비동기 생성 (v13.0: LIGHTWEIGHT 기본)."""
     from datetime import datetime as _dt
@@ -63,6 +67,7 @@ async def generate_long_form_async(
     scoring_section = _build_scoring_section(trend)
     deep_why_section = _build_deep_why_section(trend)
     fact_guardrail_section = _build_fact_guardrail_section(trend)
+    revision_feedback_section = _build_revision_feedback_section(revision_feedback)
     identity_section = _build_account_identity_section(config, include_tone=not report_profile)
     safe_keyword = sanitize_keyword(trend.keyword)
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
@@ -71,7 +76,8 @@ async def generate_long_form_async(
         f"주제: {safe_keyword}\n"
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}\n"
+        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}"
+        f"{revision_feedback_section}\n"
         "위 '왜 지금 트렌드인가' 배경과 데이터/수치/반응을 깊이 소화한 뒤,\n"
         "읽는 사람이 '이건 저장해야 돼' 하는 장문 2종을 작성.\n"
         "핵심: 뉴스 요약 아님. 이 현상의 이면을 파고드는 분석과 해석.\n"
@@ -193,6 +199,8 @@ async def generate_blog_async(
     trend: ScoredTrend,
     config: AppConfig,
     client: LLMClient,
+    *,
+    revision_feedback: dict | None = None,
 ) -> list[GeneratedTweet]:
     """네이버 블로그용 SEO 최적화 장문 콘텐츠 비동기 생성.
 
@@ -207,6 +215,7 @@ async def generate_blog_async(
     scoring_section = _build_scoring_section(trend)
     deep_why_section = _build_deep_why_section(trend)
     fact_guardrail_section = _build_fact_guardrail_section(trend)
+    revision_feedback_section = _build_revision_feedback_section(revision_feedback)
     identity_section = _build_account_identity_section(config, include_tone=not report_profile)
     safe_keyword = sanitize_keyword(trend.keyword)
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
@@ -218,7 +227,8 @@ async def generate_blog_async(
         f"주제: {safe_keyword}\n"
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
-        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}\n"
+        f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}"
+        f"{revision_feedback_section}\n"
         f"위 배경과 컨텍스트를 깊이 소화한 뒤, 네이버 블로그용 심층 분석 글을 작성.\n"
         f"글자 수: {min_words}~{max_words}자\n"
         f"SEO 키워드: {seo_count}개 제안\n"

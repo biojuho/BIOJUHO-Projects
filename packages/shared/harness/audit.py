@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -18,6 +19,18 @@ from pathlib import Path
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# Patterns that match common API tokens/secrets for redaction in audit logs.
+_SECRET_PATTERNS: list[re.Pattern] = [
+    re.compile(r"ntn_[A-Za-z0-9]{10,}"),           # Notion
+    re.compile(r"xox[bpras]-[A-Za-z0-9\-]{10,}"),  # Slack
+    re.compile(r"sk-[A-Za-z0-9]{20,}"),             # OpenAI
+    re.compile(r"ghp_[A-Za-z0-9]{30,}"),            # GitHub PAT
+    re.compile(r"gho_[A-Za-z0-9]{30,}"),            # GitHub OAuth
+    re.compile(r"github_pat_[A-Za-z0-9_]{30,}"),    # GitHub fine-grained PAT
+    re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]{20,}"),  # Bearer tokens
+    re.compile(r"(?i)(password|api_key|secret_key|access_token)\s*[:=]\s*['\"]?[^\s'\"]{8,}"),
+]
 
 
 class AuditVerdict(str, Enum):
@@ -78,9 +91,17 @@ class AuditLogger:
         if self.log_path:
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _redact_secrets(text: str) -> str:
+        """Replace known secret patterns with ***REDACTED***."""
+        for pat in _SECRET_PATTERNS:
+            text = pat.sub("***REDACTED***", text)
+        return text
+
     def _truncate_input(self, tool_input: Any) -> str:
-        """Truncate tool input for privacy/size limits."""
+        """Truncate tool input for privacy/size limits and redact secrets."""
         text = str(tool_input)
+        text = self._redact_secrets(text)
         if len(text) > self.max_input_chars:
             return text[: self.max_input_chars] + "..."
         return text
