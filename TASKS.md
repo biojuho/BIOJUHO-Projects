@@ -1,11 +1,18 @@
 # Task Board
 
-**Last Updated**: 2026-04-13
+**Last Updated**: 2026-04-14
 **Board Type**: Kanban (TODO / IN_PROGRESS / DONE)
 
 ---
 
 ## TODO
+
+- _2026-04-14 review supersedes the stale "no pending tasks" note below._
+- [ ] **P2: Reduce GetDayTrends content-quality warning rate**
+  - scope: QA retry path, fact-check retry path, diversity rewrite, and quality telemetry
+  - priority order: real fail-reason logging -> reason-aware QA regeneration -> claim-aware fact-check regeneration -> enforced diversity rewrite
+  - reference doc: `docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md`
+  - acceptance target: `python .\getdaytrends\main.py --one-shot --dry-run --no-alerts --limit 1` stays green while reducing repeated QA / FactCheck / diversity warnings
 
 *No pending tasks — P1~P3 전체 완료*
 
@@ -25,6 +32,13 @@
 ---
 
 ## DONE (Last 7 Days)
+
+### 2026-04-14
+
+- [x] **P3: Draft GetDayTrends content-quality improvement plan**
+  - recorded the remaining non-blocking risks after the 2026-04-14 dry-run
+  - grouped the follow-up work into QA retry, fact-check retry, diversity rewrite, and telemetry tracks
+  - created `docs/reports/2026-04/GETDAYTRENDS_CONTENT_QUALITY_IMPROVEMENT_PLAN_2026-04-14.md`
 
 ### 2026-04-13
 
