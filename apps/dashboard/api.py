@@ -236,8 +236,8 @@ def getdaytrends():
     """GetDayTrends 실행 현황."""
     recent_runs = _sqlite_read(
         GDT_DB,
-        """SELECT id, country, started_at, ended_at, trends_collected,
-                  tweets_generated, total_duration_sec
+        """SELECT id, country, started_at, finished_at, trends_collected,
+                  tweets_generated
            FROM runs ORDER BY id DESC LIMIT 30""",
     )
 
@@ -255,7 +255,7 @@ def getdaytrends():
     # 인기 트렌드 Top 10
     top_trends = _sqlite_read(
         GDT_DB,
-        """SELECT keyword, viral_potential, tweet_volume
+        """SELECT keyword, viral_potential, volume_raw
            FROM trends
            ORDER BY id DESC LIMIT 10""",
     )
@@ -332,9 +332,9 @@ def agriguard():
 
     # 최근 센서 데이터 (최신 20건)
     recent_sensors = _pg_read(
-        """SELECT id, product_id, value, unit, recorded_at
+        """SELECT id, sensor_id, temperature, humidity, timestamp
            FROM sensor_readings
-           ORDER BY id DESC LIMIT 20"""
+           ORDER BY timestamp DESC LIMIT 20"""
     )
 
     # 제품 현황
@@ -725,7 +725,7 @@ def sla_status():
     )
     if dn_runs:
         dn_total = len(dn_runs)
-        dn_success = sum(1 for r in dn_runs if r.get("status") == "completed")
+        dn_success = sum(1 for r in dn_runs if r.get("status") in ("success", "partial"))
         dn_success_rate = round(dn_success / dn_total * 100, 2) if dn_total else 0
 
         dn_durations = []
