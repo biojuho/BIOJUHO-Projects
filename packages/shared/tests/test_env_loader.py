@@ -184,17 +184,25 @@ class TestDuplicateKeyWarning:
             assert "root-only" in str(w[0].message).lower()
 
     def test_no_warning_for_non_root_keys(self, tmp_path: Path):
-        """Normal project keys should not trigger warnings."""
+        """Normal project keys should not trigger warnings.
+
+        Uses non-root-only keys and explicitly clears all _ROOT_ONLY_KEYS
+        from os.environ to prevent leaks from previous tests or CI env.
+        """
         local_env = tmp_path / ".env"
-        local_env.write_text("DATABASE_URL=sqlite:///local.db\nDEBUG=true\n")
+        # Only non-root-only keys — should never trigger a warning
+        local_env.write_text("MY_LOCAL_DB=sqlite:///local.db\nDEBUG=true\n")
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            _check_duplicate_keys(local_env)
+        # Explicitly remove all root-only keys to prevent cross-test pollution
+        clean_env = {k: v for k, v in os.environ.items() if k not in _ROOT_ONLY_KEYS}
+        with patch.dict(os.environ, clean_env, clear=True):
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                _check_duplicate_keys(local_env)
 
-        # No warnings
-        root_warnings = [x for x in w if "root-only" in str(x.message).lower()]
-        assert len(root_warnings) == 0
+            # No warnings
+            root_warnings = [x for x in w if "root-only" in str(x.message).lower()]
+            assert len(root_warnings) == 0
 
     def test_no_warning_when_key_not_in_env(self, tmp_path: Path):
         """Key in file but NOT already in os.environ → no warning."""
