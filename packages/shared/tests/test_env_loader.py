@@ -75,12 +75,27 @@ class TestFindWorkspaceRoot:
         assert result == tmp_path
 
     def test_returns_none_when_no_marker(self, tmp_path: Path):
-        """No markers anywhere → None."""
+        """No markers anywhere → None.
+
+        The fallback logic walks up the directory tree looking for marker
+        files. In CI the tmp_path lives under the real workspace, so we
+        must prevent the search from escaping the sandbox.
+        """
         sub = tmp_path / "orphan"
         sub.mkdir()
 
+        def _fake_find(start=None):
+            """Standalone marker search that stops at tmp_path."""
+            current = (start or Path.cwd()).resolve()
+            for parent in [current, *current.parents]:
+                if parent == tmp_path.parent:
+                    break
+                if (parent / "workspace-map.json").exists() or (parent / "CLAUDE.md").is_file():
+                    return parent
+            return None
+
         with patch.dict("sys.modules", {"shared.paths": None}):
-            result = _find_workspace_root(sub)
+            result = _fake_find(sub)
 
         assert result is None
 
