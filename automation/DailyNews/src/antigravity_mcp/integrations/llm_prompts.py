@@ -225,8 +225,10 @@ Draft
 Rules:
 - Summary must contain exactly 3 bullet lines, and MUST include source citations (e.g., [A1]) at the end of each line to ensure reliability.
 - Each summary line must be one short sentence with concrete nouns, timing, and actors when available.
+- CRITICAL TOPIC DIVERSITY: The 3 summary bullets MUST cover 3 DIFFERENT stories or events. Never write three angles, restatements, or implications of the same underlying event. If fewer than 3 distinct stories exist in the article set, say so in the third bullet instead of repeating the dominant story.
 - Insights must contain exactly 2 bullet lines, and MUST include source citations (e.g., [A1]) at the end of each line.
 - Each insight line should explain why the story matters in plain language using no more than 2 short sentences.
+- CRITICAL TOPIC DIVERSITY: The 2 insight bullets MUST analyze 2 DIFFERENT stories, not two aspects of the same event. Tie each insight to a distinct summary bullet when possible.
 - Brief must be the main reader-facing briefing body in Korean.
 - Start Brief with: "오늘의 핫 이슈: {category}. ..." as a one-line opener.
 - Then write 3 to 5 short sections using markdown headings like "## [emoji] short title".
