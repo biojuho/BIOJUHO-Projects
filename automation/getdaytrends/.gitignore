@@ -1,0 +1,14 @@
+# GetDayTrends local data (NEVER commit)
+data/
+*.log
+*.db
+*.db.bak
+*.db-journal
+logs/
+.gdt_dryrun*.txt
+
+# Credentials
+credentials.json
+token.json
+twikit_cookies.json
+*.pickle

@@ -185,17 +185,51 @@ def parse_args() -> argparse.Namespace:
 
 
 def setup_logging(verbose: bool = False) -> None:
+    import re
+
     from loguru import logger
 
     logger.remove()
     level = "DEBUG" if verbose else "INFO"
 
+    # [QA 수정] 토큰 자동 마스킹 필터 — 로그 파일 보안 강화
+    _TOKEN_PATTERNS = re.compile(
+        r"(ntn_[A-Za-z0-9]{6})[A-Za-z0-9]*"       # Notion
+        r"|(sk-[A-Za-z0-9]{6})[A-Za-z0-9]*"        # OpenAI
+        r"|(ghp_[A-Za-z0-9]{6})[A-Za-z0-9]*"       # GitHub PAT
+        r"|(xai-[A-Za-z0-9]{6})[A-Za-z0-9]*"       # X.AI
+        r"|(AIza[A-Za-z0-9_-]{6})[A-Za-z0-9_-]*"   # Google API Key
+    )
+
+    def _mask_tokens(message: str) -> str:
+        def _replacer(m: re.Match) -> str:
+            for g in m.groups():
+                if g:
+                    return g + "***"
+            return m.group(0)  # fallback
+        return _TOKEN_PATTERNS.sub(_replacer, message)
+
+    def _patched_format(record: dict) -> str:
+        record["extra"]["masked_message"] = _mask_tokens(str(record["message"]))
+        return (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+            "<level>{extra[masked_message]}</level>\n{exception}"
+        )
+
     logger.add(
         sys.stderr,
         level=level,
         colorize=True,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        format=_patched_format,
     )
+
+    def _file_format(record: dict) -> str:
+        record["extra"]["masked_message"] = _mask_tokens(str(record["message"]))
+        return (
+            "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | "
+            "{name}:{function}:{line} - {extra[masked_message]}\n{exception}"
+        )
 
     logger.add(
         Path(__file__).parent / "data" / "tweet_bot.log",  # B-014 fix: 절대 경로 고정
@@ -203,7 +237,7 @@ def setup_logging(verbose: bool = False) -> None:
         retention=5,
         encoding="utf-8",
         level=level,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        format=_file_format,
     )
 
 
