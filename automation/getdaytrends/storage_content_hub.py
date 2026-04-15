@@ -21,13 +21,22 @@ try:
 except ImportError:
     from notion_builder import _build_notion_body
 
-from .storage_notion import (
-    NOTION_AVAILABLE,
-    NotionClient,
-    _is_notion_provider_error,
-    _persist_content_hub_link,
-    _retry_notion_call,
-)
+try:
+    from .storage_notion import (
+        NOTION_AVAILABLE,
+        NotionClient,
+        _is_notion_provider_error,
+        _persist_content_hub_link,
+        _retry_notion_call,
+    )
+except ImportError:
+    from storage_notion import (
+        NOTION_AVAILABLE,
+        NotionClient,
+        _is_notion_provider_error,
+        _persist_content_hub_link,
+        _retry_notion_call,
+    )
 
 
 # ══════════════════════════════════════════════════════
