@@ -270,8 +270,10 @@ class TestLoadedFlag:
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "real"}, clear=False):
             with patch("shared.env_loader._find_workspace_root", return_value=tmp_path):
-                # First call
-                env_loader_module.load_workspace_env(project_dir=project, warn_duplicates=True)
+                # First call — capture (and discard) the expected warning
+                with warnings.catch_warnings(record=True):
+                    warnings.simplefilter("always")
+                    env_loader_module.load_workspace_env(project_dir=project, warn_duplicates=True)
 
                 # Second call — should NOT warn again
                 with warnings.catch_warnings(record=True) as w:

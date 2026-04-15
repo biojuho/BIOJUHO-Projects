@@ -22,6 +22,22 @@ from runtime import (
 from settings import NEWS_SOURCES_FILE, NOTION_API_KEY, NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR
 
 
+def _print_manifest(summary: dict, status: str, run_id: str | None) -> None:
+    """Print a JSON manifest to stdout for workflow-level heartbeat integration."""
+    manifest = {
+        "pipeline": "DailyNews",
+        "run_id": run_id or "unknown",
+        "status": status,
+        "published_categories": summary.get("categories_success", 0),
+        "failed_categories": summary.get("categories_failed", 0),
+        "skipped_categories": summary.get("categories_skipped", 0),
+        "total_articles": summary.get("articles", 0),
+        "window": summary.get("window", "unknown"),
+        "target_db": NOTION_REPORTS_DATABASE_ID or "unset",
+    }
+    print(f"\n::manifest::{json.dumps(manifest, ensure_ascii=False)}")
+
+
 def get_extraction_window(force: bool) -> tuple[datetime, datetime, str]:
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.now(KST).replace(tzinfo=None)  # naive KST
@@ -628,10 +644,9 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
             total = succ + fail + skip
 
             # 어떤 카테고리라도 업로드 실패하면 명시적 failure로 마감한다.
-            # Partial (예: 5/6)도 heartbeat에만 남기면 알림이 조용히 묻혀서,
-            # 카테고리 하나가 며칠 연속 실패해도 아무도 모르게 된다.
             if fail > 0:
                 status_name = "failed" if succ == 0 else "partial_failed"
+                prefix = "[TOTAL-FAIL]" if succ == 0 else "[PARTIAL]"
                 error_msg = (
                     f"{fail}/{total} categories failed to publish "
                     f"(success={succ}, skipped={skip})"
@@ -643,13 +658,14 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                     "complete", "failed", "run_daily_news categories failed",
                     **summary,
                 )
+                _print_manifest(summary, status_name, run_id)
                 try:
                     from shared.notifications import Notifier
 
                     _notifier = Notifier.from_env()
                     if _notifier.has_channels:
                         _notifier.send_error(
-                            f"DailyNews 파이프라인 {'실패' if status_name == 'failed' else '부분 실패'}: "
+                            f"{prefix} DailyNews: "
                             f"성공 {succ} / 실패 {fail} / 스킵 {skip} "
                             f"(window={summary['window']}, 기사={summary['articles']})",
                             source="DailyNews",
@@ -675,13 +691,14 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                     "run_daily_news collected zero articles across all categories",
                     **summary,
                 )
+                _print_manifest(summary, "degraded", run_id)
                 try:
                     from shared.notifications import Notifier
 
                     _notifier = Notifier.from_env()
                     if _notifier.has_channels:
                         _notifier.send_error(
-                            f"DailyNews degraded: 전 카테고리({skip}) 수집 0건 "
+                            f"[PRE-FAIL] DailyNews degraded: 전 카테고리({skip}) 수집 0건 "
                             f"(window={summary['window']})",
                             source="DailyNews",
                         )
@@ -699,6 +716,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
 
             state.record_job_finish(run_id, status="success", summary=summary)
             logger.info("complete", "success", "run_daily_news finished", **summary)
+            _print_manifest(summary, "success", run_id)
 
             # [v2.0] Heartbeat: 파이프라인 성공 시 Discord/Telegram 알림
             try:
@@ -727,6 +745,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
     except Exception as exc:
         logger.error("complete", "failed", "run_daily_news failed", error=str(exc))
         state.record_job_finish(run_id, status="failed", summary=summary, error_text=str(exc))
+        _print_manifest(summary, "failed", run_id)
 
         # [v2.0] 에러 알림: 파이프라인 실패 시 즉시 Discord/Telegram 전송
         try:
@@ -735,7 +754,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
             _notifier = Notifier.from_env()
             if _notifier.has_channels:
                 _notifier.send_error(
-                    f"파이프라인 실패: {exc}",
+                    f"[TOTAL-FAIL] DailyNews 파이프라인 실패: {exc}",
                     error=exc,
                     source="DailyNews",
                 )

@@ -256,15 +256,14 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
         }
 
         with (
-            patch("getdaytrends.core.pipeline_steps.get_cached_content", new_callable=AsyncMock) as mock_cached,
-            patch("getdaytrends.core.pipeline_steps.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent,
-            patch("getdaytrends.core.pipeline_steps.generate_for_trend_async", new_callable=AsyncMock) as mock_generate,
-            patch("getdaytrends.core.pipeline_steps.audit_generated_content", new_callable=AsyncMock) as mock_audit,
-            patch("getdaytrends.core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
-            patch("getdaytrends.core.pipeline_steps.get_client") as mock_client_factory,
-            patch("getdaytrends.core.pipeline_steps._load_adaptive_voice", return_value=(None, None, "")),
-            patch("getdaytrends.core.pipeline_steps.compute_fingerprint", return_value="test_fp"),
-            patch("getdaytrends.core.pipeline_steps.save_tweets_batch", new_callable=AsyncMock),
+            patch("getdaytrends.core.steps_generate.get_cached_content", new_callable=AsyncMock) as mock_cached,
+            patch("getdaytrends.core.steps_generate.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent,
+            patch("getdaytrends.core.steps_generate.generate_for_trend_async", new_callable=AsyncMock) as mock_generate,
+            patch("getdaytrends.core.steps_generate.audit_generated_content", new_callable=AsyncMock) as mock_audit,
+            patch("getdaytrends.core.steps_generate.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
+            patch("getdaytrends.core.steps_generate.get_client") as mock_client_factory,
+            patch("getdaytrends.core.steps_generate._load_adaptive_voice", return_value=(None, None, "")),
+            patch("getdaytrends.core.steps_generate.compute_fingerprint", return_value="test_fp"),
         ):
             mock_cached.return_value = None
             mock_recent.return_value = []

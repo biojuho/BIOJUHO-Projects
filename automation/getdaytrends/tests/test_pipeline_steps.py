@@ -143,7 +143,7 @@ async def test_step_generate_handles_empty_trend_list():
 
     cfg = AppConfig()
 
-    with patch("getdaytrends.core.pipeline_steps.get_client", return_value=MagicMock()):
+    with patch("getdaytrends.core.steps_generate.get_client", return_value=MagicMock()):
         result = await _step_generate([], cfg, conn=MagicMock())
 
     assert result == []
@@ -173,8 +173,8 @@ async def test_run_fact_check_passes_fact_check_feedback_to_regeneration():
     fc_result.issues = ["[환각 의심] 수치: '87%' - 소스에서 확인 불가"]
 
     with (
-        patch("getdaytrends.core.pipeline_steps.verify_fact_batch", return_value={"tweets": fc_result}),
-        patch("getdaytrends.core.pipeline_steps.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
+        patch("getdaytrends.core.steps_generate.verify_fact_batch", return_value={"tweets": fc_result}),
+        patch("getdaytrends.core.steps_generate.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
     ):
         mock_regen.return_value = batch
         result = await _run_fact_check(batch, trend, cfg, client=MagicMock(), recent_tweets=[])
