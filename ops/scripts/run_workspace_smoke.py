@@ -29,6 +29,7 @@ TRANSIENT_RETRY_PATTERNS = (
 TRANSIENT_RETRY_MAX = 2
 WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "workspace regression tests": ("fastapi", "sqlalchemy", "aiosqlite", "mcp.server.fastmcp", "pypdf"),
+    "shared package tests": ("sqlalchemy", "pydantic", "httpx"),
     "desci biolinker smoke": ("fastapi",),
     "agriguard backend tests": ("fastapi", "sqlalchemy"),
     "DailyNews unit tests": ("mcp.server.fastmcp",),
@@ -40,6 +41,11 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "sqlalchemy>=2.0.0,<3.0",
         "aiosqlite>=0.19.0,<1.0",
         "pypdf>=4.0.0,<5.0",
+    ),
+    "shared package tests": (
+        "sqlalchemy>=2.0.0,<3.0",
+        "pydantic>=2.0.0,<3.0",
+        "httpx>=0.27.0",
     ),
     "desci biolinker smoke": (
         "fastapi>=0.115.0,<1.0",
@@ -289,6 +295,12 @@ def default_checks(python_exe: str) -> list[Check]:
             "workspace regression tests",
             ".",
             [python_exe, "-m", "pytest", "tests/test_workspace_regressions.py", "tests/test_workspace_smoke.py", "-q"],
+        ),
+        Check(
+            "workspace",
+            "shared package tests",
+            ".",
+            [python_exe, "-m", "pytest", "packages/shared/tests/", "-q"],
         ),
         Check("workspace", "dashboard frontend lint", rel_unit_path("dashboard"), [npm_exe, "run", "lint"]),
         Check("workspace", "dashboard frontend tests", rel_unit_path("dashboard"), [npm_exe, "run", "test"]),
