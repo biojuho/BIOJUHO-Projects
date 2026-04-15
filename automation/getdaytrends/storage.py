@@ -37,6 +37,8 @@ _query_content_hub_by_draft_id = _storage_content_hub._query_content_hub_by_draf
 _rich_text_prop = _storage_content_hub._rich_text_prop
 
 GSPREAD_AVAILABLE = _storage_gsheets.GSPREAD_AVAILABLE
+GoogleAuthError = _storage_gsheets.GoogleAuthError
+Credentials = _storage_gsheets.Credentials
 _is_gspread_provider_error = _storage_gsheets._is_gspread_provider_error
 
 _retry_notion_call_impl = _storage_notion._retry_notion_call
@@ -62,6 +64,12 @@ def _sync_content_hub_exports() -> None:
     _storage_content_hub._persist_content_hub_link = _persist_content_hub_link
 
 
+def _sync_gsheets_exports() -> None:
+    _storage_gsheets.GSPREAD_AVAILABLE = GSPREAD_AVAILABLE
+    _storage_gsheets.GoogleAuthError = GoogleAuthError
+    _storage_gsheets.Credentials = Credentials
+
+
 def _retry_notion_call(*args: Any, **kwargs: Any) -> Any:
     _sync_notion_exports()
     return _retry_notion_call_impl(*args, **kwargs)
@@ -79,4 +87,5 @@ def save_to_content_hub(*args: Any, **kwargs: Any) -> Any:
 
 
 def save_to_google_sheets(*args: Any, **kwargs: Any) -> Any:
+    _sync_gsheets_exports()
     return _save_to_google_sheets_impl(*args, **kwargs)
