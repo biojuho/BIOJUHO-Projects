@@ -21,6 +21,11 @@ except ImportError:
     from config import AppConfig
     from models import MultiSourceContext, RawTrend, TrendSource
 
+try:
+    from . import twitter as _twitter
+except ImportError:
+    import collectors.twitter as _twitter
+
 # ── Re-export all public APIs ──
 from .twitter import (  # noqa: F401
     _async_fetch_twitter_trends,
@@ -43,6 +48,17 @@ from .google_news import (  # noqa: F401
     _parse_rss_date,
     fetch_google_news_trends,
 )
+
+_async_fetch_x_via_twikit_or_jina_impl = _async_fetch_x_via_twikit_or_jina
+
+
+async def _async_fetch_x_via_twikit_or_jina(
+    session: httpx.AsyncClient,
+    keyword: str,
+    timeout: httpx.Timeout | float | None = None,
+) -> str:
+    _twitter._async_fetch_x_via_jina = _async_fetch_x_via_jina
+    return await _async_fetch_x_via_twikit_or_jina_impl(session, keyword, timeout=timeout)
 
 # Shared constants
 _SHORT_TIMEOUT = httpx.Timeout(8.0, connect=4.0)

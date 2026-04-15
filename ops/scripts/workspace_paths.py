@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+"""
+Utilities for finding and resolving workspace unit paths in the AI Project monorepo.
+Handles mapping between logical unit IDs and physical paths via workspace-map.json.
+"""
+
 import json
 from functools import lru_cache
 from pathlib import Path

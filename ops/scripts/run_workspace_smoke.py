@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""
+Workspace smoke test runner.
+Discovers and executes end-to-end tests across the monorepo projects using virtual environments.
+Supports executing pre-defined integration and module workflows natively.
+"""
+
 import argparse
 import hashlib
 import json

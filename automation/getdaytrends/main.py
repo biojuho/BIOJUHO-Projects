@@ -549,6 +549,22 @@ def main():
             _release_lock()
 
 
+def _sleep_with_interrupt(sleep_seconds: float):
+    for _ in range(int(sleep_seconds)):
+        if _SHUTDOWN_FLAG.is_set():
+            break
+        time.sleep(1)
+
+def _get_night_sleep_seconds() -> float:
+    now = datetime.now()
+    if 2 <= now.hour < 7:
+        wake_at = now.replace(hour=7, minute=0, second=0, microsecond=0)
+        return max(0.0, (wake_at - now).total_seconds())
+    return 0.0
+
+def _apply_cli_overrides(config: AppConfig, args: argparse.Namespace) -> None:
+    _apply_cli_overrides(config, args)
+
 def _main_body():
     args = parse_args()
 
@@ -556,25 +572,7 @@ def _main_body():
     config = AppConfig.from_env()
 
     # CLI 오버라이드
-    if args.countries:
-        countries = _normalize_countries(args.countries.split(","))
-        config.country = countries[0]
-        config.countries = countries
-    elif args.country:
-        config.country = args.country
-        config.countries = [args.country]
-    if args.limit:
-        config.limit = args.limit
-    if args.one_shot:
-        config.one_shot = True
-    if args.dry_run:
-        config.dry_run = True
-    if args.verbose:
-        config.verbose = True
-    if args.no_alerts:
-        config.no_alerts = True
-    if args.schedule_min:
-        config.schedule_minutes = args.schedule_min
+    _apply_cli_overrides(config, args)
 
     setup_logging(config.verbose)
     print_banner()
@@ -689,20 +687,13 @@ def _main_body():
 
     try:
         while not _SHUTDOWN_FLAG.is_set():
-            # 야간 슬립: 02:00~07:00 사이 실행 건너뜀
             if config.night_mode:
-                now_hour = datetime.now().hour
-                if 2 <= now_hour < 7:
-                    wake_at = datetime.now().replace(hour=7, minute=0, second=0, microsecond=0)
-                    sleep_seconds = max(0, (wake_at - datetime.now()).total_seconds())  # BUG-013 fix: guard against negative
-                    if sleep_seconds > 0:
-                        log.info(f"야간 슬립: 07:00까지 {sleep_seconds/60:.0f}분 대기")
-                        print(f"  야간 슬립 중... (07:00 기상, {sleep_seconds/60:.0f}분 후)")
-                        for _ in range(int(sleep_seconds)):
-                            if _SHUTDOWN_FLAG.is_set():
-                                break
-                            time.sleep(1)
-                        continue
+                sleep_seconds = _get_night_sleep_seconds()
+                if sleep_seconds > 0:
+                    log.info(f"야간 슬립: 07:00까지 {sleep_seconds/60:.0f}분 대기")
+                    print(f"  야간 슬립 중... (07:00 기상, {sleep_seconds/60:.0f}분 후)")
+                    _sleep_with_interrupt(sleep_seconds)
+                    continue
 
             schedule.run_pending()
             time.sleep(1)

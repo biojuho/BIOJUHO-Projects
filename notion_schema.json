@@ -1,0 +1,160 @@
+{
+  "object": "database",
+  "id": "31490544-c198-804d-8de3-e570815738ef",
+  "cover": null,
+  "icon": {
+    "type": "emoji",
+    "emoji": "🫒"
+  },
+  "created_time": "2026-02-27T09:53:00.000Z",
+  "created_by": {
+    "object": "user",
+    "id": "4a006f31-1ab2-4dd1-bb7c-c99efb799a5d"
+  },
+  "last_edited_by": {
+    "object": "user",
+    "id": "4a006f31-1ab2-4dd1-bb7c-c99efb799a5d"
+  },
+  "last_edited_time": "2026-04-01T10:17:00.000Z",
+  "title": [
+    {
+      "type": "text",
+      "text": {
+        "content": "Getdaytrends",
+        "link": null
+      },
+      "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+      },
+      "plain_text": "Getdaytrends",
+      "href": null
+    }
+  ],
+  "description": [],
+  "is_inline": false,
+  "properties": {
+    "주제": {
+      "id": "FQPi",
+      "name": "주제",
+      "description": null,
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "찬반질문형": {
+      "id": "GmkE",
+      "name": "찬반질문형",
+      "description": null,
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "상태": {
+      "id": "I%7BFA",
+      "name": "상태",
+      "description": null,
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "id": "f1783f69-c61d-42d3-bbf1-50ec133c764f",
+            "name": "대기중",
+            "color": "yellow",
+            "description": null
+          },
+          {
+            "id": "1d6dc038-634c-4319-ad74-9633ac8e8fbe",
+            "name": "게시완료",
+            "color": "green",
+            "description": null
+          },
+          {
+            "id": "322bf7be-d61d-476a-b971-894ee2150659",
+            "name": "초안",
+            "color": "purple",
+            "description": null
+          }
+        ]
+      }
+    },
+    "순위": {
+      "id": "MQ%5BS",
+      "name": "순위",
+      "description": null,
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "명언형": {
+      "id": "SP%5Cy",
+      "name": "명언형",
+      "description": null,
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "바이럴점수": {
+      "id": "%5BbxP",
+      "name": "바이럴점수",
+      "description": null,
+      "type": "number",
+      "number": {
+        "format": "number"
+      }
+    },
+    "꿀팁형": {
+      "id": "bj__",
+      "name": "꿀팁형",
+      "description": null,
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "유머밈형": {
+      "id": "lOxg",
+      "name": "유머밈형",
+      "description": null,
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "생성시각": {
+      "id": "wV%3Ao",
+      "name": "생성시각",
+      "description": null,
+      "type": "date",
+      "date": {}
+    },
+    "쓰레드": {
+      "id": "yMQ%5C",
+      "name": "쓰레드",
+      "description": null,
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "공감유도형": {
+      "id": "%7C%5BH%3D",
+      "name": "공감유도형",
+      "description": null,
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "제목": {
+      "id": "title",
+      "name": "제목",
+      "description": null,
+      "type": "title",
+      "title": {}
+    }
+  },
+  "parent": {
+    "type": "page_id",
+    "page_id": "2e790544-c198-8060-8b35-dc78a9138b32"
+  },
+  "url": "https://www.notion.so/31490544c198804d8de3e570815738ef",
+  "public_url": null,
+  "in_trash": false,
+  "archived": false,
+  "request_id": "5062c3a7-0cdd-4f1e-afd4-7963ab6eb857"
+}

@@ -49,14 +49,9 @@ jobs:
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/setup-python-uv
         with:
-          enable-cache: true
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+          python-version: '3.13'
 
       - name: Normalize run inputs
         id: run_context

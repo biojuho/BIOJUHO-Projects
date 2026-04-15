@@ -142,7 +142,7 @@ def step_collect(dry_run: bool) -> StepResult:
     result = StepResult(name="collect")
     if dry_run:
         result.status = "success"
-        result.output = {"trends_count": 0, "message": "DRY-RUN: ?섏쭛 ?쒕??덉씠??}
+        result.output = {"trends_count": 0, "message": "DRY-RUN: collect simulate"}
         return result
     try:
         sys.path.insert(0, str(unit_path("getdaytrends")))
@@ -161,11 +161,11 @@ def step_collect(dry_run: bool) -> StepResult:
 
 
 def step_validate(dry_run: bool) -> StepResult:
-    """Step 2: Content-Intelligence 洹쒖젣 寃�利?"""
+    """Step 2: Content-Intelligence 洹쒖젣 寃利?"""
     result = StepResult(name="validate")
     if dry_run:
         result.status = "success"
-        result.output = {"message": "DRY-RUN: 洹쒖젣 寃�利??쒕??덉씠??}
+        result.output = {"message": "DRY-RUN: validate simulate"}
         return result
     try:
         cie_path = unit_path("content-intelligence")
@@ -180,7 +180,7 @@ def step_validate(dry_run: bool) -> StepResult:
                 result.output = {"message": "洹쒖젣 紐⑤뱢 湲곕낯 ?⑥뒪"}
         else:
             result.status = "skipped"
-            result.output = {"message": "content-intelligence 誘몄꽕移?}
+            result.output = {"message": "content-intelligence missing"}
     except Exception as e:
         result.status = "failed"
         result.error = str(e)
@@ -192,10 +192,10 @@ def step_generate(dry_run: bool) -> StepResult:
     result = StepResult(name="generate")
     if dry_run:
         result.status = "success"
-        result.output = {"message": "DRY-RUN: ?앹꽦 ?쒕??덉씠??}
+        result.output = {"message": "DRY-RUN: generate simulate"}
         return result
     result.status = "skipped"
-    result.output = {"message": "?앹꽦 ?④퀎: main.py run_pipeline()???꾩엫 (吏곸젒 ?ㅽ뻾 誘멸뎄??"}
+    result.output = {"message": "generate step missing"}
     return result
 
 
@@ -204,10 +204,10 @@ def step_publish(dry_run: bool) -> StepResult:
     result = StepResult(name="publish")
     if dry_run:
         result.status = "success"
-        result.output = {"message": "DRY-RUN: 諛쒗뻾 ?쒕??덉씠??(?ㅼ젣 ?ъ뒪???놁쓬)"}
+        result.output = {"message": "DRY-RUN: publish simulate"}
         return result
     result.status = "skipped"
-    result.output = {"message": "諛쒗뻾: GetDayTrends auto_post???꾩엫 (吏곸젒 ?ㅽ뻾 誘멸뎄??"}
+    result.output = {"message": "publish auto_post missing"}
     return result
 
 
@@ -216,7 +216,7 @@ def step_track(dry_run: bool) -> StepResult:
     result = StepResult(name="track")
     if dry_run:
         result.status = "success"
-        result.output = {"message": "DRY-RUN: ?깃낵 異붿쟻 ?쒕??덉씠??}
+        result.output = {"message": "DRY-RUN: track simulate"}
         return result
     try:
         tracker_path = unit_path("getdaytrends") / "performance_tracker.py"

@@ -399,6 +399,68 @@ def _attach_optional_results(batch: TweetBatch, result_map: dict[str, Any]) -> N
             setattr(batch, attr, result)
 
 
+
+async def _run_serial_generation(
+    trend: ScoredTrend, config: AppConfig, client: LLMClient,
+    recent_tweets: list[str] | None, golden_refs: list | None, pattern_weights: dict | None,
+    edape_block: str, threads_enabled: bool, blog_enabled: bool, gen_tier: TaskTier
+) -> dict[str, Any]:
+    result_map: dict[str, Any] = {}
+    primary_key = "combined" if threads_enabled else "tweets"
+    primary_coro = (
+        generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                         edape_block=edape_block)
+        if threads_enabled
+        else generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                   edape_block=edape_block)
+    )
+    try:
+        result_map[primary_key] = await primary_coro
+    except Exception as exc:
+        result_map[primary_key] = exc
+
+    for key, coro in [
+        ("long", generate_long_form_async(trend, config, client, tier=gen_tier)
+         if config.enable_long_form and trend.viral_potential >= config.long_form_min_score else None),
+        ("thread", generate_thread_async(trend, config, client, tier=gen_tier)
+         if trend.viral_potential >= config.thread_min_score else None),
+        ("blog", generate_blog_async(trend, config, client) if blog_enabled else None),
+    ]:
+        if coro is not None:
+            try:
+                result_map[key] = await coro
+            except Exception as exc:
+                result_map[key] = exc
+    return result_map
+
+
+async def _run_parallel_generation(
+    trend: ScoredTrend, config: AppConfig, client: LLMClient,
+    recent_tweets: list[str] | None, golden_refs: list | None, pattern_weights: dict | None,
+    edape_block: str, threads_enabled: bool, blog_enabled: bool, gen_tier: TaskTier
+) -> dict[str, Any]:
+    tasks: dict[str, asyncio.Task] = {}
+    if threads_enabled:
+        tasks["combined"] = asyncio.ensure_future(
+            generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                             edape_block=edape_block)
+        )
+    else:
+        tasks["tweets"] = asyncio.ensure_future(
+            generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
+                                  edape_block=edape_block)
+        )
+    if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
+        tasks["long"] = asyncio.ensure_future(generate_long_form_async(trend, config, client, tier=gen_tier))
+    if trend.viral_potential >= config.thread_min_score:
+        tasks["thread"] = asyncio.ensure_future(generate_thread_async(trend, config, client, tier=gen_tier))
+    if blog_enabled:
+        tasks["blog"] = asyncio.ensure_future(generate_blog_async(trend, config, client))
+    keys = list(tasks.keys())
+    results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+    return dict(zip(keys, results, strict=False))
+
+
 async def generate_for_trend_async(
     trend: ScoredTrend,
     config: AppConfig,
@@ -436,56 +498,16 @@ async def generate_for_trend_async(
         tier_parts.append("블로그(HEAVY)")
     log.info(f"  [{trend.viral_potential}점/{category}] '{trend.keyword}' → {' + '.join(tier_parts)}")
 
-    # 직렬 실행 경로 (Python 3.14+ 호환용)
     if _PY314_SERIAL_GENERATION:
-        result_map: dict[str, Any] = {}
-        primary_key = "combined" if threads_enabled else "tweets"
-        primary_coro = (
-            generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
-                                             edape_block=edape_block)
-            if threads_enabled
-            else generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
-                                       edape_block=edape_block)
+        result_map = await _run_serial_generation(
+            trend, config, client, recent_tweets, golden_refs, pattern_weights,
+            edape_block, threads_enabled, blog_enabled, gen_tier
         )
-        try:
-            result_map[primary_key] = await primary_coro
-        except Exception as exc:
-            result_map[primary_key] = exc
-
-        for key, coro in [
-            ("long", generate_long_form_async(trend, config, client, tier=gen_tier)
-             if config.enable_long_form and trend.viral_potential >= config.long_form_min_score else None),
-            ("thread", generate_thread_async(trend, config, client, tier=gen_tier)
-             if trend.viral_potential >= config.thread_min_score else None),
-            ("blog", generate_blog_async(trend, config, client) if blog_enabled else None),
-        ]:
-            if coro is not None:
-                try:
-                    result_map[key] = await coro
-                except Exception as exc:
-                    result_map[key] = exc
     else:
-        # 병렬 실행 경로 (기본)
-        tasks: dict[str, asyncio.Task] = {}
-        if threads_enabled:
-            tasks["combined"] = asyncio.ensure_future(
-                generate_tweets_and_threads_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
-                                                 edape_block=edape_block)
-            )
-        else:
-            tasks["tweets"] = asyncio.ensure_future(
-                generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights,
-                                      edape_block=edape_block)
-            )
-        if config.enable_long_form and trend.viral_potential >= config.long_form_min_score:
-            tasks["long"] = asyncio.ensure_future(generate_long_form_async(trend, config, client, tier=gen_tier))
-        if trend.viral_potential >= config.thread_min_score:
-            tasks["thread"] = asyncio.ensure_future(generate_thread_async(trend, config, client, tier=gen_tier))
-        if blog_enabled:
-            tasks["blog"] = asyncio.ensure_future(generate_blog_async(trend, config, client))
-        keys = list(tasks.keys())
-        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-        result_map = dict(zip(keys, results, strict=False))
+        result_map = await _run_parallel_generation(
+            trend, config, client, recent_tweets, golden_refs, pattern_weights,
+            edape_block, threads_enabled, blog_enabled, gen_tier
+        )
 
     # 기본 배치 추출 (combined 또는 tweets)
     if "combined" in result_map:

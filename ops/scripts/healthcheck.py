@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""
+Workspace healthcheck diagnostic script.
+Validates the structural integrity and basic health of multiple packages and UI applications within the monorepo workspace.
+Checks include package existence, basic imports, structural dependency drifts, NPM builds, etc.
+"""
+
 import importlib
 import json
 import os

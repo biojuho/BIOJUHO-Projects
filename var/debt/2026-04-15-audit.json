@@ -1,0 +1,1775 @@
+{
+  "generated_at": "2026-04-15T01:52:16.468708+00:00",
+  "workspace_root": "D:\\AI project",
+  "units": [
+    {
+      "unit_id": "desci-platform",
+      "unit_path": "apps\\desci-platform",
+      "python_files": 58,
+      "total_lines": 9735,
+      "avg_complexity": 3.71,
+      "max_complexity": 28,
+      "high_complexity_functions": [
+        {
+          "name": "load_dataset",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\scripts\\ab_test_matching.py",
+          "line": 211,
+          "complexity": 11
+        },
+        {
+          "name": "extract_keywords",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\analyzer.py",
+          "line": 255,
+          "complexity": 12
+        },
+        {
+          "name": "_resolve_paper_fields",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\asset_manager.py",
+          "line": 69,
+          "complexity": 24
+        },
+        {
+          "name": "upload_asset",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\asset_manager.py",
+          "line": 116,
+          "complexity": 13
+        },
+        {
+          "name": "upload_paper",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\asset_manager.py",
+          "line": 177,
+          "complexity": 13
+        },
+        {
+          "name": "get_current_user",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\auth.py",
+          "line": 27,
+          "complexity": 11
+        },
+        {
+          "name": "_extract_metadata",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\grobid_parser.py",
+          "line": 131,
+          "complexity": 17
+        },
+        {
+          "name": "match_paper",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\matcher.py",
+          "line": 12,
+          "complexity": 16
+        },
+        {
+          "name": "add_paper",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\qdrant_store.py",
+          "line": 147,
+          "complexity": 15
+        },
+        {
+          "name": "search_similar",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\qdrant_store.py",
+          "line": 244,
+          "complexity": 14
+        },
+        {
+          "name": "collect_all_notices",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\scheduler.py",
+          "line": 68,
+          "complexity": 15
+        },
+        {
+          "name": "_metadata_matches",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\vector_store.py",
+          "line": 193,
+          "complexity": 28
+        },
+        {
+          "name": "add_paper",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\vector_store.py",
+          "line": 373,
+          "complexity": 17
+        },
+        {
+          "name": "search_similar",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\vector_store.py",
+          "line": 495,
+          "complexity": 16
+        },
+        {
+          "name": "_search_in_memory",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\vector_store.py",
+          "line": 575,
+          "complexity": 13
+        },
+        {
+          "name": "list_all",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\vector_store.py",
+          "line": 714,
+          "complexity": 12
+        },
+        {
+          "name": "get_documents_by_metadata",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\services\\vector_store.py",
+          "line": 745,
+          "complexity": 12
+        },
+        {
+          "name": "test_health_returns_200",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\tests\\test_api_endpoints.py",
+          "line": 26,
+          "complexity": 11
+        },
+        {
+          "name": "test_upload_paper_indexes_structured_metadata",
+          "file": "D:\\AI project\\apps\\desci-platform\\biolinker\\tests\\test_asset_manager.py",
+          "line": 60,
+          "complexity": 11
+        }
+      ],
+      "duplicate_block_count": 237,
+      "duplication_ratio": 0.0318,
+      "todo_count": 4,
+      "todo_density": 0.41,
+      "annotated_functions": 222,
+      "total_functions": 381,
+      "type_annotation_ratio": 0.5827,
+      "debt_score": 36.1,
+      "grade": "C",
+      "estimated_remediation_hours": 53.2,
+      "errors": []
+    },
+    {
+      "unit_id": "agriguard",
+      "unit_path": "apps\\AgriGuard",
+      "python_files": 37,
+      "total_lines": 5494,
+      "avg_complexity": 1.84,
+      "max_complexity": 9,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 98,
+      "duplication_ratio": 0.023,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 111,
+      "total_functions": 204,
+      "type_annotation_ratio": 0.5441,
+      "debt_score": 34.2,
+      "grade": "C",
+      "estimated_remediation_hours": 23.2,
+      "errors": []
+    },
+    {
+      "unit_id": "dashboard",
+      "unit_path": "apps\\dashboard",
+      "python_files": 5,
+      "total_lines": 860,
+      "avg_complexity": 6.83,
+      "max_complexity": 34,
+      "high_complexity_functions": [
+        {
+          "name": "overview",
+          "file": "D:\\AI project\\apps\\dashboard\\api.py",
+          "line": 120,
+          "complexity": 12
+        },
+        {
+          "name": "sla_status",
+          "file": "D:\\AI project\\apps\\dashboard\\routers\\projects.py",
+          "line": 128,
+          "complexity": 34
+        },
+        {
+          "name": "mcp_health",
+          "file": "D:\\AI project\\apps\\dashboard\\routers\\projects.py",
+          "line": 249,
+          "complexity": 16
+        }
+      ],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0.0,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 5,
+      "total_functions": 18,
+      "type_annotation_ratio": 0.2778,
+      "debt_score": 35.0,
+      "grade": "C",
+      "estimated_remediation_hours": 4.8,
+      "errors": []
+    },
+    {
+      "unit_id": "getdaytrends",
+      "unit_path": "automation\\getdaytrends",
+      "python_files": 175,
+      "total_lines": 45721,
+      "avg_complexity": 5.7,
+      "max_complexity": 58,
+      "high_complexity_functions": [
+        {
+          "name": "send_daily_cost_alert",
+          "file": "D:\\AI project\\automation\\getdaytrends\\alerts.py",
+          "line": 329,
+          "complexity": 15
+        },
+        {
+          "name": "check_watchlist",
+          "file": "D:\\AI project\\automation\\getdaytrends\\alerts.py",
+          "line": 253,
+          "complexity": 13
+        },
+        {
+          "name": "_apply_credibility_check",
+          "file": "D:\\AI project\\automation\\getdaytrends\\analysis\\parsing.py",
+          "line": 189,
+          "complexity": 13
+        },
+        {
+          "name": "_build_trend_context",
+          "file": "D:\\AI project\\automation\\getdaytrends\\analysis\\parsing.py",
+          "line": 153,
+          "complexity": 11
+        },
+        {
+          "name": "_compute_cross_source_confidence",
+          "file": "D:\\AI project\\automation\\getdaytrends\\analysis\\scoring.py",
+          "line": 15,
+          "complexity": 16
+        },
+        {
+          "name": "_compute_signal_score",
+          "file": "D:\\AI project\\automation\\getdaytrends\\analysis\\scoring.py",
+          "line": 70,
+          "complexity": 11
+        },
+        {
+          "name": "_analyze_trends_async",
+          "file": "D:\\AI project\\automation\\getdaytrends\\analyzer.py",
+          "line": 493,
+          "complexity": 58
+        },
+        {
+          "name": "_batch_score_async",
+          "file": "D:\\AI project\\automation\\getdaytrends\\analyzer.py",
+          "line": 323,
+          "complexity": 32
+        },
+        {
+          "name": "_score_trend_async",
+          "file": "D:\\AI project\\automation\\getdaytrends\\analyzer.py",
+          "line": 208,
+          "complexity": 13
+        },
+        {
+          "name": "_async_collect_contexts",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\context.py",
+          "line": 141,
+          "complexity": 28
+        },
+        {
+          "name": "_async_fetch_single_source",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\context.py",
+          "line": 90,
+          "complexity": 13
+        },
+        {
+          "name": "_async_collect_contexts",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\context_runtime.py",
+          "line": 20,
+          "complexity": 34
+        },
+        {
+          "name": "_async_fetch_google_news_trends",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\google_news.py",
+          "line": 68,
+          "complexity": 13
+        },
+        {
+          "name": "_async_fetch_getdaytrends",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\sources.py",
+          "line": 104,
+          "complexity": 22
+        },
+        {
+          "name": "_async_fetch_google_trends_rss",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\sources.py",
+          "line": 232,
+          "complexity": 21
+        },
+        {
+          "name": "_async_fetch_youtube_trending",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\sources.py",
+          "line": 361,
+          "complexity": 15
+        },
+        {
+          "name": "_merge_trends",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\sources.py",
+          "line": 454,
+          "complexity": 11
+        },
+        {
+          "name": "_async_fetch_twitter_trends",
+          "file": "D:\\AI project\\automation\\getdaytrends\\collectors\\twitter.py",
+          "line": 97,
+          "complexity": 12
+        },
+        {
+          "name": "validate",
+          "file": "D:\\AI project\\automation\\getdaytrends\\config.py",
+          "line": 496,
+          "complexity": 22
+        },
+        {
+          "name": "platform_env",
+          "file": "D:\\AI project\\automation\\getdaytrends\\config_env_loaders.py",
+          "line": 193,
+          "complexity": 13
+        },
+        {
+          "name": "_score_format",
+          "file": "D:\\AI project\\automation\\getdaytrends\\content_qa.py",
+          "line": 159,
+          "complexity": 19
+        },
+        {
+          "name": "regenerate_content_groups",
+          "file": "D:\\AI project\\automation\\getdaytrends\\content_qa.py",
+          "line": 343,
+          "complexity": 18
+        },
+        {
+          "name": "audit_generated_content",
+          "file": "D:\\AI project\\automation\\getdaytrends\\content_qa.py",
+          "line": 238,
+          "complexity": 17
+        },
+        {
+          "name": "_score_fact",
+          "file": "D:\\AI project\\automation\\getdaytrends\\content_qa.py",
+          "line": 97,
+          "complexity": 16
+        },
+        {
+          "name": "build_regeneration_feedback",
+          "file": "D:\\AI project\\automation\\getdaytrends\\content_qa.py",
+          "line": 292,
+          "complexity": 16
+        },
+        {
+          "name": "_score_tone",
+          "file": "D:\\AI project\\automation\\getdaytrends\\content_qa.py",
+          "line": 71,
+          "complexity": 11
+        },
+        {
+          "name": "async_run_pipeline",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\pipeline.py",
+          "line": 611,
+          "complexity": 23
+        },
+        {
+          "name": "_step_collect",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\pipeline.py",
+          "line": 143,
+          "complexity": 21
+        },
+        {
+          "name": "_filter_unsafe_trends",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\pipeline.py",
+          "line": 221,
+          "complexity": 17
+        },
+        {
+          "name": "_step_score_and_alert",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\pipeline.py",
+          "line": 539,
+          "complexity": 17
+        },
+        {
+          "name": "_step_post_run",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\pipeline.py",
+          "line": 448,
+          "complexity": 16
+        },
+        {
+          "name": "_select_diverse_trends",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\pipeline.py",
+          "line": 272,
+          "complexity": 11
+        },
+        {
+          "name": "_adjust_schedule",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\pipeline_steps.py",
+          "line": 51,
+          "complexity": 13
+        },
+        {
+          "name": "_run_diversity_rewrite_pass",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_generate.py",
+          "line": 431,
+          "complexity": 18
+        },
+        {
+          "name": "_run_fact_check",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_generate.py",
+          "line": 348,
+          "complexity": 17
+        },
+        {
+          "name": "_load_adaptive_voice",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_generate.py",
+          "line": 159,
+          "complexity": 11
+        },
+        {
+          "name": "_run_qa_pipeline",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_generate.py",
+          "line": 275,
+          "complexity": 11
+        },
+        {
+          "name": "_save_external",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_save.py",
+          "line": 276,
+          "complexity": 24
+        },
+        {
+          "name": "_record_v2_workflow_bundle",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_save.py",
+          "line": 85,
+          "complexity": 15
+        },
+        {
+          "name": "_step_save",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_save.py",
+          "line": 430,
+          "complexity": 14
+        },
+        {
+          "name": "_annotate_predictions",
+          "file": "D:\\AI project\\automation\\getdaytrends\\core\\steps_save.py",
+          "line": 377,
+          "complexity": 13
+        },
+        {
+          "name": "enrich_trend_context",
+          "file": "D:\\AI project\\automation\\getdaytrends\\crawl4ai_adapter.py",
+          "line": 116,
+          "complexity": 12
+        },
+        {
+          "name": "api_tap_deal_room_checkout",
+          "file": "D:\\AI project\\automation\\getdaytrends\\dashboard_routes_tap.py",
+          "line": 397,
+          "complexity": 28
+        },
+        {
+          "name": "api_tap_deal_room_stripe_webhook",
+          "file": "D:\\AI project\\automation\\getdaytrends\\dashboard_routes_tap.py",
+          "line": 555,
+          "complexity": 16
+        },
+        {
+          "name": "run_migrations",
+          "file": "D:\\AI project\\automation\\getdaytrends\\db_layer\\migrations.py",
+          "line": 412,
+          "complexity": 13
+        },
+        {
+          "name": "upsert_tap_checkout_session",
+          "file": "D:\\AI project\\automation\\getdaytrends\\db_layer\\tap_repository.py",
+          "line": 583,
+          "complexity": 22
+        },
+        {
+          "name": "record_tap_deal_room_event",
+          "file": "D:\\AI project\\automation\\getdaytrends\\db_layer\\tap_repository.py",
+          "line": 502,
+          "complexity": 17
+        },
+        {
+          "name": "get_cached_content",
+          "file": "D:\\AI project\\automation\\getdaytrends\\db_layer\\tweet_repository.py",
+          "line": 247,
+          "complexity": 11
+        },
+        {
+          "name": "to_prompt_block",
+          "file": "D:\\AI project\\automation\\getdaytrends\\edape\\prompt_injector.py",
+          "line": 94,
+          "complexity": 19
+        },
+        {
+          "name": "verify_claim_against_source",
+          "file": "D:\\AI project\\automation\\getdaytrends\\fact_checker.py",
+          "line": 343,
+          "complexity": 41
+        },
+        {
+          "name": "check_cross_source_consistency",
+          "file": "D:\\AI project\\automation\\getdaytrends\\fact_checker.py",
+          "line": 632,
+          "complexity": 28
+        },
+        {
+          "name": "extract_claims",
+          "file": "D:\\AI project\\automation\\getdaytrends\\fact_checker.py",
+          "line": 182,
+          "complexity": 23
+        },
+        {
+          "name": "verify_content",
+          "file": "D:\\AI project\\automation\\getdaytrends\\fact_checker.py",
+          "line": 476,
+          "complexity": 19
+        },
+        {
+          "name": "compute_enhanced_confidence",
+          "file": "D:\\AI project\\automation\\getdaytrends\\fact_checker.py",
+          "line": 733,
+          "complexity": 16
+        },
+        {
+          "name": "enrich_contexts_with_firecrawl",
+          "file": "D:\\AI project\\automation\\getdaytrends\\firecrawl_bridge.py",
+          "line": 58,
+          "complexity": 18
+        },
+        {
+          "name": "_extract_news_urls",
+          "file": "D:\\AI project\\automation\\getdaytrends\\firecrawl_bridge.py",
+          "line": 156,
+          "complexity": 17
+        },
+        {
+          "name": "scrape_url",
+          "file": "D:\\AI project\\automation\\getdaytrends\\firecrawl_client.py",
+          "line": 113,
+          "complexity": 12
+        },
+        {
+          "name": "enrich_trend_context",
+          "file": "D:\\AI project\\automation\\getdaytrends\\firecrawl_client.py",
+          "line": 186,
+          "complexity": 12
+        },
+        {
+          "name": "generate_for_trend_async",
+          "file": "D:\\AI project\\automation\\getdaytrends\\generator.py",
+          "line": 402,
+          "complexity": 31
+        },
+        {
+          "name": "generate_tweets_async",
+          "file": "D:\\AI project\\automation\\getdaytrends\\generator.py",
+          "line": 180,
+          "complexity": 11
+        },
+        {
+          "name": "refine_keyword",
+          "file": "D:\\AI project\\automation\\getdaytrends\\korean_nlp.py",
+          "line": 303,
+          "complexity": 17
+        },
+        {
+          "name": "detect_ai_voice",
+          "file": "D:\\AI project\\automation\\getdaytrends\\korean_nlp.py",
+          "line": 132,
+          "complexity": 11
+        },
+        {
+          "name": "_main_body",
+          "file": "D:\\AI project\\automation\\getdaytrends\\main.py",
+          "line": 552,
+          "complexity": 28
+        },
+        {
+          "name": "_run_countries_parallel_job",
+          "file": "D:\\AI project\\automation\\getdaytrends\\main.py",
+          "line": 426,
+          "complexity": 22
+        },
+        {
+          "name": "print_config_summary",
+          "file": "D:\\AI project\\automation\\getdaytrends\\main.py",
+          "line": 260,
+          "complexity": 15
+        }
+      ],
+      "duplicate_block_count": 1529,
+      "duplication_ratio": 0.0423,
+      "todo_count": 1,
+      "todo_density": 0.02,
+      "annotated_functions": 760,
+      "total_functions": 1798,
+      "type_annotation_ratio": 0.4227,
+      "debt_score": 40.3,
+      "grade": "C",
+      "estimated_remediation_hours": 293.0,
+      "errors": []
+    },
+    {
+      "unit_id": "dailynews",
+      "unit_path": "automation\\DailyNews",
+      "python_files": 230,
+      "total_lines": 41379,
+      "avg_complexity": 4.18,
+      "max_complexity": 95,
+      "high_complexity_functions": [
+        {
+          "name": "step_generate_content",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\engine\\pipeline.py",
+          "line": 137,
+          "complexity": 12
+        },
+        {
+          "name": "get_optimal_posting_times",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\engine\\scheduler.py",
+          "line": 45,
+          "complexity": 13
+        },
+        {
+          "name": "_score_content_structure",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\engine\\viral_scorer.py",
+          "line": 55,
+          "complexity": 15
+        },
+        {
+          "name": "_score_hook_quality",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\engine\\viral_scorer.py",
+          "line": 17,
+          "complexity": 12
+        },
+        {
+          "name": "_parse_chart_data",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\skills\\content_factory\\builder.py",
+          "line": 19,
+          "complexity": 14
+        },
+        {
+          "name": "generate_visualization",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\skills\\content_factory\\builder.py",
+          "line": 66,
+          "complexity": 13
+        },
+        {
+          "name": "push_to_notion",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\skills\\dashboard_updater\\publisher.py",
+          "line": 22,
+          "complexity": 12
+        },
+        {
+          "name": "generate_opinion_and_hooks",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\skills\\opinion_generator\\generator.py",
+          "line": 42,
+          "complexity": 11
+        },
+        {
+          "name": "_analyze_single",
+          "file": "D:\\AI project\\automation\\DailyNews\\.agent\\skills\\sentiment_analyzer\\analyze.py",
+          "line": 29,
+          "complexity": 12
+        },
+        {
+          "name": "main",
+          "file": "D:\\AI project\\automation\\DailyNews\\apps\\streamlit_dashboard.py",
+          "line": 47,
+          "complexity": 14
+        },
+        {
+          "name": "build_report_payload",
+          "file": "D:\\AI project\\automation\\DailyNews\\review_pack\\shared\\src\\antigravity_mcp\\integrations\\llm_adapter.py",
+          "line": 334,
+          "complexity": 23
+        },
+        {
+          "name": "_parse_v1_response",
+          "file": "D:\\AI project\\automation\\DailyNews\\review_pack\\shared\\src\\antigravity_mcp\\integrations\\llm_adapter.py",
+          "line": 508,
+          "complexity": 11
+        },
+        {
+          "name": "generate_briefs",
+          "file": "D:\\AI project\\automation\\DailyNews\\review_pack\\shared\\src\\antigravity_mcp\\pipelines\\analyze.py",
+          "line": 26,
+          "complexity": 95
+        },
+        {
+          "name": "run_ab_test",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\ab_test_economy_kr_v2.py",
+          "line": 230,
+          "complexity": 19
+        },
+        {
+          "name": "analyze_cache_stats",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\analyze_llm_cache.py",
+          "line": 19,
+          "complexity": 17
+        },
+        {
+          "name": "main",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\cleanup_dailynews_dupes_2026-04-13.py",
+          "line": 45,
+          "complexity": 12
+        },
+        {
+          "name": "collect_and_upload_news",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\collect_news.py",
+          "line": 90,
+          "complexity": 18
+        },
+        {
+          "name": "detect_clickbait",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\credibility.py",
+          "line": 168,
+          "complexity": 12
+        },
+        {
+          "name": "find_duplicates",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\deduplicator.py",
+          "line": 75,
+          "complexity": 13
+        },
+        {
+          "name": "export_markdown",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\export_to_notebooklm.py",
+          "line": 69,
+          "complexity": 14
+        },
+        {
+          "name": "upload_to_notebooklm",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\export_to_notebooklm.py",
+          "line": 119,
+          "complexity": 14
+        },
+        {
+          "name": "get_market_summary",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\market_data.py",
+          "line": 102,
+          "complexity": 13
+        },
+        {
+          "name": "_migrate_table",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\migrate_sqlite_to_supabase.py",
+          "line": 125,
+          "complexity": 13
+        },
+        {
+          "name": "generate_deep_research_report",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\new_deep_research.py",
+          "line": 96,
+          "complexity": 14
+        },
+        {
+          "name": "process_category",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\news_bot.py",
+          "line": 776,
+          "complexity": 53
+        },
+        {
+          "name": "build_children",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\news_bot.py",
+          "line": 603,
+          "complexity": 16
+        },
+        {
+          "name": "run_news_bot",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\news_bot.py",
+          "line": 1099,
+          "complexity": 15
+        },
+        {
+          "name": "summarize_article",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\news_bot.py",
+          "line": 559,
+          "complexity": 14
+        },
+        {
+          "name": "_find_best_candidate",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\repair_historical_reports.py",
+          "line": 209,
+          "complexity": 17
+        },
+        {
+          "name": "process_category",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\run_daily_news.py",
+          "line": 277,
+          "complexity": 39
+        },
+        {
+          "name": "run_daily_news",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\run_daily_news.py",
+          "line": 501,
+          "complexity": 33
+        },
+        {
+          "name": "resolve_title_property",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\run_daily_news.py",
+          "line": 93,
+          "complexity": 14
+        },
+        {
+          "name": "upload_to_notion",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\run_daily_news.py",
+          "line": 123,
+          "complexity": 11
+        },
+        {
+          "name": "main",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\run_reasoning.py",
+          "line": 21,
+          "complexity": 11
+        },
+        {
+          "name": "run_full_pipeline",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\run_v2_pipeline.py",
+          "line": 320,
+          "complexity": 25
+        },
+        {
+          "name": "publish_to_notion",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\run_v2_pipeline.py",
+          "line": 121,
+          "complexity": 17
+        },
+        {
+          "name": "analyze_texts",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\sentiment_analyzer.py",
+          "line": 45,
+          "complexity": 13
+        },
+        {
+          "name": "build_x_draft_blocks",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\skill_integrator.py",
+          "line": 159,
+          "complexity": 18
+        },
+        {
+          "name": "generate_opinion_post",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\skill_integrator.py",
+          "line": 108,
+          "complexity": 16
+        },
+        {
+          "name": "main",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\upload_economy_kr.py",
+          "line": 34,
+          "complexity": 12
+        },
+        {
+          "name": "run_weekly_digest",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\weekly_notebooklm_digest.py",
+          "line": 113,
+          "complexity": 16
+        },
+        {
+          "name": "parse_notion_report",
+          "file": "D:\\AI project\\automation\\DailyNews\\scripts\\weekly_notebooklm_digest.py",
+          "line": 63,
+          "complexity": 12
+        },
+        {
+          "name": "main",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\cli.py",
+          "line": 96,
+          "complexity": 11
+        },
+        {
+          "name": "dispatch_newsletter_command",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\cli_newsletter.py",
+          "line": 47,
+          "complexity": 15
+        },
+        {
+          "name": "run_frozen_eval",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\evals\\frozen_eval.py",
+          "line": 55,
+          "complexity": 16
+        },
+        {
+          "name": "load_frozen_eval_cases",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\evals\\frozen_eval_dataset.py",
+          "line": 28,
+          "complexity": 19
+        },
+        {
+          "name": "summarize_case_results",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\evals\\frozen_eval_report.py",
+          "line": 104,
+          "complexity": 38
+        },
+        {
+          "name": "build_case_result",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\evals\\frozen_eval_report.py",
+          "line": 22,
+          "complexity": 15
+        },
+        {
+          "name": "render_frozen_eval_markdown",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\evals\\frozen_eval_report.py",
+          "line": 161,
+          "complexity": 11
+        },
+        {
+          "name": "generate_insights",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\insights\\generator.py",
+          "line": 20,
+          "complexity": 11
+        },
+        {
+          "name": "analyze_news",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\brain_adapter.py",
+          "line": 159,
+          "complexity": 16
+        },
+        {
+          "name": "select_top_articles",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\brain_adapter.py",
+          "line": 100,
+          "complexity": 13
+        },
+        {
+          "name": "generate_digest",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\digest_adapter.py",
+          "line": 72,
+          "complexity": 16
+        },
+        {
+          "name": "cluster_articles",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\embedding_adapter.py",
+          "line": 84,
+          "complexity": 14
+        },
+        {
+          "name": "check_report",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\fact_check_adapter.py",
+          "line": 222,
+          "complexity": 14
+        },
+        {
+          "name": "_is_noise_entity_issue",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\fact_check_adapter.py",
+          "line": 144,
+          "complexity": 13
+        },
+        {
+          "name": "_complete_text",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\llm\\client_wrapper.py",
+          "line": 93,
+          "complexity": 18
+        },
+        {
+          "name": "_parse_v2_response",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\llm\\response_parser.py",
+          "line": 263,
+          "complexity": 20
+        },
+        {
+          "name": "_parse_v1_response",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\llm\\response_parser.py",
+          "line": 156,
+          "complexity": 18
+        },
+        {
+          "name": "topic_overlap_score",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\llm_adapter.py",
+          "line": 39,
+          "complexity": 12
+        },
+        {
+          "name": "_build_quality_feedback_block",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\llm_prompts.py",
+          "line": 84,
+          "complexity": 16
+        },
+        {
+          "name": "get_market_snapshot",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\market_adapter.py",
+          "line": 115,
+          "complexity": 11
+        },
+        {
+          "name": "compose_daily_brief",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\newsletter_adapter.py",
+          "line": 135,
+          "complexity": 17
+        },
+        {
+          "name": "send_daily_brief",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\newsletter_adapter.py",
+          "line": 290,
+          "complexity": 13
+        },
+        {
+          "name": "create_weekly_digest",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\notebooklm_adapter.py",
+          "line": 255,
+          "complexity": 28
+        },
+        {
+          "name": "research_category",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\notebooklm_adapter.py",
+          "line": 91,
+          "complexity": 17
+        },
+        {
+          "name": "_generate_artifact",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\notebooklm_adapter.py",
+          "line": 336,
+          "complexity": 17
+        },
+        {
+          "name": "step3_falsify",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\reasoning_adapter.py",
+          "line": 245,
+          "complexity": 12
+        },
+        {
+          "name": "step2_hypothesize",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\reasoning_adapter.py",
+          "line": 175,
+          "complexity": 11
+        },
+        {
+          "name": "get_optimal_hours",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\scheduler_adapter.py",
+          "line": 42,
+          "complexity": 14
+        },
+        {
+          "name": "analyze",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\sentiment_adapter.py",
+          "line": 52,
+          "complexity": 16
+        },
+        {
+          "name": "_parse_rss",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\signal_collector.py",
+          "line": 108,
+          "complexity": 14
+        },
+        {
+          "name": "fetch_trending",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\signal_collector.py",
+          "line": 240,
+          "complexity": 14
+        },
+        {
+          "name": "_classify",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\signal_scorer.py",
+          "line": 256,
+          "complexity": 12
+        },
+        {
+          "name": "_parse_categories_json",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\subscriber_store.py",
+          "line": 144,
+          "complexity": 15
+        },
+        {
+          "name": "split_to_thread",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\x_adapter.py",
+          "line": 229,
+          "complexity": 18
+        },
+        {
+          "name": "publish",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\x_adapter.py",
+          "line": 101,
+          "complexity": 14
+        },
+        {
+          "name": "post_thread",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\integrations\\x_adapter.py",
+          "line": 171,
+          "complexity": 11
+        },
+        {
+          "name": "_process_category",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\analyze.py",
+          "line": 103,
+          "complexity": 21
+        },
+        {
+          "name": "_resolve_adapters",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\analyze.py",
+          "line": 63,
+          "complexity": 18
+        },
+        {
+          "name": "generate_briefs",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\analyze.py",
+          "line": 226,
+          "complexity": 16
+        },
+        {
+          "name": "generate_base_payload",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\analyze_steps.py",
+          "line": 127,
+          "complexity": 13
+        },
+        {
+          "name": "load_sources",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\collect.py",
+          "line": 45,
+          "complexity": 12
+        },
+        {
+          "name": "_apply_skill_enrichment",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\enrichment_steps.py",
+          "line": 59,
+          "complexity": 18
+        },
+        {
+          "name": "_apply_insight_enrichment",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\enrichment_steps.py",
+          "line": 168,
+          "complexity": 13
+        },
+        {
+          "name": "_apply_sentiment_enrichment",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\enrichment_steps.py",
+          "line": 21,
+          "complexity": 11
+        },
+        {
+          "name": "_publish_x_draft",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\publish.py",
+          "line": 240,
+          "complexity": 21
+        },
+        {
+          "name": "_analysis_meta_markdown",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\publish.py",
+          "line": 61,
+          "complexity": 19
+        },
+        {
+          "name": "publish_report",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\publish.py",
+          "line": 366,
+          "complexity": 19
+        },
+        {
+          "name": "_detect_semantic_overlap",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\qa_steps.py",
+          "line": 91,
+          "complexity": 23
+        },
+        {
+          "name": "finalize_quality",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\qa_steps.py",
+          "line": 266,
+          "complexity": 20
+        },
+        {
+          "name": "_auto_heal_once",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\qa_steps.py",
+          "line": 191,
+          "complexity": 17
+        },
+        {
+          "name": "_collect_evidence_quality_warnings",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\qa_steps.py",
+          "line": 22,
+          "complexity": 11
+        },
+        {
+          "name": "run_signal_watch",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\signal_watch.py",
+          "line": 268,
+          "complexity": 11
+        },
+        {
+          "name": "__init__",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\pipelines\\signal_watch.py",
+          "line": 96,
+          "complexity": 11
+        },
+        {
+          "name": "get_token_usage_stats",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\state\\mixins\\cache.py",
+          "line": 119,
+          "complexity": 13
+        },
+        {
+          "name": "get_category_quality_history",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\state\\mixins\\reports.py",
+          "line": 116,
+          "complexity": 14
+        },
+        {
+          "name": "_row_to_report",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\state\\mixins\\reports.py",
+          "line": 288,
+          "complexity": 13
+        },
+        {
+          "name": "_migrate_to_v1",
+          "file": "D:\\AI project\\automation\\DailyNews\\src\\antigravity_mcp\\state\\store.py",
+          "line": 379,
+          "complexity": 11
+        },
+        {
+          "name": "test_parse_reddit_json_basic",
+          "file": "D:\\AI project\\automation\\DailyNews\\tests\\test_signal_collector.py",
+          "line": 234,
+          "complexity": 11
+        },
+        {
+          "name": "test_trigger_auto_draft",
+          "file": "D:\\AI project\\automation\\DailyNews\\tests\\test_signal_watch.py",
+          "line": 13,
+          "complexity": 11
+        },
+        {
+          "name": "test_build_parser_and_main_dispatch",
+          "file": "D:\\AI project\\automation\\DailyNews\\tests\\unit\\test_cli_entrypoints.py",
+          "line": 64,
+          "complexity": 11
+        },
+        {
+          "name": "test_run_frozen_eval_writes_outputs_and_summarizes_metrics",
+          "file": "D:\\AI project\\automation\\DailyNews\\tests\\unit\\test_frozen_eval.py",
+          "line": 158,
+          "complexity": 14
+        },
+        {
+          "name": "test_llm_adapter_reuses_persistent_cache",
+          "file": "D:\\AI project\\automation\\DailyNews\\tests\\unit\\test_llm_cache_and_packaging.py",
+          "line": 20,
+          "complexity": 12
+        }
+      ],
+      "duplicate_block_count": 2071,
+      "duplication_ratio": 0.0634,
+      "todo_count": 1,
+      "todo_density": 0.02,
+      "annotated_functions": 1002,
+      "total_functions": 1688,
+      "type_annotation_ratio": 0.5936,
+      "debt_score": 41.8,
+      "grade": "C",
+      "estimated_remediation_hours": 224.5,
+      "errors": []
+    },
+    {
+      "unit_id": "content-intelligence",
+      "unit_path": "automation\\content-intelligence",
+      "python_files": 38,
+      "total_lines": 6718,
+      "avg_complexity": 4.28,
+      "max_complexity": 8,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 120,
+      "duplication_ratio": 0.0231,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 100,
+      "total_functions": 229,
+      "type_annotation_ratio": 0.4367,
+      "debt_score": 35.3,
+      "grade": "C",
+      "estimated_remediation_hours": 32.2,
+      "errors": []
+    },
+    {
+      "unit_id": "canva-mcp",
+      "unit_path": "D:\\AI project\\mcp\\canva-mcp",
+      "python_files": 0,
+      "total_lines": 0,
+      "avg_complexity": 0,
+      "max_complexity": 0,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0,
+      "todo_count": 0,
+      "todo_density": 0,
+      "annotated_functions": 0,
+      "total_functions": 0,
+      "type_annotation_ratio": 0,
+      "debt_score": 0,
+      "grade": "A",
+      "estimated_remediation_hours": 0,
+      "errors": [
+        "No Python files found (may be a JS/TS-only unit)"
+      ]
+    },
+    {
+      "unit_id": "github-mcp",
+      "unit_path": "mcp\\github-mcp",
+      "python_files": 3,
+      "total_lines": 127,
+      "avg_complexity": 2.67,
+      "max_complexity": 4,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0.0,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 0,
+      "total_functions": 6,
+      "type_annotation_ratio": 0.0,
+      "debt_score": 35.0,
+      "grade": "C",
+      "estimated_remediation_hours": 1.5,
+      "errors": []
+    },
+    {
+      "unit_id": "notebooklm-mcp",
+      "unit_path": "mcp\\notebooklm-mcp",
+      "python_files": 2,
+      "total_lines": 49,
+      "avg_complexity": 3.0,
+      "max_complexity": 3,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0.0,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 1,
+      "total_functions": 1,
+      "type_annotation_ratio": 1.0,
+      "debt_score": 25.0,
+      "grade": "B",
+      "estimated_remediation_hours": 0.0,
+      "errors": []
+    },
+    {
+      "unit_id": "telegram-mcp",
+      "unit_path": "mcp\\telegram-mcp",
+      "python_files": 1,
+      "total_lines": 287,
+      "avg_complexity": 3.1,
+      "max_complexity": 7,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0.0,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 10,
+      "total_functions": 10,
+      "type_annotation_ratio": 1.0,
+      "debt_score": 25.0,
+      "grade": "B",
+      "estimated_remediation_hours": 0.0,
+      "errors": []
+    },
+    {
+      "unit_id": "desci-research-mcp",
+      "unit_path": "mcp\\desci-research-mcp",
+      "python_files": 1,
+      "total_lines": 622,
+      "avg_complexity": 9.38,
+      "max_complexity": 16,
+      "high_complexity_functions": [
+        {
+          "name": "get_paper_details",
+          "file": "D:\\AI project\\mcp\\desci-research-mcp\\server.py",
+          "line": 165,
+          "complexity": 16
+        },
+        {
+          "name": "get_research_trends",
+          "file": "D:\\AI project\\mcp\\desci-research-mcp\\server.py",
+          "line": 397,
+          "complexity": 16
+        },
+        {
+          "name": "search_grants",
+          "file": "D:\\AI project\\mcp\\desci-research-mcp\\server.py",
+          "line": 265,
+          "complexity": 15
+        }
+      ],
+      "duplicate_block_count": 11,
+      "duplication_ratio": 0.0214,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 8,
+      "total_functions": 8,
+      "type_annotation_ratio": 1.0,
+      "debt_score": 35.8,
+      "grade": "C",
+      "estimated_remediation_hours": 1.5,
+      "errors": []
+    },
+    {
+      "unit_id": "shared",
+      "unit_path": "packages\\shared",
+      "python_files": 110,
+      "total_lines": 24224,
+      "avg_complexity": 3.08,
+      "max_complexity": 41,
+      "high_complexity_functions": [
+        {
+          "name": "embed_with_reasoning",
+          "file": "D:\\AI project\\packages\\shared\\embeddings\\agentir.py",
+          "line": 174,
+          "complexity": 17
+        },
+        {
+          "name": "ab_test_search",
+          "file": "D:\\AI project\\packages\\shared\\embeddings\\agentir.py",
+          "line": 620,
+          "complexity": 16
+        },
+        {
+          "name": "embed_texts",
+          "file": "D:\\AI project\\packages\\shared\\embeddings\\core.py",
+          "line": 97,
+          "complexity": 14
+        },
+        {
+          "name": "extract_claims",
+          "file": "D:\\AI project\\packages\\shared\\fact_check\\claim_extractor.py",
+          "line": 109,
+          "complexity": 23
+        },
+        {
+          "name": "verify_claim_against_source",
+          "file": "D:\\AI project\\packages\\shared\\fact_check\\verifier.py",
+          "line": 54,
+          "complexity": 41
+        },
+        {
+          "name": "verify_text_against_sources",
+          "file": "D:\\AI project\\packages\\shared\\fact_check\\verifier.py",
+          "line": 179,
+          "complexity": 14
+        },
+        {
+          "name": "execute_tool",
+          "file": "D:\\AI project\\packages\\shared\\harness\\core.py",
+          "line": 137,
+          "complexity": 17
+        },
+        {
+          "name": "_run_docker",
+          "file": "D:\\AI project\\packages\\shared\\harness\\sandbox\\docker_runner.py",
+          "line": 114,
+          "complexity": 19
+        },
+        {
+          "name": "_run_subprocess",
+          "file": "D:\\AI project\\packages\\shared\\harness\\sandbox\\docker_runner.py",
+          "line": 227,
+          "complexity": 12
+        },
+        {
+          "name": "validate_korean_output",
+          "file": "D:\\AI project\\packages\\shared\\harness\\validators\\korean_quality.py",
+          "line": 109,
+          "complexity": 13
+        },
+        {
+          "name": "analyze_changes",
+          "file": "D:\\AI project\\packages\\shared\\intelligence\\impact_analyzer.py",
+          "line": 120,
+          "complexity": 12
+        },
+        {
+          "name": "_call_via_litellm",
+          "file": "D:\\AI project\\packages\\shared\\llm\\backends.py",
+          "line": 430,
+          "complexity": 14
+        },
+        {
+          "name": "_call_openai_compat",
+          "file": "D:\\AI project\\packages\\shared\\llm\\backends.py",
+          "line": 368,
+          "complexity": 12
+        },
+        {
+          "name": "_call_gemini",
+          "file": "D:\\AI project\\packages\\shared\\llm\\backends.py",
+          "line": 325,
+          "complexity": 11
+        },
+        {
+          "name": "_acall_via_litellm",
+          "file": "D:\\AI project\\packages\\shared\\llm\\backends.py",
+          "line": 551,
+          "complexity": 11
+        },
+        {
+          "name": "rank_symbols",
+          "file": "D:\\AI project\\packages\\shared\\llm\\context_map.py",
+          "line": 264,
+          "complexity": 17
+        },
+        {
+          "name": "parse_python_file",
+          "file": "D:\\AI project\\packages\\shared\\llm\\context_map.py",
+          "line": 137,
+          "complexity": 13
+        },
+        {
+          "name": "_format_signature",
+          "file": "D:\\AI project\\packages\\shared\\llm\\context_map.py",
+          "line": 89,
+          "complexity": 12
+        },
+        {
+          "name": "inspect_response",
+          "file": "D:\\AI project\\packages\\shared\\llm\\language_bridge.py",
+          "line": 161,
+          "complexity": 16
+        },
+        {
+          "name": "normalize_policy",
+          "file": "D:\\AI project\\packages\\shared\\llm\\language_bridge.py",
+          "line": 54,
+          "complexity": 11
+        },
+        {
+          "name": "generate_report",
+          "file": "D:\\AI project\\packages\\shared\\llm\\meta_optimizer.py",
+          "line": 184,
+          "complexity": 14
+        },
+        {
+          "name": "run",
+          "file": "D:\\AI project\\packages\\shared\\llm\\reasoning\\chain_of_thought.py",
+          "line": 83,
+          "complexity": 11
+        },
+        {
+          "name": "arun",
+          "file": "D:\\AI project\\packages\\shared\\llm\\reasoning\\chain_of_thought.py",
+          "line": 154,
+          "complexity": 11
+        },
+        {
+          "name": "estimate_complexity",
+          "file": "D:\\AI project\\packages\\shared\\llm\\reasoning\\smart_router.py",
+          "line": 160,
+          "complexity": 20
+        },
+        {
+          "name": "setup_observability",
+          "file": "D:\\AI project\\packages\\shared\\observability.py",
+          "line": 45,
+          "complexity": 17
+        },
+        {
+          "name": "hybrid_search",
+          "file": "D:\\AI project\\packages\\shared\\search\\hybrid.py",
+          "line": 101,
+          "complexity": 18
+        },
+        {
+          "name": "find_repeated_patterns",
+          "file": "D:\\AI project\\packages\\shared\\telemetry\\workflow_trace.py",
+          "line": 329,
+          "complexity": 11
+        }
+      ],
+      "duplicate_block_count": 630,
+      "duplication_ratio": 0.0344,
+      "todo_count": 7,
+      "todo_density": 0.29,
+      "annotated_functions": 559,
+      "total_functions": 1247,
+      "type_annotation_ratio": 0.4483,
+      "debt_score": 37.8,
+      "grade": "C",
+      "estimated_remediation_hours": 192.5,
+      "errors": []
+    },
+    {
+      "unit_id": "scripts",
+      "unit_path": "ops\\scripts",
+      "python_files": 39,
+      "total_lines": 8933,
+      "avg_complexity": 5.34,
+      "max_complexity": 17,
+      "high_complexity_functions": [
+        {
+          "name": "main",
+          "file": "D:\\AI project\\ops\\scripts\\analyze_chunks.py",
+          "line": 53,
+          "complexity": 13
+        },
+        {
+          "name": "generate_report",
+          "file": "D:\\AI project\\ops\\scripts\\benchmark_database.py",
+          "line": 217,
+          "complexity": 15
+        },
+        {
+          "name": "scan_file",
+          "file": "D:\\AI project\\ops\\scripts\\check_security.py",
+          "line": 90,
+          "complexity": 14
+        },
+        {
+          "name": "main",
+          "file": "D:\\AI project\\ops\\scripts\\check_workflow_run.py",
+          "line": 24,
+          "complexity": 16
+        },
+        {
+          "name": "get_optimal_angle_weights",
+          "file": "D:\\AI project\\ops\\scripts\\clean_perf.py",
+          "line": 381,
+          "complexity": 13
+        },
+        {
+          "name": "run_collection_cycle",
+          "file": "D:\\AI project\\ops\\scripts\\clean_perf.py",
+          "line": 442,
+          "complexity": 13
+        },
+        {
+          "name": "run_tiered_collection",
+          "file": "D:\\AI project\\ops\\scripts\\clean_perf.py",
+          "line": 833,
+          "complexity": 13
+        },
+        {
+          "name": "clean_cache",
+          "file": "D:\\AI project\\ops\\scripts\\clean_python_cache.py",
+          "line": 20,
+          "complexity": 17
+        },
+        {
+          "name": "_generate_suggestions",
+          "file": "D:\\AI project\\ops\\scripts\\cost_intelligence.py",
+          "line": 281,
+          "complexity": 12
+        },
+        {
+          "name": "to_markdown",
+          "file": "D:\\AI project\\ops\\scripts\\cost_intelligence.py",
+          "line": 83,
+          "complexity": 11
+        },
+        {
+          "name": "calc_mttr",
+          "file": "D:\\AI project\\ops\\scripts\\dora_metrics.py",
+          "line": 218,
+          "complexity": 12
+        }
+      ],
+      "duplicate_block_count": 92,
+      "duplication_ratio": 0.0134,
+      "todo_count": 64,
+      "todo_density": 7.16,
+      "annotated_functions": 199,
+      "total_functions": 261,
+      "type_annotation_ratio": 0.7625,
+      "debt_score": 41.3,
+      "grade": "C",
+      "estimated_remediation_hours": 85.0,
+      "errors": []
+    },
+    {
+      "unit_id": "monitoring",
+      "unit_path": "D:\\AI project\\ops\\monitoring",
+      "python_files": 0,
+      "total_lines": 0,
+      "avg_complexity": 0,
+      "max_complexity": 0,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0,
+      "todo_count": 0,
+      "todo_density": 0,
+      "annotated_functions": 0,
+      "total_functions": 0,
+      "type_annotation_ratio": 0,
+      "debt_score": 0,
+      "grade": "A",
+      "estimated_remediation_hours": 0,
+      "errors": [
+        "No Python files found (may be a JS/TS-only unit)"
+      ]
+    },
+    {
+      "unit_id": "nginx",
+      "unit_path": "D:\\AI project\\ops\\nginx",
+      "python_files": 0,
+      "total_lines": 0,
+      "avg_complexity": 0,
+      "max_complexity": 0,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0,
+      "todo_count": 0,
+      "todo_density": 0,
+      "annotated_functions": 0,
+      "total_functions": 0,
+      "type_annotation_ratio": 0,
+      "debt_score": 0,
+      "grade": "A",
+      "estimated_remediation_hours": 0,
+      "errors": [
+        "No Python files found (may be a JS/TS-only unit)"
+      ]
+    },
+    {
+      "unit_id": "agents",
+      "unit_path": "ops\\agents",
+      "python_files": 2,
+      "total_lines": 280,
+      "avg_complexity": 3.18,
+      "max_complexity": 7,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 1,
+      "duplication_ratio": 0.0054,
+      "todo_count": 0,
+      "todo_density": 0.0,
+      "annotated_functions": 4,
+      "total_functions": 11,
+      "type_annotation_ratio": 0.3636,
+      "debt_score": 32.4,
+      "grade": "C",
+      "estimated_remediation_hours": 1.8,
+      "errors": []
+    },
+    {
+      "unit_id": "directives",
+      "unit_path": "D:\\AI project\\ops\\directives",
+      "python_files": 0,
+      "total_lines": 0,
+      "avg_complexity": 0,
+      "max_complexity": 0,
+      "high_complexity_functions": [],
+      "duplicate_block_count": 0,
+      "duplication_ratio": 0,
+      "todo_count": 0,
+      "todo_density": 0,
+      "annotated_functions": 0,
+      "total_functions": 0,
+      "type_annotation_ratio": 0,
+      "debt_score": 0,
+      "grade": "A",
+      "estimated_remediation_hours": 0,
+      "errors": [
+        "No Python files found (may be a JS/TS-only unit)"
+      ]
+    }
+  ],
+  "workspace_debt_score": 35.0,
+  "workspace_grade": "C",
+  "total_remediation_hours": 913.2,
+  "summary": {
+    "total_units_scanned": 17,
+    "python_units": 13,
+    "grade_distribution": {
+      "A": 4,
+      "B": 2,
+      "C": 11,
+      "D": 0
+    },
+    "top_3_worst": [
+      "dailynews",
+      "scripts",
+      "getdaytrends"
+    ],
+    "total_python_files": 701,
+    "total_lines": 144429,
+    "total_todo_count": 77,
+    "radon_available": true
+  }
+}

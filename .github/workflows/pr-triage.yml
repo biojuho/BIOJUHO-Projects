@@ -26,9 +26,9 @@ jobs:
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-python-uv
         with:
-          python-version: "3.13"
+          python-version: '3.13'
 
       - name: Generate PR triage snapshot
         env:

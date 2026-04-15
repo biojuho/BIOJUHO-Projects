@@ -1,0 +1,36 @@
+name: Pipeline Watcher (13h Check)
+
+on:
+  schedule:
+    # Run every 13 hours
+    - cron: '0 */13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-pipelines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python & uv
+        uses: ./.github/actions/setup-python-uv
+
+      - name: Install dependencies
+        run: uv pip install --system httpx pydantic anthropic notion-client aiosqlite sqlalchemy discord-webhook python-telegram-bot
+
+      - name: Run pipeline health check run
+        env:
+          DATABASE_URL_AGRIGUARD: ${{ secrets.DATABASE_URL_AGRIGUARD }}
+          DATABASE_URL_DAILYNEWS: ${{ secrets.DATABASE_URL_DAILYNEWS }}
+          DATABASE_URL_GETDAYTRENDS: ${{ secrets.DATABASE_URL_GETDAYTRENDS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          DISCORD_WEBHOOK_URL_OPS: ${{ secrets.DISCORD_WEBHOOK_URL_OPS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          uv run ops/scripts/healthcheck.py --webhook "${{ secrets.DISCORD_WEBHOOK_URL_OPS }}"
