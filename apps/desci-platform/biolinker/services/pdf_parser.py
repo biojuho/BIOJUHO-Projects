@@ -8,7 +8,15 @@ import io
 from dataclasses import dataclass
 from typing import Any
 
-import pypdf
+try:
+    import pypdf
+except ImportError:
+    class _MissingPypdfModule:
+        class PdfReader:  # pragma: no cover - exercised via fallback handling
+            def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+                raise ImportError("pypdf is required to parse PDF files")
+
+    pypdf = _MissingPypdfModule()
 
 from .grobid_parser import get_grobid_parser
 from .logging_config import get_logger

@@ -35,7 +35,12 @@ WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "getdaytrends tests": ("aiosqlite", "sqlalchemy"),
 }
 UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
-    "workspace regression tests": ("pypdf>=4.0.0,<5.0",),
+    "workspace regression tests": (
+        "fastapi>=0.115.0,<1.0",
+        "sqlalchemy>=2.0.0,<3.0",
+        "aiosqlite>=0.19.0,<1.0",
+        "pypdf>=4.0.0,<5.0",
+    ),
     "desci biolinker smoke": (
         "fastapi>=0.115.0,<1.0",
         "uvicorn>=0.32.0,<1.0",
@@ -407,6 +412,14 @@ def run_one(root: Path, item: Check) -> Result:
     env["PYTHONPATH"] = build_pythonpath(root, env)
     temp_dir = runtime_temp_dir(root, item)
     reset_temp_dir(temp_dir)
+    cache_root = root / "var" / "tmp" / "workspace-smoke" / ".tool-cache"
+    uv_cache_dir = cache_root / "uv"
+    npm_cache_dir = cache_root / "npm"
+    uv_cache_dir.mkdir(parents=True, exist_ok=True)
+    npm_cache_dir.mkdir(parents=True, exist_ok=True)
+    env["UV_CACHE_DIR"] = str(uv_cache_dir)
+    env["npm_config_cache"] = str(npm_cache_dir)
+    env["NPM_CONFIG_CACHE"] = str(npm_cache_dir)
     command = command_for_check(item, temp_dir)
     if not is_pytest_command(command):
         env["TMP"] = str(temp_dir)
