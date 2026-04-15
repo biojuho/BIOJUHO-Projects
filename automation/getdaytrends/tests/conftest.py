@@ -12,11 +12,19 @@ getdaytrends pytest configuration & shared fixture factories.
 from __future__ import annotations
 
 import os
+import shutil
 import sys
+import tempfile
+import uuid
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_ROOT = PROJECT_ROOT.parents[1]
+TMP_ROOT = WORKSPACE_ROOT / ".smoke-tmp" / "getdaytrends-tests"
 
 # ── Path priority ───────────────────────────────────────────────────────────
 
@@ -62,6 +70,30 @@ def pytest_runtest_setup(item):
             asyncio.set_event_loop(asyncio.new_event_loop())
     except RuntimeError:
         asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+@pytest.fixture(autouse=True)
+def _force_workspace_temp(monkeypatch):
+    """Keep getdaytrends temp files inside the workspace on Windows."""
+    previous_tempdir = tempfile.tempdir
+    TMP_ROOT.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("TMP", str(TMP_ROOT))
+    monkeypatch.setenv("TEMP", str(TMP_ROOT))
+    monkeypatch.setenv("TMPDIR", str(TMP_ROOT))
+    tempfile.tempdir = str(TMP_ROOT)
+    yield
+    tempfile.tempdir = previous_tempdir
+
+
+@pytest.fixture()
+def tmp_path():
+    TMP_ROOT.mkdir(parents=True, exist_ok=True)
+    path = TMP_ROOT / f"tmp-{uuid.uuid4().hex}"
+    path.mkdir(parents=True, exist_ok=False)
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
