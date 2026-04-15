@@ -118,7 +118,7 @@ jobs:
         env:
           PYTHONUTF8: "1"
         run: |
-          uv run --package DailyNews pytest automation/DailyNews/tests/test_run_daily_news.py automation/DailyNews/tests/unit/test_config_aliases.py -q
+          uv run --package DailyNews --with pytest --with pytest-asyncio pytest automation/DailyNews/tests/test_run_daily_news.py automation/DailyNews/tests/unit/test_config_aliases.py -q
 
       - name: Run DailyNews pipeline
         working-directory: automation/DailyNews
