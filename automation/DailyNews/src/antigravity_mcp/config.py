@@ -206,6 +206,11 @@ def get_settings() -> AppSettings:
     if tasks_db_source:
         warnings.append(f"{tasks_db_source} is no longer read; set NOTION_TASKS_DATABASE_ID instead.")
 
+    # DB consolidation: NOTION_TASKS_DATABASE_ID is deprecated in favor of
+    # NOTION_REPORTS_DATABASE_ID.  Both historically pointed to the same DB.
+    # If TASKS is still set explicitly, honour it but warn; otherwise fall back
+    # to REPORTS (resolved below) so callers don't break.
+
     _legacy_tasks_data_source_id, tasks_ds_source = _first_non_empty(
         "NOTION_TASKS_DATA_SOURCE_ID",
     )
@@ -266,6 +271,19 @@ def get_settings() -> AppSettings:
     x_access_token_secret, _ = _first_non_empty("X_ACCESS_TOKEN_SECRET", "TWITTER_ACCESS_TOKEN_SECRET")
     x_bearer_token, _ = _first_non_empty("X_BEARER_TOKEN", "TWITTER_BEARER_TOKEN")
     supabase_database_url, _ = _first_non_empty("SUPABASE_DATABASE_URL", "DATABASE_URL")
+
+    # Consolidation fallback: tasks → reports
+    if not notion_tasks_database_id and notion_reports_database_id:
+        notion_tasks_database_id = notion_reports_database_id
+        warnings.append(
+            "NOTION_TASKS_DATABASE_ID is not set; falling back to NOTION_REPORTS_DATABASE_ID. "
+            "Both pipelines will write to the same Notion database."
+        )
+    elif notion_tasks_database_id and notion_reports_database_id and notion_tasks_database_id == notion_reports_database_id:
+        warnings.append(
+            "NOTION_TASKS_DATABASE_ID and NOTION_REPORTS_DATABASE_ID point to the same DB. "
+            "Consider removing NOTION_TASKS_DATABASE_ID from .env to use the consolidated single-DB model."
+        )
 
     return AppSettings(
         project_root=PROJECT_ROOT,
