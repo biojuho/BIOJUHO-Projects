@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import httpx
 import pytest
-import respx
+
+respx = pytest.importorskip("respx", reason="respx required for httpx mocking")
 from antigravity_mcp.integrations.feed_adapter import FeedAdapter
 
 # Minimal valid RSS 2.0 feed

@@ -22,11 +22,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Windows cp949 인코딩 문제 해결
-if sys.stdout and hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-if sys.stderr and hasattr(sys.stderr, "buffer"):
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+# Windows cp949 인코딩 문제 해결 — pytest capture와 충돌하므로
+# 서버 직접 실행 시에만 적용 (테스트에서는 스킵)
+if "pytest" not in sys.modules:
+    if sys.stdout and hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    if sys.stderr and hasattr(sys.stderr, "buffer"):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 import uvicorn
 from fastapi import FastAPI

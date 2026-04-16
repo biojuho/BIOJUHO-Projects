@@ -9,6 +9,28 @@ Run getdaytrends tests separately::
 
 from __future__ import annotations
 
+# ---------- pytest 8.4 + Python 3.13 capture workaround ----------
+# Background threads (logging, metrics) may write to stdout/stderr after
+# pytest's capture teardown closes the underlying tmpfile, raising
+# ``ValueError: I/O operation on closed file`` during session shutdown.
+# This does NOT mask real test failures — only the noisy shutdown crash.
+import sys as _sys
+
+_orig_unraisablehook = _sys.unraisablehook
+
+
+def _silence_capture_io_error(unraisable):
+    if (
+        isinstance(unraisable.exc_value, ValueError)
+        and "I/O operation on closed file" in str(unraisable.exc_value)
+    ):
+        return  # suppress known pytest capture teardown noise
+    _orig_unraisablehook(unraisable)
+
+
+_sys.unraisablehook = _silence_capture_io_error
+# ------------------------------------------------------------------
+
 import shutil
 import tempfile
 import uuid
