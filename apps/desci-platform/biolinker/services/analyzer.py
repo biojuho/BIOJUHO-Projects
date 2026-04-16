@@ -8,10 +8,10 @@ import os
 import re
 from pathlib import Path
 
-import structlog
 from dotenv import load_dotenv
+from services.logging_config import get_logger
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 # 환경 변수 로드 (워크스페이스 루트 .env)
 _workspace_root = Path(__file__).resolve().parents[4]

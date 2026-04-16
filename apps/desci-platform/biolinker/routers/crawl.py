@@ -1,15 +1,33 @@
 """
-BioLinker - Crawl Router
-KDDF/NTIS 공고 크롤링 엔드포인트
+BioLinker - Crawl Router.
+
+Service imports stay inside endpoint handlers so the app can boot in lean
+smoke environments that do not install every crawler dependency.
 """
 
 from fastapi import APIRouter, Request
+
 from limiter import limiter
-from services.kddf_crawler import get_kddf_crawler
-from services.ntis_crawler import get_ntis_crawler
-from services.scheduler import get_scheduler
 
 router = APIRouter()
+
+
+def get_scheduler():
+    from services.scheduler import get_scheduler as _get_scheduler
+
+    return _get_scheduler()
+
+
+def get_kddf_crawler():
+    from services.kddf_crawler import get_kddf_crawler as _get_kddf_crawler
+
+    return _get_kddf_crawler()
+
+
+def get_ntis_crawler():
+    from services.ntis_crawler import get_ntis_crawler as _get_ntis_crawler
+
+    return _get_ntis_crawler()
 
 
 @router.get(
@@ -42,18 +60,16 @@ async def get_notices(
     source: str | None = None,
     limit: int = 30,
 ):
-    """Return previously collected government RFP notices.
+    """Return previously collected government RFP notices."""
 
-    Optionally filter by ``source`` (e.g. KDDF, NTIS) and cap the
-    result count with ``limit``.
-    """
     scheduler = get_scheduler()
     return scheduler.get_notices(source=source, limit=limit)
 
 
 @router.post("/notices/collect", tags=["Crawling"])
 async def collect_notices():
-    """KDDF/NTIS 공고 수집 실행"""
+    """Collect KDDF/NTIS notices on demand."""
+
     scheduler = get_scheduler()
     notices = await scheduler.collect_all_notices()
     return {"collected": len(notices), "notices": notices[:10]}
@@ -61,13 +77,15 @@ async def collect_notices():
 
 @router.get("/notices/kddf", tags=["Crawling"])
 async def get_kddf_notices(page: int = 1):
-    """KDDF 공고 크롤링"""
+    """Return raw KDDF notices."""
+
     crawler = get_kddf_crawler()
     return await crawler.fetch_notice_list(page)
 
 
 @router.get("/notices/ntis", tags=["Crawling"])
-async def get_ntis_notices(keyword: str = "바이오", page: int = 1):
-    """NTIS 공고 크롤링"""
+async def get_ntis_notices(keyword: str = "bio", page: int = 1):
+    """Return raw NTIS notices."""
+
     crawler = get_ntis_crawler()
     return await crawler.fetch_notice_list(keyword, page)

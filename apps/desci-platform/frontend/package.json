@@ -13,8 +13,8 @@
     "build:lts": "npx -y node@22 node_modules/vite/bin/vite.js build",
     "check:bundle": "node scripts/check-bundle-size.mjs",
     "lint": "eslint .",
-    "test": "vitest run",
-    "test:lts": "npx -y node@22 node_modules/vitest/vitest.mjs run",
+    "test": "vitest run --pool=threads --maxWorkers=1 --isolate",
+    "test:lts": "npx -y node@22 node_modules/vitest/vitest.mjs run --pool=threads --maxWorkers=1 --isolate",
     "preview": "vite preview"
   },
   "dependencies": {

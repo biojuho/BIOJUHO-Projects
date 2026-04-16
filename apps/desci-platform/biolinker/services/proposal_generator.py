@@ -1,18 +1,26 @@
 import os
+import sys
 from pathlib import Path
 
-import structlog
 from dotenv import load_dotenv
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 
-logger = structlog.get_logger(__name__)
+from services.logging_config import get_logger
 
-# 루트 .env 로드
+try:
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    StrOutputParser = None  # type: ignore[assignment]
+    ChatPromptTemplate = None  # type: ignore[assignment]
+    LANGCHAIN_AVAILABLE = False
+
+logger = get_logger(__name__)
+
 _workspace_root = Path(__file__).resolve().parents[3]
 load_dotenv(_workspace_root / ".env")
 
-# LLM Imports
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -26,9 +34,6 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
-
-# Centralized prompt templates
-import sys
 
 _pkg_root = Path(__file__).resolve().parents[3] / "packages"
 if str(_pkg_root) not in sys.path:
@@ -44,7 +49,7 @@ try:
     _PROMPTS_LOADED = True
 except Exception:
     _PROMPTS_LOADED = False
-    PROPOSAL_SYSTEM_PROMPT = "You are an expert Grant Writer with a Ph.D. in Biotechnology."
+    PROPOSAL_SYSTEM_PROMPT = "You are an expert grant writer with biotechnology domain expertise."
     REVIEW_SYSTEM_PROMPT = None
     LIT_REVIEW_SYSTEM_PROMPT = None
 
@@ -62,13 +67,13 @@ Key Content:
 
 [Task]
 Write a draft proposal titled "{rfp_title} - {paper_title} Integration".
-Language: Korean (Use professional R&D terminology).
+Language: Korean (use professional R&D terminology).
 """
 
 if not _PROMPTS_LOADED or REVIEW_SYSTEM_PROMPT is None:
-    REVIEW_SYSTEM_PROMPT = """You are an expert Scientific Grant Reviewer.
-Your task is to critically analyze a grant proposal draft based on the original Request for Proposal (RFP) and the Research Paper submitted.
-Provide a concise, constructive critique consisting of strengths, weaknesses, and actionable improvements.
+    REVIEW_SYSTEM_PROMPT = """You are an expert scientific grant reviewer.
+Critically analyze a grant proposal draft against the original RFP and paper.
+Provide concise strengths, weaknesses, and actionable improvements.
 """
 
 REVIEW_USER_PROMPT = """
@@ -82,23 +87,13 @@ REVIEW_USER_PROMPT = """
 {draft}
 
 [Task]
-Critically analyze the draft above. Provide your response in the following format:
-### 🧐 AI Peer Review (비판적 검토)
-- **Strengths (강점)**: ...
-- **Weaknesses (약점)**: ...
-- **Actionable Improvements (개선 방향)**: ...
-
-Language: Korean (Use professional R&D terminology).
+Critically analyze the draft above and provide strengths, weaknesses, and actionable improvements in Korean.
 """
 
-
 if not _PROMPTS_LOADED or LIT_REVIEW_SYSTEM_PROMPT is None:
-    LIT_REVIEW_SYSTEM_PROMPT = """You are an expert Literature Reviewer.
-Your task is to synthesize a compelling literature review abstract based on a provided research paper and an RFP.
-You must use a two-stage process:
-Stage 1: Outline the key themes, methods, and outcomes.
-Stage 2: Convert the outline into full, flowing, professionally formatted scientific paragraphs without bullet points.
-Output ONLY the final Phase 2 paragraphs in Korean.
+    LIT_REVIEW_SYSTEM_PROMPT = """You are an expert literature reviewer.
+Synthesize a compelling literature review abstract from the paper and the RFP.
+Output only the final scientific paragraphs in Korean.
 """
 
 LIT_REVIEW_USER_PROMPT = """
@@ -112,7 +107,7 @@ LIT_REVIEW_USER_PROMPT = """
 {paper_content}
 
 [Task]
-Generate a rigorous literature review abstract that contextualizes the paper within the RFP's domain.
+Generate a rigorous literature review abstract that contextualizes the paper within the RFP domain.
 """
 
 
@@ -120,56 +115,44 @@ class ProposalGenerator:
     def __init__(self):
         self.llm = None
 
-        # 1. Google Gemini (Priority)
         google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if google_key and GOOGLE_AVAILABLE:
             self.llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=google_key, temperature=0.7)
             logger.info("proposal_generator_init", model="gemini-1.5-flash")
-
-        # 2. OpenAI GPT-4 (Fallback)
         elif os.getenv("OPENAI_API_KEY") and OPENAI_AVAILABLE:
             self.llm = ChatOpenAI(model="gpt-4-turbo-preview", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.7)
             logger.info("proposal_generator_init", model="gpt-4-turbo-preview")
 
     async def synthesize_literature(self, rfp_data: dict, paper_data: dict) -> str:
-        """
-        Generates a literature review synthesis using the literature-review skill patterns.
-        """
-        if not self.llm:
-            return "### 📚 Literature Review Synthesis\n\n[Mock] This paper provides a foundational approach..."
+        if not self.llm or not LANGCHAIN_AVAILABLE:
+            return "### Literature Review Synthesis\n\n[Mock] This paper provides a foundational approach..."
 
         prompt = ChatPromptTemplate.from_messages(
             [("system", LIT_REVIEW_SYSTEM_PROMPT), ("user", LIT_REVIEW_USER_PROMPT)]
         )
-
         chain = prompt | self.llm | StrOutputParser()
 
         try:
-            response = await chain.ainvoke(
+            return await chain.ainvoke(
                 {
                     "rfp_title": rfp_data.get("title", "Unknown RFP"),
                     "paper_abstract": paper_data.get("metadata", {}).get("abstract", ""),
                     "paper_content": paper_data.get("document", "")[:5000],
                 }
             )
-            return response
-        except Exception as e:
-            logger.error("lit_review_failed", error=str(e))
-            return "### 📚 Literature Review Synthesis\n\nError generating synthesis."
+        except Exception as exc:  # noqa: BLE001
+            logger.error("lit_review_failed", error=str(exc))
+            return "### Literature Review Synthesis\n\nError generating synthesis."
 
     async def generate_draft(self, rfp_data: dict, paper_data: dict) -> str:
-        """
-        Generates a proposal draft.
-        """
-        if not self.llm:
+        if not self.llm or not LANGCHAIN_AVAILABLE:
             return self._generate_mock_draft(rfp_data, paper_data)
 
         prompt = ChatPromptTemplate.from_messages([("system", PROPOSAL_SYSTEM_PROMPT), ("user", USER_PROMPT_TEMPLATE)])
-
         chain = prompt | self.llm | StrOutputParser()
 
         try:
-            response = await chain.ainvoke(
+            return await chain.ainvoke(
                 {
                     "rfp_title": rfp_data.get("title", "Unknown RFP"),
                     "rfp_description": rfp_data.get("document", "")[:5000],
@@ -178,39 +161,35 @@ class ProposalGenerator:
                     "paper_content": paper_data.get("document", "")[:5000],
                 }
             )
-            return response
-        except Exception as e:
-            logger.error("proposal_llm_failed", error=str(e), fallback="mock_draft")
+        except Exception as exc:  # noqa: BLE001
+            logger.error("proposal_llm_failed", error=str(exc), fallback="mock_draft")
             return self._generate_mock_draft(rfp_data, paper_data)
 
     async def review_draft(self, rfp_data: dict, paper_data: dict, draft: str) -> str:
-        """
-        Acts as a second Agent to critique the generated draft.
-        """
-        if not self.llm:
-            return "### 🧐 AI Peer Review\n- **Strengths**: [Mock] Well structured.\n- **Weaknesses**: [Mock] Lacks deep technical integration details.\n- **Improvements**: [Mock] Elaborate on the experimental methodology."
+        if not self.llm or not LANGCHAIN_AVAILABLE:
+            return (
+                "### AI Peer Review\n"
+                "- **Strengths**: [Mock] Well structured.\n"
+                "- **Weaknesses**: [Mock] Lacks deep technical integration details.\n"
+                "- **Improvements**: [Mock] Elaborate on the experimental methodology."
+            )
 
         prompt = ChatPromptTemplate.from_messages([("system", REVIEW_SYSTEM_PROMPT), ("user", REVIEW_USER_PROMPT)])
-
         chain = prompt | self.llm | StrOutputParser()
 
         try:
-            response = await chain.ainvoke(
+            return await chain.ainvoke(
                 {
                     "rfp_title": rfp_data.get("title", "Unknown RFP"),
                     "paper_abstract": paper_data.get("metadata", {}).get("abstract", ""),
                     "draft": draft,
                 }
             )
-            return response
-        except Exception as e:
-            logger.error("review_llm_failed", error=str(e))
-            return "### 🧐 AI Peer Review\nError generating review due to LLM failure."
+        except Exception as exc:  # noqa: BLE001
+            logger.error("review_llm_failed", error=str(exc))
+            return "### AI Peer Review\nError generating review due to LLM failure."
 
     def _generate_mock_draft(self, rfp_data: dict, paper_data: dict) -> str:
-        """
-        Generates a deterministic mock draft for testing/fallback.
-        """
         rfp_title = rfp_data.get("title", "Untitled RFP")
         paper_title = paper_data.get("metadata", {}).get("title", "Untitled Paper")
 

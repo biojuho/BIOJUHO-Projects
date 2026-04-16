@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import structlog
+from services.logging_config import get_logger
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 _ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_ROOT))

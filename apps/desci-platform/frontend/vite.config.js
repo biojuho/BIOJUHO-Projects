@@ -10,12 +10,12 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/__tests__/setup.jsx"],
     exclude: ["tests/e2e/**", "node_modules/**"],
-    // Single-worker forks are the most stable mode for this suite on Windows + Node 22.
-    pool: "forks",
+    // Threads + per-file isolation avoids worker startup deadlocks on Windows.
+    pool: "threads",
     fileParallelism: false,
     minWorkers: 1,
     maxWorkers: 1,
-    isolate: false,
+    isolate: true,
     testTimeout: 30000,
     hookTimeout: 30000,
     deps: {

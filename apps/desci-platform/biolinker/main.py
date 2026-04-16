@@ -1,6 +1,8 @@
 """
-BioLinker - FastAPI Main Application
-정부 과제 매칭 AI 에이전트 API
+BioLinker - FastAPI main application.
+
+Keep the app importable in lean smoke environments where optional integrations
+such as slowapi, Firestore, or crawler backends are not installed.
 """
 
 import os
@@ -9,67 +11,102 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from services.logging_config import get_logger, setup_logging
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 
-# Initialize structured logging before anything else
+from services.logging_config import get_logger, setup_logging
+
+try:
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+except ImportError:  # pragma: no cover - used in lean smoke environments
+    _rate_limit_exceeded_handler = None
+    RateLimitExceeded = None
+
 _is_production = os.getenv("ENV", "development") == "production"
 setup_logging(json_output=_is_production, log_level=os.getenv("LOG_LEVEL", "INFO"))
 log = get_logger("biolinker.main")
 
 from limiter import limiter
 from services.auth import get_current_user
-from services.crawler import get_crawler
-from services.ipfs_service import get_ipfs_service
-from services.kddf_crawler import get_kddf_crawler
-from services.ntis_crawler import get_ntis_crawler
-from services.pdf_parser import get_pdf_parser
-from services.scheduler import get_scheduler
-from services.vector_store import get_vector_store
-from services.web3_service import get_web3_service
 
 load_dotenv()
 
-# Firestore DB (singleton managed in firestore_db.py)
 try:
-    from firestore_db import db  # noqa: E402 — after load_dotenv
-except Exception as _fs_err:  # noqa: BLE001
-    import sys
-    log.error("Firestore 초기화 실패 — 서버를 시작할 수 없습니다: %s", _fs_err)
-    sys.exit(1)
+    from firestore_db import db  # noqa: E402
+except Exception as exc:  # noqa: BLE001
+    db = None
+    log.warning("firestore_unavailable", error=str(exc))
+
+
+def _load_service(module_path: str, getter_name: str):
+    try:
+        module = __import__(module_path, fromlist=[getter_name])
+        return getattr(module, getter_name)()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("service_unavailable", module=module_path, getter=getter_name, error=str(exc))
+        return None
+
+
+def get_scheduler():
+    return _load_service("services.scheduler", "get_scheduler")
+
+
+def get_crawler():
+    return _load_service("services.crawler", "get_crawler")
+
+
+def get_kddf_crawler():
+    return _load_service("services.kddf_crawler", "get_kddf_crawler")
+
+
+def get_ntis_crawler():
+    return _load_service("services.ntis_crawler", "get_ntis_crawler")
+
+
+def get_ipfs_service():
+    return _load_service("services.ipfs_service", "get_ipfs_service")
+
+
+def get_vector_store():
+    return _load_service("services.vector_store", "get_vector_store")
+
+
+def get_web3_service():
+    return _load_service("services.web3_service", "get_web3_service")
+
+
+def get_pdf_parser():
+    return _load_service("services.pdf_parser", "get_pdf_parser")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
+async def lifespan(app: FastAPI):  # noqa: ARG001
     scheduler = get_scheduler()
-    scheduler.start()
+    if scheduler is not None:
+        scheduler.start()
+
     yield
-    # Shutdown
-    scheduler.stop()
-    crawler = get_crawler()
-    await crawler.close()
-    kddf = get_kddf_crawler()
-    await kddf.close()
-    ntis = get_ntis_crawler()
-    await ntis.close()
-    ipfs = get_ipfs_service()
-    await ipfs.close()
+
+    if scheduler is not None:
+        scheduler.stop()
+
+    for factory in (get_crawler, get_kddf_crawler, get_ntis_crawler, get_ipfs_service):
+        service = factory()
+        close = getattr(service, "close", None)
+        if close is not None:
+            await close()
 
 
 app = FastAPI(
     title="BioLinker",
-    description="AI 바이오 과제 매칭 에이전트 - 정부 과제 RFP 적합도 분석",
+    description="AI bio grant matching agent",
     version="0.2.0",
     lifespan=lifespan,
 )
 
-# Rate limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+if RateLimitExceeded is not None and _rate_limit_exceeded_handler is not None:
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS
 _default_origins = (
     "http://localhost:5173,http://localhost:5174" if os.getenv("ENV", "development") != "production" else ""
 )
@@ -82,7 +119,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Prometheus Metrics (/metrics) ──────────────────────────
 try:
     from shared.metrics import setup_metrics
 
@@ -90,7 +126,6 @@ try:
 except ImportError:
     pass
 
-# ── Structured Logging (JSON for Loki) ─────────────────────
 try:
     from shared.structured_logging import setup_logging as setup_structured_logging
 
@@ -98,7 +133,6 @@ try:
 except ImportError:
     pass
 
-# ── Audit Log ──────────────────────────────────────────────
 try:
     from shared.audit import setup_audit_log
 
@@ -106,11 +140,9 @@ try:
 except ImportError:
     pass
 
-# ============== Routers ==============
 from routers import agent, crawl, governance, rfp, subscription, web3  # noqa: E402
 from services.user_tier import get_tier_manager  # noqa: E402
 
-# Initialize tier manager with Firestore
 get_tier_manager(db=db)
 
 app.include_router(rfp.router, tags=["RFP"])
@@ -121,14 +153,11 @@ app.include_router(governance.router, tags=["Governance"])
 app.include_router(subscription.router, tags=["Subscription"])
 
 
-# ============== 기본 엔드포인트 ==============
-
-
 @app.get("/")
 async def root():
     return {
         "service": "BioLinker",
-        "description": "AI 바이오 과제 매칭 에이전트",
+        "description": "AI bio grant matching agent",
         "version": "0.2.0",
         "features": ["RFP Analysis", "KDDF/NTIS Crawling", "ChromaDB Search", "IPFS Upload", "Token Rewards"],
     }
@@ -160,23 +189,21 @@ async def root():
     },
 )
 async def health():
-    """Return aggregated health status for all BioLinker subsystems.
+    """Return aggregated health status for all BioLinker subsystems."""
 
-    Checks: ChromaDB vector store, LLM API key availability,
-    Web3 provider connection, and IPFS (Pinata) configuration.
-    """
     vector_store = get_vector_store()
-    web3 = get_web3_service()
-    ipfs = get_ipfs_service()
+    web3_service = get_web3_service()
+    ipfs_service = get_ipfs_service()
     pdf_parser = get_pdf_parser()
 
-    chromadb_ok = True
+    chromadb_ok = vector_store is not None
     chromadb_count = 0
-    try:
-        chromadb_count = vector_store.count()
-    except Exception as e:
-        chromadb_ok = False
-        log.warning("health_check_vector_store_error", error=str(e))
+    if vector_store is not None:
+        try:
+            chromadb_count = vector_store.count()
+        except Exception as exc:  # noqa: BLE001
+            chromadb_ok = False
+            log.warning("health_check_vector_store_error", error=str(exc))
 
     llm_available = bool(
         os.getenv("DEEPSEEK_API_KEY")
@@ -192,8 +219,8 @@ async def health():
     if grobid_configured and hasattr(grobid_parser, "health_check"):
         try:
             grobid_available = bool(grobid_parser.health_check())
-        except Exception as e:
-            log.warning("health_check_grobid_error", error=str(e))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("health_check_grobid_error", error=str(exc))
 
     return {
         "status": "healthy" if chromadb_ok else "degraded",
@@ -201,8 +228,8 @@ async def health():
         "llm_available": llm_available,
         "chromadb_ok": chromadb_ok,
         "chromadb_count": chromadb_count,
-        "web3_connected": bool(getattr(web3, "is_connected", False)),
-        "ipfs_configured": bool(getattr(ipfs, "is_configured", False)),
+        "web3_connected": bool(getattr(web3_service, "is_connected", False)),
+        "ipfs_configured": bool(getattr(ipfs_service, "is_configured", False)),
         "grobid_configured": grobid_configured,
         "grobid_available": grobid_available,
     }
@@ -211,6 +238,7 @@ async def health():
 @app.get("/me")
 async def get_me(user: dict = Depends(get_current_user)):
     """Authenticated user info for frontend bootstrap."""
+
     return {
         "authenticated": True,
         "uid": user.get("uid"),

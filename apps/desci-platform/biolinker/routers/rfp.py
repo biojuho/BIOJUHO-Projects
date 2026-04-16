@@ -1,24 +1,57 @@
 """
-BioLinker - RFP Router
-RFP 분석, 파싱, 벡터 매칭, 제안서 생성 엔드포인트
+BioLinker - RFP router.
+
+Keep import-time dependencies light so the FastAPI app can boot in smoke
+environments with only the core web stack installed.
 """
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+
 from limiter import limiter
 from models import AnalyzeRequest, AnalyzeResponse, UserProfile
-from services.analyzer import get_analyzer
-from services.crawler import get_crawler
 from services.logging_config import get_logger
-from services.matcher import get_rfp_matcher
-from services.proposal_generator import get_proposal_generator
-from services.smart_matcher import get_smart_matcher
 from services.usage_middleware import TierRequired, UsageGuard
 from services.user_tier import UserTier
-from services.vector_store import get_vector_store
 
 log = get_logger("biolinker.routers.rfp")
 
 router = APIRouter()
+
+
+def get_analyzer():
+    from services.analyzer import get_analyzer as _get_analyzer
+
+    return _get_analyzer()
+
+
+def get_crawler():
+    from services.crawler import get_crawler as _get_crawler
+
+    return _get_crawler()
+
+
+def get_rfp_matcher():
+    from services.matcher import get_rfp_matcher as _get_rfp_matcher
+
+    return _get_rfp_matcher()
+
+
+def get_proposal_generator():
+    from services.proposal_generator import get_proposal_generator as _get_proposal_generator
+
+    return _get_proposal_generator()
+
+
+def get_smart_matcher():
+    from services.smart_matcher import get_smart_matcher as _get_smart_matcher
+
+    return _get_smart_matcher()
+
+
+def get_vector_store():
+    from services.vector_store import get_vector_store as _get_vector_store
+
+    return _get_vector_store()
 
 
 @router.post(
@@ -64,12 +97,7 @@ async def analyze_rfp(
     body: AnalyzeRequest,
     _usage=Depends(UsageGuard("rfp_analysis")),
 ):
-    """Analyze an RFP announcement against a user's technology profile.
-
-    The LLM evaluates tech-field alignment (40%), TRL fit (20%),
-    eligibility (20%), strategic synergy (10%), and budget match (10%)
-    to produce a 0-100 score and an S/A/B/C/D grade.
-    """
+    """Analyze an RFP announcement against a user's technology profile."""
     try:
         crawler = get_crawler()
         rfp = await crawler.parse_text(body.rfp_text, body.rfp_url)
@@ -84,19 +112,18 @@ async def analyze_rfp(
         except ImportError:
             pass
         return AnalyzeResponse(rfp=rfp, result=result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/parse", tags=["RFP"])
 async def parse_rfp(rfp_text: str, rfp_url: str | None = None):
-    """공고문 파싱"""
+    """Parse raw RFP text into structured document fields."""
     try:
         crawler = get_crawler()
-        rfp = await crawler.parse_text(rfp_text, rfp_url)
-        return rfp
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return await crawler.parse_text(rfp_text, rfp_url)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get(
@@ -134,11 +161,7 @@ async def match_rfp(
     trl_max: int | None = Query(None, ge=0, le=9, description="Maximum TRL overlap"),
     _usage=Depends(UsageGuard("rfp_search")),
 ):
-    """Perform a ChromaDB vector-similarity search over indexed RFP notices.
-
-    Provide a free-text project description or comma-separated keywords.
-    Returns up to ``limit`` notices ranked by cosine similarity.
-    """
+    """Perform a vector similarity search over indexed RFP notices."""
     vector_store = get_vector_store()
     filters = {
         key: value
@@ -153,8 +176,7 @@ async def match_rfp(
         }.items()
         if value not in (None, "")
     }
-    results = vector_store.search_similar(query, n_results=limit, filters=filters or None)
-    return results
+    return vector_store.search_similar(query, n_results=limit, filters=filters or None)
 
 
 @router.post("/match/paper", tags=["RFP"])
@@ -163,9 +185,7 @@ async def match_paper_to_rfps(
     request: Request,
     body: dict = Body(..., examples=[{"paper_id": "uuid"}]),
 ):
-    """
-    Match a previously uploaded paper to relevant RFPs.
-    """
+    """Match a previously uploaded paper to relevant RFPs."""
     paper_id = body.get("paper_id")
     if not paper_id:
         raise HTTPException(status_code=400, detail="paper_id is required")
@@ -180,11 +200,11 @@ async def match_paper_to_rfps(
         except ImportError:
             pass
         return {"matches": results}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        log.error("paper_matching_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        log.error("paper_matching_error", error=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/match/smart", tags=["RFP"])
@@ -193,7 +213,7 @@ async def trigger_smart_match(
     request: Request,
     notice: dict = Body(...),
 ):
-    """(테스트용) 특정 공고에 대한 스마트 매칭 실행"""
+    """Trigger smart matching for a single notice payload."""
     matcher = get_smart_matcher()
     result = await matcher.match_new_notice(notice)
     if result:
@@ -203,7 +223,7 @@ async def trigger_smart_match(
 
 @router.post("/similar/profile", tags=["RFP"])
 async def search_by_profile(profile: UserProfile, n_results: int = 10):
-    """프로필 기반 공고 추천"""
+    """Recommend similar notices for a user profile."""
     vector_store = get_vector_store()
     return vector_store.search_by_profile(
         profile.tech_keywords,
@@ -220,9 +240,7 @@ async def generate_proposal_draft(
     _tier=Depends(TierRequired(UserTier.PRO)),
     _usage=Depends(UsageGuard("proposal_generation")),
 ):
-    """
-    Generate a grant proposal draft based on a paper and an RFP.
-    """
+    """Generate a proposal draft based on a paper and an RFP."""
     paper_id = body.get("paper_id")
     rfp_id = body.get("rfp_id")
 
@@ -230,9 +248,7 @@ async def generate_proposal_draft(
         raise HTTPException(status_code=400, detail="Both paper_id and rfp_id are required")
 
     vector_store = get_vector_store()
-
-    # Fetch Data
-    paper = vector_store.get_notice(paper_id)  # Using get_notice as generic fetch
+    paper = vector_store.get_notice(paper_id)
     rfp = vector_store.get_notice(rfp_id)
 
     if not paper:
@@ -251,6 +267,6 @@ async def generate_proposal_draft(
         except ImportError:
             pass
         return {"draft": draft, "critique": critique}
-    except Exception as e:
-        log.error("proposal_generation_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as exc:  # noqa: BLE001
+        log.error("proposal_generation_error", error=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

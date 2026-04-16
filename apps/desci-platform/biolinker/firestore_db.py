@@ -9,8 +9,6 @@ Usage:
 
 import os
 
-import firebase_admin
-from firebase_admin import firestore
 from services.logging_config import get_logger
 
 log = get_logger("biolinker.firestore_db")
@@ -18,13 +16,24 @@ log = get_logger("biolinker.firestore_db")
 db = None
 
 try:
-    if not firebase_admin._apps:
+    import firebase_admin
+    from firebase_admin import firestore
+
+    FIREBASE_AVAILABLE = True
+except ImportError:  # pragma: no cover - used in lean smoke environments
+    firebase_admin = None  # type: ignore[assignment]
+    firestore = None  # type: ignore[assignment]
+    FIREBASE_AVAILABLE = False
+    log.warning("firebase_admin_unavailable", detail="Firestore disabled because firebase-admin is not installed")
+
+try:
+    if FIREBASE_AVAILABLE and not firebase_admin._apps:
         cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./serviceAccountKey.json")
         if os.path.exists(cred_path):
             cred = firebase_admin.credentials.Certificate(cred_path)
             firebase_admin.initialize_app(cred)
 
-    if firebase_admin._apps:
+    if FIREBASE_AVAILABLE and firebase_admin._apps:
         db = firestore.client()
     else:
         log.warning("firebase_not_initialized", detail="Firestore disabled")
