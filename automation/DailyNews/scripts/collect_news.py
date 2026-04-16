@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from credibility import CredibilityScorer
 from deduplicator import NewsDeduplicator
-from news_bot import _is_relevant_to_category
+from antigravity_mcp.domain.category_filter import is_relevant_to_category as _is_relevant_to_category
 from notion_client import AsyncClient
 from runtime import (
     AlreadyRunningError,

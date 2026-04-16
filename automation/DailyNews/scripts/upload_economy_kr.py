@@ -15,7 +15,7 @@ os.chdir(os.path.dirname(__file__))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from news_bot import _is_relevant_to_category
+from antigravity_mcp.domain.category_filter import is_relevant_to_category as _is_relevant_to_category
 from notion_client import AsyncClient
 from runtime import fetch_feed_entries
 from settings import NOTION_API_KEY, NOTION_TASKS_DATABASE_ID

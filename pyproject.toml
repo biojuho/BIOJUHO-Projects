@@ -15,7 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
+    "pytest>=8.3,<8.4",  # pinned: 8.4+ has capture crash with Python 3.13
     "radon>=6.0",
     "pytest-cov>=5.0",
 ]

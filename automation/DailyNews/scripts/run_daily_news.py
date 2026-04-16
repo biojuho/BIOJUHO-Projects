@@ -80,7 +80,7 @@ def load_news_sources() -> dict[str, list[dict[str, str]]]:
         return json.load(handle)
 
 
-from news_bot import _is_relevant_to_category
+from antigravity_mcp.domain.category_filter import is_relevant_to_category as _is_relevant_to_category
 
 
 def normalize_analysis(analysis: dict[str, Any]) -> tuple[list[str], str, list[str]]:
