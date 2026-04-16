@@ -4,11 +4,14 @@ Tests core API endpoints and seed_db functionality.
 """
 
 import json
+import importlib.util
 import os
 import sqlite3
 import subprocess
 import sys
 import uuid
+
+import pytest
 
 backend_dir = os.path.join(os.path.dirname(__file__), "..")
 workspace_dir = os.path.abspath(os.path.join(backend_dir, "..", "..", ".."))
@@ -26,6 +29,17 @@ def _subprocess_env() -> dict[str, str]:
     env["TEMP"] = temp_root
     env["TMPDIR"] = temp_root
     return env
+
+
+def _python_can_import(import_stmt: str) -> bool:
+    result = subprocess.run(
+        [PYTHON, "-c", import_stmt],
+        cwd=backend_dir,
+        env=_subprocess_env(),
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
 
 def test_imports():
     """Verify all core modules can be imported without error."""
@@ -113,6 +127,9 @@ finally:
 
 def test_run_migrations_script_applies_head_revision():
     """Verify the Alembic migration runner upgrades a fresh database to the latest revision."""
+    if importlib.util.find_spec("alembic") is None or not _python_can_import("from alembic import command"):
+        pytest.skip("alembic is not installed in the current test environment")
+
     db_path = os.path.join(temp_root, f"{uuid.uuid4().hex}-migrations-smoke.db")
     if os.path.exists(db_path):
         os.remove(db_path)

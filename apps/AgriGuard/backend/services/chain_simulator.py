@@ -3,7 +3,10 @@ import os
 import threading
 from datetime import datetime
 
-from web3 import Web3
+try:
+    from web3 import Web3
+except ImportError:  # pragma: no cover - exercised in lean smoke environments
+    Web3 = None  # type: ignore[assignment]
 
 # local dev private key (Hardhat account #0)
 LOCAL_PRIVATE_KEY = os.getenv("PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
@@ -18,13 +21,17 @@ class ChainSimulator:
     def __init__(self):
         self.chain = []
         self.lock = threading.Lock()
+        self.w3 = None
+        self.contract = None
+        self.account = None
+        self.is_web3_active = False
         provider_url = os.getenv("WEB3_PROVIDER_URI", "http://127.0.0.1:8545")
-        self.w3 = Web3(Web3.HTTPProvider(provider_url))
+        if Web3 is None:
+            return
 
         # Deployer address from previous result
         # Assuming typical hardhat first address
         self.contract_address = os.getenv("CONTRACT_ADDRESS", "0x5FbDB2315678afecb367f032d93F642f64180aa3")
-        self.account = self.w3.eth.account.from_key(LOCAL_PRIVATE_KEY)
 
         self.contract_abi = [
             # logEvent(string, string) - backward compatible
@@ -119,10 +126,19 @@ class ChainSimulator:
             },
         ]
 
-        self.is_web3_active = self.w3.is_connected()
-        if self.is_web3_active:
-            # required for POA chains if used, though local node usually doesn't need it
-            self.contract = self.w3.eth.contract(address=self.contract_address, abi=self.contract_abi)
+        try:
+            self.w3 = Web3(Web3.HTTPProvider(provider_url))
+            self.account = self.w3.eth.account.from_key(LOCAL_PRIVATE_KEY)
+            self.is_web3_active = self.w3.is_connected()
+            if self.is_web3_active:
+                # required for POA chains if used, though local node usually doesn't need it
+                self.contract = self.w3.eth.contract(address=self.contract_address, abi=self.contract_abi)
+        except Exception as exc:  # pragma: no cover - defensive fallback path
+            print(f"Web3 initialization error: {exc}")
+            self.w3 = None
+            self.contract = None
+            self.account = None
+            self.is_web3_active = False
 
     def log_event(self, product_id: str, event_data: dict) -> str:
         """
@@ -196,9 +212,15 @@ class ChainSimulator:
         return [block for block in self.chain if block.get("product_id") == product_id]
 
 
-# Singleton
-_chain = ChainSimulator()
+# Lazy singleton to keep import-time side effects out of test collection.
+_chain = None
+_chain_lock = threading.Lock()
 
 
 def get_chain():
+    global _chain
+    if _chain is None:
+        with _chain_lock:
+            if _chain is None:
+                _chain = ChainSimulator()
     return _chain
