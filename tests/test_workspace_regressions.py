@@ -16,6 +16,35 @@ for candidate in (DESCI_PATH, NOTION_SCRIPTS_PATH, DAILYNEWS_SRC_PATH):
     if candidate_text not in sys.path:
         sys.path.insert(0, candidate_text)
 
+_OPTIONAL_MEMBER_DEPENDENCIES = {
+    "aiohttp",
+    "anthropic",
+    "firebase_admin",
+    "google",
+    "gspread",
+    "httpx",
+    "instructor",
+    "loguru",
+    "notion_client",
+    "openai",
+    "scrapling",
+    "selectolax",
+    "slowapi",
+    "web3",
+}
+
+
+def _import_workspace_module(module_name: str):
+    try:
+        return importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        missing_root = (exc.name or "").split(".")[0]
+        if missing_root in _OPTIONAL_MEMBER_DEPENDENCIES:
+            pytest.skip(
+                f"{module_name} requires optional workspace dependency '{exc.name}' that is not installed in the root test env"
+            )
+        raise
+
 
 def test_brain_module_robust_json_parse(monkeypatch) -> None:
     from antigravity_mcp.integrations.brain_adapter import _robust_json_parse
@@ -31,10 +60,10 @@ def test_notion_server_reads_db_id_from_env() -> None:
 
 
 def test_getdaytrends_package_imports_from_repo_root() -> None:
-    collectors = importlib.import_module("getdaytrends.collectors")
-    generation = importlib.import_module("getdaytrends.generation")
-    analyzer = importlib.import_module("getdaytrends.analyzer")
-    db_module = importlib.import_module("getdaytrends.db")
+    collectors = _import_workspace_module("getdaytrends.collectors")
+    generation = _import_workspace_module("getdaytrends.generation")
+    analyzer = _import_workspace_module("getdaytrends.analyzer")
+    db_module = _import_workspace_module("getdaytrends.db")
 
     assert hasattr(collectors, "_async_collect_contexts")
     assert callable(generation.select_persona)
@@ -43,15 +72,15 @@ def test_getdaytrends_package_imports_from_repo_root() -> None:
 
 
 def test_getdaytrends_pipeline_modules_import_from_repo_root() -> None:
-    scraper = importlib.import_module("getdaytrends.scraper")
-    generator = importlib.import_module("getdaytrends.generator")
-    storage = importlib.import_module("getdaytrends.storage")
-    pipeline = importlib.import_module("getdaytrends.core.pipeline")
-    pipeline_steps = importlib.import_module("getdaytrends.core.pipeline_steps")
-    main_module = importlib.import_module("getdaytrends.main")
-    canva = importlib.import_module("getdaytrends.canva")
-    fact_checker = importlib.import_module("getdaytrends.fact_checker")
-    prompts = importlib.import_module("getdaytrends.generation.prompts")
+    scraper = _import_workspace_module("getdaytrends.scraper")
+    generator = _import_workspace_module("getdaytrends.generator")
+    storage = _import_workspace_module("getdaytrends.storage")
+    pipeline = _import_workspace_module("getdaytrends.core.pipeline")
+    pipeline_steps = _import_workspace_module("getdaytrends.core.pipeline_steps")
+    main_module = _import_workspace_module("getdaytrends.main")
+    canva = _import_workspace_module("getdaytrends.canva")
+    fact_checker = _import_workspace_module("getdaytrends.fact_checker")
+    prompts = _import_workspace_module("getdaytrends.generation.prompts")
 
     assert callable(scraper.collect_trends)
     assert callable(generator.generate_for_trend_async)

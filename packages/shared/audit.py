@@ -28,6 +28,16 @@ except ImportError:
     _STRUCTLOG = False
 
 
+def _emit(level: str, event: str, **fields: Any) -> None:
+    if _STRUCTLOG:
+        getattr(_log, level)(event, **fields)
+        return
+
+    details = ", ".join(f"{key}={value}" for key, value in sorted(fields.items()))
+    message = f"{event} | {details}" if details else event
+    getattr(_log, level)(message)
+
+
 def setup_audit_log(app: Any, *, service_name: str = "app") -> None:
     """Attach audit-logging middleware to a FastAPI/Starlette app."""
     from starlette.requests import Request
@@ -53,7 +63,8 @@ def setup_audit_log(app: Any, *, service_name: str = "app") -> None:
             duration_ms = round((time.perf_counter() - start) * 1000, 1)
             status = response.status_code
 
-            _log.info(
+            _emit(
+                "info",
                 "api_request",
                 service=service_name,
                 user_id=user_id,
@@ -66,7 +77,8 @@ def setup_audit_log(app: Any, *, service_name: str = "app") -> None:
             return response
         except Exception as exc:
             duration_ms = round((time.perf_counter() - start) * 1000, 1)
-            _log.error(
+            _emit(
+                "error",
                 "api_request_error",
                 service=service_name,
                 user_id=user_id,

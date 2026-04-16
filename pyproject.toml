@@ -7,6 +7,8 @@ name = "ai-projects-workspace"
 version = "1.0.0"
 description = "Multi-project AI workspace: DeSci, AgriGuard, GetDayTrends, DailyNews"
 requires-python = ">=3.12"
+# Root workspace env is intentionally lean:
+# shared/workspace tests run here, while member projects own their runtime deps.
 dependencies = [
     "python-dotenv",
 ]

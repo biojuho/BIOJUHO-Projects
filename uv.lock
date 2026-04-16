@@ -1187,6 +1187,7 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "respx" },
 ]
 newsletter = [
     { name = "jinja2" },
@@ -1211,6 +1212,7 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.9.0,<3.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "resend", marker = "extra == 'newsletter'", specifier = ">=2.0.0" },
+    { name = "respx", marker = "extra == 'dev'", specifier = ">=0.22.0,<1.0" },
     { name = "sqlalchemy", specifier = ">=2.0.0,<3.0" },
     { name = "tenacity", specifier = ">=8.0.0,<10.0" },
 ]
