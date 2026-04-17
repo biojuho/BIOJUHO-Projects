@@ -196,23 +196,23 @@ for rid in ids:
         Write-Log ("[WARNING] Brief generation exit code {0}, attempting publish of any created reports" -f $GenerateExitCode)
     }
 
-    # --- Step 2: Auto-publish generated reports ---
-    Write-Log "[STEP 2] Auto-publishing draft reports..."
+    # --- Step 2: Prepare generated reports for manual approval ---
+    Write-Log "[STEP 2] Preparing draft reports for manual approval..."
     if ($ReportIds.Count -eq 0) {
-        Write-Log "[PUBLISH] No report_ids parsed from generate-brief output; skipping auto-publish."
+        Write-Log "[PUBLISH] No report_ids parsed from generate-brief output; skipping manual-approval prep."
     } else {
-        Write-Log ("[PUBLISH] Publishing {0} report(s): {1}" -f $ReportIds.Count, ($ReportIds -join ", "))
+        Write-Log ("[PUBLISH] Processing {0} report(s) in manual approval mode: {1}" -f $ReportIds.Count, ($ReportIds -join ", "))
         foreach ($ReportId in $ReportIds) {
             $PublishArgs = @(
                 "-m", "antigravity_mcp",
                 "jobs", "publish-report",
                 "--report-id", $ReportId,
-                "--approval-mode", "auto"
+                "--approval-mode", "manual"
             )
             $PublishOutput = & $PythonExe @PublishArgs 2>&1
             $PublishOutput | ForEach-Object { Add-Content -Path $LogFile -Value ("[PUBLISH-DETAIL] {0}" -f $_) -Encoding utf8 }
             if ($LASTEXITCODE -eq 0) {
-                Write-Log ("[PUBLISH] OK: {0} published" -f $ReportId)
+                Write-Log ("[PUBLISH] OK: {0} processed in manual approval mode" -f $ReportId)
             } else {
                 Write-Log ("[PUBLISH] WARN: {0} publish exit {1}" -f $ReportId, $LASTEXITCODE)
             }

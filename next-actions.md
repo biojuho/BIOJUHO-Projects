@@ -21,6 +21,7 @@
 - [x] **pipeline_state.db stale running job 정리** — `refresh_dashboard` 좀비 → `failed` 전환 (2026-04-17)
 - [x] **biolinker pytest → `[project.optional-dependencies].dev` 이동** (2026-04-17)
 - [x] **news_bot.py 완전 제거** — 1,222줄 삭제 + test_category_filter_migration.py 7개 테스트 재작성 (2026-04-17)
+- [x] **`run_scheduled_insights.ps1` manual-only 정렬** — `Auto-publishing` 문구 제거 + `--approval-mode manual` 반영 (2026-04-17)
 
 ## Backlog (향후 진행 가능)
 
@@ -48,7 +49,11 @@ DailyNews Economy_Global 후속 진행:
 - 게시용 자산 확정: automation/DailyNews/output/Economy_Global_Card_posting.png (1080x1350)
 - 참고: 기존 automation/DailyNews/output/Economy_Global_Card.png 는 최신 Canva 수정본 이전의 stale 로컬 산출물
 - 정책 기록: X 업로드는 계정 리스크 때문에 자동화하지 않고 수동 발행만 유지
-- QC 메모: 현재 런타임 가드는 `CONTENT_APPROVAL_MODE=manual`, `AUTO_PUSH_ENABLED=False` 로 안전하지만, `run_scheduled_insights.ps1` 로그 문구는 아직 `Auto-publishing` 으로 남아 있음
+- 확인 결과: `channel_publications` 기준 X는 아직 `draft` 이고 `external_url` 이 비어 있음
+- 확인 결과: 공개 웹 검색 기준 최종 문안과 일치하는 X 게시물은 `2026-04-17 20:35:49 +09:00` 시점까지 확인되지 않았음
+- 확인 결과: Canva connector 메타데이터상 최신 디자인 `updated_at` 은 `2026-04-17 19:56:06 +09:00` 이지만 connector 노출본은 `400x500` thumbnail 뿐이었음
+- 확인 결과: `automation/DailyNews/scripts/canva_generator.py` export 재시도는 여전히 `invalid_grant` 로 실패
+- 정책 정렬: `run_scheduled_insights.ps1` 는 이제 manual-only 표현과 `--approval-mode manual` 을 사용
 - 최종 X 권장 문안: IMF가 2026년 세계 성장률 전망을 3.3%에서 3.1%로 낮췄습니다. 연준 윌리엄스는 전쟁 충격이 성장률을 2%대에 묶고 물가를 3% 안팎에 남길 수 있다고 경고했습니다. 영국 GDP가 예상보다 강했어도, 시장의 초점은 다시 스태그플레이션 리스크로 이동 중입니다. #글로벌경제 #매크로
 - 권장 다음 액션:
   1. 준비된 이미지와 위 최종 문안을 수동으로 계정에 복사하여 X에 발행
