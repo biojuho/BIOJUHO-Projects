@@ -10,7 +10,7 @@
 
 ### DailyNews Economy_Global posting asset finalized
 
-**Status**: PARTIAL PASS / POSTING ASSET READY / CANVA REST EXPORT BLOCKED
+**Status**: PARTIAL PASS / POSTING ASSET READY / X PUBLISH STILL MANUAL
 
 - Latest Canva design verified via connector:
   - design id: `DAHHEnyVbfQ`
@@ -28,9 +28,15 @@
 - Canva export path:
   - verified `automation/DailyNews/scripts/settings.py` resolves Canva credentials from `AppSettings`
   - direct REST export still fails with `invalid_grant` on Canva refresh token, so this session used the verified latest thumbnail as the source of truth for the posting asset
+- X publish attempt status:
+  - `automation/DailyNews/.env` currently exposes `TWITTER_BEARER_TOKEN` only; no write-capable `X_API_KEY` or OAuth access token pair is configured
+  - web fallback was checked at `2026-04-17 20:19:01 +09:00` and `https://x.com/compose/post` redirected to `https://x.com/i/flow/login?redirect_after_login=%2Fcompose%2Fpost`
+  - no active X web session was available in the automation browser, so this run could not complete the actual publish step
 - Remaining manual follow-up:
-  - publish the final X copy manually
-  - record the actual X URL and posted timestamp in this file after publish
+  - The automated publisher adapter failed safely due to missing `X_API_KEY` write credentials in `.env`.
+  - log into X in a browser that the next session can access, or provide valid write credentials if automated publishing should be re-enabled.
+  - publish the final X copy manually using `automation/DailyNews/output/Economy_Global_Card_posting.png`.
+  - record the actual X URL and posted timestamp in this file after publish.
 
 ### DailyNews Economy_Global resync automation + Canva asset saved
 
