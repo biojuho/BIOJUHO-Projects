@@ -12,7 +12,10 @@ from dataclasses import dataclass
 from typing import Any
 from xml.etree import ElementTree
 
-import httpx
+try:
+    import httpx
+except ModuleNotFoundError:  # pragma: no cover - exercised via import fallback
+    httpx = None
 
 from .logging_config import get_logger
 
@@ -41,7 +44,7 @@ class GrobidParser:
     @property
     def is_configured(self) -> bool:
         """Whether GROBID integration is configured to be used."""
-        return self.enabled and bool(self.base_url)
+        return self.enabled and bool(self.base_url) and httpx is not None
 
     def health_check(self) -> bool:
         """Best-effort health probe against the configured GROBID instance."""

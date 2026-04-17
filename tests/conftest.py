@@ -30,7 +30,10 @@ def _reset_llm_singleton():
         from shared.llm import reset_client
         from shared.llm.client import LLMClient
     except ModuleNotFoundError as exc:
-        if exc.name in {"pydantic"}:
+        # Only swallow missing third-party dependencies for unrelated test
+        # slices. Internal shared.* import errors should still fail loudly.
+        missing_module = exc.name or ""
+        if missing_module and not missing_module.startswith("shared"):
             yield
             return
         raise
