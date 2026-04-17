@@ -33,6 +33,14 @@ async def ops_resync_report_tool(*args, **kwargs):
     return await _ops_resync_report_tool(*args, **kwargs)
 
 
+async def ops_record_manual_x_post_tool(*args, **kwargs):
+    from antigravity_mcp.tooling.ops_tools import (
+        ops_record_manual_x_post_tool as _ops_record_manual_x_post_tool,
+    )
+
+    return await _ops_record_manual_x_post_tool(*args, **kwargs)
+
+
 async def run_ops_refresh_dashboard() -> int:
     store = PipelineStateStore()
     try:
@@ -118,11 +126,24 @@ async def run_ops_resync_report(args: argparse.Namespace) -> int:
     return 0 if result["status"] != "error" else 1
 
 
+async def run_ops_record_manual_x_post(args: argparse.Namespace) -> int:
+    result = await ops_record_manual_x_post_tool(
+        report_id=args.report_id,
+        post_url=args.post_url,
+        posted_at=args.posted_at,
+    )
+    sys.stdout.buffer.write((json_dumps(result) + "\n").encode("utf-8", errors="replace"))
+    sys.stdout.buffer.flush()
+    return 0 if result["status"] != "error" else 1
+
+
 def dispatch_ops_command(args: argparse.Namespace) -> int:
     if args.ops_command == "refresh-dashboard":
         return asyncio.run(run_ops_refresh_dashboard())
     if args.ops_command == "resync-report":
         return asyncio.run(run_ops_resync_report(args))
+    if args.ops_command == "record-manual-x-post":
+        return asyncio.run(run_ops_record_manual_x_post(args))
     if args.ops_command == "replay-run":
         return asyncio.run(run_ops_replay(args))
     if args.ops_command == "run-frozen-eval":

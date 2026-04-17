@@ -79,6 +79,24 @@ class TestCliModule:
         assert parsed_resync.ops_command == "resync-report"
         assert parsed_resync.report_id == "report-1"
 
+        parsed_manual_x = parser.parse_args(
+            [
+                "ops",
+                "record-manual-x-post",
+                "--report-id",
+                "report-1",
+                "--post-url",
+                "https://x.com/example/status/1234567890123456789",
+                "--posted-at",
+                "2026-04-17T12:34:56+09:00",
+            ]
+        )
+        assert parsed_manual_x.command == "ops"
+        assert parsed_manual_x.ops_command == "record-manual-x-post"
+        assert parsed_manual_x.report_id == "report-1"
+        assert parsed_manual_x.post_url.endswith("/1234567890123456789")
+        assert parsed_manual_x.posted_at == "2026-04-17T12:34:56+09:00"
+
         fake_server = ModuleType("antigravity_mcp.server")
         called = {"serve": 0, "generate": 0, "publish": 0, "ops": 0}
 
@@ -154,6 +172,29 @@ class TestCliOpsModule:
         assert b'"status": "ok"' in stdout.buffer.getvalue()
 
     @pytest.mark.asyncio
+    async def test_run_ops_record_manual_x_post(self, monkeypatch):
+        import antigravity_mcp.cli_ops as cli_ops
+
+        stdout = _StdoutBuffer()
+        monkeypatch.setattr(cli_ops.sys, "stdout", stdout)
+        monkeypatch.setattr(
+            cli_ops,
+            "ops_record_manual_x_post_tool",
+            AsyncMock(return_value={"status": "ok", "data": {"tweet_id": "123"}}),
+        )
+
+        exit_code = await cli_ops.run_ops_record_manual_x_post(
+            argparse.Namespace(
+                report_id="report-1",
+                post_url="https://x.com/example/status/123",
+                posted_at="2026-04-17T12:34:56+09:00",
+            )
+        )
+
+        assert exit_code == 0
+        assert b'"tweet_id": "123"' in stdout.buffer.getvalue()
+
+    @pytest.mark.asyncio
     async def test_run_ops_replay_handles_missing_generate_publish_and_unknown_runs(self, monkeypatch):
         import antigravity_mcp.cli as cli
         import antigravity_mcp.cli_ops as cli_ops
@@ -212,15 +253,20 @@ class TestCliOpsModule:
         async def fake_frozen(args):
             return 33
 
+        async def fake_manual_x(args):
+            return 35
+
         monkeypatch.setattr(cli_ops, "run_ops_refresh_dashboard", fake_refresh)
         monkeypatch.setattr(cli_ops, "run_ops_resync_report", fake_resync)
         monkeypatch.setattr(cli_ops, "run_ops_replay", fake_replay)
         monkeypatch.setattr(cli_ops, "run_ops_frozen_eval", fake_frozen)
+        monkeypatch.setattr(cli_ops, "run_ops_record_manual_x_post", fake_manual_x)
 
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="refresh-dashboard")) == 31
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="resync-report")) == 34
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="replay-run")) == 32
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="run-frozen-eval")) == 33
+        assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="record-manual-x-post")) == 35
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="unknown")) == 1
 
         import antigravity_mcp.cli as cli

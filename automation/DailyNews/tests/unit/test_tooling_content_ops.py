@@ -257,6 +257,74 @@ class TestOpsTools:
         assert error_result["error"]["code"] == "report_not_found"
 
     @pytest.mark.asyncio
+    async def test_ops_record_manual_x_post_updates_report_channel_state_and_metrics(self, state_store, monkeypatch):
+        from antigravity_mcp.domain.models import ChannelDraft, ContentReport
+        from antigravity_mcp.tooling import ops_tools
+
+        report = ContentReport(
+            report_id="report-1",
+            category="Economy_Global",
+            window_name="manual",
+            window_start="2026-04-17T00:00:00+00:00",
+            window_end="2026-04-17T06:00:00+00:00",
+            channel_drafts=[ChannelDraft(channel="x", status="draft", content="Final X copy")],
+            analysis_meta={},
+        )
+        state_store.save_report(report)
+        monkeypatch.setattr(ops_tools, "PipelineStateStore", lambda: state_store)
+
+        result = await ops_tools.ops_record_manual_x_post_tool(
+            "report-1",
+            "https://x.com/example/status/1234567890123456789",
+            "2026-04-17T12:34:56+09:00",
+        )
+
+        assert result["status"] == "ok"
+        assert result["data"]["tweet_id"] == "1234567890123456789"
+
+        saved = state_store.get_report("report-1")
+        assert saved is not None
+        x_draft = next(draft for draft in saved.channel_drafts if draft.channel == "x")
+        assert x_draft.status == "published"
+        assert x_draft.external_url == "https://x.com/example/status/1234567890123456789"
+        assert saved.analysis_meta["manual_update"]["x_manual_publish_url"] == x_draft.external_url
+
+        metrics = state_store.get_tweet_metrics("1234567890123456789")
+        assert metrics is not None
+        assert metrics["report_id"] == "report-1"
+        assert metrics["published_at"] == "2026-04-17T12:34:56+09:00"
+
+    @pytest.mark.asyncio
+    async def test_ops_record_manual_x_post_errors_for_missing_report_and_missing_draft(self, state_store, monkeypatch):
+        from antigravity_mcp.domain.models import ChannelDraft, ContentReport
+        from antigravity_mcp.tooling import ops_tools
+
+        monkeypatch.setattr(ops_tools, "PipelineStateStore", lambda: state_store)
+        missing = await ops_tools.ops_record_manual_x_post_tool(
+            "report-404",
+            "https://x.com/example/status/1234567890123456789",
+        )
+
+        report = ContentReport(
+            report_id="report-2",
+            category="Economy_Global",
+            window_name="manual",
+            window_start="2026-04-17T00:00:00+00:00",
+            window_end="2026-04-17T06:00:00+00:00",
+            channel_drafts=[ChannelDraft(channel="canva", status="draft", content="edit link")],
+        )
+        state_store.save_report(report)
+        missing_draft = await ops_tools.ops_record_manual_x_post_tool(
+            "report-2",
+            "https://x.com/example/status/1234567890123456789",
+        )
+
+        assert missing["status"] == "error"
+        assert missing["error"]["code"] == "report_not_found"
+        assert missing_draft["status"] == "error"
+        assert missing_draft["error"]["code"] == "x_draft_not_found"
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         ("side_effect", "expected_code"),
         [

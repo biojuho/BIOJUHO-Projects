@@ -37,6 +37,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     resync.add_argument("--report-id", required=True)
 
+    manual_x = ops_subparsers.add_parser(
+        "record-manual-x-post",
+        help="Record a manually published X post URL and sync local report/state metadata",
+    )
+    manual_x.add_argument("--report-id", required=True)
+    manual_x.add_argument("--post-url", required=True)
+    manual_x.add_argument("--posted-at", default="")
+
     replay = ops_subparsers.add_parser("replay-run", help="Replay a supported run")
     replay.add_argument("--run-id", required=True)
 

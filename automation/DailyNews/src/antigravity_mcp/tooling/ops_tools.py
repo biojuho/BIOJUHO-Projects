@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from antigravity_mcp.evals.frozen_eval import run_frozen_eval
 from antigravity_mcp.integrations.llm_adapter import _SHARED_LLM_IMPORT_ERROR, _get_llm_client
 from antigravity_mcp.integrations.telegram_adapter import TelegramAdapter
 from antigravity_mcp.integrations.x_metrics_adapter import XMetricsAdapter
-from antigravity_mcp.state.events import error_response, ok, partial
+from antigravity_mcp.state.events import error_response, ok, partial, utc_now_iso
 from antigravity_mcp.state.store import PipelineStateStore
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,68 @@ async def ops_resync_report_tool(report_id: str) -> dict:
         if status == "partial":
             return partial(payload, warnings=warnings, meta={"run_id": run_id})
         return ok(payload, meta={"run_id": run_id})
+    finally:
+        store.close()
+
+
+def _extract_tweet_id(post_url: str) -> str:
+    match = re.search(r"/status/(\d+)", post_url or "")
+    return match.group(1) if match else ""
+
+
+async def ops_record_manual_x_post_tool(report_id: str, post_url: str, posted_at: str = "") -> dict:
+    """Record a manually published X post URL in local report/state metadata.
+
+    This keeps ``content_reports.drafts_json`` and ``channel_publications`` in
+    sync so later resync jobs do not overwrite the manual post URL.
+    """
+    normalized_url = str(post_url or "").strip()
+    if not normalized_url:
+        return error_response("post_url_missing", "post_url is required.")
+
+    store = PipelineStateStore()
+    try:
+        report = store.get_report(report_id)
+        if report is None:
+            return error_response("report_not_found", f"Unknown report_id: {report_id}")
+
+        x_draft = next((draft for draft in report.channel_drafts if draft.channel == "x"), None)
+        if x_draft is None:
+            return error_response("x_draft_not_found", f"Report {report_id} does not include an X draft.")
+
+        x_draft.status = "published"
+        x_draft.external_url = normalized_url
+
+        report.analysis_meta = dict(report.analysis_meta or {})
+        manual_meta = dict(report.analysis_meta.get("manual_update", {}))
+        manual_meta["x_manual_publish_url"] = normalized_url
+        manual_meta["x_manual_publish_recorded_at"] = utc_now_iso()
+        if posted_at:
+            manual_meta["x_manual_published_at"] = posted_at
+        report.analysis_meta["manual_update"] = manual_meta
+
+        store.save_report(report)
+        store.set_channel_publication(report_id, "x", "published", normalized_url)
+
+        tweet_id = _extract_tweet_id(normalized_url)
+        if tweet_id:
+            store.upsert_tweet_metrics(
+                tweet_id=tweet_id,
+                report_id=report_id,
+                content_preview=x_draft.content[:200],
+                published_at=posted_at,
+            )
+
+        return ok(
+            {
+                "report_id": report_id,
+                "channel": "x",
+                "status": "published",
+                "post_url": normalized_url,
+                "tweet_id": tweet_id,
+                "posted_at": posted_at,
+            }
+        )
     finally:
         store.close()
 
