@@ -74,6 +74,11 @@ class TestCliModule:
         assert parsed.categories == ["Tech", "Economy_KR"]
         assert parsed.max_items == 7
 
+        parsed_resync = parser.parse_args(["ops", "resync-report", "--report-id", "report-1"])
+        assert parsed_resync.command == "ops"
+        assert parsed_resync.ops_command == "resync-report"
+        assert parsed_resync.report_id == "report-1"
+
         fake_server = ModuleType("antigravity_mcp.server")
         called = {"serve": 0, "generate": 0, "publish": 0, "ops": 0}
 
@@ -198,6 +203,9 @@ class TestCliOpsModule:
         async def fake_refresh():
             return 31
 
+        async def fake_resync(args):
+            return 34
+
         async def fake_replay(args):
             return 32
 
@@ -205,10 +213,12 @@ class TestCliOpsModule:
             return 33
 
         monkeypatch.setattr(cli_ops, "run_ops_refresh_dashboard", fake_refresh)
+        monkeypatch.setattr(cli_ops, "run_ops_resync_report", fake_resync)
         monkeypatch.setattr(cli_ops, "run_ops_replay", fake_replay)
         monkeypatch.setattr(cli_ops, "run_ops_frozen_eval", fake_frozen)
 
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="refresh-dashboard")) == 31
+        assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="resync-report")) == 34
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="replay-run")) == 32
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="run-frozen-eval")) == 33
         assert cli_ops.dispatch_ops_command(argparse.Namespace(ops_command="unknown")) == 1

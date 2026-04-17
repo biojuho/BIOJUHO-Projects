@@ -169,6 +169,15 @@ class NotionAdapter:
         }
 
     @retry_notion_call
+    async def update_page(self, *, page_id: str, properties: dict[str, Any]) -> dict[str, Any]:
+        self._require_client()
+        page = await self.client.pages.update(page_id=page_id, properties=properties)
+        return {
+            "id": page.get("id", ""),
+            "url": page.get("url", ""),
+        }
+
+    @retry_notion_call
     async def append_markdown(self, *, page_id: str, markdown: str) -> dict[str, Any]:
         self._require_client()
         blocks = markdown_to_blocks(markdown)
@@ -176,6 +185,21 @@ class NotionAdapter:
             return {"appended_blocks": 0}
         await self.client.blocks.children.append(block_id=page_id, children=blocks)
         return {"appended_blocks": len(blocks)}
+
+    @retry_notion_call
+    async def replace_page_markdown(self, *, page_id: str, markdown: str) -> int:
+        self._require_client()
+        blocks = await self.list_child_blocks(page_id)
+        if blocks:
+            batch_size = 10
+            for i in range(0, len(blocks), batch_size):
+                batch = blocks[i : i + batch_size]
+                await asyncio.gather(*(self.client.blocks.delete(block_id=block["id"]) for block in batch))
+
+        new_blocks = markdown_to_blocks(markdown)
+        if new_blocks:
+            await self.client.blocks.children.append(block_id=page_id, children=new_blocks)
+        return len(new_blocks)
 
     @retry_notion_call
     async def query_database(

@@ -49,6 +49,11 @@ jobs:
 
       - name: Build and Deploy to Cloud Run
         run: |
+          # .gitignore excludes dist/ by default, which prevents Cloud Build from seeing it.
+          # We create a .gcloudignore that includes .gitignore but un-ignores the dist dir.
+          cp .gitignore .gcloudignore
+          echo "!apps/dashboard/dist/" >> .gcloudignore
+          
           gcloud builds submit --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
             --file apps/dashboard/Dockerfile .
             
@@ -57,4 +62,4 @@ jobs:
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars="DASHBOARD_ALLOWED_ORIGINS=*,DATABASE_URL=${{ secrets.SUPABASE_DATABASE_URL }},ENVIRONMENT=production"
+            --set-env-vars="DASHBOARD_ALLOWED_ORIGINS=*,AGRIGUARD_DATABASE_URL=${{ secrets.SUPABASE_DATABASE_URL }},ENVIRONMENT=production"

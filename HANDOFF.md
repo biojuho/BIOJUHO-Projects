@@ -1,8 +1,82 @@
 # Handoff Document
 
-**Last Updated**: 2026-04-10
-**Session Status**: Healthy / 1,828 tests GREEN / worktree CLEAN / 2 commits ahead of origin
+**Last Updated**: 2026-04-17
+**Session Status**: Healthy / DailyNews Economy_Global manual refresh synced / main synced / worktree DIRTY
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-17)
+
+### DailyNews Economy_Global resync automation + Canva asset saved
+
+**Status**: PASS / AUTOMATION ADDED / CANVA SAVED
+
+- Added reusable resync path for manual curation reports:
+  - CLI: `uv run python -m antigravity_mcp ops resync-report --report-id report-economy_global-20260416T220508Z`
+  - Entry points:
+    - `automation/DailyNews/src/antigravity_mcp/pipelines/publish.py`
+    - `automation/DailyNews/src/antigravity_mcp/integrations/notion_adapter.py`
+    - `automation/DailyNews/src/antigravity_mcp/tooling/ops_tools.py`
+    - `automation/DailyNews/src/antigravity_mcp/cli.py`
+- Automation behavior:
+  - existing Notion page properties update
+  - full page markdown overwrite
+  - Notion page JSON backup write
+  - `channel_publications` refresh from local draft metadata
+  - `analysis_meta.manual_update` provenance refresh
+- Live validation:
+  - `resync-report` executed successfully for `report-economy_global-20260416T220508Z`
+  - Notion page `34490544-c198-8148-bdde-f85bc85b5dfa` overwritten
+  - backup written: `automation/DailyNews/data/notion_backups/report-economy_global-20260416T220508Z.before-notion-resync-20260417T020633Z.json`
+- Canva:
+  - Economy_Global card copy refined after QC and saved
+  - Canva edit URL: `https://www.canva.com/d/boGsMspzVS9l_5B`
+  - Canva view URL: `https://www.canva.com/d/Iv4AQ8Er3WXv7BN`
+- X recommendation:
+  - final post is still manual-assisted; no actual publish performed in this session
+  - recommended short copy:
+    - `IMF가 2026년 세계 성장률 전망을 3.3%에서 3.1%로 낮췄습니다.`
+    - `연준 윌리엄스는 전쟁 충격이 성장률을 2%대에 묶고 물가를 3% 안팎에 남길 수 있다고 경고했습니다.`
+    - `영국 GDP가 예상보다 강했어도, 시장의 초점은 다시 스태그플레이션 리스크로 이동 중입니다. #글로벌경제 #매크로`
+- Validation:
+  - `pytest automation/DailyNews/tests/test_notion_adapter.py automation/DailyNews/tests/unit/test_tooling_content_ops.py automation/DailyNews/tests/unit/test_cli_entrypoints.py -q` → 29 passed
+  - targeted `test_pipelines.py` new resync cases passed
+  - `py_compile` on touched DailyNews modules passed
+
+### DailyNews Economy_Global 수동 보강 + QC + Notion 재동기화
+
+**Status**: PASS / MANUAL UPDATE SYNCED
+
+- 대상 리포트: `report-economy_global-20260416T220508Z`
+- 수동 보강 완료:
+  - 소스 3건으로 재구성
+    - CNBC: New York Fed President Williams worries war will slow growth, aggravate inflation
+    - AP/IMF: Citing fallout from the Iran war, IMF cuts the outlook for global growth, expects higher inflation
+    - CNBC: UK economy grew 0.5% in February, beating economists' expectations by a long shot
+  - 로컬 DB의 `summary_json`, `insights_json`, `drafts_json`, `source_links_json`, `analysis_meta_json` 갱신
+- QC 결과:
+  - `Economy_Global` category contract violation 0건
+  - summary 3개 / insights 2개 / source 3개
+  - X draft 250자, fallback 아님
+  - 소스 3건 HTTP 200 확인
+- Notion 재동기화:
+  - 기존 페이지 `34490544-c198-8148-bdde-f85bc85b5dfa`를 최신 markdown으로 재동기화
+  - 상위 블록 26개 삭제 후 22개 신규 블록 반영
+  - Notion 페이지 확인 결과 제목 `Economy_Global Morning Brief 2026-04-17`, 새 본문 preview 정상
+- 백업:
+  - 로컬 리포트 백업: `DailyNews/data/repair_backups/report-economy_global-20260416T220508Z.before-manual-update-20260417T000000Z.json`
+  - Notion 페이지 백업: `DailyNews/data/notion_backups/report-economy_global-20260416T220508Z.before-notion-resync-20260417T013016Z.json`
+- 로컬 상태 정리:
+  - `channel_publications`의 `x`, `canva`를 최신 시각의 `draft`로 재기록
+  - `analysis_meta.manual_update`에 backup/resync provenance 저장
+- 다음 액션:
+  - X 초안 실제 발행 여부 결정
+  - Canva 카드 생성/검수
+  - 수동 큐레이션 시 Notion overwrite + channel metadata refresh 자동화 검토
+- Current git state:
+  - `main...origin/main` (synced)
+  - worktree DIRTY (local file changes present)
 
 ---
 

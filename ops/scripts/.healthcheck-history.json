@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-14T19:59:21.871419",
+  "timestamp": "2026-04-17T12:44:43.511872",
   "version": "3.0",
   "workspace": "D:\\AI project",
   "projects": [
@@ -168,9 +168,18 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 1,
+    "uncommitted_changes": 17,
     "files": [
-      "M next-actions.md"
+      "M .github/workflows/deploy-dashboard.yml",
+      " M HANDOFF.md",
+      " M automation/DailyNews/scripts/proofreader.py",
+      " M automation/DailyNews/scripts/sentiment_analyzer.py",
+      " M automation/DailyNews/src/antigravity_mcp/cli.py",
+      " M automation/DailyNews/src/antigravity_mcp/cli_ops.py",
+      " M automation/DailyNews/src/antigravity_mcp/domain/category_filter.py",
+      " M automation/DailyNews/src/antigravity_mcp/integrations/notion_adapter.py",
+      " M automation/DailyNews/src/antigravity_mcp/pipelines/publish.py",
+      " M automation/DailyNews/src/antigravity_mcp/tooling/ops_tools.py"
     ]
   },
   "env_files": [

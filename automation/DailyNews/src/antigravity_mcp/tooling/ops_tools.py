@@ -19,6 +19,12 @@ async def refresh_dashboard(*args, **kwargs):
     return await _refresh_dashboard(*args, **kwargs)
 
 
+async def resync_report_publication(*args, **kwargs):
+    from antigravity_mcp.pipelines.publish import resync_report_publication as _resync_report_publication
+
+    return await _resync_report_publication(*args, **kwargs)
+
+
 async def ops_get_run_status_tool(run_id: str) -> dict:
     store = PipelineStateStore()
     try:
@@ -43,6 +49,22 @@ async def ops_refresh_dashboard_tool() -> dict:
     store = PipelineStateStore()
     try:
         run_id, payload, warnings, status = await refresh_dashboard(state_store=store)
+        if status == "partial":
+            return partial(payload, warnings=warnings, meta={"run_id": run_id})
+        return ok(payload, meta={"run_id": run_id})
+    finally:
+        store.close()
+
+
+async def ops_resync_report_tool(report_id: str) -> dict:
+    store = PipelineStateStore()
+    try:
+        run_id, payload, warnings, status = await resync_report_publication(
+            report_id=report_id,
+            state_store=store,
+        )
+        if status == "error":
+            return error_response("report_not_found", f"Unknown report_id: {report_id}", data={"run_id": run_id})
         if status == "partial":
             return partial(payload, warnings=warnings, meta={"run_id": run_id})
         return ok(payload, meta={"run_id": run_id})

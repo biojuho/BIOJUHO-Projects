@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -38,11 +39,11 @@ PIPELINE_LOG_LEVEL = _SETTINGS.pipeline_log_level
 AUTO_PUSH_ENABLED = _SETTINGS.auto_push_enabled
 DEFAULT_RESEARCH_TOPIC = "Agentic AI Trends"
 
-CANVA_CLIENT_ID = ""
-CANVA_CLIENT_SECRET = ""
-CANVA_REFRESH_TOKEN = ""
-CANVA_REDIRECT_URI = ""
-CANVA_ENABLED = False
+CANVA_CLIENT_ID = _SETTINGS.canva_client_id
+CANVA_CLIENT_SECRET = _SETTINGS.canva_client_secret
+CANVA_REFRESH_TOKEN = _SETTINGS.canva_refresh_token
+CANVA_REDIRECT_URI = os.getenv("CANVA_REDIRECT_URI", "").strip()
+CANVA_ENABLED = bool(CANVA_CLIENT_ID and CANVA_CLIENT_SECRET and CANVA_REFRESH_TOKEN)
 
 SKILL_INTEGRATION_ENABLED = False
 

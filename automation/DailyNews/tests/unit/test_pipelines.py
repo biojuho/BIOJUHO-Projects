@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import sqlite3
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -769,6 +770,83 @@ class TestPublishPipeline:
         assert "Draft overrides: x=insight_generator" in markdown
         assert "Insight validation: passed=1 / failed=1 / total=2" in markdown
         assert "score=0.31" in markdown
+
+    @pytest.mark.asyncio
+    async def test_resync_report_overwrites_existing_notion_page_and_refreshes_channels(
+        self, state_store, sample_report, tmp_path
+    ):
+        from antigravity_mcp.pipelines.publish import resync_report_publication
+
+        sample_report.notion_page_id = "notion-page-123"
+        sample_report.status = "published"
+        sample_report.channel_drafts = [
+            ChannelDraft(channel="x", status="draft", content="Short X draft", source="manual_curated"),
+            ChannelDraft(channel="canva", status="draft", content="Canva prompt", source="manual_curated"),
+        ]
+        state_store.save_report(sample_report)
+
+        mock_notion = MagicMock()
+        mock_notion.is_configured.return_value = True
+        mock_notion.get_page = AsyncMock(return_value={"page": {"id": "notion-page-123"}, "blocks": ["old body"]})
+        mock_notion.update_page = AsyncMock(return_value={"id": "notion-page-123", "url": "https://notion.so/page"})
+        mock_notion.replace_page_markdown = AsyncMock(return_value=6)
+
+        fake_settings = MagicMock(data_dir=tmp_path)
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings):
+            _, payload, warnings, status = await resync_report_publication(
+                report_id=sample_report.report_id,
+                state_store=state_store,
+                notion_adapter=mock_notion,
+            )
+
+        assert status == "ok"
+        assert warnings == []
+        assert payload["notion_status"] == "overwritten"
+        assert payload["channel_refresh_count"] == "2"
+        assert Path(payload["notion_backup_path"]).exists()
+        mock_notion.update_page.assert_awaited_once()
+        mock_notion.replace_page_markdown.assert_awaited_once()
+
+        saved = state_store.get_report(sample_report.report_id)
+        assert saved is not None
+        assert saved.analysis_meta["manual_update"]["notion_backup_path"] == payload["notion_backup_path"]
+        assert "notion_resynced_at" in saved.analysis_meta["manual_update"]
+        assert "channel_metadata_refreshed_at" in saved.analysis_meta["manual_update"]
+
+        rows = state_store._connect().execute(
+            "SELECT channel, status FROM channel_publications WHERE report_id = ? ORDER BY channel",
+            (sample_report.report_id,),
+        ).fetchall()
+        assert [(row["channel"], row["status"]) for row in rows] == [("canva", "draft"), ("x", "draft")]
+
+    @pytest.mark.asyncio
+    async def test_resync_report_without_notion_page_id_still_refreshes_channel_metadata(self, state_store, sample_report):
+        from antigravity_mcp.pipelines.publish import resync_report_publication
+
+        sample_report.channel_drafts = [
+            ChannelDraft(channel="x", status="draft", content="Short X draft", source="manual_curated"),
+        ]
+        state_store.save_report(sample_report)
+
+        fake_settings = MagicMock(data_dir=state_store.path.parent)
+        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings):
+            _, payload, warnings, status = await resync_report_publication(
+                report_id=sample_report.report_id,
+                state_store=state_store,
+                notion_adapter=MagicMock(is_configured=MagicMock(return_value=False)),
+            )
+
+        assert status == "partial"
+        assert payload["notion_status"] == "missing_page_id"
+        assert payload["channel_refresh_count"] == "1"
+        assert any("no notion_page_id" in warning for warning in warnings)
+        rows = state_store._connect().execute(
+            "SELECT channel, status FROM channel_publications WHERE report_id = ?",
+            (sample_report.report_id,),
+        ).fetchall()
+        assert len(rows) == 1
+        assert rows[0]["channel"] == "x"
+        assert rows[0]["status"] == "draft"
 
 
 class TestDashboardPipeline:

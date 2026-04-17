@@ -23,9 +23,9 @@ router = APIRouter()
 
 
 @router.get("/api/cie")
-def cie():
+async def cie():
     """Content Intelligence Engine 현황."""
-    contents = _sqlite_read(
+    contents = await _sqlite_read(
         CIE_DB,
         """SELECT platform, content_type, title, qa_total_score,
                   regulation_ok, algorithm_ok, published,
@@ -33,12 +33,12 @@ def cie():
            FROM generated_contents
            ORDER BY created_at DESC LIMIT 20""",
     )
-    by_platform = _sqlite_read(
+    by_platform = await _sqlite_read(
         CIE_DB,
         """SELECT platform, COUNT(*) as count, AVG(qa_total_score) as avg_qa
            FROM generated_contents GROUP BY platform""",
     )
-    qa_distribution = _sqlite_read(
+    qa_distribution = await _sqlite_read(
         CIE_DB,
         """SELECT
              CASE
@@ -52,7 +52,7 @@ def cie():
            GROUP BY grade
            ORDER BY grade""",
     )
-    trend_count = _sqlite_scalar(CIE_DB, "SELECT COUNT(*) FROM trend_reports") or 0
+    trend_count = await _sqlite_scalar(CIE_DB, "SELECT COUNT(*) FROM trend_reports") or 0
     return {
         "total_contents": len(contents),
         "total_trends": trend_count,
@@ -63,18 +63,18 @@ def cie():
 
 
 @router.get("/api/agriguard")
-def agriguard():
+async def agriguard():
     """AgriGuard 센서 및 제품 현황."""
     _AG_TABLES = ("users", "products", "tracking_events", "certificates", "sensor_readings")
     tables = {}
     for table in _AG_TABLES:
-        tables[table] = _pg_scalar(f'SELECT COUNT(*) FROM "{table}"') or 0
-    recent_sensors = _pg_read(
+        tables[table] = await _pg_scalar(f'SELECT COUNT(*) FROM "{table}"') or 0
+    recent_sensors = await _pg_read(
         """SELECT id, sensor_id, temperature, humidity, timestamp
            FROM sensor_readings
            ORDER BY timestamp DESC LIMIT 20"""
     )
-    product_stats = _pg_read(
+    product_stats = await _pg_read(
         """SELECT
              COUNT(*) as total,
              COUNT(CASE WHEN is_verified = true THEN 1 END) as verified,
@@ -89,27 +89,27 @@ def agriguard():
 
 
 @router.get("/api/dailynews")
-def dailynews():
+async def dailynews():
     """DailyNews 파이프라인 현황."""
     if not DN_DB.exists():
         return {"status": "DB not found", "runs": []}
-    tables = _sqlite_read(DN_DB, "SELECT name FROM sqlite_master WHERE type='table'")
+    tables = await _sqlite_read(DN_DB, "SELECT name FROM sqlite_master WHERE type='table'")
     table_names = [t["name"] for t in tables]
     result: dict = {"tables": table_names}
     if "pipeline_runs" in table_names:
-        result["recent_runs"] = _sqlite_read(DN_DB, "SELECT * FROM pipeline_runs ORDER BY rowid DESC LIMIT 10")
+        result["recent_runs"] = await _sqlite_read(DN_DB, "SELECT * FROM pipeline_runs ORDER BY rowid DESC LIMIT 10")
     elif "runs" in table_names:
-        result["recent_runs"] = _sqlite_read(DN_DB, "SELECT * FROM runs ORDER BY rowid DESC LIMIT 10")
+        result["recent_runs"] = await _sqlite_read(DN_DB, "SELECT * FROM runs ORDER BY rowid DESC LIMIT 10")
     table_counts: dict[str, int] = {}
     for name in table_names:
         if not name.startswith("sqlite_"):
-            table_counts[name] = _sqlite_scalar(DN_DB, f'SELECT COUNT(*) FROM "{name}"') or 0
+            table_counts[name] = await _sqlite_scalar(DN_DB, f'SELECT COUNT(*) FROM "{name}"') or 0
     result["table_counts"] = table_counts
     return result
 
 
 @router.get("/api/costs")
-def costs():
+async def costs():
     """LLM API 비용 요약."""
     return _get_cost_summary()
 
@@ -125,7 +125,7 @@ def _get_cost_summary() -> dict:
 
 
 @router.get("/api/sla_status")
-def sla_status():
+async def sla_status():
     """파이프라인 SLA 현황."""
     from db_utils import GDT_DB
 
@@ -134,7 +134,7 @@ def sla_status():
     pipelines = []
 
     # ── GetDayTrends SLA ──
-    gdt_runs = _sqlite_read(
+    gdt_runs = await _sqlite_read(
         GDT_DB,
         """SELECT started_at, finished_at, errors
            FROM runs WHERE started_at >= date('now', ?)
@@ -175,7 +175,7 @@ def sla_status():
         })
 
     # ── DailyNews SLA ──
-    dn_runs = _sqlite_read(
+    dn_runs = await _sqlite_read(
         DN_DB,
         """SELECT run_id, job_name, started_at, finished_at, status, error_text
            FROM job_runs WHERE started_at >= date('now', ?)
@@ -212,7 +212,7 @@ def sla_status():
         })
 
     # ── Content Intelligence SLA ──
-    cie_contents = _sqlite_read(
+    cie_contents = await _sqlite_read(
         CIE_DB,
         """SELECT created_at, qa_total_score
            FROM generated_contents WHERE created_at >= date('now', ?)
@@ -246,7 +246,7 @@ def sla_status():
 
 
 @router.get("/api/mcp_health")
-def mcp_health():
+async def mcp_health():
     """MCP 서버 헬스 체크."""
     mcp_dir = WORKSPACE / "mcp"
     servers = []

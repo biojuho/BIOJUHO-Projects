@@ -14,15 +14,15 @@ router = APIRouter()
 
 
 @router.get("/api/getdaytrends")
-def getdaytrends():
+async def getdaytrends():
     """GetDayTrends 실행 현황."""
-    recent_runs = _sqlite_read(
+    recent_runs = await _sqlite_read(
         GDT_DB,
         """SELECT id, country, started_at, finished_at, trends_collected,
                   tweets_generated
            FROM runs ORDER BY id DESC LIMIT 30""",
     )
-    daily_runs = _sqlite_read(
+    daily_runs = await _sqlite_read(
         GDT_DB,
         """SELECT DATE(started_at) as date, COUNT(*) as count,
                   SUM(trends_collected) as trends, SUM(tweets_generated) as tweets
@@ -31,15 +31,15 @@ def getdaytrends():
            GROUP BY DATE(started_at)
            ORDER BY date""",
     )
-    top_trends = _sqlite_read(
+    top_trends = await _sqlite_read(
         GDT_DB,
         """SELECT keyword, viral_potential, volume_raw
            FROM trends
            ORDER BY id DESC LIMIT 10""",
     )
-    total_runs = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM runs") or 0
-    total_trends = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM trends") or 0
-    total_tweets = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM tweets") or 0
+    total_runs = await _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM runs") or 0
+    total_trends = await _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM trends") or 0
+    total_tweets = await _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM tweets") or 0
     return {
         "total_runs": total_runs,
         "total_trends": total_trends,
@@ -51,9 +51,9 @@ def getdaytrends():
 
 
 @router.get("/api/ab_performance")
-def ab_performance():
+async def ab_performance():
     """A/B 패턴 성과."""
-    hook_stats = _sqlite_read(
+    hook_stats = await _sqlite_read(
         GDT_DB,
         """SELECT hook_pattern, COUNT(*) as count,
                   AVG(engagement_rate) as avg_eng,
@@ -63,7 +63,7 @@ def ab_performance():
            GROUP BY hook_pattern
            ORDER BY avg_eng DESC""",
     )
-    kick_stats = _sqlite_read(
+    kick_stats = await _sqlite_read(
         GDT_DB,
         """SELECT kick_pattern, COUNT(*) as count,
                   AVG(engagement_rate) as avg_eng
@@ -72,7 +72,7 @@ def ab_performance():
            GROUP BY kick_pattern
            ORDER BY avg_eng DESC""",
     )
-    angle_stats = _sqlite_read(
+    angle_stats = await _sqlite_read(
         GDT_DB,
         """SELECT angle_type, COUNT(*) as count,
                   AVG(engagement_rate) as avg_eng
@@ -81,8 +81,8 @@ def ab_performance():
            GROUP BY angle_type
            ORDER BY avg_eng DESC""",
     )
-    total_samples = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM tweet_performance") or 0
-    feedback_stats = _sqlite_read(
+    total_samples = await _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM tweet_performance") or 0
+    feedback_stats = await _sqlite_read(
         GDT_DB,
         """SELECT
              COUNT(*) as total,
@@ -91,7 +91,7 @@ def ab_performance():
            FROM content_feedback
            WHERE created_at >= datetime('now', '-30 days')""",
     )
-    feedback_trend = _sqlite_read(
+    feedback_trend = await _sqlite_read(
         GDT_DB,
         """SELECT DATE(created_at) as date, COUNT(*) as count, AVG(qa_score) as avg_qa
            FROM content_feedback
@@ -110,9 +110,9 @@ def ab_performance():
 
 
 @router.get("/api/qa_reports")
-def qa_reports(limit: int = 50):
+async def qa_reports(limit: int = 50):
     """QA 리포트 상세."""
-    rows = _sqlite_read(
+    rows = await _sqlite_read(
         GDT_DB,
         """SELECT
              q.id, q.draft_id, q.total_score, q.passed,
@@ -137,10 +137,10 @@ def qa_reports(limit: int = 50):
                 except (ValueError, TypeError):
                     pass
 
-    total = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM qa_reports") or 0
-    passed = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM qa_reports WHERE passed = 1") or 0
-    avg_score = _sqlite_scalar(GDT_DB, "SELECT AVG(total_score) FROM qa_reports") or 0
-    platform_stats = _sqlite_read(
+    total = await _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM qa_reports") or 0
+    passed = await _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM qa_reports WHERE passed = 1") or 0
+    avg_score = await _sqlite_scalar(GDT_DB, "SELECT AVG(total_score) FROM qa_reports") or 0
+    platform_stats = await _sqlite_read(
         GDT_DB,
         """SELECT d.platform,
                   COUNT(*) as total,
@@ -150,7 +150,7 @@ def qa_reports(limit: int = 50):
            LEFT JOIN draft_bundles d ON q.draft_id = d.draft_id
            GROUP BY d.platform""",
     )
-    daily_trend = _sqlite_read(
+    daily_trend = await _sqlite_read(
         GDT_DB,
         """SELECT DATE(q.created_at) as date,
                   COUNT(*) as total,
@@ -176,9 +176,9 @@ def qa_reports(limit: int = 50):
 
 
 @router.get("/api/quality_overview")
-def quality_overview():
+async def quality_overview():
     """품질 종합 대시보드."""
-    qa_grade_dist = _sqlite_read(
+    qa_grade_dist = await _sqlite_read(
         GDT_DB,
         """SELECT
              CASE
@@ -193,7 +193,7 @@ def quality_overview():
            GROUP BY grade
            ORDER BY grade""",
     )
-    blocking_reasons_raw = _sqlite_read(
+    blocking_reasons_raw = await _sqlite_read(
         GDT_DB,
         """SELECT blocking_reasons
            FROM qa_reports
@@ -214,14 +214,14 @@ def quality_overview():
             reason_counter[str(r)[:80]] = reason_counter.get(str(r)[:80], 0) + 1
     top_blockers = sorted(reason_counter.items(), key=lambda x: x[1], reverse=True)[:10]
 
-    lifecycle_dist = _sqlite_read(
+    lifecycle_dist = await _sqlite_read(
         GDT_DB,
         """SELECT lifecycle_status, review_status, COUNT(*) as count
            FROM draft_bundles
            GROUP BY lifecycle_status, review_status
            ORDER BY count DESC""",
     )
-    daily_production = _sqlite_read(
+    daily_production = await _sqlite_read(
         GDT_DB,
         """SELECT DATE(created_at) as date,
                   COUNT(*) as drafts,
@@ -232,7 +232,7 @@ def quality_overview():
            GROUP BY DATE(created_at)
            ORDER BY date""",
     )
-    confidence_dist = _sqlite_read(
+    confidence_dist = await _sqlite_read(
         GDT_DB,
         """SELECT
              CASE

@@ -232,6 +232,31 @@ class TestOpsTools:
         assert partial_result["meta"]["warnings"] == ["notion missing"]
 
     @pytest.mark.asyncio
+    async def test_ops_resync_report_wraps_ok_partial_and_error(self, state_store, monkeypatch):
+        from antigravity_mcp.tooling import ops_tools
+
+        monkeypatch.setattr(ops_tools, "PipelineStateStore", lambda: state_store)
+        resync = AsyncMock(
+            side_effect=[
+                ("run-ok", {"report_id": "report-1"}, [], "ok"),
+                ("run-partial", {"report_id": "report-2"}, ["missing page id"], "partial"),
+                ("run-error", {}, ["Unknown report_id: report-404"], "error"),
+            ]
+        )
+        monkeypatch.setattr(ops_tools, "resync_report_publication", resync)
+
+        ok_result = await ops_tools.ops_resync_report_tool("report-1")
+        partial_result = await ops_tools.ops_resync_report_tool("report-2")
+        error_result = await ops_tools.ops_resync_report_tool("report-404")
+
+        assert ok_result["status"] == "ok"
+        assert ok_result["meta"]["run_id"] == "run-ok"
+        assert partial_result["status"] == "partial"
+        assert partial_result["meta"]["warnings"] == ["missing page id"]
+        assert error_result["status"] == "error"
+        assert error_result["error"]["code"] == "report_not_found"
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         ("side_effect", "expected_code"),
         [

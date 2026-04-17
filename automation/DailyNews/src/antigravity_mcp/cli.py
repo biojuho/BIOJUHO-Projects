@@ -31,6 +31,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     ops_subparsers.add_parser("refresh-dashboard", help="Refresh the Notion dashboard auto section")
 
+    resync = ops_subparsers.add_parser(
+        "resync-report",
+        help="Overwrite an existing Notion report page from local state and refresh channel metadata",
+    )
+    resync.add_argument("--report-id", required=True)
+
     replay = ops_subparsers.add_parser("replay-run", help="Replay a supported run")
     replay.add_argument("--run-id", required=True)
 

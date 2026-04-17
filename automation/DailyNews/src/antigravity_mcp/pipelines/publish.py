@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
+from pathlib import Path
 
 from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ContentReport
@@ -11,7 +13,7 @@ from antigravity_mcp.integrations.notion_adapter import NotionAdapter, NotionAda
 from antigravity_mcp.integrations.subscriber_store import SubscriberStore
 from antigravity_mcp.integrations.telegram_adapter import TelegramAdapter
 from antigravity_mcp.integrations.x_adapter import XAdapter
-from antigravity_mcp.state.events import generate_run_id
+from antigravity_mcp.state.events import generate_run_id, utc_now_iso
 from antigravity_mcp.state.store import PipelineStateStore
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,14 @@ def _notion_duplicate_filter(report: ContentReport, *, publish_date: str) -> dic
             {"property": "Date", "date": {"equals": publish_date}},
             {"property": "Name", "title": {"equals": _notion_report_title(report, publish_date=publish_date)}},
         ]
+    }
+
+
+def _notion_report_properties(report: ContentReport, *, publish_date: str) -> dict:
+    return {
+        "Name": {"title": [{"type": "text", "text": {"content": _notion_report_title(report, publish_date=publish_date)}}]},
+        "Date": {"date": {"start": publish_date}},
+        "Type": {"select": {"name": "News"}},
     }
 
 
@@ -183,12 +193,7 @@ async def _publish_to_notion(
 
     today_iso = datetime.now().date().isoformat()
     notion_title = _notion_report_title(report, publish_date=today_iso)
-    sentiment_meta = (report.analysis_meta or {}).get("sentiment", {})
-    properties: dict = {
-        "Name": {"title": [{"type": "text", "text": {"content": notion_title}}]},
-        "Date": {"date": {"start": today_iso}},
-        "Type": {"select": {"name": "News"}},
-    }
+    properties = _notion_report_properties(report, publish_date=today_iso)
 
     try:
         existing_pages, _ = await notion_adapter.query_database(
@@ -225,6 +230,108 @@ async def _publish_to_notion(
     except NotionAdapterError as exc:
         publication["notion_status"] = "create_failed"
         warnings.append(str(exc))
+
+
+def _write_notion_backup(*, report_id: str, backup_dir: Path, snapshot: dict) -> Path:
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    backup_path = backup_dir / f"{report_id}.before-notion-resync-{timestamp}.json"
+    backup_path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
+    return backup_path
+
+
+async def resync_report_publication(
+    *,
+    report_id: str,
+    state_store: PipelineStateStore,
+    notion_adapter: NotionAdapter | None = None,
+    run_id: str | None = None,
+) -> tuple[str, dict[str, str], list[str], str]:
+    settings = get_settings()
+    notion_adapter = notion_adapter or NotionAdapter(settings=settings)
+    run_id = run_id or generate_run_id("resync_report")
+    state_store.record_job_start(run_id, "resync_report", summary={"report_id": report_id})
+
+    report = state_store.get_report(report_id)
+    if report is None:
+        state_store.record_job_finish(run_id, status="failed", error_text=f"Unknown report_id: {report_id}")
+        return run_id, {}, [f"Unknown report_id: {report_id}"], "error"
+
+    warnings: list[str] = []
+    payload: dict[str, str] = {"report_id": report_id}
+    manual_meta = dict((report.analysis_meta or {}).get("manual_update", {}))
+
+    if not report.notion_page_id:
+        warnings.append("Report has no notion_page_id; skipping Notion overwrite.")
+        payload["notion_status"] = "missing_page_id"
+    elif not notion_adapter.is_configured():
+        warnings.append("Notion is not configured; skipping page overwrite.")
+        payload["notion_status"] = "not_configured"
+    else:
+        publish_date = datetime.now().date().isoformat()
+        try:
+            snapshot = await notion_adapter.get_page(page_id=report.notion_page_id, include_blocks=True, max_depth=1)
+            backup_path = _write_notion_backup(
+                report_id=report.report_id,
+                backup_dir=settings.data_dir / "notion_backups",
+                snapshot=snapshot,
+            )
+            await notion_adapter.update_page(
+                page_id=report.notion_page_id,
+                properties=_notion_report_properties(report, publish_date=publish_date),
+            )
+            replaced_blocks = await notion_adapter.replace_page_markdown(
+                page_id=report.notion_page_id,
+                markdown=_report_markdown(report),
+            )
+            payload["notion_status"] = "overwritten"
+            payload["notion_page_id"] = report.notion_page_id
+            payload["notion_backup_path"] = str(backup_path)
+            payload["notion_blocks_replaced"] = str(replaced_blocks)
+            manual_meta["notion_backup_path"] = str(backup_path)
+            manual_meta["notion_resynced_at"] = utc_now_iso()
+        except NotionAdapterError as exc:
+            payload["notion_status"] = "overwrite_failed"
+            warnings.append(str(exc))
+
+    refreshed_channels = 0
+    for draft in report.channel_drafts:
+        _safe_db_write(
+            state_store.set_channel_publication,
+            report_id,
+            draft.channel,
+            draft.status or "draft",
+            draft.external_url,
+            warnings=warnings,
+            label=f"set_channel_publication[{draft.channel}]",
+        )
+        refreshed_channels += 1
+
+    payload["channel_refresh_count"] = str(refreshed_channels)
+    if refreshed_channels:
+        manual_meta["channel_metadata_refreshed_at"] = utc_now_iso()
+
+    if manual_meta:
+        report.analysis_meta = dict(report.analysis_meta or {})
+        report.analysis_meta["manual_update"] = manual_meta
+    report.status = "published" if _has_notion_page_id(report) else report.status
+    payload["report_status"] = report.status
+    payload["report_delivery_state"] = report.delivery_state
+
+    _safe_db_write(state_store.save_report, report, warnings=warnings, label="save_report")
+    _safe_db_write(
+        state_store.record_job_finish,
+        run_id,
+        warnings=warnings,
+        label="record_job_finish",
+        **{
+            "status": "partial" if warnings else "success",
+            "summary": payload,
+            "processed_count": 1,
+            "published_count": 1 if _has_notion_page_id(report) else 0,
+        },
+    )
+    return run_id, payload, warnings, "partial" if warnings else "ok"
 
 
 def _safe_db_write(fn, *args, warnings: list[str], label: str = "DB write", **kwargs) -> None:

@@ -119,17 +119,17 @@ from db_utils import (
 
 
 @app.get("/api/overview")
-def overview():
+async def overview():
     """전체 프로젝트 건강 상태 종합."""
-    gdt_runs = _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM runs") or 0
-    gdt_latest = _sqlite_read(
+    gdt_runs = await _sqlite_scalar(GDT_DB, "SELECT COUNT(*) FROM runs") or 0
+    gdt_latest = await _sqlite_read(
         GDT_DB,
         "SELECT started_at, trends_collected, tweets_generated FROM runs ORDER BY id DESC LIMIT 1",
     )
-    cie_contents = _sqlite_scalar(CIE_DB, "SELECT COUNT(*) FROM generated_contents") or 0
-    cie_avg_qa = _sqlite_scalar(CIE_DB, "SELECT AVG(qa_total_score) FROM generated_contents") or 0
-    ag_sensors = _pg_scalar("SELECT COUNT(*) FROM sensor_readings") or 0
-    ag_products = _pg_scalar("SELECT COUNT(*) FROM products") or 0
+    cie_contents = await _sqlite_scalar(CIE_DB, "SELECT COUNT(*) FROM generated_contents") or 0
+    cie_avg_qa = await _sqlite_scalar(CIE_DB, "SELECT AVG(qa_total_score) FROM generated_contents") or 0
+    ag_sensors = await _pg_scalar("SELECT COUNT(*) FROM sensor_readings") or 0
+    ag_products = await _pg_scalar("SELECT COUNT(*) FROM products") or 0
     dn_exists = DN_DB.exists()
 
     # Cost
