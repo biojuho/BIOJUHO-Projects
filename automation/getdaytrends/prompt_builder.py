@@ -145,6 +145,32 @@ def _build_diversity_section(recent_tweets: list[str]) -> str:
     return f"\n[이미 생성된 표현 — 반드시 다른 각도/어휘로 작성할 것]\n{previews}\n"
 
 
+def _build_approved_post_bank_section(approved_posts: list[dict[str, Any]] | None) -> str:
+    """Inject a few approved house-style references without inviting direct copying."""
+    if not approved_posts:
+        return ""
+
+    lines = ["", "[Approved Post Bank — 리듬만 참고하고 문장은 복제하지 말 것]"]
+    for post in approved_posts[:3]:
+        body = re.sub(r"\s+", " ", str(post.get("body", "")).strip())
+        if not body:
+            continue
+        if len(body) > 140:
+            body = body[:137] + "..."
+        lines.append(f"  - {body}")
+
+    if len(lines) == 2:
+        return ""
+
+    lines.extend(
+        [
+            "- 압축감, 건조한 위트, 문장 밀도만 학습할 것.",
+            "- 밈 말투, 과한 이모지, AI 프레임 반복은 금지.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _build_revision_feedback_section(revision_feedback: dict | None) -> str:
     """Inject retry-specific QA / fact-check guidance into regeneration prompts."""
     if not revision_feedback:
@@ -491,24 +517,94 @@ def _use_report_profile(config: AppConfig) -> bool:
     return profile == "report" and tone != "biojuho"
 
 
+_AI_NATIVE_TOPIC_PATTERNS: tuple[str, ...] = (
+    r"\bai\b",
+    r"\bgpt\b",
+    r"\bllm\b",
+    r"\bagent(?:s)?\b",
+    r"\bmodel(?:s)?\b",
+    r"\bclaude\b",
+    r"\bopenai\b",
+    r"\bgemini\b",
+    r"\banthropic\b",
+    "인공지능",
+    "생성형",
+    "에이전트",
+    "대규모 언어",
+    "파운데이션 모델",
+)
+
+
+def _trend_is_ai_native(trend: ScoredTrend) -> bool:
+    parts = [
+        getattr(trend, "keyword", ""),
+        getattr(trend, "category", ""),
+        getattr(trend, "top_insight", ""),
+        getattr(trend, "why_trending", ""),
+        getattr(trend, "best_hook_starter", ""),
+    ]
+    parts.extend(getattr(trend, "suggested_angles", []) or [])
+    context = getattr(trend, "context", None)
+    if context is not None:
+        combiner = getattr(context, "to_combined_text", None)
+        if callable(combiner):
+            parts.append(combiner())
+    text = "\n".join(part for part in parts if part).lower()
+    if not text:
+        return False
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in _AI_NATIVE_TOPIC_PATTERNS)
+
+
+def _build_ai_frame_guard_section(trend: ScoredTrend) -> str:
+    """Generation-stage AI Convergence Guard v2.
+
+    When the trend is not AI-native, instruct the LLM to keep AI framing to at
+    most one of the five drafts and to force at least one fully non-AI lens.
+    """
+    if _trend_is_ai_native(trend):
+        return ""
+    return (
+        "\n[AI Frame Guard]\n"
+        "- This topic is not AI-native.\n"
+        "- At most 1 of the 5 drafts may use an AI/LLM/agent/generative-model lens.\n"
+        "- At least 1 draft must avoid any AI/LLM/agent/model framing entirely.\n"
+        "- Do not retrofit the topic into an AI/company/workshop narrative when a non-AI lens fits.\n"
+    )
+
+
+_BLOG_STRUCTURE_POOL: tuple[tuple[str, str], ...] = (
+    (
+        "pattern_a",
+        "phenomenon -> historical parallel -> prediction. Use three H2 sections and a brief closing note.",
+    ),
+    (
+        "pattern_b",
+        "personal scene -> data/evidence -> structure read. Use three H2 sections and a brief closing note.",
+    ),
+    (
+        "pattern_c",
+        "counter-thesis -> evidence -> conditional conclusion. Use three H2 sections and a brief closing note.",
+    ),
+    (
+        "pattern_d",
+        "signal -> misread -> correction. Open with the visible signal, show how the default reading is wrong, then land the sharper correction. Three H2 sections and a brief closing note.",
+    ),
+    (
+        "pattern_e",
+        "anecdote -> contradiction -> broader pattern. Open with a small concrete anecdote, surface the contradiction it exposes, then pull back to the broader pattern. Three H2 sections and a brief closing note.",
+    ),
+    (
+        "pattern_f",
+        "timeline -> inflection point -> forecast. Lay out the short timeline, mark the precise inflection, then project the next move. Three H2 sections and a brief closing note.",
+    ),
+)
+
+
 def _build_blog_structure_section(trend: ScoredTrend) -> str:
     """Rotate long-form structures to avoid a fixed repeated blog skeleton."""
-    structures = (
-        (
-            "pattern_a",
-            "phenomenon -> historical parallel -> prediction. Use three H2 sections and a brief closing note.",
-        ),
-        (
-            "pattern_b",
-            "personal scene -> data/evidence -> structure read. Use three H2 sections and a brief closing note.",
-        ),
-        (
-            "pattern_c",
-            "counter-thesis -> evidence -> conditional conclusion. Use three H2 sections and a brief closing note.",
-        ),
-    )
-    index = sum(ord(ch) for ch in getattr(trend, "keyword", "")) % len(structures)
-    label, description = structures[index]
+    keyword = getattr(trend, "keyword", "")
+    index = sum(ord(ch) for ch in keyword) % len(_BLOG_STRUCTURE_POOL)
+    label, description = _BLOG_STRUCTURE_POOL[index]
     return f"\n[Blog Structure]\n- Selected layout: {label}\n- {description}\n"
 
 

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from config import AppConfig
 from generator import (
+    _build_approved_post_bank_section,
     _build_available_facts_section,
     _build_context_section,
     _build_scoring_section,
@@ -123,6 +124,21 @@ class TestReportProfilePromptBuilders(unittest.TestCase):
         long_prompt = _system_long_form("joongyeon", "report")
         self.assertNotIn("리포트 코멘트", short_prompt)
         self.assertIn("리포트 코멘트", long_prompt)
+
+
+    def test_approved_post_bank_section_limits_examples(self):
+        section = _build_approved_post_bank_section(
+            [
+                {"body": "alpha reference"},
+                {"body": "beta reference"},
+                {"body": "gamma reference"},
+                {"body": "delta reference"},
+            ]
+        )
+        self.assertIn("[Approved Post Bank", section)
+        self.assertEqual(section.count("  - "), 3)
+        self.assertIn("alpha reference", section)
+        self.assertNotIn("delta reference", section)
 
 
 class TestGenerationTierGating(unittest.TestCase):
@@ -358,6 +374,25 @@ class TestReportProfileGeneration(unittest.IsolatedAsyncioTestCase):
         self.assertIn("QA 총점/기준: 61/75", prompt)
         self.assertIn("가장 약한 축: hook", prompt)
         self.assertIn("[사실 고정 규칙", prompt)
+
+
+    async def test_tweet_generation_includes_approved_post_bank_section(self):
+        response = MagicMock()
+        response.text = '{"tweets":[{"type":"analysis","content":"fresh tweet"}]}'
+        client = MagicMock()
+        client.acreate = AsyncMock(return_value=response)
+
+        result = await generate_tweets_async(
+            _make_trend(),
+            _make_config(),
+            client,
+            approved_post_bank=[{"body": "Dense dry line about systems."}],
+        )
+
+        self.assertIsNotNone(result)
+        prompt = client.acreate.await_args.kwargs["messages"][0]["content"]
+        self.assertIn("[Approved Post Bank", prompt)
+        self.assertIn("Dense dry line about systems.", prompt)
 
 
 class TestAuditGeneratedContent(unittest.IsolatedAsyncioTestCase):

@@ -47,6 +47,7 @@ try:
     from ..db import (
         compute_fingerprint,
         get_cached_content,
+        get_approved_post_bank,
         get_recent_tweet_contents,
         record_posting_time_stat,
     )
@@ -62,6 +63,7 @@ except ImportError:
     from db import (
         compute_fingerprint,
         get_cached_content,
+        get_approved_post_bank,
         get_recent_tweet_contents,
         record_posting_time_stat,
     )
@@ -231,6 +233,18 @@ async def _load_recent_tweets(trend, config: AppConfig, conn) -> list[str]:
         log.debug(f"  이전 트윗 조회 실패 (무시): {type(_e).__name__}: {_e}")
         return []
 
+async def _load_approved_post_bank(config: AppConfig, conn) -> list[dict]:
+    """Load a few approved/published drafts as voice anchors for new prompts."""
+    if not getattr(config, "enable_approved_post_bank", True):
+        return []
+    try:
+        limit = int(getattr(config, "approved_post_bank_limit", 5))
+        platforms = tuple(getattr(config, "approved_post_bank_platforms", ["x"]) or ["x"])
+        return await get_approved_post_bank(conn, limit=limit, platforms=platforms)
+    except (ImportError, sqlite3.Error, TypeError, ValueError) as _e:
+        log.debug(f"  [Approved Post Bank] 濡쒕뱶 ?ㅽ뙣 (臾댁떆): {type(_e).__name__}: {_e}")
+        return []
+
 
 def _build_empty_qa(trend, *, reason: str = "qa_skipped") -> dict:
     return {
@@ -280,6 +294,7 @@ async def _run_qa_pipeline(
     client,
     is_cached: bool,
     recent_tweets: list[str],
+    approved_post_bank: list[dict],
 ) -> tuple[TweetBatch, dict]:
     """QA 검사 + 미달 시 재생성."""
     if _should_skip_qa(trend, is_cached, config):
@@ -311,6 +326,7 @@ async def _run_qa_pipeline(
             client,
             failed_groups,
             recent_tweets=recent_tweets,
+            approved_post_bank=approved_post_bank,
             qa_feedback=qa_feedback,
         )
         qa_after = await audit_generated_content(primary, trend, config, client)
@@ -351,6 +367,7 @@ async def _run_fact_check(
     effective_config: AppConfig,
     client,
     recent_tweets: list[str],
+    approved_post_bank: list[dict],
 ) -> TweetBatch:
     """팩트 체크 + 환각 감지 시 재생성."""
     if not getattr(effective_config, "enable_fact_checking", True):
@@ -405,6 +422,7 @@ async def _run_fact_check(
                     client,
                     halluc_groups,
                     recent_tweets=recent_tweets,
+                    approved_post_bank=approved_post_bank,
                     fact_check_feedback=fact_check_feedback,
                 )
     except (RuntimeError, ConnectionError, TimeoutError, ValueError) as _fc_err:
@@ -538,27 +556,37 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
             if cached_batch is not None:
                 return cached_batch
             recent_tweets = await _load_recent_tweets(trend, config, conn)
+            approved_post_bank = await _load_approved_post_bank(config, conn)
 
         effective_config = config
         if gen_mode == "lite" and config.enable_long_form:
             effective_config = dataclasses.replace(config, enable_long_form=False)
 
         primary = await generate_for_trend_async(
-            trend, effective_config, client, recent_tweets, golden_refs, pattern_weights,
+            trend, effective_config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
             edape_block=edape_block,
         )
         if primary is None:
             return primary
 
         primary, final_qa = await _run_qa_pipeline(
-            primary, trend, config, effective_config, client, is_cached=False, recent_tweets=recent_tweets,
+            primary,
+            trend,
+            config,
+            effective_config,
+            client,
+            is_cached=False,
+            recent_tweets=recent_tweets,
+            approved_post_bank=approved_post_bank,
         )
         _attach_generation_metadata(primary, trend, final_qa)
 
         if trend.context:
             _run_cross_source_check(trend)
 
-        primary = await _run_fact_check(primary, trend, effective_config, client, recent_tweets)
+        primary = await _run_fact_check(
+            primary, trend, effective_config, client, recent_tweets, approved_post_bank,
+        )
         await _run_diversity_rewrite_pass(primary, trend, config, client)
 
         return primary

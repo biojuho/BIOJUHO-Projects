@@ -439,6 +439,7 @@ async def regenerate_content_groups(
     client: "LLMClient",
     groups: list[str],
     recent_tweets: list[str] | None = None,
+    approved_post_bank: list[dict] | None = None,
     *,
     qa_feedback: dict[str, dict] | None = None,
     fact_check_feedback: dict[str, dict] | None = None,
@@ -482,6 +483,7 @@ async def regenerate_content_groups(
                 config,
                 client,
                 recent_tweets,
+                approved_post_bank,
                 revision_feedback=_merge_group_feedback("tweets"),
             )
         )

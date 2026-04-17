@@ -12,6 +12,7 @@ try:
     from ..models import GeneratedTweet, ScoredTrend, TweetBatch
     from ..prompt_builder import (
         _build_account_identity_section,
+        _build_approved_post_bank_section,
         _build_category_tone_hint,
         _build_context_section,
         _build_deep_why_section,
@@ -29,6 +30,7 @@ except ImportError:
     from models import GeneratedTweet, ScoredTrend, TweetBatch
     from prompt_builder import (
         _build_account_identity_section,
+        _build_approved_post_bank_section,
         _build_category_tone_hint,
         _build_context_section,
         _build_deep_why_section,
@@ -62,6 +64,7 @@ async def generate_tweets_with_marl_async(
     config: AppConfig,
     client: LLMClient,
     recent_tweets: list[str] | None = None,
+    approved_post_bank: list[dict] | None = None,
     golden_refs: list | None = None,
     pattern_weights: dict | None = None,
 ) -> "TweetBatch | None":
@@ -79,7 +82,9 @@ async def generate_tweets_with_marl_async(
         from generator import generate_tweets_async
 
     if not _should_use_marl(trend, config):
-        return await generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+        return await generate_tweets_async(
+            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+        )
 
     from datetime import datetime as _dt
 
@@ -88,6 +93,7 @@ async def generate_tweets_with_marl_async(
     scoring_section = _build_scoring_section(trend)
     identity_section = _build_account_identity_section(config)
     diversity_section = _build_diversity_section(recent_tweets or [])
+    approved_post_bank_section = _build_approved_post_bank_section(approved_post_bank)
     category_hint = _build_category_tone_hint(trend)
     deep_why_section = _build_deep_why_section(trend)
     golden_ref_section = _build_golden_reference_section(golden_refs)
@@ -100,7 +106,8 @@ async def generate_tweets_with_marl_async(
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
         f"{identity_section}{deep_why_section}{context_section}{scoring_section}"
-        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}\n"
+        f"{category_hint}{pattern_weights_section}{golden_ref_section}{diversity_section}"
+        f"{approved_post_bank_section}\n"
         "위 배경과 컨텍스트를 깊이 소화한 뒤, 쟁점을 추출하고 각 쟁점별로 날카로운 각도의 트윗 작성.\n"
         "중요: 너는 뉴스를 '전달'하는 사람이 아니라 뉴스를 보고 '한마디 하는' 사람임.\n"
         "정보 전달 30% + 너의 해석/시각 70% 비율로 작성.\n"
@@ -128,7 +135,9 @@ async def generate_tweets_with_marl_async(
 
         if not data:
             log.warning(f"[MARL] '{trend.keyword}' JSON 파싱 실패 → 기존 방식 폴백")
-            return await generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+            return await generate_tweets_async(
+                trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            )
 
         tweets = []
         for t in data.get("tweets", []):
@@ -156,4 +165,6 @@ async def generate_tweets_with_marl_async(
 
     except Exception as e:
         log.warning(f"[MARL] 생성 실패 '{trend.keyword}': {e} → 기존 방식 폴백")
-        return await generate_tweets_async(trend, config, client, recent_tweets, golden_refs, pattern_weights)
+        return await generate_tweets_async(
+            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+        )

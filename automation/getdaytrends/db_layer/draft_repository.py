@@ -591,3 +591,44 @@ async def get_review_queue_snapshot(conn, limit: int = 50) -> dict:
     )
     items = [dict(row) for row in await items_cursor.fetchall()]
     return {"counts": counts, "items": items}
+
+
+async def get_approved_post_bank(
+    conn,
+    *,
+    limit: int = 5,
+    platforms: tuple[str, ...] = ("x",),
+) -> list[dict]:
+    """Return recently approved/published drafts as compact voice references."""
+    if limit <= 0 or not platforms:
+        return []
+
+    normalized_platforms = tuple(platform.strip().lower() for platform in platforms if platform and platform.strip())
+    if not normalized_platforms:
+        return []
+
+    platform_placeholders = ", ".join("?" for _ in normalized_platforms)
+    lifecycle_statuses = ("approved", "published", "measured", "learned")
+    lifecycle_placeholders = ", ".join("?" for _ in lifecycle_statuses)
+
+    cursor = await conn.execute(
+        f"""SELECT draft_id, platform, body, qa_score, lifecycle_status, review_status, updated_at
+            FROM draft_bundles
+            WHERE platform IN ({platform_placeholders})
+              AND lifecycle_status IN ({lifecycle_placeholders})
+              AND TRIM(body) != ''
+            ORDER BY
+                CASE lifecycle_status
+                    WHEN 'learned' THEN 0
+                    WHEN 'measured' THEN 1
+                    WHEN 'published' THEN 2
+                    WHEN 'approved' THEN 3
+                    ELSE 9
+                END,
+                COALESCE(qa_score, 0.0) DESC,
+                updated_at DESC
+            LIMIT ?""",
+        (*normalized_platforms, *lifecycle_statuses, limit),
+    )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
