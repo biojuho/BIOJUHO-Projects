@@ -129,6 +129,3 @@ def is_relevant_to_category(title: str, description: str, category: str) -> bool
 
     return False
 
-
-# Legacy alias kept for backward compatibility with news_bot.py consumers
-_is_relevant_to_category = is_relevant_to_category
