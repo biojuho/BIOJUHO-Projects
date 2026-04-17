@@ -1,8 +1,8 @@
 """
 Sentiment analysis via shared.llm (Gemini Flash - free tier).
-Replaces the stub loader in news_bot.py.
+Replaces the legacy stub loader.
 
-Call-site contract (news_bot.py line 465):
+Call-site contract:
     result = asyncio.to_thread(sentiment_analyzer.analyze_texts, [title])
     # result[0] must have keys: "sentiment" (str) and "topics" (list[str])
 """
@@ -45,7 +45,7 @@ class SentimentAnalyzer:
     def analyze_texts(self, texts: list[str]) -> list[dict]:
         """Analyze sentiment for a list of texts.
 
-        Called synchronously via asyncio.to_thread in news_bot.py.
+        Called synchronously via asyncio.to_thread in the pipeline.
         Returns list of dicts with keys:
           - "sentiment": "POSITIVE" | "NEGATIVE" | "NEUTRAL"
           - "topics":    list[str]  (up to 3 key topics extracted from the text)

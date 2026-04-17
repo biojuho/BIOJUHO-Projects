@@ -1,7 +1,7 @@
 """
 Korean text proofreader via shared.llm (Gemini Flash - free tier).
 
-Call-site contract (news_bot.py line 456):
+Call-site contract:
     summary = await proofreader.proofread_text_async(summary)
     # proofread_text_async must be a coroutine (async def)
 """
@@ -43,7 +43,7 @@ class Proofreader:
     async def proofread_text_async(self, text: str) -> str:
         """Return grammar/style corrected Korean text.
 
-        Called with ``await`` directly in news_bot.py - must be async.
+        Called with ``await`` directly in the pipeline - must be async.
         Returns the original text unchanged on any error so the pipeline
         never blocks on proofreading failures.
         """

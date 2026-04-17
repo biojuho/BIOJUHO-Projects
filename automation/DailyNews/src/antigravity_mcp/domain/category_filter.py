@@ -1,6 +1,6 @@
 """Category-relevance filter for news articles.
 
-Extracted from the legacy ``scripts/news_bot.py`` (deprecated 2026-03-04)
+Originally extracted from the legacy ``scripts/news_bot.py`` module
 so that active scripts can import the filter without pulling in the
 full 1 200-line legacy module.
 

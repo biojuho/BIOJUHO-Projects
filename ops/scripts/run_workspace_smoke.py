@@ -322,8 +322,6 @@ def default_checks(python_exe: str) -> list[Check]:
                 "run",
                 "test:lts",
                 "--",
-                "--pool",
-                "threads",
                 "--fileParallelism",
                 "false",
             ],
