@@ -81,6 +81,10 @@ jobs:
         if: matrix.scope == 'desci'
         run: npm ci --prefix apps/desci-platform/frontend
 
+      - name: Build frontend (desci)
+        if: matrix.scope == 'desci'
+        run: npm run build --prefix apps/desci-platform/frontend
+
       - name: Install dependencies (agriguard npm)
         if: matrix.scope == 'agriguard'
         run: npm ci --prefix apps/AgriGuard/frontend
