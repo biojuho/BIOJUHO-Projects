@@ -1,7 +1,7 @@
 # Next Actions
 
 > 세션 종료 시 `/session-workflow`가 이 파일의 갱신을 제안합니다.
-> 2026-04-17 10:47 기준 — 기술 부채 3건 전부 해소. news_bot.py 완전 삭제, 431 테스트 GREEN, QC 승인.
+> 2026-04-17 12:50 기준 — smoke --pool 중복 수정, 문서 정리 커밋 3건, 전 프로젝트 테스트 GREEN (286+460+690).
 
 ## 완료 항목
 
@@ -32,6 +32,9 @@
 - [x] `proofreader.py`, `sentiment_analyzer.py` 주석의 news_bot.py 참조 정리 (LOW, ~5분)
 - [ ] DeSci Platform Frontend 컴포넌트 배포 및 리뷰
 - [ ] `.smoke-tmp/` 및 `.test-tmp/` 내 permission-denied 잔류 디렉토리 정리
+- [ ] scratch 파일 정리: `automation/DailyNews/scratch_*.py` 3개 (삭제 or .gitignore)
+- [ ] X 수동 발행: Economy_Global 최종 문안 + posting 이미지 → X 게시 후 URL 기록
+- [ ] Canva 수동 export 원본 확보 또는 `invalid_grant` 리프레시 토큰 복구
 
 ## 다음 세션 복붙 메모
 
@@ -44,8 +47,11 @@ DailyNews Economy_Global 후속 진행:
 - 최신 Canva 디자인 확인: DAHHEnyVbfQ (IMF 3.1% / Fed war shock / U.K. GDP beats estimates)
 - 게시용 자산 확정: automation/DailyNews/output/Economy_Global_Card_posting.png (1080x1350)
 - 참고: 기존 automation/DailyNews/output/Economy_Global_Card.png 는 최신 Canva 수정본 이전의 stale 로컬 산출물
+- 정책 기록: X 업로드는 계정 리스크 때문에 자동화하지 않고 수동 발행만 유지
+- QC 메모: 현재 런타임 가드는 `CONTENT_APPROVAL_MODE=manual`, `AUTO_PUSH_ENABLED=False` 로 안전하지만, `run_scheduled_insights.ps1` 로그 문구는 아직 `Auto-publishing` 으로 남아 있음
 - 최종 X 권장 문안: IMF가 2026년 세계 성장률 전망을 3.3%에서 3.1%로 낮췄습니다. 연준 윌리엄스는 전쟁 충격이 성장률을 2%대에 묶고 물가를 3% 안팎에 남길 수 있다고 경고했습니다. 영국 GDP가 예상보다 강했어도, 시장의 초점은 다시 스태그플레이션 리스크로 이동 중입니다. #글로벌경제 #매크로
 - 권장 다음 액션:
-  1. X API 권한 제한(현재 `.env`에 Write Key 부재) + 웹 자동화 브라우저의 X 로그인 세션 부재로 인해 자동 발행 불가. 준비된 이미지와 위 최종 문안을 수동으로 계정에 복사하여 발행해 주세요.
-  2. HANDOFF.md에 실제 X 발행 URL과 최종 게시 시각 기록
+  1. 준비된 이미지와 위 최종 문안을 수동으로 계정에 복사하여 X에 발행
+  2. 가능하면 최신 Canva 디자인에서 원본 비율로 수동 export 받아 로컬 posting asset 교체
+  3. HANDOFF.md에 실제 X 발행 URL과 최종 게시 시각 기록
 ```
