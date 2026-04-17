@@ -246,6 +246,15 @@ class AppConfig:
     # ===================================================
     account_niche: str = "AI/\uD14C\uD06C/\uD2B8\uB80C\uB4DC"  # account niche
     target_audience: str = "IT \uC885\uC0AC\uC790, \uC2A4\uD0C0\uD2B8\uC5C5 \uAD00\uACC4\uC790"  # target audience
+    enable_persona_filter: bool = False
+    persona_axes: list[str] = field(default_factory=list)
+    persona_min_matches: int = 1
+    enforce_min_context_sources: bool = False
+    min_context_sources: int = 0
+    enforce_source_diversity_gate: bool = False
+    required_source_combinations: list[str] = field(default_factory=list)
+    enforce_hard_drop_policy: bool = False
+    hard_drop_topic_keywords: list[str] = field(default_factory=list)
 
     # ===================================================
     # [v9.0] Phase A: ?????癲ル슔?됭짆???
@@ -495,7 +504,7 @@ class AppConfig:
 
         # ???쒓랜萸??類?????濡ろ떟?癲?
         valid_storage = {"notion", "google_sheets", "both", "none"}
-        valid_editorial_profiles = {"report", "classic"}
+        valid_editorial_profiles = {"report", "classic", "biojuho"}
         if self.storage_type not in valid_storage:
             errors.append(f"STORAGE_TYPE?????レ챺???? ?????????덊렡: '{self.storage_type}' (???源낅츛: {valid_storage})")
         if self.editorial_profile not in valid_editorial_profiles:
@@ -517,6 +526,18 @@ class AppConfig:
             errors.append(f"NOTION_SEM_LIMIT ?類?????縕??? {self.notion_sem_limit} (1~50)")
         if not 1 <= self.data_retention_days <= 3650:
             errors.append(f"DATA_RETENTION_DAYS ?類?????縕??? {self.data_retention_days} (1~3650)")
+
+        if not 0 <= self.persona_min_matches <= 5:
+            errors.append(f"PERSONA_MIN_MATCHES out of range: {self.persona_min_matches} (0~5)")
+        if not 0 <= self.min_context_sources <= 3:
+            errors.append(f"MIN_CONTEXT_SOURCES out of range: {self.min_context_sources} (0~3)")
+        valid_source_types = {"twitter", "reddit", "news"}
+        for combo in self.required_source_combinations:
+            parts = {part.strip().lower() for part in combo.split("+") if part.strip()}
+            if len(parts) < 2 or not parts.issubset(valid_source_types):
+                errors.append(f"REQUIRED_SOURCE_COMBINATIONS invalid combo: {combo}")
+        if any(not keyword.strip() for keyword in self.hard_drop_topic_keywords):
+            errors.append("HARD_DROP_TOPIC_KEYWORDS contains an empty keyword")
 
         return errors
 
@@ -578,6 +599,15 @@ class AppConfig:
             "country": self.country,
             "limit": self.limit,
             "editorial_profile": self.editorial_profile,
+            "enable_persona_filter": self.enable_persona_filter,
+            "persona_axes": list(self.persona_axes),
+            "persona_min_matches": self.persona_min_matches,
+            "enforce_min_context_sources": self.enforce_min_context_sources,
+            "min_context_sources": self.min_context_sources,
+            "enforce_source_diversity_gate": self.enforce_source_diversity_gate,
+            "required_source_combinations": list(self.required_source_combinations),
+            "enforce_hard_drop_policy": self.enforce_hard_drop_policy,
+            "hard_drop_topic_keywords": list(self.hard_drop_topic_keywords),
             "daily_budget_usd": self.daily_budget_usd,
             "effective_budget": self.get_effective_budget(),
             "long_form_min_score": self.long_form_min_score,

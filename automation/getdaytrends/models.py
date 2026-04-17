@@ -146,6 +146,14 @@ class ScoredTrend(BaseModel):
     hallucination_flags: list[str] = Field(default_factory=list)
     cross_source_consistent: bool = True
     cross_source_agreement: float = 0.5
+    matched_axes: list[str] = Field(default_factory=list)
+    persona_fit: bool = False
+    persona_score: int = 0
+    usable_source_count: int = 0
+    usable_source_types: list[str] = Field(default_factory=list)
+    source_diversity_fit: bool = False
+    hard_drop: bool = False
+    hard_drop_reason: str = ""
 
 
 class TrendCluster(BaseModel):

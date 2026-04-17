@@ -52,6 +52,67 @@ _UNVERIFIED_QUOTE_PATTERNS = [
     "전문가는 분석",
 ]
 
+_BANNED_SLANG_PATTERNS = (
+    "쩌리",
+    "똥챔프",
+    "깝치",
+    "현타",
+)
+
+_EMOJI_RANGES = (
+    (0x1F300, 0x1FAFF),
+    (0x2600, 0x27BF),
+)
+
+_AI_NATIVE_PATTERNS = (
+    r"\bai\b",
+    r"\bgpt\b",
+    r"\bllm\b",
+    r"\bagent(?:s)?\b",
+    r"\bmodel(?:s)?\b",
+    r"\bclaude\b",
+    r"\bopenai\b",
+    r"\bgemini\b",
+    "인공지능",
+    "생성형",
+    "에이전트",
+    "모델",
+)
+
+
+def _count_emojis(text: str) -> int:
+    count = 0
+    for ch in text:
+        code = ord(ch)
+        if any(start <= code <= end for start, end in _EMOJI_RANGES):
+            count += 1
+    return count
+
+
+def _count_clipped_endings(text: str) -> int:
+    count = 0
+    for chunk in re.split(r"[.!?\n]+", text):
+        sentence = chunk.strip()
+        if sentence.endswith(("임", "음")):
+            count += 1
+    return count
+
+
+def _trend_is_ai_native(trend: ScoredTrend) -> bool:
+    parts = [
+        getattr(trend, "keyword", ""),
+        getattr(trend, "category", ""),
+        getattr(trend, "top_insight", ""),
+        getattr(trend, "why_trending", ""),
+        getattr(trend, "best_hook_starter", ""),
+    ]
+    parts.extend(getattr(trend, "suggested_angles", []) or [])
+    context = getattr(trend, "context", None)
+    if context:
+        parts.append(context.to_combined_text())
+    text = "\n".join(part for part in parts if part).lower()
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in _AI_NATIVE_PATTERNS)
+
 
 def _score_hook(lead_text: str, leading_lines: list[str], group_name: str) -> tuple[int, list[str]]:
     """훅 점수 (16점 만점): 첫 문장 품질 평가."""
@@ -68,8 +129,8 @@ def _score_hook(lead_text: str, leading_lines: list[str], group_name: str) -> tu
     return score, issues
 
 
-def _score_tone(combined: str, items: list[GeneratedTweet], matched_cliches: list[str]) -> tuple[int, list[str]]:
-    """어투 점수 (15점 만점): 상투구 및 AI어투 탐지."""
+def _score_tone(combined: str, items: list[GeneratedTweet], matched_cliches: list[str], trend: ScoredTrend | None = None) -> tuple[int, list[str]]:
+    """어투 점수 (15점 만점): 상투구, AI어투, 슬랭, 이모지, clipped ending 탐지."""
     issues: list[str] = []
     score = 15
     if matched_cliches:
@@ -91,6 +152,37 @@ def _score_tone(combined: str, items: list[GeneratedTweet], matched_cliches: lis
             issues.append(f"Kiwipiepy 품질 점수 낮음: {avg_quality:.2f}")
     except ImportError:
         pass
+
+    # Persona slang guard
+    matched_slang = [pattern for pattern in _BANNED_SLANG_PATTERNS if pattern in combined]
+    if matched_slang:
+        score = max(0, score - min(8, 4 * len(matched_slang)))
+        issues.append(f"persona slang detected: {', '.join(matched_slang[:2])}")
+
+    # Emoji overuse guard
+    emoji_count = _count_emojis(combined)
+    if emoji_count > 1:
+        score = max(0, score - min(6, (emoji_count - 1) * 2))
+        issues.append(f"emoji overuse: {emoji_count}")
+
+    # Clipped ending guard (임/음 반복)
+    clipped_endings = _count_clipped_endings(combined)
+    if clipped_endings > 2:
+        score = max(0, score - min(6, clipped_endings - 2))
+        issues.append(f"repeated clipped endings: {clipped_endings}")
+
+    # AI framing overuse guard
+    if trend is not None:
+        ai_mentions = len(
+            re.findall(
+                r"\bai\b|\bgpt\b|\bllm\b|\bagent(?:s)?\b|\bclaude\b|\bopenai\b|\bgemini\b|인공지능|생성형",
+                combined.lower(),
+            )
+        )
+        if not _trend_is_ai_native(trend) and ai_mentions > 2:
+            score = max(0, score - min(8, ai_mentions - 2))
+            issues.append(f"AI framing overuse: {ai_mentions}")
+
     return score, issues
 
 
@@ -208,7 +300,7 @@ def _audit_content_group(
     matched_cliches = [p for p in _QA_CLICHE_PATTERNS if p in combined]
 
     hook, hook_issues = _score_hook(lead_text, leading_lines, group_name)
-    tone, tone_issues = _score_tone(combined, items, matched_cliches)
+    tone, tone_issues = _score_tone(combined, items, matched_cliches, trend)
     fact, fact_violation, fact_issues = _score_fact(combined, trend)
     kick, kick_issues = _score_kick(combined)
     angle, regulation, algorithm, fmt_issues = _score_format(group_name, items, combined)

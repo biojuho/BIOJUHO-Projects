@@ -1,12 +1,11 @@
-"""
-getdaytrends — Google News / Google Suggest Context Collector
-Google News RSS + Google Suggest 자동완성 기반 컨텍스트 수집.
-collectors/context.py에서 분리됨.
-"""
+"""Google News / Google Suggest collectors."""
 
+from __future__ import annotations
+
+import json
 import urllib.parse
 import xml.etree.ElementTree as ET
-from datetime import UTC
+from datetime import UTC, datetime
 
 import httpx
 from loguru import logger as log
@@ -17,19 +16,15 @@ except ImportError:
     from utils import run_async
 
 _SHORT_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
+_MAX_TREND_NEWS_AGE_DAYS = 30
 
 
 def _resolve_timeout(timeout: httpx.Timeout | float | None) -> httpx.Timeout | float:
     return _SHORT_TIMEOUT if timeout is None else timeout
 
 
-# ══════════════════════════════════════════════════════
-#  RSS Date Helpers
-# ══════════════════════════════════════════════════════
-
-
 def _parse_rss_date(date_str: str | None) -> "datetime | None":
-    """RSS pubDate (RFC 2822) → datetime. 파싱 실패 시 None."""
+    """Parse RSS pubDate (RFC 2822)."""
     if not date_str:
         return None
     from email.utils import parsedate_to_datetime
@@ -41,28 +36,28 @@ def _parse_rss_date(date_str: str | None) -> "datetime | None":
 
 
 def _format_news_age(date_str: str | None) -> str:
-    """pubDate → '어제', '2시간 전' 등 사람 읽기용 문자열."""
-    from datetime import datetime as _dt
-
+    """Render a human-readable age string from pubDate."""
     dt = _parse_rss_date(date_str)
     if not dt:
         return ""
-    now = _dt.now(UTC)
+    now = datetime.now(UTC)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     delta = now - dt
     hours = delta.total_seconds() / 3600
     if hours < 1:
         return f"{max(int(delta.total_seconds() / 60), 1)}분 전"
-    elif hours < 24:
+    if hours < 24:
         return f"{int(hours)}시간 전"
-    else:
-        return f"{int(hours / 24)}일 전"
+    return f"{int(hours / 24)}일 전"
 
 
-# ══════════════════════════════════════════════════════
-#  Google News RSS
-# ══════════════════════════════════════════════════════
+def _is_fresh_enough(dt: datetime | None) -> bool:
+    if dt is None:
+        return True
+    dt_utc = dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+    age_days = (datetime.now(UTC) - dt_utc.astimezone(UTC)).total_seconds() / 86400
+    return age_days <= _MAX_TREND_NEWS_AGE_DAYS
 
 
 async def _async_fetch_google_news_trends(
@@ -70,11 +65,12 @@ async def _async_fetch_google_news_trends(
     keyword: str,
     timeout: httpx.Timeout | float | None = None,
 ) -> str:
-    """Google News RSS 기반 헤드라인 수집 (비동기)."""
+    """Fetch recent Google News RSS headlines for a keyword."""
     encoded_topic = urllib.parse.quote(keyword)
-    insights = []
+    insights: list[str] = []
+    seen_titles: set[str] = set()
 
-    for hl, gl, ceid in [("ko", "KR", "KR:ko"), ("en-US", "US", "US:en")]:
+    for hl, gl, ceid in (("ko", "KR", "KR:ko"), ("en-US", "US", "US:en")):
         url = f"https://news.google.com/rss/search?q={encoded_topic}&hl={hl}&gl={gl}&ceid={ceid}"
         try:
             resp = await session.get(
@@ -84,28 +80,42 @@ async def _async_fetch_google_news_trends(
             )
             raw = resp.read()
             root = ET.fromstring(raw)
-            for item in root.findall(".//item")[:5]:
-                title = item.find("title")
-                pub_date = item.find("pubDate")
-                if title is not None and title.text:
-                    age_str = _format_news_age(pub_date.text if pub_date is not None else None)
-                    dt = _parse_rss_date(pub_date.text if pub_date is not None else None)
-                    time_label = dt.strftime("%m/%d %H:%M") if dt else ""
-                    if age_str and time_label:
-                        headline = f"[{time_label}, {age_str}] {title.text.strip()}"
-                    elif age_str:
-                        headline = f"[{age_str}] {title.text.strip()}"
-                    else:
-                        headline = title.text.strip()
-                    insights.append(headline)
         except Exception:
             continue
+
+        for item in root.findall(".//item")[:5]:
+            title = item.find("title")
+            pub_date = item.find("pubDate")
+            if title is None or not title.text:
+                continue
+
+            title_text = title.text.strip()
+            title_key = title_text.casefold()
+            if title_key in seen_titles:
+                continue
+
+            dt = _parse_rss_date(pub_date.text if pub_date is not None else None)
+            if not _is_fresh_enough(dt):
+                continue
+
+            age_str = _format_news_age(pub_date.text if pub_date is not None else None)
+            time_label = dt.strftime("%m/%d %H:%M") if dt else ""
+
+            if age_str and time_label:
+                headline = f"[{time_label}, {age_str}] {title_text}"
+            elif age_str:
+                headline = f"[{age_str}] {title_text}"
+            else:
+                headline = title_text
+
+            seen_titles.add(title_key)
+            insights.append(headline)
 
     return " | ".join(insights) if insights else "관련 뉴스 없음"
 
 
 def fetch_google_news_trends(keyword: str) -> str:
-    """Google News RSS 수집 (동기 호환 래퍼)."""
+    """Sync wrapper for Google News RSS collection."""
     return run_async(_async_fetch_google_news_trends_standalone(keyword))
 
 
@@ -114,17 +124,12 @@ async def _async_fetch_google_news_trends_standalone(keyword: str) -> str:
         return await _async_fetch_google_news_trends(session, keyword)
 
 
-# ══════════════════════════════════════════════════════
-#  Google Trends Related Queries
-# ══════════════════════════════════════════════════════
-
-
 async def _async_fetch_google_trends_related(
     session: httpx.AsyncClient,
     trends: list,
     country: str = "korea",
 ) -> dict[str, list[str]]:
-    """Google Trends 소스의 news_headlines를 related queries로 변환."""
+    """Reuse Google Trends RSS headlines as related-query hints."""
     try:
         from ..models import TrendSource
     except ImportError:
@@ -140,17 +145,12 @@ async def _async_fetch_google_trends_related(
     return result
 
 
-# ══════════════════════════════════════════════════════
-#  Google Suggest (Autocomplete)
-# ══════════════════════════════════════════════════════
-
-
 async def _async_fetch_google_suggest(
     query: str,
     language: str = "ko",
     country: str = "kr",
 ) -> list[str]:
-    """Google Suggest (자동완성) API로 연관 키워드 수집."""
+    """Fetch Google autocomplete suggestions."""
     encoded = urllib.parse.quote(query)
     url = f"https://suggestqueries.google.com/complete/search?client=firefox&q={encoded}&hl={language}&gl={country}"
 
@@ -162,12 +162,10 @@ async def _async_fetch_google_suggest(
                 timeout=_SHORT_TIMEOUT,
             )
             resp.raise_for_status()
-            import json
-
             data = json.loads(resp.text)
             if isinstance(data, list) and len(data) >= 2:
-                return [s for s in data[1] if isinstance(s, str)]
+                return [item for item in data[1] if isinstance(item, str)]
             return []
-    except Exception as e:
-        log.debug(f"Google Suggest 수집 실패 ({query}): {e}")
+    except Exception as exc:
+        log.debug(f"Google Suggest collection failed ({query}): {exc}")
         return []

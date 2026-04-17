@@ -24,6 +24,22 @@ def _resolve_timeout(timeout: httpx.Timeout | float | None) -> httpx.Timeout | f
     return _SHORT_TIMEOUT if timeout is None else timeout
 
 
+def _looks_like_login_shell(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "log in to x",
+            "sign in to x",
+            "login to x",
+            "sign in",
+            "log in",
+            "<html",
+            "<!doctype",
+        )
+    )
+
+
 # ══════════════════════════════════════════════════════
 #  Twikit / Jina Fallback
 # ══════════════════════════════════════════════════════
@@ -68,6 +84,9 @@ async def _async_fetch_x_via_jina(
         resp = await session.get(jina_url, headers=headers, timeout=_resolve_timeout(timeout))
         resp.raise_for_status()
         text = resp.text.strip()
+        if _looks_like_login_shell(text):
+            log.debug(f"Jina X shell/login page detected ({keyword})")
+            return f"[X 데이터 없음] {keyword}"
         if len(text) > 50:
             return text[:500]
         return f"[X 검색] {keyword} 관련 실시간 데이터 부족"

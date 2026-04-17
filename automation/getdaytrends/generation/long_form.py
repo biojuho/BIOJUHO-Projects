@@ -14,6 +14,7 @@ try:
     from ..prompt_builder import (
         _REPORT_BLOG_SYSTEM,
         _build_account_identity_section,
+        _build_blog_structure_section,
         _build_context_section,
         _build_deep_why_section,
         _build_fact_guardrail_section,
@@ -31,6 +32,7 @@ except ImportError:
     from prompt_builder import (
         _REPORT_BLOG_SYSTEM,
         _build_account_identity_section,
+        _build_blog_structure_section,
         _build_context_section,
         _build_deep_why_section,
         _build_fact_guardrail_section,
@@ -44,6 +46,37 @@ except ImportError:
     from utils import sanitize_keyword
 
 _JSON_POLICY = LLMPolicy(response_mode="json")
+
+_BLOG_SYSTEM_BIOJUHO = """You write Naver blog posts for @biojuho.
+
+Voice:
+- dry wit, compressed sentences, aphoristic finish
+- no hashtags
+- no emoji dependence
+- avoid meme slang and templated SEO filler
+- write Korean that survives auto-translation
+
+Structure:
+- use 3 H2 sections chosen by the supplied layout guidance
+- each section should advance the argument, not repeat the headline
+- close with one short note or question, not a marketer CTA
+
+Rules:
+- do not use a fixed four-heading report template
+- do not force every topic into AI, startup, or workshop framing
+- use the provided context as evidence and add structural interpretation
+
+Return JSON only:
+{"posts":[{
+  "type":"deep_analysis",
+  "title":"blog title",
+  "subtitle":"optional subtitle",
+  "content":"markdown body with 3 H2 sections",
+  "seo_keywords":["keyword1","keyword2","keyword3","keyword4","keyword5"],
+  "meta_description":"meta description",
+  "thumbnail_suggestion":"thumbnail suggestion"
+}]}
+"""
 
 
 # ══════════════════════════════════════════════════════
@@ -70,6 +103,7 @@ async def generate_long_form_async(
     fact_guardrail_section = _build_fact_guardrail_section(trend)
     revision_feedback_section = _build_revision_feedback_section(revision_feedback)
     identity_section = _build_account_identity_section(config, include_tone=not report_profile)
+    blog_structure_section = "" if report_profile else _build_blog_structure_section(trend)
     safe_keyword = sanitize_keyword(trend.keyword)
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
 
@@ -78,7 +112,7 @@ async def generate_long_form_async(
         f"현재 시각: {current_time}\n"
         f"작성 언어: 반드시 {target_language}로 작성할 것\n"
         f"{identity_section}{fact_guardrail_section}{deep_why_section}{context_section}{scoring_section}"
-        f"{revision_feedback_section}\n"
+        f"{blog_structure_section}{revision_feedback_section}\n"
         "위 '왜 지금 트렌드인가' 배경과 데이터/수치/반응을 깊이 소화한 뒤,\n"
         "읽는 사람이 '이건 저장해야 돼' 하는 장문 2종을 작성.\n"
         "핵심: 뉴스 요약 아님. 이 현상의 이면을 파고드는 분석과 해석.\n"
@@ -174,6 +208,8 @@ _BLOG_SYSTEM_JOONGYEON = """당신은 네이버 블로그 전문 콘텐츠 작�
 
 
 def _system_blog_post(tone: str, editorial_profile: str = "classic") -> str:
+    if tone == "biojuho":
+        return _BLOG_SYSTEM_BIOJUHO
     if editorial_profile == "report":
         return _REPORT_BLOG_SYSTEM
     if tone == "joongyeon":

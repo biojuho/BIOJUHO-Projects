@@ -592,3 +592,230 @@ def test_v61_config_from_env():
         assert cfg.max_content_age_hours == 6
         assert cfg.freshness_penalty_stale == 0.9
         assert cfg.freshness_penalty_expired == 0.5
+
+
+def test_persona_filter_drops_off_brand_topics(config):
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
+
+    config.enable_persona_filter = True
+    config.persona_axes = ["bio", "systems", "content_engineering", "investing", "saju"]
+    config.persona_min_matches = 1
+    config.enforce_min_context_sources = False
+    config.exclude_categories = []
+
+    trends = [
+        ScoredTrend(
+            keyword="Bio startup funding",
+            rank=1,
+            viral_potential=88,
+            category="business",
+            top_insight="biotech fundraise structure",
+            context=MultiSourceContext(
+                twitter_insight="founder thread",
+                news_insight="fresh coverage",
+            ),
+        ),
+        ScoredTrend(
+            keyword="FursuitFriday",
+            rank=2,
+            viral_potential=91,
+            category="lifestyle",
+            top_insight="costume community trend",
+            context=MultiSourceContext(
+                twitter_insight="community reactions",
+                news_insight="fresh coverage",
+            ),
+        ),
+    ]
+
+    result = _ensure_quality_and_diversity(trends, config)
+    assert [trend.keyword for trend in result] == ["Bio startup funding"]
+    assert result[0].matched_axes
+    assert result[0].persona_fit is True
+
+
+def test_min_context_sources_filters_single_source_noise(config):
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
+
+    config.enable_persona_filter = True
+    config.persona_axes = ["bio", "systems", "content_engineering", "investing", "saju"]
+    config.persona_min_matches = 1
+    config.enforce_min_context_sources = True
+    config.min_context_sources = 2
+    config.exclude_categories = []
+
+    trends = [
+        ScoredTrend(
+            keyword="Systems memo",
+            rank=1,
+            viral_potential=86,
+            category="tech",
+            top_insight="workflow governance",
+            context=MultiSourceContext(
+                twitter_insight="operator thread describing workflow bottlenecks in detail",
+                news_insight="case study coverage with concrete implementation evidence",
+            ),
+        ),
+        ScoredTrend(
+            keyword="Bio signal weak",
+            rank=2,
+            viral_potential=84,
+            category="bio",
+            top_insight="clinical note",
+            context=MultiSourceContext(
+                twitter_insight="Log in to X",
+                news_insight="fresh coverage with one usable source only",
+            ),
+        ),
+    ]
+
+    result = _ensure_quality_and_diversity(trends, config)
+    assert [trend.keyword for trend in result] == ["Systems memo"]
+    assert result[0].usable_source_count >= 2
+
+
+def test_source_diversity_gate_keeps_required_combo(config):
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
+
+    config.enable_persona_filter = True
+    config.persona_axes = ["bio", "systems", "content_engineering", "investing", "saju"]
+    config.persona_min_matches = 1
+    config.enforce_min_context_sources = True
+    config.min_context_sources = 2
+    config.enforce_source_diversity_gate = True
+    config.required_source_combinations = ["twitter+news", "reddit+news"]
+    config.exclude_categories = []
+
+    trends = [
+        ScoredTrend(
+            keyword="Systems memo",
+            rank=1,
+            viral_potential=86,
+            category="tech",
+            top_insight="workflow governance",
+            context=MultiSourceContext(
+                twitter_insight="operator thread describing workflow bottlenecks in detail",
+                news_insight="case study coverage with concrete implementation evidence",
+            ),
+        ),
+    ]
+
+    result = _ensure_quality_and_diversity(trends, config)
+    assert [trend.keyword for trend in result] == ["Systems memo"]
+    assert set(result[0].usable_source_types) == {"twitter", "news"}
+    assert result[0].source_diversity_fit is True
+
+
+def test_source_diversity_gate_drops_weak_combo(config):
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
+
+    config.enable_persona_filter = True
+    config.persona_axes = ["bio", "systems", "content_engineering", "investing", "saju"]
+    config.persona_min_matches = 1
+    config.enforce_min_context_sources = True
+    config.min_context_sources = 2
+    config.enforce_source_diversity_gate = True
+    config.required_source_combinations = ["twitter+news", "reddit+news"]
+    config.exclude_categories = []
+
+    trends = [
+        ScoredTrend(
+            keyword="Systems memo",
+            rank=1,
+            viral_potential=86,
+            category="tech",
+            top_insight="workflow governance",
+            context=MultiSourceContext(
+                twitter_insight="operator thread describing workflow bottlenecks in detail",
+                reddit_insight="community discussion with enough detail to count as usable",
+            ),
+        ),
+    ]
+
+    result = _ensure_quality_and_diversity(trends, config)
+    assert result == []
+
+
+def test_hard_drop_policy_removes_fursuit_topic(config):
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
+
+    config.enable_persona_filter = False
+    config.enforce_min_context_sources = False
+    config.enforce_source_diversity_gate = False
+    config.enforce_hard_drop_policy = True
+    config.hard_drop_topic_keywords = ["fursuit", "fursuitfriday", "cosplay"]
+    config.exclude_categories = []
+
+    trends = [
+        ScoredTrend(
+            keyword="FursuitFriday",
+            rank=1,
+            viral_potential=92,
+            category="community",
+            top_insight="costume community trend",
+            context=MultiSourceContext(
+                twitter_insight="community reactions with enough detail to count as usable",
+                news_insight="fresh coverage with enough detail to count as usable",
+            ),
+        ),
+    ]
+
+    result = _ensure_quality_and_diversity(trends, config)
+    assert result == []
+
+
+def test_hard_drop_policy_removes_patch_note_topic(config):
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
+
+    config.enable_persona_filter = False
+    config.enforce_min_context_sources = False
+    config.enforce_source_diversity_gate = False
+    config.enforce_hard_drop_policy = True
+    config.hard_drop_topic_keywords = ["lol", "viego", "buff", "nerf", "patch notes"]
+    config.exclude_categories = []
+
+    trends = [
+        ScoredTrend(
+            keyword="LoL 26.08 Viego buff",
+            rank=1,
+            viral_potential=90,
+            category="gaming",
+            top_insight="patch note backlash",
+            context=MultiSourceContext(
+                twitter_insight="player reactions with enough detail to count as usable",
+                news_insight="fresh coverage with enough detail to count as usable",
+            ),
+        ),
+    ]
+
+    result = _ensure_quality_and_diversity(trends, config)
+    assert result == []
+
+
+def test_hard_drop_policy_keeps_on_brand_topic(config):
+    from getdaytrends.core.pipeline import _ensure_quality_and_diversity
+
+    config.enable_persona_filter = False
+    config.enforce_min_context_sources = False
+    config.enforce_source_diversity_gate = False
+    config.enforce_hard_drop_policy = True
+    config.hard_drop_topic_keywords = ["fursuit", "fursuitfriday", "cosplay", "lol", "viego", "buff", "nerf"]
+    config.exclude_categories = []
+
+    trends = [
+        ScoredTrend(
+            keyword="Systems memo",
+            rank=1,
+            viral_potential=86,
+            category="tech",
+            top_insight="workflow governance",
+            context=MultiSourceContext(
+                twitter_insight="operator thread describing workflow bottlenecks in detail",
+                news_insight="case study coverage with concrete implementation evidence",
+            ),
+        ),
+    ]
+
+    result = _ensure_quality_and_diversity(trends, config)
+    assert [trend.keyword for trend in result] == ["Systems memo"]
+    assert result[0].hard_drop is False

@@ -193,11 +193,38 @@ def scoring_env() -> dict:
 def platform_env() -> dict:
     """플랫폼/콘텐츠 관련 환경변수 로딩."""
     return dict(
-        tone=os.getenv("TONE", "\uce5c\uadfc\ud558\uace0 \uc704\ud2b8 \uc788\ub294 \ub3d9\ub124 \uce5c\uad6c"),
-        editorial_profile=os.getenv("EDITORIAL_PROFILE", "report").lower(),
+        tone=os.getenv("TONE", "biojuho"),
+        editorial_profile=os.getenv("EDITORIAL_PROFILE", "biojuho").lower(),
         target_languages=[lang.strip() for lang in os.getenv("TARGET_LANGUAGES", "ko").split(",") if lang.strip()],
-        account_niche=os.getenv("ACCOUNT_NICHE", "AI/\ud14c\ud06c/\ud2b8\ub80c\ub4dc"),
-        target_audience=os.getenv("TARGET_AUDIENCE", "IT \uc885\uc0ac\uc790, \uc2a4\ud0c0\ud2b8\uc5c5 \uad00\uacc4\uc790"),
+        account_niche=os.getenv("ACCOUNT_NICHE", "bio/systems/content engineering/investing/saju"),
+        target_audience=os.getenv("TARGET_AUDIENCE", "founders, researchers, operators, system thinkers"),
+        enable_persona_filter=os.getenv("ENABLE_PERSONA_FILTER", "true").lower() == "true",
+        persona_axes=[
+            axis.strip()
+            for axis in os.getenv("PERSONA_AXES", "bio,systems,content_engineering,investing,saju").split(",")
+            if axis.strip()
+        ],
+        persona_min_matches=int(os.getenv("PERSONA_MIN_MATCHES", "1")),
+        enforce_min_context_sources=os.getenv("ENFORCE_MIN_CONTEXT_SOURCES", "true").lower() == "true",
+        min_context_sources=int(os.getenv("MIN_CONTEXT_SOURCES", "2")),
+        enforce_source_diversity_gate=os.getenv("ENFORCE_SOURCE_DIVERSITY_GATE", "true").lower() == "true",
+        required_source_combinations=[
+            combo.strip()
+            for combo in os.getenv(
+                "REQUIRED_SOURCE_COMBINATIONS",
+                "twitter+news,reddit+news,twitter+reddit",
+            ).split(",")
+            if combo.strip()
+        ],
+        enforce_hard_drop_policy=os.getenv("ENFORCE_HARD_DROP_POLICY", "true").lower() == "true",
+        hard_drop_topic_keywords=[
+            keyword.strip()
+            for keyword in os.getenv(
+                "HARD_DROP_TOPIC_KEYWORDS",
+                "fursuit,fursuitfriday,cosplay,lol,league of legends,viego,patch notes,buff,nerf,hair trend,haircut,beauty trend,fashion trend,meme,shitpost",
+            ).split(",")
+            if keyword.strip()
+        ],
         target_platforms=[p.strip() for p in os.getenv("TARGET_PLATFORMS", "x").split(",") if p.strip()],
         content_hub_database_id=os.getenv("CONTENT_HUB_DATABASE_ID", ""),
         blog_min_score=int(os.getenv("BLOG_MIN_SCORE", "70")),
@@ -212,8 +239,8 @@ def platform_env() -> dict:
         watchlist_keywords=[k.strip() for k in os.getenv("WATCHLIST_KEYWORDS", "").split(",") if k.strip()],
         content_diversity_hours=int(os.getenv("CONTENT_DIVERSITY_HOURS", "24")),
         generation_mode_override=os.getenv("GENERATION_MODE", ""),
-        persona_rotation=os.getenv("PERSONA_ROTATION", "category"),
+        persona_rotation=os.getenv("PERSONA_ROTATION", "fixed"),
         persona_pool=[
-            p.strip() for p in os.getenv("PERSONA_POOL", "joongyeon,analyst,storyteller").split(",") if p.strip()
+            p.strip() for p in os.getenv("PERSONA_POOL", "biojuho").split(",") if p.strip()
         ],
     )

@@ -31,6 +31,7 @@ except ImportError:
     print_harness_summary = None  # type: ignore
 
 from getdaytrends.alerts import check_and_alert, check_watchlist
+from getdaytrends.analysis.scoring import _count_usable_context_sources, _has_usable_source_text
 from getdaytrends.analyzer import _analyze_trends_async
 from getdaytrends.config import AppConfig
 from getdaytrends.db import (
@@ -49,6 +50,248 @@ from getdaytrends.scraper import _async_collect_contexts, _async_collect_trends
 from getdaytrends.utils import run_async
 
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
+
+_PERSONA_AXIS_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "bio": (
+        "bio",
+        "biotech",
+        "biology",
+        "genomics",
+        "pharma",
+        "drug",
+        "clinical",
+        "healthcare",
+        "바이오",
+        "생명과학",
+        "유전자",
+        "제약",
+        "신약",
+        "임상",
+        "헬스케어",
+    ),
+    "systems": (
+        "system",
+        "systems",
+        "workflow",
+        "pipeline",
+        "automation",
+        "operations",
+        "ops",
+        "governance",
+        "infrastructure",
+        "process",
+        "시스템",
+        "구조",
+        "워크플로",
+        "자동화",
+        "운영",
+        "파이프라인",
+        "프로세스",
+    ),
+    "content_engineering": (
+        "content",
+        "creator",
+        "audience",
+        "distribution",
+        "media",
+        "brand",
+        "seo",
+        "copy",
+        "format",
+        "콘텐츠",
+        "크리에이터",
+        "미디어",
+        "브랜딩",
+        "배포",
+        "유통",
+        "에디터",
+        "카피",
+        "포맷",
+        "블로그",
+    ),
+    "investing": (
+        "invest",
+        "investment",
+        "investor",
+        "market",
+        "stock",
+        "equity",
+        "fund",
+        "capital",
+        "valuation",
+        "macro",
+        "ipo",
+        "trading",
+        "투자",
+        "주식",
+        "증시",
+        "금리",
+        "밸류",
+        "펀드",
+        "자본",
+        "매크로",
+    ),
+    "saju": (
+        "saju",
+        "fortune",
+        "astrology",
+        "zodiac",
+        "tarot",
+        "사주",
+        "운세",
+        "점성",
+        "명리",
+        "팔자",
+        "타로",
+    ),
+}
+
+
+def _normalize_axis_name(axis: str) -> str:
+    return axis.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _trend_persona_text(trend) -> str:
+    parts: list[str] = [
+        getattr(trend, "keyword", ""),
+        getattr(trend, "category", ""),
+        getattr(trend, "top_insight", ""),
+        getattr(trend, "why_trending", ""),
+        getattr(trend, "best_hook_starter", ""),
+    ]
+    parts.extend(getattr(trend, "suggested_angles", []) or [])
+    context = getattr(trend, "context", None)
+    if context:
+        parts.append(context.to_combined_text())
+    trend_context = getattr(trend, "trend_context", None)
+    if trend_context:
+        parts.append(trend_context.to_prompt_text())
+    return "\n".join(part for part in parts if part).lower()
+
+
+def _trend_topic_surface_text(trend) -> str:
+    parts: list[str] = [
+        getattr(trend, "keyword", ""),
+        getattr(trend, "corrected_keyword", ""),
+        getattr(trend, "category", ""),
+    ]
+    return "\n".join(part for part in parts if part).lower()
+
+
+def _matched_persona_axes(trend, axes: list[str]) -> list[str]:
+    if not axes:
+        return []
+    haystack = _trend_persona_text(trend)
+    matched: list[str] = []
+    for raw_axis in axes:
+        axis = _normalize_axis_name(raw_axis)
+        keywords = _PERSONA_AXIS_KEYWORDS.get(axis, ())
+        if keywords and any(keyword.lower() in haystack for keyword in keywords):
+            matched.append(axis)
+    return matched
+
+
+def _matched_hard_drop_keyword(trend, hard_drop_keywords: list[str]) -> str:
+    if not hard_drop_keywords:
+        return ""
+    haystack = _trend_topic_surface_text(trend)
+    for keyword in hard_drop_keywords:
+        normalized = keyword.strip().lower()
+        if normalized and normalized in haystack:
+            return normalized
+    return ""
+
+
+def _usable_source_types(context) -> list[str]:
+    if not context:
+        return []
+    source_map = {
+        "twitter": getattr(context, "twitter_insight", ""),
+        "reddit": getattr(context, "reddit_insight", ""),
+        "news": getattr(context, "news_insight", ""),
+    }
+    return [
+        source_name
+        for source_name, text in source_map.items()
+        if _has_usable_source_text(text)
+    ]
+
+
+def _normalize_source_combo(combo: str) -> frozenset[str]:
+    return frozenset(part.strip().lower() for part in combo.split("+") if part.strip())
+
+
+def _has_required_source_diversity(source_types: list[str], required_combinations: list[str]) -> bool:
+    if not required_combinations:
+        return True
+    source_set = frozenset(source_types)
+    normalized_required = [
+        combo_set
+        for combo_set in (_normalize_source_combo(combo) for combo in required_combinations)
+        if combo_set
+    ]
+    return any(combo_set.issubset(source_set) for combo_set in normalized_required)
+
+
+def _annotate_persona_and_signal(scored_trends: list, config: AppConfig) -> None:
+    axes = list(getattr(config, "persona_axes", []) or [])
+    min_matches = max(0, int(getattr(config, "persona_min_matches", 1) or 0))
+    required_source_combinations = list(getattr(config, "required_source_combinations", []) or [])
+    hard_drop_keywords = list(getattr(config, "hard_drop_topic_keywords", []) or [])
+    for trend in scored_trends:
+        usable_sources = _count_usable_context_sources(getattr(trend, "context", None))
+        usable_source_types = _usable_source_types(getattr(trend, "context", None))
+        matched_axes = _matched_persona_axes(trend, axes)
+        hard_drop_keyword = _matched_hard_drop_keyword(trend, hard_drop_keywords)
+        trend.usable_source_count = usable_sources
+        trend.usable_source_types = usable_source_types
+        trend.matched_axes = matched_axes
+        trend.persona_fit = len(matched_axes) >= min_matches if axes else False
+        trend.persona_score = min(100, len(matched_axes) * 30 + usable_sources * 10)
+        trend.source_diversity_fit = _has_required_source_diversity(
+            usable_source_types,
+            required_source_combinations,
+        )
+        trend.hard_drop = bool(hard_drop_keyword)
+        trend.hard_drop_reason = f"hard_drop_keyword:{hard_drop_keyword}" if hard_drop_keyword else ""
+
+
+def _filter_persona_and_source_fit(trends: list, config: AppConfig) -> list:
+    filtered = list(trends)
+
+    if getattr(config, "enforce_hard_drop_policy", False):
+        before = len(filtered)
+        filtered = [trend for trend in filtered if not getattr(trend, "hard_drop", False)]
+        removed = before - len(filtered)
+        if removed:
+            log.info(f"  [Hard Drop Policy] removed={removed} kept={len(filtered)}")
+
+    if getattr(config, "enable_persona_filter", False) and getattr(config, "persona_axes", []):
+        before = len(filtered)
+        filtered = [trend for trend in filtered if getattr(trend, "persona_fit", False)]
+        removed = before - len(filtered)
+        if removed:
+            log.info(f"  [Persona Filter] removed={removed} kept={len(filtered)}")
+
+    min_sources = max(0, int(getattr(config, "min_context_sources", 0) or 0))
+    if getattr(config, "enforce_min_context_sources", False) and min_sources > 0:
+        before = len(filtered)
+        filtered = [
+            trend for trend in filtered if getattr(trend, "usable_source_count", 0) >= min_sources
+        ]
+        removed = before - len(filtered)
+        if removed:
+            log.info(f"  [Signal Filter] removed={removed} kept={len(filtered)} min_sources={min_sources}")
+
+    if getattr(config, "enforce_source_diversity_gate", False):
+        before = len(filtered)
+        filtered = [trend for trend in filtered if getattr(trend, "source_diversity_fit", False)]
+        removed = before - len(filtered)
+        if removed:
+            combos = ",".join(getattr(config, "required_source_combinations", []) or [])
+            log.info(f"  [Source Diversity Gate] removed={removed} kept={len(filtered)} combos={combos}")
+
+    return filtered
 
 
 async def _step_refresh_tap_products(conn, config: AppConfig) -> dict:
@@ -346,7 +589,12 @@ def _ensure_quality_and_diversity(scored_trends: list, config: AppConfig) -> lis
     min_count = getattr(config, "min_article_count", 3)
     max_same = getattr(config, "max_same_category", 2)
 
+    _annotate_persona_and_signal(scored_trends, config)
     safe_trends = _filter_unsafe_trends(scored_trends, config, min_score, min_count)
+    if not safe_trends:
+        return []
+
+    safe_trends = _filter_persona_and_source_fit(safe_trends, config)
     if not safe_trends:
         return []
 

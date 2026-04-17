@@ -1,4 +1,4 @@
-"""
+﻿"""
 getdaytrends — Prompt Builder
 프롬프트 빌드 + 시스템 프롬프트 + 페르소나 규칙.
 generator.py에서 분리됨.
@@ -470,4 +470,489 @@ except ImportError:
         _system_tweets_and_threads,
         _system_tweets_joongyeon,
     )
+
+
+def _build_audience_format_section(trend: ScoredTrend) -> str:
+    """Audience-first formatting rules without leaking internal dashboard metrics."""
+    if trend.viral_potential < 70:
+        return ""
+    return (
+        "\n[Audience-First Format Rules]\n"
+        "- The reader should understand the point within three seconds.\n"
+        "- Use line breaks so the post does not collapse into one text block.\n"
+        "- Do not expose viral score, expected engagement, or any internal scoring language in public copy.\n"
+        "- Create urgency through concrete observation, not through dashboard-style wording.\n"
+    )
+
+
+def _use_report_profile(config: AppConfig) -> bool:
+    profile = getattr(config, "editorial_profile", "").lower()
+    tone = getattr(config, "tone", "").lower()
+    return profile == "report" and tone != "biojuho"
+
+
+def _build_blog_structure_section(trend: ScoredTrend) -> str:
+    """Rotate long-form structures to avoid a fixed repeated blog skeleton."""
+    structures = (
+        (
+            "pattern_a",
+            "phenomenon -> historical parallel -> prediction. Use three H2 sections and a brief closing note.",
+        ),
+        (
+            "pattern_b",
+            "personal scene -> data/evidence -> structure read. Use three H2 sections and a brief closing note.",
+        ),
+        (
+            "pattern_c",
+            "counter-thesis -> evidence -> conditional conclusion. Use three H2 sections and a brief closing note.",
+        ),
+    )
+    index = sum(ord(ch) for ch in getattr(trend, "keyword", "")) % len(structures)
+    label, description = structures[index]
+    return f"\n[Blog Structure]\n- Selected layout: {label}\n- {description}\n"
+
+
+_BIOJUHO_RULES = """You write for @biojuho.
+
+Voice:
+- dry wit, compressed sentences, aphoristic finish
+- low emoji usage: 0 or 1
+- no hashtags unless explicitly requested
+- no meme slang or disposable filler
+- write Korean that survives auto-translation: simple syntax, concrete nouns, low-local-joke dependency
+
+Do:
+- keep one consistent voice across X, Threads, long form, and blog
+- prefer one lens per draft: observation, historical parallel, structural reading, counter-thesis, sharp question
+- use evidence from the provided context, then add a tighter interpretation
+- if the topic is not inherently about AI, do not force it into AI/company/workshop framing
+
+Do not:
+- use phrases like "주목받고 있다", "화제가 되고 있다", "정리하면", "살펴보면"
+- use slang such as "쩌리", "똥챔프", "깝치다", "현타"
+- overuse endings like "~임", "~음"
+- mention viral score, engagement forecast, or any internal system metric in public copy
+"""
+
+
+def _system_tweets_biojuho() -> str:
+    _biojuho_rules = """You write for @biojuho.
+
+Voice:
+- dry wit, compressed sentences, aphoristic finish
+- low emoji usage: 0 or 1
+- no hashtags unless explicitly requested
+- no meme slang or disposable filler
+- write Korean that survives auto-translation: simple syntax, concrete nouns, low-local-joke dependency
+
+Do:
+- keep one consistent voice across X, Threads, long form, and blog
+- prefer one lens per draft: observation, historical parallel, structural reading, counter-thesis, sharp question
+- use evidence from the provided context, then add a tighter interpretation
+- if the topic is not inherently about AI, do not force it into AI/company/workshop framing
+
+Do not:
+- use newsroom filler such as "is getting attention", "is becoming a topic", "to summarize", or "if you look at it this way"
+- use slang such as "쩌리", "똥챔프", "깝치다", or "현타"
+- overuse blunt sentence endings like repeated "~임" or "~음"
+- mention viral score, engagement forecast, or any internal system metric in public copy
+"""
+    return (
+        _biojuho_rules
+        + """
+
+Write 5 X drafts in the same voice, but with clearly different lenses:
+1. observation
+2. historical_parallel
+3. structural_read
+4. counter_thesis
+5. sharp_question
+
+Rules:
+- each draft must feel like a different angle, not just a different ending
+- each draft must open differently
+- keep each draft under 200 characters
+- at least one draft must avoid AI framing entirely unless the keyword itself is about AI
+- no "our company / our team" placeholder framing
+
+Return JSON only:
+{"topic":"topic","tweets":[
+{"type":"observation","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"historical_parallel","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"structural_read","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"counter_thesis","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"sharp_question","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."}]}
+"""
+    )
+
+
+def _system_threads_biojuho() -> str:
+    return (
+        _system_tweets_biojuho.__defaults__[0] if False else """You write for @biojuho.
+
+Voice:
+- dry wit, compressed sentences, aphoristic finish
+- low emoji usage: 0 or 1
+- no hashtags unless explicitly requested
+- no meme slang or disposable filler
+- write Korean that survives auto-translation: simple syntax, concrete nouns, low-local-joke dependency
+
+Do:
+- keep one consistent voice across X, Threads, long form, and blog
+- prefer one lens per draft: observation, historical parallel, structural reading, counter-thesis, sharp question
+- use evidence from the provided context, then add a tighter interpretation
+- if the topic is not inherently about AI, do not force it into AI/company/workshop framing
+
+Do not:
+- use newsroom filler such as "is getting attention", "is becoming a topic", "to summarize", or "if you look at it this way"
+- use slang such as "쩌리", "똥챔프", "깝치다", or "현타"
+- overuse blunt sentence endings like repeated "~임" or "~음"
+- mention viral score, engagement forecast, or any internal system metric in public copy
+"""
+        + """
+
+Write two Threads posts in the same voice:
+1. note
+2. question
+
+Rules:
+- not a news brief and not a lifestyle influencer tone
+- more breathing room than X, but still compressed
+- 500 chars max each
+- no hashtags
+- no poll-bait or numbered engagement bait
+
+Return JSON only:
+{"posts":[
+{"type":"note","content":"..."},
+{"type":"question","content":"..."}]}
+"""
+    )
+
+
+def _system_long_form_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES
+        + """
+
+Write two long-form outputs:
+1. deep_analysis
+2. field_note
+
+Rules:
+- not a report template
+- first 3 lines must state the real tension quickly
+- use full paragraphs, not bullet-heavy filler
+- avoid "정리하면", "결론적으로", or generic summary endings
+
+Return JSON only:
+{"posts":[
+{"type":"deep_analysis","content":"..."},
+{"type":"field_note","content":"..."}]}
+"""
+    )
+
+
+def _system_thread_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES
+        + """
+
+Write a 2-part X thread.
+- part 1: hook + analysis
+- part 2: pressure point / implication
+- no hashtags
+- no dashboard language
+
+Return JSON only:
+{"hook":"...","tweets":["...","..."]}
+"""
+    )
+
+
+def _system_tweets_and_threads_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES
+        + """
+
+Write 5 X drafts and 2 Threads posts in one consistent voice.
+The X drafts must use these lenses:
+observation, historical_parallel, structural_read, counter_thesis, sharp_question.
+The Threads posts must be:
+note, question.
+
+Return JSON only:
+{"topic":"topic","tweets":[
+{"type":"observation","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"historical_parallel","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"structural_read","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"counter_thesis","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"sharp_question","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."}],
+"threads_posts":[
+{"type":"note","content":"..."},
+{"type":"question","content":"..."}]}
+"""
+    )
+
+
+def _system_tweets(tone: str) -> str:
+    if tone == "biojuho":
+        return _system_tweets_biojuho()
+    if tone == "joongyeon":
+        return _system_tweets_joongyeon()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_tweets(tone)
+
+
+def _system_long_form(tone: str, editorial_profile: str = "classic") -> str:
+    if tone == "biojuho":
+        return _system_long_form_biojuho()
+    if editorial_profile == "report":
+        return _REPORT_LONG_FORM_SYSTEM
+    if tone == "joongyeon":
+        return _system_long_form_joongyeon()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_long_form(tone, editorial_profile)
+
+
+def _system_threads(tone: str, editorial_profile: str = "classic") -> str:
+    if tone == "biojuho":
+        return _system_threads_biojuho()
+    if editorial_profile == "report":
+        return _REPORT_THREADS_SYSTEM
+    if tone == "joongyeon":
+        return _system_threads_joongyeon()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_threads(tone, editorial_profile)
+
+
+def _system_thread(tone: str) -> str:
+    if tone == "biojuho":
+        return _system_thread_biojuho()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_thread(tone)
+
+
+def _system_tweets_and_threads(tone: str) -> str:
+    if tone == "biojuho":
+        return _system_tweets_and_threads_biojuho()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_tweets_and_threads(tone)
+
+
+_BIOJUHO_RULES_FINAL = """You write for @biojuho.
+
+Voice:
+- dry wit, compressed sentences, aphoristic finish
+- low emoji usage: 0 or 1
+- no hashtags unless explicitly requested
+- no meme slang or disposable filler
+- write Korean that survives auto-translation: simple syntax, concrete nouns, low-local-joke dependency
+
+Do:
+- keep one consistent voice across X, Threads, long form, and blog
+- prefer one lens per draft: observation, historical parallel, structural reading, counter-thesis, sharp question
+- use evidence from the provided context, then add a tighter interpretation
+- if the topic is not inherently about AI, do not force it into AI/company/workshop framing
+
+Do not:
+- use newsroom filler such as "is getting attention", "is becoming a topic", "to summarize", or "if you look at it this way"
+- use throwaway meme slang, game-insult slang, or therapy-meme slang
+- overuse clipped sentence endings
+- mention viral score, engagement forecast, or any internal system metric in public copy
+"""
+
+
+def _system_tweets_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES_FINAL
+        + """
+
+Write 5 X drafts in one voice, but with clearly different lenses:
+1. observation
+2. historical_parallel
+3. structural_read
+4. counter_thesis
+5. sharp_question
+
+Rules:
+- each draft must feel like a different angle, not just a different ending
+- each draft must open differently
+- keep each draft under 200 characters
+- at least one draft must avoid AI framing entirely unless the keyword itself is about AI
+- no "our company / our team" placeholder framing
+
+Return JSON only:
+{"topic":"topic","tweets":[
+{"type":"observation","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"historical_parallel","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"structural_read","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"counter_thesis","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"sharp_question","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."}]}
+"""
+    )
+
+
+def _system_threads_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES_FINAL
+        + """
+
+Write two Threads posts in the same voice:
+1. note
+2. question
+
+Rules:
+- not a news brief and not a lifestyle influencer tone
+- more breathing room than X, but still compressed
+- 500 chars max each
+- no hashtags
+- no poll-bait or numbered engagement bait
+
+Return JSON only:
+{"posts":[
+{"type":"note","content":"..."},
+{"type":"question","content":"..."}]}
+"""
+    )
+
+
+def _system_long_form_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES_FINAL
+        + """
+
+Write two long-form outputs:
+1. deep_analysis
+2. field_note
+
+Rules:
+- not a report template
+- first 3 lines must state the real tension quickly
+- use full paragraphs, not bullet-heavy filler
+- avoid generic summary endings
+
+Return JSON only:
+{"posts":[
+{"type":"deep_analysis","content":"..."},
+{"type":"field_note","content":"..."}]}
+"""
+    )
+
+
+def _system_thread_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES_FINAL
+        + """
+
+Write a 2-part X thread.
+- part 1: hook + analysis
+- part 2: pressure point / implication
+- no hashtags
+- no dashboard language
+
+Return JSON only:
+{"hook":"...","tweets":["...","..."]}
+"""
+    )
+
+
+def _system_tweets_and_threads_biojuho() -> str:
+    return (
+        _BIOJUHO_RULES_FINAL
+        + """
+
+Write 5 X drafts and 2 Threads posts in one consistent voice.
+The X drafts must use these lenses:
+observation, historical_parallel, structural_read, counter_thesis, sharp_question.
+The Threads posts must be:
+note, question.
+
+Return JSON only:
+{"topic":"topic","tweets":[
+{"type":"observation","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"historical_parallel","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"structural_read","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"counter_thesis","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."},
+{"type":"sharp_question","content":"...","best_posting_time":"...","expected_engagement":"...","reasoning":"..."}],
+"threads_posts":[
+{"type":"note","content":"..."},
+{"type":"question","content":"..."}]}
+"""
+    )
+
+
+def _system_tweets(tone: str) -> str:
+    if tone == "biojuho":
+        return _system_tweets_biojuho()
+    if tone == "joongyeon":
+        return _system_tweets_joongyeon()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_tweets(tone)
+
+
+def _system_long_form(tone: str, editorial_profile: str = "classic") -> str:
+    if tone == "biojuho":
+        return _system_long_form_biojuho()
+    if editorial_profile == "report":
+        return _REPORT_LONG_FORM_SYSTEM
+    if tone == "joongyeon":
+        return _system_long_form_joongyeon()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_long_form(tone, editorial_profile)
+
+
+def _system_threads(tone: str, editorial_profile: str = "classic") -> str:
+    if tone == "biojuho":
+        return _system_threads_biojuho()
+    if editorial_profile == "report":
+        return _REPORT_THREADS_SYSTEM
+    if tone == "joongyeon":
+        return _system_threads_joongyeon()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_threads(tone, editorial_profile)
+
+
+def _system_thread(tone: str) -> str:
+    if tone == "biojuho":
+        return _system_thread_biojuho()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_thread(tone)
+
+
+def _system_tweets_and_threads(tone: str) -> str:
+    if tone == "biojuho":
+        return _system_tweets_and_threads_biojuho()
+    try:
+        from . import system_prompts as _system_prompts
+    except ImportError:
+        import system_prompts as _system_prompts
+    return _system_prompts._system_tweets_and_threads(tone)
 
