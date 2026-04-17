@@ -1,7 +1,7 @@
 # Next Actions
 
 > 세션 종료 시 `/session-workflow`가 이 파일의 갱신을 제안합니다.
-> 2026-04-17 12:50 기준 — smoke --pool 중복 수정, 문서 정리 커밋 3건, 전 프로젝트 테스트 GREEN (286+460+690).
+> 2026-04-18 06:51 기준 — QC PASS 1,981 tests (286+542+463+690). DeSci CI 빌드 스텝 추가, scratch 정리, Canva 토큰 갱신 절차 문서화 완료.
 
 ## 완료 항목
 
@@ -31,11 +31,12 @@
 - [x] Dashboard CI 워크플로 리뷰 및 머지 (GHA workflow 파일 대기 중)
 - [x] `category_filter.py` docstring "deprecated 2026-03-04" 문구를 "Originally extracted from…" 으로 업데이트 (LOW, ~2분)
 - [x] `proofreader.py`, `sentiment_analyzer.py` 주석의 news_bot.py 참조 정리 (LOW, ~5분)
-- [ ] DeSci Platform Frontend 컴포넌트 배포 및 리뷰
-- [ ] `.smoke-tmp/` 및 `.test-tmp/` 내 permission-denied 잔류 디렉토리 정리
-- [ ] scratch 파일 정리: `automation/DailyNews/scratch_*.py` 3개 (삭제 or .gitignore)
+- [x] DeSci Platform Frontend CI 빌드 스텝 추가 + 로컬 빌드 검증 (2026-04-18)
+- [ ] `.smoke-tmp/` 및 `.test-tmp/` 내 permission-denied 잔류 디렉토리 정리 (관리자 PowerShell 필요)
+- [x] scratch 파일 정리: `automation/DailyNews/scratch_*.py` 3개 삭제 완료 (2026-04-18)
 - [ ] X 수동 발행: Economy_Global 최종 문안 + posting 이미지 → X 게시 후 URL 기록
-- [ ] Canva 수동 export 원본 확보 또는 `invalid_grant` 리프레시 토큰 복구
+- [x] Canva `invalid_grant` 진단 완료 — `canva_auth_server.py` PKCE 갱신 절차 문서화 (2026-04-18)
+- [ ] 미커밋 DailyNews CLI + getdaytrends 변경 정리/커밋
 
 ## 다음 세션 복붙 메모
 
@@ -53,10 +54,13 @@ DailyNews Economy_Global 후속 진행:
 - 확인 결과: 공개 웹 검색 기준 최종 문안과 일치하는 X 게시물은 `2026-04-17 20:35:49 +09:00` 시점까지 확인되지 않았음
 - 확인 결과: Canva connector 메타데이터상 최신 디자인 `updated_at` 은 `2026-04-17 19:56:06 +09:00` 이지만 connector 노출본은 `400x500` thumbnail 뿐이었음
 - 확인 결과: `automation/DailyNews/scripts/canva_generator.py` export 재시도는 여전히 `invalid_grant` 로 실패
+- 이번 세션 추가: `uv run python -m antigravity_mcp ops record-manual-x-post --report-id report-economy_global-20260416T220508Z --post-url "<ACTUAL_X_URL>" --posted-at "2026-04-17T00:00:00+09:00"` 명령 추가 완료
+- 이번 세션 확인: 위 명령은 `content_reports.drafts_json`, `channel_publications`, `x_tweet_metrics` 를 함께 갱신하므로 이후 `resync-report` 에 덮어써지지 않음
 - 정책 정렬: `run_scheduled_insights.ps1` 는 이제 manual-only 표현과 `--approval-mode manual` 을 사용
 - 최종 X 권장 문안: IMF가 2026년 세계 성장률 전망을 3.3%에서 3.1%로 낮췄습니다. 연준 윌리엄스는 전쟁 충격이 성장률을 2%대에 묶고 물가를 3% 안팎에 남길 수 있다고 경고했습니다. 영국 GDP가 예상보다 강했어도, 시장의 초점은 다시 스태그플레이션 리스크로 이동 중입니다. #글로벌경제 #매크로
 - 권장 다음 액션:
   1. 준비된 이미지와 위 최종 문안을 수동으로 계정에 복사하여 X에 발행
-  2. 가능하면 최신 Canva 디자인에서 원본 비율로 수동 export 받아 로컬 posting asset 교체
-  3. HANDOFF.md에 실제 X 발행 URL과 최종 게시 시각 기록
+  2. 게시 직후 `record-manual-x-post` 명령으로 실제 X URL/시각을 로컬 상태에 반영
+  3. 가능하면 최신 Canva 디자인에서 원본 비율로 수동 export 받아 로컬 posting asset 교체
+  4. HANDOFF.md에 실제 X 발행 URL과 최종 게시 시각 기록
 ```
