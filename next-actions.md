@@ -41,8 +41,10 @@ DailyNews Economy_Global 후속 진행:
 - 수동 큐레이션 재동기화 자동화 추가 완료.
 - 재실행 커맨드: uv run python -m antigravity_mcp ops resync-report --report-id report-economy_global-20260416T220508Z
 - 최신 Notion 백업: automation/DailyNews/data/notion_backups/report-economy_global-20260416T220508Z.before-notion-resync-20260417T020633Z.json
+- 최신 Canva 디자인 확인: DAHHEnyVbfQ (IMF 3.1% / Fed war shock / U.K. GDP beats estimates)
+- 게시용 자산 확정: automation/DailyNews/output/Economy_Global_Card_posting.png (1080x1350)
+- 참고: 기존 automation/DailyNews/output/Economy_Global_Card.png 는 최신 Canva 수정본 이전의 stale 로컬 산출물
 - 권장 다음 액션:
   1. X 최종 문안 확정 후 수동 발행
-  2. Canva 카드 export/posting asset 확정
-  3. HANDOFF.md에 실제 X 발행 URL과 최종 게시 시각 기록
+  2. HANDOFF.md에 실제 X 발행 URL과 최종 게시 시각 기록
 ```

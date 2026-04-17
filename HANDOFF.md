@@ -8,6 +8,30 @@
 
 ## Latest Follow-Up (2026-04-17)
 
+### DailyNews Economy_Global posting asset finalized
+
+**Status**: PARTIAL PASS / POSTING ASSET READY / CANVA REST EXPORT BLOCKED
+
+- Latest Canva design verified via connector:
+  - design id: `DAHHEnyVbfQ`
+  - title: `인스타그램 게시물 - IMF Cuts 2026 Global Growth Outlook to 3.1%, Risks Persist`
+  - page size: `1080x1350`
+- Latest card narrative matches the refreshed macro storyline:
+  - `Fed: war shock may keep inflation near 3% | U.K. GDP beats estimates`
+  - `IMF Cuts 2026 Global Growth Outlook to 3.1%, Risks Persist`
+- Local asset status:
+  - stale pre-sync file: `automation/DailyNews/output/Economy_Global_Card.png`
+  - latest Canva thumbnail snapshot: `automation/DailyNews/output/Economy_Global_Card_thumbnail.png`
+  - canonical posting asset for this run: `automation/DailyNews/output/Economy_Global_Card_posting.png`
+- Recommended Korean X copy:
+  - `IMF가 2026년 세계 성장률 전망을 3.3%에서 3.1%로 낮췄습니다. 연준 윌리엄스는 전쟁 충격이 성장률을 2%대에 묶고 물가를 3% 안팎에 남길 수 있다고 경고했습니다. 영국 GDP가 예상보다 강했어도, 시장의 초점은 다시 스태그플레이션 리스크로 이동 중입니다. #글로벌경제 #매크로`
+- Canva export path:
+  - verified `automation/DailyNews/scripts/settings.py` resolves Canva credentials from `AppSettings`
+  - direct REST export still fails with `invalid_grant` on Canva refresh token, so this session used the verified latest thumbnail as the source of truth for the posting asset
+- Remaining manual follow-up:
+  - publish the final X copy manually
+  - record the actual X URL and posted timestamp in this file after publish
+
 ### DailyNews Economy_Global resync automation + Canva asset saved
 
 **Status**: PASS / AUTOMATION ADDED / CANVA SAVED
