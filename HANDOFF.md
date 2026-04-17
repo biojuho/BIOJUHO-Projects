@@ -1,8 +1,39 @@
 # Handoff Document
 
-**Last Updated**: 2026-04-17 (evening session)
-**Session Status**: Healthy / Backlog 4/5 resolved / DeSci CI hardened / scratch files cleaned / Canva token renewal guidance provided / X post URL pending user input
+**Last Updated**: 2026-04-17 (late-night session)
+**Session Status**: Healthy / manual X record helper added / Canva refresh token still invalid / X post URL pending user input
 **Next Agent**: Claude Code / Gemini / Codex
+
+---
+
+## Latest Follow-Up (2026-04-17 late-night)
+
+### DailyNews Economy_Global manual-post closeout hardening
+
+**Status**: PARTIAL PASS / RECORDING HELPER ADDED / X POST STILL PENDING
+
+- Manual X publish:
+  - no actual X post was created from this session; manual-only policy remains unchanged
+  - local `channel_publications` still shows `report-economy_global-20260416T220508Z` → `x=draft`, `external_url=''`
+  - if the user publishes manually, record it immediately with:
+    ```powershell
+    uv run python -m antigravity_mcp ops record-manual-x-post `
+      --report-id report-economy_global-20260416T220508Z `
+      --post-url "<ACTUAL_X_URL>" `
+      --posted-at "2026-04-17T00:00:00+09:00"
+    ```
+  - the command updates `content_reports.drafts_json`, `channel_publications`, and `x_tweet_metrics` together so a later `resync-report` does not wipe the manual X URL
+- Canva export:
+  - `automation/DailyNews/scripts/canva_generator.py` token refresh failure was reproduced again directly in this session:
+    - `Token refresh failed (400): {"error":"invalid_grant","error_description":"Invalid refresh token"}`
+  - Canva connector still exposes only a `400x500` thumbnail for design `DAHHEnyVbfQ`
+  - fallback posting asset remains `automation/DailyNews/output/Economy_Global_Card_posting.png` (`1080x1350`, 1,098,983 bytes)
+- Validation:
+  - `uv run pytest automation/DailyNews/tests/unit/test_tooling_content_ops.py automation/DailyNews/tests/unit/test_cli_entrypoints.py -q` → `29 passed`
+- Remaining closeout:
+  - publish the final X copy manually and capture the real URL/timestamp
+  - run `record-manual-x-post` with the real URL/timestamp
+  - update this file with the same URL/timestamp
 
 ---
 
