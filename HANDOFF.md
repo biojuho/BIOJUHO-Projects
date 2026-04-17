@@ -1,7 +1,7 @@
 # Handoff Document
 
 **Last Updated**: 2026-04-17
-**Session Status**: Healthy / DailyNews Economy_Global manual refresh synced / main synced / worktree DIRTY
+**Session Status**: Healthy / DailyNews Economy_Global manual refresh synced / X manual-only policy confirmed / main synced / worktree DIRTY
 **Next Agent**: Claude Code / Gemini / Codex
 
 ---
@@ -10,7 +10,7 @@
 
 ### DailyNews Economy_Global posting asset finalized
 
-**Status**: PARTIAL PASS / POSTING ASSET READY / X PUBLISH STILL MANUAL
+**Status**: PARTIAL PASS / POSTING ASSET READY / X MANUAL-ONLY POLICY RECORDED
 
 - Latest Canva design verified via connector:
   - design id: `DAHHEnyVbfQ`
@@ -28,14 +28,14 @@
 - Canva export path:
   - verified `automation/DailyNews/scripts/settings.py` resolves Canva credentials from `AppSettings`
   - direct REST export still fails with `invalid_grant` on Canva refresh token, so this session used the verified latest thumbnail as the source of truth for the posting asset
-- X publish attempt status:
-  - `automation/DailyNews/.env` currently exposes `TWITTER_BEARER_TOKEN` only; no write-capable `X_API_KEY` or OAuth access token pair is configured
-  - web fallback was checked at `2026-04-17 20:19:01 +09:00` and `https://x.com/compose/post` redirected to `https://x.com/i/flow/login?redirect_after_login=%2Fcompose%2Fpost`
-  - no active X web session was available in the automation browser, so this run could not complete the actual publish step
+- X policy + QC note:
+  - as of `2026-04-17 20:27:07 +09:00`, the team decision is to keep X as a manual-only channel because automated upload increases account risk
+  - runtime guard is currently safe: `CONTENT_APPROVAL_MODE=manual`, `AUTO_PUSH_ENABLED=False`
+  - `automation/DailyNews/scripts/run_scheduled_insights.ps1` still logs `Auto-publishing draft reports` and passes `--approval-mode auto`, but `automation/DailyNews/src/antigravity_mcp/pipelines/publish.py` downgrades this path back to manual
+  - do not re-enable X auto publishing or browser-based posting without an explicit policy change
 - Remaining manual follow-up:
-  - The automated publisher adapter failed safely due to missing `X_API_KEY` write credentials in `.env`.
-  - log into X in a browser that the next session can access, or provide valid write credentials if automated publishing should be re-enabled.
   - publish the final X copy manually using `automation/DailyNews/output/Economy_Global_Card_posting.png`.
+  - if higher-fidelity source is needed, export the latest Canva card manually instead of relying on the thumbnail-derived local fallback asset.
   - record the actual X URL and posted timestamp in this file after publish.
 
 ### DailyNews Economy_Global resync automation + Canva asset saved
