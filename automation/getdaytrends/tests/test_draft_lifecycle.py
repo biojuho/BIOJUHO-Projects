@@ -4,6 +4,7 @@ import pytest
 import pytest_asyncio
 
 from db_layer.draft_repository import (
+    get_approved_post_bank,
     get_draft_bundle,
     promote_draft_to_ready,
     record_content_feedback,
@@ -266,6 +267,51 @@ class TestPublishReceipt:
 
 
 # ── record_feedback_summary 엣지 케이스 ───────────────────────────────────────
+
+
+class TestApprovedPostBank:
+
+    @pytest.mark.asyncio
+    async def test_returns_only_approved_or_later_drafts(self, db):
+        await _seed_validated_trend(db, trend_id="trend-approved")
+        await _seed_validated_trend(db, trend_id="trend-published")
+        await _seed_validated_trend(db, trend_id="trend-drafted")
+
+        await _seed_draft(
+            db,
+            draft_id="draft-approved",
+            trend_id="trend-approved",
+            body="approved voice anchor",
+            _skip_trend=True,
+        )
+        await promote_draft_to_ready(db, "draft-approved")
+        await save_review_decision(db, draft_id="draft-approved", decision="approved")
+
+        await _seed_draft(
+            db,
+            draft_id="draft-published",
+            trend_id="trend-published",
+            body="published voice anchor",
+            _skip_trend=True,
+        )
+        await promote_draft_to_ready(db, "draft-published")
+        await save_review_decision(db, draft_id="draft-published", decision="approved")
+        await record_publish_receipt(db, draft_id="draft-published", platform="x", success=True)
+
+        await _seed_draft(
+            db,
+            draft_id="draft-drafted",
+            trend_id="trend-drafted",
+            body="draft voice anchor",
+            _skip_trend=True,
+        )
+
+        rows = await get_approved_post_bank(db, limit=10, platforms=("x",))
+        bodies = [row["body"] for row in rows]
+
+        assert "approved voice anchor" in bodies
+        assert "published voice anchor" in bodies
+        assert "draft voice anchor" not in bodies
 
 
 class TestFeedbackSummary:

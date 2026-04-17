@@ -257,6 +257,7 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("getdaytrends.core.steps_generate.get_cached_content", new_callable=AsyncMock) as mock_cached,
+            patch("getdaytrends.core.steps_generate.get_approved_post_bank", new_callable=AsyncMock) as mock_bank,
             patch("getdaytrends.core.steps_generate.get_recent_tweet_contents", new_callable=AsyncMock) as mock_recent,
             patch("getdaytrends.core.steps_generate.generate_for_trend_async", new_callable=AsyncMock) as mock_generate,
             patch("getdaytrends.core.steps_generate.audit_generated_content", new_callable=AsyncMock) as mock_audit,
@@ -266,6 +267,7 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             patch("getdaytrends.core.steps_generate.compute_fingerprint", return_value="test_fp"),
         ):
             mock_cached.return_value = None
+            mock_bank.return_value = [{"body": "approved reference"}]
             mock_recent.return_value = []
             mock_generate.return_value = initial_batch
             mock_audit.side_effect = [qa_fail, qa_pass]
@@ -278,7 +280,9 @@ class TestSelectiveRegeneration(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(results[0].tweets[0].content, "정상 short")
             self.assertEqual(results[0].blog_posts[0].content, "재생성 블로그")
             mock_regen.assert_called_once()
+            self.assertEqual(mock_generate.call_args.args[4][0]["body"], "approved reference")
             self.assertEqual(mock_regen.call_args.args[4], ["blog_posts"])
+            self.assertEqual(mock_regen.call_args.kwargs["approved_post_bank"][0]["body"], "approved reference")
             self.assertEqual(
                 mock_regen.call_args.kwargs["qa_feedback"]["blog_posts"]["qa"]["worst_axis"],
                 "angle",
