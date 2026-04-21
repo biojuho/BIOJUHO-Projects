@@ -224,7 +224,7 @@ class TestAnalyzePipeline:
         assert any("Reused" in warning for warning in warnings2)
 
     @pytest.mark.asyncio
-    async def test_generate_briefs_persists_analysis_meta_without_override_in_concise_mode(
+    async def test_generate_briefs_overrides_x_draft_with_insight_longform_in_concise_mode(
         self, state_store, sample_items
     ):
         from antigravity_mcp.pipelines.analyze import generate_briefs
@@ -274,8 +274,10 @@ class TestAnalyzePipeline:
         assert saved.analysis_meta["parser"]["used_fallback"] is False
         assert "validation_summary" in saved.analysis_meta["insight_generator"]
         assert saved.analysis_meta["insight_generator"]["x_long_form"] == "Long-form X draft from insight generator"
-        assert "draft_overrides" not in saved.analysis_meta
-        assert next(d for d in saved.channel_drafts if d.channel == "x").source == "llm"
+        assert saved.analysis_meta["draft_overrides"]["x"] == "insight_generator"
+        assert saved.analysis_meta["original_x_draft"] == "Base draft"
+        assert next(d for d in saved.channel_drafts if d.channel == "x").source == "insight_generator"
+        assert next(d for d in saved.channel_drafts if d.channel == "x").content == "Long-form X draft from insight generator"
 
     @pytest.mark.asyncio
     async def test_generate_briefs_normalizes_brief_body_before_persist(self, state_store, sample_items):

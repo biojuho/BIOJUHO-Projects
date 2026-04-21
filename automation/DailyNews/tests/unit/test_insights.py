@@ -216,6 +216,8 @@ class TestInsightGenerator:
         assert "HISTORICAL CONTEXT" in prompt
         assert "[A1]" in prompt
         assert "https://example.com/a" in prompt
+        assert "카툰 이미지는 비유와 인상을 담당합니다." in prompt
+        assert "플랫폼 힘의 균형이 어디로 이동하고, 지금 무엇을 배워야 하나?" in prompt
 
     @pytest.mark.asyncio
     async def test_call_llm_handles_exception_non_json_bad_json_and_non_list(self):
@@ -238,7 +240,7 @@ class TestInsightGenerator:
         llm.generate_text = AsyncMock(return_value='[{"title":"one"},{"title":"two"}]')
         assert await generator._call_llm("prompt") == [{"title": "one"}, {"title": "two"}]
 
-    def test_format_x_long_form_filters_unvalidated_items_and_strips_tags(self):
+    def test_format_x_long_form_applies_category_template_and_strips_tags(self):
         from antigravity_mcp.insights.generator import InsightGenerator
 
         generator = InsightGenerator(llm_adapter=object(), state_store=None)
@@ -248,8 +250,13 @@ class TestInsightGenerator:
             [
                 {
                     "title": "One",
-                    "content": "Signal stays strong [Inference:A1+A2]",
-                    "principle_3_action": "Act now",
+                    "section_role": "main",
+                    "hook": "개발자 툴의 주도권이 다시 이동하고 있다.",
+                    "summary_fact": "Signal stays strong [Inference:A1+A2]",
+                    "why_now": "왜냐하면 배포 경로가 바뀌기 시작했기 때문이다. [A1]",
+                    "one_line_takeaway": "기능 경쟁보다 락인 경쟁으로 봐야 한다.",
+                    "closing_line": "툴 경쟁처럼 보이지만 실제로는 플랫폼 통제권 경쟁이다.",
+                    "principle_3_action": "개발자는 이번 분기 안에 새 배포 경로를 테스트하라",
                     "validation_passed": True,
                 },
                 {
@@ -261,9 +268,16 @@ class TestInsightGenerator:
             ],
         )
 
-        assert "# Tech" in text
-        assert "## 1. One" in text
+        assert "## 🔧 Tech" in text
+        assert "오늘 한 줄:" in text
+        assert "### 메인 | One" in text
+        assert "핵심 사실: Signal stays strong" in text
+        assert "왜 중요하냐면: 왜냐하면 배포 경로가 바뀌기 시작했기 때문이다." in text
+        assert "내 시각: 기능 경쟁보다 락인 경쟁으로 봐야 한다." in text
+        assert "체크포인트: 개발자는 이번 분기 안에 새 배포 경로를 테스트하라" in text
+        assert "오늘의 결론:" in text
+        assert "답해야 할 질문: 플랫폼 힘의 균형이 어디로 이동하고, 지금 무엇을 배워야 하나?" in text
         assert "Signal stays strong" in text
         assert "[Inference:A1+A2]" not in text
         assert "Skip me" not in text
-        assert "Act now" in text
+        assert "플랫폼 통제권 경쟁" in text

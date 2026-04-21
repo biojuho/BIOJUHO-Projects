@@ -439,3 +439,26 @@ class TestBrainAdapter:
         adapter = BrainAdapter()
         result = await adapter.analyze_news("Tech", [])
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_analyze_news_injects_shared_longform_rules(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from antigravity_mcp.integrations.brain_adapter import BrainAdapter
+
+        captured: dict[str, str] = {}
+
+        class FakeClient:
+            async def acreate(self, *, tier, max_tokens, messages):
+                captured["prompt"] = messages[0]["content"]
+                return SimpleNamespace(text='{"tagline":"tag","summary":[],"insights":[],"x_thread":["body"]}')
+
+        adapter = BrainAdapter()
+        adapter._client = FakeClient()
+        monkeypatch.setattr(adapter, "select_top_articles", AsyncMock(return_value=[0]))
+
+        result = await adapter.analyze_news("Tech", [{"title": "test", "description": "desc"}], "today")
+
+        assert result == {"tagline": "tag", "summary": [], "insights": [], "x_thread": ["body"]}
+        assert "[추가 롱폼 규칙]" in captured["prompt"]
+        assert "카툰 이미지는 비유와 분위기를 담당" in captured["prompt"]

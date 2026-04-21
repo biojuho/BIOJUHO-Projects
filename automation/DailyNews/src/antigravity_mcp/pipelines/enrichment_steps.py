@@ -181,10 +181,12 @@ async def _apply_insight_enrichment(ctx: ReportAssemblyContext, insight_adapter:
             "full_items": result.get("insights", []),
             "error": result.get("error", ""),
         }
+        x_long_form = result.get("x_long_form", "")
+        if x_long_form:
+            ctx.analysis_meta["insight_generator"]["x_long_form"] = x_long_form
+            _override_x_draft(ctx, x_long_form, source="insight_generator")
+
         if _is_concise_brief():
-            x_long_form = result.get("x_long_form", "")
-            if x_long_form:
-                ctx.analysis_meta["insight_generator"]["x_long_form"] = x_long_form
             return
         for idx, insight in enumerate(result.get("insights", []), 1):
             if not insight.get("validation_passed", False):
@@ -194,10 +196,6 @@ async def _apply_insight_enrichment(ctx: ReportAssemblyContext, insight_adapter:
             if evidence_tag and evidence_tag not in content:
                 content = f"{content} {evidence_tag}".strip()
             ctx.insights.append(f"[인사이트 {idx}] {content}")
-        x_long_form = result.get("x_long_form", "")
-        if x_long_form:
-            ctx.analysis_meta["insight_generator"]["x_long_form"] = x_long_form
-            _override_x_draft(ctx, x_long_form, source="insight_generator")
     except Exception as exc:
         ctx.warnings.append(f"DailyNews Insight Generator failed for {ctx.category}: {type(exc).__name__}: {exc}")
 

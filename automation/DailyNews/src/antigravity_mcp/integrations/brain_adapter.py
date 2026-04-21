@@ -239,6 +239,8 @@ class BrainAdapter:
             '"insights": [{"date": "YYYY-MM-DD", "topic": "주제", "insight": "핵심 분석 (수치 포함)", "importance": "독자에게 의미하는 바"}], '
             '"x_thread": ["## {이모지} {제목1}\\n\\n[섹션1 본문]\\n\\n## {이모지} {제목2}\\n\\n[섹션2 본문]\\n\\n..."]}'
         )
+        if x_prompt_rules:
+            prompt += f"\n\n[추가 롱폼 규칙]\n{x_prompt_rules}"
 
         try:
             resp = await self._client.acreate(
