@@ -42,6 +42,14 @@ class TestConfig:
         assert chain[0][0] == "anthropic"
         assert chain[0][1] == "claude-haiku-4-5-20251001"
 
+    def test_json_extraction_text_mode_still_prioritizes_anthropic(self):
+        chain = get_routing_chain(
+            TaskTier.LIGHTWEIGHT,
+            LLMPolicy(task_kind="json_extraction", response_mode="text", enforce_korean_output=True),
+        )
+        assert chain[0][0] == "anthropic"
+        assert chain[0][1] == "claude-haiku-4-5-20251001"
+
     def test_longform_chain_excludes_deepseek(self, monkeypatch):
         """DeepSeek completely removed from routing chain (2026-03-22)."""
         monkeypatch.delenv("ENABLE_DEEPSEEK_KO_LONGFORM", raising=False)
