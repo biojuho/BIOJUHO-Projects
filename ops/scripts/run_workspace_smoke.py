@@ -294,6 +294,7 @@ def default_checks(python_exe: str) -> list[Check]:
     notebooklm_mcp = rel_unit_path("notebooklm-mcp")
     dailynews = rel_unit_path("dailynews")
     getdaytrends = rel_unit_path("getdaytrends")
+    cie = rel_unit_path("content-intelligence")
 
     return [
         Check(
@@ -347,6 +348,8 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("mcp", "DailyNews unit tests", dailynews, [python_exe, "-m", "pytest", "tests/unit", "-q"]),
         Check("getdaytrends", "getdaytrends compile", ".", compile_command(python_exe, getdaytrends)),
         Check("getdaytrends", "getdaytrends tests", getdaytrends, [python_exe, "-m", "pytest", "-c", "pytest.ini", "tests", "-q"]),
+        Check("cie", "cie compile", ".", compile_command(python_exe, cie)),
+        Check("cie", "cie tests", cie, [python_exe, "-m", "pytest", "tests", "-q"]),
     ]
 
 
@@ -496,7 +499,7 @@ def run_check(root: Path, item: Check) -> Result:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
     parser.add_argument(
-        "--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends"]
+        "--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends", "cie"]
     )
     parser.add_argument("--json-out", help="Optional JSON output file")
     args = parser.parse_args()

@@ -31,7 +31,7 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
     smoke = load_smoke_module()
     checks = smoke.default_checks("python")
 
-    assert {check.scope for check in checks} == {"workspace", "desci", "agriguard", "mcp", "getdaytrends"}
+    assert {check.scope for check in checks} == {"workspace", "desci", "agriguard", "mcp", "getdaytrends", "cie"}
     assert any(check.name == "workspace regression tests" for check in checks)
     assert any(check.name == "dashboard frontend lint" for check in checks)
     assert any(check.name == "dashboard frontend tests" for check in checks)
@@ -43,6 +43,8 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
     assert any(check.name == "notebooklm compile" for check in checks)
     assert any(check.name == "DailyNews unit tests" for check in checks)
     assert any(check.name == "getdaytrends tests" for check in checks)
+    assert any(check.name == "cie compile" for check in checks)
+    assert any(check.name == "cie tests" for check in checks)
 
     for check in checks:
         assert (PROJECT_ROOT / check.cwd).exists()

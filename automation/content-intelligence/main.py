@@ -168,9 +168,7 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
             quorum_required=quorum_required,
         )
 
-    if not valid_reports:
-        log.error("  ?슟 紐⑤뱺 ?몃젋???섏쭛湲??ㅽ뙣 ??鍮??곗씠?곕줈 肄섑뀗痢??앹꽦 遺덇?, ?뚯씠?꾨씪??以묐떒")
-        return MergedTrendReport(platform_reports=[], cross_platform_keywords=[], top_insights=[])
+
 
     # 援먯감 ?뚮옯???ㅼ썙???앸퀎
     all_keywords: dict[str, int] = {}
