@@ -9,6 +9,7 @@ import main as main_mod
 from config import AppConfig
 from main import (
     _acquire_lock,
+    _apply_cli_overrides,
     _normalize_countries,
     _refresh_tap_products_after_parallel_runs,
     _release_lock,
@@ -30,6 +31,33 @@ def test_normalize_countries_removes_blanks_and_duplicates():
     countries = _normalize_countries([" korea ", "", "US", "korea", "Japan", "us"])
 
     assert countries == ["korea", "us", "japan"]
+
+
+def test_apply_cli_overrides_updates_runtime_flags_and_countries():
+    config = AppConfig()
+    args = main_mod.argparse.Namespace(
+        country=" US ",
+        countries="korea, japan , us",
+        limit=7,
+        one_shot=True,
+        dry_run=True,
+        verbose=True,
+        no_alerts=True,
+        schedule_min=45,
+        stats=False,
+        serve=False,
+    )
+
+    _apply_cli_overrides(config, args)
+
+    assert config.country == "korea"
+    assert config.countries == ["korea", "japan", "us"]
+    assert config.limit == 7
+    assert config.one_shot is True
+    assert config.dry_run is True
+    assert config.verbose is True
+    assert config.no_alerts is True
+    assert config.schedule_minutes == 45
 
 
 @pytest.mark.flaky(reruns=2)

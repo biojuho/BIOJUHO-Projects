@@ -33,18 +33,6 @@ def _get_instructor_client():
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
-    if gemini_key:
-        try:
-            import google.genai as genai
-
-            base_client = genai.Client(api_key=gemini_key)
-            _instructor_client = instructor.from_genai(base_client)
-            _instructor_backend = "gemini"
-            log.info("[Instructor] Gemini backend initialized")
-            return _instructor_client
-        except (ImportError, ValueError, TypeError) as exc:
-            log.warning(f"[Instructor] Gemini init failed: {type(exc).__name__}: {exc}")
-
     if anthropic_key:
         try:
             import anthropic
@@ -54,8 +42,20 @@ def _get_instructor_client():
             _instructor_backend = "anthropic"
             log.info("[Instructor] Anthropic backend initialized")
             return _instructor_client
-        except (ImportError, ValueError, TypeError) as exc:
+        except Exception as exc:
             log.warning(f"[Instructor] Anthropic init failed: {type(exc).__name__}: {exc}")
+
+    if gemini_key:
+        try:
+            import google.genai as genai
+
+            base_client = genai.Client(api_key=gemini_key)
+            _instructor_client = instructor.from_genai(base_client)
+            _instructor_backend = "gemini"
+            log.info("[Instructor] Gemini backend initialized")
+            return _instructor_client
+        except Exception as exc:
+            log.warning(f"[Instructor] Gemini init failed: {type(exc).__name__}: {exc}")
 
     raise RuntimeError("[Instructor] No supported LLM API key is available")
 

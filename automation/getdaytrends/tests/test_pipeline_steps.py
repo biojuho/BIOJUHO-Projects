@@ -177,7 +177,7 @@ async def test_run_fact_check_passes_fact_check_feedback_to_regeneration():
         patch("getdaytrends.core.steps_generate.regenerate_content_groups", new_callable=AsyncMock) as mock_regen,
     ):
         mock_regen.return_value = batch
-        result = await _run_fact_check(batch, trend, cfg, client=MagicMock(), recent_tweets=[])
+        result = await _run_fact_check(batch, trend, cfg, client=MagicMock(), recent_tweets=[], approved_post_bank=[])
 
     assert result is batch
     mock_regen.assert_called_once()

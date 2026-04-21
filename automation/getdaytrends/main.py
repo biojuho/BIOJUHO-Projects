@@ -563,7 +563,37 @@ def _get_night_sleep_seconds() -> float:
     return 0.0
 
 def _apply_cli_overrides(config: AppConfig, args: argparse.Namespace) -> None:
-    _apply_cli_overrides(config, args)
+    if args.country:
+        config.country = args.country.strip().lower()
+        config.countries = [config.country]
+
+    if args.countries:
+        parsed_countries = [
+            country.strip().lower()
+            for country in args.countries.split(",")
+            if country.strip()
+        ]
+        if parsed_countries:
+            config.countries = parsed_countries
+            config.country = parsed_countries[0]
+
+    if args.limit is not None:
+        config.limit = args.limit
+
+    if args.one_shot:
+        config.one_shot = True
+
+    if args.dry_run:
+        config.dry_run = True
+
+    if args.verbose:
+        config.verbose = True
+
+    if args.no_alerts:
+        config.no_alerts = True
+
+    if args.schedule_min is not None:
+        config.schedule_minutes = args.schedule_min
 
 def _main_body():
     args = parse_args()

@@ -62,11 +62,14 @@
 ## 이번 라운드 진행 범위
 
 1. Priority 1 구현
-2. 관련 테스트 추가
-3. 검증 통과
+2. Priority 2 구현
+3. Priority 3 구현
+4. 관련 테스트 추가
+5. 검증 통과
 
 ## Status Update
 
 - Priority 1 implemented
 - Priority 2 implemented
-- Next recommended priority: Priority 3 Approved Post Bank
+- Priority 3 implemented
+- Next recommended priority: Priority 4 Review Loop Data Upgrade

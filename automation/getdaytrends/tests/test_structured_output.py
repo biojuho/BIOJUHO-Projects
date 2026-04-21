@@ -1,5 +1,6 @@
 """Tests for structured_output.py."""
 
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -108,6 +109,40 @@ class TestThreadResponse:
 class TestResetClient:
     def test_reset_does_not_error(self):
         reset_instructor_client()
+
+    def test_prefers_anthropic_when_multiple_backends_are_available(self, monkeypatch):
+        events: list[str] = []
+
+        class FakeInstructorModule:
+            @staticmethod
+            def from_anthropic(client):
+                events.append(f"anthropic:{type(client).__name__}")
+                return {"backend": "anthropic"}
+
+            @staticmethod
+            def from_genai(client):
+                events.append(f"gemini:{type(client).__name__}")
+                return {"backend": "gemini"}
+
+        class FakeAsyncAnthropic:
+            def __init__(self, api_key):
+                self.api_key = api_key
+
+        class FakeGenaiClient:
+            def __init__(self, api_key):
+                self.api_key = api_key
+
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-key")
+        monkeypatch.setenv("GOOGLE_API_KEY", "gemini-key")
+        monkeypatch.setitem(sys.modules, "instructor", FakeInstructorModule())
+        monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(AsyncAnthropic=FakeAsyncAnthropic))
+        monkeypatch.setitem(sys.modules, "google.genai", SimpleNamespace(Client=FakeGenaiClient))
+        reset_instructor_client()
+
+        client = structured_output._get_instructor_client()
+
+        assert client == {"backend": "anthropic"}
+        assert events == ["anthropic:FakeAsyncAnthropic"]
 
 
 class TestInstructorCreate:
