@@ -1,7 +1,7 @@
 # Next Actions
 
 > 세션 종료 시 `/session-workflow`가 이 파일의 갱신을 제안합니다.
-> 2026-04-18 07:57 기준 — 1,149 tests passed (GDT+DailyNews). 미커밋 코드 정리 완료, 4개 커밋 push (6482ade).
+> 2026-04-21 12:12 기준 — CIE 199 passed, Smoke 13/13 passed. 3개 커밋 push (8395202, 2260bef).
 
 ## 완료 항목
 
@@ -37,11 +37,13 @@
 
 ## Backlog (향후 진행 가능)
 
-- [ ] `.smoke-tmp/` 및 `.test-tmp/` 내 permission-denied 잔류 디렉토리 정리 (관리자 PowerShell 필요)
+- [x] `.smoke-tmp/` 및 `.test-tmp/` 잔류 디렉토리 정리 완료 (2026-04-21)
+- [x] CIE dead code 제거 — `main.py` 도달 불가능한 중복 체크 삭제 (2026-04-21)
+- [x] CIE smoke runner 등록 — `cie compile` + `cie tests` 2개 체크 추가 (2026-04-21)
+- [x] BIOJUHO-FOLLOWUP P2: Blog 구조 풀 확장 — 5종 opener + 4종 heading 패턴 (2026-04-21)
 - [ ] X 수동 발행: Economy_Global 최종 문안 + posting 이미지 → X 게시 후 URL 기록
 - [ ] Canva token 브라우저 재인증 (PKCE flow): `canva_auth_server.py` 실행 → 토큰 갱신
-- [ ] BIOJUHO-FOLLOWUP P2: Blog 구조 풀 확장 (random opener + 4-heading 풀)
-- [ ] BIOJUHO-FOLLOWUP P2: AI Convergence Guard v2 (AI 전용 토픽 자동 감지 + boost)
+- [x] BIOJUHO-FOLLOWUP P2: AI Convergence Guard v2 — 2-tier 키워드 감지 + 부스트 (2026-04-21)
 
 ## 다음 세션 복붙 메모
 
