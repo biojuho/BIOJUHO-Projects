@@ -462,6 +462,14 @@ async def run_pipeline(
                     notifier.send(f"⚠️ *CIE Pipeline* 중단: Trend quorum missed (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초")
                 return
 
+            # Step 1.5: AI Convergence Guard
+            from regulators.ai_convergence_guard import apply_ai_convergence_guard
+
+            ai_guard = apply_ai_convergence_guard(trend_report)
+            log.info(f"  {ai_guard.summary()}")
+            if ai_guard.convergence_signal:
+                log.info(f"    boosted: {', '.join(ai_guard.boosted_keywords[:5])}")
+
             # Step 2
             reports, checklist = await step_check_regulations(config)
 
