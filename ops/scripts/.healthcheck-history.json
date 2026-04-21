@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-17T12:44:43.511872",
+  "timestamp": "2026-04-18T08:43:07.288192",
   "version": "3.0",
   "workspace": "D:\\AI project",
   "projects": [
@@ -168,18 +168,17 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 17,
+    "uncommitted_changes": 9,
     "files": [
-      "M .github/workflows/deploy-dashboard.yml",
-      " M HANDOFF.md",
-      " M automation/DailyNews/scripts/proofreader.py",
-      " M automation/DailyNews/scripts/sentiment_analyzer.py",
-      " M automation/DailyNews/src/antigravity_mcp/cli.py",
-      " M automation/DailyNews/src/antigravity_mcp/cli_ops.py",
-      " M automation/DailyNews/src/antigravity_mcp/domain/category_filter.py",
-      " M automation/DailyNews/src/antigravity_mcp/integrations/notion_adapter.py",
-      " M automation/DailyNews/src/antigravity_mcp/pipelines/publish.py",
-      " M automation/DailyNews/src/antigravity_mcp/tooling/ops_tools.py"
+      "M automation/DailyNews/config/x_longform_prompt.json",
+      " M automation/DailyNews/src/antigravity_mcp/insights/generator.py",
+      " M automation/DailyNews/src/antigravity_mcp/integrations/brain_adapter.py",
+      " M automation/DailyNews/tests/unit/test_adapters.py",
+      " M automation/DailyNews/tests/unit/test_insights.py",
+      " M automation/getdaytrends/docs/BIOJUHO-EXECUTION-PRIORITIES-2026-04-18.md",
+      " M automation/getdaytrends/tests/test_pipeline_steps.py",
+      "?? automation/DailyNews/docs/DAILYNEWS_CATEGORY_LONGFORM_REDESIGN_2026-04-18.md",
+      "?? automation/getdaytrends/docs/BIOJUHO-APPROVED-POST-BANK-2026-04-18.md"
     ]
   },
   "env_files": [
