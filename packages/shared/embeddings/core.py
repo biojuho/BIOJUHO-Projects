@@ -64,22 +64,44 @@ def _evict_expired() -> None:
 # ══════════════════════════════════════════════════════
 
 _client = None
+_client_disabled_reason = ""
+
+
+def _is_auth_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    markers = (
+        "permission_denied",
+        "permission denied",
+        "invalid api key",
+        "unauthorized",
+        "reported as leaked",
+        "403",
+    )
+    return any(marker in message for marker in markers)
 
 
 def _get_genai_client():
     """google-genai Client 싱글턴 (lazy init)."""
     global _client
+    if _client_disabled_reason:
+        log.debug(f"[임베딩] Gemini client disabled for this session: {_client_disabled_reason}")
+        return None
+
     if _client is not None:
         return _client
 
     try:
         from google import genai
+        from google.genai import types as genai_types
 
         api_key = os.getenv("GOOGLE_API_KEY", "")
         if not api_key:
             log.warning("[임베딩] GOOGLE_API_KEY 미설정 → 임베딩 비활성화")
             return None
-        _client = genai.Client(api_key=api_key)
+        _client = genai.Client(
+            api_key=api_key,
+            http_options=genai_types.HttpOptions(timeout=10_000),
+        )
         return _client
     except ImportError:
         log.warning("[임베딩] google-genai 패키지 미설치 → pip install google-genai")
@@ -112,6 +134,8 @@ def embed_texts(
     """
     if not texts:
         return None
+
+    global _client, _client_disabled_reason
 
     client = _get_genai_client()
     if client is None:
@@ -176,6 +200,11 @@ def embed_texts(
         return results  # type: ignore[return-value]
 
     except Exception as e:
+        if _is_auth_error(e):
+            _client = None
+            _client_disabled_reason = type(e).__name__
+            log.warning(f"[임베딩] 인증 실패로 Gemini 임베딩 비활성화: {type(e).__name__}: {e}")
+            return None
         log.warning(f"[임베딩] API 호출 실패: {e}")
         return None
 

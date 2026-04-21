@@ -184,7 +184,16 @@ def get_routing_chain(tier: TaskTier, policy: LLMPolicy | None = None) -> list[t
     due to persistent Korean prompt errors and high error rate.
     """
     chain = list(TIER_CHAINS[tier])
-    # DeepSeek is no longer in any chain; no conditional logic needed.
+    if (
+        policy is not None
+        and policy.task_kind == "json_extraction"
+        and policy.response_mode == "json"
+    ):
+        preferred = [item for item in chain if item[0] == "anthropic"]
+        preferred.extend(item for item in chain if item[0] == "openai")
+        preferred.extend(item for item in chain if item[0] == "gemini")
+        chain = _dedupe_chain(preferred or chain)
+
     return chain
 
 

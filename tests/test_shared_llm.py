@@ -1,5 +1,6 @@
 """shared.llm module tests - fallback chain, bridge logic, cost tracking."""
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -32,6 +33,14 @@ class TestConfig:
         )
         assert chain[0][0] == "gemini"
         assert chain[0][1] == "gemini-2.5-flash-lite"
+
+    def test_json_extraction_prioritizes_anthropic(self):
+        chain = get_routing_chain(
+            TaskTier.LIGHTWEIGHT,
+            LLMPolicy(task_kind="json_extraction", response_mode="json", enforce_korean_output=True),
+        )
+        assert chain[0][0] == "anthropic"
+        assert chain[0][1] == "claude-haiku-4-5-20251001"
 
     def test_longform_chain_excludes_deepseek(self, monkeypatch):
         """DeepSeek completely removed from routing chain (2026-03-22)."""
@@ -182,6 +191,35 @@ class TestLLMClient:
                 messages=[{"role": "user", "content": "test"}],
                 policy=LLMPolicy(task_kind="classification", output_language="ko"),
             )
+
+    @pytest.mark.asyncio
+    async def test_async_timeout_falls_back_to_next_backend(self):
+        async def fake_acall(*args, **kwargs):
+            fake_acall.calls += 1
+            if fake_acall.calls == 1:
+                await asyncio.sleep(0.05)
+            return LLMResponse(
+                text="fallback response",
+                model="claude-haiku-4-5-20251001",
+                backend="anthropic",
+                tier=TaskTier.LIGHTWEIGHT,
+            )
+
+        fake_acall.calls = 0
+        client = LLMClient(**self._DUMMY_KEYS)
+
+        with (
+            patch("shared.llm.client._ASYNC_BACKEND_TIMEOUT_SECONDS", 0.01),
+            patch("shared.llm.backends.BackendManager.acall", side_effect=fake_acall),
+        ):
+            response = await client.acreate(
+                tier=TaskTier.LIGHTWEIGHT,
+                messages=[{"role": "user", "content": "test"}],
+                policy=LLMPolicy(task_kind="classification", output_language="ko"),
+            )
+
+        assert response.backend == "anthropic"
+        assert fake_acall.calls == 2
 
     @patch("shared.llm.backends.BackendManager.call")
     def test_stats_include_bridge_metrics(self, mock_call):

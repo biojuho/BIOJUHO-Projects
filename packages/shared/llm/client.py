@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -39,6 +40,7 @@ _CACHE_TTL: dict[str, int] = {
     "heavy": 600,  # deep analysis — worth reusing longer
 }
 _CACHE_MAX = 128
+_ASYNC_BACKEND_TIMEOUT_SECONDS = 20.0
 _CACHE_TTL_HEAVY = 600  # B-001 fix: 미정의 변수 → heavy 티어 TTL 상수 명시
 
 _failed_backends: dict[TaskTier, dict[str, float]] = {
@@ -722,14 +724,17 @@ class LLMClient:
             wrapped_system, wrapped_messages, request_meta, resolved_policy = prepared
             t0 = time.perf_counter()
             try:
-                response = await self._backends.acall(
-                    backend=backend_name,
-                    model=default_model,
-                    messages=wrapped_messages,
-                    max_tokens=max_tokens,
-                    system=wrapped_system,
-                    tier=resolved_tier,
-                    response_mode=policy.response_mode,
+                response = await asyncio.wait_for(
+                    self._backends.acall(
+                        backend=backend_name,
+                        model=default_model,
+                        messages=wrapped_messages,
+                        max_tokens=max_tokens,
+                        system=wrapped_system,
+                        tier=resolved_tier,
+                        response_mode=policy.response_mode,
+                    ),
+                    timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
                 )
                 final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
                     response=response,
@@ -745,6 +750,19 @@ class LLMClient:
                 if final is not None:
                     return final
                 last_error = quality_error
+                continue
+            except asyncio.TimeoutError:
+                error = TimeoutError(
+                    f"backend timeout after {_ASYNC_BACKEND_TIMEOUT_SECONDS:.0f}s: {backend_name}/{default_model}"
+                )
+                elapsed = (time.perf_counter() - t0) * 1000
+                last_error = self._record_failure(
+                    resolved_tier=resolved_tier,
+                    backend_name=backend_name,
+                    default_model=default_model,
+                    elapsed_ms=elapsed,
+                    error=error,
+                )
                 continue
             except Exception as error:
                 elapsed = (time.perf_counter() - t0) * 1000
