@@ -5,6 +5,7 @@ analyzer.py에서 분리됨.
 """
 
 import json
+import re
 import sqlite3
 
 from loguru import logger as log
@@ -96,10 +97,34 @@ def _parse_json_array(text: str | None) -> list | None:
     """JSON 배열 파싱."""
     if not text:
         return None
-    try:
-        return json.loads(text.strip())
-    except json.JSONDecodeError:
-        return None
+    stripped = text.strip()
+    candidates = [stripped]
+    fence_match = re.match(r"^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$", stripped, re.IGNORECASE)
+    if fence_match:
+        candidates.append(fence_match.group(1).strip())
+
+    start = stripped.find("[")
+    end = stripped.rfind("]")
+    if start != -1 and end != -1 and start < end:
+        candidates.append(stripped[start : end + 1])
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, list):
+            return parsed
+        if isinstance(parsed, dict):
+            for key in ("items", "results", "data", "trends"):
+                value = parsed.get(key)
+                if isinstance(value, list):
+                    return value
+    return None
 
 
 async def analyze_trend_genealogy(

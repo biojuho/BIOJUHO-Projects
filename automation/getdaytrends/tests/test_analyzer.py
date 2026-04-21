@@ -1,6 +1,7 @@
 """Tests for analyzer parsing, scoring helpers, and batch isolation."""
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from analyzer import _parse_json, _parse_json_array
@@ -28,6 +29,16 @@ class TestParseJson(unittest.TestCase):
     def test_none_input(self):
         self.assertIsNone(_parse_json(None))
 
+    def test_markdown_fenced_json(self):
+        text = '```json\n{"keyword": "AI", "viral_potential": 90}\n```'
+        result = _parse_json(text)
+        self.assertEqual(result["keyword"], "AI")
+
+    def test_prefixed_json_object(self):
+        text = 'Here is the JSON:\n{"keyword": "AI", "viral_potential": 90}'
+        result = _parse_json(text)
+        self.assertEqual(result["viral_potential"], 90)
+
 
 class TestParseJsonArray(unittest.TestCase):
     def test_clean_array(self):
@@ -54,6 +65,16 @@ class TestParseJsonArray(unittest.TestCase):
         """
         result = _parse_json_array(text)
         self.assertEqual(len(result), 2)
+
+    def test_markdown_fenced_array(self):
+        text = '```json\n[{"representative": "AI", "members": ["AI"]}]\n```'
+        result = _parse_json_array(text)
+        self.assertEqual(len(result), 1)
+
+    def test_wrapped_array_object(self):
+        text = '{"items": [{"representative": "AI", "members": ["AI"]}]}'
+        result = _parse_json_array(text)
+        self.assertEqual(len(result), 1)
 
 
 class TestDefaultScoredTrend(unittest.TestCase):
@@ -283,6 +304,68 @@ class TestParseScoredTrendV4(unittest.TestCase):
 
 
 class TestBatchScoreIsolation(unittest.IsolatedAsyncioTestCase):
+    async def test_score_trend_async_increases_token_budget_after_parse_failure(self):
+        from analyzer import (
+            _SINGLE_SCORE_MAX_TOKENS,
+            _SINGLE_SCORE_RETRY_MAX_TOKENS,
+            _score_trend_async,
+        )
+
+        context = MultiSourceContext(news_insight="good context")
+        client = SimpleNamespace(
+            acreate=AsyncMock(
+                side_effect=[
+                    SimpleNamespace(text='{"keyword": "trend", "viral_potential": '),
+                    SimpleNamespace(
+                        text=(
+                            '{"keyword":"trend","volume_last_24h":1200,"trend_acceleration":"+12%",'
+                            '"viral_potential":77,"top_insight":"insight","suggested_angles":["angle"],'
+                            '"best_hook_starter":"hook","category":"tech","sentiment":"neutral",'
+                            '"safety_flag":false,"why_trending":"","peak_status":"rising",'
+                            '"relevance_score":7,"publishable":true,"publishability_reason":"",'
+                            '"corrected_keyword":""}'
+                        )
+                    ),
+                ]
+            )
+        )
+
+        with patch("analyzer._topic_boost", return_value=0):
+            result = await _score_trend_async("trend", context, "1200", 1200, client, conn=None)
+
+        self.assertEqual(result.viral_potential, 77)
+        self.assertEqual(client.acreate.await_args_list[0].kwargs["max_tokens"], _SINGLE_SCORE_MAX_TOKENS)
+        self.assertEqual(client.acreate.await_args_list[1].kwargs["max_tokens"], _SINGLE_SCORE_RETRY_MAX_TOKENS)
+
+    async def test_score_trend_async_salvages_truncated_json(self):
+        from analyzer import _score_trend_async
+
+        context = MultiSourceContext(news_insight="good context")
+        client = SimpleNamespace(
+            acreate=AsyncMock(
+                return_value=SimpleNamespace(
+                    text=(
+                        '{'
+                        '"keyword":"trend",'
+                        '"publishable":true,'
+                        '"volume_last_24h":1200,'
+                        '"trend_acceleration":"+12%",'
+                        '"viral_potential":77,'
+                        '"relevance_score":7,'
+                        '"top_insight":"insight'
+                    )
+                )
+            )
+        )
+
+        with patch("analyzer._topic_boost", return_value=0):
+            result = await _score_trend_async("trend", context, "1200", 1200, client, conn=None)
+
+        self.assertEqual(result.viral_potential, 77)
+        self.assertEqual(result.relevance_score, 7)
+        self.assertTrue(result.publishable)
+        self.assertEqual(client.acreate.await_count, 1)
+
     async def test_batch_score_async_recovers_only_malformed_item(self):
         from analyzer import _batch_score_async
 
@@ -399,6 +482,131 @@ class TestBatchScoreIsolation(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(results[0].trend_acceleration, "+0%")
         self.assertFalse(results[0].publishable)
         mock_recover.assert_not_awaited()
+
+    async def test_batch_score_async_increases_token_budget_after_parse_failure(self):
+        from analyzer import (
+            _BATCH_SCORE_MAX_TOKENS_PER_ITEM,
+            _BATCH_SCORE_RETRY_MAX_TOKENS_PER_ITEM,
+            _batch_score_async,
+        )
+
+        context = MultiSourceContext(news_insight="good context")
+        batch = [
+            (
+                RawTrend(
+                    name="trendbatch",
+                    source=TrendSource.GETDAYTRENDS,
+                    volume="1000",
+                    volume_numeric=1000,
+                ),
+                context,
+            ),
+        ]
+        client = SimpleNamespace(
+            acreate=AsyncMock(
+                side_effect=[
+                    SimpleNamespace(text='[{"keyword":"trendbatch"'),
+                    SimpleNamespace(
+                        text=(
+                            '[{"keyword":"trendbatch","viral_potential":80,"volume_last_24h":1000,'
+                            '"trend_acceleration":"+10%","top_insight":"good item",'
+                            '"suggested_angles":["angle"],"best_hook_starter":"hook","category":"tech",'
+                            '"sentiment":"neutral","safety_flag":false,"joongyeon_kick":12,'
+                            '"joongyeon_angle":"","why_trending":"","peak_status":"rising",'
+                            '"relevance_score":7,"publishable":true,"publishability_reason":"",'
+                            '"corrected_keyword":""}]'
+                        )
+                    ),
+                ]
+            )
+        )
+
+        with patch("analyzer._score_batch_instructor", new_callable=AsyncMock, return_value=None):
+            results = await _batch_score_async(batch, client=client, conn=None, config=None, bucket=5000)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].keyword, "trendbatch")
+        self.assertEqual(
+            client.acreate.await_args_list[0].kwargs["max_tokens"],
+            _BATCH_SCORE_MAX_TOKENS_PER_ITEM,
+        )
+        self.assertEqual(
+            client.acreate.await_args_list[1].kwargs["max_tokens"],
+            _BATCH_SCORE_RETRY_MAX_TOKENS_PER_ITEM,
+        )
+
+    async def test_batch_score_async_accepts_single_object_response_for_single_item(self):
+        from analyzer import _batch_score_async
+
+        context = MultiSourceContext(news_insight="good context")
+        batch = [
+            (
+                RawTrend(
+                    name="trendsingle",
+                    source=TrendSource.GETDAYTRENDS,
+                    volume="1000",
+                    volume_numeric=1000,
+                ),
+                context,
+            ),
+        ]
+        client = SimpleNamespace(
+            acreate=AsyncMock(
+                return_value=SimpleNamespace(
+                    text=(
+                        '{"keyword":"trendsingle","viral_potential":80,"volume_last_24h":1000,'
+                        '"trend_acceleration":"+10%","top_insight":"good item",'
+                        '"suggested_angles":["angle"],"best_hook_starter":"hook","category":"tech",'
+                        '"sentiment":"neutral","safety_flag":false,"joongyeon_kick":12,'
+                        '"joongyeon_angle":"","why_trending":"","peak_status":"rising",'
+                        '"relevance_score":7,"publishable":true,"publishability_reason":"",'
+                        '"corrected_keyword":""}'
+                    )
+                )
+            )
+        )
+
+        with patch("analyzer._score_batch_instructor", new_callable=AsyncMock, return_value=None):
+            results = await _batch_score_async(batch, client=client, conn=None, config=None, bucket=5000)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].keyword, "trendsingle")
+        self.assertEqual(results[0].viral_potential, 80)
+
+    async def test_batch_score_async_salvages_truncated_fenced_array_for_single_item(self):
+        from analyzer import _batch_score_async
+
+        context = MultiSourceContext(news_insight="good context")
+        batch = [
+            (
+                RawTrend(
+                    name="trendrepair",
+                    source=TrendSource.GETDAYTRENDS,
+                    volume="1000",
+                    volume_numeric=1000,
+                ),
+                context,
+            ),
+        ]
+        client = SimpleNamespace(
+            acreate=AsyncMock(
+                return_value=SimpleNamespace(
+                    text=(
+                        "```json\n[\n"
+                        '{"keyword":"trendrepair","publishable":true,"volume_last_24h":1000,'
+                        '"trend_acceleration":"+10%","viral_potential":80,"relevance_score":7,'
+                        '"top_insight":"good item"\n'
+                    )
+                )
+            )
+        )
+
+        with patch("analyzer._score_batch_instructor", new_callable=AsyncMock, return_value=None):
+            results = await _batch_score_async(batch, client=client, conn=None, config=None, bucket=5000)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].keyword, "trendrepair")
+        self.assertGreater(results[0].viral_potential, 0)
 
 
 if __name__ == "__main__":

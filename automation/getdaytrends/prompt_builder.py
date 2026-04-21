@@ -452,12 +452,35 @@ def _build_category_tone_hint(trend: ScoredTrend) -> str:
 def _parse_json(raw: str | None) -> dict | None:
     if not raw:
         return None
-    try:
-        return json.loads(raw.strip())
-    except json.JSONDecodeError as exc:
-        preview = raw[:200].replace("\n", "\\n")
-        log.warning(f"[_parse_json] JSON 파싱 실패: {exc} | 원본 미리보기: {preview}")
-        return None
+
+    stripped = raw.strip()
+    candidates = [stripped]
+    fence_match = re.match(r"^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$", stripped, re.IGNORECASE)
+    if fence_match:
+        candidates.append(fence_match.group(1).strip())
+
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end != -1 and start < end:
+        candidates.append(stripped[start : end + 1])
+
+    last_error: json.JSONDecodeError | None = None
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    preview = raw[:200].replace("\n", "\\n")
+    log.warning(f"[_parse_json] JSON 파싱 실패: {last_error} | 원본 미리보기: {preview}")
+    return None
 
 
 # ══════════════════════════════════════════════════════

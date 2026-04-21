@@ -70,8 +70,8 @@ class TestJsonParsing(unittest.TestCase):
     def test_json_with_markdown_fence(self):
         """LLM이 ```json ... ``` 래핑으로 응답하는 경우."""
         raw = '```json\n{"tweets": []}\n```'
-        # _parse_json은 strip만 하므로 마크다운 펜스는 실패
-        self.assertIsNone(_parse_json(raw))
+        data = _parse_json(raw)
+        self.assertEqual(data, {"tweets": []})
 
     def test_nested_json(self):
         raw = '{"topic": "AI", "tweets": [{"type": "공감형", "content": "내용"}]}'

@@ -8,6 +8,10 @@ class TestPromptBuilderParseJson(unittest.TestCase):
         data = _parse_json('{"topic":"AI","count":1}')
         self.assertEqual(data, {"topic": "AI", "count": 1})
 
+    def test_parse_json_accepts_markdown_fence(self):
+        data = _parse_json('```json\n{"topic":"AI","count":1}\n```')
+        self.assertEqual(data, {"topic": "AI", "count": 1})
+
     def test_parse_json_returns_none_for_invalid_json(self):
         self.assertIsNone(_parse_json("not json"))
 

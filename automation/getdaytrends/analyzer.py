@@ -7,6 +7,7 @@ v3.0: 배치 스코어링(5개/호출, 비용 ~70% 절감) + sentiment/safety_fl
 
 import asyncio
 import json
+import re
 import sqlite3
 
 from loguru import logger as log
@@ -55,6 +56,84 @@ except ImportError:
 
 
 _PACKAGES_PATH_INJECTED = False  # B-013 fix: sys.path 중복 삽입 방지 플래그
+
+
+def _extract_json_string_field(text: str, field: str) -> str | None:
+    match = re.search(rf'"{re.escape(field)}"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
+    if not match:
+        return None
+    try:
+        return json.loads(f'"{match.group(1)}"')
+    except json.JSONDecodeError:
+        return match.group(1)
+
+
+def _extract_json_int_field(text: str, field: str) -> int | None:
+    match = re.search(rf'"{re.escape(field)}"\s*:\s*(-?\d+)', text)
+    return int(match.group(1)) if match else None
+
+
+def _extract_json_bool_field(text: str, field: str) -> bool | None:
+    match = re.search(rf'"{re.escape(field)}"\s*:\s*(true|false)', text, re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(1).lower() == "true"
+
+
+def _extract_json_string_list_field(text: str, field: str) -> list[str] | None:
+    match = re.search(rf'"{re.escape(field)}"\s*:\s*\[(.*?)\]', text, re.DOTALL)
+    if not match:
+        return None
+    values = []
+    for item in re.findall(r'"((?:[^"\\]|\\.)*)"', match.group(1)):
+        try:
+            values.append(json.loads(f'"{item}"'))
+        except json.JSONDecodeError:
+            values.append(item)
+    return values
+
+
+def _salvage_scoring_payload(text: str | None) -> dict | None:
+    """Best-effort recovery for truncated scoring JSON payloads."""
+    if not text:
+        return None
+
+    payload: dict[str, object] = {}
+
+    for field in (
+        "keyword",
+        "trend_acceleration",
+        "top_insight",
+        "best_hook_starter",
+        "category",
+        "sentiment",
+        "why_trending",
+        "peak_status",
+        "publishability_reason",
+        "corrected_keyword",
+        "joongyeon_angle",
+    ):
+        value = _extract_json_string_field(text, field)
+        if value is not None:
+            payload[field] = value
+
+    for field in ("volume_last_24h", "viral_potential", "relevance_score", "joongyeon_kick"):
+        value = _extract_json_int_field(text, field)
+        if value is not None:
+            payload[field] = value
+
+    for field in ("publishable", "safety_flag"):
+        value = _extract_json_bool_field(text, field)
+        if value is not None:
+            payload[field] = value
+
+    suggested_angles = _extract_json_string_list_field(text, "suggested_angles")
+    if suggested_angles is not None:
+        payload["suggested_angles"] = suggested_angles
+
+    if "viral_potential" not in payload and "publishable" not in payload:
+        return None
+    return payload
 
 
 def _topic_boost(keyword: str) -> int:
@@ -189,6 +268,13 @@ BATCH_SCORING_PROMPT_TEMPLATE = """당신은 소셜 미디어 트렌드 분석 �
 - key_positions: 실제 논쟁이 있는 경우만 작성. 논쟁 없으면 빈 배열"""
 
 _JSON_POLICY = LLMPolicy(response_mode="json", task_kind="json_extraction")
+# Batch scoring expects a JSON array, so avoid provider-specific object-prefill
+# helpers that are tuned for `{...}` payloads.
+_JSON_ARRAY_POLICY = LLMPolicy(response_mode="text", task_kind="json_extraction")
+_SINGLE_SCORE_MAX_TOKENS = 1200
+_SINGLE_SCORE_RETRY_MAX_TOKENS = 1800
+_BATCH_SCORE_MAX_TOKENS_PER_ITEM = 900
+_BATCH_SCORE_RETRY_MAX_TOKENS_PER_ITEM = 1400
 
 
 try:
@@ -253,13 +339,18 @@ async def _score_trend_async(
 
     for attempt in range(2):
         try:
+            max_tokens = _SINGLE_SCORE_MAX_TOKENS if attempt == 0 else _SINGLE_SCORE_RETRY_MAX_TOKENS
             response = await client.acreate(
                 tier=TaskTier.LIGHTWEIGHT,
-                max_tokens=1000,
+                max_tokens=max_tokens,
                 policy=_JSON_POLICY,
                 messages=[{"role": "user", "content": prompt}],
             )
             parsed = _parse_json(response.text)
+            if not parsed:
+                parsed = _salvage_scoring_payload(response.text)
+                if parsed:
+                    log.warning(f"?ㅼ퐫?대쭅 JSON 遺遺꾨났援? ?ъ슜 ({attempt + 1}/2): {keyword}")
 
             if not parsed:
                 log.warning(f"스코어링 JSON 파싱 실패 ({attempt + 1}/2): {keyword}")
@@ -392,16 +483,26 @@ async def _batch_score_async(
             # 기존 경로: shared/llm 클라이언트 + 수동 JSON 파싱
             for attempt in range(2):
                 try:
+                    max_tokens = (
+                        _BATCH_SCORE_MAX_TOKENS_PER_ITEM if attempt == 0 else _BATCH_SCORE_RETRY_MAX_TOKENS_PER_ITEM
+                    ) * len(need_llm)
                     response = await client.acreate(
                         tier=TaskTier.LIGHTWEIGHT,
-                        max_tokens=600 * len(need_llm),
-                        policy=_JSON_POLICY,
+                        max_tokens=max_tokens,
+                        policy=_JSON_ARRAY_POLICY,
                         messages=[{"role": "user", "content": prompt}],
                     )
                     text = response.text.strip()
-                    if text.startswith("{"):
-                        text = text[1:].lstrip()
                     parsed_list = _parse_json_array(text)
+                    if parsed_list is None and len(need_llm) == 1:
+                        single_item = _parse_json(text)
+                        if isinstance(single_item, dict):
+                            parsed_list = [single_item]
+                        else:
+                            repaired = _salvage_scoring_payload(text)
+                            if repaired:
+                                log.warning("諛곗튂 ?ㅼ퐫?대쭅 ?④퀎 ?묐떟 遺遺꾨났援? ?ъ슜")
+                                parsed_list = [repaired]
                     if parsed_list and len(parsed_list) == len(need_llm):
                         break
                     log.warning(

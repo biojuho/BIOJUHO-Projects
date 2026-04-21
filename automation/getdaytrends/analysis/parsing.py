@@ -1,9 +1,7 @@
-"""analysis/parsing.py — JSON 파싱 + ScoredTrend 변환.
-
-analyzer.py에서 추출. JSON 파서, Instructor 배치 스코어링, dict→ScoredTrend 변환.
-"""
+"""JSON parsing and ScoredTrend conversion helpers for analyzer."""
 
 import json
+import re
 
 from loguru import logger as log
 
@@ -16,7 +14,6 @@ except ImportError:
     from config import AppConfig
     from models import MultiSourceContext, ScoredTrend, TrendContext, TrendSource
 
-# [Phase 1] Instructor 구조화된 출력 (선택 의존성)
 try:
     try:
         from ..structured_output import ScoringResponseItem, extract_structured_list
@@ -28,47 +25,72 @@ except ImportError:
     INSTRUCTOR_AVAILABLE = False
 
 
-# ══════════════════════════════════════════════════════
-#  JSON Parser
-# ══════════════════════════════════════════════════════
+def _json_candidates(text: str, opening: str, closing: str) -> list[str]:
+    stripped = text.strip()
+    if not stripped:
+        return []
+
+    candidates = [stripped]
+    fence_match = re.match(r"^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$", stripped, re.IGNORECASE)
+    if fence_match:
+        candidates.append(fence_match.group(1).strip())
+
+    start = stripped.find(opening)
+    end = stripped.rfind(closing)
+    if start != -1 and end != -1 and start < end:
+        candidates.append(stripped[start : end + 1])
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            unique.append(candidate)
+    return unique
 
 
 def _parse_json(text: str | None) -> dict | None:
-    """JSON 파싱. response_mode=json 덕분에 단순 loads로 충분.
-
-    파싱 실패 시 로그를 남기고 None 반환 — 호출자가 재시도 판단.
-    """
+    """Parse a JSON object, tolerating fenced or prefixed payloads."""
     if not text:
         return None
-    try:
-        return json.loads(text.strip())
-    except json.JSONDecodeError as exc:
-        # 파싱 실패를 명시적으로 로깅 (silent None 반환 방지)
-        preview = text[:200].replace("\n", "\\n")
-        log.warning(f"[_parse_json] JSON 파싱 실패: {exc} | 원본 미리보기: {preview}")
-        return None
+
+    last_error: json.JSONDecodeError | None = None
+    for candidate in _json_candidates(text, "{", "}"):
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    preview = text[:200].replace("\n", "\\n")
+    log.warning(f"[_parse_json] JSON parse failed: {last_error} | preview: {preview}")
+    return None
 
 
 def _parse_json_array(text: str | None) -> list | None:
-    """JSON 배열 파싱."""
+    """Parse a JSON array, including wrapped list payloads."""
     if not text:
         return None
-    try:
-        return json.loads(text.strip())
-    except json.JSONDecodeError:
-        return None
+
+    for candidate in _json_candidates(text, "[", "]"):
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, list):
+            return parsed
+        if isinstance(parsed, dict):
+            for key in ("items", "results", "data", "trends"):
+                value = parsed.get(key)
+                if isinstance(value, list):
+                    return value
+    return None
 
 
-# ══════════════════════════════════════════════════════
-#  [Phase 1] Instructor 기반 배치 스코어링
-# ══════════════════════════════════════════════════════
-
-
-async def _score_batch_instructor(
-    prompt: str,
-    count: int,
-) -> list[dict] | None:
-    """Instructor로 배치 스코어링 수행. 실패 시 None (기존 경로 폴백)."""
+async def _score_batch_instructor(prompt: str, count: int) -> list[dict] | None:
+    """Use Instructor structured output when available; otherwise return None."""
     if not INSTRUCTOR_AVAILABLE:
         return None
     try:
@@ -80,21 +102,16 @@ async def _score_batch_instructor(
             expected_count=count,
         )
         if items and len(items) == count:
-            log.info(f"[Instructor] 배치 스코어링 성공 ({count}개)")
+            log.info(f"[Instructor] Batch scoring succeeded ({count} items)")
             return [item.model_dump() for item in items]
         return None
-    except Exception as e:
-        log.debug(f"[Instructor] 배치 스코어링 폴백: {e}")
+    except Exception as exc:
+        log.debug(f"[Instructor] Batch scoring fallback: {exc}")
         return None
-
-
-# ══════════════════════════════════════════════════════
-#  Default / Conversion
-# ══════════════════════════════════════════════════════
 
 
 def _default_scored_trend(keyword: str, context: MultiSourceContext) -> ScoredTrend:
-    """스코어링 실패 시 기본값."""
+    """Return a zero-score fallback trend."""
     return ScoredTrend(
         keyword=keyword,
         rank=0,
@@ -104,14 +121,12 @@ def _default_scored_trend(keyword: str, context: MultiSourceContext) -> ScoredTr
 
 
 def _coerce_nullable_int(value, default: int) -> int:
-    """Treat null-ish numeric fields as defaults, while preserving malformed values."""
     if value is None or value == "":
         return default
     return int(value)
 
 
 def _coerce_nullable_str(value, default: str) -> str:
-    """Treat null-ish string fields as defaults."""
     if value is None:
         return default
     text = str(value).strip()
@@ -128,41 +143,42 @@ def _compute_hybrid_viral(
     keyword: str,
     category: str,
 ) -> int:
-    """[B] Phase 1+2+A: 하이브리드 바이럴 점수 계산 (패널티/보너스 포함)."""
-    w_llm = getattr(config, "viral_score_llm_weight", 0.6) if config else 0.6
+    """Blend model score with signal score and apply category/confidence adjustments."""
+    weight = getattr(config, "viral_score_llm_weight", 0.6) if config else 0.6
     signal = _compute_signal_score(volume_numeric, trend_acceleration, confidence, velocity=velocity)
-    hybrid = int(llm_viral * w_llm + signal * (1.0 - w_llm))
+    hybrid = int(llm_viral * weight + signal * (1.0 - weight))
 
     min_conf = getattr(config, "min_cross_source_confidence", 2) if config else 2
     if confidence < min_conf:
         hybrid = int(hybrid * 0.65)
         log.debug(
-            f"  [Phase1 패널티] '{keyword}' 교차검증={confidence}/{min_conf} "
-            f"→ {llm_viral}점 × 0.65 = {hybrid}점"
+            f"[Phase1 penalty] '{keyword}' confidence {confidence}/{min_conf} -> viral {hybrid}"
         )
 
-    niche_cats = getattr(config, "niche_categories", []) if config else []
+    niche_categories = getattr(config, "niche_categories", []) if config else []
     niche_bonus = getattr(config, "niche_bonus_points", 0) if config else 0
-    if niche_cats and niche_bonus and category in niche_cats:
+    if niche_categories and niche_bonus and category in niche_categories:
         hybrid = min(hybrid + niche_bonus, 100)
-        log.debug(f"  [Niche Bonus] '{keyword}' ({category}) +{niche_bonus}점 → {hybrid}점")
+        log.debug(f"[Niche bonus] '{keyword}' ({category}) +{niche_bonus} -> {hybrid}")
 
     return hybrid
 
 
 def _build_trend_context(parsed: dict, context: "MultiSourceContext") -> "TrendContext | None":
-    """[B] v10.0 Deep Why 구조화 배경 생성."""
+    """Build structured trend context when deep-why fields are present."""
     trigger = parsed.get("trigger_event", "")
     chain = parsed.get("chain_reaction", "")
     why_now = parsed.get("why_now", "")
     positions = parsed.get("key_positions", [])
     if not (trigger or chain or why_now or positions):
         return None
+
     real_tweets = ""
     if context and context.twitter_insight:
         insight = context.twitter_insight
         if len(insight) > 30 and "오류" not in insight and "없음" not in insight:
             real_tweets = insight[:300]
+
     return TrendContext(
         trigger_event=trigger,
         chain_reaction=chain,
@@ -173,16 +189,19 @@ def _build_trend_context(parsed: dict, context: "MultiSourceContext") -> "TrendC
 
 
 def _parse_publishability(parsed: dict, keyword: str) -> tuple[bool, str, str]:
-    """[B] v13.0 게시 가능성 판정 → (publishable, reason, corrected_keyword)."""
+    """Return publishability decision plus reason and corrected keyword."""
     publishable = parsed.get("publishable", True)
     if isinstance(publishable, str):
         publishable = publishable.lower() not in ("false", "0", "no")
+
     reason = parsed.get("publishability_reason", "")
     corrected = parsed.get("corrected_keyword", "")
+
     if not publishable:
-        log.warning(f"  [게시불가] '{keyword}' publishable=false (사유: {reason or '미상'})")
+        log.warning(f"[Publishability] '{keyword}' blocked: {reason or 'unspecified'}")
     if corrected:
-        log.info(f"  [키워드 교정] '{keyword}' → '{corrected}'")
+        log.info(f"[Keyword correction] '{keyword}' -> '{corrected}'")
+
     return bool(publishable), reason, corrected
 
 
@@ -192,25 +211,27 @@ def _apply_credibility_check(
     keyword: str,
     hybrid_viral: int,
 ) -> tuple[int, float, bool, list[str]]:
-    """[B] v6.0 출처 신뢰도 + 소스 간 일관성 검증 → (adjusted_viral, credibility, consistent, flags)."""
-    cred_val = 0.0
+    """Apply credibility penalty and cross-source consistency checks."""
+    credibility = 0.0
     consistent = True
     flags: list[str] = []
+
     try:
-        from fact_checker import check_cross_source_consistency, compute_enhanced_confidence
+        try:
+            from ..fact_checker import check_cross_source_consistency, compute_enhanced_confidence
+        except ImportError:
+            from fact_checker import check_cross_source_consistency, compute_enhanced_confidence
 
         news_insight = context.news_insight if context else ""
-        _, cred_val = compute_enhanced_confidence(hybrid_viral, context, news_insight)
+        _, credibility = compute_enhanced_confidence(hybrid_viral, context, news_insight)
 
-        cred_threshold = getattr(config, "credibility_penalty_threshold", 0.3) if config else 0.3
-        cred_factor = getattr(config, "credibility_penalty_factor", 0.85) if config else 0.85
-        enable_cred = getattr(config, "enable_source_credibility", True) if config else True
-        if enable_cred and 0 < cred_val < cred_threshold:
-            old = hybrid_viral
-            hybrid_viral = int(hybrid_viral * cred_factor)
+        threshold = getattr(config, "credibility_penalty_threshold", 0.3) if config else 0.3
+        penalty_factor = getattr(config, "credibility_penalty_factor", 0.85) if config else 0.85
+        enable_credibility = getattr(config, "enable_source_credibility", True) if config else True
+        if enable_credibility and 0 < credibility < threshold:
+            hybrid_viral = int(hybrid_viral * penalty_factor)
             log.debug(
-                f"  [출처 신뢰도 패널티] '{keyword}' 신뢰도={cred_val:.2f} "
-                f"< {cred_threshold} → {old}점 x {cred_factor} = {hybrid_viral}점"
+                f"[Credibility penalty] '{keyword}' credibility {credibility:.2f} < {threshold} -> {hybrid_viral}"
             )
 
         enable_consistency = getattr(config, "enable_cross_source_consistency", True) if config else True
@@ -220,11 +241,12 @@ def _apply_credibility_check(
             consistent = result["consistent"]
             if not consistent:
                 conflicts = result.get("conflicts", [])
-                flags.extend(f"소스 충돌: {c}" for c in conflicts[:3])
-                log.warning(f"  [소스 불일치] '{keyword}' 충돌 {len(conflicts)}건: {', '.join(conflicts[:2])}")
-    except Exception as _e:
-        log.debug(f"[v6.0] 정확성 검증 스킵: {_e}")
-    return hybrid_viral, cred_val, consistent, flags
+                flags.extend(f"cross-source conflict: {item}" for item in conflicts[:3])
+                log.warning(f"[Cross-source mismatch] '{keyword}' conflicts={len(conflicts)}")
+    except Exception as exc:
+        log.debug(f"[Credibility check] skipped: {exc}")
+
+    return hybrid_viral, credibility, consistent, flags
 
 
 def _parse_scored_trend_from_dict(
@@ -235,12 +257,7 @@ def _parse_scored_trend_from_dict(
     config: "AppConfig | None" = None,
     velocity: float = 0.0,
 ) -> "ScoredTrend":
-    """파싱된 dict → ScoredTrend 변환 (단일·배치 공용).
-    Phase 1: cross_source_confidence 계산 + 패널티 적용.
-    Phase 2: LLM 점수와 시그널 점수 의 가중 평균.
-    Phase 4: joongyeon_kick / joongyeon_angle 파싱.
-    [v9.0] velocity: 런 간 볼륨 증가율 신호 점수 반영.
-    """
+    """Convert parsed LLM output into a ScoredTrend."""
     raw_category = parsed.get("category", "")
     category = raw_category.split("|")[0].strip() if raw_category else ""
     trend_acceleration = _coerce_nullable_str(parsed.get("trend_acceleration"), "+0%")
@@ -249,10 +266,24 @@ def _parse_scored_trend_from_dict(
     suggested_angles = parsed.get("suggested_angles") or []
 
     confidence = _compute_cross_source_confidence(volume_numeric, context)
-    hybrid_viral = _compute_hybrid_viral(config, llm_viral, volume_numeric, trend_acceleration, confidence, velocity, keyword, category)
-    trend_ctx = _build_trend_context(parsed, context)
+    hybrid_viral = _compute_hybrid_viral(
+        config,
+        llm_viral,
+        volume_numeric,
+        trend_acceleration,
+        confidence,
+        velocity,
+        keyword,
+        category,
+    )
+    trend_context = _build_trend_context(parsed, context)
     publishable, publishability_reason, corrected_keyword = _parse_publishability(parsed, keyword)
-    hybrid_viral, source_credibility_val, cross_source_consistent_val, hallucination_flags_val = _apply_credibility_check(config, context, keyword, hybrid_viral)
+    hybrid_viral, source_credibility, cross_source_consistent, hallucination_flags = _apply_credibility_check(
+        config,
+        context,
+        keyword,
+        hybrid_viral,
+    )
 
     return ScoredTrend(
         keyword=keyword,
@@ -274,11 +305,11 @@ def _parse_scored_trend_from_dict(
         why_trending=_coerce_nullable_str(parsed.get("why_trending"), ""),
         peak_status=_coerce_nullable_str(parsed.get("peak_status"), ""),
         relevance_score=min(max(_coerce_nullable_int(parsed.get("relevance_score"), 0), 0), 10),
-        trend_context=trend_ctx,
+        trend_context=trend_context,
         publishable=bool(publishable),
         publishability_reason=publishability_reason,
         corrected_keyword=corrected_keyword,
-        source_credibility=source_credibility_val,
-        cross_source_consistent=cross_source_consistent_val,
-        hallucination_flags=hallucination_flags_val,
+        source_credibility=source_credibility,
+        cross_source_consistent=cross_source_consistent,
+        hallucination_flags=hallucination_flags,
     )
