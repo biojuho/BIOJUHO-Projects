@@ -35,12 +35,24 @@
 - [x] **미커밋 DailyNews CLI + getdaytrends 변경 정리/커밋** (2026-04-18)
 - [x] **HANDOFF.md 갱신 커밋** (2026-04-18)
 - [x] **getdaytrends biojuho voice persona + quality diversity gates + QA guards 커밋** (2026-04-18)
-- [x] **미커밋 보안/회복성 패치 정리 분리 커밋 5건** (2026-05-06):
-  - smoke runner: cie 등록 + uv access-denied 재시도 + google-genai dep
-  - gitignore: temp 파일 정리 + `_out*.txt` 룰 확장
-  - canva-mcp: 와일드카드 CORS 제거 + origin allowlist
-  - DailyNews subscribe_api: CORS allowlist + per-IP rate limit
-  - auth fail-closed: ALLOW_DEV_AUTH_FALLBACK 게이트 + 하드코딩 ADMIN_PASSWORD 제거 (4파일)
+- [x] **미커밋 보안/회복성 패치 정리 분리 커밋 13건** (2026-05-06):
+  - smoke: cie 등록 + uv access-denied 재시도 + google-genai dep (7b57bc1)
+  - gitignore: temp 파일 정리 (9f0709a)
+  - canva-mcp server.ts: 와일드카드 CORS 제거 (1a6d419)
+  - DailyNews subscribe_api: CORS allowlist + rate limit (54f1215)
+  - auth fail-closed 4파일: ALLOW_DEV_AUTH_FALLBACK 게이트 + 하드코딩 ADMIN_PASSWORD 제거 (3a32ff7)
+  - .env.example 4파일: 새 보안 env 문서화 + ALLOW_TEST_BYPASS=false 기본 (006b00a)
+  - canva-mcp worker.ts: CORS allowlist parity (e4fac72)
+  - vibe_tools: shell=True RCE 제거 + 명령 화이트리스트 (ed004b3)
+  - CI security gate: `|| true` 제거 + qa-review 게이트 (1bcfa8d)
+  - 보강 테스트/문서: AgriGuard auth (c1e5c97), subscribe origin (999c0b2), canva-mcp env (ffefe4a)
+
+## Backlog (보안 정리 후속)
+
+- [ ] **vibe_tools `_validate_test_command` 회귀 테스트 추가** — RCE 방어가 회귀하지 않도록 화이트리스트 케이스(허용/거부) unit test
+- [ ] **운영 환경에 새 env 설정 확인** — `ADMIN_PASSWORD` (AgriGuard), `ALLOW_DEV_AUTH_FALLBACK` (DeSci/BioLinker dev 환경), `SUBSCRIBE_ALLOWED_ORIGINS` (DailyNews), `CANVA_MCP_ALLOWED_ORIGINS` (canva-mcp)
+- [ ] **새 CI 게이트 첫 PR에서 동작 확인** — pip-audit / npm audit / ruff / bandit 강화된 게이트가 실제로 차단하는지 점검 (현재까지 `|| true` 로 가려져 있던 잠재 위반 노출 가능)
+- [ ] **`run_test_tool` 호출 시 ValueError 노이즈 모니터링** — LLM이 거부된 명령을 시도하면 LangChain 트레이스에 기록, 재시도 패턴이 정상인지 확인
 
 ## Backlog (향후 진행 가능)
 
