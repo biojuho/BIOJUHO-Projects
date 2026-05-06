@@ -215,20 +215,50 @@ interface Env {
   CANVA_CLIENT_SECRET: string;
   CANVA_REDIRECT_URI: string;
   CANVA_TOKENS: KVNamespace;
+  CANVA_MCP_ALLOWED_ORIGINS?: string;
+}
+
+const DEFAULT_ALLOWED_ORIGINS = ["https://zerotwo.ai", "http://localhost:3000", "http://localhost:5173"];
+
+function getAllowedOrigins(env: Env): string[] {
+  const configured = (env.CANVA_MCP_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return configured.length > 0 ? configured : DEFAULT_ALLOWED_ORIGINS;
+}
+
+function isAllowedOrigin(request: Request, env: Env): boolean {
+  const origin = request.headers.get("Origin");
+  return !origin || getAllowedOrigins(env).includes(origin);
+}
+
+function corsHeaders(request: Request, env: Env): Record<string, string> {
+  const origin = request.headers.get("Origin");
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+  if (origin && getAllowedOrigins(env).includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Vary"] = "Origin";
+  }
+  return headers;
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const cors = corsHeaders(request, env);
+
+    if (!isAllowedOrigin(request, env)) {
+      return new Response("CORS origin not allowed", { status: 403 });
+    }
 
     // Handle CORS
     if (request.method === "OPTIONS") {
       return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
+        headers: cors,
       });
     }
 
@@ -240,12 +270,12 @@ export default {
         return new Response(SEARCH_WIDGET_HTML, {
           headers: {
             "Content-Type": "text/html; charset=utf-8",
-            "Access-Control-Allow-Origin": "*",
+            ...cors,
           },
         });
       }
 
-      return new Response("Widget not found", { status: 404 });
+      return new Response("Widget not found", { status: 404, headers: cors });
     }
 
     // OAuth callback endpoint
@@ -254,7 +284,7 @@ export default {
       const state = url.searchParams.get("state");
 
       if (!code || !isOAuthConfigured(env)) {
-        return new Response("OAuth not configured or missing code", { status: 400 });
+        return new Response("OAuth not configured or missing code", { status: 400, headers: cors });
       }
 
       try {
@@ -291,12 +321,12 @@ export default {
         );
 
         return new Response("OAuth successful! You can close this window.", {
-          headers: { "Content-Type": "text/html" },
+          headers: { "Content-Type": "text/html", ...cors },
         });
       } catch (error) {
         console.error("[worker.ts] --> OAuth callback error:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-        return new Response(`OAuth error: ${errorMessage}`, { status: 500 });
+        return new Response(`OAuth error: ${errorMessage}`, { status: 500, headers: cors });
       }
     }
 
@@ -305,7 +335,7 @@ export default {
       if (!isOAuthConfigured(env)) {
         return Response.json({
           error: "OAuth not configured. Set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET, and create CANVA_TOKENS KV namespace.",
-        }, { status: 500 });
+        }, { status: 500, headers: cors });
       }
 
       const state = crypto.randomUUID();
@@ -337,7 +367,7 @@ export default {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
-          "Access-Control-Allow-Origin": "*",
+          ...cors,
         },
       });
     }
@@ -354,7 +384,7 @@ export default {
             ...tool,
             _meta,
           })),
-        });
+        }, { headers: cors });
       }
 
       // Call tool
@@ -395,28 +425,28 @@ export default {
               requiresAuth,
               totalResults: designs.length,
             },
-          });
+          }, { headers: cors });
         }
 
         return Response.json(
           { error: { code: -32601, message: "Tool not found" } },
-          { status: 404 }
+          { status: 404, headers: cors }
         );
       }
 
       // List resources
       if (method === "resources/list") {
-        return Response.json({ resources: [] });
+        return Response.json({ resources: [] }, { headers: cors });
       }
 
       // List resource templates
       if (method === "resources/templates/list") {
-        return Response.json({ resourceTemplates: [] });
+        return Response.json({ resourceTemplates: [] }, { headers: cors });
       }
 
       return Response.json(
         { error: { code: -32601, message: "Method not found" } },
-        { status: 404 }
+        { status: 404, headers: cors }
       );
     }
 
@@ -427,7 +457,7 @@ export default {
       "3. Create KV namespace: wrangler kv:namespace create CANVA_TOKENS\n" +
       "4. Add KV binding to wrangler.toml\n" +
       "5. Visit /auth/authorize to authenticate",
-      { headers: { "Content-Type": "text/plain" } }
+      { headers: { "Content-Type": "text/plain", ...cors } }
     );
   },
 };
