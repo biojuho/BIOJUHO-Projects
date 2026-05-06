@@ -354,6 +354,26 @@ class TestFastApiEndpoints:
         assert response.status_code == 200
         assert response.json()["ok"] is True
 
+    def test_subscribe_endpoint_rejects_disallowed_origin(self, client) -> None:
+        response = client.post(
+            "/api/subscribe",
+            json={"email": "origin@example.com"},
+            headers={"Origin": "https://attacker.example"},
+        )
+
+        assert response.status_code == 403
+        assert response.json()["error"] == "origin_not_allowed"
+
+    def test_subscribe_endpoint_accepts_same_origin(self, client) -> None:
+        response = client.post(
+            "/api/subscribe",
+            json={"email": "same-origin@example.com"},
+            headers={"Origin": "http://testserver"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
+
     def test_root_serves_landing_page(self, client) -> None:
         response = client.get("/")
 
