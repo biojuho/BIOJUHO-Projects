@@ -34,6 +34,10 @@ elif FIREBASE_AVAILABLE and firebase_admin._apps:
     _firebase_initialized = True
 
 
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def verify_firebase_token(token: str) -> dict:
     """
     Verify a Firebase ID token and return decoded user info.
@@ -47,8 +51,13 @@ def verify_firebase_token(token: str) -> dict:
             "name": "Test User",
         }
 
-    # If Firebase is not available or not initialized, return mock user
+    # Development fallback must be explicit; otherwise auth is fail-closed.
     if not FIREBASE_AVAILABLE or not _firebase_initialized:
+        if not _env_flag("ALLOW_DEV_AUTH_FALLBACK"):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Firebase authentication is not configured.",
+            )
         return {
             "uid": "dev-user-id",
             "email": "dev@example.com",

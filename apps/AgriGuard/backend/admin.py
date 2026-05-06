@@ -20,7 +20,9 @@ class AdminAuth(AuthenticationBackend):
     async def login(self, request: Request) -> bool:
         form = await request.form()
         password = form.get("password", "")
-        expected = os.environ.get("ADMIN_PASSWORD", "agriguard-admin")
+        expected = os.environ.get("ADMIN_PASSWORD", "")
+        if not expected:
+            return False
         if password == expected:
             request.session.update({"admin_authenticated": True})
             return True
@@ -150,7 +152,7 @@ class SensorReadingAdmin(ModelView, model=SensorReading):
 
 def setup_admin(app) -> Admin:
     """Mount SQLAdmin on the FastAPI app. Call from main.py."""
-    secret_key = os.environ.get("SECRET_KEY", "agriguard-dev-secret-change-me")
+    secret_key = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
     auth_backend = AdminAuth(secret_key=secret_key)
 
     admin = Admin(

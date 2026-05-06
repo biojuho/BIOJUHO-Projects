@@ -23,6 +23,10 @@ if not firebase_admin._apps:
         print("⚠️ Warning: No Firebase service account key found. Token verification disabled.")
 
 
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 async def get_current_user(authorization: str | None = Header(None)):
     """
     Dependency function to verify Firebase ID token
@@ -45,9 +49,13 @@ async def get_current_user(authorization: str | None = Header(None)):
 
     token = parts[1]
 
-    # Check if Firebase is initialized
+    # Check if Firebase is initialized. Development fallback must be explicit.
     if not firebase_admin._apps:
-        # Development mode - return mock user
+        if not _env_flag("ALLOW_DEV_AUTH_FALLBACK"):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Firebase authentication is not configured.",
+            )
         return {"uid": "dev-user-id", "email": "dev@example.com", "name": "Development User"}
 
     try:
