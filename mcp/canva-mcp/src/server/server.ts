@@ -410,11 +410,15 @@ const transportToSessionId = new Map<string, string>();
 const ssePath = "/mcp";
 const postPath = "/mcp/messages";
 const authCallbackPath = "/auth/callback";
+const defaultAllowedOrigins = [
+  "https://zerotwo.ai",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
 
 // ─── HTTP request handlers ──────────────────────────────────────────────────
 
 async function handleSseRequest(res: ServerResponse, sessionId?: string, authHeader?: string) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
   const actualSessionId = sessionId || crypto.randomBytes(16).toString("hex");
   const server = createCanvaServer(actualSessionId);
   const transport = new SSEServerTransport(postPath, res);
@@ -459,7 +463,6 @@ async function handlePostMessage(
   res: ServerResponse,
   url: URL
 ) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
   const sessionId = url.searchParams.get("sessionId");
 
@@ -582,25 +585,37 @@ const portEnv = Number(process.env.PORT ?? 8001);
 const port = Number.isFinite(portEnv) ? portEnv : 8001;
 
 // Helper function to set CORS headers
+function getAllowedOrigins() {
+  const configured = (process.env.CANVA_MCP_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return configured.length > 0 ? configured : defaultAllowedOrigins;
+}
+
+function isAllowedOrigin(origin?: string) {
+  return !origin || getAllowedOrigins().includes(origin);
+}
+
 function setCorsHeaders(res: ServerResponse, origin?: string) {
-  const allowedOrigins = [
-    'https://zerotwo.ai',
-    'http://localhost:3000',
-    'http://localhost:5173', // Vite dev server
-  ];
-
-  const requestOrigin = origin || '*';
-  const allowOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : '*';
-
-  res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
 }
 
 const httpServer = createServer(
   async (req: IncomingMessage, res: ServerResponse) => {
-    const origin = req.headers.origin;
+    const rawOrigin = req.headers.origin;
+    const origin = Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin;
+
+    if (!isAllowedOrigin(origin)) {
+      res.writeHead(403).end("CORS origin not allowed");
+      return;
+    }
 
     // Set CORS headers on all responses
     setCorsHeaders(res, origin);
@@ -668,7 +683,6 @@ const httpServer = createServer(
 
         res.writeHead(200, {
           "Content-Type": contentType,
-          "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=3600",
         });
         fs.createReadStream(resolvedPath).pipe(res);
