@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,62 @@ _INVALID_REQUEST_RESPONSE = {
     "error": "invalid_request",
     "message": "JSON body must be an object with an 'email' field.",
 }
+_RATE_LIMIT_BUCKETS: dict[tuple[str, str], tuple[float, int]] = {}
+_RATE_LIMIT_WINDOW_SECONDS = 60
+
+
+def _split_csv_env(name: str) -> list[str]:
+    raw = os.getenv(name, "")
+    return [item.strip().rstrip("/") for item in raw.split(",") if item.strip()]
+
+
+def _allowed_cors_origins() -> list[str]:
+    return _split_csv_env("SUBSCRIBE_ALLOWED_ORIGINS") or _split_csv_env("DAILYNEWS_ALLOWED_ORIGINS")
+
+
+def _same_origin_for_request(request: Any, origin: str) -> bool:
+    host = request.headers.get("host", "") if hasattr(request, "headers") else ""
+    scheme = getattr(getattr(request, "url", None), "scheme", "http")
+    return bool(host) and origin.rstrip("/") == f"{scheme}://{host}".rstrip("/")
+
+
+def _reject_disallowed_origin(request: Any) -> dict[str, str | bool] | None:
+    origin = request.headers.get("origin") if hasattr(request, "headers") else None
+    if not origin:
+        return None
+    normalized_origin = origin.rstrip("/")
+    if normalized_origin in _allowed_cors_origins() or _same_origin_for_request(request, normalized_origin):
+        return None
+    logger.warning("Subscribe API rejected disallowed origin: %s", origin)
+    return {"ok": False, "error": "origin_not_allowed", "message": "Origin is not allowed."}
+
+
+def _reject_rate_limited_request(request: Any) -> dict[str, str | bool] | None:
+    try:
+        limit = int(os.getenv("SUBSCRIBE_RATE_LIMIT_PER_MINUTE", "60"))
+    except ValueError:
+        limit = 60
+    if limit <= 0:
+        return None
+
+    now = time.monotonic()
+    client = getattr(request, "client", None)
+    client_host = getattr(client, "host", "unknown")
+    path = getattr(getattr(request, "url", None), "path", "unknown")
+    key = (str(client_host), str(path))
+    window_start, count = _RATE_LIMIT_BUCKETS.get(key, (now, 0))
+    if now - window_start >= _RATE_LIMIT_WINDOW_SECONDS:
+        window_start, count = now, 0
+
+    count += 1
+    _RATE_LIMIT_BUCKETS[key] = (window_start, count)
+    if count > limit:
+        return {"ok": False, "error": "rate_limited", "message": "Too many requests."}
+    return None
+
+
+def _reject_unsafe_write_request(request: Any) -> dict[str, str | bool] | None:
+    return _reject_disallowed_origin(request) or _reject_rate_limited_request(request)
 
 
 def _get_store() -> SubscriberStore:
@@ -86,6 +143,10 @@ def _result_status_code(result: dict[str, str | bool], *, not_found_status: int 
         return 409
     if result.get("error") == "not_found":
         return not_found_status
+    if result.get("error") == "origin_not_allowed":
+        return 403
+    if result.get("error") == "rate_limited":
+        return 429
     return 400
 
 
@@ -216,13 +277,17 @@ def create_fastapi_app():
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_allowed_cors_origins(),
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
     )
 
     @app.post("/api/subscribe")
     async def subscribe_endpoint(request: Request) -> JSONResponse:
+        request_error = _reject_unsafe_write_request(request)
+        if request_error is not None:
+            return JSONResponse(content=request_error, status_code=_result_status_code(request_error))
+
         email, request_error = await _read_email_from_request(request)
         if request_error is not None:
             return JSONResponse(content=request_error, status_code=_result_status_code(request_error))
@@ -232,6 +297,10 @@ def create_fastapi_app():
 
     @app.post("/api/unsubscribe")
     async def unsubscribe_endpoint(request: Request) -> JSONResponse:
+        request_error = _reject_unsafe_write_request(request)
+        if request_error is not None:
+            return JSONResponse(content=request_error, status_code=_result_status_code(request_error))
+
         email, request_error = await _read_email_from_request(request)
         if request_error is not None:
             return JSONResponse(
