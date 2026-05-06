@@ -51,7 +51,9 @@ test-results/
 .pytest_cache/
 .coverage
 *_out.txt
+*_out*.txt
 *_out_ascii.txt
+ops/scripts/_env_check.txt
 
 # Debug / run outputs
 **/run_output*.log
