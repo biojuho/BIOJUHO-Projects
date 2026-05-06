@@ -11,6 +11,7 @@ Included units:
 - `apps/dashboard`
 - `automation/DailyNews`
 - `automation/getdaytrends`
+- `automation/content-intelligence`
 - `mcp/notebooklm-mcp`
 - `mcp/github-mcp`
 - `packages/shared`
@@ -32,6 +33,7 @@ python ops/scripts/run_workspace_smoke.py --scope desci
 python ops/scripts/run_workspace_smoke.py --scope agriguard
 python ops/scripts/run_workspace_smoke.py --scope mcp
 python ops/scripts/run_workspace_smoke.py --scope getdaytrends
+python ops/scripts/run_workspace_smoke.py --scope cie
 python ops/scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 ```
 
@@ -60,6 +62,9 @@ python scripts/run_workspace_smoke.py --scope all
 - `getdaytrends`
   - python compile smoke
   - `automation/getdaytrends/tests` pytest suite
+- `cie`
+  - python compile smoke
+  - `automation/content-intelligence/tests` pytest suite
 
 Python compile checks exclude:
 
