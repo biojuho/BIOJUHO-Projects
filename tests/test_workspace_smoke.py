@@ -52,6 +52,26 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
             assert smoke.EXCLUDE_REGEX in check.command
 
 
+def test_uv_dependency_contract_covers_isolated_test_imports() -> None:
+    smoke = load_smoke_module()
+
+    shared_deps = smoke.UV_EXTRA_DEPENDENCIES["shared package tests"]
+    cie_deps = smoke.UV_EXTRA_DEPENDENCIES["cie tests"]
+
+    assert "google-genai>=1.0.0,<2.0" in shared_deps
+    assert "google.genai" in smoke.WORKSPACE_SYNC_SENTINELS["shared package tests"]
+
+    for dependency in (
+        "loguru>=0.7.0,<1.0",
+        "sqlalchemy>=2.0.0,<3.0",
+        "pydantic>=2.0.0,<3.0",
+        "httpx>=0.27.0",
+    ):
+        assert dependency in cie_deps
+
+    assert smoke.WORKSPACE_SYNC_SENTINELS["cie tests"] == ("loguru", "sqlalchemy", "pydantic", "httpx")
+
+
 def test_build_pythonpath_includes_canonical_workspace_entries() -> None:
     smoke = load_smoke_module()
     pythonpath = smoke.build_pythonpath(PROJECT_ROOT, {"PYTHONPATH": "custom-entry"})
@@ -249,6 +269,23 @@ def test_should_retry_ignores_non_transient_failures() -> None:
     )
 
     assert smoke.should_retry(check, result) is False
+
+
+def test_should_retry_uv_access_denied_install_failure() -> None:
+    smoke = load_smoke_module()
+    check = smoke.Check("mcp", "DailyNews unit tests", "automation/DailyNews", ["python", "-m", "pytest", "tests/unit"])
+    result = smoke.Result(
+        "mcp",
+        "DailyNews unit tests",
+        "automation/DailyNews",
+        "uv run --isolated --no-project python -m pytest tests/unit",
+        2,
+        False,
+        "",
+        "error: 액세스가 거부되었습니다. (os error -2147024891)",
+    )
+
+    assert smoke.should_retry(check, result) is True
 
 
 def test_main_writes_json_report_for_selected_scope(tmp_path, monkeypatch) -> None:

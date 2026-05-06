@@ -32,14 +32,20 @@ TRANSIENT_RETRY_PATTERNS = (
     "Failed to start forks worker",
     "Timeout waiting for worker to respond",
 )
+UV_TRANSIENT_RETRY_PATTERNS = (
+    "os error -2147024891",
+    "Access is denied",
+    "액세스가 거부되었습니다",
+)
 TRANSIENT_RETRY_MAX = 2
 WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "workspace regression tests": ("fastapi", "sqlalchemy", "aiosqlite", "mcp.server.fastmcp", "pypdf"),
-    "shared package tests": ("sqlalchemy", "pydantic", "httpx"),
+    "shared package tests": ("sqlalchemy", "pydantic", "httpx", "google.genai"),
     "desci biolinker smoke": ("fastapi",),
     "agriguard backend tests": ("fastapi", "sqlalchemy"),
     "DailyNews unit tests": ("mcp.server.fastmcp",),
     "getdaytrends tests": ("aiosqlite", "sqlalchemy"),
+    "cie tests": ("loguru", "sqlalchemy", "pydantic", "httpx"),
 }
 UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "workspace regression tests": (
@@ -52,6 +58,7 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "sqlalchemy>=2.0.0,<3.0",
         "pydantic>=2.0.0,<3.0",
         "httpx>=0.27.0",
+        "google-genai>=1.0.0,<2.0",
     ),
     "desci biolinker smoke": (
         "fastapi>=0.115.0,<1.0",
@@ -83,6 +90,12 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "respx>=0.21.0,<1.0",
         "sqlalchemy>=2.0.0,<3.0",
         "redis>=5.0.0,<8.0",
+    ),
+    "cie tests": (
+        "loguru>=0.7.0,<1.0",
+        "sqlalchemy>=2.0.0,<3.0",
+        "pydantic>=2.0.0,<3.0",
+        "httpx>=0.27.0",
     ),
 }
 FORCE_UV_CHECKS = {
@@ -476,11 +489,14 @@ def run_one(root: Path, item: Check) -> Result:
 
 
 def should_retry(check: Check, result: Result) -> bool:
-    if result.ok or check.name != TRANSIENT_RETRY_CHECK:
+    if result.ok:
         return False
 
     combined_output = "\n".join(part for part in (result.stdout_tail, result.stderr_tail) if part)
-    return any(pattern in combined_output for pattern in TRANSIENT_RETRY_PATTERNS)
+    if check.name == TRANSIENT_RETRY_CHECK and any(pattern in combined_output for pattern in TRANSIENT_RETRY_PATTERNS):
+        return True
+
+    return result.command.startswith("uv run ") and any(pattern in combined_output for pattern in UV_TRANSIENT_RETRY_PATTERNS)
 
 
 def run_check(root: Path, item: Check) -> Result:
