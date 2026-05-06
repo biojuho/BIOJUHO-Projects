@@ -1,7 +1,8 @@
 # Next Actions
 
 > 세션 종료 시 `/session-workflow`가 이 파일의 갱신을 제안합니다.
-> 2026-04-21 12:12 기준 — CIE 199 passed, Smoke 13/13 passed. 3개 커밋 push (8395202, 2260bef).
+> 2026-05-06 기준 — 미커밋 보안/회복성 패치 5개 커밋 분리 정리 완료
+> (7b57bc1 smoke, 9f0709a ignore, 1a6d419 canva-mcp CORS, 54f1215 dailynews subscribe, 3a32ff7 auth fail-closed).
 
 ## 완료 항목
 
@@ -34,6 +35,12 @@
 - [x] **미커밋 DailyNews CLI + getdaytrends 변경 정리/커밋** (2026-04-18)
 - [x] **HANDOFF.md 갱신 커밋** (2026-04-18)
 - [x] **getdaytrends biojuho voice persona + quality diversity gates + QA guards 커밋** (2026-04-18)
+- [x] **미커밋 보안/회복성 패치 정리 분리 커밋 5건** (2026-05-06):
+  - smoke runner: cie 등록 + uv access-denied 재시도 + google-genai dep
+  - gitignore: temp 파일 정리 + `_out*.txt` 룰 확장
+  - canva-mcp: 와일드카드 CORS 제거 + origin allowlist
+  - DailyNews subscribe_api: CORS allowlist + per-IP rate limit
+  - auth fail-closed: ALLOW_DEV_AUTH_FALLBACK 게이트 + 하드코딩 ADMIN_PASSWORD 제거 (4파일)
 
 ## Backlog (향후 진행 가능)
 
