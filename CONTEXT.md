@@ -325,3 +325,20 @@ npm run build:all
 **Entry Point**: [AUDIENCE_FIRST_SUMMARY.md](AUDIENCE_FIRST_SUMMARY.md)
 
 **Next Steps**: Week 1 — Add "Target Audience" sections to all project READMEs
+
+## Daily Snapshot
+
+> Auto-generated on **2026-05-07 00:32 UTC**
+
+| Item | Status |
+|:-----|:-------|
+| Branch | `main` @ `789061d` |
+| Uncommitted | 13 files |
+| Last Smoke | 21/21 PASS (manual-smoke-2026-05-06-fix-all-rerun) |
+| getdaytrends | ✅ |
+| DailyNews | ✅ |
+| CIE | ✅ |
+| AgriGuard | ✅ |
+| DeSci | ✅ |
+| Dashboard | ✅ |
+| shared | ✅ |
