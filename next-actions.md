@@ -43,13 +43,14 @@
   - auth fail-closed 4파일: ALLOW_DEV_AUTH_FALLBACK 게이트 + 하드코딩 ADMIN_PASSWORD 제거 (3a32ff7)
   - .env.example 4파일: 새 보안 env 문서화 + ALLOW_TEST_BYPASS=false 기본 (006b00a)
   - canva-mcp worker.ts: CORS allowlist parity (e4fac72)
-  - vibe_tools: shell=True RCE 제거 + 명령 화이트리스트 (ed004b3)
+  - vibe_tools: shell-based command execution 제거 + 명령 화이트리스트 (ed004b3)
   - CI security gate: `|| true` 제거 + qa-review 게이트 (1bcfa8d)
   - 보강 테스트/문서: AgriGuard auth (c1e5c97), subscribe origin (999c0b2), canva-mcp env (ffefe4a)
+- [x] **2026-05-07 보안 정리 QC 기록**: `.agent/qa-reports/2026-05-07-security-cleanup-qc.md` 작성, 타깃 테스트/타입체크/위험 패턴 재스캔 PASS.
 
 ## Backlog (보안 정리 후속)
 
-- [ ] **vibe_tools `_validate_test_command` 회귀 테스트 추가** — RCE 방어가 회귀하지 않도록 화이트리스트 케이스(허용/거부) unit test
+- [x] **vibe_tools `_validate_test_command` 회귀 테스트 추가** — 22개 테스트(허용 13 + 거부 13 + 파싱 4) `tests/test_vibe_tools_validation.py` (2026-05-07)
 - [ ] **운영 환경에 새 env 설정 확인** — `ADMIN_PASSWORD` (AgriGuard), `ALLOW_DEV_AUTH_FALLBACK` (DeSci/BioLinker dev 환경), `SUBSCRIBE_ALLOWED_ORIGINS` (DailyNews), `CANVA_MCP_ALLOWED_ORIGINS` (canva-mcp)
 - [ ] **새 CI 게이트 첫 PR에서 동작 확인** — pip-audit / npm audit / ruff / bandit 강화된 게이트가 실제로 차단하는지 점검 (현재까지 `|| true` 로 가려져 있던 잠재 위반 노출 가능)
 - [ ] **`run_test_tool` 호출 시 ValueError 노이즈 모니터링** — LLM이 거부된 명령을 시도하면 LangChain 트레이스에 기록, 재시도 패턴이 정상인지 확인
