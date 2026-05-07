@@ -94,6 +94,7 @@ var/logs/
 var/data/
 var/db/
 var/smoke/
+var/session-bootstrap-*.json
 var/legacy-root-backups/
 
 # SQLite databases

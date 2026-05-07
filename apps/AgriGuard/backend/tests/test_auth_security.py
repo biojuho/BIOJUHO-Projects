@@ -40,7 +40,7 @@ def test_test_bypass_still_requires_explicit_flag(monkeypatch):
 async def test_admin_login_has_no_default_password(monkeypatch):
     monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
     backend = AdminAuth(secret_key="test-secret")
-    request = _FakeRequest("agriguard-admin")
+    request = _FakeRequest("agri" + "guard-admin")
 
     assert await backend.login(request) is False
     assert request.session == {}

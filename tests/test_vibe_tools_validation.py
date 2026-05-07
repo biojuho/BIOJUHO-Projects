@@ -27,6 +27,7 @@ sys.modules.setdefault("langchain_core.tools", _lc_tools)
 from shared.llm.reasoning.vibe_tools import (  # noqa: E402
     _split_command,
     _validate_test_command,
+    run_test_tool,
 )
 
 
@@ -169,3 +170,14 @@ class TestSplitCommand:
     def test_windows_path_backslashes(self) -> None:
         result = _split_command(r"pytest tests\unit\test_foo.py")
         assert len(result) == 2
+
+
+class TestRunTestTool:
+    """Runtime behavior for rejected commands."""
+
+    def test_rejected_command_returns_structured_failure(self) -> None:
+        result = run_test_tool("curl http://example.com")
+
+        assert result["passed"] is False
+        assert "Command is not allowed" in result["output"]
+        assert "Traceback" not in result["output"]

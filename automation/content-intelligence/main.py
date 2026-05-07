@@ -1,24 +1,24 @@
 """
 =======================================================
   Content Intelligence Engine (CIE) v2.0
-  ?몃젋??& ?뚮옯??洹쒖젣 諛섏쁺 肄섑뀗痢?李쎌옉 + ?먮룞 諛쒗뻾 ?쒖뒪??
+  트렌드 & 플랫폼 규제 반영 콘텐츠 창작 + 자동 발행 시스템
 
-  5?④퀎 ?뚯씠?꾨씪??
-    1?④퀎: ?몃젋???섏쭛 (GDT Bridge + X, Threads, ?ㅼ씠踰?
-    2?④퀎: ?뚮옯??洹쒖젣 & ?뚭퀬由ъ쬁 ?먭?
-    3?④퀎: 肄섑뀗痢??앹꽦 / 理쒖쟻??/ QA 寃利?
-    4?④퀎: 濡쒖뺄 DB ???
-    5?④퀎: 諛쒗뻾 (Notion + X)
-    蹂대꼫?? ?붽컙 ?뚭퀬 & ?쒖뒪???낅뜲?댄듃
+  5단계 파이프라인:
+    1단계: 트렌드 수집 (GDT Bridge + X, Threads, 네이버)
+    2단계: 플랫폼 규제 & 컴플라이언스 점검
+    3단계: 콘텐츠 생성 / 최적화 / QA 검증
+    4단계: 로컬 DB 저장
+    5단계: 발행 (Notion + X)
+    보너스: 월간 리뷰 & 시스템 업데이트
 
   Usage:
-    python main.py --mode full              # ?꾩껜 ?뚯씠?꾨씪??(諛쒗뻾 ?쒖쇅)
-    python main.py --mode full --publish    # ?꾩껜 + Notion/X 諛쒗뻾
-    python main.py --mode trend             # ?몃젋???섏쭛留?
-    python main.py --mode regulation        # 洹쒖젣 ?먭?留?
-    python main.py --mode review            # ?붽컙 ?뚭퀬
-    python main.py --mode publish-only      # 誘몃컻??肄섑뀗痢?諛쒗뻾
-    python main.py --dry-run                # LLM ?몄텧 ?놁씠 援ъ“ 寃利?
+    python main.py --mode full              # 전체 파이프라인(발행 제외)
+    python main.py --mode full --publish    # 전체 + Notion/X 발행
+    python main.py --mode trend             # 트렌드 수집만
+    python main.py --mode regulation        # 규제 점검만
+    python main.py --mode review            # 월간 리뷰
+    python main.py --mode publish-only      # 미발행 콘텐츠 발행
+    python main.py --dry-run                # LLM 호출 없이 구조 검증
 =======================================================
 """
 
@@ -30,7 +30,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# ?? PYTHONPATH ?ㅼ젙 ??
+# ── PYTHONPATH 설정 ──
 _CIE_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _CIE_DIR.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -42,9 +42,9 @@ from config import CIEConfig
 from loguru import logger as log
 from storage.models import MergedTrendReport
 
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  CLI
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 def parse_args() -> argparse.Namespace:
@@ -55,17 +55,17 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         choices=["full", "trend", "regulation", "review", "publish-only"],
         default="full",
-        help="?ㅽ뻾 紐⑤뱶 (湲곕낯: full)",
+        help="실행 모드 (기본: full)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Validate structure without live LLM calls")
-    parser.add_argument("--publish", action="store_true", help="肄섑뀗痢??먮룞 諛쒗뻾 (Notion + X)")
-    parser.add_argument("--verbose", action="store_true", help="?곸꽭 濡쒓렇")
+    parser.add_argument("--publish", action="store_true", help="콘텐츠 자동 발행 (Notion + X)")
+    parser.add_argument("--verbose", action="store_true", help="상세 로그")
     return parser.parse_args()
 
 
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Logging
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -80,24 +80,24 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
 
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Banner
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 def print_banner(config: CIEConfig, mode: str, publish: bool) -> None:
     log.info("=" * 55)
     log.info("  Content Intelligence Engine (CIE) v2.0")
-    log.info("  ?몃젋??& ?뚮옯??洹쒖젣 諛섏쁺 肄섑뀗痢?李쎌옉 + 諛쒗뻾")
+    log.info("  트렌드 & 플랫폼 규제 반영 콘텐츠 창작 + 발행")
     log.info("=" * 55)
-    log.info(f"  紐⑤뱶: {mode.upper()}" + (" + 諛쒗뻾" if publish else ""))
+    log.info(f"  모드: {mode.upper()}" + (" + 발행" if publish else ""))
     log.info(config.summary())
     log.info("=" * 55)
 
 
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Pipeline Steps
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 def _trend_quorum_required(platform_count: int) -> int:
@@ -113,10 +113,10 @@ def _has_trend_quorum(report: MergedTrendReport) -> bool:
 
 
 async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
-    """Step 1: 硫?고뵆?ロ뤌 ?몃젋???섏쭛 (蹂묐젹)."""
-    log.info("\n" + "?" * 40)
-    log.info("?뱻 STEP 1: ?몃젋???섏쭛")
-    log.info("?" * 40)
+    """Step 1: 멀티플랫폼 트렌드 수집 (병렬)."""
+    log.info("\n" + "━" * 40)
+    log.info("📊 STEP 1: 트렌드 수집")
+    log.info("━" * 40)
 
     from collectors.naver_collector import collect_naver_trends
     from collectors.threads_collector import collect_threads_trends
@@ -138,14 +138,14 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
             tasks.append(collector_map[platform](config))
         else:
             failed_platforms.append(platform)
-            log.warning(f"  ?좑툘 ?????녿뒗 ?뚮옯?? {platform}")
+            log.warning(f"  수집 불가능한 플랫폼: {platform}")
 
     reports = await asyncio.gather(*tasks, return_exceptions=True)
 
     valid_reports = []
     for r in reports:
         if isinstance(r, BaseException):
-            log.error(f"  ???섏쭛 ?ㅽ뙣: {r}")
+            log.error(f"  수집 실패: {r}")
         else:
             valid_reports.append(r)
 
@@ -170,7 +170,7 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
 
 
 
-    # 援먯감 ?뚮옯???ㅼ썙???앸퀎
+    # 교차 플랫폼 키워드 집계
     all_keywords: dict[str, int] = {}
     for report in valid_reports:
         for t in report.trends:
@@ -179,7 +179,7 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
 
     cross_platform = [k for k, v in all_keywords.items() if v >= 2]
 
-    # ?몄궗?댄듃 ?듯빀
+    # 인사이트 통합
     all_insights = []
     for report in valid_reports:
         all_insights.extend(report.key_insights[:2])
@@ -198,7 +198,7 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
     total_trends = sum(len(r.trends) for r in valid_reports)
     log.info(f"\n  Trend collection summary: {len(valid_reports)} platforms / {total_trends} trends")
     if cross_platform:
-        log.info(f"  ?뵕 援먯감 ?뚮옯???ㅼ썙?? {', '.join(cross_platform)}")
+        log.info(f"  🔗 교차 플랫폼 키워드: {', '.join(cross_platform)}")
 
     if degraded:
         log.warning(f"  [degraded] failed platforms: {', '.join(failed_platforms)}")
@@ -212,10 +212,10 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
 
 
 async def step_check_regulations(config: CIEConfig):
-    """Step 2: ?뚮옯??洹쒖젣 & ?뚭퀬由ъ쬁 ?먭?."""
-    log.info("\n" + "?" * 40)
-    log.info("?뵇 STEP 2: 洹쒖젣 ?먭?")
-    log.info("?" * 40)
+    """Step 2: 플랫폼 규제 & 컴플라이언스 점검."""
+    log.info("\n" + "━" * 40)
+    log.info("📋 STEP 2: 규제 점검")
+    log.info("━" * 40)
 
     from regulators.checklist import check_all_regulations, generate_unified_checklist
 
@@ -226,27 +226,27 @@ async def step_check_regulations(config: CIEConfig):
 
 
 async def step_generate_content(config, trend_report, checklist):
-    """Step 3: 肄섑뀗痢??앹꽦 + QA 寃利?"""
-    log.info("\n" + "?" * 40)
-    log.info("?랃툘 STEP 3: 肄섑뀗痢??앹꽦")
-    log.info("?" * 40)
+    """Step 3: 콘텐츠 생성 + QA 검증"""
+    log.info("\n" + "━" * 40)
+    log.info("✍️ STEP 3: 콘텐츠 생성")
+    log.info("━" * 40)
 
     from generators.content_engine import generate_all_content, validate_and_regenerate
 
     batch = await generate_all_content(trend_report, checklist, config)
 
     if config.enable_qa_validation:
-        log.info("\n  ?뵮 QA 寃利??쒖옉...")
+        log.info("\n  🔍 QA 검증 시작...")
         batch = await validate_and_regenerate(batch, config)
 
     return batch
 
 
 async def step_save(config, trend_report=None, regulation_reports=None, batch=None):
-    """Step 4: 濡쒖뺄 DB ???+ GDT ??뵾?쒕갚 二쇱엯."""
-    log.info("\n" + "?" * 40)
+    """Step 4: 로컬 DB 저장 + GDT 피드백 주입."""
+    log.info("\n" + "━" * 40)
     log.info("[SAVE] STEP 4")
-    log.info("?" * 40)
+    log.info("━" * 40)
 
     from storage.local_db import get_connection, save_contents, save_regulations, save_trends
 
@@ -261,7 +261,7 @@ async def step_save(config, trend_report=None, regulation_reports=None, batch=No
     finally:
         conn.close()
 
-    # GDT ??뵾?쒕갚: CIE QA ?먯닔 ??GetDayTrends content_feedback ?뚯씠釉?
+    # GDT 피드백: CIE QA 점수를 GetDayTrends content_feedback 테이블로 전달
     if batch and batch.contents:
         from collectors.gdt_bridge import write_content_feedback_batch
 
@@ -269,7 +269,7 @@ async def step_save(config, trend_report=None, regulation_reports=None, batch=No
         for c in batch.contents:
             if c.qa_report is None:
                 continue
-            # ?몃젋???ㅼ썙?쒕퀎濡?媛곴컖 ?쇰뱶諛?二쇱엯 (?놁쑝硫??쒕ぉ/?뚮옯?쇱쑝濡??泥?
+            # 트렌드 키워드별로 각각 피드백 주입 (없으면 제목/플랫폼으로 대체)
             keywords = c.trend_keywords_used or ([c.title] if c.title else [c.platform])
             regenerated = c.qa_report.total_score < config.qa_min_score
             reason = "; ".join(c.qa_report.warnings[:2]) if c.qa_report.warnings else ""
@@ -288,7 +288,7 @@ async def step_save(config, trend_report=None, regulation_reports=None, batch=No
 
 
 async def _step_predict_engagement(batch, trend_report, config) -> None:
-    """Step 3.5: PEE濡?媛?肄섑뀗痢??덉긽 ?깃낵瑜??덉륫?섍퀬 metadata??湲곕줉."""
+    """Step 3.5: PEE로 각 콘텐츠 예상 성과를 예측하고 metadata에 기록."""
     try:
         from shared.prediction import PredictionEngine
 
@@ -317,7 +317,7 @@ async def _step_predict_engagement(batch, trend_report, config) -> None:
                 category=content.platform or "other",
                 content_type=content.content_type or "tweet",
             )
-            # dict metadata?????(紐⑤뜽 媛앹껜??ad-hoc ?띿꽦 諛⑹?)
+            # dict metadata로 저장 (모든 객체에 ad-hoc 속성 방식)
             if not hasattr(content, "pee_prediction"):
                 content.pee_prediction = {}
             content.pee_prediction = {
@@ -330,52 +330,52 @@ async def _step_predict_engagement(batch, trend_report, config) -> None:
             annotated += 1
 
         if annotated:
-            log.info(f"  ?뵰 [PEE] {annotated}嫄??깃낵 ?덉륫 ?꾨즺")
+            log.info(f"  🎯 [PEE] {annotated}건 성과 예측 완료")
     except ImportError:
-        pass  # PEE 誘몄꽕移???skip
+        pass  # PEE 미설치 시 skip
     except Exception as e:
-        log.debug(f"  [PEE] ?덉륫 ?ㅽ뙣 (臾댁떆): {type(e).__name__}: {e}")
+        log.debug(f"  [PEE] 예측 실패 (무시): {type(e).__name__}: {e}")
 
 
 async def step_publish(config: CIEConfig, batch):
-    """Step 5: 肄섑뀗痢?諛쒗뻾 (Notion + X)."""
-    log.info("\n" + "?" * 40)
-    log.info("?? STEP 5: 諛쒗뻾")
-    log.info("?" * 40)
+    """Step 5: 콘텐츠 발행 (Notion + X)."""
+    log.info("\n" + "━" * 40)
+    log.info("🚀 STEP 5: 발행")
+    log.info("━" * 40)
 
     all_results = []
 
-    # Notion 諛쒗뻾
+    # Notion 발행
     if config.can_publish_notion:
         from storage.notion_publisher import publish_batch_to_notion
 
         notion_results = await publish_batch_to_notion(batch, config)
         all_results.extend(notion_results)
         success = sum(1 for r in notion_results if r.success)
-        log.info(f"  ?뱬 Notion: {success}/{len(notion_results)} 諛쒗뻾 ?깃났")
+        log.info(f"  📝 Notion: {success}/{len(notion_results)} 발행 성공")
     else:
-        log.info("  ?뱬 Notion 諛쒗뻾: 鍮꾪솢??(CIE_NOTION_PUBLISH=true ?꾩슂)")
+        log.info("  📝 Notion 발행: 비활성 (CIE_NOTION_PUBLISH=true 필요)")
 
-    # X 諛쒗뻾
+    # X 발행
     if config.can_publish_x:
         from storage.x_publisher import publish_batch_to_x
 
         x_results = await publish_batch_to_x(batch, config)
         all_results.extend(x_results)
         success = sum(1 for r in x_results if r.success)
-        log.info(f"  ?맔 X: {success}/{len(x_results)} 諛쒗뻾 ?깃났")
+        log.info(f"  🐦 X: {success}/{len(x_results)} 발행 성공")
     else:
-        log.info("  ?맔 X 諛쒗뻾: 鍮꾪솢??(CIE_X_PUBLISH=true ?꾩슂)")
+        log.info("  🐦 X 발행: 비활성 (CIE_X_PUBLISH=true 필요)")
 
     batch.publish_results = all_results
     return all_results
 
 
 async def step_publish_only(config: CIEConfig):
-    """誘몃컻??肄섑뀗痢좊? DB?먯꽌 ?쎌뼱 諛쒗뻾?쒕떎."""
-    log.info("\n" + "?" * 40)
-    log.info("?? 誘몃컻??肄섑뀗痢?諛쒗뻾")
-    log.info("?" * 40)
+    """미발행 콘텐츠를 DB에서 읽어 발행한다."""
+    log.info("\n" + "━" * 40)
+    log.info("🚀 미발행 콘텐츠 발행")
+    log.info("━" * 40)
 
     from storage.local_db import get_connection, load_unpublished_contents
 
@@ -383,10 +383,10 @@ async def step_publish_only(config: CIEConfig):
     try:
         contents = load_unpublished_contents(conn, min_qa_score=config.qa_min_score)
         if not contents:
-            log.info("  ?뱄툘 諛쒗뻾??誘몃컻??肄섑뀗痢좉? ?놁뒿?덈떎.")
+            log.info("  📭 발행할 미발행 콘텐츠가 없습니다.")
             return
 
-        log.info(f"  ?벀 誘몃컻??肄섑뀗痢?{len(contents)}嫄?諛쒓껄")
+        log.info(f"  📬 미발행 콘텐츠 {len(contents)}건 발견")
 
         from storage.models import ContentBatch
 
@@ -396,9 +396,9 @@ async def step_publish_only(config: CIEConfig):
         conn.close()
 
 
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Main Pipeline
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 async def run_pipeline(
@@ -424,7 +424,7 @@ async def run_pipeline(
         elif mode == "regulation":
             reports, checklist = await step_check_regulations(config)
             await step_save(config, regulation_reports=reports)
-            log.info(f"\n?뱥 泥댄겕由ъ뒪??\n{checklist.to_checklist_text()}")
+            log.info(f"\n📋 체크리스트:\n{checklist.to_checklist_text()}")
 
         elif mode == "review":
             from review.monthly_review import run_monthly_review
@@ -437,11 +437,11 @@ async def run_pipeline(
             finally:
                 conn.close()
 
-            log.info("\n?뱤 ?붽컙 ?뚭퀬 寃곌낵:")
+            log.info("\n📊 월간 리뷰 결과:")
             for s in review.next_month_strategy:
-                log.info(f"  ?뱦 {s}")
+                log.info(f"  📌 {s}")
             for imp in review.system_improvements:
-                log.info(f"  ?뵩 {imp}")
+                log.info(f"  🔧 {imp}")
 
         elif mode == "publish-only":
             await step_publish_only(config)
@@ -481,13 +481,13 @@ async def run_pipeline(
             # Step 3
             batch = await step_generate_content(config, trend_report, checklist)
 
-            # Step 3.5: PEE ?깃낵 ?덉륫 (optional)
+            # Step 3.5: PEE 성과 예측 (optional)
             await _step_predict_engagement(batch, trend_report, config)
 
             # Step 4
             await step_save(config, trend_report, reports, batch)
 
-            # Step 5 (諛쒗뻾 ??--publish ?뚮옒洹??꾩슂)
+            # Step 5 (발행은 --publish 플래그 필요)
             if publish and trend_report.publish_blocked:
                 log.warning(
                     f"[publish skipped] degraded trend collection; failed platforms: "
@@ -496,22 +496,22 @@ async def run_pipeline(
             elif publish:
                 await step_publish(config, batch)
 
-            # 寃곌낵 ?붿빟
+            # 결과 요약
             log.info("\n" + "=" * 55)
-            log.info("  ?벀 ?뚯씠?꾨씪??寃곌낵 ?붿빟")
+            log.info("  📊 파이프라인 결과 요약")
             log.info("=" * 55)
             log.info(f"  {batch.summary()}")
             for c in batch.contents:
-                qa_str = c.qa_report.to_emoji_report() if c.qa_report else "(誘멸?利?"
-                pub_str = f" | 諛쒗뻾: {c.publish_target}" if c.is_published else ""
+                qa_str = c.qa_report.to_emoji_report() if c.qa_report else "(미검증)"
+                pub_str = f" | 발행: {c.publish_target}" if c.is_published else ""
                 pee_str = ""
                 pee = getattr(c, "pee_prediction", None)
                 if pee:
-                    pee_str = f" | PEE: ER={pee['predicted_er']:.2%} 諛붿씠??{pee['viral_probability']:.0%}"
+                    pee_str = f" | PEE: ER={pee['predicted_er']:.2%} 바이럴={pee['viral_probability']:.0%}"
                 log.info(f"  [{c.platform.upper()}/{c.content_type}] {qa_str}{pub_str}{pee_str}")
                 if c.body:
                     preview = c.body[:100].replace("\n", " ") + "..."
-                    log.info(f"    ?뱷 {preview}")
+                    log.info(f"    📄 {preview}")
 
         elapsed = (datetime.now() - start).total_seconds()
         log.info(f"\nElapsed time: {elapsed:.1f}s")
@@ -537,9 +537,9 @@ async def run_pipeline(
         sys.exit(1)
 
 
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Entry Point
-# ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 def main() -> None:
@@ -552,7 +552,7 @@ def main() -> None:
         config.validate()
 
     if args.dry_run:
-        log.info("?㎦ DRY RUN 紐⑤뱶 ??LLM ?몄텧 ?놁씠 援ъ“ 寃利앸쭔 ?섑뻾")
+        log.info("🧪 DRY RUN 모드 — LLM 호출 없이 구조 검증만 실행")
         log.info("  Config loaded: OK")
         log.info(f"  Platforms: {config.platforms}")
         log.info(f"  DB path: {config.sqlite_path}")
@@ -560,7 +560,7 @@ def main() -> None:
         log.info("  Notion publish: ON" if config.can_publish_notion else "  Notion publish: OFF")
         log.info("  X publish: ON" if config.can_publish_x else "  X publish: OFF")
 
-        # GDT Bridge ?뺤씤
+        # GDT Bridge 확인
         from collectors.gdt_bridge import _find_gdt_db
 
         gdt_path = _find_gdt_db(config)

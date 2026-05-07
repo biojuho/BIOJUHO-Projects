@@ -41,7 +41,7 @@ def main():
 
     if not token or "your_" in token:
         print("❌ NOTION_TOKEN이 설정되지 않았습니다.")
-        print("   → .env 파일에 NOTION_TOKEN=ntn_xxx 형태로 설정해주세요")
+        print("   → .env 파일에 NOTION_TOKEN=<notion-integration-token> 형태로 설정해주세요")
         return
 
     notion = NotionClient(auth=token)

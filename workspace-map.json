@@ -69,7 +69,7 @@
         "automation/content-intelligence/data",
         "automation/content-intelligence/output"
       ],
-      "test_scope": "workspace"
+      "test_scope": "cie"
     },
     {
       "id": "canva-mcp",
