@@ -40,6 +40,16 @@ def test_security_quality_gate_has_pr_comment_permissions() -> None:
     assert "continue-on-error: true" in workflow
 
 
+def test_qa_review_scans_changed_python_files_only() -> None:
+    workflow = _read(".github/workflows/security-quality-gate.yml")
+
+    assert "changed-python-files.txt" in workflow
+    assert 'ruff check --select=E,F,W,I,N,UP,S,B --output-format=github "${PY_FILES[@]}"' in workflow
+    assert 'bandit "${PY_FILES[@]}" -f json -o bandit-report.json -ll' in workflow
+    assert "ruff check --select=E,F,W,I,N,UP,S,B --output-format=github ." not in workflow
+    assert "bandit -r ." not in workflow
+
+
 def test_security_quality_gate_waits_for_expected_jobs() -> None:
     workflow = _read(".github/workflows/security-quality-gate.yml")
     match = re.search(r"needs:\s*\[([^\]]+)\]", workflow)

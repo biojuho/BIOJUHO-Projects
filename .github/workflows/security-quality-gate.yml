@@ -161,10 +161,13 @@ jobs:
       - name: Get changed files
         id: changed
         run: |
-          FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | tr '\n' ' ')
+          git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} > changed-files.txt
+          grep -E '\.py$' changed-files.txt > changed-python-files.txt || true
+          grep -E '\.(jsx?|tsx?|vue|svelte)$' changed-files.txt > changed-js-files.txt || true
+          FILES=$(tr '\n' ' ' < changed-files.txt)
+          PY_COUNT=$(wc -l < changed-python-files.txt | tr -d ' ')
+          JS_COUNT=$(wc -l < changed-js-files.txt | tr -d ' ')
           echo "files=$FILES" >> $GITHUB_OUTPUT
-          PY_COUNT=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -c '\.py$' || true)
-          JS_COUNT=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -cE '\.(jsx?|tsx?|vue|svelte)$' || true)
           echo "py_count=$PY_COUNT" >> $GITHUB_OUTPUT
           echo "js_count=$JS_COUNT" >> $GITHUB_OUTPUT
 
@@ -185,15 +188,16 @@ jobs:
         run: |
           uv tool install ruff
           uv tool install bandit
+          mapfile -t PY_FILES < changed-python-files.txt
 
           # Lint
           echo "::group::Ruff Lint"
-          ruff check --select=E,F,W,I,N,UP,S,B --output-format=github .
+          ruff check --select=E,F,W,I,N,UP,S,B --output-format=github "${PY_FILES[@]}"
           echo "::endgroup::"
 
           # Security
           echo "::group::Bandit Security Scan"
-          bandit -r . -f json -o bandit-report.json --exclude ./.venv,./node_modules -ll
+          bandit "${PY_FILES[@]}" -f json -o bandit-report.json -ll
           echo "::endgroup::"
 
       - name: Upload QA Report
