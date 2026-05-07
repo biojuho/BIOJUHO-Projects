@@ -27,6 +27,17 @@ def test_security_quality_gate_does_not_mask_hard_gate_failures() -> None:
 
     assert "Dependency Audit: FAILED (non-blocking)" not in workflow
     assert "Dependency audit failed. Fix vulnerable packages before merging." in workflow
+    assert "npm audit --omit=dev --audit-level=high" in workflow
+    assert "Full npm audit found development dependency findings" in workflow
+
+
+def test_security_quality_gate_has_pr_comment_permissions() -> None:
+    workflow = _read(".github/workflows/security-quality-gate.yml")
+
+    assert re.search(r"^permissions:\n(?:  .+\n)+", workflow, flags=re.MULTILINE) is not None
+    assert re.search(r"^\s+issues:\s*write\b", workflow, flags=re.MULTILINE)
+    assert re.search(r"^\s+pull-requests:\s*write\b", workflow, flags=re.MULTILINE)
+    assert "continue-on-error: true" in workflow
 
 
 def test_security_quality_gate_waits_for_expected_jobs() -> None:

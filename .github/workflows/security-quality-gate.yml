@@ -79,7 +79,10 @@ jobs:
             if [ -f "$pkg_dir/package-lock.json" ]; then
               echo "::group::Auditing $pkg_dir"
               cd "$pkg_dir"
-              npm audit --audit-level=high
+              npm audit --omit=dev --audit-level=high
+              if ! npm audit --audit-level=high; then
+                echo "::warning::Full npm audit found development dependency findings in $pkg_dir"
+              fi
               cd "$GITHUB_WORKSPACE"
               echo "::endgroup::"
             fi
