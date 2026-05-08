@@ -44,7 +44,7 @@ jobs:
       NOTION_REPORTS_DATABASE_ID: ${{ secrets.DAILYNEWS_NOTION_REPORTS_DB_ID || secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dailynews-log-${{ github.run_number }}
           path: |

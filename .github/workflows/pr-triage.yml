@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
 
@@ -44,7 +44,7 @@ jobs:
         run: cat var/pr-triage/pr-triage-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload triage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pr-triage-${{ github.event.pull_request.number }}
           path: var/pr-triage/
@@ -54,7 +54,7 @@ jobs:
       - name: Update PR comment
         if: github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const fs = require("fs");

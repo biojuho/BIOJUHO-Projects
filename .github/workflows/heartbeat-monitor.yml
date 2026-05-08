@@ -11,14 +11,14 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
       - name: Check pipeline health
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const ONE_DAY = 24 * 60 * 60 * 1000;

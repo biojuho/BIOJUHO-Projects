@@ -33,7 +33,7 @@ jobs:
     if: ${{ github.event.inputs.skip_calibration != 'true' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -51,7 +51,7 @@ jobs:
         run: mkdir -p automation/getdaytrends/data
 
       - name: Download latest DB artifact (if available)
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
         with:
           workflow: getdaytrends.yml
           name: getdaytrends-db
@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload calibration report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: calibration-report-${{ github.run_number }}
           path: automation/getdaytrends/data/calibration_report_*.json
@@ -112,7 +112,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_roi != 'true')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -130,7 +130,7 @@ jobs:
         run: mkdir -p automation/getdaytrends/data var/reports
 
       - name: Download latest GetDayTrends DB (if available)
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
         with:
           workflow: getdaytrends.yml
           name: getdaytrends-db
@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload ROI report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: roi-report-${{ github.run_number }}
           path: var/reports/roi_*.json
