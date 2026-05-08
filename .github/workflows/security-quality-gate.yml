@@ -10,6 +10,7 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
+  security-events: write  # for zizmor SARIF upload
 
 jobs:
   # ── Secret Leak Detection ──
@@ -87,6 +88,63 @@ jobs:
               echo "::endgroup::"
             fi
           done
+
+  # ── Workflow Static Analysis (zizmor) ──
+  workflow-audit:
+    name: "\U0001F6E1️ Workflow Audit (zizmor)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+
+      - name: Run zizmor (SARIF)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uvx zizmor==1.24.1 --persona=auditor --format=sarif .github/workflows/ > zizmor.sarif 2> zizmor.log || true
+          uvx zizmor==1.24.1 --persona=auditor --format=json   .github/workflows/ > zizmor.json  2>> zizmor.log || true
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84 # v3.35.3
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+
+      - name: Hard-gate on unpinned-uses regressions
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          data = json.load(open('zizmor.json'))
+          unpinned = [f for f in data if f.get('ident') == 'unpinned-uses']
+          if unpinned:
+              print(f"::error::zizmor: {len(unpinned)} unpinned action reference(s) detected. Run 'pinact run' locally and re-commit.")
+              for f in unpinned[:10]:
+                  loc = (f.get('locations') or [{}])[0]
+                  path = loc.get('symbolic',{}).get('key',{}).get('Local',{}).get('given_path','?')
+                  print(f"  - {path}: {f.get('desc','')[:120]}")
+              sys.exit(1)
+          print("zizmor: no unpinned-uses regressions")
+          PY
+
+      - name: Upload zizmor reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zizmor-reports
+          path: |
+            zizmor.sarif
+            zizmor.json
+            zizmor.log
+          if-no-files-found: warn
+          retention-days: 14
 
   # -- Security Contract Tests --
   security-contracts:
@@ -250,7 +308,7 @@ jobs:
   quality-gate:
     name: "\u2705 Quality Gate"
     runs-on: ubuntu-latest
-    needs: [secret-scan, dependency-scan, security-contracts, qa-review, smoke-test]
+    needs: [secret-scan, dependency-scan, workflow-audit, security-contracts, qa-review, smoke-test]
     if: always()
     steps:
       - name: Check results
@@ -275,6 +333,15 @@ jobs:
           else
             echo "- :x: Dependency Audit: FAILED" >> $GITHUB_STEP_SUMMARY
             echo "::error::Dependency audit failed. Fix vulnerable packages before merging."
+            GATE_PASS=false
+          fi
+
+          # Workflow audit (hard gate on unpinned-uses regression)
+          if [ "${{ needs.workflow-audit.result }}" = "success" ]; then
+            echo "- :white_check_mark: Workflow Audit: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :x: Workflow Audit: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "::error::zizmor detected unpinned action reference(s). Run 'pinact run' locally and re-commit."
             GATE_PASS=false
           fi
 
