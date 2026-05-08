@@ -1,22 +1,32 @@
 # Next Actions
 
-> 세션 종료 시 `/session-workflow`가 이 파일의 갱신을 제안합니다.
-> 2026-05-07 기준 — 시스템 고도화 세션
+> 2026-05-08 기준 — 시스템 고도화 세션: GHA 공급망 보안 강화 (Plan A+D)
 
 ## Backlog (미완료)
 
-- [ ] **새 CI 게이트 첫 PR 실기동 확인** — GitHub Actions 실제 PR run URL이 생기면 merge 차단 동작 최종 확인
-- [ ] **X 수동 발행**: Economy_Global 최종 문안 + posting 이미지 → X 게시 후 URL 기록
-- [ ] **Canva token 브라우저 재인증** (PKCE flow): `canva_auth_server.py` 실행 → 토큰 갱신
+- [ ] **새 CI 게이트 실기동 로그 모니터링** — PR 생성 시 Bandit/Ruff + zizmor 코멘트 정상 출력 확인
+- [ ] **Canva token 브라우저 재인증 최종 확인** (인증 서버 기동 테스트 완료됨)
+- [ ] **X 수동 발행**: Economy_Global 최종 문안 게시
+
+## 시스템 고도화 후속 작업 (zizmor 잔여 findings)
+
+- [needs_approval] **Plan B**: HIGH template-injection 22건 수동 패치 — `${{ github.event.* }}` → `env:` 분리. 영향 파일: collect-tweet-metrics, content-intelligence 등. 별도 PR 권장
+- [safe_auto] **secrets-outside-env 120건** — reusable workflow 호출 시 `with:` → `env:` 이동. 기계적 변환 가능
+- [safe_auto] **excessive-permissions 50건** — 워크플로/잡 단위 `permissions: contents: read` 명시 추가
+- [safe_auto] **artipacked 36건** — checkout step에 `persist-credentials: false` 추가 (zizmor auto-fix 가능)
+- [safe_auto] **concurrency-limits 19건** — `concurrency: group/cancel-in-progress` 추가
+- [needs_approval] **Plan P0-1 Langfuse self-host** — Supabase 옆 컨테이너로 LLM observability 도입
+- [needs_approval] **Plan P0-2 LiteLLM proxy** — 7개 LLM 백엔드 통합 게이트웨이
+- [needs_approval] **Plan P1-uv workspaces** — apps/automation/mcp/packages 단일 lockfile
 
 ## 다음 세션 복붙 메모
 
 ```text
-시스템 고도화 완료 후 진행:
-- CIE main.py 인코딩 복원 완료 (UTF-8)
-- 레거시 파일 13개 삭제 완료
-- HANDOFF/CONTEXT/next-actions 문서 리셋 완료
-- CI security-quality-gate PR 코멘트 자동 리포팅 추가 완료
-- 스모크 테스트 안정화 완료
-- 미커밋 변경사항 정리 커밋 완료
+GHA 공급망 보안 강화 완료 (2026-05-08):
+- pinact: 26 workflows + 1 composite action SHA 핀 (commit 1437793)
+- zizmor 게이트: workflow-audit job 추가, unpinned-uses 회귀 hard-fail (commit 0e3a006)
+- zizmor HIGH 108 → 25 (-83), unpinned-uses 100% 제거
+- 잔여 25 HIGH = template-injection 22 + excessive-permissions 3 → Plan B에서 처리
+- var/zizmor.json (전), var/zizmor-after.json (후) 비교 가능
+- pinact 도구는 ~/go/bin/pinact.exe (Windows), zizmor는 uvx로 ephemeral 실행
 ```
