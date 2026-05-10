@@ -4,7 +4,7 @@
 
 ## Backlog (미완료)
 
-- [needs_approval] **QA Review S101 false positive 수정 (별도 PR)** — workflow의 hardcoded `--select=...,S,...`가 테스트 파일 assert를 차단. fix: `--per-file-ignores='tests/**:S101' '**/test_*.py:S101,S105,S106' '**/conftest.py:S101'` + 두 test 파일 I001 import 정렬. 영향 파일: `.github/workflows/security-quality-gate.yml`, `tests/test_security_gate_contracts.py`, `tests/test_vibe_tools_validation.py`
+- [x] ~~QA Review S101 false positive 수정~~ — commit 244ea18 (PR #117에 통합, 별도 PR 대신). per-file-ignores 추가 + 두 test 파일 I001/F401 정리 + contract 테스트 갱신. GHA 재검증 진행 중.
 - [ ] **Canva token 브라우저 재인증 최종 확인** (인증 서버 기동 테스트 완료됨)
 - [ ] **X 수동 발행**: Economy_Global 최종 문안 게시
 
