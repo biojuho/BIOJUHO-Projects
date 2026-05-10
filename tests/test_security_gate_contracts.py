@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -44,10 +43,20 @@ def test_qa_review_scans_changed_python_files_only() -> None:
     workflow = _read(".github/workflows/security-quality-gate.yml")
 
     assert "changed-python-files.txt" in workflow
-    assert 'ruff check --select=E,F,W,I,N,UP,S,B --output-format=github "${PY_FILES[@]}"' in workflow
+    assert "ruff check --select=E,F,W,I,N,UP,S,B" in workflow
+    assert '"${PY_FILES[@]}"' in workflow
     assert 'bandit "${PY_FILES[@]}" -f json -o bandit-report.json -ll' in workflow
     assert "ruff check --select=E,F,W,I,N,UP,S,B --output-format=github ." not in workflow
     assert "bandit -r ." not in workflow
+
+
+def test_qa_review_excludes_pytest_assert_rule_in_test_files() -> None:
+    """S101 (assert) is the standard pytest pattern — must be ignored in test files."""
+    workflow = _read(".github/workflows/security-quality-gate.yml")
+
+    assert "--per-file-ignores='tests/**:S101'" in workflow
+    assert "--per-file-ignores='**/test_*.py:S101'" in workflow
+    assert "--per-file-ignores='**/conftest.py:S101'" in workflow
 
 
 def test_security_quality_gate_waits_for_expected_jobs() -> None:

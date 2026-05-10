@@ -10,10 +10,9 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import os
-from pathlib import Path
 import sys
 import types
-from unittest.mock import MagicMock
+from pathlib import Path
 
 import pytest
 
