@@ -183,23 +183,32 @@ async def match_rfp(
 @limiter.limit("30/minute")
 async def match_paper_to_rfps(
     request: Request,
-    body: dict = Body(..., examples=[{"paper_id": "uuid"}]),
+    body: dict = Body(..., examples=[{"paper_id": "uuid", "enrich": True}]),
 ):
-    """Match a previously uploaded paper to relevant RFPs."""
+    """Match a previously uploaded paper to relevant RFPs.
+
+    Pass ``enrich=true`` in the body to widen the search with OpenAlex
+    domain concepts. Enriched responses include an ``enrichment`` block
+    listing the concepts applied; legacy callers (no flag) get the
+    original ``{"matches": [...]}`` shape.
+    """
     paper_id = body.get("paper_id")
     if not paper_id:
         raise HTTPException(status_code=400, detail="paper_id is required")
+    enrich = bool(body.get("enrich", False))
 
     try:
         matcher = get_rfp_matcher()
-        results = await matcher.match_paper(paper_id, limit=5)
+        result = await matcher.match_paper(paper_id, limit=5, enrich=enrich)
         try:
             from shared.business_metrics import biz
 
             biz.rfp_match()
         except ImportError:
             pass
-        return {"matches": results}
+        if enrich and isinstance(result, dict):
+            return result
+        return {"matches": result}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
@@ -230,6 +239,41 @@ async def search_by_profile(profile: UserProfile, n_results: int = 10):
         profile.tech_description,
         n_results,
     )
+
+
+@router.get("/enrich/external", tags=["RFP"])
+@limiter.limit("20/minute")
+async def enrich_external_research(
+    request: Request,
+    query: str = Query(..., description="Topic, paper title, or research question"),
+    per_page: int = Query(5, ge=1, le=25, description="OpenAlex results to fetch"),
+    doi: list[str] | None = Query(None, description="Optional DOIs to enrich via CrossRef"),
+):
+    """Enrich a query with OpenAlex works + CrossRef DOI metadata.
+
+    Uses the polite-pool of free public APIs (no paid keys required).
+    Failures degrade silently — empty arrays come back if upstream is down.
+    """
+    from services.external_research import ExternalResearchClient
+
+    async with ExternalResearchClient() as client:
+        return await client.enrich_query(
+            query=query, per_page=per_page, crossref_dois=doi or []
+        )
+
+
+@router.get("/enrich/external/cache-stats", tags=["RFP"])
+@limiter.limit("60/minute")
+async def external_research_cache_stats(request: Request):
+    """Snapshot of OpenAlex/CrossRef in-memory cache utilization.
+
+    Counters reset when the worker restarts or ``reset_cache()`` runs.
+    Surfaces ``hit_rate`` so operators can size TTL/max-entries against
+    actual traffic.
+    """
+    from services.external_research import cache_stats
+
+    return cache_stats()
 
 
 @router.post("/proposal/generate", tags=["RFP"])
