@@ -63,7 +63,7 @@ def test_match_to_proposal_flow(sync_client, monkeypatch):
     """POST /match/paper → /proposal/generate should chain correctly."""
 
     class StubMatcher:
-        async def match_paper(self, paper_id: str, limit: int = 5):  # noqa: ARG002
+        async def match_paper(self, paper_id: str, limit: int = 5, enrich: bool = False):  # noqa: ARG002
             if paper_id != "paper-1":
                 raise ValueError("Paper not found")
             return [

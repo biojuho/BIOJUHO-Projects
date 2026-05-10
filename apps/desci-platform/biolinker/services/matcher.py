@@ -1,4 +1,37 @@
+from .external_research import ExternalResearchClient
+from .logging_config import get_logger
 from .vector_store import get_vector_store
+
+log = get_logger("biolinker.matcher")
+
+
+def _extract_query_seed(text: str, max_chars: int = 240) -> str:
+    """Pick a compact seed from the paper body for OpenAlex search."""
+    cleaned = " ".join((text or "").split())
+    return cleaned[:max_chars]
+
+
+async def _collect_enrichment_concepts(query_seed: str, top_k: int = 8) -> list[str]:
+    """Fetch concepts from OpenAlex works most similar to the paper.
+
+    Returns deduplicated, score-ranked concept names. Failures degrade silently
+    and return [] so the matcher falls back to plain vector search.
+    """
+    if not query_seed:
+        return []
+    try:
+        async with ExternalResearchClient() as client:
+            works = await client.search_openalex(query_seed, per_page=5)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("matcher_enrichment_failed", error=str(exc))
+        return []
+
+    concept_counts: dict[str, int] = {}
+    for work in works:
+        for concept in work.concepts:
+            concept_counts[concept] = concept_counts.get(concept, 0) + 1
+    ranked = sorted(concept_counts.items(), key=lambda kv: kv[1], reverse=True)
+    return [name for name, _ in ranked[:top_k]]
 
 
 class RFPMatcher:
@@ -9,9 +42,20 @@ class RFPMatcher:
     def __init__(self):
         self.vector_store = get_vector_store()
 
-    async def match_paper(self, paper_id: str, limit: int = 5, target_trl: int | None = None) -> list[dict]:
+    async def match_paper(
+        self,
+        paper_id: str,
+        limit: int = 5,
+        target_trl: int | None = None,
+        enrich: bool = False,
+    ) -> list[dict] | dict:
         """
         Finds RFPs similar to the given paper with optional filters.
+
+        When ``enrich=True``, the query is widened with OpenAlex domain concepts
+        and the response shape changes to {"matches": [...], "enrichment": {...}}
+        so callers can surface why the search was broadened. With ``enrich=False``
+        (default) the legacy list response is preserved.
         """
         # 1. Retrieve Paper Content
         paper_data = self.vector_store.get_notice(paper_id)
@@ -22,13 +66,30 @@ class RFPMatcher:
         if not query_text:
             raise ValueError("Paper has no content for matching")
 
-        print(f"[Matcher] Searching for RFPs similar to paper: {paper_id} (TRL: {target_trl})")
+        log.info(
+            "rfp_match_start",
+            paper_id=paper_id,
+            target_trl=target_trl,
+            enrich=enrich,
+        )
 
-        # 2. Search Vector Store
-        # Fetch more candidates to allow post-retrieval filtering
+        # 2. Optional enrichment: widen query with OpenAlex domain concepts
+        enrichment_concepts: list[str] = []
+        if enrich:
+            seed = _extract_query_seed(query_text)
+            enrichment_concepts = await _collect_enrichment_concepts(seed)
+            if enrichment_concepts:
+                query_text = f"{query_text}\n\n[Related concepts] {', '.join(enrichment_concepts)}"
+                log.info(
+                    "rfp_match_enriched",
+                    paper_id=paper_id,
+                    concept_count=len(enrichment_concepts),
+                )
+
+        # 3. Search Vector Store
         candidates = self.vector_store.search_similar(query_text, n_results=limit * 10)
 
-        # 3. Filter Results (search_similar returns List[Tuple[RFPDocument, float]])
+        # 4. Filter Results (search_similar returns List[Tuple[RFPDocument, float]])
         results = []
         for doc, score in candidates:
             # Skip the paper itself
@@ -63,6 +124,15 @@ class RFPMatcher:
             if len(results) >= limit:
                 break
 
+        if enrich:
+            return {
+                "matches": results,
+                "enrichment": {
+                    "applied": bool(enrichment_concepts),
+                    "concepts": enrichment_concepts,
+                    "source": "openalex" if enrichment_concepts else None,
+                },
+            }
         return results
 
 
