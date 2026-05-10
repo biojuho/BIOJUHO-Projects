@@ -1,10 +1,10 @@
 # Next Actions
 
-> 2026-05-08 기준 — 시스템 고도화 세션: GHA 공급망 보안 강화 (Plan A+D)
+> 2026-05-11 기준 — GHA 공급망 보안 강화 완료 (Plan A+D, PR #117 실기동 검증)
 
 ## Backlog (미완료)
 
-- [ ] **새 CI 게이트 실기동 로그 모니터링** — PR 생성 시 Bandit/Ruff + zizmor 코멘트 정상 출력 확인
+- [needs_approval] **QA Review S101 false positive 수정 (별도 PR)** — workflow의 hardcoded `--select=...,S,...`가 테스트 파일 assert를 차단. fix: `--per-file-ignores='tests/**:S101' '**/test_*.py:S101,S105,S106' '**/conftest.py:S101'` + 두 test 파일 I001 import 정렬. 영향 파일: `.github/workflows/security-quality-gate.yml`, `tests/test_security_gate_contracts.py`, `tests/test_vibe_tools_validation.py`
 - [ ] **Canva token 브라우저 재인증 최종 확인** (인증 서버 기동 테스트 완료됨)
 - [ ] **X 수동 발행**: Economy_Global 최종 문안 게시
 
