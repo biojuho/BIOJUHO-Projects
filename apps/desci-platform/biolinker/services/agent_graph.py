@@ -64,13 +64,85 @@ class PipelineState(TypedDict, total=False):
 # Agent nodes
 # ---------------------------------------------------------------------------
 async def collector_node(state: PipelineState) -> PipelineState:
-    """CollectorAgent: RFP 공고 수집 및 전처리."""
-    state["current_step"] = "collecting"
-    log.info("[CollectorAgent] Processing RFP text (%d chars)", len(state.get("rfp_text", "")))
+    """CollectorAgent: RFP 공고 수집 및 전처리.
 
-    # TODO: Integrate with crawler.py and ntis_crawler.py
-    # For now, pass through the input RFP
-    state["collected_notices"] = [{"text": state.get("rfp_text", ""), "source": "direct_input"}]
+    Input rules:
+    - rfp_text starts with http(s)://  → fetch via RFPCrawler.fetch_url
+    - otherwise                        → parse text via RFPCrawler.parse_text
+    - user_profile["ntis_keyword"]     → additionally pull NTIS notice list
+
+    Output: state["collected_notices"] is a list of dicts with at least
+    {"id","title","source","body_text","url","keywords"} so downstream nodes
+    can reason about every notice uniformly.
+    """
+    state["current_step"] = "collecting"
+    rfp_text = state.get("rfp_text", "")
+    profile = state.get("user_profile", {}) or {}
+    log.info("[CollectorAgent] Processing RFP text (%d chars)", len(rfp_text))
+
+    notices: list[dict] = []
+    errors: list[str] = []
+
+    if rfp_text:
+        try:
+            from services.crawler import get_crawler  # local import to avoid hard dep at import time
+
+            crawler = get_crawler()
+            if rfp_text.startswith(("http://", "https://")):
+                doc = await crawler.fetch_url(rfp_text)
+            else:
+                doc = await crawler.parse_text(rfp_text, url=None)
+            notices.append(
+                {
+                    "id": doc.id,
+                    "title": doc.title,
+                    "source": doc.source,
+                    "body_text": doc.body_text,
+                    "url": doc.url,
+                    "keywords": list(doc.keywords or []),
+                }
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.warning("[CollectorAgent] Crawler parse fallback: %s", e)
+            errors.append(f"crawler_parse_failed: {e}")
+            notices.append({"id": None, "title": "", "source": "direct_input", "body_text": rfp_text, "url": None, "keywords": []})
+
+    ntis_keyword = profile.get("ntis_keyword") or profile.get("keyword")
+    if ntis_keyword:
+        try:
+            from services.ntis_crawler import NTISCrawler  # local import for graceful degradation
+
+            ntis = NTISCrawler()
+            try:
+                fetched = await ntis.fetch_notice_list(keyword=str(ntis_keyword))
+            finally:
+                close = getattr(ntis, "close", None)
+                if close is not None:
+                    try:
+                        await close()
+                    except Exception:  # pylint: disable=broad-exception-caught
+                        pass
+            for item in fetched or []:
+                if not isinstance(item, dict):
+                    continue
+                notices.append(
+                    {
+                        "id": item.get("id"),
+                        "title": item.get("title", ""),
+                        "source": item.get("source", "NTIS"),
+                        "body_text": item.get("body_text") or item.get("summary", ""),
+                        "url": item.get("url"),
+                        "keywords": item.get("keywords", []),
+                    }
+                )
+            log.info("[CollectorAgent] NTIS pulled %d notices for keyword=%s", len(fetched or []), ntis_keyword)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.warning("[CollectorAgent] NTIS pull skipped: %s", e)
+            errors.append(f"ntis_pull_failed: {e}")
+
+    state["collected_notices"] = notices
+    if errors:
+        state["errors"] = state.get("errors", []) + errors
     return state
 
 
@@ -121,15 +193,76 @@ async def analyzer_node(state: PipelineState) -> PipelineState:
 
 
 async def matcher_node(state: PipelineState) -> PipelineState:
-    """MatcherAgent: 관련 논문/VC 매칭."""
+    """MatcherAgent: 관련 논문/VC 매칭.
+
+    - matched_papers: VectorStore.search_similar against the RFP text
+    - matched_vcs:    VCCrawler.fetch_vc_list filtered by user profile keywords
+      and ranked by keyword overlap
+
+    Both lookups are best-effort: failures degrade to an empty list and surface
+    in state["errors"] so the rest of the pipeline keeps running.
+    """
     state["current_step"] = "matching"
+    profile = state.get("user_profile", {}) or {}
+    rfp_text = state.get("rfp_text", "")
+    notices = state.get("collected_notices") or []
+    query_seed = rfp_text or " ".join(n.get("body_text", "") for n in notices)[:4000]
 
-    # TODO: Integrate with vector_store.py and vc_crawler.py
-    # Placeholder - will use ChromaDB similarity search
-    state["matched_papers"] = []
-    state["matched_vcs"] = []
+    matched_papers: list[dict] = []
+    matched_vcs: list[dict] = []
+    errors: list[str] = []
 
-    log.info("[MatcherAgent] Score=%s, Grade=%s", state.get("fit_score"), state.get("fit_grade"))
+    if query_seed:
+        try:
+            from services.vector_store import VectorStore
+
+            store = VectorStore()
+            tech_keywords = list(profile.get("tech_keywords") or [])
+            if tech_keywords:
+                matched_papers = store.search_by_profile(
+                    tech_keywords=tech_keywords,
+                    tech_description=profile.get("tech_description", "") or query_seed[:500],
+                    n_results=5,
+                )
+            else:
+                hits = store.search_similar(query_seed[:2000], n_results=5)
+                for doc, score in hits:
+                    matched_papers.append({**doc.model_dump(), "similarity_score": float(score)})
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            log.warning("[MatcherAgent] paper search skipped: %s", e)
+            errors.append(f"paper_search_failed: {e}")
+
+    try:
+        from services.vc_crawler import VCCrawler
+
+        vcs = VCCrawler().fetch_vc_list()
+        profile_kw = {k.lower() for k in (profile.get("tech_keywords") or [])}
+        profile_kw |= {k.lower() for k in (profile.get("portfolio_keywords") or [])}
+        scored: list[tuple[float, dict]] = []
+        for vc in vcs:
+            payload = vc.model_dump() if hasattr(vc, "model_dump") else dict(vc)
+            keywords = {str(k).lower() for k in (payload.get("portfolio_keywords") or [])}
+            overlap = len(keywords & profile_kw) if profile_kw else 0
+            score = float(overlap) if profile_kw else 1.0
+            scored.append((score, {**payload, "match_score": score}))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        matched_vcs = [item for _, item in scored[:5]]
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        log.warning("[MatcherAgent] vc lookup skipped: %s", e)
+        errors.append(f"vc_lookup_failed: {e}")
+
+    state["matched_papers"] = matched_papers
+    state["matched_vcs"] = matched_vcs
+    if errors:
+        state["errors"] = state.get("errors", []) + errors
+
+    log.info(
+        "[MatcherAgent] Score=%s, Grade=%s, papers=%d, vcs=%d",
+        state.get("fit_score"),
+        state.get("fit_grade"),
+        len(matched_papers),
+        len(matched_vcs),
+    )
     return state
 
 
