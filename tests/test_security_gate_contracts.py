@@ -106,7 +106,6 @@ def test_security_env_names_are_used_by_runtime_code() -> None:
     source_env_pairs = [
         ("apps/AgriGuard/backend/admin.py", "ADMIN_PASSWORD"),
         ("apps/AgriGuard/backend/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
-        ("apps/desci-platform/backend/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
         ("apps/desci-platform/biolinker/services/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
         (
             "automation/DailyNews/src/antigravity_mcp/apps/subscribe_api.py",
