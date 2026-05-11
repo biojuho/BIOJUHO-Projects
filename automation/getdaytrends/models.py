@@ -21,6 +21,7 @@ class TrendSource(Enum):
     GOOGLE_NEWS = "google_news"
     GOOGLE_TRENDS = "google_trends"
     YOUTUBE = "youtube"
+    HACKER_NEWS = "hacker_news"
 
 
 class TweetStatus(Enum):
