@@ -84,7 +84,7 @@ class VectorStore:
 
         # 1. Google Embeddings (우선 순위)
         google_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-        if google_key and _load_google_support():
+        if google_key and _load_google_support() and GoogleGenerativeAIEmbeddings is not None:
             # Langchain 임베딩 래퍼
             self.embedding_model = GoogleGenerativeAIEmbeddings(
                 model="models/gemini-embedding-001", google_api_key=google_key
@@ -93,7 +93,7 @@ class VectorStore:
             self.embedding_fn = self._google_embedding_fn
 
         # 2. OpenAI Embeddings (대체 수단)
-        elif os.getenv("OPENAI_API_KEY") and _load_openai_support():
+        elif os.getenv("OPENAI_API_KEY") and _load_openai_support() and OpenAI is not None:
             self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             self.embedding_fn = self._openai_embedding_fn
 

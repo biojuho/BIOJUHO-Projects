@@ -57,7 +57,7 @@ class _FakeSession:
 
     async def get(self, url: str, params: dict | None = None) -> _FakeResponse:
         self.calls.append(url)
-        if "openalex.org" in url:
+        if url.startswith("https://api.openalex.org/"):
             return _FakeResponse(self._openalex)
         return _FakeResponse(self._crossref)
 

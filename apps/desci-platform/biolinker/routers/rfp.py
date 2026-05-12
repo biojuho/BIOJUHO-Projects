@@ -199,7 +199,12 @@ async def match_paper_to_rfps(
 
     try:
         matcher = get_rfp_matcher()
-        result = await matcher.match_paper(paper_id, limit=5, enrich=enrich)
+        try:
+            result = await matcher.match_paper(paper_id, limit=5, enrich=enrich)
+        except TypeError as exc:
+            if "enrich" not in str(exc):
+                raise
+            result = await matcher.match_paper(paper_id, limit=5)
         try:
             from shared.business_metrics import biz
 

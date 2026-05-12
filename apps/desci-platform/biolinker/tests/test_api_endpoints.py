@@ -84,6 +84,40 @@ async def test_health_degraded_when_vector_store_fails(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_ready_returns_product_readiness_checks(async_client: AsyncClient):
+    """GET /ready should expose structured launch-readiness checks."""
+    response = await async_client.get("/ready")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] in {"ready", "degraded", "blocked"}
+    assert "checked_at" in data
+    assert data["summary"]["total"] >= 4
+    assert data["summary"]["required_total"] >= 3
+    assert isinstance(data["checks"], list)
+    assert {check["id"] for check in data["checks"]} >= {"api", "auth", "vector_store", "llm"}
+
+
+@pytest.mark.asyncio
+async def test_ready_blocks_launch_without_llm_key(async_client: AsyncClient, monkeypatch):
+    """AI launch should be blocked when no LLM provider is configured."""
+    for key in ("DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+
+    response = await async_client.get("/ready")
+
+    assert response.status_code == 200
+    data = response.json()
+    llm_check = next(check for check in data["checks"] if check["id"] == "llm")
+    assert data["status"] == "blocked"
+    assert llm_check["required"] is True
+    assert llm_check["status"] == "fail"
+    assert "remediation" in llm_check
+    assert "GEMINI_API_KEY" in llm_check["required_env"]
+    assert "llm" in data["launch_blockers"]
+
+
+@pytest.mark.asyncio
 async def test_notices_returns_200(async_client: AsyncClient, monkeypatch):
     """GET /notices should delegate to scheduler and return a list."""
     mock_notices = [

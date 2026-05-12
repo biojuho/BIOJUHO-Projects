@@ -5,6 +5,7 @@ Web3, IPFS, and asset indexing integrations are loaded lazily so the app can
 boot in lean smoke environments.
 """
 
+import asyncio
 from datetime import datetime
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
@@ -143,6 +144,19 @@ async def list_my_papers(user: dict = Depends(get_current_user)):
     """Return uploaded papers for the current authenticated user."""
     manager = get_asset_manager()
     return manager.list_user_papers(user.get("uid", ""))
+
+
+@router.get("/papers/public", tags=["Web3"])
+async def list_public_papers():
+    """Return all public research papers indexed on the platform."""
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(lambda: get_asset_manager().list_public_papers()),
+            timeout=5,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("list_public_papers_unavailable", error=str(exc))
+        return []
 
 
 @router.get("/assets", tags=["Web3"])

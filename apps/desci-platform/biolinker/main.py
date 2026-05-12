@@ -7,6 +7,7 @@ such as slowapi, Firestore, or crawler backends are not installed.
 
 import os
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
@@ -76,6 +77,14 @@ def get_web3_service():
 
 def get_pdf_parser():
     return _load_service("services.pdf_parser", "get_pdf_parser")
+
+
+def get_redis_store():
+    return _load_service("services.redis_store", "get_redis_store")
+
+
+def get_rabbitmq_bus():
+    return _load_service("services.rabbitmq_bus", "get_rabbitmq_bus")
 
 
 @asynccontextmanager
@@ -195,6 +204,8 @@ async def health():
     web3_service = get_web3_service()
     ipfs_service = get_ipfs_service()
     pdf_parser = get_pdf_parser()
+    redis_store = get_redis_store()
+    rabbitmq_bus = get_rabbitmq_bus()
 
     chromadb_ok = vector_store is not None
     chromadb_count = 0
@@ -223,7 +234,7 @@ async def health():
             log.warning("health_check_grobid_error", error=str(exc))
 
     return {
-        "status": "healthy" if chromadb_ok else "degraded",
+        "status": "healthy" if (chromadb_ok and bool(getattr(redis_store, "is_ready", True))) else "degraded",
         "vector_store_backend": os.getenv("VECTOR_STORE_BACKEND", "chroma").strip().lower(),
         "llm_available": llm_available,
         "chromadb_ok": chromadb_ok,
@@ -232,7 +243,159 @@ async def health():
         "ipfs_configured": bool(getattr(ipfs_service, "is_configured", False)),
         "grobid_configured": grobid_configured,
         "grobid_available": grobid_available,
+        "redis_ok": bool(getattr(redis_store, "is_ready", False)),
+        "rabbitmq_ok": bool(getattr(rabbitmq_bus, "is_connected", False)),
     }
+
+
+def _readiness_check(
+    check_id: str,
+    *,
+    required: bool,
+    configured: bool,
+    available: bool,
+    metric: int | None = None,
+    remediation: str | None = None,
+    required_env: list[str] | None = None,
+) -> dict:
+    if available:
+        status = "pass"
+    elif required:
+        status = "fail"
+    else:
+        status = "warn"
+
+    payload = {
+        "id": check_id,
+        "required": required,
+        "configured": configured,
+        "available": available,
+        "status": status,
+    }
+    if metric is not None:
+        payload["metric"] = metric
+    if status != "pass" and remediation:
+        payload["remediation"] = remediation
+    if required_env:
+        payload["required_env"] = required_env
+    return payload
+
+
+def _build_readiness(health_data: dict) -> dict:
+    auth_configured = bool(
+        os.getenv("ALLOW_TEST_BYPASS", "").lower() == "true"
+        or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        or os.getenv("FIREBASE_PROJECT_ID")
+        or os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    )
+    llm_available = bool(health_data.get("llm_available"))
+
+    checks = [
+        _readiness_check("api", required=True, configured=True, available=True),
+        _readiness_check(
+            "auth",
+            required=True,
+            configured=auth_configured,
+            available=auth_configured,
+            remediation=(
+                "Set GOOGLE_APPLICATION_CREDENTIALS, FIREBASE_PROJECT_ID, or "
+                "FIREBASE_SERVICE_ACCOUNT_JSON. Use ALLOW_TEST_BYPASS only for local smoke."
+            ),
+            required_env=["GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_PROJECT_ID", "FIREBASE_SERVICE_ACCOUNT_JSON"],
+        ),
+        _readiness_check(
+            "vector_store",
+            required=True,
+            configured=True,
+            available=bool(health_data.get("chromadb_ok")),
+            metric=int(health_data.get("chromadb_count") or 0),
+            remediation="Fix the configured vector store or switch VECTOR_STORE_BACKEND to a healthy backend.",
+            required_env=["VECTOR_STORE_BACKEND"],
+        ),
+        _readiness_check(
+            "llm",
+            required=True,
+            configured=llm_available,
+            available=llm_available,
+            remediation=(
+                "Set one of GEMINI_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY, "
+                "DEEPSEEK_API_KEY, or ANTHROPIC_API_KEY."
+            ),
+            required_env=["GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY"],
+        ),
+        _readiness_check(
+            "redis",
+            required=False,
+            configured=bool(os.getenv("REDIS_URL")),
+            available=bool(health_data.get("redis_ok")),
+            remediation="Set REDIS_URL and confirm Redis is reachable from the backend runtime.",
+            required_env=["REDIS_URL"],
+        ),
+        _readiness_check(
+            "rabbitmq",
+            required=False,
+            configured=bool(os.getenv("RABBITMQ_URL")),
+            available=bool(health_data.get("rabbitmq_ok")),
+            remediation="Set RABBITMQ_URL and confirm RabbitMQ is reachable from the worker runtime.",
+            required_env=["RABBITMQ_URL"],
+        ),
+        _readiness_check(
+            "ipfs",
+            required=False,
+            configured=bool(health_data.get("ipfs_configured")),
+            available=bool(health_data.get("ipfs_configured")),
+            remediation="Set PINATA_JWT, or PINATA_API_KEY plus PINATA_API_SECRET, before public asset minting.",
+            required_env=["PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET"],
+        ),
+        _readiness_check(
+            "web3",
+            required=False,
+            configured=bool(os.getenv("MOCK_MODE") or os.getenv("WEB3_RPC_URL")),
+            available=bool(health_data.get("web3_connected")),
+            remediation="Set WEB3_RPC_URL and deployed contract addresses, or enable MOCK_MODE for local demos.",
+            required_env=["WEB3_RPC_URL", "DSCI_CONTRACT_ADDRESS", "NFT_CONTRACT_ADDRESS"],
+        ),
+        _readiness_check(
+            "grobid",
+            required=False,
+            configured=bool(health_data.get("grobid_configured")),
+            available=bool(health_data.get("grobid_available")),
+            remediation="Set GROBID_ENABLED=true and GROBID_URL to a reachable GROBID service.",
+            required_env=["GROBID_ENABLED", "GROBID_URL"],
+        ),
+    ]
+    required_checks = [check for check in checks if check["required"]]
+    blocked = any(check["status"] == "fail" for check in required_checks)
+    has_warnings = any(check["status"] == "warn" for check in checks)
+    ready_count = sum(1 for check in checks if check["status"] == "pass")
+    required_ready_count = sum(1 for check in required_checks if check["status"] == "pass")
+
+    if blocked:
+        status = "blocked"
+    elif has_warnings or health_data.get("status") != "healthy":
+        status = "degraded"
+    else:
+        status = "ready"
+
+    return {
+        "status": status,
+        "checked_at": datetime.now(UTC).isoformat(),
+        "summary": {
+            "ready_count": ready_count,
+            "total": len(checks),
+            "required_ready_count": required_ready_count,
+            "required_total": len(required_checks),
+        },
+        "checks": checks,
+        "launch_blockers": [check["id"] for check in required_checks if check["status"] == "fail"],
+    }
+
+
+@app.get("/ready", summary="Product readiness check")
+async def readiness():
+    """Return launch-readiness checks for frontend product operations."""
+
+    return _build_readiness(await health())
 
 
 @app.get("/me")

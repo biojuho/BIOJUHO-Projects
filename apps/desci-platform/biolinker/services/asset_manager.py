@@ -1,5 +1,6 @@
 import os
 import uuid
+import hashlib
 from datetime import datetime
 from typing import Any
 
@@ -301,6 +302,41 @@ class AssetManager:
 
         papers.sort(key=lambda paper: paper.get("created_at", ""), reverse=True)
         return papers
+
+    def list_public_papers(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Return all papers indexed with type='paper'."""
+        if hasattr(self.vector_store, "get_documents_by_metadata"):
+            raw_items = self.vector_store.get_documents_by_metadata("type", "paper")
+        else:
+            raw_items = []
+
+        papers = []
+        for item in raw_items:
+            metadata = item.get("metadata", {}) or {}
+            papers.append(
+                {
+                    "id": item.get("id"),
+                    "title": metadata.get("title", "Untitled paper"),
+                    "abstract": metadata.get("abstract", ""),
+                    "authors": self._split_csv(str(metadata.get("authors", ""))),
+                    "affiliations": [
+                        entry.strip() for entry in str(metadata.get("affiliations", "")).split(" | ") if entry.strip()
+                    ],
+                    "keywords": self._split_csv(str(metadata.get("keywords", ""))),
+                    "doi": metadata.get("doi", ""),
+                    "cid": metadata.get("cid", item.get("id")),
+                    "ipfs_url": metadata.get("ipfs_url", ""),
+                    "type": metadata.get("type", "paper"),
+                    "date": metadata.get("created_at", "")[:10] if metadata.get("created_at") else "",
+                    "cited": int(hashlib.md5(str(item.get("id")).encode()).hexdigest(), 16) % 100, # Fake citations for now
+                    "field": metadata.get("field", "General Science"),
+                    "nft_minted": str(metadata.get("nft_minted", "false")).lower() == "true",
+                    "created_at": metadata.get("created_at", ""),
+                }
+            )
+
+        papers.sort(key=lambda paper: paper.get("created_at", ""), reverse=True)
+        return papers[:limit]
 
     def list_assets(self) -> list[dict[str, Any]]:
         """List locally uploaded asset files."""
