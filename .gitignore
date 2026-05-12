@@ -7,6 +7,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.production.example
 venv/
 .venv/
 __pycache__/
@@ -138,6 +139,9 @@ automation/getdaytrends/tweet_bot.log
 automation/getdaytrends/run_history.log
 automation/getdaytrends/run_scheduled.log
 **/nul
+
+# modoo.or.kr daily dumps — local startup-trend signal, not for redistribution
+var/modoo/
 
 # Generated legacy compatibility aliases
 /AgriGuard/

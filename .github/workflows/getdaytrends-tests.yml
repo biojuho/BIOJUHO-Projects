@@ -45,6 +45,7 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --package getdaytrends
+          uv pip install -e packages/shared
           uv pip install -e . --no-deps
 
       # ── Shared package tests ──

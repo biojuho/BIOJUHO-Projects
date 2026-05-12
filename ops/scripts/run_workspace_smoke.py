@@ -159,7 +159,7 @@ def compile_command(python_exe: str, *targets: str) -> list[str]:
 def slugify_check_name(value: str) -> str:
     cleaned = "".join(ch.lower() if ch.isalnum() else "-" for ch in value)
     compact = "-".join(part for part in cleaned.split("-") if part) or "check"
-    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+    digest = hashlib.sha1(value.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
     return f"{compact[:40]}-{digest}"
 
 
@@ -470,9 +470,16 @@ def run_one(root: Path, item: Check) -> Result:
             env=env,
             shell=False,
             check=False,
+            timeout=300,  # 5분 타임아웃 추가
         )
         stdout_text = decode_output(proc.stdout)
         stderr_text = decode_output(proc.stderr)
+    except subprocess.TimeoutExpired as exc:
+        stdout_text = decode_output(exc.stdout)
+        stderr_text = decode_output(exc.stderr)
+        return Result(
+            item.scope, item.name, item.cwd, command_text, 124, False, tail_lines(stdout_text), f"Command timed out after 300s\n{tail_lines(stderr_text)}"
+        )
     except OSError as exc:
         return Result(item.scope, item.name, item.cwd, command_text, 2, False, "", str(exc))
 
@@ -514,6 +521,14 @@ def run_check(root: Path, item: Check) -> Result:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
+    # Windows stdout UTF-8 설정
+    if sys.platform == "win32":
+        try:
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     parser.add_argument(
         "--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends", "cie"]
     )

@@ -49,27 +49,27 @@ npm run build:all
 
 ## Daily Snapshot
 
-> Auto-generated on **2026-05-07 09:38 KST**
+> Auto-generated on **2026-05-08 10:46 KST**
 
 | Item | Status |
 |:-----|:-------|
 | Branch | `main` @ `8cd3ed8` |
-| Last Smoke | 21/21 PASS (2026-05-06) |
+| Last Smoke | ✅ 21/21 PASS (2026-05-08) |
 | getdaytrends | ✅ |
 | DailyNews | ✅ |
-| CIE | ✅ (인코딩 복원 완료) |
+| CIE | ✅ (인코딩 & 타임아웃 패치) |
 | AgriGuard | ✅ |
 | DeSci | ✅ |
 | Dashboard | ✅ |
 | shared | ✅ |
 
-### Recent Session (2026-05-07)
+### Recent Session (2026-05-08)
 
-**System Modernization** — 전체 시스템 고도화
+**Infrastructure Stabilization** — 인프라 실행 정합성 확보
 
-- Phase 1: CIE main.py mojibake 복원 + 레거시 파일 13개 삭제
-- Phase 2: HANDOFF/CONTEXT/next-actions 문서 현대화
-- Phase 3: CI/CD 강화 (PR 코멘트 자동 리포팅)
-- Phase 4: Observability 점검
+- Phase 1: `healthcheck.py` 행 현상 해결 (targeted rglob & subprocess import isolation)
+- Phase 2: `run_workspace_smoke.py` 타임아웃(300s) 및 에러 리포팅 강화
+- Phase 3: 전역적 한글 깨짐(mojibake) 방지 패치 (safe reconfigure)
+- Phase 4: CI/CD 보안 게이트(ruff, bandit) 로컬 정합성 검증 완료
 
 **Entry points**: `HANDOFF.md`, `next-actions.md`
