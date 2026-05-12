@@ -18,6 +18,7 @@
     fetch_google_news_trends(keyword)           — Google News RSS 수집
     post_to_x(content, access_token)            — X 트윗 게시 (동기)
     post_to_x_async(content, access_token)      — X 트윗 게시 (비동기)
+    fetch_modoo_ideas(pages, timeout_ms)        — 모두의 창업 도전 아이디어 수집
 """
 
 # ── Trend Collection (collectors/sources.py) ──
@@ -113,6 +114,15 @@ except ImportError:
         post_to_x_async,
     )
     from collectors.context_runtime import _async_collect_contexts  # noqa: F401
+
+# ── modoo.or.kr 도전 아이디어 (collectors/modoo.py) ──
+try:
+    from .modoo import fetch_modoo_ideas  # noqa: F401
+except ImportError:
+    try:
+        from collectors.modoo import fetch_modoo_ideas  # noqa: F401
+    except ImportError:
+        pass  # Node Playwright 미설치 시 사용 불가
 
 # ── News Scraping (optional, requires Scrapling) ──
 try:

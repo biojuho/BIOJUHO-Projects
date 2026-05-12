@@ -515,7 +515,7 @@ async def run_pipeline(
 
         elapsed = (datetime.now() - start).total_seconds()
         log.info(f"\nElapsed time: {elapsed:.1f}s")
-        
+
         if notifier:  # [QA 수정] sync 메서드 — await 제거
             notifier.send_heartbeat(
                 "CIE-Pipeline",
@@ -543,6 +543,15 @@ async def run_pipeline(
 
 
 def main() -> None:
+    # Windows stdout UTF-8 설정
+    if sys.platform == "win32":
+        try:
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     args = parse_args()
     setup_logging(args.verbose)
     config = CIEConfig()

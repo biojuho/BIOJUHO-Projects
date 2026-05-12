@@ -29,6 +29,10 @@ try:
         _async_fetch_getdaytrends_standalone,
         _async_fetch_google_trends_rss,
         _async_fetch_google_trends_rss_standalone,
+        _async_fetch_hacker_news,
+        _async_fetch_hacker_news_standalone,
+        _async_fetch_reddit_popular,
+        _async_fetch_reddit_popular_standalone,
         _async_fetch_youtube_trending,
         _async_fetch_youtube_trending_standalone,
         _fallback_trends,
@@ -40,8 +44,11 @@ try:
         _parse_volume_text,
         fetch_getdaytrends,
         fetch_google_trends_rss,
+        fetch_hacker_news,
+        fetch_reddit_popular,
         fetch_youtube_trending,
     )
+    from .collectors.modoo import fetch_modoo_ideas
     from .config import AppConfig
     from .models import MultiSourceContext, RawTrend, TrendSource
     from .utils import run_async
@@ -58,6 +65,10 @@ except ImportError:
         _async_fetch_getdaytrends_standalone,
         _async_fetch_google_trends_rss,
         _async_fetch_google_trends_rss_standalone,
+        _async_fetch_hacker_news,
+        _async_fetch_hacker_news_standalone,
+        _async_fetch_reddit_popular,
+        _async_fetch_reddit_popular_standalone,
         _async_fetch_youtube_trending,
         _async_fetch_youtube_trending_standalone,
         _fallback_trends,
@@ -69,8 +80,11 @@ except ImportError:
         _parse_volume_text,
         fetch_getdaytrends,
         fetch_google_trends_rss,
+        fetch_hacker_news,
+        fetch_reddit_popular,
         fetch_youtube_trending,
     )
+    from collectors.modoo import fetch_modoo_ideas
     from config import AppConfig
     from models import MultiSourceContext, RawTrend, TrendSource
     from utils import run_async
@@ -105,15 +119,55 @@ async def _async_collect_trends(
         keepalive_expiry=30,
     )
     async with httpx.AsyncClient(limits=limits) as session:
-        # 1단계: 소스 병렬 수집 (YouTube 포함)
-        fetch_tasks = [
+        # 1단계: 소스 병렬 수집 (HN + Reddit /r/popular 보조 — 모두 X 비의존 신호)
+        hn_enabled = bool(getattr(config, "enable_hacker_news", False))
+        hn_limit = int(getattr(config, "hacker_news_limit", 15))
+        rd_enabled = bool(getattr(config, "enable_reddit_primary", False))
+        rd_limit = int(getattr(config, "reddit_primary_limit", 20))
+        modoo_enabled = bool(getattr(config, "enable_modoo", False))
+        modoo_pages = int(getattr(config, "modoo_pages", 3))
+
+        fetch_tasks: list[asyncio.Future] = [
             _async_fetch_getdaytrends(session, country_slug, fetch_size),
             _async_fetch_google_trends_rss(session, country_slug, fetch_size),
         ]
+        hn_index = -1
+        rd_index = -1
+        modoo_index = -1
+        if hn_enabled:
+            hn_index = len(fetch_tasks)
+            fetch_tasks.append(_async_fetch_hacker_news(session, hn_limit))
+        if rd_enabled:
+            rd_index = len(fetch_tasks)
+            fetch_tasks.append(_async_fetch_reddit_popular(session, rd_limit))
+        if modoo_enabled:
+            modoo_index = len(fetch_tasks)
+            # Subprocess-based (Node Playwright); offload to thread to keep loop free.
+            fetch_tasks.append(asyncio.to_thread(fetch_modoo_ideas, modoo_pages))
 
         fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
-        gdt_trends = fetch_results[0] if not isinstance(fetch_results[0], Exception) else []
-        gtr_trends = fetch_results[1] if not isinstance(fetch_results[1], Exception) else []
+
+        def _ok(idx: int) -> list[RawTrend]:
+            """Pick a list result by index, returning [] when the task raised."""
+            if idx < 0 or idx >= len(fetch_results):
+                return []
+            value = fetch_results[idx]
+            if isinstance(value, BaseException):
+                return []
+            return list(value)
+
+        gdt_trends = _ok(0)
+        gtr_trends = _ok(1)
+        hn_trends = _ok(hn_index) if hn_index >= 0 else []
+        rd_trends = _ok(rd_index) if rd_index >= 0 else []
+        modoo_trends = _ok(modoo_index) if modoo_index >= 0 else []
+
+        if hn_index >= 0 and isinstance(fetch_results[hn_index], BaseException):
+            log.warning(f"Hacker News 수집 실패: {fetch_results[hn_index]}")
+        if rd_index >= 0 and isinstance(fetch_results[rd_index], BaseException):
+            log.warning(f"Reddit /r/popular 수집 실패: {fetch_results[rd_index]}")
+        if modoo_index >= 0 and isinstance(fetch_results[modoo_index], BaseException):
+            log.warning(f"modoo.or.kr 수집 실패: {fetch_results[modoo_index]}")
 
         if isinstance(fetch_results[0], Exception):
             log.error(f"getdaytrends 수집 실패: {fetch_results[0]}")
@@ -121,8 +175,17 @@ async def _async_collect_trends(
             log.warning(f"Google Trends 수집 실패: {fetch_results[1]}")
 
         # [v9.1] 부분 성공(Partial Success) 허용 및 전체 실패 시 우회(Fallback) 아키텍처
-        total_sources = 2
-        success_sources = sum(1 for t_list in (gdt_trends, gtr_trends) if t_list)
+        total_sources = (
+            2
+            + (1 if hn_enabled else 0)
+            + (1 if rd_enabled else 0)
+            + (1 if modoo_enabled else 0)
+        )
+        success_sources = sum(
+            1
+            for t_list in (gdt_trends, gtr_trends, hn_trends, rd_trends, modoo_trends)
+            if t_list
+        )
 
         if success_sources == 0:
             log.error("[장애] 모든 트렌드 소스 수집 실패! Fallback 트렌드로 우회합니다.")
@@ -155,8 +218,12 @@ async def _async_collect_trends(
 
         # 2단계: 병합 (getdaytrends → google_trends 순서 우선)
         all_trends = _merge_trends(gdt_trends, gtr_trends, limit=fetch_size)
+        if modoo_trends:
+            all_trends = _merge_trends(all_trends, modoo_trends, limit=fetch_size)
         log.info(
-            f"병합 완료: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)} " f"→ 총 {len(all_trends)}개"
+            f"병합 완료: getdaytrends={len(gdt_trends)}, google_trends={len(gtr_trends)}"
+            f"{f', modoo={len(modoo_trends)}' if modoo_trends else ''}"
+            f" → 총 {len(all_trends)}개"
         )
 
         # 3단계: 중복 필터 (유사도 기반)

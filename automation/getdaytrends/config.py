@@ -215,6 +215,12 @@ class AppConfig:
     # ===================================================
     enable_source_quality_tracking: bool = True  # ???獒????源녿뼥 DB ??れ삀??쎈뭄???筌????
     news_rss_max_items: int = 5  # Google News RSS 癲ル슔?됭짆? ???쒓낯????
+    enable_hacker_news: bool = True  # Hacker News (Algolia) supplemental trend source — non-X signal
+    hacker_news_limit: int = 15  # HN front-page items to fetch per run
+    enable_reddit_primary: bool = True  # Reddit /r/popular as primary trend source — non-X signal
+    reddit_primary_limit: int = 20  # /r/popular items to fetch per run
+    enable_modoo: bool = False  # modoo.or.kr 도전 아이디어 (Korean startup ideas) — requires Node Playwright
+    modoo_pages: int = 3  # modoo list pages to fetch (each page = 12 ideas)
 
     # ===================================================
     # [v6.0] ???源녿뼥 ???⑤벚?????룸Ŧ爾??+ ?怨멸텭??沃섅뀙??關履?????怨좊젳??
@@ -453,30 +459,30 @@ class AppConfig:
             alert_threshold=self.alert_threshold,
         )
 
-    @classmethod
-    def from_env(cls) -> "AppConfig":
-        """Load config from env vars. Delegates to config_env_loaders module."""
-        try:
-            from .config_env_loaders import (
-                storage_env, schedule_env, api_keys_env, alerts_env,
-                feature_flags_env, quality_env, scoring_env, platform_env,
-            )
-        except ImportError:
-            from config_env_loaders import (
-                storage_env, schedule_env, api_keys_env, alerts_env,
-                feature_flags_env, quality_env, scoring_env, platform_env,
-            )
-
-        kwargs: dict = {}
-        kwargs.update(storage_env())
-        kwargs.update(schedule_env())
-        kwargs.update(api_keys_env())
-        kwargs.update(alerts_env())
-        kwargs.update(feature_flags_env())
-        kwargs.update(quality_env())
-        kwargs.update(scoring_env())
-        kwargs.update(platform_env())
-        return cls(**kwargs)
+    @classmethod
+    def from_env(cls) -> "AppConfig":
+        """Load config from env vars. Delegates to config_env_loaders module."""
+        try:
+            from .config_env_loaders import (
+                storage_env, schedule_env, api_keys_env, alerts_env,
+                feature_flags_env, quality_env, scoring_env, platform_env,
+            )
+        except ImportError:
+            from config_env_loaders import (
+                storage_env, schedule_env, api_keys_env, alerts_env,
+                feature_flags_env, quality_env, scoring_env, platform_env,
+            )
+
+        kwargs: dict = {}
+        kwargs.update(storage_env())
+        kwargs.update(schedule_env())
+        kwargs.update(api_keys_env())
+        kwargs.update(alerts_env())
+        kwargs.update(feature_flags_env())
+        kwargs.update(quality_env())
+        kwargs.update(scoring_env())
+        kwargs.update(platform_env())
+        return cls(**kwargs)
 
     def validate(self) -> list[str]:
         """????곸씔 癲ル슢?꾤땟戮⑤뭄??袁⑸즵??? ???域밸Ŧ遊얕짆?嶺뚮ㅎ?닻얠쥉異????レ챺??"""
