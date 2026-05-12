@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Building2, Globe, TrendingUp } from 'lucide-react';
 import api from '../../services/api';
 import { useLocale } from '../../contexts/LocaleContext';
+import { formatSupportError } from '../../lib/support';
 
 export default function VCMatchList() {
     const [matches, setMatches] = useState([]);
@@ -16,7 +17,7 @@ export default function VCMatchList() {
                 setMatches(response.data);
             } catch (err) {
                 console.error('VC Match Error:', err);
-                setError(t('vcMatch.loadFailed'));
+                setError(formatSupportError(err, t('vcMatch.loadFailed')));
             } finally {
                 setLoading(false);
             }

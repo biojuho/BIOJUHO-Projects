@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
 import api from '../services/api';
+import { formatSupportError } from '../lib/support';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import GlassCard from './ui/GlassCard';
@@ -36,8 +37,8 @@ export default function Governance() {
     try {
       const response = await api.get('/governance/proposals');
       setProposals(response.data);
-    } catch (_err) {
-      showToast(t('governance.loadFailed'), 'error');
+    } catch (err) {
+      showToast(formatSupportError(err, t('governance.loadFailed')), 'error');
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export default function Governance() {
       setShowCreate(false);
       loadProposals();
     } catch (err) {
-      showToast(err.response?.data?.detail || t('governance.createFailed'), 'error');
+      showToast(formatSupportError(err, t('governance.createFailed')), 'error');
     }
   };
 
@@ -71,7 +72,7 @@ export default function Governance() {
       showToast(t(support ? 'governance.voteSuccessFor' : 'governance.voteSuccessAgainst'), 'success');
       loadProposals();
     } catch (err) {
-      showToast(err.response?.data?.detail || t('governance.voteFailed'), 'error');
+      showToast(formatSupportError(err, t('governance.voteFailed')), 'error');
     }
   };
 

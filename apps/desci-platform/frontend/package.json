@@ -13,13 +13,14 @@
     "build:lts": "npx -y node@22 node_modules/vite/bin/vite.js build",
     "check:bundle": "node scripts/check-bundle-size.mjs",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --pool=threads --maxWorkers=1 --isolate",
     "test:lts": "npx -y node@22 node_modules/vitest/vitest.mjs run --pool=threads --maxWorkers=1 --isolate",
     "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
-    "axios": "^1.13.4",
+    "@tanstack/react-query": "^5.100.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^12.9.0",
@@ -51,6 +52,7 @@
     "globals": "^16.5.0",
     "jsdom": "^28.1.0",
     "tailwindcss": "^4.2.1",
+    "typescript": "^6.0.3",
     "vite": "^7.2.4",
     "vitest": "^4.0.7"
   }

@@ -20,6 +20,26 @@ afterEach(() => {
   cleanup();
 });
 
+class MockIntersectionObserver {
+  constructor(callback = () => {}) {
+    this.callback = callback;
+  }
+
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+globalThis.IntersectionObserver ??= MockIntersectionObserver;
+globalThis.ResizeObserver ??= class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // ── Global mocks ───────────────────────────────────────────────────────────
 // These replace the vi.mock() boilerplate that was copy-pasted across
 // every test file. Only mocks that are IDENTICAL in all tests belong here.

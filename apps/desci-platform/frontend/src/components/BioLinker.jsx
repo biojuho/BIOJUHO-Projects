@@ -9,8 +9,11 @@ import AnalysisResultsPanel from './AnalysisResultsPanel';
 import MatchResultsPanel from './MatchResultsPanel';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useJobProgress } from '../hooks/useJobProgress';
+import { formatSupportError } from '../lib/support';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import JobProgressPanel from './JobProgressPanel';
 
 const ProposalView = lazy(() => import('./ProposalView'));
 const MotionDiv = motion.div;
@@ -56,19 +59,33 @@ export default function BioLinker() {
     const updateRfp = useCallback((updates) => setRfpState((prev) => ({ ...prev, ...updates })), []);
     const updateMatch = useCallback((updates) => setMatchState((prev) => ({ ...prev, ...updates })), []);
     const updateReview = useCallback((updates) => setReviewState((prev) => ({ ...prev, ...updates })), []);
+    const { job: jobStatus, watchJob, clearJob } = useJobProgress();
+
+    const text = useCallback((key, fallback, values) => {
+        const message = t(key, values);
+        return message === key ? fallback : message;
+    }, [t]);
 
     const fetchMatches = useCallback(async (id) => {
         updateUi({ loading: true });
+        clearJob();
+        updateMatch({ matches: [] });
         try {
-            const response = await client.post('/match/paper', { paper_id: id });
-            updateMatch({ matches: response.data.matches || [] });
+            const response = await client.post('/jobs/match/paper', { paper_id: id });
+            const job = response.data?.job;
+            if (!job?.id) {
+                throw new Error('Paper matching job was not created.');
+            }
+            const result = await watchJob(job);
+            updateMatch({ matches: result.matches || [] });
         } catch (err) {
             console.error(err);
-            showToast({ key: 'biolinker.matchingFailed' }, 'error');
+            showToast(formatSupportError(err, t('biolinker.matchingFailed')), 'error');
         } finally {
             updateUi({ loading: false });
+            clearJob();
         }
-    }, [showToast, updateMatch, updateUi]);
+    }, [clearJob, showToast, t, updateMatch, updateUi, watchJob]);
 
     useEffect(() => {
         if (location.state?.from_notice) {
@@ -108,12 +125,12 @@ export default function BioLinker() {
             });
             updateRfp({ analysisResult: response.data });
             showToast({ key: 'biolinker.analysisComplete' }, 'success');
-        } catch {
-            showToast({ key: 'biolinker.analysisFailed' }, 'error');
+        } catch (err) {
+            showToast(formatSupportError(err, t('biolinker.analysisFailed')), 'error');
         } finally {
             updateUi({ loading: false });
         }
-    }, [rfpState.profile, rfpState.text, showToast, updateRfp, updateUi]);
+    }, [rfpState.profile, rfpState.text, showToast, t, updateRfp, updateUi]);
 
     const handleGenerateProposal = useCallback(async (rfp) => {
         if (!paperId) {
@@ -122,17 +139,27 @@ export default function BioLinker() {
         }
 
         updateUi({ loading: true });
-        updateMatch({ selectedRFP: rfp });
+        clearJob();
+        updateMatch({ selectedRFP: rfp, proposalDraft: '', critiqueResult: '' });
         try {
-            const response = await client.post('/proposal/generate', { paper_id: paperId, rfp_id: rfp.id });
-            updateMatch({ proposalDraft: response.data.draft, critiqueResult: response.data.critique || '' });
+            const response = await client.post('/jobs/proposal/generate', { paper_id: paperId, rfp_id: rfp.id });
+            const job = response.data?.job;
+            if (!job?.id) {
+                throw new Error('Proposal generation job was not created.');
+            }
+            const result = await watchJob(job);
+            updateMatch({ proposalDraft: result.draft, critiqueResult: result.critique || '' });
             updateUi({ showProposal: true });
         } catch (err) {
-            showToast({ key: 'biolinker.proposalFailed', values: { message: err.message } }, 'error');
+            showToast({
+                key: 'biolinker.proposalFailed',
+                values: { message: formatSupportError(err, t('common.unknownError')) },
+            }, 'error');
         } finally {
             updateUi({ loading: false });
+            clearJob();
         }
-    }, [paperId, showToast, updateMatch, updateUi]);
+    }, [clearJob, paperId, showToast, t, updateMatch, updateUi, watchJob]);
 
     const handleGenerateReview = useCallback(async () => {
         if (!reviewState.topic.trim()) {
@@ -147,11 +174,14 @@ export default function BioLinker() {
             updateReview({ result: response.data.report, meta: response.data.meta || null });
             showToast({ key: 'biolinker.reviewComplete' }, 'success');
         } catch (err) {
-            showToast({ key: 'biolinker.reviewFailed', values: { message: err.response?.data?.detail || err.message } }, 'error');
+            showToast({
+                key: 'biolinker.reviewFailed',
+                values: { message: formatSupportError(err, t('common.unknownError')) },
+            }, 'error');
         } finally {
             updateUi({ loading: false });
         }
-    }, [reviewState.topic, showToast, updateReview, updateUi]);
+    }, [reviewState.topic, showToast, t, updateReview, updateUi]);
 
     const analysisPapers = rfpState.analysisResult?.result?.papers ?? [];
     const analysisVCs = rfpState.analysisResult?.result?.vcs ?? [];
@@ -165,6 +195,14 @@ export default function BioLinker() {
                 activeTab={uiState.activeTab}
                 onSelect={(id) => updateUi({ activeTab: id })}
             />
+
+            {jobStatus && (
+                <JobProgressPanel
+                    job={jobStatus}
+                    title={text('biolinker.jobProgress', 'AI job progress')}
+                    icon={false}
+                />
+            )}
 
             {uiState.activeTab === 'literature_review' ? (
                 <div className="space-y-6">

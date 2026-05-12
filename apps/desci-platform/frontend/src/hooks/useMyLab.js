@@ -3,6 +3,7 @@ import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { formatSupportError } from '../lib/support';
 
 const EMPTY_MINT_RESULT = { title: '', message: '', txHash: '' };
 
@@ -31,9 +32,9 @@ export function useMyLab() {
                     setPapers(response.data);
                 }
             })
-            .catch(() => {
+            .catch((error) => {
                 if (!cancelled) {
-                    showToastRef.current(tRef.current('myLab.loadFailed'), 'error');
+                    showToastRef.current(formatSupportError(error, tRef.current('myLab.loadFailed')), 'error');
                 }
             })
             .finally(() => {
@@ -79,7 +80,7 @@ export function useMyLab() {
                 showToast(t('myLab.mintFailed', { message: reason }), 'error');
             }
         } catch (err) {
-            showToast(t('myLab.mintFailed', { message: err.response?.data?.detail || err.message || t('common.unknownError') }), 'error');
+            showToast(t('myLab.mintFailed', { message: formatSupportError(err, t('common.unknownError')) }), 'error');
             console.error('[mintNFT]', err);
         } finally {
             setMintingIds((prev) => ({ ...prev, [paper.id]: false }));

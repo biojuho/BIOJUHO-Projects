@@ -1,142 +1,39 @@
-/**
- * Custom API Hooks with SWR-like caching pattern.
- * Provides fetch + state + refetch + AbortController support.
- *
- * These hooks are a lightweight bridge until TanStack Query is adopted.
- */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '../lib/queryClient';
 import client from '../services/api';
-
-/**
- * Generic fetcher hook with caching, abort support, and refetch.
- *
- * @param {string} url - API endpoint path
- * @param {object} options
- * @param {object} options.params - Query parameters
- * @param {boolean} options.enabled - Whether to fetch (default: true)
- * @param {number} options.cacheTime - Cache TTL in ms (default: 60000)
- */
-
-// Simple in-memory cache shared across hook instances
-const cache = new Map();
-
-function getCachedSnapshot(cacheKey, cacheTime) {
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < cacheTime) {
-    return cached.data;
-  }
-  return null;
-}
 
 export function useFetch(url, options = {}) {
   const { params = {}, enabled = true, cacheTime = 60_000 } = options;
-  const paramsKey = JSON.stringify(params ?? {});
-  const cacheKey = `${url}::${paramsKey}`;
+  const active = Boolean(enabled && url);
+  const queryKey = ['api', url, params];
 
-  const [data, setData] = useState(() => getCachedSnapshot(cacheKey, cacheTime));
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(() => enabled && !!url && getCachedSnapshot(cacheKey, cacheTime) == null);
-  const abortControllerRef = useRef(null);
-  const requestIdRef = useRef(0);
+  const query = useQuery({
+    queryKey,
+    enabled: active,
+    staleTime: cacheTime,
+    gcTime: cacheTime,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const response = await client.get(url, { params, signal });
+      return response.data;
+    },
+  });
 
-  const fetchData = useCallback(async () => {
-    if (!enabled || !url) {
-      setData(null);
-      setError(null);
-      setLoading(false);
-      return false;
-    }
+  async function refetch() {
+    if (!active) return false;
+    await queryClient.cancelQueries({ queryKey, exact: true }, { silent: true });
+    const result = await query.refetch({ cancelRefetch: true });
+    return result.error == null;
+  }
 
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-
-    // Abort previous in-flight request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await client.get(url, {
-        params,
-        signal: controller.signal,
-      });
-
-      if (requestId !== requestIdRef.current || controller.signal.aborted) {
-        return false;
-      }
-
-      const responseData = res.data;
-      setData(responseData);
-
-      // Update cache
-      cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
-      return true;
-    } catch (err) {
-      // Don't set error state for aborted requests
-      if (err.name === 'AbortError' || err.code === 'ERR_CANCELED' || controller.signal.aborted) {
-        return false;
-      }
-
-      if (requestId === requestIdRef.current) {
-        setError(err);
-      }
-      return false;
-    } finally {
-      if (requestId === requestIdRef.current && !controller.signal.aborted) {
-        setLoading(false);
-      }
-    }
-  }, [cacheKey, enabled, paramsKey, url]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const cached = getCachedSnapshot(cacheKey, cacheTime);
-
-    if (!enabled || !url) {
-      setData(null);
-      setError(null);
-      setLoading(false);
-      return () => {
-        requestIdRef.current += 1;
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-      };
-    }
-
-    setData(cached);
-    setError(null);
-    setLoading(cached == null);
-    fetchData();
-
-    return () => {
-      requestIdRef.current += 1;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [cacheKey, cacheTime, enabled, fetchData, url]);
-
-  const refetch = useCallback(() => {
-    // Invalidate cache for this key
-    cache.delete(cacheKey);
-    return fetchData();
-  }, [cacheKey, fetchData]);
-
-  return { data, error, loading, refetch };
+  return {
+    data: query.data ?? null,
+    error: query.error ?? null,
+    loading: query.isLoading || (query.isFetching && query.data == null),
+    refetch,
+  };
 }
 
-// --- Domain-Specific Hooks ---
-
-/**
- * Fetch government grant notices.
- * @param {object} options - { source, limit }
- */
 export function useNotices(options = {}) {
   const { source, limit = 30 } = options;
   const params = { limit };
@@ -152,10 +49,6 @@ export function useNotices(options = {}) {
   };
 }
 
-/**
- * Fetch analysis results for a specific RFP.
- * @param {string|null} rfpId - RFP document ID
- */
 export function useAnalysis(rfpId) {
   const result = useFetch(
     rfpId ? `/analysis/${rfpId}` : null,
@@ -170,9 +63,6 @@ export function useAnalysis(rfpId) {
   };
 }
 
-/**
- * Fetch the current user's uploaded papers.
- */
 export function usePapers() {
   const result = useFetch('/papers/me');
 
@@ -184,9 +74,6 @@ export function usePapers() {
   };
 }
 
-/**
- * Utility to clear the entire fetch cache.
- */
 export function clearApiCache() {
-  cache.clear();
+  queryClient.clear();
 }

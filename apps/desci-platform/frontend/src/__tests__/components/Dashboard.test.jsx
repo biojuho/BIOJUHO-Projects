@@ -61,7 +61,7 @@ async function renderDashboard() {
     </MemoryRouter>
   );
   await waitFor(() => {
-    expect(api.get.mock.calls.length).toBeGreaterThanOrEqual(4);
+    expect(api.get.mock.calls.length).toBeGreaterThanOrEqual(5);
   });
   return rendered;
 }
@@ -71,7 +71,7 @@ describe('Dashboard', () => {
     localeState.prefix = '';
     const rendered = await renderDashboard();
 
-    expect(api.get).toHaveBeenCalledTimes(4);
+    expect(api.get).toHaveBeenCalledTimes(5);
 
     localeState.prefix = 'ko';
     rendered.rerender(
@@ -81,7 +81,7 @@ describe('Dashboard', () => {
     );
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledTimes(4);
+      expect(api.get).toHaveBeenCalledTimes(5);
     });
   });
 
@@ -106,6 +106,12 @@ describe('Dashboard', () => {
     localeState.prefix = '';
     await renderDashboard();
     expect(screen.getByText('Account Status')).toBeDefined();
+  });
+
+  it('renders the product readiness panel', async () => {
+    localeState.prefix = '';
+    await renderDashboard();
+    expect(screen.getByText('Launch readiness')).toBeDefined();
   });
 
   it('displays the user email in identity section', async () => {
