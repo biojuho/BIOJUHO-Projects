@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -85,8 +87,9 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          STEPS_CHECK_OUTPUTS_SUMMARY: ${{ steps.check.outputs.summary }}
         run: |
-          SUMMARY="${{ steps.check.outputs.summary }}"
+          SUMMARY="${STEPS_CHECK_OUTPUTS_SUMMARY}"
 
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
             curl -s -H "Content-Type: application/json" \
@@ -108,14 +111,23 @@ jobs:
 
           | Pipeline | Status | Runs/24h |
           |:---|:---:|:---:|
-          | GetDayTrends | ${{ steps.check.outputs.getdaytrends_status }} | - |
-          | DailyNews | ${{ steps.check.outputs.dailynews_status }} | - |
-          | GDT Tests | ${{ steps.check.outputs.gdt_tests_status }} | - |
-          | Multi-Project CI | ${{ steps.check.outputs.multi-project_ci_status }} | - |
+          | GetDayTrends | ${STEPS_CHECK_OUTPUTS_GETDAYTRENDS_STATUS} | - |
+          | DailyNews | ${STEPS_CHECK_OUTPUTS_DAILYNEWS_STATUS} | - |
+          | GDT Tests | ${STEPS_CHECK_OUTPUTS_GDT_TESTS_STATUS} | - |
+          | Multi-Project CI | ${STEPS_CHECK_OUTPUTS_MULTI_PROJECT_CI_STATUS} | - |
 
-          **Summary:** 🟢 ${{ steps.check.outputs.healthy }} healthy · 🔴 ${{ steps.check.outputs.failing }} failing · ⚠️ ${{ steps.check.outputs.silent }} silent
+          **Summary:** 🟢 ${STEPS_CHECK_OUTPUTS_HEALTHY} healthy · 🔴 ${STEPS_CHECK_OUTPUTS_FAILING} failing · ⚠️ ${STEPS_CHECK_OUTPUTS_SILENT} silent
 
           **Details:**
 
-          ${{ steps.check.outputs.summary }}
+          ${STEPS_CHECK_OUTPUTS_SUMMARY}
           EOF
+        env:
+          STEPS_CHECK_OUTPUTS_GETDAYTRENDS_STATUS: ${{ steps.check.outputs.getdaytrends_status }}
+          STEPS_CHECK_OUTPUTS_DAILYNEWS_STATUS: ${{ steps.check.outputs.dailynews_status }}
+          STEPS_CHECK_OUTPUTS_GDT_TESTS_STATUS: ${{ steps.check.outputs.gdt_tests_status }}
+          STEPS_CHECK_OUTPUTS_MULTI_PROJECT_CI_STATUS: ${{ steps.check.outputs.multi-project_ci_status }}
+          STEPS_CHECK_OUTPUTS_HEALTHY: ${{ steps.check.outputs.healthy }}
+          STEPS_CHECK_OUTPUTS_FAILING: ${{ steps.check.outputs.failing }}
+          STEPS_CHECK_OUTPUTS_SILENT: ${{ steps.check.outputs.silent }}
+          STEPS_CHECK_OUTPUTS_SUMMARY: ${{ steps.check.outputs.summary }}

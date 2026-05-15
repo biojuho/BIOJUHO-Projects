@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-python-uv
         with:
@@ -19,7 +20,7 @@ jobs:
 
       - name: Generate self-review
         run: |
-          python ops/scripts/pr_self_review.py --base origin/${{ github.base_ref }}
+          python ops/scripts/pr_self_review.py --base origin/${GITHUB_BASE_REF}
 
       - name: Post review as comment
         if: always()

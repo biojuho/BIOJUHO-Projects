@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js (for React frontend build)
         uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3.9.1
@@ -54,11 +56,11 @@ jobs:
           cp .gitignore .gcloudignore
           echo "!apps/dashboard/dist/" >> .gcloudignore
           
-          gcloud builds submit --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+          gcloud builds submit --tag gcr.io/${PROJECT_ID}/${{ env.SERVICE_NAME }} \
             --file apps/dashboard/Dockerfile .
             
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+            --image gcr.io/${PROJECT_ID}/${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
             --port 8080 \
