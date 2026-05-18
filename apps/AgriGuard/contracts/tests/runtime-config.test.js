@@ -1,0 +1,95 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  assertRuntimeConfig,
+  getCliOptionValue,
+  getInvokedTask,
+  getRuntimeConfigErrors,
+  normalizePrivateKey,
+  selectNetworkAccounts,
+  shouldRequirePrivateKey,
+} from "../config/runtime-config.js";
+
+test("getCliOptionValue returns the matching option value", () => {
+  const argv = ["node", "hardhat", "run", "scripts/deploy_sepolia.js", "--network", "sepolia"];
+
+  assert.equal(getCliOptionValue("--network", argv), "sepolia");
+  assert.equal(getCliOptionValue("--missing", argv), undefined);
+});
+
+test("getInvokedTask returns the first known hardhat task", () => {
+  const argv = ["node", "hardhat", "--network", "sepolia", "run", "scripts/deploy_sepolia.js"];
+
+  assert.equal(getInvokedTask(argv), "run");
+});
+
+test("normalizePrivateKey trims whitespace and adds the 0x prefix when missing", () => {
+  assert.equal(normalizePrivateKey("  abc123  "), "0xabc123");
+  assert.equal(normalizePrivateKey("0xabc123"), "0xabc123");
+  assert.equal(normalizePrivateKey("   "), undefined);
+});
+
+test("shouldRequirePrivateKey only requires a signer for remote run-like tasks", () => {
+  assert.equal(shouldRequirePrivateKey("run", "sepolia"), true);
+  assert.equal(shouldRequirePrivateKey("test", "sepolia"), true);
+  assert.equal(shouldRequirePrivateKey("verify", "sepolia"), false);
+  assert.equal(shouldRequirePrivateKey("run", "localhost"), false);
+  assert.equal(shouldRequirePrivateKey("compile", "sepolia"), false);
+});
+
+test("selectNetworkAccounts keeps verify flows signer-free", () => {
+  const privateKey = `0x${"11".repeat(32)}`;
+
+  assert.deepEqual(selectNetworkAccounts("verify", "sepolia", privateKey), []);
+  assert.deepEqual(selectNetworkAccounts("run", "sepolia", privateKey), [privateKey]);
+});
+
+test("getRuntimeConfigErrors requires a private key for remote deployments", () => {
+  assert.deepEqual(
+    getRuntimeConfigErrors({
+      taskName: "run",
+      networkName: "sepolia",
+      privateKey: undefined,
+      explorerApiKey: undefined,
+    }),
+    ["PRIVATE_KEY environment variable is required for non-local deployments."]
+  );
+});
+
+test("getRuntimeConfigErrors rejects malformed signer keys for remote deployments", () => {
+  assert.deepEqual(
+    getRuntimeConfigErrors({
+      taskName: "run",
+      networkName: "sepolia",
+      privateKey: "0xnot-hex",
+      explorerApiKey: undefined,
+    }),
+    ["PRIVATE_KEY must be a 32-byte hex string. You can include or omit the 0x prefix."]
+  );
+});
+
+test("getRuntimeConfigErrors requires an explorer API key for remote verification", () => {
+  assert.deepEqual(
+    getRuntimeConfigErrors({
+      taskName: "verify",
+      networkName: "sepolia",
+      privateKey: undefined,
+      explorerApiKey: undefined,
+    }),
+    ["ETHERSCAN_API_KEY is required for 'sepolia' verification."]
+  );
+});
+
+test("assertRuntimeConfig throws a grouped error message when validation fails", () => {
+  assert.throws(
+    () =>
+      assertRuntimeConfig({
+        taskName: "run",
+        networkName: "sepolia",
+        privateKey: undefined,
+        explorerApiKey: undefined,
+      }),
+    /Hardhat runtime configuration is invalid:\n- PRIVATE_KEY environment variable is required/
+  );
+});

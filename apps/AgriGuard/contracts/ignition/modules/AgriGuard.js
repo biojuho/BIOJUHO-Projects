@@ -1,6 +1,6 @@
-const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
+import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-module.exports = buildModule("AgriGuardModule", (m) => {
+export default buildModule("AgriGuardModule", (m) => {
   const agriGuard = m.contract("AgriGuard");
 
   return { agriGuard };
