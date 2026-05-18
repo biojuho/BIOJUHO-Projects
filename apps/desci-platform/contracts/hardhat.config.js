@@ -1,5 +1,5 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
+import "@nomicfoundation/hardhat-toolbox";
+import "dotenv/config";
 
 const AMOY_RPC_URL = process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL;
@@ -12,7 +12,7 @@ if (!PRIVATE_KEY && (process.argv.includes("--network") && !process.argv.include
 }
 
 /** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+export default {
     solidity: {
         version: "0.8.24",
         settings: {
@@ -21,6 +21,7 @@ module.exports = {
                 runs: 200,
             },
             viaIR: true,
+            evmVersion: "cancun",
         },
     },
     networks: {
@@ -46,3 +47,4 @@ module.exports = {
         currency: "USD",
     },
 };
+

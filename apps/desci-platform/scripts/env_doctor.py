@@ -290,7 +290,7 @@ def main() -> int:
 
     paths = [Path(path) for path in args.env_file]
     if not paths:
-        paths = [Path(".env"), Path("biolinker/.env"), Path("frontend/.env")]
+        paths = [Path(".env"), Path("backend/.env"), Path("frontend/.env")]
 
     env = load_env(paths, include_process_env=not args.ignore_process_env)
     checks = run_checks(env, profile=args.profile)

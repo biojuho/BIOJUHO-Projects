@@ -49,7 +49,7 @@ This should complete without unset-variable warnings.
 ## 4. Backend Tests
 
 ```bash
-cd apps/desci-platform/biolinker
+cd apps/desci-platform/backend
 python -m pytest tests -q
 ```
 
