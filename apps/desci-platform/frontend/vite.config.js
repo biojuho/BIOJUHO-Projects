@@ -38,16 +38,28 @@ export default defineConfig({
     },
   },
   build: {
-    minify: "esbuild",
+    minify: "oxc",
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-query": ["@tanstack/react-query"],
-          "vendor-firebase": ["firebase/app", "firebase/auth"],
-          "vendor-motion": ["framer-motion"],
-          "vendor-markdown": ["react-markdown"],
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+            return "vendor-react";
+          }
+          if (/[\\/]node_modules[\\/]@tanstack[\\/]react-query[\\/]/.test(id)) {
+            return "vendor-query";
+          }
+          if (/[\\/]node_modules[\\/]@firebase[\\/]|[\\/]node_modules[\\/]firebase[\\/]/.test(id)) {
+            return "vendor-firebase";
+          }
+          if (/[\\/]node_modules[\\/]framer-motion[\\/]/.test(id)) {
+            return "vendor-motion";
+          }
+          if (/[\\/]node_modules[\\/]react-markdown[\\/]/.test(id)) {
+            return "vendor-markdown";
+          }
+          return undefined;
         },
       },
     },

@@ -60,7 +60,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: matrix.scope == 'workspace' || matrix.scope == 'desci' || matrix.scope == 'agriguard'
         with:
-          node-version: "22.12.0"
+          node-version: "24.15.0"
           cache: npm
           cache-dependency-path: |
             apps/desci-platform/frontend/package-lock.json

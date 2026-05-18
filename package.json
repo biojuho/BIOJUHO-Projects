@@ -3,17 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
-    "turbo": "^2.5.0"
+    "@playwright/test": "^1.60.0",
+    "turbo": "^2.9.12"
   },
   "scripts": {
     "bootstrap:legacy-paths": "python bootstrap_legacy_paths.py",
+    "build": "npm run build:all",
     "build:all": "node ops/scripts/run_workspace_package_script.mjs build",
+    "lint": "npm run lint:all",
     "test:all": "node ops/scripts/run_workspace_package_script.mjs test",
     "lint:all": "node ops/scripts/run_workspace_package_script.mjs lint",
+    "test": "npm run test:all",
+    "typecheck": "npm run typecheck:all",
     "typecheck:all": "node ops/scripts/run_workspace_package_script.mjs typecheck"
   },
   "dependencies": {
-    "playwright": "^1.58.2"
+    "playwright": "^1.60.0"
   }
 }
