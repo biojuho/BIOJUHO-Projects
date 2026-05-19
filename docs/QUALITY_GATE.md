@@ -52,9 +52,11 @@ python scripts/run_workspace_smoke.py --scope all
   - dashboard frontend lint, unit tests, build, bundle budget
 - `desci`
   - frontend lint, unit tests, build, bundle budget
+  - contracts compile and tests
   - biolinker smoke pytest
 - `agriguard`
   - frontend lint and build
+  - contracts compile and tests
   - backend pytest suite
 - `mcp`
   - compile smoke for tracked MCP paths
