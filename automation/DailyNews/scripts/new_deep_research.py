@@ -127,7 +127,7 @@ def generate_deep_research_report(topic: str, output_dir: str):
     if not news_items:
         content += "- No recent news found or error occurred during fetching.\n"
     else:
-        for idx, item in enumerate(news_items[:5], 1):
+        for _idx, item in enumerate(news_items[:5], 1):
             content += f"- **[{item['pubDate']}]**: [{item['title']}]({item['link']})\n"
 
     content += "\n## 3. Social Media Sentiment & Trends (X/Twitter)\n"

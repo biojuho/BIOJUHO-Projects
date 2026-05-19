@@ -10,9 +10,7 @@ from antigravity_mcp.insights.validator import InsightValidator
 
 logger = logging.getLogger(__name__)
 
-_EVIDENCE_TAG_PATTERN = re.compile(
-    r"\s*\[(?:A\d+|Inference:[^\]]+|Background|Insufficient evidence)\]\s*$"
-)
+_EVIDENCE_TAG_PATTERN = re.compile(r"\s*\[(?:A\d+|Inference:[^\]]+|Background|Insufficient evidence)\]\s*$")
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 
 _DEFAULT_LONGFORM_PROFILE: dict[str, str] = {
@@ -186,7 +184,7 @@ class InsightGenerator:
         return f"""당신은 분석형 뉴스 인사이트 전문가입니다.
 아래 기사들로부터 독자가 바로 행동할 수 있는 고품질 인사이트를 {max_insights}개 생성하세요.
 
-이 결과물은 X에서 발행되는 "{profile['header']}" 카테고리 롱폼 포스트의 재료입니다.
+이 결과물은 X에서 발행되는 "{profile["header"]}" 카테고리 롱폼 포스트의 재료입니다.
 포맷 전제:
 - 각 카테고리는 하나의 자기완결적 브리핑 카드처럼 읽혀야 합니다.
 - 카툰 이미지는 비유와 인상을 담당합니다.
@@ -196,9 +194,9 @@ class InsightGenerator:
 - 한 인사이트에는 한 개의 핵심 메시지만 남기세요.
 
 카테고리 프레임:
-- 포커스: {profile['focus']}
-- 독자 약속: {profile['reader_promise']}
-- 마무리에서 답해야 할 질문: {profile['frame_question']}
+- 포커스: {profile["focus"]}
+- 독자 약속: {profile["reader_promise"]}
+- 마무리에서 답해야 할 질문: {profile["frame_question"]}
 
 원칙:
 1. 점(Fact) → 선(Trend) 연결

@@ -109,11 +109,11 @@ def main() -> None:
         _metric_card("Tracked Runs", str(len(runs_df.index)), "Recent pipeline executions stored locally.")
     with col2:
         local_draft_reports = 0 if reports_df.empty else int((reports_df["delivery_state"] == "draft").sum())
-        _metric_card("Local Draft Reports", str(local_draft_reports), "Reports stored locally and not yet synced to Notion.")
-    with col3:
-        notion_synced_reports = (
-            0 if reports_df.empty else int((reports_df["delivery_state"] == "notion_synced").sum())
+        _metric_card(
+            "Local Draft Reports", str(local_draft_reports), "Reports stored locally and not yet synced to Notion."
         )
+    with col3:
+        notion_synced_reports = 0 if reports_df.empty else int((reports_df["delivery_state"] == "notion_synced").sum())
         _metric_card("Notion-Synced Reports", str(notion_synced_reports), "Reports mirrored to Notion.")
     with col4:
         published_posts = (

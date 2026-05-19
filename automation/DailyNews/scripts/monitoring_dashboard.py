@@ -184,7 +184,7 @@ def print_recent_runs():
     print("  " + "-" * 78)
 
     # 실행 목록
-    for run_id, job_name, status, started_at, finished_at in runs:
+    for run_id, job_name, status, started_at, _finished_at in runs:
         run_id_short = run_id[:32] + "..." if len(run_id) > 35 else run_id
         job_name_short = job_name[:17] + "..." if len(job_name) > 20 else job_name
         started_short = started_at[:19] if started_at else "N/A"

@@ -1,6 +1,7 @@
 """Clean orphaned drafts and stuck jobs from pipeline_state.db."""
-import sqlite3
+
 import os
+import sqlite3
 
 db = os.path.join(os.path.dirname(__file__), "..", "data", "pipeline_state.db")
 conn = sqlite3.connect(db)
@@ -14,10 +15,7 @@ c.execute(
 orphans = c.rowcount
 
 # Stuck running jobs
-c.execute(
-    "UPDATE job_runs SET status = 'failed' "
-    "WHERE status = 'running'"
-)
+c.execute("UPDATE job_runs SET status = 'failed' WHERE status = 'running'")
 stuck = c.rowcount
 
 conn.commit()

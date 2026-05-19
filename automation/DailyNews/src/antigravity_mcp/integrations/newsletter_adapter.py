@@ -319,7 +319,9 @@ class NewsletterAdapter:
                     subscriber_categories=subscriber.categories or None,
                     edition=edition,
                     signup_url=self._signup_url,
-                    unsubscribe_url=f"{self._signup_url}/unsubscribe?email={subscriber.email}" if self._signup_url else "",
+                    unsubscribe_url=f"{self._signup_url}/unsubscribe?email={subscriber.email}"
+                    if self._signup_url
+                    else "",
                     subscriber_email=subscriber.email,
                 )
 

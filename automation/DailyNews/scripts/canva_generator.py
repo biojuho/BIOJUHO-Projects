@@ -347,7 +347,7 @@ if __name__ == "__main__":
     y = 260
     for i, text in enumerate(["AI breakthroughs", "Market trends", "Policy updates"]):
         draw.rectangle([(40, y), (1040, y + 120)], fill="#0f3460", outline="#e94560")
-        draw.text((70, y + 45), f"{i+1}. {text}", fill="white")
+        draw.text((70, y + 45), f"{i + 1}. {text}", fill="white")
         y += 160
     test_png = OUTPUT_DIR / "canva_test_infographic.png"
     test_png.parent.mkdir(parents=True, exist_ok=True)

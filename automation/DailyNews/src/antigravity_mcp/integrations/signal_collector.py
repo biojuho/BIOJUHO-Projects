@@ -211,7 +211,13 @@ class GoogleTrendsCollector:
 
 _DEFAULT_GDT_DB = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "..", "GetDayTrends", "data", "getdaytrends.db",
+    "..",
+    "..",
+    "..",
+    "..",
+    "GetDayTrends",
+    "data",
+    "getdaytrends.db",
 )
 
 

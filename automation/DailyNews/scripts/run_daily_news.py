@@ -22,6 +22,16 @@ from runtime import (
 from settings import NEWS_SOURCES_FILE, NOTION_API_KEY, NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR
 
 
+DAILY_REPORT_CATEGORY_PRIORITY = (
+    "Global_Affairs",
+    "Economy_Global",
+    "Economy_KR",
+    "AI_Deep",
+    "Tech",
+    "Crypto",
+)
+
+
 def _print_manifest(summary: dict, status: str, run_id: str | None) -> None:
     """Print a JSON manifest to stdout for workflow-level heartbeat integration."""
     manifest = {
@@ -44,19 +54,13 @@ def get_extraction_window(force: bool) -> tuple[datetime, datetime, str]:
     hour = now_kst.hour
     if force:
         return now_kst - timedelta(hours=24), now_kst, "test"
-    # Widened to absorb GHA cron drift — schedules fire at 07/18 KST but can
-    # queue up to several hours late. The 2026-04-13 evening run fired at
-    # 19:49 KST (1h49m late) and was rejected as "outside extraction window",
-    # so the whole brief was skipped. Accept anything up to ~6h after the
-    # scheduled slot and still classify it correctly.
+    # Widened to absorb GHA cron drift: the schedule fires at 07:00 KST but
+    # can queue up to several hours late. Accept anything up to ~6h after the
+    # scheduled slot and still classify it as the morning brief.
     if 6 <= hour < 13:
         start = now_kst.replace(hour=18, minute=0, second=0, microsecond=0) - timedelta(days=1)
         end = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
         return start, end, "morning"
-    if 17 <= hour < 24:
-        start = now_kst.replace(hour=7, minute=0, second=0, microsecond=0)
-        end = now_kst.replace(hour=18, minute=0, second=0, microsecond=0)
-        return start, end, "evening"
     raise RuntimeError("outside extraction window; use --force to override")
 
 
@@ -78,6 +82,17 @@ def is_within_window(published_time: Any, start: datetime, end: datetime) -> boo
 def load_news_sources() -> dict[str, list[dict[str, str]]]:
     with NEWS_SOURCES_FILE.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def iter_news_sources_by_priority(
+    news_sources: dict[str, list[dict[str, str]]],
+) -> list[tuple[str, list[dict[str, str]]]]:
+    priority = {category: index for index, category in enumerate(DAILY_REPORT_CATEGORY_PRIORITY)}
+    fallback_index = len(priority)
+    return sorted(
+        news_sources.items(),
+        key=lambda item: (priority.get(item[0], fallback_index), item[0]),
+    )
 
 
 from antigravity_mcp.domain.category_filter import is_relevant_to_category as _is_relevant_to_category
@@ -354,6 +369,8 @@ async def process_category(
             source=source_name,
             found=len(all_articles),
         )
+        if len(all_articles) >= max_items:
+            break
 
     if not all_articles:
         logger.warning("category", "skipped", "no articles in time window", category=category)
@@ -392,9 +409,7 @@ async def process_category(
         if _brain_async is not None:
             analysis_coro = _brain_async(category, all_articles[:max_items])
         else:
-            analysis_coro = asyncio.to_thread(
-                brain.analyze_news, category, all_articles[:max_items]
-            )
+            analysis_coro = asyncio.to_thread(brain.analyze_news, category, all_articles[:max_items])
         analysis = await run_with_timeout(analysis_coro, 60)
     except Exception as exc:
         logger.error("analysis", "failed", "analysis failed", category=category, error=str(exc))
@@ -514,7 +529,7 @@ async def process_category(
     return {"category": category, "status": "success", "articles": len(all_articles)}
 
 
-async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = None) -> int:
+async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, run_id: str | None = None) -> int:
     configure_stdout_utf8()
     run_id = run_id or generate_run_id("run_daily_news")
     logger = get_logger("run_daily_news", run_id)
@@ -607,7 +622,7 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                 window=window_name,
             )
 
-            for category, sources in news_sources.items():
+            for category, sources in iter_news_sources_by_priority(news_sources):
                 try:
                     result = await process_category(
                         category=category,
@@ -633,6 +648,14 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                 status = result.get("status")
                 if status == "success":
                     summary["categories_success"] += 1
+                    if summary["categories_success"] >= max_reports:
+                        logger.info(
+                            "category",
+                            "stop",
+                            "max successful reports reached",
+                            max_reports=max_reports,
+                        )
+                        break
                 elif status == "failed":
                     summary["categories_failed"] += 1
                 else:
@@ -647,15 +670,12 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
             if fail > 0:
                 status_name = "failed" if succ == 0 else "partial_failed"
                 prefix = "[TOTAL-FAIL]" if succ == 0 else "[PARTIAL]"
-                error_msg = (
-                    f"{fail}/{total} categories failed to publish "
-                    f"(success={succ}, skipped={skip})"
-                )
-                state.record_job_finish(
-                    run_id, status=status_name, summary=summary, error_text=error_msg
-                )
+                error_msg = f"{fail}/{total} categories failed to publish (success={succ}, skipped={skip})"
+                state.record_job_finish(run_id, status=status_name, summary=summary, error_text=error_msg)
                 logger.error(
-                    "complete", "failed", "run_daily_news categories failed",
+                    "complete",
+                    "failed",
+                    "run_daily_news categories failed",
                     **summary,
                 )
                 _print_manifest(summary, status_name, run_id)
@@ -679,15 +699,11 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
             # 빡빡함·소스 URL 일괄 만료 등) 알림 없이 success heartbeat가 가면
             # 며칠씩 묵음 장애가 누적된다.
             if total > 0 and succ == 0 and skip == total:
-                error_msg = (
-                    f"{skip}/{total} categories skipped — zero articles "
-                    f"in window {summary['window']}"
-                )
-                state.record_job_finish(
-                    run_id, status="degraded", summary=summary, error_text=error_msg
-                )
+                error_msg = f"{skip}/{total} categories skipped — zero articles in window {summary['window']}"
+                state.record_job_finish(run_id, status="degraded", summary=summary, error_text=error_msg)
                 logger.error(
-                    "complete", "degraded",
+                    "complete",
+                    "degraded",
                     "run_daily_news collected zero articles across all categories",
                     **summary,
                 )
@@ -698,17 +714,13 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
                     _notifier = Notifier.from_env()
                     if _notifier.has_channels:
                         _notifier.send_error(
-                            f"[PRE-FAIL] DailyNews degraded: 전 카테고리({skip}) 수집 0건 "
-                            f"(window={summary['window']})",
+                            f"[PRE-FAIL] DailyNews degraded: 전 카테고리({skip}) 수집 0건 (window={summary['window']})",
                             source="DailyNews",
                         )
                         _notifier.send_heartbeat(
                             "DailyNews",
                             status="degraded",
-                            details=(
-                                f"window={summary['window']} "
-                                f"성공={succ} 실패={fail} 스킵={skip} 기사=0"
-                            ),
+                            details=(f"window={summary['window']} 성공={succ} 실패={fail} 스킵={skip} 기사=0"),
                         )
                 except Exception:
                     pass
@@ -767,14 +779,17 @@ async def run_daily_news(*, force: bool, max_items: int, run_id: str | None = No
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the daily news extraction and analysis pipeline.")
     parser.add_argument("--force", action="store_true", help="Ignore schedule window and use the last 24 hours")
-    parser.add_argument("--max-items", type=int, default=5, help="Maximum articles to analyze per category")
+    parser.add_argument("--max-items", type=int, default=1, help="Maximum articles to analyze per category")
+    parser.add_argument("--max-reports", type=int, default=1, help="Maximum successful reports to publish")
     parser.add_argument("--run-id", help="Optional run identifier for logs and state tracking")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    return asyncio.run(run_daily_news(force=args.force, max_items=args.max_items, run_id=args.run_id))
+    return asyncio.run(
+        run_daily_news(force=args.force, max_items=args.max_items, max_reports=args.max_reports, run_id=args.run_id)
+    )
 
 
 if __name__ == "__main__":

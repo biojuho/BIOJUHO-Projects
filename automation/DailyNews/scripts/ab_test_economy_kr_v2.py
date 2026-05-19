@@ -17,9 +17,9 @@ from datetime import datetime
 from pathlib import Path
 
 # Force UTF-8 encoding for standard output on Windows
-if sys.stdout.encoding.lower() != 'utf-8':
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8')
+if sys.stdout.encoding.lower() != "utf-8":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
 SCRIPT_PATH = Path(__file__).resolve()
 PROJECT_ROOT = SCRIPT_PATH.parents[1]

@@ -144,9 +144,9 @@ class TestDatabaseState:
         cur = db_conn.cursor()
         cur.execute("SELECT DISTINCT category FROM content_reports WHERE created_at >= '2026-03-30'")
         categories = {r["category"] for r in cur.fetchall()}
-        assert (
-            categories == EXPECTED_CATEGORIES
-        ), f"Missing: {EXPECTED_CATEGORIES - categories}, Extra: {categories - EXPECTED_CATEGORIES}"
+        assert categories == EXPECTED_CATEGORIES, (
+            f"Missing: {EXPECTED_CATEGORIES - categories}, Extra: {categories - EXPECTED_CATEGORIES}"
+        )
 
 
 # ============================================================

@@ -9,14 +9,19 @@ from antigravity_mcp.domain.models import ChannelDraft, ContentItem, ContentRepo
 from antigravity_mcp.integrations.embedding_adapter import ArticleCluster, EmbeddingAdapter
 from antigravity_mcp.integrations.llm_adapter import LLMAdapter
 from antigravity_mcp.integrations.llm_prompts import resolve_prompt_mode
+from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext, _normalize_brief_body
+from antigravity_mcp.pipelines.enrichment_steps import (
+    apply_enrichments as apply_enrichments,
+)
+from antigravity_mcp.pipelines.enrichment_steps import (
+    apply_proofreading as apply_proofreading,
+)
+from antigravity_mcp.pipelines.qa_steps import finalize_quality as finalize_quality
 from antigravity_mcp.state.events import generate_run_id, utc_now_iso
 from antigravity_mcp.state.store import PipelineStateStore
 
-from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext, _normalize_brief_body
-from antigravity_mcp.pipelines.enrichment_steps import apply_enrichments, apply_proofreading
-from antigravity_mcp.pipelines.qa_steps import finalize_quality
-
 logger = logging.getLogger(__name__)
+
 
 def _coerce_generated_payload(
     payload: GeneratedPayload | tuple[list[str], list[str], list[ChannelDraft]],
@@ -135,7 +140,9 @@ async def generate_base_payload(
         logger.warning("generate_base_payload: enriched_items 비어있음, LLM 호출 스킵")
         ctx.warnings.append(f"No enriched items for {ctx.category}")
         return GeneratedPayload(
-            summary_lines=[], insights=[], channel_drafts=[],
+            summary_lines=[],
+            insights=[],
+            channel_drafts=[],
             generation_mode=ctx.generation_mode,
             parse_meta={"used_fallback": True, "missing_sections": [], "sections_found": {}},
             quality_state="empty",
@@ -155,6 +162,7 @@ async def generate_base_payload(
         # Notifier 연동 (약결합, fire-and-forget)
         try:
             from shared.notifications import Notifier
+
             notifier = Notifier.from_env()
             if notifier.has_channels:
                 notifier.send_error(
@@ -165,7 +173,9 @@ async def generate_base_payload(
         except Exception:
             pass
         return GeneratedPayload(
-            summary_lines=[], insights=[], channel_drafts=[],
+            summary_lines=[],
+            insights=[],
+            channel_drafts=[],
             generation_mode=ctx.generation_mode,
             parse_meta={"used_fallback": True, "missing_sections": [], "sections_found": {}},
             quality_state="llm_error",

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
 import logging
+from typing import Any
 
 from antigravity_mcp.domain.models import ChannelDraft
 from antigravity_mcp.integrations.insight_adapter import InsightAdapter
 from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext, _is_concise_brief
 
 logger = logging.getLogger(__name__)
+
 
 async def apply_proofreading(ctx: ReportAssemblyContext, proofreader_adapter: Any | None) -> None:
     if not proofreader_adapter or not hasattr(proofreader_adapter, "proofread"):
@@ -227,7 +228,9 @@ async def apply_enrichments(
     minimize = False
     if token_budget is not None and hasattr(token_budget, "should_minimize"):
         minimize = token_budget.should_minimize()
-        ctx.detail_level = token_budget.get_detail_level().value if hasattr(token_budget, "get_detail_level") else "minimal"
+        ctx.detail_level = (
+            token_budget.get_detail_level().value if hasattr(token_budget, "get_detail_level") else "minimal"
+        )
         ctx.analysis_meta["token_budget_state"] = {
             "should_minimize": minimize,
             "detail_level": ctx.detail_level,
@@ -240,11 +243,12 @@ async def apply_enrichments(
 
     # Expensive enrichments: skip when token budget is tight
     if minimize:
-        ctx.warnings.append(f"[TokenBudget] Skipping expensive enrichments for {ctx.category} (detail_level={ctx.detail_level})")
+        ctx.warnings.append(
+            f"[TokenBudget] Skipping expensive enrichments for {ctx.category} (detail_level={ctx.detail_level})"
+        )
     else:
         await _apply_notebooklm_enrichment(ctx, notebooklm_adapter)
         await _apply_reasoning_enrichment(ctx, reasoning_adapter)
 
     await _apply_insight_enrichment(ctx, insight_adapter)
     _apply_topic_continuity(ctx)
-

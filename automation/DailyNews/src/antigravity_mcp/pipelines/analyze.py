@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from antigravity_mcp.config import emit_metric
 from antigravity_mcp.domain.models import ContentItem, ContentReport
@@ -36,9 +36,11 @@ def _get_notifier():
     """Lazy-import shared Notifier (never raises)."""
     try:
         from shared.notifications import Notifier
+
         return Notifier.from_env()
     except Exception:
         return None
+
 
 __all__ = ["BriefAdapters", "ReportAssemblyContext", "build_report_fingerprint", "generate_briefs"]
 
@@ -128,13 +130,16 @@ async def _process_category(
     allowed_cats = _CATEGORY_FAMILY.get(category, frozenset({category}))
     pre_filter_count = len(category_items)
     category_items = [
-        item for item in category_items
+        item
+        for item in category_items
         if not item.category or item.category in allowed_cats or item.category == "unknown"
     ]
     if len(category_items) < pre_filter_count:
         removed = pre_filter_count - len(category_items)
         logger.info("Category purity filter: removed %d cross-category items from %s", removed, category)
-        warnings.append(f"[CategoryFilter] {category}: {removed}개 타 카테고리 기사 제거 (총 {pre_filter_count}→{len(category_items)})")
+        warnings.append(
+            f"[CategoryFilter] {category}: {removed}개 타 카테고리 기사 제거 (총 {pre_filter_count}→{len(category_items)})"
+        )
     if not category_items:
         warnings.append(f"[CategoryFilter] {category}: 필터 후 기사 없음 — 스킵")
         return
@@ -180,13 +185,15 @@ async def _process_category(
     except Exception as exc:
         logger.debug("Recent drafts fetch failed for %s: %s", category, exc)
 
+    llm = cast("LLMAdapter", resolved.llm)
     await generate_base_payload(
-        ctx, resolved.llm,
+        ctx,
+        llm,
         quality_feedback=quality_feedback,
         overlapping_drafts=overlapping_draft_texts,
     )
     # Auto-heal에서 LLM 재호출할 수 있도록 ctx에 참조 저장
-    ctx._llm_adapter = resolved.llm  # type: ignore[attr-defined]
+    ctx._llm_adapter = llm
     await apply_proofreading(ctx, resolved.proofreader)
     await apply_enrichments(
         ctx,
@@ -245,10 +252,18 @@ async def generate_briefs(
     digest_adapter: Any | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
     resolved = _resolve_adapters(
-        state_store, adapters,
-        llm_adapter, embedding_adapter, insight_adapter,
-        sentiment_adapter, brain_adapter, proofreader_adapter,
-        notebooklm_adapter, skill_adapter, reasoning_adapter, digest_adapter,
+        state_store,
+        adapters,
+        llm_adapter,
+        embedding_adapter,
+        insight_adapter,
+        sentiment_adapter,
+        brain_adapter,
+        proofreader_adapter,
+        notebooklm_adapter,
+        skill_adapter,
+        reasoning_adapter,
+        digest_adapter,
     )
     run_id = run_id or generate_run_id("generate_brief")
 
@@ -275,9 +290,17 @@ async def generate_briefs(
 
         for category, category_items in grouped.items():
             await _process_category(
-                category, category_items, cluster_meta,
-                window_name, window_start, window_end,
-                state_store, run_id, resolved, reports, warnings,
+                category,
+                category_items,
+                cluster_meta,
+                window_name,
+                window_start,
+                window_end,
+                state_store,
+                run_id,
+                resolved,
+                reports,
+                warnings,
             )
 
         blocked_reports = [r for r in reports if r.quality_state == "blocked"]

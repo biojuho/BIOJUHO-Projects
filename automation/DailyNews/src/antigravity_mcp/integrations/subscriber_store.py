@@ -128,12 +128,8 @@ class SubscriberStore:
                 )
                 """
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_subscribers_status ON subscribers(status)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_subscribers_status ON subscribers(status)")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_events_subscriber ON newsletter_events(subscriber_id, created_at DESC)"
             )
@@ -297,10 +293,7 @@ class SubscriberStore:
 
         if categories:
             cat_set = set(categories)
-            subscribers = [
-                s for s in subscribers
-                if not s.categories or cat_set.intersection(s.categories)
-            ]
+            subscribers = [s for s in subscribers if not s.categories or cat_set.intersection(s.categories)]
 
         return subscribers
 
@@ -421,12 +414,15 @@ class SubscriberStore:
 
         total = conn.execute("SELECT COUNT(*) as c FROM subscribers").fetchone()["c"]
         active = conn.execute("SELECT COUNT(*) as c FROM subscribers WHERE status = 'active'").fetchone()["c"]
-        avg_eng = conn.execute("SELECT AVG(engagement_score) as avg FROM subscribers WHERE status = 'active'").fetchone()["avg"] or 0.0
+        avg_eng = (
+            conn.execute("SELECT AVG(engagement_score) as avg FROM subscribers WHERE status = 'active'").fetchone()[
+                "avg"
+            ]
+            or 0.0
+        )
 
         # Category distribution
-        rows = conn.execute(
-            "SELECT id, email, categories_json FROM subscribers WHERE status = 'active'"
-        ).fetchall()
+        rows = conn.execute("SELECT id, email, categories_json FROM subscribers WHERE status = 'active'").fetchall()
         cat_dist: dict[str, int] = {}
         for row in rows:
             categories, is_valid = self._parse_categories_json(

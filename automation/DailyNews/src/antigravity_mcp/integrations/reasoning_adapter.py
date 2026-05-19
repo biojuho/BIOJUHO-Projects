@@ -186,7 +186,7 @@ class ReasoningAdapter:
         system_msg = step2_cfg.get("system", "당신은 사실들 사이의 패턴을 발견하는 연구자입니다.")
 
         facts_text = "\n".join(
-            f"F-{i+1}: {f['fact_text']} / WHY: {f.get('why_question', '')}" for i, f in enumerate(facts)
+            f"F-{i + 1}: {f['fact_text']} / WHY: {f.get('why_question', '')}" for i, f in enumerate(facts)
         )
 
         patterns_text = ""
@@ -255,7 +255,7 @@ class ReasoningAdapter:
         system_msg = step3_cfg.get("system", "당신은 가설의 약점을 찾아 반증하는 비판적 사고가입니다.")
 
         hyp_text = "\n".join(
-            f"H-{i+1}: {h.get('hypothesis', '')} (근거: {', '.join(h.get('based_on', []))})"
+            f"H-{i + 1}: {h.get('hypothesis', '')} (근거: {', '.join(h.get('based_on', []))})"
             for i, h in enumerate(hypotheses)
         )
 

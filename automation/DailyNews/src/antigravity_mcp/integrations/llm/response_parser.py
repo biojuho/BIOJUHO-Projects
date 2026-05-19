@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from antigravity_mcp.domain.models import ChannelDraft, ContentItem, GeneratedPayload
-from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
 from antigravity_mcp.integrations.llm_prompts import resolve_prompt_mode
+
+if TYPE_CHECKING:
+    from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +24,14 @@ _META_RESPONSE_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 _MIN_CONTENT_LINES = 3
 
+
 def is_meta_response(text: str, *, check_line_count: bool = True) -> bool:
     for pattern in _META_RESPONSE_PATTERNS:
         if pattern.search(text):
             return True
     if not check_line_count:
         return False
-    content_lines = [l for l in text.splitlines() if l.strip() and not l.strip().startswith("#")]
+    content_lines = [line for line in text.splitlines() if line.strip() and not line.strip().startswith("#")]
     return len(content_lines) < _MIN_CONTENT_LINES
 
 
@@ -85,13 +88,14 @@ class ResponseParser:
         generation_mode: str,
     ) -> tuple[GeneratedPayload, list[str]]:
         if generation_mode.startswith("v2"):
-            payload, warnings = self._parse_v2_response(
+            parsed_v2 = self._parse_v2_response(
                 category=category,
                 text=text,
                 items=items,
                 window_name=window_name,
                 generation_mode=generation_mode,
             )
+            payload, warnings = cast("tuple[GeneratedPayload, list[str]]", parsed_v2)
             if payload.parse_meta.get("used_fallback") and self._looks_like_v1_response(text):
                 return self._parse_v1_response(
                     category=category,
@@ -153,6 +157,66 @@ class ResponseParser:
     def _strip_v1_list_marker(self, line: str) -> str:
         return re.sub(r"^(?:[-*]|\u2022)\s+", "", line).strip()
 
+    def _fallback_payload(
+        self,
+        *,
+        category: str,
+        items: list[ContentItem],
+        window_name: str,
+        generation_mode: str,
+        reason: str,
+        missing_sections: list[str] | None = None,
+        sections_found: dict[str, int] | None = None,
+    ) -> GeneratedPayload:
+        return self.draft_gen.fallback_report(
+            category=category,
+            items=items,
+            window_name=window_name,
+            generation_mode=generation_mode,
+            reason=reason,
+            missing_sections=missing_sections,
+            sections_found=sections_found,
+        )
+
+    def _channel_drafts(
+        self,
+        *,
+        category: str,
+        items: list[ContentItem],
+        summary_lines: list[str],
+        draft_lines: list[str],
+    ) -> list[ChannelDraft]:
+        x_fallback = not draft_lines
+        return [
+            ChannelDraft(
+                channel="x",
+                status="draft",
+                content="\n".join(draft_lines)
+                if draft_lines
+                else self.draft_gen.build_x_draft(category, summary_lines, items),
+                source="fallback" if x_fallback else "llm",
+                is_fallback=x_fallback,
+            ),
+            ChannelDraft(
+                channel="canva",
+                status="draft",
+                content=self.draft_gen.build_canva_draft(category, items),
+                source="fallback",
+                is_fallback=True,
+            ),
+        ]
+
+    def _legacy_or_payload(
+        self,
+        payload: GeneratedPayload,
+        warnings: list[str],
+        *,
+        legacy_mode: bool,
+    ) -> tuple[GeneratedPayload, list[str]] | tuple[list[str], list[str], list[ChannelDraft]]:
+        if legacy_mode:
+            return payload.summary_lines, payload.insights, payload.channel_drafts
+        return payload, warnings
+
     def _parse_v1_response(
         self,
         *,
@@ -197,7 +261,7 @@ class ResponseParser:
 
         if not summary_lines or not insights:
             warnings.append(f"parse_fallback:{category}:{window_name}")
-            return self.draft_gen.fallback_report(
+            return self._fallback_payload(
                 category=category,
                 items=items,
                 window_name=window_name,
@@ -210,7 +274,7 @@ class ResponseParser:
         if is_meta_response(parsed_text, check_line_count=False):
             warnings.append(f"meta_response_in_sections:{category}:{window_name}")
             logger.warning("Meta-response detected inside parsed sections for %s/%s", category, window_name)
-            return self.draft_gen.fallback_report(
+            return self._fallback_payload(
                 category=category,
                 items=items,
                 window_name=window_name,
@@ -223,24 +287,12 @@ class ResponseParser:
         payload = GeneratedPayload(
             summary_lines=summary_lines[:3],
             insights=insights[:insight_limit],
-            channel_drafts=[
-                ChannelDraft(
-                    channel="x",
-                    status="draft",
-                    content="\n".join(draft_lines)
-                    if draft_lines
-                    else self.draft_gen.build_x_draft(category, summary_lines, items),
-                    source="fallback" if x_fallback else "llm",
-                    is_fallback=x_fallback,
-                ),
-                ChannelDraft(
-                    channel="canva",
-                    status="draft",
-                    content=self.draft_gen.build_canva_draft(category, items),
-                    source="fallback",
-                    is_fallback=True,
-                ),
-            ],
+            channel_drafts=self._channel_drafts(
+                category=category,
+                items=items,
+                summary_lines=summary_lines,
+                draft_lines=draft_lines,
+            ),
             generation_mode=generation_mode,
             parse_meta={
                 "used_fallback": False,
@@ -304,7 +356,7 @@ class ResponseParser:
 
         if not summary_lines or not insights:
             warnings.append(f"parse_fallback:{category}:{window_name}")
-            payload = self.draft_gen.fallback_report(
+            payload = self._fallback_payload(
                 category=category,
                 items=items,
                 window_name=window_name,
@@ -313,48 +365,32 @@ class ResponseParser:
                 missing_sections=missing_sections,
                 sections_found=sections_found,
             )
-            if legacy_mode:
-                return payload.summary_lines, payload.insights, payload.channel_drafts
-            return payload, warnings
+            return self._legacy_or_payload(payload, warnings, legacy_mode=legacy_mode)
 
         # P0: 파서 레벨 메타응답 감지 (v2)
         parsed_text_v2 = " ".join(summary_lines + insights)
         if is_meta_response(parsed_text_v2, check_line_count=False):
             warnings.append(f"meta_response_in_sections:{category}:{window_name}")
             logger.warning("Meta-response detected inside v2 parsed sections for %s/%s", category, window_name)
-            payload = self.draft_gen.fallback_report(
+            payload = self._fallback_payload(
                 category=category,
                 items=items,
                 window_name=window_name,
                 generation_mode=generation_mode,
                 reason="meta_response_in_sections",
             )
-            if legacy_mode:
-                return payload.summary_lines, payload.insights, payload.channel_drafts
-            return payload, warnings
+            return self._legacy_or_payload(payload, warnings, legacy_mode=legacy_mode)
 
         x_fallback = not draft_lines
         payload = GeneratedPayload(
             summary_lines=summary_lines,
             insights=insights,
-            channel_drafts=[
-                ChannelDraft(
-                    channel="x",
-                    status="draft",
-                    content="\n".join(draft_lines)
-                    if draft_lines
-                    else self.draft_gen.build_x_draft(category, summary_lines, items),
-                    source="fallback" if x_fallback else "llm",
-                    is_fallback=x_fallback,
-                ),
-                ChannelDraft(
-                    channel="canva",
-                    status="draft",
-                    content=self.draft_gen.build_canva_draft(category, items),
-                    source="fallback",
-                    is_fallback=True,
-                ),
-            ],
+            channel_drafts=self._channel_drafts(
+                category=category,
+                items=items,
+                summary_lines=summary_lines,
+                draft_lines=draft_lines,
+            ),
             generation_mode=generation_mode,
             parse_meta={
                 "used_fallback": False,
@@ -367,6 +403,4 @@ class ResponseParser:
         )
         if x_fallback:
             warnings.append(f"draft_fallback:{category}:{window_name}")
-        if legacy_mode:
-            return payload.summary_lines, payload.insights, payload.channel_drafts
-        return payload, warnings
+        return self._legacy_or_payload(payload, warnings, legacy_mode=legacy_mode)

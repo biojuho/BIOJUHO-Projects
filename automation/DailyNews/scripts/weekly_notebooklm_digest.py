@@ -22,9 +22,9 @@ if str(SRC_DIR) not in sys.path:
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from notion_client import AsyncClient
-from runtime import configure_stdout_utf8, generate_run_id, get_logger
-from settings import NOTION_API_KEY, NOTION_DASHBOARD_PAGE_ID, NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR
+from notion_client import AsyncClient  # noqa: E402
+from runtime import configure_stdout_utf8, generate_run_id, get_logger  # noqa: E402
+from settings import NOTION_API_KEY, NOTION_DASHBOARD_PAGE_ID, NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR  # noqa: E402
 
 
 async def fetch_week_reports(
@@ -64,23 +64,40 @@ def parse_notion_report(page: dict) -> dict:
     """Extract structured data from a Notion report page."""
     props = page.get("properties", {})
 
-    # Category
+    category = _extract_report_category(props)
+    title = _extract_first_plain_text(props.get("Name", {}).get("title", []), "Untitled")
+    report_date = _extract_report_date(props)
+    description = _extract_first_plain_text(props.get("Description", {}).get("rich_text", []), "")
+    summary_lines, insights = _parse_description_sections(description)
+
+    return {
+        "category": category,
+        "title": title,
+        "report_date": report_date,
+        "summary_lines": summary_lines,
+        "insights": insights,
+        "source_links": [],  # URLs not stored in Notion properties; populated below
+        "window_name": "daily",
+        "window_start": report_date,
+        "window_end": report_date,
+    }
+
+
+def _extract_report_category(props: dict) -> str:
     source_select = props.get("Source", {}).get("select")
-    category = source_select.get("name", "Unknown") if source_select else "Unknown"
+    return source_select.get("name", "Unknown") if source_select else "Unknown"
 
-    # Title
-    title_items = props.get("Name", {}).get("title", [])
-    title = title_items[0].get("plain_text", "Untitled") if title_items else "Untitled"
 
-    # Date
+def _extract_first_plain_text(items: list[dict], default: str) -> str:
+    return items[0].get("plain_text", default) if items else default
+
+
+def _extract_report_date(props: dict) -> str:
     date_prop = props.get("Date", {}).get("date")
-    report_date = date_prop.get("start", "") if date_prop else ""
+    return date_prop.get("start", "") if date_prop else ""
 
-    # Description (contains summary + insights)
-    desc_items = props.get("Description", {}).get("rich_text", [])
-    description = desc_items[0].get("plain_text", "") if desc_items else ""
 
-    # Parse summary and insights from description
+def _parse_description_sections(description: str) -> tuple[list[str], list[str]]:
     summary_lines = []
     insights = []
     current_section = None
@@ -97,16 +114,69 @@ def parse_notion_report(page: dict) -> dict:
         elif current_section == "insight" and line:
             insights.append(line)
 
+    return summary_lines, insights
+
+
+def _notebook_url(notebook_id: str) -> str:
+    return f"https://notebooklm.google.com/notebook/{notebook_id}"
+
+
+def _build_digest_markdown(
+    *,
+    week_label: str,
+    result: dict,
+    report_count: int,
+    notebook_url: str,
+) -> str:
+    md_content = f"# Weekly Digest: {week_label}\n\n"
+    md_content += f"- **Notebook**: [{result['notebook_id'][:12]}...]({notebook_url})\n"
+    md_content += f"- **Sources**: {result['source_count']}\n"
+    md_content += f"- **Reports**: {report_count}\n"
+    md_content += f"- **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
+
+    if result.get("weekly_analysis"):
+        md_content += f"## Weekly Analysis\n\n{result['weekly_analysis']}\n\n"
+
+    if result.get("topic_connections"):
+        md_content += f"## Cross-Category Connections\n\n{result['topic_connections']}\n\n"
+
+    if result.get("artifacts"):
+        md_content += "## Artifacts\n\n"
+        for atype, aid in result["artifacts"].items():
+            md_content += f"- **{atype}**: {aid}\n"
+
+    return md_content
+
+
+def _build_dashboard_callout(
+    *,
+    week_label: str,
+    result: dict,
+    report_count: int,
+    notebook_url: str,
+) -> dict:
     return {
-        "category": category,
-        "title": title,
-        "report_date": report_date,
-        "summary_lines": summary_lines,
-        "insights": insights,
-        "source_links": [],  # URLs not stored in Notion properties; populated below
-        "window_name": "daily",
-        "window_start": report_date,
-        "window_end": report_date,
+        "object": "block",
+        "type": "callout",
+        "callout": {
+            "icon": {"emoji": "\U0001f4da"},
+            "color": "green_background",
+            "rich_text": [
+                {
+                    "type": "text",
+                    "text": {"content": f"Weekly Digest {week_label}: "},
+                    "annotations": {"bold": True},
+                },
+                {
+                    "type": "text",
+                    "text": {"content": "Open in NotebookLM", "link": {"url": notebook_url}},
+                },
+                {
+                    "type": "text",
+                    "text": {"content": f" ({result['source_count']} sources, {report_count} reports)"},
+                },
+            ],
+        },
     }
 
 
@@ -179,25 +249,13 @@ async def run_weekly_digest(
     output_path.mkdir(parents=True, exist_ok=True)
 
     summary_file = output_path / f"{week_label}_digest.md"
-    notebook_url = f"https://notebooklm.google.com/notebook/{result['notebook_id']}"
-
-    md_content = f"# Weekly Digest: {week_label}\n\n"
-    md_content += f"- **Notebook**: [{result['notebook_id'][:12]}...]({notebook_url})\n"
-    md_content += f"- **Sources**: {result['source_count']}\n"
-    md_content += f"- **Reports**: {len(reports)}\n"
-    md_content += f"- **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
-
-    if result.get("weekly_analysis"):
-        md_content += f"## Weekly Analysis\n\n{result['weekly_analysis']}\n\n"
-
-    if result.get("topic_connections"):
-        md_content += f"## Cross-Category Connections\n\n{result['topic_connections']}\n\n"
-
-    if result.get("artifacts"):
-        md_content += "## Artifacts\n\n"
-        for atype, aid in result["artifacts"].items():
-            md_content += f"- **{atype}**: {aid}\n"
-
+    notebook_url = _notebook_url(result["notebook_id"])
+    md_content = _build_digest_markdown(
+        week_label=week_label,
+        result=result,
+        report_count=len(reports),
+        notebook_url=notebook_url,
+    )
     summary_file.write_text(md_content, encoding="utf-8")
 
     logger.info(
@@ -214,33 +272,15 @@ async def run_weekly_digest(
     # 5. Upload digest link to Notion dashboard (optional)
     try:
         if NOTION_DASHBOARD_PAGE_ID:
+            dashboard_callout = _build_dashboard_callout(
+                week_label=week_label,
+                result=result,
+                report_count=len(reports),
+                notebook_url=notebook_url,
+            )
             await notion.blocks.children.append(
                 NOTION_DASHBOARD_PAGE_ID,
-                children=[
-                    {
-                        "object": "block",
-                        "type": "callout",
-                        "callout": {
-                            "icon": {"emoji": "\U0001f4da"},
-                            "color": "green_background",
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {"content": f"Weekly Digest {week_label}: "},
-                                    "annotations": {"bold": True},
-                                },
-                                {
-                                    "type": "text",
-                                    "text": {"content": "Open in NotebookLM", "link": {"url": notebook_url}},
-                                },
-                                {
-                                    "type": "text",
-                                    "text": {"content": f" ({result['source_count']} sources, {len(reports)} reports)"},
-                                },
-                            ],
-                        },
-                    }
-                ],
+                children=[dashboard_callout],
             )
             logger.info("digest", "notion", "dashboard link added")
     except Exception as exc:

@@ -189,7 +189,7 @@ class NewsAgent:
 
         # Format articles for prompt
         articles_text = "\n".join(
-            f"- {a.get('title', 'N/A')} ({a.get('source', 'N/A')}): " f"{a.get('description', '')[:150]}"
+            f"- {a.get('title', 'N/A')} ({a.get('source', 'N/A')}): {a.get('description', '')[:150]}"
             for a in articles[:10]  # Max 10 per agent
         )
 

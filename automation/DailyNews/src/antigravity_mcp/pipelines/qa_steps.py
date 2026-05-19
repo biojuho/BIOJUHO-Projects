@@ -62,9 +62,7 @@ def _check_category_contract_for_content(category: str, summary_lines: list[str]
 
     min_insights = int(contract.get("min_insights", 1))
     if len(insights) < min_insights:
-        violations.append(
-            f"Category contract: {category} requires {min_insights} insights, got {len(insights)}."
-        )
+        violations.append(f"Category contract: {category} requires {min_insights} insights, got {len(insights)}.")
 
     min_citations = int(contract.get("min_source_citations", 1))
     combined = "\n".join(summary_lines + insights)
@@ -77,9 +75,7 @@ def _check_category_contract_for_content(category: str, summary_lines: list[str]
     if contract.get("required_data_anchors"):
         has_data = bool(re.search(r"\d+\.?\d*%?", combined))
         if not has_data:
-            violations.append(
-                f"Category contract: {category} requires data anchors (numbers/percentages)."
-            )
+            violations.append(f"Category contract: {category} requires data anchors (numbers/percentages).")
 
     return violations
 
@@ -89,7 +85,9 @@ def _check_category_contract(ctx: ReportAssemblyContext) -> list[str]:
 
 
 def _detect_semantic_overlap(
-    ctx: ReportAssemblyContext, *, similarity_threshold: float = 0.75,
+    ctx: ReportAssemblyContext,
+    *,
+    similarity_threshold: float = 0.75,
 ) -> dict[str, Any]:
     try:
         recent_drafts = ctx.state_store.get_recent_drafts(ctx.category, days=7, channel="x")
@@ -100,10 +98,7 @@ def _detect_semantic_overlap(
     if not recent_drafts:
         return {}
 
-    current_draft = "\n".join(
-        draft.content for draft in ctx.channel_drafts
-        if draft.channel == "x" and draft.content
-    )
+    current_draft = "\n".join(draft.content for draft in ctx.channel_drafts if draft.channel == "x" and draft.content)
     if not current_draft:
         return {}
 
@@ -130,14 +125,17 @@ def _detect_semantic_overlap(
 
         logger.debug(
             "TF-IDF overlap for %s: max=%.3f, overlapping=%d/%d",
-            ctx.category, max_similarity, len(overlapping_indices), len(past_texts),
+            ctx.category,
+            max_similarity,
+            len(overlapping_indices),
+            len(past_texts),
         )
     except ImportError:
         logger.debug("sklearn not available, falling back to bigram Jaccard")
 
         def _bigrams(text: str) -> set[str]:
             cleaned = re.sub(r"\s+", "", text.lower())
-            return {cleaned[i:i + 2] for i in range(len(cleaned) - 1)} if len(cleaned) >= 2 else set()
+            return {cleaned[i : i + 2] for i in range(len(cleaned) - 1)} if len(cleaned) >= 2 else set()
 
         current_bg = _bigrams(current_draft)
         if not current_bg:

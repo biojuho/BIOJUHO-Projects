@@ -7,6 +7,7 @@ from antigravity_mcp.domain.models import ChannelDraft, ContentItem
 from antigravity_mcp.integrations.llm_prompts import resolve_brief_style
 from antigravity_mcp.state.store import PipelineStateStore
 
+
 def _is_concise_brief() -> bool:
     return resolve_brief_style() == "concise"
 
@@ -48,4 +49,3 @@ class ReportAssemblyContext:
     detail_level: str = "standard"  # "minimal" | "standard" | "full" — from TokenBudget
     analysis_meta: dict[str, Any] = field(default_factory=dict)
     _llm_adapter: Any = field(default=None, repr=False)  # Auto-heal용 LLM 참조
-

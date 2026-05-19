@@ -8,17 +8,17 @@ from collections import OrderedDict
 from typing import Any
 
 from antigravity_mcp.config import emit_metric, get_settings
+from antigravity_mcp.integrations.llm.response_parser import is_meta_response
 from antigravity_mcp.integrations.llm_providers import (
     call_anthropic,
     call_google_genai,
     call_ollama,
     call_openai,
 )
-from shared.circuit_breaker import CircuitBreaker
-from shared.harness.token_tracker import TokenBudget
 from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
 from antigravity_mcp.state.store import PipelineStateStore
-from antigravity_mcp.integrations.llm.response_parser import is_meta_response
+from shared.circuit_breaker import CircuitBreaker
+from shared.harness.token_tracker import TokenBudget
 
 logger = logging.getLogger(__name__)
 
@@ -121,9 +121,7 @@ class LLMClientWrapper:
                 meta["provider"] = "sqlite-cache"
                 return cached_text, meta, warnings
 
-        text = await self._try_shared_llm(
-            prompt=prompt, max_tokens=max_tokens, meta=meta, warnings=warnings
-        )
+        text = await self._try_shared_llm(prompt=prompt, max_tokens=max_tokens, meta=meta, warnings=warnings)
         if not text:
             merged_prompt = f"{prompt[0]}\n\n{prompt[1]}" if isinstance(prompt, tuple) else prompt
             text = await self._try_fallback_providers(merged_prompt, meta, warnings)
@@ -131,14 +129,14 @@ class LLMClientWrapper:
         if not text:
             logger.error("All LLM providers failed for cache_scope=%s", cache_scope)
             raise LLMUnavailableError(
-                f"All LLM providers failed for scope '{cache_scope}'. "
-                "Check API keys and provider availability."
+                f"All LLM providers failed for scope '{cache_scope}'. Check API keys and provider availability."
             )
 
         if is_meta_response(text):
             logger.warning(
                 "Meta-response detected for scope=%s (provider=%s); retrying with explicit context.",
-                cache_scope, meta.get("provider"),
+                cache_scope,
+                meta.get("provider"),
             )
             warnings.append(f"meta_response_detected:{cache_scope}; retrying")
             meta2: dict[str, Any] = {k: v for k, v in meta.items()}
@@ -152,16 +150,21 @@ class LLMClientWrapper:
                 else (
                     "IMPORTANT: Generate a brand-new news brief using ONLY the articles provided above. "
                     "Do NOT reference any previous conversation or report. "
-                    "Do NOT ask for clarification. Output the brief directly.\n\n"
-                    + prompt
+                    "Do NOT ask for clarification. Output the brief directly.\n\n" + prompt
                 )
             )
             retry_text = await self._try_shared_llm(
-                prompt=merged_prompt_retry if isinstance(prompt, str) else (prompt[0], merged_prompt_retry.split("\n\n", 1)[-1]),
-                max_tokens=max_tokens, meta=meta2, warnings=warnings,
+                prompt=merged_prompt_retry
+                if isinstance(prompt, str)
+                else (prompt[0], merged_prompt_retry.split("\n\n", 1)[-1]),
+                max_tokens=max_tokens,
+                meta=meta2,
+                warnings=warnings,
             )
             if not retry_text:
-                merged = merged_prompt_retry if isinstance(merged_prompt_retry, str) else "\n\n".join(merged_prompt_retry)
+                merged = (
+                    merged_prompt_retry if isinstance(merged_prompt_retry, str) else "\n\n".join(merged_prompt_retry)
+                )
                 retry_text = await self._try_fallback_providers(merged, meta2, warnings)
             if retry_text and not is_meta_response(retry_text):
                 text = retry_text
@@ -191,7 +194,7 @@ class LLMClientWrapper:
             self.token_budget.record(
                 tool_name=f"llm_{cache_scope.split(':')[0]}",
                 tokens=total_tokens,
-                detail_level=self.token_budget.get_detail_level().value
+                detail_level=self.token_budget.get_detail_level().value,
             )
 
         return text, meta, warnings
@@ -237,9 +240,7 @@ class LLMClientWrapper:
             warnings.append(f"shared.llm_failed:{type(exc).__name__}")
             return None
 
-    async def _try_fallback_providers(
-        self, prompt: str, meta: dict[str, Any], warnings: list[str]
-    ) -> str | None:
+    async def _try_fallback_providers(self, prompt: str, meta: dict[str, Any], warnings: list[str]) -> str | None:
         # Resolve API keys from environment for each fallback provider
         _PROVIDER_KEY_MAP = {
             "gemini": os.getenv("GOOGLE_API_KEY", ""),

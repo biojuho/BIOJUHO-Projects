@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 from antigravity_mcp.pipelines.collect import collect_content_items, load_sources
 from antigravity_mcp.state.store import PipelineStateStore
 

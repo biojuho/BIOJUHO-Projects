@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from antigravity_mcp.integrations.signal_collector import TrendSignal
 from antigravity_mcp.integrations.signal_scorer import (
     ScoredSignal,
@@ -11,7 +9,6 @@ from antigravity_mcp.integrations.signal_scorer import (
     _keywords_match,
     _normalise_keyword,
 )
-
 
 # ---------------------------------------------------------------------------
 # Keyword Normalisation Tests

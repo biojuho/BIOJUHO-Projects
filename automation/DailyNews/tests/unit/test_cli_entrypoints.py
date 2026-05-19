@@ -115,7 +115,9 @@ class TestCliModule:
         monkeypatch.setitem(sys.modules, "antigravity_mcp.server", fake_server)
         monkeypatch.setattr(cli, "_run_jobs_generate_brief", fake_generate)
         monkeypatch.setattr(cli, "_run_jobs_publish_report", fake_publish)
-        monkeypatch.setattr(cli, "dispatch_ops_command", lambda args: called.__setitem__("ops", called["ops"] + 1) or 13)
+        monkeypatch.setattr(
+            cli, "dispatch_ops_command", lambda args: called.__setitem__("ops", called["ops"] + 1) or 13
+        )
 
         assert cli.main(["serve"]) == 0
         assert cli.main(["jobs", "generate-brief"]) == 11

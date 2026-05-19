@@ -135,6 +135,4 @@ async def test_update_page_passes_properties_to_client():
     )
 
     assert result["id"] == "page-123"
-    assert client.pages.update_calls == [
-        {"page_id": "page-123", "properties": {"Type": {"select": {"name": "News"}}}}
-    ]
+    assert client.pages.update_calls == [{"page_id": "page-123", "properties": {"Type": {"select": {"name": "News"}}}}]

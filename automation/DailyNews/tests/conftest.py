@@ -73,6 +73,7 @@ def load_script_module(monkeypatch, tmp_path):
 
         try:
             from shared.test_utils.fixtures import SystemFixtureFactory
+
             SystemFixtureFactory.patch_runtime_paths(monkeypatch, runtime, tmp_path)
         except ImportError:
             # Fallback for systems without shared repo module

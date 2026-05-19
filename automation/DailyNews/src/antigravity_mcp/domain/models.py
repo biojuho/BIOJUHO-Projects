@@ -184,7 +184,7 @@ class SubscriberPreference:
     preferred_format: str = "mixed"  # mixed | text_only | visual
     timezone_offset: int = 9  # KST default
 
-    def matches_report(self, report: "ContentReport") -> bool:
+    def matches_report(self, report: ContentReport) -> bool:
         """Check if a report matches this subscriber's preferences."""
         if not self.categories:
             return True  # No preference = get everything

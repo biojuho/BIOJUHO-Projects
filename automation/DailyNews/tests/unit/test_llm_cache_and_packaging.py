@@ -68,7 +68,6 @@ async def test_llm_adapter_reuses_persistent_cache(monkeypatch, tmp_path):
     assert stats["estimated_cost_avoided_usd"] == pytest.approx(0.00045, rel=1e-6)
 
 
-
 @pytest.mark.asyncio
 async def test_collect_default_feed_adapter_receives_state_store(monkeypatch, tmp_path):
     store = PipelineStateStore(tmp_path / "pipeline_state.db")

@@ -35,18 +35,20 @@ print(f"\nPublishing {len(drafts)} reports via CLI...")
 WORKSPACE_ROOT = os.path.normpath(os.path.join(PROJECT_ROOT, "..", ".."))
 
 env = os.environ.copy()
-env["PYTHONPATH"] = os.pathsep.join([
-    os.path.join(PROJECT_ROOT, "src"),
-    os.path.join(WORKSPACE_ROOT, "packages", "shared"),
-    os.path.join(WORKSPACE_ROOT, "packages"),
-    env.get("PYTHONPATH", ""),
-])
+env["PYTHONPATH"] = os.pathsep.join(
+    [
+        os.path.join(PROJECT_ROOT, "src"),
+        os.path.join(WORKSPACE_ROOT, "packages", "shared"),
+        os.path.join(WORKSPACE_ROOT, "packages"),
+        env.get("PYTHONPATH", ""),
+    ]
+)
 env["PYTHONUTF8"] = "1"
 env["PYTHONIOENCODING"] = "utf-8"
 
 success = 0
 failed = 0
-for report_id, category, window, created_at in drafts:
+for report_id, category, window, _created_at in drafts:
     cmd = [
         PYTHON_EXE,
         "-X",

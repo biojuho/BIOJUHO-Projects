@@ -77,7 +77,8 @@ def _install_run_daily_news_stubs(module, monkeypatch, *, sources):
     monkeypatch.setattr(module, "load_news_sources", lambda: sources)
     monkeypatch.setattr(module, "AsyncClient", lambda auth: object())
     monkeypatch.setattr(
-        module, "get_extraction_window",
+        module,
+        "get_extraction_window",
         lambda force: (module.datetime.now(), module.datetime.now(), "test"),
     )
 
@@ -93,9 +94,7 @@ def test_run_daily_news_partial_failure_exits_nonzero(load_script_module, monkey
     fires the failure alert, otherwise a single broken category could hide
     for days under the previous degraded-heartbeat path."""
     module, _runtime = load_script_module("run_daily_news")
-    _install_run_daily_news_stubs(
-        module, monkeypatch, sources={"Tech": [], "Economy": []}
-    )
+    _install_run_daily_news_stubs(module, monkeypatch, sources={"Tech": [], "Economy": []})
 
     async def fake_process_category(**kwargs):
         if kwargs["category"] == "Tech":
@@ -104,18 +103,18 @@ def test_run_daily_news_partial_failure_exits_nonzero(load_script_module, monkey
 
     monkeypatch.setattr(module, "process_category", fake_process_category)
 
-    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, run_id="run-daily-news"))
+    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, max_reports=99, run_id="run-daily-news"))
 
     assert exit_code == 1
 
 
 def test_run_daily_news_all_success_exits_zero(load_script_module, monkeypatch):
     module, _runtime = load_script_module("run_daily_news")
-    _install_run_daily_news_stubs(
-        module, monkeypatch, sources={"Tech": [], "Economy": []}
-    )
+    _install_run_daily_news_stubs(module, monkeypatch, sources={"Tech": [], "Economy": []})
+    processed_categories = []
 
     async def fake_process_category(**kwargs):
+        processed_categories.append(kwargs["category"])
         return {"category": kwargs["category"], "status": "success", "articles": 3}
 
     monkeypatch.setattr(module, "process_category", fake_process_category)
@@ -123,6 +122,21 @@ def test_run_daily_news_all_success_exits_zero(load_script_module, monkeypatch):
     exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, run_id="run-daily-news"))
 
     assert exit_code == 0
+    assert processed_categories == ["Tech"]
+
+
+def test_run_daily_news_uses_daily_report_priority(load_script_module, monkeypatch):
+    module, _runtime = load_script_module("run_daily_news")
+    ordered = module.iter_news_sources_by_priority(
+        {
+            "Tech": [],
+            "Crypto": [],
+            "Global_Affairs": [],
+            "Economy_KR": [],
+        }
+    )
+
+    assert [category for category, _sources in ordered] == ["Global_Affairs", "Economy_KR", "Tech", "Crypto"]
 
 
 def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypatch):
@@ -130,9 +144,7 @@ def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypat
     success path로 흘러가면 alive heartbeat만 가서 며칠 연속 수집 0건이
     묵음으로 묻힌다 — 2026-04-14 morning fix Minor 1 회귀 방지."""
     module, _runtime = load_script_module("run_daily_news")
-    _install_run_daily_news_stubs(
-        module, monkeypatch, sources={"Tech": [], "Economy": []}
-    )
+    _install_run_daily_news_stubs(module, monkeypatch, sources={"Tech": [], "Economy": []})
 
     async def fake_process_category(**kwargs):
         return {"category": kwargs["category"], "status": "skipped", "articles": 0}
@@ -149,17 +161,13 @@ def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypat
             return {}
 
         def send_heartbeat(self, service_name, *, status="alive", details=""):
-            notifier_calls["heartbeats"].append(
-                {"service": service_name, "status": status, "details": details}
-            )
+            notifier_calls["heartbeats"].append({"service": service_name, "status": status, "details": details})
             return {}
 
     fake_notifications = SimpleNamespace(Notifier=SimpleNamespace(from_env=FakeNotifier))
     monkeypatch.setitem(sys.modules, "shared.notifications", fake_notifications)
 
-    exit_code = asyncio.run(
-        module.run_daily_news(force=True, max_items=5, run_id="run-daily-news")
-    )
+    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, run_id="run-daily-news"))
 
     assert exit_code == 1
     assert notifier_calls["errors"], "degraded path must fire an error alert"
@@ -168,10 +176,8 @@ def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypat
     assert notifier_calls["heartbeats"][0]["status"] == "degraded"
 
 
-def test_get_extraction_window_absorbs_cron_delay(load_script_module, monkeypatch):
-    """GHA cron delays of a few hours should still classify into the right
-    window. Previously 12:00 KST or 19:49 KST would raise 'outside extraction
-    window' — see 2026-04-13 evening incident."""
+def test_get_extraction_window_absorbs_morning_cron_delay(load_script_module, monkeypatch):
+    """GHA cron delays of a few hours should still classify into morning."""
     module, _runtime = load_script_module("run_daily_news")
     KST = module.timezone(module.timedelta(hours=9))
 
@@ -188,11 +194,6 @@ def test_get_extraction_window_absorbs_cron_delay(load_script_module, monkeypatc
     start, end, name = module.get_extraction_window(force=False)
     assert name == "morning"
     assert end.hour == 7 and start.hour == 18
-
-    FrozenDatetime._frozen = real_dt(2026, 4, 13, 19, 49, tzinfo=KST)  # 19:49 KST, late evening cron
-    start, end, name = module.get_extraction_window(force=False)
-    assert name == "evening"
-    assert end.hour == 18 and start.hour == 7
 
 
 def test_get_extraction_window_still_rejects_dead_hours(load_script_module, monkeypatch):
@@ -216,6 +217,27 @@ def test_get_extraction_window_still_rejects_dead_hours(load_script_module, monk
         assert "outside extraction window" in str(exc)
     else:
         raise AssertionError("expected RuntimeError for dead hours")
+
+
+def test_get_extraction_window_rejects_evening_hours(load_script_module, monkeypatch):
+    module, _runtime = load_script_module("run_daily_news")
+    KST = module.timezone(module.timedelta(hours=9))
+    real_dt = module.datetime
+
+    class FrozenDatetime(real_dt):
+        _frozen = real_dt(2026, 4, 13, 19, 0, tzinfo=KST)
+
+        @classmethod
+        def now(cls, tz=None):
+            return cls._frozen.astimezone(tz) if tz else cls._frozen.replace(tzinfo=None)
+
+    monkeypatch.setattr(module, "datetime", FrozenDatetime)
+    try:
+        module.get_extraction_window(force=False)
+    except RuntimeError as exc:
+        assert "outside extraction window" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError for evening hours")
 
 
 def test_resolve_title_property_falls_back_on_error(load_script_module, monkeypatch):

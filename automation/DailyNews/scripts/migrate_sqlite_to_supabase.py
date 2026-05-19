@@ -92,12 +92,11 @@ _PIPELINE_TABLES = [
     "hypotheses",
     "reasoning_patterns",
     "digest_queue",
-    "pipeline_checkpoints" # also in pipeline_state.db
+    "pipeline_checkpoints",  # also in pipeline_state.db
 ]
 
-_SIGNAL_TABLES = [
-    "signal_history"
-]
+_SIGNAL_TABLES = ["signal_history"]
+
 
 async def _init_pg_schema(pg_pool: asyncpg.Pool) -> None:
     conn = await pg_pool.acquire()
@@ -115,12 +114,14 @@ async def _init_pg_schema(pg_pool: asyncpg.Pool) -> None:
     finally:
         await pg_pool.release(conn)
 
+
 async def _get_sqlite_table_info(sqlite_conn, table: str) -> tuple[list[str], list[str]]:
     async with sqlite_conn.execute(f"PRAGMA table_info({table})") as cursor:
         rows = await cursor.fetchall()
     columns = [row["name"] for row in rows]
     pk_cols = [row["name"] for row in rows if row["pk"] > 0]
     return columns, pk_cols
+
 
 async def _migrate_table(pg_pool: asyncpg.Pool, sqlite_conn: aiosqlite.Connection, table: str) -> int:
     try:
@@ -130,12 +131,12 @@ async def _migrate_table(pg_pool: asyncpg.Pool, sqlite_conn: aiosqlite.Connectio
 
         async with sqlite_conn.execute(f"SELECT * FROM [{table}]") as cursor:
             rows = await cursor.fetchall()
-            
+
         if not rows:
             return 0
 
         col_names = ", ".join(columns)
-        placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
+        placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
 
         conflict_clause = ""
         if pk_cols:
@@ -146,20 +147,25 @@ async def _migrate_table(pg_pool: asyncpg.Pool, sqlite_conn: aiosqlite.Connectio
             pass
 
         query = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders}) {conflict_clause}"
-        records = [tuple(str(row[col]) if isinstance(row[col], (dict, list)) else row[col] for col in columns) for row in rows]
+        records = [
+            tuple(str(row[col]) if isinstance(row[col], (dict, list)) else row[col] for col in columns) for row in rows
+        ]
 
         await pg_pool.executemany(query, records)
         log.info(f"  [{table}] Migrated {len(records)} rows.")
 
         if "id" in columns and "id" in pk_cols:
             try:
-                await pg_pool.execute(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}")
+                await pg_pool.execute(
+                    f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}"
+                )
             except Exception:
                 pass
         return len(records)
     except Exception as e:
         log.error(f"  [{table}] Migration error: {e}")
         return 0
+
 
 async def _verify_migration(pg_pool: asyncpg.Pool, sqlite_db, tables: list[str]) -> None:
     mismatches = []
@@ -184,6 +190,7 @@ async def _verify_migration(pg_pool: asyncpg.Pool, sqlite_db, tables: list[str])
             log.info(f"  {table}: SQLite={sqlite_count} | PG={pg_count} [{match}]")
 
     return mismatches
+
 
 async def main():
     database_url = os.getenv("DATABASE_URL", os.getenv("SUPABASE_DATABASE_URL", ""))
@@ -225,16 +232,17 @@ async def main():
         m1 = []
         if os.path.exists(pipeline_db):
             m1 = await _verify_migration(pg_pool, pipeline_db, _PIPELINE_TABLES)
-        
+
         m2 = []
         if os.path.exists(signal_db):
             m2 = await _verify_migration(pg_pool, signal_db, _SIGNAL_TABLES)
-        
+
         mismatches = m1 + m2
         if mismatches:
             log.warning(f"Table(s) with row count mismatches: {mismatches}")
         else:
             log.info("All tables verified: row counts match!")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ContentItem, GeneratedPayload
-from antigravity_mcp.integrations.llm_prompts import build_report_prompt
-from shared.harness.token_tracker import TokenBudget
-from antigravity_mcp.state.store import PipelineStateStore
-
 from antigravity_mcp.integrations.llm.client_wrapper import LLMClientWrapper, LLMUnavailableError
 from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
 from antigravity_mcp.integrations.llm.response_parser import ResponseParser
+from antigravity_mcp.integrations.llm_prompts import build_report_prompt
 from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
+from shared.harness.token_tracker import TokenBudget
+
+if TYPE_CHECKING:
+    from antigravity_mcp.state.store import PipelineStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +78,14 @@ def bullet_set_overlap(summary_lines: list[str], insights: list[str]) -> tuple[f
 
     return topic_overlap_score(summary_lines), topic_overlap_score(insights)
 
+
 TaskTier, LLMPolicy, _get_llm_client, _SHARED_LLM_IMPORT_ERROR = resolve_shared_llm()
 
 
 class LLMAdapter:
-    def __init__(self, *, state_store: PipelineStateStore | None = None, token_budget: TokenBudget | None = None) -> None:
+    def __init__(
+        self, *, state_store: PipelineStateStore | None = None, token_budget: TokenBudget | None = None
+    ) -> None:
         self.settings = get_settings()
         self.token_budget = token_budget or TokenBudget()
         self._client = LLMClientWrapper(state_store=state_store, token_budget=self.token_budget)
@@ -90,7 +94,7 @@ class LLMAdapter:
 
     @property
     def llm_available(self) -> bool:
-        return self._client.is_available
+        return cast("bool", self._client.is_available)
 
     async def generate_text(
         self,
@@ -100,11 +104,9 @@ class LLMAdapter:
         cache_scope: str = "generic",
     ) -> str:
         text, _meta, _warnings = await self._client.generate_text(
-            prompt=prompt,
-            max_tokens=max_tokens,
-            cache_scope=cache_scope
+            prompt=prompt, max_tokens=max_tokens, cache_scope=cache_scope
         )
-        return text
+        return cast("str", text)
 
     async def build_report_payload(
         self,
@@ -176,6 +178,39 @@ class LLMAdapter:
         warnings.extend(diversity_warnings)
         return payload, warnings
 
+    def _record_topic_overlap(self, payload: GeneratedPayload) -> tuple[float, float]:
+        summary = list(payload.summary_lines or [])
+        insights = list(payload.insights or [])
+        summary_score, insight_score = bullet_set_overlap(summary, insights)
+        payload.parse_meta["topic_overlap_summary"] = round(summary_score, 3)
+        payload.parse_meta["topic_overlap_insight"] = round(insight_score, 3)
+        return summary_score, insight_score
+
+    def _requires_topic_diversity_retry(self, summary_score: float, insight_score: float) -> bool:
+        return summary_score >= _TOPIC_OVERLAP_THRESHOLD or insight_score >= _TOPIC_OVERLAP_THRESHOLD
+
+    def _build_topic_diversity_feedback(self, summary_score: float, insight_score: float) -> str:
+        return (
+            "\n\n=== TOPIC DIVERSITY VIOLATION (retry) ===\n"
+            f"Your previous Summary bullets had pairwise overlap {summary_score:.2f} and "
+            f"Insight bullets had overlap {insight_score:.2f} (threshold {_TOPIC_OVERLAP_THRESHOLD}).\n"
+            "Multiple bullets covered the same underlying story. Regenerate the "
+            "brief and ensure each of the 3 Summary bullets covers a DIFFERENT "
+            "event, and each of the 2 Insight bullets analyzes a DIFFERENT "
+            "story. If fewer distinct events exist, state the gap explicitly "
+            "in the last bullet rather than repeating the dominant story.\n"
+        )
+
+    def _retry_improves_topic_diversity(
+        self,
+        *,
+        original_summary_score: float,
+        original_insight_score: float,
+        retry_summary_score: float,
+        retry_insight_score: float,
+    ) -> bool:
+        return retry_summary_score + retry_insight_score < original_summary_score + original_insight_score
+
     async def _enforce_topic_diversity(
         self,
         *,
@@ -200,33 +235,20 @@ class LLMAdapter:
         if generation_mode != "v1-brief":
             return payload, warnings
 
-        summary = list(payload.summary_lines or [])
-        insights = list(payload.insights or [])
-        s_score, i_score = bullet_set_overlap(summary, insights)
-        payload.parse_meta["topic_overlap_summary"] = round(s_score, 3)
-        payload.parse_meta["topic_overlap_insight"] = round(i_score, 3)
+        summary_score, insight_score = self._record_topic_overlap(payload)
 
-        if s_score < _TOPIC_OVERLAP_THRESHOLD and i_score < _TOPIC_OVERLAP_THRESHOLD:
+        if not self._requires_topic_diversity_retry(summary_score, insight_score):
             payload.parse_meta["topic_diversity_retry"] = "not_needed"
             return payload, warnings
 
         logger.warning(
             "topic_diversity_violation category=%s summary_overlap=%.2f insight_overlap=%.2f",
             category,
-            s_score,
-            i_score,
+            summary_score,
+            insight_score,
         )
 
-        retry_feedback = (
-            "\n\n=== TOPIC DIVERSITY VIOLATION (retry) ===\n"
-            f"Your previous Summary bullets had pairwise overlap {s_score:.2f} and "
-            f"Insight bullets had overlap {i_score:.2f} (threshold {_TOPIC_OVERLAP_THRESHOLD}).\n"
-            "Multiple bullets covered the same underlying story. Regenerate the "
-            "brief and ensure each of the 3 Summary bullets covers a DIFFERENT "
-            "event, and each of the 2 Insight bullets analyzes a DIFFERENT "
-            "story. If fewer distinct events exist, state the gap explicitly "
-            "in the last bullet rather than repeating the dominant story.\n"
-        )
+        retry_feedback = self._build_topic_diversity_feedback(summary_score, insight_score)
 
         try:
             retry_text, retry_meta, retry_text_warnings = await self._client.generate_text(
@@ -250,23 +272,23 @@ class LLMAdapter:
         retry_payload.parse_meta.setdefault("model_name", retry_meta.get("model_name", ""))
         retry_payload.parse_meta.setdefault("provider", retry_meta.get("provider", ""))
 
-        retry_s, retry_i = bullet_set_overlap(
-            list(retry_payload.summary_lines or []),
-            list(retry_payload.insights or []),
-        )
-        retry_payload.parse_meta["topic_overlap_summary"] = round(retry_s, 3)
-        retry_payload.parse_meta["topic_overlap_insight"] = round(retry_i, 3)
+        retry_summary_score, retry_insight_score = self._record_topic_overlap(retry_payload)
 
-        if retry_s + retry_i < s_score + i_score:
+        if self._retry_improves_topic_diversity(
+            original_summary_score=summary_score,
+            original_insight_score=insight_score,
+            retry_summary_score=retry_summary_score,
+            retry_insight_score=retry_insight_score,
+        ):
             retry_payload.parse_meta["topic_diversity_retry"] = "accepted"
             warnings.extend(retry_parse_warnings)
             logger.info(
                 "topic_diversity_retry_accepted category=%s before=(%.2f,%.2f) after=(%.2f,%.2f)",
                 category,
-                s_score,
-                i_score,
-                retry_s,
-                retry_i,
+                summary_score,
+                insight_score,
+                retry_summary_score,
+                retry_insight_score,
             )
             return retry_payload, warnings
 
@@ -275,9 +297,9 @@ class LLMAdapter:
         logger.warning(
             "topic_diversity_retry_rejected category=%s before=(%.2f,%.2f) after=(%.2f,%.2f)",
             category,
-            s_score,
-            i_score,
-            retry_s,
-            retry_i,
+            summary_score,
+            insight_score,
+            retry_summary_score,
+            retry_insight_score,
         )
         return payload, warnings

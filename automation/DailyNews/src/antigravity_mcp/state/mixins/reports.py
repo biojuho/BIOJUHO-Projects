@@ -5,7 +5,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from antigravity_mcp.domain.models import ChannelDraft, ContentReport, PipelineRun
+from antigravity_mcp.domain.models import ChannelDraft, ContentReport
 from antigravity_mcp.state.base import _DBProviderBase
 from antigravity_mcp.state.events import utc_now_iso
 
@@ -28,9 +28,11 @@ _DEFAULT_MODEL_COSTS: dict[str, tuple[float, float]] = {
 }
 _MODEL_COSTS = {**_DEFAULT_MODEL_COSTS, **_SHARED_MODEL_COSTS}
 
+
 def _estimate_cached_response_cost(model_name: str, input_tokens: int, output_tokens: int) -> float:
     input_cost, output_cost = _MODEL_COSTS.get(model_name, (0.25, 1.25))
     return (input_tokens * input_cost + output_tokens * output_cost) / 1_000_000
+
 
 def _json_default(value: Any) -> Any:
     if hasattr(value, "to_dict") and callable(value.to_dict):
@@ -54,7 +56,11 @@ class _ReportMixin(_DBProviderBase):
         return self._row_to_report(row) if row else None  # type: ignore[attr-defined]
 
     def get_recent_drafts(
-        self, category: str, *, days: int = 7, channel: str = "x",
+        self,
+        category: str,
+        *,
+        days: int = 7,
+        channel: str = "x",
     ) -> list[dict[str, Any]]:
         """Return draft texts published in the last *days* for a category+channel.
 
@@ -78,16 +84,22 @@ class _ReportMixin(_DBProviderBase):
             drafts = json.loads(row["drafts_json"] or "[]")
             for draft in drafts:
                 if draft.get("channel") == channel and draft.get("content"):
-                    results.append({
-                        "report_id": row["report_id"],
-                        "window_name": row["window_name"],
-                        "content": draft["content"],
-                        "created_at": row["created_at"],
-                    })
+                    results.append(
+                        {
+                            "report_id": row["report_id"],
+                            "window_name": row["window_name"],
+                            "content": draft["content"],
+                            "created_at": row["created_at"],
+                        }
+                    )
         return results
 
     def get_recent_insight_texts(
-        self, category: str, *, days: int = 7, limit: int = 20,
+        self,
+        category: str,
+        *,
+        days: int = 7,
+        limit: int = 20,
     ) -> list[str]:
         """Return flat list of insight texts from the last *days* for a category.
 
@@ -114,7 +126,10 @@ class _ReportMixin(_DBProviderBase):
         return texts
 
     def get_category_quality_history(
-        self, category: str, *, days: int = 7,
+        self,
+        category: str,
+        *,
+        days: int = 7,
     ) -> dict[str, Any]:
         """Aggregate quality metrics for a category over the last *days*.
 
@@ -147,7 +162,7 @@ class _ReportMixin(_DBProviderBase):
             if score > 0:
                 fact_scores.append(score)
             meta = json.loads(row["analysis_meta_json"] or "{}")
-            for w in (meta.get("quality_review", {}).get("warnings", []) or []):
+            for w in meta.get("quality_review", {}).get("warnings", []) or []:
                 warning_counts[w] = warning_counts.get(w, 0) + 1
 
         recurring = sorted(
@@ -164,9 +179,7 @@ class _ReportMixin(_DBProviderBase):
             )
         needs_review_rate = quality_dist.get("needs_review", 0) / max(len(rows), 1)
         if needs_review_rate > 0.3:
-            suggestions.append(
-                f"{category} 리뷰 필요 비율 {needs_review_rate:.0%} — CTA/증거 품질 개선 필요"
-            )
+            suggestions.append(f"{category} 리뷰 필요 비율 {needs_review_rate:.0%} — CTA/증거 품질 개선 필요")
 
         return {
             "total_reports": len(rows),

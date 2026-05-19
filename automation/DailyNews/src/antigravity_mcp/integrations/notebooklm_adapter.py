@@ -207,9 +207,7 @@ class DailyNewsAdapter:
                 detail_level=getattr(InfographicDetail, "DETAILED", None),
                 style=getattr(InfographicStyle, "PROFESSIONAL", None),
             )
-            result["task_id"] = str(
-                getattr(status, "task_id", "") or getattr(status, "artifact_id", "") or ""
-            ).strip()
+            result["task_id"] = str(getattr(status, "task_id", "") or getattr(status, "artifact_id", "") or "").strip()
 
             if hasattr(active_client.artifacts, "wait_for_completion") and result["task_id"]:
                 final_status = await active_client.artifacts.wait_for_completion(
