@@ -341,9 +341,7 @@ class AgentService:
                 continue
             seen_urls.add(url)
             lines.append(
-                f"[{index}] {item.get('title', 'No Title')}\n"
-                f"URL: {url or 'N/A'}\n"
-                f"Summary: {item.get('body', '')}\n"
+                f"[{index}] {item.get('title', 'No Title')}\nURL: {url or 'N/A'}\nSummary: {item.get('body', '')}\n"
             )
             index += 1
         return "\n".join(lines)

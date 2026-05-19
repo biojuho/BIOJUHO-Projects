@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import Any
 
 from .embedding_providers import (
-    QDRANT_AVAILABLE,
     QdrantClient,
     _load_qdrant_support,
     init_embedding_fn,

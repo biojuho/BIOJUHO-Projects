@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
@@ -56,3 +55,23 @@ def test_local_env_reports_warnings_without_failing() -> None:
 
     assert not [check for check in checks if check.status == "fail"]
     assert {check.id for check in checks if check.status == "warn"} >= {"llm", "auth", "postgres"}
+
+
+def test_local_env_web3_passes_in_mock_mode() -> None:
+    checks = env_doctor.run_checks({"MOCK_MODE": "true"}, profile="local")
+
+    web3_check = next(check for check in checks if check.id == "web3")
+    assert web3_check.status == "pass"
+
+
+def test_local_env_web3_accepts_dao_only_contract_configuration() -> None:
+    checks = env_doctor.run_checks(
+        {
+            "WEB3_RPC_URL": "https://polygon-amoy.infura.io/v3/test-key",
+            "DESCI_DAO_CONTRACT_ADDRESS": "0x1234567890123456789012345678901234567890",
+        },
+        profile="local",
+    )
+
+    web3_check = next(check for check in checks if check.id == "web3")
+    assert web3_check.status == "pass"

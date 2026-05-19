@@ -38,7 +38,7 @@ async def main():
     print(f"\nFound {len(results)} matches:")
     for i, res in enumerate(results):
         meta = res["metadata"]
-        print(f"{i+1}. [{meta.get('source')}] {meta.get('title')} (Sim: {res['similarity']:.4f})")
+        print(f"{i + 1}. [{meta.get('source')}] {meta.get('title')} (Sim: {res['similarity']:.4f})")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ smoke environments that do not install every crawler dependency.
 """
 
 from fastapi import APIRouter, Request
-
 from limiter import limiter
 
 router = APIRouter()

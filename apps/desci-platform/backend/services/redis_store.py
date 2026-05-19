@@ -4,10 +4,13 @@ Centralized caching and session management.
 """
 
 import os
+
 import redis
+
 from services.logging_config import get_logger
 
 log = get_logger("biolinker.services.redis_store")
+
 
 class RedisStore:
     """Redis storage and caching service."""
@@ -57,7 +60,9 @@ class RedisStore:
             log.warning("redis_set_error", key=key, error=str(exc))
             return False
 
+
 _redis_store = None
+
 
 def get_redis_store() -> RedisStore:
     """Singleton getter for Redis store."""

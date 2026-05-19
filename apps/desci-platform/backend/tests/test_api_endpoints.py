@@ -35,6 +35,7 @@ async def test_health_returns_200(async_client: AsyncClient):
     assert "chromadb_ok" in data
     assert "chromadb_count" in data
     assert "web3_connected" in data
+    assert "web3_mock_mode" in data
     assert "ipfs_configured" in data
     assert "grobid_configured" in data
     assert "grobid_available" in data
@@ -114,6 +115,52 @@ async def test_ready_blocks_launch_without_llm_key(async_client: AsyncClient, mo
     assert llm_check["status"] == "fail"
     assert "remediation" in llm_check
     assert "GEMINI_API_KEY" in llm_check["required_env"]
+    assert "llm" in data["launch_blockers"]
+
+
+@pytest.mark.asyncio
+async def test_ready_marks_web3_available_in_mock_mode(async_client: AsyncClient, monkeypatch):
+    monkeypatch.setenv("MOCK_MODE", "true")
+
+    response = await async_client.get("/ready")
+
+    assert response.status_code == 200
+    data = response.json()
+    web3_check = next(check for check in data["checks"] if check["id"] == "web3")
+    assert web3_check["configured"] is True
+    assert web3_check["available"] is True
+    assert web3_check["status"] == "pass"
+
+
+@pytest.mark.asyncio
+async def test_launch_control_returns_operator_decision(async_client: AsyncClient, monkeypatch):
+    """GET /launch should summarize readiness as a go/no-go operator decision."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("ALLOW_TEST_BYPASS", "true")
+
+    response = await async_client.get("/launch")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["product"] == "DSCI-DecentBio"
+    assert data["release_decision"] in {"go", "go-with-watch", "no-go"}
+    assert data["operator_phase"] in {"launch-ready", "operator-review", "blocked"}
+    assert 0 <= data["score"]["overall_percent"] <= 100
+    assert data["summary"]["required_total"] >= 3
+    assert isinstance(data["next_actions"], list)
+
+
+@pytest.mark.asyncio
+async def test_launch_control_is_no_go_when_required_check_fails(async_client: AsyncClient, monkeypatch):
+    for key in ("DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+
+    response = await async_client.get("/launch")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["release_decision"] == "no-go"
+    assert data["operator_phase"] == "blocked"
     assert "llm" in data["launch_blockers"]
 
 

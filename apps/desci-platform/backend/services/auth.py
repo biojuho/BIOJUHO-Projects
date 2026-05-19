@@ -102,3 +102,11 @@ async def get_current_user(authorization: str | None = Header(None)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Authentication error: {exc}",
         ) from exc
+
+
+async def get_optional_current_user(authorization: str | None = Header(None)):
+    """Return the current user when a bearer token is provided, else ``None``."""
+
+    if not authorization:
+        return None
+    return await get_current_user(authorization)

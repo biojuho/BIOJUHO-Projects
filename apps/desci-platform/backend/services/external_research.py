@@ -168,7 +168,7 @@ class ExternalResearchClient:
         self._session = session
         self._owns_session = session is None
 
-    async def __aenter__(self) -> "ExternalResearchClient":
+    async def __aenter__(self) -> ExternalResearchClient:
         if self._session is None:
             self._session = httpx.AsyncClient(
                 timeout=_DEFAULT_TIMEOUT,
@@ -207,11 +207,7 @@ class ExternalResearchClient:
         results: list[ScholarlyWork] = []
         for item in payload.get("results", []):
             authorships = item.get("authorships", []) or []
-            authors = [
-                a.get("author", {}).get("display_name", "")
-                for a in authorships
-                if a.get("author")
-            ]
+            authors = [a.get("author", {}).get("display_name", "") for a in authorships if a.get("author")]
             concepts = [
                 c.get("display_name", "")
                 for c in (item.get("concepts", []) or [])
@@ -261,10 +257,7 @@ class ExternalResearchClient:
         message = payload.get("message") or {}
         title_list = message.get("title") or []
         authors_raw = message.get("author") or []
-        authors = [
-            f"{a.get('given', '')} {a.get('family', '')}".strip()
-            for a in authors_raw
-        ]
+        authors = [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in authors_raw]
         issued = (message.get("issued") or {}).get("date-parts") or [[]]
         year = issued[0][0] if issued and issued[0] else None
         venue_list = message.get("container-title") or []
@@ -292,9 +285,7 @@ class ExternalResearchClient:
         crossref_dois: list[str] | None = None,
     ) -> dict[str, Any]:
         """Run OpenAlex search and CrossRef DOI lookups concurrently."""
-        tasks: list[asyncio.Task[Any]] = [
-            asyncio.create_task(self.search_openalex(query, per_page=per_page))
-        ]
+        tasks: list[asyncio.Task[Any]] = [asyncio.create_task(self.search_openalex(query, per_page=per_page))]
         for doi in crossref_dois or []:
             tasks.append(asyncio.create_task(self.lookup_crossref_doi(doi)))
 
@@ -309,8 +300,7 @@ class ExternalResearchClient:
             "query": query,
             "openalex": [w.to_dict() for w in works],
             "crossref": [w.to_dict() for w in crossref_hits],
-            "total_citations": sum(w.citation_count for w in works)
-            + sum(w.citation_count for w in crossref_hits),
+            "total_citations": sum(w.citation_count for w in works) + sum(w.citation_count for w in crossref_hits),
         }
 
 

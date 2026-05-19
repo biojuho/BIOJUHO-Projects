@@ -24,6 +24,7 @@ if str(PROJECT_DIR) not in sys.path:
 
 import main as app_main  # noqa: E402
 import routers.rfp as rfp_router  # noqa: E402
+import services.job_manager as job_manager  # noqa: E402
 import services.usage_middleware as usage_mw  # noqa: E402
 
 # ── Warnings suppression ────────────────────────────────────────────────────
@@ -161,3 +162,14 @@ async def async_client(mock_external_services):
         headers={"Authorization": "Bearer test-token-bypass"},
     ) as client:
         yield client
+
+
+@pytest.fixture(autouse=True)
+def reset_job_state():
+    """Keep background job state isolated between tests."""
+
+    app_main.app.dependency_overrides.clear()
+    job_manager.get_job_manager().reset()
+    yield
+    job_manager.get_job_manager().reset()
+    app_main.app.dependency_overrides.clear()

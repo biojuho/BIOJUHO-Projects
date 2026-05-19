@@ -5,10 +5,19 @@ Asynchronous task orchestration.
 
 import json
 import os
-import pika
+
+try:
+    import pika
+
+    PIKA_AVAILABLE = True
+except ImportError:  # pragma: no cover - used in lean smoke environments
+    pika = None
+    PIKA_AVAILABLE = False
+
 from services.logging_config import get_logger
 
 log = get_logger("biolinker.services.rabbitmq_bus")
+
 
 class RabbitMQBus:
     """RabbitMQ messaging bus for background jobs."""
@@ -22,21 +31,22 @@ class RabbitMQBus:
 
     def _connect(self):
         """Initialize RabbitMQ connection."""
+        if not PIKA_AVAILABLE:
+            self._is_connected = False
+            log.warning("rabbitmq_dependency_missing")
+            return
+
         try:
             params = pika.URLParameters(self.url)
             params.heartbeat = 600
             params.blocked_connection_timeout = 300
-            
+
             self._connection = pika.BlockingConnection(params)
             self._channel = self._connection.channel()
-            
+
             # Declare main exchange
-            self._channel.exchange_declare(
-                exchange="biolinker_events", 
-                exchange_type="topic", 
-                durable=True
-            )
-            
+            self._channel.exchange_declare(exchange="biolinker_events", exchange_type="topic", durable=True)
+
             self._is_connected = True
             log.info("rabbitmq_connected", url=self.url)
         except Exception as exc:
@@ -52,10 +62,13 @@ class RabbitMQBus:
 
     def publish_job(self, routing_key: str, data: dict):
         """Publish a background job to the bus."""
+        if not PIKA_AVAILABLE:
+            log.error("rabbitmq_publish_failed_dependency_missing", key=routing_key)
+            return False
         if not self.is_connected:
             log.error("rabbitmq_publish_failed_not_connected", key=routing_key)
             return False
-        
+
         try:
             self._channel.basic_publish(
                 exchange="biolinker_events",
@@ -63,8 +76,8 @@ class RabbitMQBus:
                 body=json.dumps(data),
                 properties=pika.BasicProperties(
                     delivery_mode=2,  # make message durable
-                    content_type="application/json"
-                )
+                    content_type="application/json",
+                ),
             )
             log.info("job_published", key=routing_key)
             return True
@@ -78,7 +91,9 @@ class RabbitMQBus:
         if self._connection and not self._connection.is_closed:
             self._connection.close()
 
+
 _rabbitmq_bus = None
+
 
 def get_rabbitmq_bus() -> RabbitMQBus:
     """Singleton getter for RabbitMQ bus."""

@@ -166,7 +166,7 @@ class IPFSService:
 
     def _mock_upload(self, file_path: str, metadata: dict | None) -> dict:
         """개발용 Mock 업로드"""
-        filename = os.path.basename(file_path)
+        os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
 
         # 파일 해시로 가상 CID 생성

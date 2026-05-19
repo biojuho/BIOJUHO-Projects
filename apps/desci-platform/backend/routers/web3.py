@@ -9,7 +9,6 @@ import asyncio
 from datetime import datetime
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
-
 from firestore_db import db
 from services.auth import get_current_user
 from services.logging_config import get_logger

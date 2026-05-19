@@ -105,7 +105,9 @@ async def collector_node(state: PipelineState) -> PipelineState:
         except Exception as e:  # pylint: disable=broad-exception-caught
             log.warning("[CollectorAgent] Crawler parse fallback: %s", e)
             errors.append(f"crawler_parse_failed: {e}")
-            notices.append({"id": None, "title": "", "source": "direct_input", "body_text": rfp_text, "url": None, "keywords": []})
+            notices.append(
+                {"id": None, "title": "", "source": "direct_input", "body_text": rfp_text, "url": None, "keywords": []}
+            )
 
     ntis_keyword = profile.get("ntis_keyword") or profile.get("keyword")
     if ntis_keyword:
@@ -279,13 +281,13 @@ async def proposal_node(state: PipelineState) -> PipelineState:
     prompt = f"""다음 분석을 바탕으로 연구 제안서 초안을 작성해주세요.
 
 ## 적합도 분석
-- 점수: {state.get('fit_score', 0)}점 ({state.get('fit_grade', 'N/A')})
-- 요약: {state.get('analysis_summary', '')}
-- 강점: {', '.join(state.get('strengths', []))}
-- 약점: {', '.join(state.get('weaknesses', []))}
+- 점수: {state.get("fit_score", 0)}점 ({state.get("fit_grade", "N/A")})
+- 요약: {state.get("analysis_summary", "")}
+- 강점: {", ".join(state.get("strengths", []))}
+- 약점: {", ".join(state.get("weaknesses", []))}
 
 ## RFP 요약
-{state.get('rfp_text', '')[:2000]}
+{state.get("rfp_text", "")[:2000]}
 
 ## 출력
 한국어로 구조화된 연구 제안서 초안 (마크다운)"""

@@ -32,8 +32,17 @@ def test_scholarly_work_to_dict_has_stable_keys() -> None:
     work = ScholarlyWork(source="openalex", id="W123", title="t")
     payload = work.to_dict()
     expected_keys = {
-        "source", "id", "title", "doi", "year", "citation_count",
-        "authors", "venue", "abstract", "concepts", "open_access_url",
+        "source",
+        "id",
+        "title",
+        "doi",
+        "year",
+        "citation_count",
+        "authors",
+        "venue",
+        "abstract",
+        "concepts",
+        "open_access_url",
     }
     assert expected_keys <= payload.keys()
 
@@ -152,9 +161,7 @@ async def test_enrich_query_runs_concurrently_and_aggregates() -> None:
     fake = _FakeSession(openalex_payload=payload_oa, crossref_payload=payload_cr)
     client = ExternalResearchClient(session=fake)  # type: ignore[arg-type]
 
-    bundle = await client.enrich_query(
-        "topic", per_page=5, crossref_dois=["10.1/zzz"]
-    )
+    bundle = await client.enrich_query("topic", per_page=5, crossref_dois=["10.1/zzz"])
     assert bundle["query"] == "topic"
     assert len(bundle["openalex"]) == 1
     assert len(bundle["crossref"]) == 1

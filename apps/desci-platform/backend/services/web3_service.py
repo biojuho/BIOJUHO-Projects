@@ -109,6 +109,7 @@ class Web3Service:
         self.rpc_url = os.getenv("WEB3_RPC_URL", "https://sepolia.infura.io/v3/YOUR_KEY")
         self.token_address = os.getenv("DSCI_CONTRACT_ADDRESS")
         self.nft_address = os.getenv("NFT_CONTRACT_ADDRESS")
+        self.dao_address = os.getenv("DESCI_DAO_CONTRACT_ADDRESS")
         self.private_key = os.getenv("DISTRIBUTOR_PRIVATE_KEY")
 
         self.w3 = None
@@ -154,7 +155,7 @@ class Web3Service:
     @property
     def is_configured(self) -> bool:
         """설정 완료 여부"""
-        return bool((self.token_address or self.nft_address) and self.private_key)
+        return bool((self.token_address or self.nft_address or self.dao_address) and self.private_key)
 
     async def get_balance(self, address: str) -> dict:
         """

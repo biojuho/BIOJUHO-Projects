@@ -58,15 +58,12 @@ except Exception:  # pylint: disable=broad-exception-caught
 
 # OpenAI/Google/Qdrant lazy loaders → see embedding_providers.py
 from .embedding_providers import (
-    OPENAI_AVAILABLE,
-    OpenAI,
     GoogleGenerativeAIEmbeddings,
-    _load_openai_support,
+    OpenAI,
     _load_google_support,
+    _load_openai_support,
     _load_qdrant_support,
 )
-
-
 
 
 class VectorStore:
@@ -188,7 +185,6 @@ class VectorStore:
                 backend_filters[key] = value
         return backend_filters or None
 
-
     @classmethod
     def _metadata_matches(cls, metadata: dict[str, Any], document: str, filters: dict[str, Any] | None) -> bool:
         if not filters:
@@ -283,7 +279,7 @@ class VectorStore:
 
         processed = []
         for item in items:
-            metadata = cast(dict[str, Any], item.get("metadata", {}) or {})
+            metadata = cast("dict[str, Any]", item.get("metadata", {}) or {})
             document = str(item.get("document", "") or "")
             if not cls._metadata_matches(metadata, document, filters):
                 continue
@@ -312,7 +308,7 @@ class VectorStore:
 
     @classmethod
     def _item_to_document_result(cls, item: dict[str, Any]) -> tuple[RFPDocument, float] | None:
-        metadata = cast(dict[str, Any], item.get("metadata", {}) or {})
+        metadata = cast("dict[str, Any]", item.get("metadata", {}) or {})
         try:
             document = RFPDocument(  # type: ignore
                 id=str(item.get("id", "")),
@@ -500,6 +496,7 @@ class VectorStore:
         query_embedding = self._get_embedding(query)
         raw_hits: list[dict[str, Any]] = []
         fetch_limit = max(n_results * 4, n_results)
+        backend_filters = self._backend_filters(filters)
 
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
@@ -553,7 +550,6 @@ class VectorStore:
                 converted_results.append(converted)
         return converted_results
 
-
     def _save_to_json(self, doc_id: str, embedding: list[float], metadata: dict[str, Any], document: str) -> None:
         """인메모리 저장 (JSON Fallback)"""
         db_path = os.path.join(self.persist_dir, "db.json")
@@ -563,7 +559,7 @@ class VectorStore:
         if os.path.exists(db_path):
             try:
                 with open(db_path, encoding="utf-8") as f:
-                    data = cast(dict[str, Any], json.load(f))
+                    data = cast("dict[str, Any]", json.load(f))
             except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
@@ -583,7 +579,7 @@ class VectorStore:
         data: dict[str, Any] = {}
         try:
             with open(db_path, encoding="utf-8") as f:
-                data = cast(dict[str, Any], json.load(f))
+                data = cast("dict[str, Any]", json.load(f))
         except Exception:  # pylint: disable=broad-exception-caught
             return []
 
@@ -595,14 +591,14 @@ class VectorStore:
 
         for doc_id, item in data.items():
             if not self._metadata_matches(
-                cast(dict[str, Any], item.get("metadata", {}) or {}),
+                cast("dict[str, Any]", item.get("metadata", {}) or {}),
                 str(item.get("document", "") or ""),
                 post_filters,
             ):
                 continue
             # 필터 로직
             if filters:
-                current_filters: dict[str, Any] = cast(dict[str, Any], filters)
+                current_filters: dict[str, Any] = cast("dict[str, Any]", filters)
                 match = True
                 for k, v in current_filters.items():
                     # item is Any, so this access is unchecked but shouldn't error as "undefined base"
@@ -778,8 +774,6 @@ class VectorStore:
 # ── QdrantVectorStore (extracted to qdrant_store.py) ──
 from .qdrant_store import QdrantVectorStore  # noqa: E402,F401
 
-
-
 _VECTOR_STORE: VectorStore | None = None
 
 
@@ -801,4 +795,3 @@ def get_vector_store() -> VectorStore:
         else:
             _VECTOR_STORE = VectorStore()
     return _VECTOR_STORE
-

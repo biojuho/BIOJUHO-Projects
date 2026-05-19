@@ -1,6 +1,7 @@
+import hashlib
+import json
 import os
 import uuid
-import hashlib
 from datetime import datetime
 from typing import Any
 
@@ -16,7 +17,9 @@ class AssetManager:
 
     def __init__(self, asset_dir: str = "data/assets"):
         self.asset_dir = asset_dir
+        self.manifest_dir = os.path.join(self.asset_dir, "paper_manifests")
         os.makedirs(self.asset_dir, exist_ok=True)
+        os.makedirs(self.manifest_dir, exist_ok=True)
         self.vector_store = get_vector_store()
         self.pdf_parser = get_pdf_parser()
         self.ipfs_service = get_ipfs_service()
@@ -32,6 +35,93 @@ class AssetManager:
             f.write(content)
 
         return asset_id, file_ext, file_path
+
+    def _paper_manifest_path(self, paper_id: str) -> str:
+        return os.path.join(self.manifest_dir, f"{paper_id}.json")
+
+    def _write_paper_manifest(self, paper_id: str, manifest: dict[str, Any]) -> None:
+        manifest_path = self._paper_manifest_path(paper_id)
+        with open(manifest_path, "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, ensure_ascii=False, indent=2)
+
+    def get_paper_manifest(self, paper_id: str) -> dict[str, Any] | None:
+        manifest_path = self._paper_manifest_path(paper_id)
+        if not os.path.exists(manifest_path):
+            return None
+        try:
+            with open(manifest_path, encoding="utf-8") as handle:
+                data = json.load(handle)
+                return data if isinstance(data, dict) else None
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    def has_paper(self, paper_id: str) -> bool:
+        return self.vector_store.get_notice(paper_id) is not None or self.get_paper_manifest(paper_id) is not None
+
+    def get_paper_owner_uid(self, paper_id: str) -> str | None:
+        paper = self.vector_store.get_notice(paper_id)
+        metadata = (paper or {}).get("metadata", {}) or {}
+        owner_uid = str(metadata.get("owner_uid") or "").strip()
+        if owner_uid:
+            return owner_uid
+
+        manifest = self.get_paper_manifest(paper_id) or {}
+        owner_uid = str(manifest.get("owner_uid") or "").strip()
+        return owner_uid or None
+
+    def _paper_response_from_record(
+        self,
+        paper_id: str,
+        *,
+        filename: str,
+        metadata: dict[str, Any],
+        document: str,
+        parser_name: str,
+        metadata_keys: list[str],
+        reindexed: bool,
+    ) -> dict[str, Any]:
+        abstract = str(metadata.get("abstract", "") or "")
+        authors = self._split_csv(str(metadata.get("authors", "")))
+        affiliations = [entry.strip() for entry in str(metadata.get("affiliations", "")).split(" | ") if entry.strip()]
+        keywords = self._split_csv(str(metadata.get("keywords", "")))
+        references = [entry.strip() for entry in str(metadata.get("references", "")).split(" || ") if entry.strip()]
+        return {
+            "id": paper_id,
+            "cid": str(metadata.get("cid", paper_id) or paper_id),
+            "filename": filename,
+            "title": str(metadata.get("title", filename) or filename),
+            "abstract": abstract,
+            "authors": authors,
+            "affiliations": affiliations,
+            "keywords": keywords,
+            "doi": str(metadata.get("doi", "") or ""),
+            "ipfs_url": str(metadata.get("ipfs_url", "") or ""),
+            "type": str(metadata.get("type", "paper") or "paper"),
+            "parser": parser_name,
+            "nft_minted": str(metadata.get("nft_minted", "false")).lower() == "true",
+            "created_at": str(metadata.get("created_at", "") or ""),
+            "indexed": bool(document),
+            "reindexed": reindexed,
+            "analysis": {
+                "status": "indexed" if document else "no_text",
+                "parser": parser_name,
+                "text_length": len(document),
+                "metadata_keys": metadata_keys,
+                "reference_count": len(references),
+                "structured_fields": [
+                    field_name
+                    for field_name, value in {
+                        "title": metadata.get("title"),
+                        "abstract": abstract,
+                        "authors": authors,
+                        "affiliations": affiliations,
+                        "references": references,
+                        "doi": metadata.get("doi"),
+                    }.items()
+                    if value
+                ],
+            },
+        }
 
     def _extract_text_and_metadata(
         self,
@@ -237,35 +327,162 @@ class AssetManager:
             ipfs_url=ipfs_url,
             created_at=created_at,
         )
-
-        return {
-            "id": paper_id,
-            "cid": paper_id,
-            "filename": file.filename,
-            "title": resolved_fields["title"],
-            "abstract": resolved_fields["abstract"],
-            "authors": resolved_fields["authors"],
-            "affiliations": resolved_fields["affiliations"],
-            "keywords": resolved_fields["keywords"],
-            "doi": resolved_fields["doi"],
-            "ipfs_url": ipfs_url,
-            "type": "paper",
-            "nft_minted": False,
-            "created_at": created_at,
-            "indexed": extracted_text,
-            "analysis": {
-                "status": "indexed" if extracted_text else "no_text",
-                "parser": parser_name,
-                "text_length": len(text_content) if extracted_text else 0,
-                "metadata_keys": sorted(parsed_metadata.keys()),
-                "reference_count": len(resolved_fields["references"]),
-                "structured_fields": [
-                    field_name
-                    for field_name in ["title", "abstract", "authors", "affiliations", "references", "doi"]
-                    if resolved_fields.get(field_name)
-                ],
+        self._write_paper_manifest(
+            paper_id,
+            {
+                "paper_id": paper_id,
+                "cid": paper_id,
+                "filename": file.filename,
+                "file_path": file_path,
+                "title": resolved_fields["title"],
+                "authors_csv": authors,
+                "abstract": resolved_fields["abstract"],
+                "ipfs_url": ipfs_url,
+                "owner_uid": user.get("uid", ""),
+                "owner_email": user.get("email", ""),
+                "owner_name": user.get("name", ""),
+                "created_at": created_at,
             },
-        }
+        )
+
+        return self._paper_response_from_record(
+            paper_id,
+            filename=file.filename,
+            metadata={
+                "cid": paper_id,
+                "title": resolved_fields["title"],
+                "abstract": resolved_fields["abstract"],
+                "authors": ", ".join(resolved_fields["authors"]),
+                "affiliations": " | ".join(resolved_fields["affiliations"]),
+                "keywords": ",".join(resolved_fields["keywords"]),
+                "references": " || ".join(resolved_fields["references"]),
+                "doi": resolved_fields["doi"],
+                "ipfs_url": ipfs_url,
+                "type": "paper",
+                "parser": parser_name,
+                "nft_minted": "false",
+                "created_at": created_at,
+            },
+            document=text_content if extracted_text else "",
+            parser_name=parser_name,
+            metadata_keys=sorted(parsed_metadata.keys()),
+            reindexed=False,
+        )
+
+    async def reindex_paper(self, paper_id: str, user: dict[str, Any]) -> dict[str, Any]:
+        """Refresh indexed paper metadata from the saved local upload when available."""
+
+        manifest = self.get_paper_manifest(paper_id) or {}
+        filename = str(manifest.get("filename") or f"{paper_id}.pdf")
+        file_path = str(manifest.get("file_path") or "")
+        paper_record = self.vector_store.get_notice(paper_id)
+
+        if file_path and os.path.exists(file_path):
+            with open(file_path, "rb") as handle:
+                content = handle.read()
+
+            class StoredFile:
+                def __init__(self, stored_filename: str):
+                    self.filename = stored_filename
+
+            stored_file = StoredFile(filename)
+            file_ext = os.path.splitext(filename)[1]
+            text_content, parsed_metadata, parser_name = self._extract_text_and_metadata(stored_file, file_ext, content)
+            extracted_text = bool(text_content)
+            if not text_content:
+                text_content = "No text content extracted."
+
+            resolved_fields = self._resolve_paper_fields(
+                file=stored_file,
+                submitted_title=str(manifest.get("title") or ""),
+                submitted_authors=str(manifest.get("authors_csv") or ""),
+                submitted_abstract=str(manifest.get("abstract") or ""),
+                parsed_metadata=parsed_metadata,
+            )
+            created_at = str(
+                (paper_record or {}).get("metadata", {}).get("created_at")
+                or manifest.get("created_at")
+                or datetime.now().isoformat()
+            )
+
+            if hasattr(self.vector_store, "delete_notice"):
+                self.vector_store.delete_notice(paper_id)
+
+            self.vector_store.add_paper(
+                paper_id=paper_id,
+                title=resolved_fields["title"],
+                abstract=resolved_fields["abstract"],
+                full_text=text_content,
+                keywords=resolved_fields["keywords"],
+                authors=resolved_fields["authors"],
+                affiliations=resolved_fields["affiliations"],
+                references=resolved_fields["references"],
+                doi=resolved_fields["doi"] or None,
+                parser=parser_name,
+                owner_uid=user.get("uid"),
+                owner_email=user.get("email"),
+                owner_name=user.get("name"),
+                cid=str(manifest.get("cid") or paper_id),
+                ipfs_url=str(manifest.get("ipfs_url") or ""),
+                created_at=created_at,
+            )
+
+            self._write_paper_manifest(
+                paper_id,
+                {
+                    **manifest,
+                    "paper_id": paper_id,
+                    "cid": str(manifest.get("cid") or paper_id),
+                    "filename": filename,
+                    "file_path": file_path,
+                    "title": resolved_fields["title"],
+                    "authors_csv": ", ".join(resolved_fields["authors"]),
+                    "abstract": resolved_fields["abstract"],
+                    "owner_uid": user.get("uid", ""),
+                    "owner_email": user.get("email", ""),
+                    "owner_name": user.get("name", ""),
+                    "created_at": created_at,
+                },
+            )
+
+            return self._paper_response_from_record(
+                paper_id,
+                filename=filename,
+                metadata={
+                    "cid": str(manifest.get("cid") or paper_id),
+                    "title": resolved_fields["title"],
+                    "abstract": resolved_fields["abstract"],
+                    "authors": ", ".join(resolved_fields["authors"]),
+                    "affiliations": " | ".join(resolved_fields["affiliations"]),
+                    "keywords": ",".join(resolved_fields["keywords"]),
+                    "references": " || ".join(resolved_fields["references"]),
+                    "doi": resolved_fields["doi"],
+                    "ipfs_url": str(manifest.get("ipfs_url") or ""),
+                    "type": "paper",
+                    "parser": parser_name,
+                    "nft_minted": "false",
+                    "created_at": created_at,
+                },
+                document=text_content if extracted_text else "",
+                parser_name=parser_name,
+                metadata_keys=sorted(parsed_metadata.keys()),
+                reindexed=True,
+            )
+
+        if not paper_record:
+            raise FileNotFoundError(f"Paper not found: {paper_id}")
+
+        metadata = paper_record.get("metadata", {}) or {}
+        parser_name = str(metadata.get("parser", "") or "indexed")
+        return self._paper_response_from_record(
+            paper_id,
+            filename=filename,
+            metadata=metadata,
+            document=str(paper_record.get("document", "") or ""),
+            parser_name=parser_name,
+            metadata_keys=sorted(metadata.keys()),
+            reindexed=False,
+        )
 
     def list_user_papers(self, user_id: str) -> list[dict[str, Any]]:
         """Return papers indexed for a specific authenticated user."""
@@ -328,7 +545,8 @@ class AssetManager:
                     "ipfs_url": metadata.get("ipfs_url", ""),
                     "type": metadata.get("type", "paper"),
                     "date": metadata.get("created_at", "")[:10] if metadata.get("created_at") else "",
-                    "cited": int(hashlib.md5(str(item.get("id")).encode()).hexdigest(), 16) % 100, # Fake citations for now
+                    "cited": int(hashlib.md5(str(item.get("id")).encode()).hexdigest(), 16)
+                    % 100,  # Fake citations for now
                     "field": metadata.get("field", "General Science"),
                     "nft_minted": str(metadata.get("nft_minted", "false")).lower() == "true",
                     "created_at": metadata.get("created_at", ""),
@@ -350,6 +568,10 @@ class AssetManager:
     def delete_asset(self, asset_id: str):
         """Delete an uploaded asset from vector storage and local disk."""
         self.vector_store.delete_notice(asset_id)
+
+        manifest_path = self._paper_manifest_path(asset_id)
+        if os.path.exists(manifest_path):
+            os.remove(manifest_path)
 
         for filename in os.listdir(self.asset_dir):
             if filename.startswith(asset_id):

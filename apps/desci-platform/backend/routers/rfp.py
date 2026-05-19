@@ -6,7 +6,6 @@ environments with only the core web stack installed.
 """
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-
 from limiter import limiter
 from models import AnalyzeRequest, AnalyzeResponse, UserProfile
 from services.logging_config import get_logger
@@ -262,9 +261,7 @@ async def enrich_external_research(
     from services.external_research import ExternalResearchClient
 
     async with ExternalResearchClient() as client:
-        return await client.enrich_query(
-            query=query, per_page=per_page, crossref_dois=doi or []
-        )
+        return await client.enrich_query(query=query, per_page=per_page, crossref_dois=doi or [])
 
 
 @router.get("/enrich/external/cache-stats", tags=["RFP"])

@@ -51,7 +51,7 @@ class SmartMatcher:
         asset_summaries = []
         tech_keywords = set()
 
-        for doc, score in related_assets:
+        for doc, _score in related_assets:
             # doc is RFPDocument, but we abused it for assets.
             # Reconstruct asset info.
             asset_summaries.append(f"- 자산명: {doc.title}\n- 내용요약: {doc.body_text[:200]}...")

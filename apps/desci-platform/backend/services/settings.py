@@ -60,6 +60,7 @@ class BioLinkerSettings(BaseSettings):
     web3_rpc_url: str | None = Field(None, alias="WEB3_RPC_URL")
     dsci_contract_address: str | None = Field(None, alias="DSCI_CONTRACT_ADDRESS")
     nft_contract_address: str | None = Field(None, alias="NFT_CONTRACT_ADDRESS")
+    desci_dao_contract_address: str | None = Field(None, alias="DESCI_DAO_CONTRACT_ADDRESS")
     distributor_private_key: str | None = Field(None, alias="DISTRIBUTOR_PRIVATE_KEY")
 
     # ── Validators ───────────────────────────────────────────────

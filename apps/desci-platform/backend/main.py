@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from services.logging_config import get_logger, setup_logging
 
 try:
@@ -87,6 +86,21 @@ def get_rabbitmq_bus():
     return _load_service("services.rabbitmq_bus", "get_rabbitmq_bus")
 
 
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _has_web3_contract_env() -> bool:
+    return any(
+        os.getenv(key)
+        for key in (
+            "DSCI_CONTRACT_ADDRESS",
+            "NFT_CONTRACT_ADDRESS",
+            "DESCI_DAO_CONTRACT_ADDRESS",
+        )
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     scheduler = get_scheduler()
@@ -149,13 +163,14 @@ try:
 except ImportError:
     pass
 
-from routers import agent, crawl, governance, rfp, subscription, web3  # noqa: E402
+from routers import agent, crawl, governance, jobs, rfp, subscription, web3  # noqa: E402
 from services.user_tier import get_tier_manager  # noqa: E402
 
 get_tier_manager(db=db)
 
 app.include_router(rfp.router, tags=["RFP"])
 app.include_router(crawl.router, tags=["Crawling"])
+app.include_router(jobs.router, tags=["Jobs"])
 app.include_router(web3.router, tags=["Web3"])
 app.include_router(agent.router, tags=["Agent"])
 app.include_router(governance.router, tags=["Governance"])
@@ -206,6 +221,7 @@ async def health():
     pdf_parser = get_pdf_parser()
     redis_store = get_redis_store()
     rabbitmq_bus = get_rabbitmq_bus()
+    mock_mode = _env_flag("MOCK_MODE")
 
     chromadb_ok = vector_store is not None
     chromadb_count = 0
@@ -240,6 +256,7 @@ async def health():
         "chromadb_ok": chromadb_ok,
         "chromadb_count": chromadb_count,
         "web3_connected": bool(getattr(web3_service, "is_connected", False)),
+        "web3_mock_mode": mock_mode,
         "ipfs_configured": bool(getattr(ipfs_service, "is_configured", False)),
         "grobid_configured": grobid_configured,
         "grobid_available": grobid_available,
@@ -318,10 +335,15 @@ def _build_readiness(health_data: dict) -> dict:
             configured=llm_available,
             available=llm_available,
             remediation=(
-                "Set one of GEMINI_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY, "
-                "DEEPSEEK_API_KEY, or ANTHROPIC_API_KEY."
+                "Set one of GEMINI_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, or ANTHROPIC_API_KEY."
             ),
-            required_env=["GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY"],
+            required_env=[
+                "GEMINI_API_KEY",
+                "GOOGLE_API_KEY",
+                "OPENAI_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "ANTHROPIC_API_KEY",
+            ],
         ),
         _readiness_check(
             "redis",
@@ -350,10 +372,19 @@ def _build_readiness(health_data: dict) -> dict:
         _readiness_check(
             "web3",
             required=False,
-            configured=bool(os.getenv("MOCK_MODE") or os.getenv("WEB3_RPC_URL")),
-            available=bool(health_data.get("web3_connected")),
-            remediation="Set WEB3_RPC_URL and deployed contract addresses, or enable MOCK_MODE for local demos.",
-            required_env=["WEB3_RPC_URL", "DSCI_CONTRACT_ADDRESS", "NFT_CONTRACT_ADDRESS"],
+            configured=bool(_env_flag("MOCK_MODE") or (os.getenv("WEB3_RPC_URL") and _has_web3_contract_env())),
+            available=bool(health_data.get("web3_connected") or health_data.get("web3_mock_mode")),
+            remediation=(
+                "Set MOCK_MODE=true for local demos, or configure WEB3_RPC_URL plus deployed "
+                "DSCI/NFT/DAO contract addresses."
+            ),
+            required_env=[
+                "MOCK_MODE",
+                "WEB3_RPC_URL",
+                "DSCI_CONTRACT_ADDRESS",
+                "NFT_CONTRACT_ADDRESS",
+                "DESCI_DAO_CONTRACT_ADDRESS",
+            ],
         ),
         _readiness_check(
             "grobid",
@@ -391,11 +422,78 @@ def _build_readiness(health_data: dict) -> dict:
     }
 
 
+def _build_launch_control(readiness_data: dict) -> dict:
+    checks = readiness_data.get("checks") if isinstance(readiness_data.get("checks"), list) else []
+    summary = readiness_data.get("summary") if isinstance(readiness_data.get("summary"), dict) else {}
+    total = int(summary.get("total") or len(checks) or 0)
+    ready_count = int(summary.get("ready_count") or sum(1 for check in checks if check.get("status") == "pass"))
+    required_total = int(summary.get("required_total") or sum(1 for check in checks if check.get("required")) or 0)
+    required_ready_count = int(
+        summary.get("required_ready_count")
+        or sum(1 for check in checks if check.get("required") and check.get("status") == "pass")
+    )
+
+    blockers = [check for check in checks if check.get("required") and check.get("status") == "fail"]
+    warnings = [check for check in checks if check.get("status") == "warn"]
+    readiness_status = readiness_data.get("status", "blocked")
+
+    if blockers or readiness_status == "blocked":
+        release_decision = "no-go"
+        operator_phase = "blocked"
+    elif warnings or readiness_status == "degraded":
+        release_decision = "go-with-watch"
+        operator_phase = "operator-review"
+    else:
+        release_decision = "go"
+        operator_phase = "launch-ready"
+
+    next_actions = []
+    for check in [*blockers, *warnings]:
+        next_actions.append(
+            {
+                "id": check.get("id"),
+                "required": bool(check.get("required")),
+                "status": check.get("status"),
+                "remediation": check.get("remediation", "Review the service configuration before launch."),
+                "required_env": check.get("required_env", []),
+            }
+        )
+
+    return {
+        "product": "DSCI-DecentBio",
+        "release_decision": release_decision,
+        "operator_phase": operator_phase,
+        "readiness_status": readiness_status,
+        "checked_at": readiness_data.get("checked_at"),
+        "score": {
+            "overall_percent": round((ready_count / total) * 100) if total else 0,
+            "required_percent": round((required_ready_count / required_total) * 100) if required_total else 0,
+        },
+        "summary": {
+            "ready_count": ready_count,
+            "total": total,
+            "required_ready_count": required_ready_count,
+            "required_total": required_total,
+            "blocker_count": len(blockers),
+            "warning_count": len(warnings),
+        },
+        "launch_blockers": [check.get("id") for check in blockers],
+        "next_actions": next_actions,
+    }
+
+
 @app.get("/ready", summary="Product readiness check")
 async def readiness():
     """Return launch-readiness checks for frontend product operations."""
 
     return _build_readiness(await health())
+
+
+@app.get("/launch", summary="Launch control decision")
+async def launch_control():
+    """Return the operator-facing go/no-go decision for the current runtime."""
+
+    return _build_launch_control(_build_readiness(await health()))
 
 
 @app.get("/me")

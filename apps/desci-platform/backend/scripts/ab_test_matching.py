@@ -68,9 +68,7 @@ AB_TEST_HYPOTHESIS = {
         "Average fit score of matched RFPs",
         "Grade distribution (S/A vs B/C/D)",
     ],
-    "decision_rule": (
-        "Adopt version B if Precision@5 improves by >=30% relative and " "false positives do not increase."
-    ),
+    "decision_rule": ("Adopt version B if Precision@5 improves by >=30% relative and false positives do not increase."),
 }
 
 
@@ -378,7 +376,7 @@ def render_markdown(
         ]
     )
     if not metadata:
-        lines.append("- Replace the sample dataset with real matching logs " "exported from the /analyze endpoint.")
+        lines.append("- Replace the sample dataset with real matching logs exported from the /analyze endpoint.")
     else:
         lines.append("- Interpret the result together with the dataset metadata and label method.")
     return "\n".join(lines) + "\n"
