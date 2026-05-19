@@ -95,6 +95,11 @@ async def generate_long_form_async(
     """X Premium+ 장문 콘텐츠 2종 비동기 생성 (v13.0: LIGHTWEIGHT 기본)."""
     from datetime import datetime as _dt
 
+    # [shortform-only] 정책상 비활성. 호출자가 enable_long_form 무시하고 들어와도 빈 결과 반환.
+    if not getattr(config, "enable_long_form", False):
+        log.info(f"[shortform-only] 장문 생성 스킵: enable_long_form=False ({trend.keyword})")
+        return []
+
     report_profile = _use_report_profile(config)
     target_language = _resolve_language(config)
     context_section = _build_context_section(trend)

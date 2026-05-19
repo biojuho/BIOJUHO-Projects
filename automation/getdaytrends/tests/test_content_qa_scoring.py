@@ -145,19 +145,28 @@ class TestScoreKick:
 
 
 class TestScoreFormat:
-    def test_tweet_within_280_chars(self):
-        tweet = _make_tweet("A" * 280)
+    def test_tweet_within_shortform_range(self):
+        """[shortform-only] 160~240자 범위 내 트윗은 페널티 없음."""
+        tweet = _make_tweet("A" * 200)
         angle, reg, algo, issues = _score_format("tweets", [tweet], tweet.content)
         assert reg == 10
         assert algo == 10
         assert issues == []
 
-    def test_tweet_exceeds_280_chars(self):
-        tweet = _make_tweet("A" * 300)
-        angle, reg, algo, issues = _score_format("tweets", [tweet], tweet.content)
+    def test_tweet_exceeds_240_chars(self):
+        """[shortform-only] 240자 초과 시 regulation/algorithm 감점."""
+        tweet = _make_tweet("A" * 260)
+        _, reg, algo, issues = _score_format("tweets", [tweet], tweet.content)
         assert reg <= 6
         assert algo <= 6
-        assert any("280자" in i for i in issues)
+        assert any("240자" in i for i in issues)
+
+    def test_tweet_under_160_chars(self):
+        """[shortform-only] 160자 미만 시 angle 감점 (정보 밀도 부족)."""
+        tweet = _make_tweet("A" * 100)
+        angle, _, algo, issues = _score_format("tweets", [tweet], tweet.content)
+        assert angle < 12
+        assert any("160자 미만" in i for i in issues)
 
     def test_threads_hashtag_fatal(self):
         """Threads posts with hashtags → regulation = 0."""

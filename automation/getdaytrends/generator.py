@@ -57,7 +57,8 @@ except ImportError:
 _JSON_POLICY = LLMPolicy(response_mode="json")
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
-_TWEET_MAX_CHARS = 280
+_TWEET_MAX_CHARS = 240  # [shortform-only] 160~240자 범위 상한 (config.tweet_max_chars와 동기화)
+_TWEET_MIN_CHARS = 160  # [shortform-only] 단문 트윗 최소 길이
 
 
 def _parse_tweets_to_batch(
@@ -84,6 +85,11 @@ def _parse_tweets_to_batch(
         if len(content) > _TWEET_MAX_CHARS:
             content = content[: _TWEET_MAX_CHARS - 3] + "..."
             log.warning(f"트윗 {_TWEET_MAX_CHARS}자 초과 트리밍: {trend.keyword} [{t.get('type', '')}]")
+        elif len(content) < _TWEET_MIN_CHARS:
+            log.warning(
+                f"트윗 {_TWEET_MIN_CHARS}자 미만 (실제 {len(content)}자): "
+                f"{trend.keyword} [{t.get('type', '')}] — QA에서 감점 처리"
+            )
         kwargs: dict = {
             "tweet_type": t.get("type", ""),
             "content": content,

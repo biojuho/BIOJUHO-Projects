@@ -63,6 +63,11 @@ async def generate_threads_content_async(
     """Meta Threads 최적화 콘텐츠 비동기 생성 (Haiku — 단문)."""
     from datetime import datetime as _dt
 
+    # [shortform-only] 정책상 비활성. 호출자 가드 누락 대비 안전 반환.
+    if not getattr(config, "enable_threads", False):
+        log.info(f"[shortform-only] Threads 생성 스킵: enable_threads=False ({trend.keyword})")
+        return []
+
     report_profile = _use_report_profile(config)
     target_language = _resolve_language(config)
     context_section = _build_context_section(trend)

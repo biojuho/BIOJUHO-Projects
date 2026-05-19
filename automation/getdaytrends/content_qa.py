@@ -260,10 +260,15 @@ def _score_format(
     angle, regulation, algorithm = 12, 10, 10
 
     if group_name == "tweets":
-        if any(len(item.content) > 280 for item in items):
+        # [shortform-only] 단문 트윗 길이 정책: 160~240자 (한국어 공백 포함)
+        if any(len(item.content) > 240 for item in items):
             regulation = min(regulation, 6)
             algorithm = min(algorithm, 6)
-            issues.append("280자 초과 트윗 존재")
+            issues.append("240자 초과 트윗 존재")
+        if any(len(item.content) < 160 for item in items):
+            angle = max(0, angle - 4)
+            algorithm = max(0, algorithm - 2)
+            issues.append("160자 미만 트윗 존재 (정보 밀도 부족)")
     elif group_name == "threads_posts":
         if "#" in combined:
             regulation = 0
