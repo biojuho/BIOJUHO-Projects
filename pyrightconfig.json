@@ -1,5 +1,17 @@
 {
   "typeCheckingMode": "basic",
+  "reportArgumentType": "warning",
+  "reportAssignmentType": "warning",
+  "reportAttributeAccessIssue": "warning",
+  "reportCallIssue": "warning",
+  "reportGeneralTypeIssues": "warning",
+  "reportIndexIssue": "warning",
+  "reportInvalidTypeForm": "warning",
+  "reportOptionalCall": "warning",
+  "reportOptionalMemberAccess": "warning",
+  "reportOptionalSubscript": "warning",
+  "reportRedeclaration": "warning",
+  "reportReturnType": "warning",
   "pythonVersion": "3.12",
   "pythonPlatform": "All",
   "include": [

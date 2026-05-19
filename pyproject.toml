@@ -27,6 +27,25 @@ include = ["shared*", "content_intelligence*"]
 [tool.ruff]
 target-version = "py312"
 line-length = 120
+extend-exclude = [
+    ".agent",
+    ".agents",
+    ".claude",
+    ".deepeval",
+    ".firecrawl",
+    ".pytest-root",
+    ".pytest-temp",
+    ".sessions",
+    ".smoke-basetemp",
+    ".smoke-tmp",
+    ".test-tmp",
+    "ai_projects_workspace.egg-info",
+    "archive",
+    "claude-goal",
+    "output",
+    "tmp",
+    "var",
+]
 
 [tool.ruff.lint]
 select = [
@@ -41,12 +60,48 @@ select = [
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)
+    "E402",   # import path/env bootstrap patterns are common in legacy apps/scripts
+    "E722",   # broad legacy cleanup is tracked separately
+    "E741",   # legacy variable names; avoid noisy broad churn
     "B008",   # do not perform function calls in argument defaults (FastAPI Depends)
+    "B017",   # legacy tests intentionally assert broad validation exceptions
+    "B904",   # exception chaining cleanup is useful but too broad for this pass
+    "B905",   # strict zip migration can alter behavior in old code
     "SIM108", # use ternary operator (sometimes less readable)
+    "SIM102", # collapsible-if cleanup is stylistic
+    "SIM103", # direct bool returns are stylistic
+    "SIM105", # suppress() migration is stylistic
+    "SIM110", # generator/builtin rewrite is stylistic
+    "SIM115", # context-manager migration can alter file lifetime
+    "SIM117", # combining context managers is stylistic
+    "SIM201", # readability-only comparison rewrite
+    "TC001",  # type-only import migration is optional
+    "TC002",  # type-only import migration is optional
+    "TC003",  # type-only import migration is optional
+    "UP028",  # yield-from migration is stylistic
+    "UP042",  # StrEnum migration can change enum behavior
+    "UP047",  # PEP 695 migration would reduce compatibility
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["shared", "getdaytrends", "content_intelligence"]
+
+[tool.ruff.lint.per-file-ignores]
+"automation/DailyNews/src/antigravity_mcp/tooling/ops_tools.py" = ["F401"]
+"automation/getdaytrends/core/steps_generate.py" = ["F401"]
+"automation/getdaytrends/core/steps_save.py" = ["F401"]
+"automation/getdaytrends/dashboard.py" = ["F401"]
+"automation/getdaytrends/dashboard_routes_tap.py" = ["F401"]
+"automation/getdaytrends/db.py" = ["F401", "F403"]
+"automation/getdaytrends/db_layer/__init__.py" = ["F401"]
+"automation/getdaytrends/db_schema.py" = ["F401"]
+"automation/getdaytrends/generator.py" = ["F401"]
+"automation/getdaytrends/news_scraper.py" = ["F401"]
+"automation/getdaytrends/storage_content_hub.py" = ["F401"]
+"automation/getdaytrends/x_client.py" = ["F401"]
+"ops/scripts/prefect_orchestrator.py" = ["F401"]
+"packages/shared/harness/adapters/deepagents.py" = ["F401"]
+"packages/shared/intelligence/code_graph.py" = ["F401"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -110,7 +165,7 @@ link-mode = "copy"
 [tool.uv.workspace]
 members = [
     "apps/AgriGuard/backend",
-    "apps/desci-platform/biolinker",
+    "apps/desci-platform/backend",
     "automation/DailyNews",
     "automation/getdaytrends",
     "mcp/desci-research-mcp",

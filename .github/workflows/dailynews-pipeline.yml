@@ -3,7 +3,6 @@ name: DailyNews Pipeline
 on:
   schedule:
     - cron: "0 22 * * *"
-    - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -15,7 +14,7 @@ on:
         description: "Max articles per category (1-10)"
         required: false
         type: number
-        default: 5
+        default: 1
 
 permissions:
   contents: read
@@ -59,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          MAX_ITEMS="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.max_items || '5' }}"
+          MAX_ITEMS="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.max_items || '1' }}"
           if ! [[ "$MAX_ITEMS" =~ ^[0-9]+$ ]]; then
             echo "::error::max_items must be an integer, got '$MAX_ITEMS'"
             exit 1
