@@ -68,12 +68,14 @@ async def generate_platform_content(
         for tp in item.get("thread_posts", []):
             if isinstance(tp, dict):
                 body_text = str(tp.get("body", ""))
-                thread_posts.append(ThreadPost(
-                    index=int(tp.get("index", len(thread_posts))),
-                    role=str(tp.get("role", "body")),
-                    body=body_text,
-                    char_count=len(body_text),
-                ))
+                thread_posts.append(
+                    ThreadPost(
+                        index=int(tp.get("index", len(thread_posts))),
+                        role=str(tp.get("role", "body")),
+                        body=body_text,
+                        char_count=len(body_text),
+                    )
+                )
 
         content = GeneratedContent(
             platform=platform,
@@ -245,26 +247,30 @@ def _parse_pro_qa(data: dict, config) -> QAReport:
     # 축별 진단 추출
     raw_diag = data.get("diagnostics", {})
     diagnostics = []
-    for axis, cap, label in _AXIS_META:
+    for axis, cap, _label in _AXIS_META:
         d = raw_diag.get(axis, {})
-        diagnostics.append(QAAxisDiagnostic(
-            axis=axis,
-            score=score_map[axis],
-            max_score=cap,
-            reason=str(d.get("reason", "")) if isinstance(d, dict) else "",
-            suggestion=str(d.get("suggestion", "")) if isinstance(d, dict) else "",
-        ))
+        diagnostics.append(
+            QAAxisDiagnostic(
+                axis=axis,
+                score=score_map[axis],
+                max_score=cap,
+                reason=str(d.get("reason", "")) if isinstance(d, dict) else "",
+                suggestion=str(d.get("suggestion", "")) if isinstance(d, dict) else "",
+            )
+        )
 
     # 페르소나 적합도 추출
     persona_fits = []
     for pf in data.get("persona_fits", []):
         if isinstance(pf, dict):
-            persona_fits.append(PersonaFitScore(
-                persona_id=str(pf.get("persona_id", "")),
-                persona_name=str(pf.get("persona_name", pf.get("persona_id", ""))),
-                fit_score=_safe_int(pf.get("fit_score"), 10),
-                reason=str(pf.get("reason", "")),
-            ))
+            persona_fits.append(
+                PersonaFitScore(
+                    persona_id=str(pf.get("persona_id", "")),
+                    persona_name=str(pf.get("persona_name", pf.get("persona_id", ""))),
+                    fit_score=_safe_int(pf.get("fit_score"), 10),
+                    reason=str(pf.get("reason", "")),
+                )
+            )
 
     return QAReport(
         hook_score=score_map["hook"],
@@ -352,8 +358,12 @@ async def _validate_and_maybe_regenerate(
 
         try:
             regen = await _regenerate_with_feedback(
-                content.platform, trend_report, checklist, config,
-                personas=personas, feedback=retry_feedback,
+                content.platform,
+                trend_report,
+                checklist,
+                config,
+                personas=personas,
+                feedback=retry_feedback,
             )
         except Exception as e:
             log.warning(f"  ⚠️ 재생성 실패 — 원본 유지 ({content.platform}): {e}")
@@ -425,17 +435,19 @@ async def _regenerate_with_feedback(
     contents = []
     for item in data.get("contents", []):
         self_check = item.get("self_check", {})
-        contents.append(GeneratedContent(
-            platform=platform,
-            content_type=item.get("content_type", "post"),
-            title=item.get("title", ""),
-            body=item.get("body", ""),
-            hashtags=item.get("hashtags", []),
-            trend_keywords_used=item.get("trend_keywords_used", []),
-            regulation_compliant=self_check.get("regulation_compliant", False),
-            algorithm_optimized=self_check.get("algorithm_optimized", False),
-            created_at=datetime.now(),
-        ))
+        contents.append(
+            GeneratedContent(
+                platform=platform,
+                content_type=item.get("content_type", "post"),
+                title=item.get("title", ""),
+                body=item.get("body", ""),
+                hashtags=item.get("hashtags", []),
+                trend_keywords_used=item.get("trend_keywords_used", []),
+                regulation_compliant=self_check.get("regulation_compliant", False),
+                algorithm_optimized=self_check.get("algorithm_optimized", False),
+                created_at=datetime.now(),
+            )
+        )
     return contents
 
 

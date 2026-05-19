@@ -5,9 +5,7 @@ from __future__ import annotations
 import pytest
 from regulators.ai_convergence_guard_v3 import (
     AIConvergenceResultV3,
-    KeywordLifecycle,
     KeywordPhase,
-    TopicCluster,
     _calculate_confidence,
     _classify_phase,
     _find_cluster,
@@ -15,8 +13,8 @@ from regulators.ai_convergence_guard_v3 import (
 )
 from storage.models import MergedTrendReport, PlatformTrend, PlatformTrendReport
 
-
 # ── Helpers ──
+
 
 def _make_multi_platform_report(
     platform_keywords: dict[str, list[tuple[str, int]]],
@@ -39,6 +37,7 @@ def _make_multi_platform_report(
 
 # ── _classify_phase ──
 
+
 class TestClassifyPhase:
     def test_peak(self) -> None:
         assert _classify_phase(3, 50000) == KeywordPhase.PEAK
@@ -57,6 +56,7 @@ class TestClassifyPhase:
 
 
 # ── _find_cluster ──
+
 
 class TestFindCluster:
     def test_llm_foundation(self) -> None:
@@ -84,11 +84,14 @@ class TestFindCluster:
 
 # ── _calculate_confidence ──
 
+
 class TestCalculateConfidence:
     def test_perfect_confidence(self) -> None:
         conf = _calculate_confidence(
-            ai_density=0.5, cross_platform_count=5,
-            source_diversity=4, total_trends=20,
+            ai_density=0.5,
+            cross_platform_count=5,
+            source_diversity=4,
+            total_trends=20,
         )
         assert conf == pytest.approx(1.0)
 
@@ -103,6 +106,7 @@ class TestCalculateConfidence:
 
 # ── apply_ai_convergence_guard_v3 ──
 
+
 class TestApplyV3:
     def test_empty_report(self) -> None:
         report = MergedTrendReport()
@@ -112,9 +116,11 @@ class TestApplyV3:
         assert result.confidence_score == 0.0
 
     def test_no_ai_trends(self) -> None:
-        report = _make_multi_platform_report({
-            "x": [("부동산", 100), ("날씨", 200)],
-        })
+        report = _make_multi_platform_report(
+            {
+                "x": [("부동산", 100), ("날씨", 200)],
+            }
+        )
         result = apply_ai_convergence_guard_v3(report)
         assert result.ai_trend_count == 0
         assert result.convergence_signal is False
@@ -122,42 +128,42 @@ class TestApplyV3:
 
     def test_cross_platform_detected(self) -> None:
         """Same AI keyword on two platforms → cross-platform hit."""
-        report = _make_multi_platform_report({
-            "x": [("GPT", 100), ("날씨", 200)],
-            "naver": [("GPT", 150), ("쇼핑", 300)],
-        })
+        report = _make_multi_platform_report(
+            {
+                "x": [("GPT", 100), ("날씨", 200)],
+                "naver": [("GPT", 150), ("쇼핑", 300)],
+            }
+        )
         result = apply_ai_convergence_guard_v3(report)
         assert "gpt" in result.cross_platform_hits
 
     def test_cross_platform_gets_higher_boost(self) -> None:
         """Cross-platform keywords get 2.0x vs 1.5x for single."""
-        report = _make_multi_platform_report({
-            "x": [("GPT", 100)],
-            "naver": [("GPT", 100), ("Claude", 100)],
-        })
+        report = _make_multi_platform_report(
+            {
+                "x": [("GPT", 100)],
+                "naver": [("GPT", 100), ("Claude", 100)],
+            }
+        )
         result = apply_ai_convergence_guard_v3(report)
         if result.convergence_signal:
             # GPT is cross-platform → 2.0x = 200
-            gpt_trends = [
-                t for pr in report.platform_reports for t in pr.trends
-                if t.keyword.lower() == "gpt"
-            ]
+            gpt_trends = [t for pr in report.platform_reports for t in pr.trends if t.keyword.lower() == "gpt"]
             for t in gpt_trends:
                 assert t.volume == 200
             # Claude is single-platform → 1.5x = 150
-            claude = [
-                t for pr in report.platform_reports for t in pr.trends
-                if t.keyword.lower() == "claude"
-            ]
+            claude = [t for pr in report.platform_reports for t in pr.trends if t.keyword.lower() == "claude"]
             for t in claude:
                 assert t.volume == 150
 
     def test_lifecycle_classification(self) -> None:
-        report = _make_multi_platform_report({
-            "x": [("GPT", 30000)],
-            "naver": [("GPT", 30000)],
-            "google": [("GPT", 20000)],
-        })
+        report = _make_multi_platform_report(
+            {
+                "x": [("GPT", 30000)],
+                "naver": [("GPT", 30000)],
+                "google": [("GPT", 20000)],
+            }
+        )
         result = apply_ai_convergence_guard_v3(report)
         gpt_lc = [lc for lc in result.keyword_lifecycles if lc.keyword == "gpt"]
         assert len(gpt_lc) == 1
@@ -165,9 +171,11 @@ class TestApplyV3:
         assert gpt_lc[0].phase == KeywordPhase.PEAK
 
     def test_topic_clusters_populated(self) -> None:
-        report = _make_multi_platform_report({
-            "x": [("GPT", 100), ("midjourney", 100), ("날씨", 100)],
-        })
+        report = _make_multi_platform_report(
+            {
+                "x": [("GPT", 100), ("midjourney", 100), ("날씨", 100)],
+            }
+        )
         result = apply_ai_convergence_guard_v3(report)
         cluster_names = [c.name for c in result.topic_clusters]
         assert "LLM/Foundation" in cluster_names
@@ -175,14 +183,18 @@ class TestApplyV3:
 
     def test_confidence_reflects_diversity(self) -> None:
         """More platforms → higher confidence."""
-        single = _make_multi_platform_report({
-            "x": [("GPT", 100), ("Claude", 100)],
-        })
-        multi = _make_multi_platform_report({
-            "x": [("GPT", 100)],
-            "naver": [("Claude", 100)],
-            "google": [("LLM", 100)],
-        })
+        single = _make_multi_platform_report(
+            {
+                "x": [("GPT", 100), ("Claude", 100)],
+            }
+        )
+        multi = _make_multi_platform_report(
+            {
+                "x": [("GPT", 100)],
+                "naver": [("Claude", 100)],
+                "google": [("LLM", 100)],
+            }
+        )
         r1 = apply_ai_convergence_guard_v3(single)
         r2 = apply_ai_convergence_guard_v3(multi)
         assert r2.confidence_score >= r1.confidence_score
@@ -201,18 +213,21 @@ class TestApplyV3:
         assert "cross=2" in s
 
     def test_convergence_insight_injected(self) -> None:
-        report = _make_multi_platform_report({
-            "x": [("GPT", 100), ("Claude", 100), ("LLM", 100)],
-        })
+        report = _make_multi_platform_report(
+            {
+                "x": [("GPT", 100), ("Claude", 100), ("LLM", 100)],
+            }
+        )
         result = apply_ai_convergence_guard_v3(report)
         assert result.convergence_signal is True
         assert any("v3" in ins for ins in report.top_insights)
 
     def test_below_threshold_no_boost(self) -> None:
-        report = _make_multi_platform_report({
-            "x": [("GPT", 100), ("날씨", 200), ("부동산", 300),
-                   ("쇼핑", 400), ("스포츠", 500)],
-        })
+        report = _make_multi_platform_report(
+            {
+                "x": [("GPT", 100), ("날씨", 200), ("부동산", 300), ("쇼핑", 400), ("스포츠", 500)],
+            }
+        )
         result = apply_ai_convergence_guard_v3(report)
         assert result.convergence_signal is False
         assert len(result.boosted_keywords) == 0

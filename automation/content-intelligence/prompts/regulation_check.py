@@ -51,12 +51,12 @@ def build_regulation_prompt(platform: str, lookback_days: int = 30) -> str:
 
     return f"""\
 [작업]
-{spec['name']}의 최신 콘텐츠 정책과 알고리즘 변화를 점검해줘.
+{spec["name"]}의 최신 콘텐츠 정책과 알고리즘 변화를 점검해줘.
 
 ■ 점검 기간: 최근 {lookback_days}일 이내 변화
 
 ■ 점검 항목
-{spec['checks']}
+{spec["checks"]}
 
 ■ 정리할 항목
 1. 최근 변경된 규제 또는 정책 (최근 {lookback_days}일 이내)

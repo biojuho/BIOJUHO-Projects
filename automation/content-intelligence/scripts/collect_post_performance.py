@@ -11,7 +11,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sqlite3
 import sys
 from datetime import datetime, timedelta
@@ -24,7 +23,6 @@ if str(_CIE_DIR) not in sys.path:
 
 from config import CIEConfig
 from loguru import logger as log
-
 
 # ── 성과 테이블 스키마 ──
 _PERF_SCHEMA = """\
@@ -131,8 +129,9 @@ def calc_engagement_rate(metrics: dict) -> float:
     return round(engagements / impressions * 100, 4)
 
 
-def save_performance(conn: sqlite3.Connection, content_id: int, platform: str,
-                     content_type: str, tweet_id: str, metrics: dict) -> None:
+def save_performance(
+    conn: sqlite3.Connection, content_id: int, platform: str, content_type: str, tweet_id: str, metrics: dict
+) -> None:
     """수집된 성과를 DB에 저장한다."""
     er = calc_engagement_rate(metrics)
     conn.execute(
@@ -142,7 +141,10 @@ def save_performance(conn: sqlite3.Connection, content_id: int, platform: str,
             engagement_rate, collected_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            content_id, platform, content_type, tweet_id,
+            content_id,
+            platform,
+            content_type,
+            tweet_id,
             metrics.get("impressions", 0),
             metrics.get("likes", 0),
             metrics.get("retweets", 0),
@@ -176,9 +178,7 @@ def update_golden_references(conn: sqlite3.Connection, config: CIEConfig) -> int
         return 0
 
     # 상위 10% ER 임계값 계산
-    all_ers = conn.execute(
-        "SELECT engagement_rate FROM content_actual_performance WHERE impressions >= 100"
-    ).fetchall()
+    all_ers = conn.execute("SELECT engagement_rate FROM content_actual_performance WHERE impressions >= 100").fetchall()
     if len(all_ers) < 5:
         threshold = 0.0  # 데이터 부족 시 전부 후보
     else:
@@ -208,6 +208,7 @@ def main() -> None:
 
     config = CIEConfig()
     from storage.local_db import get_connection
+
     conn = get_connection(config)
 
     ensure_perf_table(conn)
@@ -233,8 +234,7 @@ def main() -> None:
             # X 발행 시 tweet_id가 notion_page_id에 저장될 수 있음
             metrics = fetch_x_metrics(t["notion_page_id"], config)
             if metrics:
-                save_performance(conn, t["id"], platform, t["content_type"],
-                                 t["notion_page_id"], metrics)
+                save_performance(conn, t["id"], platform, t["content_type"], t["notion_page_id"], metrics)
                 collected += 1
         else:
             log.debug(f"  건너뜀: id={t['id']} ({platform}) — API 미지원 또는 ID 없음")

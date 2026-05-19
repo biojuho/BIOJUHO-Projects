@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import sys
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -35,7 +33,6 @@ from storage.models import (
     QAAxisDiagnostic,
     QAReport,
     RegulationReport,
-    UnifiedChecklist,
 )
 
 
@@ -57,9 +54,7 @@ class TestGetConnection:
         c = get_connection(db_config)
         assert Path(db_config.sqlite_path).exists()
         # Verify tables exist
-        tables = c.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        tables = c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         table_names = {t["name"] for t in tables}
         assert "trend_reports" in table_names
         assert "generated_contents" in table_names
@@ -119,16 +114,23 @@ class TestSaveRegulations:
 class TestSaveContents:
     def test_save_with_qa(self, conn):
         qa = QAReport(
-            hook_score=15, fact_score=12, tone_score=10,
-            kick_score=10, angle_score=10, regulation_score=8,
-            algorithm_score=7, reader_value_score=6,
-            originality_score=5, credibility_score=4,
+            hook_score=15,
+            fact_score=12,
+            tone_score=10,
+            kick_score=10,
+            angle_score=10,
+            regulation_score=8,
+            algorithm_score=7,
+            reader_value_score=6,
+            originality_score=5,
+            credibility_score=4,
             diagnostics=[
                 QAAxisDiagnostic(axis="hook", score=15, max_score=20, reason="good"),
             ],
         )
         content = GeneratedContent(
-            platform="x", content_type="post",
+            platform="x",
+            content_type="post",
             body="Test content body",
             hashtags=["#AI"],
             qa_report=qa,
@@ -146,7 +148,9 @@ class TestSaveContents:
 
     def test_duplicate_content_skipped(self, conn):
         content = GeneratedContent(
-            platform="x", content_type="post", body="Same body",
+            platform="x",
+            content_type="post",
+            body="Same body",
         )
         batch = ContentBatch(contents=[content])
         save_contents(conn, batch)
@@ -155,7 +159,8 @@ class TestSaveContents:
 
     def test_save_without_qa(self, conn):
         content = GeneratedContent(
-            platform="naver", content_type="blog",
+            platform="naver",
+            content_type="blog",
             body="Blog post content",
             title="Test Blog",
         )
@@ -173,11 +178,32 @@ class TestLoadUnpublished:
                 trend_keywords, qa_total_score, qa_detail, regulation_ok,
                 algorithm_ok, published, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("x", "post", "", "Good content", "hash1", "[]", "[]",
-             80.0, json.dumps({"hook": 15, "fact": 12, "tone": 10,
-                               "kick": 10, "angle": 10, "regulation": 8,
-                               "algorithm": 7, "warnings": []}),
-             1, 1, 0, datetime.now().isoformat()),
+            (
+                "x",
+                "post",
+                "",
+                "Good content",
+                "hash1",
+                "[]",
+                "[]",
+                80.0,
+                json.dumps(
+                    {
+                        "hook": 15,
+                        "fact": 12,
+                        "tone": 10,
+                        "kick": 10,
+                        "angle": 10,
+                        "regulation": 8,
+                        "algorithm": 7,
+                        "warnings": [],
+                    }
+                ),
+                1,
+                1,
+                0,
+                datetime.now().isoformat(),
+            ),
         )
         conn.commit()
 
@@ -194,8 +220,7 @@ class TestLoadUnpublished:
                 trend_keywords, qa_total_score, qa_detail, regulation_ok,
                 algorithm_ok, published, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("x", "post", "", "Low quality", "hash2", "[]", "[]",
-             30.0, "{}", 0, 0, 0, datetime.now().isoformat()),
+            ("x", "post", "", "Low quality", "hash2", "[]", "[]", 30.0, "{}", 0, 0, 0, datetime.now().isoformat()),
         )
         conn.commit()
 
@@ -209,8 +234,21 @@ class TestLoadUnpublished:
                 trend_keywords, qa_total_score, qa_detail, regulation_ok,
                 algorithm_ok, published, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("x", "post", "", "Published content", "hash3", "[]", "[]",
-             85.0, "{}", 1, 1, 1, datetime.now().isoformat()),
+            (
+                "x",
+                "post",
+                "",
+                "Published content",
+                "hash3",
+                "[]",
+                "[]",
+                85.0,
+                "{}",
+                1,
+                1,
+                1,
+                datetime.now().isoformat(),
+            ),
         )
         conn.commit()
 

@@ -1,4 +1,4 @@
-﻿"""Content Intelligence Engine (CIE) v2.0 — 스모크 테스트.
+"""Content Intelligence Engine (CIE) v2.0 — 스모크 테스트.
 
 핵심 모듈의 import, 데이터 모델 생성, 설정 로드를 검증한다.
 외부 API 호출 없이 단위 수준으로 실행된다.
@@ -355,8 +355,8 @@ class TestGdtBridge:
         project_root를 tmp_path로 격리해 기본 candidate 경로에서
         실제 getdaytrends.db가 탐지되지 않도록 한다.
         """
-        from config import CIEConfig
         from collectors.gdt_bridge import write_content_feedback
+        from config import CIEConfig
 
         config = CIEConfig()
         config.gdt_db_path = str(tmp_path / "nonexistent.db")
@@ -367,8 +367,8 @@ class TestGdtBridge:
 
     def test_write_content_feedback_batch_empty(self):
         """빈 배치 입력 시 0 반환."""
-        from config import CIEConfig
         from collectors.gdt_bridge import write_content_feedback_batch
+        from config import CIEConfig
 
         config = CIEConfig()
         result = write_content_feedback_batch(config, [])
@@ -378,8 +378,8 @@ class TestGdtBridge:
         """임시 GDT DB에 content_feedback 배치 주입 검증."""
         import sqlite3
 
-        from config import CIEConfig
         from collectors.gdt_bridge import write_content_feedback_batch
+        from config import CIEConfig
 
         # 임시 GDT DB 생성 (content_feedback 테이블만)
         db_path = tmp_path / "gdt_test.db"
@@ -405,7 +405,13 @@ class TestGdtBridge:
 
         items = [
             {"keyword": "AI 자동화", "category": "x", "qa_score": 87.0, "regenerated": False, "reason": ""},
-            {"keyword": "LLM 트렌드", "category": "threads", "qa_score": 72.0, "regenerated": True, "reason": "hook 미달"},
+            {
+                "keyword": "LLM 트렌드",
+                "category": "threads",
+                "qa_score": 72.0,
+                "regenerated": True,
+                "reason": "hook 미달",
+            },
         ]
         written = write_content_feedback_batch(config, items)
         assert written == 2
@@ -513,9 +519,7 @@ class TestPersonas:
 
         from config import CIEConfig
 
-        personas_data = [
-            {"id": "test_persona", "name": "테스트", "pain_points": ["문제1"]}
-        ]
+        personas_data = [{"id": "test_persona", "name": "테스트", "pain_points": ["문제1"]}]
         pf = tmp_path / "personas.json"
         pf.write_text(json.dumps(personas_data, ensure_ascii=False), encoding="utf-8")
 
@@ -617,10 +621,16 @@ class TestQAReportV2:
         from storage.models import QAReport
 
         qa = QAReport(
-            hook_score=20, fact_score=15, tone_score=15,
-            kick_score=15, angle_score=15,
-            regulation_score=10, algorithm_score=10,
-            reader_value_score=10, originality_score=10, credibility_score=10,
+            hook_score=20,
+            fact_score=15,
+            tone_score=15,
+            kick_score=15,
+            angle_score=15,
+            regulation_score=10,
+            algorithm_score=10,
+            reader_value_score=10,
+            originality_score=10,
+            credibility_score=10,
         )
         assert qa.total_score == 100  # 보조 30점은 미포함
 
@@ -628,9 +638,15 @@ class TestQAReportV2:
         """applied_min_score가 pass_threshold 판정 기준이 된다."""
         from storage.models import QAReport
 
-        qa = QAReport(hook_score=15, fact_score=10, tone_score=10,
-                      kick_score=10, angle_score=10,
-                      regulation_score=7, algorithm_score=7)
+        qa = QAReport(
+            hook_score=15,
+            fact_score=10,
+            tone_score=10,
+            kick_score=10,
+            angle_score=10,
+            regulation_score=7,
+            algorithm_score=7,
+        )
         # total = 69
         assert qa.total_score == 69
         assert qa.pass_threshold is False  # 기본 applied_min_score=70
@@ -672,7 +688,8 @@ class TestProQADiagnostic:
         from storage.models import QAAxisDiagnostic, QAReport
 
         qa = QAReport(
-            hook_score=18, fact_score=3,
+            hook_score=18,
+            fact_score=3,
             diagnostics=[
                 QAAxisDiagnostic(axis="hook", score=18, max_score=20),
                 QAAxisDiagnostic(axis="fact", score=3, max_score=15),
@@ -691,10 +708,12 @@ class TestProQADiagnostic:
     def test_top_persona(self):
         from storage.models import PersonaFitScore, QAReport
 
-        qa = QAReport(persona_fits=[
-            PersonaFitScore(persona_id="a", persona_name="A", fit_score=5),
-            PersonaFitScore(persona_id="b", persona_name="B", fit_score=9),
-        ])
+        qa = QAReport(
+            persona_fits=[
+                PersonaFitScore(persona_id="a", persona_name="A", fit_score=5),
+                PersonaFitScore(persona_id="b", persona_name="B", fit_score=9),
+            ]
+        )
         assert qa.top_persona is not None
         assert qa.top_persona.persona_id == "b"
 
@@ -703,11 +722,17 @@ class TestProQADiagnostic:
         from storage.models import QAAxisDiagnostic, QAReport
 
         qa = QAReport(
-            hook_score=5, fact_score=12, tone_score=8, kick_score=5,
-            angle_score=5, regulation_score=3, algorithm_score=2,
+            hook_score=5,
+            fact_score=12,
+            tone_score=8,
+            kick_score=5,
+            angle_score=5,
+            regulation_score=3,
+            algorithm_score=2,
             diagnostics=[
-                QAAxisDiagnostic(axis="hook", score=5, max_score=20,
-                                 reason="도입이 약하다", suggestion="질문으로 시작"),
+                QAAxisDiagnostic(
+                    axis="hook", score=5, max_score=20, reason="도입이 약하다", suggestion="질문으로 시작"
+                ),
                 QAAxisDiagnostic(axis="fact", score=12, max_score=15),
             ],
         )
@@ -750,16 +775,23 @@ class TestProQADiagnostic:
             qa_min_score = 70
 
         data = {
-            "scores": {"hook": 15, "fact": 10, "tone": 12, "kick": 10,
-                       "angle": 10, "regulation": 8, "algorithm": 7,
-                       "reader_value": 6, "originality": 5, "credibility": 7},
+            "scores": {
+                "hook": 15,
+                "fact": 10,
+                "tone": 12,
+                "kick": 10,
+                "angle": 10,
+                "regulation": 8,
+                "algorithm": 7,
+                "reader_value": 6,
+                "originality": 5,
+                "credibility": 7,
+            },
             "diagnostics": {
                 "hook": {"reason": "강한 시작", "suggestion": ""},
                 "fact": {"reason": "정확함", "suggestion": ""},
             },
-            "persona_fits": [
-                {"persona_id": "practitioner", "fit_score": 8, "reason": "실무 관련"}
-            ],
+            "persona_fits": [{"persona_id": "practitioner", "fit_score": 8, "reason": "실무 관련"}],
             "rewrite_suggestion": "도입부를 질문으로",
             "warnings": [],
         }
@@ -779,10 +811,19 @@ class TestProQADiagnostic:
         class FakeConfig:
             qa_min_score = 70
 
-        data = {"hook": 10, "fact": 8, "tone": 7, "kick": 6, "angle": 5,
-                "regulation": 4, "algorithm": 3,
-                "reader_value": 2, "originality": 1, "credibility": 0,
-                "warnings": ["test"]}
+        data = {
+            "hook": 10,
+            "fact": 8,
+            "tone": 7,
+            "kick": 6,
+            "angle": 5,
+            "regulation": 4,
+            "algorithm": 3,
+            "reader_value": 2,
+            "originality": 1,
+            "credibility": 0,
+            "warnings": ["test"],
+        }
         qa = _parse_pro_qa(data, FakeConfig())
         assert qa.hook_score == 10
         assert qa.total_score == 43
@@ -880,7 +921,6 @@ class TestConfigValidation:
     def test_validate_notion_missing_token(self):
         """Notion 발행 활성인데 토큰 없으면 ValueError."""
         import pytest
-
         from config import CIEConfig
 
         config = CIEConfig()
@@ -893,7 +933,6 @@ class TestConfigValidation:
     def test_validate_x_missing_token(self):
         """X 발행 활성인데 토큰 없으면 ValueError."""
         import pytest
-
         from config import CIEConfig
 
         config = CIEConfig()
@@ -936,7 +975,6 @@ class TestXPublisher:
 
     def test_validate_x_requires_user_context_token_message(self, capsys):
         import pytest
-
         from config import CIEConfig
 
         config = CIEConfig()
@@ -1032,7 +1070,8 @@ class TestThreadPost:
 
         # 스레드 콘텐츠
         thread = GeneratedContent(
-            platform="x", content_type="x_thread",
+            platform="x",
+            content_type="x_thread",
             thread_posts=[
                 ThreadPost(index=0, role="hook", body="Hook!"),
                 ThreadPost(index=1, role="body", body="본문"),
@@ -1079,9 +1118,7 @@ class TestPerformanceTable:
         conn = get_connection(config)
 
         # 성과 테이블 존재 확인
-        tables = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         table_names = [t["name"] for t in tables]
         assert "content_actual_performance" in table_names
         conn.close()
@@ -1090,8 +1127,7 @@ class TestPerformanceTable:
         """ER 계산이 정확한지 확인."""
         from scripts.collect_post_performance import calc_engagement_rate
 
-        metrics = {"impressions": 1000, "likes": 50, "retweets": 10,
-                   "quotes": 5, "replies": 3, "bookmarks": 12}
+        metrics = {"impressions": 1000, "likes": 50, "retweets": 10, "quotes": 5, "replies": 3, "bookmarks": 12}
         er = calc_engagement_rate(metrics)
         # (50+10+5+3+12)/1000 = 80/1000 = 8%
         assert abs(er - 8.0) < 0.01

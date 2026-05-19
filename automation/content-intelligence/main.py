@@ -168,8 +168,6 @@ async def step_collect_trends(config: CIEConfig) -> MergedTrendReport:
             quorum_required=quorum_required,
         )
 
-
-
     # 교차 플랫폼 키워드 집계
     all_keywords: dict[str, int] = {}
     for report in valid_reports:
@@ -412,6 +410,7 @@ async def run_pipeline(
     # [Observability] Notifier 초기화 — [QA 수정] from_env()로 환경변수 로드
     try:
         from shared.notifications import Notifier
+
         notifier = Notifier.from_env()
     except Exception:
         notifier = None
@@ -459,7 +458,9 @@ async def run_pipeline(
                 elapsed = (datetime.now() - start).total_seconds()
                 log.info(f"\nElapsed time: {elapsed:.1f}s")
                 if notifier:  # [QA 수정] sync 메서드 — await 제거
-                    notifier.send(f"⚠️ *CIE Pipeline* 중단: Trend quorum missed (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초")
+                    notifier.send(
+                        f"⚠️ *CIE Pipeline* 중단: Trend quorum missed (모드: {mode})\n⏱ 소요시간: {int(elapsed)}초"
+                    )
                 return
 
             # Step 1.5: AI Convergence Guard v3
@@ -525,6 +526,7 @@ async def run_pipeline(
     except Exception as e:
         log.error(f"[CIE Pipeline Error] {e}")
         import traceback
+
         if notifier:  # [QA 수정] send_alert → send_error (정식 API), await 제거
             try:
                 notifier.send_error(

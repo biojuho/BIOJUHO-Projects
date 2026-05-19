@@ -22,14 +22,14 @@ X_CREATE_TWEET_URL = "https://api.twitter.com/2/tweets"
 X_PUBLISH_TIMEOUT_SEC = 30.0
 
 
-def _get_x_access_token(config: "CIEConfig") -> str:
+def _get_x_access_token(config: CIEConfig) -> str:
     return config.x_access_token.strip()
 
 
 async def publish_to_x(
-    content: "GeneratedContent",
-    config: "CIEConfig",
-) -> "PublishResult":
+    content: GeneratedContent,
+    config: CIEConfig,
+) -> PublishResult:
     """Publish a single approved content item to X."""
     from storage.models import PublishResult
 
@@ -98,8 +98,7 @@ async def _post_tweet(
         return {
             "ok": False,
             "error": (
-                "Missing X user-context token. Set X_ACCESS_TOKEN with an "
-                "Authorization Code with PKCE access token."
+                "Missing X user-context token. Set X_ACCESS_TOKEN with an Authorization Code with PKCE access token."
             ),
             "code": 0,
         }
@@ -167,9 +166,9 @@ def _extract_x_error(body: dict[str, Any], response: httpx.Response) -> str:
 
 
 async def publish_batch_to_x(
-    batch: "ContentBatch",
-    config: "CIEConfig",
-) -> list["PublishResult"]:
+    batch: ContentBatch,
+    config: CIEConfig,
+) -> list[PublishResult]:
     """Publish all approved X content items from a batch."""
     results = []
     for content in batch.contents:
@@ -179,7 +178,7 @@ async def publish_batch_to_x(
     return results
 
 
-def _compose_tweet(content: "GeneratedContent") -> str:
+def _compose_tweet(content: GeneratedContent) -> str:
     """Compose body plus hashtags within the X 280-char limit."""
     body = content.body or ""
 
