@@ -23,6 +23,7 @@ class TestPipelineEvent:
 
     def test_default_stage(self):
         from core.streaming_pipeline import PipelineEvent
+
         ev = PipelineEvent(trend="test")
         assert ev.stage == "queued"
         assert ev.error == ""
@@ -30,6 +31,7 @@ class TestPipelineEvent:
 
     def test_complete_sets_result(self):
         from core.streaming_pipeline import PipelineEvent
+
         ev = PipelineEvent(trend="test")
         ev.complete(result="batch_data")
         assert ev.result == "batch_data"
@@ -38,6 +40,7 @@ class TestPipelineEvent:
 
     def test_complete_with_error(self):
         from core.streaming_pipeline import PipelineEvent
+
         ev = PipelineEvent(trend="test")
         ev.complete(error="timeout")
         assert ev.error == "timeout"
@@ -71,7 +74,8 @@ class TestStreamingPipeline:
 
         sp = StreamingPipeline(config, conn, generator_concurrency=2)
         results = await sp.run(
-            trends, contexts,
+            trends,
+            contexts,
             score_fn=mock_score,
             generate_fn=mock_generate,
             save_fn=mock_save,
@@ -119,7 +123,8 @@ class TestStreamingPipeline:
 
         sp = StreamingPipeline(config, conn, generator_concurrency=1)
         results = await sp.run(
-            trends, contexts,
+            trends,
+            contexts,
             generate_fn=failing_generate,
         )
 
@@ -161,7 +166,8 @@ class TestStreamingPipeline:
 
         sp = StreamingPipeline(config, conn, generator_concurrency=3)
         results = await sp.run(
-            trends, contexts,
+            trends,
+            contexts,
             generate_fn=timed_generate,
         )
 
@@ -180,6 +186,7 @@ class TestStreamingPipeline:
             return {"topic": "ok"}
 
         call_idx = 0
+
         async def failing_save(trend, batch):
             nonlocal call_idx
             call_idx += 1
@@ -191,7 +198,8 @@ class TestStreamingPipeline:
 
         sp = StreamingPipeline(config, conn, generator_concurrency=1)
         results = await sp.run(
-            trends, contexts,
+            trends,
+            contexts,
             generate_fn=mock_gen,
             save_fn=failing_save,
         )
@@ -207,12 +215,14 @@ class TestPipelineEventMetrics:
 
     def test_elapsed_ms_before_completion(self):
         from core.streaming_pipeline import PipelineEvent
+
         ev = PipelineEvent(trend="test")
         assert ev.elapsed_ms == 0.0
 
     @pytest.mark.asyncio
     async def test_elapsed_ms_after_completion(self):
         from core.streaming_pipeline import PipelineEvent
+
         ev = PipelineEvent(trend="test")
         await asyncio.sleep(0.01)
         ev.complete(result="done")
@@ -246,4 +256,3 @@ class TestRegressionReEntrant:
         results_b = await sp.run(trends_b, ctx_b)
         assert len(results_b) == 3
         assert sp.success_count == 3  # 2 + 3 = 5 가 아닌 3이어야 함
-

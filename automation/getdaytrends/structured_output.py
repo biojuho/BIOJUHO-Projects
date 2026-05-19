@@ -81,9 +81,11 @@ def reset_instructor_client():
 def _log_fallback(kind: str, exc: Exception) -> None:
     """Downgrade expected Instructor retries to debug-level fallback logs."""
     message = f"[Instructor] {kind}: {type(exc).__name__}: {exc}"
-    if type(exc).__name__ in {"InstructorRetryException", "ValidationError"}:
-        log.debug(message)
-    elif isinstance(exc, ModuleNotFoundError) and "instructor" in str(exc).lower():
+    if (
+        type(exc).__name__ in {"InstructorRetryException", "ValidationError"}
+        or isinstance(exc, ModuleNotFoundError)
+        and "instructor" in str(exc).lower()
+    ):
         log.debug(message)
     else:
         log.warning(message)

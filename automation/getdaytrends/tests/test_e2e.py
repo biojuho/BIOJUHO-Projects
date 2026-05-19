@@ -8,7 +8,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from config import AppConfig
 from db import db_transaction, get_connection, init_db, save_run
 from models import (

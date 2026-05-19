@@ -235,7 +235,7 @@ class FirecrawlClient:
             content = article["content"].strip()
             date_info = f" ({article['published_date']})" if article["published_date"] else ""
 
-            parts.append(f"--- 기사 {idx}{date_info} ---\n" f"제목: {title}\n" f"본문:\n{content}")
+            parts.append(f"--- 기사 {idx}{date_info} ---\n제목: {title}\n본문:\n{content}")
 
         return "[기사 본문 요약]\n" + "\n\n".join(parts)
 

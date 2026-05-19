@@ -12,6 +12,7 @@ from urllib.parse import quote_plus
 
 from fastapi import Request
 
+
 def _stripe_amount_divisor(currency: str) -> int:
     zero_decimal_currencies = {
         "bif",
@@ -251,4 +252,3 @@ def _extract_tap_purchase_from_stripe_event(event: dict) -> dict:
             "quoted_price_value": metadata.get("quoted_price_value") or "",
         },
     }
-

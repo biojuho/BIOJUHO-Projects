@@ -289,9 +289,7 @@ async def enqueue_tap_alerts(
     normalized_target = _normalize_country(target_country or board.target_country)
     queued_count = 0
     candidates = [
-        item
-        for item in board.items
-        if item.priority >= min_priority and item.viral_score >= min_viral_score
+        item for item in board.items if item.priority >= min_priority and item.viral_score >= min_viral_score
     ][: max(0, top_k)]
 
     async with sqlite_write_lock(conn):
@@ -426,7 +424,7 @@ async def get_tap_alert_delivery_batch(
                   paywall_tier, priority, viral_score, alert_message,
                   metadata_json, lifecycle_status, queued_at, dispatched_at, last_attempt_at
            FROM tap_alert_queue
-           WHERE {' AND '.join(clauses)}
+           WHERE {" AND ".join(clauses)}
            ORDER BY queued_at ASC, id ASC
            LIMIT ?""",
         tuple(params + [max(1, limit)]),

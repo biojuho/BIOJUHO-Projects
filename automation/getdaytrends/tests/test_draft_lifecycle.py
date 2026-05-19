@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-
+from db_layer import _WORKFLOW_STATUS_TRANSITIONS
 from db_layer.draft_repository import (
     get_approved_post_bank,
     get_draft_bundle,
@@ -16,8 +16,6 @@ from db_layer.draft_repository import (
     save_validated_trend,
     update_draft_bundle_status,
 )
-from db_layer import _WORKFLOW_STATUS_TRANSITIONS
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -205,7 +203,6 @@ class TestPromoteDraftToReady:
 
 
 class TestReviewDecision:
-
     @pytest.mark.asyncio
     async def test_approve_requires_ready_status(self, db):
         """drafted 상태에서 바로 approved 불가."""
@@ -238,7 +235,6 @@ class TestReviewDecision:
 
 
 class TestPublishReceipt:
-
     @pytest.mark.asyncio
     async def test_publish_requires_approved_status(self, db):
         await _seed_draft(db)
@@ -270,7 +266,6 @@ class TestPublishReceipt:
 
 
 class TestApprovedPostBank:
-
     @pytest.mark.asyncio
     async def test_returns_only_approved_or_later_drafts(self, db):
         await _seed_validated_trend(db, trend_id="trend-approved")
@@ -315,28 +310,22 @@ class TestApprovedPostBank:
 
 
 class TestFeedbackSummary:
-
     @pytest.mark.asyncio
     async def test_feedback_requires_publish_receipt(self, db):
         await _seed_draft(db)
         with pytest.raises(ValueError, match="publish receipt required"):
-            await record_feedback_summary(
-                db, draft_id=DRAFT_ID, metric_window="48h"
-            )
+            await record_feedback_summary(db, draft_id=DRAFT_ID, metric_window="48h")
 
     @pytest.mark.asyncio
     async def test_feedback_on_unknown_draft(self, db):
         with pytest.raises(ValueError, match="unknown draft_id"):
-            await record_feedback_summary(
-                db, draft_id="ghost", metric_window="24h", receipt_id="r-123"
-            )
+            await record_feedback_summary(db, draft_id="ghost", metric_window="24h", receipt_id="r-123")
 
 
 # ── save_draft_bundle UPSERT ──────────────────────────────────────────────────
 
 
 class TestDraftBundleUpsert:
-
     @pytest.mark.asyncio
     async def test_upsert_updates_existing(self, db):
         await _seed_draft(db, body="원본")
@@ -360,7 +349,6 @@ class TestDraftBundleUpsert:
 
 
 class TestQAReport:
-
     @pytest.mark.asyncio
     async def test_qa_report_updates_draft_score(self, db):
         await _seed_draft(db)
@@ -380,13 +368,10 @@ class TestQAReport:
 
 
 class TestContentFeedback:
-
     @pytest.mark.asyncio
     async def test_record_and_silent_failure(self, db):
         """content_feedback 테이블 없어도 예외 발생하지 않는지 확인 (graceful degradation)."""
         # 정상 기록
-        await record_content_feedback(
-            db, keyword="AI", category="tech", qa_score=9.0, regenerated=False
-        )
+        await record_content_feedback(db, keyword="AI", category="tech", qa_score=9.0, regenerated=False)
         # 테이블 있을 때 다시 호출해도 문제 없음
         await record_content_feedback(db, keyword="AI")

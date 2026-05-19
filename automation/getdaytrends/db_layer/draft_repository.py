@@ -6,10 +6,10 @@ from . import (
     _WORKFLOW_STATUS_TRANSITIONS,
     _json_list,
     _json_text,
-    _REDIS_OK,
     log,
     sqlite_write_lock,
 )
+
 
 async def _record_content_feedback_unlocked(
     conn,
@@ -41,6 +41,7 @@ async def _record_content_feedback_unlocked(
     except Exception as e:
         log.debug(f"content_feedback 기록 실패 (무시): {e}")
 
+
 async def record_content_feedback(
     conn,
     keyword: str,
@@ -62,6 +63,7 @@ async def record_content_feedback(
             content_age_hours=content_age_hours,
             freshness_grade=freshness_grade,
         )
+
 
 async def get_qa_summary(conn, days: int = 7) -> dict:
     """
@@ -116,6 +118,7 @@ async def get_qa_summary(conn, days: int = 7) -> dict:
         "recent_scores": recent_scores,
     }
 
+
 async def get_content_hashes(conn, hours: int = 24) -> set[str]:
     """
     v15.0 Phase B: 최근 N시간 내 생성된 콘텐츠의 핑거프린트 해시 집합 반환.
@@ -163,6 +166,7 @@ async def record_trend_quarantine(
         )
         await conn.commit()
         return cursor.lastrowid
+
 
 async def save_validated_trend(
     conn,
@@ -221,6 +225,7 @@ async def save_validated_trend(
         )
         await conn.commit()
     return trend_id
+
 
 async def save_draft_bundle(
     conn,
@@ -284,10 +289,12 @@ async def save_draft_bundle(
         await conn.commit()
     return draft_id
 
+
 async def get_draft_bundle(conn, draft_id: str) -> dict | None:
     cursor = await conn.execute("SELECT * FROM draft_bundles WHERE draft_id = ? LIMIT 1", (draft_id,))
     row = await cursor.fetchone()
     return dict(row) if row else None
+
 
 async def update_draft_bundle_status(
     conn,
@@ -335,6 +342,7 @@ async def update_draft_bundle_status(
         )
         await conn.commit()
 
+
 async def save_qa_report(
     conn,
     *,
@@ -377,6 +385,7 @@ async def save_qa_report(
         await conn.commit()
         return cursor.lastrowid
 
+
 async def promote_draft_to_ready(conn, draft_id: str) -> None:
     row = await get_draft_bundle(conn, draft_id)
     if row is None:
@@ -394,6 +403,7 @@ async def promote_draft_to_ready(conn, draft_id: str) -> None:
         lifecycle_status="ready",
         review_status="Ready",
     )
+
 
 async def save_review_decision(
     conn,
@@ -442,6 +452,7 @@ async def save_review_decision(
         )
         await conn.commit()
         return cursor.lastrowid
+
 
 async def record_publish_receipt(
     conn,
@@ -506,6 +517,7 @@ async def record_publish_receipt(
         await conn.commit()
     return resolved_receipt_id
 
+
 async def record_feedback_summary(
     conn,
     *,
@@ -562,6 +574,7 @@ async def record_feedback_summary(
         await conn.commit()
         return cursor.lastrowid
 
+
 async def attach_draft_to_notion_page(conn, draft_id: str, notion_page_id: str, review_status: str = "Ready") -> None:
     row = await get_draft_bundle(conn, draft_id)
     if row is None:
@@ -574,6 +587,7 @@ async def attach_draft_to_notion_page(conn, draft_id: str, notion_page_id: str, 
             (notion_page_id, review_status, datetime.now().isoformat(), draft_id),
         )
         await conn.commit()
+
 
 async def get_review_queue_snapshot(conn, limit: int = 50) -> dict:
     status_cursor = await conn.execute(

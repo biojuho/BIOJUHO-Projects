@@ -22,10 +22,8 @@ from collectors import modoo as modoo_mod  # noqa: E402
 from models import TrendSource  # noqa: E402
 
 
-def _fake_completed(stdout: str, returncode: int = 0, stderr: str = "") -> "subprocess.CompletedProcess[str]":
-    return subprocess.CompletedProcess(
-        args=["node"], returncode=returncode, stdout=stdout, stderr=stderr
-    )
+def _fake_completed(stdout: str, returncode: int = 0, stderr: str = "") -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(args=["node"], returncode=returncode, stdout=stdout, stderr=stderr)
 
 
 def test_to_trends_dedupes_and_filters_short_titles() -> None:
@@ -58,9 +56,7 @@ def test_fetch_modoo_ideas_parses_subprocess_json(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(modoo_mod, "_node_available", lambda: True)
     monkeypatch.setattr(modoo_mod, "_scraper_js_exists", lambda: True)
-    monkeypatch.setattr(
-        modoo_mod.subprocess, "run", lambda *a, **kw: _fake_completed(payload)
-    )
+    monkeypatch.setattr(modoo_mod.subprocess, "run", lambda *a, **kw: _fake_completed(payload))
 
     trends = modoo_mod.fetch_modoo_ideas(pages=1)
     assert len(trends) == 2
@@ -90,9 +86,7 @@ def test_fetch_modoo_ideas_handles_subprocess_failure(
 def test_fetch_modoo_ideas_handles_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(modoo_mod, "_node_available", lambda: True)
     monkeypatch.setattr(modoo_mod, "_scraper_js_exists", lambda: True)
-    monkeypatch.setattr(
-        modoo_mod.subprocess, "run", lambda *a, **kw: _fake_completed("not-json")
-    )
+    monkeypatch.setattr(modoo_mod.subprocess, "run", lambda *a, **kw: _fake_completed("not-json"))
     assert modoo_mod.fetch_modoo_ideas() == []
 
 

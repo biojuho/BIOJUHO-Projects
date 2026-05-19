@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from . import ScoredTrend, _get_cache_client, _redis_enabled, compute_fingerprint, sqlite_write_lock
 
+
 async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) -> int:
     """트렌드를 저장. bucket은 config.cache_volume_bucket에서 전달받아 fingerprint 정밀도 조정."""
     fingerprint = compute_fingerprint(trend.keyword, trend.volume_last_24h, bucket)
@@ -43,6 +44,7 @@ async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) 
     # commit은 상위의 db_transaction이 담당 — 여기서는 commit 하지 않으므로 트랜잭션 중복 방지
     return cursor.lastrowid
 
+
 async def get_trend_history(conn, keyword: str, days: int = 7) -> list[dict]:
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute(
@@ -51,6 +53,7 @@ async def get_trend_history(conn, keyword: str, days: int = 7) -> list[dict]:
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
 
 async def get_recent_trends(conn, days: int = 7, min_score: int = 0) -> list[dict]:
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
@@ -61,11 +64,13 @@ async def get_recent_trends(conn, days: int = 7, min_score: int = 0) -> list[dic
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
 
+
 async def get_recently_processed_keywords(conn, hours: int = 3) -> set[str]:
     cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
     cursor = await conn.execute("SELECT DISTINCT keyword FROM trends WHERE scored_at >= ?", (cutoff,))
     rows = await cursor.fetchall()
     return {row["keyword"] for row in rows}
+
 
 async def get_recently_processed_fingerprints(conn, hours: int = 3) -> set[str]:
     cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
@@ -74,6 +79,7 @@ async def get_recently_processed_fingerprints(conn, hours: int = 3) -> set[str]:
     )
     rows = await cursor.fetchall()
     return {row["fingerprint"] for row in rows}
+
 
 async def is_duplicate_trend(conn, name: str, volume: int, hours: int = 3) -> bool:
     fp = compute_fingerprint(name, volume)
@@ -102,6 +108,7 @@ async def is_duplicate_trend(conn, name: str, volume: int, hours: int = 3) -> bo
             pass  # cache write 실패는 무시 — 다음 호출 시 DB에서 재확인
 
     return is_dup
+
 
 async def get_cached_score(conn, fingerprint: str, max_age_hours: int = 6) -> dict | None:
     cache = _get_cache_client() if _redis_enabled() else None
@@ -135,6 +142,7 @@ async def get_cached_score(conn, fingerprint: str, max_age_hours: int = 6) -> di
 
     return result
 
+
 async def get_trend_history_batch(conn, keywords: list[str], days: int = 7) -> dict[str, list[dict]]:
     if not keywords:
         return {}
@@ -150,13 +158,14 @@ async def get_trend_history_batch(conn, keywords: list[str], days: int = 7) -> d
         result[row["keyword"]].append(dict(row))
     return result
 
+
 async def get_volume_velocity(conn, keyword: str, lookback_runs: int = 3) -> float:
     """
     직전 N건의 볼륨 변화량 반환 (증감 비율).
     데이터 부족 시 0.0 반환.
     """
     cursor = await conn.execute(
-        "SELECT volume_numeric, scored_at FROM trends WHERE keyword = ? " "ORDER BY scored_at DESC LIMIT ?",
+        "SELECT volume_numeric, scored_at FROM trends WHERE keyword = ? ORDER BY scored_at DESC LIMIT ?",
         (keyword, lookback_runs + 1),
     )
     rows = await cursor.fetchall()
@@ -167,9 +176,21 @@ async def get_volume_velocity(conn, keyword: str, lookback_runs: int = 3) -> flo
         return 0.0
     return (volumes[0] - volumes[-1]) / volumes[-1]
 
+
 async def record_watchlist_hit(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
     async with sqlite_write_lock(conn):
         await _record_watchlist_hit_unlocked(conn, keyword, watchlist_item, viral_potential)
+
+
+async def _record_watchlist_hit_unlocked(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
+    await conn.execute(
+        """
+        INSERT INTO watchlist_hits (keyword, watchlist_item, viral_potential, detected_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (keyword, watchlist_item, viral_potential, datetime.now().isoformat()),
+    )
+
 
 async def get_trend_history_patterns_batch(conn, keywords: list[str], days: int = 7) -> dict[str, dict]:
     """
@@ -220,9 +241,7 @@ async def get_trend_history_patterns_batch(conn, keywords: list[str], days: int 
     return result
 
 
-async def get_volume_velocity_batch(
-    conn, keywords: list[str], lookback_runs: int = 3
-) -> dict[str, float]:
+async def get_volume_velocity_batch(conn, keywords: list[str], lookback_runs: int = 3) -> dict[str, float]:
     """
     B-009 fix: 여러 키워드의 volume velocity를 단일 쿼리로 배치 조회.
 

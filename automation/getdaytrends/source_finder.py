@@ -146,7 +146,7 @@ async def _wikipedia_search(
     """Wikipedia API에서 관련 문서 URL 수집."""
     encoded = quote_plus(keyword)
     api_url = (
-        f"https://{lang}.wikipedia.org/w/api.php" f"?action=opensearch&search={encoded}&limit={max_results}&format=json"
+        f"https://{lang}.wikipedia.org/w/api.php?action=opensearch&search={encoded}&limit={max_results}&format=json"
     )
 
     results = []

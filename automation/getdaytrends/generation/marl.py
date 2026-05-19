@@ -4,6 +4,7 @@ generator.py에서 추출된 모듈.
 """
 
 from loguru import logger as log
+
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
@@ -83,7 +84,13 @@ async def generate_tweets_with_marl_async(
 
     if not _should_use_marl(trend, config):
         return await generate_tweets_async(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
         )
 
     from datetime import datetime as _dt
@@ -136,7 +143,13 @@ async def generate_tweets_with_marl_async(
         if not data:
             log.warning(f"[MARL] '{trend.keyword}' JSON 파싱 실패 → 기존 방식 폴백")
             return await generate_tweets_async(
-                trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+                trend,
+                config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                golden_refs,
+                pattern_weights,
             )
 
         tweets = []
@@ -156,7 +169,7 @@ async def generate_tweets_with_marl_async(
                 )
             )
 
-        log.info(f"[MARL] 트윗 생성 완료: '{trend.keyword}' " f"({len(tweets)}개, stages={result.stages_completed})")
+        log.info(f"[MARL] 트윗 생성 완료: '{trend.keyword}' ({len(tweets)}개, stages={result.stages_completed})")
         return TweetBatch(
             topic=data.get("topic", trend.keyword),
             tweets=tweets,
@@ -166,5 +179,11 @@ async def generate_tweets_with_marl_async(
     except Exception as e:
         log.warning(f"[MARL] 생성 실패 '{trend.keyword}': {e} → 기존 방식 폴백")
         return await generate_tweets_async(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
         )

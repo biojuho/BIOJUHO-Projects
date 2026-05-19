@@ -123,7 +123,7 @@ async def _async_fetch_twitter_trends(
     if not bearer_token:
         return await _async_fetch_x_via_twikit_or_jina(session, keyword, timeout=timeout)
 
-    query_str = f"{keyword} -is:retweet -is:quote -is:nullcast " "lang:ko min_faves:3"
+    query_str = f"{keyword} -is:retweet -is:quote -is:nullcast lang:ko min_faves:3"
     encoded_query = urllib.parse.quote(query_str)
     url = (
         "https://api.twitter.com/2/tweets/search/recent"

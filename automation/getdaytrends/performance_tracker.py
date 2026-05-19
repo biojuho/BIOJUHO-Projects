@@ -6,15 +6,12 @@ X/Twitter 게시 트윗의 참여 지표(impressions, likes, retweets, replies, 
 """
 
 import asyncio
-import os
 import re
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import httpx
+from db_layer.connection import db_transaction, get_connection
 from loguru import logger as log
-
-from db_layer.connection import get_connection, db_transaction
 from perf_genealogy import TrendGenealogyMixin
 
 # -- mixin imports (분리된 기능 모듈) --
@@ -166,7 +163,7 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
                         results.append(tm)
 
             except Exception as e:
-                log.error(f"batch_collect 청크 실패 (ids {i}~{i+len(chunk)}): {e}")
+                log.error(f"batch_collect 청크 실패 (ids {i}~{i + len(chunk)}): {e}")
 
             if i + _BATCH_CHUNK_SIZE < len(tweet_ids):
                 await asyncio.sleep(_RATE_LIMIT_DELAY)
@@ -563,7 +560,9 @@ class PerformanceTracker(GoldenReferenceMixin, TrendGenealogyMixin, TieredCollec
             return weights
 
         angle_stats = await self.get_angle_performance(days)
-        angle_weights = await self.get_optimal_angle_weights(days, min_samples=min_samples, _precomputed_stats=angle_stats)
+        angle_weights = await self.get_optimal_angle_weights(
+            days, min_samples=min_samples, _precomputed_stats=angle_stats
+        )
 
         return {
             "hook_weights": _compute_weights(hook_stats, HOOK_PATTERNS),

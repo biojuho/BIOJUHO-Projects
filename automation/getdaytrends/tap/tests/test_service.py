@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from tap.detector import ArbitrageOpportunity
 from tap.product_feed import TapBoard
 from tap.service import (
@@ -55,8 +54,10 @@ async def test_build_tap_board_snapshot_uses_target_country_and_teaser_count():
         ),
     ]
 
-    with patch("tap.service._load_db_funcs", return_value=_db_funcs(load_return=None)), \
-         patch("tap.service.TrendArbitrageDetector.detect", new_callable=AsyncMock, return_value=opportunities):
+    with (
+        patch("tap.service._load_db_funcs", return_value=_db_funcs(load_return=None)),
+        patch("tap.service.TrendArbitrageDetector.detect", new_callable=AsyncMock, return_value=opportunities),
+    ):
         board = await build_tap_board_snapshot(
             mock_conn,
             mock_config,
@@ -74,8 +75,10 @@ async def test_build_tap_board_snapshot_falls_back_to_config_country():
     mock_conn = AsyncMock()
     mock_config = SimpleNamespace(country="japan")
 
-    with patch("tap.service._load_db_funcs", return_value=_db_funcs(load_return=None)), \
-         patch("tap.service.TrendArbitrageDetector.detect", new_callable=AsyncMock, return_value=[]):
+    with (
+        patch("tap.service._load_db_funcs", return_value=_db_funcs(load_return=None)),
+        patch("tap.service.TrendArbitrageDetector.detect", new_callable=AsyncMock, return_value=[]),
+    ):
         board = await build_tap_board_snapshot(mock_conn, mock_config, TapBoardRequest())
 
     assert board.target_country == "japan"
@@ -161,8 +164,13 @@ async def test_build_tap_board_snapshot_persists_fresh_board():
     ]
     save_mock = AsyncMock(return_value="tap_saved")
 
-    with patch("tap.service._load_db_funcs", return_value=(AsyncMock(return_value=None), save_mock, AsyncMock(return_value=0))), \
-         patch("tap.service.TrendArbitrageDetector.detect", new_callable=AsyncMock, return_value=opportunities):
+    with (
+        patch(
+            "tap.service._load_db_funcs",
+            return_value=(AsyncMock(return_value=None), save_mock, AsyncMock(return_value=0)),
+        ),
+        patch("tap.service.TrendArbitrageDetector.detect", new_callable=AsyncMock, return_value=opportunities),
+    ):
         board = await build_tap_board_snapshot(
             mock_conn,
             mock_config,
@@ -204,8 +212,17 @@ async def test_refresh_tap_market_surfaces_builds_each_market_and_queues_alerts(
         }
     )
 
-    with patch("tap.service.build_tap_board_snapshot", new_callable=AsyncMock, return_value=board) as mock_build, \
-         patch("tap.service._load_db_funcs", return_value=(AsyncMock(return_value=None), AsyncMock(return_value="tap_market"), AsyncMock(return_value=2))):
+    with (
+        patch("tap.service.build_tap_board_snapshot", new_callable=AsyncMock, return_value=board) as mock_build,
+        patch(
+            "tap.service._load_db_funcs",
+            return_value=(
+                AsyncMock(return_value=None),
+                AsyncMock(return_value="tap_market"),
+                AsyncMock(return_value=2),
+            ),
+        ),
+    ):
         summary = await refresh_tap_market_surfaces(mock_conn, mock_config, snapshot_source="pipeline")
 
     assert summary.snapshots_built == 3
@@ -242,8 +259,10 @@ async def test_dispatch_tap_alert_queue_marks_successful_items_dispatched():
     ]
     queue_load, update_status = _alert_queue_funcs(batch_return=batch)
 
-    with patch("tap.service._load_alert_queue_funcs", return_value=(queue_load, update_status)), \
-         patch("tap.service._load_alert_sender", return_value=lambda message, config: {"telegram": {"ok": True}}):
+    with (
+        patch("tap.service._load_alert_queue_funcs", return_value=(queue_load, update_status)),
+        patch("tap.service._load_alert_sender", return_value=lambda message, config: {"telegram": {"ok": True}}),
+    ):
         summary = await dispatch_tap_alert_queue(mock_conn, mock_config, limit=2)
 
     assert summary.attempted == 2
@@ -278,8 +297,13 @@ async def test_dispatch_tap_alert_queue_persists_failure_reason():
     ]
     queue_load, update_status = _alert_queue_funcs(batch_return=batch)
 
-    with patch("tap.service._load_alert_queue_funcs", return_value=(queue_load, update_status)), \
-         patch("tap.service._load_alert_sender", return_value=lambda message, config: {"telegram": {"ok": False, "error": "timeout"}}):
+    with (
+        patch("tap.service._load_alert_queue_funcs", return_value=(queue_load, update_status)),
+        patch(
+            "tap.service._load_alert_sender",
+            return_value=lambda message, config: {"telegram": {"ok": False, "error": "timeout"}},
+        ),
+    ):
         summary = await dispatch_tap_alert_queue(mock_conn, mock_config, limit=1)
 
     assert summary.failed == 1

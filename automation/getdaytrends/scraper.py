@@ -17,6 +17,7 @@ from loguru import logger as log
 #  Backward-compat re-exports from collectors.sources
 # ══════════════════════════════════════════════════════
 try:
+    from .collectors.modoo import fetch_modoo_ideas
     from .collectors.sources import (  # noqa: F401
         _COMMON_HEADERS,
         _DEFAULT_TIMEOUT,
@@ -48,11 +49,11 @@ try:
         fetch_reddit_popular,
         fetch_youtube_trending,
     )
-    from .collectors.modoo import fetch_modoo_ideas
     from .config import AppConfig
     from .models import MultiSourceContext, RawTrend, TrendSource
     from .utils import run_async
 except ImportError:
+    from collectors.modoo import fetch_modoo_ideas
     from collectors.sources import (  # noqa: F401
         _COMMON_HEADERS,
         _DEFAULT_TIMEOUT,
@@ -84,7 +85,6 @@ except ImportError:
         fetch_reddit_popular,
         fetch_youtube_trending,
     )
-    from collectors.modoo import fetch_modoo_ideas
     from config import AppConfig
     from models import MultiSourceContext, RawTrend, TrendSource
     from utils import run_async
@@ -175,17 +175,8 @@ async def _async_collect_trends(
             log.warning(f"Google Trends 수집 실패: {fetch_results[1]}")
 
         # [v9.1] 부분 성공(Partial Success) 허용 및 전체 실패 시 우회(Fallback) 아키텍처
-        total_sources = (
-            2
-            + (1 if hn_enabled else 0)
-            + (1 if rd_enabled else 0)
-            + (1 if modoo_enabled else 0)
-        )
-        success_sources = sum(
-            1
-            for t_list in (gdt_trends, gtr_trends, hn_trends, rd_trends, modoo_trends)
-            if t_list
-        )
+        total_sources = 2 + (1 if hn_enabled else 0) + (1 if rd_enabled else 0) + (1 if modoo_enabled else 0)
+        success_sources = sum(1 for t_list in (gdt_trends, gtr_trends, hn_trends, rd_trends, modoo_trends) if t_list)
 
         if success_sources == 0:
             log.error("[장애] 모든 트렌드 소스 수집 실패! Fallback 트렌드로 우회합니다.")

@@ -5,14 +5,11 @@ PerformanceTracker에서 분리된 실시간 시그널 수집 기능.
 3단계(1h/6h/48h) 수집 전략으로 트윗 성과를 시간대별로 추적합니다.
 """
 
-
 import re
 from datetime import UTC, datetime, timedelta
 
 from loguru import logger as log
-
 from perf_models import TweetMetrics, normalize_angle
-from db_layer.connection import db_transaction
 
 
 class TieredCollectionMixin:

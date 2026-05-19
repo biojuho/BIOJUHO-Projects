@@ -1,5 +1,56 @@
 # QC Log
 
+## 2026-05-19 - Runtime Repair + Source Starvation QC
+
+### Scope
+- Repaired getdaytrends runtime startup after missing package dependencies broke `main.py`
+- Fixed source-quality starvation where `news`, `reddit`, and `twitter` could all be skipped from stale/low-quality history, leaving trends with empty context and zero publishable output
+- Hardened scheduler logging so detail logs are written as UTF-8 and summary-log file locks do not fail a run
+- Fixed full test collection path so tests can import the workspace `shared` package
+
+### Files Checked
+- `collectors/context.py`
+- `collectors/context_runtime.py`
+- `pyproject.toml`
+- `run_scheduled_getdaytrends.ps1`
+- `tests/conftest.py`
+- `tests/test_context_global_timeout.py`
+
+### QC Checks
+- Dependency sync:
+  - `uv sync --package getdaytrends --extra dev`
+  - Result: passed
+- Targeted regression suite:
+  - `python -m pytest tests/test_context_global_timeout.py tests/test_main.py tests/test_scraper.py tests/test_v15_zero_content.py -q`
+  - Result: `55 passed`
+- Full getdaytrends suite:
+  - `python -m pytest tests -q`
+  - Result: `761 passed, 7 skipped`
+- Runtime smoke:
+  - `python main.py --one-shot --dry-run --limit 2 --no-alerts --verbose`
+  - Result: passed (`exit code 0`)
+- Scheduler wrapper smoke:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run_scheduled_getdaytrends.ps1 -Limit 1 -DryRun`
+  - Result: passed (`exit code 0`)
+  - Latest detail log confirmed `[SUCCESS] GetDayTrends scheduled run completed`
+
+### Review Notes
+- Root cause 1: `schedule`, `sqlalchemy`, `pytest_asyncio`, and PostgreSQL driver coverage were missing from the active synced environment/package metadata.
+- Root cause 2: source-quality filtering treated low quality alone as a skip signal. A source is now skipped only after enough samples plus both low quality and low success rate; otherwise it remains active with shorter timeouts.
+- Dry-run now collects deep context instead of skipping all context sources. Low-confidence or unsafe trends can still be filtered, but the pipeline is no longer starved by its own history.
+- Scheduler detail logs are now reliable even when the shared `run_scheduled.log` is locked by another process.
+
+### Residual Risks
+- Current `.env` still contains a Supabase `DATABASE_URL` that is rejected by the remote server; runs fall back to local SQLite.
+- Current Gemini key is reported as leaked and embedding calls are disabled for the session; pipeline continues with fallback behavior.
+- Some summary-log writes may be skipped while `run_scheduled.log` is externally locked, but detail logs preserve the run record.
+
+### Status
+- QC passed
+- Recorded after dependency sync, full test verification, direct dry-run, and scheduler wrapper smoke
+
+---
+
 ## 2026-04-14 - Content Quality Retry Feedback QC
 
 ### Scope

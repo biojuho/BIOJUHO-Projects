@@ -35,7 +35,7 @@ class ArbitrageAnalyzer:
 
     @property
     def top_opportunities(self) -> list[ArbitrageOpportunity]:
-        return self._opps[:self.MAX_PROMPT_HINTS]
+        return self._opps[: self.MAX_PROMPT_HINTS]
 
     def filter_for_country(self, country: str) -> list[ArbitrageOpportunity]:
         """특정 타겟 국가에 대한 기회만 필터링."""
@@ -55,7 +55,7 @@ class ArbitrageAnalyzer:
         if not opps:
             return ""
 
-        hints = opps[:self.MAX_PROMPT_HINTS]
+        hints = opps[: self.MAX_PROMPT_HINTS]
         lines = [
             "\n═══ [TAP — 교차국가 선점 기회] ═══",
             f"감지된 차익거래 기회: {len(self._opps)}건 (상위 {len(hints)}건 표시)\n",
@@ -63,10 +63,7 @@ class ArbitrageAnalyzer:
         for i, opp in enumerate(hints, 1):
             lines.append(f"  {i}. {opp.to_prompt_hint()}")
 
-        lines.append(
-            "\n▶ 위 선점 기회를 활용하여 해당 키워드에 대해 "
-            "앞서가는 관점의 콘텐츠를 생성할 것."
-        )
+        lines.append("\n▶ 위 선점 기회를 활용하여 해당 키워드에 대해 앞서가는 관점의 콘텐츠를 생성할 것.")
         lines.append("═══════════════════════════════════════════════")
         return "\n".join(lines)
 

@@ -8,11 +8,18 @@
   - _content_hub_workflow_meta: 플랫폼 필터링, passed 필터링
 """
 
-import time
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from config import AppConfig
+from models import (
+    GeneratedThread,
+    GeneratedTweet,
+    MultiSourceContext,
+    ScoredTrend,
+    TrendSource,
+    TweetBatch,
+)
 
 # ── SUT imports ──────────────────────────────────────────────────────
 from storage import (
@@ -22,24 +29,19 @@ from storage import (
     _rich_text_prop,
     save_to_notion,
 )
-from models import (
-    GeneratedThread,
-    GeneratedTweet,
-    MultiSourceContext,
-    ScoredTrend,
-    TrendSource,
-    TweetBatch,
-)
-from config import AppConfig
-
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
 def _make_trend(**overrides) -> ScoredTrend:
     defaults = dict(
-        keyword="테스트", rank=1, viral_potential=80,
-        trend_acceleration="+5%", top_insight="핵심",
-        suggested_angles=["앵글1"], best_hook_starter="훅",
+        keyword="테스트",
+        rank=1,
+        viral_potential=80,
+        trend_acceleration="+5%",
+        top_insight="핵심",
+        suggested_angles=["앵글1"],
+        best_hook_starter="훅",
         context=MultiSourceContext(),
         sources=[TrendSource.GETDAYTRENDS],
     )
@@ -48,15 +50,13 @@ def _make_trend(**overrides) -> ScoredTrend:
 
 
 def _make_batch(topic: str = "테스트 키워드") -> TweetBatch:
-    tweets = [
-        GeneratedTweet(tweet_type=f"유형{i}", content=f"트윗{i}" * 10, content_type="short")
-        for i in range(3)
-    ]
+    tweets = [GeneratedTweet(tweet_type=f"유형{i}", content=f"트윗{i}" * 10, content_type="short") for i in range(3)]
     return TweetBatch(topic=topic, tweets=tweets, thread=None)
 
 
 class FakeAPIResponseError(Exception):
     """Notion APIResponseError 시뮬레이션."""
+
     def __init__(self, message: str, status: int = 500, body: dict | None = None):
         super().__init__(message)
         self.status = status
@@ -66,6 +66,7 @@ class FakeAPIResponseError(Exception):
 # ═══════════════════════════════════════════════════════════════════
 # 1. _retry_notion_call — 경계 조건
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestRetryNotionCall:
     def test_success_first_try(self):
@@ -84,11 +85,8 @@ class TestRetryNotionCall:
         """400, 401, 404 등 재시도 불가 상태코드는 즉시 raise."""
         err = FakeAPIResponseError("not found", status=404)
         fn = MagicMock(side_effect=err)
-        with (
-            patch("storage.APIResponseError", FakeAPIResponseError),
-        ):
-            with pytest.raises(FakeAPIResponseError):
-                _retry_notion_call(fn, max_retries=3)
+        with patch("storage.APIResponseError", FakeAPIResponseError), pytest.raises(FakeAPIResponseError):
+            _retry_notion_call(fn, max_retries=3)
         fn.assert_called_once()
 
     @patch("storage.time.sleep")
@@ -128,8 +126,8 @@ class TestRetryNotionCall:
         with patch("storage.APIResponseError", FakeAPIResponseError):
             _retry_notion_call(fn, max_retries=3, base_delay=2.0)
         delays = [call.args[0] for call in mock_sleep.call_args_list]
-        assert delays[0] == 2.0   # 2 * 2^0
-        assert delays[1] == 4.0   # 2 * 2^1
+        assert delays[0] == 2.0  # 2 * 2^0
+        assert delays[1] == 4.0  # 2 * 2^1
 
     @patch("storage.time.sleep")
     def test_max_retries_exhausted_raises(self, mock_sleep):
@@ -155,6 +153,7 @@ class TestRetryNotionCall:
 # ═══════════════════════════════════════════════════════════════════
 # 2. _rich_text_prop — silent truncation
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestRichTextProp:
     def test_short_text_preserved(self):
@@ -189,13 +188,25 @@ class TestRichTextProp:
 # 3. _content_hub_properties — 조건부 스키마 빌더
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestContentHubProperties:
     def test_full_schema_all_fields_present(self):
         schema = {
-            "Name": {}, "Status": {}, "Category": {}, "Date": {},
-            "Score": {}, "Platform": {}, "Trend ID": {}, "Draft ID": {},
-            "Prompt Version": {}, "QA Score": {}, "Blocking Reasons": {},
-            "Published URL": {}, "Published At": {}, "Receipt ID": {}, "URL": {},
+            "Name": {},
+            "Status": {},
+            "Category": {},
+            "Date": {},
+            "Score": {},
+            "Platform": {},
+            "Trend ID": {},
+            "Draft ID": {},
+            "Prompt Version": {},
+            "QA Score": {},
+            "Blocking Reasons": {},
+            "Published URL": {},
+            "Published At": {},
+            "Receipt ID": {},
+            "URL": {},
         }
         props = _content_hub_properties(
             schema,
@@ -205,8 +216,10 @@ class TestContentHubProperties:
             platform_label="X",
             score=85.0,
             draft_meta={
-                "trend_id": "t-1", "draft_id": "d-1",
-                "prompt_version": "v2", "qa_score": 88.5,
+                "trend_id": "t-1",
+                "draft_id": "d-1",
+                "prompt_version": "v2",
+                "qa_score": 88.5,
                 "blocking_reasons": ["reason1"],
             },
             published_url="https://example.com",
@@ -224,8 +237,12 @@ class TestContentHubProperties:
     def test_empty_schema_returns_empty_props(self):
         props = _content_hub_properties(
             {},
-            title="T", status="S", category="C",
-            platform_label="X", score=0.0, draft_meta={},
+            title="T",
+            status="S",
+            category="C",
+            platform_label="X",
+            score=0.0,
+            draft_meta={},
         )
         assert props == {}
 
@@ -233,8 +250,12 @@ class TestContentHubProperties:
         schema = {"Name": {}, "Score": {}}
         props = _content_hub_properties(
             schema,
-            title="Title", status="Ready", category="C",
-            platform_label="X", score=50.0, draft_meta={},
+            title="Title",
+            status="Ready",
+            category="C",
+            platform_label="X",
+            score=50.0,
+            draft_meta={},
         )
         assert "Name" in props
         assert "Score" in props
@@ -246,8 +267,11 @@ class TestContentHubProperties:
         schema = {"Trend ID": {}, "Draft ID": {}, "QA Score": {}}
         props = _content_hub_properties(
             schema,
-            title="T", status="S", category="C",
-            platform_label="X", score=0.0,
+            title="T",
+            status="S",
+            category="C",
+            platform_label="X",
+            score=0.0,
             draft_meta={},  # no trend_id, draft_id, qa_score
         )
         assert "Trend ID" not in props
@@ -259,8 +283,11 @@ class TestContentHubProperties:
         schema = {"QA Score": {}}
         props = _content_hub_properties(
             schema,
-            title="T", status="S", category="C",
-            platform_label="X", score=0.0,
+            title="T",
+            status="S",
+            category="C",
+            platform_label="X",
+            score=0.0,
             draft_meta={"qa_score": 0.0},
         )
         assert "QA Score" in props
@@ -270,8 +297,11 @@ class TestContentHubProperties:
         schema = {"Blocking Reasons": {}}
         props = _content_hub_properties(
             schema,
-            title="T", status="S", category="C",
-            platform_label="X", score=0.0,
+            title="T",
+            status="S",
+            category="C",
+            platform_label="X",
+            score=0.0,
             draft_meta={"blocking_reasons": ["low_score", "no_context"]},
         )
         text = props["Blocking Reasons"]["rich_text"][0]["text"]["content"]
@@ -283,6 +313,7 @@ class TestContentHubProperties:
 # ═══════════════════════════════════════════════════════════════════
 # 4. _content_hub_workflow_meta — 필터링 로직
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestContentHubWorkflowMeta:
     def test_returns_matching_platform_draft(self):
@@ -298,9 +329,7 @@ class TestContentHubWorkflowMeta:
 
     def test_returns_empty_when_not_passed(self):
         batch = _make_batch()
-        batch.metadata["workflow_v2"] = {
-            "drafts": [{"platform": "x", "passed": False, "draft_id": "d-1"}]
-        }
+        batch.metadata["workflow_v2"] = {"drafts": [{"platform": "x", "passed": False, "draft_id": "d-1"}]}
         result = _content_hub_workflow_meta(batch, "x")
         assert result == {}
 
@@ -311,9 +340,7 @@ class TestContentHubWorkflowMeta:
 
     def test_returns_empty_when_no_matching_platform(self):
         batch = _make_batch()
-        batch.metadata["workflow_v2"] = {
-            "drafts": [{"platform": "threads", "passed": True}]
-        }
+        batch.metadata["workflow_v2"] = {"drafts": [{"platform": "threads", "passed": True}]}
         result = _content_hub_workflow_meta(batch, "naver_blog")
         assert result == {}
 
@@ -332,6 +359,7 @@ class TestContentHubWorkflowMeta:
 # ═══════════════════════════════════════════════════════════════════
 # 5. save_to_notion — 중복 except 블록 + 중복 검사
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestSaveToNotion:
     def test_notion_unavailable_returns_false(self):

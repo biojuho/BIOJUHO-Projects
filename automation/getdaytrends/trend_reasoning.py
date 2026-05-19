@@ -228,7 +228,7 @@ class TrendReasoningAdapter:
             return []
 
         facts_text = "\n".join(
-            f"F-{i+1}: {f['fact_text']} / WHY: {f.get('why_question', '')}" for i, f in enumerate(facts)
+            f"F-{i + 1}: {f['fact_text']} / WHY: {f.get('why_question', '')}" for i, f in enumerate(facts)
         )
 
         patterns_text = ""
@@ -266,7 +266,7 @@ class TrendReasoningAdapter:
             return []
 
         hyp_text = "\n".join(
-            f"H-{i+1}: {h.get('hypothesis', '')} (근거: {', '.join(h.get('based_on', []))})"
+            f"H-{i + 1}: {h.get('hypothesis', '')} (근거: {', '.join(h.get('based_on', []))})"
             for i, h in enumerate(hypotheses)
         )
 

@@ -129,7 +129,9 @@ def _score_hook(lead_text: str, leading_lines: list[str], group_name: str) -> tu
     return score, issues
 
 
-def _score_tone(combined: str, items: list[GeneratedTweet], matched_cliches: list[str], trend: ScoredTrend | None = None) -> tuple[int, list[str]]:
+def _score_tone(
+    combined: str, items: list[GeneratedTweet], matched_cliches: list[str], trend: ScoredTrend | None = None
+) -> tuple[int, list[str]]:
     """어투 점수 (15점 만점): 상투구, AI어투, 슬랭, 이모지, clipped ending 탐지."""
     issues: list[str] = []
     score = 15
@@ -195,12 +197,12 @@ def _score_fact(combined: str, trend: ScoredTrend) -> tuple[int, bool, list[str]
     allowed_corpus = _build_allowed_fact_corpus(trend)
     allowed_lower = allowed_corpus.lower()
     allowed_entities = {
-        e.casefold() for e in _extract_candidate_entities(allowed_corpus)
+        e.casefold()
+        for e in _extract_candidate_entities(allowed_corpus)
         if e.casefold() not in _GENERIC_ENTITY_ALLOWLIST
     }
     content_entities = {
-        e.casefold() for e in _extract_candidate_entities(combined)
-        if e.casefold() not in _GENERIC_ENTITY_ALLOWLIST
+        e.casefold() for e in _extract_candidate_entities(combined) if e.casefold() not in _GENERIC_ENTITY_ALLOWLIST
     }
     unknown_entities = sorted(content_entities - allowed_entities)
     allowed_percentages = set(re.findall(r"\d+(?:\.\d+)?%", allowed_corpus))
@@ -311,8 +313,15 @@ def _audit_content_group(
     threshold = config.get_quality_threshold(group_name)
     failed = total < threshold or regulation <= 3 or fact_violation
     reason = issues[0] if issues else "통과"
-    scores = {"hook": hook, "fact": fact, "tone": tone, "kick": kick,
-               "angle": angle, "regulation": regulation, "algorithm": algorithm}
+    scores = {
+        "hook": hook,
+        "fact": fact,
+        "tone": tone,
+        "kick": kick,
+        "angle": angle,
+        "regulation": regulation,
+        "algorithm": algorithm,
+    }
     worst = min(scores.items(), key=lambda item: item[1])[0]
     return {
         **scores,

@@ -6,7 +6,6 @@ C-4: Canva Visuals Pipeline Integration 테스트.
 from unittest.mock import patch
 
 import pytest
-
 from canva import generate_visual_assets
 from config import AppConfig
 

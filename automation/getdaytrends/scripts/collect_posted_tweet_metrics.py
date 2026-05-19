@@ -4,9 +4,9 @@ import argparse
 import asyncio
 import json
 import os
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Sequence
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

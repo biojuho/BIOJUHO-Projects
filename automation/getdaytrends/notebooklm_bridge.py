@@ -146,7 +146,7 @@ async def trend_to_notebook(
             try:
                 ask_result = await client.chat.ask(
                     nb.id,
-                    f"'{keyword}'에 대한 핵심 인사이트 3가지와 " f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
+                    f"'{keyword}'에 대한 핵심 인사이트 3가지와 소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
                 )
                 result["summary"] = ask_result.answer
                 log.info(f"[NotebookLM] AI 요약 완료 ({len(ask_result.answer)}자)")
@@ -294,7 +294,7 @@ async def content_factory(
         try:
             insight = await client.chat.ask(
                 nb.id,
-                f"'{keyword}'에 대한 핵심 인사이트 3가지와 " f"소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
+                f"'{keyword}'에 대한 핵심 인사이트 3가지와 소셜 미디어 콘텐츠 앵글 2가지를 한국어로 정리해줘",
             )
             result["summary"] = insight.answer
             log.info(f"[ContentFactory] 인사이트 완료 ({len(insight.answer)}자)")

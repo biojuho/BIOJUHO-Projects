@@ -19,6 +19,7 @@ except ImportError:
 
 try:
     from shared.prediction import PredictionEngine as _PredictionEngine
+
     _PEE_AVAILABLE = True
 except ImportError:
     _PredictionEngine = None  # type: ignore[assignment,misc]
@@ -64,8 +65,7 @@ except ImportError:
     from storage import save_to_content_hub, save_to_google_sheets, save_to_notion
     from workflow_v2 import build_draft_bundles, build_qa_report, validate_trend_candidate
 
-from .steps_generate import _build_empty_qa, _content_hub_enabled
-
+from .steps_generate import _content_hub_enabled
 
 # ══════════════════════════════════════════════════════
 #  Workflow V2 Bundle Recording
@@ -377,6 +377,7 @@ def _attach_best_hours(batch, category: str, best_hours: list[int]) -> None:
 async def _annotate_predictions(quality_trends: list, batch_results: list, config: AppConfig) -> None:
     """PEE로 각 배치의 예상 성과를 예측하고 메타데이터에 기록."""
     from pathlib import Path
+
     try:
         workspace = Path(__file__).resolve().parents[3]
         engine = _PredictionEngine(

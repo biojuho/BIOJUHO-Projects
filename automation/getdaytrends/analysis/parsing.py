@@ -6,9 +6,9 @@ import re
 from loguru import logger as log
 
 try:
-    from .scoring import _compute_cross_source_confidence, _compute_signal_score
     from ..config import AppConfig
     from ..models import MultiSourceContext, ScoredTrend, TrendContext, TrendSource
+    from .scoring import _compute_cross_source_confidence, _compute_signal_score
 except ImportError:
     from analysis.scoring import _compute_cross_source_confidence, _compute_signal_score
     from config import AppConfig
@@ -151,9 +151,7 @@ def _compute_hybrid_viral(
     min_conf = getattr(config, "min_cross_source_confidence", 2) if config else 2
     if confidence < min_conf:
         hybrid = int(hybrid * 0.65)
-        log.debug(
-            f"[Phase1 penalty] '{keyword}' confidence {confidence}/{min_conf} -> viral {hybrid}"
-        )
+        log.debug(f"[Phase1 penalty] '{keyword}' confidence {confidence}/{min_conf} -> viral {hybrid}")
 
     niche_categories = getattr(config, "niche_categories", []) if config else []
     niche_bonus = getattr(config, "niche_bonus_points", 0) if config else 0

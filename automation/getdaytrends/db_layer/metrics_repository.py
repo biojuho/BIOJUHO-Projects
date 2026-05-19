@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from . import log, sqlite_write_lock
 
+
 async def _record_source_quality_unlocked(
     conn,
     source: str,
@@ -27,6 +28,7 @@ async def _record_source_quality_unlocked(
     except Exception as e:
         log.warning(f"source_quality 기록 실패: {e}")
 
+
 async def record_source_quality(
     conn,
     source: str,
@@ -44,6 +46,7 @@ async def record_source_quality(
             item_count=item_count,
             quality_score=quality_score,
         )
+
 
 async def get_source_quality_summary(conn, days: int = 7) -> dict:
     """소스별 수집 요약 (success_rate, avg_latency_ms, avg_quality_score, total_calls)."""

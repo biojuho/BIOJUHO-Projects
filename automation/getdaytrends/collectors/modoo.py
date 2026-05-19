@@ -77,10 +77,7 @@ def fetch_modoo_ideas(
         return []
 
     if proc.returncode != 0:
-        log.warning(
-            f"modoo collector exited {proc.returncode}: "
-            f"{(proc.stderr or '').strip()[:300]}"
-        )
+        log.warning(f"modoo collector exited {proc.returncode}: {(proc.stderr or '').strip()[:300]}")
         return []
 
     try:

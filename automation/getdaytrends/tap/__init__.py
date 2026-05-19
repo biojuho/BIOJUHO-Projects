@@ -10,16 +10,7 @@ Usage:
     opportunities = await detect_arbitrage_opportunities(conn, config)
 """
 
-from .detector import TrendArbitrageDetector, ArbitrageOpportunity
 from .analyzer import ArbitrageAnalyzer
-from .product_feed import (
-    OpportunityTier,
-    TapBoard,
-    TapBoardBuilder,
-    TapBoardItem,
-    empty_tap_board,
-    required_tap_product_dependencies,
-)
 from .deal_room import (
     DealRoomOffer,
     DealRoomRequest,
@@ -27,6 +18,15 @@ from .deal_room import (
     TapDealRoomBuilder,
     build_tap_deal_room_snapshot,
     required_tap_deal_room_dependencies,
+)
+from .detector import ArbitrageOpportunity, TrendArbitrageDetector
+from .product_feed import (
+    OpportunityTier,
+    TapBoard,
+    TapBoardBuilder,
+    TapBoardItem,
+    empty_tap_board,
+    required_tap_product_dependencies,
 )
 from .service import (
     TapAlertDispatchSummary,

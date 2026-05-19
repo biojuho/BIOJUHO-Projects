@@ -148,7 +148,7 @@ async def _migrate_table(
 
     # Build INSERT ... ON CONFLICT DO NOTHING
     col_names = ", ".join(columns)
-    placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
+    placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
 
     conflict_clause = ""
     if pk_cols:
@@ -168,8 +168,7 @@ async def _migrate_table(
         if "id" in columns and "id" in pk_cols:
             try:
                 await pg_pool.execute(
-                    f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
-                    f"COALESCE(MAX(id), 1)) FROM {table}"
+                    f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}"
                 )
                 log.info(f"  [{table}] Sequence updated.")
             except Exception as seq_err:
@@ -229,12 +228,11 @@ async def main():
     backup_path = sqlite_db_path + ".bak"
     if not os.path.exists(backup_path):
         import shutil
+
         shutil.copy2(sqlite_db_path, backup_path)
         log.info(f"SQLite backup created: {backup_path}")
 
-    async with asyncpg.create_pool(
-        database_url, min_size=1, max_size=5, statement_cache_size=0
-    ) as pg_pool:
+    async with asyncpg.create_pool(database_url, min_size=1, max_size=5, statement_cache_size=0) as pg_pool:
         # Phase 1: Initialize PG schema
         log.info("\n=== Phase 1: Schema Initialization ===")
         await _init_pg_schema(pg_pool)

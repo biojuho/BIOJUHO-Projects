@@ -11,7 +11,7 @@ import asyncio
 import re
 import time
 import xml.etree.ElementTree as ET
-from datetime import UTC
+from datetime import UTC, datetime
 
 import httpx
 from loguru import logger as log
@@ -451,10 +451,7 @@ async def _async_fetch_youtube_trending_standalone(country_slug: str = "korea", 
 # ══════════════════════════════════════════════════════
 #  X API에 종속되지 않은 보조 트렌드 신호. 기술/AI/스타트업 토픽에 강함.
 
-_HN_FRONTPAGE_URL = (
-    "https://hn.algolia.com/api/v1/search"
-    "?tags=front_page&hitsPerPage={limit}"
-)
+_HN_FRONTPAGE_URL = "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage={limit}"
 
 
 async def _async_fetch_hacker_news(
@@ -482,9 +479,7 @@ async def _async_fetch_hacker_news(
         points = int(hit.get("points") or 0)
         comments = int(hit.get("num_comments") or 0)
         story_id = hit.get("objectID", "")
-        link = hit.get("url") or (
-            f"https://news.ycombinator.com/item?id={story_id}" if story_id else ""
-        )
+        link = hit.get("url") or (f"https://news.ycombinator.com/item?id={story_id}" if story_id else "")
 
         trends.append(
             RawTrend(

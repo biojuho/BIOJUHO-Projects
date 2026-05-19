@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from loguru import logger as log
+
 from shared.llm import get_client
 
 # ── Harness Governance (optional, graceful fallback) ──
@@ -23,6 +24,7 @@ try:
         governed_step,
         print_harness_summary,
     )
+
     _HARNESS_AVAILABLE = True
 except ImportError:
     _HARNESS_AVAILABLE = False
@@ -210,11 +212,7 @@ def _usable_source_types(context) -> list[str]:
         "reddit": getattr(context, "reddit_insight", ""),
         "news": getattr(context, "news_insight", ""),
     }
-    return [
-        source_name
-        for source_name, text in source_map.items()
-        if _has_usable_source_text(text)
-    ]
+    return [source_name for source_name, text in source_map.items() if _has_usable_source_text(text)]
 
 
 def _normalize_source_combo(combo: str) -> frozenset[str]:
@@ -226,9 +224,7 @@ def _has_required_source_diversity(source_types: list[str], required_combination
         return True
     source_set = frozenset(source_types)
     normalized_required = [
-        combo_set
-        for combo_set in (_normalize_source_combo(combo) for combo in required_combinations)
-        if combo_set
+        combo_set for combo_set in (_normalize_source_combo(combo) for combo in required_combinations) if combo_set
     ]
     return any(combo_set.issubset(source_set) for combo_set in normalized_required)
 
@@ -276,9 +272,7 @@ def _filter_persona_and_source_fit(trends: list, config: AppConfig) -> list:
     min_sources = max(0, int(getattr(config, "min_context_sources", 0) or 0))
     if getattr(config, "enforce_min_context_sources", False) and min_sources > 0:
         before = len(filtered)
-        filtered = [
-            trend for trend in filtered if getattr(trend, "usable_source_count", 0) >= min_sources
-        ]
+        filtered = [trend for trend in filtered if getattr(trend, "usable_source_count", 0) >= min_sources]
         removed = before - len(filtered)
         if removed:
             log.info(f"  [Signal Filter] removed={removed} kept={len(filtered)} min_sources={min_sources}")
@@ -325,6 +319,7 @@ async def _step_refresh_tap_products(conn, config: AppConfig) -> dict:
     except Exception as tap_err:
         log.warning(f"  [TAP Refresh] 실패 (무시): {type(tap_err).__name__}: {tap_err}")
         return {}
+
 
 # ══════════════════════════════════════════════════════
 #  Helper Functions
@@ -704,7 +699,9 @@ async def _step_post_run(
 ) -> None:
     """파이프라인 완료 후 후처리: 성과 갱신, 메트릭 로깅, 스케줄링, Heartbeat."""
     # 3단계 수집 + 골든 레퍼런스 자동 갱신
-    if getattr(pipeline_config, "enable_tiered_collection", False) or getattr(
+    if pipeline_config.dry_run:
+        log.debug("  Performance refresh skipped in dry-run mode")
+    elif getattr(pipeline_config, "enable_tiered_collection", False) or getattr(
         pipeline_config, "enable_golden_reference_qa", False
     ):
         try:
@@ -777,6 +774,7 @@ async def _step_post_run(
     # PEE 자동 재학습 (주간, 조건부)
     try:
         from shared.prediction.retrain import maybe_retrain
+
         retrain_result = await maybe_retrain()
         if retrain_result.get("retrained"):
             log.info(f"  [PEE] 모델 재학습 완료: R²={retrain_result['metrics']['r2']:.4f}")
@@ -864,13 +862,17 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         harness = get_pipeline_harness(config)
         if harness:
             # Sync budget from config into harness
-            effective_budget = getattr(config, 'daily_budget_usd', 2.0)
+            effective_budget = getattr(config, "daily_budget_usd", 2.0)
             log.info(f"[Harness] Pipeline governance active — budget=${effective_budget:.2f}")
 
     # B-011 fix: get_connection() 실패 시 conn 미정의 → finally의 NameError 방지
     conn = None
     try:
-        conn = await get_connection(config.db_path, database_url=config.database_url)
+        conn = await get_connection(
+            config.db_path,
+            database_url=config.database_url,
+            allow_sqlite_fallback=config.dry_run,
+        )
         await init_db(conn)
         run = RunResult(run_id=str(uuid.uuid4()), country=config.country)
         run.started_at = datetime.now()  # B-015 fix: elapsed 계산 시 AttributeError 방지
@@ -889,8 +891,11 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         _t0 = time.time()
         if harness and governed_step:
             raw_trends, contexts = await governed_step(
-                "collect_trends", _step_collect,
-                pipeline_config, conn, run,
+                "collect_trends",
+                _step_collect,
+                pipeline_config,
+                conn,
+                run,
                 harness=harness,
             )
         else:
@@ -906,12 +911,19 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         # Step 2-3: 스코어링 + 알림 (governed)
         if harness and governed_step:
             scored_trends, quality_trends = await governed_step(
-                "score_trends", _step_score_and_alert,
-                raw_trends, contexts, pipeline_config, conn, run,
+                "score_trends",
+                _step_score_and_alert,
+                raw_trends,
+                contexts,
+                pipeline_config,
+                conn,
+                run,
                 harness=harness,
             )
         else:
-            scored_trends, quality_trends = await _step_score_and_alert(raw_trends, contexts, pipeline_config, conn, run)
+            scored_trends, quality_trends = await _step_score_and_alert(
+                raw_trends, contexts, pipeline_config, conn, run
+            )
         _t2 = time.time()
         log.info(f"  [타이밍] 스코어링+알림: {_t2 - _t1:.1f}초")
 
@@ -922,8 +934,11 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         # Step 4: 생성 (governed)
         if harness and governed_step:
             batch_results = await governed_step(
-                "generate_content", _step_generate,
-                quality_trends, pipeline_config, conn,
+                "generate_content",
+                _step_generate,
+                quality_trends,
+                pipeline_config,
+                conn,
                 harness=harness,
                 cost_estimate=0.01 * len(quality_trends),  # LLM call estimate per trend
             )
@@ -942,8 +957,14 @@ async def async_run_pipeline(config: AppConfig, schedule_callback: Callable[...,
         # Step 5: 저장 (governed)
         if harness and governed_step:
             success_count = await governed_step(
-                "save_results", _step_save,
-                quality_trends, batch_results, pipeline_config, conn, run, run_row_id,
+                "save_results",
+                _step_save,
+                quality_trends,
+                batch_results,
+                pipeline_config,
+                conn,
+                run,
+                run_row_id,
                 harness=harness,
             )
         else:

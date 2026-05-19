@@ -210,12 +210,12 @@ def proactive_refresh() -> dict:
     # 갱신 불필요
     if not auth["needs_refresh"] and auth["authenticated"]:
         log.debug(
-            f"[Proactive Refresh] 세션 정상 " f"(나이: {auth['age_hours']}h, 임계: {SESSION_REFRESH_THRESHOLD_HOURS}h)"
+            f"[Proactive Refresh] 세션 정상 (나이: {auth['age_hours']}h, 임계: {SESSION_REFRESH_THRESHOLD_HOURS}h)"
         )
         return result
 
     # 갱신 시도
-    log.info(f"[Proactive Refresh] 갱신 필요 — " f"나이: {auth['age_hours']}h, 인증: {auth['authenticated']}")
+    log.info(f"[Proactive Refresh] 갱신 필요 — 나이: {auth['age_hours']}h, 인증: {auth['authenticated']}")
     refresh = refresh_auth()
     result["refresh_result"] = refresh
 
@@ -392,14 +392,14 @@ async def health_check(verbose: bool = False) -> dict:
     _log_health(result)
 
     if verbose:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("  NotebookLM Health Check")
         print(f"  Timestamp: {result['timestamp']}")
         print(f"  Auth: {'OK' if result['auth']['authenticated'] else 'FAIL'}")
         print(f"  Session Age: {result['auth']['age_hours']}h")
         print(f"  API: {'OK' if result['api_reachable'] else 'FAIL'}")
         print(f"  Status: {result['status'].upper()}")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
     return result
 

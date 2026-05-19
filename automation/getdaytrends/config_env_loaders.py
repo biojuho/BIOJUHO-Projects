@@ -150,7 +150,9 @@ def quality_env() -> dict:
         qa_skip_cached=os.getenv("QA_SKIP_CACHED", "true").lower() == "true",
         qa_skip_high_score=int(os.getenv("QA_SKIP_HIGH_SCORE", "85")),
         qa_skip_categories=[
-            c.strip() for c in os.getenv("QA_SKIP_CATEGORIES", "\ub0a0\uc528,\uc74c\uc2dd,\uc2a4\ud3ec\uce20").split(",") if c.strip()
+            c.strip()
+            for c in os.getenv("QA_SKIP_CATEGORIES", "\ub0a0\uc528,\uc74c\uc2dd,\uc2a4\ud3ec\uce20").split(",")
+            if c.strip()
         ],
         golden_reference_limit=int(os.getenv("GOLDEN_REFERENCE_LIMIT", "3")),
         golden_reference_auto_update_days=int(os.getenv("GOLDEN_REFERENCE_AUTO_UPDATE_DAYS", "7")),
@@ -166,7 +168,10 @@ def scoring_env() -> dict:
         cost_alert_pct=float(os.getenv("COST_ALERT_PCT", "70")),
         heavy_categories=[
             c.strip()
-            for c in os.getenv("HEAVY_CATEGORIES", "\uc815\uce58,\uacbd\uc81c,\ud14c\ud06c,\uc0ac\ud68c,\uad6d\uc81c,\uacfc\ud559,\uc0dd\ud65c,\ubc95\ub960").split(",")
+            for c in os.getenv(
+                "HEAVY_CATEGORIES",
+                "\uc815\uce58,\uacbd\uc81c,\ud14c\ud06c,\uc0ac\ud68c,\uad6d\uc81c,\uacfc\ud559,\uc0dd\ud65c,\ubc95\ub960",
+            ).split(",")
             if c.strip()
         ],
         viral_score_llm_weight=float(os.getenv("VIRAL_SCORE_LLM_WEIGHT", "0.6")),
@@ -240,7 +245,5 @@ def platform_env() -> dict:
         content_diversity_hours=int(os.getenv("CONTENT_DIVERSITY_HOURS", "24")),
         generation_mode_override=os.getenv("GENERATION_MODE", ""),
         persona_rotation=os.getenv("PERSONA_ROTATION", "fixed"),
-        persona_pool=[
-            p.strip() for p in os.getenv("PERSONA_POOL", "biojuho").split(",") if p.strip()
-        ],
+        persona_pool=[p.strip() for p in os.getenv("PERSONA_POOL", "biojuho").split(",") if p.strip()],
     )

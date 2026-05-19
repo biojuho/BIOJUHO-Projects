@@ -17,7 +17,6 @@ import asyncio
 
 import httpx
 
-
 pytestmark = pytest.mark.skip(reason="Diagnostic network/task-scheduler probe; run this file as a script when needed.")
 
 

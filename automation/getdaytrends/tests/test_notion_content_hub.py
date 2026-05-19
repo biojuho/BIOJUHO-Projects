@@ -3,10 +3,10 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from config import AppConfig
 from db import save_run
 from models import MultiSourceContext, RunResult, ScoredTrend
+
 from tests.conftest import make_batch
 
 

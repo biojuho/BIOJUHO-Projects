@@ -47,7 +47,7 @@ def _compute_similarity_pairs_embedding(
             for j in range(i + 1, n):
                 if sim_matrix[i][j] >= threshold:
                     pairs.append((i, j))
-                    log.debug(f"  [임베딩 유사] '{names[i]}' ↔ '{names[j]}' " f"= {sim_matrix[i][j]:.3f} ≥ {threshold}")
+                    log.debug(f"  [임베딩 유사] '{names[i]}' ↔ '{names[j]}' = {sim_matrix[i][j]:.3f} ≥ {threshold}")
         return pairs
 
     except Exception as e:
@@ -70,7 +70,7 @@ def _merge_clusters(
     """Union-Find 그룹 결과 → 대표 선정 + 컨텍스트 병합 (공통 로직)."""
     trend_map = {t.name: t for t in raw_trends}
     clusters: list[TrendCluster] = []
-    representatives: list["RawTrend"] = []
+    representatives: list[RawTrend] = []
 
     for idxs in groups.values():
         members = [names[i] for i in idxs]
@@ -99,7 +99,7 @@ def _merge_clusters(
 
     merged_count = sum(len(c.members) - 1 for c in clusters if len(c.members) > 1)
     if merged_count:
-        log.info(f"[{method} 클러스터링] {len(raw_trends)}개 → {len(representatives)}개 " f"(병합 {merged_count}개)")
+        log.info(f"[{method} 클러스터링] {len(raw_trends)}개 → {len(representatives)}개 (병합 {merged_count}개)")
 
     return representatives, contexts, clusters
 

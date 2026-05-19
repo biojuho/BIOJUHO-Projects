@@ -4,6 +4,7 @@ getdaytrends — NotebookLM Research Tools
 notebooklm_bridge.py에서 분리됨.
 """
 
+import asyncio
 from datetime import datetime
 
 from loguru import logger as log
@@ -69,7 +70,7 @@ async def research_tool(
     }
 
     default_questions = [
-        f"'{topic}'에 관련된 모든 소스를 비교 분석하여 " f"공통점, 차이점, 장단점을 마크다운 표 형태로 정리해줘.",
+        f"'{topic}'에 관련된 모든 소스를 비교 분석하여 공통점, 차이점, 장단점을 마크다운 표 형태로 정리해줘.",
         f"'{topic}'의 최근 트렌드와 미래 전망을 데이터 기반으로 정리해줘.",
         f"'{topic}'에서 가장 중요한 인사이트 5가지를 뽑아줘.",
     ]
@@ -101,9 +102,9 @@ async def research_tool(
                     result["trend_summary"] = answer.answer
                 elif i == 2:
                     result["key_insights"] = answer.answer
-                log.info(f"[Research] 질문 {i+1}/{len(questions)} 완료")
+                log.info(f"[Research] 질문 {i + 1}/{len(questions)} 완료")
             except Exception as e:
-                log.warning(f"[Research] 질문 {i+1} 실패: {e}")
+                log.warning(f"[Research] 질문 {i + 1} 실패: {e}")
 
         # 4. 인포그래픽 생성
         try:
@@ -210,15 +211,15 @@ async def analyze_bio_company(
             ),
             (
                 "technology_analysis",
-                f"'{company_name}'의 핵심 기술, R&D 파이프라인, " f"특허 현황, 기술적 차별점을 분석해줘.",
+                f"'{company_name}'의 핵심 기술, R&D 파이프라인, 특허 현황, 기술적 차별점을 분석해줘.",
             ),
             (
                 "competitive_position",
-                f"'{company_name}'의 시장 내 경쟁 포지션, 주요 경쟁사 비교, " f"SWOT 분석을 마크다운 표로 정리해줘.",
+                f"'{company_name}'의 시장 내 경쟁 포지션, 주요 경쟁사 비교, SWOT 분석을 마크다운 표로 정리해줘.",
             ),
             (
                 "investment_thesis",
-                f"'{company_name}'에 대한 투자 포인트와 리스크를 " f"DeSci(탈중앙화 과학) 관점에서 평가해줘.",
+                f"'{company_name}'에 대한 투자 포인트와 리스크를 DeSci(탈중앙화 과학) 관점에서 평가해줘.",
             ),
         ]
 
@@ -265,6 +266,11 @@ async def analyze_bio_company(
 
 async def _self_test():
     """모듈 단독 테스트."""
+    try:
+        from .notebooklm_bridge import check_availability, trend_to_notebook
+    except ImportError:
+        from notebooklm_bridge import check_availability, trend_to_notebook
+
     print("=== NotebookLM Bridge Self-Test ===")
 
     available = await check_availability()

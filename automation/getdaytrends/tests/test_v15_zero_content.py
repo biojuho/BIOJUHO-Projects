@@ -208,9 +208,9 @@ class TestNicheBonus:
         result_tech = _parse_scored_trend_from_dict(parsed2, "AI기술", 0, ctx, config)
 
         # Same viral_potential(55) but tech gets bonus -> tech > entertainment
-        assert (
-            result_tech.viral_potential > result_entertainment.viral_potential
-        ), f"Tech({result_tech.viral_potential}) should > Entertainment({result_entertainment.viral_potential})"
+        assert result_tech.viral_potential > result_entertainment.viral_potential, (
+            f"Tech({result_tech.viral_potential}) should > Entertainment({result_entertainment.viral_potential})"
+        )
 
     def test_niche_bonus_respects_cap(self):
         """Bonus does not exceed 100 cap."""

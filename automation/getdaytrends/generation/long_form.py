@@ -322,7 +322,7 @@ async def generate_blog_async(
                 )
             )
 
-        log.info(f"블로그 생성 완료: '{trend.keyword}' " f"({len(posts)}편, 총 {sum(p.char_count for p in posts)}자)")
+        log.info(f"블로그 생성 완료: '{trend.keyword}' ({len(posts)}편, 총 {sum(p.char_count for p in posts)}자)")
         return posts
 
     except Exception as e:

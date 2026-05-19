@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from . import GeneratedThread, GeneratedTweet, _get_cache_client, _redis_enabled, log, sqlite_write_lock
 
+
 async def _save_tweet_unlocked(
     conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None
 ) -> int:
@@ -26,9 +27,11 @@ async def _save_tweet_unlocked(
     await conn.commit()
     return cursor.lastrowid
 
+
 async def save_tweet(conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None) -> int:
     async with sqlite_write_lock(conn):
         return await _save_tweet_unlocked(conn, tweet, trend_id, run_id, saved_to=saved_to)
+
 
 async def _save_thread_unlocked(conn, thread: GeneratedThread, trend_id: int, run_id: int) -> list[int]:
     ids = []
@@ -43,9 +46,11 @@ async def _save_thread_unlocked(conn, thread: GeneratedThread, trend_id: int, ru
     await conn.commit()
     return ids
 
+
 async def save_thread(conn, thread: GeneratedThread, trend_id: int, run_id: int) -> list[int]:
     async with sqlite_write_lock(conn):
         return await _save_thread_unlocked(conn, thread, trend_id, run_id)
+
 
 async def save_tweets_batch(
     conn,
@@ -105,6 +110,7 @@ async def save_tweets_batch(
             pass
         raise
 
+
 async def _resolve_tweet_row_id_for_publish(
     conn,
     *,
@@ -130,10 +136,11 @@ async def _resolve_tweet_row_id_for_publish(
         conditions.append("run_id = ?")
         params.append(run_id)
 
-    query = "SELECT id FROM tweets " f"WHERE {' AND '.join(conditions)} " "ORDER BY generated_at DESC, id DESC LIMIT 1"
+    query = f"SELECT id FROM tweets WHERE {' AND '.join(conditions)} ORDER BY generated_at DESC, id DESC LIMIT 1"
     cursor = await conn.execute(query, tuple(params))
     row = await cursor.fetchone()
     return int(row["id"]) if row else None
+
 
 async def _mark_tweet_posted_unlocked(
     conn,
@@ -167,6 +174,7 @@ async def _mark_tweet_posted_unlocked(
     await conn.commit()
     return resolved_row_id
 
+
 async def mark_tweet_posted(
     conn,
     *,
@@ -189,6 +197,7 @@ async def mark_tweet_posted(
             posted_at=posted_at,
             status=status,
         )
+
 
 async def _sync_tweet_metrics_unlocked(
     conn,
@@ -225,6 +234,7 @@ async def _sync_tweet_metrics_unlocked(
 
     return 0
 
+
 async def sync_tweet_metrics(
     conn,
     *,
@@ -243,6 +253,7 @@ async def sync_tweet_metrics(
             engagements=engagements,
             engagement_rate=engagement_rate,
         )
+
 
 async def get_cached_content(conn, fingerprint: str, max_age_hours: int = 24) -> list[dict] | None:
     cache = _get_cache_client() if _redis_enabled() else None
@@ -273,6 +284,7 @@ async def get_cached_content(conn, fingerprint: str, max_age_hours: int = 24) ->
 
     return result
 
+
 async def get_recent_tweet_contents(conn, keyword: str, hours: int = 24, limit: int = 5) -> list[str]:
     """
     최근 N시간 내 특정 키워드로 생성된 트윗 내용 목록 반환.
@@ -289,6 +301,7 @@ async def get_recent_tweet_contents(conn, keyword: str, hours: int = 24, limit: 
     )
     rows = await cursor.fetchall()
     return [r["content"] for r in rows]
+
 
 async def _record_posting_time_stat_unlocked(conn, category: str, hour: int, engagement_label: str) -> None:
     """
@@ -311,9 +324,11 @@ async def _record_posting_time_stat_unlocked(conn, category: str, hour: int, eng
     except Exception as e:
         log.warning(f"posting_time_stat 기록 실패: {e}")
 
+
 async def record_posting_time_stat(conn, category: str, hour: int, engagement_label: str) -> None:
     async with sqlite_write_lock(conn):
         await _record_posting_time_stat_unlocked(conn, category, hour, engagement_label)
+
 
 async def get_best_posting_hours(conn, category: str, top_n: int = 3) -> list[int]:
     """

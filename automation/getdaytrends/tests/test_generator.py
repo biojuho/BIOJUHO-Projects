@@ -19,10 +19,10 @@ from generator import (
     _system_threads,
     _system_tweets,
     audit_generated_content,
-    generate_tweets_async,
     generate_blog_async,
     generate_long_form_async,
     generate_threads_content_async,
+    generate_tweets_async,
 )
 from models import GeneratedTweet, MultiSourceContext, ScoredTrend, TrendContext, TweetBatch
 
@@ -124,7 +124,6 @@ class TestReportProfilePromptBuilders(unittest.TestCase):
         long_prompt = _system_long_form("joongyeon", "report")
         self.assertNotIn("리포트 코멘트", short_prompt)
         self.assertIn("리포트 코멘트", long_prompt)
-
 
     def test_approved_post_bank_section_limits_examples(self):
         section = _build_approved_post_bank_section(
@@ -374,7 +373,6 @@ class TestReportProfileGeneration(unittest.IsolatedAsyncioTestCase):
         self.assertIn("QA 총점/기준: 61/75", prompt)
         self.assertIn("가장 약한 축: hook", prompt)
         self.assertIn("[사실 고정 규칙", prompt)
-
 
     async def test_tweet_generation_includes_approved_post_bank_section(self):
         response = MagicMock()

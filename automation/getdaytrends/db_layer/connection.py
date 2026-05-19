@@ -84,14 +84,17 @@ async def db_transaction(conn) -> AsyncIterator[None]:
 async def get_pg_pool(url: str, min_size: int = 2, max_size: int = 10) -> "asyncpg.Pool":
     """asyncpg 커넥션 풀 반환. Event Loop 종속성 문제를 위해 loop 객체에 바인딩."""
     import asyncio
+
     loop = asyncio.get_running_loop()
     pool = getattr(loop, "_pg_pool", None)
     if pool is None or pool._closed:
         pool = await asyncpg.create_pool(
-            url, min_size=min_size, max_size=max_size,
+            url,
+            min_size=min_size,
+            max_size=max_size,
             statement_cache_size=0,  # required for Supabase transaction-mode pooler
         )
-        setattr(loop, "_pg_pool", pool)
+        loop._pg_pool = pool
         log.info(f"asyncpg Pool 생성 (loop_id={id(loop)}): min={min_size} max={max_size} @ {url.split('@')[-1]}")
     return pool
 
@@ -100,11 +103,12 @@ async def close_pg_pool() -> None:
     """앱 종료 시 asyncpg Pool 정리."""
     try:
         import asyncio
+
         loop = asyncio.get_running_loop()
         pool = getattr(loop, "_pg_pool", None)
         if pool and not pool._closed:
             await pool.close()
-            setattr(loop, "_pg_pool", None)
+            loop._pg_pool = None
             log.info(f"asyncpg Pool 정상 종료 (loop_id={id(loop)})")
     except RuntimeError:
         pass  # No running loop
@@ -113,6 +117,8 @@ async def close_pg_pool() -> None:
 async def get_connection(
     db_path: str = "data/getdaytrends.db",
     database_url: str = "",
+    *,
+    allow_sqlite_fallback: bool = False,
 ):
     """DB 연결 반환. DATABASE_URL 설정 시 asyncpg Pool에서 연결 획득."""
     # Explicit in-memory SQLite requests should not be overridden by a
@@ -121,10 +127,18 @@ async def get_connection(
     if url.startswith(("postgresql://", "postgres://")):
         if not _PG_AVAILABLE:
             raise ImportError("PostgreSQL 사용을 위해 asyncpg 설치 필요:\n  pip install asyncpg")
-        pool = await get_pg_pool(url)
-        pg_conn = await pool.acquire()
-        # BUG-005 fix: pass pool reference so close() can release
-        return PgAdapter(pg_conn, pool=pool)
+        try:
+            pool = await get_pg_pool(url)
+            pg_conn = await pool.acquire()
+            # BUG-005 fix: pass pool reference so close() can release
+            return PgAdapter(pg_conn, pool=pool)
+        except Exception as exc:
+            if not allow_sqlite_fallback:
+                raise
+            log.warning(
+                "PostgreSQL connection failed; falling back to local SQLite "
+                f"for this run ({type(exc).__name__}: {exc})"
+            )
 
     os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
     conn = await aiosqlite.connect(db_path)

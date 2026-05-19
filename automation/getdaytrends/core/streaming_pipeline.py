@@ -37,9 +37,9 @@ from loguru import logger as log
 class PipelineEvent:
     """파이프라인 이벤트 단위: 하나의 트렌드가 각 단계를 통과할 때마다 생성."""
 
-    trend: Any                  # ScoredTrend
-    stage: str = "queued"       # queued → scoring → scored → generating → generated → saving → saved
-    result: Any = None          # TweetBatch 등 단계별 결과
+    trend: Any  # ScoredTrend
+    stage: str = "queued"  # queued → scoring → scored → generating → generated → saving → saved
+    result: Any = None  # TweetBatch 등 단계별 결과
     error: str = ""
     started_at: datetime = field(default_factory=datetime.now)
     completed_at: datetime | None = None
@@ -71,8 +71,8 @@ class StreamingPipeline:
 
     # 기본 설정
     QUEUE_MAX_SIZE = 50
-    GENERATOR_CONCURRENCY = 3     # 동시 LLM 호출 수
-    STAGE_TIMEOUT_SECONDS = 120   # 단일 트렌드 처리 타임아웃
+    GENERATOR_CONCURRENCY = 3  # 동시 LLM 호출 수
+    STAGE_TIMEOUT_SECONDS = 120  # 단일 트렌드 처리 타임아웃
 
     def __init__(self, config, conn, *, generator_concurrency: int = 0):
         self._config = config
@@ -110,22 +110,16 @@ class StreamingPipeline:
         self._scored_queue = asyncio.Queue(maxsize=self.QUEUE_MAX_SIZE)
         self._generated_queue = asyncio.Queue(maxsize=self.QUEUE_MAX_SIZE)
 
-        log.info(f"[Streaming] 파이프라인 시작 — {len(raw_trends)}개 트렌드, "
-                 f"gen_concurrency={self._gen_concurrency}")
+        log.info(f"[Streaming] 파이프라인 시작 — {len(raw_trends)}개 트렌드, gen_concurrency={self._gen_concurrency}")
 
         started_at = datetime.now()
 
         # Worker Task 생성
-        scorer_task = asyncio.create_task(
-            self._scorer_worker(raw_trends, contexts, score_fn)
-        )
+        scorer_task = asyncio.create_task(self._scorer_worker(raw_trends, contexts, score_fn))
         gen_tasks = [
-            asyncio.create_task(self._generator_worker(generate_fn, worker_id=i))
-            for i in range(self._gen_concurrency)
+            asyncio.create_task(self._generator_worker(generate_fn, worker_id=i)) for i in range(self._gen_concurrency)
         ]
-        saver_task = asyncio.create_task(
-            self._saver_worker(save_fn, expected_count=len(raw_trends))
-        )
+        saver_task = asyncio.create_task(self._saver_worker(save_fn, expected_count=len(raw_trends)))
 
         # 모든 Worker 완료 대기 (전체 파이프라인 타임아웃 = 트렌드당 STAGE_TIMEOUT × 3단계)
         total_timeout = self.STAGE_TIMEOUT_SECONDS * 3 * max(len(raw_trends), 1)
@@ -164,7 +158,7 @@ class StreamingPipeline:
             try:
                 if score_fn:
                     scored = await asyncio.wait_for(
-                        score_fn(trend, contexts.get(trend.name if hasattr(trend, 'name') else str(trend))),
+                        score_fn(trend, contexts.get(trend.name if hasattr(trend, "name") else str(trend))),
                         timeout=self.STAGE_TIMEOUT_SECONDS,
                     )
                 else:

@@ -6,7 +6,6 @@ v15.0 Phase C Tests
 """
 
 import pytest
-
 from models import RawTrend, TrendSource
 
 # ═══════════════════════════════════════════════
@@ -21,7 +20,6 @@ class TestGoogleTrendsRelated:
     async def test_related_extracts_from_google_trends_source(self):
         """Google Trends news_headlines are converted to related queries."""
         import httpx
-
         from scraper import _async_fetch_google_trends_related
 
         trends = [
@@ -47,7 +45,6 @@ class TestGoogleTrendsRelated:
     async def test_empty_trends_returns_empty(self):
         """Empty trend list returns empty dict."""
         import httpx
-
         from scraper import _async_fetch_google_trends_related
 
         async with httpx.AsyncClient() as session:
