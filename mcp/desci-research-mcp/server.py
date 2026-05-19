@@ -412,11 +412,9 @@ async def get_research_trends(
     end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=days)
 
-    # arXiv date range format: YYYYMMDDHHMM
-    start_date.strftime("%Y%m%d0000")
-    end_date.strftime("%Y%m%d2359")
-
     # Search recent papers in the category
+    # (arXiv API filters by sortBy=submittedDate, no explicit date range needed
+    # for the 100 most recent within the category)
     search_query = f"cat:{field}"
     params = {
         "search_query": search_query,

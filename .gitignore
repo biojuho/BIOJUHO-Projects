@@ -43,6 +43,14 @@ fun/
 .claude/settings.local.json
 .claude/*.local.json
 .claude/scheduled_tasks.lock
+# Locally-installed skills and worktrees are per-developer, not workspace state
+.claude/skills/
+.claude/worktrees/
+
+# Local tool state for codex / firecrawl / claude-goal
+.codex/
+.firecrawl/
+claude-goal/
 
 # Test / smoke outputs
 smoke-all.json
@@ -97,6 +105,10 @@ var/db/
 var/smoke/
 var/session-bootstrap-*.json
 var/legacy-root-backups/
+# Snapshot/QC outputs are local-only diagnostics, not source of truth
+var/*.json
+var/*.sarif
+var/*.txt
 
 # SQLite databases
 *.db
