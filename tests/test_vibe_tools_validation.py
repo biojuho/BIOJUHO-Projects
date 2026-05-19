@@ -79,9 +79,7 @@ class TestValidateTestCommand:
         assert result[:2] == ["uv", "run"]
 
     def test_uv_run_python_m_pytest(self) -> None:
-        result = _validate_test_command(
-            ["uv", "run", "python", "-m", "pytest", "-q"]
-        )
+        result = _validate_test_command(["uv", "run", "python", "-m", "pytest", "-q"])
         assert result[:2] == ["uv", "run"]
 
     def test_npm_run_test(self) -> None:

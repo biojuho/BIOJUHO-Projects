@@ -255,10 +255,10 @@ def content_pipeline(dry_run: bool = True) -> dict[str, Any]:
 
     start = time.time()
     mode = "DRY-RUN" if dry_run else "EXECUTE"
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"  Content Pipeline ({mode})")
     print(f"  {datetime.now(UTC).isoformat()}")
-    print(f"{'='*50}\n")
+    print(f"{'=' * 50}\n")
 
     # 예산 확인
     within_budget, cost = check_budget()

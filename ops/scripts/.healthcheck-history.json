@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-11T09:25:16.704420",
+  "timestamp": "2026-05-16T11:52:40.449197",
   "version": "3.0",
   "workspace": "D:\\AI project",
   "projects": [
@@ -26,13 +26,13 @@
       "imports": [
         {
           "package": "anthropic",
-          "ok": false,
-          "message": "TIMEOUT anthropic (5s)"
+          "ok": true,
+          "message": "OK anthropic"
         },
         {
           "package": "httpx",
-          "ok": false,
-          "message": "TIMEOUT httpx (5s)"
+          "ok": true,
+          "message": "OK httpx"
         },
         {
           "package": "aiosqlite",
@@ -56,8 +56,8 @@
       "imports": [
         {
           "package": "notion_client",
-          "ok": false,
-          "message": "TIMEOUT notion_client (5s)"
+          "ok": true,
+          "message": "OK notion_client"
         }
       ],
       "drift": [],
@@ -70,19 +70,19 @@
         {
           "name": "main",
           "ok": true,
-          "message": "OK apps\\desci-platform\\biolinker\\main.py"
+          "message": "OK apps\\desci-platform\\backend\\main.py"
         },
         {
           "name": "packaging",
           "ok": true,
-          "message": "OK apps\\desci-platform\\biolinker\\pyproject.toml"
+          "message": "OK apps\\desci-platform\\backend\\pyproject.toml"
         }
       ],
       "imports": [
         {
           "package": "fastapi",
-          "ok": false,
-          "message": "TIMEOUT fastapi (5s)"
+          "ok": true,
+          "message": "OK fastapi"
         },
         {
           "package": "uvicorn",
@@ -130,13 +130,13 @@
       "imports": [
         {
           "package": "fastapi",
-          "ok": false,
-          "message": "TIMEOUT fastapi (5s)"
+          "ok": true,
+          "message": "OK fastapi"
         },
         {
           "package": "sqlalchemy",
-          "ok": false,
-          "message": "TIMEOUT sqlalchemy (5s)"
+          "ok": true,
+          "message": "OK sqlalchemy"
         }
       ],
       "drift": [],
@@ -163,18 +163,18 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 110,
+    "uncommitted_changes": 565,
     "files": [
-      "M .gitignore",
-      " M CONTEXT.md",
-      " M HANDOFF.md",
-      " M apps/desci-platform/.env.example",
-      " M apps/desci-platform/README.md",
-      " M apps/desci-platform/biolinker/.env.example",
-      " M apps/desci-platform/biolinker/main.py",
-      " M apps/desci-platform/biolinker/pyproject.toml",
-      " M apps/desci-platform/biolinker/routers/governance.py",
-      " M apps/desci-platform/biolinker/routers/subscription.py"
+      "M .github/workflows/agriguard-ci.yml",
+      " M .github/workflows/agriguard-quality.yml",
+      " M .github/workflows/canva-mcp-ci.yml",
+      " M .github/workflows/ci.yml",
+      " M .github/workflows/deploy-dashboard.yml",
+      " M .github/workflows/desci-platform-quality.yml",
+      " M .github/workflows/github-mcp-ci.yml",
+      " M .github/workflows/security-quality-gate.yml",
+      " M .github/workflows/workspace-smoke.yml",
+      " M .nvmrc"
     ]
   },
   "env_files": [

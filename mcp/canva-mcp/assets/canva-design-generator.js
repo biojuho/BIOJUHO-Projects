@@ -1,1 +1,1 @@
-import{c as o,j as t,R as r}from"./index-BQ2FSk97.js";import{C as n}from"./canva-design-generator-QFesxatQ.js";import"./utils-Cf0wC6db.js";const e=document.getElementById("root");e&&o.createRoot(e).render(t.jsx(r.StrictMode,{children:t.jsx(n,{})}));
+import{a as e,i as t,o as n,t as r}from"./jsx-runtime-B-opF5ec.js";import{t as i}from"./canva-design-generator-CGVMZZi3.js";var a=n(e(),1),o=n(t(),1),s=r(),c=document.getElementById(`root`);c&&o.createRoot(c).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(i,{})}));

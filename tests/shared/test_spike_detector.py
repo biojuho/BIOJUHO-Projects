@@ -94,6 +94,7 @@ class TestFromEnvSpikeConfig:
 
     def test_default_spike_params(self):
         import os
+
         # Clear any existing env vars
         for key in ("SPIKE_WINDOW_SEC", "SPIKE_THRESHOLD", "SPIKE_COOLDOWN_SEC"):
             os.environ.pop(key, None)
@@ -104,6 +105,7 @@ class TestFromEnvSpikeConfig:
 
     def test_custom_spike_params_from_env(self):
         import os
+
         os.environ["SPIKE_WINDOW_SEC"] = "120"
         os.environ["SPIKE_THRESHOLD"] = "5"
         os.environ["SPIKE_COOLDOWN_SEC"] = "900"
@@ -119,6 +121,7 @@ class TestFromEnvSpikeConfig:
 
     def test_partial_env_uses_defaults(self):
         import os
+
         os.environ["SPIKE_THRESHOLD"] = "10"
         os.environ.pop("SPIKE_WINDOW_SEC", None)
         os.environ.pop("SPIKE_COOLDOWN_SEC", None)

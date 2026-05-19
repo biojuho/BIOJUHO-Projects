@@ -39,6 +39,10 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
     assert any(check.name == "dashboard bundle budget" for check in checks)
     assert any(check.name == "desci frontend unit tests" for check in checks)
     assert any(check.name == "desci bundle budget" for check in checks)
+    assert any(check.name == "desci contracts compile" for check in checks)
+    assert any(check.name == "desci contracts tests" for check in checks)
+    assert any(check.name == "agriguard contracts compile" for check in checks)
+    assert any(check.name == "agriguard contracts tests" for check in checks)
     assert any(check.name == "agriguard backend tests" for check in checks)
     assert any(check.name == "notebooklm compile" for check in checks)
     assert any(check.name == "DailyNews unit tests" for check in checks)
@@ -48,7 +52,7 @@ def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
 
     for check in checks:
         assert (PROJECT_ROOT / check.cwd).exists()
-        if "compile" in check.name:
+        if check.command[1:3] == ["-m", "compileall"]:
             assert smoke.EXCLUDE_REGEX in check.command
 
 
@@ -108,9 +112,7 @@ def test_command_for_check_appends_workspace_local_basetemp() -> None:
     assert command[-2:] == ["--basetemp", str(smoke.pytest_temp_dir(temp_dir))]
 
 
-def test_resolve_python_executable_prefers_workspace_venv_over_current_interpreter(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_resolve_python_executable_prefers_workspace_venv_over_current_interpreter(tmp_path: Path, monkeypatch) -> None:
     smoke = load_smoke_module()
     venv_python_rel = "Scripts/python.exe" if os.name == "nt" else "bin/python"
     venv_python = tmp_path / ".venv" / venv_python_rel

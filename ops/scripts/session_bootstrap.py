@@ -15,7 +15,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Force UTF-8 stdout on Windows to avoid cp949 encoding errors
@@ -177,7 +177,7 @@ def main() -> int:
     args = parser.parse_args()
 
     snapshot = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "git": git_status(),
         "tests": test_suite_summary(),
         "backlog": backlog_summary(),

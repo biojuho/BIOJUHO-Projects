@@ -1,33 +1,32 @@
-"""
-Orchestrator - ?щ줈???꾨줈?앺듃 ?뚯씠?꾨씪???ㅼ??ㅽ듃?덉씠??
+"""Cross-project pipeline orchestrator.
 
-GetDayTrends ??Content-Intelligence ??DailyNews ??諛쒗뻾 ???깃낵異붿쟻
-?꾩껜 肄섑뀗痢??뚯씠?꾨씪?몄쓣 ?⑥씪 吏꾩엯?먯뿉??愿�由?
+Coordinates GetDayTrends, Content Intelligence, DailyNews publishing, and
+performance tracking steps from one CLI.
 
 Usage::
-    python scripts/orchestrator.py --dry-run      # ?쒕??덉씠??
-    python scripts/orchestrator.py --execute      # ?ㅽ뻾
-    python scripts/orchestrator.py --status       # ?곹깭 ?뺤씤
-    python scripts/orchestrator.py --steps collect,generate  # ?뱀젙 ?④퀎留?
+    python scripts/orchestrator.py --dry-run
+    python scripts/orchestrator.py --execute
+    python scripts/orchestrator.py --status
+    python scripts/orchestrator.py --steps collect,generate
 """
+
 from __future__ import annotations
 
 import argparse
 import importlib
 import json
+import os
 import sys
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from workspace_paths import find_workspace_root, rel_unit_path, unit_path
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 WORKSPACE = find_workspace_root()
 
@@ -35,7 +34,7 @@ WORKSPACE = find_workspace_root()
 @dataclass
 class StepResult:
     name: str
-    status: str = "pending"  # pending, running, success, failed, skipped
+    status: str = "pending"
     started_at: str = ""
     finished_at: str = ""
     duration_sec: float = 0.0
@@ -52,7 +51,7 @@ class PipelineRun:
     dry_run: bool = False
     total_cost: float = 0.0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "started_at": self.started_at,
@@ -61,12 +60,12 @@ class PipelineRun:
             "total_cost": self.total_cost,
             "steps": [
                 {
-                    "name": s.name,
-                    "status": s.status,
-                    "duration_sec": s.duration_sec,
-                    "error": s.error,
+                    "name": step.name,
+                    "status": step.status,
+                    "duration_sec": step.duration_sec,
+                    "error": step.error,
                 }
-                for s in self.steps
+                for step in self.steps
             ],
         }
 
@@ -80,73 +79,73 @@ class PipelineRun:
             "",
             "Steps:",
         ]
-        for s in self.steps:
+        for step in self.steps:
             icon = {
                 "success": "[OK]",
                 "failed": "[FAIL]",
                 "skipped": "[SKIP]",
                 "running": "[...]",
                 "pending": "[ ]",
-            }.get(s.status, "[ ]")
-            dur = f" ({s.duration_sec:.1f}s)" if s.duration_sec > 0 else ""
-            err = f" - {s.error}" if s.error else ""
-            lines.append(f"  {icon} {s.name}{dur}{err}")
+            }.get(step.status, "[ ]")
+            duration = f" ({step.duration_sec:.1f}s)" if step.duration_sec > 0 else ""
+            error = f" - {step.error}" if step.error else ""
+            lines.append(f"  {icon} {step.name}{duration}{error}")
         return "\n".join(lines)
 
 
 PIPELINE_STEPS = [
-    "collect",      # Step 1: ?몃젋???섏쭛
-    "validate",     # Step 2: 肄섑뀗痢?洹쒖젣 寃�利?
-    "generate",     # Step 3: 肄섑뀗痢??앹꽦
-    "publish",      # Step 4: 諛쒗뻾
-    "track",        # Step 5: ?깃낵 異붿쟻
+    "collect",
+    "validate",
+    "generate",
+    "publish",
+    "track",
 ]
 
 
+def _prepend_sys_path(path: Path) -> None:
+    path_text = str(path)
+    if path_text not in sys.path:
+        sys.path.insert(0, path_text)
+
+
 def _check_budget() -> tuple[bool, float]:
-    """?쇱씪 ?덉궛 ?뺤씤. (within_budget, current_cost)"""
+    """Return whether the current daily cost is within budget."""
     try:
         from shared.telemetry.cost_tracker import get_daily_cost_summary
 
         summary = get_daily_cost_summary(days=1)
         current = summary.get("total_cost", 0.0)
-        # getdaytrends config?먯꽌 ?덉궛 濡쒕뱶
-        budget = 3.0  # 湲곕낯媛?
-        try:
-            sys.path.insert(0, str(unit_path("getdaytrends")))
+        budget = 3.0
+        with suppress(Exception):
+            _prepend_sys_path(unit_path("getdaytrends"))
             from config import AppConfig
 
-            cfg = AppConfig.from_env()  # type: ignore[attr-defined]
+            cfg = AppConfig.from_env()
             budget = cfg.daily_budget_usd
-        except Exception:
-            pass
         return current < budget, current
     except Exception:
         return True, 0.0
 
 
 def _notify(message: str) -> None:
-    """?뚮┝ ?꾩넚 (Telegram/Discord)."""
-    try:
+    """Send a best-effort notification if channels are configured."""
+    with suppress(Exception):
         from shared.notifications.notifier import Notifier
 
         notifier = Notifier.from_env()
         if notifier.has_channels:
             notifier.send(message)
-    except Exception:
-        pass
 
 
 def step_collect(dry_run: bool) -> StepResult:
-    """Step 1: GetDayTrends ?몃젋???섏쭛."""
+    """Step 1: collect GetDayTrends inputs."""
     result = StepResult(name="collect")
     if dry_run:
         result.status = "success"
         result.output = {"trends_count": 0, "message": "DRY-RUN: collect simulate"}
         return result
     try:
-        sys.path.insert(0, str(unit_path("getdaytrends")))
-        # main.py???섏쭛 濡쒖쭅 ?숈쟻 ?꾪룷??
+        _prepend_sys_path(unit_path("getdaytrends"))
         main_mod = importlib.import_module("main")
         if hasattr(main_mod, "collect_trends_sync"):
             trends = main_mod.collect_trends_sync()
@@ -154,14 +153,14 @@ def step_collect(dry_run: bool) -> StepResult:
         else:
             result.output = {"message": "collect_trends_sync not found, using scraper directly"}
         result.status = "success"
-    except Exception as e:
+    except Exception as exc:
         result.status = "failed"
-        result.error = str(e)
+        result.error = str(exc)
     return result
 
 
 def step_validate(dry_run: bool) -> StepResult:
-    """Step 2: Content-Intelligence 洹쒖젣 寃利?"""
+    """Step 2: run Content Intelligence validation if available."""
     result = StepResult(name="validate")
     if dry_run:
         result.status = "success"
@@ -170,25 +169,24 @@ def step_validate(dry_run: bool) -> StepResult:
     try:
         cie_path = unit_path("content-intelligence")
         if cie_path.exists():
-            sys.path.insert(0, str(cie_path))
+            _prepend_sys_path(cie_path)
             try:
-                reg_mod = importlib.import_module("regulators.checklist")
-                result.output = {"message": "洹쒖젣 泥댄겕由ъ뒪??濡쒕뱶??}
-                result.status = "success"
+                importlib.import_module("regulators.checklist")
+                result.output = {"message": "validation checklist loaded"}
             except ImportError:
-                result.status = "success"
-                result.output = {"message": "洹쒖젣 紐⑤뱢 湲곕낯 ?⑥뒪"}
+                result.output = {"message": "validation checklist unavailable"}
+            result.status = "success"
         else:
             result.status = "skipped"
             result.output = {"message": "content-intelligence missing"}
-    except Exception as e:
+    except Exception as exc:
         result.status = "failed"
-        result.error = str(e)
+        result.error = str(exc)
     return result
 
 
 def step_generate(dry_run: bool) -> StepResult:
-    """Step 3: 肄섑뀗痢??앹꽦."""
+    """Step 3: generate content."""
     result = StepResult(name="generate")
     if dry_run:
         result.status = "success"
@@ -200,7 +198,7 @@ def step_generate(dry_run: bool) -> StepResult:
 
 
 def step_publish(dry_run: bool) -> StepResult:
-    """Step 4: 諛쒗뻾."""
+    """Step 4: publish content."""
     result = StepResult(name="publish")
     if dry_run:
         result.status = "success"
@@ -212,7 +210,7 @@ def step_publish(dry_run: bool) -> StepResult:
 
 
 def step_track(dry_run: bool) -> StepResult:
-    """Step 5: ?깃낵 異붿쟻."""
+    """Step 5: track performance."""
     result = StepResult(name="track")
     if dry_run:
         result.status = "success"
@@ -221,13 +219,13 @@ def step_track(dry_run: bool) -> StepResult:
     try:
         tracker_path = unit_path("getdaytrends") / "performance_tracker.py"
         if tracker_path.exists():
-            result.output = {"message": "PerformanceTracker ?ъ슜 媛�??}
+            result.output = {"message": "PerformanceTracker available"}
         else:
-            result.output = {"message": "PerformanceTracker 誘몄꽕移?- ?ㅽ궢"}
+            result.output = {"message": "PerformanceTracker missing; skipping"}
         result.status = "success"
-    except Exception as e:
+    except Exception as exc:
         result.status = "failed"
-        result.error = str(e)
+        result.error = str(exc)
     return result
 
 
@@ -244,8 +242,8 @@ def run_pipeline(
     steps: list[str] | None = None,
     dry_run: bool = True,
 ) -> PipelineRun:
-    """?뚯씠?꾨씪???ㅽ뻾."""
-    now = datetime.now(timezone.utc)
+    """Run the configured pipeline steps."""
+    now = datetime.now(UTC)
     run = PipelineRun(
         run_id=now.strftime("%Y%m%d_%H%M%S"),
         started_at=now.isoformat(),
@@ -253,61 +251,54 @@ def run_pipeline(
     )
 
     target_steps = steps or PIPELINE_STEPS
-
-    # ?덉궛 ?뺤씤
     within_budget, current_cost = _check_budget()
     run.total_cost = current_cost
     if not within_budget and not dry_run:
-        _notify("[!] ?뚯씠?꾨씪??以묐떒: ?쇱씪 ?덉궛 珥덇낵")
+        _notify("[!] Pipeline blocked: daily cost budget exceeded")
         for step_name in target_steps:
-            run.steps.append(StepResult(name=step_name, status="skipped", error="?덉궛 珥덇낵"))
-        run.finished_at = datetime.now(timezone.utc).isoformat()
+            run.steps.append(StepResult(name=step_name, status="skipped", error="daily cost budget exceeded"))
+        run.finished_at = datetime.now(UTC).isoformat()
         return run
 
-    # ?④퀎蹂??ㅽ뻾
     for step_name in target_steps:
         if step_name not in STEP_FUNCTIONS:
-            run.steps.append(StepResult(name=step_name, status="skipped", error="?????녿뒗 ?④퀎"))
+            run.steps.append(StepResult(name=step_name, status="skipped", error="unknown pipeline step"))
             continue
 
         step_func = STEP_FUNCTIONS[step_name]
         step_start = time.time()
-        started_at = datetime.now(timezone.utc).isoformat()
+        started_at = datetime.now(UTC).isoformat()
 
         result = step_func(dry_run)
         result.started_at = started_at
         result.duration_sec = round(time.time() - step_start, 2)
-        result.finished_at = datetime.now(timezone.utc).isoformat()
+        result.finished_at = datetime.now(UTC).isoformat()
         run.steps.append(result)
 
-        # ?ㅽ뙣 ???댄썑 ?④퀎 以묐떒
         if result.status == "failed":
-            _notify(f"[!] ?뚯씠?꾨씪???ㅽ뙣: {step_name} - {result.error}")
-            for remaining in target_steps[target_steps.index(step_name) + 1:]:
-                run.steps.append(StepResult(name=remaining, status="skipped", error="?댁쟾 ?④퀎 ?ㅽ뙣"))
+            _notify(f"[!] Pipeline step failed: {step_name} - {result.error}")
+            for remaining in target_steps[target_steps.index(step_name) + 1 :]:
+                run.steps.append(StepResult(name=remaining, status="skipped", error="previous step failed"))
             break
 
-    run.finished_at = datetime.now(timezone.utc).isoformat()
+    run.finished_at = datetime.now(UTC).isoformat()
 
-    # ?꾨즺 ?뚮┝
-    success_count = sum(1 for s in run.steps if s.status == "success")
+    success_count = sum(1 for step in run.steps if step.status == "success")
     total = len(run.steps)
     mode = "DRY-RUN" if dry_run else "EXECUTE"
-    _notify(f"[OK] ?뚯씠?꾨씪???꾨즺 ({mode}): {success_count}/{total} ?깃났")
+    _notify(f"[OK] Pipeline completed ({mode}): {success_count}/{total} steps succeeded")
 
     return run
 
 
 def show_status() -> None:
-    """?꾩옱 ?쒖뒪???곹깭 ?쒖떆."""
+    """Print current orchestrator status."""
     print("=== Orchestrator Status ===\n")
 
-    # ?덉궛
     within, cost = _check_budget()
     budget_icon = "[OK]" if within else "[!]"
-    print(f"{budget_icon} ?쇱씪 鍮꾩슜: ${cost:.4f}")
+    print(f"{budget_icon} Daily cost: ${cost:.4f}")
 
-    # ?꾨줈?앺듃 議댁옱 ?щ?
     projects = {
         "GetDayTrends": WORKSPACE / rel_unit_path("getdaytrends", "main.py"),
         "Content-Intelligence": WORKSPACE / rel_unit_path("content-intelligence", "main.py"),
@@ -320,9 +311,6 @@ def show_status() -> None:
         exists = "[OK]" if path.exists() else "[--]"
         print(f"  {exists} {name}")
 
-    # ?뚮┝ 梨꾨꼸
-    import os
-
     channels = []
     if os.getenv("TELEGRAM_BOT_TOKEN"):
         channels.append("Telegram")
@@ -333,20 +321,20 @@ def show_status() -> None:
     print(f"\nNotification channels: {', '.join(channels) or 'None configured'}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Cross-project Pipeline Orchestrator")
-    parser.add_argument("--dry-run", action="store_true", help="?쒕??덉씠??紐⑤뱶")
-    parser.add_argument("--execute", action="store_true", help="?ㅼ젣 ?ㅽ뻾")
-    parser.add_argument("--steps", type=str, help="?ㅽ뻾???④퀎 (肄ㅻ쭏 援щ텇: collect,generate,publish)")
-    parser.add_argument("--status", action="store_true", help="?쒖뒪???곹깭 ?뺤씤")
-    parser.add_argument("--json", action="store_true", help="JSON 異쒕젰")
+    parser.add_argument("--dry-run", action="store_true", help="Simulate pipeline execution")
+    parser.add_argument("--execute", action="store_true", help="Run the pipeline")
+    parser.add_argument("--steps", type=str, help="Comma-separated steps, e.g. collect,generate,publish")
+    parser.add_argument("--status", action="store_true", help="Show orchestrator status")
+    parser.add_argument("--json", action="store_true", help="Print JSON output")
     args = parser.parse_args()
 
     if args.status:
         show_status()
         return
 
-    dry_run = not args.execute  # 湲곕낯媛? dry-run
+    dry_run = not args.execute
     steps = args.steps.split(",") if args.steps else None
 
     run = run_pipeline(steps=steps, dry_run=dry_run)

@@ -1,15 +1,18 @@
-from __future__ import annotations
-
 """
 Utilities for finding and resolving workspace unit paths in the AI Project monorepo.
 Handles mapping between logical unit IDs and physical paths via workspace-map.json.
 """
 
+from __future__ import annotations
+
 import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, cast
 
 WORKSPACE_MAP_FILENAME = "workspace-map.json"
+WorkspaceMap = dict[str, Any]
+WorkspaceUnit = dict[str, Any]
 
 
 def find_workspace_root(start: Path | None = None) -> Path:
@@ -25,16 +28,19 @@ def find_workspace_root(start: Path | None = None) -> Path:
 
 
 @lru_cache(maxsize=1)
-def load_workspace_map() -> dict:
+def load_workspace_map() -> WorkspaceMap:
     root = find_workspace_root()
-    return json.loads((root / WORKSPACE_MAP_FILENAME).read_text(encoding="utf-8"))
+    data = json.loads((root / WORKSPACE_MAP_FILENAME).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{WORKSPACE_MAP_FILENAME} must contain a JSON object")
+    return cast("WorkspaceMap", data)
 
 
-def get_unit(unit_id: str) -> dict:
+def get_unit(unit_id: str) -> WorkspaceUnit:
     workspace_map = load_workspace_map()
     for unit in workspace_map["units"]:
         if unit["id"] == unit_id:
-            return unit
+            return cast("WorkspaceUnit", unit)
     raise KeyError(f"Unknown workspace unit: {unit_id}")
 
 
@@ -42,7 +48,7 @@ def unit_path(unit_id: str, *, root: Path | None = None, prefer_legacy: bool = F
     workspace_root = root or find_workspace_root()
     unit = get_unit(unit_id)
     rel_path = unit["legacy_path"] if prefer_legacy else unit["canonical_path"]
-    return workspace_root / rel_path
+    return workspace_root / cast("str", rel_path)
 
 
 def rel_unit_path(unit_id: str, *parts: str, prefer_legacy: bool = False) -> str:
@@ -53,5 +59,5 @@ def rel_unit_path(unit_id: str, *parts: str, prefer_legacy: bool = False) -> str
     return str(path.relative_to(workspace_root))
 
 
-def iter_active_units() -> list[dict]:
-    return [unit for unit in load_workspace_map()["units"] if unit.get("active", False)]
+def iter_active_units() -> list[WorkspaceUnit]:
+    return [cast("WorkspaceUnit", unit) for unit in load_workspace_map()["units"] if unit.get("active", False)]

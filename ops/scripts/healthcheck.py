@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 Workspace healthcheck diagnostic script.
 Validates the structural integrity and basic health of multiple packages and UI applications within the monorepo workspace.
 Checks include package existence, basic imports, structural dependency drifts, NPM builds, etc.
 """
+
+from __future__ import annotations
 
 import json
 import os
@@ -15,17 +15,15 @@ import sys
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+
+from workspace_paths import find_workspace_root, iter_active_units, rel_unit_path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-
-from workspace_paths import find_workspace_root, rel_unit_path
-
 WORKSPACE = find_workspace_root()
 REPORT_HISTORY = SCRIPT_DIR / ".healthcheck-history.json"
 
-CHECKS = [
+CHECKS: list[dict[str, Any]] = [
     {
         "name": "getdaytrends",
         "type": "python",
@@ -48,8 +46,8 @@ CHECKS = [
         "name": "desci-backend",
         "type": "python",
         "checks": [
-            ("main", rel_unit_path("desci-platform", "biolinker", "main.py")),
-            ("packaging", rel_unit_path("desci-platform", "biolinker", "pyproject.toml")),
+            ("main", rel_unit_path("desci-platform", "backend", "main.py")),
+            ("packaging", rel_unit_path("desci-platform", "backend", "pyproject.toml")),
         ],
         "key_imports": ["fastapi", "uvicorn"],
         "requirements": None,
@@ -94,7 +92,7 @@ def check_file_exists(rel_path: str) -> tuple[bool, str]:
     return False, f"MISSING {rel_path}"
 
 
-def check_git_status() -> dict:
+def check_git_status() -> dict[str, Any]:
     try:
         result = subprocess.run(
             ["git", "status", "--short"],
@@ -111,9 +109,8 @@ def check_git_status() -> dict:
         return {"error": str(exc)}
 
 
-def check_env_files() -> list[dict]:
-    from workspace_paths import iter_active_units
-    results = []
+def check_env_files() -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
     # root .env check
     root_example = WORKSPACE / ".env.example"
     if root_example.exists():
@@ -128,16 +125,15 @@ def check_env_files() -> list[dict]:
     return results
 
 
-def check_python_imports(packages: list[str]) -> list[dict]:
-    results = []
+def check_python_imports(packages: list[str]) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
     for package in packages:
         try:
-            # 타임아웃 5초를 설정하여 별도 프로세스에서 임포트 확인
+            # 타임아웃 20초: cold-import가 무거운 패키지(예: anthropic ≈ 4.5s + pydantic/httpx 체인)는
+            # 병렬 세션 부하 시 5초를 넘겨 false TIMEOUT을 냈음. 진짜 망가진 import는 returncode!=0으로
+            # 즉시 실패하므로, 타임아웃은 행(hang) 가드 용도로만 충분히 크게 유지.
             proc = subprocess.run(
-                [sys.executable, "-c", f"import {package}"],
-                capture_output=True,
-                text=True,
-                timeout=5
+                [sys.executable, "-c", f"import {package}"], capture_output=True, text=True, timeout=20
             )
             if proc.returncode == 0:
                 results.append({"package": package, "ok": True, "message": f"OK {package}"})
@@ -150,8 +146,8 @@ def check_python_imports(packages: list[str]) -> list[dict]:
     return results
 
 
-def check_dependency_drift(req_path: str) -> list[dict]:
-    results = []
+def check_dependency_drift(req_path: str) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
     full_path = WORKSPACE / req_path
     if not full_path.exists():
         return results
@@ -206,7 +202,7 @@ def check_dependency_drift(req_path: str) -> list[dict]:
     return results
 
 
-def check_npm_build(rel_path: str) -> dict:
+def check_npm_build(rel_path: str) -> dict[str, Any]:
     full_path = WORKSPACE / rel_path
     if not full_path.exists():
         return {"ok": False, "message": f"MISSING {rel_path}"}
@@ -233,10 +229,10 @@ def check_npm_build(rel_path: str) -> dict:
         return {"ok": False, "message": f"FAILED build dry-run: {exc}"}
 
 
-def run_healthcheck() -> dict:
+def run_healthcheck() -> dict[str, Any]:
     git_status = check_git_status()
     env_files = check_env_files()
-    report = {
+    report: dict[str, Any] = {
         "timestamp": datetime.now().isoformat(),
         "version": "3.0",
         "workspace": str(WORKSPACE),
@@ -246,7 +242,7 @@ def run_healthcheck() -> dict:
     }
 
     for project in CHECKS:
-        project_result = {
+        project_result: dict[str, Any] = {
             "name": project["name"],
             "type": project["type"],
             "checks": [],
@@ -281,7 +277,7 @@ def run_healthcheck() -> dict:
     return report
 
 
-def detect_status_changes(current: dict) -> list[str]:
+def detect_status_changes(current: dict[str, Any]) -> list[str]:
     changes: list[str] = []
     if not REPORT_HISTORY.exists():
         return changes
@@ -301,7 +297,7 @@ def detect_status_changes(current: dict) -> list[str]:
     return changes
 
 
-def format_report(report: dict) -> str:
+def format_report(report: dict[str, Any]) -> str:
     lines = ["=" * 55, f"Health Check Report v{report['version']} @ {report['timestamp'][:19]}", "=" * 55]
 
     for project in report["projects"]:
@@ -312,6 +308,9 @@ def format_report(report: dict) -> str:
         if project["imports"]:
             failed_imports = [item for item in project["imports"] if not item["ok"]]
             lines.append(f"  - imports: {len(project['imports']) - len(failed_imports)}/{len(project['imports'])} OK")
+            # 실패한 import는 패키지명과 사유를 명시 (silent-swallow 방지)
+            for item in failed_imports:
+                lines.append(f"    · {item['message']}")
         if project["drift"]:
             lines.append(f"  - dependency drift: {len(project['drift'])}")
 
@@ -320,6 +319,9 @@ def format_report(report: dict) -> str:
     missing_env = [item for item in report.get("env_files", []) if not item["env_exists"]]
     if missing_env:
         lines.append(f"Missing .env files: {len(missing_env)}")
+        # 누락된 .env를 항목별로 명시 (silent-swallow 방지; 시크릿 자동 생성은 하지 않음)
+        for item in missing_env:
+            lines.append(f"  · {item['example']}")
     if report.get("status_changes"):
         lines.append("Status changes:")
         lines.extend([f"  - {change}" for change in report["status_changes"]])
@@ -329,7 +331,7 @@ def format_report(report: dict) -> str:
     return "\n".join(lines)
 
 
-def send_webhook(url: str, report: dict) -> None:
+def send_webhook(url: str, report: dict[str, Any]) -> None:
     healthy = sum(1 for project in report["projects"] if project["healthy"])
     total = len(report["projects"])
     unhealthy = [project["name"] for project in report["projects"] if not project["healthy"]]
@@ -353,12 +355,15 @@ def send_webhook(url: str, report: dict) -> None:
 
 def main() -> None:
     import argparse
+
     # Windows stdout UTF-8 설정
     if sys.platform == "win32":
         try:
-            if hasattr(sys.stdout, "reconfigure"):
-                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+            stdout_reconfigure = getattr(sys.stdout, "reconfigure", None)
+            stderr_reconfigure = getattr(sys.stderr, "reconfigure", None)
+            if callable(stdout_reconfigure) and callable(stderr_reconfigure):
+                stdout_reconfigure(encoding="utf-8", errors="replace")
+                stderr_reconfigure(encoding="utf-8", errors="replace")
         except Exception:
             pass
 
