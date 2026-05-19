@@ -1,17 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import selectinload
-from dependencies import get_db
-import models
-import schemas
-import uuid
-import json
-from datetime import UTC, datetime, timedelta
-from auth import get_current_user
-from services.chain_simulator import get_chain
-
+from fastapi import APIRouter, WebSocket
 from iot_service import get_current_status, get_latest_readings, handle_ws_connection
-
 
 router = APIRouter()
 
@@ -34,4 +22,3 @@ async def iot_readings(hours: int = 24):
 async def ws_iot(websocket: WebSocket):
     """실시간 IoT WebSocket 피드"""
     await handle_ws_connection(websocket)
-

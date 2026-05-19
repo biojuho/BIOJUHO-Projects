@@ -47,8 +47,7 @@ AB_TEST_HYPOTHESIS = {
     "version_b": {
         "name": "B - guided verification variant",
         "description": (
-            "Adds verification promise, clearer scan framing, stronger invalid-QR recovery, "
-            "and a manual fallback path."
+            "Adds verification promise, clearer scan framing, stronger invalid-QR recovery, and a manual fallback path."
         ),
     },
     "hypothesis": (
@@ -295,10 +294,7 @@ def render_markdown(
             "## Decision",
             "",
             f"- Outcome: {decision['summary']}",
-            (
-                f"- Verification relative lift: "
-                f"{format_metric(decision['verification_relative_lift'], percentage=True)}"
-            ),
+            (f"- Verification relative lift: {format_metric(decision['verification_relative_lift'], percentage=True)}"),
             f"- Time improved: {format_bool(decision['time_improved'])}",
             f"- Error rate not worse: {format_bool(decision['error_not_worse'])}",
             "",

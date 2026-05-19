@@ -237,9 +237,9 @@ def main() -> int:
         print(f"[ERROR] SQLite database not found: {args.sqlite_db}")
         return 1
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("AgriGuard Database Performance Benchmark")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # SQLite benchmark
     sqlite_url = f"sqlite:///{args.sqlite_db}"

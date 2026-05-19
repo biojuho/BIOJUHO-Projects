@@ -39,6 +39,7 @@ DATABASE_URL = get_database_url()
 
 # Use shared db engine factory for standardizations
 from shared.db.engine import get_sqlalchemy_engine
+
 engine = get_sqlalchemy_engine("agriguard", DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

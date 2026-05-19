@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import pytest
-from fastapi import HTTPException
-
 import auth
+import pytest
 from admin import AdminAuth
+from fastapi import HTTPException
 
 
 class _FakeRequest:

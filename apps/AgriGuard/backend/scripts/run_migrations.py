@@ -81,7 +81,7 @@ def main() -> int:
     print(f"Running Alembic migrations against {_display_database_target()}...")
 
     if _needs_legacy_baseline(database_url):
-        print("Detected a pre-Alembic baseline database; stamping revision " f"{BASELINE_REVISION} before upgrade.")
+        print(f"Detected a pre-Alembic baseline database; stamping revision {BASELINE_REVISION} before upgrade.")
         command.stamp(config, BASELINE_REVISION)
 
     command.upgrade(config, "head")

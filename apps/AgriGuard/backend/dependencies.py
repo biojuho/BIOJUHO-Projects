@@ -1,5 +1,7 @@
-﻿from database import SessionLocal
 from typing import Any
+
+from database import SessionLocal
+
 
 def get_db():
     db = SessionLocal()
@@ -8,20 +10,34 @@ def get_db():
     finally:
         db.close()
 
+
 try:
     from shared.cache import close_cache, get_cache
 except ImportError:
     try:
         from packages.shared.cache import close_cache, get_cache
     except ImportError:
+
         class _NoOpCache:
-            '''Safe fallback when the shared cache package is unavailable.'''
-            async def get(self, key: str) -> Any: return None
-            async def set(self, key: str, value: Any, ttl: int = 60) -> None: pass
-            async def delete(self, key: str) -> None: pass
-            async def exists(self, key: str) -> bool: return False
-            async def incr(self, key: str, ttl: int = 60) -> int: return 1
-            async def close(self) -> None: pass
+            """Safe fallback when the shared cache package is unavailable."""
+
+            async def get(self, key: str) -> Any:
+                return None
+
+            async def set(self, key: str, value: Any, ttl: int = 60) -> None:
+                pass
+
+            async def delete(self, key: str) -> None:
+                pass
+
+            async def exists(self, key: str) -> bool:
+                return False
+
+            async def incr(self, key: str, ttl: int = 60) -> int:
+                return 1
+
+            async def close(self) -> None:
+                pass
 
         _CACHE_FALLBACK = _NoOpCache()
 

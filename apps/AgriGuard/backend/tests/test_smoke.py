@@ -3,8 +3,8 @@ AgriGuard Backend Smoke Tests
 Tests core API endpoints and seed_db functionality.
 """
 
-import json
 import importlib.util
+import json
 import os
 import sqlite3
 import subprocess
@@ -40,6 +40,7 @@ def _python_can_import(import_stmt: str) -> bool:
         text=True,
     )
     return result.returncode == 0
+
 
 def test_imports():
     """Verify all core modules can be imported without error."""

@@ -6,7 +6,6 @@ from dependencies import get_cache, get_db
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, selectinload
 
-
 router = APIRouter()
 
 # Fallback values used when the DB has no real data yet (demo mode)
@@ -68,12 +67,7 @@ async def get_frontend_dashboard_summary(db: Session = Depends(get_db)):
     )
     active_cycles = total_products - harvested_products
 
-    recent_events = (
-        db.query(models.TrackingEvent)
-        .order_by(models.TrackingEvent.timestamp.desc())
-        .limit(5)
-        .all()
-    )
+    recent_events = db.query(models.TrackingEvent).order_by(models.TrackingEvent.timestamp.desc()).limit(5).all()
     recent_activity = [_format_tracking_event_as_activity(event) for event in recent_events]
 
     if not recent_activity:
