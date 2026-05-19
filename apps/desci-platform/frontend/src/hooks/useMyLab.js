@@ -14,14 +14,16 @@ export function useMyLab() {
     const showToastRef = useRef(showToast);
     const tRef = useRef(t);
 
-    showToastRef.current = showToast;
-    tRef.current = t;
-
     const [papers, setPapers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [mintingIds, setMintingIds] = useState({});
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [mintResult, setMintResult] = useState(EMPTY_MINT_RESULT);
+
+    useEffect(() => {
+        showToastRef.current = showToast;
+        tRef.current = t;
+    }, [showToast, t]);
 
     useEffect(() => {
         let cancelled = false;

@@ -18,19 +18,15 @@ export default function UploadPaper() {
     const [authors, setAuthors] = useState('');
     const [abstract, setAbstract] = useState('');
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadStatusText, setUploadStatusText] = useState('');
+    const { t } = useLocale();
+    const [uploadStatusText, setUploadStatusText] = useState(() => t('uploadPaper.statusPreparing'));
     const [termsAgreed, setTermsAgreed] = useState(false);
     const [mintTxHash, setMintTxHash] = useState(null);
     const [rewardTxHash, setRewardTxHash] = useState(null);
     const abortControllerRef = useRef(null);
     const { showToast } = useToast();
     const { walletAddress } = useAuth();
-    const { t } = useLocale();
     const { job: jobStatus, watchJob, clearJob } = useJobProgress();
-
-    useEffect(() => {
-        setUploadStatusText(t('uploadPaper.statusPreparing'));
-    }, [t]);
 
     useEffect(() => () => {
         if (abortControllerRef.current) {

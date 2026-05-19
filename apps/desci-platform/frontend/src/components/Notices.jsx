@@ -81,8 +81,32 @@ export default function Notices() {
     };
 
     useEffect(() => {
-        fetchNotices();
-    }, [fetchNotices]);
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const params = { limit };
+                if (sourceFilter) params.source = sourceFilter;
+                const response = await client.get('/notices', { params });
+                if (!cancelled) {
+                    setNotices(Array.isArray(response.data) ? response.data : []);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Failed to fetch notices:', err);
+                    showToast(formatSupportError(err, t('notices.fetchFailed')), 'error');
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [limit, showToast, sourceFilter, t]);
 
     const filtered = notices.filter((notice) => {
         if (!searchTerm) return true;

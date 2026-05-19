@@ -11,6 +11,25 @@ import { Button } from './ui/Button';
 import GlassCard from './ui/GlassCard';
 import { Input } from './ui/Input';
 
+function toVoteBigInt(value) {
+  if (typeof value === 'bigint') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return BigInt(Math.trunc(value));
+  if (typeof value === 'string' && /^\d+$/.test(value)) return BigInt(value);
+  return 0n;
+}
+
+function formatVoteCount(value) {
+  return toVoteBigInt(value).toString();
+}
+
+function getVoteShare(numerator, denominator) {
+  const total = toVoteBigInt(denominator);
+  if (total === 0n) return 0;
+
+  const scaled = (toVoteBigInt(numerator) * 10000n) / total;
+  return Number(scaled) / 100;
+}
+
 export default function Governance() {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,18 +41,19 @@ export default function Governance() {
   const { t } = useLocale();
 
   const stateLabels = useMemo(() => ({
-    0: { text: t('governance.statePending'), variant: 'warning' },
-    1: { text: t('governance.stateActive'), variant: 'info' },
-    2: { text: t('governance.statePassed'), variant: 'success' },
-    3: { text: t('governance.stateRejected'), variant: 'error' },
-    4: { text: t('governance.stateExecuted'), variant: 'accent' },
+    '0': { text: t('governance.statePending'), variant: 'warning' },
+    '1': { text: t('governance.stateActive'), variant: 'info' },
+    '2': { text: t('governance.statePassed'), variant: 'success' },
+    '3': { text: t('governance.stateRejected'), variant: 'error' },
+    '4': { text: t('governance.stateQueued'), variant: 'warning' },
+    '5': { text: t('governance.stateExecuted'), variant: 'accent' },
   }), [t]);
 
   useEffect(() => {
     loadProposals();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadProposals = async () => {
+  async function loadProposals() {
     try {
       const response = await api.get('/governance/proposals');
       setProposals(response.data);
@@ -42,7 +62,7 @@ export default function Governance() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleCreate = async () => {
     if (!newTitle.trim() || !newDesc.trim()) {
@@ -131,9 +151,12 @@ export default function Governance() {
           </GlassCard>
         ) : (
           proposals.map((proposal, index) => {
-            const state = stateLabels[proposal.state] || stateLabels[0];
-            const totalVotes = (proposal.for_votes || 0) + (proposal.against_votes || 0);
-            const forPct = totalVotes > 0 ? ((proposal.for_votes || 0) / totalVotes) * 100 : 0;
+            const proposalState = String(proposal.state ?? 0);
+            const state = stateLabels[proposalState] || stateLabels['0'];
+            const forVotes = toVoteBigInt(proposal.for_votes);
+            const againstVotes = toVoteBigInt(proposal.against_votes);
+            const totalVotes = forVotes + againstVotes;
+            const forPct = getVoteShare(forVotes, totalVotes);
 
             return (
               <motion.div key={proposal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06 }}>
@@ -153,8 +176,8 @@ export default function Governance() {
 
                   <div className="clay-panel-pressed rounded-[1.6rem] p-4">
                     <div className="mb-2 flex justify-between text-sm text-ink-muted">
-                      <span>{t('governance.votesFor')}: {proposal.for_votes || 0}</span>
-                      <span>{t('governance.votesAgainst')}: {proposal.against_votes || 0}</span>
+                      <span>{t('governance.votesFor')}: {formatVoteCount(forVotes)}</span>
+                      <span>{t('governance.votesAgainst')}: {formatVoteCount(againstVotes)}</span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-white/70">
                       <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${forPct}%` }} />
@@ -163,7 +186,7 @@ export default function Governance() {
 
                   <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <span className="text-sm text-ink-muted">{t('governance.endDate')}: {new Date(proposal.end_time).toLocaleDateString()}</span>
-                    {proposal.state === 1 && (
+                    {proposalState === '1' && (
                       <div className="flex gap-2">
                         <Button variant="success" size="sm" onClick={() => handleVote(proposal.id, true)}>{t('governance.voteFor')}</Button>
                         <Button variant="destructive" size="sm" onClick={() => handleVote(proposal.id, false)}>{t('governance.voteAgainst')}</Button>

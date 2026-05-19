@@ -88,20 +88,24 @@ export default function BioLinker() {
     }, [clearJob, showToast, t, updateMatch, updateUi, watchJob]);
 
     useEffect(() => {
-        if (location.state?.from_notice) {
+        if (!location.state?.from_notice) return;
+
+        queueMicrotask(() => {
             updateUi({ activeTab: 'rfp_analysis' });
             if (location.state.rfp_text) updateRfp({ text: location.state.rfp_text });
             if (location.state.rfp_title) {
                 showToast({ key: 'biolinker.noticeLoaded', values: { title: location.state.rfp_title } }, 'info');
             }
-        }
+        });
     }, [location.state, showToast, updateRfp, updateUi]);
 
     useEffect(() => {
-        if (paperId) {
+        if (!paperId) return;
+
+        queueMicrotask(() => {
             updateUi({ activeTab: 'paper_match' });
-            fetchMatches(paperId);
-        }
+            void fetchMatches(paperId);
+        });
     }, [fetchMatches, paperId, updateUi]);
 
     const handleProfileChange = useCallback((field, value) => {

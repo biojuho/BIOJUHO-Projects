@@ -11,7 +11,7 @@ export default function AssetManager() {
     const { showToast } = useToast();
     const { t } = useLocale();
     const [assets, setAssets] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [selectedType, setSelectedType] = useState('ir');
 
@@ -36,8 +36,30 @@ export default function AssetManager() {
     }, [showToast, t]);
 
     useEffect(() => {
-        fetchAssets();
-    }, [fetchAssets]);
+        let cancelled = false;
+
+        api.get('/assets')
+            .then((response) => {
+                if (!cancelled) {
+                    setAssets(response.data);
+                }
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    console.error(error);
+                    showToast(formatSupportError(error, t('assetManager.loadFailed')), 'error');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [showToast, t]);
 
     const handleFileUpload = async (event) => {
         const file = event.target.files?.[0];

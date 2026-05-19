@@ -95,8 +95,35 @@ export default function ProductReadinessPanel() {
   }, []);
 
   useEffect(() => {
-    fetchReadiness();
-  }, [fetchReadiness]);
+    let cancelled = false;
+
+    client.get('/ready', { timeout: 10_000 })
+      .then((response) => {
+        if (!cancelled) {
+          setReadiness(response.data);
+          setError(null);
+        }
+      })
+      .catch((nextError) => {
+        if (!cancelled) {
+          setReadiness({
+            status: 'unavailable',
+            summary: { ready_count: 0, total: 0, required_ready_count: 0, required_total: 0 },
+            checks: [],
+          });
+          setError(nextError);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const checks = Array.isArray(readiness?.checks) ? readiness.checks : [];
   const summary = readiness?.summary ?? {};

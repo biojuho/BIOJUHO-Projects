@@ -78,16 +78,14 @@ export default function PricingPage() {
     const isKo = locale === 'ko-KR';
     const [billing, setBilling] = useState('monthly');
     const [loadingTier, setLoadingTier] = useState(null);
-    const [currentTier, setCurrentTier] = useState('free');
+    const [accountTier, setAccountTier] = useState('free');
+    const currentTier = user ? accountTier : 'free';
 
     useEffect(() => {
-        if (!user) {
-            setCurrentTier('free');
-            return;
-        }
+        if (!user) return;
 
         api.get('/subscription/tier')
-            .then((response) => setCurrentTier(response.data?.tier || 'free'))
+            .then((response) => setAccountTier(response.data?.tier || 'free'))
             .catch(() => {});
     }, [user]);
 
@@ -102,7 +100,7 @@ export default function PricingPage() {
         try {
             const { data } = await api.post('/subscription/checkout', { tier: tierId, billing });
             if (data.checkout_url) {
-                window.location.href = data.checkout_url;
+                window.location.assign(data.checkout_url);
             }
         } catch (error) {
             console.error('Checkout error:', error);
