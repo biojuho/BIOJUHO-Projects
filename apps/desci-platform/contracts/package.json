@@ -5,18 +5,35 @@
   "description": "Smart contracts for DeSci Platform",
   "main": "index.js",
   "scripts": {
-    "test": "hardhat test",
-    "compile": "hardhat compile",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:sepolia": "hardhat run scripts/deploy_sepolia.js --network sepolia",
-    "deploy:amoy": "hardhat run scripts/deploy_amoy.js --network amoy"
+    "build": "hardhat --build-profile default build",
+    "clean": "hardhat clean",
+    "test:config": "node --test tests/runtime-config.test.js",
+    "test:contracts": "hardhat test",
+    "test": "npm run test:config && npm run test:contracts",
+    "test:gas": "hardhat --gas-stats test",
+    "compile": "hardhat --build-profile default compile",
+    "deploy:local": "hardhat --build-profile default --network localhost run scripts/deploy.js",
+    "deploy:nft:local": "hardhat --build-profile default --network localhost run scripts/deploy_nft.js",
+    "deploy:sepolia": "hardhat --build-profile default --network sepolia run scripts/deploy_sepolia.js",
+    "deploy:nft:sepolia": "hardhat --build-profile default --network sepolia run scripts/deploy_nft.js",
+    "deploy:amoy": "hardhat --build-profile default --network amoy run scripts/deploy_amoy.js",
+    "deploy:nft:amoy": "hardhat --build-profile default --network amoy run scripts/deploy_nft.js",
+    "deploy:smoke:core": "hardhat --build-profile default run scripts/deploy.js",
+    "deploy:smoke:nft": "hardhat --build-profile default run scripts/deploy_nft.js"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
-    "hardhat": "^2.22.2"
+    "@nomicfoundation/hardhat-ethers": "^4.0.11",
+    "@nomicfoundation/hardhat-ethers-chai-matchers": "^3.0.8",
+    "@nomicfoundation/hardhat-mocha": "^3.0.19",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.8",
+    "@nomicfoundation/hardhat-verify": "^3.0.17",
+    "chai": "^6.2.2",
+    "ethers": "^6.14.0",
+    "hardhat": "^3.4.5",
+    "mocha": "^11.0.0"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.6.1",
-    "dotenv": "^16.4.5"
+    "dotenv": "^17.4.2"
   }
 }

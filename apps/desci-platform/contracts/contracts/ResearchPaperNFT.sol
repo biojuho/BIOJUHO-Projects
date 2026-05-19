@@ -18,6 +18,7 @@ contract ResearchPaperNFT is ERC721, ERC721URIStorage, ERC2981, Ownable {
     }
 
     function mintPaper(address to, string memory uri) public onlyOwner returns (uint256) {
+        require(bytes(uri).length > 0, "Token URI required");
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
