@@ -11,10 +11,9 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
-
 
 LLM_KEYS = ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY")
 FIREBASE_FRONTEND_KEYS = (
@@ -24,6 +23,11 @@ FIREBASE_FRONTEND_KEYS = (
     "VITE_FIREBASE_STORAGE_BUCKET",
     "VITE_FIREBASE_MESSAGING_SENDER_ID",
     "VITE_FIREBASE_APP_ID",
+)
+WEB3_CONTRACT_KEYS = (
+    "DSCI_CONTRACT_ADDRESS",
+    "NFT_CONTRACT_ADDRESS",
+    "DESCI_DAO_CONTRACT_ADDRESS",
 )
 
 PLACEHOLDER_FRAGMENTS = (
@@ -231,7 +235,8 @@ def run_checks(env: dict[str, str], *, profile: str) -> list[EnvCheck]:
             "ipfs",
             "IPFS/Pinata",
             required=False,
-            ok=is_configured(env, "PINATA_JWT") or (is_configured(env, "PINATA_API_KEY") and is_configured(env, "PINATA_API_SECRET")),
+            ok=is_configured(env, "PINATA_JWT")
+            or (is_configured(env, "PINATA_API_KEY") and is_configured(env, "PINATA_API_SECRET")),
             keys=("PINATA_JWT", "PINATA_API_KEY", "PINATA_API_SECRET"),
             pass_message="IPFS credentials are configured.",
             missing_message="IPFS credentials are not configured.",
@@ -241,11 +246,15 @@ def run_checks(env: dict[str, str], *, profile: str) -> list[EnvCheck]:
             "web3",
             "Web3 contracts",
             required=False,
-            ok=is_configured(env, "WEB3_RPC_URL") and is_configured(env, "DSCI_CONTRACT_ADDRESS"),
-            keys=("WEB3_RPC_URL", "DSCI_CONTRACT_ADDRESS", "NFT_CONTRACT_ADDRESS", "DISTRIBUTOR_PRIVATE_KEY"),
-            pass_message="Web3 RPC and contract address are configured.",
+            ok=is_truthy(env.get("MOCK_MODE"))
+            or (is_configured(env, "WEB3_RPC_URL") and bool(configured_keys(env, WEB3_CONTRACT_KEYS))),
+            keys=("MOCK_MODE", "WEB3_RPC_URL", *WEB3_CONTRACT_KEYS, "DISTRIBUTOR_PRIVATE_KEY"),
+            pass_message="Web3 mock mode or deployed contract configuration is present.",
             missing_message="Web3 contract config is incomplete.",
-            remediation="Set WEB3_RPC_URL and contract addresses after deployment. Keep DISTRIBUTOR_PRIVATE_KEY in a secret manager.",
+            remediation=(
+                "Set MOCK_MODE=true for local demos, or configure WEB3_RPC_URL plus at least one deployed "
+                "DSCI/NFT/DAO contract address. Keep DISTRIBUTOR_PRIVATE_KEY in a secret manager."
+            ),
         ),
         make_check(
             "stripe",

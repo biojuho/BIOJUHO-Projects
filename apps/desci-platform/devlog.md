@@ -1,5 +1,70 @@
 # Devlog: Desci Platform (BioLinker)
 
+## 2026-05-16 (launch control finalization)
+
+### 1. Operator launch control
+- Added `GET /launch` as an operator-facing decision endpoint on top of `/ready`.
+- The endpoint summarizes subsystem readiness into `go`, `go-with-watch`, or `no-go`, with blocker counts, readiness scores, and remediation-focused next actions.
+- Kept `/ready` as the lower-level subsystem report so product UI, smoke scripts, and operators can share the same source of truth.
+
+### 2. Product smoke and release gate reporting
+- Extended `scripts/product_smoke.py` to validate `/launch` alongside `/health` and `/ready`.
+- Made strict smoke fail on `release_decision=no-go`, giving demos and production handoffs a clear stop signal.
+- Added `--continue-on-failure` and richer JSON summaries to `scripts/release_gate.py` so failed release runs can still produce a complete operator report.
+
+### 3. Documentation polish
+- Replaced the DeSci README with a clean launch-oriented overview that explains system shape, quick start, launch control, release gate usage, production environment requirements, and key APIs.
+- Updated the operations runbook to document the `/launch` decision model and JSON release gate flow.
+
+### 4. Validation
+- Backend API regression suite passed: `20 passed`.
+- Targeted release gate tests passed: `7 passed`.
+- Contract runtime-config tests passed: `10 passed`.
+- Release gate dry-run confirmed the new flags and JSON output path behavior.
+
+## 2026-05-15 (workspace contract gate hardening and docs alignment)
+
+### 1. Workspace contract quality gate
+- Promoted contract regression checks into the default workspace smoke matrix for both `desci-platform` and `AgriGuard`.
+- The workspace gate now validates contract compile plus contract tests, not just frontend/backend health.
+
+### 2. Hardhat runtime safety
+- Added explicit runtime config validation around signer requirements, private-key normalization, and explorer API-key expectations for remote verification flows.
+- Bound those rules to executable config tests so `npm run test` catches configuration regressions before Solidity tests run.
+
+### 3. AgriGuard contract stabilization
+- Repaired the AgriGuard Hardhat 3 test setup by switching to `network.create()` and replacing deprecated revert matchers with explicit custom-error assertions.
+- Mirrored the DeSci contract safety model in AgriGuard so both projects now share the same deployment guardrails.
+
+### 4. Documentation cleanup
+- Updated DeSci README and deployment docs to use the live `backend/` structure instead of the legacy `biolinker/` path in operational commands.
+- Added contract compile/test commands and `--scope desci` smoke guidance to the docs so operator instructions match the automated quality gate.
+
+## 2026-05-15 (release hardening and governance alignment)
+
+### 1. Contracts and governance
+- Hardened the Hardhat 3 configuration for safer environment handling, build profiles, and verification flows.
+- Enabled `ERC20Votes` on `DeSciToken` so governance uses historical vote checkpoints instead of live balances.
+- Updated `DeSciDAO` quorum and state handling to use snapshot-based voting power and clearer proposal lifecycle states.
+- Added shared deployment helpers and smoke deployment scripts for the token, NFT, and DAO contracts.
+
+### 2. Backend and operations
+- Expanded the local release gate to include contract build, contract tests, and contract deployment smoke checks.
+- Updated environment diagnostics and readiness checks to understand `MOCK_MODE` and optional DAO contract wiring.
+- Hardened RabbitMQ and worker startup so lean environments without `pika` degrade safely instead of failing at import time.
+- Replaced the placeholder worker TODO path with explicit job routing for notice collection, paper indexing, matching, and proposal generation.
+
+### 3. Frontend product surface
+- Fixed governance proposal state mapping so queued and executed states match the on-chain enum.
+- Normalized governance vote formatting for large integer payloads and only show vote actions while proposals are active.
+- Removed the remaining React 19 lint warnings across product screens by tightening initial-load and effect synchronization patterns.
+- Kept pricing, upload, notices, readiness, and my-lab flows behaviorally stable while improving lint safety.
+
+### 4. Validation
+- Full local release gate passed, including Docker Compose validation, backend tests, frontend lint/typecheck/tests/build/bundle checks, contract tests, and contract deployment smoke.
+- Frontend lint is now clean with zero warnings in the current tree.
+- Backend regression coverage was extended for env doctor, release gate, readiness, and worker dispatch behavior.
+
 ## 2026-02-06 (플랫폼 확장)
 
 ### 1. 핵심 기능 구현 (MVP)

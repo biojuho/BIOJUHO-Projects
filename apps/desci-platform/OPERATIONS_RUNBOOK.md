@@ -8,7 +8,7 @@ Run the local release gate before handing the build to deployment:
 
 ```bash
 cd apps/desci-platform
-python scripts/release_gate.py
+python scripts/release_gate.py --json-out ../../var/desci-release-gate.json
 ```
 
 In CI environments that use uv-managed Python dependencies, run:
@@ -18,7 +18,14 @@ uv run python apps/desci-platform/scripts/release_gate.py --python-command "uv r
 ```
 
 The gate runs environment preflight, Docker Compose validation, backend tests,
-frontend lint/typecheck/tests, production build, and bundle budget checks.
+frontend lint/typecheck/tests, production build, bundle budget checks, contract
+build/tests, and local contract deployment smoke checks.
+
+When you need a complete failure inventory instead of fail-fast behavior, run:
+
+```bash
+python scripts/release_gate.py --continue-on-failure --json-out ../../var/desci-release-gate.json
+```
 
 ## 2. Environment Preflight
 
@@ -53,6 +60,10 @@ cd apps/desci-platform/backend
 python -m pytest tests -q
 ```
 
+This backend suite now covers the job API contract, including creation,
+validation failures, auth failures, polling, SSE progress snapshots, readiness
+signals, env doctor wiring, and worker dispatch behavior.
+
 ## 5. Frontend Tests
 
 ```bash
@@ -64,7 +75,17 @@ npm run build:lts
 npm run check:bundle
 ```
 
-## 6. Runtime Smoke
+## 6. Contract Checks
+
+```bash
+cd apps/desci-platform/contracts
+npm run build
+npm run test
+npm run deploy:smoke:core
+npm run deploy:smoke:nft
+```
+
+## 7. Runtime Smoke
 
 With backend and frontend running:
 
@@ -73,6 +94,9 @@ cd apps/desci-platform
 python scripts/product_smoke.py --api http://127.0.0.1:8000 --frontend http://127.0.0.1:5173
 python scripts/browser_smoke.py --frontend http://127.0.0.1:5173
 ```
+
+`product_smoke.py` validates `/health`, `/ready`, and `/launch`. The `/launch`
+endpoint is the operator-facing decision: `go`, `go-with-watch`, or `no-go`.
 
 Before public rollout, make readiness strict:
 
@@ -91,5 +115,5 @@ python scripts/product_smoke.py --strict-ready --api https://api.example.com --f
 ## Recommended Before Public Minting or Paid Checkout
 
 - Pinata/IPFS credentials.
-- Web3 RPC and deployed contract addresses.
+- Web3 RPC plus at least one deployed contract address, or `MOCK_MODE=true` for local demos.
 - Stripe secret key, webhook secret, and price IDs.

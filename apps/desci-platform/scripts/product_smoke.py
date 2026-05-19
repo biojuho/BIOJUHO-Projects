@@ -96,12 +96,35 @@ def assert_readiness(response: SmokeResponse, failures: list[str], *, strict_rea
         failures.append(f"ready: launch is blocked ({blockers or 'unknown blockers'})")
 
 
+def assert_launch(response: SmokeResponse, failures: list[str], *, strict_ready: bool) -> None:
+    if not response.data:
+        failures.append("launch: response is not JSON")
+        return
+
+    decision = response.data.get("release_decision")
+    if decision not in {"go", "go-with-watch", "no-go"}:
+        failures.append(f"launch: unexpected release_decision {decision!r}")
+
+    phase = response.data.get("operator_phase")
+    if phase not in {"launch-ready", "operator-review", "blocked"}:
+        failures.append(f"launch: unexpected operator_phase {phase!r}")
+
+    score = response.data.get("score") or {}
+    overall = score.get("overall_percent")
+    if not isinstance(overall, int) or not 0 <= overall <= 100:
+        failures.append("launch: score.overall_percent must be an integer from 0 to 100")
+
+    if strict_ready and decision == "no-go":
+        blockers = ", ".join(response.data.get("launch_blockers") or [])
+        failures.append(f"launch: release decision is no-go ({blockers or 'unknown blockers'})")
+
+
 def print_result(response: SmokeResponse) -> None:
     suffix = ""
-    if response.name == "ready" and response.data:
+    if response.name == "ready" and response.data or response.name == "health" and response.data:
         suffix = f" status={response.data.get('status')}"
-    elif response.name == "health" and response.data:
-        suffix = f" status={response.data.get('status')}"
+    if response.name == "launch" and response.data:
+        suffix = f" decision={response.data.get('release_decision')}"
     print(f"[smoke] {response.name:<10} {response.status} {response.elapsed_ms:7.1f}ms{suffix}")
 
 
@@ -120,6 +143,7 @@ def main() -> int:
         ("api", _url(args.api, "/")),
         ("health", _url(args.api, "/health")),
         ("ready", _url(args.api, "/ready")),
+        ("launch", _url(args.api, "/launch")),
     ]
     if not args.skip_frontend:
         checks.append(("frontend", _url(args.frontend, "/")))
@@ -144,12 +168,14 @@ def main() -> int:
         print_result(response)
         assert_ok(response, failures)
 
-        if name in {"api", "health", "ready"}:
+        if name in {"api", "health", "ready", "launch"}:
             assert_api_headers(response, failures)
         if name == "health":
             assert_health(response, failures)
         if name == "ready":
             assert_readiness(response, failures, strict_ready=args.strict_ready)
+        if name == "launch":
+            assert_launch(response, failures, strict_ready=args.strict_ready)
 
     if failures:
         print("\n[smoke] FAILED")

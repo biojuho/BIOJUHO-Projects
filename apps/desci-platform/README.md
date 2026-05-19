@@ -1,46 +1,48 @@
 # DSCI-DecentBio
 
-DSCI-DecentBio는 연구자와 투자자/펀더를 연결하는 DeSci 제품입니다. 연구자는 논문과 기술 자산을 등록하고, 플랫폼은 공고 수집, 벡터 매칭, AI 제안서 초안, 투자자 적합도, 리뷰/보상 흐름을 한 화면에서 운영합니다.
+DSCI-DecentBio is a DeSci operating system for research teams, funders, and
+operators. It connects paper intake, funding discovery, AI-assisted matching,
+proposal drafting, IPFS/Web3 asset workflows, governance, and launch readiness
+into one product surface.
 
-## 제품 흐름
+## What Is Built
 
-- Research Submission: PDF 논문과 초록을 등록하고 IPFS/벡터 인덱싱 흐름을 시작합니다.
-- Funding Radar: KDDF/NTIS 등 연구지원 공고를 수집하고 검색합니다.
-- Match Studio: 논문과 공고를 매칭하고 AI 제안서 초안을 생성합니다.
-- Investor View: VC 관점에서 연구 자산과 투자 적합도를 확인합니다.
-- Research Vault: 제출한 논문과 IP-NFT 민팅 상태를 관리합니다.
-- Governance Hub: 제안, 투표, 실행 상태를 추적합니다.
-- Product Readiness: `/ready` API와 대시보드 패널로 출시 준비도를 점검합니다.
+- Research submission: upload PDFs, capture metadata, index papers, and prepare IP-NFT minting.
+- Funding radar: collect KDDF/NTIS style notices and normalize them for search.
+- Match studio: match papers and researcher profiles against funding calls.
+- Proposal generation: draft grant/proposal material from the matched context.
+- Investor and asset views: expose research assets, readiness signals, and Web3 status.
+- Governance hub: create proposals, track voting, and inspect execution state.
+- Launch control: `/ready` exposes subsystem checks and `/launch` returns an operator go/no-go decision.
 
-## 기술 스택
+## System Shape
 
-- Frontend: React, Vite, TypeScript baseline, TanStack Query, Fetch API
-- Backend: FastAPI, async job runner, RabbitMQ worker option
-- Data: PostgreSQL/Supabase migration, Redis usage/job state fallback
-- Search: local vector store or Qdrant-compatible boundary
-- Storage/Web3: IPFS/Pinata, Web3 mock or contract integration
-- Mobile direction: Flutter/native 클라이언트가 REST/SSE API를 재사용할 수 있는 구조
+- Frontend: React, Vite, TanStack Query, Vitest, Playwright smoke coverage.
+- Backend: FastAPI, async job API, SSE job progress, Redis-backed fallback state, RabbitMQ worker option.
+- Data: PostgreSQL/Supabase migration path, local vector store, Qdrant-compatible boundary.
+- Web3/storage: Hardhat 3 contracts, local deploy smoke scripts, IPFS/Pinata integration.
+- Operations: env doctor, product smoke, browser smoke, one-command release gate.
 
-상세 스택 정렬 기록은 [STACK_ALIGNMENT.md](./STACK_ALIGNMENT.md)를 확인하세요.
+See [STACK_ALIGNMENT.md](./STACK_ALIGNMENT.md) for the architecture alignment notes.
 
-## 빠른 실행
+## Quick Start
 
-### 인프라 포함 실행
+Start infrastructure plus the worker when you want the full local system:
 
 ```bash
 cd apps/desci-platform
-docker compose --profile infra up postgres redis rabbitmq biolinker-worker
+docker compose --profile infra up postgres redis rabbitmq backend-worker
 ```
 
-### 백엔드
+Run the backend:
 
 ```bash
-cd apps/desci-platform/biolinker
+cd apps/desci-platform/backend
 uv sync --extra dev
 uv run uvicorn main:app --reload
 ```
 
-### 프론트엔드
+Run the frontend:
 
 ```bash
 cd apps/desci-platform/frontend
@@ -48,81 +50,87 @@ npm install
 npm run dev
 ```
 
-## 주요 API
-
-- `GET /health`: 하위 시스템 헬스 체크
-- `GET /ready`: 제품 출시 준비도 체크
-- `GET /jobs/{job_id}`: 장기 작업 상태 조회
-- `GET /jobs/{job_id}/events`: 장기 작업 SSE 진행률 스트림
-- `POST /jobs/notices/collect`: 공고 수집 작업 생성
-- `POST /jobs/papers/index`: 논문 재인덱싱 작업 생성
-- `POST /jobs/match/paper`: 논문-공고 매칭 작업 생성
-- `POST /jobs/proposal/generate`: 제안서 생성 작업 생성
-
-## 환경 변수
-
-시작점은 `.env.example`과 `biolinker/.env.example`입니다. 제품형 실행에는 최소 하나의 LLM 키와 인증 설정이 필요합니다.
-
-- `GOOGLE_API_KEY` 또는 `GEMINI_API_KEY` 또는 `OPENAI_API_KEY`
-- `GOOGLE_APPLICATION_CREDENTIALS` 또는 Firebase 서비스 계정 설정
-- `DATABASE_URL` 또는 Supabase 관련 키
-- `REDIS_URL`
-- `RABBITMQ_URL`
-- `PINATA_JWT` 또는 Pinata API 키
-
-개발 환경에서는 일부 서비스가 fallback으로 동작하지만, 대시보드의 Product Readiness 패널에서 출시 차단 항목을 확인할 수 있습니다.
-
-## 품질 게이트
-
-### 백엔드
+Run contract checks:
 
 ```bash
-cd apps/desci-platform/biolinker
-uv run pytest tests/test_api_endpoints.py tests/test_jobs.py -q
-```
-
-### 프론트엔드
-
-```bash
-cd apps/desci-platform/frontend
-npm run lint
-npm run typecheck
+cd apps/desci-platform/contracts
+npm install
 npm run test
-npm run build:lts
-npm run check:bundle
 ```
 
-### Compose 검증
+## Launch Control
+
+The product has two operator-facing readiness endpoints:
+
+- `GET /ready`: raw subsystem readiness checks with pass/warn/fail status.
+- `GET /launch`: final operator decision with `go`, `go-with-watch`, or `no-go`.
+
+Use strict smoke checks before a public demo or production handoff:
 
 ```bash
 cd apps/desci-platform
-docker compose config --quiet
+python scripts/product_smoke.py --strict-ready --api http://127.0.0.1:8000 --frontend http://127.0.0.1:5173
 ```
 
-### 제품 스모크 체크
+## Release Gate
 
-프론트엔드와 백엔드가 떠 있는 상태에서 실제 URL 기준으로 API, `/health`, `/ready`, 프론트 첫 화면을 확인합니다.
+Run the full local release gate:
 
 ```bash
 cd apps/desci-platform
-python scripts/product_smoke.py --api http://127.0.0.1:8000 --frontend http://127.0.0.1:5173
+python scripts/release_gate.py --json-out ../../var/desci-release-gate.json
 ```
 
-운영 배포 직전에는 readiness가 `blocked`이면 실패하도록 더 엄격하게 실행합니다.
+For a full diagnostic report even after a failure:
 
 ```bash
-python scripts/product_smoke.py --strict-ready
+python scripts/release_gate.py --continue-on-failure --json-out ../../var/desci-release-gate.json
 ```
 
-브라우저에서 실제 JS 라우팅과 콘솔 오류까지 확인하려면 프론트엔드가 실행 중인 상태에서 다음을 실행합니다.
+The gate validates environment readiness, Docker Compose config, backend tests,
+frontend lint/typecheck/tests/build/bundle budget, contract build/tests, and
+local contract deployment smoke scripts.
+
+## Production Environment Checklist
+
+Required before public launch:
+
+- `ENV=production`
+- At least one LLM key: `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, or `ANTHROPIC_API_KEY`
+- Auth credentials: `GOOGLE_APPLICATION_CREDENTIALS`, `FIREBASE_PROJECT_ID`, or `FIREBASE_SERVICE_ACCOUNT_JSON`
+- Frontend Firebase keys: all `VITE_FIREBASE_*` values
+- `VITE_API_BASE_URL` and `ALLOWED_ORIGINS`
+- `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`
+- `REDIS_URL` and `RABBITMQ_URL`
+
+Recommended before public minting or paid checkout:
+
+- `PINATA_JWT` or Pinata API key/secret pair
+- `WEB3_RPC_URL` plus deployed DSCI/NFT/DAO contract addresses
+- Stripe secret key, webhook secret, and price IDs
+
+Run the preflight directly:
 
 ```bash
-python scripts/browser_smoke.py --frontend http://127.0.0.1:5173
+cd apps/desci-platform
+python scripts/env_doctor.py --profile production --env-file .env.production --ignore-process-env
 ```
 
-## 운영 메모
+## Key API Surface
 
-- 프론트엔드는 장기 작업에 대해 EventSource 기반 SSE를 우선 사용하고, 미지원 환경에서는 폴링으로 fallback합니다.
-- Redis/RabbitMQ/PostgreSQL/Supabase는 제품형 운영에서 권장됩니다.
-- `/ready`의 `status`가 `blocked`이면 공개 데모 또는 운영 배포 전에 필수 항목을 먼저 해결해야 합니다.
-- 모든 API 응답에는 `X-Request-ID`가 포함됩니다. 고객 문의나 장애 분석 시 이 값을 로그 추적 키로 사용하세요.
+- `GET /health`: subsystem health and integration availability.
+- `GET /ready`: launch-readiness checks.
+- `GET /launch`: operator go/no-go decision.
+- `GET /jobs/{job_id}`: background job state.
+- `GET /jobs/{job_id}/events`: SSE progress stream.
+- `POST /jobs/notices/collect`: collect funding notices.
+- `POST /jobs/papers/index`: index papers.
+- `POST /jobs/match/paper`: match papers to notices.
+- `POST /jobs/proposal/generate`: generate proposal drafts.
+
+## More Operations Docs
+
+- [OPERATIONS_RUNBOOK.md](./OPERATIONS_RUNBOOK.md)
+- [API_SPEC.md](./API_SPEC.md)
+- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+- [QC_LOG.md](./QC_LOG.md)

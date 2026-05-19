@@ -16,16 +16,15 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 BACKEND_DIR = PROJECT_ROOT / "backend"
+CONTRACTS_DIR = PROJECT_ROOT / "contracts"
 
-DEFAULT_BACKEND_TESTS = (
-    "tests",
-)
+DEFAULT_BACKEND_TESTS = ("tests",)
 
 
 def _npm_command() -> str:
@@ -94,6 +93,17 @@ def build_steps(args: argparse.Namespace) -> list[GateStep]:
             ]
         )
 
+    if not args.skip_contracts:
+        npm = _npm_command()
+        steps.extend(
+            [
+                GateStep("contracts-build", (npm, "run", "build"), CONTRACTS_DIR),
+                GateStep("contracts-tests", (npm, "run", "test"), CONTRACTS_DIR),
+                GateStep("contracts-deploy-core", (npm, "run", "deploy:smoke:core"), CONTRACTS_DIR),
+                GateStep("contracts-deploy-nft", (npm, "run", "deploy:smoke:nft"), CONTRACTS_DIR),
+            ]
+        )
+
     return steps
 
 
@@ -146,8 +156,18 @@ def run_step(step: GateStep, *, dry_run: bool) -> GateResult:
 
 def write_json_report(path: Path, results: list[GateResult]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    failed = [result for result in results if not result.ok]
     payload = {
         "ok": all(result.ok for result in results),
+        "generated_at": datetime.now(UTC).isoformat(),
+        "duration_ms": sum(result.elapsed_ms for result in results),
+        "summary": {
+            "total": len(results),
+            "passed": sum(1 for result in results if result.ok and not result.skipped),
+            "failed": len(failed),
+            "skipped": sum(1 for result in results if result.skipped),
+            "failed_step": failed[0].name if failed else None,
+        },
         "results": [asdict(result) | {"ok": result.ok} for result in results],
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -164,7 +184,9 @@ def main() -> int:
     parser.add_argument("--skip-compose", action="store_true")
     parser.add_argument("--skip-backend", action="store_true")
     parser.add_argument("--skip-frontend", action="store_true")
+    parser.add_argument("--skip-contracts", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing them.")
+    parser.add_argument("--continue-on-failure", action="store_true", help="Run all steps before returning failure.")
     parser.add_argument("--json-out", help="Write a JSON report.")
     args = parser.parse_args()
 
@@ -172,7 +194,7 @@ def main() -> int:
     for step in build_steps(args):
         result = run_step(step, dry_run=args.dry_run)
         results.append(result)
-        if not result.ok:
+        if not result.ok and not args.continue_on_failure:
             break
 
     if args.json_out:

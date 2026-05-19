@@ -11,7 +11,6 @@ import argparse
 import sys
 from dataclasses import dataclass
 
-
 try:
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError

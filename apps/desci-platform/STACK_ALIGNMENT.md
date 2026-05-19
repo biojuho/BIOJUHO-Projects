@@ -80,10 +80,12 @@ forcing a risky rewrite.
   - `POST /jobs/proposal/generate` creates an AI proposal generation job.
   - `GET /jobs/{job_id}` returns progress, result, and event history.
   - `GET /jobs/{job_id}/events` streams progress as server-sent events.
-  - Jobs use Redis for cross-process state when configured, with an in-memory
-    fallback for local background tasks.
-  - RabbitMQ publishes jobs to `biolinker.jobs`; `python worker.py` consumes
-    and executes them.
+  - User-scoped job endpoints require auth and enforce paper ownership before
+    job creation or job reads.
+  - Jobs mirror snapshots into Redis when `REDIS_URL` is configured, with an
+    in-memory fallback for local execution.
+  - The current API runtime executes jobs in-process and exposes the same
+    snapshot contract for polling and SSE clients.
 - The Funding Radar frontend now starts notice collection through the job API
   and shows live progress before refreshing the notice list.
 - Research Submission saves a local paper manifest after upload so the API and
@@ -128,7 +130,7 @@ docker compose --profile infra up biolinker-worker
 ```
 
 ```bash
-cd apps/desci-platform/biolinker
+cd apps/desci-platform/backend
 python worker.py
 ```
 
