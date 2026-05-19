@@ -246,7 +246,7 @@ def embed_with_reasoning(
         for k in sorted_keys[: len(_CACHE) - _CACHE_MAX_SIZE]:
             del _CACHE[k]
 
-    log.debug(f"[AgentIR] {len(miss_texts)}개 임베딩 완료 " f"(mode={mode.value}, cache_hits={cache_hits})")
+    log.debug(f"[AgentIR] {len(miss_texts)}개 임베딩 완료 (mode={mode.value}, cache_hits={cache_hits})")
     return results  # type: ignore
 
 
@@ -485,9 +485,7 @@ def search(
         for idx, score in scored
     ]
 
-    log.debug(
-        f"[AgentIR 검색] top-{top_k} 완료 " f"(mode={mode.value}, latency={latency:.0f}ms, results={len(results)})"
-    )
+    log.debug(f"[AgentIR 검색] top-{top_k} 완료 (mode={mode.value}, latency={latency:.0f}ms, results={len(results)})")
     return results
 
 

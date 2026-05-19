@@ -21,8 +21,12 @@ import os
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 log = logging.getLogger("shared.llm.bitnet")
+
+Message = dict[str, Any]
+BitNetConfig = dict[str, str | int | float]
 
 # Root directory of the monorepo
 _ROOT = Path(__file__).resolve().parents[2]
@@ -32,7 +36,7 @@ _DEFAULT_BITNET_DIR = _ROOT / "BitNet"
 _DEFAULT_MODEL_PATH = _DEFAULT_BITNET_DIR / "models" / "BitNet-b1.58-2B-4T" / "ggml-model-i2_s.gguf"
 
 
-def _get_config() -> dict:
+def _get_config() -> BitNetConfig:
     """Read BitNet configuration from environment."""
     return {
         "model_path": os.getenv("BITNET_MODEL_PATH", str(_DEFAULT_MODEL_PATH)),
@@ -46,8 +50,8 @@ def _get_config() -> dict:
 def is_available() -> bool:
     """Check if BitNet model and binary are ready for inference."""
     config = _get_config()
-    model_path = Path(config["model_path"])
-    binary_dir = Path(config["binary_dir"])
+    model_path = Path(str(config["model_path"]))
+    binary_dir = Path(str(config["binary_dir"]))
 
     if not model_path.exists():
         log.debug("BitNet model not found: %s", model_path)
@@ -62,7 +66,7 @@ def is_available() -> bool:
     return True
 
 
-def _build_prompt(system: str, messages: list[dict]) -> str:
+def _build_prompt(system: str, messages: list[Message]) -> str:
     """Convert system + messages to a single text prompt for BitNet."""
     parts: list[str] = []
 
@@ -86,10 +90,10 @@ def _build_prompt(system: str, messages: list[dict]) -> str:
 def run_inference(
     *,
     system: str = "",
-    messages: list[dict],
+    messages: list[Message],
     max_tokens: int = 512,
     temperature: float | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Run BitNet inference and return result dict.
 
     Returns:
@@ -108,25 +112,30 @@ def run_inference(
     temp = temperature if temperature is not None else config["temperature"]
 
     # Build command
-    inference_script = Path(config["binary_dir"]) / "run_inference.py"
+    inference_script = Path(str(config["binary_dir"])) / "run_inference.py"
     cmd = [
         "python",
         str(inference_script),
         "-m",
-        config["model_path"],
+        str(config["model_path"]),
         "-p",
         prompt,
         "-n",
         str(max_tokens),
         "-t",
-        str(config["threads"]),
+        str(int(config["threads"])),
         "-c",
-        str(config["ctx_size"]),
+        str(int(config["ctx_size"])),
         "-temp",
         str(temp),
     ]
 
-    log.info("BitNet inference: threads=%d, ctx=%d, max_tokens=%d", config["threads"], config["ctx_size"], max_tokens)
+    log.info(
+        "BitNet inference: threads=%d, ctx=%d, max_tokens=%d",
+        int(config["threads"]),
+        int(config["ctx_size"]),
+        max_tokens,
+    )
     t0 = time.perf_counter()
 
     try:
@@ -135,7 +144,7 @@ def run_inference(
             capture_output=True,
             text=True,
             timeout=120,  # 2-minute timeout
-            cwd=config["binary_dir"],
+            cwd=str(config["binary_dir"]),
             encoding="utf-8",
             errors="replace",
         )

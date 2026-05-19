@@ -102,8 +102,8 @@ def create_reflection_subgraph(chat_model, tools: list):
 
     def generate_node(state: AgentState):
         latest_code = state["code_variants"][-1]["code"] if state.get("code_variants") else state.get("code_base", "")
-        prompt = f"""바이브: {state.get('vibe_input', '')}
-        이전 피드백: {state.get('feedback', [])}
+        prompt = f"""바이브: {state.get("vibe_input", "")}
+        이전 피드백: {state.get("feedback", [])}
         이전 코드: {latest_code}
         피드백을 반영하여 코드를 개선하고 재작성하세요."""
 
@@ -128,7 +128,7 @@ def create_reflection_subgraph(chat_model, tools: list):
             test_result = str(e)
 
         eval_prompt = f"""당신은 바이브코딩 전문 평가자입니다.
-        사용자 바이브: {state.get('vibe_input', '')}
+        사용자 바이브: {state.get("vibe_input", "")}
         생성된 코드: {latest_code}
         테스트 결과: {test_result}
 
@@ -207,7 +207,7 @@ def make_intent_analyzer_node(chat_model) -> Any:
     """Pre-planner step evaluating vibe domain."""
 
     def intent_analyzer(state: AgentState):
-        prompt = f"""사용자 바이브: {state.get('vibe_input', '')}
+        prompt = f"""사용자 바이브: {state.get("vibe_input", "")}
         이 요청의 핵심 도메인을 다음 중 하나로 분류하세요:
         ["frontend", "backend", "database", "general"]
         오직 JSON 응답만 허용됩니다: {{"domain": "선택된_도메인"}}
@@ -257,8 +257,8 @@ def make_supervisor_node(invoke_func) -> Any:
         tr = state.get("test_results")
         test_passed = tr.get("passed", False) if isinstance(tr, dict) else False
         prompt = f"""You are the Vibe Coding Supervisor.
-        Original User Vibe: {state.get('vibe_input', '')}
-        Current Tasks: {state.get('todos', [])}
+        Original User Vibe: {state.get("vibe_input", "")}
+        Current Tasks: {state.get("todos", [])}
         Current State: Test Passed={test_passed}.
 
         Determine who should act next.

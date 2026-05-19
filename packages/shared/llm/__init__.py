@@ -7,6 +7,7 @@ Usage:
     resp = client.create(tier=TaskTier.HEAVY, messages=[...], system="...")
     resp = await client.acreate(tier=TaskTier.LIGHTWEIGHT, messages=[...])
 """
+
 from __future__ import annotations
 
 import atexit

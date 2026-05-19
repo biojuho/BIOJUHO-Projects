@@ -12,8 +12,6 @@ Run:
 
 from __future__ import annotations
 
-import pytest
-
 from shared.llm.errors import (
     AuthError,
     ContentFilterError,
@@ -21,8 +19,8 @@ from shared.llm.errors import (
     LLMError,
     ModelNotFoundError,
     NetworkError,
-    QuotaExhaustedError,
     QualityGateError,
+    QuotaExhaustedError,
     RateLimitError,
     ServerError,
     classify_error,
@@ -30,14 +28,12 @@ from shared.llm.errors import (
     should_fallback_to_next_backend,
 )
 
-
 # ===========================================================================
 # 1. Error Hierarchy — retryable/non-retryable classification
 # ===========================================================================
 
 
 class TestErrorHierarchy:
-
     def test_base_llm_error_not_retryable(self):
         err = LLMError("unknown problem")
         assert err.retryable is False
@@ -84,7 +80,6 @@ class TestErrorHierarchy:
 
 
 class TestClassifyError:
-
     # --- Quota / Billing ---
 
     def test_credit_balance_low(self):
@@ -249,7 +244,6 @@ class TestClassifyError:
 
 
 class TestHelperFunctions:
-
     def test_is_retryable_for_quota(self):
         assert is_retryable(Exception("quota exceeded")) is True
 

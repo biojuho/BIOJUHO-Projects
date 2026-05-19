@@ -141,7 +141,7 @@ class PromptManager:
         """
         tpl = self._templates.get(template_name)
         if tpl is None:
-            raise KeyError(f"Prompt template '{template_name}' not found. " f"Available: {self.list_templates()}")
+            raise KeyError(f"Prompt template '{template_name}' not found. Available: {self.list_templates()}")
 
         few_shot_text = ""
         fs_key = kwargs.pop("few_shot_key", "") or tpl.few_shot_key

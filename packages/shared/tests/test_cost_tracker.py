@@ -21,7 +21,6 @@ import pytest
 from shared.llm.models import CostRecord, TaskTier
 from shared.llm.stats import CostTracker, UsageStats
 
-
 # ---------------------------------------------------------------------------
 # Fixtures — all in-memory (persist=False) to avoid touching disk
 # ---------------------------------------------------------------------------
@@ -117,7 +116,6 @@ class TestCostCalculation:
 
 
 class TestStatsAggregation:
-
     def test_empty_stats(self, tracker: CostTracker):
         stats = tracker.get_stats()
         assert stats.total_calls == 0
@@ -141,12 +139,9 @@ class TestStatsAggregation:
 
     def test_multi_backend_stats(self, tracker: CostTracker):
         """Stats should correctly separate backends and tiers."""
-        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY,
-                        input_tokens=1000, output_tokens=200)
-        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM,
-                        input_tokens=2000, output_tokens=500)
-        tracker.record("gemini", "gemini-2.5-flash-lite", TaskTier.LIGHTWEIGHT,
-                        input_tokens=500, output_tokens=100)
+        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY, input_tokens=1000, output_tokens=200)
+        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM, input_tokens=2000, output_tokens=500)
+        tracker.record("gemini", "gemini-2.5-flash-lite", TaskTier.LIGHTWEIGHT, input_tokens=500, output_tokens=100)
 
         stats = tracker.get_stats()
         assert stats.total_calls == 3
@@ -157,12 +152,9 @@ class TestStatsAggregation:
         assert stats.calls_by_tier["lightweight"] == 1
 
     def test_error_tracking(self, tracker: CostTracker):
-        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY,
-                        success=True)
-        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM,
-                        success=False, error="rate_limit_exceeded")
-        tracker.record("openai", "gpt-4o", TaskTier.HEAVY,
-                        success=False, error="billing_error")
+        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY, success=True)
+        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM, success=False, error="rate_limit_exceeded")
+        tracker.record("openai", "gpt-4o", TaskTier.HEAVY, success=False, error="billing_error")
 
         stats = tracker.get_stats()
         assert stats.total_calls == 3
@@ -171,10 +163,8 @@ class TestStatsAggregation:
 
     def test_cost_by_model_aggregation(self, tracker: CostTracker):
         """Same model called twice — costs should sum."""
-        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY,
-                        input_tokens=1000, output_tokens=500)
-        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY,
-                        input_tokens=1000, output_tokens=500)
+        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY, input_tokens=1000, output_tokens=500)
+        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY, input_tokens=1000, output_tokens=500)
 
         stats = tracker.get_stats()
         # Each call costs 0.0105, total = 0.021
@@ -182,10 +172,8 @@ class TestStatsAggregation:
         assert stats.total_cost_usd == pytest.approx(0.021, abs=1e-5)
 
     def test_token_tracking_by_backend(self, tracker: CostTracker):
-        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM,
-                        input_tokens=3000, output_tokens=1000)
-        tracker.record("gemini", "gemini-2.5-flash-lite", TaskTier.LIGHTWEIGHT,
-                        input_tokens=2000, output_tokens=500)
+        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM, input_tokens=3000, output_tokens=1000)
+        tracker.record("gemini", "gemini-2.5-flash-lite", TaskTier.LIGHTWEIGHT, input_tokens=2000, output_tokens=500)
 
         stats = tracker.get_stats()
         assert stats.tokens_by_backend["gemini"]["input"] == 5000
@@ -198,7 +186,6 @@ class TestStatsAggregation:
 
 
 class TestSuccessRate:
-
     def test_all_success(self, tracker: CostTracker):
         for _ in range(5):
             tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM, success=True)
@@ -206,8 +193,7 @@ class TestSuccessRate:
 
     def test_all_failures(self, tracker: CostTracker):
         for _ in range(3):
-            tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM,
-                            success=False, error="timeout")
+            tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM, success=False, error="timeout")
         assert tracker.get_stats().success_rate == 0.0
 
     def test_empty_returns_zero(self, tracker: CostTracker):
@@ -221,12 +207,9 @@ class TestSuccessRate:
 
 
 class TestReset:
-
     def test_reset_clears_in_memory(self, tracker: CostTracker):
-        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM,
-                        input_tokens=1000, output_tokens=500)
-        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM,
-                        input_tokens=1000, output_tokens=500)
+        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM, input_tokens=1000, output_tokens=500)
+        tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM, input_tokens=1000, output_tokens=500)
         assert tracker.get_stats().total_calls == 2
 
         tracker.reset()
@@ -236,8 +219,7 @@ class TestReset:
     def test_record_after_reset(self, tracker: CostTracker):
         tracker.record("gemini", "gemini-2.5-flash", TaskTier.MEDIUM)
         tracker.reset()
-        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY,
-                        input_tokens=500, output_tokens=100)
+        tracker.record("anthropic", "claude-sonnet-4-20250514", TaskTier.HEAVY, input_tokens=500, output_tokens=100)
 
         stats = tracker.get_stats()
         assert stats.total_calls == 1
@@ -251,7 +233,6 @@ class TestReset:
 
 
 class TestDataclassIntegrity:
-
     def test_cost_record_defaults(self):
         rec = CostRecord()
         assert rec.backend == ""

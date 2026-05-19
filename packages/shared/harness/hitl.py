@@ -68,8 +68,7 @@ def create_notifier_hitl_callback(
             notifier = Notifier.from_env()
             if not notifier.has_channels:
                 log.warning(
-                    "[HITL] No notification channels configured -- "
-                    "defaulting to %s for '%s'",
+                    "[HITL] No notification channels configured -- defaulting to %s for '%s'",
                     "approve" if auto_approve_on_timeout else "deny",
                     tool_name,
                 )
@@ -77,11 +76,7 @@ def create_notifier_hitl_callback(
 
             # Format the approval request
             input_preview = _format_input_preview(tool_input, max_chars=200)
-            message = (
-                f"[HITL] Approval Required\n"
-                f"Tool: {tool_name}\n"
-                f"Input: {input_preview}\n"
-            )
+            message = f"[HITL] Approval Required\nTool: {tool_name}\nInput: {input_preview}\n"
 
             if notify_only:
                 message += "Mode: notify-only (auto-approved)\n"
@@ -90,14 +85,10 @@ def create_notifier_hitl_callback(
                 return True
 
             # Full HITL: notify + wait for response
-            message += (
-                f"Timeout: {timeout_seconds}s\n"
-                f"Default: {'approve' if auto_approve_on_timeout else 'deny'}\n"
-            )
+            message += f"Timeout: {timeout_seconds}s\nDefault: {'approve' if auto_approve_on_timeout else 'deny'}\n"
             notifier.send(message)
             log.info(
-                "[HITL] Approval request sent for '%s' — "
-                "waiting %ds (default=%s)",
+                "[HITL] Approval request sent for '%s' — waiting %ds (default=%s)",
                 tool_name,
                 timeout_seconds,
                 "approve" if auto_approve_on_timeout else "deny",
@@ -115,8 +106,9 @@ def create_notifier_hitl_callback(
             return auto_approve_on_timeout
 
         except ImportError:
-            log.warning("[HITL] shared.notifications not available — auto-%s",
-                        "approve" if auto_approve_on_timeout else "deny")
+            log.warning(
+                "[HITL] shared.notifications not available — auto-%s", "approve" if auto_approve_on_timeout else "deny"
+            )
             return auto_approve_on_timeout
         except Exception as e:
             log.error("[HITL] Callback error for '%s': %s", tool_name, e)
@@ -129,10 +121,7 @@ def _format_input_preview(tool_input: Any, max_chars: int = 200) -> str:
     """Create a safe preview of tool input for notification messages."""
     if isinstance(tool_input, dict):
         # Filter out internal keys
-        preview = {
-            k: v for k, v in tool_input.items()
-            if not k.startswith("_") and not callable(v)
-        }
+        preview = {k: v for k, v in tool_input.items() if not k.startswith("_") and not callable(v)}
         text = str(preview)
     else:
         text = str(tool_input)
@@ -140,6 +129,8 @@ def _format_input_preview(tool_input: Any, max_chars: int = 200) -> str:
     if len(text) > max_chars:
         return text[:max_chars] + "..."
     return text
+
+
 """
 
 Usage in getdaytrends/harness_integration.py::

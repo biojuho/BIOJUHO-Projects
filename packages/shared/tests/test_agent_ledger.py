@@ -23,7 +23,6 @@ from shared.telemetry.agent_ledger import (
     write_ledger_entry,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -78,9 +77,7 @@ class TestBuildEntry:
 
     def test_duration_computed_from_timestamps(self, sample_times: tuple[datetime, datetime]) -> None:
         started, finished = sample_times
-        entry = build_ledger_entry(
-            agent="a", run_id="r", started_at=started, finished_at=finished, status="success"
-        )
+        entry = build_ledger_entry(agent="a", run_id="r", started_at=started, finished_at=finished, status="success")
         assert entry["duration_s"] == pytest.approx(47.3, abs=0.001)
 
     def test_cost_rounded_to_six_decimals(self, sample_times: tuple[datetime, datetime]) -> None:
@@ -97,18 +94,14 @@ class TestBuildEntry:
 
     def test_defaults_are_safe(self, sample_times: tuple[datetime, datetime]) -> None:
         started, finished = sample_times
-        entry = build_ledger_entry(
-            agent="a", run_id="r", started_at=started, finished_at=finished, status="success"
-        )
+        entry = build_ledger_entry(agent="a", run_id="r", started_at=started, finished_at=finished, status="success")
         assert entry["cost_usd"] == 0.0
         assert entry["tokens_input"] == 0
         assert entry["tokens_output"] == 0
         assert entry["outcomes"] == {}
         assert entry["metadata"] == {}
 
-    def test_outcomes_and_metadata_copied_not_referenced(
-        self, sample_times: tuple[datetime, datetime]
-    ) -> None:
+    def test_outcomes_and_metadata_copied_not_referenced(self, sample_times: tuple[datetime, datetime]) -> None:
         started, finished = sample_times
         outcomes = {"notion_ok": True}
         metadata = {"window": "morning"}
@@ -143,17 +136,13 @@ class TestBuildEntry:
         kst = timezone(timedelta(hours=9))
         started = datetime(2026, 4, 16, 15, 0, 0, tzinfo=kst)
         finished = datetime(2026, 4, 16, 15, 0, 5, tzinfo=kst)
-        entry = build_ledger_entry(
-            agent="a", run_id="r", started_at=started, finished_at=finished, status="success"
-        )
+        entry = build_ledger_entry(agent="a", run_id="r", started_at=started, finished_at=finished, status="success")
         assert "+00:00" in entry["started_at"]
         assert entry["started_at"].startswith("2026-04-16T06:00:00")
 
     def test_empty_run_id_becomes_unknown(self, sample_times: tuple[datetime, datetime]) -> None:
         started, finished = sample_times
-        entry = build_ledger_entry(
-            agent="a", run_id="", started_at=started, finished_at=finished, status="success"
-        )
+        entry = build_ledger_entry(agent="a", run_id="", started_at=started, finished_at=finished, status="success")
         assert entry["run_id"] == "unknown"
 
 
@@ -163,9 +152,7 @@ class TestBuildEntry:
 
 
 class TestWriteEntry:
-    def test_writes_file_under_agent_subdir(
-        self, ledger_root: Path, sample_times: tuple[datetime, datetime]
-    ) -> None:
+    def test_writes_file_under_agent_subdir(self, ledger_root: Path, sample_times: tuple[datetime, datetime]) -> None:
         started, finished = sample_times
         path = write_ledger_entry(
             agent="dailynews-morning",
@@ -212,9 +199,7 @@ class TestWriteEntry:
         self, ledger_root: Path, sample_times: tuple[datetime, datetime]
     ) -> None:
         started, finished = sample_times
-        path1 = write_ledger_entry(
-            agent="a", run_id="same", started_at=started, finished_at=finished, status="success"
-        )
+        path1 = write_ledger_entry(agent="a", run_id="same", started_at=started, finished_at=finished, status="success")
         path2 = write_ledger_entry(
             agent="a",
             run_id="same",
@@ -226,9 +211,7 @@ class TestWriteEntry:
         loaded = json.loads(path2.read_text(encoding="utf-8"))
         assert loaded["status"] == "failed"
 
-    def test_unicode_metadata_preserved(
-        self, ledger_root: Path, sample_times: tuple[datetime, datetime]
-    ) -> None:
+    def test_unicode_metadata_preserved(self, ledger_root: Path, sample_times: tuple[datetime, datetime]) -> None:
         started, finished = sample_times
         path = write_ledger_entry(
             agent="getdaytrends",
@@ -261,9 +244,7 @@ class TestFailsafe:
         blocker.write_text("not a directory")
         monkeypatch.setenv("AGENT_LEDGER_ROOT", str(blocker / "ledger"))
         started, finished = sample_times
-        result = write_ledger_entry(
-            agent="a", run_id="r", started_at=started, finished_at=finished, status="success"
-        )
+        result = write_ledger_entry(agent="a", run_id="r", started_at=started, finished_at=finished, status="success")
         assert result is None
         captured = capsys.readouterr()
         assert "agent_ledger" in captured.err

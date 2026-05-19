@@ -17,10 +17,13 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from .engine import PredictionEngine
 
 log = logging.getLogger(__name__)
 
@@ -30,11 +33,11 @@ router = APIRouter(tags=["prediction"])
 
 import threading as _threading
 
-_engine = None
+_engine: PredictionEngine | None = None
 _engine_lock = _threading.Lock()
 
 
-def _get_engine():
+def _get_engine() -> PredictionEngine:
     """Thread-safe lazy singleton for PredictionEngine."""
     global _engine
     if _engine is not None:
@@ -46,22 +49,30 @@ def _get_engine():
 
         workspace = Path(__file__).resolve().parents[3]  # packages/shared/prediction → workspace root
         _engine = PredictionEngine(
-            gdt_db=Path(os.environ.get(
-                "GDT_DB_PATH",
-                str(workspace / "automation" / "getdaytrends" / "data" / "getdaytrends.db"),
-            )),
-            cie_db=Path(os.environ.get(
-                "CIE_DB_PATH",
-                str(workspace / "automation" / "content-intelligence" / "data" / "cie.db"),
-            )),
-            dn_db=Path(os.environ.get(
-                "DN_DB_PATH",
-                str(workspace / "automation" / "DailyNews" / "data" / "pipeline_state.db"),
-            )),
-            model_dir=Path(os.environ.get(
-                "PEE_MODEL_DIR",
-                str(workspace / "var" / "models" / "prediction"),
-            )),
+            gdt_db=Path(
+                os.environ.get(
+                    "GDT_DB_PATH",
+                    str(workspace / "automation" / "getdaytrends" / "data" / "getdaytrends.db"),
+                )
+            ),
+            cie_db=Path(
+                os.environ.get(
+                    "CIE_DB_PATH",
+                    str(workspace / "automation" / "content-intelligence" / "data" / "cie.db"),
+                )
+            ),
+            dn_db=Path(
+                os.environ.get(
+                    "DN_DB_PATH",
+                    str(workspace / "automation" / "DailyNews" / "data" / "pipeline_state.db"),
+                )
+            ),
+            model_dir=Path(
+                os.environ.get(
+                    "PEE_MODEL_DIR",
+                    str(workspace / "var" / "models" / "prediction"),
+                )
+            ),
         )
     return _engine
 
@@ -143,7 +154,7 @@ class ModelStatusResponse(BaseModel):
 
 
 @router.post("/predict", response_model=PredictResponse)
-async def predict_engagement(req: PredictRequest):
+async def predict_engagement(req: PredictRequest) -> PredictResponse:
     """단일 콘텐츠 성과 예측."""
     engine = _get_engine()
     result = await engine.predict(
@@ -169,7 +180,7 @@ async def predict_engagement(req: PredictRequest):
 
 
 @router.post("/batch", response_model=BatchPredictResponse)
-async def batch_predict(req: BatchPredictRequest):
+async def batch_predict(req: BatchPredictRequest) -> BatchPredictResponse:
     """배치 콘텐츠 예측 + 순위."""
     from .engine import ContentCandidate
 
@@ -191,21 +202,23 @@ async def batch_predict(req: BatchPredictRequest):
 
     items = []
     for rp in report.predictions:
-        items.append(RankedItem(
-            rank=rp.rank,
-            content=rp.candidate.content,
-            prediction=PredictResponse(
-                predicted_engagement_rate=rp.prediction.predicted_engagement_rate,
-                predicted_impressions=rp.prediction.predicted_impressions,
-                confidence_interval=list(rp.prediction.confidence_interval),
-                viral_probability=rp.prediction.viral_probability,
-                optimal_hours=rp.prediction.optimal_hours,
-                risk_level=rp.prediction.risk_level,
-                feature_importance=rp.prediction.feature_importance,
-                recommendation=rp.prediction.recommendation,
-            ),
-            score=rp.score,
-        ))
+        items.append(
+            RankedItem(
+                rank=rp.rank,
+                content=rp.candidate.content,
+                prediction=PredictResponse(
+                    predicted_engagement_rate=rp.prediction.predicted_engagement_rate,
+                    predicted_impressions=rp.prediction.predicted_impressions,
+                    confidence_interval=list(rp.prediction.confidence_interval),
+                    viral_probability=rp.prediction.viral_probability,
+                    optimal_hours=rp.prediction.optimal_hours,
+                    risk_level=rp.prediction.risk_level,
+                    feature_importance=rp.prediction.feature_importance,
+                    recommendation=rp.prediction.recommendation,
+                ),
+                score=rp.score,
+            )
+        )
 
     best = report.best_candidate
     return BatchPredictResponse(
@@ -217,7 +230,7 @@ async def batch_predict(req: BatchPredictRequest):
 
 
 @router.post("/compare", response_model=BatchPredictResponse)
-async def compare_variants(req: CompareRequest):
+async def compare_variants(req: CompareRequest) -> BatchPredictResponse:
     """A/B 변형 비교 예측."""
     engine = _get_engine()
     results = await engine.compare_variants(
@@ -230,21 +243,23 @@ async def compare_variants(req: CompareRequest):
 
     items = []
     for rank, content, pred in results:
-        items.append(RankedItem(
-            rank=rank,
-            content=content,
-            prediction=PredictResponse(
-                predicted_engagement_rate=pred.predicted_engagement_rate,
-                predicted_impressions=pred.predicted_impressions,
-                confidence_interval=list(pred.confidence_interval),
-                viral_probability=pred.viral_probability,
-                optimal_hours=pred.optimal_hours,
-                risk_level=pred.risk_level,
-                feature_importance=pred.feature_importance,
-                recommendation=pred.recommendation,
-            ),
-            score=pred.predicted_engagement_rate,
-        ))
+        items.append(
+            RankedItem(
+                rank=rank,
+                content=content,
+                prediction=PredictResponse(
+                    predicted_engagement_rate=pred.predicted_engagement_rate,
+                    predicted_impressions=pred.predicted_impressions,
+                    confidence_interval=list(pred.confidence_interval),
+                    viral_probability=pred.viral_probability,
+                    optimal_hours=pred.optimal_hours,
+                    risk_level=pred.risk_level,
+                    feature_importance=pred.feature_importance,
+                    recommendation=pred.recommendation,
+                ),
+                score=pred.predicted_engagement_rate,
+            )
+        )
 
     best = items[0] if items else None
     return BatchPredictResponse(
@@ -256,7 +271,7 @@ async def compare_variants(req: CompareRequest):
 
 
 @router.post("/optimal-time")
-async def find_optimal_time(req: OptimalTimeRequest):
+async def find_optimal_time(req: OptimalTimeRequest) -> dict[str, Any]:
     """24시간 슬롯별 예측 ER 맵."""
     engine = _get_engine()
     hour_map = await engine.find_optimal_publish_time(
@@ -275,7 +290,7 @@ async def find_optimal_time(req: OptimalTimeRequest):
 
 
 @router.get("/status", response_model=ModelStatusResponse)
-async def model_status():
+async def model_status() -> ModelStatusResponse:
     """모델 상태 확인."""
     engine = _get_engine()
     model = engine._model
@@ -299,7 +314,7 @@ async def model_status():
 
 
 @router.post("/retrain")
-async def retrain_model():
+async def retrain_model() -> dict[str, Any]:
     """모델 재학습 트리거."""
     engine = _get_engine()
     metrics = await engine.initialize(force_retrain=True)

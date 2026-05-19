@@ -29,7 +29,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .models import LLMPolicy, TaskTier
 
@@ -37,6 +37,9 @@ if TYPE_CHECKING:
     from .client import LLMClient
 
 log = logging.getLogger("shared.llm.context_condenser")
+
+Message = dict[str, Any]
+Metrics = dict[str, int | float]
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -90,10 +93,12 @@ _PIPELINE_SUMMARY_PROMPT = """아래는 자동화 파이프라인에서 이전 �
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CondensationResult:
     """Result of a context condensation operation."""
-    messages: list[dict]
+
+    messages: list[Message]
     original_count: int
     condensed_count: int
     summary_text: str = ""
@@ -111,15 +116,17 @@ class CondensationResult:
 @dataclass
 class PipelineContext:
     """Accumulated context for sequential pipeline processing."""
+
     goal: str = ""
-    completed_categories: list[dict] = field(default_factory=list)
+    completed_categories: list[dict[str, Any]] = field(default_factory=list)
     issues: list[str] = field(default_factory=list)
-    state_changes: dict = field(default_factory=dict)
+    state_changes: dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
 # Core condenser
 # ---------------------------------------------------------------------------
+
 
 class ContextCondenser:
     """Intelligent context compression for reducing LLM token consumption.
@@ -140,7 +147,7 @@ class ContextCondenser:
     def __init__(self, client: LLMClient) -> None:
         self._client = client
         self._lock = threading.Lock()
-        self._metrics = {
+        self._metrics: Metrics = {
             "total_condensations": 0,
             "total_tokens_saved": 0,
             "total_cost_usd": 0.0,
@@ -155,7 +162,7 @@ class ContextCondenser:
 
     def condense(
         self,
-        history: list[dict],
+        history: list[Message],
         *,
         keep_recent: int = _DEFAULT_KEEP_RECENT,
         summary_max_tokens: int = 500,
@@ -234,7 +241,11 @@ class ContextCondenser:
 
         log.info(
             "Condensed %d→%d messages (saved ~%d tokens, cost=$%.4f, %.0fms)",
-            original_count, len(condensed), tokens_saved, condensation_cost, elapsed_ms,
+            original_count,
+            len(condensed),
+            tokens_saved,
+            condensation_cost,
+            elapsed_ms,
         )
 
         return CondensationResult(
@@ -249,7 +260,7 @@ class ContextCondenser:
 
     async def acondense(
         self,
-        history: list[dict],
+        history: list[Message],
         *,
         keep_recent: int = _DEFAULT_KEEP_RECENT,
         summary_max_tokens: int = 500,
@@ -320,7 +331,7 @@ class ContextCondenser:
 
     def condense_pipeline_context(
         self,
-        previous_results: list[dict],
+        previous_results: list[dict[str, Any]],
         *,
         pipeline_goal: str = "",
         summary_max_tokens: int = 400,
@@ -343,7 +354,7 @@ class ContextCondenser:
             return ""
 
         results_text = "\n\n".join(
-            f"### {r.get('category', f'Stage {i+1}')}\n{r.get('result', '')[:500]}"
+            f"### {r.get('category', f'Stage {i + 1}')}\n{r.get('result', '')[:500]}"
             for i, r in enumerate(previous_results)
         )
 
@@ -356,10 +367,12 @@ class ContextCondenser:
         try:
             resp = self._client.create(
                 tier=TaskTier.LIGHTWEIGHT,
-                messages=[{
-                    "role": "user",
-                    "content": _PIPELINE_SUMMARY_PROMPT.format(results_text=results_text),
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": _PIPELINE_SUMMARY_PROMPT.format(results_text=results_text),
+                    }
+                ],
                 max_tokens=summary_max_tokens,
                 system="You are a pipeline context optimizer. Be concise.",
                 policy=LLMPolicy(
@@ -371,19 +384,17 @@ class ContextCondenser:
             with self._lock:
                 self._metrics["total_condensations"] += 1
                 self._metrics["total_cost_usd"] += resp.cost_usd
-            return resp.text
+            response_text: str = resp.text
+            return response_text
         except Exception as e:
             log.warning("Pipeline condensation failed: %s", e)
             # Fallback: return truncated results
-            return "\n".join(
-                f"- {r.get('category', '?')}: {r.get('result', '')[:100]}"
-                for r in previous_results
-            )
+            return "\n".join(f"- {r.get('category', '?')}: {r.get('result', '')[:100]}" for r in previous_results)
 
     # -- Helpers -----------------------------------------------------------
 
     @staticmethod
-    def _format_messages(messages: list[dict]) -> str:
+    def _format_messages(messages: list[Message]) -> str:
         """Format messages into a readable text block."""
         lines = []
         for m in messages:
@@ -396,7 +407,7 @@ class ContextCondenser:
         return "\n\n".join(lines)
 
     @property
-    def metrics(self) -> dict:
+    def metrics(self) -> Metrics:
         """Return condensation metrics (thread-safe snapshot)."""
         with self._lock:
             return dict(self._metrics)

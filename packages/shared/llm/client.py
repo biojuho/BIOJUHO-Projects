@@ -9,7 +9,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Union
+from typing import Any
 
 from .backends import BackendManager
 from .config import (
@@ -361,6 +361,7 @@ class LLMClient:
         # B-012 fix: SmartRouter 인스턴스 lazy-cache (재생성 방지)
         if self._smart_router is None:
             from .reasoning.smart_router import SmartRouter
+
             with self._smart_router_lock:
                 if self._smart_router is None:  # double-checked locking
                     self._smart_router = SmartRouter(self)
@@ -406,6 +407,7 @@ class LLMClient:
         # B-012 fix: SmartRouter 인스턴스 lazy-cache (재사용)
         if self._smart_router is None:
             from .reasoning.smart_router import SmartRouter
+
             with self._smart_router_lock:
                 if self._smart_router is None:
                     self._smart_router = SmartRouter(self)
@@ -449,7 +451,9 @@ class LLMClient:
         if response.backend == "deepseek":
             self._bridge_metrics["deepseek_calls"] = int(self._bridge_metrics["deepseek_calls"]) + 1
         if "json_invalid" in response.bridge_meta.quality_flags:
-            self._bridge_metrics["structured_parse_failures"] = int(self._bridge_metrics["structured_parse_failures"]) + 1
+            self._bridge_metrics["structured_parse_failures"] = (
+                int(self._bridge_metrics["structured_parse_failures"]) + 1
+            )
         if response.bridge_meta.bridge_applied and not response.bridge_meta.quality_flags:
             self._bridge_metrics["bridge_passes"] = int(self._bridge_metrics["bridge_passes"]) + 1
 
@@ -626,7 +630,7 @@ class LLMClient:
         system: str,
         policy: LLMPolicy,
         async_mode: bool,
-    ) -> Union[LLMResponse, Any]:  # Any covers coroutine in async_mode=True
+    ) -> LLMResponse | Any:  # Any covers coroutine in async_mode=True
         chain = self._iter_chain(resolved_tier, policy)
 
         if async_mode:
@@ -751,7 +755,7 @@ class LLMClient:
                     return final
                 last_error = quality_error
                 continue
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 error = TimeoutError(
                     f"backend timeout after {_ASYNC_BACKEND_TIMEOUT_SECONDS:.0f}s: {backend_name}/{default_model}"
                 )

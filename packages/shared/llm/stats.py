@@ -9,11 +9,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import MetaData, Table, Column, Integer, String, Float, select, func, text, case
+from sqlalchemy import Column, Float, Integer, MetaData, String, Table, case, func, select, text
+
+from shared.db.engine import get_sqlalchemy_engine
 
 from .config import MODEL_COSTS
 from .models import CostRecord, TaskTier
-from shared.db.engine import get_sqlalchemy_engine
 
 log = logging.getLogger("shared.llm")
 
@@ -114,9 +115,9 @@ class CostTracker:
         )
         with self._lock:
             if len(self._records) >= self._MAX_RECORDS:
-                self._records = self._records[-(self._MAX_RECORDS // 2):]
+                self._records = self._records[-(self._MAX_RECORDS // 2) :]
             self._records.append(rec)
-            
+
             if self._persist and self._engine is not None:
                 self._persist_record(rec, project)
 
@@ -175,7 +176,7 @@ class CostTracker:
             return []
         try:
             cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-            
+
             # Using substr(1, 10) to parse YYYY-MM-DD from ISO-8601 strings globally
             day_col = func.substr(llm_calls_table.c.timestamp, 1, 10).label("day")
             query = (
@@ -186,7 +187,7 @@ class CostTracker:
                     func.sum(llm_calls_table.c.cost_usd).label("cost_usd"),
                     func.sum(llm_calls_table.c.input_tokens).label("input_tokens"),
                     func.sum(llm_calls_table.c.output_tokens).label("output_tokens"),
-                    llm_calls_table.c.backend
+                    llm_calls_table.c.backend,
                 )
                 .where(llm_calls_table.c.timestamp >= cutoff_date)
                 .group_by("day", llm_calls_table.c.backend)
@@ -195,7 +196,7 @@ class CostTracker:
 
             with self._engine.connect() as conn:
                 rows = conn.execute(query).fetchall()
-                
+
             return [
                 {
                     "date": row[0],
@@ -218,10 +219,10 @@ class CostTracker:
             return 0.0
         try:
             today_prefix = datetime.now(UTC).strftime("%Y-%m-%d")
-            query = select(
-                func.coalesce(func.sum(llm_calls_table.c.cost_usd), 0)
-            ).where(func.substr(llm_calls_table.c.timestamp, 1, 10) == today_prefix)
-            
+            query = select(func.coalesce(func.sum(llm_calls_table.c.cost_usd), 0)).where(
+                func.substr(llm_calls_table.c.timestamp, 1, 10) == today_prefix
+            )
+
             with self._engine.connect() as conn:
                 return round(conn.execute(query).scalar() or 0.0, 6)
         except Exception:
@@ -235,7 +236,7 @@ class CostTracker:
             _ensure_dirs()
             today = datetime.now(UTC).strftime("%Y-%m-%d")
             csv_path = _CSV_DIR / f"llm_usage_{today}.csv"
-            
+
             cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
             query = (
                 select(
@@ -248,7 +249,7 @@ class CostTracker:
                     llm_calls_table.c.cost_usd,
                     llm_calls_table.c.success,
                     llm_calls_table.c.error,
-                    llm_calls_table.c.project
+                    llm_calls_table.c.project,
                 )
                 .where(llm_calls_table.c.timestamp >= cutoff_date)
                 .order_by(llm_calls_table.c.timestamp)

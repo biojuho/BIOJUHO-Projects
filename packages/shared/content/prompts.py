@@ -9,7 +9,7 @@ def build_json_output_instruction(schema_example: str) -> str:
 
     모든 LLM 호출에서 JSON 응답을 요청할 때 사용.
     """
-    return f"반드시 JSON만 출력하고 다른 설명은 일절 없어야 합니다.\n" f"JSON 스키마:\n{schema_example}"
+    return f"반드시 JSON만 출력하고 다른 설명은 일절 없어야 합니다.\nJSON 스키마:\n{schema_example}"
 
 
 def build_context_injection(

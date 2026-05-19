@@ -26,8 +26,9 @@ Usage::
 from __future__ import annotations
 
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, cast
 
 from .audit import AuditLogger
 from .constitution import Constitution
@@ -39,8 +40,8 @@ from .errors import (
     ToolNotAllowedError,
 )
 from .hooks import HookChain
-from .token_tracker import TokenBudget
 from .risk import RiskScanner
+from .token_tracker import TokenBudget
 
 # Type alias for tool executor functions
 ToolExecutor = Callable[[str, Any], Awaitable[Any]]
@@ -55,15 +56,15 @@ class HarnessConfig:
     """
 
     constitution: Constitution
-    audit_logger: Optional[AuditLogger] = None
-    risk_scanner: Optional[RiskScanner] = None
-    hook_chain: Optional[HookChain] = None
-    token_budget: Optional[TokenBudget] = None
-    tool_executor: Optional[ToolExecutor] = None
-    hitl_callback: Optional[Callable[[str, Any], Awaitable[bool]]] = None
+    audit_logger: AuditLogger | None = None
+    risk_scanner: RiskScanner | None = None
+    hook_chain: HookChain | None = None
+    token_budget: TokenBudget | None = None
+    tool_executor: ToolExecutor | None = None
+    hitl_callback: Callable[[str, Any], Awaitable[bool]] | None = None
     sandbox_tools: frozenset[str] = frozenset({"shell_execute", "code_run"})
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Auto-create components from Constitution if not provided
         if self.audit_logger is None:
             self.audit_logger = AuditLogger(agent_name=self.constitution.agent_name)
@@ -85,10 +86,10 @@ class HarnessWrapper:
     def __init__(self, config: HarnessConfig):
         self._config = config
         self._constitution = config.constitution
-        self._audit = config.audit_logger
-        self._risk = config.risk_scanner
-        self._hooks = config.hook_chain
-        self._token_budget = config.token_budget
+        self._audit = cast("AuditLogger", config.audit_logger)
+        self._risk = cast("RiskScanner", config.risk_scanner)
+        self._hooks = cast("HookChain", config.hook_chain)
+        self._token_budget = cast("TokenBudget", config.token_budget)
         self._executor = config.tool_executor
 
         # Per-session state
@@ -139,7 +140,7 @@ class HarnessWrapper:
         tool_name: str,
         tool_input: Any,
         *,
-        executor: Optional[ToolExecutor] = None,
+        executor: ToolExecutor | None = None,
         cost_estimate: float = 0.0,
         token_estimate: int = 0,
     ) -> Any:
@@ -184,8 +185,7 @@ class HarnessWrapper:
                 tool_input,
             )
             raise SessionLimitError(
-                f"Tool '{tool_name}' exceeded session limit: "
-                f"{current_count}/{perm.max_calls_per_session}",
+                f"Tool '{tool_name}' exceeded session limit: {current_count}/{perm.max_calls_per_session}",
                 tool_name=tool_name,
             )
 
@@ -222,7 +222,7 @@ class HarnessWrapper:
         if token_estimate > 0 and self._token_budget:
             try:
                 self._token_budget.gate(token_estimate, tool_name=tool_name)
-            except Exception as token_err:
+            except Exception:
                 self._audit.log_denied(
                     tool_name,
                     f"TOKEN_BUDGET_EXCEEDED: {self._token_budget.used_tokens}+{token_estimate}"
@@ -272,7 +272,9 @@ class HarnessWrapper:
         if token_estimate > 0 and self._token_budget:
             detail = self._token_budget.get_detail_level().value
             self._token_budget.record(
-                tool_name, token_estimate, detail_level=detail,
+                tool_name,
+                token_estimate,
+                detail_level=detail,
             )
 
         self._audit.log_allowed(
@@ -307,9 +309,7 @@ class HarnessWrapper:
             "agent_name": self._constitution.agent_name,
             "total_calls": self._total_calls,
             "session_cost_usd": round(self._session_cost, 6),
-            "budget_remaining_usd": round(
-                self._constitution.max_budget_usd - self._session_cost, 6
-            ),
+            "budget_remaining_usd": round(self._constitution.max_budget_usd - self._session_cost, 6),
             "tool_call_counts": dict(self._tool_call_counts),
             "audit_denied_count": self._audit.denied_count,
             "audit_total_count": self._audit.total_count,

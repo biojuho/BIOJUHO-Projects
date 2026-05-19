@@ -184,10 +184,7 @@ def get_routing_chain(tier: TaskTier, policy: LLMPolicy | None = None) -> list[t
     due to persistent Korean prompt errors and high error rate.
     """
     chain = list(TIER_CHAINS[tier])
-    if (
-        policy is not None
-        and policy.task_kind == "json_extraction"
-    ):
+    if policy is not None and policy.task_kind == "json_extraction":
         preferred = [item for item in chain if item[0] == "anthropic"]
         preferred.extend(item for item in chain if item[0] == "openai")
         preferred.extend(item for item in chain if item[0] == "gemini")

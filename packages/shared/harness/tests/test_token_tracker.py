@@ -15,9 +15,7 @@ from shared.harness.token_tracker import (
     DetailLevel,
     TokenBudget,
     TokenBudgetExceededError,
-    TokenUsageRecord,
 )
-
 
 # ── Unit Tests: TokenBudget ──
 
@@ -231,7 +229,7 @@ class TestHarnessTokenIntegration:
 
     @pytest.fixture
     def harness(self):
-        from shared.harness import HarnessWrapper, HarnessConfig
+        from shared.harness import HarnessConfig, HarnessWrapper
         from shared.harness.constitution import Constitution, ToolPermission
 
         constitution = Constitution(

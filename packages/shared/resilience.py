@@ -9,14 +9,14 @@ Usage::
 
     notion_cb = CircuitBreaker("notion", failure_threshold=5, cooldown_sec=60)
 
+
     @resilient(max_retries=3, circuit_breaker=notion_cb)
-    async def call_notion_api(page_id: str) -> dict:
-        ...
+    async def call_notion_api(page_id: str) -> dict: ...
+
 
     # Synchronous variant
     @resilient(max_retries=3, backoff_base=1.0, backoff_max=30.0)
-    def call_sync_api() -> str:
-        ...
+    def call_sync_api() -> str: ...
 """
 
 from __future__ import annotations
@@ -60,8 +60,57 @@ class CircuitOpenError(Exception):
 
 def _jittered_delay(base: float, attempt: int, max_delay: float) -> float:
     """Exponential backoff with full jitter (AWS-style)."""
-    exp_delay = min(base * (2 ** attempt), max_delay)
+    exp_delay = min(base * (2**attempt), max_delay)
     return random.uniform(0, exp_delay)
+
+
+def _ensure_circuit_allows(circuit_breaker: CircuitBreaker | None) -> None:
+    if circuit_breaker and not circuit_breaker.allow_request():
+        raise CircuitOpenError(circuit_breaker.name)
+
+
+def _record_circuit_success(circuit_breaker: CircuitBreaker | None) -> None:
+    if circuit_breaker:
+        circuit_breaker.record_success()
+
+
+def _record_circuit_failure(circuit_breaker: CircuitBreaker | None) -> None:
+    if circuit_breaker:
+        circuit_breaker.record_failure()
+
+
+def _next_retry_delay(
+    *,
+    func_name: str,
+    attempt: int,
+    max_retries: int,
+    backoff_base: float,
+    backoff_max: float,
+    exc: BaseException,
+    on_retry: Callable[[int, BaseException], None] | None,
+) -> float | None:
+    total_attempts = max_retries + 1
+    if attempt >= max_retries:
+        logger.error(
+            "%s: all %d attempts exhausted",
+            func_name,
+            total_attempts,
+        )
+        return None
+
+    delay = _jittered_delay(backoff_base, attempt, backoff_max)
+    retry_number = attempt + 1
+    logger.warning(
+        "%s: attempt %d/%d failed (%s), retrying in %.2fs",
+        func_name,
+        retry_number,
+        total_attempts,
+        exc,
+        delay,
+    )
+    if on_retry:
+        on_retry(retry_number, exc)
+    return delay
 
 
 def resilient(
@@ -97,41 +146,28 @@ def resilient(
 
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                if circuit_breaker and not circuit_breaker.allow_request():
-                    raise CircuitOpenError(circuit_breaker.name)
+                _ensure_circuit_allows(circuit_breaker)
 
                 last_exc: BaseException | None = None
                 for attempt in range(max_retries + 1):
                     try:
                         result = await func(*args, **kwargs)
-                        if circuit_breaker:
-                            circuit_breaker.record_success()
+                        _record_circuit_success(circuit_breaker)
                         return result
                     except retryable_exceptions as exc:
                         last_exc = exc
-                        if circuit_breaker:
-                            circuit_breaker.record_failure()
-                        if attempt < max_retries:
-                            delay = _jittered_delay(
-                                backoff_base, attempt, backoff_max
-                            )
-                            logger.warning(
-                                "%s: attempt %d/%d failed (%s), retrying in %.2fs",
-                                func.__qualname__,
-                                attempt + 1,
-                                max_retries + 1,
-                                exc,
-                                delay,
-                            )
-                            if on_retry:
-                                on_retry(attempt + 1, exc)
+                        _record_circuit_failure(circuit_breaker)
+                        delay = _next_retry_delay(
+                            func_name=func.__qualname__,
+                            attempt=attempt,
+                            max_retries=max_retries,
+                            backoff_base=backoff_base,
+                            backoff_max=backoff_max,
+                            exc=exc,
+                            on_retry=on_retry,
+                        )
+                        if delay is not None:
                             await asyncio.sleep(delay)
-                        else:
-                            logger.error(
-                                "%s: all %d attempts exhausted",
-                                func.__qualname__,
-                                max_retries + 1,
-                            )
 
                 assert last_exc is not None
                 raise RetryExhaustedError(last_exc, max_retries + 1)
@@ -142,41 +178,28 @@ def resilient(
 
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                if circuit_breaker and not circuit_breaker.allow_request():
-                    raise CircuitOpenError(circuit_breaker.name)
+                _ensure_circuit_allows(circuit_breaker)
 
                 last_exc: BaseException | None = None
                 for attempt in range(max_retries + 1):
                     try:
                         result = func(*args, **kwargs)
-                        if circuit_breaker:
-                            circuit_breaker.record_success()
+                        _record_circuit_success(circuit_breaker)
                         return result
                     except retryable_exceptions as exc:
                         last_exc = exc
-                        if circuit_breaker:
-                            circuit_breaker.record_failure()
-                        if attempt < max_retries:
-                            delay = _jittered_delay(
-                                backoff_base, attempt, backoff_max
-                            )
-                            logger.warning(
-                                "%s: attempt %d/%d failed (%s), retrying in %.2fs",
-                                func.__qualname__,
-                                attempt + 1,
-                                max_retries + 1,
-                                exc,
-                                delay,
-                            )
-                            if on_retry:
-                                on_retry(attempt + 1, exc)
+                        _record_circuit_failure(circuit_breaker)
+                        delay = _next_retry_delay(
+                            func_name=func.__qualname__,
+                            attempt=attempt,
+                            max_retries=max_retries,
+                            backoff_base=backoff_base,
+                            backoff_max=backoff_max,
+                            exc=exc,
+                            on_retry=on_retry,
+                        )
+                        if delay is not None:
                             time.sleep(delay)
-                        else:
-                            logger.error(
-                                "%s: all %d attempts exhausted",
-                                func.__qualname__,
-                                max_retries + 1,
-                            )
 
                 assert last_exc is not None
                 raise RetryExhaustedError(last_exc, max_retries + 1)

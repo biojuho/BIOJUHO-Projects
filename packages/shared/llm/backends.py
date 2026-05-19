@@ -16,9 +16,10 @@ from typing import Any
 
 try:
     import httpx as _httpx
+
     # B-005: LLM API 타임아웃 기본값 (단위: 초)
     _DEFAULT_TIMEOUT = _httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=5.0)
-    _CHINA_TIMEOUT   = _httpx.Timeout(connect=15.0, read=120.0, write=30.0, pool=5.0)  # DeepSeek/Moonshot
+    _CHINA_TIMEOUT = _httpx.Timeout(connect=15.0, read=120.0, write=30.0, pool=5.0)  # DeepSeek/Moonshot
     _HTTPX_AVAILABLE = True
 except ImportError:
     _httpx = None  # type: ignore[assignment]
@@ -309,7 +310,9 @@ class BackendManager:
             raise ValueError(f"Anthropic empty response: stop_reason={getattr(resp, 'stop_reason', 'unknown')}")
         text = resp.content[0].text
         if text is None:
-            raise ValueError(f"Anthropic response content[0].text is None: stop_reason={getattr(resp, 'stop_reason', 'unknown')}")
+            raise ValueError(
+                f"Anthropic response content[0].text is None: stop_reason={getattr(resp, 'stop_reason', 'unknown')}"
+            )
         # Prepend the prefill character back to reconstruct the full JSON
         if response_mode == "json":
             text = "{" + text
@@ -510,7 +513,9 @@ class BackendManager:
         )
         # B-017 fix: BitNet 결과 딕셔너리 필수 키 검증
         if not isinstance(result, dict) or "text" not in result or "model" not in result:
-            raise ValueError(f"BitNet returned invalid result: {type(result).__name__}, keys={list(result.keys()) if isinstance(result, dict) else 'N/A'}")
+            raise ValueError(
+                f"BitNet returned invalid result: {type(result).__name__}, keys={list(result.keys()) if isinstance(result, dict) else 'N/A'}"
+            )
         return LLMResponse(
             text=result["text"],
             model=result["model"],

@@ -6,11 +6,19 @@ so callers can catch and handle governance failures specifically.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 class HarnessError(Exception):
     """Base exception for all harness governance failures."""
 
-    def __init__(self, message: str, *, tool_name: str = "", context: dict | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        tool_name: str = "",
+        context: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.tool_name = tool_name
         self.context = context or {}
@@ -27,7 +35,7 @@ class PermissionDeniedError(HarnessError):
 class RiskDetectedError(HarnessError):
     """Raised when a tool input matches a blocked risk pattern."""
 
-    def __init__(self, message: str, *, tool_name: str = "", pattern: str = "", **kwargs):
+    def __init__(self, message: str, *, tool_name: str = "", pattern: str = "", **kwargs: Any) -> None:
         super().__init__(message, tool_name=tool_name, **kwargs)
         self.pattern = pattern
 
@@ -35,7 +43,7 @@ class RiskDetectedError(HarnessError):
 class BudgetExceededError(HarnessError):
     """Raised when session or daily budget ceiling is reached."""
 
-    def __init__(self, message: str, *, current_cost: float = 0.0, limit: float = 0.0, **kwargs):
+    def __init__(self, message: str, *, current_cost: float = 0.0, limit: float = 0.0, **kwargs: Any) -> None:
         super().__init__(message, **kwargs)
         self.current_cost = current_cost
         self.limit = limit

@@ -19,6 +19,7 @@ Architecture:
 Usage (future)::
 
     from shared.harness.adapters import DeepAgentsAdapter
+
     adapter = DeepAgentsAdapter(constitution, llm_client=client)
     result = await adapter.execute_with_governance(task, tools)
 """
@@ -26,8 +27,9 @@ Usage (future)::
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any
 
 from ..constitution import Constitution
 from ..core import HarnessConfig, HarnessWrapper
@@ -66,8 +68,8 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
         constitution: Constitution,
         *,
         llm_client: Any = None,
-        tool_executor: Optional[Callable[[str, Any], Awaitable[Any]]] = None,
-        hitl_callback: Optional[Callable[[str, Any], Awaitable[bool]]] = None,
+        tool_executor: Callable[[str, Any], Awaitable[Any]] | None = None,
+        hitl_callback: Callable[[str, Any], Awaitable[bool]] | None = None,
     ):
         self._constitution = constitution
         self._llm_client = llm_client
@@ -85,8 +87,7 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
             logger.info("DeepAgents SDK available — full orchestration enabled")
         else:
             logger.info(
-                "DeepAgents SDK not installed — using governance-only mode. "
-                "Install with: pip install deepagents"
+                "DeepAgents SDK not installed — using governance-only mode. Install with: pip install deepagents"
             )
 
     @property
@@ -118,9 +119,7 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
 
         try:
             if DEEPAGENTS_AVAILABLE:
-                result = await self._execute_with_deepagents(
-                    task, tools, cost_estimate=cost_estimate
-                )
+                result = await self._execute_with_deepagents(task, tools, cost_estimate=cost_estimate)
             else:
                 # Fallback: governance-only execution
                 output = await self._harness.execute_tool(
@@ -196,9 +195,7 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
                     role,
                 )
             scoped_perms = {
-                name: perm
-                for name, perm in self._constitution.tool_permissions.items()
-                if name in allowed_tools
+                name: perm for name, perm in self._constitution.tool_permissions.items() if name in allowed_tools
             }
         else:
             scoped_perms = dict(self._constitution.tool_permissions)
@@ -222,13 +219,15 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
             llm_client=self._llm_client,
         )
 
-        self._trace.append({
-            "timestamp": datetime.now(UTC).isoformat(),
-            "agent_name": self._constitution.agent_name,
-            "action": "spawn_subagent",
-            "result_summary": f"spawned {agent_name}",
-            "subagent_role": role,
-        })
+        self._trace.append(
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "agent_name": self._constitution.agent_name,
+                "action": "spawn_subagent",
+                "result_summary": f"spawned {agent_name}",
+                "subagent_role": role,
+            }
+        )
 
         return AdapterResult(
             success=True,
@@ -248,10 +247,12 @@ class DeepAgentsAdapter(AbstractHarnessAdapter):
 
     def get_session_summary(self) -> dict[str, Any]:
         base = self._harness.get_session_summary()
-        base.update({
-            "subagents_spawned": self._subagent_count,
-            "trace_entries": len(self._trace),
-            "adapter_type": "deepagents",
-            "deepagents_available": DEEPAGENTS_AVAILABLE,
-        })
+        base.update(
+            {
+                "subagents_spawned": self._subagent_count,
+                "trace_entries": len(self._trace),
+                "adapter_type": "deepagents",
+                "deepagents_available": DEEPAGENTS_AVAILABLE,
+            }
+        )
         return base

@@ -145,6 +145,7 @@ class TestNoOpCachedDecorator:
     @pytest.mark.asyncio
     async def test_cached_with_none_return(self, cache: _NoOpCache):
         """Functions returning None should not cause issues."""
+
         @cache.cached(ttl=60)
         async def returns_none():
             return None

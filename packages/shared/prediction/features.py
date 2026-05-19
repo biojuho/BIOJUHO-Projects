@@ -9,16 +9,20 @@ Feature Extractor — 기존 DB에서 ML 피처 추출.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
-
-import logging
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
 log = logging.getLogger(__name__)
+Row = dict[str, Any]
 
 _OPTIONAL_SCHEMA_COLUMNS = {
     "run_date",
@@ -34,74 +38,93 @@ class ContentFeatures:
     """단일 콘텐츠의 ML 입력 피처 벡터."""
 
     # 트렌드 컨텍스트 (from GDT/CIE scoring)
-    viral_potential: float = 0.0          # 0-100, 트렌드 바이럴 점수
-    trend_velocity: float = 0.0           # 트렌드 가속도 (시간당 검색량 변화율)
+    viral_potential: float = 0.0  # 0-100, 트렌드 바이럴 점수
+    trend_velocity: float = 0.0  # 트렌드 가속도 (시간당 검색량 변화율)
     cross_source_confidence: float = 0.0  # 0-100, 멀티소스 검증 점수
-    category_encoded: int = 0             # 카테고리 원핫 인코딩 인덱스
-    source_count: int = 1                 # 트렌드 감지 소스 수
+    category_encoded: int = 0  # 카테고리 원핫 인코딩 인덱스
+    source_count: int = 1  # 트렌드 감지 소스 수
 
     # 콘텐츠 품질 (from QA pipeline)
-    qa_total_score: float = 0.0           # 0-100, QA 종합 점수
-    hook_score: float = 0.0              # 0-20, 첫줄 임팩트
-    tone_score: float = 0.0             # 0-15, AI톤 탈피도
-    fact_score: float = 0.0             # 0-15, 팩트 정확도
-    kick_score: float = 0.0             # 0-15, 마무리 펀치
+    qa_total_score: float = 0.0  # 0-100, QA 종합 점수
+    hook_score: float = 0.0  # 0-20, 첫줄 임팩트
+    tone_score: float = 0.0  # 0-15, AI톤 탈피도
+    fact_score: float = 0.0  # 0-15, 팩트 정확도
+    kick_score: float = 0.0  # 0-15, 마무리 펀치
 
     # 콘텐츠 구조
-    char_count: int = 0                  # 글자 수
-    has_hashtags: bool = False           # 해시태그 포함 여부
-    has_numbers: bool = False            # 숫자/통계 포함 여부
-    has_question: bool = False           # 질문형 여부
-    content_type: str = "tweet"          # tweet | long_form | thread | blog
-    language: str = "ko"                 # ko | en | ja
+    char_count: int = 0  # 글자 수
+    has_hashtags: bool = False  # 해시태그 포함 여부
+    has_numbers: bool = False  # 숫자/통계 포함 여부
+    has_question: bool = False  # 질문형 여부
+    content_type: str = "tweet"  # tweet | long_form | thread | blog
+    language: str = "ko"  # ko | en | ja
 
     # 타이밍
-    hour_of_day: int = 12               # 0-23, 발행 예정 시간
-    day_of_week: int = 0                # 0-6 (Mon-Sun)
+    hour_of_day: int = 12  # 0-23, 발행 예정 시간
+    day_of_week: int = 0  # 0-6 (Mon-Sun)
     is_weekend: bool = False
     hours_since_trend_peak: float = 0.0  # 트렌드 피크 이후 경과 시간
 
     # 과거 퍼포먼스 (같은 카테고리/키워드)
     category_avg_engagement: float = 0.0  # 해당 카테고리 평균 engagement rate
-    keyword_prev_impressions: float = 0.0 # 동일 키워드 이전 impression
-    author_avg_engagement: float = 0.0    # 발행자 평균 engagement rate
+    keyword_prev_impressions: float = 0.0  # 동일 키워드 이전 impression
+    author_avg_engagement: float = 0.0  # 발행자 평균 engagement rate
 
-    def to_array(self) -> np.ndarray:
+    def to_array(self) -> NDArray[np.float32]:
         """sklearn/LightGBM 입력용 1D numpy 배열."""
-        return np.array([
-            self.viral_potential,
-            self.trend_velocity,
-            self.cross_source_confidence,
-            self.category_encoded,
-            self.source_count,
-            self.qa_total_score,
-            self.hook_score,
-            self.tone_score,
-            self.fact_score,
-            self.kick_score,
-            self.char_count,
-            int(self.has_hashtags),
-            int(self.has_numbers),
-            int(self.has_question),
-            self.hour_of_day,
-            self.day_of_week,
-            int(self.is_weekend),
-            self.hours_since_trend_peak,
-            self.category_avg_engagement,
-            self.keyword_prev_impressions,
-            self.author_avg_engagement,
-        ], dtype=np.float32)
+        return cast(
+            "NDArray[np.float32]",
+            np.array(
+                [
+                    self.viral_potential,
+                    self.trend_velocity,
+                    self.cross_source_confidence,
+                    self.category_encoded,
+                    self.source_count,
+                    self.qa_total_score,
+                    self.hook_score,
+                    self.tone_score,
+                    self.fact_score,
+                    self.kick_score,
+                    self.char_count,
+                    int(self.has_hashtags),
+                    int(self.has_numbers),
+                    int(self.has_question),
+                    self.hour_of_day,
+                    self.day_of_week,
+                    int(self.is_weekend),
+                    self.hours_since_trend_peak,
+                    self.category_avg_engagement,
+                    self.keyword_prev_impressions,
+                    self.author_avg_engagement,
+                ],
+                dtype=np.float32,
+            ),
+        )
 
     @staticmethod
     def feature_names() -> list[str]:
         return [
-            "viral_potential", "trend_velocity", "cross_source_confidence",
-            "category_encoded", "source_count",
-            "qa_total_score", "hook_score", "tone_score", "fact_score", "kick_score",
-            "char_count", "has_hashtags", "has_numbers", "has_question",
-            "hour_of_day", "day_of_week", "is_weekend",
+            "viral_potential",
+            "trend_velocity",
+            "cross_source_confidence",
+            "category_encoded",
+            "source_count",
+            "qa_total_score",
+            "hook_score",
+            "tone_score",
+            "fact_score",
+            "kick_score",
+            "char_count",
+            "has_hashtags",
+            "has_numbers",
+            "has_question",
+            "hour_of_day",
+            "day_of_week",
+            "is_weekend",
             "hours_since_trend_peak",
-            "category_avg_engagement", "keyword_prev_impressions",
+            "category_avg_engagement",
+            "keyword_prev_impressions",
             "author_avg_engagement",
         ]
 
@@ -109,6 +132,7 @@ class ContentFeatures:
 @dataclass
 class PerformanceLabel:
     """학습용 레이블 (실측 성과)."""
+
     impressions: int = 0
     engagements: int = 0
     engagement_rate: float = 0.0
@@ -121,9 +145,18 @@ class PerformanceLabel:
 # ── Category Encoding ──────────────────────────────────────
 
 CATEGORY_MAP: dict[str, int] = {
-    "politics": 0, "economy": 1, "tech": 2, "entertainment": 3,
-    "sports": 4, "society": 5, "world": 6, "science": 7,
-    "crypto": 8, "ai": 9, "culture": 10, "health": 11,
+    "politics": 0,
+    "economy": 1,
+    "tech": 2,
+    "entertainment": 3,
+    "sports": 4,
+    "society": 5,
+    "world": 6,
+    "science": 7,
+    "crypto": 8,
+    "ai": 9,
+    "culture": 10,
+    "health": 11,
     "other": 12,
 }
 
@@ -218,7 +251,7 @@ class FeatureExtractor:
 
     # ── Private: DB 쿼리 헬퍼 ──────────────────────────────
 
-    def _safe_query(self, db_path: Path | None, query: str, params: tuple = ()) -> list[dict]:
+    def _safe_query(self, db_path: Path | None, query: str, params: tuple[Any, ...] = ()) -> list[Row]:
         if not db_path or not db_path.exists():
             return []
         conn = sqlite3.connect(str(db_path), timeout=10)
@@ -241,13 +274,15 @@ class FeatureExtractor:
         finally:
             conn.close()
 
-    def _load_historical_performance(self, min_imp: int, days: int) -> list[dict]:
+    def _load_historical_performance(self, min_imp: int, days: int) -> list[Row]:
         """GDT의 tweet metrics + trend context를 INNER JOIN으로 추출.
 
         DailyNews는 trend context(viral_potential, category, content)가 없어
         training feature 분포가 달라지므로 제외 (inference와 일관성 유지).
         """
-        gdt_rows = self._safe_query(self._gdt_db, """
+        gdt_rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT
                 t.viral_potential, t.category,
                 tw.content, tw.char_count, tw.tweet_type,
@@ -261,11 +296,13 @@ class FeatureExtractor:
             INNER JOIN x_tweet_metrics m ON tw.tweet_id = m.tweet_id
             WHERE m.impressions >= ?
               AND tw.created_at >= datetime('now', ?)
-        """, (min_imp, f"-{days} days"))
+        """,
+            (min_imp, f"-{days} days"),
+        )
 
         return gdt_rows
 
-    def _row_to_features(self, row: dict) -> ContentFeatures:
+    def _row_to_features(self, row: Row) -> ContentFeatures:
         """DB row → ContentFeatures 변환. None-safe."""
         content = row.get("content") or ""
         category = row.get("category") or "other"
@@ -285,34 +322,50 @@ class FeatureExtractor:
 
     def _get_trend_velocity(self, keyword: str) -> float:
         """GDT DB에서 트렌드 가속도 조회."""
-        rows = self._safe_query(self._gdt_db, """
+        rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT viral_potential FROM trends
             WHERE keyword = ? ORDER BY run_date DESC LIMIT 2
-        """, (keyword,))
+        """,
+            (keyword,),
+        )
         if len(rows) >= 2:
-            return rows[0].get("viral_potential", 0) - rows[1].get("viral_potential", 0)
+            return float(rows[0].get("viral_potential", 0)) - float(rows[1].get("viral_potential", 0))
         return 0.0
 
     def _get_cross_source_confidence(self, keyword: str) -> float:
-        rows = self._safe_query(self._gdt_db, """
+        rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT cross_source_confidence FROM validated_trends
             WHERE keyword = ? ORDER BY validated_at DESC LIMIT 1
-        """, (keyword,))
-        return rows[0].get("cross_source_confidence", 0.0) if rows else 0.0
+        """,
+            (keyword,),
+        )
+        return float(rows[0].get("cross_source_confidence", 0.0)) if rows else 0.0
 
     def _get_source_count(self, keyword: str) -> int:
-        rows = self._safe_query(self._gdt_db, """
+        rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT COUNT(DISTINCT source) as cnt FROM raw_trends
             WHERE keyword = ? AND fetched_at >= datetime('now', '-24 hours')
-        """, (keyword,))
-        return rows[0].get("cnt", 1) if rows else 1
+        """,
+            (keyword,),
+        )
+        return int(rows[0].get("cnt", 1)) if rows else 1
 
     def _hours_since_peak(self, keyword: str) -> float:
-        rows = self._safe_query(self._gdt_db, """
+        rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT MAX(viral_potential) as peak_score, run_date
             FROM trends WHERE keyword = ?
             GROUP BY run_date ORDER BY peak_score DESC LIMIT 1
-        """, (keyword,))
+        """,
+            (keyword,),
+        )
         if rows and rows[0].get("run_date"):
             try:
                 peak_dt = datetime.fromisoformat(rows[0]["run_date"])
@@ -325,29 +378,40 @@ class FeatureExtractor:
         return 0.0
 
     def _get_category_avg_engagement(self, category: str) -> float:
-        rows = self._safe_query(self._gdt_db, """
+        rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT AVG(CAST(m.engagement_count AS REAL) / NULLIF(m.impressions, 0)) as avg_er
             FROM tweets tw
             JOIN trends t ON tw.keyword = t.keyword
             JOIN x_tweet_metrics m ON tw.tweet_id = m.tweet_id
             WHERE t.category = ? AND m.impressions > 0
-        """, (category,))
+        """,
+            (category,),
+        )
         return float(rows[0].get("avg_er") or 0.0) if rows else 0.0
 
     def _get_keyword_prev_impressions(self, keyword: str) -> float:
-        rows = self._safe_query(self._gdt_db, """
+        rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT AVG(m.impressions) as avg_imp
             FROM tweets tw
             JOIN x_tweet_metrics m ON tw.tweet_id = m.tweet_id
             WHERE tw.keyword = ?
-        """, (keyword,))
+        """,
+            (keyword,),
+        )
         return float(rows[0].get("avg_imp") or 0.0) if rows else 0.0
 
     def _get_author_avg_engagement(self) -> float:
-        rows = self._safe_query(self._gdt_db, """
+        rows = self._safe_query(
+            self._gdt_db,
+            """
             SELECT AVG(CAST(engagement_count AS REAL) / NULLIF(impressions, 0)) as avg_er
             FROM x_tweet_metrics WHERE impressions > 0
-        """)
+        """,
+        )
         return float(rows[0].get("avg_er") or 0.0) if rows else 0.0
 
     @staticmethod
