@@ -228,7 +228,20 @@ def main():
     )
     parser.add_argument("--limit", type=int, default=3, help="최대 생성 수 (기본: 3)")
     parser.add_argument("--list-only", action="store_true", help="리포트 목록만 출력 (생성하지 않음)")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="[shortform-only 정책 우회] 블로그 생성을 강제 실행. 기본 정책은 숏폼 전용.",
+    )
     args = parser.parse_args()
+
+    # [shortform-only] 사용자 정책: 블로그/롱폼 생성 중단. --force 필요.
+    if not args.list_only and not args.force:
+        print(
+            "⚠️ 블로그(롱폼) 생성은 현재 정책상 비활성화됨 (shortform-only).\n"
+            "   목록 확인만 필요하면 --list-only, 강제 생성이 필요하면 --force 사용."
+        )
+        return
 
     if args.list_only:
         reports = _load_dailynews_reports(window_name=args.window, limit=args.limit)

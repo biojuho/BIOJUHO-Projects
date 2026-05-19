@@ -81,8 +81,8 @@ def feature_flags_env() -> dict:
     """기능 플래그 환경변수 로딩."""
     return dict(
         enable_clustering=os.getenv("ENABLE_CLUSTERING", "true").lower() == "true",
-        enable_long_form=os.getenv("ENABLE_LONG_FORM", "true").lower() == "true",
-        enable_threads=os.getenv("ENABLE_THREADS", "true").lower() == "true",
+        enable_long_form=os.getenv("ENABLE_LONG_FORM", "false").lower() == "true",
+        enable_threads=os.getenv("ENABLE_THREADS", "false").lower() == "true",
         smart_schedule=os.getenv("SMART_SCHEDULE", "true").lower() == "true",
         night_mode=os.getenv("NIGHT_MODE", "true").lower() == "true",
         enable_structured_metrics=os.getenv("ENABLE_STRUCTURED_METRICS", "true").lower() == "true",
@@ -131,9 +131,11 @@ def quality_env() -> dict:
     """품질 관련 환경변수 로딩."""
     return dict(
         min_viral_score=int(os.getenv("MIN_VIRAL_SCORE", "60")),
-        long_form_min_score=int(os.getenv("LONG_FORM_MIN_SCORE", "95")),
-        thread_min_score=int(os.getenv("THREAD_MIN_SCORE", "92")),
-        threads_min_score=int(os.getenv("THREADS_MIN_SCORE", "65")),
+        long_form_min_score=int(os.getenv("LONG_FORM_MIN_SCORE", "999")),
+        thread_min_score=int(os.getenv("THREAD_MIN_SCORE", "999")),
+        threads_min_score=int(os.getenv("THREADS_MIN_SCORE", "999")),
+        tweet_min_chars=int(os.getenv("TWEET_MIN_CHARS", "160")),
+        tweet_max_chars=int(os.getenv("TWEET_MAX_CHARS", "240")),
         canva_min_score=int(os.getenv("CANVA_MIN_SCORE", "90")),
         quality_feedback_min_score=int(os.getenv("QUALITY_FEEDBACK_MIN_SCORE", "50")),
         threads_quality_min_score=int(os.getenv("THREADS_QUALITY_MIN_SCORE", "65")),

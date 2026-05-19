@@ -153,11 +153,13 @@ async def generate_tweets_with_marl_async(
             )
 
         tweets = []
+        # [shortform-only] 160~240자 범위 (config.tweet_min/max_chars와 동기화)
+        _MARL_MAX = 240
         for t in data.get("tweets", []):
             content = t.get("content", "")
-            if len(content) > 280:
-                content = content[:277] + "..."
-                log.warning(f"[MARL] 트윗 280자 초과 트리밍: {trend.keyword}")
+            if len(content) > _MARL_MAX:
+                content = content[: _MARL_MAX - 3] + "..."
+                log.warning(f"[MARL] 트윗 {_MARL_MAX}자 초과 트리밍: {trend.keyword}")
             tweets.append(
                 GeneratedTweet(
                     tweet_type=t.get("type", ""),
