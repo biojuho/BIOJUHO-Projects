@@ -248,15 +248,13 @@ jobs:
           uv tool install bandit
           mapfile -t PY_FILES < changed-python-files.txt
 
-          # Lint — S101 (assert) and hardcoded-password rules are standard pytest patterns
+          # Lint — defer to root pyproject.toml [tool.ruff.lint] for select/ignore
+          # so per-file-ignores, project-wide line-length, and the curated ignore
+          # list (E501/E402/B008/SIM*/TC*/UP028/UP042/UP047) all apply consistently.
+          # Security checks (S-rules) live in Bandit below; ruff S-rules would
+          # double-flag the same findings and need a parallel exclusion list.
           echo "::group::Ruff Lint"
-          ruff check --select=E,F,W,I,N,UP,S,B \
-            --per-file-ignores='tests/**:S101' \
-            --per-file-ignores='**/test_*.py:S101' \
-            --per-file-ignores='**/test_*.py:S105' \
-            --per-file-ignores='**/test_*.py:S106' \
-            --per-file-ignores='**/conftest.py:S101' \
-            --output-format=github "${PY_FILES[@]}"
+          ruff check --output-format=github "${PY_FILES[@]}"
           echo "::endgroup::"
 
           # Security
