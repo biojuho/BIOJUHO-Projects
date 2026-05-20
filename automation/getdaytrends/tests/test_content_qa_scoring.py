@@ -31,6 +31,7 @@ from content_qa import (
     _score_format,
     _score_hook,
     _score_kick,
+    _score_tone,
     build_regeneration_feedback,
 )
 from models import GeneratedTweet
@@ -237,6 +238,14 @@ class TestScoreBoundaries:
         tweet = _make_tweet(content)
         _, reg, _, _ = _score_format("threads_posts", [tweet], content)
         assert reg >= 0
+
+
+class TestToneAnalogyGuard:
+    def test_prohibited_analogy_is_penalized(self):
+        content = "이 변화는 마치 예산표가 한 번에 흔들리는 상황 같다."
+        score, issues = _score_tone(content, [_make_tweet(content)], [], None)
+        assert score <= 7
+        assert any("비유/은유" in issue for issue in issues)
 
 
 # ===========================================================================

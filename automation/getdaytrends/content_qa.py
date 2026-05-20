@@ -79,6 +79,20 @@ _AI_NATIVE_PATTERNS = (
     "모델",
 )
 
+_PROHIBITED_ANALOGY_PATTERNS = (
+    re.compile(r"\b마치\b"),
+    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*같(?:다|은|이|고|지만|습니다)"),
+    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*처럼"),
+    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*듯(?:하다|한|이|습니다|지만)?"),
+    re.compile(r"\bas if\b", re.IGNORECASE),
+    re.compile(r"\blike an?\b", re.IGNORECASE),
+    re.compile(r"\b(?:analogy|metaphor)\b", re.IGNORECASE),
+)
+
+
+def _has_prohibited_analogy(text: str) -> bool:
+    return any(pattern.search(text) for pattern in _PROHIBITED_ANALOGY_PATTERNS)
+
 
 def _count_emojis(text: str) -> int:
     count = 0
@@ -138,6 +152,9 @@ def _score_tone(
     if matched_cliches:
         score = max(0, score - min(15, 5 * len(matched_cliches)))
         issues.append(f"상투구 감지: {', '.join(matched_cliches[:3])}")
+    if _has_prohibited_analogy(combined):
+        score = max(0, score - 8)
+        issues.append("비유/은유 표현 감지")
     # [Phase 2] Kiwipiepy 형태소 기반 AI어투 심층 탐지
     try:
         from korean_nlp import compute_quality_score, detect_ai_voice
