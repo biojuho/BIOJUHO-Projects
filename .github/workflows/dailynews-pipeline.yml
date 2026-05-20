@@ -44,6 +44,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -72,7 +74,7 @@ jobs:
           WINDOW_LABEL="scheduled-window"
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             WINDOW_LABEL="manual-window"
-            if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
+            if [[ "${GITHUB_EVENT_INPUTS_FORCE}" == "true" ]]; then
               FORCE_FLAG="--force"
               WINDOW_LABEL="manual-force"
             fi
@@ -81,6 +83,8 @@ jobs:
           echo "max_items=$MAX_ITEMS" >> "$GITHUB_OUTPUT"
           echo "force_flag=$FORCE_FLAG" >> "$GITHUB_OUTPUT"
           echo "window_label=$WINDOW_LABEL" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_EVENT_INPUTS_FORCE: ${{ github.event.inputs.force }}
 
       - name: Verify required runtime configuration
         shell: bash
@@ -120,11 +124,13 @@ jobs:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/automation/DailyNews/src
+          STEPS_RUN_CONTEXT_OUTPUTS_MAX_ITEMS: ${{ steps.run_context.outputs.max_items }}
+          STEPS_RUN_CONTEXT_OUTPUTS_FORCE_FLAG: ${{ steps.run_context.outputs.force_flag }}
         run: |
           set -euo pipefail
-          FLAGS=(--max-items "${{ steps.run_context.outputs.max_items }}")
-          if [[ -n "${{ steps.run_context.outputs.force_flag }}" ]]; then
-            FLAGS+=("${{ steps.run_context.outputs.force_flag }}")
+          FLAGS=(--max-items "${STEPS_RUN_CONTEXT_OUTPUTS_MAX_ITEMS}")
+          if [[ -n "${STEPS_RUN_CONTEXT_OUTPUTS_FORCE_FLAG}" ]]; then
+            FLAGS+=("${STEPS_RUN_CONTEXT_OUTPUTS_FORCE_FLAG}")
           fi
 
           # Do not pipe through head. If the pipe closes early, Python can die
@@ -140,11 +146,14 @@ jobs:
             echo "## DailyNews Workflow Context"
             echo
             echo "- Event: ${{ github.event_name }}"
-            echo "- Window label: ${{ steps.run_context.outputs.window_label }}"
-            echo "- Max items: ${{ steps.run_context.outputs.max_items }}"
+            echo "- Window label: ${STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL}"
+            echo "- Max items: ${STEPS_RUN_CONTEXT_OUTPUTS_MAX_ITEMS}"
             echo "- Force enabled: ${{ steps.run_context.outputs.force_flag != '' && 'yes' || 'no' }}"
             echo "- Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL: ${{ steps.run_context.outputs.window_label }}
+          STEPS_RUN_CONTEXT_OUTPUTS_MAX_ITEMS: ${{ steps.run_context.outputs.max_items }}
 
       - name: Upload logs
         if: always()
@@ -167,8 +176,10 @@ jobs:
         shell: bash
         run: |
           curl -s -H "Content-Type: application/json" \
-            -d "{\"content\":\"[FAIL] DailyNews #${{ github.run_number }} (${{ steps.run_context.outputs.window_label }})\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            -d "{\"content\":\"[FAIL] DailyNews #${{ github.run_number }} (${STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL})\\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
             "$DISCORD_WEBHOOK_URL" || true
+        env:
+          STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL: ${{ steps.run_context.outputs.window_label }}
 
       - name: Telegram notification on failure
         if: failure()
@@ -177,8 +188,10 @@ jobs:
           if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[FAIL] DailyNews #${{ github.run_number }} (${{ steps.run_context.outputs.window_label }})\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[FAIL] DailyNews #${{ github.run_number }} (${STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL})\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
           fi
+        env:
+          STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL: ${{ steps.run_context.outputs.window_label }}
 
       - name: Telegram heartbeat on success
         if: success()
@@ -187,5 +200,8 @@ jobs:
           if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nWindow: ${{ steps.run_context.outputs.window_label }}\nMax items: ${{ steps.run_context.outputs.max_items }}\nRef: ${{ github.ref_name }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nWindow: ${STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL}\nMax items: ${STEPS_RUN_CONTEXT_OUTPUTS_MAX_ITEMS}\nRef: ${GITHUB_REF_NAME}\"}" || true
           fi
+        env:
+          STEPS_RUN_CONTEXT_OUTPUTS_WINDOW_LABEL: ${{ steps.run_context.outputs.window_label }}
+          STEPS_RUN_CONTEXT_OUTPUTS_MAX_ITEMS: ${{ steps.run_context.outputs.max_items }}

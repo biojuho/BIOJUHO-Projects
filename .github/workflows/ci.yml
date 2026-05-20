@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
       - uses: ./.github/actions/setup-python-uv
@@ -37,6 +39,8 @@ jobs:
         working-directory: apps/desci-platform/biolinker
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-python-uv
         with:
           python-version: '3.13'
@@ -57,6 +61,8 @@ jobs:
         working-directory: apps/desci-platform/frontend
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -81,6 +87,8 @@ jobs:
         working-directory: apps/desci-platform/contracts
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
