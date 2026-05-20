@@ -1,3 +1,4 @@
+# ruff: noqa: N806  # TestingSessionLocal follows SQLAlchemy naming convention
 from __future__ import annotations
 
 import json

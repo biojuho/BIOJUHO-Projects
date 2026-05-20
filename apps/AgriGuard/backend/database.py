@@ -38,7 +38,7 @@ def should_auto_create_schema(database_url: str | None = None) -> bool:
 DATABASE_URL = get_database_url()
 
 # Use shared db engine factory for standardizations
-from shared.db.engine import get_sqlalchemy_engine
+from shared.db.engine import get_sqlalchemy_engine  # noqa: E402  # must come after load_backend_env()
 
 engine = get_sqlalchemy_engine("agriguard", DATABASE_URL)
 

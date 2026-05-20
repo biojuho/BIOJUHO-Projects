@@ -1,3 +1,4 @@
+# ruff: noqa: N806  # TestingSessionLocal follows SQLAlchemy naming convention
 """
 Dashboard Router 통합 테스트 — demo mode fallback, 캐시 동작, 집계 로직 검증.
 

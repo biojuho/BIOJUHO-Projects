@@ -23,7 +23,7 @@ BASELINE_TABLES = {
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from env_loader import load_backend_env
+from env_loader import load_backend_env  # noqa: E402  # must come after sys.path injection
 
 load_backend_env(override=False)
 

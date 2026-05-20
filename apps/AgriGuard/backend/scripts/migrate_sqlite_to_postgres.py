@@ -1,3 +1,4 @@
+# ruff: noqa: S608  # table/column names from TABLE_ORDER constants and SQLite schema, not user input
 """AgriGuard — SQLite → PostgreSQL Data Migration Script.
 
 Usage:

@@ -1,3 +1,4 @@
+# ruff: noqa: S311  # demo/seed data generation; cryptographic randomness not required
 import random
 import uuid
 from datetime import UTC, datetime, timedelta

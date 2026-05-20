@@ -1,3 +1,4 @@
+# ruff: noqa: B008  # FastAPI's Depends() in defaults is the canonical injection pattern
 import uuid
 from datetime import UTC, datetime
 

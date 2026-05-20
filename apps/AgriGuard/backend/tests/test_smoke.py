@@ -1,3 +1,4 @@
+# ruff: noqa: S603  # subprocess calls invoke trusted scripts under test control
 """
 AgriGuard Backend Smoke Tests
 Tests core API endpoints and seed_db functionality.
@@ -94,12 +95,28 @@ db = SessionLocal()
 try:
     now = datetime.now(timezone.utc)
     db.add_all([
-        models.QRScanEvent(session_id="s1", event_type="scan_start", occurred_at=now, variant_id="qr_page_v2"),
-        models.QRScanEvent(session_id="s1", event_type="scan_failure", occurred_at=now, variant_id="qr_page_v2", error_code="camera_denied"),
-        models.QRScanEvent(session_id="s1", event_type="scan_recovery", occurred_at=now, variant_id="qr_page_v2", recovery_method="retry"),
-        models.QRScanEvent(session_id="s1", event_type="verification_complete", occurred_at=now, variant_id="qr_page_v2"),
-        models.QRScanEvent(session_id="s2", event_type="scan_start", occurred_at=now, variant_id="qr_page_v2"),
-        models.QRScanEvent(session_id="s2", event_type="scan_failure", occurred_at=now, variant_id="qr_page_v2", error_code="invalid_qr"),
+        models.QRScanEvent(
+            session_id="s1", event_type="scan_start", occurred_at=now, variant_id="qr_page_v2"
+        ),
+        models.QRScanEvent(
+            session_id="s1", event_type="scan_failure", occurred_at=now,
+            variant_id="qr_page_v2", error_code="camera_denied",
+        ),
+        models.QRScanEvent(
+            session_id="s1", event_type="scan_recovery", occurred_at=now,
+            variant_id="qr_page_v2", recovery_method="retry",
+        ),
+        models.QRScanEvent(
+            session_id="s1", event_type="verification_complete", occurred_at=now,
+            variant_id="qr_page_v2",
+        ),
+        models.QRScanEvent(
+            session_id="s2", event_type="scan_start", occurred_at=now, variant_id="qr_page_v2"
+        ),
+        models.QRScanEvent(
+            session_id="s2", event_type="scan_failure", occurred_at=now,
+            variant_id="qr_page_v2", error_code="invalid_qr",
+        ),
     ])
     db.commit()
 
