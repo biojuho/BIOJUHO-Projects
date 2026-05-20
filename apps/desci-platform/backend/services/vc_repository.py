@@ -22,9 +22,11 @@ can switch without conditionals.
 from __future__ import annotations
 
 import os
-from typing import Iterable, Protocol
+from collections.abc import Iterable
+from typing import Protocol
 
 from models import VCFirm
+
 from services.logging_config import get_logger
 from services.vc_crawler import get_vc_crawler
 
