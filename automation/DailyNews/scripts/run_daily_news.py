@@ -21,7 +21,6 @@ from runtime import (
 )
 from settings import NEWS_SOURCES_FILE, NOTION_API_KEY, NOTION_REPORTS_DATABASE_ID, OUTPUT_DIR
 
-
 DAILY_REPORT_CATEGORY_PRIORITY = (
     "Global_Affairs",
     "Economy_Global",

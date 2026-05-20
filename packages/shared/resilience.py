@@ -169,7 +169,7 @@ def resilient(
                         if delay is not None:
                             await asyncio.sleep(delay)
 
-                assert last_exc is not None
+                assert last_exc is not None  # noqa: S101  # type-narrowing before re-raise
                 raise RetryExhaustedError(last_exc, max_retries + 1)
 
             return async_wrapper  # type: ignore[return-value]
@@ -201,7 +201,7 @@ def resilient(
                         if delay is not None:
                             time.sleep(delay)
 
-                assert last_exc is not None
+                assert last_exc is not None  # noqa: S101  # type-narrowing before re-raise
                 raise RetryExhaustedError(last_exc, max_retries + 1)
 
             return sync_wrapper  # type: ignore[return-value]
