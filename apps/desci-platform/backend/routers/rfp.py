@@ -6,7 +6,6 @@ environments with only the core web stack installed.
 """
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-
 from limiter import limiter
 from models import AnalyzeRequest, AnalyzeResponse, UserProfile
 from services.logging_config import get_logger

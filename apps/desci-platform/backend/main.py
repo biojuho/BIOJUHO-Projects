@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from services.logging_config import get_logger, setup_logging
 
 try:

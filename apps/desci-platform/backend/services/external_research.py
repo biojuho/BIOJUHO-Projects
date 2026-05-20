@@ -168,7 +168,7 @@ class ExternalResearchClient:
         self._session = session
         self._owns_session = session is None
 
-    async def __aenter__(self) -> "ExternalResearchClient":
+    async def __aenter__(self) -> ExternalResearchClient:
         if self._session is None:
             self._session = httpx.AsyncClient(
                 timeout=_DEFAULT_TIMEOUT,

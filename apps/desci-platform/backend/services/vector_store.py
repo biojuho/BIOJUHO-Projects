@@ -59,14 +59,12 @@ except Exception:  # pylint: disable=broad-exception-caught
 # OpenAI/Google/Qdrant lazy loaders → see embedding_providers.py
 from .embedding_providers import (
     OPENAI_AVAILABLE,
-    OpenAI,
     GoogleGenerativeAIEmbeddings,
-    _load_openai_support,
+    OpenAI,
     _load_google_support,
+    _load_openai_support,
     _load_qdrant_support,
 )
-
-
 
 
 class VectorStore:
@@ -503,6 +501,7 @@ class VectorStore:
 
         collection = self.collection
         if CHROMADB_AVAILABLE and collection:
+            backend_filters = self._backend_filters(filters)
             try:
                 results = collection.query(
                     query_embeddings=[query_embedding],
@@ -777,8 +776,6 @@ class VectorStore:
 
 # ── QdrantVectorStore (extracted to qdrant_store.py) ──
 from .qdrant_store import QdrantVectorStore  # noqa: E402,F401
-
-
 
 _VECTOR_STORE: VectorStore | None = None
 

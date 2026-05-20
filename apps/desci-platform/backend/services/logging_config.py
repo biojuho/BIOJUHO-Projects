@@ -20,7 +20,7 @@ class _FallbackBoundLogger:
         self._logger = logger
         self._context = context or {}
 
-    def bind(self, **kwargs: Any) -> "_FallbackBoundLogger":
+    def bind(self, **kwargs: Any) -> _FallbackBoundLogger:
         return _FallbackBoundLogger(self._logger, {**self._context, **kwargs})
 
     def _format(self, event: str, *args: Any, **kwargs: Any) -> str:
