@@ -41,6 +41,11 @@ jobs:
           npm ci --prefix apps/desci-platform/frontend
           npm ci --prefix apps/AgriGuard/frontend
           npm ci --prefix apps/dashboard
+          # Contracts dirs are exercised by the smoke suite's hardhat
+          # compile/test steps below; their CLIs live in their own
+          # node_modules, so they need a dedicated install.
+          npm ci --prefix apps/desci-platform/contracts
+          npm ci --prefix apps/AgriGuard/contracts
 
       - name: Run workspace smoke suite
         env:
