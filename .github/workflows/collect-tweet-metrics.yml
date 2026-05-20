@@ -1,5 +1,12 @@
 name: Collect Tweet Metrics
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 # 목적: GetDayTrends에서 게시한 트윗의 실제 engagement 데이터를 수집
 # 회의 Action Item #3: A/B 테스트 measured label 확보
 
@@ -46,8 +53,9 @@ jobs:
         env:
           TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
           X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '72' }}
         run: |
-          LOOKBACK="${{ github.event.inputs.lookback_hours || '72' }}"
+          LOOKBACK="$LOOKBACK_HOURS"
           uv run python scripts/collect_posted_tweet_metrics.py \
             --lookback-hours "$LOOKBACK" \
             --require-token \
@@ -63,9 +71,11 @@ jobs:
 
       - name: Summary
         if: success()
+        env:
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '72' }}
         run: |
           echo "### Tweet Metrics Collection ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Lookback: ${{ github.event.inputs.lookback_hours || '72' }} hours" >> $GITHUB_STEP_SUMMARY
+          echo "- Lookback: $LOOKBACK_HOURS hours" >> $GITHUB_STEP_SUMMARY
           echo "- Run: #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Telegram notification on failure

@@ -1,5 +1,9 @@
 name: Pipeline Watcher (13h Check)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   schedule:
     # Run every 13 hours

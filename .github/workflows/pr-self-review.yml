@@ -1,5 +1,9 @@
 name: PR Self-Review
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: ["main", "dev"]
@@ -34,15 +38,18 @@ jobs:
       - name: Post review as comment
         if: always()
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          BASE_REF: ${{ github.base_ref }}
         with:
           script: |
             const fs = require('fs');
             const { execSync } = require('child_process');
+            const baseRef = process.env.BASE_REF;
 
             let output;
             try {
               output = execSync(
-                `python ops/scripts/pr_self_review.py --base origin/${{ github.base_ref }}`,
+                `python ops/scripts/pr_self_review.py --base origin/${baseRef}`,
                 { encoding: 'utf-8', timeout: 30000 }
               );
             } catch (e) {

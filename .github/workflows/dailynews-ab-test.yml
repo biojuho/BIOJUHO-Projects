@@ -1,5 +1,12 @@
 name: DailyNews A/B Test Runner
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 # 목적: DailyNews 프로젝트의 파이프라인 퀄리티 벤치마킹
 # Audience-First 프레임워크 기준에 따라 (구체성, 실용성, 공감성 등)
 # 주기적으로 A/B 테스트를 자동화하여 분석 데이터를 축적합니다.

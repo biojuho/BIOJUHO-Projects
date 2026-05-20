@@ -1,5 +1,8 @@
 name: DailyNews Economy_KR A/B Test
 
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: "0 1 * * 1"

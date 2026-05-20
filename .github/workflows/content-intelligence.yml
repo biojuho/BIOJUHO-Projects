@@ -1,5 +1,12 @@
 name: Content Intelligence Pipeline
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 # 목적: Viral Score 예측 정확도 교정 + ROI 리포트 생성
 # - calibrate_viral_model.py: 예측 정확도 측정 및 prompt_hints 갱신
 # - roi_report.py: LLM 비용 대비 인게이지먼트 ROI 분석
@@ -62,8 +69,10 @@ jobs:
 
       - name: Run viral model calibration
         working-directory: automation/getdaytrends
+        env:
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '14' }}
         run: |
-          LOOKBACK="${{ github.event.inputs.lookback_days || '14' }}"
+          LOOKBACK="$LOOKBACK_DAYS"
           uv run python scripts/calibrate_viral_model.py \
             --lookback-days "$LOOKBACK" \
             --json-out data/calibration_report_$(date -u +%Y%m%d).json
@@ -145,8 +154,9 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_ROI_DATABASE_ID: ${{ secrets.NOTION_ROI_DATABASE_ID }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
         run: |
-          LOOKBACK="${{ github.event.inputs.lookback_days || '7' }}"
+          LOOKBACK="$LOOKBACK_DAYS"
           uv run python ops/scripts/roi_report.py \
             --lookback-days "$LOOKBACK" \
             --json-out var/reports/roi_$(date -u +%Y%m%d).json

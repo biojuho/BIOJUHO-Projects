@@ -1,5 +1,12 @@
 name: Signal Watch Pipeline
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 on:
   schedule:
     # Run every 3 hours
@@ -64,6 +71,7 @@ jobs:
           PYTHONUTF8: "1"
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/automation/DailyNews/src
           GITHUB_EVENT_INPUTS_AUTO_DRAFT: ${{ github.event.inputs.auto_draft }}
+          INPUT_THRESHOLD: ${{ github.event.inputs.threshold || '0.6' }}
         run: |
           AUTO_DRAFT_FLAG=""
           if [ "${{ github.event_name }}" == "schedule" ]; then
@@ -71,7 +79,7 @@ jobs:
             THRESHOLD="0.6"
           else
             if [ "${GITHUB_EVENT_INPUTS_AUTO_DRAFT}" == "true" ]; then AUTO_DRAFT_FLAG="--auto-draft"; fi
-            THRESHOLD="${{ github.event.inputs.threshold || '0.6' }}"
+            THRESHOLD="$INPUT_THRESHOLD"
           fi
           uv run python -m antigravity_mcp.cli signal watch --threshold $THRESHOLD $AUTO_DRAFT_FLAG 2>&1
 

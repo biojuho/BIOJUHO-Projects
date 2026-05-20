@@ -1,5 +1,12 @@
 name: GetDayTrends Pipeline
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: "0 */4 * * *"
@@ -172,10 +179,12 @@ jobs:
 
       - name: Telegram heartbeat on success
         if: success()
+        env:
+          COUNTRY: ${{ github.event.inputs.country || 'korea' }}
         run: |
           echo "GetDayTrends run #${{ github.run_number }} completed successfully at $(date -u +%FT%TZ)"
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"✅ GetDayTrends #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nCountry: ${{ github.event.inputs.country || 'korea' }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"✅ GetDayTrends #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nCountry: ${COUNTRY}\"}" || true
           fi

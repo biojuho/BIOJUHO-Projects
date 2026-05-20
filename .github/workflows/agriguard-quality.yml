@@ -1,3 +1,11 @@
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 ﻿name: AgriGuard Quality Gate
 
 on:

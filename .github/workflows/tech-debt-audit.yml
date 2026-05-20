@@ -1,5 +1,8 @@
 name: Tech Debt Audit
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # 매주 월요일 09:00 KST (00:00 UTC)
@@ -168,12 +171,17 @@ jobs:
       - name: Comment on PR
         if: github.event_name == 'pull_request' && always()
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          WS_SCORE: ${{ steps.parse.outputs.ws_score }}
+          WS_GRADE: ${{ steps.parse.outputs.ws_grade }}
+          TOTAL_HOURS: ${{ steps.parse.outputs.total_hours }}
+          TOTAL_TODO: ${{ steps.parse.outputs.total_todo }}
         with:
           script: |
-            const score = '${{ steps.parse.outputs.ws_score }}';
-            const grade = '${{ steps.parse.outputs.ws_grade }}';
-            const hours = '${{ steps.parse.outputs.total_hours }}';
-            const todo  = '${{ steps.parse.outputs.total_todo }}';
+            const score = process.env.WS_SCORE;
+            const grade = process.env.WS_GRADE;
+            const hours = process.env.TOTAL_HOURS;
+            const todo  = process.env.TOTAL_TODO;
 
             if (!score) return;
 

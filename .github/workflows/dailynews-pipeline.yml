@@ -57,10 +57,13 @@ jobs:
       - name: Normalize run inputs
         id: run_context
         shell: bash
+        env:
+          INPUT_MAX_ITEMS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.max_items || '1' }}
+          GITHUB_EVENT_INPUTS_FORCE: ${{ github.event.inputs.force }}
         run: |
           set -euo pipefail
 
-          MAX_ITEMS="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.max_items || '1' }}"
+          MAX_ITEMS="$INPUT_MAX_ITEMS"
           if ! [[ "$MAX_ITEMS" =~ ^[0-9]+$ ]]; then
             echo "::error::max_items must be an integer, got '$MAX_ITEMS'"
             exit 1
@@ -83,8 +86,6 @@ jobs:
           echo "max_items=$MAX_ITEMS" >> "$GITHUB_OUTPUT"
           echo "force_flag=$FORCE_FLAG" >> "$GITHUB_OUTPUT"
           echo "window_label=$WINDOW_LABEL" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_EVENT_INPUTS_FORCE: ${{ github.event.inputs.force }}
 
       - name: Verify required runtime configuration
         shell: bash

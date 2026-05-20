@@ -1,5 +1,12 @@
 name: Scheduler Heartbeat Monitor
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: "0 1 * * *"   # Daily at 01:00 UTC (= 10:00 KST)

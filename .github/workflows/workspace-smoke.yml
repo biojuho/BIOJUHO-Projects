@@ -1,5 +1,8 @@
 name: Workspace Smoke Test
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: ["main", "dev"]
