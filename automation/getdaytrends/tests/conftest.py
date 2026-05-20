@@ -114,6 +114,18 @@ def isolate_database_url():
             os.environ["DATABASE_URL"] = original
 
 
+@pytest.fixture(autouse=True)
+def _disable_deepeval_in_tests(monkeypatch):
+    """Skip DeepEval LLM probes during unit tests.
+
+    DeepEval metrics fire real LLM calls (Hallucination/Faithfulness/Relevancy).
+    Without LLM keys each metric still spends 5-15s on init+timeout, which
+    dominated fact_checker test runtime (6 tests ≈ 150s). Tests that
+    genuinely exercise DeepEval opt back in via monkeypatch.delenv.
+    """
+    monkeypatch.setenv("DEEPEVAL_DISABLED", "1")
+
+
 @pytest.fixture
 def event_loop():
     """Override default event_loop fixture to always provide a fresh loop.

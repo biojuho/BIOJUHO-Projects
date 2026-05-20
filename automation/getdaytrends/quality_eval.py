@@ -19,9 +19,21 @@ Usage:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 from loguru import logger as log
+
+
+def _deepeval_runtime_disabled() -> bool:
+    """Allow tests / offline environments to skip DeepEval LLM probes.
+
+    Each DeepEval metric (Hallucination / Faithfulness / AnswerRelevancy)
+    attempts a real LLM call. When no LLM key is configured the SDK still
+    spends 5-15s per metric on init/timeout before falling back. Tests that
+    only exercise the rule-based fact_checker path don't need this overhead.
+    """
+    return os.getenv("DEEPEVAL_DISABLED", "").lower() in {"1", "true", "yes"}
 
 # DeepEval 선택 의존성
 try:
@@ -75,7 +87,7 @@ def evaluate_content(
         faithfulness_threshold: 사실 일관성 기각 임계값 (높을수록 엄격)
         relevancy_threshold: 관련성 기각 임계값 (높을수록 엄격)
     """
-    if not DEEPEVAL_AVAILABLE:
+    if not DEEPEVAL_AVAILABLE or _deepeval_runtime_disabled():
         return EvalResult()
 
     if not generated_text or not source_context:

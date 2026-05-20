@@ -60,10 +60,21 @@ class TestEvaluateContentIntegration:
         result = evaluate_content("generated text", "", "keyword")
         assert result.passed is True
 
+    def test_disabled_env_short_circuits(self, monkeypatch):
+        """DEEPEVAL_DISABLED=1 시 LLM probe 우회하고 즉시 default 통과."""
+        monkeypatch.setenv("DEEPEVAL_DISABLED", "1")
+        from quality_eval import evaluate_content
+
+        result = evaluate_content("foo", "context", "keyword")
+        assert result.passed is True
+        assert result.hallucination_score == 1.0
+        assert result.issues == []
+
     @pytest.mark.integration
     @pytest.mark.skipif(not DEEPEVAL_AVAILABLE, reason="DeepEval 미설치")
-    def test_basic_evaluation(self):
-        """DeepEval이 설치된 경우 기본 평가 동작 확인."""
+    def test_basic_evaluation(self, monkeypatch):
+        """DeepEval이 설치된 경우 기본 평가 동작 확인 (DEEPEVAL_DISABLED 해제)."""
+        monkeypatch.delenv("DEEPEVAL_DISABLED", raising=False)
         from quality_eval import evaluate_content
 
         result = evaluate_content(
