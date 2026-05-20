@@ -1,5 +1,67 @@
 # Devlog: Desci Platform (BioLinker)
 
+## 2026-05-20 (workspace smoke debt closure)
+
+### 1. Frontend dependency environment restored
+- Repaired the active smoke blockers by restoring `node_modules` for
+  `apps/dashboard` and `apps/AgriGuard/frontend` from their existing lockfiles.
+- Kept the change environment-only: incidental `package-lock.json` and
+  `.coverage` changes from install/smoke runs were reverted.
+
+### 2. Validation
+- Workspace smoke now passes: `6/6`.
+- AgriGuard smoke now passes: `5/5`.
+- Same-session checks confirmed DeSci, getdaytrends, MCP, and CIE were already
+  passing after network-enabled rechecks removed sandbox false positives.
+- Evidence JSON:
+  - `var\tmp\workspace_smoke_workspace_fixed_2026-05-20.json`
+  - `var\tmp\workspace_smoke_agriguard_fixed_2026-05-20.json`
+
+## 2026-05-20 (VC directory: data → DB → API → UI)
+
+### 1. Single source of truth for VC dataset
+- Extracted the curated KR + global biotech VC list (54 firms) out of
+  `services/vc_crawler.py` into `backend/data/vcs_seed.json`. The crawler now
+  loads from JSON via `lru_cache`, preserving the `VCCrawler.fetch_vc_list()`
+  contract so `smart_matcher`, `agent_graph`, and existing tests keep working
+  with no rewiring.
+
+### 2. Relational schema + repository
+- Added Supabase migration `0002_vc_firms.sql` (additive — new table only).
+  Schema mirrors the `VCFirm` Pydantic model, with GIN indexes on
+  `portfolio_keywords` and `preferred_stages` for fast filter queries.
+- Built `services/vc_repository.py` with two interchangeable backends:
+  - `MemoryVCRepository` reads the JSON seed (used in smoke/local).
+  - `PostgresVCRepository` uses `asyncpg` against the `vc_firms` table when
+    `DATABASE_URL` is set.
+  - Selection is automatic; missing `asyncpg` falls back to memory gracefully.
+
+### 3. Public HTTP surface
+- New `routers/vcs.py` registered in `main.py`:
+  - `GET /vcs` — list with `country`/`stage`/`keyword`/`limit` filters.
+  - `GET /vcs/{vc_id}` — single firm lookup (404 on miss).
+  - `GET /vcs/meta/backend` — diagnostic for runtime backend selection.
+- Rate-limited via the existing `slowapi` limiter.
+
+### 4. Operator seed flow
+- `backend/scripts/seed_vcs.py` is the production-ready upsert script:
+  `DATABASE_URL=... python scripts/seed_vcs.py [--dry-run] [--truncate]`.
+  Idempotent (`on conflict do update`), runs in a transaction, prints
+  pre/post row counts.
+
+### 5. Frontend investor directory
+- New public page `frontend/src/components/Investors.jsx` mounted at
+  `/investors` (no auth required — boosts discovery + signup conversion).
+  Filters by country, preferred stage, and free-text keyword across name,
+  thesis, and portfolio keywords. Calls `GET /vcs?limit=500` once and
+  filters client-side.
+
+### 6. Validation
+- Backend: `109 passed in 22.15s` (17 new VC repo/router tests, no
+  regression in agent_graph wiring or any other suite).
+- Frontend: `68 passed in 93.12s` Vitest, ESLint clean, `tsc --noEmit`
+  clean, production build succeeded (new `Investors-*.js` chunk emitted).
+
 ## 2026-05-16 (launch control finalization)
 
 ### 1. Operator launch control
@@ -87,3 +149,15 @@
 - **Backend**: FastAPI, Web3.py, Aiohttp, LangChain
 - **Frontend**: React (Vite), TailwindCSS, Firebase SDK
 - **Blockchain**: Ethereum Sepolia (Prepared for Deployment), IPFS (Pinata)
+
+## 2026-05-19 (frontend dependency refresh)
+
+### 1. Dependency upgrades
+- Refreshed `apps/desci-platform/frontend` to current npm wanted versions for Vite, React Query, React Router, Framer Motion, Lucide, and Rollup WASM support.
+- Kept ESLint 10 out of this batch because it is a major migration and npm still reports the current 9.x line as wanted.
+- Preserved runtime dependency placement for product imports after npm initially tried to move them into `devDependencies`.
+
+### 2. Validation
+- Frontend lint, typecheck, Vitest, and production build all passed.
+- Full local release gate passed all 12 steps, including backend tests, frontend bundle guard, contract tests, and contract deployment smoke.
+- JSON release report written to `var/release-gate-after-frontend-upgrades.json`.

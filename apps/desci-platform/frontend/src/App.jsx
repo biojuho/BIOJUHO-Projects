@@ -28,6 +28,7 @@ const PricingPage = lazy(() => import('./components/PricingPage'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const NotFound = lazy(() => import('./components/NotFound'));
 const ResearchFeed = lazy(() => import('./components/ResearchFeed'));
+const Investors = lazy(() => import('./components/Investors'));
 
 function RouteFallback() {
   return (
@@ -77,6 +78,7 @@ function AnimatedRoutes() {
           <Route path="/pricing" element={<PageTransition><PricingPage /></PageTransition>} />
           <Route path="/subscription/success" element={<PageTransition><PricingPage /></PageTransition>} />
           <Route path="/explore" element={<PageTransition><ResearchFeed /></PageTransition>} />
+          <Route path="/investors" element={<PageTransition><Investors /></PageTransition>} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>

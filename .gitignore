@@ -58,6 +58,7 @@ smoke_*.json
 final_smoke.json
 test-results/
 .pytest_cache/
+.pytest-root/
 .coverage
 *_out.txt
 *_out*.txt
@@ -99,8 +100,12 @@ MCP_notion-antigravity/output/
 **/chroma_db/
 **/data/
 !**/data/.gitkeep
+# Curated seed datasets (source of truth — must be version-controlled)
+!apps/desci-platform/backend/data/
+!apps/desci-platform/backend/data/vcs_seed.json
 var/logs/
 var/data/
+var/debt/
 var/db/
 var/smoke/
 var/session-bootstrap-*.json

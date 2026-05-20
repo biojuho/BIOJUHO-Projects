@@ -163,7 +163,7 @@ try:
 except ImportError:
     pass
 
-from routers import agent, crawl, governance, jobs, rfp, subscription, web3  # noqa: E402
+from routers import agent, crawl, governance, jobs, rfp, subscription, vcs, web3  # noqa: E402
 from services.user_tier import get_tier_manager  # noqa: E402
 
 get_tier_manager(db=db)
@@ -175,6 +175,7 @@ app.include_router(web3.router, tags=["Web3"])
 app.include_router(agent.router, tags=["Agent"])
 app.include_router(governance.router, tags=["Governance"])
 app.include_router(subscription.router, tags=["Subscription"])
+app.include_router(vcs.router)
 
 
 @app.get("/")

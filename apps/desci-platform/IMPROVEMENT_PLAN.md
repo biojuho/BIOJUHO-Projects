@@ -41,7 +41,14 @@
 - [x] Landing Page (Pricing 포함) 프론트엔드 컴포넌트 구축 ✅ 2026-03-19
 - [x] SEO 메타데이터 및 `index.html` 최적화 ✅ 2026-03-19
 - [ ] Vercel + Railway 실제 배포 및 도메인 연결
-- [ ] 한국 바이오 VC 50개사 DB 크롤링 활성화
+- [x] 한국 바이오 VC 50개사 DB 시드/배포 ✅ 2026-05-20
+  - `backend/data/vcs_seed.json` — 50 KR + 4 global VCs (단일 진실 소스)
+  - `supabase/migrations/0002_vc_firms.sql` — 신규 vc_firms 테이블 (additive)
+  - `backend/services/vc_repository.py` — Postgres + 메모리 폴백
+  - `backend/routers/vcs.py` — `GET /vcs`, `GET /vcs/{id}`, `GET /vcs/meta/backend`
+  - `backend/scripts/seed_vcs.py` — idempotent 시드 스크립트 (--dry-run/--truncate)
+  - `frontend/src/components/Investors.jsx` — `/investors` 공개 디렉토리 페이지
+  - Tests: 17 (backend repo + router) + 7 (frontend) green
 - [ ] Polygon Amoy Testnet에 DeSciToken 배포
 
 ## 6. GitHub OSS Adoption
