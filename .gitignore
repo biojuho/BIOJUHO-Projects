@@ -183,3 +183,7 @@ var/modoo/
 /notebooklm-automation/
 /notebooklm_output/
 /x-article-publisher-skill/
+
+# Antigravity CLI and app-specific temp directories
+.antigravitycli/
+apps/desci-platform/var/
