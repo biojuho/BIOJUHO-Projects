@@ -1,5 +1,57 @@
 # QC Log
 
+## 2026-05-20 — Optimization Pass: test runtime -57.7% via DeepEval gate
+
+### Goal
+`/goal "최적화 시켜줘"` (axes: 성능/속도, 코드 복잡도/유지보수성, 테스트 실행 시간) on getdaytrends.
+
+### Hotspot Discovery
+Profiling with `pytest --durations=30` revealed `quality_eval.evaluate_content`
+dominated the suite because `fact_checker.verify_content` invokes it as a
+[Phase 3] DeepEval 보조 평가 step on every call. Without an LLM key the
+DeepEval SDK still spends 5-15s per metric on init+timeout. 6 fact_checker
+tests consumed 152s out of 243s total:
+
+| Test | Pre |
+|---|---|
+| test_strict_mode | 41.13s |
+| test_verified_content_passes | 26.52s |
+| test_verify_batch_all_pass | 23.43s |
+| test_accuracy_score_calculation | 22.71s |
+| test_hallucinated_entity_fails | 19.93s |
+| test_verify_batch_mixed_groups | 19.90s |
+
+### Fix
+Env-gated short-circuit `DEEPEVAL_DISABLED` (`1|true|yes`, case-insensitive)
+in `quality_eval.evaluate_content` + autouse test fixture that opts the
+whole suite in. Production default unchanged; opt-in flag for CI/airgapped.
+
+### Validation Evidence
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Total runtime | 242.72s | 102.51s | **-57.7%** (-140s) |
+| Tests passed | 764 | 765 | +1 (new regression test) |
+| Tests skipped | 7 | 7 | — |
+| fact_checker subset | 152s | ~0.5s | -99.7% |
+| ruff | clean | clean | — |
+
+### Files Changed
+- `automation/getdaytrends/quality_eval.py` (+13/-1) — env gate
+- `automation/getdaytrends/tests/conftest.py` (+12/-0) — autouse setenv
+- `automation/getdaytrends/tests/test_quality_eval.py` (+13/-2) — opt-in + regression test
+
+### Commits
+- `cf53319` perf(getdaytrends): gate DeepEval LLM probes, cut test runtime 58%
+
+### Not Done This Pass
+Complexity refactor candidates surfaced by `radon cc --min D` (deferred for
+intentional review): `analyzer._analyze_trends_async` (F), `fact_checker.
+verify_claim_against_source` (F), `scraper._async_collect_trends` (F),
+`config.AppConfig.validate` (E), `notion_builder._build_notion_body` (E),
+`collectors/context_runtime._async_collect_contexts` (E).
+
+---
+
 ## 2026-05-20 — Product-Complete Pass: docs + analogy guard + dep floors
 
 ### Goal
