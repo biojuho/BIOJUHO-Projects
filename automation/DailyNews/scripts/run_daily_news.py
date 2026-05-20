@@ -538,10 +538,12 @@ async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, r
     if not NOTION_API_KEY:
         logger.error("bootstrap", "failed", "NOTION_API_KEY missing")
         state.record_job_finish(run_id, status="failed", error_text="NOTION_API_KEY missing")
+        state.close()
         return 1
     if not NOTION_REPORTS_DATABASE_ID:
         logger.error("bootstrap", "failed", "NOTION_REPORTS_DATABASE_ID missing")
         state.record_job_finish(run_id, status="failed", error_text="NOTION_REPORTS_DATABASE_ID missing")
+        state.close()
         return 1
 
     try:
@@ -549,6 +551,7 @@ async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, r
     except RuntimeError as exc:
         logger.warning("window", "skipped", str(exc))
         state.record_job_finish(run_id, status="skipped", error_text=str(exc))
+        state.close()
         return 1
 
     try:
@@ -691,6 +694,7 @@ async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, r
                         )
                 except Exception:
                     pass
+                state.close()
                 return 1
 
             # 0 success + 0 failed + N skipped는 success가 아니라 degraded.
@@ -723,6 +727,7 @@ async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, r
                         )
                 except Exception:
                     pass
+                state.close()
                 return 1
 
             state.record_job_finish(run_id, status="success", summary=summary)
@@ -748,10 +753,12 @@ async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, r
             except Exception:
                 pass
 
+            state.close()
             return 0
     except AlreadyRunningError:
         logger.warning("lock", "skipped", "job already running")
         state.record_job_finish(run_id, status="skipped", error_text="already running")
+        state.close()
         return 2
     except Exception as exc:
         logger.error("complete", "failed", "run_daily_news failed", error=str(exc))
@@ -772,6 +779,7 @@ async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, r
         except Exception:
             pass
 
+        state.close()
         return 1
 
 

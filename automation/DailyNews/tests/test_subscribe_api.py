@@ -36,7 +36,11 @@ def tmp_path() -> Path:
 
 @pytest.fixture
 def store(tmp_path: Path) -> SubscriberStore:
-    return SubscriberStore(db_path=tmp_path / "test_subscribe_api.db")
+    store = SubscriberStore(db_path=tmp_path / "test_subscribe_api.db")
+    try:
+        yield store
+    finally:
+        store.close()
 
 
 @pytest.fixture(autouse=True)

@@ -32,6 +32,12 @@ from antigravity_mcp.state.store import PipelineStateStore
 
 
 @pytest.fixture(autouse=True)
+def _close_open_pipeline_state_stores():
+    yield
+    PipelineStateStore.close_all_open()
+
+
+@pytest.fixture(autouse=True)
 def _force_workspace_temp(monkeypatch):
     """Use a workspace-local temp dir to avoid Windows temp permission failures."""
     previous_tempdir = tempfile.tempdir

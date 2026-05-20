@@ -44,8 +44,7 @@ def _metric_card(title: str, value: str, caption: str) -> None:
     )
 
 
-def main() -> None:
-    settings = get_settings()
+def _apply_page_style() -> None:
     st.set_page_config(page_title="Antigravity Content Engine", page_icon="AG", layout="wide")
     st.markdown(
         """
@@ -90,9 +89,8 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    st.title("Antigravity Content Engine")
-    st.caption("Operational cockpit for briefs, approvals, MCP runs, and publishing health.")
 
+def _load_dashboard_data(settings) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     runs_df = _fetch_dataframe(settings.pipeline_state_db, "SELECT * FROM job_runs ORDER BY started_at DESC LIMIT 50")
     reports_df = _fetch_dataframe(
         settings.pipeline_state_db, "SELECT * FROM content_reports ORDER BY updated_at DESC LIMIT 50"
@@ -103,7 +101,14 @@ def main() -> None:
     if not reports_df.empty:
         reports_df = reports_df.copy()
         reports_df["delivery_state"] = reports_df.apply(_report_delivery_state, axis=1)
+    return runs_df, reports_df, analytics_df
 
+
+def _render_summary_metrics(
+    runs_df: pd.DataFrame,
+    reports_df: pd.DataFrame,
+    analytics_df: pd.DataFrame,
+) -> None:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         _metric_card("Tracked Runs", str(len(runs_df.index)), "Recent pipeline executions stored locally.")
@@ -123,81 +128,113 @@ def main() -> None:
         )
         _metric_card("Channel Deliveries", str(published_posts), "Cross-channel outputs recorded in analytics.")
 
+
+def _render_pipeline_timeline(runs_df: pd.DataFrame) -> None:
+    st.subheader("Pipeline Status Timeline")
+    if runs_df.empty:
+        st.info("No pipeline runs recorded yet.")
+        return
+
+    chart_df = runs_df.copy()
+    chart_df["started_at"] = pd.to_datetime(chart_df["started_at"])
+    fig = px.scatter(
+        chart_df,
+        x="started_at",
+        y="job_name",
+        color="status",
+        size="processed_count",
+        color_discrete_map={
+            "success": "#1f6f50",
+            "partial": "#c7841d",
+            "failed": "#b8402a",
+            "running": "#1c6090",
+            "skipped": "#6b7280",
+        },
+        labels={"started_at": "Started", "job_name": "Job"},
+    )
+    fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_report_status_mix(reports_df: pd.DataFrame) -> None:
+    st.subheader("Report Status Mix")
+    if reports_df.empty:
+        st.info("No content reports stored yet.")
+        return
+
+    pie_df = reports_df.groupby("delivery_state").size().reset_index(name="count")
+    fig = px.pie(
+        pie_df,
+        names="delivery_state",
+        values="count",
+        color="delivery_state",
+        color_discrete_map={
+            "draft": "#d98c2b",
+            "notion_synced": "#1f6f50",
+            "failed": "#b8402a",
+        },
+        hole=0.56,
+    )
+    fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_charts(runs_df: pd.DataFrame, reports_df: pd.DataFrame) -> None:
     chart_left, chart_right = st.columns([1.2, 1])
 
     with chart_left:
-        st.subheader("Pipeline Status Timeline")
-        if runs_df.empty:
-            st.info("No pipeline runs recorded yet.")
-        else:
-            chart_df = runs_df.copy()
-            chart_df["started_at"] = pd.to_datetime(chart_df["started_at"])
-            fig = px.scatter(
-                chart_df,
-                x="started_at",
-                y="job_name",
-                color="status",
-                size="processed_count",
-                color_discrete_map={
-                    "success": "#1f6f50",
-                    "partial": "#c7841d",
-                    "failed": "#b8402a",
-                    "running": "#1c6090",
-                    "skipped": "#6b7280",
-                },
-                labels={"started_at": "Started", "job_name": "Job"},
-            )
-            fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+        _render_pipeline_timeline(runs_df)
 
     with chart_right:
-        st.subheader("Report Status Mix")
-        if reports_df.empty:
-            st.info("No content reports stored yet.")
-        else:
-            pie_df = reports_df.groupby("delivery_state").size().reset_index(name="count")
-            fig = px.pie(
-                pie_df,
-                names="delivery_state",
-                values="count",
-                color="delivery_state",
-                color_discrete_map={
-                    "draft": "#d98c2b",
-                    "notion_synced": "#1f6f50",
-                    "failed": "#b8402a",
-                },
-                hole=0.56,
-            )
-            fig.update_layout(height=360, paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+        _render_report_status_mix(reports_df)
 
+
+def _render_recent_reports(reports_df: pd.DataFrame) -> None:
     st.subheader("Recent Reports")
     if reports_df.empty:
         st.write("No reports available.")
-    else:
-        view_columns = [
-            column
-            for column in ["report_id", "category", "window_name", "delivery_state", "approval_state", "updated_at"]
-            if column in reports_df.columns
-        ]
-        st.dataframe(reports_df[view_columns], use_container_width=True, hide_index=True)
+        return
 
+    view_columns = [
+        column
+        for column in ["report_id", "category", "window_name", "delivery_state", "approval_state", "updated_at"]
+        if column in reports_df.columns
+    ]
+    st.dataframe(reports_df[view_columns], use_container_width=True, hide_index=True)
+
+
+def _render_recent_runs(runs_df: pd.DataFrame) -> None:
     st.subheader("Recent Runs")
     if runs_df.empty:
         st.write("No run history available.")
-    else:
-        view_columns = [
-            column
-            for column in [
-                "run_id",
-                "job_name",
-                "status",
-                "processed_count",
-                "published_count",
-                "started_at",
-                "finished_at",
-                "error_text",
-            ]
-            if column in runs_df.columns
+        return
+
+    view_columns = [
+        column
+        for column in [
+            "run_id",
+            "job_name",
+            "status",
+            "processed_count",
+            "published_count",
+            "started_at",
+            "finished_at",
+            "error_text",
         ]
-        st.dataframe(runs_df[view_columns], use_container_width=True, hide_index=True)
+        if column in runs_df.columns
+    ]
+    st.dataframe(runs_df[view_columns], use_container_width=True, hide_index=True)
+
+
+def main() -> None:
+    settings = get_settings()
+    _apply_page_style()
+
+    st.title("Antigravity Content Engine")
+    st.caption("Operational cockpit for briefs, approvals, MCP runs, and publishing health.")
+
+    runs_df, reports_df, analytics_df = _load_dashboard_data(settings)
+    _render_summary_metrics(runs_df, reports_df, analytics_df)
+    _render_charts(runs_df, reports_df)
+    _render_recent_reports(reports_df)
+    _render_recent_runs(runs_df)

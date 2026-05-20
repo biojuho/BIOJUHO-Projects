@@ -96,6 +96,9 @@ class SubscriberStore:
     def __exit__(self, *args: object) -> None:
         self.close()
 
+    def __del__(self) -> None:
+        self.close()
+
     # ── Schema ────────────────────────────────────────────────────────────
 
     def _ensure_schema(self) -> None:
