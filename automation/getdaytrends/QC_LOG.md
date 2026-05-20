@@ -1,5 +1,45 @@
 # QC Log
 
+## 2026-05-20 — Product-Complete Pass: docs + analogy guard + dep floors
+
+### Goal
+Bring getdaytrends to product-complete form per `/goal "제품완성형으로 만들어봐"`: tests/lint green, docs aligned with shortform-only policy, dirty worktree committed.
+
+### Scope
+- Documentation: README / WORKFLOW / OPERATIONS aligned with shortform-only policy (2026-05) — explicit 활성/비활성/3중 가드/QA 페널티/발행 정책 표
+- Content QA: tone scoring now penalizes analogy/metaphor patterns (`마치 / ~같다 / ~처럼 / ~듯 / as if / like a`) by 8, mirrored to system prompts (joongyeon kicks + long_form blog) so the model is told and the QA enforces
+- Dependency hygiene: pyproject lower bounds raised to the versions the green test run actually used (anthropic 0.102, requests 2.34.2, lxml 6.1.1, schedule 1.2.2, notion-client <4.0, google-auth 2.53, uvicorn 0.47, selectolax 0.4.7, deepeval 4.0.2, loguru 0.7.3, cryptography 46.0.7)
+
+### Files Changed (this session)
+- `automation/getdaytrends/content_qa.py` (+ test)
+- `automation/getdaytrends/generation/long_form.py`
+- `automation/getdaytrends/generation/system_prompts.py`
+- `automation/getdaytrends/tests/test_content_qa_scoring.py`
+- `automation/getdaytrends/pyproject.toml`
+- `automation/getdaytrends/README.md`
+- `automation/getdaytrends/WORKFLOW.md`
+- `automation/getdaytrends/OPERATIONS.md`
+
+### Validation Evidence
+```powershell
+uv run --package getdaytrends pytest automation\getdaytrends\tests -q --tb=short
+uv run --package getdaytrends ruff check automation\getdaytrends
+```
+- pytest: **764 passed, 7 skipped** (kiwipiepy/scrapling optional extras), 5m17s
+- ruff: **All checks passed!**
+- git worktree (getdaytrends/): clean after 3 logical commits
+
+### Commits
+- `48109f1` feat(getdaytrends): tone QA blocks analogy/metaphor phrasing
+- `e5585a2` chore(getdaytrends): bump dep floors to match installed environment
+- `6fe16ed` docs(getdaytrends): align README/WORKFLOW/OPERATIONS with shortform-only
+
+### Residual Risk
+- LF→CRLF warnings are workspace-wide (autocrlf=true on Windows) and not new to this pass
+- Branch is `ci/verify-quality-gate` (not main); push left to operator per workspace policy (manual publishing rule)
+
+---
+
 ## 2026-05-19 - Runtime Repair + Source Starvation QC
 
 ### Scope
