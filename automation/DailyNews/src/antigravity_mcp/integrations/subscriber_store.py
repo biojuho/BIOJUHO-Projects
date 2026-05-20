@@ -24,6 +24,15 @@ from antigravity_mcp.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+def _safe_log(value: str) -> str:
+    """Strip control chars from user-supplied values before logging.
+
+    Prevents log-injection where a malicious email/source string could
+    splice in fake log lines via newlines or terminal escapes.
+    """
+    return value.translate({0x0A: 0x20, 0x0D: 0x20, 0x09: 0x20, 0x1B: 0x20})
+
+
 # ---------------------------------------------------------------------------
 # Domain Model
 # ---------------------------------------------------------------------------
@@ -252,10 +261,15 @@ class SubscriberStore:
                 )
                 conn.commit()
             except sqlite3.IntegrityError:
-                logger.debug("Subscriber %s already exists", email)
+                logger.debug("Subscriber %s already exists", _safe_log(email))
                 return None
 
-        logger.info("Added subscriber %s (%s) from %s", email, subscriber_id[:8], source)
+        logger.info(
+            "Added subscriber %s (%s) from %s",
+            _safe_log(email),
+            subscriber_id[:8],
+            _safe_log(source),
+        )
         return Subscriber(
             id=subscriber_id,
             email=email.strip().lower(),
