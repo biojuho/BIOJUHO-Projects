@@ -91,7 +91,7 @@ def _facade_module():
 def _redis_enabled() -> bool:
     facade = _facade_module()
     if facade is not None and hasattr(facade, "_REDIS_OK"):
-        return bool(getattr(facade, "_REDIS_OK"))
+        return bool(facade._REDIS_OK)
     return _REDIS_OK
 
 

@@ -185,7 +185,7 @@ class TestSaveTweetsBatch:
         await db.commit()
 
         initial_cursor = await db.execute("SELECT COUNT(*) as cnt FROM tweets")
-        initial_count = dict(await initial_cursor.fetchone())["cnt"]
+        _initial_count = dict(await initial_cursor.fetchone())["cnt"]
 
         # char_count에 문자열을 넣어 타입 에러 유발은 SQLite에서 불가하므로
         # 컬럼 수 불일치를 만들어 에러 유발

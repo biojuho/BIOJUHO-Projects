@@ -485,7 +485,7 @@ async def api_review_queue(limit: int = Query(50, ge=1, le=200)):
 async def api_logs(limit: int = Query(50, ge=1, le=200)):
     """Loki 또는 로컬 파일에서 실시간 로그 수집."""
     logs = []
-    
+
     # 1. Try Loki first (if docker-compose monitoring is running)
     try:
         async with httpx.AsyncClient(timeout=1.5) as client:
@@ -526,13 +526,13 @@ def api_ab_test():
         if ab_test_file.exists():
             with open(ab_test_file, encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             eval_a = data.get("evaluation", {}).get("version_a", {})
             eval_b = data.get("evaluation", {}).get("version_b", {})
-            
+
             kpi_a = eval_a.get("primary_kpi", 0)
             kpi_b = eval_b.get("primary_kpi", 0)
-            
+
             # Map primary KPI points to a dummy CTR/conversion for dashboard visualization
             # since the original dashboard expects ctr/conversion layout
             return JSONResponse({

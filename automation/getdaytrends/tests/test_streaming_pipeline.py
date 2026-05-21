@@ -97,7 +97,7 @@ async def _failing_generate_fn(scored_trend):
 
 
 async def _failing_save_fn(trend, batch):
-    raise IOError("disk full")
+    raise OSError("disk full")
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────

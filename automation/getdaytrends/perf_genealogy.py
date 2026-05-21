@@ -52,7 +52,7 @@ class TrendGenealogyMixin:
                     (keyword, parent_keyword),
                 )
                 existing = await cursor.fetchone()
-                
+
                 if existing:
                     new_count = existing["total_appearances"] + 1
                     new_peak = max(existing["peak_viral_score"], viral_score)
@@ -72,7 +72,7 @@ class TrendGenealogyMixin:
                         )
                         parent = await cursor.fetchone()
                         depth = (parent["genealogy_depth"] + 1) if parent else 1
-                        
+
                     await conn.execute(
                         """INSERT INTO trend_genealogy
                            (keyword, parent_keyword, predicted_children, genealogy_depth,

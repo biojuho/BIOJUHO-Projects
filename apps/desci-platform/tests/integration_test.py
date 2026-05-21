@@ -1,3 +1,4 @@
+# ruff: noqa: S101  # pytest integration test relies on assert
 import json
 import os
 import sys

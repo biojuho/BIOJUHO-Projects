@@ -206,7 +206,7 @@ class PgAdapter:
             except Exception:
                 pass
             self._txn = None
-            
+
         async with self._lock:
             if self._pool is not None:
                 # Supabase transaction-mode pooler requires connections to be idle before release.

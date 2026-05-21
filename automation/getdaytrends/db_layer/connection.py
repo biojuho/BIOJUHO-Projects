@@ -91,7 +91,7 @@ async def get_pg_pool(url: str, min_size: int = 2, max_size: int = 10) -> "async
             url, min_size=min_size, max_size=max_size,
             statement_cache_size=0,  # required for Supabase transaction-mode pooler
         )
-        setattr(loop, "_pg_pool", pool)
+        loop._pg_pool = pool
         log.info(f"asyncpg Pool 생성 (loop_id={id(loop)}): min={min_size} max={max_size} @ {url.split('@')[-1]}")
     return pool
 
@@ -104,7 +104,7 @@ async def close_pg_pool() -> None:
         pool = getattr(loop, "_pg_pool", None)
         if pool and not pool._closed:
             await pool.close()
-            setattr(loop, "_pg_pool", None)
+            loop._pg_pool = None
             log.info(f"asyncpg Pool 정상 종료 (loop_id={id(loop)})")
     except RuntimeError:
         pass  # No running loop
