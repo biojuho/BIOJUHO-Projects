@@ -116,13 +116,18 @@ jobs:
 
       - name: Run zizmor (SARIF)
         # Single SARIF scan — the hard-gate Python below reads ruleId from
-        # the SARIF, so we no longer need a second JSON-format pass. This
-        # halves the workflow's runtime and stays well under the 10-min
-        # job timeout that previously cancelled the older two-pass version.
+        # the SARIF, so we no longer need a second JSON-format pass.
+        #
+        # --no-online-audits skips checks like `impostor-commit` that hit
+        # the GitHub API. On busy days the workflow's GITHUB_TOKEN inherits
+        # an installation rate limit (HTTP 403) which made zizmor abort
+        # with "no audit was performed" and emit an empty SARIF, breaking
+        # the upload-sarif step. The hard-gate audit we actually depend on
+        # (`unpinned-uses`) is offline-only and unaffected.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uvx zizmor==1.24.1 --persona=auditor --format=sarif .github/workflows/ > zizmor.sarif 2> zizmor.log || true
+          uvx zizmor==1.24.1 --persona=auditor --no-online-audits --format=sarif .github/workflows/ > zizmor.sarif 2> zizmor.log || true
 
       - name: Upload SARIF to Code Scanning
         if: always()
