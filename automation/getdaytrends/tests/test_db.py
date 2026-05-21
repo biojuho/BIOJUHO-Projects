@@ -7,27 +7,26 @@ import unittest
 from datetime import datetime
 
 import aiosqlite
-import pytest
 import db as db_module
-
+import pytest
 from db import (
     compute_fingerprint,
     enqueue_tap_alerts,
     get_cached_content,
     get_cached_score,
+    get_latest_tap_board_snapshot,
+    get_recent_avg_viral_score,
+    get_recently_processed_keywords,
     get_tap_alert_delivery_batch,
     get_tap_alert_queue_snapshot,
     get_tap_checkout_session_summary,
     get_tap_deal_room_funnel,
     get_tap_deal_room_offer_stats,
-    get_latest_tap_board_snapshot,
-    get_recent_avg_viral_score,
-    get_recently_processed_keywords,
     get_trend_stats,
     init_db,
     is_duplicate_trend,
-    mark_tweet_posted,
     mark_tap_checkout_session_completed,
+    mark_tweet_posted,
     record_tap_deal_room_event,
     save_run,
     save_tap_board_snapshot,
@@ -35,9 +34,9 @@ from db import (
     save_trend,
     save_tweet,
     sync_tweet_metrics,
-    upsert_tap_checkout_session,
-    update_tap_alert_delivery_status,
     update_run,
+    update_tap_alert_delivery_status,
+    upsert_tap_checkout_session,
 )
 from models import (
     GeneratedThread,

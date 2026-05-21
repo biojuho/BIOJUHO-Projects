@@ -8,10 +8,11 @@ execution vulnerabilities.
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 import sys
 import types
-from unittest.mock import MagicMock
+from pathlib import Path
 
 import pytest
 
@@ -24,11 +25,17 @@ _lc_stub.tools = _lc_tools
 sys.modules.setdefault("langchain_core", _lc_stub)
 sys.modules.setdefault("langchain_core.tools", _lc_tools)
 
-from shared.llm.reasoning.vibe_tools import (  # noqa: E402
-    _split_command,
-    _validate_test_command,
-    run_test_tool,
-)
+_ROOT = Path(__file__).resolve().parents[1]
+_VIBE_TOOLS_PATH = _ROOT / "packages" / "shared" / "llm" / "reasoning" / "vibe_tools.py"
+_SPEC = importlib.util.spec_from_file_location("vibe_tools_under_test", _VIBE_TOOLS_PATH)
+assert _SPEC is not None
+vibe_tools_under_test = importlib.util.module_from_spec(_SPEC)
+assert _SPEC.loader is not None
+_SPEC.loader.exec_module(vibe_tools_under_test)
+
+_split_command = vibe_tools_under_test._split_command
+_validate_test_command = vibe_tools_under_test._validate_test_command
+run_test_tool = vibe_tools_under_test.run_test_tool
 
 
 class TestValidateTestCommand:

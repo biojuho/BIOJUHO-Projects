@@ -3,9 +3,8 @@ import threading
 import time
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 import main as main_mod
+import pytest
 from config import AppConfig
 from main import (
     _acquire_lock,

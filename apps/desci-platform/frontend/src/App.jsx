@@ -25,6 +25,9 @@ const PeerReview = lazy(() => import('./components/PeerReview'));
 const UploadPaper = lazy(() => import('./components/UploadPaper'));
 const Governance = lazy(() => import('./components/Governance'));
 const PricingPage = lazy(() => import('./components/PricingPage'));
+const LandingPage = lazy(() => import('./components/LandingPage'));
+const NotFound = lazy(() => import('./components/NotFound'));
+const ResearchFeed = lazy(() => import('./components/ResearchFeed'));
 
 function RouteFallback() {
   return (
@@ -69,9 +72,11 @@ function AnimatedRoutes() {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           {/* Public routes */}
+          <Route path="/" element={<PageTransition><LandingPage /></PageTransition>} />
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/pricing" element={<PageTransition><PricingPage /></PageTransition>} />
           <Route path="/subscription/success" element={<PageTransition><PricingPage /></PageTransition>} />
+          <Route path="/explore" element={<PageTransition><ResearchFeed /></PageTransition>} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
@@ -88,14 +93,13 @@ function AnimatedRoutes() {
             <Route path="/governance" element={<PageTransition><Governance /></PageTransition>} />
           </Route>
 
-          {/* Default redirect */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* 404 */}
+          <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
       </AnimatePresence>
     </Suspense>
   );
 }
-
 function App() {
   return (
     <AppErrorBoundary>

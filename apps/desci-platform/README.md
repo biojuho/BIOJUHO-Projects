@@ -1,114 +1,128 @@
 # DSCI-DecentBio
 
-탈중앙화 과학(Decentralized Science) 플랫폼
-Decentralized Science (DeSci) Platform
-## Target Audience
+DSCI-DecentBio는 연구자와 투자자/펀더를 연결하는 DeSci 제품입니다. 연구자는 논문과 기술 자산을 등록하고, 플랫폼은 공고 수집, 벡터 매칭, AI 제안서 초안, 투자자 적합도, 리뷰/보상 흐름을 한 화면에서 운영합니다.
 
-**Dual Persona Platform**: B2B Prosumer (Researchers + VCs)
+## 제품 흐름
 
-**Persona A**: "Research Funding Seeker" (박민지, 35세 박사후연구원)
-- PhD-level researchers at universities, institutes, or bio-startups
-- Pain point: Difficulty securing research funding, lack of VC network
-- Need: Auto-discovery of matching RFPs, AI-generated proposal drafts
-- Decision criteria: Matching accuracy >80%, time savings (3 days → 1 day)
+- Research Submission: PDF 논문과 초록을 등록하고 IPFS/벡터 인덱싱 흐름을 시작합니다.
+- Funding Radar: KDDF/NTIS 등 연구지원 공고를 수집하고 검색합니다.
+- Match Studio: 논문과 공고를 매칭하고 AI 제안서 초안을 생성합니다.
+- Investor View: VC 관점에서 연구 자산과 투자 적합도를 확인합니다.
+- Research Vault: 제출한 논문과 IP-NFT 민팅 상태를 관리합니다.
+- Governance Hub: 제안, 투표, 실행 상태를 추적합니다.
+- Product Readiness: `/ready` API와 대시보드 패널로 출시 준비도를 점검합니다.
 
-**Persona B**: "Bio Investment Scout" (김태준, 42세 VC 파트너)
-- VC partners/analysts managing bio funds
-- Pain point: Difficulty finding quality research, insufficient time for tech evaluation
-- Need: Early discovery of high-value projects, automated tech assessment
-- Decision criteria: Clear ROI, risk assessment, matching algorithm trustworthiness
+## 기술 스택
 
-**What They Need**:
-- RFP crawling + vector search for accurate matching
-- AI proposal generator (save 100+ hours of funding search)
-- VC dashboard for investment opportunity visualization
-- IPFS permanent data storage (core DeSci value)
-- DAO governance for transparent decision-making
+- Frontend: React, Vite, TypeScript baseline, TanStack Query, Fetch API
+- Backend: FastAPI, async job runner, RabbitMQ worker option
+- Data: PostgreSQL/Supabase migration, Redis usage/job state fallback
+- Search: local vector store or Qdrant-compatible boundary
+- Storage/Web3: IPFS/Pinata, Web3 mock or contract integration
+- Mobile direction: Flutter/native 클라이언트가 REST/SSE API를 재사용할 수 있는 구조
 
-**Success Metrics**:
-- Matching relevance satisfaction >80%
-- Proposal submission rate >60% (after matching)
-- VC project evaluation rate >40% (of recommendations)
-- Successful matches: >5/month (funding secured or investment closed)
+상세 스택 정렬 기록은 [STACK_ALIGNMENT.md](./STACK_ALIGNMENT.md)를 확인하세요.
 
-For detailed audience analysis, see [workspace-audience-profiles.md](../../../.claude/skills/audience-first/references/workspace-audience-profiles.md#3-desci-platform-biolinker).
+## 빠른 실행
 
-
-
-## 🛠 기술 스택 (Tech Stack)
-
-- **Backend:** Python (FastAPI) + Firebase Admin
-- **Frontend:** React (Vite) + Tailwind CSS
-- **Auth(인증):** Firebase Authentication (Google + Email/PW)
-
----
-
-## 🚀 빠른 시작 (Quick Start)
-
-### 백엔드 (Backend)
+### 인프라 포함 실행
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
+cd apps/desci-platform
+docker compose --profile infra up postgres redis rabbitmq biolinker-worker
 ```
 
-### 프론트엔드 (Frontend)
+### 백엔드
 
 ```bash
-cd frontend
+cd apps/desci-platform/biolinker
+uv sync --extra dev
+uv run uvicorn main:app --reload
+```
+
+### 프론트엔드
+
+```bash
+cd apps/desci-platform/frontend
 npm install
 npm run dev
 ```
 
-### UTF-8 테스트 실행 (Windows)
+## 주요 API
 
-Windows 터미널에서 한글이 깨져 보여도 파일 자체가 손상된 것은 아닐 수 있습니다. 로컬 테스트는 UTF-8 강제 실행을 기본으로 사용하세요.
+- `GET /health`: 하위 시스템 헬스 체크
+- `GET /ready`: 제품 출시 준비도 체크
+- `GET /jobs/{job_id}`: 장기 작업 상태 조회
+- `GET /jobs/{job_id}/events`: 장기 작업 SSE 진행률 스트림
+- `POST /jobs/notices/collect`: 공고 수집 작업 생성
+- `POST /jobs/papers/index`: 논문 재인덱싱 작업 생성
+- `POST /jobs/match/paper`: 논문-공고 매칭 작업 생성
+- `POST /jobs/proposal/generate`: 제안서 생성 작업 생성
+
+## 환경 변수
+
+시작점은 `.env.example`과 `biolinker/.env.example`입니다. 제품형 실행에는 최소 하나의 LLM 키와 인증 설정이 필요합니다.
+
+- `GOOGLE_API_KEY` 또는 `GEMINI_API_KEY` 또는 `OPENAI_API_KEY`
+- `GOOGLE_APPLICATION_CREDENTIALS` 또는 Firebase 서비스 계정 설정
+- `DATABASE_URL` 또는 Supabase 관련 키
+- `REDIS_URL`
+- `RABBITMQ_URL`
+- `PINATA_JWT` 또는 Pinata API 키
+
+개발 환경에서는 일부 서비스가 fallback으로 동작하지만, 대시보드의 Product Readiness 패널에서 출시 차단 항목을 확인할 수 있습니다.
+
+## 품질 게이트
+
+### 백엔드
 
 ```bash
-set PYTHONUTF8=1
-cd ..\tests
-..\.venv\Scripts\python.exe -m pytest test_shared_llm.py -q
+cd apps/desci-platform/biolinker
+uv run pytest tests/test_api_endpoints.py tests/test_jobs.py -q
 ```
 
----
-
-## 🛡 품질 게이트 (Quality Gate)
-
-작업 공간 통합 정책 및 CI 게이트 (Workspace-wide policy and CI gate): [../QUALITY_GATE.md](../QUALITY_GATE.md)
-
-### 백엔드 스모크 테스트 (Backend smoke test - pytest)
+### 프론트엔드
 
 ```bash
-cd biolinker
-python -m pytest tests/test_smoke_pipeline.py -q
-```
-
-### 프론트엔드 린트 + 프로덕션 빌드 (Frontend lint + production build - Node LTS)
-
-```bash
-cd frontend
+cd apps/desci-platform/frontend
 npm run lint
+npm run typecheck
+npm run test
 npm run build:lts
 npm run check:bundle
 ```
 
----
+### Compose 검증
 
-## ✨ 주요 기능 (Features)
+```bash
+cd apps/desci-platform
+docker compose config --quiet
+```
 
-- ✅ Google 소셜 로그인 (Google Social Login)
-- ✅ Email/Password 인증 (Email/Password Authentication)
-- ✅ Firebase Token 검증 (Firebase Token Verification)
-- ✅ 연구 논문 업로드 (Research Paper Upload)
-- ✅ IPFS 탈중앙화 저장 (IPFS Decentralized Storage)
-- ✅ 토큰 보상 시스템 (Token Reward System)
-- ✅ Peer Review 시스템 (Peer Review & DSCI Rewards)
-- ✅ IP-NFT 민팅 (Research Paper NFT Minting)
-- ✅ Framer Motion 마이크로 인터랙션
+### 제품 스모크 체크
 
----
+프론트엔드와 백엔드가 떠 있는 상태에서 실제 URL 기준으로 API, `/health`, `/ready`, 프론트 첫 화면을 확인합니다.
 
-## 👨‍💻 작성자 (Authors)
+```bash
+cd apps/desci-platform
+python scripts/product_smoke.py --api http://127.0.0.1:8000 --frontend http://127.0.0.1:5173
+```
 
-- Built by Raph & JuPark © 2026
+운영 배포 직전에는 readiness가 `blocked`이면 실패하도록 더 엄격하게 실행합니다.
+
+```bash
+python scripts/product_smoke.py --strict-ready
+```
+
+브라우저에서 실제 JS 라우팅과 콘솔 오류까지 확인하려면 프론트엔드가 실행 중인 상태에서 다음을 실행합니다.
+
+```bash
+python scripts/browser_smoke.py --frontend http://127.0.0.1:5173
+```
+
+## 운영 메모
+
+- 프론트엔드는 장기 작업에 대해 EventSource 기반 SSE를 우선 사용하고, 미지원 환경에서는 폴링으로 fallback합니다.
+- Redis/RabbitMQ/PostgreSQL/Supabase는 제품형 운영에서 권장됩니다.
+- `/ready`의 `status`가 `blocked`이면 공개 데모 또는 운영 배포 전에 필수 항목을 먼저 해결해야 합니다.
+- 모든 API 응답에는 `X-Request-ID`가 포함됩니다. 고객 문의나 장애 분석 시 이 값을 로그 추적 키로 사용하세요.

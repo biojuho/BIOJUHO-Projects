@@ -41,7 +41,7 @@ TRANSIENT_RETRY_MAX = 2
 WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "workspace regression tests": ("fastapi", "sqlalchemy", "aiosqlite", "mcp.server.fastmcp", "pypdf"),
     "shared package tests": ("sqlalchemy", "pydantic", "httpx", "google.genai"),
-    "desci biolinker smoke": ("fastapi",),
+    "desci backend smoke": ("fastapi",),
     "agriguard backend tests": ("fastapi", "sqlalchemy"),
     "DailyNews unit tests": ("mcp.server.fastmcp",),
     "getdaytrends tests": ("aiosqlite", "sqlalchemy"),
@@ -60,7 +60,7 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "httpx>=0.27.0",
         "google-genai>=1.0.0,<2.0",
     ),
-    "desci biolinker smoke": (
+    "desci backend smoke": (
         "fastapi>=0.115.0,<1.0",
         "uvicorn>=0.32.0,<1.0",
         "python-dotenv>=1.0.0",
@@ -99,7 +99,7 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
     ),
 }
 FORCE_UV_CHECKS = {
-    "desci biolinker smoke",
+    "desci backend smoke",
     "agriguard backend tests",
     "getdaytrends tests",
 }
@@ -159,7 +159,7 @@ def compile_command(python_exe: str, *targets: str) -> list[str]:
 def slugify_check_name(value: str) -> str:
     cleaned = "".join(ch.lower() if ch.isalnum() else "-" for ch in value)
     compact = "-".join(part for part in cleaned.split("-") if part) or "check"
-    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+    digest = hashlib.sha1(value.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
     return f"{compact[:40]}-{digest}"
 
 
@@ -300,7 +300,7 @@ def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[C
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
     desci_frontend = rel_unit_path("desci-platform", "frontend")
-    desci_biolinker = rel_unit_path("desci-platform", "biolinker")
+    desci_backend = rel_unit_path("desci-platform", "backend")
     agriguard_frontend = rel_unit_path("agriguard", "frontend")
     agriguard_backend = rel_unit_path("agriguard", "backend")
     github_mcp = rel_unit_path("github-mcp")
@@ -344,9 +344,9 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("desci", "desci bundle budget", desci_frontend, [npm_exe, "run", "check:bundle"]),
         Check(
             "desci",
-            "desci biolinker smoke",
+            "desci backend smoke",
             ".",
-            [python_exe, "-m", "pytest", f"{desci_biolinker}/tests/test_smoke_pipeline.py", "-q"],
+            [python_exe, "-m", "pytest", f"{desci_backend}/tests/test_smoke_pipeline.py", "-q"],
         ),
         Check("agriguard", "agriguard frontend lint", agriguard_frontend, [npm_exe, "run", "lint"]),
         Check("agriguard", "agriguard frontend build", agriguard_frontend, [npm_exe, "run", "build:lts"]),
@@ -470,9 +470,16 @@ def run_one(root: Path, item: Check) -> Result:
             env=env,
             shell=False,
             check=False,
+            timeout=300,  # 5분 타임아웃 추가
         )
         stdout_text = decode_output(proc.stdout)
         stderr_text = decode_output(proc.stderr)
+    except subprocess.TimeoutExpired as exc:
+        stdout_text = decode_output(exc.stdout)
+        stderr_text = decode_output(exc.stderr)
+        return Result(
+            item.scope, item.name, item.cwd, command_text, 124, False, tail_lines(stdout_text), f"Command timed out after 300s\n{tail_lines(stderr_text)}"
+        )
     except OSError as exc:
         return Result(item.scope, item.name, item.cwd, command_text, 2, False, "", str(exc))
 
@@ -514,6 +521,14 @@ def run_check(root: Path, item: Check) -> Result:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
+    # Windows stdout UTF-8 설정
+    if sys.platform == "win32":
+        try:
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     parser.add_argument(
         "--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends", "cie"]
     )

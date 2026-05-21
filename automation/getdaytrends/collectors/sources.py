@@ -11,7 +11,7 @@ import asyncio
 import re
 import time
 import xml.etree.ElementTree as ET
-from datetime import UTC
+from datetime import UTC, datetime
 
 import httpx
 from loguru import logger as log
@@ -444,6 +444,148 @@ async def _async_fetch_youtube_trending_standalone(country_slug: str = "korea", 
     """독립 세션으로 YouTube Trending 수집 (단독 호출용)."""
     async with httpx.AsyncClient() as session:
         return await _async_fetch_youtube_trending(session, country_slug, limit)
+
+
+# ══════════════════════════════════════════════════════
+#  Source 4: Hacker News (Algolia front-page API, 무료 무인증)
+# ══════════════════════════════════════════════════════
+#  X API에 종속되지 않은 보조 트렌드 신호. 기술/AI/스타트업 토픽에 강함.
+
+_HN_FRONTPAGE_URL = (
+    "https://hn.algolia.com/api/v1/search"
+    "?tags=front_page&hitsPerPage={limit}"
+)
+
+
+async def _async_fetch_hacker_news(
+    session: httpx.AsyncClient,
+    limit: int = 20,
+) -> list[RawTrend]:
+    """Hacker News 프론트페이지에서 트렌드 추출 (Algolia 공개 API)."""
+    url = _HN_FRONTPAGE_URL.format(limit=limit)
+    headers = {"User-Agent": "GetDayTrends/2.4 (mailto:biojuho@gmail.com)"}
+
+    try:
+        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+        resp.raise_for_status()
+        payload = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        log.warning(f"Hacker News 수집 실패: {type(exc).__name__}: {exc}")
+        return []
+
+    hits = payload.get("hits") or []
+    trends: list[RawTrend] = []
+    for hit in hits:
+        title = (hit.get("title") or hit.get("story_title") or "").strip()
+        if not title or len(title) < 3:
+            continue
+        points = int(hit.get("points") or 0)
+        comments = int(hit.get("num_comments") or 0)
+        story_id = hit.get("objectID", "")
+        link = hit.get("url") or (
+            f"https://news.ycombinator.com/item?id={story_id}" if story_id else ""
+        )
+
+        trends.append(
+            RawTrend(
+                name=title,
+                source=TrendSource.HACKER_NEWS,
+                volume=f"{points} points / {comments} comments",
+                volume_numeric=points * 10 + comments,
+                link=link,
+                country="global",
+                extra={"points": points, "comments": comments},
+            )
+        )
+
+    log.info(f"Hacker News 수집 완료: {len(trends)}개")
+    return trends
+
+
+def fetch_hacker_news(limit: int = 20) -> list[RawTrend]:
+    """Hacker News 수집 (동기 호환 래퍼)."""
+    return run_async(_async_fetch_hacker_news_standalone(limit))
+
+
+async def _async_fetch_hacker_news_standalone(limit: int = 20) -> list[RawTrend]:
+    async with httpx.AsyncClient() as session:
+        return await _async_fetch_hacker_news(session, limit)
+
+
+# ══════════════════════════════════════════════════════
+#  Source 5: Reddit /r/popular (무인증 공개 JSON, primary 트렌드)
+# ══════════════════════════════════════════════════════
+#  collectors/reddit.py 의 키워드별 enricher 와 다른 역할 — 여기서는
+#  글로벌 인기 게시물을 trend candidate 로 수집한다.
+
+_REDDIT_POPULAR_URL = "https://www.reddit.com/r/popular.json?limit={limit}&t=day"
+
+
+async def _async_fetch_reddit_popular(
+    session: httpx.AsyncClient,
+    limit: int = 20,
+) -> list[RawTrend]:
+    """Reddit /r/popular 인기 게시물에서 트렌드 추출 (무인증)."""
+    url = _REDDIT_POPULAR_URL.format(limit=limit)
+    headers = {"User-Agent": "GetDayTrends/2.4 (+mailto:biojuho@gmail.com)"}
+
+    try:
+        resp = await session.get(url, headers=headers, timeout=_SHORT_TIMEOUT)
+        resp.raise_for_status()
+        payload = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        log.warning(f"Reddit /r/popular 수집 실패: {type(exc).__name__}: {exc}")
+        return []
+
+    children = (payload.get("data") or {}).get("children") or []
+    trends: list[RawTrend] = []
+    for child in children:
+        data = (child or {}).get("data") or {}
+        title = (data.get("title") or "").strip()
+        if not title or len(title) < 4:
+            continue
+        # NSFW 와 stickied 게시물은 트렌드 후보에서 제외
+        if data.get("over_18") or data.get("stickied"):
+            continue
+
+        ups = int(data.get("ups") or 0)
+        comments = int(data.get("num_comments") or 0)
+        subreddit = (data.get("subreddit_name_prefixed") or "").strip()
+        permalink = data.get("permalink") or ""
+        link = (
+            f"https://www.reddit.com{permalink}"
+            if permalink and not permalink.startswith("http")
+            else permalink or (data.get("url") or "")
+        )
+
+        trends.append(
+            RawTrend(
+                name=title,
+                source=TrendSource.REDDIT,
+                volume=f"{ups} ups / {comments} comments",
+                volume_numeric=ups + comments * 5,
+                link=link,
+                country="global",
+                extra={
+                    "ups": ups,
+                    "comments": comments,
+                    "subreddit": subreddit,
+                },
+            )
+        )
+
+    log.info(f"Reddit /r/popular 수집 완료: {len(trends)}개")
+    return trends
+
+
+def fetch_reddit_popular(limit: int = 20) -> list[RawTrend]:
+    """Reddit /r/popular 수집 (동기 호환 래퍼)."""
+    return run_async(_async_fetch_reddit_popular_standalone(limit))
+
+
+async def _async_fetch_reddit_popular_standalone(limit: int = 20) -> list[RawTrend]:
+    async with httpx.AsyncClient() as session:
+        return await _async_fetch_reddit_popular(session, limit)
 
 
 # ══════════════════════════════════════════════════════

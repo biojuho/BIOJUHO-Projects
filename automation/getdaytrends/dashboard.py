@@ -19,14 +19,7 @@ FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소�
 실행: uvicorn dashboard:app --reload --port 8010
 """
 
-import json
-import logging
-import re
-from datetime import date, datetime, timedelta
-from typing import Any, Awaitable, Callable
-from urllib.parse import quote_plus
-
-try:
+import jsonimport loggingimport refrom collections.abc import Awaitable, Callablefrom datetime import date, datetime, timedeltafrom typing import Anyfrom urllib.parse import quote_plustry:
     import httpx
     from fastapi import FastAPI, Query, Request
     from fastapi.responses import HTMLResponse, JSONResponse
@@ -36,95 +29,21 @@ except ImportError as e:
     ) from e
 
 try:
-    from .config import VERSION, AppConfig
-    from .db import (
-        get_tap_checkout_session_summary,
-        get_connection,
-        mark_tap_checkout_session_completed,
-        get_review_queue_snapshot,
-        get_source_quality_summary,
-        get_tap_alert_queue_snapshot,
-        get_tap_deal_room_funnel,
-        get_trend_stats,
-        init_db,
-        record_tap_deal_room_event,
-        upsert_tap_checkout_session,
-    )
-    from .tap import (
-        DealRoomRequest,
-        TapBoardRequest,
-        build_tap_deal_room_snapshot,
-        build_tap_board_snapshot,
-        dispatch_tap_alert_queue,
-        empty_tap_board,
-        get_latest_tap_board_snapshot,
-    )
-except ImportError:
-    from config import VERSION, AppConfig
-    from db import (
-        get_tap_checkout_session_summary,
-        get_connection,
-        mark_tap_checkout_session_completed,
-        get_review_queue_snapshot,
-        get_source_quality_summary,
-        get_tap_alert_queue_snapshot,
-        get_tap_deal_room_funnel,
-        get_trend_stats,
-        init_db,
-        record_tap_deal_room_event,
-        upsert_tap_checkout_session,
-    )
-    from tap import (
-        DealRoomRequest,
-        TapBoardRequest,
-        build_tap_deal_room_snapshot,
-        build_tap_board_snapshot,
-        dispatch_tap_alert_queue,
-        empty_tap_board,
-        get_latest_tap_board_snapshot,
-    )
-
+    from .config import VERSION, AppConfig    from .db import (        get_connection,        get_review_queue_snapshot,        get_source_quality_summary,        get_tap_alert_queue_snapshot,        get_tap_checkout_session_summary,        get_tap_deal_room_funnel,        get_trend_stats,        init_db,        mark_tap_checkout_session_completed,        record_tap_deal_room_event,        upsert_tap_checkout_session,    )    from .tap import (        DealRoomRequest,        TapBoardRequest,        build_tap_board_snapshot,        build_tap_deal_room_snapshot,        dispatch_tap_alert_queue,        empty_tap_board,        get_latest_tap_board_snapshot,    )except ImportError:
+    from config import VERSION, AppConfig    from db import (        get_connection,        get_review_queue_snapshot,        get_source_quality_summary,        get_tap_alert_queue_snapshot,        get_tap_checkout_session_summary,        get_tap_deal_room_funnel,        get_trend_stats,        init_db,        mark_tap_checkout_session_completed,        record_tap_deal_room_event,        upsert_tap_checkout_session,    )    from tap import (        DealRoomRequest,        TapBoardRequest,        build_tap_board_snapshot,        build_tap_deal_room_snapshot,        dispatch_tap_alert_queue,        empty_tap_board,        get_latest_tap_board_snapshot,    )
 try:
     from .dashboard_html import get_dashboard_html
 except ImportError:
     from dashboard_html import get_dashboard_html
 
 try:
-    from .stripe_helpers import (
-        _stripe_amount_divisor,
-        _format_stripe_price_anchor,
-        _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
-        _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
-    )
-except ImportError:
-    from stripe_helpers import (
-        _stripe_amount_divisor,
-        _format_stripe_price_anchor,
-        _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
-        _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
-    )
-
+    from .stripe_helpers import (        _build_tap_checkout_redirect_urls,        _coerce_non_negative_float,        _construct_stripe_event,        _create_stripe_checkout_session,        _extract_price_anchor_amount,        _extract_tap_purchase_from_stripe_event,        _format_stripe_price_anchor,        _parse_tap_checkout_handle,        _stripe_amount_divisor,        _validate_stripe_checkout_session_payload,        _validate_tap_checkout_payload_matches_handle,    )except ImportError:
+    from stripe_helpers import (        _build_tap_checkout_redirect_urls,        _coerce_non_negative_float,        _construct_stripe_event,        _create_stripe_checkout_session,        _extract_price_anchor_amount,        _extract_tap_purchase_from_stripe_event,        _format_stripe_price_anchor,        _parse_tap_checkout_handle,        _stripe_amount_divisor,        _validate_stripe_checkout_session_payload,        _validate_tap_checkout_payload_matches_handle,    )
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION)
 
 try:
-    from .dashboard_routes_tap import router as tap_router, init_tap_router
-except ImportError:
-    from dashboard_routes_tap import router as tap_router, init_tap_router
-
+    from .dashboard_routes_tap import init_tap_router    from .dashboard_routes_tap import router as tap_routerexcept ImportError:
+    from dashboard_routes_tap import init_tap_router    from dashboard_routes_tap import router as tap_router
 _config = AppConfig.from_env()
 logger = logging.getLogger(__name__)
 
@@ -566,7 +485,7 @@ async def api_review_queue(limit: int = Query(50, ge=1, le=200)):
 async def api_logs(limit: int = Query(50, ge=1, le=200)):
     """Loki 또는 로컬 파일에서 실시간 로그 수집."""
     logs = []
-    
+
     # 1. Try Loki first (if docker-compose monitoring is running)
     try:
         async with httpx.AsyncClient(timeout=1.5) as client:
@@ -607,13 +526,13 @@ def api_ab_test():
         if ab_test_file.exists():
             with open(ab_test_file, encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             eval_a = data.get("evaluation", {}).get("version_a", {})
             eval_b = data.get("evaluation", {}).get("version_b", {})
-            
+
             kpi_a = eval_a.get("primary_kpi", 0)
             kpi_b = eval_b.get("primary_kpi", 0)
-            
+
             # Map primary KPI points to a dummy CTR/conversion for dashboard visualization
             # since the original dashboard expects ctr/conversion layout
             return JSONResponse({

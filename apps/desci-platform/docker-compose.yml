@@ -1,13 +1,13 @@
 services:
   # --- Dev profile (default) ---
-  biolinker:
-    container_name: desci-biolinker
-    build: ./biolinker
+  backend:
+    container_name: desci-backend
+    build: ./backend
     ports:
       - "8000:8000"
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - CHROMA_DB_PATH=/app/chroma_db
       - ENV=${ENV:-development}
       - VECTOR_STORE_BACKEND=${VECTOR_STORE_BACKEND:-chroma}
@@ -17,8 +17,15 @@ services:
       - GROBID_ENABLED=${GROBID_ENABLED:-true}
       - GROBID_URL=${GROBID_URL:-http://grobid:8070/api}
       - GROBID_TIMEOUT_SECONDS=${GROBID_TIMEOUT_SECONDS:-60}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://desci:desci@postgres:5432/desci}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://desci:desci@rabbitmq:5672/desci}
     volumes:
-      - ./biolinker/chroma_db:/app/chroma_db
+      - ./backend/chroma_db:/app/chroma_db
+      - ./backend/data:/app/data
     depends_on:
       - chromadb
       - qdrant
@@ -30,6 +37,38 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  backend-worker:
+    container_name: desci-backend-worker
+    build: ./backend
+    command: ["python", "worker.py"]
+    profiles:
+      - infra
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - CHROMA_DB_PATH=/app/chroma_db
+      - ENV=${ENV:-development}
+      - VECTOR_STORE_BACKEND=${VECTOR_STORE_BACKEND:-chroma}
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+      - QDRANT_COLLECTION_NAME=${QDRANT_COLLECTION_NAME:-rfp_notices}
+      - QDRANT_TIMEOUT_SECONDS=${QDRANT_TIMEOUT_SECONDS:-10}
+      - GROBID_ENABLED=${GROBID_ENABLED:-true}
+      - GROBID_URL=${GROBID_URL:-http://grobid:8070/api}
+      - GROBID_TIMEOUT_SECONDS=${GROBID_TIMEOUT_SECONDS:-60}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://desci:desci@postgres:5432/desci}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://desci:desci@rabbitmq:5672/desci}
+    volumes:
+      - ./backend/chroma_db:/app/chroma_db
+      - ./backend/data:/app/data
+    depends_on:
+      - rabbitmq
+      - redis
+      - qdrant
+      - grobid
+    networks:
+      - desci-net
 
   chromadb:
     image: chromadb/chroma:latest
@@ -58,6 +97,64 @@ services:
     networks:
       - desci-net
 
+  postgres:
+    image: postgres:16-alpine
+    profiles:
+      - infra
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-desci}
+      POSTGRES_USER: ${POSTGRES_USER:-desci}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-desci}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - desci-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    profiles:
+      - infra
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - desci-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    profiles:
+      - infra
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-desci}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-desci}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-desci}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - desci-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # --- Production profile ---
   nginx:
     build:
@@ -67,7 +164,7 @@ services:
       - "80:80"
       - "443:443"
     depends_on:
-      - biolinker
+      - backend
     networks:
       - desci-net
     restart: unless-stopped
@@ -81,3 +178,6 @@ networks:
 volumes:
   chroma-data:
   qdrant-data:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:

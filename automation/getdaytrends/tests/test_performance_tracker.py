@@ -5,10 +5,12 @@ from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
+
 respx = pytest.importorskip("respx")
 
-from perf_models import ANGLE_TYPES, GoldenReference, HOOK_PATTERNS, KICK_PATTERNS, TweetMetrics
+from perf_models import ANGLE_TYPES, HOOK_PATTERNS, KICK_PATTERNS, GoldenReference, TweetMetrics
 from performance_tracker import PerformanceTracker
+
 
 @pytest.fixture
 def temp_db() -> Generator[str, None, None]:
@@ -28,7 +30,7 @@ async def tracker(temp_db: str) -> PerformanceTracker:
     conn_sync.close()
 
     t = PerformanceTracker(db_path=temp_db, bearer_token="test_token")
-    
+
     conn = await t._get_conn()
     await conn.executescript("""
         CREATE TABLE IF NOT EXISTS tweets (
@@ -93,7 +95,7 @@ async def test_init_table_idempotent(tracker: PerformanceTracker) -> None:
     """Test that init_table doesn't crash on multiple calls."""
     await tracker.init_table()
     await tracker.init_table()  # should be idempotent
-    
+
     conn = await tracker._get_conn()
     cursor = await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     rows = await cursor.fetchall()

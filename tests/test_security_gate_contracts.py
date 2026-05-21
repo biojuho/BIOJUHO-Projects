@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -27,6 +26,37 @@ def test_security_quality_gate_does_not_mask_hard_gate_failures() -> None:
 
     assert "Dependency Audit: FAILED (non-blocking)" not in workflow
     assert "Dependency audit failed. Fix vulnerable packages before merging." in workflow
+    assert "npm audit --omit=dev --audit-level=high" in workflow
+    assert "Full npm audit found development dependency findings" in workflow
+
+
+def test_security_quality_gate_has_pr_comment_permissions() -> None:
+    workflow = _read(".github/workflows/security-quality-gate.yml")
+
+    assert re.search(r"^permissions:\n(?:  .+\n)+", workflow, flags=re.MULTILINE) is not None
+    assert re.search(r"^\s+issues:\s*write\b", workflow, flags=re.MULTILINE)
+    assert re.search(r"^\s+pull-requests:\s*write\b", workflow, flags=re.MULTILINE)
+    assert "continue-on-error: true" in workflow
+
+
+def test_qa_review_scans_changed_python_files_only() -> None:
+    workflow = _read(".github/workflows/security-quality-gate.yml")
+
+    assert "changed-python-files.txt" in workflow
+    assert "ruff check --select=E,F,W,I,N,UP,S,B" in workflow
+    assert '"${PY_FILES[@]}"' in workflow
+    assert 'bandit "${PY_FILES[@]}" -f json -o bandit-report.json -ll' in workflow
+    assert "ruff check --select=E,F,W,I,N,UP,S,B --output-format=github ." not in workflow
+    assert "bandit -r ." not in workflow
+
+
+def test_qa_review_excludes_pytest_assert_rule_in_test_files() -> None:
+    """S101 (assert) is the standard pytest pattern — must be ignored in test files."""
+    workflow = _read(".github/workflows/security-quality-gate.yml")
+
+    assert "--per-file-ignores='tests/**:S101'" in workflow
+    assert "--per-file-ignores='**/test_*.py:S101'" in workflow
+    assert "--per-file-ignores='**/conftest.py:S101'" in workflow
 
 
 def test_security_quality_gate_waits_for_expected_jobs() -> None:
@@ -54,15 +84,18 @@ def test_security_env_examples_document_fail_closed_defaults() -> None:
     for path in [
         "apps/AgriGuard/backend/.env.example",
         "apps/desci-platform/.env.example",
-        "apps/desci-platform/biolinker/.env.example",
+        "apps/desci-platform/backend/.env.example",
     ]:
         env_example = _read(path)
         assert "# ALLOW_DEV_AUTH_FALLBACK=true" in env_example
-        assert re.search(
-            r"^ALLOW_DEV_AUTH_FALLBACK\s*=\s*true\b",
-            env_example,
-            flags=re.MULTILINE,
-        ) is None
+        assert (
+            re.search(
+                r"^ALLOW_DEV_AUTH_FALLBACK\s*=\s*true\b",
+                env_example,
+                flags=re.MULTILINE,
+            )
+            is None
+        )
 
     dailynews = _read("automation/DailyNews/.env.example")
     assert "SUBSCRIBE_ALLOWED_ORIGINS=" in dailynews
@@ -76,8 +109,7 @@ def test_security_env_names_are_used_by_runtime_code() -> None:
     source_env_pairs = [
         ("apps/AgriGuard/backend/admin.py", "ADMIN_PASSWORD"),
         ("apps/AgriGuard/backend/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
-        ("apps/desci-platform/backend/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
-        ("apps/desci-platform/biolinker/services/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
+        ("apps/desci-platform/backend/services/auth.py", "ALLOW_DEV_AUTH_FALLBACK"),
         (
             "automation/DailyNews/src/antigravity_mcp/apps/subscribe_api.py",
             "SUBSCRIBE_ALLOWED_ORIGINS",

@@ -138,7 +138,7 @@ class AdaptiveContext:
 
         # 3. 골든 레퍼런스
         if self.golden_snippets:
-            lines.append(f"\n▶ 과거 히트 트윗 레퍼런스 (문체·구조 참고, 복사 금지):")
+            lines.append("\n▶ 과거 히트 트윗 레퍼런스 (문체·구조 참고, 복사 금지):")
             for i, gs in enumerate(self.golden_snippets, 1):
                 preview = gs.content[:200].replace("\n", " ")
                 lines.append(

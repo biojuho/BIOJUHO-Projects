@@ -15,6 +15,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from getdaytrends.db_schema import (
     _PgAdapter,
     close_pg_pool,
@@ -373,5 +374,5 @@ async def test_pool_recreation_after_close() -> None:
         assert dbconn._PG_POOL is None
 
         # 재요청 시 새 풀 생성
-        pool2 = await get_pg_pool("postgresql://u:p@h/db")
+        _pool2 = await get_pg_pool("postgresql://u:p@h/db")
         assert mock_asyncpg.create_pool.call_count == 2

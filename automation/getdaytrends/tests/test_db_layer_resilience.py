@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from tests.conftest import make_scored_trend
 
@@ -118,8 +118,8 @@ class TestGetCachedScoreRedisResilience:
     @pytest.mark.asyncio
     async def test_corrupted_cache_type_falls_back_to_db(self, memory_db):
         """캐시에 dict가 아닌 타입이 저장된 경우 DB에서 재조회."""
-        from db_layer.trend_repository import get_cached_score, save_trend
         from db_layer import compute_fingerprint
+        from db_layer.trend_repository import get_cached_score, save_trend
 
         await _insert_run(memory_db, run_id=1)
         trend = make_scored_trend(keyword="오염테스트")

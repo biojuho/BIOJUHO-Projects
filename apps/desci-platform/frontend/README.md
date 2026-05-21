@@ -1,47 +1,72 @@
 # DeSci Platform Frontend
 
-탈중앙화 과학(Decentralized Science) 플랫폼의 프론트엔드 애플리케이션입니다.
-This is the frontend application for the Decentralized Science (DeSci) Platform.
+React 19 + Vite frontend for DSCI-DecentBio. The app is an operator-style product surface for research submission, funding discovery, paper-to-RFP matching, investor views, rewards, and governance.
 
-## 🛠 기술 스택 (Tech Stack)
+## Stack
 
-- **프레임워크 (Framework):** React 19
-- **빌드 도구 (Build Tool):** Vite
-- **스타일링 (Styling):** Tailwind CSS
+- React 19 and Vite
+- Tailwind CSS design tokens
+- TanStack Query for server state
+- Shared Fetch API client in `src/services/api.js`
+- Incremental TypeScript baseline via `tsconfig.json`
+- EventSource/SSE job progress with polling fallback
 
----
+## Product Surfaces
 
-## 🚀 빠른 시작 (Quick Start)
+- Dashboard: KPI overview, quick actions, product readiness, investor/recommendation summaries
+- Funding Radar: notices, filters, and async collection jobs
+- Research Submission: PDF upload, IPFS registration, and async vector indexing
+- Match Studio: RFP analysis, paper matching, proposal generation, literature review
+- Investor View: explainable VC fit and deal flow
+- Research Vault / Wallet / Governance: trust and reward operations
 
-이 프로젝트는 개발과 빌드 속도를 높이기 위해 Vite를 기본 설정으로 제공합니다.
-This template provides a minimal setup to get React working in Vite with Hot Module Replacement (HMR) and ESLint rules to maintain code quality.
+## Job Progress
 
-### 설치 및 실행 (Installation & Running)
+Long-running workflows use backend jobs and stream progress through:
+
+```text
+GET /jobs/{job_id}/events
+```
+
+When `EventSource` is unavailable, `useJobProgress` falls back to `GET /jobs/{job_id}` polling.
+
+## Product Readiness
+
+The dashboard calls:
+
+```text
+GET /ready
+```
+
+and renders required vs optional launch checks for API, auth, vector search, LLM, PostgreSQL/Supabase, Redis, RabbitMQ, IPFS, Web3, and GROBID.
+
+## Support Diagnostics
+
+- The shared Fetch API client attaches `X-Request-ID` to every request.
+- `ApiError` exposes `requestId` and `responseTimeMs` from backend responses.
+- Key API failure toasts include the support ID, and the app error boundary shows a copyable diagnostics payload for support handoff.
+
+## Local Development
 
 ```bash
-# 의존성 패키지 설치 (Install dependencies)
 npm install
-
-# 개발 서버 실행 (Start the development server)
 npm run dev
 ```
 
-### 공식 플러그인 (Official Plugins)
+Set `VITE_API_BASE_URL` when the backend is not running on `http://127.0.0.1:8000`.
 
-현재 다음의 두 가지 공식 플러그인을 사용할 수 있습니다:
-Currently, two official plugins are available:
+## Quality Gate
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react): Fast Refresh를 위해 **Babel**을 사용합니다. / Uses Babel for Fast Refresh.
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc): Fast Refresh를 위해 **SWC**를 사용합니다. / Uses SWC for Fast Refresh.
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run build:lts
+npm run check:bundle
+```
 
----
+With the API and frontend running, add a browser-level smoke check:
 
-## ⚡ React Compiler
-
-현재 템플릿에는 React Compiler가 기본으로 활성화되어 있지 않습니다. 개발 및 빌드 성능에 영향을 미칠 수 있기 때문입니다. 추가하려면 [이 문서](https://react.dev/learn/react-compiler/installation)를 참고하세요.
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## 🧩 ESLint 설정 확장 (Expanding the ESLint configuration)
-
-프로덕션용 애플리케이션을 개발하는 경우, 타입 인지(type-aware) 린팅 규칙이 포함된 TypeScript 사용을 권장합니다. TypeScript와 `typescript-eslint`를 프로젝트에 통합하는 방법은 [TS 템플릿](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts)에서 확인할 수 있습니다.
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+python ../scripts/browser_smoke.py --frontend http://127.0.0.1:5173
+```

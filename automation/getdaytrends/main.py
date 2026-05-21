@@ -497,12 +497,12 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
                 )
         except Exception as e:
             log.warning(f"Failed to send error notification: {e}")
-            
+
         if len(failures) == len(countries):
             raise RuntimeError(f"All parallel country runs failed: {failed_countries}") from failures[0][1]
 
     successful_countries = [country for country, _, _, error in country_results if error is None]
-    
+
     try:
         if successful_countries:
             from shared.notifications import Notifier
@@ -674,7 +674,7 @@ def _main_body():
                     country_config = config.for_country(country) if country != config.country else config
                     if len(config.countries) > 1:
                         print(f"\n  ═══ 국가: {country.upper()} ═══")
-                    
+
                     try:
                         result = run_pipeline(country_config, schedule_callback=_run_all_countries)
                         # 단일 실행 시 Heartbeat 연결

@@ -23,7 +23,7 @@ def test_upload_flow():
     print(f"📤 Uploading PDF to {BASE_URL}/upload ...")
 
     try:
-        response = requests.post(f"{BASE_URL}/upload", files=files, data=data, headers=headers)
+        response = requests.post(f"{BASE_URL}/upload", files=files, data=data, headers=headers, timeout=30)
 
         if response.status_code == 200:
             print("✅ Upload Success!")

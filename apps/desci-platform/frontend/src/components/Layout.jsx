@@ -21,13 +21,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
-import { useToast } from '../contexts/ToastContext';
 import Footer from './Footer';
 import LocaleToggle from './ui/LocaleToggle';
 
 const MotionDiv = motion.div;
 
-function formatAddress(address) {
+function formatWalletAddress(address) {
     if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
@@ -35,7 +34,6 @@ function formatAddress(address) {
 export default function Layout({ children }) {
     const { user, logout, walletAddress, connectWallet } = useAuth();
     const { t } = useLocale();
-    const { showToast } = useToast();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -45,6 +43,10 @@ export default function Layout({ children }) {
         { id: 2, title: t('layout.notificationReviewTitle'), desc: t('layout.notificationReviewDesc'), time: t('layout.timeHourAgo') },
         { id: 3, title: t('layout.notificationAirdropTitle'), desc: t('layout.notificationAirdropDesc'), time: t('layout.timeDaysAgo', { count: 1 }) },
     ]), [t]);
+
+    const handleConnectWallet = async () => {
+        await connectWallet();
+    };
 
     const navGroups = [
         {
@@ -75,15 +77,9 @@ export default function Layout({ children }) {
         },
     ];
 
-    const handleConnectWallet = async () => {
-        const result = await connectWallet();
-        if (result.success) {
-            showToast({ key: 'layout.walletConnectedDesc', values: { address: formatAddress(result.address) } }, 'success');
-            return;
-        }
 
-        alert(result.error || t('layout.walletConnectFailed'));
-    };
+
+
 
     return (
         <div className="relative min-h-screen">
@@ -248,11 +244,13 @@ export default function Layout({ children }) {
                                 </AnimatePresence>
                             </div>
                             <button
-                                onClick={walletAddress ? undefined : handleConnectWallet}
-                                className={walletAddress ? 'clay-button clay-button-primary text-white' : 'clay-button'}
+                                type="button"
+                                onClick={handleConnectWallet}
+                                className="clay-button h-10 !px-3 text-xs"
+                                aria-label={t('layout.connectWallet')}
                             >
                                 <Wallet className="h-4 w-4" />
-                                {walletAddress ? formatAddress(walletAddress) : t('layout.connectWallet')}
+                                {walletAddress ? formatWalletAddress(walletAddress) : t('layout.connectWallet')}
                             </button>
                         </div>
                     </div>

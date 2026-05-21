@@ -51,7 +51,9 @@ jobs:
       CONTENT_HUB_DATABASE_ID: ${{ secrets.CONTENT_HUB_DATABASE_ID }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -121,16 +123,20 @@ jobs:
         working-directory: automation/getdaytrends
         run: |
           FLAGS="--one-shot --verbose"
-          if [ -n "${{ github.event.inputs.country }}" ]; then
-            FLAGS="$FLAGS --country ${{ github.event.inputs.country }}"
+          if [ -n "${GITHUB_EVENT_INPUTS_COUNTRY}" ]; then
+            FLAGS="$FLAGS --country ${GITHUB_EVENT_INPUTS_COUNTRY}"
           fi
-          if [ -n "${{ github.event.inputs.limit }}" ]; then
-            FLAGS="$FLAGS --limit ${{ github.event.inputs.limit }}"
+          if [ -n "${GITHUB_EVENT_INPUTS_LIMIT}" ]; then
+            FLAGS="$FLAGS --limit ${GITHUB_EVENT_INPUTS_LIMIT}"
           fi
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${GITHUB_EVENT_INPUTS_DRY_RUN}" = "true" ]; then
             FLAGS="$FLAGS --dry-run"
           fi
           uv run python main.py $FLAGS
+        env:
+          GITHUB_EVENT_INPUTS_COUNTRY: ${{ github.event.inputs.country }}
+          GITHUB_EVENT_INPUTS_LIMIT: ${{ github.event.inputs.limit }}
+          GITHUB_EVENT_INPUTS_DRY_RUN: ${{ github.event.inputs.dry_run }}
 
       - name: Cleanup project .env
         if: always()
@@ -139,7 +145,7 @@ jobs:
 
       - name: Upload log artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: getdaytrends-log-${{ github.run_number }}
           path: automation/getdaytrends/tweet_bot.log

@@ -110,7 +110,6 @@ link-mode = "copy"
 [tool.uv.workspace]
 members = [
     "apps/AgriGuard/backend",
-    "apps/desci-platform/backend",
     "apps/desci-platform/biolinker",
     "automation/DailyNews",
     "automation/getdaytrends",

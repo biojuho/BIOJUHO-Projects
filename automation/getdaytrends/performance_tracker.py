@@ -12,9 +12,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
+from db_layer.connection import db_transaction, get_connection
 from loguru import logger as log
-
-from db_layer.connection import get_connection, db_transaction
 from perf_genealogy import TrendGenealogyMixin
 
 # -- mixin imports (분리된 기능 모듈) --

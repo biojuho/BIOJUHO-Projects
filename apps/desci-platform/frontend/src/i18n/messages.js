@@ -920,16 +920,201 @@ const MESSAGES = {
             copied: 'Copied the full draft to your clipboard.',
             txHash: 'Transaction hash',
         },
+        readiness: {
+            eyebrow: 'Product Operations',
+            title: 'Launch readiness',
+            subtitle: 'Confirm the core services needed for a production-grade research marketplace.',
+            refresh: 'Refresh',
+            overallProgress: 'Overall readiness',
+            readySummary: '{ready}/{total} checks ready',
+            requiredSummary: '{ready}/{total} required ready',
+            required: 'Required',
+            optional: 'Optional',
+            operatorNoteTitle: 'Operator note',
+            apiUnavailable: 'Readiness API is unavailable. Check backend connectivity before demo or launch.',
+            updatedAt: 'Updated {time}',
+            metricDocuments: '({count} docs)',
+            status: {
+                ready: 'Ready',
+                degraded: 'Needs attention',
+                blocked: 'Blocked',
+                unavailable: 'Unavailable',
+            },
+            note: {
+                ready: 'Core launch dependencies are online. Optional services can still be reviewed before public rollout.',
+                degraded: 'Core flow can run, but optional production services still need attention.',
+                blocked: 'At least one required launch dependency is missing.',
+                unavailable: 'The frontend could not reach the readiness endpoint.',
+            },
+            checkStatus: {
+                pass: 'Pass',
+                warn: 'Review',
+                fail: 'Fix',
+            },
+            check: {
+                api: 'API',
+                auth: 'Authentication',
+                vector_store: 'Vector index',
+                llm: 'AI provider',
+                postgres: 'PostgreSQL',
+                supabase: 'Supabase',
+                redis: 'Redis',
+                rabbitmq: 'RabbitMQ',
+                ipfs: 'IPFS',
+                web3: 'Web3',
+                grobid: 'GROBID',
+            },
+            detail: {
+                default: {
+                    pass: 'The service is available.',
+                    warn: 'The service is optional but should be reviewed.',
+                    fail: 'This required service must be fixed.',
+                },
+                api: {
+                    pass: 'The backend is responding.',
+                    warn: 'Backend status needs review.',
+                    fail: 'The backend is unavailable.',
+                },
+                auth: {
+                    pass: 'Authentication is configured.',
+                    warn: 'Authentication fallback is in use.',
+                    fail: 'Configure Firebase or an approved auth provider.',
+                },
+                vector_store: {
+                    pass: 'Search and matching can access the vector index.',
+                    warn: 'Vector search is not fully confirmed.',
+                    fail: 'Vector search is required for matching.',
+                },
+                llm: {
+                    pass: 'At least one AI provider key is configured.',
+                    warn: 'AI provider configuration needs review.',
+                    fail: 'Set an LLM API key before launch.',
+                },
+                postgres: {
+                    pass: 'PostgreSQL is reachable.',
+                    warn: 'PostgreSQL is not reachable or not configured.',
+                    fail: 'PostgreSQL failed.',
+                },
+                supabase: {
+                    pass: 'Supabase credentials are configured.',
+                    warn: 'Supabase credentials are not configured.',
+                    fail: 'Supabase failed.',
+                },
+                redis: {
+                    pass: 'Redis is available for usage counters and jobs.',
+                    warn: 'Redis is using fallback behavior.',
+                    fail: 'Redis failed.',
+                },
+                rabbitmq: {
+                    pass: 'RabbitMQ is ready for background workers.',
+                    warn: 'RabbitMQ is using in-process fallback.',
+                    fail: 'RabbitMQ failed.',
+                },
+                ipfs: {
+                    pass: 'IPFS storage is configured.',
+                    warn: 'IPFS storage is not configured.',
+                    fail: 'IPFS failed.',
+                },
+                web3: {
+                    pass: 'Web3 connection is live.',
+                    warn: 'Web3 is disconnected or in mock mode.',
+                    fail: 'Web3 failed.',
+                },
+                grobid: {
+                    pass: 'GROBID parsing is available.',
+                    warn: 'GROBID is optional and not available.',
+                    fail: 'GROBID failed.',
+                },
+            },
+        },
         errors: {
             title: 'Something went wrong',
             body: 'An unexpected error occurred. Try again or go back to the dashboard.',
+            supportId: 'Support ID',
+            copyDiagnostics: 'Copy diagnostics',
             retry: 'Try again',
             goHome: 'Go to dashboard',
         },
     },
 };
 
-function resolveMessage(locale, key) {
+const KOREAN_OVERRIDES = {
+    'readiness.eyebrow': '제품 운영',
+    'readiness.title': '출시 준비도',
+    'readiness.subtitle': '제품형 연구 마켓플레이스 운영에 필요한 핵심 서비스를 확인합니다.',
+    'readiness.refresh': '새로고침',
+    'readiness.overallProgress': '전체 준비도',
+    'readiness.readySummary': '{ready}/{total}개 점검 통과',
+    'readiness.requiredSummary': '필수 {ready}/{total}개 준비',
+    'readiness.required': '필수',
+    'readiness.optional': '선택',
+    'readiness.operatorNoteTitle': '운영 메모',
+    'readiness.apiUnavailable': '준비도 API에 연결할 수 없습니다. 데모나 출시 전에 백엔드 연결을 확인하세요.',
+    'readiness.updatedAt': '업데이트 {time}',
+    'readiness.metricDocuments': '({count}개 문서)',
+    'readiness.status.ready': '준비 완료',
+    'readiness.status.degraded': '확인 필요',
+    'readiness.status.blocked': '차단됨',
+    'readiness.status.unavailable': '연결 불가',
+    'readiness.note.ready': '핵심 출시 의존성이 온라인입니다. 공개 전 선택 서비스만 추가로 확인하면 됩니다.',
+    'readiness.note.degraded': '핵심 흐름은 실행 가능하지만 선택 운영 서비스 확인이 남아 있습니다.',
+    'readiness.note.blocked': '필수 출시 의존성 중 하나 이상이 누락되었습니다.',
+    'readiness.note.unavailable': '프론트엔드가 준비도 엔드포인트에 연결하지 못했습니다.',
+    'readiness.checkStatus.pass': '통과',
+    'readiness.checkStatus.warn': '검토',
+    'readiness.checkStatus.fail': '수정',
+    'readiness.check.api': 'API',
+    'readiness.check.auth': '인증',
+    'readiness.check.vector_store': '벡터 인덱스',
+    'readiness.check.llm': 'AI 제공자',
+    'readiness.check.postgres': 'PostgreSQL',
+    'readiness.check.supabase': 'Supabase',
+    'readiness.check.redis': 'Redis',
+    'readiness.check.rabbitmq': 'RabbitMQ',
+    'readiness.check.ipfs': 'IPFS',
+    'readiness.check.web3': 'Web3',
+    'readiness.check.grobid': 'GROBID',
+    'readiness.detail.default.pass': '서비스를 사용할 수 있습니다.',
+    'readiness.detail.default.warn': '선택 서비스이지만 출시 전 검토가 필요합니다.',
+    'readiness.detail.default.fail': '필수 서비스를 수정해야 합니다.',
+    'readiness.detail.api.pass': '백엔드가 응답 중입니다.',
+    'readiness.detail.api.warn': '백엔드 상태 확인이 필요합니다.',
+    'readiness.detail.api.fail': '백엔드에 연결할 수 없습니다.',
+    'readiness.detail.auth.pass': '인증이 구성되어 있습니다.',
+    'readiness.detail.auth.warn': '인증 fallback을 사용 중입니다.',
+    'readiness.detail.auth.fail': 'Firebase 또는 승인된 인증 제공자를 설정하세요.',
+    'readiness.detail.vector_store.pass': '검색과 매칭이 벡터 인덱스를 사용할 수 있습니다.',
+    'readiness.detail.vector_store.warn': '벡터 검색 상태를 완전히 확인하지 못했습니다.',
+    'readiness.detail.vector_store.fail': '매칭 기능에는 벡터 검색이 필수입니다.',
+    'readiness.detail.llm.pass': '하나 이상의 AI 제공자 키가 설정되어 있습니다.',
+    'readiness.detail.llm.warn': 'AI 제공자 설정을 확인해야 합니다.',
+    'readiness.detail.llm.fail': '출시 전에 LLM API 키를 설정하세요.',
+    'readiness.detail.postgres.pass': 'PostgreSQL에 연결되었습니다.',
+    'readiness.detail.postgres.warn': 'PostgreSQL이 미설정이거나 연결되지 않았습니다.',
+    'readiness.detail.postgres.fail': 'PostgreSQL 연결에 실패했습니다.',
+    'readiness.detail.supabase.pass': 'Supabase 자격 증명이 설정되어 있습니다.',
+    'readiness.detail.supabase.warn': 'Supabase 자격 증명이 설정되지 않았습니다.',
+    'readiness.detail.supabase.fail': 'Supabase 연결에 실패했습니다.',
+    'readiness.detail.redis.pass': 'Redis가 사용량 카운터와 작업 상태에 사용 가능합니다.',
+    'readiness.detail.redis.warn': 'Redis fallback 동작을 사용 중입니다.',
+    'readiness.detail.redis.fail': 'Redis 연결에 실패했습니다.',
+    'readiness.detail.rabbitmq.pass': 'RabbitMQ가 백그라운드 워커에 사용 가능합니다.',
+    'readiness.detail.rabbitmq.warn': 'RabbitMQ 대신 프로세스 내 fallback을 사용 중입니다.',
+    'readiness.detail.rabbitmq.fail': 'RabbitMQ 연결에 실패했습니다.',
+    'readiness.detail.ipfs.pass': 'IPFS 저장소가 설정되어 있습니다.',
+    'readiness.detail.ipfs.warn': 'IPFS 저장소가 설정되지 않았습니다.',
+    'readiness.detail.ipfs.fail': 'IPFS 연결에 실패했습니다.',
+    'readiness.detail.web3.pass': 'Web3 연결이 활성화되어 있습니다.',
+    'readiness.detail.web3.warn': 'Web3가 연결되지 않았거나 mock 모드입니다.',
+    'readiness.detail.web3.fail': 'Web3 연결에 실패했습니다.',
+    'readiness.detail.grobid.pass': 'GROBID 파싱을 사용할 수 있습니다.',
+    'readiness.detail.grobid.warn': 'GROBID는 선택 서비스이며 현재 사용할 수 없습니다.',
+    'readiness.detail.grobid.fail': 'GROBID 연결에 실패했습니다.',
+    'errors.supportId': '지원 ID',
+    'errors.copyDiagnostics': '진단 정보 복사',
+};
+
+function readNestedMessage(locale, key) {
     const parts = key.split('.');
     let current = MESSAGES[locale] ?? MESSAGES['ko-KR'];
 
@@ -937,11 +1122,41 @@ function resolveMessage(locale, key) {
         current = current?.[part];
 
         if (current == null) {
-            return key;
+            return null;
         }
     }
 
-    return typeof current === 'string' ? current : current ?? key;
+    return current;
+}
+
+function isLikelyBrokenKorean(value) {
+    if (typeof value !== 'string') {
+        return false;
+    }
+
+    const hasHangul = /[\u3131-\u318E\uAC00-\uD7A3]/.test(value);
+    const hasCjk = /[\u3400-\u9FFF]/.test(value);
+    const hasReplacementArtifacts = /[�]|(\?{2,})/.test(value);
+
+    return !hasHangul && (hasCjk || hasReplacementArtifacts);
+}
+
+function resolveMessage(locale, key) {
+    if (locale === 'ko-KR' && KOREAN_OVERRIDES[key]) {
+        return KOREAN_OVERRIDES[key];
+    }
+
+    const current = readNestedMessage(locale, key);
+    if (typeof current === 'string' && !(locale === 'ko-KR' && isLikelyBrokenKorean(current))) {
+        return current;
+    }
+
+    const fallback = readNestedMessage('en-US', key);
+    if (typeof fallback === 'string') {
+        return fallback;
+    }
+
+    return typeof current === 'string' ? current : key;
 }
 
 export function formatMessage(locale, key, values = {}) {

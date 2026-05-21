@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-18T08:43:07.288192",
+  "timestamp": "2026-05-11T09:25:16.704420",
   "version": "3.0",
   "workspace": "D:\\AI project",
   "projects": [
@@ -26,13 +26,13 @@
       "imports": [
         {
           "package": "anthropic",
-          "ok": true,
-          "message": "OK anthropic"
+          "ok": false,
+          "message": "TIMEOUT anthropic (5s)"
         },
         {
           "package": "httpx",
-          "ok": true,
-          "message": "OK httpx"
+          "ok": false,
+          "message": "TIMEOUT httpx (5s)"
         },
         {
           "package": "aiosqlite",
@@ -50,14 +50,14 @@
         {
           "name": "server",
           "ok": true,
-          "message": "OK automation\\DailyNews\\server.py"
+          "message": "OK automation\\DailyNews\\src\\antigravity_mcp\\server.py"
         }
       ],
       "imports": [
         {
           "package": "notion_client",
-          "ok": true,
-          "message": "OK notion_client"
+          "ok": false,
+          "message": "TIMEOUT notion_client (5s)"
         }
       ],
       "drift": [],
@@ -81,8 +81,8 @@
       "imports": [
         {
           "package": "fastapi",
-          "ok": true,
-          "message": "OK fastapi"
+          "ok": false,
+          "message": "TIMEOUT fastapi (5s)"
         },
         {
           "package": "uvicorn",
@@ -130,13 +130,13 @@
       "imports": [
         {
           "package": "fastapi",
-          "ok": true,
-          "message": "OK fastapi"
+          "ok": false,
+          "message": "TIMEOUT fastapi (5s)"
         },
         {
           "package": "sqlalchemy",
-          "ok": true,
-          "message": "OK sqlalchemy"
+          "ok": false,
+          "message": "TIMEOUT sqlalchemy (5s)"
         }
       ],
       "drift": [],
@@ -155,11 +155,6 @@
           "name": "src",
           "ok": true,
           "message": "OK apps\\AgriGuard\\frontend\\src"
-        },
-        {
-          "name": "build_check",
-          "ok": true,
-          "message": "OK build dry-run"
         }
       ],
       "imports": [],
@@ -168,17 +163,18 @@
     }
   ],
   "git": {
-    "uncommitted_changes": 9,
+    "uncommitted_changes": 110,
     "files": [
-      "M automation/DailyNews/config/x_longform_prompt.json",
-      " M automation/DailyNews/src/antigravity_mcp/insights/generator.py",
-      " M automation/DailyNews/src/antigravity_mcp/integrations/brain_adapter.py",
-      " M automation/DailyNews/tests/unit/test_adapters.py",
-      " M automation/DailyNews/tests/unit/test_insights.py",
-      " M automation/getdaytrends/docs/BIOJUHO-EXECUTION-PRIORITIES-2026-04-18.md",
-      " M automation/getdaytrends/tests/test_pipeline_steps.py",
-      "?? automation/DailyNews/docs/DAILYNEWS_CATEGORY_LONGFORM_REDESIGN_2026-04-18.md",
-      "?? automation/getdaytrends/docs/BIOJUHO-APPROVED-POST-BANK-2026-04-18.md"
+      "M .gitignore",
+      " M CONTEXT.md",
+      " M HANDOFF.md",
+      " M apps/desci-platform/.env.example",
+      " M apps/desci-platform/README.md",
+      " M apps/desci-platform/biolinker/.env.example",
+      " M apps/desci-platform/biolinker/main.py",
+      " M apps/desci-platform/biolinker/pyproject.toml",
+      " M apps/desci-platform/biolinker/routers/governance.py",
+      " M apps/desci-platform/biolinker/routers/subscription.py"
     ]
   },
   "env_files": [
@@ -187,91 +183,7 @@
       "env_exists": true
     },
     {
-      "example": "AgriGuard\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "canva-mcp\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "content-intelligence\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "DailyNews\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "desci-platform\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "desci-research-mcp\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "getdaytrends\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "telegram-mcp\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "var\\legacy-root-backups\\instagram-automation\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "mcp\\canva-mcp\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "mcp\\desci-research-mcp\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "mcp\\telegram-mcp\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "desci-platform\\backend\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "desci-platform\\biolinker\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "desci-platform\\contracts\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "desci-platform\\frontend\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "automation\\content-intelligence\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "automation\\DailyNews\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "automation\\getdaytrends\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "archive\\instagram-automation\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "archive\\lyria-music-player\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "archive\\notebooklm-automation\\.env.example",
+      "example": "apps\\desci-platform\\.env.example",
       "env_exists": true
     },
     {
@@ -279,39 +191,27 @@
       "env_exists": false
     },
     {
-      "example": "apps\\desci-platform\\.env.example",
+      "example": "automation\\getdaytrends\\.env.example",
       "env_exists": true
     },
     {
-      "example": "apps\\desci-platform\\backend\\.env.example",
+      "example": "automation\\DailyNews\\.env.example",
       "env_exists": true
     },
     {
-      "example": "apps\\desci-platform\\biolinker\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "apps\\desci-platform\\contracts\\.env.example",
+      "example": "automation\\content-intelligence\\.env.example",
       "env_exists": false
     },
     {
-      "example": "apps\\desci-platform\\frontend\\.env.example",
+      "example": "mcp\\canva-mcp\\.env.example",
       "env_exists": true
     },
     {
-      "example": "apps\\AgriGuard\\backend\\.env.example",
+      "example": "mcp\\telegram-mcp\\.env.example",
       "env_exists": true
     },
     {
-      "example": "apps\\AgriGuard\\frontend\\.env.example",
-      "env_exists": false
-    },
-    {
-      "example": "AgriGuard\\backend\\.env.example",
-      "env_exists": true
-    },
-    {
-      "example": "AgriGuard\\frontend\\.env.example",
+      "example": "mcp\\desci-research-mcp\\.env.example",
       "env_exists": false
     }
   ],

@@ -12,6 +12,7 @@ from urllib.parse import quote_plus
 
 from fastapi import Request
 
+
 def _stripe_amount_divisor(currency: str) -> int:
     zero_decimal_currencies = {
         "bif",

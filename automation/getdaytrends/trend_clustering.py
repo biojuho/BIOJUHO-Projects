@@ -70,7 +70,7 @@ def _merge_clusters(
     """Union-Find 그룹 결과 → 대표 선정 + 컨텍스트 병합 (공통 로직)."""
     trend_map = {t.name: t for t in raw_trends}
     clusters: list[TrendCluster] = []
-    representatives: list["RawTrend"] = []
+    representatives: list[RawTrend] = []
 
     for idxs in groups.values():
         members = [names[i] for i in idxs]

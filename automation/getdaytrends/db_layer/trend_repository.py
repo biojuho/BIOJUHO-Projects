@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from . import ScoredTrend, _get_cache_client, _redis_enabled, compute_fingerprint, sqlite_write_lock
 
+
 async def save_trend(conn, trend: ScoredTrend, run_id: int, bucket: int = 5000) -> int:
     """트렌드를 저장. bucket은 config.cache_volume_bucket에서 전달받아 fingerprint 정밀도 조정."""
     fingerprint = compute_fingerprint(trend.keyword, trend.volume_last_24h, bucket)
@@ -170,6 +171,17 @@ async def get_volume_velocity(conn, keyword: str, lookback_runs: int = 3) -> flo
 async def record_watchlist_hit(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
     async with sqlite_write_lock(conn):
         await _record_watchlist_hit_unlocked(conn, keyword, watchlist_item, viral_potential)
+
+
+async def _record_watchlist_hit_unlocked(conn, keyword: str, watchlist_item: str, viral_potential: int) -> None:
+    await conn.execute(
+        """
+        INSERT INTO watchlist_hits (keyword, watchlist_item, viral_potential, detected_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (keyword, watchlist_item, viral_potential, datetime.now().isoformat()),
+    )
+
 
 async def get_trend_history_patterns_batch(conn, keywords: list[str], days: int = 7) -> dict[str, dict]:
     """

@@ -4,6 +4,7 @@ getdaytrends — NotebookLM Research Tools
 notebooklm_bridge.py에서 분리됨.
 """
 
+import asyncio
 from datetime import datetime
 
 from loguru import logger as log
@@ -266,6 +267,11 @@ async def analyze_bio_company(
 async def _self_test():
     """모듈 단독 테스트."""
     print("=== NotebookLM Bridge Self-Test ===")
+
+    try:
+        from .notebooklm_bridge import check_availability, trend_to_notebook
+    except ImportError:
+        from notebooklm_bridge import check_availability, trend_to_notebook
 
     available = await check_availability()
     print(f"NotebookLM 연동 가능: {available}")

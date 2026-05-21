@@ -6,8 +6,12 @@ db_schema.py에서 분리됨.
 
 import asyncio
 import re
+from typing import TYPE_CHECKING
 
 from loguru import logger as log
+
+if TYPE_CHECKING:
+    import asyncpg
 
 
 class PgAdapter:
@@ -202,7 +206,7 @@ class PgAdapter:
             except Exception:
                 pass
             self._txn = None
-            
+
         async with self._lock:
             if self._pool is not None:
                 # Supabase transaction-mode pooler requires connections to be idle before release.

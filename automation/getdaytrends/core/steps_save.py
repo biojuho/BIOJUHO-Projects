@@ -66,7 +66,6 @@ except ImportError:
 
 from .steps_generate import _build_empty_qa, _content_hub_enabled
 
-
 # ══════════════════════════════════════════════════════
 #  Workflow V2 Bundle Recording
 # ══════════════════════════════════════════════════════

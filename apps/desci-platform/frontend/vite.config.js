@@ -31,6 +31,11 @@ export default defineConfig({
         },
       },
     },
+    server: {
+      deps: {
+        inline: ["react-router", "react-router-dom"],
+      },
+    },
   },
   build: {
     minify: "esbuild",
@@ -39,6 +44,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-query": ["@tanstack/react-query"],
           "vendor-firebase": ["firebase/app", "firebase/auth"],
           "vendor-motion": ["framer-motion"],
           "vendor-markdown": ["react-markdown"],

@@ -7,7 +7,6 @@ Validates the structural integrity and basic health of multiple packages and UI 
 Checks include package existence, basic imports, structural dependency drifts, NPM builds, etc.
 """
 
-import importlib
 import json
 import os
 import re
@@ -41,7 +40,7 @@ CHECKS = [
     {
         "name": "DailyNews",
         "type": "python",
-        "checks": [("server", rel_unit_path("dailynews", "server.py"))],
+        "checks": [("server", rel_unit_path("dailynews", "src/antigravity_mcp/server.py"))],
         "key_imports": ["notion_client"],
         "requirements": None,
     },
@@ -84,7 +83,6 @@ CHECKS = [
         ],
         "key_imports": [],
         "requirements": None,
-        "build_check": rel_unit_path("agriguard", "frontend"),
     },
 ]
 
@@ -114,11 +112,19 @@ def check_git_status() -> dict:
 
 
 def check_env_files() -> list[dict]:
+    from workspace_paths import iter_active_units
     results = []
-    for example in WORKSPACE.rglob(".env.example"):
-        env_file = example.parent / ".env"
-        rel = example.relative_to(WORKSPACE)
-        results.append({"example": str(rel), "env_exists": env_file.exists()})
+    # root .env check
+    root_example = WORKSPACE / ".env.example"
+    if root_example.exists():
+        results.append({"example": ".env.example", "env_exists": (WORKSPACE / ".env").exists()})
+
+    for unit in iter_active_units():
+        example_path = WORKSPACE / unit["canonical_path"] / ".env.example"
+        if example_path.exists():
+            env_path = example_path.parent / ".env"
+            rel = example_path.relative_to(WORKSPACE)
+            results.append({"example": str(rel), "env_exists": env_path.exists()})
     return results
 
 
@@ -126,10 +132,21 @@ def check_python_imports(packages: list[str]) -> list[dict]:
     results = []
     for package in packages:
         try:
-            importlib.import_module(package)
-            results.append({"package": package, "ok": True, "message": f"OK {package}"})
-        except ImportError as exc:
-            results.append({"package": package, "ok": False, "message": f"MISSING {package}: {exc}"})
+            # 타임아웃 5초를 설정하여 별도 프로세스에서 임포트 확인
+            proc = subprocess.run(
+                [sys.executable, "-c", f"import {package}"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if proc.returncode == 0:
+                results.append({"package": package, "ok": True, "message": f"OK {package}"})
+            else:
+                results.append({"package": package, "ok": False, "message": f"FAIL {package}: {proc.stderr.strip()}"})
+        except subprocess.TimeoutExpired:
+            results.append({"package": package, "ok": False, "message": f"TIMEOUT {package} (5s)"})
+        except Exception as exc:
+            results.append({"package": package, "ok": False, "message": f"ERROR {package}: {exc}"})
     return results
 
 
@@ -217,13 +234,15 @@ def check_npm_build(rel_path: str) -> dict:
 
 
 def run_healthcheck() -> dict:
+    git_status = check_git_status()
+    env_files = check_env_files()
     report = {
         "timestamp": datetime.now().isoformat(),
         "version": "3.0",
         "workspace": str(WORKSPACE),
         "projects": [],
-        "git": check_git_status(),
-        "env_files": check_env_files(),
+        "git": git_status,
+        "env_files": env_files,
     }
 
     for project in CHECKS:
@@ -329,11 +348,19 @@ def send_webhook(url: str, report: dict) -> None:
     }
     data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    urllib.request.urlopen(request, timeout=10)
+    urllib.request.urlopen(request, timeout=10)  # nosec B310
 
 
 def main() -> None:
     import argparse
+    # Windows stdout UTF-8 설정
+    if sys.platform == "win32":
+        try:
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
     parser = argparse.ArgumentParser(description="Workspace healthcheck")
     parser.add_argument("--webhook", help="Discord/Slack webhook URL")

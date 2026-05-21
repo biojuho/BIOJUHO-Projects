@@ -15,7 +15,6 @@ import unicodedata
 
 from loguru import logger as log
 
-
 # ── Lazy re-exports for backward compat ──
 # These are imported at module level but from submodules that do NOT
 # import db_schema back (breaking the circular chain).
@@ -31,13 +30,19 @@ def __getattr__(name):
     if name in _CONNECTION_NAMES:
         try:
             from .db_layer.connection import (
-                sqlite_write_lock, db_transaction, get_pg_pool,
-                close_pg_pool, get_connection,
+                close_pg_pool,
+                db_transaction,
+                get_connection,
+                get_pg_pool,
+                sqlite_write_lock,
             )
         except ImportError:
             from db_layer.connection import (
-                sqlite_write_lock, db_transaction, get_pg_pool,
-                close_pg_pool, get_connection,
+                close_pg_pool,
+                db_transaction,
+                get_connection,
+                get_pg_pool,
+                sqlite_write_lock,
             )
         return locals()[name]
     if name in _PG_ADAPTER_NAMES:

@@ -20,10 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js (for React frontend build)
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3.9.1
         with:
           node-version: '20'
           cache: 'npm'
@@ -37,12 +39,12 @@ jobs:
 
       - name: Google Auth
         id: auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
 
       - name: Authorize Docker push
         run: gcloud auth configure-docker --quiet
@@ -54,11 +56,11 @@ jobs:
           cp .gitignore .gcloudignore
           echo "!apps/dashboard/dist/" >> .gcloudignore
           
-          gcloud builds submit --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+          gcloud builds submit --tag gcr.io/${PROJECT_ID}/${{ env.SERVICE_NAME }} \
             --file apps/dashboard/Dockerfile .
             
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+            --image gcr.io/${PROJECT_ID}/${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
             --port 8080 \

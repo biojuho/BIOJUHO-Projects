@@ -2,8 +2,6 @@
 
 import pytest
 import pytest_asyncio
-
-from models import GeneratedThread, GeneratedTweet
 from db_layer.tweet_repository import (
     get_best_posting_hours,
     get_recent_tweet_contents,
@@ -14,6 +12,7 @@ from db_layer.tweet_repository import (
     save_tweets_batch,
     sync_tweet_metrics,
 )
+from models import GeneratedThread, GeneratedTweet
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -29,9 +28,8 @@ def _tweet(content="테스트 트윗", tweet_type="공감 유도형", content_ty
 
 async def _seed_run(db) -> int:
     """runs 테이블에 레코드 하나 삽입 후 run_id 반환."""
-    from datetime import datetime
-
     import uuid
+    from datetime import datetime
 
     cursor = await db.execute(
         "INSERT INTO runs (run_uuid, started_at) VALUES (?, ?)",
@@ -187,7 +185,7 @@ class TestSaveTweetsBatch:
         await db.commit()
 
         initial_cursor = await db.execute("SELECT COUNT(*) as cnt FROM tweets")
-        initial_count = dict(await initial_cursor.fetchone())["cnt"]
+        _initial_count = dict(await initial_cursor.fetchone())["cnt"]
 
         # char_count에 문자열을 넣어 타입 에러 유발은 SQLite에서 불가하므로
         # 컬럼 수 불일치를 만들어 에러 유발

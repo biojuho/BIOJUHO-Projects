@@ -47,6 +47,20 @@ export const DASHBOARD_MESSAGES = {
   'dashboard.activity3': 'AI recommendations and investor matches are explained card by card.',
   'dashboard.beta': 'Beta',
   'layout.biolinker': 'Match Studio',
+  'readiness.eyebrow': 'Product Operations',
+  'readiness.title': 'Launch readiness',
+  'readiness.subtitle': 'Confirm the core services needed for a production-grade research marketplace.',
+  'readiness.refresh': 'Refresh',
+  'readiness.overallProgress': 'Overall readiness',
+  'readiness.readySummary': '{ready}/{total} checks ready',
+  'readiness.requiredSummary': '{ready}/{total} required ready',
+  'readiness.required': 'Required',
+  'readiness.optional': 'Optional',
+  'readiness.operatorNoteTitle': 'Operator note',
+  'readiness.apiUnavailable': 'Readiness API is unavailable. Check backend connectivity before demo or launch.',
+  'readiness.status.degraded': 'Needs attention',
+  'readiness.note.degraded': 'Core flow can run, but optional production services still need attention.',
+  'readiness.checkStatus.warn': 'Review',
 };
 
 export const LAYOUT_MESSAGES = {

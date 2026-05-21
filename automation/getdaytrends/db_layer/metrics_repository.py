@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from . import log, sqlite_write_lock
 
+
 async def _record_source_quality_unlocked(
     conn,
     source: str,

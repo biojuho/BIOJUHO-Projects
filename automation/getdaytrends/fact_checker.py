@@ -20,9 +20,9 @@ from enum import Enum
 from loguru import logger as log
 
 try:
-    from .models import ScoredTrend, TweetBatch
+    from .models import MultiSourceContext, ScoredTrend, TweetBatch
 except ImportError:
-    from models import ScoredTrend, TweetBatch
+    from models import MultiSourceContext, ScoredTrend, TweetBatch
 
 # -- credibility imports --
 try:

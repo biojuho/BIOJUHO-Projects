@@ -4,6 +4,7 @@ import json
 
 from . import RunResult, sqlite_write_lock
 
+
 async def save_run(conn, run: RunResult) -> int:
     async with sqlite_write_lock(conn):
         cursor = await conn.execute(
