@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-
+from db_layer import _WORKFLOW_STATUS_TRANSITIONS
 from db_layer.draft_repository import (
     get_approved_post_bank,
     get_draft_bundle,
@@ -16,8 +16,6 @@ from db_layer.draft_repository import (
     save_validated_trend,
     update_draft_bundle_status,
 )
-from db_layer import _WORKFLOW_STATUS_TRANSITIONS
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

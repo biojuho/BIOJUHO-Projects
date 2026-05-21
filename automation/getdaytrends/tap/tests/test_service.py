@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from tap.detector import ArbitrageOpportunity
 from tap.product_feed import TapBoard
 from tap.service import (

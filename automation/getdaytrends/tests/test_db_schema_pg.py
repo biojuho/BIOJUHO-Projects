@@ -15,6 +15,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from getdaytrends.db_schema import (
     _PgAdapter,
     close_pg_pool,

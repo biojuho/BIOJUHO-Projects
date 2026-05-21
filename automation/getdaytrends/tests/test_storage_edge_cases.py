@@ -13,6 +13,15 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from config import AppConfig
+from models import (
+    GeneratedThread,
+    GeneratedTweet,
+    MultiSourceContext,
+    ScoredTrend,
+    TrendSource,
+    TweetBatch,
+)
 
 # ── SUT imports ──────────────────────────────────────────────────────
 from storage import (
@@ -22,16 +31,6 @@ from storage import (
     _rich_text_prop,
     save_to_notion,
 )
-from models import (
-    GeneratedThread,
-    GeneratedTweet,
-    MultiSourceContext,
-    ScoredTrend,
-    TrendSource,
-    TweetBatch,
-)
-from config import AppConfig
-
 
 # ── Helpers ──────────────────────────────────────────────────────────
 

@@ -29,14 +29,13 @@ if str(_GDT_ROOT) not in sys.path:
     sys.path.insert(0, str(_GDT_ROOT))
 
 from content_qa import (
+    _UNVERIFIED_QUOTE_PATTERNS,
     _score_format,
     _score_hook,
     _score_kick,
-    _UNVERIFIED_QUOTE_PATTERNS,
     build_regeneration_feedback,
 )
 from models import GeneratedTweet
-
 
 # ---------------------------------------------------------------------------
 # Helpers

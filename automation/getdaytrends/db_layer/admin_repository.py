@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from . import log, sqlite_write_lock
 
+
 async def _cleanup_old_records_unlocked(conn, days: int = 90) -> int:
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute("DELETE FROM tweets WHERE generated_at < ?", (cutoff,))

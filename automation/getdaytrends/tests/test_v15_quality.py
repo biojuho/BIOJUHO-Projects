@@ -6,7 +6,6 @@ v15.0 Phase B Tests
 """
 
 import pytest
-
 from models import MultiSourceContext, ScoredTrend
 
 

@@ -38,7 +38,7 @@ def _has_usable_source_text(text: str | None) -> bool:
     return not any(marker in lowered for marker in _INVALID_SIGNAL_MARKERS)
 
 
-def _count_usable_context_sources(context: "MultiSourceContext | None") -> int:
+def _count_usable_context_sources(context: MultiSourceContext | None) -> int:
     """Count usable external sources among X, Reddit, and News."""
     if not context:
         return 0
@@ -55,7 +55,7 @@ def _count_usable_context_sources(context: "MultiSourceContext | None") -> int:
 
 def _compute_cross_source_confidence(
     volume_numeric: int,
-    context: "MultiSourceContext",
+    context: MultiSourceContext,
 ) -> int:
     """
     Phase 1 cross-source confidence (0-4).

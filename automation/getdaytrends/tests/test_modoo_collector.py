@@ -22,7 +22,7 @@ from collectors import modoo as modoo_mod  # noqa: E402
 from models import TrendSource  # noqa: E402
 
 
-def _fake_completed(stdout: str, returncode: int = 0, stderr: str = "") -> "subprocess.CompletedProcess[str]":
+def _fake_completed(stdout: str, returncode: int = 0, stderr: str = "") -> subprocess.CompletedProcess[str]:
     return subprocess.CompletedProcess(
         args=["node"], returncode=returncode, stdout=stdout, stderr=stderr
     )

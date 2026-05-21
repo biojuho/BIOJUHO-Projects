@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from . import GeneratedThread, GeneratedTweet, _get_cache_client, _redis_enabled, log, sqlite_write_lock
 
+
 async def _save_tweet_unlocked(
     conn, tweet: GeneratedTweet, trend_id: int, run_id: int, saved_to: list[str] | None = None
 ) -> int:

@@ -2,8 +2,6 @@
 
 import pytest
 import pytest_asyncio
-
-from models import GeneratedThread, GeneratedTweet
 from db_layer.tweet_repository import (
     get_best_posting_hours,
     get_recent_tweet_contents,
@@ -14,6 +12,7 @@ from db_layer.tweet_repository import (
     save_tweets_batch,
     sync_tweet_metrics,
 )
+from models import GeneratedThread, GeneratedTweet
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -29,9 +28,8 @@ def _tweet(content="테스트 트윗", tweet_type="공감 유도형", content_ty
 
 async def _seed_run(db) -> int:
     """runs 테이블에 레코드 하나 삽입 후 run_id 반환."""
-    from datetime import datetime
-
     import uuid
+    from datetime import datetime
 
     cursor = await db.execute(
         "INSERT INTO runs (run_uuid, started_at) VALUES (?, ?)",

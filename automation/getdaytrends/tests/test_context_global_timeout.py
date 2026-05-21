@@ -6,7 +6,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from config import AppConfig
 from models import RawTrend, TrendSource
 

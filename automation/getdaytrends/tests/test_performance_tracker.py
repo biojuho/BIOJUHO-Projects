@@ -5,10 +5,12 @@ from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
+
 respx = pytest.importorskip("respx")
 
-from perf_models import ANGLE_TYPES, GoldenReference, HOOK_PATTERNS, KICK_PATTERNS, TweetMetrics
+from perf_models import ANGLE_TYPES, HOOK_PATTERNS, KICK_PATTERNS, GoldenReference, TweetMetrics
 from performance_tracker import PerformanceTracker
+
 
 @pytest.fixture
 def temp_db() -> Generator[str, None, None]:

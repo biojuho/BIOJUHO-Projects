@@ -8,9 +8,9 @@ import time
 import httpx
 
 try:
-    from . import context as context_mod
     from ..config import AppConfig
     from ..models import MultiSourceContext, RawTrend, TrendSource
+    from . import context as context_mod
 except ImportError:
     import collectors.context as context_mod
     from config import AppConfig

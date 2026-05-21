@@ -3,13 +3,14 @@
 from datetime import datetime, timedelta
 
 from . import (
+    _REDIS_OK,
     _WORKFLOW_STATUS_TRANSITIONS,
     _json_list,
     _json_text,
-    _REDIS_OK,
     log,
     sqlite_write_lock,
 )
+
 
 async def _record_content_feedback_unlocked(
     conn,

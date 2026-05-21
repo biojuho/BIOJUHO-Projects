@@ -46,8 +46,8 @@ try:
     from ..config import VERSION, AppConfig
     from ..db import (
         compute_fingerprint,
-        get_cached_content,
         get_approved_post_bank,
+        get_cached_content,
         get_recent_tweet_contents,
         record_posting_time_stat,
     )
@@ -62,8 +62,8 @@ except ImportError:
     from config import VERSION, AppConfig
     from db import (
         compute_fingerprint,
-        get_cached_content,
         get_approved_post_bank,
+        get_cached_content,
         get_recent_tweet_contents,
         record_posting_time_stat,
     )

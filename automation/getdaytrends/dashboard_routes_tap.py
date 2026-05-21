@@ -14,40 +14,40 @@ from fastapi.responses import JSONResponse
 
 try:
     from .db import (
-        get_tap_checkout_session_summary,
         get_connection,
-        mark_tap_checkout_session_completed,
         get_tap_alert_queue_snapshot,
+        get_tap_checkout_session_summary,
         get_tap_deal_room_funnel,
         init_db,
+        mark_tap_checkout_session_completed,
         record_tap_deal_room_event,
         upsert_tap_checkout_session,
     )
     from .tap import (
         DealRoomRequest,
         TapBoardRequest,
-        build_tap_deal_room_snapshot,
         build_tap_board_snapshot,
+        build_tap_deal_room_snapshot,
         dispatch_tap_alert_queue,
         empty_tap_board,
         get_latest_tap_board_snapshot,
     )
 except ImportError:
     from db import (
-        get_tap_checkout_session_summary,
         get_connection,
-        mark_tap_checkout_session_completed,
         get_tap_alert_queue_snapshot,
+        get_tap_checkout_session_summary,
         get_tap_deal_room_funnel,
         init_db,
+        mark_tap_checkout_session_completed,
         record_tap_deal_room_event,
         upsert_tap_checkout_session,
     )
     from tap import (
         DealRoomRequest,
         TapBoardRequest,
-        build_tap_deal_room_snapshot,
         build_tap_board_snapshot,
+        build_tap_deal_room_snapshot,
         dispatch_tap_alert_queue,
         empty_tap_board,
         get_latest_tap_board_snapshot,
@@ -55,31 +55,31 @@ except ImportError:
 
 try:
     from .stripe_helpers import (
-        _stripe_amount_divisor,
+        _build_tap_checkout_redirect_urls,
+        _coerce_non_negative_float,
+        _construct_stripe_event,
+        _create_stripe_checkout_session,
+        _extract_price_anchor_amount,
+        _extract_tap_purchase_from_stripe_event,
         _format_stripe_price_anchor,
         _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
+        _stripe_amount_divisor,
         _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
+        _validate_tap_checkout_payload_matches_handle,
     )
 except ImportError:
     from stripe_helpers import (
-        _stripe_amount_divisor,
+        _build_tap_checkout_redirect_urls,
+        _coerce_non_negative_float,
+        _construct_stripe_event,
+        _create_stripe_checkout_session,
+        _extract_price_anchor_amount,
+        _extract_tap_purchase_from_stripe_event,
         _format_stripe_price_anchor,
         _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
+        _stripe_amount_divisor,
         _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
+        _validate_tap_checkout_payload_matches_handle,
     )
 
 logger = logging.getLogger(__name__)

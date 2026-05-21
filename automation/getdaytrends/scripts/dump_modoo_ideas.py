@@ -19,9 +19,9 @@ import argparse
 import json
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Sequence
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 GDT_DIR = SCRIPT_DIR.parent

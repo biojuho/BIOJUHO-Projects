@@ -1,5 +1,6 @@
-import sys
 import re
+import sys
+
 
 def fix_mojibake(filepath):
     try:

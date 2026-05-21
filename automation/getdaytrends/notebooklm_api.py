@@ -380,7 +380,6 @@ async def _record_x_publish_result(req: XPublishRequest, tweet_id: str) -> tuple
 
     try:
         import aiosqlite
-
         from db import mark_tweet_posted
 
         db_path = req.db_path or os.path.join(os.path.dirname(__file__), "data", "getdaytrends.db")

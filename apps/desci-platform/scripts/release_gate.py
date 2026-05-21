@@ -18,7 +18,6 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 BACKEND_DIR = PROJECT_ROOT / "biolinker"

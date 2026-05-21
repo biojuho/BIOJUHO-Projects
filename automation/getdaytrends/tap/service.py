@@ -10,8 +10,8 @@ This keeps dashboard/API consumers thin and gives us one place to add:
 
 from __future__ import annotations
 
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
 
 
 def _load_db_funcs():

@@ -11,7 +11,7 @@ import asyncio
 import re
 import time
 import xml.etree.ElementTree as ET
-from datetime import UTC
+from datetime import UTC, datetime
 
 import httpx
 from loguru import logger as log

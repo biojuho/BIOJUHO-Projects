@@ -4,10 +4,9 @@ import sys
 import types
 from unittest.mock import AsyncMock
 
+import collectors.context as context
 import httpx
 import pytest
-
-import collectors.context as context
 
 
 @pytest.mark.asyncio

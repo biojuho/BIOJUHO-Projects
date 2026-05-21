@@ -6,8 +6,12 @@ db_schema.py에서 분리됨.
 
 import asyncio
 import re
+from typing import TYPE_CHECKING
 
 from loguru import logger as log
+
+if TYPE_CHECKING:
+    import asyncpg
 
 
 class PgAdapter:

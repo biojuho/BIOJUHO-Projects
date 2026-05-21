@@ -9,10 +9,9 @@ PerformanceTracker에서 분리된 실시간 시그널 수집 기능.
 import re
 from datetime import UTC, datetime, timedelta
 
-from loguru import logger as log
-
-from perf_models import TweetMetrics, normalize_angle
 from db_layer.connection import db_transaction
+from loguru import logger as log
+from perf_models import TweetMetrics, normalize_angle
 
 
 class TieredCollectionMixin:

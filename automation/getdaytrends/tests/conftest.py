@@ -136,6 +136,7 @@ def _reset_pg_pool():
     pool instead of aiosqlite.
     """
     import os
+
     import db_layer.connection as _dbconn
 
     _dbconn._PG_POOL = None
@@ -198,6 +199,7 @@ async def memory_db():
     test_dashboard / test_db_schema_pg) leave module-level state behind.
     """
     import os
+
     import db_layer.connection as _dbconn
 
     _dbconn._PG_POOL = None

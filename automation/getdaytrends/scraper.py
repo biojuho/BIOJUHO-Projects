@@ -17,6 +17,7 @@ from loguru import logger as log
 #  Backward-compat re-exports from collectors.sources
 # ══════════════════════════════════════════════════════
 try:
+    from .collectors.modoo import fetch_modoo_ideas
     from .collectors.sources import (  # noqa: F401
         _COMMON_HEADERS,
         _DEFAULT_TIMEOUT,
@@ -48,11 +49,11 @@ try:
         fetch_reddit_popular,
         fetch_youtube_trending,
     )
-    from .collectors.modoo import fetch_modoo_ideas
     from .config import AppConfig
     from .models import MultiSourceContext, RawTrend, TrendSource
     from .utils import run_async
 except ImportError:
+    from collectors.modoo import fetch_modoo_ideas
     from collectors.sources import (  # noqa: F401
         _COMMON_HEADERS,
         _DEFAULT_TIMEOUT,
@@ -84,7 +85,6 @@ except ImportError:
         fetch_reddit_popular,
         fetch_youtube_trending,
     )
-    from collectors.modoo import fetch_modoo_ideas
     from config import AppConfig
     from models import MultiSourceContext, RawTrend, TrendSource
     from utils import run_async

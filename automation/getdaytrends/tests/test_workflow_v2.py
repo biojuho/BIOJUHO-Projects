@@ -1,7 +1,6 @@
 ﻿from __future__ import annotations
 
 import pytest
-
 from db import (
     get_draft_bundle,
     promote_draft_to_ready,
@@ -15,8 +14,9 @@ from db import (
     save_validated_trend,
 )
 from models import RunResult
-from tests.conftest import make_batch, make_scored_trend
 from workflow_v2 import build_draft_bundles, build_qa_report, build_scoring_axes, validate_trend_candidate
+
+from tests.conftest import make_batch, make_scored_trend
 
 
 @pytest.mark.asyncio

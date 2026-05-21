@@ -6,9 +6,9 @@ import re
 from loguru import logger as log
 
 try:
-    from .scoring import _compute_cross_source_confidence, _compute_signal_score
     from ..config import AppConfig
     from ..models import MultiSourceContext, ScoredTrend, TrendContext, TrendSource
+    from .scoring import _compute_cross_source_confidence, _compute_signal_score
 except ImportError:
     from analysis.scoring import _compute_cross_source_confidence, _compute_signal_score
     from config import AppConfig

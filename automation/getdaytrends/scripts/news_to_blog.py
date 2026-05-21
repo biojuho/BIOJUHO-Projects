@@ -162,9 +162,9 @@ async def generate_blog_from_news(
     Returns:
         list of dicts with blog_content, seo_keywords, etc.
     """
-    from shared.llm import get_client
-
     from config import AppConfig
+
+    from shared.llm import get_client
 
     config = AppConfig.from_env()
     client = get_client()

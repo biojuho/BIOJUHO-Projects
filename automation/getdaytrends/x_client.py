@@ -58,7 +58,7 @@ def _derive_fernet_key() -> bytes | None:
     return base64.urlsafe_b64encode(raw)
 
 
-def _load_encrypted_cookies(client: "TwikitClient") -> bool:
+def _load_encrypted_cookies(client: TwikitClient) -> bool:
     """암호화된 쿠키(.enc)를 복호화해 클라이언트에 로드. 성공하면 True."""
     if not _COOKIES_ENC_PATH.exists():
         return False
