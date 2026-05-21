@@ -41,7 +41,7 @@ TRANSIENT_RETRY_MAX = 2
 WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "workspace regression tests": ("fastapi", "sqlalchemy", "aiosqlite", "mcp.server.fastmcp", "pypdf"),
     "shared package tests": ("sqlalchemy", "pydantic", "httpx", "google.genai"),
-    "desci biolinker smoke": ("fastapi",),
+    "desci backend smoke": ("fastapi",),
     "agriguard backend tests": ("fastapi", "sqlalchemy"),
     "DailyNews unit tests": ("mcp.server.fastmcp",),
     "getdaytrends tests": ("aiosqlite", "sqlalchemy"),
@@ -60,7 +60,7 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "httpx>=0.27.0",
         "google-genai>=1.0.0,<2.0",
     ),
-    "desci biolinker smoke": (
+    "desci backend smoke": (
         "fastapi>=0.115.0,<1.0",
         "uvicorn>=0.32.0,<1.0",
         "python-dotenv>=1.0.0",
@@ -99,7 +99,7 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
     ),
 }
 FORCE_UV_CHECKS = {
-    "desci biolinker smoke",
+    "desci backend smoke",
     "agriguard backend tests",
     "getdaytrends tests",
 }
@@ -300,7 +300,7 @@ def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[C
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
     desci_frontend = rel_unit_path("desci-platform", "frontend")
-    desci_biolinker = rel_unit_path("desci-platform", "biolinker")
+    desci_backend = rel_unit_path("desci-platform", "backend")
     agriguard_frontend = rel_unit_path("agriguard", "frontend")
     agriguard_backend = rel_unit_path("agriguard", "backend")
     github_mcp = rel_unit_path("github-mcp")
@@ -344,9 +344,9 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("desci", "desci bundle budget", desci_frontend, [npm_exe, "run", "check:bundle"]),
         Check(
             "desci",
-            "desci biolinker smoke",
+            "desci backend smoke",
             ".",
-            [python_exe, "-m", "pytest", f"{desci_biolinker}/tests/test_smoke_pipeline.py", "-q"],
+            [python_exe, "-m", "pytest", f"{desci_backend}/tests/test_smoke_pipeline.py", "-q"],
         ),
         Check("agriguard", "agriguard frontend lint", agriguard_frontend, [npm_exe, "run", "lint"]),
         Check("agriguard", "agriguard frontend build", agriguard_frontend, [npm_exe, "run", "build:lts"]),
