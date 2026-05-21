@@ -234,8 +234,11 @@ jobs:
           # --diff-filter=AMR keeps Added/Modified/Renamed files, excludes Deleted
           # so ruff doesn't try to lint paths that no longer exist on disk.
           git diff --name-only --diff-filter=AMR ${{ github.event.pull_request.base.sha }} ${{ github.sha }} > changed-files.txt
-          grep -E '\.py$' changed-files.txt > changed-python-files.txt || true
-          grep -E '\.(jsx?|tsx?|vue|svelte)$' changed-files.txt > changed-js-files.txt || true
+          # Exclude archive/ paths — pyproject.toml extend-exclude already lists
+          # them, but ruff doesn't apply directory excludes when called with
+          # explicit file args, so the filter has to happen here.
+          grep -E '\.py$' changed-files.txt | grep -vE '(^|/)archive/' > changed-python-files.txt || true
+          grep -E '\.(jsx?|tsx?|vue|svelte)$' changed-files.txt | grep -vE '(^|/)archive/' > changed-js-files.txt || true
           FILES=$(tr '\n' ' ' < changed-files.txt)
           PY_COUNT=$(wc -l < changed-python-files.txt | tr -d ' ')
           JS_COUNT=$(wc -l < changed-js-files.txt | tr -d ' ')
