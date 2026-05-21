@@ -697,6 +697,40 @@ async def run_daily_news(*, force: bool, max_items: int, max_reports: int = 1, r
                 state.close()
                 return 1
 
+            # total == 0: 카테고리 루프가 아예 돌지 않은 경우 (load_news_sources
+            # 가 빈 dict 반환, iter_news_sources_by_priority가 전 카테고리 필터링,
+            # 설정 파일 손상 등). 기존엔 success 분기로 흘러 alive heartbeat만
+            # 가서 "DailyNews 정상 동작" 표시 — 파이프라인이 아무것도 안 했는데
+            # 성공으로 마감되는 가짜 success 패턴.
+            if total == 0:
+                error_msg = f"no categories processed (load_news_sources/priorities empty) for window {summary['window']}"
+                state.record_job_finish(run_id, status="degraded", summary=summary, error_text=error_msg)
+                logger.error(
+                    "complete",
+                    "degraded",
+                    "run_daily_news processed zero categories",
+                    **summary,
+                )
+                _print_manifest(summary, "degraded", run_id)
+                try:
+                    from shared.notifications import Notifier
+
+                    _notifier = Notifier.from_env()
+                    if _notifier.has_channels:
+                        _notifier.send_error(
+                            f"[CONFIG-FAIL] DailyNews degraded: 카테고리 0건 처리됨 (window={summary['window']})",
+                            source="DailyNews",
+                        )
+                        _notifier.send_heartbeat(
+                            "DailyNews",
+                            status="degraded",
+                            details=f"window={summary['window']} categories_total=0",
+                        )
+                except Exception:
+                    pass
+                state.close()
+                return 1
+
             # 0 success + 0 failed + N skipped는 success가 아니라 degraded.
             # 수집 단계가 모든 카테고리에서 0건을 반환한 경우 (피드 장애·필터 너무
             # 빡빡함·소스 URL 일괄 만료 등) 알림 없이 success heartbeat가 가면
