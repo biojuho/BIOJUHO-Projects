@@ -12,9 +12,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
-  security-events: write  # for zizmor SARIF upload
 
 jobs:
   # ── Secret Leak Detection ──
@@ -104,6 +101,9 @@ jobs:
     name: "\U0001F6E1️ Workflow Audit (zizmor)"
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write # Required for github/codeql-action/upload-sarif to publish zizmor SARIF.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -222,6 +222,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      issues: write # Required for github-script to post QA summaries on pull requests.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -233,10 +236,13 @@ jobs:
 
       - name: Get changed files
         id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
           # --diff-filter=AMR keeps Added/Modified/Renamed files, excludes Deleted
           # so ruff doesn't try to lint paths that no longer exist on disk.
-          git diff --name-only --diff-filter=AMR ${{ github.event.pull_request.base.sha }} ${{ github.sha }} > changed-files.txt
+          git diff --name-only --diff-filter=AMR "$BASE_SHA" "$HEAD_SHA" > changed-files.txt
           # Exclude archive/ paths — pyproject.toml extend-exclude already lists
           # them, but ruff doesn't apply directory excludes when called with
           # explicit file args, so the filter has to happen here.
@@ -347,6 +353,14 @@ jobs:
     if: always()
     steps:
       - name: Check results
+        env:
+          NEEDS_SECRET_SCAN_RESULT: ${{ needs.secret-scan.result }}
+          NEEDS_DEPENDENCY_SCAN_RESULT: ${{ needs.dependency-scan.result }}
+          NEEDS_WORKFLOW_AUDIT_RESULT: ${{ needs.workflow-audit.result }}
+          NEEDS_SECURITY_CONTRACTS_RESULT: ${{ needs.security-contracts.result }}
+          NEEDS_SMOKE_TEST_RESULT: ${{ needs.smoke-test.result }}
+          NEEDS_QA_REVIEW_RESULT: ${{ needs.qa-review.result }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -354,7 +368,7 @@ jobs:
           GATE_PASS=true
 
           # Secret scan (hard gate)
-          if [ "${{ needs.secret-scan.result }}" = "success" ]; then
+          if [ "$NEEDS_SECRET_SCAN_RESULT" = "success" ]; then
             echo "- :white_check_mark: Secret Scan: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "- :x: Secret Scan: FAILED" >> $GITHUB_STEP_SUMMARY
@@ -363,7 +377,7 @@ jobs:
           fi
 
           # Dependency scan (hard gate)
-          if [ "${{ needs.dependency-scan.result }}" = "success" ]; then
+          if [ "$NEEDS_DEPENDENCY_SCAN_RESULT" = "success" ]; then
             echo "- :white_check_mark: Dependency Audit: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "- :x: Dependency Audit: FAILED" >> $GITHUB_STEP_SUMMARY
@@ -372,7 +386,7 @@ jobs:
           fi
 
           # Workflow audit (hard gate on unpinned-uses regression)
-          if [ "${{ needs.workflow-audit.result }}" = "success" ]; then
+          if [ "$NEEDS_WORKFLOW_AUDIT_RESULT" = "success" ]; then
             echo "- :white_check_mark: Workflow Audit: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "- :x: Workflow Audit: FAILED" >> $GITHUB_STEP_SUMMARY
@@ -381,7 +395,7 @@ jobs:
           fi
 
           # Security contracts (hard gate)
-          if [ "${{ needs.security-contracts.result }}" = "success" ]; then
+          if [ "$NEEDS_SECURITY_CONTRACTS_RESULT" = "success" ]; then
             echo "- :white_check_mark: Security Contracts: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "- :x: Security Contracts: FAILED" >> $GITHUB_STEP_SUMMARY
@@ -390,15 +404,15 @@ jobs:
           fi
 
           # Smoke test (informational)
-          if [ "${{ needs.smoke-test.result }}" = "success" ]; then
+          if [ "$NEEDS_SMOKE_TEST_RESULT" = "success" ]; then
             echo "- :white_check_mark: Smoke Test: PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "- :warning: Smoke Test: FAILED (non-blocking)" >> $GITHUB_STEP_SUMMARY
           fi
 
           # QA review (PR only, hard gate)
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ "${{ needs.qa-review.result }}" = "success" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            if [ "$NEEDS_QA_REVIEW_RESULT" = "success" ]; then
               echo "- :white_check_mark: QA Review: PASSED" >> $GITHUB_STEP_SUMMARY
             else
               echo "- :x: QA Review: FAILED" >> $GITHUB_STEP_SUMMARY

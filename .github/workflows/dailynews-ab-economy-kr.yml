@@ -14,11 +14,13 @@ concurrency:
 
 jobs:
   ab-test:
+    name: DailyNews Economy KR A/B test
+    environment: automation-ops
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
@@ -34,19 +36,31 @@ jobs:
 
       - name: Create .env file
         working-directory: automation/DailyNews
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY || secrets.NOTION_TOKEN || '' }}
+          NOTION_TASKS_DATABASE_ID: ${{ secrets.NOTION_TASKS_DATABASE_ID || secrets.ANTIGRAVITY_TASKS_DB_ID || secrets.ANTIGRAVITY_DB_ID || '' }}
+          NOTION_REPORTS_DATABASE_ID: ${{ secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID || '' }}
+          NOTION_DASHBOARD_PAGE_ID: ${{ secrets.NOTION_DASHBOARD_PAGE_ID || secrets.DASHBOARD_PAGE_ID || '' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '' }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL || '' }}
         run: |
           cat <<EOF > .env
-          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          NOTION_API_KEY=${{ secrets.NOTION_API_KEY || secrets.NOTION_TOKEN || '' }}
-          NOTION_TASKS_DATABASE_ID=${{ secrets.NOTION_TASKS_DATABASE_ID || secrets.ANTIGRAVITY_TASKS_DB_ID || secrets.ANTIGRAVITY_DB_ID || '' }}
-          NOTION_REPORTS_DATABASE_ID=${{ secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID || '' }}
-          NOTION_DASHBOARD_PAGE_ID=${{ secrets.NOTION_DASHBOARD_PAGE_ID || secrets.DASHBOARD_PAGE_ID || '' }}
-          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
-          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID || '' }}
-          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL || '' }}
+          ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+          GOOGLE_API_KEY=$GOOGLE_API_KEY
+          GEMINI_API_KEY=$GEMINI_API_KEY
+          OPENAI_API_KEY=$OPENAI_API_KEY
+          NOTION_API_KEY=$NOTION_API_KEY
+          NOTION_TASKS_DATABASE_ID=$NOTION_TASKS_DATABASE_ID
+          NOTION_REPORTS_DATABASE_ID=$NOTION_REPORTS_DATABASE_ID
+          NOTION_DASHBOARD_PAGE_ID=$NOTION_DASHBOARD_PAGE_ID
+          TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
+          TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID
+          DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL
           EOF
 
       - name: Run Economy_KR A/B test
@@ -95,7 +109,7 @@ jobs:
 
       - name: Upload A/B test artifacts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: dailynews-ab-economy-kr-${{ github.run_number }}
           path: |
@@ -109,11 +123,15 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] DailyNews Economy_KR A/B test #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] DailyNews Economy_KR A/B test #${GITHUB_RUN_NUMBER} failed\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" || true
           fi
 
       - name: Telegram heartbeat on success
@@ -121,9 +139,13 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews Economy_KR A/B test #${{ github.run_number }} completed\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] DailyNews Economy_KR A/B test #${GITHUB_RUN_NUMBER} completed\"}" || true
           fi

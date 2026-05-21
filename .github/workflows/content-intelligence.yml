@@ -35,12 +35,13 @@ on:
 jobs:
   calibrate:
     name: Viral Score Calibration
+    environment: automation-ops
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: ${{ github.event.inputs.skip_calibration != 'true' }}
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
@@ -60,7 +61,7 @@ jobs:
         run: mkdir -p automation/getdaytrends/data
 
       - name: Download latest DB artifact (if available)
-        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
+        uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
         with:
           workflow: getdaytrends.yml
           name: getdaytrends-db
@@ -79,7 +80,7 @@ jobs:
 
       - name: Upload calibration report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: calibration-report-${{ github.run_number }}
           path: automation/getdaytrends/data/calibration_report_*.json
@@ -93,7 +94,7 @@ jobs:
             PEARSON=$(python3 -c "import json,sys; d=json.load(open('$REPORT')); print(d.get('accuracy',{}).get('pearson_r', 'N/A'))" 2>/dev/null || echo "N/A")
             MAE=$(python3 -c "import json,sys; d=json.load(open('$REPORT')); print(d.get('accuracy',{}).get('mae', 'N/A'))" 2>/dev/null || echo "N/A")
             SAMPLES=$(python3 -c "import json,sys; d=json.load(open('$REPORT')); print(d.get('sample_count', 'N/A'))" 2>/dev/null || echo "N/A")
-            echo "### Viral Score Calibration ✅" >> $GITHUB_STEP_SUMMARY
+            echo "### Viral Score Calibration" >> "$GITHUB_STEP_SUMMARY"
             echo "| 지표 | 값 |" >> $GITHUB_STEP_SUMMARY
             echo "|---|---|" >> $GITHUB_STEP_SUMMARY
             echo "| 샘플 수 | $SAMPLES |" >> $GITHUB_STEP_SUMMARY
@@ -106,15 +107,20 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] Viral Calibration #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] Viral Calibration #${GITHUB_RUN_NUMBER} failed\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" || true
           fi
 
   roi-report:
     name: Content ROI Report
+    environment: automation-ops
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # 주간(월요일)만 실행하거나 workflow_dispatch 시 skip_roi 조건 확인
@@ -123,7 +129,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_roi != 'true')
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
@@ -143,7 +149,7 @@ jobs:
         run: mkdir -p automation/getdaytrends/data var/reports
 
       - name: Download latest GetDayTrends DB (if available)
-        uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
+        uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
         with:
           workflow: getdaytrends.yml
           name: getdaytrends-db
@@ -163,7 +169,7 @@ jobs:
 
       - name: Upload ROI report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: roi-report-${{ github.run_number }}
           path: var/reports/roi_*.json
@@ -178,7 +184,7 @@ jobs:
             COST=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('llm_cost',{}).get('total_usd','N/A'))" 2>/dev/null || echo "N/A")
             TWEETS=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('tweet_count','N/A'))" 2>/dev/null || echo "N/A")
             BEST_H=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('posting_time',{}).get('best_hour_kst','N/A'))" 2>/dev/null || echo "N/A")
-            echo "### Content ROI Report ✅" >> $GITHUB_STEP_SUMMARY
+            echo "### Content ROI Report" >> "$GITHUB_STEP_SUMMARY"
             echo "| 지표 | 값 |" >> $GITHUB_STEP_SUMMARY
             echo "|---|---|" >> $GITHUB_STEP_SUMMARY
             echo "| 분석 트윗 수 | $TWEETS |" >> $GITHUB_STEP_SUMMARY
@@ -192,9 +198,13 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] ROI Report #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] ROI Report #${GITHUB_RUN_NUMBER} failed\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" || true
           fi

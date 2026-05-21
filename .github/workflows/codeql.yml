@@ -21,9 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
-      actions: read
+      actions: read # Required for CodeQL to read workflow metadata during analysis.
       contents: read
-      security-events: write
+      security-events: write # Required for github/codeql-action/analyze to upload SARIF results.
 
     strategy:
       fail-fast: false
@@ -31,7 +31,7 @@ jobs:
         language: ["python", "javascript-typescript"]
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
@@ -39,16 +39,16 @@ jobs:
         run: python3 bootstrap_legacy_paths.py
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@0daab03d71ff584ef619d027a3fd9146679c5d84 # v3.35.3
+        uses: github/codeql-action/init@7c1e4cf0b20d7c1872b26569c00ba908797a59bf # v4
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
           setup-python-dependencies: true
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@0daab03d71ff584ef619d027a3fd9146679c5d84 # v3.35.3
+        uses: github/codeql-action/autobuild@7c1e4cf0b20d7c1872b26569c00ba908797a59bf # v4
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@0daab03d71ff584ef619d027a3fd9146679c5d84 # v3.35.3
+        uses: github/codeql-action/analyze@7c1e4cf0b20d7c1872b26569c00ba908797a59bf # v4
         with:
           category: "/language:${{ matrix.language }}"

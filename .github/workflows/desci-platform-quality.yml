@@ -55,7 +55,7 @@ jobs:
         scope: [workspace, desci, agriguard, mcp, getdaytrends]
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
 
@@ -66,7 +66,7 @@ jobs:
         with:
           python-version: '3.13'
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         if: matrix.scope == 'workspace' || matrix.scope == 'desci' || matrix.scope == 'agriguard'
         with:
           node-version: "24.15.0"
@@ -102,17 +102,20 @@ jobs:
         env:
           PYTHONUTF8: "1"
           PYTHONIOENCODING: "utf-8"
-        run: uv run python ops/scripts/run_workspace_smoke.py --scope "${{ matrix.scope }}" --json-out "smoke-${{ matrix.scope }}.json"
+          MATRIX_SCOPE: ${{ matrix.scope }}
+        run: uv run python ops/scripts/run_workspace_smoke.py --scope "$MATRIX_SCOPE" --json-out "smoke-${MATRIX_SCOPE}.json"
 
       - name: Append summary
         if: always()
+        env:
+          MATRIX_SCOPE: ${{ matrix.scope }}
         run: |
           uv run python - <<'PY'
           import json
           import os
           from pathlib import Path
 
-          scope = "${{ matrix.scope }}"
+          scope = os.environ["MATRIX_SCOPE"]
           report_path = Path(f"smoke-{scope}.json")
           if not report_path.exists():
               print(f"::warning::Missing smoke report for {scope}")
@@ -133,7 +136,7 @@ jobs:
 
       - name: Upload smoke report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: workspace-smoke-${{ matrix.scope }}
           path: smoke-${{ matrix.scope }}.json
