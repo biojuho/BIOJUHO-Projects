@@ -115,11 +115,14 @@ jobs:
           enable-cache: true
 
       - name: Run zizmor (SARIF)
+        # Single SARIF scan — the hard-gate Python below reads ruleId from
+        # the SARIF, so we no longer need a second JSON-format pass. This
+        # halves the workflow's runtime and stays well under the 10-min
+        # job timeout that previously cancelled the older two-pass version.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uvx zizmor==1.24.1 --persona=auditor --format=sarif .github/workflows/ > zizmor.sarif 2> zizmor.log || true
-          uvx zizmor==1.24.1 --persona=auditor --format=json   .github/workflows/ > zizmor.json  2>> zizmor.log || true
 
       - name: Upload SARIF to Code Scanning
         if: always()
@@ -132,14 +135,19 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, sys
-          data = json.load(open('zizmor.json'))
-          unpinned = [f for f in data if f.get('ident') == 'unpinned-uses']
+          data = json.load(open('zizmor.sarif'))
+          results = []
+          for run in data.get('runs', []):
+              results.extend(run.get('results', []))
+          # zizmor's SARIF ruleId is "zizmor/<ident>", e.g. "zizmor/unpinned-uses".
+          unpinned = [r for r in results if r.get('ruleId') == 'zizmor/unpinned-uses']
           if unpinned:
               print(f"::error::zizmor: {len(unpinned)} unpinned action reference(s) detected. Run 'pinact run' locally and re-commit.")
               for f in unpinned[:10]:
                   loc = (f.get('locations') or [{}])[0]
-                  path = loc.get('symbolic',{}).get('key',{}).get('Local',{}).get('given_path','?')
-                  print(f"  - {path}: {f.get('desc','')[:120]}")
+                  uri = loc.get('physicalLocation', {}).get('artifactLocation', {}).get('uri', '?')
+                  msg = (f.get('message') or {}).get('text', '')[:120]
+                  print(f"  - {uri}: {msg}")
               sys.exit(1)
           print("zizmor: no unpinned-uses regressions")
           PY
@@ -151,7 +159,6 @@ jobs:
           name: zizmor-reports
           path: |
             zizmor.sarif
-            zizmor.json
             zizmor.log
           if-no-files-found: warn
           retention-days: 14
