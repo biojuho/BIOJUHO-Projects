@@ -18,6 +18,7 @@ jobs:
     permissions:
       contents: read
       issues: write # Required for github-script to create or update the self-review PR comment.
+      pull-requests: write # Some org policies require pull-requests scope alongside issues for PR comments.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:

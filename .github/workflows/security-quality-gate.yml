@@ -225,6 +225,7 @@ jobs:
     permissions:
       contents: read
       issues: write # Required for github-script to post QA summaries on pull requests.
+      pull-requests: write # Some org policies require pull-requests scope alongside issues for PR comments.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
