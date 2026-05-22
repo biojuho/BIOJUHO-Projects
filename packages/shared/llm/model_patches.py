@@ -53,16 +53,21 @@ def _patch_deepseek(model: str, kwargs: dict[str, Any]) -> dict[str, Any]:
 def _patch_gemini(model: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Gemini-specific adjustments.
 
-    - Gemini 2.5+ thinking mode consumes extra tokens
-    - Auto-expand max_tokens for Gemini models
+    - Gemini 2.5+ / 3.x thinking mode consumes extra tokens
+    - Auto-expand max_tokens for thinking-capable Gemini models
     """
     # Already handled in backends.py (_call_gemini), but we centralize here
-    # for future model variations
-    if "2.5" in model:
+    # for future model variations. Gemini 2.5 and the 3.x line (3.0/3.1/3.5)
+    # all run a reasoning/thinking pass that burns extra output tokens.
+    model_lower = model.lower()
+    is_thinking_gemini = "2.5" in model_lower or any(
+        f"-3.{minor}" in model_lower or f"gemini-3.{minor}" in model_lower for minor in ("0", "1", "5")
+    )
+    if is_thinking_gemini:
         max_tokens = kwargs.get("max_tokens", 1000)
         expanded = max(max_tokens * 4, 8192)
         if expanded != max_tokens:
-            log.debug("Gemini 2.5 patch: expanding max_tokens %d -> %d", max_tokens, expanded)
+            log.debug("Gemini thinking patch: expanding max_tokens %d -> %d", max_tokens, expanded)
             kwargs["max_tokens"] = expanded
     return kwargs
 

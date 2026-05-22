@@ -44,6 +44,12 @@ except ImportError:
 
 # LiteLLM 모델 ID 매핑 (backend, model) → litellm model string
 _LITELLM_MODEL_MAP: dict[tuple[str, str], str] = {
+    # 2026-05 최신 모델
+    ("grok", "grok-4.3"): "xai/grok-4.3",
+    ("grok", "grok-4.1-fast"): "xai/grok-4.1-fast",
+    ("openai", "gpt-5.5"): "openai/gpt-5.5",
+    ("openai", "gpt-5.4-mini"): "openai/gpt-5.4-mini",
+    # 레거시 (폴백 호환)
     ("grok", "grok-3"): "xai/grok-3",
     ("grok", "grok-3-mini-fast"): "xai/grok-3-mini-fast",
     ("deepseek", "deepseek-chat"): "deepseek/deepseek-chat",

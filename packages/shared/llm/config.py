@@ -50,29 +50,29 @@ def load_keys() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 TIER_CHAINS: dict[TaskTier, list[tuple[str, str]]] = {
     TaskTier.HEAVY: [
-        ("anthropic", "claude-sonnet-4-20250514"),
-        ("gemini", "gemini-2.5-pro-preview-03-25"),
+        ("anthropic", "claude-sonnet-4-6"),  # Sonnet 4.6 — 최신 플래그십급, $3/$15
+        ("gemini", "gemini-3.1-pro-preview"),  # Gemini 3.1 Pro — 최신 추론 모델
         ("mimo", "mimo-v2-pro"),  # $0.09/1M, GPT-5급 성능
-        ("grok", "grok-3"),
+        ("grok", "grok-4.3"),  # Grok 4.3 — xAI 최신 플래그십
         ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),  # ★ 로컬 $0: 코드생성·추론 특화
-        ("openai", "gpt-4o"),
+        ("openai", "gpt-5.5"),  # GPT-5.5 — OpenAI 최신 프런티어
     ],
     TaskTier.MEDIUM: [
-        ("gemini", "gemini-2.5-flash-lite"),  # Free 1,000RPD, 초저비용 $0.10/$0.40
-        ("gemini", "gemini-2.5-flash"),  # ✅ 2.5 Flash (2.0 deprecated 제거됨)
+        ("gemini", "gemini-3.1-flash-lite"),  # Gemini 3.1 Flash-Lite — 초저비용 $0.25/$1.50
+        ("gemini", "gemini-3.5-flash"),  # Gemini 3.5 Flash — Pro급 성능 (안정 버전)
         ("mimo", "mimo-v2-pro"),  # $0.09/1M, Haiku 대체 폴백
-        ("anthropic", "claude-haiku-4-5-20251001"),
-        ("grok", "grok-3-mini-fast"),
+        ("anthropic", "claude-haiku-4-5-20251001"),  # Haiku 4.5 — 최신 Haiku
+        ("grok", "grok-4.1-fast"),  # Grok 4.1 Fast — 저렴·고속 ($0.20/$0.50)
         ("ollama", "qwen3-coder:30b-a3b-q4_K_M"),  # ★ 로컬 $0 폴백
-        ("openai", "gpt-4o-mini"),
+        ("openai", "gpt-5.4-mini"),  # GPT-5.4 mini — 경량 최신
     ],
     TaskTier.LIGHTWEIGHT: [
-        ("gemini", "gemini-2.5-flash-lite"),  # ★ 주력: Free 1,000RPD, $0.10/$0.40
-        ("gemini", "gemini-2.5-flash"),  # ✅ 2.5 Flash (2.0 deprecated 제거됨)
+        ("gemini", "gemini-3.1-flash-lite"),  # ★ 주력: Gemini 3.1 Flash-Lite, $0.25/$1.50
+        ("gemini", "gemini-3.5-flash"),  # Gemini 3.5 Flash — Pro급 성능 (안정 버전)
         ("mimo", "mimo-v2-pro"),  # $0.09/1M, 한국어 안정 + 초저비용
-        ("grok", "grok-3-mini-fast"),  # 저렴 $0.3/$0.5, 빠름
+        ("grok", "grok-4.1-fast"),  # 저렴 $0.20/$0.50, 빠름
         ("anthropic", "claude-haiku-4-5-20251001"),  # 안정적 폴백
-        ("openai", "gpt-4o-mini"),
+        ("openai", "gpt-5.4-mini"),  # GPT-5.4 mini — 경량 최신
         ("ollama", "deepseek-r1:14b"),  # 로컬 추론 특화 (API 비용 $0)
         ("ollama", "phi3:3.8b"),  # 로컬 Ollama 폴백 (API 비용 $0)
         ("bitnet", "bitnet-b1.58-2b-4t"),  # 최후방 로컬 폴백 (API 비용 $0)
@@ -91,6 +91,7 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
     "claude-3-haiku-20240307": TaskTier.LIGHTWEIGHT,
     "claude-3-5-haiku-20241022": TaskTier.MEDIUM,
     "claude-haiku-4-5-20251001": TaskTier.MEDIUM,
+    "claude-sonnet-4-6": TaskTier.HEAVY,
     "claude-sonnet-4-20250514": TaskTier.HEAVY,
     "claude-3-5-sonnet-20241022": TaskTier.HEAVY,
     # Ollama local models
@@ -103,6 +104,16 @@ MODEL_TO_TIER: dict[str, TaskTier] = {
 # Model cost table (USD per 1M tokens: input, output)
 # ---------------------------------------------------------------------------
 MODEL_COSTS: dict[str, tuple[float, float]] = {
+    # --- 2026-05 최신 모델 ---
+    "claude-sonnet-4-6": (3.0, 15.0),
+    "gemini-3.1-pro-preview": (2.0, 12.0),
+    "gemini-3.5-flash": (1.5, 9.0),
+    "gemini-3.1-flash-lite": (0.25, 1.50),
+    "gpt-5.5": (5.0, 30.0),
+    "gpt-5.4-mini": (0.75, 4.50),
+    "grok-4.3": (1.25, 2.50),
+    "grok-4.1-fast": (0.20, 0.50),
+    # --- 레거시 (폴백 호환용 비용 테이블 유지) ---
     "claude-sonnet-4-20250514": (3.0, 15.0),
     "claude-3-5-sonnet-20241022": (3.0, 15.0),
     "claude-haiku-4-5-20251001": (0.8, 4.0),
