@@ -348,8 +348,8 @@ class TestOpsTools:
 
     @pytest.mark.asyncio
     async def test_ops_auto_collect_metrics_tool_returns_ok_and_partial(self, monkeypatch):
-        from antigravity_mcp.tooling import ops_tools
         import antigravity_mcp.pipelines.metrics as metrics_module
+        from antigravity_mcp.tooling import ops_tools
 
         async def fake_collect_recent_metrics(*, state_store, hours):
             return "metrics-run", 2, []
@@ -392,7 +392,11 @@ class TestOpsTools:
         from antigravity_mcp.tooling import ops_tools
 
         healthy_store = MagicMock()
-        healthy_store.get_pipeline_health.return_value = {"error_rate": 0.0, "total_runs_24h": 3, "failure_count_24h": 0}
+        healthy_store.get_pipeline_health.return_value = {
+            "error_rate": 0.0,
+            "total_runs_24h": 3,
+            "failure_count_24h": 0,
+        }
         monkeypatch.setattr(ops_tools, "PipelineStateStore", lambda: healthy_store)
         monkeypatch.setattr(ops_tools, "_get_llm_client", object())
         monkeypatch.setattr(ops_tools, "_SHARED_LLM_IMPORT_ERROR", None)
@@ -400,7 +404,11 @@ class TestOpsTools:
         healthy_result = await ops_tools.ops_check_health_tool()
 
         degraded_store = MagicMock()
-        degraded_store.get_pipeline_health.return_value = {"error_rate": 0.5, "total_runs_24h": 0, "failure_count_24h": 2}
+        degraded_store.get_pipeline_health.return_value = {
+            "error_rate": 0.5,
+            "total_runs_24h": 0,
+            "failure_count_24h": 2,
+        }
         telegram = MagicMock()
         telegram.send_message = AsyncMock(return_value=False)
         monkeypatch.setattr(ops_tools, "PipelineStateStore", lambda: degraded_store)
@@ -446,9 +454,9 @@ class TestOpsTools:
 
     @pytest.mark.asyncio
     async def test_ops_export_calendar_and_performance_tools(self, monkeypatch):
-        from antigravity_mcp.tooling import ops_tools
         import antigravity_mcp.integrations.scheduler_adapter as scheduler_module
         import antigravity_mcp.pipelines.export as export_module
+        from antigravity_mcp.tooling import ops_tools
 
         store = MagicMock()
         store.get_top_tweets.return_value = [{"tweet_id": "1"}]

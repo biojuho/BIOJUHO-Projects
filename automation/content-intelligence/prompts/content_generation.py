@@ -91,7 +91,7 @@ def _build_persona_block(platform: str, personas: list[dict] | None) -> str:
     triggers = " / ".join(f'"{t}"' for t in persona.get("share_triggers", [])[:2])
 
     return f"""
-- 독자 페르소나 [{persona.get('name', '')}]: {persona.get('description', '')}
+- 독자 페르소나 [{persona.get("name", "")}]: {persona.get("description", "")}
   페인포인트:
 {pain}
   선호 Hook 패턴: {hooks}
@@ -238,4 +238,3 @@ Heading-D (현상→데이터→분석→제언):
 
 - seo_keywords 필드에 3~5개 핵심 키워드를 리스트로 제공
 - search_intent 필드에 선택한 유형 코드 (A/B/C/D) 제공"""
-

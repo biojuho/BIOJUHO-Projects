@@ -1,17 +1,31 @@
-"""# ── TAP Router ─────────────────────────────────
-init_tap_router(
-    config=_config,
-    get_conn_fn=_get_conn,
-    close_conn_fn=_close_conn,
-    run_db_json_fn=_run_db_json_with_fallback,
-    alert_queue_fallback=_tap_alert_queue_fallback,
-    deal_room_fallback=_tap_deal_room_fallback,
-    funnel_fallback=_tap_deal_room_funnel_fallback,
-    checkout_summary_fallback=_tap_checkout_summary_fallback,
-)
-app.include_router(tap_router)
-
-
+"""# ── TAP Router ─────────────────────────────────
+
+init_tap_router(
+
+    config=_config,
+
+    get_conn_fn=_get_conn,
+
+    close_conn_fn=_close_conn,
+
+    run_db_json_fn=_run_db_json_with_fallback,
+
+    alert_queue_fallback=_tap_alert_queue_fallback,
+
+    deal_room_fallback=_tap_deal_room_fallback,
+
+    funnel_fallback=_tap_deal_room_funnel_fallback,
+
+    checkout_summary_fallback=_tap_checkout_summary_fallback,
+
+)
+
+app.include_router(tap_router)
+
+
+
+
+
 
 getdaytrends v5.0 - Pro Dashboard
 FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소스 품질 모니터링, LLM 비용 추적.
@@ -21,10 +35,9 @@ FastAPI 기반 운영 대시보드: 실시간 차트, 카테고리 분석, 소�
 
 import json
 import logging
-import re
+from collections.abc import Awaitable, Callable
 from datetime import date, datetime, timedelta
-from typing import Any, Awaitable, Callable
-from urllib.parse import quote_plus
+from typing import Any
 
 try:
     import httpx
@@ -32,29 +45,29 @@ try:
     from fastapi.responses import HTMLResponse, JSONResponse
 except ImportError as e:
     raise ImportError(
-        "dashboard 실행을 위해 fastapi, uvicorn, httpx가 필요합니다:\n" "  pip install fastapi uvicorn[standard] httpx"
+        "dashboard 실행을 위해 fastapi, uvicorn, httpx가 필요합니다:\n  pip install fastapi uvicorn[standard] httpx"
     ) from e
 
 try:
     from .config import VERSION, AppConfig
     from .db import (
-        get_tap_checkout_session_summary,
         get_connection,
-        mark_tap_checkout_session_completed,
         get_review_queue_snapshot,
         get_source_quality_summary,
         get_tap_alert_queue_snapshot,
+        get_tap_checkout_session_summary,
         get_tap_deal_room_funnel,
         get_trend_stats,
         init_db,
+        mark_tap_checkout_session_completed,
         record_tap_deal_room_event,
         upsert_tap_checkout_session,
     )
     from .tap import (
         DealRoomRequest,
         TapBoardRequest,
-        build_tap_deal_room_snapshot,
         build_tap_board_snapshot,
+        build_tap_deal_room_snapshot,
         dispatch_tap_alert_queue,
         empty_tap_board,
         get_latest_tap_board_snapshot,
@@ -62,26 +75,11 @@ try:
 except ImportError:
     from config import VERSION, AppConfig
     from db import (
-        get_tap_checkout_session_summary,
         get_connection,
-        mark_tap_checkout_session_completed,
         get_review_queue_snapshot,
         get_source_quality_summary,
-        get_tap_alert_queue_snapshot,
-        get_tap_deal_room_funnel,
         get_trend_stats,
         init_db,
-        record_tap_deal_room_event,
-        upsert_tap_checkout_session,
-    )
-    from tap import (
-        DealRoomRequest,
-        TapBoardRequest,
-        build_tap_deal_room_snapshot,
-        build_tap_board_snapshot,
-        dispatch_tap_alert_queue,
-        empty_tap_board,
-        get_latest_tap_board_snapshot,
     )
 
 try:
@@ -91,39 +89,29 @@ except ImportError:
 
 try:
     from .stripe_helpers import (
-        _stripe_amount_divisor,
+        _build_tap_checkout_redirect_urls,
+        _coerce_non_negative_float,
+        _construct_stripe_event,
+        _create_stripe_checkout_session,
+        _extract_price_anchor_amount,
+        _extract_tap_purchase_from_stripe_event,
         _format_stripe_price_anchor,
         _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
+        _stripe_amount_divisor,
         _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
+        _validate_tap_checkout_payload_matches_handle,
     )
 except ImportError:
-    from stripe_helpers import (
-        _stripe_amount_divisor,
-        _format_stripe_price_anchor,
-        _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
-        _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
-    )
+    pass
 
 app = FastAPI(title="getdaytrends Pro Dashboard", version=VERSION)
 
 try:
-    from .dashboard_routes_tap import router as tap_router, init_tap_router
+    from .dashboard_routes_tap import init_tap_router
+    from .dashboard_routes_tap import router as tap_router
 except ImportError:
-    from dashboard_routes_tap import router as tap_router, init_tap_router
+    from dashboard_routes_tap import init_tap_router
+    from dashboard_routes_tap import router as tap_router
 
 _config = AppConfig.from_env()
 logger = logging.getLogger(__name__)
@@ -248,7 +236,9 @@ def _tap_checkout_summary_fallback(
     }
 
 
-def _dashboard_degraded_headers(endpoint_name: str, unavailable_reason: str = "dependency_unavailable") -> dict[str, str]:
+def _dashboard_degraded_headers(
+    endpoint_name: str, unavailable_reason: str = "dependency_unavailable"
+) -> dict[str, str]:
     return {
         "X-Dashboard-Degraded": "1",
         "X-Dashboard-Degraded-Reason": unavailable_reason,
@@ -313,7 +303,6 @@ app.include_router(tap_router)
 _HTML_GETTER = get_dashboard_html  # used in index()
 
 
-
 @app.get("/", response_class=HTMLResponse)
 def index():
     return get_dashboard_html(VERSION)
@@ -355,6 +344,7 @@ async def api_stats():
 @app.get("/api/trends")
 async def api_trends(days: int = Query(7, ge=1, le=90), limit: int = Query(50, ge=1, le=200)):
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
     async def _load_trends(conn):
         cursor = await conn.execute(
             """SELECT keyword, viral_potential, trend_acceleration, top_insight,
@@ -467,6 +457,7 @@ def update_pipeline_status(state: str, error: str = "", trends: int = 0, tweets:
 async def api_trends_today(limit: int = Query(50, ge=1, le=200)):
     """오늘 생성된 트렌드 + 연결 트윗 수."""
     today = str(date.today())
+
     async def _load_trends_today(conn):
         cursor = await conn.execute(
             """SELECT t.id, t.keyword, t.viral_potential, t.trend_acceleration,
@@ -489,6 +480,7 @@ async def api_trend_tweets(
     limit: int = Query(30, ge=1, le=100),
 ):
     """특정 트렌드의 생성 트윗 전체."""
+
     async def _load_trend_tweets(conn):
         cursor = await conn.execute(
             """SELECT tw.tweet_type, tw.content, tw.content_type, tw.char_count,
@@ -507,6 +499,7 @@ async def api_trend_tweets(
 @app.get("/api/source/quality")
 async def api_source_quality(days: int = Query(7, ge=1, le=30)):
     """소스별 품질 통계 (success_rate, avg_latency, quality_score)."""
+
     async def _load_source_quality(conn):
         return await get_source_quality_summary(conn, days=days)
 
@@ -517,6 +510,7 @@ async def api_source_quality(days: int = Query(7, ge=1, le=30)):
 async def api_category_stats(days: int = Query(7, ge=1, le=90)):
     """카테고리별 바이럴 점수 분포."""
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
     async def _load_category_stats(conn):
         cursor = await conn.execute(
             """SELECT
@@ -540,6 +534,7 @@ async def api_category_stats(days: int = Query(7, ge=1, le=90)):
 @app.get("/api/watchlist")
 async def api_watchlist(limit: int = Query(50, ge=1, le=200)):
     """Watchlist 키워드 등장 히스토리."""
+
     async def _load_watchlist(conn):
         cursor = await conn.execute(
             """SELECT keyword, watchlist_item, viral_potential, detected_at
@@ -556,6 +551,7 @@ async def api_watchlist(limit: int = Query(50, ge=1, le=200)):
 @app.get("/api/review_queue")
 async def api_review_queue(limit: int = Query(50, ge=1, le=200)):
     """Read-only mirror of the V2 review queue lifecycle."""
+
     async def _load_review_queue(conn):
         return await get_review_queue_snapshot(conn, limit=limit)
 
@@ -566,13 +562,12 @@ async def api_review_queue(limit: int = Query(50, ge=1, le=200)):
 async def api_logs(limit: int = Query(50, ge=1, le=200)):
     """Loki 또는 로컬 파일에서 실시간 로그 수집."""
     logs = []
-    
+
     # 1. Try Loki first (if docker-compose monitoring is running)
     try:
         async with httpx.AsyncClient(timeout=1.5) as client:
             resp = await client.get(
-                "http://localhost:3100/loki/api/v1/query",
-                params={"query": '{job="getdaytrends"}', "limit": limit}
+                "http://localhost:3100/loki/api/v1/query", params={"query": '{job="getdaytrends"}', "limit": limit}
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -607,30 +602,27 @@ def api_ab_test():
         if ab_test_file.exists():
             with open(ab_test_file, encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             eval_a = data.get("evaluation", {}).get("version_a", {})
             eval_b = data.get("evaluation", {}).get("version_b", {})
-            
+
             kpi_a = eval_a.get("primary_kpi", 0)
             kpi_b = eval_b.get("primary_kpi", 0)
-            
+
             # Map primary KPI points to a dummy CTR/conversion for dashboard visualization
             # since the original dashboard expects ctr/conversion layout
-            return JSONResponse({
-                "metrics": {
-                    "group_a": {"ctr": round(kpi_a / 10, 1), "conversion": round(kpi_a / 30, 2)},
-                    "group_b": {"ctr": round(kpi_b / 10, 1), "conversion": round(kpi_b / 30, 2)}
+            return JSONResponse(
+                {
+                    "metrics": {
+                        "group_a": {"ctr": round(kpi_a / 10, 1), "conversion": round(kpi_a / 30, 2)},
+                        "group_b": {"ctr": round(kpi_b / 10, 1), "conversion": round(kpi_b / 30, 2)},
+                    }
                 }
-            })
+            )
     except Exception:
         pass
 
     # Fallback / Placeholder
-    return JSONResponse({
-        "metrics": {
-            "group_a": {"ctr": 2.1, "conversion": 0.8},
-            "group_b": {"ctr": 4.5, "conversion": 2.2}
-        }
-    })
-
-
+    return JSONResponse(
+        {"metrics": {"group_a": {"ctr": 2.1, "conversion": 0.8}, "group_b": {"ctr": 4.5, "conversion": 2.2}}}
+    )

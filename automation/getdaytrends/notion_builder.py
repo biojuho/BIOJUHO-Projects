@@ -400,8 +400,7 @@ def _build_notion_body(
                                 {
                                     "type": "text",
                                     "text": {
-                                        "content": f"SEO 키워드: {', '.join(seo_kws)}\n"
-                                        f"글자 수: {post.char_count:,}자"
+                                        "content": f"SEO 키워드: {', '.join(seo_kws)}\n글자 수: {post.char_count:,}자"
                                     },
                                 }
                             ],

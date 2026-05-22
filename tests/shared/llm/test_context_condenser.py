@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from shared.llm.context_condenser import ContextCondenser, CondensationResult
+from shared.llm.context_condenser import CondensationResult, ContextCondenser
 from shared.llm.models import LLMResponse, TaskTier
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_client():
@@ -31,11 +31,17 @@ def long_history():
     """Create a realistic long conversation history."""
     messages = [
         {"role": "user", "content": "DailyNews 파이프라인에서 Tech 카테고리 처리가 실패합니다."},
-        {"role": "assistant", "content": "Tech 카테고리 로그를 확인하겠습니다. RSS 수집기에서 오류가 발생한 것 같습니다."},
+        {
+            "role": "assistant",
+            "content": "Tech 카테고리 로그를 확인하겠습니다. RSS 수집기에서 오류가 발생한 것 같습니다.",
+        },
         {"role": "user", "content": "네, RSS 수집 후 분석 단계에서 멈춥니다."},
         {"role": "assistant", "content": "분석 단계의 타임아웃 설정이 30초로 너무 짧습니다. 60초로 변경하겠습니다."},
         {"role": "user", "content": "타임아웃 수정 후에도 AI_Deep 카테고리에서 같은 오류가 발생합니다."},
-        {"role": "assistant", "content": "AI_Deep 카테고리는 컨텍스트가 길어서 토큰 초과 문제입니다. max_tokens를 조정하겠습니다."},
+        {
+            "role": "assistant",
+            "content": "AI_Deep 카테고리는 컨텍스트가 길어서 토큰 초과 문제입니다. max_tokens를 조정하겠습니다.",
+        },
         {"role": "user", "content": "좋습니다. 이제 Economy_KR도 확인해주세요."},
         {"role": "assistant", "content": "Economy_KR 카테고리를 처리 중입니다. 정상적으로 완료되었습니다."},
         {"role": "user", "content": "전체 파이프라인을 재실행해주세요."},
@@ -47,6 +53,7 @@ def long_history():
 # ---------------------------------------------------------------------------
 # Conversation condensation tests
 # ---------------------------------------------------------------------------
+
 
 class TestConversationCondensation:
     def test_skip_short_history(self, mock_client):
@@ -117,6 +124,7 @@ class TestConversationCondensation:
 # Pipeline condensation tests
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineCondensation:
     def test_condense_pipeline_context(self, mock_client):
         condenser = ContextCondenser(mock_client)
@@ -125,9 +133,7 @@ class TestPipelineCondensation:
             {"category": "AI_Deep", "result": "GPT-5 출시 관련 분석 2건 생성"},
             {"category": "Economy_KR", "result": "한국 금리 동결 뉴스 1건"},
         ]
-        summary = condenser.condense_pipeline_context(
-            results, pipeline_goal="DailyNews 6카테고리 분석"
-        )
+        summary = condenser.condense_pipeline_context(results, pipeline_goal="DailyNews 6카테고리 분석")
         assert isinstance(summary, str)
         assert len(summary) > 0
         mock_client.create.assert_called_once()
@@ -155,15 +161,12 @@ class TestPipelineCondensation:
 # CondensationResult tests
 # ---------------------------------------------------------------------------
 
+
 class TestCondensationResult:
     def test_compression_ratio(self):
-        result = CondensationResult(
-            messages=[], original_count=10, condensed_count=4
-        )
+        result = CondensationResult(messages=[], original_count=10, condensed_count=4)
         assert result.compression_ratio == 0.4
 
     def test_compression_ratio_zero(self):
-        result = CondensationResult(
-            messages=[], original_count=0, condensed_count=0
-        )
+        result = CondensationResult(messages=[], original_count=0, condensed_count=0)
         assert result.compression_ratio == 1.0

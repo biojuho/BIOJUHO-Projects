@@ -28,7 +28,7 @@ main.py → parse_args() → AppConfig.from_env() → run_pipeline()
 | `models.py` | Pydantic 데이터 모델 (RawTrend, ScoredTrend, TweetBatch 등) | - |
 | `scraper.py` | 멀티소스 트렌드 수집 (getdaytrends.com, X API, Reddit, Google News, YouTube) | - |
 | `analyzer.py` | 바이럴 스코어링 + 클러스터링 + 히스토리 보정 | LIGHTWEIGHT |
-| `generator.py` | 트윗/장문/쓰레드 생성 + QA 검수 | LIGHTWEIGHT / HEAVY |
+| `generator.py` | 단문 트윗 생성 + QA 검수 (장문/쓰레드는 shortform-only로 기본 비활성) | LIGHTWEIGHT (HEAVY 옵트인) |
 | `main.py` | 파이프라인 오케스트레이터 + 스케줄러 | - |
 | `db.py` | SQLite/PostgreSQL 비동기 DB 레이어 | - |
 | `storage.py` | Notion / Google Sheets 외부 저장 | - |
@@ -362,8 +362,13 @@ send_daily_cost_alert()
 | `daily_budget_usd` | 2.00 | 일 예산 상한. 초과 시 Sonnet 비활성화 |
 | `peak_budget_multiplier` | 0.5 | 비피크(22~07시) 예산 배율 |
 | `cost_alert_pct` | 70.0 | 예산 70% 도달 시 알림 |
-| `long_form_min_score` | 95 | 이 이상만 장문 생성 (Sonnet 사용) |
+| `enable_long_form` | False | shortform-only 정책 기본값 (2026-05) |
+| `enable_threads` | False | shortform-only 정책 기본값 (2026-05) |
+| `long_form_min_score` | 999 | **Disabled** (옵트인 시에만 95 권장) |
 | `thread_min_score` | 999 | **Disabled** (쓰레드 비활성화) |
+| `blog_min_score` | 999 | **Disabled** (네이버 블로그 비활성화) |
+| `tweet_min_chars` | 160 | 단문 최소 길이 (공백 포함, QA 하한) |
+| `tweet_max_chars` | 240 | 단문 최대 길이 (공백 포함, QA 상한) |
 
 ### Quality Control
 | Param | Default | Description |

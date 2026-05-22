@@ -8,15 +8,13 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from antigravity_mcp.integrations.signal_collector import (
     GetDayTrendsConnector,
     GoogleTrendsCollector,
-    RedditRisingCollector,
     MultiSourceCollector,
+    RedditRisingCollector,
     TrendSignal,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -70,7 +68,7 @@ def gdt_db(tmp_path: Path) -> Path:
             sentiment TEXT DEFAULT 'neutral'
         )
     """)
-    now = datetime.now(UTC).isoformat()
+    datetime.now(UTC).isoformat()
     recent = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
     old = (datetime.now(UTC) - timedelta(hours=12)).isoformat()
 
@@ -252,7 +250,7 @@ class TestRedditRisingCollector:
                             "upvote_ratio": 0.85,
                             "num_comments": 5,
                         }
-                    }
+                    },
                 ]
             }
         }
@@ -262,11 +260,11 @@ class TestRedditRisingCollector:
         assert signals[0].keyword == "A major scientific breakthrough discovery today"
         assert signals[0].source == "reddit"
         assert signals[0].category_hint == "WorldNews"
-        
+
         # Check scores - first post has high upvotes and ratio, so high score
         assert signals[0].score > signals[1].score
         assert signals[0].velocity > signals[1].velocity
-        
+
         # Validate metadata extraction
         assert signals[0].raw_data["upvotes"] == 1500
         assert signals[0].raw_data["upvote_ratio"] == 0.98
@@ -278,30 +276,23 @@ class TestRedditRisingCollector:
         assert collector._parse_reddit_json("popular", {}) == []
         assert collector._parse_reddit_json("popular", {"data": {}}) == []
         assert collector._parse_reddit_json("popular", {"data": {"children": []}}) == []
-        
+
         # Missing title or empty title should be skipped
-        invalid_data = {
-            "data": {
-                "children": [{"data": {"ups": 10}}, {"data": {"title": "  "}}]
-            }
-        }
+        invalid_data = {"data": {"children": [{"data": {"ups": 10}}, {"data": {"title": "  "}}]}}
         assert collector._parse_reddit_json("popular", invalid_data) == []
 
     @pytest.mark.asyncio
     async def test_fetch_trending_basic(self) -> None:
         collector = RedditRisingCollector(subreddits=["popular", "worldnews"])
+
         # Mock specific responses based on subreddit
         def mock_get(url, *args, **kwargs):
             mock_resp = MagicMock()
             mock_resp.raise_for_status = MagicMock()
             if "popular" in url:
-                mock_resp.json.return_value = {
-                    "data": {"children": [{"data": {"title": "Viral Video", "ups": 5000}}]}
-                }
+                mock_resp.json.return_value = {"data": {"children": [{"data": {"title": "Viral Video", "ups": 5000}}]}}
             else:
-                mock_resp.json.return_value = {
-                    "data": {"children": [{"data": {"title": "Global News", "ups": 1000}}]}
-                }
+                mock_resp.json.return_value = {"data": {"children": [{"data": {"title": "Global News", "ups": 1000}}]}}
             return mock_resp
 
         with patch("antigravity_mcp.integrations.signal_collector.httpx.AsyncClient") as mock_client:
@@ -310,7 +301,7 @@ class TestRedditRisingCollector:
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value = mock_instance
-            
+
             signals = await collector.fetch_trending(limit=10)
             assert len(signals) == 2
             keywords = {s.keyword for s in signals}
@@ -325,14 +316,12 @@ class TestRedditRisingCollector:
             mock_instance = AsyncMock()
             mock_resp = MagicMock()
             mock_resp.raise_for_status = MagicMock()
-            mock_resp.json.return_value = {
-                "data": {"children": [{"data": {"title": "Overlapping News", "ups": 2000}}]}
-            }
+            mock_resp.json.return_value = {"data": {"children": [{"data": {"title": "Overlapping News", "ups": 2000}}]}}
             mock_instance.get.return_value = mock_resp
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value = mock_instance
-            
+
             signals = await collector.fetch_trending()
             # Should be deduplicated to 1
             assert len(signals) == 1
@@ -347,7 +336,7 @@ class TestRedditRisingCollector:
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value = mock_instance
-            
+
             result = await collector.fetch_trending()
             assert result == []
 
@@ -364,9 +353,13 @@ class TestMultiSourceCollector:
         gdt = GetDayTrendsConnector(db_path=str(gdt_db))
 
         # Mock Google to return parsed results
-        with patch.object(google, "fetch_trending", return_value=[
-            TrendSignal(keyword="AI 반도체", score=0.9, source="google_trends"),
-        ]):
+        with patch.object(
+            google,
+            "fetch_trending",
+            return_value=[
+                TrendSignal(keyword="AI 반도체", score=0.9, source="google_trends"),
+            ],
+        ):
             collector = MultiSourceCollector(sources=[google, gdt])
             all_signals = await collector.collect_all()
 
@@ -404,7 +397,9 @@ class TestTrendSignal:
 
     def test_explicit_first_seen(self) -> None:
         signal = TrendSignal(
-            keyword="test", score=0.5, source="test_source",
+            keyword="test",
+            score=0.5,
+            source="test_source",
             first_seen_at="2026-01-01T00:00:00Z",
         )
         assert signal.first_seen_at == "2026-01-01T00:00:00Z"

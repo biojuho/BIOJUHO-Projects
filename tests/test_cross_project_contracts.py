@@ -12,7 +12,6 @@ import importlib
 import inspect
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # 1. shared.llm — Unified LLM client contract
 # ---------------------------------------------------------------------------
@@ -22,7 +21,7 @@ def test_shared_llm_client_exports_get_client() -> None:
     """get_client() must exist and return a singleton-like object."""
     mod = importlib.import_module("shared.llm")
     assert hasattr(mod, "get_client"), "shared.llm must export get_client"
-    fn = getattr(mod, "get_client")
+    fn = mod.get_client
     assert callable(fn)
 
 
@@ -30,7 +29,7 @@ def test_shared_llm_client_has_task_tier_enum() -> None:
     """TaskTier enum with HEAVY / MEDIUM / LIGHTWEIGHT must be importable."""
     mod = importlib.import_module("shared.llm.config")
     assert hasattr(mod, "TaskTier"), "shared.llm.config must export TaskTier"
-    tier_cls = getattr(mod, "TaskTier")
+    tier_cls = mod.TaskTier
     for member in ("HEAVY", "MEDIUM", "LIGHTWEIGHT"):
         assert hasattr(tier_cls, member), f"TaskTier must have {member}"
 
@@ -43,7 +42,7 @@ def test_shared_llm_client_has_task_tier_enum() -> None:
 def test_env_loader_exports_load_workspace_env() -> None:
     mod = importlib.import_module("shared.env_loader")
     assert hasattr(mod, "load_workspace_env"), "shared.env_loader must export load_workspace_env"
-    fn = getattr(mod, "load_workspace_env")
+    fn = mod.load_workspace_env
     assert callable(fn)
 
 
@@ -74,9 +73,7 @@ def test_notifier_has_send_methods() -> None:
         except ModuleNotFoundError:
             pass
 
-    assert notifier_cls is not None, (
-        "shared.notifications must contain a Notifier class"
-    )
+    assert notifier_cls is not None, "shared.notifications must contain a Notifier class"
 
 
 # ---------------------------------------------------------------------------
@@ -142,9 +139,7 @@ def test_paths_resolves_workspace_root() -> None:
     from shared.paths import WORKSPACE_ROOT
 
     assert WORKSPACE_ROOT.exists(), "WORKSPACE_ROOT must point to an existing directory"
-    assert (WORKSPACE_ROOT / "pyproject.toml").exists(), (
-        "WORKSPACE_ROOT must contain pyproject.toml"
-    )
+    assert (WORKSPACE_ROOT / "pyproject.toml").exists(), "WORKSPACE_ROOT must contain pyproject.toml"
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +159,4 @@ def test_metrics_setup_function_exists() -> None:
 
 def test_structured_logging_setup_exists() -> None:
     mod = importlib.import_module("shared.structured_logging")
-    assert hasattr(mod, "setup_logging"), (
-        "shared.structured_logging must export setup_logging"
-    )
+    assert hasattr(mod, "setup_logging"), "shared.structured_logging must export setup_logging"

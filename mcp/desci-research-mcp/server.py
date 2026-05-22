@@ -10,7 +10,6 @@ import xml.etree.ElementTree as ET
 from datetime import UTC, datetime, timedelta
 
 import httpx
-
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("desci-research")
@@ -413,11 +412,9 @@ async def get_research_trends(
     end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=days)
 
-    # arXiv date range format: YYYYMMDDHHMM
-    date_from = start_date.strftime("%Y%m%d0000")
-    date_to = end_date.strftime("%Y%m%d2359")
-
     # Search recent papers in the category
+    # (arXiv API filters by sortBy=submittedDate, no explicit date range needed
+    # for the 100 most recent within the category)
     search_query = f"cat:{field}"
     params = {
         "search_query": search_query,
@@ -576,7 +573,7 @@ async def get_research_trends(
 
         # Bigrams for compound terms
         for i in range(len(filtered) - 1):
-            bigram_counts[f"{filtered[i]} {filtered[i+1]}"] += 1
+            bigram_counts[f"{filtered[i]} {filtered[i + 1]}"] += 1
 
     # Merge unigrams and bigrams, prefer bigrams
     top_bigrams = bigram_counts.most_common(15)

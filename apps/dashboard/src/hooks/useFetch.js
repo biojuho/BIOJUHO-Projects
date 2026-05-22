@@ -55,7 +55,9 @@ export function useFetch(url) {
   }, [url])
 
   useEffect(() => {
-    void runFetch()
+    queueMicrotask(() => {
+      void runFetch()
+    })
 
     return () => {
       requestIdRef.current += 1

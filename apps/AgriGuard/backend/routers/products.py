@@ -1,16 +1,15 @@
+# ruff: noqa: B008  # FastAPI's Depends() in defaults is the canonical injection pattern
 import logging
-import json
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import selectinload
-from dependencies import get_db
+from datetime import UTC, datetime
+
 import models
 import schemas
-from datetime import UTC, datetime, timedelta
 from auth import get_current_user
+from dependencies import get_db
+from fastapi import APIRouter, Depends, HTTPException
 from services.chain_simulator import get_chain
-
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -22,6 +21,7 @@ def _log_chain_event_after_commit(product_id: str, event_payload: dict) -> None:
         get_chain().log_event(product_id, event_payload)
     except Exception as exc:  # pragma: no cover - defensive path
         logger.warning("Chain log failed after DB commit for product %s", product_id, exc_info=exc)
+
 
 @router.post("/products/", response_model=schemas.Product)
 def create_product(

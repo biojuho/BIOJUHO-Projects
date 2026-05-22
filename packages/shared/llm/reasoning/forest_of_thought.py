@@ -39,10 +39,20 @@ log = logging.getLogger("shared.llm.reasoning.fot")
 # ---------------------------------------------------------------------------
 
 _MIN_QUALITY_LENGTH = 50  # subtask results shorter than this are pruned
-_ERROR_INDICATORS = frozenset({
-    "에러", "error", "failed", "실패", "cannot", "unable",
-    "할 수 없", "불가능", "exception", "traceback",
-})
+_ERROR_INDICATORS = frozenset(
+    {
+        "에러",
+        "error",
+        "failed",
+        "실패",
+        "cannot",
+        "unable",
+        "할 수 없",
+        "불가능",
+        "exception",
+        "traceback",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Prompt templates
@@ -340,8 +350,11 @@ class ForestOfThoughtEngine:
         # Prune low-quality results (async path)
         pruned_results = [r for r in subtask_results if self._quality_check(r)]
         if len(pruned_results) < len(subtask_results):
-            log.info("FoT async: pruned %d/%d low-quality subtasks",
-                     len(subtask_results) - len(pruned_results), len(subtask_results))
+            log.info(
+                "FoT async: pruned %d/%d low-quality subtasks",
+                len(subtask_results) - len(pruned_results),
+                len(subtask_results),
+            )
         if not pruned_results:
             pruned_results = subtask_results
 

@@ -2,16 +2,14 @@
 
 import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from shared.llm.reasoning.smart_router import (
     QueryComplexity,
     SmartRouter,
-    estimate_complexity,
 )
-
 
 # ===========================================================================
 # Phase 2.2: SmartRouter + ContextMap integration
@@ -25,9 +23,7 @@ class TestSmartRouterContextMapIntegration:
         """Without context_map, system prompt is unchanged."""
         client = MagicMock()
         router = SmartRouter(client, context_map=None)
-        result = router._inject_code_context(
-            "You are an assistant.", "simple query", QueryComplexity.HIGH
-        )
+        result = router._inject_code_context("You are an assistant.", "simple query", QueryComplexity.HIGH)
         assert result == "You are an assistant."
 
     def test_low_complexity_skips_injection(self):
@@ -36,9 +32,7 @@ class TestSmartRouterContextMapIntegration:
         mock_cmap = MagicMock()
         router = SmartRouter(client, context_map=mock_cmap)
 
-        result = router._inject_code_context(
-            "System prompt", "hello", QueryComplexity.LOW
-        )
+        result = router._inject_code_context("System prompt", "hello", QueryComplexity.LOW)
         assert result == "System prompt"
         mock_cmap.get_relevant_context.assert_not_called()
 
@@ -49,9 +43,7 @@ class TestSmartRouterContextMapIntegration:
         mock_cmap.get_relevant_context.return_value = "[Code Context]\n# shared/llm/client.py\nclass LLMClient"
         router = SmartRouter(client, context_map=mock_cmap)
 
-        result = router._inject_code_context(
-            "You are an architect.", "SmartRouter 디버깅", QueryComplexity.MEDIUM
-        )
+        result = router._inject_code_context("You are an architect.", "SmartRouter 디버깅", QueryComplexity.MEDIUM)
         assert "[Code Context]" in result
         assert "You are an architect." in result
         mock_cmap.get_relevant_context.assert_called_once()
@@ -74,9 +66,7 @@ class TestSmartRouterContextMapIntegration:
         mock_cmap.get_relevant_context.side_effect = RuntimeError("index broken")
         router = SmartRouter(client, context_map=mock_cmap)
 
-        result = router._inject_code_context(
-            "You are helpful.", "query", QueryComplexity.HIGH
-        )
+        result = router._inject_code_context("You are helpful.", "query", QueryComplexity.HIGH)
         assert result == "You are helpful."
 
     def test_empty_system_prompt_with_context(self):
@@ -132,9 +122,8 @@ class TestWorkflowTracer:
         db_path = tmp_path / "test_traces.db"
         tracer = WorkflowTracer(db_path=db_path)
 
-        with pytest.raises(ValueError, match="test error"):
-            with tracer.trace("GetDayTrends", "analysis") as t:
-                raise ValueError("test error")
+        with pytest.raises(ValueError, match="test error"), tracer.trace("GetDayTrends", "analysis"):
+            raise ValueError("test error")
 
         tracer.flush()
 
@@ -173,7 +162,7 @@ class TestWorkflowTracer:
         tracer = WorkflowTracer(db_path=db_path)
 
         # Insert 6 traces with the same prompt hash
-        for i in range(6):
+        for _i in range(6):
             with tracer.trace("DailyNews", "scoring") as t:
                 t.record(
                     prompt_hash="abc123def456",
@@ -183,7 +172,7 @@ class TestWorkflowTracer:
                 )
 
         # Insert 2 traces with a different hash (below threshold)
-        for i in range(2):
+        for _i in range(2):
             with tracer.trace("DailyNews", "analysis") as t:
                 t.record(prompt_hash="xyz789", cost_usd=0.001)
 
@@ -279,10 +268,7 @@ class TestMetaOptimizer:
         report = optimizer.generate_report(days=1)
 
         # Should have at least one template conversion suggestion
-        template_suggestions = [
-            s for s in report.suggestions
-            if s.type == OptimizationType.TEMPLATE_CONVERSION
-        ]
+        template_suggestions = [s for s in report.suggestions if s.type == OptimizationType.TEMPLATE_CONVERSION]
         assert len(template_suggestions) >= 1
         assert template_suggestions[0].estimated_savings_usd > 0
 
@@ -363,10 +349,7 @@ class TestMetaOptimizer:
         report = optimizer.generate_report(days=1)
 
         # Should flag the high failure rate
-        failure_suggestions = [
-            s for s in report.suggestions
-            if "실패율" in s.description
-        ]
+        failure_suggestions = [s for s in report.suggestions if "실패율" in s.description]
         assert len(failure_suggestions) >= 1
 
         tracer.close()

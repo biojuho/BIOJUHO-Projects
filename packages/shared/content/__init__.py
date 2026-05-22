@@ -11,9 +11,10 @@ Phase 3 리펙토링: GetDayTrends ↔ DailyNews ↔ content-intelligence 간
 
 import json
 import re
+from typing import Any, cast
 
 
-def parse_json_response(text: str | None) -> dict | None:
+def parse_json_response(text: str | None) -> dict[str, Any] | None:
     """LLM 응답에서 JSON 파싱. 모든 프로젝트 공통 사용.
 
     마크다운 코드블록 내 JSON도 추출 시도합니다.
@@ -30,12 +31,15 @@ def parse_json_response(text: str | None) -> dict | None:
             cleaned = match.group(1).strip()
 
     try:
-        return json.loads(cleaned)
+        result = json.loads(cleaned)
+        if isinstance(result, dict):
+            return cast("dict[str, Any]", result)
+        return None
     except json.JSONDecodeError:
         return None
 
 
-def parse_json_array(text: str | None) -> list | None:
+def parse_json_array(text: str | None) -> list[Any] | None:
     """LLM 응답에서 JSON 배열 파싱."""
     if not text:
         return None
@@ -76,7 +80,7 @@ BANNED_PATTERNS = [
 
 def check_banned_patterns(text: str) -> list[str]:
     """텍스트에서 금지 패턴 검출. 발견된 패턴 목록 반환."""
-    found = []
+    found: list[str] = []
     for pattern in BANNED_PATTERNS:
         if pattern in text:
             found.append(pattern)

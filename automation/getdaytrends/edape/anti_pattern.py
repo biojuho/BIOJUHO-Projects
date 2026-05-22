@@ -85,8 +85,7 @@ class AntiPatternSuppressor:
         qualified = [
             (name, stat)
             for name, stat in stats.items()
-            if stat.total_tweets >= self.min_samples
-            and stat.avg_engagement_rate > 0
+            if stat.total_tweets >= self.min_samples and stat.avg_engagement_rate > 0
         ]
 
         if len(qualified) < 3:

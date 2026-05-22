@@ -24,8 +24,10 @@ import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .policy import SandboxPolicy
+if TYPE_CHECKING:
+    from .policy import SandboxPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +126,13 @@ class DockerSandboxRunner:
 
         docker_opts = policy.to_docker_options()
         cmd_parts = [
-            "docker", "run", "--rm",
-            "--memory", docker_opts["mem_limit"],
-            "--cpus", str(policy.cpu_limit),
+            "docker",
+            "run",
+            "--rm",
+            "--memory",
+            docker_opts["mem_limit"],
+            "--cpus",
+            str(policy.cpu_limit),
         ]
 
         # Security options
@@ -158,7 +164,7 @@ class DockerSandboxRunner:
             cmd_parts.extend(["-e", f"{key}={val}"])
 
         # Volume mounts
-        for mount in (mounts or []):
+        for mount in mounts or []:
             mode = mount.get("mode", "ro")
             cmd_parts.extend(["-v", f"{mount['src']}:{mount['dst']}:{mode}"])
 
@@ -194,7 +200,7 @@ class DockerSandboxRunner:
                 elapsed_seconds=round(elapsed, 3),
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             elapsed = time.monotonic() - start
             # Kill the container
             if proc.returncode is None:
@@ -250,14 +256,33 @@ class DockerSandboxRunner:
 
         start = time.monotonic()
         try:
-            # Use create_subprocess_exec to avoid shell injection (P0 security)
-            proc = await asyncio.create_subprocess_exec(
-                "sh", "-c", command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=clean_env,
-                cwd=str(self._work_dir) if self._work_dir else None,
-            )
+            # Launch an explicit platform shell so subprocess fallback works
+            # on Windows even when POSIX sh is unavailable.
+            if os.name == "nt":
+                shell_executable = os.environ.get("COMSPEC") or shutil.which("cmd.exe") or "cmd.exe"
+                for key in ("COMSPEC", "PATHEXT", "SystemRoot", "WINDIR"):
+                    value = os.environ.get(key)
+                    if value:
+                        clean_env.setdefault(key, value)
+                proc = await asyncio.create_subprocess_shell(
+                    command,
+                    executable=shell_executable,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=clean_env,
+                    cwd=str(self._work_dir) if self._work_dir else None,
+                )
+            else:
+                shell_executable = shutil.which("sh") or "sh"
+                proc = await asyncio.create_subprocess_exec(
+                    shell_executable,
+                    "-c",
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=clean_env,
+                    cwd=str(self._work_dir) if self._work_dir else None,
+                )
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
                 proc.communicate(),
                 timeout=policy.timeout_seconds,
@@ -276,7 +301,7 @@ class DockerSandboxRunner:
                 elapsed_seconds=round(elapsed, 3),
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             elapsed = time.monotonic() - start
             if proc.returncode is None:
                 try:

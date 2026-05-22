@@ -96,7 +96,7 @@ async def enrich_contexts_with_firecrawl(
         return contexts
 
     log.info(
-        f"[CrawlBridge] Enriching {len(eligible)} trends " f"(min_score={min_score_for_enrichment}, backend={backend})"
+        f"[CrawlBridge] Enriching {len(eligible)} trends (min_score={min_score_for_enrichment}, backend={backend})"
     )
 
     for trend in eligible:

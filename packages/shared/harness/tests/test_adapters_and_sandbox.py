@@ -11,10 +11,19 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from shared.harness.adapters.base import AdapterResult
+from shared.harness.adapters.native import NativeHarnessAdapter
+from shared.harness.constitution import Constitution
+from shared.harness.errors import (
+    BudgetExceededError,
+    RiskDetectedError,
+    ToolNotAllowedError,
+)
+from shared.harness.sandbox.docker_runner import DockerSandboxRunner, SandboxResult
 from shared.harness.sandbox.policy import (
     DEFAULT_TOOL_LEVELS,
     SANDBOX_PRESETS,
@@ -23,20 +32,11 @@ from shared.harness.sandbox.policy import (
     get_sandbox_policy,
     get_tool_level,
 )
-from shared.harness.sandbox.docker_runner import DockerSandboxRunner, SandboxResult
-from shared.harness.adapters.base import AbstractHarnessAdapter, AdapterResult
-from shared.harness.adapters.native import NativeHarnessAdapter
-from shared.harness.constitution import Constitution
-from shared.harness.errors import (
-    BudgetExceededError,
-    RiskDetectedError,
-    ToolNotAllowedError,
-)
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_constitution(**overrides) -> Constitution:
     """Create a minimal test constitution."""
@@ -47,10 +47,8 @@ def _make_constitution(**overrides) -> Constitution:
             {"name": "web_search", "allowed": True, "max_calls": 50},
             {"name": "llm_call", "allowed": True, "max_calls": 200},
             {"name": "file_read", "allowed": True, "max_calls": 100},
-            {"name": "publish_to_x", "allowed": True, "max_calls": 10,
-             "requires_approval": True},
-            {"name": "shell_execute", "allowed": True, "max_calls": 5,
-             "requires_approval": True},
+            {"name": "publish_to_x", "allowed": True, "max_calls": 10, "requires_approval": True},
+            {"name": "shell_execute", "allowed": True, "max_calls": 5, "requires_approval": True},
             {"name": "file_delete", "allowed": False},
         ],
         "risk_patterns": ["rm -rf", "DROP TABLE"],
@@ -68,6 +66,7 @@ async def _dummy_executor(tool_name: str, tool_input) -> dict:
 # Test: ToolPermissionLevel
 # ===========================================================================
 
+
 class TestToolPermissionLevel:
     def test_enum_values(self):
         assert ToolPermissionLevel.READ_ONLY.value == "read_only"
@@ -80,21 +79,18 @@ class TestToolPermissionLevel:
             assert isinstance(level, ToolPermissionLevel), f"{tool}: {level}"
 
     def test_read_only_tools(self):
-        read_only = {k for k, v in DEFAULT_TOOL_LEVELS.items()
-                     if v == ToolPermissionLevel.READ_ONLY}
+        read_only = {k for k, v in DEFAULT_TOOL_LEVELS.items() if v == ToolPermissionLevel.READ_ONLY}
         assert "web_search" in read_only
         assert "llm_call" in read_only
         assert "file_read" in read_only
 
     def test_write_external_tools(self):
-        write_ext = {k for k, v in DEFAULT_TOOL_LEVELS.items()
-                     if v == ToolPermissionLevel.WRITE_EXTERNAL}
+        write_ext = {k for k, v in DEFAULT_TOOL_LEVELS.items() if v == ToolPermissionLevel.WRITE_EXTERNAL}
         assert "publish_to_x" in write_ext
         assert "notion_api" in write_ext
 
     def test_write_system_tools(self):
-        write_sys = {k for k, v in DEFAULT_TOOL_LEVELS.items()
-                     if v == ToolPermissionLevel.WRITE_SYSTEM}
+        write_sys = {k for k, v in DEFAULT_TOOL_LEVELS.items() if v == ToolPermissionLevel.WRITE_SYSTEM}
         assert "shell_execute" in write_sys
         assert "file_delete" in write_sys
 
@@ -102,6 +98,7 @@ class TestToolPermissionLevel:
 # ===========================================================================
 # Test: SandboxPolicy
 # ===========================================================================
+
 
 class TestSandboxPolicy:
     def test_presets_cover_all_levels(self):
@@ -165,6 +162,7 @@ class TestSandboxPolicy:
 # Test: get_tool_level / get_sandbox_policy
 # ===========================================================================
 
+
 class TestToolLevelResolution:
     def test_known_tool(self):
         assert get_tool_level("web_search") == ToolPermissionLevel.READ_ONLY
@@ -192,6 +190,7 @@ class TestToolLevelResolution:
 # Test: SandboxResult
 # ===========================================================================
 
+
 class TestSandboxResult:
     def test_success_result(self):
         r = SandboxResult(success=True, exit_code=0, stdout="hello")
@@ -213,6 +212,7 @@ class TestSandboxResult:
 # ===========================================================================
 # Test: DockerSandboxRunner (subprocess fallback)
 # ===========================================================================
+
 
 class TestDockerSandboxRunnerSubprocess:
     @pytest.fixture
@@ -251,13 +251,13 @@ class TestDockerSandboxRunnerSubprocess:
             timeout_seconds=1,
         )
         # Sleep longer than timeout
-        result = await runner.run("python -c \"import time; time.sleep(10)\"", policy)
+        result = await runner.run('python -c "import time; time.sleep(10)"', policy)
         assert not result.success
         assert result.timed_out
 
     @pytest.mark.asyncio
     async def test_subprocess_failure_exit_code(self, runner, no_sandbox_policy):
-        result = await runner.run("python -c \"raise SystemExit(42)\"", no_sandbox_policy)
+        result = await runner.run('python -c "raise SystemExit(42)"', no_sandbox_policy)
         assert not result.success
         assert result.exit_code == 42
 
@@ -272,7 +272,7 @@ class TestDockerSandboxRunnerSubprocess:
     @pytest.mark.asyncio
     async def test_sandbox_falls_back_when_no_docker(self, runner, sandboxed_policy):
         """When Docker is not available, sandboxed policy falls back to subprocess."""
-        with patch.object(runner, '_docker_available', False):
+        with patch.object(runner, "_docker_available", False):
             result = await runner.run("echo fallback", sandboxed_policy)
             assert result.execution_method == "subprocess"
             assert "fallback" in result.stdout
@@ -281,6 +281,7 @@ class TestDockerSandboxRunnerSubprocess:
 # ===========================================================================
 # Test: AdapterResult
 # ===========================================================================
+
 
 class TestAdapterResult:
     def test_defaults(self):
@@ -305,6 +306,7 @@ class TestAdapterResult:
 # ===========================================================================
 # Test: NativeHarnessAdapter
 # ===========================================================================
+
 
 class TestNativeHarnessAdapter:
     @pytest.fixture
@@ -414,6 +416,7 @@ class TestNativeHarnessAdapter:
 # ===========================================================================
 # Test: NativeHarnessAdapter — Sub-agent spawning
 # ===========================================================================
+
 
 class TestNativeHarnessAdapterSubagent:
     @pytest.fixture

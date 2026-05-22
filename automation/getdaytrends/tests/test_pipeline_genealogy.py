@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from config import AppConfig
+
 from getdaytrends.core.pipeline import _step_genealogy, _step_post_run
 
 

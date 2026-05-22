@@ -85,11 +85,7 @@ class AdaptiveContext:
     @property
     def is_empty(self) -> bool:
         """데이터가 충분한지 확인. 비어있으면 프롬프트 주입 스킵."""
-        return (
-            not self.top_angles
-            and not self.golden_snippets
-            and not self.persona_hint
-        )
+        return not self.top_angles and not self.golden_snippets and not self.persona_hint
 
     def to_prompt_block(self) -> str:
         """
@@ -138,13 +134,10 @@ class AdaptiveContext:
 
         # 3. 골든 레퍼런스
         if self.golden_snippets:
-            lines.append(f"\n▶ 과거 히트 트윗 레퍼런스 (문체·구조 참고, 복사 금지):")
+            lines.append("\n▶ 과거 히트 트윗 레퍼런스 (문체·구조 참고, 복사 금지):")
             for i, gs in enumerate(self.golden_snippets, 1):
                 preview = gs.content[:200].replace("\n", " ")
-                lines.append(
-                    f"  [{i}] ({gs.angle_type}, ER {gs.engagement_rate:.4%}) "
-                    f'"{preview}..."'
-                )
+                lines.append(f'  [{i}] ({gs.angle_type}, ER {gs.engagement_rate:.4%}) "{preview}..."')
 
         # 4. 시간대 페르소나
         if self.persona_hint:
@@ -176,12 +169,8 @@ class PromptInjector:
         self._config = config
         self._db_path: str = getattr(config, "db_path", "data/getdaytrends.db")
         self._bearer_token: str = getattr(config, "twitter_bearer_token", "")
-        self._lookback_days: int = getattr(
-            config, "edape_lookback_days", self.DEFAULT_LOOKBACK_DAYS
-        )
-        self._max_golden: int = getattr(
-            config, "edape_max_golden_refs", self.MAX_GOLDEN_REFS
-        )
+        self._lookback_days: int = getattr(config, "edape_lookback_days", self.DEFAULT_LOOKBACK_DAYS)
+        self._max_golden: int = getattr(config, "edape_max_golden_refs", self.MAX_GOLDEN_REFS)
 
     async def build(self) -> AdaptiveContext:
         """
@@ -214,7 +203,7 @@ class PromptInjector:
                 f"[EDAPE] 적응형 컨텍스트 빌드 완료 — "
                 f"angles={len(ctx.top_angles)} hooks={len(ctx.top_hooks)} "
                 f"golden={len(ctx.golden_snippets)} "
-                f"suppressed={len(ctx.suppressed_angles)+len(ctx.suppressed_hooks)+len(ctx.suppressed_kicks)} "
+                f"suppressed={len(ctx.suppressed_angles) + len(ctx.suppressed_hooks) + len(ctx.suppressed_kicks)} "
                 f"persona='{ctx.persona_hint[:30]}'"
             )
 
@@ -245,41 +234,33 @@ class PromptInjector:
     async def _inject_pattern_weights(self, tracker, ctx: AdaptiveContext) -> None:
         """앵글/훅/킥 성과 상위 패턴을 ctx에 주입."""
         try:
-            pattern_data = await _maybe_await(tracker.get_optimal_pattern_weights(
-                days=self._lookback_days,
-                min_samples=self.MIN_SAMPLES_FOR_CONFIDENCE,
-            ))
+            pattern_data = await _maybe_await(
+                tracker.get_optimal_pattern_weights(
+                    days=self._lookback_days,
+                    min_samples=self.MIN_SAMPLES_FOR_CONFIDENCE,
+                )
+            )
 
             # 앵글
             angle_stats = await _maybe_await(tracker.get_angle_performance(self._lookback_days))
             angle_weights = pattern_data.get("angle_weights", {})
-            ctx.top_angles = self._extract_top_patterns(
-                angle_stats, angle_weights, "angle"
-            )
-            ctx.total_tracked_tweets = sum(
-                s.total_tweets for s in angle_stats.values()
-            )
+            ctx.top_angles = self._extract_top_patterns(angle_stats, angle_weights, "angle")
+            ctx.total_tracked_tweets = sum(s.total_tweets for s in angle_stats.values())
 
             # 훅
             hook_stats = await _maybe_await(tracker.get_hook_performance(self._lookback_days))
             hook_weights = pattern_data.get("hook_weights", {})
-            ctx.top_hooks = self._extract_top_patterns(
-                hook_stats, hook_weights, "hook"
-            )
+            ctx.top_hooks = self._extract_top_patterns(hook_stats, hook_weights, "hook")
 
             # 킥
             kick_stats = await _maybe_await(tracker.get_kick_performance(self._lookback_days))
             kick_weights = pattern_data.get("kick_weights", {})
-            ctx.top_kicks = self._extract_top_patterns(
-                kick_stats, kick_weights, "kick"
-            )
+            ctx.top_kicks = self._extract_top_patterns(kick_stats, kick_weights, "kick")
 
         except Exception as e:
             log.debug(f"[EDAPE] 패턴 가중치 주입 실패: {e}")
 
-    def _extract_top_patterns(
-        self, stats: dict, weights: dict, pattern_type: str
-    ) -> list[TopPattern]:
+    def _extract_top_patterns(self, stats: dict, weights: dict, pattern_type: str) -> list[TopPattern]:
         """stats dict에서 engagement rate 상위 N개 패턴 추출."""
         candidates = []
         for name, stat in stats.items():

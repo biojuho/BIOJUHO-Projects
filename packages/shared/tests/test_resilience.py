@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
 
@@ -13,7 +12,6 @@ from shared.resilience import (
     RetryExhaustedError,
     resilient,
 )
-
 
 # ---------------------------------------------------------------------------
 # Sync tests

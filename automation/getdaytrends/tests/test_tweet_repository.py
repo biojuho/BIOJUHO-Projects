@@ -2,11 +2,8 @@
 
 import pytest
 import pytest_asyncio
-
-from models import GeneratedThread, GeneratedTweet
 from db_layer.tweet_repository import (
     get_best_posting_hours,
-    get_recent_tweet_contents,
     mark_tweet_posted,
     record_posting_time_stat,
     save_thread,
@@ -14,6 +11,7 @@ from db_layer.tweet_repository import (
     save_tweets_batch,
     sync_tweet_metrics,
 )
+from models import GeneratedThread, GeneratedTweet
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -29,9 +27,8 @@ def _tweet(content="테스트 트윗", tweet_type="공감 유도형", content_ty
 
 async def _seed_run(db) -> int:
     """runs 테이블에 레코드 하나 삽입 후 run_id 반환."""
-    from datetime import datetime
-
     import uuid
+    from datetime import datetime
 
     cursor = await db.execute(
         "INSERT INTO runs (run_uuid, started_at) VALUES (?, ?)",
@@ -65,7 +62,6 @@ async def _seed_trend(db, run_id: int, keyword: str = "테스트트렌드") -> i
 
 
 class TestSaveTweet:
-
     @pytest.mark.asyncio
     async def test_save_single_tweet(self, db):
         run_id = await _seed_run(db)
@@ -99,7 +95,6 @@ class TestSaveTweet:
 
 
 class TestSaveTweetsBatch:
-
     @pytest.mark.asyncio
     async def test_batch_non_thread(self, db):
         run_id = await _seed_run(db)
@@ -166,7 +161,10 @@ class TestSaveTweetsBatch:
         run_id = await _seed_run(db)
         trend_id = await _seed_trend(db, run_id)
         await save_tweets_batch(
-            db, [_tweet("커스텀")], trend_id, run_id,
+            db,
+            [_tweet("커스텀")],
+            trend_id,
+            run_id,
             saved_to=["notion", "sheets"],
         )
         await db.commit()
@@ -174,6 +172,7 @@ class TestSaveTweetsBatch:
         cursor = await db.execute("SELECT saved_to FROM tweets WHERE trend_id = ?", (trend_id,))
         row = await cursor.fetchone()
         import json
+
         saved = json.loads(dict(row)["saved_to"])
         assert saved == ["notion", "sheets"]
 
@@ -187,7 +186,7 @@ class TestSaveTweetsBatch:
         await db.commit()
 
         initial_cursor = await db.execute("SELECT COUNT(*) as cnt FROM tweets")
-        initial_count = dict(await initial_cursor.fetchone())["cnt"]
+        dict(await initial_cursor.fetchone())["cnt"]
 
         # char_count에 문자열을 넣어 타입 에러 유발은 SQLite에서 불가하므로
         # 컬럼 수 불일치를 만들어 에러 유발
@@ -210,7 +209,6 @@ class TestSaveTweetsBatch:
 
 
 class TestMarkTweetPosted:
-
     @pytest.mark.asyncio
     async def test_mark_by_row_id(self, db):
         run_id = await _seed_run(db)
@@ -233,9 +231,7 @@ class TestMarkTweetPosted:
         content = "콘텐츠 매칭 테스트 트윗"
         await save_tweet(db, _tweet(content), trend_id, run_id)
 
-        result = await mark_tweet_posted(
-            db, x_tweet_id="x-456", content=content, trend_id=trend_id, run_id=run_id
-        )
+        result = await mark_tweet_posted(db, x_tweet_id="x-456", content=content, trend_id=trend_id, run_id=run_id)
         assert result is not None
 
     @pytest.mark.asyncio
@@ -267,7 +263,6 @@ class TestMarkTweetPosted:
 
 
 class TestSyncMetrics:
-
     @pytest.mark.asyncio
     async def test_sync_by_row_id(self, db):
         run_id = await _seed_run(db)
@@ -291,9 +286,7 @@ class TestSyncMetrics:
         row_id = await save_tweet(db, _tweet(), trend_id, run_id)
         await mark_tweet_posted(db, x_tweet_id="x-metric-test", tweet_row_id=row_id)
 
-        updated = await sync_tweet_metrics(
-            db, x_tweet_id="x-metric-test", impressions=100, engagements=10
-        )
+        updated = await sync_tweet_metrics(db, x_tweet_id="x-metric-test", impressions=100, engagements=10)
         assert updated == 1
 
     @pytest.mark.asyncio
@@ -306,7 +299,6 @@ class TestSyncMetrics:
 
 
 class TestPostingTimeStats:
-
     @pytest.mark.asyncio
     async def test_record_and_query_best_hours(self, db):
         # sample_count >= 3 조건 충족을 위해 4번 기록

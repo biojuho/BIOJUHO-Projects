@@ -8,6 +8,7 @@ shared.env_loader — 워크스페이스 환경변수 통합 로더.
 
 Usage::
     from shared.env_loader import load_workspace_env
+
     load_workspace_env()  # 자동으로 워크스페이스 루트 탐색
 """
 
@@ -23,15 +24,17 @@ _lock = threading.Lock()
 _loaded = False
 
 # Keys that should only exist in root .env — warn if found in subproject .env
-_ROOT_ONLY_KEYS = frozenset({
-    "ANTHROPIC_API_KEY",
-    "GOOGLE_API_KEY",
-    "GEMINI_API_KEY",
-    "OPENAI_API_KEY",
-    "DEEPSEEK_API_KEY",
-    "OPENROUTER_API_KEY",
-    "DATABASE_URL",
-})
+_ROOT_ONLY_KEYS = frozenset(
+    {
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_API_KEY",
+        "GEMINI_API_KEY",
+        "OPENAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "OPENROUTER_API_KEY",
+        "DATABASE_URL",
+    }
+)
 
 
 def _find_workspace_root(start: Path | None = None) -> Path | None:

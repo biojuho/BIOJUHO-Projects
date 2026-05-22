@@ -149,9 +149,7 @@ class TapDealRoomBuilder:
 
         projected_items = board.items[: max(0, resolved.limit)]
         if not resolved.include_public_teasers:
-            projected_items = [
-                item for item in projected_items if item.paywall_tier is not OpportunityTier.FREE_TEASER
-            ]
+            projected_items = [item for item in projected_items if item.paywall_tier is not OpportunityTier.FREE_TEASER]
 
         offers: list[DealRoomOffer] = []
         for item in projected_items:
@@ -237,8 +235,7 @@ class TapDealRoomBuilder:
 
     def _teaser_body(self, item: TapBoardItem) -> str:
         return item.public_teaser or (
-            f"'{item.keyword}' is already moving abroad. "
-            "Unlock the local execution playbook before it turns obvious."
+            f"'{item.keyword}' is already moving abroad. Unlock the local execution playbook before it turns obvious."
         )
 
     def _premium_title(self, item: TapBoardItem, package_tier: str) -> str:

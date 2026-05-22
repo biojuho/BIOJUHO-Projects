@@ -7,6 +7,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.production.example
 venv/
 .venv/
 __pycache__/
@@ -42,6 +43,14 @@ fun/
 .claude/settings.local.json
 .claude/*.local.json
 .claude/scheduled_tasks.lock
+# Locally-installed skills and worktrees are per-developer, not workspace state
+.claude/skills/
+.claude/worktrees/
+
+# Local tool state for codex / firecrawl / claude-goal
+.codex/
+.firecrawl/
+claude-goal/
 
 # Test / smoke outputs
 smoke-all.json
@@ -49,6 +58,7 @@ smoke_*.json
 final_smoke.json
 test-results/
 .pytest_cache/
+.pytest-root/
 .coverage
 *_out.txt
 *_out*.txt
@@ -90,12 +100,20 @@ MCP_notion-antigravity/output/
 **/chroma_db/
 **/data/
 !**/data/.gitkeep
+# Curated seed datasets (source of truth — must be version-controlled)
+!apps/desci-platform/backend/data/
+!apps/desci-platform/backend/data/vcs_seed.json
 var/logs/
 var/data/
+var/debt/
 var/db/
 var/smoke/
 var/session-bootstrap-*.json
 var/legacy-root-backups/
+# Snapshot/QC outputs are local-only diagnostics, not source of truth
+var/*.json
+var/*.sarif
+var/*.txt
 
 # SQLite databases
 *.db
@@ -139,6 +157,9 @@ automation/getdaytrends/run_history.log
 automation/getdaytrends/run_scheduled.log
 **/nul
 
+# modoo.or.kr daily dumps — local startup-trend signal, not for redistribution
+var/modoo/
+
 # Generated legacy compatibility aliases
 /AgriGuard/
 /desci-platform/
@@ -162,3 +183,7 @@ automation/getdaytrends/run_scheduled.log
 /notebooklm-automation/
 /notebooklm_output/
 /x-article-publisher-skill/
+
+# Antigravity CLI and app-specific temp directories
+.antigravitycli/
+apps/desci-platform/var/

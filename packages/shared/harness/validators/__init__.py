@@ -8,8 +8,8 @@ into standalone, composable validators that can be used:
 """
 
 from .korean_quality import (
-    KoreanQualityValidator,
     KoreanQualityResult,
+    KoreanQualityValidator,
     validate_korean_output,
 )
 

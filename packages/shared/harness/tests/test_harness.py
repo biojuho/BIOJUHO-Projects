@@ -7,10 +7,7 @@ the integration is verified end-to-end.
 
 from __future__ import annotations
 
-import asyncio
 import json
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -29,8 +26,7 @@ from shared.harness.hooks import (
     MetricsHook,
     OutputTruncatorHook,
 )
-from shared.harness.risk import RiskResult, RiskScanner
-
+from shared.harness.risk import RiskScanner
 
 # ── Fixtures ──
 
@@ -43,11 +39,14 @@ def _make_constitution(**overrides) -> Constitution:
         "max_tokens_per_turn": 4000,
         "tools": [
             {"name": "web_search", "allowed": True, "max_calls": 5},
-            {"name": "file_write", "allowed": True, "max_calls": 3,
-             "allowed_paths": ["d:/AI project/output/**"],
-             "blocked_patterns": [r".*\.env$"]},
-            {"name": "shell_execute", "allowed": True, "max_calls": 2,
-             "requires_approval": True},
+            {
+                "name": "file_write",
+                "allowed": True,
+                "max_calls": 3,
+                "allowed_paths": ["d:/AI project/output/**"],
+                "blocked_patterns": [r".*\.env$"],
+            },
+            {"name": "shell_execute", "allowed": True, "max_calls": 2, "requires_approval": True},
             {"name": "file_delete", "allowed": False},
         ],
         "risk_patterns": [r"DROP TABLE"],
@@ -178,10 +177,13 @@ class TestRiskScanner:
     def test_nested_input_scanning(self):
         c = _make_constitution()
         scanner = RiskScanner(c)
-        result = scanner.scan("shell_execute", {
-            "command": "echo hello",
-            "nested": {"deep": "eval(malicious_code)"},
-        })
+        result = scanner.scan(
+            "shell_execute",
+            {
+                "command": "echo hello",
+                "nested": {"deep": "eval(malicious_code)"},
+            },
+        )
         assert result.is_risky
         assert "unsafe_eval" in result.risk_category
 

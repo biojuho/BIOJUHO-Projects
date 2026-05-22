@@ -27,7 +27,9 @@ def test_collect_news_skips_duplicates_and_saves_new_articles(load_script_module
     module, runtime = load_script_module("collect_news")
     state = runtime.PipelineStateStore(tmp_path / "data" / "pipeline_state.db")
     try:
-        state.record_article(link="https://cached.example.com", source="Cache", notion_page_id="old-page", run_id="seed")
+        state.record_article(
+            link="https://cached.example.com", source="Cache", notion_page_id="old-page", run_id="seed"
+        )
 
         monkeypatch.setattr(module, "PipelineStateStore", lambda: state)
         monkeypatch.setattr(module, "NOTION_API_KEY", "token")

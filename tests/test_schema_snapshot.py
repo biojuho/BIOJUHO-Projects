@@ -9,7 +9,6 @@ Strategy:
 """
 
 import re
-import sqlite3
 from pathlib import Path
 
 import pytest
@@ -20,38 +19,75 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # If a migration adds a table, this test will fail,
 # forcing the developer to consciously update the snapshot.
 
-GDT_EXPECTED_TABLES = frozenset({
-    "runs", "trends", "tweets", "meta", "source_quality",
-    "content_feedback", "posting_time_stats", "watchlist_hits",
-    "schema_version", "tweet_performance", "golden_references",
-    "trend_genealogy",
-    # Migration tables (v6+)
-    "trend_quarantine", "validated_trends", "draft_bundles",
-    "qa_reports", "review_decisions", "publish_receipts",
-    "feedback_summaries",
-    # TAP tables (v9+)
-    "tap_snapshots", "tap_snapshot_items", "tap_alert_queue",
-    "tap_deal_room_events", "tap_checkout_sessions",
-    # Reasoning tables
-    "trend_facts", "trend_hypotheses", "trend_patterns",
-})
+GDT_EXPECTED_TABLES = frozenset(
+    {
+        "runs",
+        "trends",
+        "tweets",
+        "meta",
+        "source_quality",
+        "content_feedback",
+        "posting_time_stats",
+        "watchlist_hits",
+        "schema_version",
+        "tweet_performance",
+        "golden_references",
+        "trend_genealogy",
+        # Migration tables (v6+)
+        "trend_quarantine",
+        "validated_trends",
+        "draft_bundles",
+        "qa_reports",
+        "review_decisions",
+        "publish_receipts",
+        "feedback_summaries",
+        # TAP tables (v9+)
+        "tap_snapshots",
+        "tap_snapshot_items",
+        "tap_alert_queue",
+        "tap_deal_room_events",
+        "tap_checkout_sessions",
+        # Reasoning tables
+        "trend_facts",
+        "trend_hypotheses",
+        "trend_patterns",
+    }
+)
 
-CIE_EXPECTED_TABLES = frozenset({
-    "trend_reports", "regulation_reports", "generated_contents",
-    "monthly_reviews", "content_actual_performance",
-})
+CIE_EXPECTED_TABLES = frozenset(
+    {
+        "trend_reports",
+        "regulation_reports",
+        "generated_contents",
+        "monthly_reviews",
+        "content_actual_performance",
+    }
+)
 
-DN_EXPECTED_TABLES = frozenset({
-    "schema_version", "job_runs", "article_cache",
-    "content_reports", "channel_publications", "llm_cache",
-    "x_daily_posts", "topic_timeline", "x_tweet_metrics",
-    "feed_etag_cache", "fact_fragments", "hypotheses",
-    "reasoning_patterns", "digest_queue",
-    # Pipeline-specific
-    "pipeline_checkpoints", "signal_history",
-    # Subscriber
-    "subscribers", "newsletter_events",
-})
+DN_EXPECTED_TABLES = frozenset(
+    {
+        "schema_version",
+        "job_runs",
+        "article_cache",
+        "content_reports",
+        "channel_publications",
+        "llm_cache",
+        "x_daily_posts",
+        "topic_timeline",
+        "x_tweet_metrics",
+        "feed_etag_cache",
+        "fact_fragments",
+        "hypotheses",
+        "reasoning_patterns",
+        "digest_queue",
+        # Pipeline-specific
+        "pipeline_checkpoints",
+        "signal_history",
+        # Subscriber
+        "subscribers",
+        "newsletter_events",
+    }
+)
 
 
 def _extract_table_names_from_file(path: Path) -> set[str]:
@@ -113,12 +149,8 @@ class TestCieSchemaSnapshot:
         missing = CIE_EXPECTED_TABLES - actual
         unexpected = actual - CIE_EXPECTED_TABLES
 
-        assert not missing, (
-            f"Tables REMOVED from CIE schema without snapshot update: {missing}"
-        )
-        assert not unexpected, (
-            f"Tables ADDED to CIE schema without snapshot update: {unexpected}"
-        )
+        assert not missing, f"Tables REMOVED from CIE schema without snapshot update: {missing}"
+        assert not unexpected, f"Tables ADDED to CIE schema without snapshot update: {unexpected}"
 
 
 class TestDailyNewsSchemaSnapshot:
@@ -126,9 +158,21 @@ class TestDailyNewsSchemaSnapshot:
 
     def test_schema_tables_match_snapshot(self):
         store_file = PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "state" / "store.py"
-        signal_file = PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "pipelines" / "signal_watch.py"
-        subscriber_file = PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "integrations" / "subscriber_store.py"
-        db_client_file = PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "state" / "db_client.py"
+        signal_file = (
+            PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "pipelines" / "signal_watch.py"
+        )
+        subscriber_file = (
+            PROJECT_ROOT
+            / "automation"
+            / "DailyNews"
+            / "src"
+            / "antigravity_mcp"
+            / "integrations"
+            / "subscriber_store.py"
+        )
+        db_client_file = (
+            PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "state" / "db_client.py"
+        )
 
         actual = set()
         for f in [store_file, signal_file, subscriber_file, db_client_file]:
@@ -140,54 +184,52 @@ class TestDailyNewsSchemaSnapshot:
         missing = DN_EXPECTED_TABLES - actual
         unexpected = actual - DN_EXPECTED_TABLES
 
-        assert not missing, (
-            f"Tables REMOVED from DN schema without snapshot update: {missing}"
-        )
-        assert not unexpected, (
-            f"Tables ADDED to DN schema without snapshot update: {unexpected}"
-        )
+        assert not missing, f"Tables REMOVED from DN schema without snapshot update: {missing}"
+        assert not unexpected, f"Tables ADDED to DN schema without snapshot update: {unexpected}"
 
 
-SHARED_EXPECTED_TABLES = frozenset({
-    "schema_version", "llm_calls"
-})
+SHARED_EXPECTED_TABLES = frozenset({"schema_version", "llm_calls"})
+
 
 def test_cross_project_real_db_schema():
     """Verify that all statically expected tables actually exist in the production DB.
     Also validates that the real DB has no missing tables from our active schema."""
     import os
+
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         pytest.skip("DATABASE_URL not set. Skipping real DB validation.")
-    
+
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
-        
+
     try:
         from sqlalchemy import create_engine, inspect
+
         engine = create_engine(db_url)
-        with engine.connect() as conn:
+        with engine.connect():
             inspector = inspect(engine)
             actual_tables = set(inspector.get_table_names(schema="public"))
-            
+
             # Local-only or unmigrated tables
             local_only = {"subscribers", "newsletter_events"}
             unmigrated_cie = CIE_EXPECTED_TABLES
-            
+
             expected_in_db = (
-                (GDT_EXPECTED_TABLES | DN_EXPECTED_TABLES | CIE_EXPECTED_TABLES | SHARED_EXPECTED_TABLES) 
-                - local_only 
+                (GDT_EXPECTED_TABLES | DN_EXPECTED_TABLES | CIE_EXPECTED_TABLES | SHARED_EXPECTED_TABLES)
+                - local_only
                 - unmigrated_cie
             )
-            
+
             missing = expected_in_db - actual_tables
             assert not missing, f"Expected tables missing from real DB: {missing}"
-            
+
     except Exception as e:
         if "No module named 'sqlalchemy'" in str(e) or "psycopg2" in str(e):
             pytest.skip(f"SQLAlchemy/Psycopg2 not available in env: {e}")
         else:
             pytest.fail(f"Failed to validate real DB schema: {e}")
+
 
 class TestSharedSchemaSnapshot:
     """Shared schema drift detection."""
@@ -195,7 +237,7 @@ class TestSharedSchemaSnapshot:
     def test_schema_tables_match_snapshot(self):
         # Stats file
         stats_file = PROJECT_ROOT / "packages" / "shared" / "llm" / "stats.py"
-        
+
         actual = set()
         if stats_file.exists():
             content = stats_file.read_text(encoding="utf-8", errors="replace")
@@ -204,15 +246,16 @@ class TestSharedSchemaSnapshot:
                 actual.add("llm_calls")
             if "schema_version" in content:
                 actual.add("schema_version")
-        
+
         # We manually add 'schema_version' since it's fundamentally shared
         actual.add("schema_version")
-        
+
         missing = SHARED_EXPECTED_TABLES - actual
         unexpected = actual - SHARED_EXPECTED_TABLES
-        
+
         assert not missing, f"Tables REMOVED from SHARED schema without snapshot update: {missing}"
         assert not unexpected, f"Tables ADDED to SHARED schema without snapshot update: {unexpected}"
+
 
 class TestCrossProjectSchemaConsistency:
     """Verify shared table patterns across projects."""

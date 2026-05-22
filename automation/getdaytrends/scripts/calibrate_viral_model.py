@@ -13,6 +13,7 @@ scoring 정확도를 측정하고, 상위/하위 패턴을 추출한다.
   python scripts/calibrate_viral_model.py
   python scripts/calibrate_viral_model.py --lookback-days 30 --json-out data/cal.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,32 +26,31 @@ from pathlib import Path
 from typing import Any
 
 # Force UTF-8 encoding for standard output on Windows
-if sys.stdout.encoding.lower() != 'utf-8':
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8')
+if sys.stdout.encoding.lower() != "utf-8":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
 
 # ── 상수 ─────────────────────────────────────────────────────────────────────
 
 _TIER_THRESHOLDS = {
-    "high": 80,   # viral_potential >= 80
-    "mid": 60,    # 60 <= viral_potential < 80
-    "low": 0,     # viral_potential < 60
+    "high": 80,  # viral_potential >= 80
+    "mid": 60,  # 60 <= viral_potential < 80
+    "low": 0,  # viral_potential < 60
 }
-_TOP_N = 20          # 상위/하위 샘플 패턴 추출 개수
+_TOP_N = 20  # 상위/하위 샘플 패턴 추출 개수
 _MIN_IMPRESSIONS = 5  # 유효 메트릭으로 간주할 최소 노출 수
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
+
 
 def _parse_args(argv=None) -> argparse.Namespace:
     script_dir = Path(__file__).resolve().parent
     project_dir = script_dir.parent
     default_db = str(project_dir / "data" / "getdaytrends.db")
 
-    parser = argparse.ArgumentParser(
-        description="GetDayTrends viral score calibration analysis"
-    )
+    parser = argparse.ArgumentParser(description="GetDayTrends viral score calibration analysis")
     parser.add_argument("--db-path", default=default_db, help="SQLite DB 경로")
     parser.add_argument(
         "--lookback-days",
@@ -69,6 +69,7 @@ def _parse_args(argv=None) -> argparse.Namespace:
 
 
 # ── DB helpers ───────────────────────────────────────────────────────────────
+
 
 def _get_conn(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
@@ -113,6 +114,7 @@ def _ensure_calibration_table(conn: sqlite3.Connection) -> None:
 
 # ── 데이터 수집 ───────────────────────────────────────────────────────────────
 
+
 def _fetch_paired_data(
     conn: sqlite3.Connection,
     since_iso: str,
@@ -124,9 +126,7 @@ def _fetch_paired_data(
     """
     # tweet_performance 테이블 존재 여부 확인
     has_tp = bool(
-        conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='tweet_performance'"
-        ).fetchone()
+        conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tweet_performance'").fetchone()
     )
 
     if has_tp:
@@ -185,6 +185,7 @@ def _fetch_paired_data(
 
 # ── 분석 함수 ─────────────────────────────────────────────────────────────────
 
+
 def _engagement_score(row: dict) -> float:
     """단일 인게이지먼트 점수 (0-100 정규화된 복합 지표)."""
     impr = row.get("impressions") or 1
@@ -215,10 +216,7 @@ def _pearson(xs: list[float], ys: list[float]) -> float:
         return 0.0
     mx, my = sum(xs) / n, sum(ys) / n
     num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    denom = (
-        (sum((x - mx) ** 2 for x in xs) ** 0.5)
-        * (sum((y - my) ** 2 for y in ys) ** 0.5)
-    )
+    denom = (sum((x - mx) ** 2 for x in xs) ** 0.5) * (sum((y - my) ** 2 for y in ys) ** 0.5)
     return round(num / denom, 4) if denom else 0.0
 
 
@@ -248,10 +246,7 @@ def _tier_precision(data: list[dict]) -> dict[str, float]:
         actual = _actual_tier(r["_eng_score"])
         per_tier[pred].append(pred == actual)
 
-    return {
-        k: round(sum(v) / len(v), 4) if v else 0.0
-        for k, v in per_tier.items()
-    }
+    return {k: round(sum(v) / len(v), 4) if v else 0.0 for k, v in per_tier.items()}
 
 
 def _best_posting_hour(data: list[dict]) -> tuple[int, float]:
@@ -364,6 +359,7 @@ def _build_prompt_hints(
 
 # ── 인사이트 저장 ─────────────────────────────────────────────────────────────
 
+
 def _save_insights(
     conn: sqlite3.Connection,
     generated_at: str,
@@ -406,6 +402,7 @@ def _save_insights(
 
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
+
 def run(db_path: str, lookback_days: int, min_impressions: int) -> dict[str, Any]:
     since = (datetime.now(UTC) - timedelta(days=lookback_days)).isoformat()
     conn = _get_conn(db_path)
@@ -426,9 +423,7 @@ def run(db_path: str, lookback_days: int, min_impressions: int) -> dict[str, Any
     actual = [r["_eng_score"] for r in data]
 
     # MAE: 예측 viral_potential과 실제 eng_score의 평균 절대 오차
-    mae = round(
-        statistics.mean(abs(p - a) for p, a in zip(predicted, actual)), 4
-    )
+    mae = round(statistics.mean(abs(p - a) for p, a in zip(predicted, actual)), 4)
     pearson_r = _pearson(predicted, actual)
     tier_prec = _tier_precision(data)
     best_hour, best_hour_eng = _best_posting_hour(data)
@@ -494,7 +489,9 @@ def _print_summary(report: dict) -> None:
     print(f"  기간        : 최근 {report['lookback_days']}일  |  샘플 {report['sample_count']}건")
     print(f"  MAE         : {acc['mae']:.2f}  (예측-실제 평균 오차)")
     print(f"  Pearson r   : {acc['pearson_r']:.4f}")
-    print(f"  Tier 정확도 : high={acc['tier_precision']['high']:.0%}  mid={acc['tier_precision']['mid']:.0%}  low={acc['tier_precision']['low']:.0%}")
+    print(
+        f"  Tier 정확도 : high={acc['tier_precision']['high']:.0%}  mid={acc['tier_precision']['mid']:.0%}  low={acc['tier_precision']['low']:.0%}"
+    )
     print(f"  평가        : {acc['interpretation']}")
     print(f"  최적 발행 KST: {pt['best_hour_kst']:02d}:00  (평균 eng {pt['best_hour_avg_eng']:.2f})")
     print()
@@ -506,6 +503,7 @@ def _print_summary(report: dict) -> None:
 
 
 # ── 엔트리포인트 ──────────────────────────────────────────────────────────────
+
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
@@ -534,9 +532,7 @@ def main(argv=None) -> int:
     default_out = script_dir.parent / "data" / f"calibration_report_{date_str}.json"
     if not args.json_out:
         default_out.parent.mkdir(parents=True, exist_ok=True)
-        default_out.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        default_out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"json_out: {default_out.resolve()}")
 
     return 0

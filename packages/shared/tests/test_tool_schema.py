@@ -21,7 +21,6 @@ from shared.llm.tool_schema import (
     ToolValidationError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Test schemas
 # ---------------------------------------------------------------------------
@@ -55,7 +54,6 @@ def _crashing_handler(args: WeatherInput) -> str:
 
 
 class TestToOpenAITool:
-
     def test_basic_structure(self):
         tool = ToolDefinition(
             name="get_weather",
@@ -84,8 +82,10 @@ class TestToOpenAITool:
     def test_title_stripped_from_schema(self):
         """Pydantic adds 'title' field — OpenAI doesn't need it."""
         tool = ToolDefinition(
-            name="test", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="test",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         params = tool.to_openai_tool()["function"]["parameters"]
         assert "title" not in params
@@ -97,11 +97,12 @@ class TestToOpenAITool:
 
 
 class TestValidateArgs:
-
     def test_valid_dict_args(self):
         tool = ToolDefinition(
-            name="get_weather", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="get_weather",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         validated = tool.validate_args({"city": "Seoul"})
         assert isinstance(validated, WeatherInput)
@@ -110,8 +111,10 @@ class TestValidateArgs:
 
     def test_valid_json_string_args(self):
         tool = ToolDefinition(
-            name="get_weather", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="get_weather",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         validated = tool.validate_args('{"city": "Tokyo", "unit": "fahrenheit"}')
         assert validated.city == "Tokyo"
@@ -119,8 +122,10 @@ class TestValidateArgs:
 
     def test_invalid_json_raises_validation_error(self):
         tool = ToolDefinition(
-            name="get_weather", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="get_weather",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         with pytest.raises(ToolValidationError) as exc_info:
             tool.validate_args("{invalid json}")
@@ -129,16 +134,20 @@ class TestValidateArgs:
 
     def test_missing_required_field_raises(self):
         tool = ToolDefinition(
-            name="get_weather", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="get_weather",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         with pytest.raises(ToolValidationError):
             tool.validate_args({})  # 'city' is required
 
     def test_constraint_violation_raises(self):
         tool = ToolDefinition(
-            name="search", description="test",
-            input_schema=SearchInput, execute=_search_handler,
+            name="search",
+            description="test",
+            input_schema=SearchInput,
+            execute=_search_handler,
         )
         with pytest.raises(ToolValidationError):
             tool.validate_args({"query": "test", "max_results": 200})  # max 100
@@ -150,11 +159,12 @@ class TestValidateArgs:
 
 
 class TestValidateAndExecute:
-
     def test_successful_execution(self):
         tool = ToolDefinition(
-            name="get_weather", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="get_weather",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         result = tool.validate_and_execute({"city": "Seoul"})
         assert isinstance(result, ToolResult)
@@ -164,8 +174,10 @@ class TestValidateAndExecute:
 
     def test_validation_failure_returns_error_result(self):
         tool = ToolDefinition(
-            name="get_weather", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="get_weather",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         result = tool.validate_and_execute({})  # missing 'city'
         assert result.success is False
@@ -174,8 +186,10 @@ class TestValidateAndExecute:
 
     def test_execution_failure_returns_error_result(self):
         tool = ToolDefinition(
-            name="crash", description="test",
-            input_schema=WeatherInput, execute=_crashing_handler,
+            name="crash",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_crashing_handler,
         )
         result = tool.validate_and_execute({"city": "Seoul"})
         assert result.success is False
@@ -183,8 +197,10 @@ class TestValidateAndExecute:
 
     def test_json_string_execution(self):
         tool = ToolDefinition(
-            name="search", description="test",
-            input_schema=SearchInput, execute=_search_handler,
+            name="search",
+            description="test",
+            input_schema=SearchInput,
+            execute=_search_handler,
         )
         result = tool.validate_and_execute('{"query": "AI trends", "max_results": 5}')
         assert result.success is True
@@ -197,12 +213,13 @@ class TestValidateAndExecute:
 
 
 class TestToolRegistry:
-
     def test_register_and_get(self):
         registry = ToolRegistry()
         tool = ToolDefinition(
-            name="weather", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="weather",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         registry.register(tool)
         assert registry.get("weather") is tool
@@ -213,37 +230,57 @@ class TestToolRegistry:
 
     def test_tool_names(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="weather", description="w",
-            input_schema=WeatherInput, execute=_weather_handler,
-        ))
-        registry.register(ToolDefinition(
-            name="search", description="s",
-            input_schema=SearchInput, execute=_search_handler,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="weather",
+                description="w",
+                input_schema=WeatherInput,
+                execute=_weather_handler,
+            )
+        )
+        registry.register(
+            ToolDefinition(
+                name="search",
+                description="s",
+                input_schema=SearchInput,
+                execute=_search_handler,
+            )
+        )
         assert set(registry.tool_names) == {"weather", "search"}
         assert len(registry) == 2
 
     def test_to_openai_tools(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="weather", description="w",
-            input_schema=WeatherInput, execute=_weather_handler,
-        ))
-        registry.register(ToolDefinition(
-            name="search", description="s",
-            input_schema=SearchInput, execute=_search_handler,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="weather",
+                description="w",
+                input_schema=WeatherInput,
+                execute=_weather_handler,
+            )
+        )
+        registry.register(
+            ToolDefinition(
+                name="search",
+                description="s",
+                input_schema=SearchInput,
+                execute=_search_handler,
+            )
+        )
         tools = registry.to_openai_tools()
         assert len(tools) == 2
         assert all(t["type"] == "function" for t in tools)
 
     def test_dispatch_known_tool(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="weather", description="w",
-            input_schema=WeatherInput, execute=_weather_handler,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="weather",
+                description="w",
+                input_schema=WeatherInput,
+                execute=_weather_handler,
+            )
+        )
         result = registry.dispatch("weather", {"city": "Seoul"})
         assert result.success is True
         assert result.output == "Seoul: 25°C"
@@ -256,19 +293,27 @@ class TestToolRegistry:
 
     def test_dispatch_with_validation_error(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="search", description="s",
-            input_schema=SearchInput, execute=_search_handler,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="search",
+                description="s",
+                input_schema=SearchInput,
+                execute=_search_handler,
+            )
+        )
         result = registry.dispatch("search", {"max_results": 5})  # missing 'query'
         assert result.success is False
 
     def test_repr(self):
         registry = ToolRegistry()
-        registry.register(ToolDefinition(
-            name="weather", description="w",
-            input_schema=WeatherInput, execute=_weather_handler,
-        ))
+        registry.register(
+            ToolDefinition(
+                name="weather",
+                description="w",
+                input_schema=WeatherInput,
+                execute=_weather_handler,
+            )
+        )
         assert "weather" in repr(registry)
 
     def test_empty_registry(self):
@@ -284,10 +329,11 @@ class TestToolRegistry:
 
 
 class TestRepr:
-
     def test_tool_repr(self):
         tool = ToolDefinition(
-            name="my_tool", description="test",
-            input_schema=WeatherInput, execute=_weather_handler,
+            name="my_tool",
+            description="test",
+            input_schema=WeatherInput,
+            execute=_weather_handler,
         )
         assert "my_tool" in repr(tool)

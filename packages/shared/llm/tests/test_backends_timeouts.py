@@ -18,10 +18,13 @@ def test_openai_client_uses_explicit_timeout():
 def test_gemini_client_uses_http_timeout_options():
     manager = backends_mod.BackendManager({"gemini": "test-key"})
 
-    with patch("google.genai.Client", return_value=MagicMock()) as mock_client, patch(
-        "google.genai.types.HttpOptions",
-        side_effect=lambda **kwargs: kwargs,
-    ) as mock_http_options:
+    with (
+        patch("google.genai.Client", return_value=MagicMock()) as mock_client,
+        patch(
+            "google.genai.types.HttpOptions",
+            side_effect=lambda **kwargs: kwargs,
+        ) as mock_http_options,
+    ):
         manager._get_gemini()
 
     assert mock_http_options.call_args.kwargs["timeout"] == 120_000  # ms (google-genai SDK 1.x)

@@ -83,10 +83,10 @@ class TestBiojuhoQAGuards(unittest.TestCase):
                 GeneratedTweet(
                     tweet_type="observation",
                     content=(
-                        "\uC774\uAC74 \uAD6C\uC870 \uBB38\uC81C\uC784. "
-                        "\uB370\uC774\uD130\uB3C4 \uC5C6\uC74C. "
-                        "\uD574\uC11D\uB3C4 \uACF5\uD5C8\uD568\uC784. "
-                        "\uADF8\uB798\uC11C \uBB34\uAC8C\uB3C4 \uC5C6\uC74C."
+                        "\uc774\uac74 \uad6c\uc870 \ubb38\uc81c\uc784. "
+                        "\ub370\uc774\ud130\ub3c4 \uc5c6\uc74c. "
+                        "\ud574\uc11d\ub3c4 \uacf5\ud5c8\ud568\uc784. "
+                        "\uadf8\ub798\uc11c \ubb34\uac8c\ub3c4 \uc5c6\uc74c."
                     ),
                 )
             ],

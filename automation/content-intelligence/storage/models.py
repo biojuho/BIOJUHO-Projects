@@ -60,7 +60,7 @@ class MergedTrendReport:
         for report in self.platform_reports:
             lines.append(f"\n■ {report.platform.upper()} 트렌드:")
             for t in report.trends:
-                lines.append(f"  - {t.keyword} (볼륨:{t.volume}) | " f"포맷:{t.format_trend} | 톤:{t.tone_trend}")
+                lines.append(f"  - {t.keyword} (볼륨:{t.volume}) | 포맷:{t.format_trend} | 톤:{t.tone_trend}")
                 if t.sentiment != "neutral":
                     lines.append(f"    ↳ 감성: {t.sentiment} | 신뢰도: {t.confidence}%")
                 if t.hook_starter:
@@ -110,7 +110,7 @@ class UnifiedChecklist:
         lines.append("\n❌ DON'T (절대 하지 마라):")
         for item in self.dont_items:
             sev = item.get("severity", "중")
-            lines.append(f"  [{item.get('platform', '공통')}] " f"[{sev}] {item.get('action', '')}")
+            lines.append(f"  [{item.get('platform', '공통')}] [{sev}] {item.get('action', '')}")
         return "\n".join(lines)
 
 
@@ -123,11 +123,11 @@ class UnifiedChecklist:
 class QAAxisDiagnostic:
     """단일 QA 축의 진단 결과 — 점수 + 이유 + 개선안."""
 
-    axis: str            # "hook", "fact", ... "credibility"
+    axis: str  # "hook", "fact", ... "credibility"
     score: int = 0
     max_score: int = 0
-    reason: str = ""     # 이 점수를 받은 이유
-    suggestion: str = "" # 구체적 개선 방향
+    reason: str = ""  # 이 점수를 받은 이유
+    suggestion: str = ""  # 구체적 개선 방향
 
     @property
     def score_ratio(self) -> float:
@@ -146,8 +146,8 @@ class PersonaFitScore:
 
     persona_id: str
     persona_name: str
-    fit_score: int = 0   # 0~10
-    reason: str = ""     # 적합/부적합 근거
+    fit_score: int = 0  # 0~10
+    reason: str = ""  # 적합/부적합 근거
 
 
 @dataclass
@@ -163,9 +163,9 @@ class QAReport:
     algorithm_score: int = 0  # 0~10 알고리즘 최적화
     warnings: list[str] = field(default_factory=list)
     # v2.0 보조 독자가치 지표 (total_score에 미포함, 진단용)
-    reader_value_score: int = 0   # 0~10 독자 페인포인트 해소
-    originality_score: int = 0    # 0~10 정보 희소성/독창성
-    credibility_score: int = 0    # 0~10 신뢰성 근거 제시
+    reader_value_score: int = 0  # 0~10 독자 페인포인트 해소
+    originality_score: int = 0  # 0~10 정보 희소성/독창성
+    credibility_score: int = 0  # 0~10 신뢰성 근거 제시
     # 검증 시점의 합격 기준 (validate_content에서 설정)
     applied_min_score: int = 70
     # ── Pro 진단 필드 ──
@@ -254,8 +254,8 @@ class QAReport:
 class ThreadPost:
     """X 스레드 내 개별 트윗."""
 
-    index: int = 0           # 0-based position in thread
-    role: str = "body"       # "hook" | "body" | "kick"
+    index: int = 0  # 0-based position in thread
+    role: str = "body"  # "hook" | "body" | "kick"
     body: str = ""
     char_count: int = 0
 
@@ -338,9 +338,7 @@ class ContentBatch:
         published = sum(1 for c in self.contents if c.is_published)
         pub_str = f" | 발행: {published}건" if published else ""
         return (
-            f"콘텐츠 {len(self.contents)}건 | "
-            f"플랫폼: {', '.join(sorted(platforms))} | "
-            f"평균 QA: {avg:.0f}/100{pub_str}"
+            f"콘텐츠 {len(self.contents)}건 | 플랫폼: {', '.join(sorted(platforms))} | 평균 QA: {avg:.0f}/100{pub_str}"
         )
 
 

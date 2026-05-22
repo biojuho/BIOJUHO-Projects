@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ══════════════════════════════════════════════════════
 #  Fixtures
 # ══════════════════════════════════════════════════════
@@ -140,12 +139,14 @@ class TestAntiPatternSuppressor:
         from edape.anti_pattern import AntiPatternSuppressor
 
         tracker = MagicMock()
-        tracker.get_angle_performance = AsyncMock(return_value={
-            "a": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.05),
-            "b": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.03),
-            "c": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.01),
-            "d": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.02),
-        })
+        tracker.get_angle_performance = AsyncMock(
+            return_value={
+                "a": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.05),
+                "b": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.03),
+                "c": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.01),
+                "d": FakeAngleStats(total_tweets=10, avg_engagement_rate=0.02),
+            }
+        )
         tracker.get_hook_performance = AsyncMock(return_value={})
         tracker.get_kick_performance = AsyncMock(return_value={})
 
@@ -231,28 +232,34 @@ class TestPromptInjector:
         injector = PromptInjector(config)
 
         mock_tracker = MagicMock()
-        mock_tracker.get_angle_performance = AsyncMock(return_value={
-            "hot_take": FakeAngleStats(
-                total_tweets=20,
-                avg_engagement_rate=0.05,
-                avg_impressions=1500.0,
-            ),
-            "empathy": FakeAngleStats(
-                total_tweets=15,
-                avg_engagement_rate=0.03,
-                avg_impressions=800.0,
-            ),
-        })
+        mock_tracker.get_angle_performance = AsyncMock(
+            return_value={
+                "hot_take": FakeAngleStats(
+                    total_tweets=20,
+                    avg_engagement_rate=0.05,
+                    avg_impressions=1500.0,
+                ),
+                "empathy": FakeAngleStats(
+                    total_tweets=15,
+                    avg_engagement_rate=0.03,
+                    avg_impressions=800.0,
+                ),
+            }
+        )
         mock_tracker.get_hook_performance = AsyncMock(return_value={})
         mock_tracker.get_kick_performance = AsyncMock(return_value={})
-        mock_tracker.get_optimal_pattern_weights = AsyncMock(return_value={
-            "angle_weights": {"hot_take": 0.6, "empathy": 0.4},
-            "hook_weights": {},
-            "kick_weights": {},
-        })
-        mock_tracker.get_golden_references = AsyncMock(return_value=[
-            FakeGoldenRef(),
-        ])
+        mock_tracker.get_optimal_pattern_weights = AsyncMock(
+            return_value={
+                "angle_weights": {"hot_take": 0.6, "empathy": 0.4},
+                "hook_weights": {},
+                "kick_weights": {},
+            }
+        )
+        mock_tracker.get_golden_references = AsyncMock(
+            return_value=[
+                FakeGoldenRef(),
+            ]
+        )
 
         mock_tracker.get_angle_performance = AsyncMock(side_effect=RuntimeError("DB 이상"))
         mock_tracker.get_hook_performance = AsyncMock(side_effect=RuntimeError("DB 이상"))
@@ -260,28 +267,34 @@ class TestPromptInjector:
         mock_tracker.get_optimal_pattern_weights = AsyncMock(side_effect=RuntimeError("DB 이상"))
         mock_tracker.get_golden_references = AsyncMock(side_effect=RuntimeError("DB 이상"))
 
-        mock_tracker.get_angle_performance = AsyncMock(return_value={
-            "hot_take": FakeAngleStats(
-                total_tweets=20,
-                avg_engagement_rate=0.05,
-                avg_impressions=1500.0,
-            ),
-            "empathy": FakeAngleStats(
-                total_tweets=15,
-                avg_engagement_rate=0.03,
-                avg_impressions=800.0,
-            ),
-        })
+        mock_tracker.get_angle_performance = AsyncMock(
+            return_value={
+                "hot_take": FakeAngleStats(
+                    total_tweets=20,
+                    avg_engagement_rate=0.05,
+                    avg_impressions=1500.0,
+                ),
+                "empathy": FakeAngleStats(
+                    total_tweets=15,
+                    avg_engagement_rate=0.03,
+                    avg_impressions=800.0,
+                ),
+            }
+        )
         mock_tracker.get_hook_performance = AsyncMock(return_value={})
         mock_tracker.get_kick_performance = AsyncMock(return_value={})
-        mock_tracker.get_optimal_pattern_weights = AsyncMock(return_value={
-            "angle_weights": {"hot_take": 0.6, "empathy": 0.4},
-            "hook_weights": {},
-            "kick_weights": {},
-        })
-        mock_tracker.get_golden_references = AsyncMock(return_value=[
-            FakeGoldenRef(),
-        ])
+        mock_tracker.get_optimal_pattern_weights = AsyncMock(
+            return_value={
+                "angle_weights": {"hot_take": 0.6, "empathy": 0.4},
+                "hook_weights": {},
+                "kick_weights": {},
+            }
+        )
+        mock_tracker.get_golden_references = AsyncMock(
+            return_value=[
+                FakeGoldenRef(),
+            ]
+        )
 
         with patch.object(injector, "_get_tracker", return_value=mock_tracker):
             ctx = await injector.build()

@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import sqlite3
 import threading
+import weakref
 from pathlib import Path
 
 from antigravity_mcp.config import get_settings
@@ -23,6 +24,8 @@ from antigravity_mcp.state.mixins import (
     _XPostMixin,
 )
 from antigravity_mcp.state.reasoning_mixin import _ReasoningMixin
+
+_OPEN_STORES: weakref.WeakSet[PipelineStateStore] = weakref.WeakSet()
 
 LATEST_SCHEMA_VERSION = 2
 
@@ -41,11 +44,11 @@ class PipelineStateStore(
     """Facade that owns the SQLite connection and delegates domain logic to mixins."""
 
     def __init__(self, path: Path | None = None) -> None:
-        settings = get_settings()
-        self.path = path or settings.pipeline_state_db
+        self.path = path or get_settings().pipeline_state_db
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._conn: sqlite3.Connection | None = None
+        _OPEN_STORES.add(self)
         self._ensure_schema()
 
     # ── Connection management ─────────────────────────────────────────────
@@ -81,6 +84,11 @@ class PipelineStateStore(
 
     def __del__(self) -> None:
         self.close()
+
+    @staticmethod
+    def close_all_open() -> None:
+        for store in list(_OPEN_STORES):
+            store.close()
 
     # ── Schema helpers ────────────────────────────────────────────────────
 

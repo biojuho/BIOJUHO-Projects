@@ -58,7 +58,7 @@ def _derive_fernet_key() -> bytes | None:
     return base64.urlsafe_b64encode(raw)
 
 
-def _load_encrypted_cookies(client: "TwikitClient") -> bool:
+def _load_encrypted_cookies(client: TwikitClient) -> bool:
     """암호화된 쿠키(.enc)를 복호화해 클라이언트에 로드. 성공하면 True."""
     if not _COOKIES_ENC_PATH.exists():
         return False
@@ -189,8 +189,10 @@ def is_available() -> bool:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, asyncio.TimeoutError, ValueError)),  # B-017
-    retry_error_callback=lambda rs: []
+    retry=retry_if_exception_type(
+        (RuntimeError, ConnectionError, TimeoutError, asyncio.TimeoutError, ValueError)
+    ),  # B-017
+    retry_error_callback=lambda rs: [],
 )
 async def search_tweets(keyword: str, count: int = 10) -> list[dict[str, Any]]:
     """키워드로 최신 트윗 검색. 실패 시 3회 재시도 후 빈 리스트 반환."""
@@ -264,7 +266,7 @@ async def search_tweets_formatted(keyword: str, count: int = 10) -> str:
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
     retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, ValueError)),
-    retry_error_callback=lambda rs: []
+    retry_error_callback=lambda rs: [],
 )
 async def fetch_trends(category: str = "trending") -> list[dict[str, Any]]:
     """X 트렌딩 토픽 직접 수집. 실패 시 3회 재시도 후 빈 리스트."""
@@ -282,7 +284,7 @@ async def fetch_trends(category: str = "trending") -> list[dict[str, Any]]:
     wait=wait_exponential(multiplier=1, min=2, max=10),
     # B-017 fix: asyncio.TimeoutError 명시 적용
     retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError, asyncio.TimeoutError, ValueError)),
-    retry_error_callback=lambda rs: None
+    retry_error_callback=lambda rs: None,
 )
 async def get_tweet_metrics(tweet_id: str) -> dict[str, Any] | None:
     """트윗 ID로 참여도 메트릭 조회. 3회 재시도 수행."""

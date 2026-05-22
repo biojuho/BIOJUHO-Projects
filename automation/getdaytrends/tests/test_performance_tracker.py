@@ -5,10 +5,12 @@ from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
+
 respx = pytest.importorskip("respx")
 
-from perf_models import ANGLE_TYPES, GoldenReference, HOOK_PATTERNS, KICK_PATTERNS, TweetMetrics
+from perf_models import ANGLE_TYPES, HOOK_PATTERNS, KICK_PATTERNS, GoldenReference, TweetMetrics
 from performance_tracker import PerformanceTracker
+
 
 @pytest.fixture
 def temp_db() -> Generator[str, None, None]:
@@ -18,17 +20,19 @@ def temp_db() -> Generator[str, None, None]:
     yield path
     os.unlink(path)
 
+
 @pytest_asyncio.fixture
 async def tracker(temp_db: str) -> PerformanceTracker:
     """Create a PerformanceTracker instance connected to the temp database."""
     # SQLite 락 충돌 방지를 위해 WAL 모드 강제 적용
     import sqlite3
+
     conn_sync = sqlite3.connect(temp_db)
     conn_sync.execute("PRAGMA journal_mode=WAL")
     conn_sync.close()
 
     t = PerformanceTracker(db_path=temp_db, bearer_token="test_token")
-    
+
     conn = await t._get_conn()
     await conn.executescript("""
         CREATE TABLE IF NOT EXISTS tweets (
@@ -88,12 +92,13 @@ async def tracker(temp_db: str) -> PerformanceTracker:
 
     return t
 
+
 @pytest.mark.asyncio
 async def test_init_table_idempotent(tracker: PerformanceTracker) -> None:
     """Test that init_table doesn't crash on multiple calls."""
     await tracker.init_table()
     await tracker.init_table()  # should be idempotent
-    
+
     conn = await tracker._get_conn()
     cursor = await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     rows = await cursor.fetchall()
@@ -102,6 +107,7 @@ async def test_init_table_idempotent(tracker: PerformanceTracker) -> None:
     assert "golden_references" in tables
     assert "trend_genealogy" in tables
     await conn.close()
+
 
 @pytest.mark.asyncio
 async def test_save_metrics(tracker: PerformanceTracker) -> None:
@@ -129,6 +135,7 @@ async def test_save_metrics(tracker: PerformanceTracker) -> None:
     assert row["engagement_rate"] == metrics.engagement_rate
     await conn.close()
 
+
 @pytest.mark.asyncio
 async def test_golden_references_crud(tracker: PerformanceTracker) -> None:
     """Test CRUD operations on Golden References via mixin."""
@@ -140,7 +147,7 @@ async def test_golden_references_crud(tracker: PerformanceTracker) -> None:
         kick_pattern="call_to_action",
         engagement_rate=0.08,
         impressions=5000,
-        saved_at=datetime.now(UTC)
+        saved_at=datetime.now(UTC),
     )
 
     await tracker.save_golden_reference(ref)
@@ -151,12 +158,14 @@ async def test_golden_references_crud(tracker: PerformanceTracker) -> None:
     assert refs[0].content == "Test golden tweet"
     assert refs[0].engagement_rate == 0.08
 
+
 @pytest.mark.asyncio
 async def test_batch_collect_no_token() -> None:
     """Test that batch_collect exits gracefully without token."""
     t = PerformanceTracker(bearer_token="")
     result = await t.batch_collect(["1", "2"])
     assert result == []
+
 
 @respx.mock
 @pytest.mark.asyncio
@@ -173,11 +182,11 @@ async def test_batch_collect_success(tracker: PerformanceTracker) -> None:
                         "like_count": 5,
                         "retweet_count": 1,
                         "reply_count": 0,
-                        "quote_count": 0
-                    }
+                        "quote_count": 0,
+                    },
                 }
             ]
-        }
+        },
     )
 
     result = await tracker.batch_collect(["111"])
@@ -186,6 +195,7 @@ async def test_batch_collect_success(tracker: PerformanceTracker) -> None:
     assert metrics.tweet_id == "111"
     assert metrics.impressions == 100
     assert metrics.likes == 5
+
 
 @pytest.mark.asyncio
 async def test_angle_performance_computation(tracker: PerformanceTracker) -> None:
@@ -207,6 +217,7 @@ async def test_angle_performance_computation(tracker: PerformanceTracker) -> Non
     # (0.1 + 0.15) / 2 = 0.125
     assert stats["contrarian"].avg_engagement_rate == pytest.approx(0.125)
     assert stats["story"].total_tweets == 1
+
 
 @pytest.mark.asyncio
 async def test_auto_update_golden_references(tracker: PerformanceTracker) -> None:

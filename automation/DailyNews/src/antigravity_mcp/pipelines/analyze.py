@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from antigravity_mcp.config import emit_metric
 from antigravity_mcp.domain.models import ContentItem, ContentReport
@@ -32,15 +32,26 @@ from antigravity_mcp.tracing import trace_context
 logger = logging.getLogger(__name__)
 
 
-def _get_notifier():
+def _get_notifier() -> object:
     """Lazy-import shared Notifier (never raises)."""
     try:
         from shared.notifications import Notifier
+
         return Notifier.from_env()
     except Exception:
         return None
 
+
 __all__ = ["BriefAdapters", "ReportAssemblyContext", "build_report_fingerprint", "generate_briefs"]
+
+_CATEGORY_FAMILY: dict[str, frozenset[str]] = {
+    "Economy_KR": frozenset({"Economy_KR"}),
+    "Economy_Global": frozenset({"Economy_Global"}),
+    "Crypto": frozenset({"Crypto"}),
+    "Tech": frozenset({"Tech"}),
+    "AI_Deep": frozenset({"AI_Deep", "Tech"}),
+    "Global_Affairs": frozenset({"Global_Affairs"}),
+}
 
 
 @dataclass(slots=True)
@@ -60,6 +71,127 @@ class BriefAdapters:
     jina: JinaAdapter | None = None
 
 
+def _resolve_llm_adapter(
+    state_store: PipelineStateStore,
+    adapters: BriefAdapters,
+    llm_adapter: LLMAdapter | None,
+) -> LLMAdapter:
+    return llm_adapter or adapters.llm or LLMAdapter(state_store=state_store)
+
+
+def _resolve_embedding_adapter(
+    adapters: BriefAdapters,
+    embedding_adapter: EmbeddingAdapter | None,
+) -> EmbeddingAdapter:
+    return embedding_adapter or adapters.embedding or EmbeddingAdapter()
+
+
+def _build_insight_adapter(llm: LLMAdapter, state_store: PipelineStateStore) -> InsightAdapter | None:
+    if not hasattr(llm, "generate_text"):
+        return None
+    try:
+        return InsightAdapter(llm_adapter=llm, state_store=state_store)
+    except Exception as exc:
+        logger.warning("InsightAdapter initialization failed; insight disabled: %s", exc)
+        return None
+
+
+def _resolve_insight_adapter(
+    state_store: PipelineStateStore,
+    adapters: BriefAdapters,
+    llm: LLMAdapter,
+    insight_adapter: Any,
+) -> Any:
+    explicit = insight_adapter or adapters.insight
+    if explicit is not None:
+        return explicit
+    return _build_insight_adapter(llm, state_store)
+
+
+def _filter_category_items(category: str, category_items: list[ContentItem]) -> tuple[list[ContentItem], int]:
+    allowed_categories = _CATEGORY_FAMILY.get(category, frozenset({category}))
+    filtered_items = [
+        item
+        for item in category_items
+        if not item.category or item.category in allowed_categories or item.category == "unknown"
+    ]
+    return filtered_items, len(category_items) - len(filtered_items)
+
+
+def _record_category_filter_result(
+    category: str,
+    *,
+    removed_count: int,
+    original_count: int,
+    remaining_count: int,
+    warnings: list[str],
+) -> bool:
+    if removed_count:
+        logger.info("Category purity filter: removed %d cross-category items from %s", removed_count, category)
+        warnings.append(
+            f"[CategoryFilter] {category}: {removed_count} cross-category item(s) removed "
+            f"(total {original_count}, kept {remaining_count})"
+        )
+    if remaining_count:
+        return True
+    warnings.append(f"[CategoryFilter] {category}: no items remain after filtering; skipped.")
+    return False
+
+
+def _jina_urls(category_items: list[ContentItem]) -> list[str]:
+    return [item.link for item in category_items if item.link and str(item.link).startswith("http")]
+
+
+def _apply_jina_contexts(category_items: list[ContentItem], contexts: dict[str, str]) -> None:
+    for item in category_items:
+        if item.link in contexts and "[Deep Context (Jina.ai)]" not in item.summary:
+            deep_text = contexts[item.link]
+            item.summary = f"{item.summary}\n\n[Deep Context (Jina.ai)]\n{deep_text}"
+
+
+async def _enrich_with_jina(category: str, category_items: list[ContentItem], jina: JinaAdapter | None) -> None:
+    if not jina:
+        return
+    urls_to_fetch = _jina_urls(category_items)
+    if not urls_to_fetch:
+        return
+    logger.info("Fetching deep context via Jina.ai for %d URLs in %s", len(urls_to_fetch), category)
+    _apply_jina_contexts(category_items, await jina.fetch_contexts_for_urls(urls_to_fetch))
+
+
+def _quality_feedback(state_store: PipelineStateStore, category: str) -> Any | None:
+    try:
+        return state_store.get_category_quality_history(category, days=7)
+    except Exception as exc:
+        logger.debug("Quality history fetch failed for %s: %s", category, exc)
+        return None
+
+
+def _recent_draft_previews(state_store: PipelineStateStore, category: str) -> list[str] | None:
+    try:
+        recent = state_store.get_recent_drafts(category, days=7, channel="x")
+    except Exception as exc:
+        logger.debug("Recent drafts fetch failed for %s: %s", category, exc)
+        return None
+    if not recent:
+        return None
+    return [draft["content"][:300] for draft in recent[:3]]
+
+
+def _group_items_by_category(items: list[ContentItem]) -> dict[str, list[ContentItem]]:
+    grouped: dict[str, list[ContentItem]] = defaultdict(list)
+    for item in items:
+        grouped[item.category].append(item)
+    return grouped
+
+
+def _cleanup_stale_run_warning(state_store: PipelineStateStore) -> str | None:
+    cleaned = state_store.cleanup_stale_runs(max_age_minutes=30)
+    if not cleaned:
+        return None
+    return f"Auto-cleaned {cleaned} stale run(s) stuck in 'running' state."
+
+
 def _resolve_adapters(
     state_store: PipelineStateStore,
     adapters: BriefAdapters | None,
@@ -76,15 +208,9 @@ def _resolve_adapters(
 ) -> BriefAdapters:
     """Merge legacy kwargs into a BriefAdapters bag (explicit kwargs win over bag defaults)."""
     a = adapters or BriefAdapters()
-    llm = llm_adapter or a.llm or LLMAdapter(state_store=state_store)
-    emb = embedding_adapter or a.embedding or EmbeddingAdapter()
-    insight = insight_adapter or a.insight
-    if insight is None and hasattr(llm, "generate_text"):
-        try:
-            insight = InsightAdapter(llm_adapter=llm, state_store=state_store)
-        except Exception as e:
-            logger.warning("InsightAdapter 초기화 실패 — insight 기능 비활성: %s", e)
-            insight = None
+    llm = _resolve_llm_adapter(state_store, a, llm_adapter)
+    emb = _resolve_embedding_adapter(a, embedding_adapter)
+    insight = _resolve_insight_adapter(state_store, a, llm, insight_adapter)
     return BriefAdapters(
         llm=llm,
         embedding=emb,
@@ -115,28 +241,15 @@ async def _process_category(
 ) -> None:
     """단일 카테고리 브리프 생성 → reports/warnings에 인플레이스 추가."""
 
-    # P2: 카테고리 오염 방지 — 각 기사의 category 필드가 현재 카테고리와 일치하는지 강제 필터
-    # economy/tech/crypto 계열 간 소스 오염을 차단한다 (getdaytrends의 max_same_category 패턴 차용)
-    _CATEGORY_FAMILY: dict[str, frozenset[str]] = {
-        "Economy_KR": frozenset({"Economy_KR"}),
-        "Economy_Global": frozenset({"Economy_Global"}),
-        "Crypto": frozenset({"Crypto"}),
-        "Tech": frozenset({"Tech"}),
-        "AI_Deep": frozenset({"AI_Deep", "Tech"}),  # AI는 Tech 기사 허용
-        "Global_Affairs": frozenset({"Global_Affairs"}),
-    }
-    allowed_cats = _CATEGORY_FAMILY.get(category, frozenset({category}))
-    pre_filter_count = len(category_items)
-    category_items = [
-        item for item in category_items
-        if not item.category or item.category in allowed_cats or item.category == "unknown"
-    ]
-    if len(category_items) < pre_filter_count:
-        removed = pre_filter_count - len(category_items)
-        logger.info("Category purity filter: removed %d cross-category items from %s", removed, category)
-        warnings.append(f"[CategoryFilter] {category}: {removed}개 타 카테고리 기사 제거 (총 {pre_filter_count}→{len(category_items)})")
-    if not category_items:
-        warnings.append(f"[CategoryFilter] {category}: 필터 후 기사 없음 — 스킵")
+    original_count = len(category_items)
+    category_items, removed_count = _filter_category_items(category, category_items)
+    if not _record_category_filter_result(
+        category,
+        removed_count=removed_count,
+        original_count=original_count,
+        remaining_count=len(category_items),
+        warnings=warnings,
+    ):
         return
 
     # Fingerprint must be computed BEFORE Jina enrichment to ensure
@@ -155,38 +268,17 @@ async def _process_category(
         warnings.append(f"Reused existing report for {category}.")
         return
 
-    # 🌟 Jina AI Deep Research Fetching (after fingerprint, before LLM)
-    if resolved.jina:
-        urls_to_fetch = [item.link for item in category_items if item.link and str(item.link).startswith("http")]
-        if urls_to_fetch:
-            logger.info("Fetching deep context via Jina.ai for %d URLs in %s", len(urls_to_fetch), category)
-            contexts = await resolved.jina.fetch_contexts_for_urls(urls_to_fetch)
-            for item in category_items:
-                if item.link in contexts and "[Deep Context (Jina.ai)]" not in item.summary:
-                    deep_text = contexts[item.link]
-                    item.summary = f"{item.summary}\n\n[Deep Context (Jina.ai)]\n{deep_text}"
+    await _enrich_with_jina(category, category_items, resolved.jina)
 
-    # 🔄 QA Feedback Loop: fetch quality history + recent drafts
-    quality_feedback = None
-    overlapping_draft_texts = None
-    try:
-        quality_feedback = state_store.get_category_quality_history(category, days=7)
-    except Exception as exc:
-        logger.debug("Quality history fetch failed for %s: %s", category, exc)
-    try:
-        recent = state_store.get_recent_drafts(category, days=7, channel="x")
-        if recent:
-            overlapping_draft_texts = [d["content"][:300] for d in recent[:3]]
-    except Exception as exc:
-        logger.debug("Recent drafts fetch failed for %s: %s", category, exc)
-
+    llm = cast("LLMAdapter", resolved.llm)
     await generate_base_payload(
-        ctx, resolved.llm,
-        quality_feedback=quality_feedback,
-        overlapping_drafts=overlapping_draft_texts,
+        ctx,
+        llm,
+        quality_feedback=_quality_feedback(state_store, category),
+        overlapping_drafts=_recent_draft_previews(state_store, category),
     )
     # Auto-heal에서 LLM 재호출할 수 있도록 ctx에 참조 저장
-    ctx._llm_adapter = resolved.llm  # type: ignore[attr-defined]
+    ctx._llm_adapter = llm
     await apply_proofreading(ctx, resolved.proofreader)
     await apply_enrichments(
         ctx,
@@ -223,6 +315,39 @@ async def _alert_blocked_reports(blocked_reports: list, run_id: str) -> None:
         logger.warning("Telegram alert failed: %s", exc)
 
 
+
+def _send_generate_notifications(
+    *,
+    grouped: dict[str, list[ContentItem]],
+    reports: list[ContentReport],
+    items: list[ContentItem],
+    window_name: str,
+    blocked_reports: list[ContentReport],
+) -> None:
+    try:
+        notifier = _get_notifier()
+        if not notifier or not notifier.has_channels:
+            return
+        if blocked_reports:
+            blocked_cats = ", ".join(report.category for report in blocked_reports)
+            notifier.send_error(
+                f"DailyNews 리포트 생성 실패: {len(blocked_reports)}건 blocked ({blocked_cats})",
+                source="DailyNews",
+            )
+            return
+        categories_done = ", ".join(grouped.keys())
+        notifier.send_heartbeat(
+            "DailyNews",
+            status="alive",
+            details=(
+                f"window={window_name} | "
+                f"카테고리={categories_done} | "
+                f"리포트={len(reports)}건 | "
+                f"아이템={len(items)}건"
+            ),
+        )
+    except Exception as notifier_exc:
+        logger.debug("Notifier send failed (ignored): %s", notifier_exc)
 async def generate_briefs(
     *,
     items: list[ContentItem],
@@ -245,24 +370,37 @@ async def generate_briefs(
     digest_adapter: Any | None = None,
 ) -> tuple[str, list[ContentReport], list[str], str]:
     resolved = _resolve_adapters(
-        state_store, adapters,
-        llm_adapter, embedding_adapter, insight_adapter,
-        sentiment_adapter, brain_adapter, proofreader_adapter,
-        notebooklm_adapter, skill_adapter, reasoning_adapter, digest_adapter,
+        state_store,
+        adapters,
+        llm_adapter,
+        embedding_adapter,
+        insight_adapter,
+        sentiment_adapter,
+        brain_adapter,
+        proofreader_adapter,
+        notebooklm_adapter,
+        skill_adapter,
+        reasoning_adapter,
+        digest_adapter,
     )
     run_id = run_id or generate_run_id("generate_brief")
 
     with trace_context(run_id):
-        grouped: dict[str, list[ContentItem]] = defaultdict(list)
-        for item in items:
-            grouped[item.category].append(item)
-
+        grouped = _group_items_by_category(items)
         warnings: list[str] = []
         reports: list[ContentReport] = []
 
-        cleaned = state_store.cleanup_stale_runs(max_age_minutes=30)
-        if cleaned:
-            warnings.append(f"Auto-cleaned {cleaned} stale run(s) stuck in 'running' state.")
+        # 빈 items 호출은 silent success가 되어 alive heartbeat만 가서 upstream
+        # 수집 실패(피드 0건, 클러스터 필터 과도, signal_watch 트리거 미매칭 등)가
+        # 묵음으로 묻힌다. warning을 추가해 status="partial"로 강등.
+        if not items:
+            warnings.append(
+                f"generate_briefs called with no items for window {window_name}; "
+                "no reports generated (upstream collect/signal/skill empty?)."
+            )
+
+        if stale_warning := _cleanup_stale_run_warning(state_store):
+            warnings.append(stale_warning)
 
         state_store.record_job_start(
             run_id,
@@ -275,9 +413,17 @@ async def generate_briefs(
 
         for category, category_items in grouped.items():
             await _process_category(
-                category, category_items, cluster_meta,
-                window_name, window_start, window_end,
-                state_store, run_id, resolved, reports, warnings,
+                category,
+                category_items,
+                cluster_meta,
+                window_name,
+                window_start,
+                window_end,
+                state_store,
+                run_id,
+                resolved,
+                reports,
+                warnings,
             )
 
         blocked_reports = [r for r in reports if r.quality_state == "blocked"]
@@ -306,29 +452,12 @@ async def generate_briefs(
         if blocked_reports:
             await _alert_blocked_reports(blocked_reports, run_id)
 
-        # ── Notifier 연동: heartbeat + error (약결합, fire-and-forget) ──
-        try:
-            notifier = _get_notifier()
-            if notifier and notifier.has_channels:
-                if blocked_reports:
-                    blocked_cats = ", ".join(r.category for r in blocked_reports)
-                    notifier.send_error(
-                        f"DailyNews 리포트 생성 실패: {len(blocked_reports)}건 blocked ({blocked_cats})",
-                        source="DailyNews",
-                    )
-                else:
-                    categories_done = ", ".join(grouped.keys())
-                    notifier.send_heartbeat(
-                        "DailyNews",
-                        status="alive",
-                        details=(
-                            f"window={window_name} | "
-                            f"카테고리={categories_done} | "
-                            f"리포트={len(reports)}건 | "
-                            f"아이템={len(items)}건"
-                        ),
-                    )
-        except Exception as notifier_exc:
-            logger.debug("Notifier send failed (ignored): %s", notifier_exc)
+        _send_generate_notifications(
+            grouped=grouped,
+            reports=reports,
+            items=items,
+            window_name=window_name,
+            blocked_reports=blocked_reports,
+        )
 
     return run_id, reports, warnings, "partial" if warnings else "ok"

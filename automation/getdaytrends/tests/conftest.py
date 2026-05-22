@@ -31,11 +31,18 @@ TMP_ROOT = WORKSPACE_ROOT / ".smoke-tmp" / "getdaytrends-tests"
 
 def pytest_configure(config):
     pkg_root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+    workspace_root = os.path.normpath(os.path.join(pkg_root, "..", ".."))
+    packages_root = os.path.join(workspace_root, "packages")
     notebooklm_src = os.path.normpath(os.path.join(pkg_root, "..", "notebooklm-automation", "src"))
     # Ensure getdaytrends package root takes priority for bare 'core', 'models' etc.
     while pkg_root in sys.path:
         sys.path.remove(pkg_root)
     sys.path.insert(0, pkg_root)
+    for shared_path in (packages_root, workspace_root):
+        if os.path.isdir(shared_path):
+            while shared_path in sys.path:
+                sys.path.remove(shared_path)
+            sys.path.insert(1, shared_path)
     if os.path.isdir(notebooklm_src):
         while notebooklm_src in sys.path:
             sys.path.remove(notebooklm_src)
@@ -107,6 +114,18 @@ def isolate_database_url():
             os.environ["DATABASE_URL"] = original
 
 
+@pytest.fixture(autouse=True)
+def _disable_deepeval_in_tests(monkeypatch):
+    """Skip DeepEval LLM probes during unit tests.
+
+    DeepEval metrics fire real LLM calls (Hallucination/Faithfulness/Relevancy).
+    Without LLM keys each metric still spends 5-15s on init+timeout, which
+    dominated fact_checker test runtime (6 tests ≈ 150s). Tests that
+    genuinely exercise DeepEval opt back in via monkeypatch.delenv.
+    """
+    monkeypatch.setenv("DEEPEVAL_DISABLED", "1")
+
+
 @pytest.fixture
 def event_loop():
     """Override default event_loop fixture to always provide a fresh loop.
@@ -136,6 +155,7 @@ def _reset_pg_pool():
     pool instead of aiosqlite.
     """
     import os
+
     import db_layer.connection as _dbconn
 
     _dbconn._PG_POOL = None
@@ -198,6 +218,7 @@ async def memory_db():
     test_dashboard / test_db_schema_pg) leave module-level state behind.
     """
     import os
+
     import db_layer.connection as _dbconn
 
     _dbconn._PG_POOL = None

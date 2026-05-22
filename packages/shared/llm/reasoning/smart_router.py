@@ -39,6 +39,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("shared.llm.reasoning.router")
 
+Message = dict[str, Any]
+
 
 class QueryComplexity(enum.Enum):
     """Estimated complexity of a user query."""
@@ -252,7 +254,7 @@ class SmartRouter:
     def route_and_reason(
         self,
         *,
-        messages: list[dict],
+        messages: list[Message],
         system: str = "",
         policy: LLMPolicy | None = None,
         tier: TaskTier | None = None,
@@ -277,7 +279,9 @@ class SmartRouter:
 
         log.info(
             "SmartRouter: complexity=%s, strategy=%s, tier=%s, code_context=%s",
-            complexity.value, strategy, resolved_tier.value,
+            complexity.value,
+            strategy,
+            resolved_tier.value,
             "injected" if enriched_system != system else "none",
         )
 
@@ -336,7 +340,7 @@ class SmartRouter:
     async def aroute_and_reason(
         self,
         *,
-        messages: list[dict],
+        messages: list[Message],
         system: str = "",
         policy: LLMPolicy | None = None,
         tier: TaskTier | None = None,
@@ -376,8 +380,8 @@ class SmartRouter:
         elif strategy == "sage":
             from .sage import SAGEEngine
 
-            engine = SAGEEngine(self._client)
-            result = await engine.arun(
+            sage_engine = SAGEEngine(self._client)
+            sage_result = await sage_engine.arun(
                 messages=messages,
                 system=enriched_system,
                 policy=policy,
@@ -387,41 +391,41 @@ class SmartRouter:
                 confidence_low=self._config["sage_confidence_low"],
             )
             return ReasoningResult(
-                text=result.text,
+                text=sage_result.text,
                 strategy_used="sage",
                 complexity=complexity,
-                confidence=result.confidence,
-                total_cost_usd=result.total_cost_usd,
+                confidence=sage_result.confidence,
+                total_cost_usd=sage_result.total_cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
-                reasoning_metadata={"stages": result.stages_applied, "enhanced": result.was_enhanced},
+                reasoning_metadata={"stages": sage_result.stages_applied, "enhanced": sage_result.was_enhanced},
             )
         elif strategy == "cot":
             from .chain_of_thought import ChainOfThoughtEngine
 
-            engine = ChainOfThoughtEngine(self._client)
-            result = await engine.arun(
+            cot_engine = ChainOfThoughtEngine(self._client)
+            cot_result = await cot_engine.arun(
                 messages=messages,
                 system=enriched_system,
                 policy=policy,
                 tier=resolved_tier,
                 max_tokens=max_tokens,
-                n_samples=self._config["cot_samples"],
+                n_samples=int(self._config["cot_samples"]),
                 consensus_threshold=self._config["cot_consensus_threshold"],
             )
             return ReasoningResult(
-                text=result.text,
+                text=cot_result.text,
                 strategy_used="cot",
                 complexity=complexity,
-                confidence=result.confidence,
-                total_cost_usd=result.total_cost_usd,
+                confidence=cot_result.confidence,
+                total_cost_usd=cot_result.total_cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
-                reasoning_metadata={"samples": result.samples_used, "early_stopped": result.early_stopped},
+                reasoning_metadata={"samples": cot_result.samples_used, "early_stopped": cot_result.early_stopped},
             )
         elif strategy == "fot":
             from .forest_of_thought import ForestOfThoughtEngine
 
-            engine = ForestOfThoughtEngine(self._client)
-            result = await engine.arun(
+            fot_engine = ForestOfThoughtEngine(self._client)
+            fot_result = await fot_engine.arun(
                 messages=messages,
                 system=enriched_system,
                 policy=policy,
@@ -429,16 +433,16 @@ class SmartRouter:
                 solve_tier=resolved_tier,
                 synthesize_tier=resolved_tier,
                 max_tokens=max_tokens,
-                max_subtasks=self._config["fot_max_depth"] + 2,
+                max_subtasks=int(self._config["fot_max_depth"]) + 2,
             )
             return ReasoningResult(
-                text=result.text,
+                text=fot_result.text,
                 strategy_used="fot",
                 complexity=complexity,
                 confidence=0.8,
-                total_cost_usd=result.total_cost_usd,
+                total_cost_usd=fot_result.total_cost_usd,
                 total_latency_ms=(time.perf_counter() - t0) * 1000,
-                reasoning_metadata={"subtasks": result.subtask_count},
+                reasoning_metadata={"subtasks": fot_result.subtask_count},
             )
         else:
             resp = await self._client.acreate(
@@ -519,7 +523,8 @@ class SmartRouter:
 
         try:
             code_context = self._context_map.get_relevant_context(
-                query, max_tokens=max_tokens,
+                query,
+                max_tokens=max_tokens,
             )
             if code_context:
                 separator = "\n\n" if system else ""
@@ -531,7 +536,17 @@ class SmartRouter:
 
     # -- Strategy runners (sync) --
 
-    def _run_direct(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
+    def _run_direct(
+        self,
+        *,
+        messages: list[Message],
+        system: str,
+        policy: LLMPolicy | None,
+        tier: TaskTier,
+        max_tokens: int,
+        complexity: QueryComplexity,
+        t0: float,
+    ) -> ReasoningResult:
         resp = self._client.create(
             tier=tier,
             messages=messages,
@@ -548,7 +563,17 @@ class SmartRouter:
             total_latency_ms=(time.perf_counter() - t0) * 1000,
         )
 
-    def _run_sage(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
+    def _run_sage(
+        self,
+        *,
+        messages: list[Message],
+        system: str,
+        policy: LLMPolicy | None,
+        tier: TaskTier,
+        max_tokens: int,
+        complexity: QueryComplexity,
+        t0: float,
+    ) -> ReasoningResult:
         from .sage import SAGEEngine
 
         engine = SAGEEngine(self._client)
@@ -571,7 +596,17 @@ class SmartRouter:
             reasoning_metadata={"stages": result.stages_applied, "enhanced": result.was_enhanced},
         )
 
-    def _run_cot(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
+    def _run_cot(
+        self,
+        *,
+        messages: list[Message],
+        system: str,
+        policy: LLMPolicy | None,
+        tier: TaskTier,
+        max_tokens: int,
+        complexity: QueryComplexity,
+        t0: float,
+    ) -> ReasoningResult:
         from .chain_of_thought import ChainOfThoughtEngine
 
         engine = ChainOfThoughtEngine(self._client)
@@ -581,7 +616,7 @@ class SmartRouter:
             policy=policy,
             tier=tier,
             max_tokens=max_tokens,
-            n_samples=self._config["cot_samples"],
+            n_samples=int(self._config["cot_samples"]),
             consensus_threshold=self._config["cot_consensus_threshold"],
         )
         return ReasoningResult(
@@ -594,7 +629,17 @@ class SmartRouter:
             reasoning_metadata={"samples": result.samples_used, "early_stopped": result.early_stopped},
         )
 
-    def _run_fot(self, *, messages, system, policy, tier, max_tokens, complexity, t0) -> ReasoningResult:
+    def _run_fot(
+        self,
+        *,
+        messages: list[Message],
+        system: str,
+        policy: LLMPolicy | None,
+        tier: TaskTier,
+        max_tokens: int,
+        complexity: QueryComplexity,
+        t0: float,
+    ) -> ReasoningResult:
         from .forest_of_thought import ForestOfThoughtEngine
 
         engine = ForestOfThoughtEngine(self._client)
@@ -606,7 +651,7 @@ class SmartRouter:
             solve_tier=tier,
             synthesize_tier=tier,
             max_tokens=max_tokens,
-            max_subtasks=self._config["fot_max_depth"] + 2,
+            max_subtasks=int(self._config["fot_max_depth"]) + 2,
         )
         return ReasoningResult(
             text=result.text,

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import json as _json
-import os
-from datetime import datetime
-
-from fastapi import APIRouter
 
 from db_utils import GDT_DB, _sqlite_read, _sqlite_scalar
+from fastapi import APIRouter
 
 router = APIRouter()
 

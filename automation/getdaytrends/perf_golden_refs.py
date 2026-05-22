@@ -5,14 +5,11 @@ PerformanceTracker에서 분리된 골든 레퍼런스 CRUD 기능.
 고성과 트윗을 자동으로 감지/저장하여 QA 벤치마크로 활용합니다.
 """
 
-
-import json
 from datetime import UTC, datetime, timedelta
 
-from loguru import logger as log
-
-from perf_models import GoldenReference
 from db_layer.connection import db_transaction
+from loguru import logger as log
+from perf_models import GoldenReference
 
 
 class GoldenReferenceMixin:

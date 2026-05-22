@@ -57,7 +57,8 @@ except ImportError:
 _JSON_POLICY = LLMPolicy(response_mode="json")
 _PY314_SERIAL_GENERATION = sys.version_info >= (3, 14)
 
-_TWEET_MAX_CHARS = 280
+_TWEET_MAX_CHARS = 240  # [shortform-only] 160~240자 범위 상한 (config.tweet_max_chars와 동기화)
+_TWEET_MIN_CHARS = 160  # [shortform-only] 단문 트윗 최소 길이
 
 
 def _parse_tweets_to_batch(
@@ -84,6 +85,11 @@ def _parse_tweets_to_batch(
         if len(content) > _TWEET_MAX_CHARS:
             content = content[: _TWEET_MAX_CHARS - 3] + "..."
             log.warning(f"트윗 {_TWEET_MAX_CHARS}자 초과 트리밍: {trend.keyword} [{t.get('type', '')}]")
+        elif len(content) < _TWEET_MIN_CHARS:
+            log.warning(
+                f"트윗 {_TWEET_MIN_CHARS}자 미만 (실제 {len(content)}자): "
+                f"{trend.keyword} [{t.get('type', '')}] — QA에서 감점 처리"
+            )
         kwargs: dict = {
             "tweet_type": t.get("type", ""),
             "content": content,
@@ -213,9 +219,7 @@ async def generate_tweets_async(
     pattern_weights_section = _build_pattern_weights_section(pattern_weights)
     revision_feedback_section = _build_revision_feedback_section(revision_feedback)
     audience_format_section = _build_audience_format_section(trend)
-    ai_frame_guard_section = (
-        _build_ai_frame_guard_section(trend) if getattr(config, "tone", "") == "biojuho" else ""
-    )
+    ai_frame_guard_section = _build_ai_frame_guard_section(trend) if getattr(config, "tone", "") == "biojuho" else ""
     safe_keyword = sanitize_keyword(trend.keyword)
     current_time = _dt.now().strftime("%Y-%m-%d %H:%M (KST)")
 
@@ -332,7 +336,13 @@ async def generate_tweets_and_threads_async(
     if _PY314_SERIAL_GENERATION:
         try:
             tweet_result = await generate_tweets_async(
-                trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+                trend,
+                config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                golden_refs,
+                pattern_weights,
                 edape_block=edape_block,
             )
         except Exception as exc:
@@ -345,7 +355,13 @@ async def generate_tweets_and_threads_async(
     else:
         tweet_result, threads_result = await asyncio.gather(
             generate_tweets_async(
-                trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+                trend,
+                config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                golden_refs,
+                pattern_weights,
                 edape_block=edape_block,
             ),
             generate_threads_content_async(trend, config, client),
@@ -365,9 +381,7 @@ async def generate_tweets_and_threads_async(
     elif threads_result:
         batch.threads_posts = threads_result
 
-    log.info(
-        f"통합 생성 완료: '{trend.keyword}' " f"(트윗 {len(batch.tweets)}개 + Threads {len(batch.threads_posts)}개)"
-    )
+    log.info(f"통합 생성 완료: '{trend.keyword}' (트윗 {len(batch.tweets)}개 + Threads {len(batch.threads_posts)}개)")
     return batch
 
 
@@ -395,7 +409,13 @@ async def _resolve_combined_fallback(
         log.warning(f"통합 생성 예외, 개별 폴백: {combined}")
     fallback_results = await asyncio.gather(
         generate_tweets_async(
-            trend, config, client, None, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            config,
+            client,
+            None,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
             edape_block=edape_block,
         ),
         generate_threads_content_async(trend, config, client),
@@ -415,23 +435,41 @@ def _attach_optional_results(batch: TweetBatch, result_map: dict[str, Any]) -> N
             setattr(batch, attr, result)
 
 
-
 async def _run_serial_generation(
-    trend: ScoredTrend, config: AppConfig, client: LLMClient,
-    recent_tweets: list[str] | None, approved_post_bank: list[dict[str, Any]] | None,
-    golden_refs: list | None, pattern_weights: dict | None,
-    edape_block: str, threads_enabled: bool, blog_enabled: bool, gen_tier: TaskTier
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    recent_tweets: list[str] | None,
+    approved_post_bank: list[dict[str, Any]] | None,
+    golden_refs: list | None,
+    pattern_weights: dict | None,
+    edape_block: str,
+    threads_enabled: bool,
+    blog_enabled: bool,
+    gen_tier: TaskTier,
 ) -> dict[str, Any]:
     result_map: dict[str, Any] = {}
     primary_key = "combined" if threads_enabled else "tweets"
     primary_coro = (
         generate_tweets_and_threads_async(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
             edape_block=edape_block,
         )
         if threads_enabled
         else generate_tweets_async(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
             edape_block=edape_block,
         )
     )
@@ -441,10 +479,18 @@ async def _run_serial_generation(
         result_map[primary_key] = exc
 
     for key, coro in [
-        ("long", generate_long_form_async(trend, config, client, tier=gen_tier)
-         if config.enable_long_form and trend.viral_potential >= config.long_form_min_score else None),
-        ("thread", generate_thread_async(trend, config, client, tier=gen_tier)
-         if trend.viral_potential >= config.thread_min_score else None),
+        (
+            "long",
+            generate_long_form_async(trend, config, client, tier=gen_tier)
+            if config.enable_long_form and trend.viral_potential >= config.long_form_min_score
+            else None,
+        ),
+        (
+            "thread",
+            generate_thread_async(trend, config, client, tier=gen_tier)
+            if trend.viral_potential >= config.thread_min_score
+            else None,
+        ),
         ("blog", generate_blog_async(trend, config, client) if blog_enabled else None),
     ]:
         if coro is not None:
@@ -456,23 +502,42 @@ async def _run_serial_generation(
 
 
 async def _run_parallel_generation(
-    trend: ScoredTrend, config: AppConfig, client: LLMClient,
-    recent_tweets: list[str] | None, approved_post_bank: list[dict[str, Any]] | None,
-    golden_refs: list | None, pattern_weights: dict | None,
-    edape_block: str, threads_enabled: bool, blog_enabled: bool, gen_tier: TaskTier
+    trend: ScoredTrend,
+    config: AppConfig,
+    client: LLMClient,
+    recent_tweets: list[str] | None,
+    approved_post_bank: list[dict[str, Any]] | None,
+    golden_refs: list | None,
+    pattern_weights: dict | None,
+    edape_block: str,
+    threads_enabled: bool,
+    blog_enabled: bool,
+    gen_tier: TaskTier,
 ) -> dict[str, Any]:
     tasks: dict[str, asyncio.Task] = {}
     if threads_enabled:
         tasks["combined"] = asyncio.ensure_future(
             generate_tweets_and_threads_async(
-                trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+                trend,
+                config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                golden_refs,
+                pattern_weights,
                 edape_block=edape_block,
             )
         )
     else:
         tasks["tweets"] = asyncio.ensure_future(
             generate_tweets_async(
-                trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+                trend,
+                config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                golden_refs,
+                pattern_weights,
                 edape_block=edape_block,
             )
         )
@@ -527,19 +592,43 @@ async def generate_for_trend_async(
 
     if _PY314_SERIAL_GENERATION:
         result_map = await _run_serial_generation(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
-            edape_block, threads_enabled, blog_enabled, gen_tier
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
+            edape_block,
+            threads_enabled,
+            blog_enabled,
+            gen_tier,
         )
     else:
         result_map = await _run_parallel_generation(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
-            edape_block, threads_enabled, blog_enabled, gen_tier
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
+            edape_block,
+            threads_enabled,
+            blog_enabled,
+            gen_tier,
         )
 
     # 기본 배치 추출 (combined 또는 tweets)
     if "combined" in result_map:
         batch = await _resolve_combined_fallback(
-            result_map, trend, config, client, approved_post_bank, golden_refs, pattern_weights,
+            result_map,
+            trend,
+            config,
+            client,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
             edape_block=edape_block,
         )
     else:

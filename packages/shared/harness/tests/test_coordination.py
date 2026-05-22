@@ -11,42 +11,45 @@ Covers:
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock
 
-from shared.harness.constitution import Constitution
 from shared.harness.adapters.native import NativeHarnessAdapter
+from shared.harness.constitution import Constitution
 from shared.harness.coordination.graph import (
+    LANGGRAPH_AVAILABLE,
     ContentPipelineGraph,
     PipelineState,
     build_content_pipeline,
-    LANGGRAPH_AVAILABLE,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_constitution() -> Constitution:
-    return Constitution.from_dict({
-        "agent_name": "test-pipeline",
-        "max_budget_usd": 2.0,
-        "tools": [
-            {"name": "llm_call", "allowed": True, "max_calls": 200},
-            {"name": "web_search", "allowed": True, "max_calls": 50},
-        ],
-    })
+    return Constitution.from_dict(
+        {
+            "agent_name": "test-pipeline",
+            "max_budget_usd": 2.0,
+            "tools": [
+                {"name": "llm_call", "allowed": True, "max_calls": 200},
+                {"name": "web_search", "allowed": True, "max_calls": 50},
+            ],
+        }
+    )
 
 
 def _make_adapter() -> NativeHarnessAdapter:
     async def executor(tool_name, tool_input):
         return {"tool": tool_name, "generated": "테스트 콘텐츠"}
+
     return NativeHarnessAdapter(_make_constitution(), tool_executor=executor)
 
 
 # ===========================================================================
 # Test: PipelineState
 # ===========================================================================
+
 
 class TestPipelineState:
     def test_initial_state(self):
@@ -69,6 +72,7 @@ class TestPipelineState:
 # ===========================================================================
 # Test: ContentPipelineGraph — Default nodes
 # ===========================================================================
+
 
 class TestContentPipelineGraphDefaults:
     @pytest.fixture
@@ -132,6 +136,7 @@ class TestContentPipelineGraphDefaults:
 # Test: Retry logic
 # ===========================================================================
 
+
 class TestRetryLogic:
     @pytest.fixture
     def graph(self):
@@ -175,6 +180,7 @@ class TestRetryLogic:
 # Test: Custom node overrides
 # ===========================================================================
 
+
 class TestCustomOverrides:
     @pytest.mark.asyncio
     async def test_custom_collect(self):
@@ -211,6 +217,7 @@ class TestCustomOverrides:
 # Test: build_content_pipeline factory
 # ===========================================================================
 
+
 class TestBuildContentPipeline:
     def test_factory_creates_graph(self):
         constitution = _make_constitution()
@@ -236,6 +243,7 @@ class TestBuildContentPipeline:
 # Test: Full graph build (requires langgraph)
 # ===========================================================================
 
+
 @pytest.mark.skipif(not LANGGRAPH_AVAILABLE, reason="langgraph not installed")
 class TestGraphBuild:
     def test_build_compiles(self):
@@ -248,9 +256,7 @@ class TestGraphBuild:
     async def test_full_run(self):
         constitution = _make_constitution()
         pipeline = build_content_pipeline(constitution)
-        result = await pipeline.run(
-            PipelineState.initial([{"topic": "테스트 트렌드"}])
-        )
+        result = await pipeline.run(PipelineState.initial([{"topic": "테스트 트렌드"}]))
         assert isinstance(result, PipelineState)
         assert len(result["trace"]) > 0
         # Should have at least collect + analyze + generate + qa + publish

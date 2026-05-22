@@ -7,22 +7,28 @@ with no live DB dependency — SQLite helpers gracefully return [].
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 # Ensure workspace root and packages are importable
 WORKSPACE = Path(__file__).resolve().parents[1]
-for p in (WORKSPACE, WORKSPACE / "packages", WORKSPACE / "apps"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
+DASHBOARD_DIR = WORKSPACE / "apps" / "dashboard"
+for p in reversed((DASHBOARD_DIR, WORKSPACE, WORKSPACE / "packages", WORKSPACE / "apps")):
+    path = str(p)
+    if path in sys.path:
+        sys.path.remove(path)
+    sys.path.insert(0, path)
 
-from fastapi.testclient import TestClient
+loaded_api = sys.modules.get("api")
+dashboard_api = (DASHBOARD_DIR / "api.py").resolve()
+loaded_api_file = getattr(loaded_api, "__file__", None) if loaded_api else None
+if loaded_api_file and Path(loaded_api_file).resolve() != dashboard_api:
+    sys.modules.pop("api", None)
 
-from apps.dashboard.api import app
+from api import app  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 client = TestClient(app)
 
@@ -61,8 +67,8 @@ def test_endpoint_returns_json(path: str):
 
 # ── /api/qa_reports structure ──────────────────────────────────────
 
-class TestQaReports:
 
+class TestQaReports:
     def test_has_summary_block(self):
         data = client.get("/api/qa_reports").json()
         assert "summary" in data
@@ -98,8 +104,8 @@ class TestQaReports:
 
 # ── /api/quality_overview structure ────────────────────────────────
 
-class TestQualityOverview:
 
+class TestQualityOverview:
     def test_has_qa_grades(self):
         data = client.get("/api/quality_overview").json()
         assert "qa_grades" in data
@@ -125,8 +131,8 @@ class TestQualityOverview:
 
 # ── /api/overview structure ────────────────────────────────────────
 
-class TestOverview:
 
+class TestOverview:
     def test_has_projects(self):
         data = client.get("/api/overview").json()
         assert "projects" in data
@@ -141,8 +147,8 @@ class TestOverview:
 
 # ── /api/getdaytrends structure ────────────────────────────────────
 
-class TestGetDayTrends:
 
+class TestGetDayTrends:
     def test_has_totals(self):
         data = client.get("/api/getdaytrends").json()
         for key in ("total_runs", "total_trends", "total_tweets"):
@@ -156,8 +162,8 @@ class TestGetDayTrends:
 
 # ── /api/costs structure ───────────────────────────────────────────
 
-class TestCosts:
 
+class TestCosts:
     def test_returns_dict(self):
         data = client.get("/api/costs").json()
         assert isinstance(data, dict)
@@ -165,8 +171,8 @@ class TestCosts:
 
 # ── /api/sla_status structure ──────────────────────────────────────
 
-class TestSlaStatus:
 
+class TestSlaStatus:
     def test_has_sla_target(self):
         data = client.get("/api/sla_status").json()
         assert "sla_target" in data
@@ -198,8 +204,8 @@ class TestSlaStatus:
 
 # ── /api/mcp_health structure ──────────────────────────────────────
 
-class TestMcpHealth:
 
+class TestMcpHealth:
     def test_has_total_servers(self):
         data = client.get("/api/mcp_health").json()
         assert "total_servers" in data
@@ -220,4 +226,3 @@ class TestMcpHealth:
         data = client.get("/api/mcp_health").json()
         assert "ready" in data
         assert "needs_attention" in data
-

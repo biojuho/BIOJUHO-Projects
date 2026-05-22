@@ -27,6 +27,18 @@ except ImportError:
     import collectors.twitter as _twitter
 
 # ── Re-export all public APIs ──
+from .google_news import (  # noqa: F401
+    _async_fetch_google_news_trends,
+    _async_fetch_google_suggest,
+    _async_fetch_google_trends_related,
+    _format_news_age,
+    _parse_rss_date,
+    fetch_google_news_trends,
+)
+from .reddit import (  # noqa: F401
+    _async_fetch_reddit_trends,
+    fetch_reddit_trends,
+)
 from .twitter import (  # noqa: F401
     _async_fetch_twitter_trends,
     _async_fetch_x_via_jina,
@@ -35,18 +47,6 @@ from .twitter import (  # noqa: F401
     fetch_twitter_trends,
     post_to_x,
     post_to_x_async,
-)
-from .reddit import (  # noqa: F401
-    _async_fetch_reddit_trends,
-    fetch_reddit_trends,
-)
-from .google_news import (  # noqa: F401
-    _async_fetch_google_news_trends,
-    _async_fetch_google_suggest,
-    _async_fetch_google_trends_related,
-    _format_news_age,
-    _parse_rss_date,
-    fetch_google_news_trends,
 )
 
 _async_fetch_x_via_twikit_or_jina_impl = _async_fetch_x_via_twikit_or_jina
@@ -59,6 +59,7 @@ async def _async_fetch_x_via_twikit_or_jina(
 ) -> str:
     _twitter._async_fetch_x_via_jina = _async_fetch_x_via_jina
     return await _async_fetch_x_via_twikit_or_jina_impl(session, keyword, timeout=timeout)
+
 
 # Shared constants
 _SHORT_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
@@ -123,7 +124,10 @@ async def _async_fetch_single_source(
     try:
         if source_name == "twitter":
             result_text = await _async_fetch_twitter_trends(
-                session, keyword, bearer_token, timeout=effective_timeout,
+                session,
+                keyword,
+                bearer_token,
+                timeout=effective_timeout,
             )
         elif source_name == "reddit":
             result_text = await _async_fetch_reddit_trends(session, keyword, timeout=effective_timeout)
@@ -175,12 +179,23 @@ async def _async_collect_contexts(
                 from db import get_source_quality_summary
 
             quality_summary = await get_source_quality_summary(conn, days=7)
+            min_calls_to_skip = getattr(config, "min_source_quality_calls", 5)
             for src_name, stats in quality_summary.items():
                 avg_quality = stats.get("avg_quality_score", 0.5)
                 success_rate = stats.get("success_rate", 100.0)
-                if avg_quality < 0.3 and src_name in sources:
+                total_calls = stats.get("total_calls", 0)
+                if (
+                    src_name in sources
+                    and total_calls >= min_calls_to_skip
+                    and avg_quality < 0.3
+                    and success_rate < 40
+                ):
                     skip_sources.add(src_name)
-                    log.info(f"  [B-3 품질 필터] '{src_name}' 소스 스킵 (평균 품질={avg_quality:.2f} < 0.3)")
+                    log.info(
+                        "  [B-3 품질 필터] "
+                        f"'{src_name}' 소스 스킵 "
+                        f"(호출={total_calls}, 성공률={success_rate:.1f}%, 평균 품질={avg_quality:.2f})"
+                    )
                 elif src_name in sources:
                     if avg_quality >= 0.7 and success_rate >= 80:
                         source_timeouts[src_name] = 10.0
@@ -213,7 +228,11 @@ async def _async_collect_contexts(
     ) -> tuple[str, str, str]:
         async with semaphore:
             return await _async_fetch_single_source(
-                sess, keyword, source, bearer_token, extra_news,
+                sess,
+                keyword,
+                source,
+                bearer_token,
+                extra_news,
                 conn=conn if getattr(config, "enable_source_quality_tracking", True) else None,
                 timeout_override=source_timeouts.get(source),
             )

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
 import uuid
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from antigravity_mcp.integrations.subscriber_store import SubscriberStore
 
 
@@ -37,17 +36,24 @@ def tmp_path() -> Path:
 
 @pytest.fixture
 def store(tmp_path: Path) -> SubscriberStore:
-    return SubscriberStore(db_path=tmp_path / "test_subscribe_api.db")
+    store = SubscriberStore(db_path=tmp_path / "test_subscribe_api.db")
+    try:
+        yield store
+    finally:
+        store.close()
 
 
 @pytest.fixture(autouse=True)
 def _patch_singletons(store: SubscriberStore):
-    with patch(
-        "antigravity_mcp.apps.subscribe_api._get_store",
-        return_value=store,
-    ), patch(
-        "antigravity_mcp.apps.subscribe_api._get_adapter",
-    ) as mock_adapter_fn:
+    with (
+        patch(
+            "antigravity_mcp.apps.subscribe_api._get_store",
+            return_value=store,
+        ),
+        patch(
+            "antigravity_mcp.apps.subscribe_api._get_adapter",
+        ) as mock_adapter_fn,
+    ):
         adapter = MagicMock()
         adapter.send_welcome = AsyncMock(return_value={"status": "dry_run"})
         mock_adapter_fn.return_value = adapter
@@ -152,10 +158,13 @@ class TestHandleSubscribeEdgeCases:
     async def test_store_returning_none_on_add_returns_server_error(self, store: SubscriberStore) -> None:
         from antigravity_mcp.apps.subscribe_api import handle_subscribe
 
-        with patch.object(store, "add_subscriber", return_value=None), patch.object(
-            store,
-            "get_subscriber_by_email",
-            return_value=None,
+        with (
+            patch.object(store, "add_subscriber", return_value=None),
+            patch.object(
+                store,
+                "get_subscriber_by_email",
+                return_value=None,
+            ),
         ):
             result = await handle_subscribe("ghost@example.com")
 
@@ -305,9 +314,8 @@ class TestRequestBoundary:
 class TestFastApiEndpoints:
     @pytest.fixture
     def client(self):
-        from fastapi.testclient import TestClient
-
         from antigravity_mcp.apps.subscribe_api import create_fastapi_app
+        from fastapi.testclient import TestClient
 
         return TestClient(create_fastapi_app())
 
@@ -379,8 +387,8 @@ class TestFastApiEndpoints:
 
         assert response.status_code == 200
         assert "Signal Desk" in response.text
-        assert "data-form-mode=\"unsubscribe\"" in response.text
-        assert "placeholder=\"keyword, category, source\"" in response.text
+        assert 'data-form-mode="unsubscribe"' in response.text
+        assert 'placeholder="keyword, category, source"' in response.text
 
     def test_signals_endpoint_returns_serialized_feed(self, client) -> None:
         with patch(

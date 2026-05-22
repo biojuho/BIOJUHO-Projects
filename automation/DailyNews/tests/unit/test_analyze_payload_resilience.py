@@ -115,7 +115,7 @@ class TestGenerateBasePayloadResilience:
         adapter = MagicMock()
         adapter.build_report_payload = AsyncMock(return_value=(broken_payload, []))
 
-        payload = await generate_base_payload(ctx, adapter)
+        await generate_base_payload(ctx, adapter)
 
         assert ctx.summary_lines == []
         assert ctx.insights == []

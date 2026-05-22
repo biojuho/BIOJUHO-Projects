@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
-
-import pytest
 
 _CIE_DIR = Path(__file__).resolve().parents[1]
 if str(_CIE_DIR) not in sys.path:
@@ -18,7 +15,6 @@ from generators.content_engine import (
     _safe_int,
 )
 from storage.models import QAReport
-
 
 # ─── _safe_int ────────────────────────────────────
 
@@ -101,10 +97,16 @@ class TestParseProQA:
     def test_flat_scores(self):
         data = {
             "scores": {
-                "hook": 16, "fact": 12, "tone": 11,
-                "kick": 10, "angle": 10,
-                "regulation": 8, "algorithm": 7,
-                "reader_value": 7, "originality": 6, "credibility": 5,
+                "hook": 16,
+                "fact": 12,
+                "tone": 11,
+                "kick": 10,
+                "angle": 10,
+                "regulation": 8,
+                "algorithm": 7,
+                "reader_value": 7,
+                "originality": 6,
+                "credibility": 5,
             },
             "diagnostics": {},
             "persona_fits": [],
@@ -120,10 +122,16 @@ class TestParseProQA:
     def test_nested_scores_fallback(self):
         """scores 키가 없으면 data 자체에서 점수를 읽는다."""
         data = {
-            "hook": 15, "fact": 10, "tone": 10,
-            "kick": 10, "angle": 10,
-            "regulation": 8, "algorithm": 7,
-            "reader_value": 5, "originality": 4, "credibility": 3,
+            "hook": 15,
+            "fact": 10,
+            "tone": 10,
+            "kick": 10,
+            "angle": 10,
+            "regulation": 8,
+            "algorithm": 7,
+            "reader_value": 5,
+            "originality": 4,
+            "credibility": 3,
         }
         qa = _parse_pro_qa(data, self._FakeConfig())
         assert qa.hook_score == 15
@@ -131,10 +139,16 @@ class TestParseProQA:
     def test_diagnostics_parsed(self):
         data = {
             "scores": {
-                "hook": 5, "fact": 12, "tone": 10,
-                "kick": 10, "angle": 10,
-                "regulation": 8, "algorithm": 7,
-                "reader_value": 5, "originality": 5, "credibility": 5,
+                "hook": 5,
+                "fact": 12,
+                "tone": 10,
+                "kick": 10,
+                "angle": 10,
+                "regulation": 8,
+                "algorithm": 7,
+                "reader_value": 5,
+                "originality": 5,
+                "credibility": 5,
             },
             "diagnostics": {
                 "hook": {"reason": "weak opening", "suggestion": "add data"},
@@ -154,10 +168,16 @@ class TestParseProQA:
     def test_persona_fits_parsed(self):
         data = {
             "scores": {
-                "hook": 15, "fact": 12, "tone": 10,
-                "kick": 10, "angle": 10,
-                "regulation": 8, "algorithm": 7,
-                "reader_value": 5, "originality": 5, "credibility": 5,
+                "hook": 15,
+                "fact": 12,
+                "tone": 10,
+                "kick": 10,
+                "angle": 10,
+                "regulation": 8,
+                "algorithm": 7,
+                "reader_value": 5,
+                "originality": 5,
+                "credibility": 5,
             },
             "diagnostics": {},
             "persona_fits": [
@@ -176,10 +196,16 @@ class TestParseProQA:
     def test_invalid_score_clamped(self):
         data = {
             "scores": {
-                "hook": 99, "fact": -5, "tone": "~18",
-                "kick": None, "angle": "bad",
-                "regulation": 8, "algorithm": 7,
-                "reader_value": 5, "originality": 5, "credibility": 5,
+                "hook": 99,
+                "fact": -5,
+                "tone": "~18",
+                "kick": None,
+                "angle": "bad",
+                "regulation": 8,
+                "algorithm": 7,
+                "reader_value": 5,
+                "originality": 5,
+                "credibility": 5,
             },
             "diagnostics": {},
             "persona_fits": [],
@@ -187,19 +213,25 @@ class TestParseProQA:
             "rewrite_suggestion": "",
         }
         qa = _parse_pro_qa(data, self._FakeConfig())
-        assert qa.hook_score == 20     # clamped to max 20
-        assert qa.fact_score == 0      # clamped to min 0
-        assert qa.tone_score == 15     # "~18" -> 18, clamped to 15
-        assert qa.kick_score == 0      # None -> 0
-        assert qa.angle_score == 0     # "bad" -> 0
+        assert qa.hook_score == 20  # clamped to max 20
+        assert qa.fact_score == 0  # clamped to min 0
+        assert qa.tone_score == 15  # "~18" -> 18, clamped to 15
+        assert qa.kick_score == 0  # None -> 0
+        assert qa.angle_score == 0  # "bad" -> 0
 
     def test_applied_min_score(self):
         data = {
             "scores": {
-                "hook": 10, "fact": 10, "tone": 10,
-                "kick": 10, "angle": 10,
-                "regulation": 5, "algorithm": 5,
-                "reader_value": 5, "originality": 5, "credibility": 5,
+                "hook": 10,
+                "fact": 10,
+                "tone": 10,
+                "kick": 10,
+                "angle": 10,
+                "regulation": 5,
+                "algorithm": 5,
+                "reader_value": 5,
+                "originality": 5,
+                "credibility": 5,
             },
             "diagnostics": {},
             "persona_fits": [],

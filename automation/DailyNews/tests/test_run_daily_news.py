@@ -71,13 +71,16 @@ def test_process_category_survives_source_failure_and_awaits_sleep(load_script_m
     assert calls["sleep"] == 1
 
 
-def _install_run_daily_news_stubs(module, monkeypatch, *, sources):
+def _install_run_daily_news_stubs(module, monkeypatch, tmp_path, *, sources):
+    state_store_class = module.PipelineStateStore
     monkeypatch.setattr(module, "NOTION_API_KEY", "token")
     monkeypatch.setattr(module, "NOTION_REPORTS_DATABASE_ID", "news-db")
     monkeypatch.setattr(module, "load_news_sources", lambda: sources)
     monkeypatch.setattr(module, "AsyncClient", lambda auth: object())
+    monkeypatch.setattr(module, "PipelineStateStore", lambda: state_store_class(tmp_path / "run_daily_news_state.db"))
     monkeypatch.setattr(
-        module, "get_extraction_window",
+        module,
+        "get_extraction_window",
         lambda force: (module.datetime.now(), module.datetime.now(), "test"),
     )
 
@@ -88,14 +91,12 @@ def _install_run_daily_news_stubs(module, monkeypatch, *, sources):
     monkeypatch.setitem(sys.modules, "brain_module", SimpleNamespace(BrainModule=FakeBrain))
 
 
-def test_run_daily_news_partial_failure_exits_nonzero(load_script_module, monkeypatch):
+def test_run_daily_news_partial_failure_exits_nonzero(load_script_module, monkeypatch, tmp_path):
     """Any category failure must surface as exit 1 — partial success still
     fires the failure alert, otherwise a single broken category could hide
     for days under the previous degraded-heartbeat path."""
     module, _runtime = load_script_module("run_daily_news")
-    _install_run_daily_news_stubs(
-        module, monkeypatch, sources={"Tech": [], "Economy": []}
-    )
+    _install_run_daily_news_stubs(module, monkeypatch, tmp_path, sources={"Tech": [], "Economy": []})
 
     async def fake_process_category(**kwargs):
         if kwargs["category"] == "Tech":
@@ -104,35 +105,65 @@ def test_run_daily_news_partial_failure_exits_nonzero(load_script_module, monkey
 
     monkeypatch.setattr(module, "process_category", fake_process_category)
 
-    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, run_id="run-daily-news"))
+    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, max_reports=99, run_id="run-daily-news"))
 
     assert exit_code == 1
 
 
-def test_run_daily_news_all_success_exits_zero(load_script_module, monkeypatch):
+def test_run_daily_news_all_success_exits_zero(load_script_module, monkeypatch, tmp_path):
     module, _runtime = load_script_module("run_daily_news")
-    _install_run_daily_news_stubs(
-        module, monkeypatch, sources={"Tech": [], "Economy": []}
-    )
+    _install_run_daily_news_stubs(module, monkeypatch, tmp_path, sources={"Tech": [], "Economy": []})
+    processed_categories = []
 
     async def fake_process_category(**kwargs):
+        processed_categories.append(kwargs["category"])
         return {"category": kwargs["category"], "status": "success", "articles": 3}
 
     monkeypatch.setattr(module, "process_category", fake_process_category)
 
-    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, run_id="run-daily-news"))
+    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, max_reports=99, run_id="run-daily-news"))
 
     assert exit_code == 0
+    assert processed_categories == ["Tech", "Economy"]
 
 
-def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypatch):
+def test_run_daily_news_can_limit_reports(load_script_module, monkeypatch, tmp_path):
+    module, _runtime = load_script_module("run_daily_news")
+    _install_run_daily_news_stubs(module, monkeypatch, tmp_path, sources={"Tech": [], "Economy": []})
+    processed_categories = []
+
+    async def fake_process_category(**kwargs):
+        processed_categories.append(kwargs["category"])
+        return {"category": kwargs["category"], "status": "success", "articles": 3}
+
+    monkeypatch.setattr(module, "process_category", fake_process_category)
+
+    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, max_reports=1, run_id="run-daily-news"))
+
+    assert exit_code == 0
+    assert processed_categories == ["Tech"]
+
+
+def test_run_daily_news_uses_daily_report_priority(load_script_module, monkeypatch):
+    module, _runtime = load_script_module("run_daily_news")
+    ordered = module.iter_news_sources_by_priority(
+        {
+            "Tech": [],
+            "Crypto": [],
+            "Global_Affairs": [],
+            "Economy_KR": [],
+        }
+    )
+
+    assert [category for category, _sources in ordered] == ["Global_Affairs", "Economy_KR", "Tech", "Crypto"]
+
+
+def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypatch, tmp_path):
     """0 success + 0 failed + N skipped는 success가 아니라 degraded여야 한다.
     success path로 흘러가면 alive heartbeat만 가서 며칠 연속 수집 0건이
     묵음으로 묻힌다 — 2026-04-14 morning fix Minor 1 회귀 방지."""
     module, _runtime = load_script_module("run_daily_news")
-    _install_run_daily_news_stubs(
-        module, monkeypatch, sources={"Tech": [], "Economy": []}
-    )
+    _install_run_daily_news_stubs(module, monkeypatch, tmp_path, sources={"Tech": [], "Economy": []})
 
     async def fake_process_category(**kwargs):
         return {"category": kwargs["category"], "status": "skipped", "articles": 0}
@@ -149,17 +180,13 @@ def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypat
             return {}
 
         def send_heartbeat(self, service_name, *, status="alive", details=""):
-            notifier_calls["heartbeats"].append(
-                {"service": service_name, "status": status, "details": details}
-            )
+            notifier_calls["heartbeats"].append({"service": service_name, "status": status, "details": details})
             return {}
 
     fake_notifications = SimpleNamespace(Notifier=SimpleNamespace(from_env=FakeNotifier))
     monkeypatch.setitem(sys.modules, "shared.notifications", fake_notifications)
 
-    exit_code = asyncio.run(
-        module.run_daily_news(force=True, max_items=5, run_id="run-daily-news")
-    )
+    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, run_id="run-daily-news"))
 
     assert exit_code == 1
     assert notifier_calls["errors"], "degraded path must fire an error alert"
@@ -168,10 +195,50 @@ def test_run_daily_news_all_skipped_marks_degraded(load_script_module, monkeypat
     assert notifier_calls["heartbeats"][0]["status"] == "degraded"
 
 
-def test_get_extraction_window_absorbs_cron_delay(load_script_module, monkeypatch):
-    """GHA cron delays of a few hours should still classify into the right
-    window. Previously 12:00 KST or 19:49 KST would raise 'outside extraction
-    window' — see 2026-04-13 evening incident."""
+def test_run_daily_news_empty_sources_marks_degraded(load_script_module, monkeypatch, tmp_path):
+    """load_news_sources가 빈 dict 반환 시 (config 파일 손상·priority 필터로 전 카테고리 제외 등)
+    카테고리 루프가 한 번도 돌지 않으면 succ=fail=skip=0. 기존엔 success 분기로 흘러
+    alive heartbeat만 가서 '파이프라인이 아무것도 안 했는데 정상 동작'으로 표시되는
+    가짜 success 패턴이었다. degraded로 마감 + send_error/heartbeat 발사 + exit 1."""
+    module, _runtime = load_script_module("run_daily_news")
+    _install_run_daily_news_stubs(module, monkeypatch, tmp_path, sources={})
+
+    process_calls: list[str] = []
+
+    async def fake_process_category(**kwargs):
+        process_calls.append(kwargs["category"])
+        return {"category": kwargs["category"], "status": "success", "articles": 1}
+
+    monkeypatch.setattr(module, "process_category", fake_process_category)
+
+    notifier_calls: dict[str, list[dict]] = {"errors": [], "heartbeats": []}
+
+    class FakeNotifier:
+        has_channels = True
+
+        def send_error(self, message, *, source="system", **_kwargs):
+            notifier_calls["errors"].append({"message": message, "source": source})
+            return {}
+
+        def send_heartbeat(self, service_name, *, status="alive", details=""):
+            notifier_calls["heartbeats"].append({"service": service_name, "status": status, "details": details})
+            return {}
+
+    fake_notifications = SimpleNamespace(Notifier=SimpleNamespace(from_env=FakeNotifier))
+    monkeypatch.setitem(sys.modules, "shared.notifications", fake_notifications)
+
+    exit_code = asyncio.run(module.run_daily_news(force=True, max_items=5, run_id="run-daily-news"))
+
+    assert exit_code == 1
+    assert process_calls == [], "process_category must not be called when sources are empty"
+    assert notifier_calls["errors"], "empty-sources path must fire an error alert"
+    assert "CONFIG-FAIL" in notifier_calls["errors"][0]["message"]
+    assert notifier_calls["heartbeats"], "empty-sources path must emit a degraded heartbeat"
+    assert notifier_calls["heartbeats"][0]["status"] == "degraded"
+
+
+def test_get_extraction_window_absorbs_morning_cron_delay(load_script_module, monkeypatch):
+    """GHA cron delays of a few hours should still classify into morning."""
     module, _runtime = load_script_module("run_daily_news")
     KST = module.timezone(module.timedelta(hours=9))
 
@@ -188,11 +255,6 @@ def test_get_extraction_window_absorbs_cron_delay(load_script_module, monkeypatc
     start, end, name = module.get_extraction_window(force=False)
     assert name == "morning"
     assert end.hour == 7 and start.hour == 18
-
-    FrozenDatetime._frozen = real_dt(2026, 4, 13, 19, 49, tzinfo=KST)  # 19:49 KST, late evening cron
-    start, end, name = module.get_extraction_window(force=False)
-    assert name == "evening"
-    assert end.hour == 18 and start.hour == 7
 
 
 def test_get_extraction_window_still_rejects_dead_hours(load_script_module, monkeypatch):
@@ -216,6 +278,27 @@ def test_get_extraction_window_still_rejects_dead_hours(load_script_module, monk
         assert "outside extraction window" in str(exc)
     else:
         raise AssertionError("expected RuntimeError for dead hours")
+
+
+def test_get_extraction_window_rejects_evening_hours(load_script_module, monkeypatch):
+    module, _runtime = load_script_module("run_daily_news")
+    KST = module.timezone(module.timedelta(hours=9))
+    real_dt = module.datetime
+
+    class FrozenDatetime(real_dt):
+        _frozen = real_dt(2026, 4, 13, 19, 0, tzinfo=KST)
+
+        @classmethod
+        def now(cls, tz=None):
+            return cls._frozen.astimezone(tz) if tz else cls._frozen.replace(tzinfo=None)
+
+    monkeypatch.setattr(module, "datetime", FrozenDatetime)
+    try:
+        module.get_extraction_window(force=False)
+    except RuntimeError as exc:
+        assert "outside extraction window" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError for evening hours")
 
 
 def test_resolve_title_property_falls_back_on_error(load_script_module, monkeypatch):

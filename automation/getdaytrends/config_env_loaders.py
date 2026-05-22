@@ -81,8 +81,8 @@ def feature_flags_env() -> dict:
     """기능 플래그 환경변수 로딩."""
     return dict(
         enable_clustering=os.getenv("ENABLE_CLUSTERING", "true").lower() == "true",
-        enable_long_form=os.getenv("ENABLE_LONG_FORM", "true").lower() == "true",
-        enable_threads=os.getenv("ENABLE_THREADS", "true").lower() == "true",
+        enable_long_form=os.getenv("ENABLE_LONG_FORM", "false").lower() == "true",
+        enable_threads=os.getenv("ENABLE_THREADS", "false").lower() == "true",
         smart_schedule=os.getenv("SMART_SCHEDULE", "true").lower() == "true",
         night_mode=os.getenv("NIGHT_MODE", "true").lower() == "true",
         enable_structured_metrics=os.getenv("ENABLE_STRUCTURED_METRICS", "true").lower() == "true",
@@ -131,9 +131,11 @@ def quality_env() -> dict:
     """품질 관련 환경변수 로딩."""
     return dict(
         min_viral_score=int(os.getenv("MIN_VIRAL_SCORE", "60")),
-        long_form_min_score=int(os.getenv("LONG_FORM_MIN_SCORE", "95")),
-        thread_min_score=int(os.getenv("THREAD_MIN_SCORE", "92")),
-        threads_min_score=int(os.getenv("THREADS_MIN_SCORE", "65")),
+        long_form_min_score=int(os.getenv("LONG_FORM_MIN_SCORE", "999")),
+        thread_min_score=int(os.getenv("THREAD_MIN_SCORE", "999")),
+        threads_min_score=int(os.getenv("THREADS_MIN_SCORE", "999")),
+        tweet_min_chars=int(os.getenv("TWEET_MIN_CHARS", "160")),
+        tweet_max_chars=int(os.getenv("TWEET_MAX_CHARS", "240")),
         canva_min_score=int(os.getenv("CANVA_MIN_SCORE", "90")),
         quality_feedback_min_score=int(os.getenv("QUALITY_FEEDBACK_MIN_SCORE", "50")),
         threads_quality_min_score=int(os.getenv("THREADS_QUALITY_MIN_SCORE", "65")),
@@ -150,7 +152,9 @@ def quality_env() -> dict:
         qa_skip_cached=os.getenv("QA_SKIP_CACHED", "true").lower() == "true",
         qa_skip_high_score=int(os.getenv("QA_SKIP_HIGH_SCORE", "85")),
         qa_skip_categories=[
-            c.strip() for c in os.getenv("QA_SKIP_CATEGORIES", "\ub0a0\uc528,\uc74c\uc2dd,\uc2a4\ud3ec\uce20").split(",") if c.strip()
+            c.strip()
+            for c in os.getenv("QA_SKIP_CATEGORIES", "\ub0a0\uc528,\uc74c\uc2dd,\uc2a4\ud3ec\uce20").split(",")
+            if c.strip()
         ],
         golden_reference_limit=int(os.getenv("GOLDEN_REFERENCE_LIMIT", "3")),
         golden_reference_auto_update_days=int(os.getenv("GOLDEN_REFERENCE_AUTO_UPDATE_DAYS", "7")),
@@ -166,7 +170,10 @@ def scoring_env() -> dict:
         cost_alert_pct=float(os.getenv("COST_ALERT_PCT", "70")),
         heavy_categories=[
             c.strip()
-            for c in os.getenv("HEAVY_CATEGORIES", "\uc815\uce58,\uacbd\uc81c,\ud14c\ud06c,\uc0ac\ud68c,\uad6d\uc81c,\uacfc\ud559,\uc0dd\ud65c,\ubc95\ub960").split(",")
+            for c in os.getenv(
+                "HEAVY_CATEGORIES",
+                "\uc815\uce58,\uacbd\uc81c,\ud14c\ud06c,\uc0ac\ud68c,\uad6d\uc81c,\uacfc\ud559,\uc0dd\ud65c,\ubc95\ub960",
+            ).split(",")
             if c.strip()
         ],
         viral_score_llm_weight=float(os.getenv("VIRAL_SCORE_LLM_WEIGHT", "0.6")),
@@ -240,7 +247,5 @@ def platform_env() -> dict:
         content_diversity_hours=int(os.getenv("CONTENT_DIVERSITY_HOURS", "24")),
         generation_mode_override=os.getenv("GENERATION_MODE", ""),
         persona_rotation=os.getenv("PERSONA_ROTATION", "fixed"),
-        persona_pool=[
-            p.strip() for p in os.getenv("PERSONA_POOL", "biojuho").split(",") if p.strip()
-        ],
+        persona_pool=[p.strip() for p in os.getenv("PERSONA_POOL", "biojuho").split(",") if p.strip()],
     )

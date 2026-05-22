@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from ..hooks import PostToolHook
@@ -42,20 +42,34 @@ _LONGFORM_TASKS = {"summary", "analysis", "literature_review", "grant_writing", 
 
 _CJK_PUNCT_TRANSLATION = str.maketrans(
     {
-        "\u201c": '"', "\u201d": '"', "\u2018": "'", "\u2019": "'",
-        "\uff0c": ",", "\u3002": ".", "\uff1a": ":", "\uff1b": ";",
-        "\uff08": "(", "\uff09": ")", "\u3010": "[", "\u3011": "]",
-        "\u300a": "<", "\u300b": ">", "\u3001": ",",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2018": "'",
+        "\u2019": "'",
+        "\uff0c": ",",
+        "\u3002": ".",
+        "\uff1a": ":",
+        "\uff1b": ";",
+        "\uff08": "(",
+        "\uff09": ")",
+        "\u3010": "[",
+        "\u3011": "]",
+        "\u300a": "<",
+        "\u300b": ">",
+        "\u3001": ",",
     }
 )
 
-_LITERAL_TRANSLATION_PATTERNS = re.compile(r"(\u4e2d\u6587|\u7b80\u4f53|\u7e41\u9ad4|\u7ffb\u8bd1\u5982\u4e0b|\u4ee5\u4e0b\u662f)")
+_LITERAL_TRANSLATION_PATTERNS = re.compile(
+    r"(\u4e2d\u6587|\u7b80\u4f53|\u7e41\u9ad4|\u7ffb\u8bd1\u5982\u4e0b|\u4ee5\u4e0b\u662f)"
+)
 _CJK_PUNCTUATION = re.compile(r"[\u3002\uff01\uff1f\uff1b]")
 
 
 # ---------------------------------------------------------------------------
 # Core validation
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class KoreanQualityResult:
@@ -162,11 +176,7 @@ def validate_korean_output(
             flags.append("contains_excessive_hanzi")
 
         # Low Hangul ratio for longform tasks
-        if (
-            task_kind in _LONGFORM_TASKS
-            and len(body) > min_length_for_ratio_check
-            and hangul_ratio < hangul_min_ratio
-        ):
+        if task_kind in _LONGFORM_TASKS and len(body) > min_length_for_ratio_check and hangul_ratio < hangul_min_ratio:
             flags.append("low_hangul_ratio")
 
         # Literal translation markers
@@ -210,6 +220,7 @@ def _is_valid_json(text: str) -> bool:
 # PostToolHook integration
 # ---------------------------------------------------------------------------
 
+
 class KoreanQualityValidator(PostToolHook):
     """PostToolHook that validates Korean output quality.
 
@@ -247,8 +258,7 @@ class KoreanQualityValidator(PostToolHook):
 
         if self.strict and not result.passed:
             raise ValueError(
-                f"Korean quality check failed for '{tool_name}': "
-                f"flags={result.flags}, hangul={result.hangul_ratio:.1%}"
+                f"Korean quality check failed for '{tool_name}': flags={result.flags}, hangul={result.hangul_ratio:.1%}"
             )
 
         # Attach metadata if result is a dict
@@ -278,6 +288,7 @@ class KoreanQualityValidator(PostToolHook):
 # Guardrails AI integration (optional)
 # ---------------------------------------------------------------------------
 
+
 def korean_quality_guard():
     """Create a Guardrails AI Guard with Korean quality validation.
 
@@ -294,11 +305,10 @@ def korean_quality_guard():
     """
     try:
         from guardrails import Guard, OnFailAction
-        from guardrails.validators import Validator, ValidationResult, PassResult, FailResult, register_validator
+        from guardrails.validators import FailResult, PassResult, ValidationResult, Validator, register_validator
     except ImportError:
         raise ImportError(
-            "guardrails-ai is required for korean_quality_guard(). "
-            "Install with: pip install guardrails-ai"
+            "guardrails-ai is required for korean_quality_guard(). Install with: pip install guardrails-ai"
         )
 
     @register_validator(name="korean_quality_gate", data_type="string")

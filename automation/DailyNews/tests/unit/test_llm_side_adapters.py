@@ -84,8 +84,8 @@ class TestDigestAdapter:
 
 class TestReasoningAdapter:
     def test_reasoning_helpers_parse_and_load_prompts(self, monkeypatch, tmp_path: Path):
-        from antigravity_mcp.integrations import reasoning_adapter as module
         from antigravity_mcp import config
+        from antigravity_mcp.integrations import reasoning_adapter as module
 
         assert module._robust_json_parse('```json\n[{"fact_text":"A"}]\n```') == [{"fact_text": "A"}]
         assert module._robust_json_parse('noise {"a": 1}\n{"b": 2}') == [{"a": 1}, {"b": 2}]

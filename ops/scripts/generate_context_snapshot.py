@@ -17,7 +17,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Force UTF-8 stdout on Windows
@@ -34,8 +34,13 @@ CONTEXT_PATH = WORKSPACE_ROOT / "CONTEXT.md"
 def _run(cmd: list[str]) -> str:
     try:
         r = subprocess.run(
-            cmd, cwd=WORKSPACE_ROOT, capture_output=True,
-            text=True, timeout=30, encoding="utf-8", errors="replace",
+            cmd,
+            cwd=WORKSPACE_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace",
         )
         return r.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
@@ -83,18 +88,18 @@ def _project_status() -> list[tuple[str, str]]:
 
 
 def generate_snapshot() -> str:
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     git = _git_info()
     tests = _test_status()
     projects = _project_status()
 
     lines = [
-        f"## Daily Snapshot",
-        f"",
+        "## Daily Snapshot",
+        "",
         f"> Auto-generated on **{now}**",
-        f"",
-        f"| Item | Status |",
-        f"|:-----|:-------|",
+        "",
+        "| Item | Status |",
+        "|:-----|:-------|",
         f"| Branch | `{git['branch']}` @ `{git['sha']}` |",
         f"| Uncommitted | {git['dirty']} files |",
         f"| Last Smoke | {tests} |",

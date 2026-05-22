@@ -11,7 +11,6 @@ from regulators.ai_convergence_guard import (
 )
 from storage.models import MergedTrendReport, PlatformTrend, PlatformTrendReport
 
-
 # ── _is_ai_keyword ──
 
 
@@ -21,10 +20,21 @@ class TestIsAIKeyword:
     @pytest.mark.parametrize(
         "keyword",
         [
-            "AI", "llm", "GPT", "ChatGPT", "claude", "Gemini",
-            "openai", "anthropic", "deepmind", "transformer",
-            "prompt engineering", "ai agent", "agentic",
-            "MCP", "model context protocol",
+            "AI",
+            "llm",
+            "GPT",
+            "ChatGPT",
+            "claude",
+            "Gemini",
+            "openai",
+            "anthropic",
+            "deepmind",
+            "transformer",
+            "prompt engineering",
+            "ai agent",
+            "agentic",
+            "MCP",
+            "model context protocol",
         ],
     )
     def test_core_keywords_detected(self, keyword: str) -> None:
@@ -33,8 +43,13 @@ class TestIsAIKeyword:
     @pytest.mark.parametrize(
         "keyword",
         [
-            "bitcoin", "weather", "cooking", "k-pop",
-            "soccer", "real estate", "shopping",
+            "bitcoin",
+            "weather",
+            "cooking",
+            "k-pop",
+            "soccer",
+            "real estate",
+            "shopping",
         ],
     )
     def test_non_ai_keywords_rejected(self, keyword: str) -> None:
@@ -155,7 +170,7 @@ class TestApplyAIConvergenceGuard:
         """이미 존재하는 키워드는 중복 추가하지 않음."""
         report = _make_report(["GPT", "Claude", "날씨"])
         report.cross_platform_keywords = ["gpt"]
-        result = apply_ai_convergence_guard(report)
+        apply_ai_convergence_guard(report)
         # GPT는 이미 있으므로 추가 안 됨, Claude만 추가
         assert report.cross_platform_keywords.count("GPT") == 0  # 소문자만 있음
         gpt_count = sum(1 for kw in report.cross_platform_keywords if kw.lower() == "gpt")

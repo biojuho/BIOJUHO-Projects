@@ -16,10 +16,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from shared.circuit_breaker import CircuitBreaker
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -216,7 +213,6 @@ class TestFullLifecycle:
 
 
 class TestReset:
-
     def test_reset_from_closed(self):
         cb = CircuitBreaker("test", failure_threshold=5)
         cb.record_failure()
@@ -255,7 +251,6 @@ class TestReset:
 
 
 class TestEdgeCases:
-
     def test_threshold_of_one(self):
         """Single failure immediately trips the breaker."""
         cb = CircuitBreaker("fragile", failure_threshold=1)

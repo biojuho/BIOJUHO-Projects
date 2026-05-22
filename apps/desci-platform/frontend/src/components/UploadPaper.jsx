@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle, FileText, Loader2, Upload } from 'lucide-react';
+import { CheckCircle, FileText, Loader2, Upload, Sparkles } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { useJobProgress } from '../hooks/useJobProgress';
 import api from '../services/api';
+import { formatSupportError } from '../lib/support';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import JobProgressPanel from './JobProgressPanel';
 
 export default function UploadPaper() {
     const [file, setFile] = useState(null);
@@ -15,22 +18,26 @@ export default function UploadPaper() {
     const [authors, setAuthors] = useState('');
     const [abstract, setAbstract] = useState('');
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadStatusText, setUploadStatusText] = useState('');
+    const { t } = useLocale();
+    const [uploadStatusText, setUploadStatusText] = useState(() => t('uploadPaper.statusPreparing'));
     const [termsAgreed, setTermsAgreed] = useState(false);
+    const [mintTxHash, setMintTxHash] = useState(null);
+    const [rewardTxHash, setRewardTxHash] = useState(null);
     const abortControllerRef = useRef(null);
     const { showToast } = useToast();
     const { walletAddress } = useAuth();
-    const { t } = useLocale();
-
-    useEffect(() => {
-        setUploadStatusText(t('uploadPaper.statusPreparing'));
-    }, [t]);
+    const { job: jobStatus, watchJob, clearJob } = useJobProgress();
 
     useEffect(() => () => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
     }, []);
+
+    const text = useCallback((key, fallback, values) => {
+        const message = t(key, values);
+        return message === key ? fallback : message;
+    }, [t]);
 
     const handleUpload = async (event) => {
         event.preventDefault();
@@ -45,6 +52,7 @@ export default function UploadPaper() {
 
         setIsUploading(true);
         setUploadStatusText(t('uploadPaper.statusUploading'));
+        clearJob();
         abortControllerRef.current = new AbortController();
 
         const formData = new FormData();
@@ -58,7 +66,23 @@ export default function UploadPaper() {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 signal: abortControllerRef.current.signal,
             });
-            const result = response.data;
+            let result = response.data;
+
+            if (result.id || result.cid) {
+                setUploadStatusText(text('uploadPaper.statusIndexing', 'Parsing and indexing the paper...'));
+                const indexResponse = await api.post('/jobs/papers/index', { paper_id: result.id || result.cid });
+                const job = indexResponse.data?.job;
+                if (!job?.id) {
+                    throw new Error('Paper indexing job was not created.');
+                }
+                const indexResult = await watchJob(job);
+                result = {
+                    ...result,
+                    ...indexResult,
+                    cid: result.cid || indexResult.cid,
+                    ipfs_url: result.ipfs_url || indexResult.ipfs_url,
+                };
+            }
 
             let rewardMessage = '';
             if (walletAddress && result.cid) {
@@ -70,15 +94,21 @@ export default function UploadPaper() {
                     const consentHash = `0x${Array.from(new Uint8Array(hashBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 
                     setUploadStatusText(t('uploadPaper.statusMinting'));
-                    await api.post('/nft/mint', {
+                    const mintResponse = await api.post('/nft/mint', {
                         user_address: walletAddress,
                         token_uri: `ipfs://${result.cid}`,
                         consent_hash: consentHash,
                         consent_timestamp: consentTimestamp,
                     });
+                    if (mintResponse.data?.tx_hash) {
+                        setMintTxHash(mintResponse.data.tx_hash);
+                    }
 
                     setUploadStatusText(t('uploadPaper.statusRewarding'));
-                    await api.post(`/reward/paper?user_address=${walletAddress}`);
+                    const rewardResponse = await api.post(`/reward/paper?user_address=${walletAddress}`);
+                    if (rewardResponse.data?.tx_hash) {
+                        setRewardTxHash(rewardResponse.data.tx_hash);
+                    }
                     rewardMessage = t('uploadPaper.rewardSuccess');
                 } catch {
                     rewardMessage = t('uploadPaper.rewardDelayed');
@@ -88,15 +118,21 @@ export default function UploadPaper() {
             }
 
             showToast({ key: 'uploadPaper.uploadSuccess', values: { rewardMessage } }, 'success');
-            setFile(null);
-            setTitle('');
-            setAuthors('');
-            setAbstract('');
-            setTermsAgreed(false);
-            setUploadStatusText(t('uploadPaper.statusPreparing'));
+            // Keep status hashes visible for a moment or show in success UI
+            setTimeout(() => {
+                setFile(null);
+                setTitle('');
+                setAuthors('');
+                setAbstract('');
+                setTermsAgreed(false);
+                setUploadStatusText(t('uploadPaper.statusPreparing'));
+                setMintTxHash(null);
+                setRewardTxHash(null);
+                clearJob();
+            }, 5000);
         } catch (err) {
-            if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
-            showToast(err.response?.data?.detail || t('uploadPaper.uploadFailed'), 'error');
+            if (err.name === 'AbortError' || err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
+            showToast(formatSupportError(err, t('uploadPaper.uploadFailed')), 'error');
         } finally {
             setIsUploading(false);
         }
@@ -111,6 +147,55 @@ export default function UploadPaper() {
                     <p className="mt-3 text-sm leading-7 text-ink-muted">{t('uploadPaper.subtitle')}</p>
                 </CardContent>
             </Card>
+
+            {jobStatus && (
+                <JobProgressPanel
+                    job={jobStatus}
+                    title={text('uploadPaper.indexProgress', 'Indexing progress')}
+                    icon={false}
+                />
+            )}
+
+            {(mintTxHash || rewardTxHash) && (
+                <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="glass-card overflow-hidden border-primary/20 bg-primary/5 p-5"
+                >
+                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+                        <Sparkles className="h-4 w-4" />
+                        On-chain Confirmation
+                    </h3>
+                    <div className="space-y-3">
+                        {mintTxHash && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-ink-muted">IP-NFT Minted:</span>
+                                <a 
+                                    href={`https://amoy.polygonscan.com/tx/${mintTxHash}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="font-mono text-primary hover:underline"
+                                >
+                                    {mintTxHash.slice(0, 10)}...{mintTxHash.slice(-8)}
+                                </a>
+                            </div>
+                        )}
+                        {rewardTxHash && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-ink-muted">DSCI Rewards:</span>
+                                <a 
+                                    href={`https://amoy.polygonscan.com/tx/${rewardTxHash}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="font-mono text-primary hover:underline"
+                                >
+                                    {rewardTxHash.slice(0, 10)}...{rewardTxHash.slice(-8)}
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            )}
 
             <Card glass className="shadow-clay p-0">
                 <CardContent className="p-6 sm:p-8">

@@ -22,6 +22,7 @@ os.environ["REASONING_ENGINE_ENABLED"] = "true"
 
 pytestmark = [pytest.mark.integration, pytest.mark.external]
 
+
 def _check_ollama_connectivity():
     """Test 1: Verify Ollama server is reachable."""
     print("=" * 60)
@@ -63,6 +64,7 @@ def _check_smart_router_complexity():
         print(f"  → Complexity: {result.value} ({expected})")
         print()
 
+
 def _check_reasoning_config():
     """Test 3: Verify REASONING_CONFIG loaded correctly."""
     print("=" * 60)
@@ -79,6 +81,8 @@ def _check_reasoning_config():
 
     assert REASONING_CONFIG["prefer_local"] is True, "REASONING_PREFER_LOCAL should be true!"
     print("  ✅ REASONING_PREFER_LOCAL=true confirmed")
+
+
 def test_live_reasoning():
     """Test 4: Live create_with_reasoning() call via Ollama."""
     print("\n" + "=" * 60)
@@ -142,6 +146,7 @@ def test_live_reasoning():
         print(f"  Response length: {len(resp.text)} chars")
     except Exception as e:
         print(f"  ⚠️ Error: {e}")
+
 
 def main():
     print("🚀 Self-Hosted Inference Engine — Live Test")

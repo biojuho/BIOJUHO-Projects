@@ -1,5 +1,8 @@
 name: GetDayTrends Tests
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: ["main", "dev"]
@@ -21,6 +24,7 @@ concurrency:
 
 jobs:
   test:
+    name: GetDayTrends test suite
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -33,7 +37,9 @@ jobs:
       OPENAI_API_KEY:    "test-stub"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -45,6 +51,7 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --package getdaytrends
+          uv pip install -e packages/shared
           uv pip install -e . --no-deps
 
       # ── Shared package tests ──
@@ -83,14 +90,14 @@ jobs:
                   errs   = int(root.attrib.get("errors",   0))
                   passed = tests - fails - errs
                   total_pass += passed; total_fail += fails; total_err += errs
-                  emoji = "✅" if fails + errs == 0 else "❌"
+                  emoji = "[OK]" if fails + errs == 0 else "[FAIL]"
                   lines.append(f"| {emoji} {xml_file.stem} | {passed} | {fails} | {errs} |")
               except Exception as e:
-                  lines.append(f"| ⚠️ {xml_file.stem} | - | - | parse error |")
+                  lines.append(f"| [WARN] {xml_file.stem} | - | - | parse error |")
 
           grand_ok = total_fail + total_err == 0
           lines.append(f"\n**Total: {total_pass} passed, {total_fail} failed, {total_err} errors**")
-          lines.append(f"\n{'🟢 All suites green' if grand_ok else '🔴 Some tests failed'}")
+          lines.append(f"\n{'All suites green' if grand_ok else 'Some tests failed'}")
 
           with summary_path.open("a", encoding="utf-8") as f:
               f.write("\n".join(lines) + "\n")
@@ -98,7 +105,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: test-results-${{ github.run_number }}
           path: test-results/

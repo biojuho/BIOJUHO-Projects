@@ -6,7 +6,6 @@ C-5 (Slack/Email) 및 기존 채널 (Telegram/Discord) 테스트.
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from alerts import (
     format_trend_alert,
     send_alert,

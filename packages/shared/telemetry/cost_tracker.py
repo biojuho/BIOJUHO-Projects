@@ -7,6 +7,7 @@ shared.telemetry.cost_tracker - 비용 추적 인터셉터 및 요약 생성기
 import inspect
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 WORKSPACE = Path(__file__).resolve().parents[2]
 LLM_DB_PATH = WORKSPACE / "shared" / "llm" / "data" / "llm_costs.db"
@@ -27,7 +28,7 @@ def detect_project_context() -> str:
     return "shared"
 
 
-def get_daily_cost_summary(db_path: Path = LLM_DB_PATH, days: int = 1) -> dict:
+def get_daily_cost_summary(db_path: Path = LLM_DB_PATH, days: int = 1) -> dict[str, Any]:
     """최근 N일간의 프로젝트별/모델별 비용 합계 요약을 생성합니다."""
     if not db_path.exists():
         return {"total_cost": 0.0, "total_calls": 0, "projects": {}}
@@ -49,7 +50,7 @@ def get_daily_cost_summary(db_path: Path = LLM_DB_PATH, days: int = 1) -> dict:
             (f"-{days} days",),
         )
 
-        projects = {}
+        projects: dict[str, dict[str, int | float]] = {}
         total_cost = 0.0
         total_calls = 0
 

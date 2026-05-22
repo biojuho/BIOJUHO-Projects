@@ -70,9 +70,9 @@ class TestQwen3CoderRouting:
             None,
         )
         assert qwen_idx is not None and openai_idx is not None
-        assert (
-            qwen_idx < openai_idx
-        ), f"Qwen3-Coder (idx={qwen_idx}) should be before OpenAI (idx={openai_idx}) in HEAVY"
+        assert qwen_idx < openai_idx, (
+            f"Qwen3-Coder (idx={qwen_idx}) should be before OpenAI (idx={openai_idx}) in HEAVY"
+        )
 
     def test_reasoning_config_defaults(self):
         assert REASONING_CONFIG["enabled"] in (True, False)

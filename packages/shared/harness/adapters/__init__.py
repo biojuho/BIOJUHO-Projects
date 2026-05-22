@@ -8,8 +8,8 @@ engine for our pipelines.
 """
 
 from .base import AbstractHarnessAdapter, AdapterResult
-from .native import NativeHarnessAdapter
 from .deepagents import DeepAgentsAdapter
+from .native import NativeHarnessAdapter
 
 __all__ = [
     "AbstractHarnessAdapter",

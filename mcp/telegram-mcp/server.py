@@ -5,7 +5,6 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import httpx
-
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("telegram-bot")
@@ -94,7 +93,7 @@ async def send_alert(title: str, body: str, level: str = "info") -> dict:
     icon = icons.get(level, "[INFO]")
     now = datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
 
-    msg = f"*{icon} {title}*\n" f"\n" f"{body}\n" f"\n" f"_{now}_"
+    msg = f"*{icon} {title}*\n\n{body}\n\n_{now}_"
     return await _send(msg)
 
 
@@ -189,7 +188,7 @@ async def send_approval_request(action: str, description: str) -> dict:
         Dict with ok, message_id, or error.
     """
     now = datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
-    msg = f"*[APPROVAL REQUIRED]*\n" f"\n" f"*Action:* `{action}`\n" f"{description}\n" f"\n" f"_{now}_"
+    msg = f"*[APPROVAL REQUIRED]*\n\n*Action:* `{action}`\n{description}\n\n_{now}_"
 
     reply_markup = {
         "inline_keyboard": [

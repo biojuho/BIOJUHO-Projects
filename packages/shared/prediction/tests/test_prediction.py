@@ -6,17 +6,14 @@ PEE 단위 테스트 — features, model, engine, api.
 
 from __future__ import annotations
 
-import asyncio
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-from shared.prediction.features import ContentFeatures, FeatureExtractor, CATEGORY_MAP
+from shared.prediction.engine import ContentCandidate, PredictionEngine
+from shared.prediction.features import CATEGORY_MAP, ContentFeatures, FeatureExtractor
 from shared.prediction.model import EngagementModel, PredictionResult
-from shared.prediction.engine import PredictionEngine, ContentCandidate
-
 
 # ── Feature Tests ──────────────────────────────────────────
 
@@ -82,8 +79,12 @@ class TestFeatureExtractor:
         ext = FeatureExtractor(gdt_db=db_path)
         events: list[tuple[str, str]] = []
 
-        monkeypatch.setattr("shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args)))
-        monkeypatch.setattr("shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args)))
+        monkeypatch.setattr(
+            "shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args))
+        )
+        monkeypatch.setattr(
+            "shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args))
+        )
 
         rows = ext._safe_query(db_path, "SELECT * FROM x_tweet_metrics")
 
@@ -102,8 +103,12 @@ class TestFeatureExtractor:
         ext = FeatureExtractor(gdt_db=db_path)
         events: list[tuple[str, str]] = []
 
-        monkeypatch.setattr("shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args)))
-        monkeypatch.setattr("shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args)))
+        monkeypatch.setattr(
+            "shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args))
+        )
+        monkeypatch.setattr(
+            "shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args))
+        )
 
         rows = ext._safe_query(db_path, "SELECT missing_column FROM sample")
 
@@ -122,8 +127,12 @@ class TestFeatureExtractor:
         ext = FeatureExtractor(gdt_db=db_path)
         events: list[tuple[str, str]] = []
 
-        monkeypatch.setattr("shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args)))
-        monkeypatch.setattr("shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args)))
+        monkeypatch.setattr(
+            "shared.prediction.features.log.info", lambda msg, *args: events.append(("info", msg % args))
+        )
+        monkeypatch.setattr(
+            "shared.prediction.features.log.warning", lambda msg, *args: events.append(("warning", msg % args))
+        )
 
         rows = ext._safe_query(db_path, "SELECT run_date FROM sample")
 
@@ -277,6 +286,7 @@ class TestAPISchemas:
 
     def test_predict_request_validation(self):
         from shared.prediction.api import PredictRequest
+
         req = PredictRequest(
             content="테스트",
             trend_keyword="AI",
@@ -287,6 +297,7 @@ class TestAPISchemas:
 
     def test_predict_request_bounds(self):
         from shared.prediction.api import PredictRequest
+
         with pytest.raises(Exception):
             PredictRequest(content="", trend_keyword="AI")  # min_length=1
 
@@ -296,8 +307,8 @@ class TestAPISchemas:
 
 class TestRetrain:
     def test_needs_retrain_no_model(self, tmp_path):
-        from shared.prediction.retrain import _needs_retrain
         import shared.prediction.retrain as retrain_mod
+        from shared.prediction.retrain import _needs_retrain
 
         original = retrain_mod._model_dir
         retrain_mod._model_dir = lambda: tmp_path
@@ -309,10 +320,10 @@ class TestRetrain:
             retrain_mod._model_dir = original
 
     def test_needs_retrain_fresh_model(self, tmp_path):
-        import json
-        from datetime import datetime, UTC
-        from shared.prediction.retrain import _needs_retrain
+        from datetime import UTC, datetime
+
         import shared.prediction.retrain as retrain_mod
+        from shared.prediction.retrain import _needs_retrain
 
         # Write a fresh meta file
         meta = {
@@ -333,6 +344,7 @@ class TestRetrain:
     async def test_maybe_retrain_without_db(self):
         """DB 없이 retrain 호출 시 데이터 부족으로 fallback."""
         from shared.prediction.retrain import retrain
+
         result = await retrain(force=True)
         # 데이터 부족이므로 retrained=False
         assert result["retrained"] is False

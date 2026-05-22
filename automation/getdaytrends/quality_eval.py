@@ -19,9 +19,21 @@ Usage:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 from loguru import logger as log
+
+
+def _deepeval_runtime_disabled() -> bool:
+    """Allow tests / offline environments to skip DeepEval LLM probes.
+
+    Each DeepEval metric (Hallucination / Faithfulness / AnswerRelevancy)
+    attempts a real LLM call. When no LLM key is configured the SDK still
+    spends 5-15s per metric on init/timeout before falling back. Tests that
+    only exercise the rule-based fact_checker path don't need this overhead.
+    """
+    return os.getenv("DEEPEVAL_DISABLED", "").lower() in {"1", "true", "yes"}
 
 # DeepEval 선택 의존성
 try:
@@ -75,7 +87,7 @@ def evaluate_content(
         faithfulness_threshold: 사실 일관성 기각 임계값 (높을수록 엄격)
         relevancy_threshold: 관련성 기각 임계값 (높을수록 엄격)
     """
-    if not DEEPEVAL_AVAILABLE:
+    if not DEEPEVAL_AVAILABLE or _deepeval_runtime_disabled():
         return EvalResult()
 
     if not generated_text or not source_context:
@@ -99,7 +111,7 @@ def evaluate_content(
             result.hallucination_score = hallucination_metric.score or 0.0
             if not hallucination_metric.is_successful():
                 result.issues.append(
-                    f"환각 감지 (score={result.hallucination_score:.2f}, " f"threshold={hallucination_threshold})"
+                    f"환각 감지 (score={result.hallucination_score:.2f}, threshold={hallucination_threshold})"
                 )
                 result.passed = False
             result.details["hallucination_reason"] = hallucination_metric.reason
@@ -115,7 +127,7 @@ def evaluate_content(
             result.faithfulness_score = faithfulness_metric.score or 0.0
             if not faithfulness_metric.is_successful():
                 result.issues.append(
-                    f"사실 불일치 (score={result.faithfulness_score:.2f}, " f"threshold={faithfulness_threshold})"
+                    f"사실 불일치 (score={result.faithfulness_score:.2f}, threshold={faithfulness_threshold})"
                 )
                 result.passed = False
             result.details["faithfulness_reason"] = faithfulness_metric.reason
@@ -131,7 +143,7 @@ def evaluate_content(
             result.relevancy_score = relevancy_metric.score or 0.0
             if not relevancy_metric.is_successful():
                 result.issues.append(
-                    f"관련성 부족 (score={result.relevancy_score:.2f}, " f"threshold={relevancy_threshold})"
+                    f"관련성 부족 (score={result.relevancy_score:.2f}, threshold={relevancy_threshold})"
                 )
                 result.passed = False
             result.details["relevancy_reason"] = relevancy_metric.reason

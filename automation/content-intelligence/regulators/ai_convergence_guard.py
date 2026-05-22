@@ -16,13 +16,37 @@ from storage.models import MergedTrendReport, PlatformTrend
 # ── AI 키워드 패턴 (대소문자 무시) ──
 # Tier 1: 핵심 AI 키워드 — 정확 매칭
 _AI_CORE_KEYWORDS: set[str] = {
-    "ai", "llm", "gpt", "chatgpt", "claude", "gemini", "copilot",
-    "openai", "anthropic", "deepmind", "mistral", "llama", "deepseek",
-    "transformer", "diffusion", "rag", "fine-tuning", "finetuning",
-    "prompt engineering", "prompt", "agent", "ai agent", "agentic",
-    "mcp", "model context protocol",
-    "sora", "midjourney", "dall-e", "stable diffusion",
-    "hugging face", "huggingface",
+    "ai",
+    "llm",
+    "gpt",
+    "chatgpt",
+    "claude",
+    "gemini",
+    "copilot",
+    "openai",
+    "anthropic",
+    "deepmind",
+    "mistral",
+    "llama",
+    "deepseek",
+    "transformer",
+    "diffusion",
+    "rag",
+    "fine-tuning",
+    "finetuning",
+    "prompt engineering",
+    "prompt",
+    "agent",
+    "ai agent",
+    "agentic",
+    "mcp",
+    "model context protocol",
+    "sora",
+    "midjourney",
+    "dall-e",
+    "stable diffusion",
+    "hugging face",
+    "huggingface",
 }
 
 # Tier 2: AI 인접 키워드 — 부분 매칭 (정규식)
@@ -57,10 +81,7 @@ class AIConvergenceResult:
 
     def summary(self) -> str:
         signal = "🔥 CONVERGENCE" if self.convergence_signal else "—"
-        return (
-            f"AI Guard: {self.ai_trend_count}/{self.total_trend_count} "
-            f"({self.ai_density:.0%}) {signal}"
-        )
+        return f"AI Guard: {self.ai_trend_count}/{self.total_trend_count} ({self.ai_density:.0%}) {signal}"
 
 
 def _is_ai_keyword(keyword: str) -> bool:
@@ -153,10 +174,7 @@ def apply_ai_convergence_guard(
                 existing.add(kw.lower())
 
         # top_insights에 convergence 신호 추가
-        signal_insight = (
-            f"🔥 AI Convergence 감지: 전체 트렌드의 {density:.0%}가 AI 관련. "
-            f"AI 토픽 우선 반영 권장."
-        )
+        signal_insight = f"🔥 AI Convergence 감지: 전체 트렌드의 {density:.0%}가 AI 관련. AI 토픽 우선 반영 권장."
         report.top_insights.insert(0, signal_insight)
 
     return AIConvergenceResult(

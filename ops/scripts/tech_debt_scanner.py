@@ -12,6 +12,7 @@ Usage:
     python ops/scripts/tech_debt_scanner.py --json-out var/debt/2026-03-31.json
     python ops/scripts/tech_debt_scanner.py --fail-on-grade C
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,7 +23,7 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -34,8 +35,21 @@ from workspace_paths import find_workspace_root, iter_active_units
 WORKSPACE = find_workspace_root()
 
 EXCLUDE_DIRS = {
-    ".venv", "venv", "__pycache__", "node_modules", ".git",
-    "archive", "var", "output", "dist", "build", ".next",
+    ".agent",
+    ".agents",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "node_modules",
+    ".git",
+    "archive",
+    "var",
+    "output",
+    "dist",
+    "build",
+    ".next",
+    "review_pack",
+    "tests",
 }
 
 # 부채 등급 임계값 (Debt Score 0-100, 낮을수록 건강)
@@ -49,13 +63,14 @@ WEIGHT_TODO_DENSITY = 0.15
 WEIGHT_TYPE_SAFETY = 0.10
 
 # 복잡도 임계값
-CC_WARN = 10   # warning
-CC_CRIT = 15   # critical
+CC_WARN = 10  # warning
+CC_CRIT = 15  # critical
 
 
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class FunctionMetric:
@@ -107,6 +122,7 @@ class WorkspaceDebtReport:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def collect_python_files(root: Path) -> list[Path]:
     """워크스페이스 유닛 내 Python 파일 수집 (제외 디렉토리 스킵)."""
     files: list[Path] = []
@@ -131,9 +147,11 @@ def count_lines(files: list[Path]) -> int:
 # Complexity analysis (radon 우선, fallback to ast-based)
 # ---------------------------------------------------------------------------
 
+
 def _radon_available() -> bool:
     try:
         import importlib.util
+
         return importlib.util.find_spec("radon") is not None
     except Exception:
         return False
@@ -146,9 +164,10 @@ def analyze_complexity_radon(files: list[Path]) -> list[FunctionMetric]:
     metrics: list[FunctionMetric] = []
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "radon", "cc", "--json", "-s", "--",
-             *[str(f) for f in files]],
-            capture_output=True, text=True, timeout=120
+            [sys.executable, "-m", "radon", "cc", "--json", "-s", "--", *[str(f) for f in files]],
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return []
@@ -156,12 +175,14 @@ def analyze_complexity_radon(files: list[Path]) -> list[FunctionMetric]:
         for filepath, blocks in data.items():
             for block in blocks:
                 if block.get("type") in ("function", "method"):
-                    metrics.append(FunctionMetric(
-                        name=block["name"],
-                        file=filepath,
-                        line=block["lineno"],
-                        complexity=block["complexity"],
-                    ))
+                    metrics.append(
+                        FunctionMetric(
+                            name=block["name"],
+                            file=filepath,
+                            line=block["lineno"],
+                            complexity=block["complexity"],
+                        )
+                    )
     except Exception:
         pass
     return metrics
@@ -171,8 +192,13 @@ def analyze_complexity_ast(files: list[Path]) -> list[FunctionMetric]:
     """radon 없을 때: AST 기반 단순 복잡도 근사 (분기 수 카운팅)."""
     metrics: list[FunctionMetric] = []
     branch_nodes = (
-        ast.If, ast.For, ast.While, ast.ExceptHandler,
-        ast.With, ast.Assert, ast.comprehension,
+        ast.If,
+        ast.For,
+        ast.While,
+        ast.ExceptHandler,
+        ast.With,
+        ast.Assert,
+        ast.comprehension,
     )
     for filepath in files:
         try:
@@ -181,16 +207,15 @@ def analyze_complexity_ast(files: list[Path]) -> list[FunctionMetric]:
             continue
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                cc = 1 + sum(
-                    1 for child in ast.walk(node)
-                    if isinstance(child, branch_nodes)
+                cc = 1 + sum(1 for child in ast.walk(node) if isinstance(child, branch_nodes))
+                metrics.append(
+                    FunctionMetric(
+                        name=node.name,
+                        file=str(filepath),
+                        line=node.lineno,
+                        complexity=cc,
+                    )
                 )
-                metrics.append(FunctionMetric(
-                    name=node.name,
-                    file=str(filepath),
-                    line=node.lineno,
-                    complexity=cc,
-                ))
     return metrics
 
 
@@ -205,6 +230,7 @@ def analyze_complexity(files: list[Path]) -> list[FunctionMetric]:
 # ---------------------------------------------------------------------------
 # Duplication detection (5-line sliding window hash)
 # ---------------------------------------------------------------------------
+
 
 def analyze_duplication(files: list[Path], window: int = 5) -> tuple[int, float]:
     """5줄 슬라이딩 윈도우 해시로 중복 블록 탐지."""
@@ -222,7 +248,7 @@ def analyze_duplication(files: list[Path], window: int = 5) -> tuple[int, float]
         norm = [ln for ln in norm if ln]
 
         for i in range(len(norm) - window + 1):
-            block = "\n".join(norm[i: i + window])
+            block = "\n".join(norm[i : i + window])
             digest = hashlib.md5(block.encode()).hexdigest()
             total_blocks += 1
             if digest in seen:
@@ -237,6 +263,7 @@ def analyze_duplication(files: list[Path], window: int = 5) -> tuple[int, float]
 # ---------------------------------------------------------------------------
 # TODO/FIXME density
 # ---------------------------------------------------------------------------
+
 
 def analyze_todos(files: list[Path], total_lines: int) -> tuple[int, float]:
     """TODO / FIXME / HACK / XXX 카운트 + 1000 LOC 당 밀도."""
@@ -255,6 +282,7 @@ def analyze_todos(files: list[Path], total_lines: int) -> tuple[int, float]:
 # ---------------------------------------------------------------------------
 # Type annotation ratio
 # ---------------------------------------------------------------------------
+
 
 def analyze_type_annotations(files: list[Path]) -> tuple[int, int]:
     """함수 중 반환 타입 어노테이션이 있는 비율."""
@@ -276,6 +304,7 @@ def analyze_type_annotations(files: list[Path]) -> tuple[int, int]:
 # Debt score calculation
 # ---------------------------------------------------------------------------
 
+
 def compute_debt_score(
     avg_complexity: float,
     coverage_pct: float,
@@ -288,7 +317,7 @@ def compute_debt_score(
     complexity_violation = min(max(avg_complexity - 5, 0) / 20, 1.0)  # 5~25 범위 정규화
     coverage_gap = max(0.0, 1.0 - coverage_pct / 100.0)
     dup_norm = min(duplication_ratio * 10, 1.0)  # 10% 중복 = 최대
-    todo_norm = min(todo_density / 10.0, 1.0)   # 10/1000 LOC = 최대
+    todo_norm = min(todo_density / 10.0, 1.0)  # 10/1000 LOC = 최대
     type_gap = max(0.0, 1.0 - type_annotation_ratio)
 
     raw = (
@@ -308,83 +337,170 @@ def score_to_grade(score: float) -> str:
     return "D"
 
 
+def _summary_percent(summary: dict) -> float | None:
+    for key in ("percent_covered", "percent_statements_covered"):
+        value = summary.get(key)
+        if isinstance(value, int | float):
+            return float(value)
+    covered = summary.get("covered_lines")
+    statements = summary.get("num_statements")
+    if isinstance(covered, int | float) and isinstance(statements, int | float) and statements:
+        return float(covered) / float(statements) * 100
+    return None
+
+
+def _coverage_file_path(file_key: str) -> Path:
+    path = Path(file_key)
+    if path.is_absolute():
+        return path.resolve()
+    return (WORKSPACE / path).resolve()
+
+
+def _unit_path(unit: dict) -> Path:
+    return WORKSPACE / unit.get("canonical_path", unit.get("path", ""))
+
+
+def _unit_file_coverage(cov_data: dict, unit: dict) -> float | None:
+    files = cov_data.get("files")
+    if not isinstance(files, dict):
+        return None
+
+    unit_root = _unit_path(unit).resolve()
+    covered_lines = 0.0
+    statements = 0.0
+    for file_key, file_data in files.items():
+        try:
+            _coverage_file_path(str(file_key)).relative_to(unit_root)
+        except ValueError:
+            continue
+        if not isinstance(file_data, dict):
+            continue
+        summary = file_data.get("summary", {})
+        if not isinstance(summary, dict):
+            continue
+        covered = summary.get("covered_lines")
+        total = summary.get("num_statements")
+        if isinstance(covered, int | float) and isinstance(total, int | float):
+            covered_lines += float(covered)
+            statements += float(total)
+
+    if not statements:
+        return None
+    return covered_lines / statements * 100
+
+
+def load_coverage_map(path: Path, units: list[dict]) -> dict[str, float]:
+    """Load pytest-cov JSON into scanner unit ids."""
+    cov_data = json.loads(path.read_text(encoding="utf-8"))
+
+    explicit_units = cov_data.get("unit_coverage")
+    if isinstance(explicit_units, dict):
+        return {
+            unit_id: float(value)
+            for unit_id, value in explicit_units.items()
+            if isinstance(unit_id, str) and isinstance(value, int | float)
+        }
+
+    coverage_map: dict[str, float] = {}
+    for unit in units:
+        unit_coverage = _unit_file_coverage(cov_data, unit)
+        if unit_coverage is not None:
+            coverage_map[unit["id"]] = round(unit_coverage, 2)
+
+    if coverage_map:
+        return coverage_map
+
+    total_percent = _summary_percent(cov_data.get("totals", {}))
+    if len(units) == 1 and total_percent is not None:
+        return {units[0]["id"]: round(total_percent, 2)}
+
+    return {}
+
+
 def estimate_remediation_hours(
     high_cc_functions: int,
     todo_count: int,
     unannotated_functions: int,
 ) -> float:
-    """원금(Principal) 추정 -수정에 필요한 총 인시."""
+    """?먭툑(Principal) 異붿젙 -?섏젙???꾩슂??珥??몄떆."""
     return round(
-        high_cc_functions * 0.5    # 고복잡도 함수당 30분
-        + todo_count * 1.0          # TODO 항목당 1시간
-        + unannotated_functions * 0.25  # 타입 미비 함수당 15분
-    , 1)
+        high_cc_functions * 0.5  # 怨좊났?〓룄 ?⑥닔??30遺?
+        + todo_count * 1.0  # TODO ??ぉ??1?쒓컙
+        + unannotated_functions * 0.25,  # ???誘몃퉬 ?⑥닔??15遺?
+        1,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Per-unit scan
 # ---------------------------------------------------------------------------
 
+
 def scan_unit(unit: dict, coverage_map: dict[str, float]) -> UnitDebtReport:
     unit_id = unit["id"]
-    unit_root = WORKSPACE / unit["canonical_path"]
-    errors: list[str] = []
+    unit_root = _unit_path(unit)
 
     if not unit_root.exists():
         return UnitDebtReport(
-            unit_id=unit_id, unit_path=str(unit_root),
-            python_files=0, total_lines=0,
-            avg_complexity=0, max_complexity=0, high_complexity_functions=[],
-            duplicate_block_count=0, duplication_ratio=0,
-            todo_count=0, todo_density=0,
-            annotated_functions=0, total_functions=0, type_annotation_ratio=0,
-            debt_score=0, grade="A", estimated_remediation_hours=0,
+            unit_id=unit_id,
+            unit_path=str(unit_root.relative_to(WORKSPACE)),
+            python_files=0,
+            total_lines=0,
+            avg_complexity=0,
+            max_complexity=0,
+            high_complexity_functions=[],
+            duplicate_block_count=0,
+            duplication_ratio=0,
+            todo_count=0,
+            todo_density=0,
+            annotated_functions=0,
+            total_functions=0,
+            type_annotation_ratio=0,
+            debt_score=0,
+            grade="A",
+            estimated_remediation_hours=0,
             errors=[f"Unit path not found: {unit_root}"],
         )
 
     files = collect_python_files(unit_root)
     if not files:
         return UnitDebtReport(
-            unit_id=unit_id, unit_path=str(unit_root),
-            python_files=0, total_lines=0,
-            avg_complexity=0, max_complexity=0, high_complexity_functions=[],
-            duplicate_block_count=0, duplication_ratio=0,
-            todo_count=0, todo_density=0,
-            annotated_functions=0, total_functions=0, type_annotation_ratio=0,
-            debt_score=0, grade="A", estimated_remediation_hours=0,
-            errors=["No Python files found (may be a JS/TS-only unit)"],
+            unit_id=unit_id,
+            unit_path=str(unit_root.relative_to(WORKSPACE)),
+            python_files=0,
+            total_lines=0,
+            avg_complexity=0,
+            max_complexity=0,
+            high_complexity_functions=[],
+            duplicate_block_count=0,
+            duplication_ratio=0,
+            todo_count=0,
+            todo_density=0,
+            annotated_functions=0,
+            total_functions=0,
+            type_annotation_ratio=0,
+            debt_score=0,
+            grade="A",
+            estimated_remediation_hours=0,
+            errors=[],
         )
 
     total_lines = count_lines(files)
+    metrics = analyze_complexity(files)
+    avg_cc = sum(m.complexity for m in metrics) / len(metrics) if metrics else 0
+    max_cc = max((m.complexity for m in metrics), default=0)
+    high_cc = [m for m in metrics if m.complexity > CC_WARN]
+    high_cc_sorted = sorted(high_cc, key=lambda m: m.complexity, reverse=True)
 
-    # Complexity
-    all_metrics = analyze_complexity(files)
-    if all_metrics:
-        avg_cc = sum(m.complexity for m in all_metrics) / len(all_metrics)
-        max_cc = max(m.complexity for m in all_metrics)
-    else:
-        avg_cc = max_cc = 0.0
-    high_cc = [m for m in all_metrics if m.complexity > CC_WARN]
-
-    # Duplication
     dup_count, dup_ratio = analyze_duplication(files)
-
-    # TODO density
     todo_count, todo_density = analyze_todos(files, total_lines)
-
-    # Type annotations
     annotated, total_funcs = analyze_type_annotations(files)
     type_ratio = annotated / total_funcs if total_funcs else 1.0
 
-    # Coverage (외부 map에서 조회, 없으면 0%)
     coverage_pct = coverage_map.get(unit_id, 0.0)
-
-    # Score
     score = compute_debt_score(avg_cc, coverage_pct, dup_ratio, todo_density, type_ratio)
     grade = score_to_grade(score)
-
-    unannotated = total_funcs - annotated
-    remediation_h = estimate_remediation_hours(len(high_cc), todo_count, unannotated)
+    remediation = estimate_remediation_hours(len(high_cc), todo_count, total_funcs - annotated)
 
     return UnitDebtReport(
         unit_id=unit_id,
@@ -392,8 +508,8 @@ def scan_unit(unit: dict, coverage_map: dict[str, float]) -> UnitDebtReport:
         python_files=len(files),
         total_lines=total_lines,
         avg_complexity=round(avg_cc, 2),
-        max_complexity=int(max_cc),
-        high_complexity_functions=high_cc,
+        max_complexity=max_cc,
+        high_complexity_functions=high_cc_sorted[:20],
         duplicate_block_count=dup_count,
         duplication_ratio=round(dup_ratio, 4),
         todo_count=todo_count,
@@ -403,47 +519,38 @@ def scan_unit(unit: dict, coverage_map: dict[str, float]) -> UnitDebtReport:
         type_annotation_ratio=round(type_ratio, 4),
         debt_score=score,
         grade=grade,
-        estimated_remediation_hours=remediation_h,
-        errors=errors,
+        estimated_remediation_hours=remediation,
     )
 
 
-# ---------------------------------------------------------------------------
-# Workspace-level aggregation
-# ---------------------------------------------------------------------------
-
-def build_workspace_report(
-    unit_reports: list[UnitDebtReport],
-) -> WorkspaceDebtReport:
+def build_workspace_report(unit_reports: list[UnitDebtReport]) -> WorkspaceDebtReport:
     valid = [r for r in unit_reports if r.python_files > 0]
     if valid:
         ws_score = round(sum(r.debt_score for r in valid) / len(valid), 1)
+        total_hours = round(sum(r.estimated_remediation_hours for r in valid), 1)
     else:
         ws_score = 0.0
+        total_hours = 0.0
 
     ws_grade = score_to_grade(ws_score)
-    total_hours = round(sum(r.estimated_remediation_hours for r in unit_reports), 1)
-
-    # 등급 분포
-    grade_dist: dict[str, int] = {"A": 0, "B": 0, "C": 0, "D": 0}
-    for r in unit_reports:
-        grade_dist[r.grade] = grade_dist.get(r.grade, 0) + 1
+    grade_counts: dict[str, int] = {"A": 0, "B": 0, "C": 0, "D": 0}
+    for report in valid:
+        grade_counts[report.grade] += 1
 
     worst = sorted(valid, key=lambda r: r.debt_score, reverse=True)[:3]
-
     summary = {
         "total_units_scanned": len(unit_reports),
         "python_units": len(valid),
-        "grade_distribution": grade_dist,
+        "grade_distribution": grade_counts,
         "top_3_worst": [r.unit_id for r in worst],
-        "total_python_files": sum(r.python_files for r in unit_reports),
-        "total_lines": sum(r.total_lines for r in unit_reports),
-        "total_todo_count": sum(r.todo_count for r in unit_reports),
+        "total_python_files": sum(r.python_files for r in valid),
+        "total_lines": sum(r.total_lines for r in valid),
+        "total_todo_count": sum(r.todo_count for r in valid),
         "radon_available": _radon_available(),
     }
 
     return WorkspaceDebtReport(
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         workspace_root=str(WORKSPACE),
         units=unit_reports,
         workspace_debt_score=ws_score,
@@ -467,11 +574,11 @@ def grade_colored(grade: str) -> str:
 
 def print_report(report: WorkspaceDebtReport, verbose: bool = False) -> None:
     ws = report
-    print(f"\n{'='*64}")
+    print(f"\n{'=' * 64}")
     print(f"  VibeDebt Scanner - {ws.generated_at[:10]}")
     print(f"  Workspace Score: {ws.workspace_debt_score:.1f}  Grade: {grade_colored(ws.workspace_grade)}")
     print(f"  Estimated Remediation: {ws.total_remediation_hours:.1f}h")
-    print(f"{'='*64}")
+    print(f"{'=' * 64}")
 
     print(f"\n{'Unit':<24} {'Files':>5} {'Lines':>6} {'Score':>6} {'Grade':>6} {'CC Avg':>7} {'TODO':>5} {'Est.h':>6}")
     print("-" * 72)
@@ -484,51 +591,39 @@ def print_report(report: WorkspaceDebtReport, verbose: bool = False) -> None:
             f"{r.debt_score:>6.1f} {grade_colored(r.grade):>14} "
             f"{r.avg_complexity:>7.1f} {r.todo_count:>5} {r.estimated_remediation_hours:>6.1f}"
         )
+        for err in r.errors:
+            print(f"  [ERROR] {err}")
 
     if verbose:
-        print(f"\n{'--- High Complexity Functions (CC > ' + str(CC_WARN) + ') ---'}")
+        print("\n--- High Complexity Functions (CC > 10) ---")
         for r in ws.units:
-            for fn in r.high_complexity_functions:
-                rel = Path(fn.file).name
-                flag = " [CRITICAL]" if fn.complexity > CC_CRIT else ""
-                print(f"  [{r.unit_id}] {fn.name} (CC={fn.complexity}) @ {rel}:{fn.line}{flag}")
+            for func in r.high_complexity_functions[:10]:
+                rel = Path(func.file)
+                try:
+                    rel = rel.relative_to(WORKSPACE)
+                except ValueError:
+                    pass
+                severity = " [CRITICAL]" if func.complexity >= CC_CRIT else ""
+                print(f"  [{r.unit_id}] {func.name} (CC={func.complexity}) @ {rel}:{func.line}{severity}")
 
     print(f"\nGrade distribution: {ws.summary['grade_distribution']}")
-    if ws.summary["top_3_worst"]:
-        print(f"Worst units: {', '.join(ws.summary['top_3_worst'])}")
-    if not ws.summary["radon_available"]:
-        print("\n[WARN] radon not installed - using AST-based complexity (less accurate).")
-        print("   Run: pip install radon  for full analysis.")
-    print()
+    print(f"Worst units: {', '.join(ws.summary['top_3_worst']) or 'none'}")
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="VibeDebt Scanner -기술 부채 자동 진단")
-    parser.add_argument("--unit", help="특정 unit ID만 스캔 (미지정 시 전체)")
-    parser.add_argument("--json-out", metavar="PATH", help="JSON 리포트 출력 경로")
-    parser.add_argument("--fail-on-grade", metavar="GRADE", choices=["B", "C", "D"],
-                        help="워크스페이스 등급이 이 이상이면 non-zero exit (예: C)")
-    parser.add_argument("--verbose", action="store_true", help="고복잡도 함수 목록 출력")
-    parser.add_argument("--coverage-json", metavar="PATH",
-                        help="coverage.json 경로 (pytest-cov --json-report 출력)")
+    parser = argparse.ArgumentParser(description="VibeDebt Scanner - workspace technical debt metrics")
+    parser.add_argument("--unit", help="Scan only one unit id")
+    parser.add_argument("--json-out", metavar="PATH", help="Write JSON report")
+    parser.add_argument(
+        "--fail-on-grade",
+        metavar="GRADE",
+        choices=["B", "C", "D"],
+        help="Exit non-zero if workspace grade is at or worse than this threshold",
+    )
+    parser.add_argument("--verbose", action="store_true", help="Print high-complexity function list")
+    parser.add_argument("--coverage-json", metavar="PATH", help="Path to pytest-cov JSON report")
     args = parser.parse_args()
 
-    # 커버리지 맵 로드
-    coverage_map: dict[str, float] = {}
-    if args.coverage_json:
-        try:
-            cov_data = json.loads(Path(args.coverage_json).read_text())
-            # pytest-cov json 형식에서 유닛별 커버리지 추출 (단순화)
-            for k, v in cov_data.get("totals", {}).items():
-                coverage_map[k] = float(v)
-        except Exception:
-            pass
-
-    # 스캔 대상 결정
     all_units = iter_active_units()
     if args.unit:
         units = [u for u in all_units if u["id"] == args.unit]
@@ -537,6 +632,56 @@ def main() -> int:
             return 1
     else:
         units = all_units
+
+    coverage_map: dict[str, float] = {}
+    if args.coverage_json:
+        try:
+            coverage_map = load_coverage_map(Path(args.coverage_json), units)
+        except Exception:
+            pass
+
+    print(f"Scanning {len(units)} unit(s)...", file=sys.stderr)
+    unit_reports = [scan_unit(u, coverage_map) for u in units]
+    report = build_workspace_report(unit_reports)
+
+    print_report(report, verbose=args.verbose)
+
+    if args.json_out:
+        out_path = Path(args.json_out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(asdict(report), indent=2, default=str),
+            encoding="utf-8",
+        )
+        print(f"JSON report saved: {out_path}", file=sys.stderr)
+
+    if args.fail_on_grade:
+        grade_order = {"A": 0, "B": 1, "C": 2, "D": 3}
+        fail_level = grade_order[args.fail_on_grade]
+        ws_level = grade_order.get(report.workspace_grade, 0)
+        if ws_level >= fail_level:
+            print(
+                f"[FAIL] Workspace grade {report.workspace_grade} >= fail threshold {args.fail_on_grade}",
+                file=sys.stderr,
+            )
+            return 1
+
+    return 0
+    all_units = iter_active_units()
+    if args.unit:
+        units = [u for u in all_units if u["id"] == args.unit]
+        if not units:
+            print(f"Unknown unit: {args.unit}", file=sys.stderr)
+            return 1
+    else:
+        units = all_units
+
+    coverage_map: dict[str, float] = {}
+    if args.coverage_json:
+        try:
+            coverage_map = load_coverage_map(Path(args.coverage_json), units)
+        except Exception:
+            pass
 
     print(f"Scanning {len(units)} unit(s)...", file=sys.stderr)
     unit_reports = [scan_unit(u, coverage_map) for u in units]

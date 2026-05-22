@@ -12,10 +12,12 @@ Usage::
 
     from shared.harness.hooks import PreToolHook, PostToolHook, HookChain
 
+
     class LoggingHook(PreToolHook):
         async def execute(self, tool_name, tool_input):
             print(f"About to run: {tool_name}")
             return tool_input  # pass-through
+
 
     chain = HookChain(pre_hooks=[LoggingHook()])
 """
@@ -63,10 +65,7 @@ class InputSanitizerHook(PreToolHook):
 
     async def execute(self, tool_name: str, tool_input: Any) -> Any:
         if isinstance(tool_input, dict):
-            return {
-                k: v.strip() if isinstance(v, str) else v
-                for k, v in tool_input.items()
-            }
+            return {k: v.strip() if isinstance(v, str) else v for k, v in tool_input.items()}
         if isinstance(tool_input, str):
             return tool_input.strip()
         return tool_input

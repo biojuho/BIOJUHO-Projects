@@ -1,7 +1,5 @@
 """Tests for FoT pruning (ToT-inspired) in shared.llm.reasoning.forest_of_thought."""
 
-import pytest
-
 from shared.llm.reasoning.forest_of_thought import (
     ForestOfThoughtEngine,
     FoTSubtaskResult,
@@ -44,9 +42,9 @@ class TestFoTPruning:
         result = FoTSubtaskResult(
             subtask="에러 핸들링 설계",
             text="에러 핸들링은 다음과 같이 구현합니다. 1) 전역 에러 바운더리를 설정하여 "
-                 "예외를 캡처합니다. 2) 각 모듈에서 try-except 블록으로 개별 에러를 처리합니다. "
-                 "3) 에러 로그를 Notion 데이터베이스에 기록합니다. 4) 심각한 에러의 경우 "
-                 "Discord 웹훅으로 알림을 전송합니다.",
+            "예외를 캡처합니다. 2) 각 모듈에서 try-except 블록으로 개별 에러를 처리합니다. "
+            "3) 에러 로그를 Notion 데이터베이스에 기록합니다. 4) 심각한 에러의 경우 "
+            "Discord 웹훅으로 알림을 전송합니다.",
         )
         # Should pass because error words are contextual, not indicating failure
         assert ForestOfThoughtEngine._quality_check(result) is True

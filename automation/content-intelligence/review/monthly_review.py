@@ -52,9 +52,7 @@ async def run_monthly_review(config: CIEConfig) -> MonthlyReview:
     )
 
     log.info(
-        f"  ✅ 월간 회고 완료 — "
-        f"전략 {len(review.next_month_strategy)}건, "
-        f"개선 {len(review.system_improvements)}건"
+        f"  ✅ 월간 회고 완료 — 전략 {len(review.next_month_strategy)}건, 개선 {len(review.system_improvements)}건"
     )
 
     return review

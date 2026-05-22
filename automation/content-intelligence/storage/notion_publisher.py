@@ -153,9 +153,7 @@ def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict[str, Any]]:
                 {
                     "object": "block",
                     "type": "paragraph",
-                    "paragraph": {
-                        "rich_text": [{"type": "text", "text": {"content": para[:max_len]}}]
-                    },
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para[:max_len]}}]},
                 }
             )
             para = para[max_len:]
@@ -165,9 +163,7 @@ def _split_to_blocks(text: str, max_len: int = 2000) -> list[dict[str, Any]]:
                 {
                     "object": "block",
                     "type": "paragraph",
-                    "paragraph": {
-                        "rich_text": [{"type": "text", "text": {"content": para}}]
-                    },
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": para}}]},
                 }
             )
 

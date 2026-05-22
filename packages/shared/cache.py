@@ -27,7 +27,14 @@ import json
 import logging
 import os
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+    from typing import ParamSpec, TypeVar
+
+    P = ParamSpec("P")
+    R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
 
@@ -35,22 +42,24 @@ logger = logging.getLogger(__name__)
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # Default TTLs (seconds)
-TTL_API_RESPONSE = 30       # Dashboard, summary endpoints
-TTL_TREND_SCORE = 21600     # 6 hours — trend scores
-TTL_FINGERPRINT = 10800     # 3 hours — duplicate check sets
-TTL_SENSOR_AGG = 60         # 1 minute — IoT aggregations
-TTL_RATE_LIMIT = 60         # 1 minute — rate limit windows
+TTL_API_RESPONSE = 30  # Dashboard, summary endpoints
+TTL_TREND_SCORE = 21600  # 6 hours — trend scores
+TTL_FINGERPRINT = 10800  # 3 hours — duplicate check sets
+TTL_SENSOR_AGG = 60  # 1 minute — IoT aggregations
+TTL_RATE_LIMIT = 60  # 1 minute — rate limit windows
 
 try:
     import redis.asyncio as aioredis
     from redis.exceptions import ConnectionError as RedisConnectionError
-    from redis.exceptions import RedisError, TimeoutError as RedisTimeoutError
+    from redis.exceptions import RedisError
+    from redis.exceptions import TimeoutError as RedisTimeoutError
+
     _REDIS_AVAILABLE = True
 except ImportError:
-    aioredis = None  # type: ignore[assignment]
-    RedisConnectionError = ConnectionError  # type: ignore[assignment]
-    RedisTimeoutError = TimeoutError  # type: ignore[assignment]
-    RedisError = Exception  # type: ignore[assignment]
+    aioredis = None
+    RedisConnectionError = ConnectionError
+    RedisTimeoutError = TimeoutError
+    RedisError = Exception
     _REDIS_AVAILABLE = False
 
 
@@ -75,14 +84,22 @@ class _NoOpCache:
     async def close(self) -> None:
         pass
 
-    def cached(self, ttl: int = 60, prefix: str = "cache"):
+    def cached(
+        self,
+        ttl: int = 60,
+        prefix: str = "cache",
+    ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
         """Decorator that passes through without caching."""
-        def decorator(func):
+
+        def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
             @functools.wraps(func)
-            async def wrapper(*args, **kwargs):
+            async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 return await func(*args, **kwargs)
-            wrapper.cache_clear = lambda: None
+
+            wrapper_with_cache_clear: Any = wrapper
+            wrapper_with_cache_clear.cache_clear = lambda: None
             return wrapper
+
         return decorator
 
 
@@ -205,7 +222,7 @@ class RedisCache:
                 pipe.incr(key)
                 pipe.expire(key, ttl)
                 results = await pipe.execute()
-            return results[0]
+            return int(results[0])
         except Exception as e:
             if self._is_connection_error(e):
                 await self._suspend_cache("INCR", key, e)
@@ -216,11 +233,16 @@ class RedisCache:
     async def close(self) -> None:
         await self._close_conn()
 
-    def cached(self, ttl: int = 60, prefix: str = "cache"):
+    def cached(
+        self,
+        ttl: int = 60,
+        prefix: str = "cache",
+    ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
         """Decorator for async functions. Caches results by function args."""
-        def decorator(func):
+
+        def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
             @functools.wraps(func)
-            async def wrapper(*args, **kwargs):
+            async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 # Build cache key from function name + args hash
                 key_data = f"{func.__module__}.{func.__qualname__}:{args}:{kwargs}"
                 key_hash = hashlib.md5(key_data.encode()).hexdigest()[:12]
@@ -229,7 +251,7 @@ class RedisCache:
                 # Try cache first
                 cached = await self.get(cache_key)
                 if cached is not None:
-                    return cached
+                    return cast("R", cached)
 
                 # Execute and cache
                 result = await func(*args, **kwargs)
@@ -237,11 +259,13 @@ class RedisCache:
                     await self.set(cache_key, result, ttl=ttl)
                 return result
 
-            async def _clear():
+            async def _clear() -> None:
                 pass  # Individual key clearing not needed with TTL
 
-            wrapper.cache_clear = _clear
+            wrapper_with_cache_clear: Any = wrapper
+            wrapper_with_cache_clear.cache_clear = _clear
             return wrapper
+
         return decorator
 
 

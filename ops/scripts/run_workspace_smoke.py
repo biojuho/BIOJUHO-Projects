@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 Workspace smoke test runner.
 Discovers and executes end-to-end tests across the monorepo projects using virtual environments.
 Supports executing pre-defined integration and module workflows natively.
 """
+
+from __future__ import annotations
 
 import argparse
 import hashlib
@@ -14,15 +14,18 @@ import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from workspace_paths import find_workspace_root, rel_unit_path
+from workspace_paths import find_workspace_root, rel_unit_path  # noqa: E402
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output|archive|var)([\\/]|$)"
 TAIL_LINE_COUNT = 20
@@ -37,11 +40,17 @@ UV_TRANSIENT_RETRY_PATTERNS = (
     "Access is denied",
     "액세스가 거부되었습니다",
 )
+NPM_TRANSIENT_RETRY_PATTERNS = (
+    "EPERM",
+    "EBUSY",
+    "operation not permitted",
+    "Permission denied",
+)
 TRANSIENT_RETRY_MAX = 2
 WORKSPACE_SYNC_SENTINELS: dict[str, tuple[str, ...]] = {
     "workspace regression tests": ("fastapi", "sqlalchemy", "aiosqlite", "mcp.server.fastmcp", "pypdf"),
     "shared package tests": ("sqlalchemy", "pydantic", "httpx", "google.genai"),
-    "desci biolinker smoke": ("fastapi",),
+    "desci backend smoke": ("fastapi",),
     "agriguard backend tests": ("fastapi", "sqlalchemy"),
     "DailyNews unit tests": ("mcp.server.fastmcp",),
     "getdaytrends tests": ("aiosqlite", "sqlalchemy"),
@@ -60,7 +69,7 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "httpx>=0.27.0",
         "google-genai>=1.0.0,<2.0",
     ),
-    "desci biolinker smoke": (
+    "desci backend smoke": (
         "fastapi>=0.115.0,<1.0",
         "uvicorn>=0.32.0,<1.0",
         "python-dotenv>=1.0.0",
@@ -85,6 +94,8 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "slowapi>=0.1.9,<1.0",
         "stripe>=9.0.0,<12.0",
         "prometheus_client>=0.21.0",
+        "redis>=5.0.0,<6.0.0",
+        "pika>=1.3.0,<2.0.0",
     ),
     "getdaytrends tests": (
         "respx>=0.21.0,<1.0",
@@ -99,7 +110,7 @@ UV_EXTRA_DEPENDENCIES: dict[str, tuple[str, ...]] = {
     ),
 }
 FORCE_UV_CHECKS = {
-    "desci biolinker smoke",
+    "desci backend smoke",
     "agriguard backend tests",
     "getdaytrends tests",
 }
@@ -159,7 +170,7 @@ def compile_command(python_exe: str, *targets: str) -> list[str]:
 def slugify_check_name(value: str) -> str:
     cleaned = "".join(ch.lower() if ch.isalnum() else "-" for ch in value)
     compact = "-".join(part for part in cleaned.split("-") if part) or "check"
-    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+    digest = hashlib.sha1(value.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
     return f"{compact[:40]}-{digest}"
 
 
@@ -178,10 +189,10 @@ def build_pythonpath(root: Path, env: dict[str, str] | None = None) -> str:
 
     parts: list[str] = []
     seen: set[str] = set()
-    for candidate in candidates:
-        if not candidate.exists():
+    for candidate_path in candidates:
+        if not candidate_path.exists():
             continue
-        value = str(candidate)
+        value = str(candidate_path)
         dedupe_key = value.lower() if os.name == "nt" else value
         if dedupe_key in seen:
             continue
@@ -231,9 +242,9 @@ def resolve_python_executable(root: Path) -> str:
     if not existing:
         return sys.executable
 
-    for candidate in existing:
-        if has_module(candidate, "pytest"):
-            return candidate
+    for python_path in existing:
+        if has_module(python_path, "pytest"):
+            return python_path
 
     return existing[0]
 
@@ -300,9 +311,11 @@ def ensure_workspace_environment(root: Path, python_exe: str, checks: Sequence[C
 def default_checks(python_exe: str) -> list[Check]:
     npm_exe = "npm.cmd" if os.name == "nt" else "npm"
     desci_frontend = rel_unit_path("desci-platform", "frontend")
-    desci_biolinker = rel_unit_path("desci-platform", "biolinker")
+    desci_backend = rel_unit_path("desci-platform", "backend")
+    desci_contracts = rel_unit_path("desci-platform", "contracts")
     agriguard_frontend = rel_unit_path("agriguard", "frontend")
     agriguard_backend = rel_unit_path("agriguard", "backend")
+    agriguard_contracts = rel_unit_path("agriguard", "contracts")
     github_mcp = rel_unit_path("github-mcp")
     notebooklm_mcp = rel_unit_path("notebooklm-mcp")
     dailynews = rel_unit_path("dailynews")
@@ -342,14 +355,23 @@ def default_checks(python_exe: str) -> list[Check]:
         ),
         Check("desci", "desci frontend build", desci_frontend, [npm_exe, "run", "build:lts"]),
         Check("desci", "desci bundle budget", desci_frontend, [npm_exe, "run", "check:bundle"]),
+        Check("desci", "desci contracts compile", desci_contracts, [npm_exe, "run", "compile"]),
+        Check("desci", "desci contracts tests", desci_contracts, [npm_exe, "run", "test"]),
         Check(
             "desci",
-            "desci biolinker smoke",
+            "desci backend smoke",
             ".",
-            [python_exe, "-m", "pytest", f"{desci_biolinker}/tests/test_smoke_pipeline.py", "-q"],
+            [python_exe, "-m", "pytest", f"{desci_backend}/tests/test_smoke_pipeline.py", "-q"],
         ),
         Check("agriguard", "agriguard frontend lint", agriguard_frontend, [npm_exe, "run", "lint"]),
         Check("agriguard", "agriguard frontend build", agriguard_frontend, [npm_exe, "run", "build:lts"]),
+        Check(
+            "agriguard",
+            "agriguard contracts compile",
+            agriguard_contracts,
+            [npm_exe, "run", "compile"],
+        ),
+        Check("agriguard", "agriguard contracts tests", agriguard_contracts, [npm_exe, "run", "test"]),
         Check("agriguard", "agriguard backend tests", agriguard_backend, [python_exe, "-m", "pytest", "tests", "-q"]),
         Check(
             "mcp",
@@ -360,7 +382,12 @@ def default_checks(python_exe: str) -> list[Check]:
         Check("mcp", "github-mcp compile", ".", compile_command(python_exe, f"{github_mcp}/scripts")),
         Check("mcp", "DailyNews unit tests", dailynews, [python_exe, "-m", "pytest", "tests/unit", "-q"]),
         Check("getdaytrends", "getdaytrends compile", ".", compile_command(python_exe, getdaytrends)),
-        Check("getdaytrends", "getdaytrends tests", getdaytrends, [python_exe, "-m", "pytest", "-c", "pytest.ini", "tests", "-q"]),
+        Check(
+            "getdaytrends",
+            "getdaytrends tests",
+            getdaytrends,
+            [python_exe, "-m", "pytest", "-c", "pytest.ini", "tests", "-q"],
+        ),
         Check("cie", "cie compile", ".", compile_command(python_exe, cie)),
         Check("cie", "cie tests", cie, [python_exe, "-m", "pytest", "tests", "-q"]),
     ]
@@ -470,9 +497,23 @@ def run_one(root: Path, item: Check) -> Result:
             env=env,
             shell=False,
             check=False,
+            timeout=600,  # 10분 타임아웃 (uv setup + 큰 테스트 스위트 대응)
         )
         stdout_text = decode_output(proc.stdout)
         stderr_text = decode_output(proc.stderr)
+    except subprocess.TimeoutExpired as exc:
+        stdout_text = decode_output(exc.stdout)
+        stderr_text = decode_output(exc.stderr)
+        return Result(
+            item.scope,
+            item.name,
+            item.cwd,
+            command_text,
+            124,
+            False,
+            tail_lines(stdout_text),
+            f"Command timed out after 600s\n{tail_lines(stderr_text)}",
+        )
     except OSError as exc:
         return Result(item.scope, item.name, item.cwd, command_text, 2, False, "", str(exc))
 
@@ -496,7 +537,14 @@ def should_retry(check: Check, result: Result) -> bool:
     if check.name == TRANSIENT_RETRY_CHECK and any(pattern in combined_output for pattern in TRANSIENT_RETRY_PATTERNS):
         return True
 
-    return result.command.startswith("uv run ") and any(pattern in combined_output for pattern in UV_TRANSIENT_RETRY_PATTERNS)
+    if result.command.startswith("uv run ") and any(
+        pattern in combined_output for pattern in UV_TRANSIENT_RETRY_PATTERNS
+    ):
+        return True
+
+    return result.command.startswith("npm") and any(
+        pattern in combined_output for pattern in NPM_TRANSIENT_RETRY_PATTERNS
+    )
 
 
 def run_check(root: Path, item: Check) -> Result:
@@ -514,6 +562,16 @@ def run_check(root: Path, item: Check) -> Result:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
+    # Windows stdout UTF-8 설정
+    if sys.platform == "win32":
+        try:
+            stdout_reconfigure = getattr(sys.stdout, "reconfigure", None)
+            stderr_reconfigure = getattr(sys.stderr, "reconfigure", None)
+            if callable(stdout_reconfigure) and callable(stderr_reconfigure):
+                stdout_reconfigure(encoding="utf-8", errors="replace")
+                stderr_reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     parser.add_argument(
         "--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends", "cie"]
     )

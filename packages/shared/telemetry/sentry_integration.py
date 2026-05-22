@@ -14,9 +14,11 @@ shared.telemetry.sentry_integration - Sentry 에러 모니터링 통합.
 from __future__ import annotations
 
 import os
-from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 _initialized = False
 
@@ -74,7 +76,7 @@ def capture_exception(
             if extra:
                 for k, v in extra.items():
                     scope.set_extra(k, v)
-            return sentry_sdk.capture_exception(error)
+            return cast("str | None", sentry_sdk.capture_exception(error))
     except Exception:
         return None
 
@@ -98,7 +100,7 @@ def capture_message(
             if extra:
                 for k, v in extra.items():
                     scope.set_extra(k, v)
-            return sentry_sdk.capture_message(message, level=level)
+            return cast("str | None", sentry_sdk.capture_message(message, level=level))
     except Exception:
         return None
 

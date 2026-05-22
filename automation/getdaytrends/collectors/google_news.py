@@ -23,7 +23,7 @@ def _resolve_timeout(timeout: httpx.Timeout | float | None) -> httpx.Timeout | f
     return _SHORT_TIMEOUT if timeout is None else timeout
 
 
-def _parse_rss_date(date_str: str | None) -> "datetime | None":
+def _parse_rss_date(date_str: str | None) -> datetime | None:
     """Parse RSS pubDate (RFC 2822)."""
     if not date_str:
         return None

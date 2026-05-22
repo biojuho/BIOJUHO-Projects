@@ -8,7 +8,6 @@ from datetime import UTC, timedelta
 from unittest.mock import patch
 
 import pytest
-
 from config import AppConfig
 from db import get_connection, init_db, record_content_feedback
 from models import MultiSourceContext, ScoredTrend

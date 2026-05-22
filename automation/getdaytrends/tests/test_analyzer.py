@@ -345,7 +345,7 @@ class TestBatchScoreIsolation(unittest.IsolatedAsyncioTestCase):
             acreate=AsyncMock(
                 return_value=SimpleNamespace(
                     text=(
-                        '{'
+                        "{"
                         '"keyword":"trend",'
                         '"publishable":true,'
                         '"volume_last_24h":1200,'

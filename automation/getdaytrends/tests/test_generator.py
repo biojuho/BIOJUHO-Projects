@@ -19,10 +19,10 @@ from generator import (
     _system_threads,
     _system_tweets,
     audit_generated_content,
-    generate_tweets_async,
     generate_blog_async,
     generate_long_form_async,
     generate_threads_content_async,
+    generate_tweets_async,
 )
 from models import GeneratedTweet, MultiSourceContext, ScoredTrend, TrendContext, TweetBatch
 
@@ -125,7 +125,6 @@ class TestReportProfilePromptBuilders(unittest.TestCase):
         self.assertNotIn("리포트 코멘트", short_prompt)
         self.assertIn("리포트 코멘트", long_prompt)
 
-
     def test_approved_post_bank_section_limits_examples(self):
         section = _build_approved_post_bank_section(
             [
@@ -193,6 +192,7 @@ class TestGenerationTierGating(unittest.TestCase):
             thread_min_score=92,
             threads_min_score=65,
             enable_threads=True,
+            target_platforms=["x", "threads"],  # [shortform-only] 기본 ["x"] 오버라이드
         )
         trend = _make_trend(viral=96)
         client = MagicMock()
@@ -316,7 +316,9 @@ class TestReportProfileGeneration(unittest.IsolatedAsyncioTestCase):
         client = MagicMock()
         client.acreate = AsyncMock(return_value=response)
 
-        posts = await generate_long_form_async(_make_trend(), _make_config(editorial_profile="report"), client)
+        # [shortform-only] 정책상 기본 비활성이지만, 본 테스트는 함수 동작을 검증하므로 명시적으로 활성화
+        cfg = _make_config(editorial_profile="report", enable_long_form=True)
+        posts = await generate_long_form_async(_make_trend(), cfg, client)
         self.assertEqual([p.tweet_type for p in posts], ["딥다이브 분석", "리포트 코멘트"])
 
     async def test_threads_accepts_report_labels(self):
@@ -328,7 +330,8 @@ class TestReportProfileGeneration(unittest.IsolatedAsyncioTestCase):
         client = MagicMock()
         client.acreate = AsyncMock(return_value=response)
 
-        posts = await generate_threads_content_async(_make_trend(), _make_config(editorial_profile="report"), client)
+        cfg = _make_config(editorial_profile="report", enable_threads=True)
+        posts = await generate_threads_content_async(_make_trend(), cfg, client)
         self.assertEqual([p.tweet_type for p in posts], ["핵심 브리프", "쟁점 질문"])
 
     async def test_blog_accepts_report_structure(self):
@@ -374,7 +377,6 @@ class TestReportProfileGeneration(unittest.IsolatedAsyncioTestCase):
         self.assertIn("QA 총점/기준: 61/75", prompt)
         self.assertIn("가장 약한 축: hook", prompt)
         self.assertIn("[사실 고정 규칙", prompt)
-
 
     async def test_tweet_generation_includes_approved_post_bank_section(self):
         response = MagicMock()

@@ -2,19 +2,25 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title DeSciDAO - Decentralized Science Governance
- * @notice DSCI token holders can create proposals, vote, and execute governance decisions.
- * @dev Minimal on-chain governance: propose → vote (3 days) → execute
+ * @title DeSciDAO
+ * @notice DSCI holders can create proposals, vote with snapshotted power, and execute passed proposals.
+ * @dev Votes are read from ERC20Votes checkpoints to prevent balance transfers from being reused across accounts.
  */
-
-interface IERC20 {
-    function balanceOf(address account) external view returns (uint256);
-    function totalSupply() external view returns (uint256);
+interface IDeSciVotesToken {
+    function getVotes(address account) external view returns (uint256);
+    function getPastVotes(address account, uint256 timepoint) external view returns (uint256);
+    function getPastTotalSupply(uint256 timepoint) external view returns (uint256);
 }
 
 contract DeSciDAO {
-    // ── Types ──────────────────────────────────
-    enum ProposalState { Pending, Active, Passed, Rejected, Queued, Executed }
+    enum ProposalState {
+        Pending,
+        Active,
+        Passed,
+        Rejected,
+        Queued,
+        Executed
+    }
 
     struct Proposal {
         uint256 id;
@@ -25,117 +31,126 @@ contract DeSciDAO {
         uint256 againstVotes;
         uint256 startTime;
         uint256 endTime;
+        uint256 snapshotBlock;
         bool executed;
         mapping(address => bool) hasVoted;
     }
 
-    // ── State ──────────────────────────────────
-    IERC20 public dsciToken;
+    IDeSciVotesToken public dsciToken;
     uint256 public proposalCount;
+
     uint256 public constant VOTING_PERIOD = 3 days;
     uint256 public constant EXECUTION_DELAY = 2 days;
-    uint256 public constant MIN_PROPOSAL_TOKENS = 100 * 1e18; // 100 DSCI
-    uint256 public constant QUORUM_PERCENTAGE = 10; // 10% of total supply
+    uint256 public constant MIN_PROPOSAL_TOKENS = 100 * 1e18;
+    uint256 public constant QUORUM_PERCENTAGE = 10;
 
     mapping(uint256 => Proposal) public proposals;
 
-    // ── Events ─────────────────────────────────
-    event ProposalCreated(uint256 indexed id, address proposer, string title, uint256 endTime);
+    event ProposalCreated(
+        uint256 indexed id,
+        address proposer,
+        string title,
+        uint256 endTime,
+        uint256 snapshotBlock
+    );
     event Voted(uint256 indexed proposalId, address voter, bool support, uint256 weight);
     event ProposalExecuted(uint256 indexed id);
 
-    // ── Constructor ────────────────────────────
-    constructor(address _dsciToken) {
-        dsciToken = IERC20(_dsciToken);
+    constructor(address tokenAddress) {
+        require(tokenAddress != address(0), "DSCI token address required");
+        dsciToken = IDeSciVotesToken(tokenAddress);
     }
 
-    // ── Modifiers ──────────────────────────────
-    modifier onlyTokenHolder(uint256 minBalance) {
-        require(dsciToken.balanceOf(msg.sender) >= minBalance, "Insufficient DSCI tokens");
-        _;
-    }
-
-    modifier executeAfterDelay(uint256 _proposalId) {
-        Proposal storage p = proposals[_proposalId];
-        require(
-            block.timestamp >= p.endTime + EXECUTION_DELAY,
-            "Timelock: execution delay not met"
-        );
-        _;
-    }
-
-    // ── Create Proposal ────────────────────────
     function createProposal(
-        string calldata _title,
-        string calldata _description
+        string calldata title,
+        string calldata description
     ) external onlyTokenHolder(MIN_PROPOSAL_TOKENS) returns (uint256) {
         proposalCount++;
-        Proposal storage p = proposals[proposalCount];
-        p.id = proposalCount;
-        p.proposer = msg.sender;
-        p.title = _title;
-        p.description = _description;
-        p.startTime = block.timestamp;
-        p.endTime = block.timestamp + VOTING_PERIOD;
 
-        emit ProposalCreated(proposalCount, msg.sender, _title, p.endTime);
+        Proposal storage proposal = proposals[proposalCount];
+        proposal.id = proposalCount;
+        proposal.proposer = msg.sender;
+        proposal.title = title;
+        proposal.description = description;
+        proposal.startTime = block.timestamp;
+        proposal.endTime = block.timestamp + VOTING_PERIOD;
+        proposal.snapshotBlock = block.number;
+
+        emit ProposalCreated(proposalCount, msg.sender, title, proposal.endTime, proposal.snapshotBlock);
         return proposalCount;
     }
 
-    // ── Vote ───────────────────────────────────
-    function vote(uint256 _proposalId, bool _support) external {
-        Proposal storage p = proposals[_proposalId];
-        require(p.id != 0, "Proposal does not exist");
-        require(block.timestamp <= p.endTime, "Voting period ended");
-        require(!p.hasVoted[msg.sender], "Already voted");
+    function vote(uint256 proposalId, bool support) external {
+        Proposal storage proposal = proposals[proposalId];
+        require(proposal.id != 0, "Proposal does not exist");
+        require(block.number > proposal.snapshotBlock, "Voting snapshot not reached");
+        require(block.timestamp <= proposal.endTime, "Voting period ended");
+        require(!proposal.hasVoted[msg.sender], "Already voted");
 
-        uint256 weight = dsciToken.balanceOf(msg.sender);
+        uint256 weight = dsciToken.getPastVotes(msg.sender, proposal.snapshotBlock);
         require(weight > 0, "No voting power");
 
-        p.hasVoted[msg.sender] = true;
+        proposal.hasVoted[msg.sender] = true;
 
-        if (_support) {
-            p.forVotes += weight;
+        if (support) {
+            proposal.forVotes += weight;
         } else {
-            p.againstVotes += weight;
+            proposal.againstVotes += weight;
         }
 
-        emit Voted(_proposalId, msg.sender, _support, weight);
+        emit Voted(proposalId, msg.sender, support, weight);
     }
 
-    // ── Execute ────────────────────────────────
-    function executeProposal(uint256 _proposalId) external executeAfterDelay(_proposalId) {
-        Proposal storage p = proposals[_proposalId];
-        require(p.id != 0, "Proposal does not exist");
-        require(block.timestamp > p.endTime, "Voting period not ended");
-        require(!p.executed, "Already executed");
-        require(p.forVotes > p.againstVotes, "Proposal did not pass");
+    function executeProposal(uint256 proposalId) external {
+        Proposal storage proposal = proposals[proposalId];
+        require(proposal.id != 0, "Proposal does not exist");
+        require(block.timestamp > proposal.endTime, "Voting period not ended");
+        require(block.timestamp >= proposal.endTime + EXECUTION_DELAY, "Timelock: execution delay not met");
+        require(!proposal.executed, "Already executed");
+        require(proposal.forVotes > proposal.againstVotes, "Proposal did not pass");
+        require(_quorumReached(proposal), "Quorum not reached");
 
-        uint256 quorum = (dsciToken.totalSupply() * QUORUM_PERCENTAGE) / 100;
-        require(p.forVotes + p.againstVotes >= quorum, "Quorum not reached");
-
-        p.executed = true;
-        emit ProposalExecuted(_proposalId);
+        proposal.executed = true;
+        emit ProposalExecuted(proposalId);
     }
 
-    // ── View Functions ─────────────────────────
-    function getProposalState(uint256 _proposalId) external view returns (ProposalState) {
-        Proposal storage p = proposals[_proposalId];
-        if (p.id == 0) revert("Proposal does not exist");
-        if (p.executed) return ProposalState.Executed;
-        if (block.timestamp <= p.endTime) return ProposalState.Active;
-        if (p.forVotes <= p.againstVotes) return ProposalState.Rejected;
-        // Passed but within timelock delay → Queued
-        if (block.timestamp < p.endTime + EXECUTION_DELAY) return ProposalState.Queued;
+    function getProposalState(uint256 proposalId) external view returns (ProposalState) {
+        Proposal storage proposal = proposals[proposalId];
+        if (proposal.id == 0) revert("Proposal does not exist");
+        if (proposal.executed) return ProposalState.Executed;
+        if (block.timestamp <= proposal.endTime) return ProposalState.Active;
+        if (proposal.forVotes <= proposal.againstVotes || !_quorumReached(proposal)) {
+            return ProposalState.Rejected;
+        }
+        if (block.timestamp < proposal.endTime + EXECUTION_DELAY) return ProposalState.Queued;
         return ProposalState.Passed;
     }
 
-    function getVotes(uint256 _proposalId) external view returns (uint256 forVotes, uint256 againstVotes) {
-        Proposal storage p = proposals[_proposalId];
-        return (p.forVotes, p.againstVotes);
+    function getProposalQuorum(uint256 proposalId) external view returns (uint256) {
+        Proposal storage proposal = proposals[proposalId];
+        require(proposal.id != 0, "Proposal does not exist");
+        return _getQuorum(proposal.snapshotBlock);
     }
 
-    function hasVoted(uint256 _proposalId, address _voter) external view returns (bool) {
-        return proposals[_proposalId].hasVoted[_voter];
+    function getVotes(uint256 proposalId) external view returns (uint256 forVotes, uint256 againstVotes) {
+        Proposal storage proposal = proposals[proposalId];
+        return (proposal.forVotes, proposal.againstVotes);
+    }
+
+    function hasVoted(uint256 proposalId, address voter) external view returns (bool) {
+        return proposals[proposalId].hasVoted[voter];
+    }
+
+    function _getQuorum(uint256 snapshotBlock) internal view returns (uint256) {
+        return (dsciToken.getPastTotalSupply(snapshotBlock) * QUORUM_PERCENTAGE) / 100;
+    }
+
+    function _quorumReached(Proposal storage proposal) internal view returns (bool) {
+        return proposal.forVotes + proposal.againstVotes >= _getQuorum(proposal.snapshotBlock);
+    }
+
+    modifier onlyTokenHolder(uint256 minBalance) {
+        require(dsciToken.getVotes(msg.sender) >= minBalance, "Insufficient voting power");
+        _;
     }
 }

@@ -32,12 +32,7 @@ def _escape_md(text: str) -> str:
     if not text:
         return ""
     return (
-        str(text)
-        .replace("\\", "\\\\")
-        .replace("_", "\\_")
-        .replace("*", "\\*")
-        .replace("[", "\\[")
-        .replace("`", "\\`")
+        str(text).replace("\\", "\\\\").replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
     )
 
 
@@ -269,9 +264,7 @@ def check_watchlist(trends: list[ScoredTrend], config: AppConfig, conn=None) -> 
     lines = ["*[WATCHLIST] Keyword detected!*\n"]
     for trend, keyword in detected:
         lines.append(
-            f"  - *{trend.keyword}* (matched `{keyword}`)"
-            f" | viral {trend.viral_potential}"
-            f" | {trend.trend_acceleration}"
+            f"  - *{trend.keyword}* (matched `{keyword}`) | viral {trend.viral_potential} | {trend.trend_acceleration}"
         )
 
     send_alert("\n".join(lines), config)
@@ -359,9 +352,7 @@ def send_daily_cost_alert(config: AppConfig) -> bool:
     today_calls = sum(row["calls"] for row in daily if row.get("date") == today)
     if pct >= 90:
         message = (
-            f"*Daily budget critical!*\n{summary}\n"
-            f"Calls today: {today_calls}\n"
-            "Consider disabling heavy Sonnet paths."
+            f"*Daily budget critical!*\n{summary}\nCalls today: {today_calls}\nConsider disabling heavy Sonnet paths."
         )
     else:
         message = f"*Daily cost alert*\n{summary}\nCalls today: {today_calls}"

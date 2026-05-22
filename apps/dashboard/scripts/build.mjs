@@ -8,7 +8,7 @@ const viteCli = join(cwd, "node_modules", "vite", "bin", "vite.js");
 const distIndex = join(cwd, "dist", "index.html");
 const distAssets = join(cwd, "dist", "assets");
 
-const result = spawnSync(process.execPath, [viteCli, "build"], {
+const result = spawnSync(process.execPath, [viteCli, "build", "--configLoader", "native"], {
   cwd,
   stdio: "inherit",
 });

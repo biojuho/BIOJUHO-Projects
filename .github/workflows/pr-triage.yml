@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: read
 
 concurrency:
   group: pr-triage-${{ github.event.pull_request.number }}
@@ -15,13 +13,19 @@ concurrency:
 
 jobs:
   triage:
+    name: Generate PR triage
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    permissions:
+      contents: read
+      pull-requests: read # Required to read pull request metadata for triage context.
+      issues: write # Required for github-script to create or update the PR triage comment.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -34,17 +38,19 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python ops/scripts/pr_triage.py \
-            --base "${{ github.event.pull_request.base.sha }}" \
-            --head "${{ github.event.pull_request.head.sha }}" \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
             --output-dir var/pr-triage
 
       - name: Append summary
         run: cat var/pr-triage/pr-triage-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload triage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: pr-triage-${{ github.event.pull_request.number }}
           path: var/pr-triage/
@@ -54,7 +60,7 @@ jobs:
       - name: Update PR comment
         if: github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const fs = require("fs");

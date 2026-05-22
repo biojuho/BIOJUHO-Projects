@@ -33,7 +33,6 @@ except ImportError:
     from storage_notion import (
         NOTION_AVAILABLE,
         NotionClient,
-        _is_notion_provider_error,
         _persist_content_hub_link,
         _retry_notion_call,
     )

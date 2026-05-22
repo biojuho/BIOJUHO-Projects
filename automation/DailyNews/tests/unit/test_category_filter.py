@@ -39,9 +39,7 @@ class TestIsRelevantToCategory:
         assert is_relevant_to_category("Random article", "Random content", "UnknownCategory")
 
     def test_no_keyword_match_returns_false(self):
-        assert not is_relevant_to_category(
-            "Gardening tips for spring", "Plant flowers in your backyard", "Tech"
-        )
+        assert not is_relevant_to_category("Gardening tips for spring", "Plant flowers in your backyard", "Tech")
 
     def test_all_categories_have_include_keywords(self):
         for category, (include, _exclude) in CATEGORY_KEYWORDS.items():

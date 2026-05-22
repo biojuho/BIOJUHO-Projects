@@ -2,6 +2,7 @@ import { useState } from 'react';
 import client from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { formatSupportError } from '../lib/support';
 
 /**
  * @typedef {'research' | 'write' | 'youtube'} ToolId
@@ -46,7 +47,7 @@ export function useAgentTools() {
             setAgentMeta(res.data.meta || res.data.result?.meta || null);
             showToast({ key: 'agent.researchComplete' }, 'success');
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message;
+            const msg = formatSupportError(err, t('common.unknownError'));
             setAgentError(msg);
             showToast({ key: 'agent.researchFailed', values: { message: msg } }, 'error');
         } finally {
@@ -70,7 +71,7 @@ export function useAgentTools() {
             setAgentMeta(res.data.meta || null);
             showToast({ key: 'agent.writeComplete' }, 'success');
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message;
+            const msg = formatSupportError(err, t('common.unknownError'));
             setAgentError(msg);
             showToast({ key: 'agent.writeFailed', values: { message: msg } }, 'error');
         } finally {
@@ -93,7 +94,7 @@ export function useAgentTools() {
             setAgentMeta(res.data.meta || null);
             showToast({ key: 'agent.youtubeComplete' }, 'success');
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message;
+            const msg = formatSupportError(err, t('common.unknownError'));
             setAgentError(msg);
             showToast({ key: 'agent.youtubeFailed', values: { message: msg } }, 'error');
         } finally {

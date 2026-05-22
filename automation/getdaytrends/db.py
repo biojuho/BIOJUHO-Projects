@@ -6,16 +6,16 @@ db_layer 이하로 분리된 레포지토리를 통합 제공합니다.
 
 import json
 
-from loguru import logger as log
-
 try:
     from shared.cache import get_cache
+
     _REDIS_OK = True
 except ImportError:
     _REDIS_OK = False
 
 try:
-    from .db_layer.pg_adapter import PgAdapter as _PgAdapter
+    from .db_layer.admin_repository import *
+    from .db_layer.admin_repository import get_trend_stats
     from .db_layer.connection import (
         close_pg_pool,
         db_transaction,
@@ -23,6 +23,13 @@ try:
         get_pg_pool,
         sqlite_write_lock,
     )
+    from .db_layer.draft_repository import *
+    from .db_layer.metrics_repository import *
+    from .db_layer.pg_adapter import PgAdapter as _PgAdapter
+    from .db_layer.run_repository import *
+    from .db_layer.tap_repository import *
+    from .db_layer.trend_repository import *
+    from .db_layer.tweet_repository import *
     from .db_schema import (
         _backfill_fingerprints,
         _normalize_name,
@@ -31,15 +38,9 @@ try:
         init_db,
     )
     from .models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-    from .db_layer.run_repository import *
-    from .db_layer.trend_repository import *
-    from .db_layer.tweet_repository import *
-    from .db_layer.metrics_repository import *
-    from .db_layer.draft_repository import *
-    from .db_layer.tap_repository import *
-    from .db_layer.admin_repository import *
 except ImportError:
-    from db_layer.pg_adapter import PgAdapter as _PgAdapter
+    from db_layer.admin_repository import *
+    from db_layer.admin_repository import get_trend_stats
     from db_layer.connection import (
         close_pg_pool,
         db_transaction,
@@ -47,6 +48,13 @@ except ImportError:
         get_pg_pool,
         sqlite_write_lock,
     )
+    from db_layer.draft_repository import *
+    from db_layer.metrics_repository import *
+    from db_layer.pg_adapter import PgAdapter as _PgAdapter
+    from db_layer.run_repository import *
+    from db_layer.tap_repository import *
+    from db_layer.trend_repository import *
+    from db_layer.tweet_repository import *
     from db_schema import (
         _backfill_fingerprints,
         _normalize_name,
@@ -55,13 +63,6 @@ except ImportError:
         init_db,
     )
     from models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
-    from db_layer.run_repository import *
-    from db_layer.trend_repository import *
-    from db_layer.tweet_repository import *
-    from db_layer.metrics_repository import *
-    from db_layer.draft_repository import *
-    from db_layer.tap_repository import *
-    from db_layer.admin_repository import *
 
 _WORKFLOW_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "drafted": {"ready"},

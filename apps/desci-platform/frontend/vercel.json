@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-biolinker-api.railway.app/:path*"
+      "destination": "https://api.desci-platform.com/:path*"
     },
     {
       "source": "/(.*)",

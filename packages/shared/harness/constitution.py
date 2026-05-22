@@ -17,7 +17,7 @@ import fnmatch
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     import yaml
@@ -56,7 +56,7 @@ class ToolPermission:
         normalized = path.replace("\\", "/")
         return any(fnmatch.fnmatch(normalized, p.replace("\\", "/")) for p in self.allowed_paths)
 
-    def is_input_blocked(self, text: str) -> Optional[str]:
+    def is_input_blocked(self, text: str) -> str | None:
         """Check if input text matches any blocked pattern.
 
         Returns the matching pattern string if blocked, None if clean.
@@ -79,9 +79,9 @@ class Constitution:
     agent_name: str
     max_budget_usd: float = 2.0
     max_tokens_per_turn: int = 8000
-    tool_permissions: Dict[str, ToolPermission] = field(default_factory=dict)
+    tool_permissions: dict[str, ToolPermission] = field(default_factory=dict)
     risk_patterns: tuple[str, ...] = ()
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Constitution:
@@ -93,16 +93,13 @@ class Constitution:
             ValueError: If the YAML structure is invalid.
         """
         if yaml is None:
-            raise ImportError(
-                "PyYAML is required for Constitution.from_yaml(). "
-                "Install with: pip install pyyaml"
-            )
+            raise ImportError("PyYAML is required for Constitution.from_yaml(). Install with: pip install pyyaml")
 
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Constitution file not found: {path}")
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
         if not isinstance(config, dict):
@@ -134,7 +131,7 @@ class Constitution:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Constitution:
+    def from_dict(cls, data: dict[str, Any]) -> Constitution:
         """Create a Constitution from a plain dictionary (for testing)."""
         permissions: dict[str, ToolPermission] = {}
         for tool_cfg in data.get("tools", []):
@@ -175,7 +172,7 @@ class Constitution:
         perm = self.tool_permissions.get(tool_name)
         return perm.requires_approval if perm else True
 
-    def get_permission(self, tool_name: str) -> Optional[ToolPermission]:
+    def get_permission(self, tool_name: str) -> ToolPermission | None:
         """Get the ToolPermission for a specific tool, or None."""
         return self.tool_permissions.get(tool_name)
 

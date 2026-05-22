@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from math import ceil
+from typing import TYPE_CHECKING, Any, cast
 
 try:
-    from dateutil import parser as date_parser
+    from dateutil import parser as date_parser  # type: ignore[import-untyped]
 except ImportError:  # pragma: no cover - optional dependency
     date_parser = None
 
@@ -19,6 +21,13 @@ if TYPE_CHECKING:
     from antigravity_mcp.integrations.feed_adapter import FeedAdapter
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _FetchResult:
+    source_name: str
+    entries: list[Any]
+    error: Exception | None
 
 
 async def fetch_article_body(url: str, max_chars: int = 1500) -> str:
@@ -120,7 +129,7 @@ def is_within_window(value: Any, start: datetime, end: datetime, *, allow_missin
     try:
         if isinstance(value, str):
             if date_parser is not None:
-                parsed = date_parser.parse(value)
+                parsed = cast("datetime", date_parser.parse(value))
             else:
                 parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         else:
@@ -134,6 +143,124 @@ def is_within_window(value: Any, start: datetime, end: datetime, *, allow_missin
     except (ValueError, TypeError, OverflowError) as exc:
         logger.warning("Date parsing failed for value %r, excluding entry: %s", value, exc)
         return False
+
+
+async def _fetch_source_entries(
+    source: dict[str, str],
+    feed_adapter: FeedAdapter,
+    semaphore: asyncio.Semaphore,
+) -> _FetchResult:
+    try:
+        async with semaphore:
+            entries = await feed_adapter.fetch_entries(source["url"])
+        return _FetchResult(source_name=source["name"], entries=entries, error=None)
+    except Exception as exc:
+        return _FetchResult(source_name=source["name"], entries=[], error=exc)
+
+
+def _candidate_links(fetch_results: list[_FetchResult]) -> list[str]:
+    links: list[str] = []
+    for result in fetch_results:
+        if result.error is not None:
+            continue
+        for entry in result.entries:
+            link = getattr(entry, "link", "")
+            if link:
+                links.append(link)
+    return links
+
+
+def _max_per_source(max_items: int, sources: list[dict[str, str]]) -> int:
+    return max(1, ceil(max_items / max(1, len(sources))))
+
+
+def _content_item_from_entry(entry: Any, *, source_name: str, category: str, link: str) -> ContentItem:
+    return ContentItem(
+        source_name=source_name,
+        category=category,
+        title=getattr(entry, "title", "Untitled"),
+        link=link,
+        published_at="",
+        summary=(getattr(entry, "summary", "") or getattr(entry, "description", ""))[:300],
+    )
+
+
+async def _fetch_article_bodies(category: str, items: list[ContentItem]) -> None:
+    body_sem = asyncio.Semaphore(5)
+
+    async def _fetch_body(item: ContentItem) -> None:
+        async with body_sem:
+            body = await fetch_article_body(item.link)
+            if body:
+                item.full_text = body
+
+    await asyncio.gather(*[_fetch_body(item) for item in items])
+    body_count = sum(1 for item in items if item.full_text)
+    if body_count:
+        logger.info("[%s] Deep collect: %d/%d articles with body text", category, body_count, len(items))
+
+
+async def _collect_category(
+    *,
+    category: str,
+    source_map: dict[str, list[dict[str, str]]],
+    window_name: str,
+    max_items: int,
+    state_store: PipelineStateStore,
+    feed_adapter: FeedAdapter,
+    semaphore: asyncio.Semaphore,
+    start: datetime,
+    end: datetime,
+    fetch_bodies: bool,
+) -> tuple[list[ContentItem], list[str]]:
+    sources = source_map.get(category, [])
+    if not sources:
+        return [], [f"No sources configured for category '{category}'."]
+
+    cat_warnings: list[str] = []
+    cat_items: list[ContentItem] = []
+    fetch_results = await asyncio.gather(
+        *[_fetch_source_entries(source, feed_adapter, semaphore) for source in sources]
+    )
+    max_per_source = _max_per_source(max_items, sources)
+    seen_links = state_store.get_seen_links(
+        links=_candidate_links(list(fetch_results)),
+        category=category,
+        window_name=window_name,
+    )
+
+    collected_for_category = 0
+    for result in fetch_results:
+        if result.error is not None:
+            cat_warnings.append(f"{category}/{result.source_name} fetch failed: {type(result.error).__name__}")
+            continue
+
+        source_count = 0
+        for entry in result.entries:
+            if collected_for_category >= max_items:
+                break
+            if source_count >= max_per_source:
+                break
+            published = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
+            if not is_within_window(published, start, end, allow_missing=window_name == "manual"):
+                continue
+            link = getattr(entry, "link", "")
+            if not link:
+                continue
+            if link in seen_links:
+                continue
+            cat_items.append(
+                _content_item_from_entry(entry, source_name=result.source_name, category=category, link=link)
+            )
+            collected_for_category += 1
+            source_count += 1
+        if collected_for_category >= max_items:
+            break
+
+    if fetch_bodies and cat_items:
+        await _fetch_article_bodies(category, cat_items)
+
+    return cat_items, cat_warnings
 
 
 async def collect_content_items(
@@ -162,97 +289,24 @@ async def collect_content_items(
     start, end = get_window(window_name)
     semaphore = asyncio.Semaphore(max(1, settings.pipeline_max_concurrency))
 
-    import math
-
-    async def _collect_category(category: str) -> tuple[list[ContentItem], list[str]]:
-        """Collect items for a single category (runs concurrently)."""
-        sources = source_map.get(category, [])
-        if not sources:
-            return [], [f"No sources configured for category '{category}'."]
-
-        cat_warnings: list[str] = []
-        cat_items: list[ContentItem] = []
-
-        async def _fetch_one(source: dict[str, str]) -> tuple[str, list, Exception | None]:
-            try:
-                async with semaphore:
-                    entries = await feed_adapter.fetch_entries(source["url"])
-                return source["name"], entries, None
-            except Exception as exc:
-                return source["name"], [], exc
-
-        fetch_results = await asyncio.gather(*[_fetch_one(s) for s in sources])
-
-        max_per_source = max(1, math.ceil(max_items / max(1, len(sources))))
-
-        # Batch collect all candidate links for dedup lookup
-        all_candidate_links: list[str] = []
-        for _source_name, entries, exc in fetch_results:
-            if exc is not None:
-                continue
-            for entry in entries:
-                link = getattr(entry, "link", "")
-                if link:
-                    all_candidate_links.append(link)
-
-        seen_links = state_store.get_seen_links(
-            links=all_candidate_links, category=category, window_name=window_name
-        )
-
-        collected_for_category = 0
-        for source_name, entries, exc in fetch_results:
-            if exc is not None:
-                cat_warnings.append(f"{category}/{source_name} fetch failed: {type(exc).__name__}")
-                continue
-
-            source_count = 0
-            for entry in entries:
-                if collected_for_category >= max_items:
-                    break
-                if source_count >= max_per_source:
-                    break
-                published = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
-                if not is_within_window(published, start, end, allow_missing=window_name == "manual"):
-                    continue
-                link = getattr(entry, "link", "")
-                if not link:
-                    continue
-                if link in seen_links:
-                    continue
-                cat_items.append(
-                    ContentItem(
-                        source_name=source_name,
-                        category=category,
-                        title=getattr(entry, "title", "Untitled"),
-                        link=link,
-                        published_at="",
-                        summary=(getattr(entry, "summary", "") or getattr(entry, "description", ""))[:300],
-                    )
-                )
-                collected_for_category += 1
-                source_count += 1
-            if collected_for_category >= max_items:
-                break
-
-        # Stage 1: Deep Collect — fetch article body text
-        if fetch_bodies and cat_items:
-            body_sem = asyncio.Semaphore(5)
-
-            async def _fetch_body(item: ContentItem) -> None:
-                async with body_sem:
-                    body = await fetch_article_body(item.link)
-                    if body:
-                        item.full_text = body
-
-            await asyncio.gather(*[_fetch_body(it) for it in cat_items])
-            body_count = sum(1 for it in cat_items if it.full_text)
-            if body_count:
-                logger.info("[%s] Deep collect: %d/%d articles with body text", category, body_count, len(cat_items))
-
-        return cat_items, cat_warnings
-
     # Parallel category collection
-    results = await asyncio.gather(*[_collect_category(cat) for cat in selected_categories])
+    results = await asyncio.gather(
+        *[
+            _collect_category(
+                category=category,
+                source_map=source_map,
+                window_name=window_name,
+                max_items=max_items,
+                state_store=state_store,
+                feed_adapter=feed_adapter,
+                semaphore=semaphore,
+                start=start,
+                end=end,
+                fetch_bodies=fetch_bodies,
+            )
+            for category in selected_categories
+        ]
+    )
     for cat_items, cat_warnings in results:
         items.extend(cat_items)
         warnings.extend(cat_warnings)

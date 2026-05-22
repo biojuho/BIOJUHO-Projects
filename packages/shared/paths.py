@@ -11,6 +11,7 @@ Usage::
 
 또는::
     from shared.paths import WORKSPACE_ROOT, ensure_importable
+
     ensure_importable()
 """
 
@@ -29,9 +30,18 @@ def find_workspace_root(start: Path | None = None) -> Path | None:
 
     Checks for known marker files (workspace-map.json, CLAUDE.md).
     Returns None if no marker found within 10 levels.
+
+    When `start` is a directory, that directory itself is checked first
+    (previous behavior was to always start at `.parent`, which skipped the
+    workspace root when `start` was already the root → env_loader misclassified
+    the root .env as a subproject .env).
     """
     # [QA 수정] 기존 private → public. env_loader에서도 호출하도록 통합
-    current = (start or Path(__file__)).resolve().parent
+    if start is None:
+        current = Path(__file__).resolve().parent
+    else:
+        resolved = Path(start).resolve()
+        current = resolved.parent if resolved.is_file() else resolved
     for _ in range(10):  # safety limit
         if any((current / marker).exists() for marker in ROOT_MARKERS):
             return current
@@ -49,8 +59,7 @@ if _root is None:
 
     _root = Path(__file__).resolve().parents[2]
     warnings.warn(
-        f"[shared.paths] Could not find workspace root via markers {ROOT_MARKERS}. "
-        f"Falling back to: {_root}",
+        f"[shared.paths] Could not find workspace root via markers {ROOT_MARKERS}. Falling back to: {_root}",
         UserWarning,
         stacklevel=1,
     )
@@ -89,10 +98,12 @@ def ensure_importable(*, include_dailynews: bool = False) -> None:
     targets = list(_CANONICAL)
 
     if include_dailynews:
-        targets.extend([
-            WORKSPACE_ROOT / "automation" / "DailyNews" / "src",
-            WORKSPACE_ROOT / "automation" / "DailyNews" / "scripts",
-        ])
+        targets.extend(
+            [
+                WORKSPACE_ROOT / "automation" / "DailyNews" / "src",
+                WORKSPACE_ROOT / "automation" / "DailyNews" / "scripts",
+            ]
+        )
 
     for candidate in targets:
         candidate_text = str(candidate)

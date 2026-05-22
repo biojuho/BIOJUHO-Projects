@@ -11,6 +11,7 @@ import re
 import sqlite3
 
 from loguru import logger as log
+
 from shared.llm import LLMClient, TaskTier, get_client
 from shared.llm.models import LLMPolicy
 
@@ -143,11 +144,13 @@ def _topic_boost(keyword: str) -> int:
         if not _PACKAGES_PATH_INJECTED:
             import pathlib
             import sys
+
             _pkg_path = str(pathlib.Path(__file__).resolve().parents[3] / "packages")
             if _pkg_path not in sys.path:
                 sys.path.insert(0, _pkg_path)
             _PACKAGES_PATH_INJECTED = True
         from shared.intelligence import get_score_boost
+
         return get_score_boost(keyword)
     except ImportError:
         log.warning("shared.intelligence 모듈 없음 — topic boost 비활성 (packages/ 경로 확인 필요)")
@@ -155,6 +158,7 @@ def _topic_boost(keyword: str) -> int:
     except (AttributeError, ValueError, OSError) as e:
         log.warning(f"topic boost 실패 ({keyword}): {e}")
         return 0
+
 
 # ══════════════════════════════════════════════════════
 #  Scoring Prompt

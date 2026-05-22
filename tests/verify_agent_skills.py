@@ -10,12 +10,12 @@ if sys.platform == "win32":
         sys.stdout.reconfigure(encoding="utf-8")
 
 # Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "desci-platform", "biolinker")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "apps", "desci-platform", "backend")))
 
 from dotenv import load_dotenv
 from services.agent_service import get_agent_service
 
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "desci-platform", "biolinker", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "apps", "desci-platform", "backend", ".env"))
 
 
 async def test_deep_research():

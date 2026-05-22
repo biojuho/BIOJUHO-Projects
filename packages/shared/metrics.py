@@ -14,7 +14,12 @@ Usage::
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from starlette.requests import Request
 
 try:
     from prometheus_client import (
@@ -34,9 +39,9 @@ except ImportError:
 def _normalize_request_path(request: Any) -> str:
     route = request.scope.get("route")
     route_path = getattr(route, "path", None)
-    if route_path:
+    if isinstance(route_path, str) and route_path:
         return route_path
-    return request.url.path
+    return str(request.url.path)
 
 
 def setup_metrics(app: Any, *, service_name: str = "app") -> None:
@@ -70,11 +75,13 @@ def setup_metrics(app: Any, *, service_name: str = "app") -> None:
         registry=registry,
     )
 
-    from starlette.requests import Request
     from starlette.responses import Response
 
     @app.middleware("http")
-    async def prometheus_middleware(request: Request, call_next):
+    async def prometheus_middleware(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         raw_path = request.url.path
         if raw_path == "/metrics":
             return await call_next(request)
@@ -100,7 +107,7 @@ def setup_metrics(app: Any, *, service_name: str = "app") -> None:
             in_flight.labels(service=service_name).dec()
 
     @app.get("/metrics", include_in_schema=False)
-    async def metrics_endpoint():
+    async def metrics_endpoint() -> Response:
         return Response(
             content=generate_latest(registry),
             media_type=CONTENT_TYPE_LATEST,

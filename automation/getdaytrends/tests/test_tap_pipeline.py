@@ -6,11 +6,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 try:
-
     from getdaytrends.core.pipeline import _step_refresh_tap_products
 
 except (ImportError, ModuleNotFoundError):
-
     from core.pipeline import _step_refresh_tap_products
 
 
@@ -71,8 +69,12 @@ async def test_step_refresh_tap_products_dispatches_when_enabled():
         tap_alert_dispatch_batch_size=3,
     )
 
-    with patch("getdaytrends.tap.refresh_tap_market_surfaces", new_callable=AsyncMock, return_value=summary_stub), \
-         patch("getdaytrends.tap.dispatch_tap_alert_queue", new_callable=AsyncMock, return_value=dispatch_stub) as mock_dispatch:
+    with (
+        patch("getdaytrends.tap.refresh_tap_market_surfaces", new_callable=AsyncMock, return_value=summary_stub),
+        patch(
+            "getdaytrends.tap.dispatch_tap_alert_queue", new_callable=AsyncMock, return_value=dispatch_stub
+        ) as mock_dispatch,
+    ):
         result = await _step_refresh_tap_products(AsyncMock(), config)
 
     assert result["dispatch"]["dispatched"] == 2

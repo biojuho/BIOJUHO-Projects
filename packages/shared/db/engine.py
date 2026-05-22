@@ -22,7 +22,7 @@ Usage:
 import os
 import sqlite3
 from pathlib import Path
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -73,7 +73,7 @@ def get_sqlite_connection(db_name: str, path: Path | None = None) -> sqlite3.Con
     return sqlite3.connect(str(db_path))
 
 
-def get_connection(db_name: str, **kwargs):
+def get_connection(db_name: str, **kwargs: Any) -> sqlite3.Connection:
     """[Legacy DB-API] 데이터베이스 연결을 반환합니다.
 
     현재는 DB-API 스펙 기반의 SQLite만 지원합니다.
@@ -89,8 +89,7 @@ def get_connection(db_name: str, **kwargs):
 
     if backend == "postgresql":
         raise NotImplementedError(
-            "Legacy DB-API connection for PostgreSQL is not implemented. "
-            "Please use get_sqlalchemy_engine() instead."
+            "Legacy DB-API connection for PostgreSQL is not implemented. Please use get_sqlalchemy_engine() instead."
         )
 
     return get_sqlite_connection(db_name, path=kwargs.get("path"))
@@ -102,18 +101,18 @@ def get_sqlalchemy_engine(db_name: str, database_url: str | None = None) -> "Eng
     Args:
         db_name: SQLITE_PATHS 조회를 위한 데이터베이스 식별자
         database_url: 명시적 연결 문자열 (값이 없으면 os.environ 활용)
-    
+
     Returns:
         sqlalchemy.engine.Engine
     """
     from sqlalchemy import create_engine
-    
+
     url = database_url or DATABASE_URL
     if not url:
         # Fallback to local sqlite path
         db_path = SQLITE_PATHS.get(db_name)
         if db_path is None:
-             raise ValueError(f"Unknown database: {db_name}")
+            raise ValueError(f"Unknown database: {db_name}")
         url = f"sqlite:///{db_path.as_posix()}"
 
     backend = get_backend(url)
@@ -124,7 +123,7 @@ def get_sqlalchemy_engine(db_name: str, database_url: str | None = None) -> "Eng
             url,
             connect_args={"check_same_thread": False},
         )
-    
+
     # PostgreSQL Configuration
     return create_engine(
         url,
@@ -134,9 +133,9 @@ def get_sqlalchemy_engine(db_name: str, database_url: str | None = None) -> "Eng
     )
 
 
-def check_health() -> dict:
+def check_health() -> dict[str, Any]:
     """모든 등록된 DB의 건강 상태를 확인합니다."""
-    results = {}
+    results: dict[str, Any] = {}
     for name, path in SQLITE_PATHS.items():
         try:
             if path.exists():

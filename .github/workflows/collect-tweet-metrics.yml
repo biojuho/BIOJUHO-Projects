@@ -1,5 +1,12 @@
 name: Collect Tweet Metrics
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 # 목적: GetDayTrends에서 게시한 트윗의 실제 engagement 데이터를 수집
 # 회의 Action Item #3: A/B 테스트 measured label 확보
 
@@ -18,11 +25,15 @@ on:
 
 jobs:
   collect-metrics:
+    environment: automation-ops
+    name: Collect tweet metrics
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -44,8 +55,9 @@ jobs:
         env:
           TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
           X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '72' }}
         run: |
-          LOOKBACK="${{ github.event.inputs.lookback_hours || '72' }}"
+          LOOKBACK="$LOOKBACK_HOURS"
           uv run python scripts/collect_posted_tweet_metrics.py \
             --lookback-hours "$LOOKBACK" \
             --require-token \
@@ -53,27 +65,34 @@ jobs:
 
       - name: Upload metrics artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: tweet-metrics-${{ github.run_number }}
+          name: tweet-metrics-${{ github.run_id }}
           path: automation/getdaytrends/data/tweet_metrics_*.json
           retention-days: 30
 
       - name: Summary
         if: success()
+        env:
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '72' }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          echo "### Tweet Metrics Collection ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Lookback: ${{ github.event.inputs.lookback_hours || '72' }} hours" >> $GITHUB_STEP_SUMMARY
-          echo "- Run: #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Tweet Metrics Collection" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Lookback: $LOOKBACK_HOURS hours" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Run: #${GITHUB_RUN_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Telegram notification on failure
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] Tweet Metrics Collection #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[ERROR] Tweet Metrics Collection #${GITHUB_RUN_NUMBER} failed\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" || true
           fi

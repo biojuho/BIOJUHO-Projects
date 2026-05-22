@@ -22,8 +22,6 @@ Run:
 
 from __future__ import annotations
 
-import pytest
-
 from shared.llm.language_bridge import (
     _extract_json_payload,
     _script_counts,
@@ -38,14 +36,12 @@ from shared.llm.language_bridge import (
 )
 from shared.llm.models import BridgeMeta, LLMPolicy
 
-
 # ===========================================================================
 # 1. normalize_text — Unicode Normalization
 # ===========================================================================
 
 
 class TestNormalizeText:
-
     def test_cjk_punctuation_converted(self):
         """Fullwidth CJK punctuation → ASCII equivalents."""
         assert normalize_text("Hello\uff0cWorld\u3002") == "Hello,World."
@@ -89,7 +85,6 @@ class TestNormalizeText:
 
 
 class TestDetectLanguage:
-
     def test_korean_dominant(self):
         assert detect_language("안녕하세요 오늘의 뉴스입니다") == "ko"
 
@@ -120,7 +115,6 @@ class TestDetectLanguage:
 
 
 class TestNormalizePolicy:
-
     def test_none_returns_defaults(self):
         policy = normalize_policy(None)
         assert policy.locale == "ko-KR"
@@ -145,18 +139,22 @@ class TestNormalizePolicy:
 
     def test_enforce_korean_auto_enabled(self):
         """If output_language is 'ko', enforce_korean_output is forced True."""
-        policy = normalize_policy(LLMPolicy(
-            output_language="ko",
-            enforce_korean_output=False,
-        ))
+        policy = normalize_policy(
+            LLMPolicy(
+                output_language="ko",
+                enforce_korean_output=False,
+            )
+        )
         assert policy.enforce_korean_output is True
 
     def test_english_output_no_force(self):
         """If output_language is 'en', enforce_korean is not forced."""
-        policy = normalize_policy(LLMPolicy(
-            output_language="en",
-            enforce_korean_output=False,
-        ))
+        policy = normalize_policy(
+            LLMPolicy(
+                output_language="en",
+                enforce_korean_output=False,
+            )
+        )
         assert policy.enforce_korean_output is False
 
 
@@ -166,7 +164,6 @@ class TestNormalizePolicy:
 
 
 class TestInspectResponse:
-
     def test_empty_response_flagged(self):
         policy = LLMPolicy(enforce_korean_output=True)
         meta = inspect_response("", policy)
@@ -234,7 +231,6 @@ class TestInspectResponse:
 
 
 class TestShouldRetry:
-
     def test_deepseek_with_blocking_flag(self):
         policy = LLMPolicy(enforce_korean_output=True)
         meta = BridgeMeta(bridge_applied=True, quality_flags=["empty_response"])
@@ -280,13 +276,12 @@ class TestShouldRetry:
 
 
 class TestExtractJsonPayload:
-
     def test_clean_json_object(self):
         result = _extract_json_payload('{"key": "value"}')
         assert result == {"key": "value"}
 
     def test_clean_json_array(self):
-        result = _extract_json_payload('[1, 2, 3]')
+        result = _extract_json_payload("[1, 2, 3]")
         assert result == [1, 2, 3]
 
     def test_json_embedded_in_text(self):
@@ -313,7 +308,6 @@ class TestExtractJsonPayload:
 
 
 class TestMergeBridgeMeta:
-
     def test_flags_deduplicated(self):
         primary = BridgeMeta(quality_flags=["flag_a", "flag_b"])
         secondary = BridgeMeta(quality_flags=["flag_b", "flag_c"])
@@ -352,7 +346,6 @@ class TestMergeBridgeMeta:
 
 
 class TestScriptHelpers:
-
     def test_hangul_count(self):
         counts = _script_counts("가나다라")
         assert counts["hangul"] == 4

@@ -1,11 +1,13 @@
 """Database client adapter for Cloud DB and Checkpoints."""
+
 from __future__ import annotations
 
 import logging
 import sqlite3
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 from antigravity_mcp.config import get_settings
 
@@ -14,6 +16,7 @@ logger = logging.getLogger(__name__)
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     PSYCOPG2_AVAILABLE = False
@@ -27,15 +30,19 @@ class CheckpointDBClient:
         self.use_postgres = bool(self.settings.supabase_database_url and PSYCOPG2_AVAILABLE)
         self._sqlite_connection: sqlite3.Connection | None = None
         self._sqlite_lock = threading.Lock()
-        
+
         if self.use_postgres:
             logger.info("Using PostgreSQL (Supabase) for Checkpoint DB")
             self._init_pg_schema()
         else:
             if not self.settings.supabase_database_url:
-                logger.warning("SUPABASE_DATABASE_URL not set. Falling back to local pipeline_state.db for checkpoints.")
+                logger.warning(
+                    "SUPABASE_DATABASE_URL not set. Falling back to local pipeline_state.db for checkpoints."
+                )
             elif not PSYCOPG2_AVAILABLE:
-                logger.warning("psycopg2-binary not installed. Falling back to local pipeline_state.db for checkpoints.")
+                logger.warning(
+                    "psycopg2-binary not installed. Falling back to local pipeline_state.db for checkpoints."
+                )
             self._init_sqlite_schema()
 
     def _init_pg_schema(self) -> None:

@@ -32,6 +32,12 @@ from antigravity_mcp.state.store import PipelineStateStore
 
 
 @pytest.fixture(autouse=True)
+def _close_open_pipeline_state_stores():
+    yield
+    PipelineStateStore.close_all_open()
+
+
+@pytest.fixture(autouse=True)
 def _force_workspace_temp(monkeypatch):
     """Use a workspace-local temp dir to avoid Windows temp permission failures."""
     previous_tempdir = tempfile.tempdir
@@ -73,6 +79,7 @@ def load_script_module(monkeypatch, tmp_path):
 
         try:
             from shared.test_utils.fixtures import SystemFixtureFactory
+
             SystemFixtureFactory.patch_runtime_paths(monkeypatch, runtime, tmp_path)
         except ImportError:
             # Fallback for systems without shared repo module

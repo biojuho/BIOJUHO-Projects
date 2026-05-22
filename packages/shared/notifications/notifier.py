@@ -18,7 +18,7 @@ import threading
 import time
 import urllib.request
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 
 def send_telegram(
@@ -48,7 +48,7 @@ def send_telegram(
             headers={"Content-Type": "application/json"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            return cast("dict[str, Any]", json.loads(resp.read().decode("utf-8")))
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -96,7 +96,7 @@ class ErrorSpikeDetector:
         window_sec: int = 300,
         threshold: int = 3,
         cooldown_sec: int = 600,
-    ):
+    ) -> None:
         self.window_sec = window_sec
         self.threshold = threshold
         self.cooldown_sec = cooldown_sec
@@ -109,13 +109,9 @@ class ErrorSpikeDetector:
     def _prune(self, source: str, now: float) -> None:
         """window 밖의 오래된 에러 기록을 정리한다."""
         entries = self._recent_errors.get(source, [])
-        self._recent_errors[source] = [
-            (ts, msg) for ts, msg in entries if now - ts < self.window_sec
-        ]
+        self._recent_errors[source] = [(ts, msg) for ts, msg in entries if now - ts < self.window_sec]
 
-    def should_send(
-        self, source: str, error_message: str
-    ) -> tuple[bool, str | None]:
+    def should_send(self, source: str, error_message: str) -> tuple[bool, str | None]:
         """에러 알림을 전송해야 하는지 판단.
 
         Returns:
@@ -173,7 +169,7 @@ class Notifier:
         telegram_bot_token: str = "",
         telegram_chat_id: str = "",
         spike_detector: ErrorSpikeDetector | None = None,
-    ):
+    ) -> None:
         self.discord_webhook_url = discord_webhook_url
         self.telegram_bot_token = telegram_bot_token
         self.telegram_chat_id = telegram_chat_id
@@ -209,9 +205,9 @@ class Notifier:
         """최소 1개 채널이 설정되어 있는지 확인."""
         return bool(self.discord_webhook_url) or bool(self.telegram_bot_token and self.telegram_chat_id)
 
-    def send(self, message: str) -> dict[str, dict]:
+    def send(self, message: str) -> dict[str, dict[str, Any]]:
         """모든 설정된 채널로 동시 전송."""
-        results: dict[str, dict] = {}
+        results: dict[str, dict[str, Any]] = {}
         if self.telegram_bot_token and self.telegram_chat_id:
             results["telegram"] = send_telegram(message, self.telegram_bot_token, self.telegram_chat_id)
         if self.discord_webhook_url:
@@ -224,7 +220,7 @@ class Notifier:
         *,
         error: Exception | None = None,
         source: str = "system",
-    ) -> dict[str, dict]:
+    ) -> dict[str, dict[str, Any]]:
         """에러 알림 전송 (스파이크 감지 + throttle 적용)."""
         should_send, spike_summary = self._spike.should_send(source, error_message)
 
@@ -252,7 +248,7 @@ class Notifier:
         *,
         source: str = "system",
         details: str = "",
-    ) -> dict[str, dict]:
+    ) -> dict[str, dict[str, Any]]:
         """성공 알림 전송."""
         now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         lines = [
@@ -270,7 +266,7 @@ class Notifier:
         *,
         status: str = "alive",
         details: str = "",
-    ) -> dict[str, dict]:
+    ) -> dict[str, dict[str, Any]]:
         """서비스 heartbeat 전송 — 정기적 alive ping용."""
         now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         emoji = "💚" if status == "alive" else "💛"
@@ -289,7 +285,7 @@ class Notifier:
         daily_budget: float,
         *,
         calls: int = 0,
-    ) -> dict[str, dict]:
+    ) -> dict[str, dict[str, Any]]:
         """비용 경고 알림 — 예산 70% 이상 시 경고, 90% 이상 시 긴급."""
         if daily_budget <= 0:
             return {}

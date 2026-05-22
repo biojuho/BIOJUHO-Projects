@@ -2,7 +2,6 @@
 Tests for shared.cache module — Redis cache layer with NoOp fallback.
 """
 
-import asyncio
 import sys
 from unittest.mock import AsyncMock
 
@@ -10,8 +9,7 @@ import pytest
 
 sys.path.insert(0, "packages")
 
-from shared.cache import RedisCache, _NoOpCache, get_cache, close_cache
-
+from shared.cache import RedisCache, _NoOpCache, close_cache, get_cache
 
 # ─── NoOpCache Tests ─────────────────────────────────────────
 

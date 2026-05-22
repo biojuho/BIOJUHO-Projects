@@ -21,22 +21,20 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 # Ensure getdaytrends is importable
 _GDT_ROOT = Path(__file__).resolve().parents[1]
 if str(_GDT_ROOT) not in sys.path:
     sys.path.insert(0, str(_GDT_ROOT))
 
 from content_qa import (
+    _UNVERIFIED_QUOTE_PATTERNS,
     _score_format,
     _score_hook,
     _score_kick,
-    _UNVERIFIED_QUOTE_PATTERNS,
+    _score_tone,
     build_regeneration_feedback,
 )
 from models import GeneratedTweet
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,7 +55,6 @@ def _make_tweet(content: str, platform: str = "x") -> GeneratedTweet:
 
 
 class TestScoreHook:
-
     def test_perfect_lead(self):
         """Lead with numbers and strong structure → max score."""
         score, issues = _score_hook(
@@ -72,6 +69,7 @@ class TestScoreHook:
         """Cliche opening → significant penalty."""
         # Use actual cliche patterns from multilang
         from multilang import _QA_CLICHE_PATTERNS
+
         if _QA_CLICHE_PATTERNS:
             cliche = _QA_CLICHE_PATTERNS[0]
             score, issues = _score_hook(
@@ -118,7 +116,6 @@ class TestScoreHook:
 
 
 class TestScoreKick:
-
     def test_strong_ending(self):
         score, issues = _score_kick("좋은 콘텐츠\n명확한 분석으로 마침")
         assert score == 12
@@ -149,20 +146,28 @@ class TestScoreKick:
 
 
 class TestScoreFormat:
-
-    def test_tweet_within_280_chars(self):
-        tweet = _make_tweet("A" * 280)
+    def test_tweet_within_shortform_range(self):
+        """[shortform-only] 160~240자 범위 내 트윗은 페널티 없음."""
+        tweet = _make_tweet("A" * 200)
         angle, reg, algo, issues = _score_format("tweets", [tweet], tweet.content)
         assert reg == 10
         assert algo == 10
         assert issues == []
 
-    def test_tweet_exceeds_280_chars(self):
-        tweet = _make_tweet("A" * 300)
-        angle, reg, algo, issues = _score_format("tweets", [tweet], tweet.content)
+    def test_tweet_exceeds_240_chars(self):
+        """[shortform-only] 240자 초과 시 regulation/algorithm 감점."""
+        tweet = _make_tweet("A" * 260)
+        _, reg, algo, issues = _score_format("tweets", [tweet], tweet.content)
         assert reg <= 6
         assert algo <= 6
-        assert any("280자" in i for i in issues)
+        assert any("240자" in i for i in issues)
+
+    def test_tweet_under_160_chars(self):
+        """[shortform-only] 160자 미만 시 angle 감점 (정보 밀도 부족)."""
+        tweet = _make_tweet("A" * 100)
+        angle, _, algo, issues = _score_format("tweets", [tweet], tweet.content)
+        assert angle < 12
+        assert any("160자 미만" in i for i in issues)
 
     def test_threads_hashtag_fatal(self):
         """Threads posts with hashtags → regulation = 0."""
@@ -186,6 +191,7 @@ class TestScoreFormat:
     def test_blog_missing_required_headings(self):
         """Blog posts missing required sections → angle penalty."""
         from multilang import _BLOG_REQUIRED_HEADINGS
+
         if _BLOG_REQUIRED_HEADINGS:
             tweet = _make_tweet("## 서론\n내용만 있음")
             angle, _, _, issues = _score_format("blog_posts", [tweet], tweet.content)
@@ -206,10 +212,10 @@ class TestScoreFormat:
 
 
 class TestScoreBoundaries:
-
     def test_hook_never_negative(self):
         """Score should be capped at 0, never go negative."""
         from multilang import _QA_CLICHE_PATTERNS
+
         if _QA_CLICHE_PATTERNS:
             # Stack multiple penalties
             cliche = _QA_CLICHE_PATTERNS[0]
@@ -227,10 +233,19 @@ class TestScoreBoundaries:
     def test_format_regulation_capped_at_zero(self):
         """Threads hashtag + bait should not go below 0."""
         from multilang import _THREADS_BAIT_PATTERNS
+
         content = "#hashtag " + " ".join(_THREADS_BAIT_PATTERNS[:3]) if _THREADS_BAIT_PATTERNS else "#test"
         tweet = _make_tweet(content)
         _, reg, _, _ = _score_format("threads_posts", [tweet], content)
         assert reg >= 0
+
+
+class TestToneAnalogyGuard:
+    def test_prohibited_analogy_is_penalized(self):
+        content = "이 변화는 마치 예산표가 한 번에 흔들리는 상황 같다."
+        score, issues = _score_tone(content, [_make_tweet(content)], [], None)
+        assert score <= 7
+        assert any("비유/은유" in issue for issue in issues)
 
 
 # ===========================================================================
@@ -239,13 +254,12 @@ class TestScoreBoundaries:
 
 
 class TestUnverifiedQuotes:
-
     def test_all_patterns_are_korean(self):
         """Sanity check: all patterns should be non-empty Korean strings."""
         for pattern in _UNVERIFIED_QUOTE_PATTERNS:
             assert len(pattern) > 0
             # Korean characters in range
-            assert any("\uAC00" <= c <= "\uD7AF" for c in pattern)
+            assert any("\uac00" <= c <= "\ud7af" for c in pattern)
 
     def test_patterns_match_in_text(self):
         for pattern in _UNVERIFIED_QUOTE_PATTERNS:
@@ -254,7 +268,6 @@ class TestUnverifiedQuotes:
 
 
 class TestBuildRegenerationFeedback:
-
     def test_collects_failed_qa_feedback_from_failed_groups(self):
         feedback = build_regeneration_feedback(
             qa_summary={

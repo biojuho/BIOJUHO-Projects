@@ -20,10 +20,7 @@ _orig_unraisablehook = _sys.unraisablehook
 
 
 def _silence_capture_io_error(unraisable):
-    if (
-        isinstance(unraisable.exc_value, ValueError)
-        and "I/O operation on closed file" in str(unraisable.exc_value)
-    ):
+    if isinstance(unraisable.exc_value, ValueError) and "I/O operation on closed file" in str(unraisable.exc_value):
         return  # suppress known pytest capture teardown noise
     _orig_unraisablehook(unraisable)
 

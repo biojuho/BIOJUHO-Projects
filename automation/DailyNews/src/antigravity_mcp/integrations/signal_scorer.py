@@ -218,9 +218,7 @@ class SignalScorer:
         base_score = weighted_score / max(total_weight, 0.01)
 
         # Multi-source boost
-        multi_boost = self.MULTI_SOURCE_BOOST.get(
-            min(source_count, 3), 2.0
-        )
+        multi_boost = self.MULTI_SOURCE_BOOST.get(min(source_count, 3), 2.0)
         boosted = base_score * multi_boost
 
         # Velocity bonus

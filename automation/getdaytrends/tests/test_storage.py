@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import aiosqlite
 import pytest
-
 from config import AppConfig
 from db import init_db, save_tweets_batch
 from models import (

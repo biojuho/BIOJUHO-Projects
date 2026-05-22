@@ -17,8 +17,6 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
-
 
 # ── Risk categories ──
 
@@ -68,30 +66,35 @@ class DiffStats:
 def get_diff_stats(base: str = "main") -> DiffStats:
     """Get git diff statistics against base branch."""
     stats = DiffStats()
-    
+
     # Use triple dot diff for accurate branch comparison if a simple branch name is provided.
     target = f"{base}...HEAD" if "..." not in base and "~" not in base else base
 
     # Instead of error-prone --stat parsing, use --numstat to get accurate files and line counts.
     result = subprocess.run(
         ["git", "diff", "--numstat", target],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
-    
+
     files_changed = []
     insertions = 0
     deletions = 0
-    
+
     for line in result.stdout.strip().split("\n"):
         if not line:
             continue
         parts = line.split("\t")
         if len(parts) == 3:
             ins, dl, fname = parts
-            if ins != "-": insertions += int(ins)
-            if dl != "-": deletions += int(dl)
+            if ins != "-":
+                insertions += int(ins)
+            if dl != "-":
+                deletions += int(dl)
             files_changed.append(fname)
-            
+
     stats.insertions = insertions
     stats.deletions = deletions
     stats.files_changed = files_changed
@@ -99,7 +102,10 @@ def get_diff_stats(base: str = "main") -> DiffStats:
     # Full diff content
     result = subprocess.run(
         ["git", "diff", target],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     stats.diff_content = result.stdout
     return stats
@@ -112,77 +118,90 @@ def analyze(stats: DiffStats) -> list[ReviewFinding]:
     # ── 1. Contract violation ──
     for f in stats.files_changed:
         if f.startswith("packages/shared/"):
-            findings.append(ReviewFinding(
-                category="1. 계약 위반",
-                severity="🔴",
-                message=f"shared/ 모듈 수정 — 모든 소비자 프로젝트에 영향",
-                file=f,
-            ))
+            findings.append(
+                ReviewFinding(
+                    category="1. 계약 위반",
+                    severity="🔴",
+                    message="shared/ 모듈 수정 — 모든 소비자 프로젝트에 영향",
+                    file=f,
+                )
+            )
 
     # ── 2. Side effects ──
     for f in stats.files_changed:
         if any(f.startswith(p) for p in HIGH_RISK_PATHS):
-            findings.append(ReviewFinding(
-                category="2. 부수 효과",
-                severity="🟡",
-                message=f"고위험 경로 변경 — blast radius 확인 필요",
-                file=f,
-            ))
+            findings.append(
+                ReviewFinding(
+                    category="2. 부수 효과",
+                    severity="🟡",
+                    message="고위험 경로 변경 — blast radius 확인 필요",
+                    file=f,
+                )
+            )
 
     # ── 3. Test coverage ──
-    changed_src = [f for f in stats.files_changed
-                   if f.endswith(".py") and "test" not in f.lower()]
-    changed_tests = [f for f in stats.files_changed
-                     if f.endswith(".py") and "test" in f.lower()]
+    changed_src = [f for f in stats.files_changed if f.endswith(".py") and "test" not in f.lower()]
+    changed_tests = [f for f in stats.files_changed if f.endswith(".py") and "test" in f.lower()]
 
     if changed_src and not changed_tests:
-        findings.append(ReviewFinding(
-            category="3. 테스트 커버리지",
-            severity="🔴",
-            message=f"소스 {len(changed_src)}개 변경, 테스트 0개 변경 — 테스트 추가 필요",
-        ))
+        findings.append(
+            ReviewFinding(
+                category="3. 테스트 커버리지",
+                severity="🔴",
+                message=f"소스 {len(changed_src)}개 변경, 테스트 0개 변경 — 테스트 추가 필요",
+            )
+        )
     elif len(changed_src) > len(changed_tests) * 2:
-        findings.append(ReviewFinding(
-            category="3. 테스트 커버리지",
-            severity="🟡",
-            message=f"소스 {len(changed_src)}개 vs 테스트 {len(changed_tests)}개 — 비율 확인",
-        ))
+        findings.append(
+            ReviewFinding(
+                category="3. 테스트 커버리지",
+                severity="🟡",
+                message=f"소스 {len(changed_src)}개 vs 테스트 {len(changed_tests)}개 — 비율 확인",
+            )
+        )
     else:
-        findings.append(ReviewFinding(
-            category="3. 테스트 커버리지",
-            severity="🟢",
-            message="소스와 테스트 비율 양호",
-        ))
+        findings.append(
+            ReviewFinding(
+                category="3. 테스트 커버리지",
+                severity="🟢",
+                message="소스와 테스트 비율 양호",
+            )
+        )
 
     # ── 4. Error handling ──
     new_try_except = len(re.findall(r"^\+.*(?:try:|except\s)", stats.diff_content, re.MULTILINE))
-    new_raise = len(re.findall(r"^\+.*raise\s", stats.diff_content, re.MULTILINE))
+    len(re.findall(r"^\+.*raise\s", stats.diff_content, re.MULTILINE))
     if new_try_except == 0 and stats.insertions > 50:
-        findings.append(ReviewFinding(
-            category="4. 에러 핸들링",
-            severity="🟡",
-            message=f"{stats.insertions}줄 추가인데 try/except 0개 — 에러 처리 누락 가능",
-        ))
+        findings.append(
+            ReviewFinding(
+                category="4. 에러 핸들링",
+                severity="🟡",
+                message=f"{stats.insertions}줄 추가인데 try/except 0개 — 에러 처리 누락 가능",
+            )
+        )
 
     # ── 5. Security ──
     for pattern in SECURITY_PATTERNS:
         matches = re.findall(r"^\+.*" + pattern, stats.diff_content, re.MULTILINE | re.IGNORECASE)
         if matches:
-            findings.append(ReviewFinding(
-                category="5. 보안",
-                severity="🔴",
-                message=f"보안 위험 패턴 감지: {pattern[:30]}... ({len(matches)}건)",
-            ))
+            findings.append(
+                ReviewFinding(
+                    category="5. 보안",
+                    severity="🔴",
+                    message=f"보안 위험 패턴 감지: {pattern[:30]}... ({len(matches)}건)",
+                )
+            )
 
     # ── 6. Dependencies ──
-    dep_files = [f for f in stats.files_changed
-                 if f.endswith(("requirements.txt", "pyproject.toml", "package.json"))]
+    dep_files = [f for f in stats.files_changed if f.endswith(("requirements.txt", "pyproject.toml", "package.json"))]
     if dep_files:
-        findings.append(ReviewFinding(
-            category="6. 의존성",
-            severity="🟡",
-            message=f"의존성 파일 변경: {', '.join(dep_files)}",
-        ))
+        findings.append(
+            ReviewFinding(
+                category="6. 의존성",
+                severity="🟡",
+                message=f"의존성 파일 변경: {', '.join(dep_files)}",
+            )
+        )
 
     # ── 7. Revertability ──
     schema_changes = []
@@ -191,29 +210,35 @@ def analyze(stats: DiffStats) -> list[ReviewFinding]:
         schema_changes.extend(matches)
 
     if schema_changes:
-        findings.append(ReviewFinding(
-            category="7. 되돌림",
-            severity="🔴",
-            message=f"DB 스키마 변경 {len(schema_changes)}건 — revert 불가능할 수 있음",
-        ))
+        findings.append(
+            ReviewFinding(
+                category="7. 되돌림",
+                severity="🔴",
+                message=f"DB 스키마 변경 {len(schema_changes)}건 — revert 불가능할 수 있음",
+            )
+        )
 
     if len(stats.files_changed) > 7:
-        findings.append(ReviewFinding(
-            category="7. 되돌림",
-            severity="🟡",
-            message=f"{len(stats.files_changed)}개 파일 변경 — 큰 변경은 분리 커밋 권장",
-        ))
+        findings.append(
+            ReviewFinding(
+                category="7. 되돌림",
+                severity="🟡",
+                message=f"{len(stats.files_changed)}개 파일 변경 — 큰 변경은 분리 커밋 권장",
+            )
+        )
 
     # ── 8. Naming ──
     new_defs = re.findall(r"^\+\s*(?:def|class)\s+(\w+)", stats.diff_content, re.MULTILINE)
     if new_defs:
         short_names = [n for n in new_defs if len(n) <= 2 and n not in ("id", "db")]
         if short_names:
-            findings.append(ReviewFinding(
-                category="8. 네이밍",
-                severity="🟡",
-                message=f"짧은 이름 감지: {', '.join(short_names)} — 명확한 이름 권장",
-            ))
+            findings.append(
+                ReviewFinding(
+                    category="8. 네이밍",
+                    severity="🟡",
+                    message=f"짧은 이름 감지: {', '.join(short_names)} — 명확한 이름 권장",
+                )
+            )
 
     return findings
 
@@ -227,8 +252,7 @@ def format_markdown(stats: DiffStats, findings: list[ReviewFinding]) -> str:
     lines = [
         "## PR 셀프 리뷰 체크리스트",
         "",
-        f"**변경 요약**: {len(stats.files_changed)}개 파일, "
-        f"+{stats.insertions}/-{stats.deletions} 줄",
+        f"**변경 요약**: {len(stats.files_changed)}개 파일, +{stats.insertions}/-{stats.deletions} 줄",
         "",
     ]
 
@@ -236,8 +260,8 @@ def format_markdown(stats: DiffStats, findings: list[ReviewFinding]) -> str:
     red = sum(1 for f in findings if f.severity == "🔴")
     yellow = sum(1 for f in findings if f.severity == "🟡")
     green = sum(1 for f in findings if f.severity == "🟢")
-    lines.append(f"| 🔴 반드시 수정 | 🟡 권장 | 🟢 괜찮음 |")
-    lines.append(f"|:---:|:---:|:---:|")
+    lines.append("| 🔴 반드시 수정 | 🟡 권장 | 🟢 괜찮음 |")
+    lines.append("|:---:|:---:|:---:|")
     lines.append(f"| {red} | {yellow} | {green} |")
     lines.append("")
 
@@ -263,6 +287,7 @@ def format_markdown(stats: DiffStats, findings: list[ReviewFinding]) -> str:
 def main():
     # Windows cp949 encoding workaround
     import io
+
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     elif sys.stdout.encoding != "utf-8":

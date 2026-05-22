@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from . import log, sqlite_write_lock
 
+
 async def _cleanup_old_records_unlocked(conn, days: int = 90) -> int:
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     cursor = await conn.execute("DELETE FROM tweets WHERE generated_at < ?", (cutoff,))
@@ -20,9 +21,11 @@ async def _cleanup_old_records_unlocked(conn, days: int = 90) -> int:
         log.info(f"DB 정리 완료: tweets {tweets_deleted}건 + trends {trends_deleted}건 삭제 ({days}일 초과)")
     return total
 
+
 async def cleanup_old_records(conn, days: int = 90) -> int:
     async with sqlite_write_lock(conn):
         return await _cleanup_old_records_unlocked(conn, days=days)
+
 
 async def get_trend_stats(conn) -> dict:
     stats = {}
@@ -38,10 +41,12 @@ async def get_trend_stats(conn) -> dict:
     stats["total_tweets"] = row["cnt"]
     return stats
 
+
 async def get_meta(conn, key: str) -> str | None:
     cursor = await conn.execute("SELECT value FROM meta WHERE key = ?", (key,))
     row = await cursor.fetchone()
     return row["value"] if row else None
+
 
 async def _set_meta_unlocked(conn, key: str, value: str) -> None:
     await conn.execute(
@@ -50,9 +55,11 @@ async def _set_meta_unlocked(conn, key: str, value: str) -> None:
     )
     await conn.commit()
 
+
 async def set_meta(conn, key: str, value: str) -> None:
     async with sqlite_write_lock(conn):
         await _set_meta_unlocked(conn, key, value)
+
 
 async def get_recent_avg_viral_score(conn, lookback_hours: int = 3) -> float | None:
     cutoff = (datetime.now() - timedelta(hours=lookback_hours)).isoformat()

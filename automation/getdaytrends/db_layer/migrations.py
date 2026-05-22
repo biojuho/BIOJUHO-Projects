@@ -16,9 +16,7 @@ _CURRENT_SCHEMA_VERSION = 11
 async def _get_schema_version(conn) -> int:
     """현재 DB 스키마 버전 조회. schema_version 테이블 없으면 0."""
     try:
-        cursor = await conn.execute(
-            "SELECT MAX(version) as v FROM schema_version"
-        )
+        cursor = await conn.execute("SELECT MAX(version) as v FROM schema_version")
         row = await cursor.fetchone()
         v = row["v"] if row else None
         return v if v is not None else 0
@@ -72,6 +70,7 @@ async def _migrate_v2(conn) -> None:
         await conn.commit()
         # backfill은 db_schema에서 호출됨 (compute_fingerprint 의존)
         from ..db_schema import _backfill_fingerprints
+
         await _backfill_fingerprints(conn)
 
 
@@ -116,17 +115,11 @@ async def _migrate_v5(conn) -> None:
 async def _migrate_v6(conn) -> None:
     """v6: 100x 스케일 빈번한 인덱스 추가."""
     # trends: 캐시 조회 최적화 (fingerprint + scored_at 복합)
-    await conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_trends_fp_scored ON trends(fingerprint, scored_at)"
-    )
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_trends_fp_scored ON trends(fingerprint, scored_at)")
     # tweets: cleanup/정리 쿼리 최적화
-    await conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_tweets_generated_at ON tweets(generated_at)"
-    )
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_generated_at ON tweets(generated_at)")
     # tweets: 게시 상태 추적 최적화
-    await conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_tweets_posted_at ON tweets(posted_at)"
-    )
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_tweets_posted_at ON tweets(posted_at)")
     await conn.commit()
 
 

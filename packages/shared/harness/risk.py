@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from .constitution import Constitution
-
 
 # Built-in patterns that are always checked regardless of Constitution
 _BUILTIN_RISK_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -72,16 +71,12 @@ class RiskScanner:
         self._compiled_builtins: list[tuple[re.Pattern, str]] = []
         if enable_builtins:
             for pattern, category in _BUILTIN_RISK_PATTERNS:
-                self._compiled_builtins.append(
-                    (re.compile(pattern, re.IGNORECASE), category)
-                )
+                self._compiled_builtins.append((re.compile(pattern, re.IGNORECASE), category))
 
         self._compiled_constitution: list[tuple[re.Pattern, str]] = []
         for pattern in constitution.risk_patterns:
             try:
-                self._compiled_constitution.append(
-                    (re.compile(pattern, re.IGNORECASE), f"constitution:{pattern}")
-                )
+                self._compiled_constitution.append((re.compile(pattern, re.IGNORECASE), f"constitution:{pattern}"))
             except re.error:
                 pass  # Skip invalid regex quietly
 
@@ -89,9 +84,7 @@ class RiskScanner:
         if extra_patterns:
             for pattern, category in extra_patterns:
                 try:
-                    self._extra.append(
-                        (re.compile(pattern, re.IGNORECASE), category)
-                    )
+                    self._extra.append((re.compile(pattern, re.IGNORECASE), category))
                 except re.error:
                     pass
 

@@ -6,13 +6,13 @@
   "main": "dist/server/server.js",
   "scripts": {
     "dev": "tsx src/server/server.ts",
-    "dev:preview": "vite",
-    "build": "tsc && vite build",
+    "dev:preview": "vite --configLoader native",
+    "build": "tsc && vite build --configLoader native",
     "build:server": "tsc -p tsconfig.build.json",
-    "build:widgets": "vite build",
+    "build:widgets": "vite build --configLoader native",
     "start": "node dist/server/server.js",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview --configLoader native"
   },
   "keywords": [
     "mcp",
@@ -28,28 +28,28 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "dotenv": "^17.3.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "zod": "^3.24.1"
+    "dotenv": "^17.4.2",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251120.0",
-    "@tailwindcss/vite": "^4.2.1",
-    "@types/node": "^22.19.1",
+    "@cloudflare/workers-types": "^4.20260511.1",
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/node": "^25.7.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react": "^6.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4.2.1",
-    "tsx": "^4.19.2",
-    "typescript": "^5.8.3",
-    "vite": "^7.3.1",
-    "wrangler": "^4.50.0"
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.12",
+    "wrangler": "^4.90.1"
   },
   "engines": {
-    "node": ">=20.19 <24"
+    "node": ">=24.0.0"
   }
 }

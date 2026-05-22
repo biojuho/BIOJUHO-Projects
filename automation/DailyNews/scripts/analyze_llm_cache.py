@@ -1,7 +1,7 @@
 """
-LLM Cache 분석 스크립트
+LLM Cache analysis script.
 
-LLM API 호출 캐시 히트율을 분석하여 비용 절감 및 성능 최적화 기회를 식별합니다.
+Analyzes LLM API call cache hit rate to estimate cost savings and optimization opportunities.
 
 Usage:
     python scripts/analyze_llm_cache.py [--days 7]
@@ -14,39 +14,26 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = PROJECT_ROOT / "data" / "pipeline_state.db"
+REPORT_WIDTH = 80
+AVG_TOKENS_PER_REQUEST = 500
+COST_PER_1K_TOKENS = 0.01
 
 
-def analyze_cache_stats(days: int = 7):
-    """캐시 통계 분석"""
-    print("=" * 80)
+def _print_report_header(days: int) -> None:
+    print("=" * REPORT_WIDTH)
     print(" " * 25 + "LLM Cache Analysis Report")
-    print("=" * 80)
+    print("=" * REPORT_WIDTH)
     print(f"Period: Last {days} days")
     print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 80)
+    print("=" * REPORT_WIDTH)
     print()
 
-    if not DB_PATH.exists():
-        print(f"Error: Database not found at {DB_PATH}")
-        return
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+def _print_section(title: str) -> None:
+    print(f"[ {title} ]".ljust(REPORT_WIDTH, "-"))
 
-    # 전체 캐시 통계
-    print("[ Overall Cache Statistics ]".ljust(80, "-"))
-    cursor.execute("SELECT COUNT(*) FROM llm_cache")
-    total_entries = cursor.fetchone()[0]
-    print(f"  Total Cache Entries: {total_entries:,}")
 
-    if total_entries == 0:
-        print("  No cache data available yet.")
-        conn.close()
-        return
-
-    # 기간별 통계
-    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-
+def _load_window_stats(cursor: sqlite3.Cursor, cutoff: str) -> tuple[int, int]:
     cursor.execute(
         """
         SELECT
@@ -57,74 +44,63 @@ def analyze_cache_stats(days: int = 7):
     """,
         (cutoff,),
     )
+    return cursor.fetchone() or (0, 0)
 
-    unique, queries = cursor.fetchone() or (0, 0)
 
-    if queries == 0:
-        print(f"  No queries in the last {days} days.")
-        conn.close()
-        return
-
-    # 캐시 히트율 계산
+def _calculate_costs(unique: int, queries: int) -> tuple[int, float, float, float, float]:
     cache_hits = queries - unique
-    hit_rate = (cache_hits / queries * 100) if queries > 0 else 0
-
-    print(f"  Unique Prompts (Last {days} Days): {unique:,}")
-    print(f"  Total Queries (Last {days} Days): {queries:,}")
-    print(f"  Cache Hits: {cache_hits:,}")
-    print(f"  Cache Hit Rate: {hit_rate:.1f}%")
-    print()
-
-    # 캐시 효율성 평가
-    print("[ Cache Efficiency ]".ljust(80, "-"))
-    if hit_rate >= 60:
-        efficiency = "Excellent"
-        emoji = "[+++]"
-    elif hit_rate >= 40:
-        efficiency = "Good"
-        emoji = "[++]"
-    elif hit_rate >= 20:
-        efficiency = "Fair"
-        emoji = "[+]"
-    else:
-        efficiency = "Poor"
-        emoji = "[-]"
-
-    print(f"  Efficiency Rating: {emoji} {efficiency}")
-    print()
-
-    # 비용 절감 추정
-    print("[ Cost Savings Estimate ]".ljust(80, "-"))
-
-    # 가정: Gemini API 평균 비용 $0.01 per 1K tokens, 평균 500 tokens per request
-    avg_tokens_per_request = 500
-    cost_per_1k_tokens = 0.01
-    cost_per_request = (avg_tokens_per_request / 1000) * cost_per_1k_tokens
-
+    cost_per_request = (AVG_TOKENS_PER_REQUEST / 1000) * COST_PER_1K_TOKENS
     total_cost_without_cache = queries * cost_per_request
     total_cost_with_cache = unique * cost_per_request
     savings = total_cost_without_cache - total_cost_with_cache
     savings_pct = (savings / total_cost_without_cache * 100) if total_cost_without_cache > 0 else 0
+    return cache_hits, total_cost_without_cache, total_cost_with_cache, savings, savings_pct
 
-    print(f"  API Calls Saved: {cache_hits:,}")
-    print(f"  Estimated Cost Without Cache: ${total_cost_without_cache:.2f}")
-    print(f"  Actual Cost With Cache: ${total_cost_with_cache:.2f}")
-    print(f"  Estimated Savings: ${savings:.2f} ({savings_pct:.1f}%)")
+
+def _efficiency_label(hit_rate: float) -> tuple[str, str]:
+    if hit_rate >= 60:
+        return "Excellent", "[+++]"
+    if hit_rate >= 40:
+        return "Good", "[++]"
+    if hit_rate >= 20:
+        return "Fair", "[+]"
+    return "Poor", "[-]"
+
+
+def _print_efficiency(hit_rate: float) -> None:
+    _print_section("Cache Efficiency")
+    efficiency, emoji = _efficiency_label(hit_rate)
+    print(f"  Efficiency Rating: {emoji} {efficiency}")
     print()
 
-    # 월간 추정 (7일 데이터 기반)
-    if days == 7:
-        monthly_queries = queries * 4.3  # 약 4.3주/월
-        monthly_unique = unique * 4.3
-        monthly_savings = savings * 4.3
 
-        print("[ Monthly Projection (based on 7-day average) ]".ljust(80, "-"))
-        print(f"  Projected Monthly Queries: {monthly_queries:,.0f}")
-        print(f"  Projected Monthly Savings: ${monthly_savings:.2f}")
-        print()
+def _print_cost_savings(unique: int, queries: int) -> float:
+    _print_section("Cost Savings Estimate")
+    cache_hits, total_without_cache, total_with_cache, savings, savings_pct = _calculate_costs(unique, queries)
 
-    # 가장 많이 사용된 프롬프트 (상위 10개)
-    print("[ Most Frequent Prompts (Top 10) ]".ljust(80, "-"))
+    print(f"  API Calls Saved: {cache_hits:,}")
+    print(f"  Estimated Cost Without Cache: ${total_without_cache:.2f}")
+    print(f"  Actual Cost With Cache: ${total_with_cache:.2f}")
+    print(f"  Estimated Savings: ${savings:.2f} ({savings_pct:.1f}%)")
+    print()
+    return savings
+
+
+def _print_monthly_projection(days: int, queries: int, savings: float) -> None:
+    if days != 7:
+        return
+
+    monthly_queries = queries * 4.3
+    monthly_savings = savings * 4.3
+
+    _print_section("Monthly Projection (based on 7-day average)")
+    print(f"  Projected Monthly Queries: {monthly_queries:,.0f}")
+    print(f"  Projected Monthly Savings: ${monthly_savings:.2f}")
+    print()
+
+
+def _print_frequent_prompts(cursor: sqlite3.Cursor, cutoff: str) -> None:
+    _print_section("Most Frequent Prompts (Top 10)")
 
     cursor.execute(
         """
@@ -155,8 +131,9 @@ def analyze_cache_stats(days: int = 7):
 
     print()
 
-    # 권장 사항
-    print("[ Recommendations ]".ljust(80, "-"))
+
+def _print_recommendations(hit_rate: float) -> None:
+    _print_section("Recommendations")
 
     if hit_rate < 40:
         print("  [!] Cache hit rate is below 40%.")
@@ -173,9 +150,53 @@ def analyze_cache_stats(days: int = 7):
         print("      - Maintain current cache TTL settings")
 
     print()
-    print("=" * 80)
+    print("=" * REPORT_WIDTH)
 
-    conn.close()
+
+def analyze_cache_stats(days: int = 7):
+    """Analyze cache statistics."""
+    _print_report_header(days)
+
+    if not DB_PATH.exists():
+        print(f"Error: Database not found at {DB_PATH}")
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cursor = conn.cursor()
+
+        _print_section("Overall Cache Statistics")
+        cursor.execute("SELECT COUNT(*) FROM llm_cache")
+        total_entries = cursor.fetchone()[0]
+        print(f"  Total Cache Entries: {total_entries:,}")
+
+        if total_entries == 0:
+            print("  No cache data available yet.")
+            return
+
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        unique, queries = _load_window_stats(cursor, cutoff)
+
+        if queries == 0:
+            print(f"  No queries in the last {days} days.")
+            return
+
+        cache_hits = queries - unique
+        hit_rate = (cache_hits / queries * 100) if queries > 0 else 0
+
+        print(f"  Unique Prompts (Last {days} Days): {unique:,}")
+        print(f"  Total Queries (Last {days} Days): {queries:,}")
+        print(f"  Cache Hits: {cache_hits:,}")
+        print(f"  Cache Hit Rate: {hit_rate:.1f}%")
+        print()
+
+        _print_efficiency(hit_rate)
+        savings = _print_cost_savings(unique, queries)
+        _print_monthly_projection(days, queries, savings)
+        _print_frequent_prompts(cursor, cutoff)
+        _print_recommendations(hit_rate)
+    finally:
+        conn.close()
 
 
 def main():

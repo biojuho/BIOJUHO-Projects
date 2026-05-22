@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 @dataclass
 class ContentCandidate:
     """예측 대상 콘텐츠."""
+
     content: str
     trend_keyword: str
     viral_potential: float = 50.0
@@ -42,6 +43,7 @@ class ContentCandidate:
 @dataclass
 class RankedPrediction:
     """순위가 매겨진 예측 결과."""
+
     rank: int
     candidate: ContentCandidate
     prediction: PredictionResult
@@ -51,6 +53,7 @@ class RankedPrediction:
 @dataclass
 class BatchReport:
     """배치 예측 리포트."""
+
     predictions: list[RankedPrediction]
     best_candidate: RankedPrediction | None
     model_metrics: ModelMetrics | None
@@ -118,7 +121,8 @@ class PredictionEngine:
             if X.shape[0] < self.MIN_TRAINING_SAMPLES:
                 log.info(
                     "학습 데이터 부족: %d건 (최소 %d건). 규칙 기반 fallback 사용.",
-                    X.shape[0], self.MIN_TRAINING_SAMPLES,
+                    X.shape[0],
+                    self.MIN_TRAINING_SAMPLES,
                 )
                 self._initialized = True  # fallback 모드로 동작
                 return None
@@ -203,18 +207,16 @@ class PredictionEngine:
 
             # 종합 스코어 = ER × (1 + viral_prob) × (QA/100)
             qa_factor = max(0.1, candidate.qa_scores.get("total", 70) / 100)
-            score = (
-                prediction.predicted_engagement_rate
-                * (1 + prediction.viral_probability)
-                * qa_factor
-            )
+            score = prediction.predicted_engagement_rate * (1 + prediction.viral_probability) * qa_factor
 
-            ranked.append(RankedPrediction(
-                rank=0,
-                candidate=candidate,
-                prediction=prediction,
-                score=score,
-            ))
+            ranked.append(
+                RankedPrediction(
+                    rank=0,
+                    candidate=candidate,
+                    prediction=prediction,
+                    score=score,
+                )
+            )
 
         # 스코어 내림차순 정렬 + rank 부여
         ranked.sort(key=lambda r: r.score, reverse=True)
@@ -288,10 +290,7 @@ class PredictionEngine:
         ]
 
         report = await self.batch_predict(candidates)
-        return [
-            (rp.rank, rp.candidate.content, rp.prediction)
-            for rp in report.predictions
-        ]
+        return [(rp.rank, rp.candidate.content, rp.prediction) for rp in report.predictions]
 
     # ── Fallback ───────────────────────────────────────────
 

@@ -1,5 +1,12 @@
 name: Scheduler Heartbeat Monitor
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: "0 1 * * *"   # Daily at 01:00 UTC (= 10:00 KST)
@@ -7,18 +14,22 @@ on:
 
 jobs:
   heartbeat-check:
+    name: Scheduler heartbeat check
+    environment: automation-ops
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
 
       - name: Check pipeline health
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -55,8 +66,8 @@ jobs:
             const allHealthy = pipelines.every(p => p.status === "healthy" || p.status === "silent");
 
             const summary = pipelines.map(r => {
-              const emoji = r.status === "healthy" ? "✅"
-                          : r.status === "failing" ? "🔴" : "⚠️";
+              const emoji = r.status === "healthy" ? "[OK]"
+                          : r.status === "failing" ? "[FAIL]" : "[SILENT]";
               const last  = r.lastRun
                 ? `${r.lastRun.updated_at.slice(0,16)} (${r.lastRun.conclusion})`
                 : "never";
@@ -76,7 +87,7 @@ jobs:
 
             // Export per-pipeline status
             for (const p of pipelines) {
-              core.setOutput(p.label.toLowerCase().replace(/\s+/g, "_") + "_status", p.status);
+              core.setOutput(p.label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") + "_status", p.status);
             }
 
       - name: Alert on heartbeat failure
@@ -85,8 +96,9 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          STEPS_CHECK_OUTPUTS_SUMMARY: ${{ steps.check.outputs.summary }}
         run: |
-          SUMMARY="${{ steps.check.outputs.summary }}"
+          SUMMARY="${STEPS_CHECK_OUTPUTS_SUMMARY}"
 
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
             curl -s -H "Content-Type: application/json" \
@@ -103,19 +115,28 @@ jobs:
       - name: Heartbeat summary
         if: always()
         run: |
-          cat <<'EOF' >> $GITHUB_STEP_SUMMARY
-          ## 📊 Daily Scheduler Heartbeat
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          ## Daily Scheduler Heartbeat
 
           | Pipeline | Status | Runs/24h |
           |:---|:---:|:---:|
-          | GetDayTrends | ${{ steps.check.outputs.getdaytrends_status }} | - |
-          | DailyNews | ${{ steps.check.outputs.dailynews_status }} | - |
-          | GDT Tests | ${{ steps.check.outputs.gdt_tests_status }} | - |
-          | Multi-Project CI | ${{ steps.check.outputs.multi-project_ci_status }} | - |
+          | GetDayTrends | ${STEPS_CHECK_OUTPUTS_GETDAYTRENDS_STATUS} | - |
+          | DailyNews | ${STEPS_CHECK_OUTPUTS_DAILYNEWS_STATUS} | - |
+          | GDT Tests | ${STEPS_CHECK_OUTPUTS_GDT_TESTS_STATUS} | - |
+          | Multi-Project CI | ${STEPS_CHECK_OUTPUTS_MULTI_PROJECT_CI_STATUS} | - |
 
-          **Summary:** 🟢 ${{ steps.check.outputs.healthy }} healthy · 🔴 ${{ steps.check.outputs.failing }} failing · ⚠️ ${{ steps.check.outputs.silent }} silent
+          **Summary:** ${STEPS_CHECK_OUTPUTS_HEALTHY} healthy, ${STEPS_CHECK_OUTPUTS_FAILING} failing, ${STEPS_CHECK_OUTPUTS_SILENT} silent
 
           **Details:**
 
-          ${{ steps.check.outputs.summary }}
+          ${STEPS_CHECK_OUTPUTS_SUMMARY}
           EOF
+        env:
+          STEPS_CHECK_OUTPUTS_GETDAYTRENDS_STATUS: ${{ steps.check.outputs.getdaytrends_status }}
+          STEPS_CHECK_OUTPUTS_DAILYNEWS_STATUS: ${{ steps.check.outputs.dailynews_status }}
+          STEPS_CHECK_OUTPUTS_GDT_TESTS_STATUS: ${{ steps.check.outputs.gdt_tests_status }}
+          STEPS_CHECK_OUTPUTS_MULTI_PROJECT_CI_STATUS: ${{ steps.check.outputs.multi_project_ci_status }}
+          STEPS_CHECK_OUTPUTS_HEALTHY: ${{ steps.check.outputs.healthy }}
+          STEPS_CHECK_OUTPUTS_FAILING: ${{ steps.check.outputs.failing }}
+          STEPS_CHECK_OUTPUTS_SILENT: ${{ steps.check.outputs.silent }}
+          STEPS_CHECK_OUTPUTS_SUMMARY: ${{ steps.check.outputs.summary }}

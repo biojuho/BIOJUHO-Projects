@@ -48,6 +48,36 @@ if ($DryRun) {
     $argsList += "--dry-run"
 }
 
+function Add-LogLines {
+    param(
+        [Parameter(ValueFromPipeline = $true)]
+        [AllowNull()]
+        [object]$Line
+    )
+
+    process {
+        $text = if ($null -eq $Line) { "" } else { $Line.ToString() }
+        foreach ($path in @($summaryLog, $detailLog)) {
+            $written = $false
+            for ($attempt = 1; $attempt -le 5; $attempt++) {
+                try {
+                    Add-Content -Path $path -Value $text -Encoding utf8 -ErrorAction Stop
+                    $written = $true
+                    break
+                }
+                catch [System.IO.IOException] {
+                    Start-Sleep -Milliseconds (100 * $attempt)
+                }
+            }
+            if (-not $written) {
+                if ($path -eq $detailLog) {
+                    throw "Failed to write log after retries: $path"
+                }
+            }
+        }
+    }
+}
+
 $start = Get-Date
 $header = @(
     "========================================="
@@ -59,7 +89,7 @@ $header = @(
     ""
 )
 
-$header | Tee-Object -FilePath $summaryLog -Append | Tee-Object -FilePath $detailLog -Append | Out-Null
+$header | Add-LogLines
 
 Push-Location $projectRoot
 try {
@@ -68,8 +98,7 @@ try {
     try {
         & $pythonExe @argsList 2>&1 |
             ForEach-Object { $_.ToString() } |
-            Tee-Object -FilePath $summaryLog -Append |
-            Tee-Object -FilePath $detailLog -Append | Out-Null
+            Add-LogLines
         $exitCode = $LASTEXITCODE
     }
     finally {
@@ -87,7 +116,7 @@ if ($exitCode -eq 0) {
         "DetailLog: $detailLog"
         "Finished: $($finish.ToString('yyyy-MM-dd HH:mm:ss'))"
         "========================================="
-    ) | Tee-Object -FilePath $summaryLog -Append | Tee-Object -FilePath $detailLog -Append | Out-Null
+    ) | Add-LogLines
     exit 0
 }
 
@@ -96,5 +125,5 @@ if ($exitCode -eq 0) {
     "DetailLog: $detailLog"
     "Finished: $($finish.ToString('yyyy-MM-dd HH:mm:ss'))"
     "========================================="
-) | Tee-Object -FilePath $summaryLog -Append | Tee-Object -FilePath $detailLog -Append | Out-Null
+) | Add-LogLines
 exit $exitCode

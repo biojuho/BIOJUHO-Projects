@@ -100,9 +100,7 @@ def _retry_notion_call(
             else:
                 delay = min(base_delay * (2**attempt), 60.0)
 
-            log.warning(
-                f"Notion API 에러 (HTTP {status}), {delay:.1f}초 후 재시도 ({attempt + 1}/{max_retries})..."
-            )
+            log.warning(f"Notion API 에러 (HTTP {status}), {delay:.1f}초 후 재시도 ({attempt + 1}/{max_retries})...")
             time.sleep(delay)
 
     if last_exception:
@@ -175,7 +173,9 @@ def _build_legacy_notion_properties(
         ("유머밈형", ("유머", "밈", "핫테이크", "관찰")),
     ]
 
-    normalized = [(idx, (tweet.tweet_type or "").replace(" ", ""), tweet.content) for idx, tweet in enumerate(batch.tweets)]
+    normalized = [
+        (idx, (tweet.tweet_type or "").replace(" ", ""), tweet.content) for idx, tweet in enumerate(batch.tweets)
+    ]
     used_indexes: set[int] = set()
     slot_values: dict[str, str] = {}
 

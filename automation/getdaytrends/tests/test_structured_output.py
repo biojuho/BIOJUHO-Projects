@@ -4,7 +4,6 @@ import sys
 from types import SimpleNamespace
 
 import pytest
-
 import structured_output
 from structured_output import (
     LongPostResponse,
@@ -12,8 +11,8 @@ from structured_output import (
     ThreadResponse,
     TweetGenerationResponse,
     TweetItem,
-    _log_fallback,
     _instructor_create,
+    _log_fallback,
     reset_instructor_client,
 )
 

@@ -79,6 +79,20 @@ _AI_NATIVE_PATTERNS = (
     "모델",
 )
 
+_PROHIBITED_ANALOGY_PATTERNS = (
+    re.compile(r"\b마치\b"),
+    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*같(?:다|은|이|고|지만|습니다)"),
+    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*처럼"),
+    re.compile(r"(?<![가-힣A-Za-z0-9])\S+\s*듯(?:하다|한|이|습니다|지만)?"),
+    re.compile(r"\bas if\b", re.IGNORECASE),
+    re.compile(r"\blike an?\b", re.IGNORECASE),
+    re.compile(r"\b(?:analogy|metaphor)\b", re.IGNORECASE),
+)
+
+
+def _has_prohibited_analogy(text: str) -> bool:
+    return any(pattern.search(text) for pattern in _PROHIBITED_ANALOGY_PATTERNS)
+
 
 def _count_emojis(text: str) -> int:
     count = 0
@@ -129,13 +143,18 @@ def _score_hook(lead_text: str, leading_lines: list[str], group_name: str) -> tu
     return score, issues
 
 
-def _score_tone(combined: str, items: list[GeneratedTweet], matched_cliches: list[str], trend: ScoredTrend | None = None) -> tuple[int, list[str]]:
+def _score_tone(
+    combined: str, items: list[GeneratedTweet], matched_cliches: list[str], trend: ScoredTrend | None = None
+) -> tuple[int, list[str]]:
     """어투 점수 (15점 만점): 상투구, AI어투, 슬랭, 이모지, clipped ending 탐지."""
     issues: list[str] = []
     score = 15
     if matched_cliches:
         score = max(0, score - min(15, 5 * len(matched_cliches)))
         issues.append(f"상투구 감지: {', '.join(matched_cliches[:3])}")
+    if _has_prohibited_analogy(combined):
+        score = max(0, score - 8)
+        issues.append("비유/은유 표현 감지")
     # [Phase 2] Kiwipiepy 형태소 기반 AI어투 심층 탐지
     try:
         from korean_nlp import compute_quality_score, detect_ai_voice
@@ -195,12 +214,12 @@ def _score_fact(combined: str, trend: ScoredTrend) -> tuple[int, bool, list[str]
     allowed_corpus = _build_allowed_fact_corpus(trend)
     allowed_lower = allowed_corpus.lower()
     allowed_entities = {
-        e.casefold() for e in _extract_candidate_entities(allowed_corpus)
+        e.casefold()
+        for e in _extract_candidate_entities(allowed_corpus)
         if e.casefold() not in _GENERIC_ENTITY_ALLOWLIST
     }
     content_entities = {
-        e.casefold() for e in _extract_candidate_entities(combined)
-        if e.casefold() not in _GENERIC_ENTITY_ALLOWLIST
+        e.casefold() for e in _extract_candidate_entities(combined) if e.casefold() not in _GENERIC_ENTITY_ALLOWLIST
     }
     unknown_entities = sorted(content_entities - allowed_entities)
     allowed_percentages = set(re.findall(r"\d+(?:\.\d+)?%", allowed_corpus))
@@ -258,10 +277,15 @@ def _score_format(
     angle, regulation, algorithm = 12, 10, 10
 
     if group_name == "tweets":
-        if any(len(item.content) > 280 for item in items):
+        # [shortform-only] 단문 트윗 길이 정책: 160~240자 (한국어 공백 포함)
+        if any(len(item.content) > 240 for item in items):
             regulation = min(regulation, 6)
             algorithm = min(algorithm, 6)
-            issues.append("280자 초과 트윗 존재")
+            issues.append("240자 초과 트윗 존재")
+        if any(len(item.content) < 160 for item in items):
+            angle = max(0, angle - 4)
+            algorithm = max(0, algorithm - 2)
+            issues.append("160자 미만 트윗 존재 (정보 밀도 부족)")
     elif group_name == "threads_posts":
         if "#" in combined:
             regulation = 0
@@ -311,8 +335,15 @@ def _audit_content_group(
     threshold = config.get_quality_threshold(group_name)
     failed = total < threshold or regulation <= 3 or fact_violation
     reason = issues[0] if issues else "통과"
-    scores = {"hook": hook, "fact": fact, "tone": tone, "kick": kick,
-               "angle": angle, "regulation": regulation, "algorithm": algorithm}
+    scores = {
+        "hook": hook,
+        "fact": fact,
+        "tone": tone,
+        "kick": kick,
+        "angle": angle,
+        "regulation": regulation,
+        "algorithm": algorithm,
+    }
     worst = min(scores.items(), key=lambda item: item[1])[0]
     return {
         **scores,

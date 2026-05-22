@@ -114,22 +114,25 @@ class NewsletterComposer:
             "<p>첫 브리프에서 경제, 테크, AI 흐름을 빠르게 확인해 보세요.</p>"
         )
 
+    _EDITION_LABELS = {"morning": "오전", "evening": "오후", "daily": "데일리"}
+
     def _plain_text_from_reports(self, reports: list[ContentReport], edition: str) -> str:
         """Generate plain-text fallback for email clients that don't render HTML."""
+        edition_kr = self._EDITION_LABELS.get(str(edition).lower(), str(edition))
         lines = [
-            f"DailyNews {edition.title()} Brief",
-            f"Date: {datetime.now(UTC).strftime('%Y-%m-%d')}",
-            f"{len(reports)} category report(s)",
+            f"DailyNews {edition_kr} 브리핑",
+            f"발행일: {datetime.now(UTC).strftime('%Y-%m-%d')}",
+            f"{len(reports)}개 카테고리 인사이트",
             "",
         ]
         for report in reports:
-            lines.append(f"## {report.category}")
+            lines.append(f"## {report.category_label}")
             for line in report.summary_lines[:3]:
                 lines.append(f"- {line}")
             if report.insights:
-                lines.append(f"Insight: {report.insights[0]}")
+                lines.append(f"인사이트: {report.insights[0]}")
             lines.append("")
-        lines.append("Thanks for subscribing to DailyNews.")
+        lines.append("DailyNews를 구독해 주셔서 감사합니다.")
         return "\n".join(lines)
 
     def compose_daily_brief(
@@ -152,14 +155,15 @@ class NewsletterComposer:
             filtered = reports
 
         today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        edition_kr = self._EDITION_LABELS.get(str(edition).lower(), str(edition))
 
         top_headline = ""
         if filtered and filtered[0].summary_lines:
             top_headline = filtered[0].summary_lines[0][:60]
         if top_headline:
-            subject = f"[DailyNews] {today_str} {edition.title()} Brief | {top_headline}"
+            subject = f"[DailyNews] {today_str} {edition_kr} 브리핑 | {top_headline}"
         else:
-            subject = f"[DailyNews] {today_str} {edition.title()} Brief"
+            subject = f"[DailyNews] {today_str} {edition_kr} 브리핑"
 
         x_discussion_url = ""
         for report in filtered:
@@ -175,7 +179,7 @@ class NewsletterComposer:
 
         rendered = self._render_template(
             "daily_brief.html",
-            edition=edition,
+            edition=edition_kr,
             date=today_str,
             report_count=len(filtered),
             reports=filtered,
@@ -319,7 +323,9 @@ class NewsletterAdapter:
                     subscriber_categories=subscriber.categories or None,
                     edition=edition,
                     signup_url=self._signup_url,
-                    unsubscribe_url=f"{self._signup_url}/unsubscribe?email={subscriber.email}" if self._signup_url else "",
+                    unsubscribe_url=f"{self._signup_url}/unsubscribe?email={subscriber.email}"
+                    if self._signup_url
+                    else "",
                     subscriber_email=subscriber.email,
                 )
 

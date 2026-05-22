@@ -98,7 +98,7 @@ class DigestAdapter:
                     insights_text.append(str(item))
             insights = "\n".join(insights_text)
 
-            reports_text += f"[리포트 {idx}: {cat}]\n" f"요약:\n{summaries}\n" f"인사이트:\n{insights}\n\n"
+            reports_text += f"[리포트 {idx}: {cat}]\n요약:\n{summaries}\n인사이트:\n{insights}\n\n"
 
         prompt = (
             "당신은 여러 카테고리의 뉴스 분석 리포트를 하나의 종합 다이제스트로 정리하는 에디터입니다.\n\n"

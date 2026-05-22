@@ -17,9 +17,9 @@ from datetime import datetime
 from pathlib import Path
 
 # Force UTF-8 encoding for standard output on Windows
-if sys.stdout.encoding.lower() != 'utf-8':
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8')
+if sys.stdout.encoding.lower() != "utf-8":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
 SCRIPT_PATH = Path(__file__).resolve()
 PROJECT_ROOT = SCRIPT_PATH.parents[1]
@@ -222,6 +222,188 @@ def evaluate_content_quality(content: str, version_name: str) -> dict:
     }
 
 
+def _decision_from_scores(eval_old: dict, eval_new: dict) -> tuple[float, int, str, str]:
+    kpi_diff = eval_new["primary_kpi"] - eval_old["primary_kpi"]
+    passes_secondary = sum(
+        [
+            eval_new["passes_criteria"]["length_optimal"],
+            eval_new["passes_criteria"]["min_specificity"],
+            eval_new["passes_criteria"]["has_actionability"],
+        ]
+    )
+
+    if kpi_diff >= 15 and passes_secondary >= 2:
+        return kpi_diff, passes_secondary, "adopt_new_version", "high"
+    if kpi_diff >= 10:
+        return kpi_diff, passes_secondary, "adopt_new_conditionally", "medium"
+    return kpi_diff, passes_secondary, "keep_or_redesign", "low"
+
+
+def _recommendations_for(eval_new: dict) -> list[str]:
+    recommendations = []
+
+    if eval_new["breakdown"]["specificity"]["count"] < 2:
+        recommendations.append("- Add at least two concrete numbers or data points.")
+
+    if not eval_new["passes_criteria"]["has_cta"]:
+        recommendations.append("- Add a clear CTA or action guide in the closing paragraph.")
+
+    if eval_new["breakdown"]["length"]["value"] > 800:
+        recommendations.append("- Keep the content under 800 characters for mobile readability.")
+
+    if eval_new["breakdown"]["actionability"]["score"] < 50:
+        recommendations.append("- Strengthen practical, reader-applicable insights.")
+
+    return recommendations
+
+
+def _print_recommendations(recommendations: list[str]) -> None:
+    print("\n" + "=" * 80)
+    print("RECOMMENDATIONS")
+    print("=" * 80)
+
+    if recommendations:
+        print("Recommended improvements:")
+        for rec in recommendations:
+            print(rec)
+        return
+
+    print("No critical issues. Current version meets criteria.")
+
+
+def _print_next_steps() -> None:
+    print("\n" + "=" * 80)
+    print("NEXT STEPS")
+    print("=" * 80)
+    print("1. Publish both versions to small X test cohorts.")
+    print("2. Measure engagement for 7 days.")
+    print("3. Review qualitative replies and DMs.")
+    print("4. Choose the statistically stronger version.")
+    print("5. Update the production prompt and pipeline settings.")
+
+
+def _build_report(
+    eval_old: dict,
+    eval_new: dict,
+    kpi_diff: float,
+    passes_secondary: int,
+    decision: str,
+    confidence: str,
+    recommendations: list[str],
+    old_post: str,
+    new_post: str,
+) -> dict:
+    return {
+        "test_date": datetime.now().isoformat(),
+        "audience_profile": AUDIENCE_PROFILE,
+        "hypothesis": AB_TEST_HYPOTHESIS,
+        "evaluation": {
+            "version_a": eval_old,
+            "version_b": eval_new,
+        },
+        "decision": {
+            "kpi_difference": kpi_diff,
+            "secondary_passes": passes_secondary,
+            "verdict": decision,
+            "confidence": confidence,
+        },
+        "recommendations": recommendations,
+        "content_samples": {
+            "version_a": old_post,
+            "version_b": new_post,
+        },
+    }
+
+
+def _write_markdown_report(
+    md_path: Path,
+    eval_old: dict,
+    eval_new: dict,
+    kpi_diff: float,
+    decision: str,
+    recommendations: list[str],
+    old_post: str,
+    new_post: str,
+) -> None:
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write("# Economy_KR A/B Test v2.0 Audience-First Validation\n\n")
+        f.write(f"**Test Date**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
+        f.write("---\n\n")
+        f.write("## Audience Profile\n\n")
+        f.write(f"- **Type**: {AUDIENCE_PROFILE['type']}\n")
+        f.write(f"- **Target**: {AUDIENCE_PROFILE['target_persona']['primary']}\n")
+        f.write(
+            f"- **Pain Points**: {', '.join(AUDIENCE_PROFILE['target_persona']['psychographics']['pain_points'])}\n"
+        )
+        f.write(f"- **Channel**: {AUDIENCE_PROFILE['consumption_context']['channel']}\n\n")
+        f.write("---\n\n")
+        f.write("## Hypothesis\n\n")
+        f.write(f"{AB_TEST_HYPOTHESIS['hypothesis']}\n\n")
+        f.write(f"**Version A**: {AB_TEST_HYPOTHESIS['version_a']['description']}\n")
+        f.write(f"**Version B**: {AB_TEST_HYPOTHESIS['version_b']['description']}\n\n")
+        f.write("---\n\n")
+        f.write("## Results\n\n")
+        f.write("| Version | Primary KPI | Length | Specificity | Actionability | CTA |\n")
+        f.write("|---------|-------------|--------|-------------|---------------|-----|\n")
+        f.write(
+            f"| Version A (OLD) | {eval_old['primary_kpi']} | {eval_old['breakdown']['length']['value']} | {eval_old['breakdown']['specificity']['score']} | {eval_old['breakdown']['actionability']['score']} | {eval_old['breakdown']['cta_clarity']['score']} |\n"
+        )
+        f.write(
+            f"| Version B (NEW) | {eval_new['primary_kpi']} | {eval_new['breakdown']['length']['value']} | {eval_new['breakdown']['specificity']['score']} | {eval_new['breakdown']['actionability']['score']} | {eval_new['breakdown']['cta_clarity']['score']} |\n\n"
+        )
+        f.write(f"**KPI Difference**: {kpi_diff:+.1f} points\n\n")
+        f.write(f"**Decision**: {decision}\n\n")
+        f.write("---\n\n")
+        f.write("## Recommendations\n\n")
+        if recommendations:
+            for rec in recommendations:
+                f.write(f"{rec}\n")
+        else:
+            f.write("No critical issues. Current version meets criteria.\n")
+        f.write("\n---\n\n")
+        f.write("## Content Samples\n\n")
+        f.write("### Version A (OLD)\n\n")
+        f.write(f"```\n{old_post}\n```\n\n")
+        f.write("### Version B (NEW)\n\n")
+        f.write(f"```\n{new_post}\n```\n\n")
+
+
+def _save_reports(
+    output_dir: Path,
+    eval_old: dict,
+    eval_new: dict,
+    kpi_diff: float,
+    passes_secondary: int,
+    decision: str,
+    confidence: str,
+    recommendations: list[str],
+    old_post: str,
+    new_post: str,
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "ab_test_economy_kr_v2.json"
+    report = _build_report(
+        eval_old,
+        eval_new,
+        kpi_diff,
+        passes_secondary,
+        decision,
+        confidence,
+        recommendations,
+        old_post,
+        new_post,
+    )
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+
+    print(f"\nFull Report saved: {output_path}")
+
+    md_path = output_dir / "ab_test_economy_kr_v2.md"
+    _write_markdown_report(md_path, eval_old, eval_new, kpi_diff, decision, recommendations, old_post, new_post)
+    print(f"Markdown Report saved: {md_path}")
+
+
 # ============================================================================
 # MAIN TEST RUNNER
 # ============================================================================
@@ -360,147 +542,34 @@ async def run_ab_test() -> int:
 
     # Step 6: Decision
     print("\n" + "=" * 80)
-    print("✅ DECISION")
+    print("DECISION")
     print("=" * 80)
-
-    kpi_diff = eval_new["primary_kpi"] - eval_old["primary_kpi"]
-    passes_secondary = sum(
-        [
-            eval_new["passes_criteria"]["length_optimal"],
-            eval_new["passes_criteria"]["min_specificity"],
-            eval_new["passes_criteria"]["has_actionability"],
-        ]
-    )
-
-    target_kpi_gain = 15  # from hypothesis
-    print(f"Primary KPI 차이: {kpi_diff:+.1f}점 (Target: +{target_kpi_gain}점)")
-    print(f"Secondary 통과: {passes_secondary}/3개 (Target: 2개 이상)")
-
-    if kpi_diff >= target_kpi_gain and passes_secondary >= 2:
-        decision = "✅ NEW 버전 채택 권장"
-        confidence = "높음"
-    elif kpi_diff >= 10:
-        decision = "⚠️ NEW 버전 조건부 채택 (추가 샘플 필요)"
-        confidence = "중간"
-    else:
-        decision = "❌ OLD 버전 유지 또는 재설계 필요"
-        confidence = "낮음"
-
-    print(f"\n결정: {decision}")
-    print(f"신뢰도: {confidence}")
+    kpi_diff, passes_secondary, decision, confidence = _decision_from_scores(eval_old, eval_new)
+    print(f"Primary KPI difference: {kpi_diff:+.1f} points (Target: +15)")
+    print(f"Secondary passes: {passes_secondary}/3 (Target: 2+)")
+    print(f"\nDecision: {decision}")
+    print(f"Confidence: {confidence}")
 
     # Step 7: Recommendations
-    print("\n" + "=" * 80)
-    print("💡 RECOMMENDATIONS")
-    print("=" * 80)
-
-    recommendations = []
-
-    if eval_new["breakdown"]["specificity"]["count"] < 2:
-        recommendations.append("- 구체적 숫자/데이터 포인트를 최소 2개 이상 포함하도록 프롬프트 개선")
-
-    if not eval_new["passes_criteria"]["has_cta"]:
-        recommendations.append("- 명확한 CTA 또는 행동 가이드를 마지막 문단에 추가")
-
-    if eval_new["breakdown"]["length"]["value"] > 800:
-        recommendations.append("- 모바일 가독성을 위해 콘텐츠 길이를 800자 이하로 제한")
-
-    if eval_new["breakdown"]["actionability"]["score"] < 50:
-        recommendations.append("- 독자의 실생활 적용 가능한 인사이트 강화 (예: '이번 주 주목할 지표는...')")
-
-    if recommendations:
-        print("개선 권장사항:")
-        for rec in recommendations:
-            print(rec)
-    else:
-        print("✅ 현재 버전이 Audience-First 기준을 충족합니다.")
+    recommendations = _recommendations_for(eval_new)
+    _print_recommendations(recommendations)
 
     # Step 8: Next Steps
-    print("\n" + "=" * 80)
-    print("📌 NEXT STEPS")
-    print("=" * 80)
-    print("1. 실제 X 배포: 각 버전 20개씩 랜덤 게시 (A/B 스플릿)")
-    print("2. 인게이지먼트 측정: 좋아요+RT+답글/조회수 (7일간)")
-    print("3. 정성 피드백: 댓글/DM에서 독자 반응 분석")
-    print("4. 최종 결정: 통계적 유의성 확인 후 버전 확정")
-    print("5. 파이프라인 업데이트: 승리 버전의 프롬프트/구조를 표준으로 설정")
+    _print_next_steps()
 
     # Step 9: Save Report
-    output_dir = settings.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "ab_test_economy_kr_v2.json"
-
-    report = {
-        "test_date": datetime.now().isoformat(),
-        "audience_profile": AUDIENCE_PROFILE,
-        "hypothesis": AB_TEST_HYPOTHESIS,
-        "evaluation": {
-            "version_a": eval_old,
-            "version_b": eval_new,
-        },
-        "decision": {
-            "kpi_difference": kpi_diff,
-            "secondary_passes": passes_secondary,
-            "verdict": decision,
-            "confidence": confidence,
-        },
-        "recommendations": recommendations,
-        "content_samples": {
-            "version_a": old_post,
-            "version_b": new_post,
-        },
-    }
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, indent=2)
-
-    print(f"\n✅ Full Report saved: {output_path}")
-
-    # Also save markdown version
-    md_path = output_dir / "ab_test_economy_kr_v2.md"
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write("# Economy_KR A/B Test v2.0 — Audience-First Validation\n\n")
-        f.write(f"**Test Date**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
-        f.write("---\n\n")
-        f.write("## 🎯 Audience Profile\n\n")
-        f.write(f"- **Type**: {AUDIENCE_PROFILE['type']}\n")
-        f.write(f"- **Target**: {AUDIENCE_PROFILE['target_persona']['primary']}\n")
-        f.write(
-            f"- **Pain Points**: {', '.join(AUDIENCE_PROFILE['target_persona']['psychographics']['pain_points'])}\n"
-        )
-        f.write(f"- **Channel**: {AUDIENCE_PROFILE['consumption_context']['channel']}\n\n")
-        f.write("---\n\n")
-        f.write("## 🧪 Hypothesis\n\n")
-        f.write(f"{AB_TEST_HYPOTHESIS['hypothesis']}\n\n")
-        f.write(f"**Version A**: {AB_TEST_HYPOTHESIS['version_a']['description']}\n")
-        f.write(f"**Version B**: {AB_TEST_HYPOTHESIS['version_b']['description']}\n\n")
-        f.write("---\n\n")
-        f.write("## 📊 Results\n\n")
-        f.write("| Version | Primary KPI | Length | Specificity | Actionability | CTA |\n")
-        f.write("|---------|-------------|--------|-------------|---------------|-----|\n")
-        f.write(
-            f"| Version A (OLD) | {eval_old['primary_kpi']} | {eval_old['breakdown']['length']['value']} | {eval_old['breakdown']['specificity']['score']} | {eval_old['breakdown']['actionability']['score']} | {eval_old['breakdown']['cta_clarity']['score']} |\n"
-        )
-        f.write(
-            f"| Version B (NEW) | {eval_new['primary_kpi']} | {eval_new['breakdown']['length']['value']} | {eval_new['breakdown']['specificity']['score']} | {eval_new['breakdown']['actionability']['score']} | {eval_new['breakdown']['cta_clarity']['score']} |\n\n"
-        )
-        f.write(f"**KPI Difference**: {kpi_diff:+.1f} points\n\n")
-        f.write(f"**Decision**: {decision}\n\n")
-        f.write("---\n\n")
-        f.write("## 💡 Recommendations\n\n")
-        if recommendations:
-            for rec in recommendations:
-                f.write(f"{rec}\n")
-        else:
-            f.write("✅ No critical issues. Current version meets criteria.\n")
-        f.write("\n---\n\n")
-        f.write("## 📝 Content Samples\n\n")
-        f.write("### Version A (OLD)\n\n")
-        f.write(f"```\n{old_post}\n```\n\n")
-        f.write("### Version B (NEW)\n\n")
-        f.write(f"```\n{new_post}\n```\n\n")
-
-    print(f"✅ Markdown Report saved: {md_path}")
+    _save_reports(
+        settings.output_dir,
+        eval_old,
+        eval_new,
+        kpi_diff,
+        passes_secondary,
+        decision,
+        confidence,
+        recommendations,
+        old_post,
+        new_post,
+    )
     return 0
 
 

@@ -10,6 +10,10 @@
 =======================================================
 """
 
+# ruff: noqa: E402
+# This script adjusts sys.path before local imports so it can run directly
+# from the workspace root or from automation/getdaytrends.
+
 import argparse
 import asyncio
 import dataclasses
@@ -21,6 +25,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 
 # ══════════════════════════════════════════════════════
 #  자동 PYTHONPATH 설정 (프로젝트 루트 추가)
@@ -129,13 +134,17 @@ def _acquire_lock() -> bool:
 
 def _release_lock() -> None:
     """Lockfile 해제. 자신이 생성한 lockfile만 삭제."""
-    try:
-        if _LOCK_FILE.exists():
-            pid = int(_LOCK_FILE.read_text().strip())
-            if pid == os.getpid():
-                _LOCK_FILE.unlink(missing_ok=True)
-    except (ValueError, OSError):
-        pass
+    for attempt in range(3):
+        try:
+            if _LOCK_FILE.exists():
+                pid = int(_LOCK_FILE.read_text().strip())
+                if pid == os.getpid():
+                    _LOCK_FILE.unlink(missing_ok=True)
+            return
+        except (ValueError, OSError):
+            if attempt == 2:
+                return
+            time.sleep(0.01)
 
 
 # ══════════════════════════════════════════════════════
@@ -194,22 +203,23 @@ def setup_logging(verbose: bool = False) -> None:
 
     # [QA 수정] 토큰 자동 마스킹 필터 — 로그 파일 보안 강화
     _TOKEN_PATTERNS = re.compile(
-        r"(ntn_[A-Za-z0-9]{6})[A-Za-z0-9]*"       # Notion
-        r"|(sk-[A-Za-z0-9]{6})[A-Za-z0-9]*"        # OpenAI
-        r"|(ghp_[A-Za-z0-9]{6})[A-Za-z0-9]*"       # GitHub PAT
-        r"|(xai-[A-Za-z0-9]{6})[A-Za-z0-9]*"       # X.AI
-        r"|(AIza[A-Za-z0-9_-]{6})[A-Za-z0-9_-]*"   # Google API Key
+        r"(ntn_[A-Za-z0-9]{6})[A-Za-z0-9]*"  # Notion
+        r"|(sk-[A-Za-z0-9]{6})[A-Za-z0-9]*"  # OpenAI
+        r"|(ghp_[A-Za-z0-9]{6})[A-Za-z0-9]*"  # GitHub PAT
+        r"|(xai-[A-Za-z0-9]{6})[A-Za-z0-9]*"  # X.AI
+        r"|(AIza[A-Za-z0-9_-]{6})[A-Za-z0-9_-]*"  # Google API Key
     )
 
     def _mask_tokens(message: str) -> str:
-        def _replacer(m: re.Match) -> str:
+        def _replacer(m: re.Match[str]) -> str:
             for g in m.groups():
                 if g:
                     return g + "***"
             return m.group(0)  # fallback
+
         return _TOKEN_PATTERNS.sub(_replacer, message)
 
-    def _patched_format(record: dict) -> str:
+    def _patched_format(record: Any) -> str:
         record["extra"]["masked_message"] = _mask_tokens(str(record["message"]))
         return (
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | "
@@ -224,11 +234,10 @@ def setup_logging(verbose: bool = False) -> None:
         format=_patched_format,
     )
 
-    def _file_format(record: dict) -> str:
+    def _file_format(record: Any) -> str:
         record["extra"]["masked_message"] = _mask_tokens(str(record["message"]))
         return (
-            "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | "
-            "{name}:{function}:{line} - {extra[masked_message]}\n{exception}"
+            "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {extra[masked_message]}\n{exception}"
         )
 
     logger.add(
@@ -295,12 +304,12 @@ def print_config_summary(config: AppConfig):
   저장 방식    : {config.storage_type.upper()}
   실행 간격    : {config.schedule_minutes}분
   톤앤매너     : {config.tone}
-  데이터 소스  : {', '.join(sources)}
+  데이터 소스  : {", ".join(sources)}
   병렬 워커    : {config.max_workers}개
-  알림 채널    : {', '.join(alerts_info) or '없음'}
+  알림 채널    : {", ".join(alerts_info) or "없음"}
   알림 임계값  : {config.alert_threshold}점
   LLM 라우팅   : shared.llm (티어 기반 자동 폴백)
-  v2.1 기능    : {', '.join(features) or '없음'}
+  v2.1 기능    : {", ".join(features) or "없음"}
 """
     )
 
@@ -312,17 +321,21 @@ def print_config_summary(config: AppConfig):
 
 async def print_stats(config: AppConfig):
     """히스토리 통계 + LLM 비용 통계 출력."""
-    conn = await get_connection(config.db_path, config.database_url)
+    conn = await get_connection(
+        config.db_path,
+        config.database_url,
+        allow_sqlite_fallback=config.dry_run,
+    )
     try:
         stats = await get_trend_stats(conn)
         print(
             f"""
   히스토리 통계
   ─────────────────────────────────
-  총 실행 수      : {stats['total_runs']}회
-  총 트렌드 수    : {stats['total_trends']}개
-  평균 바이럴 점수: {stats['avg_viral_score']}점
-  총 생성 트윗 수 : {stats['total_tweets']}개
+  총 실행 수      : {stats["total_runs"]}회
+  총 트렌드 수    : {stats["total_trends"]}개
+  평균 바이럴 점수: {stats["avg_viral_score"]}점
+  총 생성 트윗 수 : {stats["total_tweets"]}개
 """
         )
     finally:
@@ -373,7 +386,7 @@ def _normalize_countries(countries: list[str]) -> list[str]:
     return normalized
 
 
-async def _refresh_tap_products_after_parallel_runs(config: AppConfig, countries: list[str]) -> dict:
+async def _refresh_tap_products_after_parallel_runs(config: AppConfig, countries: list[str]) -> dict[str, Any]:
     """Refresh TAP snapshots after parallel country runs complete."""
 
     normalized_countries = _normalize_countries(countries)
@@ -395,7 +408,7 @@ async def _refresh_tap_products_after_parallel_runs(config: AppConfig, countries
         try:
             await init_db(conn)
             summary = await refresh_tap_market_surfaces(conn, tap_config, snapshot_source="parallel_batch")
-            payload = summary.to_dict()
+            payload = cast("dict[str, Any]", summary.to_dict())
             if payload.get("alerts_queued") and getattr(config, "enable_tap_alert_dispatch", False):
                 dispatch_summary = await dispatch_tap_alert_queue(
                     conn,
@@ -433,7 +446,7 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
     print(f"  Concurrency limit : {parallel_limit}")
 
     if config.smart_schedule and not config.one_shot:
-        print("  Smart reschedule stays on the base interval " f"({config.schedule_minutes} min) in parallel mode.")
+        print(f"  Smart reschedule stays on the base interval ({config.schedule_minutes} min) in parallel mode.")
 
     semaphore = asyncio.Semaphore(parallel_limit)
 
@@ -468,7 +481,7 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
         else:
             country_results.append(res)
 
-    failures: list[tuple[str, Exception]] = []
+    failures: list[tuple[str, BaseException]] = []
 
     for country, result, elapsed, error in country_results:
         if error is not None:
@@ -488,6 +501,7 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
         log.error(f"Parallel country run failed: {failed_countries}")
         try:
             from shared.notifications import Notifier
+
             _notifier = Notifier.from_env()
             if _notifier.has_channels:
                 _notifier.send_error(
@@ -497,21 +511,22 @@ async def _run_countries_parallel_job(config: AppConfig) -> list:
                 )
         except Exception as e:
             log.warning(f"Failed to send error notification: {e}")
-            
+
         if len(failures) == len(countries):
             raise RuntimeError(f"All parallel country runs failed: {failed_countries}") from failures[0][1]
 
     successful_countries = [country for country, _, _, error in country_results if error is None]
-    
+
     try:
         if successful_countries:
             from shared.notifications import Notifier
+
             _notifier = Notifier.from_env()
             if _notifier.has_channels:
                 _notifier.send_heartbeat(
                     "GetDayTrends",
                     status="alive",
-                    details=f"병렬 완료: {', '.join(successful_countries)} / 전체: {len(countries)}"
+                    details=f"병렬 완료: {', '.join(successful_countries)} / 전체: {len(countries)}",
                 )
     except Exception as e:
         log.warning(f"Failed to send heartbeat notification: {e}")
@@ -538,9 +553,12 @@ def main():
     except Exception as exc:
         try:
             from shared.notifications import Notifier
+
             _notifier = Notifier.from_env()
             if _notifier.has_channels:
-                _notifier.send_error(f"GetDayTrends 파이프라인 가동 중단 (main): {exc}", error=exc, source="GetDayTrends")
+                _notifier.send_error(
+                    f"GetDayTrends 파이프라인 가동 중단 (main): {exc}", error=exc, source="GetDayTrends"
+                )
         except Exception:
             pass
         raise
@@ -555,6 +573,7 @@ def _sleep_with_interrupt(sleep_seconds: float):
             break
         time.sleep(1)
 
+
 def _get_night_sleep_seconds() -> float:
     now = datetime.now()
     if 2 <= now.hour < 7:
@@ -562,17 +581,14 @@ def _get_night_sleep_seconds() -> float:
         return max(0.0, (wake_at - now).total_seconds())
     return 0.0
 
+
 def _apply_cli_overrides(config: AppConfig, args: argparse.Namespace) -> None:
     if args.country:
         config.country = args.country.strip().lower()
         config.countries = [config.country]
 
     if args.countries:
-        parsed_countries = [
-            country.strip().lower()
-            for country in args.countries.split(",")
-            if country.strip()
-        ]
+        parsed_countries = [country.strip().lower() for country in args.countries.split(",") if country.strip()]
         if parsed_countries:
             config.countries = parsed_countries
             config.country = parsed_countries[0]
@@ -595,6 +611,7 @@ def _apply_cli_overrides(config: AppConfig, args: argparse.Namespace) -> None:
     if args.schedule_min is not None:
         config.schedule_minutes = args.schedule_min
 
+
 def _main_body():
     args = parse_args()
 
@@ -612,7 +629,11 @@ def _main_body():
 
     # DB 초기화 등 앱 레벨 초기 설정
     async def _app_init():
-        _conn = await get_connection(config.db_path, database_url=config.database_url)
+        _conn = await get_connection(
+            config.db_path,
+            database_url=config.database_url,
+            allow_sqlite_fallback=config.dry_run,
+        )
         await init_db(_conn)
         await maybe_cleanup(_conn, days=config.data_retention_days)
         await maybe_send_weekly_cost_report(_conn, config)
@@ -654,8 +675,8 @@ def _main_body():
         errors = config.validate()
         if errors:
             print("\n  설정 오류:")
-            for e in errors:
-                print(f"    {e}")
+            for error_message in errors:
+                print(f"    {error_message}")
             print("\n  → .env 파일을 확인해주세요\n")
             return
 
@@ -674,21 +695,23 @@ def _main_body():
                     country_config = config.for_country(country) if country != config.country else config
                     if len(config.countries) > 1:
                         print(f"\n  ═══ 국가: {country.upper()} ═══")
-                    
+
                     try:
                         result = run_pipeline(country_config, schedule_callback=_run_all_countries)
                         # 단일 실행 시 Heartbeat 연결
                         from shared.notifications import Notifier
+
                         _notifier = Notifier.from_env()
                         if _notifier.has_channels and result:
                             _notifier.send_heartbeat(
                                 "GetDayTrends",
                                 status="alive",
-                                details=f"국가: {country_config.country} 완료 (수집: {result.trends_collected})"
+                                details=f"국가: {country_config.country} 완료 (수집: {result.trends_collected})",
                             )
                     except Exception as pipe_err:
                         # 단일 실행 시 에러 알림
                         from shared.notifications import Notifier
+
                         _notifier = Notifier.from_env()
                         if _notifier.has_channels:
                             _notifier.send_error(
@@ -699,6 +722,7 @@ def _main_body():
                         raise
         except Exception as run_err:
             from loguru import logger as log
+
             log.exception(f"스케줄 파이프라인 실행 중 오류: {run_err}")
 
     _run_all_countries()
@@ -720,8 +744,8 @@ def _main_body():
             if config.night_mode:
                 sleep_seconds = _get_night_sleep_seconds()
                 if sleep_seconds > 0:
-                    log.info(f"야간 슬립: 07:00까지 {sleep_seconds/60:.0f}분 대기")
-                    print(f"  야간 슬립 중... (07:00 기상, {sleep_seconds/60:.0f}분 후)")
+                    log.info(f"야간 슬립: 07:00까지 {sleep_seconds / 60:.0f}분 대기")
+                    print(f"  야간 슬립 중... (07:00 기상, {sleep_seconds / 60:.0f}분 후)")
                     _sleep_with_interrupt(sleep_seconds)
                     continue
 
@@ -730,13 +754,14 @@ def _main_body():
     except KeyboardInterrupt:
         _SHUTDOWN_FLAG.set()
     finally:
+
         async def _cleanup():
             await close_pg_pool()
 
         try:
             run_async(_cleanup())
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning(f"Failed to close PostgreSQL pool cleanly: {exc}")
         print("\n\n  스케줄러 종료. 수고하셨습니다!")
 
 

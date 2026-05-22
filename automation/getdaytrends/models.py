@@ -1,4 +1,4 @@
-﻿"""
+"""
 getdaytrends data models.
 
 This module keeps the existing pipeline models stable while adding the V2.0
@@ -21,6 +21,8 @@ class TrendSource(Enum):
     GOOGLE_NEWS = "google_news"
     GOOGLE_TRENDS = "google_trends"
     YOUTUBE = "youtube"
+    HACKER_NEWS = "hacker_news"
+    MODOO = "modoo"
 
 
 class TweetStatus(Enum):
@@ -180,7 +182,7 @@ class GeneratedTweet(BaseModel):
     seo_keywords: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _compute_char_count(self) -> "GeneratedTweet":
+    def _compute_char_count(self) -> GeneratedTweet:
         if not self.char_count and self.content:
             self.char_count = len(self.content)
         return self
