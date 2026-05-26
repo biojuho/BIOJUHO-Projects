@@ -92,6 +92,20 @@ def check_file_exists(rel_path: str) -> tuple[bool, str]:
     return False, f"MISSING {rel_path}"
 
 
+def check_python_syntax(rel_path: str) -> tuple[bool, str]:
+    full = WORKSPACE / rel_path
+    try:
+        source = full.read_text(encoding="utf-8")
+        compile(source, str(full), "exec")
+    except SyntaxError as exc:
+        return False, f"SYNTAX {rel_path}: line {exc.lineno}: {exc.msg}"
+    except UnicodeDecodeError as exc:
+        return False, f"ENCODING {rel_path}: {exc}"
+    except OSError as exc:
+        return False, f"ERROR {rel_path}: {exc}"
+    return True, f"OK syntax {rel_path}"
+
+
 def check_git_status() -> dict[str, Any]:
     try:
         result = subprocess.run(
@@ -129,9 +143,7 @@ def check_python_imports(packages: list[str]) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for package in packages:
         try:
-            # 타임아웃 20초: cold-import가 무거운 패키지(예: anthropic ≈ 4.5s + pydantic/httpx 체인)는
-            # 병렬 세션 부하 시 5초를 넘겨 false TIMEOUT을 냈음. 진짜 망가진 import는 returncode!=0으로
-            # 즉시 실패하므로, 타임아웃은 행(hang) 가드 용도로만 충분히 크게 유지.
+            # Keep this high enough for cold imports under parallel workspace load.
             proc = subprocess.run(
                 [sys.executable, "-c", f"import {package}"], capture_output=True, text=True, timeout=20
             )
@@ -140,7 +152,7 @@ def check_python_imports(packages: list[str]) -> list[dict[str, Any]]:
             else:
                 results.append({"package": package, "ok": False, "message": f"FAIL {package}: {proc.stderr.strip()}"})
         except subprocess.TimeoutExpired:
-            results.append({"package": package, "ok": False, "message": f"TIMEOUT {package} (5s)"})
+            results.append({"package": package, "ok": False, "message": f"TIMEOUT {package} (20s)"})
         except Exception as exc:
             results.append({"package": package, "ok": False, "message": f"ERROR {package}: {exc}"})
     return results
@@ -161,45 +173,70 @@ def check_dependency_drift(req_path: str) -> list[dict[str, Any]]:
             errors="replace",
             timeout=15,
         )
-        installed: dict[str, str] = {}
-        if proc.returncode == 0:
-            for package in json.loads(proc.stdout):
-                installed[package["name"].lower().replace("-", "_")] = package["version"]
-
-        for line in full_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or line.startswith("-"):
-                continue
-            match = re.match(r"^([a-zA-Z0-9_-]+)", line)
-            if not match:
-                continue
-            package_name = match.group(1).lower().replace("-", "_")
-            req_version = re.search(r"==([0-9.]+)", line)
-            if package_name in installed and req_version:
-                installed_major = installed[package_name].split(".")[0]
-                required_major = req_version.group(1).split(".")[0]
-                if installed_major != required_major:
-                    results.append(
-                        {
-                            "package": package_name,
-                            "required": req_version.group(1),
-                            "installed": installed[package_name],
-                            "drift": "MAJOR",
-                        }
-                    )
-            elif package_name not in installed:
-                results.append(
-                    {
-                        "package": package_name,
-                        "required": req_version.group(1) if req_version else "any",
-                        "installed": "NOT FOUND",
-                        "drift": "MISSING",
-                    }
-                )
+        installed = _installed_package_map(proc.stdout) if proc.returncode == 0 else {}
+        for requirement in _parse_requirement_lines(full_path.read_text(encoding="utf-8").splitlines()):
+            drift = _dependency_drift(requirement, installed)
+            if drift:
+                results.append(drift)
     except Exception:
         return results
 
     return results
+
+
+def _normalize_package_name(name: str) -> str:
+    return name.lower().replace("-", "_")
+
+
+def _installed_package_map(pip_list_json: str) -> dict[str, str]:
+    return {
+        _normalize_package_name(package["name"]): package["version"]
+        for package in json.loads(pip_list_json)
+        if "name" in package and "version" in package
+    }
+
+
+def _parse_requirement_line(line: str) -> dict[str, str] | None:
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#") or stripped.startswith("-"):
+        return None
+
+    match = re.match(r"^([a-zA-Z0-9_-]+)", stripped)
+    if not match:
+        return None
+
+    req_version = re.search(r"==([0-9.]+)", stripped)
+    return {
+        "package": _normalize_package_name(match.group(1)),
+        "required": req_version.group(1) if req_version else "any",
+    }
+
+
+def _parse_requirement_lines(lines: list[str]) -> list[dict[str, str]]:
+    return [requirement for line in lines if (requirement := _parse_requirement_line(line))]
+
+
+def _dependency_drift(requirement: dict[str, str], installed: dict[str, str]) -> dict[str, str] | None:
+    package_name = requirement["package"]
+    required_version = requirement["required"]
+    installed_version = installed.get(package_name)
+
+    if installed_version is None:
+        return {
+            "package": package_name,
+            "required": required_version,
+            "installed": "NOT FOUND",
+            "drift": "MISSING",
+        }
+
+    if required_version != "any" and installed_version.split(".")[0] != required_version.split(".")[0]:
+        return {
+            "package": package_name,
+            "required": required_version,
+            "installed": installed_version,
+            "drift": "MAJOR",
+        }
+    return None
 
 
 def check_npm_build(rel_path: str) -> dict[str, Any]:
@@ -285,6 +322,14 @@ def run_healthcheck() -> dict[str, Any]:
             project_result["checks"].append({"name": check_name, "ok": ok, "message": message})
             if not ok:
                 project_result["healthy"] = False
+                continue
+            if project["type"] == "python" and check_path.endswith(".py"):
+                syntax_ok, syntax_message = check_python_syntax(check_path)
+                project_result["checks"].append(
+                    {"name": f"{check_name}_syntax", "ok": syntax_ok, "message": syntax_message}
+                )
+                if not syntax_ok:
+                    project_result["healthy"] = False
 
         if project.get("key_imports"):
             project_result["imports"] = check_python_imports(project["key_imports"])
@@ -330,40 +375,61 @@ def format_report(report: dict[str, Any]) -> str:
     lines = ["=" * 55, f"Health Check Report v{report['version']} @ {report['timestamp'][:19]}", "=" * 55]
 
     for project in report["projects"]:
-        status = "OK" if project["healthy"] else "FAIL"
-        lines.append(f"\n[{status}] {project['name']} ({project['type']})")
-        for check in project["checks"]:
-            lines.append(f"  - {check['message']}")
-        if project["imports"]:
-            failed_imports = [item for item in project["imports"] if not item["ok"]]
-            lines.append(f"  - imports: {len(project['imports']) - len(failed_imports)}/{len(project['imports'])} OK")
-            # 실패한 import는 패키지명과 사유를 명시 (silent-swallow 방지)
-            for item in failed_imports:
-                lines.append(f"    · {item['message']}")
-        if project["drift"]:
-            lines.append(f"  - dependency drift: {len(project['drift'])}")
+        lines.extend(_format_project_lines(project))
 
     git_info = report.get("git", {})
     lines.append(f"\nGit dirty files: {git_info.get('uncommitted_changes', 0)}")
-    missing_env = [item for item in report.get("env_files", []) if not item["env_exists"]]
-    if missing_env:
-        lines.append(f"Missing .env files: {len(missing_env)}")
-        # 누락된 .env를 항목별로 명시 (silent-swallow 방지; 시크릿 자동 생성은 하지 않음)
-        for item in missing_env:
-            lines.append(f"  · {item['example']}")
-    observability = report.get("observability", [])
-    if observability:
-        lines.append("Observability probes:")
-        for probe in observability:
-            flag = "OK" if probe["ok"] else "FAIL"
-            lines.append(f"  - [{flag}] {probe['name']}: {probe['message']}")
-    if report.get("status_changes"):
-        lines.append("Status changes:")
-        lines.extend([f"  - {change}" for change in report["status_changes"]])
+    lines.extend(_format_missing_env_lines(report.get("env_files", [])))
+    lines.extend(_format_observability_lines(report.get("observability", [])))
+    lines.extend(_format_status_change_lines(report.get("status_changes", [])))
 
     healthy_count = sum(1 for project in report["projects"] if project["healthy"])
     lines.append(f"\nOverall: {healthy_count}/{len(report['projects'])} projects healthy")
     return "\n".join(lines)
+
+
+def _format_project_lines(project: dict[str, Any]) -> list[str]:
+    status = "OK" if project["healthy"] else "FAIL"
+    lines = [f"\n[{status}] {project['name']} ({project['type']})"]
+    lines.extend(f"  - {check['message']}" for check in project["checks"])
+    lines.extend(_format_import_lines(project.get("imports", [])))
+    if project.get("drift"):
+        lines.append(f"  - dependency drift: {len(project['drift'])}")
+    return lines
+
+
+def _format_import_lines(imports: list[dict[str, Any]]) -> list[str]:
+    if not imports:
+        return []
+    failed_imports = [item for item in imports if not item["ok"]]
+    lines = [f"  - imports: {len(imports) - len(failed_imports)}/{len(imports)} OK"]
+    lines.extend(f"    * {item['message']}" for item in failed_imports)
+    return lines
+
+
+def _format_missing_env_lines(env_files: list[dict[str, Any]]) -> list[str]:
+    missing_env = [item for item in env_files if not item["env_exists"]]
+    if not missing_env:
+        return []
+    lines = [f"Missing .env files: {len(missing_env)}"]
+    lines.extend(f"  * {item['example']}" for item in missing_env)
+    return lines
+
+
+def _format_status_change_lines(status_changes: list[str]) -> list[str]:
+    if not status_changes:
+        return []
+    return ["Status changes:", *[f"  - {change}" for change in status_changes]]
+
+
+def _format_observability_lines(probes: list[dict[str, Any]]) -> list[str]:
+    if not probes:
+        return []
+    lines = ["Observability probes:"]
+    for probe in probes:
+        flag = "OK" if probe["ok"] else "FAIL"
+        lines.append(f"  - [{flag}] {probe['name']}: {probe['message']}")
+    return lines
 
 
 def send_webhook(url: str, report: dict[str, Any]) -> None:

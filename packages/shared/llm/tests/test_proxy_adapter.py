@@ -7,7 +7,6 @@ back to the native backend chain on any proxy failure.
 
 from __future__ import annotations
 
-import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
