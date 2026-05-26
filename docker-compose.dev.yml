@@ -519,6 +519,152 @@ services:
       - tools
       - full
 
+  # ─────────────────────────────────────────────────
+  # Observability Stack (Phase 1 MVP, --profile observability)
+  # Langfuse self-host + LiteLLM proxy + ClickHouse.
+  # All four services are profile-gated; default OFF.
+  # ─────────────────────────────────────────────────
+
+  # ClickHouse - Langfuse v3 event store
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: dev-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    expose:
+      - "8123"
+      - "9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    profiles:
+      - observability
+
+  # Langfuse Web - LLM observability dashboard
+  langfuse-web:
+    image: langfuse/langfuse:3
+    container_name: dev-langfuse-web
+    restart: unless-stopped
+    ports:
+      - "${LANGFUSE_PORT:-3020}:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/langfuse
+      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/langfuse
+      NEXTAUTH_URL: http://localhost:${LANGFUSE_PORT:-3020}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-change-me-in-dot-env}
+      SALT: ${LANGFUSE_SALT:-change-me-salt}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LANGFUSE_S3_EVENT_UPLOAD_ENABLED: "false"
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/public/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - observability
+
+  # Langfuse Worker - async ingestion processor
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: dev-langfuse-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/langfuse
+      SALT: ${LANGFUSE_SALT:-change-me-salt}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LANGFUSE_S3_EVENT_UPLOAD_ENABLED: "false"
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      langfuse-web:
+        condition: service_healthy
+    networks:
+      - dev-network
+    profiles:
+      - observability
+
+  # LiteLLM Proxy - unified LLM gateway for all 9 backends
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: dev-litellm-proxy
+    restart: unless-stopped
+    command: ["--config", "/etc/litellm/config.yaml", "--port", "4000", "--detailed_debug"]
+    ports:
+      - "${LITELLM_PORT:-8010}:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-master-dev}
+      LITELLM_DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/litellm
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+      XIAOMI_MIMO_API_KEY: ${XIAOMI_MIMO_API_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: http://langfuse-web:3000
+    volumes:
+      - ./ops/litellm/config.yaml:/etc/litellm/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health/liveliness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    profiles:
+      - observability
+
 # ─────────────────────────────────────────────────
 # Networks & Volumes
 # ─────────────────────────────────────────────────
@@ -558,5 +704,11 @@ volumes:
     name: dev-grafana-data
   loki-data:
     name: dev-loki-data
+
+  # Observability (Phase 1)
+  clickhouse-data:
+    name: dev-clickhouse-data
+  clickhouse-logs:
+    name: dev-clickhouse-logs
   pgadmin-data:
     name: dev-pgadmin-data

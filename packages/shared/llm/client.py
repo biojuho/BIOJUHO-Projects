@@ -11,6 +11,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
+from . import proxy_adapter
 from .backends import BackendManager
 from .config import (
     FALLBACK_ERRORS,
@@ -621,6 +622,67 @@ class LLMClient:
         )
         return final, rejected_meta, repaired_from_deepseek, None
 
+    def _dispatch_via_proxy_sync(
+        self,
+        *,
+        resolved_tier: TaskTier,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        system: str,
+        policy: LLMPolicy,
+    ) -> LLMResponse:
+        wrapped_system, wrapped_messages, request_meta, resolved_policy = prepare_request(
+            system, messages, policy, "litellm-proxy"
+        )
+        response = proxy_adapter.call(
+            tier=resolved_tier,
+            messages=wrapped_messages,
+            max_tokens=max_tokens,
+            system=wrapped_system,
+        )
+        response.policy = resolved_policy
+        self._record_success_usage(
+            resolved_tier=resolved_tier,
+            backend_name=response.backend,
+            default_model=response.model,
+            response=response,
+        )
+        response.bridge_meta = inspect_response(response.text, resolved_policy, request_meta)
+        self._record_bridge_attempt(response, resolved_policy)
+        return response
+
+    async def _dispatch_via_proxy_async(
+        self,
+        *,
+        resolved_tier: TaskTier,
+        messages: list[dict[str, Any]],
+        max_tokens: int,
+        system: str,
+        policy: LLMPolicy,
+    ) -> LLMResponse:
+        wrapped_system, wrapped_messages, request_meta, resolved_policy = prepare_request(
+            system, messages, policy, "litellm-proxy"
+        )
+        response = await asyncio.wait_for(
+            proxy_adapter.acall(
+                tier=resolved_tier,
+                messages=wrapped_messages,
+                max_tokens=max_tokens,
+                system=wrapped_system,
+            ),
+            timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
+        )
+        response.policy = resolved_policy
+        self._record_success_usage(
+            resolved_tier=resolved_tier,
+            backend_name=response.backend,
+            default_model=response.model,
+            response=response,
+        )
+        response.bridge_meta = inspect_response(response.text, resolved_policy, request_meta)
+        self._record_bridge_attempt(response, resolved_policy)
+        return response
+
     def _dispatch(
         self,
         *,
@@ -642,6 +704,21 @@ class LLMClient:
                 system=system,
                 policy=policy,
             )
+
+        if proxy_adapter.is_proxy_enabled():
+            try:
+                return self._dispatch_via_proxy_sync(
+                    resolved_tier=resolved_tier,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    system=system,
+                    policy=policy,
+                )
+            except Exception as proxy_err:  # noqa: BLE001 — fall through to native chain
+                log.warning(
+                    "LiteLLM proxy call failed (%s); falling back to native backend chain",
+                    proxy_err,
+                )
 
         last_error: Exception | None = None
         rejected_meta: BridgeMeta | None = None
@@ -710,6 +787,21 @@ class LLMClient:
         system: str,
         policy: LLMPolicy,
     ) -> LLMResponse:
+        if proxy_adapter.is_proxy_enabled():
+            try:
+                return await self._dispatch_via_proxy_async(
+                    resolved_tier=resolved_tier,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    system=system,
+                    policy=policy,
+                )
+            except Exception as proxy_err:  # noqa: BLE001 — fall through to native chain
+                log.warning(
+                    "LiteLLM proxy async call failed (%s); falling back to native backend chain",
+                    proxy_err,
+                )
+
         last_error: Exception | None = None
         rejected_meta: BridgeMeta | None = None
         repaired_from_deepseek = False

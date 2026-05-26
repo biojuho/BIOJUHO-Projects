@@ -229,9 +229,37 @@ def check_npm_build(rel_path: str) -> dict[str, Any]:
         return {"ok": False, "message": f"FAILED build dry-run: {exc}"}
 
 
+def check_observability_endpoints() -> list[dict[str, Any]]:
+    """Optional probes for Phase 1 observability stack.
+
+    Activated when the env vars are set. When unset the probes return empty so
+    the default healthcheck output is unchanged. See ``ops/litellm/config.yaml``
+    and ``docker-compose.dev.yml --profile observability``.
+    """
+    targets: list[tuple[str, str]] = []
+    proxy_url = os.environ.get("LITELLM_PROXY_URL", "").strip()
+    if proxy_url:
+        targets.append(("litellm-proxy", f"{proxy_url.rstrip('/')}/health/liveliness"))
+    langfuse_host = os.environ.get("LANGFUSE_HOST", "").strip()
+    if langfuse_host:
+        targets.append(("langfuse", f"{langfuse_host.rstrip('/')}/api/public/health"))
+    results: list[dict[str, Any]] = []
+    for name, url in targets:
+        try:
+            with urllib.request.urlopen(url, timeout=3) as resp:  # nosec B310
+                ok = 200 <= resp.status < 300
+                results.append(
+                    {"name": name, "ok": ok, "url": url, "message": f"HTTP {resp.status}"}
+                )
+        except Exception as exc:
+            results.append({"name": name, "ok": False, "url": url, "message": str(exc)})
+    return results
+
+
 def run_healthcheck() -> dict[str, Any]:
     git_status = check_git_status()
     env_files = check_env_files()
+    observability = check_observability_endpoints()
     report: dict[str, Any] = {
         "timestamp": datetime.now().isoformat(),
         "version": "3.0",
@@ -239,6 +267,7 @@ def run_healthcheck() -> dict[str, Any]:
         "projects": [],
         "git": git_status,
         "env_files": env_files,
+        "observability": observability,
     }
 
     for project in CHECKS:
@@ -322,6 +351,12 @@ def format_report(report: dict[str, Any]) -> str:
         # 누락된 .env를 항목별로 명시 (silent-swallow 방지; 시크릿 자동 생성은 하지 않음)
         for item in missing_env:
             lines.append(f"  · {item['example']}")
+    observability = report.get("observability", [])
+    if observability:
+        lines.append("Observability probes:")
+        for probe in observability:
+            flag = "OK" if probe["ok"] else "FAIL"
+            lines.append(f"  - [{flag}] {probe['name']}: {probe['message']}")
     if report.get("status_changes"):
         lines.append("Status changes:")
         lines.extend([f"  - {change}" for change in report["status_changes"]])
