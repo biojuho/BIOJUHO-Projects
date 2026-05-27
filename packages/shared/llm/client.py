@@ -11,7 +11,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-from . import proxy_adapter
+from . import proxy_adapter, tracing
 from .backends import BackendManager
 from .config import (
     FALLBACK_ERRORS,
@@ -720,62 +720,69 @@ class LLMClient:
                     proxy_err,
                 )
 
-        last_error: Exception | None = None
-        rejected_meta: BridgeMeta | None = None
-        repaired_from_deepseek = False
+        with tracing.start_span(
+            tier=resolved_tier,
+            system=system,
+            messages=messages,
+            dispatcher="native",
+        ) as native_span:
+            last_error: Exception | None = None
+            rejected_meta: BridgeMeta | None = None
+            repaired_from_deepseek = False
 
-        for backend_name, default_model in chain:
-            prepared = self._prepare_backend_call(
-                resolved_tier=resolved_tier,
-                backend_name=backend_name,
-                messages=messages,
-                system=system,
-                policy=policy,
-            )
-            if prepared is None:
-                continue
-
-            wrapped_system, wrapped_messages, request_meta, resolved_policy = prepared
-            t0 = time.perf_counter()
-            try:
-                response = self._backends.call(
-                    backend=backend_name,
-                    model=default_model,
-                    messages=wrapped_messages,
-                    max_tokens=max_tokens,
-                    system=wrapped_system,
-                    tier=resolved_tier,
-                    response_mode=policy.response_mode,
-                )
-                final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
-                    response=response,
-                    t0=t0,
+            for backend_name, default_model in chain:
+                prepared = self._prepare_backend_call(
                     resolved_tier=resolved_tier,
                     backend_name=backend_name,
-                    default_model=default_model,
-                    request_meta=request_meta,
-                    resolved_policy=resolved_policy,
-                    rejected_meta=rejected_meta,
-                    repaired_from_deepseek=repaired_from_deepseek,
+                    messages=messages,
+                    system=system,
+                    policy=policy,
                 )
-                if final is not None:
-                    return final
-                last_error = quality_error
-                continue
-            except Exception as error:
-                elapsed = (time.perf_counter() - t0) * 1000
-                last_error = self._record_failure(
-                    resolved_tier=resolved_tier,
-                    backend_name=backend_name,
-                    default_model=default_model,
-                    elapsed_ms=elapsed,
-                    error=error,
-                )
-                if _should_fallback(error):
+                if prepared is None:
                     continue
-                raise
 
-        raise RuntimeError(f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}")
+                wrapped_system, wrapped_messages, request_meta, resolved_policy = prepared
+                t0 = time.perf_counter()
+                try:
+                    response = self._backends.call(
+                        backend=backend_name,
+                        model=default_model,
+                        messages=wrapped_messages,
+                        max_tokens=max_tokens,
+                        system=wrapped_system,
+                        tier=resolved_tier,
+                        response_mode=policy.response_mode,
+                    )
+                    final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
+                        response=response,
+                        t0=t0,
+                        resolved_tier=resolved_tier,
+                        backend_name=backend_name,
+                        default_model=default_model,
+                        request_meta=request_meta,
+                        resolved_policy=resolved_policy,
+                        rejected_meta=rejected_meta,
+                        repaired_from_deepseek=repaired_from_deepseek,
+                    )
+                    if final is not None:
+                        native_span.record_response(final)
+                        return final
+                    last_error = quality_error
+                    continue
+                except Exception as error:
+                    elapsed = (time.perf_counter() - t0) * 1000
+                    last_error = self._record_failure(
+                        resolved_tier=resolved_tier,
+                        backend_name=backend_name,
+                        default_model=default_model,
+                        elapsed_ms=elapsed,
+                        error=error,
+                    )
+                    if _should_fallback(error):
+                        continue
+                    raise
+
+            raise RuntimeError(f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}")
 
     async def _dispatch_async(
         self,
@@ -802,75 +809,82 @@ class LLMClient:
                     proxy_err,
                 )
 
-        last_error: Exception | None = None
-        rejected_meta: BridgeMeta | None = None
-        repaired_from_deepseek = False
+        with tracing.start_span(
+            tier=resolved_tier,
+            system=system,
+            messages=messages,
+            dispatcher="native",
+        ) as native_span:
+            last_error: Exception | None = None
+            rejected_meta: BridgeMeta | None = None
+            repaired_from_deepseek = False
 
-        for backend_name, default_model in chain:
-            prepared = self._prepare_backend_call(
-                resolved_tier=resolved_tier,
-                backend_name=backend_name,
-                messages=messages,
-                system=system,
-                policy=policy,
-            )
-            if prepared is None:
-                continue
-
-            wrapped_system, wrapped_messages, request_meta, resolved_policy = prepared
-            t0 = time.perf_counter()
-            try:
-                response = await asyncio.wait_for(
-                    self._backends.acall(
-                        backend=backend_name,
-                        model=default_model,
-                        messages=wrapped_messages,
-                        max_tokens=max_tokens,
-                        system=wrapped_system,
-                        tier=resolved_tier,
-                        response_mode=policy.response_mode,
-                    ),
-                    timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
-                )
-                final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
-                    response=response,
-                    t0=t0,
+            for backend_name, default_model in chain:
+                prepared = self._prepare_backend_call(
                     resolved_tier=resolved_tier,
                     backend_name=backend_name,
-                    default_model=default_model,
-                    request_meta=request_meta,
-                    resolved_policy=resolved_policy,
-                    rejected_meta=rejected_meta,
-                    repaired_from_deepseek=repaired_from_deepseek,
+                    messages=messages,
+                    system=system,
+                    policy=policy,
                 )
-                if final is not None:
-                    return final
-                last_error = quality_error
-                continue
-            except TimeoutError:
-                error = TimeoutError(
-                    f"backend timeout after {_ASYNC_BACKEND_TIMEOUT_SECONDS:.0f}s: {backend_name}/{default_model}"
-                )
-                elapsed = (time.perf_counter() - t0) * 1000
-                last_error = self._record_failure(
-                    resolved_tier=resolved_tier,
-                    backend_name=backend_name,
-                    default_model=default_model,
-                    elapsed_ms=elapsed,
-                    error=error,
-                )
-                continue
-            except Exception as error:
-                elapsed = (time.perf_counter() - t0) * 1000
-                last_error = self._record_failure(
-                    resolved_tier=resolved_tier,
-                    backend_name=backend_name,
-                    default_model=default_model,
-                    elapsed_ms=elapsed,
-                    error=error,
-                )
-                if _should_fallback(error):
+                if prepared is None:
                     continue
-                raise
 
-        raise RuntimeError(f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}")
+                wrapped_system, wrapped_messages, request_meta, resolved_policy = prepared
+                t0 = time.perf_counter()
+                try:
+                    response = await asyncio.wait_for(
+                        self._backends.acall(
+                            backend=backend_name,
+                            model=default_model,
+                            messages=wrapped_messages,
+                            max_tokens=max_tokens,
+                            system=wrapped_system,
+                            tier=resolved_tier,
+                            response_mode=policy.response_mode,
+                        ),
+                        timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
+                    )
+                    final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
+                        response=response,
+                        t0=t0,
+                        resolved_tier=resolved_tier,
+                        backend_name=backend_name,
+                        default_model=default_model,
+                        request_meta=request_meta,
+                        resolved_policy=resolved_policy,
+                        rejected_meta=rejected_meta,
+                        repaired_from_deepseek=repaired_from_deepseek,
+                    )
+                    if final is not None:
+                        native_span.record_response(final)
+                        return final
+                    last_error = quality_error
+                    continue
+                except TimeoutError:
+                    error = TimeoutError(
+                        f"backend timeout after {_ASYNC_BACKEND_TIMEOUT_SECONDS:.0f}s: {backend_name}/{default_model}"
+                    )
+                    elapsed = (time.perf_counter() - t0) * 1000
+                    last_error = self._record_failure(
+                        resolved_tier=resolved_tier,
+                        backend_name=backend_name,
+                        default_model=default_model,
+                        elapsed_ms=elapsed,
+                        error=error,
+                    )
+                    continue
+                except Exception as error:
+                    elapsed = (time.perf_counter() - t0) * 1000
+                    last_error = self._record_failure(
+                        resolved_tier=resolved_tier,
+                        backend_name=backend_name,
+                        default_model=default_model,
+                        elapsed_ms=elapsed,
+                        error=error,
+                    )
+                    if _should_fallback(error):
+                        continue
+                    raise
+
+            raise RuntimeError(f"All backends failed for tier={resolved_tier.value}. Last error: {last_error}")
