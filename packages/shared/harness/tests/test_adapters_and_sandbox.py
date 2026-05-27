@@ -277,6 +277,21 @@ class TestDockerSandboxRunnerSubprocess:
             assert result.execution_method == "subprocess"
             assert "fallback" in result.stdout
 
+    def test_docker_command_builds_base_args(self, runner, sandboxed_policy):
+        """`_docker_command` must build a runnable `docker run` argv — regression
+        for an earlier refactor that left it self-recursive and referencing an
+        undefined `docker_opts` (NameError on first call)."""
+        argv = runner._docker_command("echo hi", sandboxed_policy)
+        assert argv[:3] == ["docker", "run", "--rm"]
+        assert "--memory" in argv
+        assert "--cpus" in argv
+        # WRITE_SYSTEM preset has network_access=False -> --network none expected
+        net_idx = argv.index("--network")
+        assert argv[net_idx + 1] == "none"
+        # final positional: image then `sh -c <command>`
+        assert argv[-3:] == [runner._image, "sh", "-c"] or argv[-4:-1] == [runner._image, "sh", "-c"]
+        assert argv[-1] == "echo hi"
+
 
 # ===========================================================================
 # Test: AdapterResult
