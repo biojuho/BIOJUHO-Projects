@@ -218,6 +218,30 @@ def test_active_span_calls_end_and_flush(_enable_env, fake_langfuse):
     assert fake_langfuse.client.flush.called
 
 
+def test_record_text_builds_synthetic_response(_enable_env, fake_langfuse):
+    """record_text() must update the generation as if record_response() was called."""
+    with tracing.start_span(tier=TaskTier.LIGHTWEIGHT, system="", messages=[], dispatcher="custom.adapter") as span:
+        span.record_text(
+            text="adapter output",
+            model="claude-haiku",
+            backend="anthropic.direct",
+            input_tokens=10,
+            output_tokens=5,
+        )
+    kwargs = fake_langfuse.generation.update.call_args.kwargs
+    assert kwargs["output"] == {"text": "adapter output"}
+    assert kwargs["model"] == "claude-haiku"
+    assert kwargs["usage"] == {"input": 10, "output": 5}
+    assert kwargs["metadata"]["backend"] == "anthropic.direct"
+    assert kwargs["level"] == "DEFAULT"
+
+
+def test_record_text_noop_when_disabled(_disable_env):
+    with tracing.start_span(tier=TaskTier.MEDIUM, system="", messages=[]) as span:
+        span.record_text(text="x", model="m", backend="b")
+    # Must not raise; no-op span has the same surface as active span
+
+
 # ─── Resilience: SDK errors never propagate ──────────────────────────
 
 

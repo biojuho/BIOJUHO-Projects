@@ -86,6 +86,17 @@ class _NoOpSpan(AbstractContextManager):
     def record_response(self, response: LLMResponse) -> None:  # noqa: D401
         return None
 
+    def record_text(
+        self,
+        *,
+        text: str,
+        model: str,
+        backend: str,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> None:  # noqa: D401
+        return None
+
     def record_error(self, error: BaseException) -> None:  # noqa: D401
         return None
 
@@ -189,6 +200,30 @@ class _LangfuseSpan(AbstractContextManager):
             self._finalized = True
         except Exception as upd_err:  # noqa: BLE001
             log.warning("Langfuse generation.update(success) failed (%s)", upd_err)
+
+    def record_text(
+        self,
+        *,
+        text: str,
+        model: str,
+        backend: str,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> None:
+        """Convenience for direct-SDK adapters: builds an LLMResponse internally."""
+        if self._generation is None or self._finalized:
+            return
+        elapsed_ms = (time.perf_counter() - self._t0) * 1000.0
+        synthetic = LLMResponse(
+            text=text,
+            model=model,
+            backend=backend,
+            tier=self._tier,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            latency_ms=elapsed_ms,
+        )
+        self.record_response(synthetic)
 
     def record_error(self, error: BaseException) -> None:
         if self._generation is None or self._finalized:

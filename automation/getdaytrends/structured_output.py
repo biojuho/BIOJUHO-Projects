@@ -15,13 +15,27 @@ from typing import TypeVar
 from loguru import logger as log
 from pydantic import BaseModel
 
+from shared.llm import tracing
+from shared.llm.models import TaskTier
+
 T = TypeVar("T", bound=BaseModel)
+
+_TRACE_OUTPUT_PREVIEW = 2000
+
+
+def _tier_str_to_enum(tier: str) -> TaskTier:
+    if tier == "heavy":
+        return TaskTier.HEAVY
+    if tier == "medium":
+        return TaskTier.MEDIUM
+    return TaskTier.LIGHTWEIGHT
+
 
 _instructor_client = None
 _instructor_backend: str = ""
 
 
-def _get_instructor_client():
+def _get_instructor_client() -> object:
     """Initialize the Instructor client lazily."""
     global _instructor_client, _instructor_backend
 
@@ -71,7 +85,7 @@ def _get_model_name(tier: str = "lightweight") -> str:
     return "claude-haiku-4-5-20251001"
 
 
-def reset_instructor_client():
+def reset_instructor_client() -> None:
     """Reset the lazy singleton for tests."""
     global _instructor_client, _instructor_backend
     _instructor_client = None
@@ -91,7 +105,7 @@ def _log_fallback(kind: str, exc: Exception) -> None:
         log.warning(message)
 
 
-async def _instructor_create(client, **kwargs):
+async def _instructor_create(client, **kwargs) -> object:
     """
     Call Instructor in a backend-agnostic way.
 
@@ -116,25 +130,39 @@ async def extract_structured(
     """Return a validated structured response, or None on fallback."""
     del system
 
-    try:
-        client = _get_instructor_client()
-        model = _get_model_name(tier)
-        messages = [{"role": "user", "content": prompt}]
+    messages = [{"role": "user", "content": prompt}]
+    with tracing.start_span(
+        tier=_tier_str_to_enum(tier),
+        system="",
+        messages=messages,
+        dispatcher=f"gdt.structured.{_instructor_backend or 'pending'}",
+    ) as span:
+        try:
+            client = _get_instructor_client()
+            model = _get_model_name(tier)
 
-        return await _instructor_create(
-            client,
-            model=model,
-            messages=messages,
-            response_model=response_model,
-            max_retries=max_retries,
-            max_tokens=max_tokens,
-        )
-    except (RuntimeError, ConnectionError, TimeoutError) as exc:
-        log.warning(f"[Instructor] Structured extract failed: {type(exc).__name__}: {exc}")
-        return None
-    except Exception as exc:
-        _log_fallback("Structured extract fallback", exc)
-        return None
+            result = await _instructor_create(
+                client,
+                model=model,
+                messages=messages,
+                response_model=response_model,
+                max_retries=max_retries,
+                max_tokens=max_tokens,
+            )
+            span.record_text(
+                text=str(result)[:_TRACE_OUTPUT_PREVIEW],
+                model=model,
+                backend=f"instructor.{_instructor_backend or 'unknown'}",
+            )
+            return result
+        except (RuntimeError, ConnectionError, TimeoutError) as exc:
+            span.record_error(exc)
+            log.warning(f"[Instructor] Structured extract failed: {type(exc).__name__}: {exc}")
+            return None
+        except Exception as exc:
+            span.record_error(exc)
+            _log_fallback("Structured extract fallback", exc)
+            return None
 
 
 async def extract_structured_list(
@@ -153,31 +181,44 @@ async def extract_structured_list(
     class ListWrapper(BaseModel):
         items: list[item_model]  # type: ignore[valid-type]
 
-    try:
-        client = _get_instructor_client()
-        model = _get_model_name(tier)
-        messages = [{"role": "user", "content": prompt}]
+    messages = [{"role": "user", "content": prompt}]
+    with tracing.start_span(
+        tier=_tier_str_to_enum(tier),
+        system="",
+        messages=messages,
+        dispatcher=f"gdt.structured_list.{_instructor_backend or 'pending'}",
+    ) as span:
+        try:
+            client = _get_instructor_client()
+            model = _get_model_name(tier)
 
-        result = await _instructor_create(
-            client,
-            model=model,
-            messages=messages,
-            response_model=ListWrapper,
-            max_retries=max_retries,
-            max_tokens=max_tokens,
-        )
-        items = result.items
+            result = await _instructor_create(
+                client,
+                model=model,
+                messages=messages,
+                response_model=ListWrapper,
+                max_retries=max_retries,
+                max_tokens=max_tokens,
+            )
+            items = result.items
 
-        if expected_count is not None and len(items) != expected_count:
-            log.warning(f"[Instructor] List length mismatch: expected={expected_count}, got={len(items)}")
+            if expected_count is not None and len(items) != expected_count:
+                log.warning(f"[Instructor] List length mismatch: expected={expected_count}, got={len(items)}")
 
-        return items
-    except (RuntimeError, ConnectionError, TimeoutError) as exc:
-        log.warning(f"[Instructor] List extract failed: {type(exc).__name__}: {exc}")
-        return None
-    except Exception as exc:
-        _log_fallback("List extract fallback", exc)
-        return None
+            span.record_text(
+                text=f"items={len(items)}",
+                model=model,
+                backend=f"instructor.{_instructor_backend or 'unknown'}",
+            )
+            return items
+        except (RuntimeError, ConnectionError, TimeoutError) as exc:
+            span.record_error(exc)
+            log.warning(f"[Instructor] List extract failed: {type(exc).__name__}: {exc}")
+            return None
+        except Exception as exc:
+            span.record_error(exc)
+            _log_fallback("List extract fallback", exc)
+            return None
 
 
 class ScoringResponseItem(BaseModel):
