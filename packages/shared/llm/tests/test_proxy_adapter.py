@@ -256,3 +256,76 @@ def test_client_dispatch_falls_back_when_proxy_raises(monkeypatch):
     finally:
         client.close()
         LLMClient.reset()
+
+
+@pytest.mark.asyncio
+async def test_client_acreate_invokes_proxy_when_enabled(monkeypatch):
+    """Async dispatch must also route through the proxy when env set."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-for-init")
+    monkeypatch.setenv("LITELLM_PROXY_URL", "http://localhost:8010")
+
+    from shared.llm import client as client_mod
+    from shared.llm.client import LLMClient
+
+    sentinel_response = LLMResponse(
+        text="from-proxy-async",
+        model="tier-medium",
+        backend="litellm-proxy",
+        tier=TaskTier.MEDIUM,
+        input_tokens=9,
+        output_tokens=4,
+    )
+
+    LLMClient.reset()
+    client = LLMClient()
+    try:
+        with patch.object(client_mod.proxy_adapter, "acall", new=AsyncMock(return_value=sentinel_response)) as proxy_acall:
+            response = await client.acreate(
+                tier=TaskTier.MEDIUM,
+                messages=[{"role": "user", "content": "hi-async"}],
+                max_tokens=64,
+                system="",
+            )
+        proxy_acall.assert_awaited_once()
+        assert response.text == "from-proxy-async"
+        assert response.backend == "litellm-proxy"
+    finally:
+        client.close()
+        LLMClient.reset()
+
+
+@pytest.mark.asyncio
+async def test_client_acreate_falls_back_when_proxy_raises(monkeypatch):
+    """Async proxy failure must transparently fall through to the native chain."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-for-init")
+    monkeypatch.setenv("LITELLM_PROXY_URL", "http://localhost:8010")
+
+    from shared.llm import client as client_mod
+    from shared.llm.client import LLMClient
+
+    LLMClient.reset()
+    client = LLMClient()
+
+    native_response = LLMResponse(
+        text="from-native-async",
+        model="claude-haiku",
+        backend="anthropic",
+        tier=TaskTier.LIGHTWEIGHT,
+    )
+    try:
+        with patch.object(client_mod.proxy_adapter, "acall", new=AsyncMock(side_effect=RuntimeError("proxy down"))), \
+             patch.object(client, "_dispatch_via_proxy_async", new=AsyncMock(side_effect=RuntimeError("proxy down"))), \
+             patch.object(client, "_iter_chain", return_value=[("anthropic", "claude-haiku")]), \
+             patch.object(client._backends, "has_key", return_value=True), \
+             patch.object(client._backends, "acall", new=AsyncMock(return_value=native_response)):
+            response = await client.acreate(
+                tier=TaskTier.LIGHTWEIGHT,
+                messages=[{"role": "user", "content": "hi-async"}],
+                max_tokens=64,
+                system="",
+            )
+        assert response.text == "from-native-async"
+        assert response.backend == "anthropic"
+    finally:
+        client.close()
+        LLMClient.reset()
