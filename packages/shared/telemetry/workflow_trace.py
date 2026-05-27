@@ -36,11 +36,11 @@ import logging
 import sqlite3
 import threading
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from collections.abc import Generator
 
 log = logging.getLogger("shared.telemetry.workflow_trace")
 

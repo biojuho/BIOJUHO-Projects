@@ -8,6 +8,8 @@
 - **Notifier API 계약 불일치**: `send_alert` vs `send_error`, sync vs async 차이가 런타임 장애로 이어짐 → 공통 모듈 사용 시 반드시 실제 클래스 시그니처 확인 (2026-04-14)
 - **API 호출부 에러 핸들링 누락**: 새 API 함수 작성 시 try/catch를 기본 템플릿에 포함 (2026-04-14)
 - **gitleaks 시크릿 노출**: 상세 로깅(harness_audit 등) 시 Redaction 로직을 최상단 모듈에서 수행 (2026-04-14)
+- **zizmor "unsafe" 분류 ≠ 위험**: fix가 워크플로 동작을 깰 가능성을 시사. `persist-credentials: false`는 `git push`/`gh pr create`/`commit -m` 없는 워크플로엔 안전 → 사전 grep 검증으로 unsafe-only 적용 가능 (2026-05-15)
+- **멀티라인 커밋 메시지 PowerShell here-string 함정**: Bash 컨텍스트에서 `@'...'@` 그대로 메시지에 포함됨. `-F <file>` 방식이 안전 (2026-05-15)
 
 ## 사용자 선호
 

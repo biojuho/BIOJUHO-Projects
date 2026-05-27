@@ -1,7 +1,6 @@
 """news_scraper.py 테스트 — Scrapling 뉴스 수집 모듈."""
 
 import pytest
-
 from news_scraper import (
     SCRAPLING_AVAILABLE,
     enrich_news_context,

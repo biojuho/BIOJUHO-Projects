@@ -57,7 +57,7 @@ class PublishWindow:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any] | None) -> "PublishWindow | None":
+    def from_dict(cls, payload: dict[str, Any] | None) -> PublishWindow | None:
         if not payload:
             return None
         return cls(
@@ -86,7 +86,7 @@ class RevenuePlay:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any] | None) -> "RevenuePlay | None":
+    def from_dict(cls, payload: dict[str, Any] | None) -> RevenuePlay | None:
         if not payload:
             return None
         return cls(
@@ -133,7 +133,7 @@ class TapBoardItem:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "TapBoardItem":
+    def from_dict(cls, payload: dict[str, Any]) -> TapBoardItem:
         return cls(
             keyword=str(payload.get("keyword", "")),
             source_country=str(payload.get("source_country", "")),
@@ -150,7 +150,7 @@ class TapBoardItem:
             revenue_play=RevenuePlay.from_dict(payload.get("revenue_play")),
         )
 
-    def clone_for_tier(self, paywall_tier: OpportunityTier) -> "TapBoardItem":
+    def clone_for_tier(self, paywall_tier: OpportunityTier) -> TapBoardItem:
         return replace(self, paywall_tier=paywall_tier)
 
 
@@ -182,7 +182,7 @@ class TapBoard:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "TapBoard":
+    def from_dict(cls, payload: dict[str, Any]) -> TapBoard:
         future_dependencies = payload.get("future_dependencies")
         return cls(
             snapshot_id=str(payload.get("snapshot_id", "")),
@@ -206,7 +206,7 @@ class TapBoard:
         limit: int | None = None,
         teaser_count: int | None = None,
         delivery_mode: str | None = None,
-    ) -> "TapBoard":
+    ) -> TapBoard:
         resolved_limit = len(self.items) if limit is None else max(0, limit)
         resolved_teaser = self.teaser_count if teaser_count is None else max(0, teaser_count)
         projected_items = [
@@ -282,9 +282,7 @@ class TapBoardBuilder:
             return sorted(opportunities, key=lambda item: item.priority, reverse=True)
 
         filtered = [
-            item
-            for item in opportunities
-            if target_country in {country.lower() for country in item.target_countries}
+            item for item in opportunities if target_country in {country.lower() for country in item.target_countries}
         ]
         return sorted(filtered, key=lambda item: item.priority, reverse=True)
 
@@ -355,8 +353,7 @@ class TapBoardBuilder:
         teaser_target = target_country.upper() if target_country else "TARGET"
         source = opportunity.source_country.upper()
         return (
-            f"{source}에서 먼저 뜬 '{opportunity.keyword}' 신호. "
-            f"{teaser_target} 시장에는 아직 빈 슬롯이 남아 있습니다."
+            f"{source}에서 먼저 뜬 '{opportunity.keyword}' 신호. {teaser_target} 시장에는 아직 빈 슬롯이 남아 있습니다."
         )
 
     def _build_execution_notes(

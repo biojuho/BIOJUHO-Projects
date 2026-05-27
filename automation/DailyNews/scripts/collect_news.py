@@ -6,9 +6,9 @@ from datetime import date
 from typing import Any
 
 import httpx
+from antigravity_mcp.domain.category_filter import is_relevant_to_category as _is_relevant_to_category
 from credibility import CredibilityScorer
 from deduplicator import NewsDeduplicator
-from antigravity_mcp.domain.category_filter import is_relevant_to_category as _is_relevant_to_category
 from notion_client import AsyncClient
 from runtime import (
     AlreadyRunningError,

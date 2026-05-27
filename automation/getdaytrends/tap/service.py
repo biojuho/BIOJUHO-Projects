@@ -10,8 +10,8 @@ This keeps dashboard/API consumers thin and gives us one place to add:
 
 from __future__ import annotations
 
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
 
 
 def _load_db_funcs():
@@ -297,7 +297,9 @@ async def dispatch_tap_alert_queue(
             channel for channel, result in channel_results.items() if isinstance(result, dict) and result.get("ok")
         ]
         failed_channels = [
-            channel for channel, result in channel_results.items() if not (isinstance(result, dict) and result.get("ok"))
+            channel
+            for channel, result in channel_results.items()
+            if not (isinstance(result, dict) and result.get("ok"))
         ]
         attempted_at = datetime.utcnow().isoformat()
         failure_reason = "; ".join(

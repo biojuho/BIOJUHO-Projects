@@ -11,10 +11,7 @@ class TestInsightValidator:
 
         validator = InsightValidator()
         insight = {
-            "content": (
-                "Alpha 10% Beta 20% 최근 과거 연결 "
-                "1차 2차 3차 결과 때문에 투자자 시작하 점검하 3개월 [A1]"
-            ),
+            "content": ("Alpha 10% Beta 20% 최근 과거 연결 1차 2차 3차 결과 때문에 투자자 시작하 점검하 3개월 [A1]"),
             "principle_1_connection": "연결 배경 최근 과거",
             "principle_2_ripple": "1차 2차 3차 결과 때문에",
             "principle_3_action": "투자자 시작하 점검하 3개월",

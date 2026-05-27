@@ -1,16 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import selectinload
-from dependencies import get_db
-import models
-import schemas
-import uuid
+# ruff: noqa: B008  # FastAPI's Depends() in defaults is the canonical injection pattern
 import json
 from datetime import UTC, datetime, timedelta
-from auth import get_current_user
-from services.chain_simulator import get_chain
 
-
+import models
+import schemas
+from dependencies import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 

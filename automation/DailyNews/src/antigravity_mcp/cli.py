@@ -55,10 +55,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Newsletter management (v2.0)
     from antigravity_mcp.cli_newsletter import register_newsletter_parser
+
     register_newsletter_parser(subparsers)
 
     # Signal Arbitrage (v2.1)
     from antigravity_mcp.cli_signal import register_signal_parser
+
     register_signal_parser(subparsers)
 
     return parser
@@ -109,6 +111,7 @@ def dispatch_ops_command(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     import sys
+
     if hasattr(sys.stdout, "reconfigure"):
         try:
             sys.stdout.reconfigure(encoding="utf-8")
@@ -131,9 +134,11 @@ def main(argv: list[str] | None = None) -> int:
         return dispatch_ops_command(args)
     if args.command == "newsletter":
         from antigravity_mcp.cli_newsletter import dispatch_newsletter_command
+
         return dispatch_newsletter_command(args)
     if args.command == "signal":
         from antigravity_mcp.cli_signal import dispatch_signal_command
+
         return dispatch_signal_command(args)
     parser.print_help()
     return 1

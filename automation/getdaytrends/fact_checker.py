@@ -20,9 +20,9 @@ from enum import Enum
 from loguru import logger as log
 
 try:
-    from .models import ScoredTrend, TweetBatch
+    from .models import MultiSourceContext, ScoredTrend, TweetBatch
 except ImportError:
-    from models import ScoredTrend, TweetBatch
+    from models import MultiSourceContext, ScoredTrend, TweetBatch
 
 # -- credibility imports --
 try:
@@ -90,8 +90,7 @@ class FactCheckResult:
         if self.passed:
             return f"통과 (정확도={self.accuracy_score:.0%}, 소스신뢰={self.source_credibility:.0%})"
         return (
-            f"실패 (정확도={self.accuracy_score:.0%}, "
-            f"미검증={self.unverified_claims}, 환각={self.hallucinated_claims})"
+            f"실패 (정확도={self.accuracy_score:.0%}, 미검증={self.unverified_claims}, 환각={self.hallucinated_claims})"
         )
 
 
@@ -566,7 +565,7 @@ def verify_content(
             # DeepEval이 환각을 감지했으면 규칙 기반이 통과여도 실패 처리
             if eval_result.hallucination_score > 0.7:
                 result.passed = False
-                log.warning(f"[DeepEval] '{trend.keyword}' 환각 점수 높음: " f"{eval_result.hallucination_score:.2f}")
+                log.warning(f"[DeepEval] '{trend.keyword}' 환각 점수 높음: {eval_result.hallucination_score:.2f}")
     except ImportError:
         pass  # DeepEval 미설치 시 기존 동작 유지
     except Exception as e:

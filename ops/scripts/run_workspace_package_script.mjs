@@ -18,6 +18,7 @@ const EXCLUDED_DIRS = new Set([
   "archive",
   "var",
 ]);
+const EXCLUDED_DIR_PREFIXES = ["gdt-parallel-"];
 const PLACEHOLDER_SCRIPT_PATTERNS = [/no test specified/i];
 
 function readJson(path) {
@@ -43,7 +44,12 @@ function discoverPackageDirs(dir, results = []) {
   }
 
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith(".") || EXCLUDED_DIRS.has(entry.name)) {
+    if (
+      !entry.isDirectory() ||
+      entry.name.startsWith(".") ||
+      EXCLUDED_DIRS.has(entry.name) ||
+      EXCLUDED_DIR_PREFIXES.some((prefix) => entry.name.startsWith(prefix))
+    ) {
       continue;
     }
     discoverPackageDirs(join(dir, entry.name), results);

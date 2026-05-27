@@ -25,21 +25,24 @@ log = logging.getLogger(__name__)
 
 # HMAC secret for model integrity verification (환경변수로 오버라이드 가능)
 import os as _os
+
 _MODEL_HMAC_KEY = (_os.environ.get("PEE_MODEL_HMAC_KEY") or "pee-default-integrity-key-2026").encode()
 
 # LightGBM optional — fallback to sklearn
 try:
     import lightgbm as lgb
+
     HAS_LIGHTGBM = True
 except ImportError:
     HAS_LIGHTGBM = False
 
 from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.model_selection import cross_val_score
 from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import cross_val_score
 
 try:
     import joblib
+
     HAS_JOBLIB = True
 except ImportError:
     HAS_JOBLIB = False
@@ -51,24 +54,26 @@ except ImportError:
 @dataclass
 class PredictionResult:
     """예측 결과."""
-    predicted_engagement_rate: float     # 예측 engagement rate (0.0~1.0)
-    predicted_impressions: int           # 예측 impression 수
+
+    predicted_engagement_rate: float  # 예측 engagement rate (0.0~1.0)
+    predicted_impressions: int  # 예측 impression 수
     confidence_interval: tuple[float, float]  # 95% 신뢰 구간
-    viral_probability: float             # 바이럴 확률 (상위 10% 성과)
-    optimal_hours: list[int]             # 추천 발행 시간 top-3
-    risk_level: str                      # "low" | "medium" | "high"
-    feature_importance: dict[str, float] # 주요 영향 피처 top-5
-    recommendation: str                  # 자연어 추천 메시지
+    viral_probability: float  # 바이럴 확률 (상위 10% 성과)
+    optimal_hours: list[int]  # 추천 발행 시간 top-3
+    risk_level: str  # "low" | "medium" | "high"
+    feature_importance: dict[str, float]  # 주요 영향 피처 top-5
+    recommendation: str  # 자연어 추천 메시지
 
 
 @dataclass
 class ModelMetrics:
     """모델 성능 지표."""
-    mae: float          # Mean Absolute Error
-    r2: float           # R² score
-    cv_score: float     # 5-fold CV mean
-    sample_count: int   # 학습 샘플 수
-    trained_at: str     # ISO timestamp
+
+    mae: float  # Mean Absolute Error
+    r2: float  # R² score
+    cv_score: float  # 5-fold CV mean
+    sample_count: int  # 학습 샘플 수
+    trained_at: str  # ISO timestamp
 
 
 # ── Engagement Model ───────────────────────────────────────
@@ -176,7 +181,8 @@ class EngagementModel:
         else:
             cv_scores = np.array([0.0])  # 데이터 부족 시 CV 스킵
 
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
+
         self._metrics = ModelMetrics(
             mae=float(mean_absolute_error(y, y_pred)),
             r2=float(r2_score(y, y_pred)),
@@ -187,8 +193,10 @@ class EngagementModel:
 
         log.info(
             "모델 학습 완료: MAE=%.4f, R²=%.4f, CV=%.4f, N=%d",
-            self._metrics.mae, self._metrics.r2,
-            self._metrics.cv_score, self._metrics.sample_count,
+            self._metrics.mae,
+            self._metrics.r2,
+            self._metrics.cv_score,
+            self._metrics.sample_count,
         )
 
         return self._metrics
@@ -213,9 +221,7 @@ class EngagementModel:
             raise RuntimeError("모델 미학습 상태. train() 또는 load()를 먼저 실행하세요.")
 
         if self._n_features and features.shape[0] != self._n_features:
-            raise ValueError(
-                f"Feature 수 불일치: 모델={self._n_features}, 입력={features.shape[0]}"
-            )
+            raise ValueError(f"Feature 수 불일치: 모델={self._n_features}, 입력={features.shape[0]}")
 
         X = features.reshape(1, -1)
         predicted_er = float(self._model.predict(X)[0])
@@ -243,7 +249,10 @@ class EngagementModel:
 
         # 자연어 추천
         recommendation = self._generate_recommendation(
-            predicted_er, viral_prob, optimal_hours, risk,
+            predicted_er,
+            viral_prob,
+            optimal_hours,
+            risk,
         )
 
         return PredictionResult(
@@ -275,6 +284,7 @@ class EngagementModel:
             joblib.dump(self._model, model_path)
         else:
             import pickle
+
             with open(model_path, "wb") as f:
                 pickle.dump(self._model, f)
 
@@ -325,6 +335,7 @@ class EngagementModel:
             self._model = joblib.load(model_path)
         else:
             import pickle
+
             with open(model_path, "rb") as f:
                 self._model = pickle.load(f)  # noqa: S301
 
@@ -334,9 +345,7 @@ class EngagementModel:
             self._metrics = ModelMetrics(**m) if m.get("trained_at") else None
             self._n_features = meta.get("n_features", 0)
             self._viral_threshold = max(0.001, meta.get("viral_threshold", 0.05))
-            self._hour_engagement_map = {
-                int(k): v for k, v in meta.get("hour_engagement_map", {}).items()
-            }
+            self._hour_engagement_map = {int(k): v for k, v in meta.get("hour_engagement_map", {}).items()}
 
         log.info("모델 로드 완료: %s", load_dir)
         return True
@@ -344,7 +353,9 @@ class EngagementModel:
     # ── Private helpers ────────────────────────────────────
 
     def _estimate_confidence(
-        self, X: np.ndarray, predicted: float,
+        self,
+        X: np.ndarray,
+        predicted: float,
     ) -> tuple[float, float]:
         """트리 앙상블 기반 간이 신뢰 구간 (~95%)."""
         if self._metrics and self._metrics.mae > 0:
@@ -362,6 +373,7 @@ class EngagementModel:
         ratio = predicted_er / self._viral_threshold
         # 시그모이드: ratio=1이면 50%, ratio=2이면 ~88%
         import math
+
         return 1.0 / (1.0 + math.exp(-3 * (ratio - 1)))
 
     def _get_optimal_hours(self) -> list[int]:
@@ -369,7 +381,9 @@ class EngagementModel:
         if not self._hour_engagement_map:
             return [9, 12, 18]  # 기본값
         sorted_hours = sorted(
-            self._hour_engagement_map.items(), key=lambda x: x[1], reverse=True,
+            self._hour_engagement_map.items(),
+            key=lambda x: x[1],
+            reverse=True,
         )
         return [h for h, _ in sorted_hours[:5]]
 
@@ -385,10 +399,13 @@ class EngagementModel:
 
         if not names:
             from .features import ContentFeatures
+
             names = ContentFeatures.feature_names()
 
         pairs = sorted(
-            zip(names, importances), key=lambda x: x[1], reverse=True,
+            zip(names, importances),
+            key=lambda x: x[1],
+            reverse=True,
         )
         return {name: round(float(imp), 4) for name, imp in pairs[:5]}
 

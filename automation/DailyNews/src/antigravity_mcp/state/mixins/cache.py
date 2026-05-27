@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import json
-import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from antigravity_mcp.domain.models import ChannelDraft, ContentReport, PipelineRun
 from antigravity_mcp.state.base import _DBProviderBase
 from antigravity_mcp.state.events import utc_now_iso
 
@@ -28,9 +25,11 @@ _DEFAULT_MODEL_COSTS: dict[str, tuple[float, float]] = {
 }
 _MODEL_COSTS = {**_DEFAULT_MODEL_COSTS, **_SHARED_MODEL_COSTS}
 
+
 def _estimate_cached_response_cost(model_name: str, input_tokens: int, output_tokens: int) -> float:
     input_cost, output_cost = _MODEL_COSTS.get(model_name, (0.25, 1.25))
     return (input_tokens * input_cost + output_tokens * output_cost) / 1_000_000
+
 
 def _json_default(value: Any) -> Any:
     if hasattr(value, "to_dict") and callable(value.to_dict):

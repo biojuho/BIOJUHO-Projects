@@ -87,7 +87,11 @@ class TestDashboardFormatting:
         assert "Tech | morning" in reports
 
     def test_metrics_and_recent_reports_handle_empty_inputs(self):
-        from antigravity_mcp.pipelines.dashboard import _governance_markdown, _metrics_markdown, _recent_reports_markdown
+        from antigravity_mcp.pipelines.dashboard import (
+            _governance_markdown,
+            _metrics_markdown,
+            _recent_reports_markdown,
+        )
 
         assert _metrics_markdown({"total_tweets": 0}) == ""
         assert "No reports yet." in _recent_reports_markdown([])
@@ -110,11 +114,46 @@ class TestDashboardFormatting:
         markdown = _dashboard_markdown(
             {"reports": 3, "runs": 4, "cached_articles": 5},
             [{"job_name": "collect", "status": "success", "started_at": "2026-04-01T00:00:00+00:00"}],
-            [{"category": "Tech", "window_name": "manual", "quality_state": "ok", "generation_mode": "", "approval_state": "manual"}],
-            {"quality_counts": {"ok": 1}, "approval_counts": {"manual": 1}, "fallback_x_drafts": 0, "reports_considered": 1},
-            {"last_run_at": "2026-04-01T00:00:00+00:00", "last_run_status": "success", "success_count_24h": 1, "failure_count_24h": 0, "total_runs_24h": 1, "avg_latency_seconds": None, "error_rate": 0.0},
-            {"call_count": 0, "cache_hit_count": 0, "estimated_cost_usd": 0.0, "estimated_cost_avoided_usd": 0.0, "cost_by_model": {}},
-            {"total_tweets": 2, "total_impressions": 100, "total_likes": 5, "total_retweets": 1, "avg_impressions": 50, "avg_likes": 2.5, "period_days": 7},
+            [
+                {
+                    "category": "Tech",
+                    "window_name": "manual",
+                    "quality_state": "ok",
+                    "generation_mode": "",
+                    "approval_state": "manual",
+                }
+            ],
+            {
+                "quality_counts": {"ok": 1},
+                "approval_counts": {"manual": 1},
+                "fallback_x_drafts": 0,
+                "reports_considered": 1,
+            },
+            {
+                "last_run_at": "2026-04-01T00:00:00+00:00",
+                "last_run_status": "success",
+                "success_count_24h": 1,
+                "failure_count_24h": 0,
+                "total_runs_24h": 1,
+                "avg_latency_seconds": None,
+                "error_rate": 0.0,
+            },
+            {
+                "call_count": 0,
+                "cache_hit_count": 0,
+                "estimated_cost_usd": 0.0,
+                "estimated_cost_avoided_usd": 0.0,
+                "cost_by_model": {},
+            },
+            {
+                "total_tweets": 2,
+                "total_impressions": 100,
+                "total_likes": 5,
+                "total_retweets": 1,
+                "avg_impressions": 50,
+                "avg_likes": 2.5,
+                "period_days": 7,
+            },
         )
 
         assert "[AUTO_DASHBOARD]" in markdown

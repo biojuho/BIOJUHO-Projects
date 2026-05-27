@@ -1,5 +1,7 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+import { expect } from "chai";
+import { network } from "hardhat";
+
+const { ethers } = await network.create();
 
 describe("DeSciToken", function () {
     let DeSciToken;
@@ -9,12 +11,13 @@ describe("DeSciToken", function () {
     let user1;
     let user2;
 
-    const INITIAL_SUPPLY = ethers.parseEther("10000000"); // 10M DSCI
-    const MAX_SUPPLY = ethers.parseEther("100000000"); // 100M DSCI
+    const INITIAL_SUPPLY = ethers.parseEther("10000000");
+    const MAX_SUPPLY = ethers.parseEther("100000000");
     const REWARD_PAPER_UPLOAD = ethers.parseEther("100");
     const REWARD_PEER_REVIEW = ethers.parseEther("50");
     const REWARD_DATA_SHARE = ethers.parseEther("200");
     const REWARD_RESEARCH_PARTICIPATION = ethers.parseEther("300");
+    const ZERO_ADDRESS = ethers.ZeroAddress;
 
     beforeEach(async function () {
         [owner, distributor, user1, user2] = await ethers.getSigners();
@@ -22,8 +25,6 @@ describe("DeSciToken", function () {
         token = await DeSciToken.deploy();
         await token.waitForDeployment();
     });
-
-    // ── Deployment ──────────────────────────────
 
     describe("Deployment", function () {
         it("Should have correct name and symbol", async function () {
@@ -52,8 +53,6 @@ describe("DeSciToken", function () {
         });
     });
 
-    // ── Reward Constants ────────────────────────
-
     describe("Reward Constants", function () {
         it("Should return correct reward amounts via getRewardAmounts()", async function () {
             const [paperUpload, peerReview, dataShare, researchParticipation] =
@@ -65,8 +64,6 @@ describe("DeSciToken", function () {
             expect(researchParticipation).to.equal(REWARD_RESEARCH_PARTICIPATION);
         });
     });
-
-    // ── Distributor Management ──────────────────
 
     describe("Distributor Management", function () {
         it("Should allow owner to add a distributor", async function () {
@@ -87,6 +84,12 @@ describe("DeSciToken", function () {
             expect(await token.rewardDistributors(distributor.address)).to.equal(false);
         });
 
+        it("Should reject the zero address as a distributor", async function () {
+            await expect(token.addDistributor(ZERO_ADDRESS)).to.be.revertedWith(
+                "Distributor address required"
+            );
+        });
+
         it("Should not allow non-owner to add a distributor", async function () {
             await expect(
                 token.connect(user1).addDistributor(distributor.address)
@@ -100,8 +103,6 @@ describe("DeSciToken", function () {
             ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
         });
     });
-
-    // ── Reward Distribution ─────────────────────
 
     describe("Reward Distribution", function () {
         beforeEach(async function () {
@@ -143,6 +144,12 @@ describe("DeSciToken", function () {
             expect(await token.balanceOf(user1.address)).to.equal(customAmount);
         });
 
+        it("Should reject rewarding the zero address", async function () {
+            await expect(
+                token.connect(distributor).rewardPaperUpload(ZERO_ADDRESS)
+            ).to.be.revertedWith("Reward recipient required");
+        });
+
         it("Should allow owner to distribute rewards directly", async function () {
             await expect(token.rewardPaperUpload(user1.address))
                 .to.emit(token, "RewardDistributed")
@@ -170,15 +177,12 @@ describe("DeSciToken", function () {
         });
     });
 
-    // ── Max Supply Cap ──────────────────────────
-
     describe("Max Supply Cap", function () {
         beforeEach(async function () {
             await token.addDistributor(distributor.address);
         });
 
         it("Should enforce max supply on distributeReward", async function () {
-            // Try to mint more than MAX_SUPPLY - INITIAL_SUPPLY
             const remaining = MAX_SUPPLY - INITIAL_SUPPLY;
             const overAmount = remaining + ethers.parseEther("1");
 
@@ -188,13 +192,10 @@ describe("DeSciToken", function () {
         });
 
         it("Should enforce max supply on rewardPaperUpload", async function () {
-            // First mint up to near max supply
             const remaining = MAX_SUPPLY - INITIAL_SUPPLY;
-            // Mint all but 50 tokens (less than REWARD_PAPER_UPLOAD = 100)
             const almostAll = remaining - ethers.parseEther("50");
             await token.connect(distributor).distributeReward(user1.address, almostAll, "Fill up");
 
-            // Now paper upload (100 DSCI) should fail
             await expect(
                 token.connect(distributor).rewardPaperUpload(user2.address)
             ).to.be.revertedWith("Max supply exceeded");
@@ -228,8 +229,6 @@ describe("DeSciToken", function () {
         });
     });
 
-    // ── ERC20 Standard Functions ────────────────
-
     describe("ERC20 Standard", function () {
         it("Should transfer tokens between accounts", async function () {
             const amount = ethers.parseEther("1000");
@@ -249,6 +248,41 @@ describe("DeSciToken", function () {
             const initialBalance = await token.balanceOf(owner.address);
             await token.burn(burnAmount);
             expect(await token.balanceOf(owner.address)).to.equal(initialBalance - burnAmount);
+        });
+    });
+
+    describe("Voting Extensions", function () {
+        it("Should require delegation before votes are active", async function () {
+            expect(await token.getVotes(owner.address)).to.equal(0);
+
+            await token.delegate(owner.address);
+
+            expect(await token.getVotes(owner.address)).to.equal(INITIAL_SUPPLY);
+        });
+
+        it("Should move delegated voting power on transfers", async function () {
+            const amount = ethers.parseEther("1000");
+
+            await token.delegate(owner.address);
+            await token.transfer(user1.address, amount);
+
+            expect(await token.getVotes(owner.address)).to.equal(INITIAL_SUPPLY - amount);
+            expect(await token.getVotes(user1.address)).to.equal(0);
+
+            await token.connect(user1).delegate(user1.address);
+            expect(await token.getVotes(user1.address)).to.equal(amount);
+        });
+
+        it("Should preserve historical voting power snapshots", async function () {
+            const amount = ethers.parseEther("1000");
+
+            await token.delegate(owner.address);
+            const snapshotBlock = await ethers.provider.getBlockNumber();
+
+            await token.transfer(user1.address, amount);
+
+            expect(await token.getPastVotes(owner.address, snapshotBlock)).to.equal(INITIAL_SUPPLY);
+            expect(await token.getVotes(owner.address)).to.equal(INITIAL_SUPPLY - amount);
         });
     });
 });

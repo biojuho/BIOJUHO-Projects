@@ -1,5 +1,148 @@
 # QC Log
 
+## 2026-05-20 — Optimization Pass: test runtime -57.7% via DeepEval gate
+
+### Goal
+`/goal "최적화 시켜줘"` (axes: 성능/속도, 코드 복잡도/유지보수성, 테스트 실행 시간) on getdaytrends.
+
+### Hotspot Discovery
+Profiling with `pytest --durations=30` revealed `quality_eval.evaluate_content`
+dominated the suite because `fact_checker.verify_content` invokes it as a
+[Phase 3] DeepEval 보조 평가 step on every call. Without an LLM key the
+DeepEval SDK still spends 5-15s per metric on init+timeout. 6 fact_checker
+tests consumed 152s out of 243s total:
+
+| Test | Pre |
+|---|---|
+| test_strict_mode | 41.13s |
+| test_verified_content_passes | 26.52s |
+| test_verify_batch_all_pass | 23.43s |
+| test_accuracy_score_calculation | 22.71s |
+| test_hallucinated_entity_fails | 19.93s |
+| test_verify_batch_mixed_groups | 19.90s |
+
+### Fix
+Env-gated short-circuit `DEEPEVAL_DISABLED` (`1|true|yes`, case-insensitive)
+in `quality_eval.evaluate_content` + autouse test fixture that opts the
+whole suite in. Production default unchanged; opt-in flag for CI/airgapped.
+
+### Validation Evidence
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Total runtime | 242.72s | 102.51s | **-57.7%** (-140s) |
+| Tests passed | 764 | 765 | +1 (new regression test) |
+| Tests skipped | 7 | 7 | — |
+| fact_checker subset | 152s | ~0.5s | -99.7% |
+| ruff | clean | clean | — |
+
+### Files Changed
+- `automation/getdaytrends/quality_eval.py` (+13/-1) — env gate
+- `automation/getdaytrends/tests/conftest.py` (+12/-0) — autouse setenv
+- `automation/getdaytrends/tests/test_quality_eval.py` (+13/-2) — opt-in + regression test
+
+### Commits
+- `cf53319` perf(getdaytrends): gate DeepEval LLM probes, cut test runtime 58%
+
+### Not Done This Pass
+Complexity refactor candidates surfaced by `radon cc --min D` (deferred for
+intentional review): `analyzer._analyze_trends_async` (F), `fact_checker.
+verify_claim_against_source` (F), `scraper._async_collect_trends` (F),
+`config.AppConfig.validate` (E), `notion_builder._build_notion_body` (E),
+`collectors/context_runtime._async_collect_contexts` (E).
+
+---
+
+## 2026-05-20 — Product-Complete Pass: docs + analogy guard + dep floors
+
+### Goal
+Bring getdaytrends to product-complete form per `/goal "제품완성형으로 만들어봐"`: tests/lint green, docs aligned with shortform-only policy, dirty worktree committed.
+
+### Scope
+- Documentation: README / WORKFLOW / OPERATIONS aligned with shortform-only policy (2026-05) — explicit 활성/비활성/3중 가드/QA 페널티/발행 정책 표
+- Content QA: tone scoring now penalizes analogy/metaphor patterns (`마치 / ~같다 / ~처럼 / ~듯 / as if / like a`) by 8, mirrored to system prompts (joongyeon kicks + long_form blog) so the model is told and the QA enforces
+- Dependency hygiene: pyproject lower bounds raised to the versions the green test run actually used (anthropic 0.102, requests 2.34.2, lxml 6.1.1, schedule 1.2.2, notion-client <4.0, google-auth 2.53, uvicorn 0.47, selectolax 0.4.7, deepeval 4.0.2, loguru 0.7.3, cryptography 46.0.7)
+
+### Files Changed (this session)
+- `automation/getdaytrends/content_qa.py` (+ test)
+- `automation/getdaytrends/generation/long_form.py`
+- `automation/getdaytrends/generation/system_prompts.py`
+- `automation/getdaytrends/tests/test_content_qa_scoring.py`
+- `automation/getdaytrends/pyproject.toml`
+- `automation/getdaytrends/README.md`
+- `automation/getdaytrends/WORKFLOW.md`
+- `automation/getdaytrends/OPERATIONS.md`
+
+### Validation Evidence
+```powershell
+uv run --package getdaytrends pytest automation\getdaytrends\tests -q --tb=short
+uv run --package getdaytrends ruff check automation\getdaytrends
+```
+- pytest: **764 passed, 7 skipped** (kiwipiepy/scrapling optional extras), 5m17s
+- ruff: **All checks passed!**
+- git worktree (getdaytrends/): clean after 3 logical commits
+
+### Commits
+- `48109f1` feat(getdaytrends): tone QA blocks analogy/metaphor phrasing
+- `e5585a2` chore(getdaytrends): bump dep floors to match installed environment
+- `6fe16ed` docs(getdaytrends): align README/WORKFLOW/OPERATIONS with shortform-only
+
+### Residual Risk
+- LF→CRLF warnings are workspace-wide (autocrlf=true on Windows) and not new to this pass
+- Branch is `ci/verify-quality-gate` (not main); push left to operator per workspace policy (manual publishing rule)
+
+---
+
+## 2026-05-19 - Runtime Repair + Source Starvation QC
+
+### Scope
+- Repaired getdaytrends runtime startup after missing package dependencies broke `main.py`
+- Fixed source-quality starvation where `news`, `reddit`, and `twitter` could all be skipped from stale/low-quality history, leaving trends with empty context and zero publishable output
+- Hardened scheduler logging so detail logs are written as UTF-8 and summary-log file locks do not fail a run
+- Fixed full test collection path so tests can import the workspace `shared` package
+
+### Files Checked
+- `collectors/context.py`
+- `collectors/context_runtime.py`
+- `pyproject.toml`
+- `run_scheduled_getdaytrends.ps1`
+- `tests/conftest.py`
+- `tests/test_context_global_timeout.py`
+
+### QC Checks
+- Dependency sync:
+  - `uv sync --package getdaytrends --extra dev`
+  - Result: passed
+- Targeted regression suite:
+  - `python -m pytest tests/test_context_global_timeout.py tests/test_main.py tests/test_scraper.py tests/test_v15_zero_content.py -q`
+  - Result: `55 passed`
+- Full getdaytrends suite:
+  - `python -m pytest tests -q`
+  - Result: `761 passed, 7 skipped`
+- Runtime smoke:
+  - `python main.py --one-shot --dry-run --limit 2 --no-alerts --verbose`
+  - Result: passed (`exit code 0`)
+- Scheduler wrapper smoke:
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run_scheduled_getdaytrends.ps1 -Limit 1 -DryRun`
+  - Result: passed (`exit code 0`)
+  - Latest detail log confirmed `[SUCCESS] GetDayTrends scheduled run completed`
+
+### Review Notes
+- Root cause 1: `schedule`, `sqlalchemy`, `pytest_asyncio`, and PostgreSQL driver coverage were missing from the active synced environment/package metadata.
+- Root cause 2: source-quality filtering treated low quality alone as a skip signal. A source is now skipped only after enough samples plus both low quality and low success rate; otherwise it remains active with shorter timeouts.
+- Dry-run now collects deep context instead of skipping all context sources. Low-confidence or unsafe trends can still be filtered, but the pipeline is no longer starved by its own history.
+- Scheduler detail logs are now reliable even when the shared `run_scheduled.log` is locked by another process.
+
+### Residual Risks
+- Current `.env` still contains a Supabase `DATABASE_URL` that is rejected by the remote server; runs fall back to local SQLite.
+- Current Gemini key is reported as leaked and embedding calls are disabled for the session; pipeline continues with fallback behavior.
+- Some summary-log writes may be skipped while `run_scheduled.log` is externally locked, but detail logs preserve the run record.
+
+### Status
+- QC passed
+- Recorded after dependency sync, full test verification, direct dry-run, and scheduler wrapper smoke
+
+---
+
 ## 2026-04-14 - Content Quality Retry Feedback QC
 
 ### Scope

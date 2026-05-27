@@ -21,15 +21,15 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 # ── 재학습 정책 ──────────────────────────────────────────
 
-RETRAIN_INTERVAL_DAYS = 7       # 최소 재학습 간격
-MIN_NEW_SAMPLES = 20            # 새 데이터 최소 건수
+RETRAIN_INTERVAL_DAYS = 7  # 최소 재학습 간격
+MIN_NEW_SAMPLES = 20  # 새 데이터 최소 건수
 MODEL_DIR_DEFAULT = "var/models/prediction"
 
 
@@ -39,10 +39,12 @@ def _workspace_root() -> Path:
 
 
 def _model_dir() -> Path:
-    return Path(os.environ.get(
-        "PEE_MODEL_DIR",
-        str(_workspace_root() / MODEL_DIR_DEFAULT),
-    ))
+    return Path(
+        os.environ.get(
+            "PEE_MODEL_DIR",
+            str(_workspace_root() / MODEL_DIR_DEFAULT),
+        )
+    )
 
 
 def _needs_retrain() -> tuple[bool, str]:
@@ -105,15 +107,13 @@ async def retrain(force: bool = False) -> dict:
     # API 싱글톤 무효화 (다음 요청에서 새 모델 로드)
     try:
         from .api import invalidate_engine
+
         invalidate_engine()
     except ImportError:
         pass
 
     if metrics:
-        log.info(
-            f"[PEE Retrain] 완료: R²={metrics.r2:.4f}, MAE={metrics.mae:.4f}, "
-            f"N={metrics.sample_count}"
-        )
+        log.info(f"[PEE Retrain] 완료: R²={metrics.r2:.4f}, MAE={metrics.mae:.4f}, N={metrics.sample_count}")
         return {
             "retrained": True,
             "reason": reason,
@@ -140,6 +140,7 @@ async def maybe_retrain() -> dict:
 
 
 # ── CLI ──────────────────────────────────────────────────
+
 
 def main():
     import argparse

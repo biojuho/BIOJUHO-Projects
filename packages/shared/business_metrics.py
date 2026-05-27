@@ -18,6 +18,8 @@ All counters are no-ops when prometheus_client is not installed.
 
 from __future__ import annotations
 
+from typing import Any
+
 try:
     from prometheus_client import Counter, Histogram
 
@@ -29,10 +31,21 @@ except ImportError:
 class _BusinessMetrics:
     """Lazy-initialized Prometheus business metrics."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._initialized = False
+        self._llm_requests: Any = None
+        self._llm_tokens: Any = None
+        self._llm_cost: Any = None
+        self._llm_latency: Any = None
+        self._trends_scored: Any = None
+        self._tweets_published: Any = None
+        self._qr_scans: Any = None
+        self._verifications: Any = None
+        self._rfp_matches: Any = None
+        self._rfp_analyses: Any = None
+        self._proposals_generated: Any = None
 
-    def _ensure(self):
+    def _ensure(self) -> None:
         if self._initialized or not _PROM:
             return
         self._initialized = True

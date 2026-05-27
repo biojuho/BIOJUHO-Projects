@@ -24,17 +24,18 @@ Usage::
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime  # noqa: UTC requires Python 3.11+
-from typing import Any, Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from ..constitution import Constitution
 from ..core import HarnessConfig, HarnessWrapper
+from ..sandbox.docker_runner import DockerSandboxRunner, SandboxResult
 from ..sandbox.policy import (
     ToolPermissionLevel,
     get_sandbox_policy,
     get_tool_level,
 )
-from ..sandbox.docker_runner import DockerSandboxRunner, SandboxResult
 from .base import AbstractHarnessAdapter, AdapterResult
 
 logger = logging.getLogger(__name__)
@@ -55,9 +56,9 @@ class NativeHarnessAdapter(AbstractHarnessAdapter):
         self,
         constitution: Constitution,
         *,
-        tool_executor: Optional[ToolExecutor] = None,
-        hitl_callback: Optional[Callable[[str, Any], Awaitable[bool]]] = None,
-        sandbox_runner: Optional[DockerSandboxRunner] = None,
+        tool_executor: ToolExecutor | None = None,
+        hitl_callback: Callable[[str, Any], Awaitable[bool]] | None = None,
+        sandbox_runner: DockerSandboxRunner | None = None,
         tool_level_overrides: dict[str, ToolPermissionLevel] | None = None,
     ):
         config = HarnessConfig(
@@ -112,11 +113,13 @@ class NativeHarnessAdapter(AbstractHarnessAdapter):
             if policy.sandbox and command:
                 # Run governance checks only (permission, risk, budget)
                 # using a sandbox-aware executor that delegates to Docker
-                async def _sandbox_executor(tn: str, ti: Any) -> dict:
-                    return (await self._sandbox_runner.run(
-                        command=command,
-                        policy=policy,
-                    )).__dict__
+                async def _sandbox_executor(tn: str, ti: Any) -> dict[str, Any]:
+                    return (
+                        await self._sandbox_runner.run(
+                            command=command,
+                            policy=policy,
+                        )
+                    ).__dict__
 
                 sandbox_raw = await self._harness.execute_tool(
                     tool_name,
@@ -127,8 +130,7 @@ class NativeHarnessAdapter(AbstractHarnessAdapter):
                 sandbox_result = SandboxResult(**sandbox_raw)
 
                 trace_entry["result_summary"] = (
-                    f"sandbox:{sandbox_result.execution_method} "
-                    f"exit={sandbox_result.exit_code}"
+                    f"sandbox:{sandbox_result.execution_method} exit={sandbox_result.exit_code}"
                 )
                 trace_entry["sandbox_timed_out"] = sandbox_result.timed_out
                 self._trace.append(trace_entry)
@@ -259,9 +261,11 @@ class NativeHarnessAdapter(AbstractHarnessAdapter):
     def get_session_summary(self) -> dict[str, Any]:
         """Merge HarnessWrapper summary with adapter-level stats."""
         base = self._harness.get_session_summary()
-        base.update({
-            "subagents_spawned": self._subagent_count,
-            "trace_entries": len(self._trace),
-            "adapter_type": "native",
-        })
+        base.update(
+            {
+                "subagents_spawned": self._subagent_count,
+                "trace_entries": len(self._trace),
+                "adapter_type": "native",
+            }
+        )
         return base

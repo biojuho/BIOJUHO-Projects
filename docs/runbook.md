@@ -55,11 +55,12 @@ python main.py --one-shot --verbose --dry-run
 
 #### DeSci Backend 응답 없음
 ```bash
-# Docker 환경
-docker compose -f docker-compose.dev.yml restart desci-backend
+# Docker 환경 (compose 서비스명은 'biolinker')
+cd apps/desci-platform
+docker compose restart biolinker
 
 # 로컬 환경
-cd desci-platform/biolinker
+cd apps/desci-platform/biolinker
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 

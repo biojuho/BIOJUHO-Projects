@@ -8,16 +8,12 @@ Tests cover:
 
 from __future__ import annotations
 
-import os
 import textwrap
-from pathlib import Path
 
 import pytest
 
 from shared.intelligence.code_graph import (
     CodeGraphStore,
-    FileParseResult,
-    GraphNode,
     ImpactResult,
     PythonASTParser,
     _file_hash,
@@ -29,7 +25,6 @@ from shared.intelligence.impact_analyzer import (
     ImpactAnalyzer,
     _classify_risk,
 )
-
 
 # ── Fixtures ──
 
@@ -227,11 +222,11 @@ class TestCodeGraphStore:
     async def test_incremental_skip(self, tmp_repo):
         """Re-indexing unchanged file should skip."""
         async with CodeGraphStore(tmp_repo) as graph:
-            r1 = await graph.index_file("shared/utils.py")
+            await graph.index_file("shared/utils.py")
             stats1 = await graph.get_stats()
 
             # Re-index same file — should skip (same hash)
-            r2 = await graph.index_file("shared/utils.py")
+            await graph.index_file("shared/utils.py")
             stats2 = await graph.get_stats()
 
             assert stats1["nodes"] == stats2["nodes"]
@@ -245,7 +240,8 @@ class TestCodeGraphStore:
 
             # Modify file
             (tmp_repo / "shared" / "utils.py").write_text(
-                "def new_func():\n    return 99\n", encoding="utf-8",
+                "def new_func():\n    return 99\n",
+                encoding="utf-8",
             )
 
             await graph.index_file("shared/utils.py")

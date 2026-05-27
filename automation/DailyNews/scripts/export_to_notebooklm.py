@@ -176,7 +176,7 @@ async def upload_to_notebooklm(
         try:
             result = await client.chat.ask(
                 nb.id,
-                "오늘의 전체 뉴스를 종합 분석해줘. " "카테고리별 핵심 이슈와 카테고리 간 연결 패턴을 정리해줘.",
+                "오늘의 전체 뉴스를 종합 분석해줘. 카테고리별 핵심 이슈와 카테고리 간 연결 패턴을 정리해줘.",
             )
             summary = result.answer if result else ""
             print(f"[INFO] AI summary: {len(summary)} chars", flush=True)

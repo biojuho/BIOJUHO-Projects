@@ -25,12 +25,12 @@ class ArbitrageOpportunity:
     """하나의 교차국가 차익거래 기회를 나타냄."""
 
     keyword: str
-    source_country: str         # 이미 트렌딩 중인 국가
-    target_countries: list[str] # 아직 안 뜬 국가들
-    viral_score: int = 0        # 원본 국가에서의 viral_potential
-    time_gap_hours: float = 0.0 # source 국가에서 첫 감지 이후 경과 시간
-    source_count: int = 1       # 원본에서 감지된 소스 개수
-    priority: float = 0.0       # 선점 우선순위 (높을수록 좋음)
+    source_country: str  # 이미 트렌딩 중인 국가
+    target_countries: list[str]  # 아직 안 뜬 국가들
+    viral_score: int = 0  # 원본 국가에서의 viral_potential
+    time_gap_hours: float = 0.0  # source 국가에서 첫 감지 이후 경과 시간
+    source_count: int = 1  # 원본에서 감지된 소스 개수
+    priority: float = 0.0  # 선점 우선순위 (높을수록 좋음)
     detected_at: datetime = field(default_factory=datetime.now)
 
     def to_prompt_hint(self) -> str:
@@ -47,6 +47,7 @@ class ArbitrageOpportunity:
 # ══════════════════════════════════════════════════════
 #  Similarity helpers
 # ══════════════════════════════════════════════════════
+
 
 def _normalize_keyword(kw: str) -> str:
     """비교를 위한 키워드 정규화 (소문자, 공백 제거, ASCII-only stripped)."""
@@ -66,8 +67,8 @@ def _is_same_topic(kw_a: str, kw_b: str, threshold: float = 0.8) -> bool:
         return True
     # Jaccard character n-gram (bigram) similarity
     if len(na) >= 2 and len(nb) >= 2:
-        bigrams_a = {na[i:i + 2] for i in range(len(na) - 1)}
-        bigrams_b = {nb[i:i + 2] for i in range(len(nb) - 1)}
+        bigrams_a = {na[i : i + 2] for i in range(len(na) - 1)}
+        bigrams_b = {nb[i : i + 2] for i in range(len(nb) - 1)}
         if not bigrams_a or not bigrams_b:
             return False
         jaccard = len(bigrams_a & bigrams_b) / len(bigrams_a | bigrams_b)
@@ -78,6 +79,7 @@ def _is_same_topic(kw_a: str, kw_b: str, threshold: float = 0.8) -> bool:
 # ══════════════════════════════════════════════════════
 #  Core Detector
 # ══════════════════════════════════════════════════════
+
 
 class TrendArbitrageDetector:
     """교차국가 트렌드 시차 감지기."""
@@ -161,8 +163,7 @@ class TrendArbitrageDetector:
 
                     # 정확 매치 또는 유사 매치가 없으면 arbitrage 기회
                     found = any(
-                        _is_same_topic(keyword, tk, self.DEFAULT_SIMILARITY_THRESHOLD)
-                        for tk in target_keywords
+                        _is_same_topic(keyword, tk, self.DEFAULT_SIMILARITY_THRESHOLD) for tk in target_keywords
                     )
                     if not found:
                         missing_in.append(target_country)
@@ -193,14 +194,16 @@ class TrendArbitrageDetector:
                 country_factor = len(missing_in) / max(len(active_countries) - 1, 1)
                 priority = viral * 0.5 + time_factor * 30 + country_factor * 20
 
-                opportunities.append(ArbitrageOpportunity(
-                    keyword=keyword,
-                    source_country=source_country,
-                    target_countries=missing_in,
-                    viral_score=viral,
-                    time_gap_hours=round(time_gap, 1),
-                    priority=round(priority, 1),
-                ))
+                opportunities.append(
+                    ArbitrageOpportunity(
+                        keyword=keyword,
+                        source_country=source_country,
+                        target_countries=missing_in,
+                        viral_score=viral,
+                        time_gap_hours=round(time_gap, 1),
+                        priority=round(priority, 1),
+                    )
+                )
 
         # Deduplicate: 같은 키워드가 여러 source_country에서 잡히면 priority 최대값만 유지
         best: dict[str, ArbitrageOpportunity] = {}
@@ -210,7 +213,7 @@ class TrendArbitrageDetector:
                 best[nk] = opp
 
         sorted_opps = sorted(best.values(), key=lambda o: o.priority, reverse=True)
-        return sorted_opps[:self.MAX_OPPORTUNITIES]
+        return sorted_opps[: self.MAX_OPPORTUNITIES]
 
 
 def _time_priority_factor(hours: float) -> float:

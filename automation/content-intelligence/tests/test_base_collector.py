@@ -14,6 +14,7 @@ for p in (_CIE_DIR, _WORKSPACE_ROOT, _WORKSPACE_ROOT / "packages"):
         sys.path.insert(0, str(p))
 
 from collectors.base import _parse_json_response, _tier_from_str
+
 from shared.llm import TaskTier
 
 

@@ -167,8 +167,7 @@ class TokenBudget:
         """
         if self._used_tokens + estimated > self.max_tokens:
             raise TokenBudgetExceededError(
-                f"Token budget exceeded: {self._used_tokens + estimated:,} > "
-                f"{self.max_tokens:,} (tool: {tool_name})",
+                f"Token budget exceeded: {self._used_tokens + estimated:,} > {self.max_tokens:,} (tool: {tool_name})",
                 used=self._used_tokens,
                 limit=self.max_tokens,
                 tool_name=tool_name,

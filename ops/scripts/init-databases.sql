@@ -13,6 +13,12 @@ GRANT ALL PRIVILEGES ON DATABASE agriguard TO postgres;
 -- CREATE DATABASE dailynews;
 -- GRANT ALL PRIVILEGES ON DATABASE dailynews TO postgres;
 
+-- Observability stack (Phase 1 MVP — only used when --profile observability is active)
+CREATE DATABASE langfuse;
+GRANT ALL PRIVILEGES ON DATABASE langfuse TO postgres;
+CREATE DATABASE litellm;
+GRANT ALL PRIVILEGES ON DATABASE litellm TO postgres;
+
 \c biolinker;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";  -- For text search optimization

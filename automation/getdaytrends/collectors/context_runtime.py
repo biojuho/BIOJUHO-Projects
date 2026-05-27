@@ -8,9 +8,9 @@ import time
 import httpx
 
 try:
-    from . import context as context_mod
     from ..config import AppConfig
     from ..models import MultiSourceContext, RawTrend, TrendSource
+    from . import context as context_mod
 except ImportError:
     import collectors.context as context_mod
     from config import AppConfig
@@ -39,13 +39,22 @@ async def _async_collect_contexts(
                 from db import get_source_quality_summary
 
             quality_summary = await get_source_quality_summary(conn, days=7)
+            min_calls_to_skip = getattr(config, "min_source_quality_calls", 5)
             for source_name, stats in quality_summary.items():
                 avg_quality = stats.get("avg_quality_score", 0.5)
                 success_rate = stats.get("success_rate", 100.0)
-                if avg_quality < 0.3 and source_name in sources:
+                total_calls = stats.get("total_calls", 0)
+                if (
+                    source_name in sources
+                    and total_calls >= min_calls_to_skip
+                    and avg_quality < 0.3
+                    and success_rate < 40
+                ):
                     skip_sources.add(source_name)
                     context_mod.log.info(
-                        f"  [B-3 quality filter] '{source_name}' skipped (avg={avg_quality:.2f} < 0.3)"
+                        "  [B-3 quality filter] "
+                        f"'{source_name}' skipped "
+                        f"(calls={total_calls}, success={success_rate:.1f}%, avg={avg_quality:.2f})"
                     )
                 elif source_name in sources:
                     if avg_quality >= 0.7 and success_rate >= 80:

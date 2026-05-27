@@ -288,7 +288,7 @@ class CostAnalyzer:
                 suggestions.append(
                     OptimizationSuggestion(
                         category="모델 다운그레이드",
-                        description=(f"{m.model} ({m.calls}회, ${m.total_cost:.4f}) -> " f"{alts[0]} 전환 검토"),
+                        description=(f"{m.model} ({m.calls}회, ${m.total_cost:.4f}) -> {alts[0]} 전환 검토"),
                         estimated_saving=m.total_cost * 0.5 / max(report.period_days, 1),
                         priority="high" if m.total_cost > 0.5 else "medium",
                     )

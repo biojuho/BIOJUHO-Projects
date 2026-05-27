@@ -33,9 +33,11 @@ log = logging.getLogger("shared.llm.context_map")
 # Symbol data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Symbol:
     """A code symbol (function, class, method) extracted from AST."""
+
     name: str
     kind: str  # "function", "class", "method", "import"
     file_path: str  # relative to project root
@@ -49,6 +51,7 @@ class Symbol:
 @dataclass
 class SymbolIndex:
     """Index of all symbols in a project."""
+
     symbols: list[Symbol] = field(default_factory=list)
     file_summaries: dict[str, str] = field(default_factory=dict)  # file -> module docstring
     build_time_ms: float = 0.0
@@ -62,12 +65,27 @@ class SymbolIndex:
 # AST-based file parser
 # ---------------------------------------------------------------------------
 
-_SKIP_DIRS = frozenset({
-    "__pycache__", ".git", ".venv", "venv", "node_modules",
-    ".pytest_cache", ".ruff_cache", ".mypy_cache", "dist",
-    "build", ".egg-info", ".tox", "archive", ".sessions",
-    ".smoke-basetemp", ".smoke-tmp", "var",
-})
+_SKIP_DIRS = frozenset(
+    {
+        "__pycache__",
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".mypy_cache",
+        "dist",
+        "build",
+        ".egg-info",
+        ".tox",
+        "archive",
+        ".sessions",
+        ".smoke-basetemp",
+        ".smoke-tmp",
+        "var",
+    }
+)
 
 _MAX_FILE_SIZE = 100_000  # Skip files larger than 100KB
 
@@ -154,46 +172,54 @@ def parse_python_file(file_path: Path, project_root: Path) -> list[Symbol]:
 
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            symbols.append(Symbol(
-                name=node.name,
-                kind="function",
-                file_path=rel_path,
-                line_number=node.lineno,
-                signature=_format_signature(node),
-                docstring=_extract_docstring(node),
-            ))
+            symbols.append(
+                Symbol(
+                    name=node.name,
+                    kind="function",
+                    file_path=rel_path,
+                    line_number=node.lineno,
+                    signature=_format_signature(node),
+                    docstring=_extract_docstring(node),
+                )
+            )
         elif isinstance(node, ast.ClassDef):
             class_doc = _extract_docstring(node)
-            symbols.append(Symbol(
-                name=node.name,
-                kind="class",
-                file_path=rel_path,
-                line_number=node.lineno,
-                signature=f"class {node.name}",
-                docstring=class_doc,
-            ))
+            symbols.append(
+                Symbol(
+                    name=node.name,
+                    kind="class",
+                    file_path=rel_path,
+                    line_number=node.lineno,
+                    signature=f"class {node.name}",
+                    docstring=class_doc,
+                )
+            )
             # Extract methods
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
                     not item.name.startswith("_") or item.name == "__init__"
                 ):
-                    symbols.append(Symbol(
-                        name=item.name,
-                        kind="method",
-                        file_path=rel_path,
-                        line_number=item.lineno,
-                        signature=_format_signature(item),
-                        docstring=_extract_docstring(item),
-                        parent_class=node.name,
-                    ))
+                    symbols.append(
+                        Symbol(
+                            name=item.name,
+                            kind="method",
+                            file_path=rel_path,
+                            line_number=item.lineno,
+                            signature=_format_signature(item),
+                            docstring=_extract_docstring(item),
+                            parent_class=node.name,
+                        )
+                    )
         elif isinstance(node, ast.ImportFrom) and node.module:
             # Track from-imports for dependency mapping
-            symbols.append(Symbol(
-                name=node.module,
-                kind="import",
-                file_path=rel_path,
-                line_number=node.lineno,
-            ))
+            symbols.append(
+                Symbol(
+                    name=node.module,
+                    kind="import",
+                    file_path=rel_path,
+                    line_number=node.lineno,
+                )
+            )
 
     return symbols
 
@@ -201,6 +227,7 @@ def parse_python_file(file_path: Path, project_root: Path) -> list[Symbol]:
 # ---------------------------------------------------------------------------
 # Symbol index builder
 # ---------------------------------------------------------------------------
+
 
 def build_symbol_index(
     project_root: Path,
@@ -247,11 +274,40 @@ def build_symbol_index(
 # ---------------------------------------------------------------------------
 
 # [QA 수정] 모듈 레벨 상수로 이동 — _tokenize_query 호출마다 재생성 방지
-_STOPWORDS: frozenset[str] = frozenset({
-    "the", "a", "an", "is", "are", "to", "of", "in", "for", "and", "or",
-    "에", "은", "는", "이", "가", "를", "을", "와", "과", "의", "로", "으로",
-    "에서", "으", "해", "하", "해서", "하고", "수",
-})
+_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "to",
+        "of",
+        "in",
+        "for",
+        "and",
+        "or",
+        "에",
+        "은",
+        "는",
+        "이",
+        "가",
+        "를",
+        "을",
+        "와",
+        "과",
+        "의",
+        "로",
+        "으로",
+        "에서",
+        "으",
+        "해",
+        "하",
+        "해서",
+        "하고",
+        "수",
+    }
+)
 
 
 def _tokenize_query(query: str) -> set[str]:
@@ -378,6 +434,7 @@ def format_context(
 # ---------------------------------------------------------------------------
 # Main interface
 # ---------------------------------------------------------------------------
+
 
 class ContextMap:
     """AST-based code map for selective context injection into LLM prompts.

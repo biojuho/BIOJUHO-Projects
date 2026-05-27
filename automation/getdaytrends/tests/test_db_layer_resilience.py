@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from tests.conftest import make_scored_trend
 
@@ -33,14 +33,16 @@ class TestIsDuplicateTrendRedisResilience:
     @pytest.mark.asyncio
     async def test_redis_exists_error_falls_back_to_db(self, memory_db):
         """Redis.exists()가 예외를 던져도 DB 조회로 fallback하여 False 반환."""
-        from db_layer.trend_repository import is_duplicate_trend, save_trend
+        from db_layer.trend_repository import is_duplicate_trend
 
         # DB에 트렌드가 없으므로 False 기대
         failing_cache = AsyncMock()
         failing_cache.exists = AsyncMock(side_effect=ConnectionError("Redis down"))
 
-        with patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache), \
-             patch("db_layer.trend_repository._redis_enabled", return_value=True):
+        with (
+            patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache),
+            patch("db_layer.trend_repository._redis_enabled", return_value=True),
+        ):
             result = await is_duplicate_trend(memory_db, "AI뉴스", 50000)
 
         assert result is False
@@ -59,8 +61,10 @@ class TestIsDuplicateTrendRedisResilience:
         failing_cache = AsyncMock()
         failing_cache.exists = AsyncMock(side_effect=ConnectionError("Redis down"))
 
-        with patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache), \
-             patch("db_layer.trend_repository._redis_enabled", return_value=True):
+        with (
+            patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache),
+            patch("db_layer.trend_repository._redis_enabled", return_value=True),
+        ):
             result = await is_duplicate_trend(memory_db, "AI뉴스", 50000)
 
         assert result is True
@@ -80,8 +84,10 @@ class TestIsDuplicateTrendRedisResilience:
         failing_cache.exists = AsyncMock(return_value=False)
         failing_cache.set = AsyncMock(side_effect=ConnectionError("Redis write failed"))
 
-        with patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache), \
-             patch("db_layer.trend_repository._redis_enabled", return_value=True):
+        with (
+            patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache),
+            patch("db_layer.trend_repository._redis_enabled", return_value=True),
+        ):
             result = await is_duplicate_trend(memory_db, "블록체인", 30000)
 
         assert result is True
@@ -103,13 +109,16 @@ class TestGetCachedScoreRedisResilience:
 
         # fingerprint 계산
         from db_layer import compute_fingerprint
+
         fp = compute_fingerprint("테스트키워드", 10000, 5000)
 
         failing_cache = AsyncMock()
         failing_cache.get = AsyncMock(side_effect=TimeoutError("Redis timeout"))
 
-        with patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache), \
-             patch("db_layer.trend_repository._redis_enabled", return_value=True):
+        with (
+            patch("db_layer.trend_repository._get_cache_client", return_value=failing_cache),
+            patch("db_layer.trend_repository._redis_enabled", return_value=True),
+        ):
             result = await get_cached_score(memory_db, fp)
 
         assert result is not None
@@ -118,8 +127,8 @@ class TestGetCachedScoreRedisResilience:
     @pytest.mark.asyncio
     async def test_corrupted_cache_type_falls_back_to_db(self, memory_db):
         """캐시에 dict가 아닌 타입이 저장된 경우 DB에서 재조회."""
-        from db_layer.trend_repository import get_cached_score, save_trend
         from db_layer import compute_fingerprint
+        from db_layer.trend_repository import get_cached_score, save_trend
 
         await _insert_run(memory_db, run_id=1)
         trend = make_scored_trend(keyword="오염테스트")
@@ -133,8 +142,10 @@ class TestGetCachedScoreRedisResilience:
         corrupted_cache = AsyncMock()
         corrupted_cache.get = AsyncMock(return_value="not-a-dict")
 
-        with patch("db_layer.trend_repository._get_cache_client", return_value=corrupted_cache), \
-             patch("db_layer.trend_repository._redis_enabled", return_value=True):
+        with (
+            patch("db_layer.trend_repository._get_cache_client", return_value=corrupted_cache),
+            patch("db_layer.trend_repository._redis_enabled", return_value=True),
+        ):
             result = await get_cached_score(memory_db, fp)
 
         assert result is not None
@@ -195,8 +206,10 @@ class TestGetCachedContentRedisResilience:
         failing_cache = AsyncMock()
         failing_cache.get = AsyncMock(side_effect=ConnectionError("Redis down"))
 
-        with patch("db_layer.tweet_repository._get_cache_client", return_value=failing_cache), \
-             patch("db_layer.tweet_repository._redis_enabled", return_value=True):
+        with (
+            patch("db_layer.tweet_repository._get_cache_client", return_value=failing_cache),
+            patch("db_layer.tweet_repository._redis_enabled", return_value=True),
+        ):
             result = await get_cached_content(memory_db, "nonexistent_fp")
 
         assert result is None  # DB에도 없으므로 None
@@ -209,8 +222,10 @@ class TestGetCachedContentRedisResilience:
         corrupted_cache = AsyncMock()
         corrupted_cache.get = AsyncMock(return_value="not-a-list")
 
-        with patch("db_layer.tweet_repository._get_cache_client", return_value=corrupted_cache), \
-             patch("db_layer.tweet_repository._redis_enabled", return_value=True):
+        with (
+            patch("db_layer.tweet_repository._get_cache_client", return_value=corrupted_cache),
+            patch("db_layer.tweet_repository._redis_enabled", return_value=True),
+        ):
             result = await get_cached_content(memory_db, "some_fp")
 
         assert result is None  # DB에도 없으므로 None

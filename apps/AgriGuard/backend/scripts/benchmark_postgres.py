@@ -1,3 +1,4 @@
+# ruff: noqa: S608  # table names are interpolated from a hardcoded constant tuple, not user input
 """AgriGuard — SQLite vs PostgreSQL Performance Benchmark.
 
 Usage:
@@ -204,7 +205,8 @@ def render_markdown(sqlite_results: list[dict], pg_results: list[dict] | None, i
             speedup = sq["avg_ms"] / pq["avg_ms"] if pq["avg_ms"] > 0 else float("inf")
             sign = "[+]" if speedup > 1 else "[-]"
             lines.append(
-                f"| {sq['query']} | {sq['category']} | {sq['avg_ms']:.2f} | {pq['avg_ms']:.2f} | {sign} {speedup:.1f}x |"
+                f"| {sq['query']} | {sq['category']} | {sq['avg_ms']:.2f} | "
+                f"{pq['avg_ms']:.2f} | {sign} {speedup:.1f}x |"
             )
     else:
         lines.extend(
@@ -237,9 +239,9 @@ def main() -> int:
         print(f"[ERROR] SQLite database not found: {args.sqlite_db}")
         return 1
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("AgriGuard Database Performance Benchmark")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # SQLite benchmark
     sqlite_url = f"sqlite:///{args.sqlite_db}"

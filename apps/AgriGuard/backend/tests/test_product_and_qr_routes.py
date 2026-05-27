@@ -1,3 +1,4 @@
+# ruff: noqa: N806  # TestingSessionLocal follows SQLAlchemy naming convention
 from __future__ import annotations
 
 import json
@@ -211,7 +212,10 @@ def test_add_tracking_event_returns_500_without_chain_log_when_commit_fails(clie
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Tracking event failed: database unavailable"}
-    assert db_session.query(models.TrackingEvent).filter(models.TrackingEvent.product_id == "product-track-fail").count() == 0
+    assert (
+        db_session.query(models.TrackingEvent).filter(models.TrackingEvent.product_id == "product-track-fail").count()
+        == 0
+    )
     mock_chain.log_event.assert_not_called()
 
 
@@ -304,7 +308,9 @@ def test_add_certification_returns_500_and_rolls_back_when_commit_fails(client, 
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Certification failed: database unavailable"}
-    assert db_session.query(models.Certificate).filter(models.Certificate.product_id == "product-cert-fail").count() == 0
+    assert (
+        db_session.query(models.Certificate).filter(models.Certificate.product_id == "product-cert-fail").count() == 0
+    )
     mock_chain.log_event.assert_not_called()
 
 

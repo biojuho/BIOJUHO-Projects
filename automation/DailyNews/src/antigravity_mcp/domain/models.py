@@ -60,10 +60,10 @@ class GeneratedPayload:
     def as_legacy_tuple(self) -> tuple[list[str], list[str], list[ChannelDraft]]:
         return self.summary_lines, self.insights, self.channel_drafts
 
-    def __iter__(self):
+    def __iter__(self) -> object:
         return iter(self.as_legacy_tuple())
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> object:
         return self.as_legacy_tuple()[index]
 
 
@@ -101,6 +101,13 @@ class ContentReport:
             return "notion_synced"
         raw_status = str(self.status or "draft").strip()
         return raw_status or "draft"
+
+    @property
+    def category_label(self) -> str:
+        """Korean reader-facing label for the internal English category key."""
+        from antigravity_mcp.integrations.llm_prompts import category_label
+
+        return category_label(self.category)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -184,7 +191,7 @@ class SubscriberPreference:
     preferred_format: str = "mixed"  # mixed | text_only | visual
     timezone_offset: int = 9  # KST default
 
-    def matches_report(self, report: "ContentReport") -> bool:
+    def matches_report(self, report: ContentReport) -> bool:
         """Check if a report matches this subscriber's preferences."""
         if not self.categories:
             return True  # No preference = get everything

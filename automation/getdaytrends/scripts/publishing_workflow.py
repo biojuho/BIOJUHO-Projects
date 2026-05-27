@@ -168,7 +168,9 @@ def promote_drafts_to_ready(min_viral_score: int = 60) -> None:
         print(f"promoted: {title}")
 
 
-async def _sync_review_decision(draft_id: str, decision: str, reviewed_by: str, review_note: str, db_path: str, database_url: str) -> None:
+async def _sync_review_decision(
+    draft_id: str, decision: str, reviewed_by: str, review_note: str, db_path: str, database_url: str
+) -> None:
     from db import get_connection, init_db, save_review_decision
 
     conn = await get_connection(db_path, database_url=database_url)
@@ -368,7 +370,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--collector-status", type=str, default="manual")
     parser.add_argument("--strategy-notes", type=str, default="")
     parser.add_argument("--min-score", type=int, default=60)
-    parser.add_argument("--db-path", type=str, default=str((__import__("pathlib").Path(__file__).resolve().parents[1] / "data" / "getdaytrends.db")))
+    parser.add_argument(
+        "--db-path",
+        type=str,
+        default=str(__import__("pathlib").Path(__file__).resolve().parents[1] / "data" / "getdaytrends.db"),
+    )
     parser.add_argument("--database-url", type=str, default=os.getenv("DATABASE_URL", ""))
     parser.add_argument("--dashboard", action="store_true")
     return parser

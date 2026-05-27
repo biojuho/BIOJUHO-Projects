@@ -18,7 +18,10 @@ import asyncio
 import hashlib
 import math
 import os
+from collections.abc import Callable
+from typing import Any, cast
 
+log: Any
 try:
     from loguru import logger as log
 except ImportError:
@@ -80,7 +83,7 @@ def _is_auth_error(exc: Exception) -> bool:
     return any(marker in message for marker in markers)
 
 
-def _get_genai_client():
+def _get_genai_client() -> Any | None:
     """google-genai Client 싱글턴 (lazy init)."""
     global _client
     if _client_disabled_reason:
@@ -163,7 +166,7 @@ def embed_texts(
         log.debug(f"[임베딩 캐시] {cache_hits}/{len(texts)} 히트")
 
     if not miss_indices:
-        return results  # type: ignore[return-value]
+        return cast("list[list[float]]", results)
 
     # 미스된 텍스트만 API 호출
     miss_texts = [texts[i] for i in miss_indices]
@@ -197,7 +200,7 @@ def embed_texts(
                 del _EMBED_CACHE[k]
 
         log.debug(f"[임베딩] {len(miss_texts)}개 API 호출 + {cache_hits}개 캐시 → 총 {len(texts)}개 완료")
-        return results  # type: ignore[return-value]
+        return cast("list[list[float]]", results)
 
     except Exception as e:
         if _is_auth_error(e):
@@ -258,7 +261,7 @@ def compute_similarity_matrix(vectors: list[list[float]]) -> list[list[float]]:
 def deduplicate_texts(
     texts: list[str],
     threshold: float = 0.80,
-    key_fn=None,
+    key_fn: Callable[[str], str] | None = None,
 ) -> list[int]:
     """
     의미적으로 중복되는 텍스트를 제거하고 고유 인덱스 반환.
@@ -294,7 +297,7 @@ def deduplicate_texts(
         for j in selected:
             sim = cosine_similarity(vectors[i], vectors[j])
             if sim >= threshold:
-                log.debug(f"[중복 제거] '{texts[i][:30]}' ↔ '{texts[j][:30]}' " f"= {sim:.3f} ≥ {threshold} → 제거")
+                log.debug(f"[중복 제거] '{texts[i][:30]}' ↔ '{texts[j][:30]}' = {sim:.3f} ≥ {threshold} → 제거")
                 is_dup = True
                 break
         if not is_dup:

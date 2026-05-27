@@ -16,7 +16,6 @@ Run:
 
 from __future__ import annotations
 
-import importlib
 import os
 import warnings
 from pathlib import Path
@@ -27,7 +26,6 @@ import pytest
 # Reload module each test to reset _loaded flag
 import shared.env_loader as env_loader_module
 from shared.env_loader import _ROOT_ONLY_KEYS, _check_duplicate_keys, _find_workspace_root
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -48,7 +46,6 @@ def reset_loaded_flag():
 
 
 class TestFindWorkspaceRoot:
-
     def test_finds_root_by_workspace_map(self, tmp_path: Path):
         """workspace-map.json is the primary marker."""
         (tmp_path / "workspace-map.json").write_text("{}")
@@ -106,7 +103,6 @@ class TestFindWorkspaceRoot:
 
 
 class TestLoadWorkspaceEnv:
-
     def test_loads_root_env_first(self, tmp_path: Path):
         """Root .env should be loaded (API keys)."""
         # Create workspace structure
@@ -182,7 +178,6 @@ class TestLoadWorkspaceEnv:
 
 
 class TestDuplicateKeyWarning:
-
     def test_warns_on_root_only_key_in_subproject(self, tmp_path: Path):
         """If subproject .env has ANTHROPIC_API_KEY, should warn."""
         local_env = tmp_path / ".env"
@@ -258,7 +253,6 @@ class TestDuplicateKeyWarning:
 
 
 class TestLoadedFlag:
-
     def test_warn_only_once(self, tmp_path: Path):
         """Duplicate warnings should fire only on first load."""
         (tmp_path / "CLAUDE.md").write_text("root")

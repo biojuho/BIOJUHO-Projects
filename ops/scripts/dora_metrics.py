@@ -282,7 +282,7 @@ def generate_ascii_chart(trend: list[dict], width: int = 40) -> str:
     if not trend:
         return "  (데이터 없음)"
 
-    max_val = max(t["commits"] for t in trend) or 1
+    max(t["commits"] for t in trend) or 1
     lines = []
 
     # 7일 단위로 그룹핑
@@ -395,7 +395,7 @@ def format_report(report: dict) -> str:
         for proj_name, proj_data in report["by_project"].items():
             pf = proj_data["deployment_frequency"]
             pcfr = proj_data["change_failure_rate"]
-            pmttr = proj_data.get("mttr", {})
+            proj_data.get("mttr", {})
             lines.append(
                 f"  {proj_name:25s} │ "
                 f"{proj_data['total_commits']:3d} commits │ "

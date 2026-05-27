@@ -137,14 +137,14 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
     """
     migrations: list[tuple[str, str, str]] = [
         # (table, column, definition)
-        ("generated_contents", "published_at",  "TEXT DEFAULT NULL"),
+        ("generated_contents", "published_at", "TEXT DEFAULT NULL"),
         ("generated_contents", "publish_target", "TEXT DEFAULT ''"),
         ("generated_contents", "notion_page_id", "TEXT DEFAULT ''"),
-        ("generated_contents", "publish_error",  "TEXT DEFAULT ''"),
-        ("generated_contents", "content_hash",   "TEXT NOT NULL DEFAULT ''"),
-        ("trend_reports",      "sentiment",      "TEXT DEFAULT 'neutral'"),
-        ("trend_reports",      "confidence",     "INTEGER DEFAULT 0"),
-        ("trend_reports",      "hook_starter",   "TEXT DEFAULT ''"),
+        ("generated_contents", "publish_error", "TEXT DEFAULT ''"),
+        ("generated_contents", "content_hash", "TEXT NOT NULL DEFAULT ''"),
+        ("trend_reports", "sentiment", "TEXT DEFAULT 'neutral'"),
+        ("trend_reports", "confidence", "INTEGER DEFAULT 0"),
+        ("trend_reports", "hook_starter", "TEXT DEFAULT ''"),
     ]
 
     pending = []
@@ -268,22 +268,24 @@ def save_contents(conn: sqlite3.Connection, batch: ContentBatch) -> int:
                     "credibility": c.qa_report.credibility_score,
                     "applied_min_score": c.qa_report.applied_min_score,
                     "diagnostics": [
-                        {"axis": d.axis, "score": d.score, "max": d.max_score,
-                         "reason": d.reason, "suggestion": d.suggestion}
+                        {
+                            "axis": d.axis,
+                            "score": d.score,
+                            "max": d.max_score,
+                            "reason": d.reason,
+                            "suggestion": d.suggestion,
+                        }
                         for d in c.qa_report.diagnostics
                     ],
                     "persona_fits": [
-                        {"id": p.persona_id, "name": p.persona_name,
-                         "fit": p.fit_score, "reason": p.reason}
+                        {"id": p.persona_id, "name": p.persona_name, "fit": p.fit_score, "reason": p.reason}
                         for p in c.qa_report.persona_fits
                     ],
                     "rewrite_suggestion": c.qa_report.rewrite_suggestion,
                 }
                 qa_total = c.qa_report.total_score
 
-            content_hash = hashlib.sha256(
-                f"{c.platform}:{c.content_type}:{c.body}".encode()
-            ).hexdigest()
+            content_hash = hashlib.sha256(f"{c.platform}:{c.content_type}:{c.body}".encode()).hexdigest()
 
             try:
                 conn.execute(

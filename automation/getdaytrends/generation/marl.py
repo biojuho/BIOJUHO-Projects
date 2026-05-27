@@ -4,6 +4,7 @@ generator.py에서 추출된 모듈.
 """
 
 from loguru import logger as log
+
 from shared.llm import LLMClient, TaskTier
 from shared.llm.models import LLMPolicy
 
@@ -83,7 +84,13 @@ async def generate_tweets_with_marl_async(
 
     if not _should_use_marl(trend, config):
         return await generate_tweets_async(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
         )
 
     from datetime import datetime as _dt
@@ -136,15 +143,23 @@ async def generate_tweets_with_marl_async(
         if not data:
             log.warning(f"[MARL] '{trend.keyword}' JSON 파싱 실패 → 기존 방식 폴백")
             return await generate_tweets_async(
-                trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+                trend,
+                config,
+                client,
+                recent_tweets,
+                approved_post_bank,
+                golden_refs,
+                pattern_weights,
             )
 
         tweets = []
+        # [shortform-only] 160~240자 범위 (config.tweet_min/max_chars와 동기화)
+        _MARL_MAX = 240
         for t in data.get("tweets", []):
             content = t.get("content", "")
-            if len(content) > 280:
-                content = content[:277] + "..."
-                log.warning(f"[MARL] 트윗 280자 초과 트리밍: {trend.keyword}")
+            if len(content) > _MARL_MAX:
+                content = content[: _MARL_MAX - 3] + "..."
+                log.warning(f"[MARL] 트윗 {_MARL_MAX}자 초과 트리밍: {trend.keyword}")
             tweets.append(
                 GeneratedTweet(
                     tweet_type=t.get("type", ""),
@@ -156,7 +171,7 @@ async def generate_tweets_with_marl_async(
                 )
             )
 
-        log.info(f"[MARL] 트윗 생성 완료: '{trend.keyword}' " f"({len(tweets)}개, stages={result.stages_completed})")
+        log.info(f"[MARL] 트윗 생성 완료: '{trend.keyword}' ({len(tweets)}개, stages={result.stages_completed})")
         return TweetBatch(
             topic=data.get("topic", trend.keyword),
             tweets=tweets,
@@ -166,5 +181,11 @@ async def generate_tweets_with_marl_async(
     except Exception as e:
         log.warning(f"[MARL] 생성 실패 '{trend.keyword}': {e} → 기존 방식 폴백")
         return await generate_tweets_async(
-            trend, config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
         )

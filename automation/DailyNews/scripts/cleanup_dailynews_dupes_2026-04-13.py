@@ -8,8 +8,10 @@ Action:
 - Keep the 03:00 UTC set (the last manual rerun) as the canonical 04-13 morning brief
 - Archive everything else
 """
+
 import os
 from collections import defaultdict
+
 from dotenv import load_dotenv
 from notion_client import Client
 
@@ -72,9 +74,7 @@ def main() -> None:
                 new_title = item["title"].replace("2026-04-13", "2026-04-14")
                 n.pages.update(
                     page_id=item["id"],
-                    properties={
-                        "Name": {"title": [{"text": {"content": new_title}}]}
-                    },
+                    properties={"Name": {"title": [{"text": {"content": new_title}}]}},
                 )
                 print(f"  RENAME -> 04-14  {item['created']}  {item['id']}")
                 renamed += 1

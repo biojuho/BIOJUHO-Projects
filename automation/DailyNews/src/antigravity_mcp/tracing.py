@@ -18,8 +18,8 @@ Usage:
 from __future__ import annotations
 
 import contextvars
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 _trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default="")
 

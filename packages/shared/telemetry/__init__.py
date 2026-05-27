@@ -28,4 +28,3 @@ __all__ = [
     "build_ledger_entry",
     "write_ledger_entry",
 ]
-

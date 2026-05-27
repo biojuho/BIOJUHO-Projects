@@ -6,8 +6,12 @@ db_schema.py에서 분리됨.
 
 import asyncio
 import re
+from typing import TYPE_CHECKING
 
 from loguru import logger as log
+
+if TYPE_CHECKING:
+    import asyncpg
 
 
 class PgAdapter:
@@ -93,11 +97,17 @@ class PgAdapter:
     async def execute(self, sql: str, parameters=()):
         # Skip SQLite-only PRAGMA statements
         if sql.strip().upper().startswith("PRAGMA"):
+
             class NoOpCursor:
                 lastrowid = None
                 rowcount = 0
-                async def fetchone(self): return None
-                async def fetchall(self): return []
+
+                async def fetchone(self):
+                    return None
+
+                async def fetchall(self):
+                    return []
+
             return NoOpCursor()
 
         sql_pg = self._sqlite_compat(self._ph(sql)).rstrip()
@@ -202,7 +212,7 @@ class PgAdapter:
             except Exception:
                 pass
             self._txn = None
-            
+
         async with self._lock:
             if self._pool is not None:
                 # Supabase transaction-mode pooler requires connections to be idle before release.

@@ -17,9 +17,7 @@ def build_trend_prompt(
     platform_specifics = {
         "x": (
             "X (구 Twitter)",
-            "- 실시간 트렌딩 키워드 및 해시태그\n"
-            "- 인용 RT가 많은 바이럴 콘텐츠 포맷\n"
-            "- Premium+ 장문 트렌드 여부",
+            "- 실시간 트렌딩 키워드 및 해시태그\n- 인용 RT가 많은 바이럴 콘텐츠 포맷\n- Premium+ 장문 트렌드 여부",
         ),
         "threads": (
             "Threads (Meta)",

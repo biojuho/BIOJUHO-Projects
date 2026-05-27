@@ -4,9 +4,7 @@ Stripe checkout, deal room, alert dispatch 라우트.
 dashboard.py에서 분리됨. FastAPI APIRouter 사용.
 """
 
-import json
 import logging
-import re
 from datetime import datetime
 
 from fastapi import APIRouter, Query, Request
@@ -14,40 +12,38 @@ from fastapi.responses import JSONResponse
 
 try:
     from .db import (
-        get_tap_checkout_session_summary,
         get_connection,
-        mark_tap_checkout_session_completed,
         get_tap_alert_queue_snapshot,
+        get_tap_checkout_session_summary,
         get_tap_deal_room_funnel,
         init_db,
+        mark_tap_checkout_session_completed,
         record_tap_deal_room_event,
         upsert_tap_checkout_session,
     )
     from .tap import (
         DealRoomRequest,
         TapBoardRequest,
-        build_tap_deal_room_snapshot,
         build_tap_board_snapshot,
+        build_tap_deal_room_snapshot,
         dispatch_tap_alert_queue,
         empty_tap_board,
         get_latest_tap_board_snapshot,
     )
 except ImportError:
     from db import (
-        get_tap_checkout_session_summary,
-        get_connection,
-        mark_tap_checkout_session_completed,
         get_tap_alert_queue_snapshot,
+        get_tap_checkout_session_summary,
         get_tap_deal_room_funnel,
-        init_db,
+        mark_tap_checkout_session_completed,
         record_tap_deal_room_event,
         upsert_tap_checkout_session,
     )
     from tap import (
         DealRoomRequest,
         TapBoardRequest,
-        build_tap_deal_room_snapshot,
         build_tap_board_snapshot,
+        build_tap_deal_room_snapshot,
         dispatch_tap_alert_queue,
         empty_tap_board,
         get_latest_tap_board_snapshot,
@@ -55,31 +51,30 @@ except ImportError:
 
 try:
     from .stripe_helpers import (
-        _stripe_amount_divisor,
+        _build_tap_checkout_redirect_urls,
+        _coerce_non_negative_float,
+        _construct_stripe_event,
+        _create_stripe_checkout_session,
+        _extract_price_anchor_amount,
+        _extract_tap_purchase_from_stripe_event,
         _format_stripe_price_anchor,
         _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
-        _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
+        _stripe_amount_divisor,
         _validate_stripe_checkout_session_payload,
-        _construct_stripe_event,
-        _extract_tap_purchase_from_stripe_event,
+        _validate_tap_checkout_payload_matches_handle,
     )
 except ImportError:
     from stripe_helpers import (
-        _stripe_amount_divisor,
-        _format_stripe_price_anchor,
-        _parse_tap_checkout_handle,
-        _validate_tap_checkout_payload_matches_handle,
-        _extract_price_anchor_amount,
-        _coerce_non_negative_float,
         _build_tap_checkout_redirect_urls,
-        _create_stripe_checkout_session,
-        _validate_stripe_checkout_session_payload,
+        _coerce_non_negative_float,
         _construct_stripe_event,
+        _create_stripe_checkout_session,
+        _extract_price_anchor_amount,
         _extract_tap_purchase_from_stripe_event,
+        _parse_tap_checkout_handle,
+        _stripe_amount_divisor,
+        _validate_stripe_checkout_session_payload,
+        _validate_tap_checkout_payload_matches_handle,
     )
 
 logger = logging.getLogger(__name__)
@@ -128,6 +123,7 @@ async def api_tap_alert_queue(
     target_country: str = Query("", min_length=0, max_length=64),
 ):
     """Operational snapshot of the TAP premium alert queue."""
+
     async def _load_tap_alert_queue(conn):
         return await get_tap_alert_queue_snapshot(
             conn,
@@ -173,6 +169,7 @@ async def api_tap_opportunities(
 ):
     """Phase-1 product feed for TAP arbitrage opportunities."""
     board_country = (target_country or _config.country or "").strip().lower()
+
     async def _load_tap_opportunities(conn):
         board = await build_tap_board_snapshot(
             conn,
@@ -203,6 +200,7 @@ async def api_tap_opportunities_latest(
 ):
     """Read the most recent TAP snapshot without forcing a rebuild."""
     board_country = (target_country or _config.country or "").strip().lower()
+
     async def _load_tap_opportunities_latest(conn):
         board = await get_latest_tap_board_snapshot(
             conn,
@@ -239,6 +237,7 @@ async def api_tap_deal_room(
     include_checkout: bool = Query(False),
 ):
     """Commercial scaffolding for teaser-to-premium TAP conversion."""
+
     async def _load_tap_deal_room(conn):
         room = await build_tap_deal_room_snapshot(
             conn,
@@ -335,6 +334,7 @@ async def api_tap_deal_room_funnel(
     limit: int = Query(20, ge=1, le=200),
 ):
     """Read aggregated TAP deal-room funnel performance."""
+
     async def _load_tap_deal_room_funnel(conn):
         return await get_tap_deal_room_funnel(
             conn,
@@ -366,6 +366,7 @@ async def api_tap_deal_room_checkouts(
     limit: int = Query(10, ge=1, le=100),
 ):
     """Read checkout-session ops summary for TAP deal-room commerce."""
+
     async def _load_tap_deal_room_checkouts(conn):
         return await get_tap_checkout_session_summary(
             conn,
@@ -388,9 +389,7 @@ async def api_tap_deal_room_checkouts(
     )
 
 
-
 # ── Stripe helpers (extracted to stripe_helpers.py) ──
-
 
 
 @router.post("/api/tap/deal-room/checkout")
@@ -410,7 +409,9 @@ async def api_tap_deal_room_checkout(request: Request):
         return JSONResponse({"ok": False, "error": "Unsupported checkout handle"}, status_code=400)
 
     target_country = str(payload.get("target_country") or parsed_handle.get("target_country") or "").strip().lower()
-    package_tier = str(payload.get("package_tier") or parsed_handle.get("package_tier") or "premium_alert_bundle").strip().lower()
+    package_tier = (
+        str(payload.get("package_tier") or parsed_handle.get("package_tier") or "premium_alert_bundle").strip().lower()
+    )
     try:
         _validate_tap_checkout_payload_matches_handle(
             parsed_handle,
@@ -425,7 +426,9 @@ async def api_tap_deal_room_checkout(request: Request):
     price_anchor = str(payload.get("price_anchor") or "").strip()
     quoted_price_value = payload.get("quoted_price_value")
     try:
-        price_value = float(quoted_price_value if quoted_price_value not in (None, "") else _extract_price_anchor_amount(price_anchor))
+        price_value = float(
+            quoted_price_value if quoted_price_value not in (None, "") else _extract_price_anchor_amount(price_anchor)
+        )
     except (TypeError, ValueError) as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     if price_value <= 0:
@@ -544,7 +547,9 @@ async def api_tap_deal_room_checkout(request: Request):
     except Exception:
         logger.warning("Stripe checkout tracking degraded", exc_info=True)
         response_payload["tracking_status"] = "degraded"
-        response_payload["tracking_warning"] = "Checkout was created, but tracking persistence is temporarily unavailable."
+        response_payload["tracking_warning"] = (
+            "Checkout was created, but tracking persistence is temporarily unavailable."
+        )
     finally:
         await _close_conn(conn)
 
@@ -589,7 +594,9 @@ async def api_tap_deal_room_stripe_webhook(request: Request):
         )
 
     try:
-        revenue_value = round(_coerce_non_negative_float(purchase.get("revenue_value", 0.0), field_name="revenue_value"), 2)
+        revenue_value = round(
+            _coerce_non_negative_float(purchase.get("revenue_value", 0.0), field_name="revenue_value"), 2
+        )
     except ValueError:
         return JSONResponse(
             {
@@ -684,5 +691,3 @@ async def api_tap_deal_room_stripe_webhook(request: Request):
         )
     finally:
         await _close_conn(conn)
-
-

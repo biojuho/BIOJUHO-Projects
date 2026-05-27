@@ -49,30 +49,31 @@ def _load_constitution():
         return Constitution.from_yaml(shared_path)
 
     # Last resort: minimal in-code constitution
-    return Constitution.from_dict({
-        "agent_name": "getdaytrends-pipeline",
-        "max_budget_usd": 2.0,
-        "tools": [
-            {"name": "collect_trends", "allowed": True, "max_calls": 10},
-            {"name": "score_trends", "allowed": True, "max_calls": 10},
-            {"name": "generate_content", "allowed": True, "max_calls": 50},
-            {"name": "save_results", "allowed": True, "max_calls": 20},
-            {"name": "web_search", "allowed": True, "max_calls": 100},
-            {"name": "llm_call", "allowed": True, "max_calls": 200},
-            {"name": "database_write", "allowed": True, "max_calls": 100},
-            {"name": "database_read", "allowed": True, "max_calls": 200},
-            {"name": "notion_api", "allowed": True, "max_calls": 30},
-            {"name": "shell_execute", "allowed": True, "max_calls": 5,
-             "requires_approval": True},
-            {"name": "file_delete", "allowed": False},
-        ],
-        "risk_patterns": [
-            r"rm -rf",
-            r"DROP TABLE",
-            r"os\.system\(",
-            r"eval\(",
-        ],
-    })
+    return Constitution.from_dict(
+        {
+            "agent_name": "getdaytrends-pipeline",
+            "max_budget_usd": 2.0,
+            "tools": [
+                {"name": "collect_trends", "allowed": True, "max_calls": 10},
+                {"name": "score_trends", "allowed": True, "max_calls": 10},
+                {"name": "generate_content", "allowed": True, "max_calls": 50},
+                {"name": "save_results", "allowed": True, "max_calls": 20},
+                {"name": "web_search", "allowed": True, "max_calls": 100},
+                {"name": "llm_call", "allowed": True, "max_calls": 200},
+                {"name": "database_write", "allowed": True, "max_calls": 100},
+                {"name": "database_read", "allowed": True, "max_calls": 200},
+                {"name": "notion_api", "allowed": True, "max_calls": 30},
+                {"name": "shell_execute", "allowed": True, "max_calls": 5, "requires_approval": True},
+                {"name": "file_delete", "allowed": False},
+            ],
+            "risk_patterns": [
+                r"rm -rf",
+                r"DROP TABLE",
+                r"os\.system\(",
+                r"eval\(",
+            ],
+        }
+    )
 
 
 def get_pipeline_harness(config=None):
@@ -126,6 +127,7 @@ def get_pipeline_harness(config=None):
         # HITL callback for tools requiring approval (e.g., shell_execute)
         try:
             from shared.harness.hitl import create_notifier_hitl_callback
+
             hitl_cb = create_notifier_hitl_callback(notify_only=True)
         except ImportError:
             hitl_cb = None
@@ -220,9 +222,7 @@ def print_harness_summary(harness) -> None:
     print(f"  Budget remain  : ${summary['budget_remaining_usd']:.4f}")
     print(f"  Denied actions : {summary['audit_denied_count']}")
 
-    if summary['tool_call_counts']:
+    if summary["tool_call_counts"]:
         print("  Tool breakdown :")
-        for tool, count in sorted(summary['tool_call_counts'].items(), key=lambda x: -x[1]):
+        for tool, count in sorted(summary["tool_call_counts"].items(), key=lambda x: -x[1]):
             print(f"    {tool}: {count}")
-
-

@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 try:
     from shared.env_loader import load_workspace_env as _load_env
@@ -75,6 +76,34 @@ def _mask_secret(value: str) -> str:
     if len(value) <= 8:
         return "*" * len(value)
     return f"{value[:4]}...{value[-4:]}"
+
+
+@dataclass(frozen=True)
+class _NotionIds:
+    tasks_database_id: str
+    tasks_data_source_id: str
+    reports_database_id: str
+    reports_data_source_id: str
+    dashboard_page_id: str
+
+
+@dataclass(frozen=True)
+class _ServiceCredentials:
+    notion_api_key: str
+    google_api_key: str
+    anthropic_api_key: str
+    openai_api_key: str
+    canva_client_id: str
+    canva_client_secret: str
+    canva_refresh_token: str
+    telegram_bot_token: str
+    telegram_chat_id: str
+    x_api_key: str
+    x_api_secret: str
+    x_access_token: str
+    x_access_token_secret: str
+    x_bearer_token: str
+    supabase_database_url: str
 
 
 @dataclass(frozen=True)
@@ -191,10 +220,7 @@ class AppSettings:
         }
 
 
-@lru_cache(maxsize=1)
-def get_settings() -> AppSettings:
-    warnings: list[str] = []
-
+def _load_notion_ids(warnings: list[str]) -> _NotionIds:
     notion_tasks_database_id, _ = _first_non_empty(
         "NOTION_TASKS_DATABASE_ID",
     )
@@ -256,6 +282,33 @@ def get_settings() -> AppSettings:
     if dashboard_source:
         warnings.append("DASHBOARD_PAGE_ID is no longer read; use NOTION_DASHBOARD_PAGE_ID instead.")
 
+    # Consolidation fallback: tasks → reports
+    if not notion_tasks_database_id and notion_reports_database_id:
+        notion_tasks_database_id = notion_reports_database_id
+        warnings.append(
+            "NOTION_TASKS_DATABASE_ID is not set; falling back to NOTION_REPORTS_DATABASE_ID. "
+            "Both pipelines will write to the same Notion database."
+        )
+    elif (
+        notion_tasks_database_id
+        and notion_reports_database_id
+        and notion_tasks_database_id == notion_reports_database_id
+    ):
+        warnings.append(
+            "NOTION_TASKS_DATABASE_ID and NOTION_REPORTS_DATABASE_ID point to the same DB. "
+            "Consider removing NOTION_TASKS_DATABASE_ID from .env to use the consolidated single-DB model."
+        )
+
+    return _NotionIds(
+        tasks_database_id=notion_tasks_database_id,
+        tasks_data_source_id=notion_tasks_data_source_id,
+        reports_database_id=notion_reports_database_id,
+        reports_data_source_id=notion_reports_data_source_id,
+        dashboard_page_id=notion_dashboard_page_id,
+    )
+
+
+def _load_service_credentials() -> _ServiceCredentials:
     notion_api_key, _ = _first_non_empty("NOTION_API_KEY")
     google_api_key, _ = _first_non_empty("GOOGLE_API_KEY", "GEMINI_API_KEY")
     anthropic_api_key, _ = _first_non_empty("ANTHROPIC_API_KEY")
@@ -272,35 +325,8 @@ def get_settings() -> AppSettings:
     x_bearer_token, _ = _first_non_empty("X_BEARER_TOKEN", "TWITTER_BEARER_TOKEN")
     supabase_database_url, _ = _first_non_empty("SUPABASE_DATABASE_URL", "DATABASE_URL")
 
-    # Consolidation fallback: tasks → reports
-    if not notion_tasks_database_id and notion_reports_database_id:
-        notion_tasks_database_id = notion_reports_database_id
-        warnings.append(
-            "NOTION_TASKS_DATABASE_ID is not set; falling back to NOTION_REPORTS_DATABASE_ID. "
-            "Both pipelines will write to the same Notion database."
-        )
-    elif notion_tasks_database_id and notion_reports_database_id and notion_tasks_database_id == notion_reports_database_id:
-        warnings.append(
-            "NOTION_TASKS_DATABASE_ID and NOTION_REPORTS_DATABASE_ID point to the same DB. "
-            "Consider removing NOTION_TASKS_DATABASE_ID from .env to use the consolidated single-DB model."
-        )
-
-    return AppSettings(
-        project_root=PROJECT_ROOT,
-        src_root=SRC_ROOT,
-        data_dir=DATA_DIR,
-        log_dir=LOG_DIR,
-        output_dir=OUTPUT_DIR,
-        config_dir=CONFIG_DIR,
-        docs_dir=DOCS_DIR,
-        env_path=ENV_PATH,
+    return _ServiceCredentials(
         notion_api_key=notion_api_key,
-        notion_api_version="2022-06-28",
-        notion_tasks_database_id=notion_tasks_database_id,
-        notion_tasks_data_source_id=notion_tasks_data_source_id,
-        notion_reports_database_id=notion_reports_database_id,
-        notion_reports_data_source_id=notion_reports_data_source_id,
-        notion_dashboard_page_id=notion_dashboard_page_id,
         google_api_key=google_api_key,
         anthropic_api_key=anthropic_api_key,
         openai_api_key=openai_api_key,
@@ -315,6 +341,45 @@ def get_settings() -> AppSettings:
         x_access_token_secret=x_access_token_secret,
         x_bearer_token=x_bearer_token,
         supabase_database_url=supabase_database_url,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> AppSettings:
+    warnings: list[str] = []
+    notion_ids = _load_notion_ids(warnings)
+    credentials = _load_service_credentials()
+
+    return AppSettings(
+        project_root=PROJECT_ROOT,
+        src_root=SRC_ROOT,
+        data_dir=DATA_DIR,
+        log_dir=LOG_DIR,
+        output_dir=OUTPUT_DIR,
+        config_dir=CONFIG_DIR,
+        docs_dir=DOCS_DIR,
+        env_path=ENV_PATH,
+        notion_api_key=credentials.notion_api_key,
+        notion_api_version="2022-06-28",
+        notion_tasks_database_id=notion_ids.tasks_database_id,
+        notion_tasks_data_source_id=notion_ids.tasks_data_source_id,
+        notion_reports_database_id=notion_ids.reports_database_id,
+        notion_reports_data_source_id=notion_ids.reports_data_source_id,
+        notion_dashboard_page_id=notion_ids.dashboard_page_id,
+        google_api_key=credentials.google_api_key,
+        anthropic_api_key=credentials.anthropic_api_key,
+        openai_api_key=credentials.openai_api_key,
+        canva_client_id=credentials.canva_client_id,
+        canva_client_secret=credentials.canva_client_secret,
+        canva_refresh_token=credentials.canva_refresh_token,
+        telegram_bot_token=credentials.telegram_bot_token,
+        telegram_chat_id=credentials.telegram_chat_id,
+        x_api_key=credentials.x_api_key,
+        x_api_secret=credentials.x_api_secret,
+        x_access_token=credentials.x_access_token,
+        x_access_token_secret=credentials.x_access_token_secret,
+        x_bearer_token=credentials.x_bearer_token,
+        supabase_database_url=credentials.supabase_database_url,
         x_daily_post_limit=_env_int("X_DAILY_POST_LIMIT", 10),
         pipeline_max_concurrency=_env_int("PIPELINE_MAX_CONCURRENCY", 3),
         pipeline_http_timeout_sec=_env_int("PIPELINE_HTTP_TIMEOUT_SEC", 15),
@@ -383,9 +448,7 @@ def configure_logging(settings: AppSettings | None = None) -> None:
     try:
         from logging.handlers import RotatingFileHandler
 
-        file_handler = RotatingFileHandler(
-            jsonl_path, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
-        )
+        file_handler = RotatingFileHandler(jsonl_path, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8")
         file_handler.setLevel(log_level)
         file_handler.setFormatter(_JsonlFormatter())
         logging.getLogger().addHandler(file_handler)

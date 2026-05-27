@@ -22,7 +22,6 @@ import logging
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from .code_graph import CodeGraphStore, ImpactResult
 
@@ -79,9 +78,7 @@ def _generate_recommendations(
     # Depth-based recommendations
     deep_nodes = [n for n in impact.impacted_nodes if n.get("depth", 0) >= 3]
     if deep_nodes:
-        recs.append(
-            f"📊 {len(deep_nodes)} node(s) impacted at depth ≥3 — cascading effects detected."
-        )
+        recs.append(f"📊 {len(deep_nodes)} node(s) impacted at depth ≥3 — cascading effects detected.")
 
     # Module diversity
     affected_files = {n["file_path"] for n in impact.impacted_nodes}
@@ -155,19 +152,15 @@ class ImpactAnalyzer:
 
                 # Run impact BFS
                 report.impact = await graph.get_impact_radius(
-                    report.changed_files, max_depth=max_depth,
+                    report.changed_files,
+                    max_depth=max_depth,
                 )
                 report.risk_score = report.impact.risk_score
                 report.risk_level = _classify_risk(report.risk_score)
 
                 # Identify affected modules
-                affected_files = {
-                    n["file_path"]
-                    for n in report.impact.impacted_nodes
-                }
-                report.affected_modules = sorted(
-                    {f.split("/")[0] for f in affected_files if "/" in f}
-                )
+                affected_files = {n["file_path"] for n in report.impact.impacted_nodes}
+                report.affected_modules = sorted({f.split("/")[0] for f in affected_files if "/" in f})
 
                 # Generate recommendations
                 report.recommendations = _generate_recommendations(report, report.impact)
@@ -194,11 +187,7 @@ class ImpactAnalyzer:
             )
             if result.returncode != 0:
                 return []
-            files = [
-                f.strip().replace("\\", "/")
-                for f in result.stdout.strip().splitlines()
-                if f.strip()
-            ]
+            files = [f.strip().replace("\\", "/") for f in result.stdout.strip().splitlines() if f.strip()]
             return files
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return []

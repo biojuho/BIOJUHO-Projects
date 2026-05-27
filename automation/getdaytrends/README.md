@@ -1,8 +1,20 @@
 # X 트렌드 자동 트윗 생성기 v2.0
 
-> 멀티소스 트렌드 수집 + 바이럴 스코어링 + Claude AI 트윗/쓰레드 생성 + 자동 저장 + 알림
+> 멀티소스 트렌드 수집 + 바이럴 스코어링 + Claude AI 단문 트윗 5종 생성 + 자동 저장 + 알림
 >
 > Runtime path note: `automation/getdaytrends/` is the canonical repo path. The workspace-root `getdaytrends/` path is a Windows junction kept for legacy commands and points to the same files.
+
+---
+
+## 현재 정책 (2026-05, shortform-only)
+
+- **활성**: 단문 트윗 5종 (`160–240자` 한국어 공백 포함)
+- **비활성** (기본값): 네이버 블로그, 장문 글, X 멀티 쓰레드, Meta Threads
+- **3중 가드**: `enable_long_form=False`, `enable_threads=False`, `long_form/thread/blog_min_score=999`
+- **QA 페널티**: `>240자` regulation/algorithm −2, `<160자` angle −4 + algorithm −2, 비유/은유 표현 −8 (tone)
+- **발행**: 수동 전용 (`AUTO_PUSH_ENABLED=False`, `CONTENT_APPROVAL_MODE=manual`) — X 계정 리스크 회피
+- **레거시 옵트인**: `AppConfig(enable_long_form=True, enable_threads=True)` 명시 시에만 장문/쓰레드 경로 활성. `target_platforms=["x"]`가 기본
+
 
 ---
 ## Target Audience
@@ -148,7 +160,7 @@ scraper.py
           (Telegram/Discord) (Claude)  (SQLite)
                                │
                           [TweetBatch]
-                          (5종 + 쓰레드)
+                          (단문 5종 · 160–240자)
                                │
                                ▼
                          storage.py
@@ -186,7 +198,7 @@ scraper.py
 | 명언형 | rich_text | 트윗 시안 4 |
 | 유머밈형 | rich_text | 트윗 시안 5 |
 | 바이럴점수 | number | 0-100 (v2.0 신규) |
-| 쓰레드 | rich_text | 멀티트윗 쓰레드 (v2.0 신규) |
+| 쓰레드 | rich_text | _Legacy_. shortform-only 정책에서 비어 있음(2026-05). 옵트인 시에만 채워짐 |
 | 상태 | select | 대기중 / 게시완료 |
 
 ---

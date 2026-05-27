@@ -45,17 +45,25 @@ class TestAppConfigDefaults(unittest.TestCase):
         self.assertEqual(self.config.editorial_profile, "report")
 
     def test_v21_feature_flags_default_true(self):
+        # [shortform-only] 단문 트윗 전용으로 long_form/threads는 기본 비활성.
         self.assertTrue(self.config.enable_clustering)
-        self.assertTrue(self.config.enable_long_form)
-        self.assertTrue(self.config.enable_threads)
+        self.assertFalse(self.config.enable_long_form)
+        self.assertFalse(self.config.enable_threads)
         self.assertTrue(self.config.smart_schedule)
         self.assertTrue(self.config.night_mode)
+
+    def test_shortform_tweet_length_defaults(self):
+        # [shortform-only] 단문 트윗 길이 정책: 160~240자
+        self.assertEqual(self.config.tweet_min_chars, 160)
+        self.assertEqual(self.config.tweet_max_chars, 240)
+        self.assertEqual(self.config.target_platforms, ["x"])
 
     def test_default_workers(self):
         self.assertEqual(self.config.max_workers, 10)
 
     def test_default_long_form_min_score(self):
-        self.assertEqual(self.config.long_form_min_score, 95)
+        # [shortform-only] 장문 비활성을 위해 999로 게이트 차단
+        self.assertEqual(self.config.long_form_min_score, 999)
 
     def test_default_dedupe_hours(self):
         self.assertEqual(self.config.dedupe_window_hours, 6)

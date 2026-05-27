@@ -32,8 +32,8 @@ from antigravity_mcp.integrations.brain_adapter import BrainAdapter
 from antigravity_mcp.integrations.digest_adapter import DigestAdapter
 from antigravity_mcp.integrations.reasoning_adapter import ReasoningAdapter
 from antigravity_mcp.pipelines.collect import collect_content_items
-from antigravity_mcp.state.store import PipelineStateStore
 from antigravity_mcp.state.checkpoint import CheckpointStore
+from antigravity_mcp.state.store import PipelineStateStore
 
 CATEGORIES = ["Tech", "AI_Deep", "Economy_KR", "Economy_Global", "Crypto", "Global_Affairs"]
 
@@ -278,27 +278,33 @@ async def publish_to_notion(results: dict):
                 continue
             if line_stripped.startswith("## "):
                 heading_text = line_stripped[3:].strip()[:1990]
-                children.append({
-                    "object": "block",
-                    "type": "heading_2",
-                    "heading_2": {"rich_text": [{"type": "text", "text": {"content": heading_text}}]},
-                })
+                children.append(
+                    {
+                        "object": "block",
+                        "type": "heading_2",
+                        "heading_2": {"rich_text": [{"type": "text", "text": {"content": heading_text}}]},
+                    }
+                )
             elif line_stripped.startswith("# "):
                 heading_text = line_stripped[2:].strip()[:1990]
-                children.append({
-                    "object": "block",
-                    "type": "heading_1",
-                    "heading_1": {"rich_text": [{"type": "text", "text": {"content": heading_text}}]},
-                })
+                children.append(
+                    {
+                        "object": "block",
+                        "type": "heading_1",
+                        "heading_1": {"rich_text": [{"type": "text", "text": {"content": heading_text}}]},
+                    }
+                )
             elif line_stripped == "---":
                 children.append({"object": "block", "type": "divider", "divider": {}})
             else:
                 text = line_stripped[:1990]
-                children.append({
-                    "object": "block",
-                    "type": "paragraph",
-                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": text}}]},
-                })
+                children.append(
+                    {
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {"rich_text": [{"type": "text", "text": {"content": text}}]},
+                    }
+                )
 
         children.append({"object": "block", "type": "divider", "divider": {}})
 
@@ -340,7 +346,9 @@ async def run_full_pipeline():
         print(f"✅ Job '{job_id}' is already completed. Exiting.")
         return
     elif last_step:
-        print(f"🔄 Resuming job '{job_id}' from step: {last_step} (Restored {len(payload.get('all_results', {}))} categories)")
+        print(
+            f"🔄 Resuming job '{job_id}' from step: {last_step} (Restored {len(payload.get('all_results', {}))} categories)"
+        )
 
     all_results = payload.get("all_results", {})
 
@@ -455,7 +463,7 @@ async def run_full_pipeline():
             "article_count": len(items),
             "body_count": body_count,
         }
-        
+
         # Save checkpoint to cloud DB/SQLite after completion of this category
         chk_store.save_checkpoint(job_id, "v2_pipeline", f"cat_{cat}", {"all_results": all_results})
 
@@ -493,7 +501,7 @@ async def run_full_pipeline():
             print(f"  ✅ Published: {url}")
             print(f"  Overall QC Score: {overall}/5")
             print(f"  Categories: {len(all_results)}/{len(CATEGORIES)}")
-            
+
             payload["all_results"] = all_results
             payload["published_url"] = url
             payload["overall_score"] = overall

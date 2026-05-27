@@ -5,10 +5,10 @@ import copy
 import json
 import sqlite3
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -358,7 +358,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Repair suspicious DailyNews reports from cached LLM responses.")
     parser.add_argument("--report-id", help="Repair a single report ID.")
     parser.add_argument("--limit", type=int, default=25, help="Max suspicious reports to inspect.")
-    parser.add_argument("--lookback-minutes", type=int, default=15, help="Cache lookback window before report creation.")
+    parser.add_argument(
+        "--lookback-minutes", type=int, default=15, help="Cache lookback window before report creation."
+    )
     parser.add_argument("--max-candidates", type=int, default=20, help="Max nearby cache entries to score per report.")
     parser.add_argument("--apply", action="store_true", help="Write repaired reports back to the DB.")
     parser.add_argument(
@@ -397,7 +399,9 @@ def main() -> int:
             )
 
             print(f"\n[{report.report_id}]")
-            print(f"  category={report.category} quality_state={report.quality_state} current_violations={len(current_violations)}")
+            print(
+                f"  category={report.category} quality_state={report.quality_state} current_violations={len(current_violations)}"
+            )
             print(f"  notion_page_id={report.notion_page_id or '-'}")
 
             if candidate is None:

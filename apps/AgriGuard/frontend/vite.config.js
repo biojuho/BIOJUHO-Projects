@@ -7,21 +7,28 @@ import process from 'node:process'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    // Flag chunks over 200KB to catch bundle bloat before deploy
     chunkSizeWarningLimit: 200,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // recharts excluded — lazy-loaded via LazyCharts.jsx for code-splitting
-          'vendor-motion': ['framer-motion'],
-          'vendor-i18n': ['i18next', 'react-i18next'],
-          'vendor-icons': ['lucide-react'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+            return 'vendor-react'
+          }
+          if (/[\\/]node_modules[\\/]framer-motion[\\/]/.test(id)) {
+            return 'vendor-motion'
+          }
+          if (/[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/.test(id)) {
+            return 'vendor-i18n'
+          }
+          if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) {
+            return 'vendor-icons'
+          }
+          return undefined
         },
       },
     },
   },
-  // Strip console.log/debugger in production builds
   esbuild: {
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
@@ -40,7 +47,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.js',
     exclude: ['tests/e2e/**', 'node_modules/**'],
-    // Threads + isolation is the most reliable mode for this suite on Windows.
     pool: 'threads',
     fileParallelism: false,
     minWorkers: 1,

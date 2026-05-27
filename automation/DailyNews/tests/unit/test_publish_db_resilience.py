@@ -9,7 +9,6 @@ import pytest
 from antigravity_mcp.domain.models import ChannelDraft, ContentReport
 from antigravity_mcp.pipelines.publish import _publish_x_draft, _safe_db_write
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -76,10 +75,12 @@ class TestPublishXDraftDbResilience:
         state_store.set_channel_publication = MagicMock()
 
         x_adapter = MagicMock()
-        x_adapter.publish = AsyncMock(return_value={
-            "status": "published",
-            "tweet_url": "https://twitter.com/i/web/status/12345",
-        })
+        x_adapter.publish = AsyncMock(
+            return_value={
+                "status": "published",
+                "tweet_url": "https://twitter.com/i/web/status/12345",
+            }
+        )
 
         warnings: list[str] = []
         publication: dict[str, str] = {}
@@ -88,8 +89,14 @@ class TestPublishXDraftDbResilience:
             patch("antigravity_mcp.pipelines.publish.XAdapter", MagicMock()),
         ):
             await _publish_x_draft(
-                draft, report, "report-test-001", x_adapter, state_store,
-                "auto", publication, warnings,
+                draft,
+                report,
+                "report-test-001",
+                x_adapter,
+                state_store,
+                "auto",
+                publication,
+                warnings,
             )
 
         # 트윗은 발행됨
@@ -112,8 +119,14 @@ class TestPublishXDraftDbResilience:
         publication: dict[str, str] = {}
 
         await _publish_x_draft(
-            draft, report, "report-test-001", x_adapter, state_store,
-            "auto", publication, warnings,
+            draft,
+            report,
+            "report-test-001",
+            x_adapter,
+            state_store,
+            "auto",
+            publication,
+            warnings,
         )
 
         assert any("set_channel_publication failed" in w for w in warnings)

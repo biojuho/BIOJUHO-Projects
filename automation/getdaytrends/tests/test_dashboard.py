@@ -48,9 +48,11 @@ def client(mock_db_conn):
     mock_get_conn = AsyncMock(return_value=mock_db_conn)
     mock_close_conn = AsyncMock()
 
-    with patch("dashboard._get_conn", mock_get_conn), \
-         patch("dashboard_routes_tap._get_conn", mock_get_conn), \
-         patch("dashboard_routes_tap._close_conn", mock_close_conn):
+    with (
+        patch("dashboard._get_conn", mock_get_conn),
+        patch("dashboard_routes_tap._get_conn", mock_get_conn),
+        patch("dashboard_routes_tap._close_conn", mock_close_conn),
+    ):
         from dashboard import app
 
         with TestClient(app) as c:
@@ -204,7 +206,9 @@ class TestDashboardEnhancements:
             "counts": {"Ready": 1, "Approved": 1},
             "items": [{"draft_id": "draft-1", "review_status": "Ready"}],
         }
-        with patch("dashboard.get_review_queue_snapshot", new_callable=AsyncMock, return_value=payload) as mock_snapshot:
+        with patch(
+            "dashboard.get_review_queue_snapshot", new_callable=AsyncMock, return_value=payload
+        ) as mock_snapshot:
             resp = client.get("/api/review_queue?limit=25")
 
         assert resp.status_code == 200
@@ -433,14 +437,16 @@ class TestDashboardDatabaseUrlRouting:
     async def test_get_conn_passes_database_url_from_config(self):
         """AppConfig.database_url이 get_connection에 전달되어야 한다."""
         mock_conn = AsyncMock()
-        with patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn) as mock_gc, \
-             patch("dashboard.init_db", new_callable=AsyncMock), \
-             patch("dashboard._config") as mock_config:
-
+        with (
+            patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn) as mock_gc,
+            patch("dashboard.init_db", new_callable=AsyncMock),
+            patch("dashboard._config") as mock_config,
+        ):
             mock_config.db_path = "data/test.db"
             mock_config.database_url = "postgresql://user:pass@cloud-host:5432/prod"
 
             from dashboard import _get_conn
+
             conn = await _get_conn()
 
             mock_gc.assert_called_once_with(
@@ -453,14 +459,16 @@ class TestDashboardDatabaseUrlRouting:
     async def test_get_conn_empty_database_url_defaults_sqlite(self):
         """database_url이 빈 문자열이면 SQLite로 폴백해야 한다."""
         mock_conn = AsyncMock()
-        with patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn) as mock_gc, \
-             patch("dashboard.init_db", new_callable=AsyncMock), \
-             patch("dashboard._config") as mock_config:
-
+        with (
+            patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn) as mock_gc,
+            patch("dashboard.init_db", new_callable=AsyncMock),
+            patch("dashboard._config") as mock_config,
+        ):
             mock_config.db_path = "data/local.db"
             mock_config.database_url = ""
 
             from dashboard import _get_conn
+
             await _get_conn()
 
             mock_gc.assert_called_once_with(
@@ -472,14 +480,16 @@ class TestDashboardDatabaseUrlRouting:
     async def test_get_conn_calls_init_db(self):
         """_get_conn은 항상 init_db를 호출해야 한다."""
         mock_conn = AsyncMock()
-        with patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn), \
-             patch("dashboard.init_db", new_callable=AsyncMock) as mock_init, \
-             patch("dashboard._config") as mock_config:
-
+        with (
+            patch("dashboard.get_connection", new_callable=AsyncMock, return_value=mock_conn),
+            patch("dashboard.init_db", new_callable=AsyncMock) as mock_init,
+            patch("dashboard._config") as mock_config,
+        ):
             mock_config.db_path = "data/test.db"
             mock_config.database_url = ""
 
             from dashboard import _get_conn
+
             await _get_conn()
 
             mock_init.assert_called_once_with(mock_conn)
@@ -645,8 +655,7 @@ class TestTapOpportunities:
             return_value=room_stub,
         ) as mock_room:
             resp = client.get(
-                "/api/tap/deal-room?target_country=united-states"
-                "&audience_segment=creator&include_checkout=true"
+                "/api/tap/deal-room?target_country=united-states&audience_segment=creator&include_checkout=true"
             )
 
         assert resp.status_code == 200
@@ -766,8 +775,7 @@ class TestTapOpportunities:
             return_value=payload,
         ) as mock_summary:
             resp = client.get(
-                "/api/tap/deal-room/checkouts"
-                "?days=30&target_country=united-states&package_tier=premium_alert_bundle"
+                "/api/tap/deal-room/checkouts?days=30&target_country=united-states&package_tier=premium_alert_bundle"
             )
 
         assert resp.status_code == 200
@@ -792,10 +800,14 @@ class TestTapOpportunities:
         }
         session_payload = {"id": "cs_test_123", "url": "https://checkout.stripe.com/pay/cs_test_123"}
 
-        with patch("dashboard_routes_tap._config") as mock_config, \
-             patch("dashboard_routes_tap._create_stripe_checkout_session", return_value=session_payload) as mock_checkout, \
-             patch("dashboard_routes_tap.upsert_tap_checkout_session", new_callable=AsyncMock) as mock_upsert, \
-             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch(
+                "dashboard_routes_tap._create_stripe_checkout_session", return_value=session_payload
+            ) as mock_checkout,
+            patch("dashboard_routes_tap.upsert_tap_checkout_session", new_callable=AsyncMock) as mock_upsert,
+            patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record,
+        ):
             mock_config.stripe_secret_key = "sk_test_123"
             resp = client.post("/api/tap/deal-room/checkout", json=payload)
 
@@ -884,8 +896,13 @@ class TestTapOpportunities:
             "checkout_handle": "stripe:premium_alert_bundle:united-states:AI regulation",
         }
 
-        with patch("dashboard_routes_tap._config") as mock_config, \
-             patch("dashboard_routes_tap._create_stripe_checkout_session", return_value={"url": "https://checkout.stripe.com/pay/cs_test_123"}):
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch(
+                "dashboard_routes_tap._create_stripe_checkout_session",
+                return_value={"url": "https://checkout.stripe.com/pay/cs_test_123"},
+            ),
+        ):
             mock_config.stripe_secret_key = "sk_test_123"
             resp = client.post("/api/tap/deal-room/checkout", json=payload)
 
@@ -909,10 +926,16 @@ class TestTapOpportunities:
         }
         session_payload = {"id": "cs_test_123", "url": "https://checkout.stripe.com/pay/cs_test_123"}
 
-        with patch("dashboard_routes_tap._config") as mock_config, \
-             patch("dashboard_routes_tap._create_stripe_checkout_session", return_value=session_payload), \
-             patch("dashboard_routes_tap.upsert_tap_checkout_session", new_callable=AsyncMock, side_effect=RuntimeError("db unavailable")), \
-             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch("dashboard_routes_tap._create_stripe_checkout_session", return_value=session_payload),
+            patch(
+                "dashboard_routes_tap.upsert_tap_checkout_session",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("db unavailable"),
+            ),
+            patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record,
+        ):
             mock_config.stripe_secret_key = "sk_test_123"
             resp = client.post("/api/tap/deal-room/checkout", json=payload)
 
@@ -946,11 +969,20 @@ class TestTapOpportunities:
             "metadata": {"provider": "stripe"},
         }
 
-        with patch("dashboard_routes_tap._config") as mock_config, \
-             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
-             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload), \
-             patch("dashboard_routes_tap.mark_tap_checkout_session_completed", new_callable=AsyncMock, return_value=True) as mock_mark, \
-             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock, return_value="evt_123") as mock_record:
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch(
+                "dashboard_routes_tap._construct_stripe_event",
+                return_value={"id": "evt_123", "type": "checkout.session.completed"},
+            ),
+            patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload),
+            patch(
+                "dashboard_routes_tap.mark_tap_checkout_session_completed", new_callable=AsyncMock, return_value=True
+            ) as mock_mark,
+            patch(
+                "dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock, return_value="evt_123"
+            ) as mock_record,
+        ):
             mock_config.stripe_webhook_secret = "whsec_test"
             resp = client.post(
                 "/api/tap/deal-room/webhooks/stripe",
@@ -975,9 +1007,12 @@ class TestTapOpportunities:
         assert mock_record.await_args.kwargs["revenue_value"] == 99.0
 
     def test_tap_deal_room_stripe_webhook_rejects_invalid_signature(self, client):
-        with patch("dashboard_routes_tap._config") as mock_config, patch(
-            "dashboard_routes_tap._construct_stripe_event",
-            side_effect=ValueError("Invalid Stripe webhook signature"),
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch(
+                "dashboard_routes_tap._construct_stripe_event",
+                side_effect=ValueError("Invalid Stripe webhook signature"),
+            ),
         ):
             mock_config.stripe_webhook_secret = "whsec_test"
             resp = client.post(
@@ -999,9 +1034,14 @@ class TestTapOpportunities:
             "metadata": {"provider": "stripe"},
         }
 
-        with patch("dashboard_routes_tap._config") as mock_config, \
-             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
-             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload):
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch(
+                "dashboard_routes_tap._construct_stripe_event",
+                return_value={"id": "evt_123", "type": "checkout.session.completed"},
+            ),
+            patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload),
+        ):
             mock_config.stripe_webhook_secret = "whsec_test"
             resp = client.post(
                 "/api/tap/deal-room/webhooks/stripe",
@@ -1028,9 +1068,14 @@ class TestTapOpportunities:
             "metadata": {"provider": "stripe"},
         }
 
-        with patch("dashboard_routes_tap._config") as mock_config, \
-             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
-             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload):
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch(
+                "dashboard_routes_tap._construct_stripe_event",
+                return_value={"id": "evt_123", "type": "checkout.session.completed"},
+            ),
+            patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload),
+        ):
             mock_config.stripe_webhook_secret = "whsec_test"
             resp = client.post(
                 "/api/tap/deal-room/webhooks/stripe",
@@ -1066,11 +1111,20 @@ class TestTapOpportunities:
             "metadata": {"provider": "stripe", "payment_status": "paid", "currency": "usd"},
         }
 
-        with patch("dashboard_routes_tap._config") as mock_config, \
-             patch("dashboard_routes_tap._construct_stripe_event", return_value={"id": "evt_123", "type": "checkout.session.completed"}), \
-             patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload), \
-             patch("dashboard_routes_tap.mark_tap_checkout_session_completed", new_callable=AsyncMock, side_effect=RuntimeError("db unavailable")), \
-             patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record:
+        with (
+            patch("dashboard_routes_tap._config") as mock_config,
+            patch(
+                "dashboard_routes_tap._construct_stripe_event",
+                return_value={"id": "evt_123", "type": "checkout.session.completed"},
+            ),
+            patch("dashboard_routes_tap._extract_tap_purchase_from_stripe_event", return_value=purchase_payload),
+            patch(
+                "dashboard_routes_tap.mark_tap_checkout_session_completed",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("db unavailable"),
+            ),
+            patch("dashboard_routes_tap.record_tap_deal_room_event", new_callable=AsyncMock) as mock_record,
+        ):
             mock_config.stripe_webhook_secret = "whsec_test"
             resp = client.post(
                 "/api/tap/deal-room/webhooks/stripe",
@@ -1087,4 +1141,3 @@ class TestTapOpportunities:
             "session_id": "cs_test_123",
         }
         mock_record.assert_not_awaited()
-

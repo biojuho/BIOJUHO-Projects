@@ -1,13 +1,23 @@
-const hre = require("hardhat");
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import hre from "hardhat";
 
 async function main() {
-    console.log("Sources path:", hre.config.paths.sources);
-    if (fs.existsSync(hre.config.paths.sources)) {
-        console.log("Files in sources:", fs.readdirSync(hre.config.paths.sources));
-    } else {
-        console.log("Sources path does not exist!");
+    const sources = hre.config.paths.sources;
+    const sourceDirectories =
+        typeof sources === "string"
+            ? [sources]
+            : Array.isArray(sources?.solidity)
+              ? sources.solidity
+              : [];
+
+    console.log("Sources path:", sources);
+
+    for (const directory of sourceDirectories) {
+        if (fs.existsSync(directory)) {
+            console.log(`Files in ${directory}:`, fs.readdirSync(directory));
+        } else {
+            console.log(`Source path does not exist: ${directory}`);
+        }
     }
 }
 

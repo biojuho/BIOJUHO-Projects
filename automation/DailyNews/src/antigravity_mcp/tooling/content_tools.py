@@ -17,6 +17,7 @@ def _get_notifier():
     """Lazy-import shared Notifier (never raises)."""
     try:
         from shared.notifications import Notifier
+
         return Notifier.from_env()
     except Exception:
         return None

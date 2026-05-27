@@ -8,11 +8,11 @@ scripts/cost_dashboard.py
   python ops/scripts/cost_dashboard.py --days 7       # 7일 데이터 요약
 """
 
-import sys
-import io
 import argparse
-from pathlib import Path
+import io
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # Windows cp949 환경에서 이모지 출력을 위한 UTF-8 강제 설정
 if sys.stdout and hasattr(sys.stdout, "buffer"):
@@ -54,10 +54,7 @@ def run_cost_dashboard(*, days: int = 1, notify: bool = False):
     # 예산 경고 Alarm 및 Rate Limiting 로직
     budget_exceeded = summary["total_cost"] > DAILY_BUDGET_USD
     if budget_exceeded:
-        print(
-            f"[경고] 일일 예산 임계치 (${DAILY_BUDGET_USD}) 초과! "
-            f"(현재 ${summary['total_cost']:.4f})"
-        )
+        print(f"[경고] 일일 예산 임계치 (${DAILY_BUDGET_USD}) 초과! (현재 ${summary['total_cost']:.4f})")
         print("추가 API 요청 차단(Rate Limit) 방어 기동 발동.")
         RATE_LIMIT_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
         RATE_LIMIT_LOCK_FILE.touch()
@@ -86,8 +83,7 @@ def run_cost_dashboard(*, days: int = 1, notify: bool = False):
 
             # 일일 리포트 알림 (항상 전송)
             project_lines = "\n".join(
-                f"  `{proj}`: {s['calls']}건 (${s['cost_usd']:.4f})"
-                for proj, s in summary["projects"].items()
+                f"  `{proj}`: {s['calls']}건 (${s['cost_usd']:.4f})" for proj, s in summary["projects"].items()
             )
             report = (
                 f"*일일 비용 리포트*\n"
@@ -107,9 +103,7 @@ def run_cost_dashboard(*, days: int = 1, notify: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AI Cost Dashboard")
     parser.add_argument("--days", type=int, default=1, help="조회 기간 (일)")
-    parser.add_argument(
-        "--notify", action="store_true", help="Discord/Telegram 알림 전송"
-    )
+    parser.add_argument("--notify", action="store_true", help="Discord/Telegram 알림 전송")
     args = parser.parse_args()
 
     run_cost_dashboard(days=args.days, notify=args.notify)

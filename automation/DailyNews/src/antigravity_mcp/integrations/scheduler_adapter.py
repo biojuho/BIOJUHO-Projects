@@ -8,8 +8,12 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from antigravity_mcp.state.store import PipelineStateStore
 
 # KST-based posting windows (from historical X engagement research)
 _DEFAULT_WINDOWS = {

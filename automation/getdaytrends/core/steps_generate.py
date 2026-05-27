@@ -9,7 +9,6 @@ import contextlib
 import dataclasses
 import re
 import sqlite3
-from datetime import datetime
 
 from loguru import logger as log
 
@@ -46,8 +45,8 @@ try:
     from ..config import VERSION, AppConfig
     from ..db import (
         compute_fingerprint,
-        get_cached_content,
         get_approved_post_bank,
+        get_cached_content,
         get_recent_tweet_contents,
         record_posting_time_stat,
     )
@@ -62,10 +61,9 @@ except ImportError:
     from config import VERSION, AppConfig
     from db import (
         compute_fingerprint,
-        get_cached_content,
         get_approved_post_bank,
+        get_cached_content,
         get_recent_tweet_contents,
-        record_posting_time_stat,
     )
     from generator import (
         audit_generated_content,
@@ -175,7 +173,7 @@ async def _load_adaptive_voice(config: AppConfig) -> tuple[list | None, dict | N
                     f"  [EDAPE] 적응형 프롬프트 주입 준비 완료 "
                     f"(angles={len(adaptive_ctx.top_angles)} "
                     f"golden={len(adaptive_ctx.golden_snippets)} "
-                    f"suppressed={len(adaptive_ctx.suppressed_angles)+len(adaptive_ctx.suppressed_hooks)+len(adaptive_ctx.suppressed_kicks)})"
+                    f"suppressed={len(adaptive_ctx.suppressed_angles) + len(adaptive_ctx.suppressed_hooks) + len(adaptive_ctx.suppressed_kicks)})"
                 )
         except Exception as _edape_err:
             log.debug(f"  [EDAPE] 로드 실패 (무시, 기존 경로 사용): {type(_edape_err).__name__}: {_edape_err}")
@@ -232,6 +230,7 @@ async def _load_recent_tweets(trend, config: AppConfig, conn) -> list[str]:
     except (ImportError, sqlite3.Error, ValueError) as _e:
         log.debug(f"  이전 트윗 조회 실패 (무시): {type(_e).__name__}: {_e}")
         return []
+
 
 async def _load_approved_post_bank(config: AppConfig, conn) -> list[dict]:
     """Load a few approved/published drafts as voice anchors for new prompts."""
@@ -311,10 +310,7 @@ async def _run_qa_pipeline(
 
     if failed_groups:
         details = qa.get("group_results", {})
-        failed_summary = ", ".join(
-            _format_qa_failure_summary(group, details.get(group, {}))
-            for group in failed_groups
-        )
+        failed_summary = ", ".join(_format_qa_failure_summary(group, details.get(group, {})) for group in failed_groups)
         qa_feedback = build_regeneration_feedback(qa_summary=qa)
         log.warning(
             f"  [QA 미달] '{trend.keyword}' → {failed_summary} (사유: {qa.get('reason', '-')}) → 실패 그룹만 재생성"
@@ -391,8 +387,9 @@ async def _run_fact_check(
                 "passed": v.passed,
                 "hallucinated_claims": v.hallucinated_claims,
                 "accuracy_score": v.accuracy_score,
-                "issues": v.issues
-            } for k, v in fc_results.items()
+                "issues": v.issues,
+            }
+            for k, v in fc_results.items()
         }
 
         for group_name, fc_result in fc_results.items():
@@ -412,9 +409,7 @@ async def _run_fact_check(
         if any_failed and getattr(effective_config, "hallucination_zero_tolerance", True):
             halluc_groups = [gn for gn, r in fc_results.items() if r.hallucinated_claims > 0]
             if halluc_groups:
-                log.warning(
-                    f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}"
-                )
+                log.warning(f"  [FactCheck 재생성] '{trend.keyword}' 환각 감지 그룹: {', '.join(halluc_groups)}")
                 primary = await regenerate_content_groups(
                     primary,
                     trend,
@@ -468,20 +463,23 @@ async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfi
         if dupes_log:
             log.warning(f"[다양성 QA] '{trend.keyword}' 유사도 임계치({threshold}) 초과 감지: " + ", ".join(dupes_log))
 
-            if not hasattr(batch, 'metadata') or batch.metadata is None:
+            if not hasattr(batch, "metadata") or batch.metadata is None:
                 batch.metadata = {}
-            if 'qa_report' not in batch.metadata:
-                batch.metadata['qa_report'] = {}
-            if 'warnings' not in batch.metadata['qa_report']:
-                batch.metadata['qa_report']['warnings'] = []
-            batch.metadata['qa_report']['warnings'].append(f"다양성 재작성: {trend.keyword} ({len(dupes_log)}쌍)")
+            if "qa_report" not in batch.metadata:
+                batch.metadata["qa_report"] = {}
+            if "warnings" not in batch.metadata["qa_report"]:
+                batch.metadata["qa_report"]["warnings"] = []
+            batch.metadata["qa_report"]["warnings"].append(f"다양성 재작성: {trend.keyword} ({len(dupes_log)}쌍)")
 
             from shared.llm import TaskTier
+
             lang = config.target_languages[0] if getattr(config, "target_languages", None) else "ko"
 
             async def _rewrite_tweet(idx: int):
                 original_tweet = batch.tweets[idx].content
-                other_tweets = [batch.tweets[k].content for k in range(len(batch.tweets)) if k != idx and k not in dupe_indices]
+                other_tweets = [
+                    batch.tweets[k].content for k in range(len(batch.tweets)) if k != idx and k not in dupe_indices
+                ]
                 others_text = "\n".join(f"- {o}" for o in other_tweets)
 
                 prompt = (
@@ -499,7 +497,7 @@ async def _run_diversity_rewrite_pass(batch: TweetBatch, trend, config: AppConfi
                         messages=[{"role": "user", "content": prompt}],
                         max_tokens=300,
                     )
-                    rewritten = resp.text.strip().strip('"\'')
+                    rewritten = resp.text.strip().strip("\"'")
                     if rewritten and len(rewritten) > 10:
                         log.info(f"  [다양성 재작성] '{trend.keyword}' 트윗{idx + 1} 완료")
                         batch.tweets[idx].content = rewritten
@@ -563,7 +561,13 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
             effective_config = dataclasses.replace(config, enable_long_form=False)
 
         primary = await generate_for_trend_async(
-            trend, effective_config, client, recent_tweets, approved_post_bank, golden_refs, pattern_weights,
+            trend,
+            effective_config,
+            client,
+            recent_tweets,
+            approved_post_bank,
+            golden_refs,
+            pattern_weights,
             edape_block=edape_block,
         )
         if primary is None:
@@ -585,7 +589,12 @@ async def _step_generate(quality_trends, config: AppConfig, conn) -> list:
             _run_cross_source_check(trend)
 
         primary = await _run_fact_check(
-            primary, trend, effective_config, client, recent_tweets, approved_post_bank,
+            primary,
+            trend,
+            effective_config,
+            client,
+            recent_tweets,
+            approved_post_bank,
         )
         await _run_diversity_rewrite_pass(primary, trend, config, client)
 

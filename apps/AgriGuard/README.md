@@ -81,6 +81,12 @@ npm run build:lts
 ```
 
 ```bash
+cd apps/AgriGuard/contracts
+npm run compile
+npm run test
+```
+
+```bash
 python -m compileall -q apps/AgriGuard/backend
 ```
 

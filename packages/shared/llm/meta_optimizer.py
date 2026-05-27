@@ -256,9 +256,7 @@ class MetaOptimizer:
 
         # 4. Sort suggestions by priority and estimated savings
         priority_order = {"high": 0, "medium": 1, "low": 2}
-        report.suggestions.sort(
-            key=lambda s: (priority_order.get(s.priority, 3), -s.estimated_savings_usd)
-        )
+        report.suggestions.sort(key=lambda s: (priority_order.get(s.priority, 3), -s.estimated_savings_usd))
 
         log.info(
             "MetaOptimizer: %d traces, %d patterns, %d suggestions, savings=$%.4f",
@@ -330,9 +328,7 @@ class MetaOptimizer:
                 f"하드코딩 템플릿으로 전환 시 LLM 호출 완전 제거 가능."
             ),
             estimated_savings_usd=savings,
-            estimated_token_savings=int(
-                pattern.avg_input_tokens * pattern.occurrence_count
-            ),
+            estimated_token_savings=int(pattern.avg_input_tokens * pattern.occurrence_count),
             prompt_hash=pattern.prompt_hash,
             confidence=min(0.5 + pattern.occurrence_count * 0.05, 0.95),
             action=(

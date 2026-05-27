@@ -191,6 +191,84 @@ class TestAnalyzePipeline:
         assert isinstance(warnings, list)
 
     @pytest.mark.asyncio
+    async def test_generate_briefs_empty_items_marks_partial_not_success(self, state_store):
+        """items=[] 호출 시 silent success 방지 — 빈 입력은 상태가 partial이고
+        warnings에 명시적 메시지가 들어가야 한다. upstream(collect/signal/skill)이
+        0건을 반환했을 때 alive heartbeat만 가서 묵음 장애가 누적되던 회귀 방지."""
+        from antigravity_mcp.pipelines.analyze import generate_briefs
+
+        mock_llm = MagicMock()
+        mock_llm.build_report_payload = AsyncMock()
+
+        run_id, reports, warnings, status = await generate_briefs(
+            items=[],
+            window_name="manual",
+            window_start="2026-03-03T00:00:00+00:00",
+            window_end="2026-03-04T00:00:00+00:00",
+            state_store=state_store,
+            llm_adapter=mock_llm,
+        )
+
+        assert reports == []
+        assert status == "partial", f"empty items must downgrade status to partial, got {status}"
+        mock_llm.build_report_payload.assert_not_called()
+        assert any("no items" in w.lower() for w in warnings), (
+            f"empty-items path must include explicit warning; got {warnings}"
+        )
+        assert run_id.startswith("generate_brief-")
+
+    @pytest.mark.asyncio
+    async def test_generate_briefs_persists_source_intelligence_meta(self, state_store, sample_items):
+        from antigravity_mcp.integrations.embedding_adapter import ArticleCluster
+        from antigravity_mcp.pipelines.analyze import generate_briefs
+
+        sample_items[0].full_text = "Full article body"
+
+        class FakeEmbeddingAdapter:
+            is_available = True
+
+            async def cluster_articles(self, articles):
+                return [
+                    ArticleCluster(
+                        cluster_id=0,
+                        topic_label="AI market",
+                        articles=articles,
+                        source_count=2,
+                        embedding_provider="fastembed",
+                    )
+                ]
+
+        mock_llm = MagicMock()
+        mock_llm.build_report_payload = AsyncMock(
+            return_value=(
+                (["Summary line 1"], ["Insight 1"], [ChannelDraft(channel="x", status="draft", content="Draft")]),
+                [],
+            )
+        )
+
+        _, reports, _, _ = await generate_briefs(
+            items=sample_items,
+            window_name="manual",
+            window_start="2026-03-03T00:00:00+00:00",
+            window_end="2026-03-04T00:00:00+00:00",
+            state_store=state_store,
+            llm_adapter=mock_llm,
+            embedding_adapter=FakeEmbeddingAdapter(),
+        )
+
+        saved = state_store.get_report(reports[0].report_id)
+        assert saved is not None
+        source_meta = saved.analysis_meta["source_intelligence"]
+        assert source_meta["article_count"] == 2
+        assert source_meta["source_count"] == 2
+        assert source_meta["full_text_count"] == 1
+        assert source_meta["full_text_coverage"] == 0.5
+        assert source_meta["cluster_count"] == 1
+        assert source_meta["multi_source_topic_count"] == 1
+        assert source_meta["embedding_provider"] == "fastembed"
+        assert source_meta["top_multi_source_topics"][0]["sources"] == ["Reuters", "TechCrunch"]
+
+    @pytest.mark.asyncio
     async def test_generate_briefs_reuses_existing_fingerprint(self, state_store, sample_items):
         from antigravity_mcp.pipelines.analyze import generate_briefs
 
@@ -277,7 +355,10 @@ class TestAnalyzePipeline:
         assert saved.analysis_meta["draft_overrides"]["x"] == "insight_generator"
         assert saved.analysis_meta["original_x_draft"] == "Base draft"
         assert next(d for d in saved.channel_drafts if d.channel == "x").source == "insight_generator"
-        assert next(d for d in saved.channel_drafts if d.channel == "x").content == "Long-form X draft from insight generator"
+        assert (
+            next(d for d in saved.channel_drafts if d.channel == "x").content
+            == "Long-form X draft from insight generator"
+        )
 
     @pytest.mark.asyncio
     async def test_generate_briefs_normalizes_brief_body_before_persist(self, state_store, sample_items):
@@ -321,7 +402,7 @@ class TestAnalyzePipeline:
         assert saved is not None
         assert saved.generation_mode == "v1-brief"
         assert saved.analysis_meta["brief_body"] == (
-            "오늘의 핫 이슈: Tech. 변화의 시작입니다.\n" "첫 문장.\n" "둘째 문장.\n" "셋째 문장."
+            "오늘의 핫 이슈: Tech. 변화의 시작입니다.\n첫 문장.\n둘째 문장.\n셋째 문장."
         )
         assert "핵심 사실:" not in saved.analysis_meta["brief_body"]
         assert "배경/디테일:" not in saved.analysis_meta["brief_body"]
@@ -533,9 +614,12 @@ class TestPublishPipeline:
             notion_reports_database_id="db-123",
             auto_push_enabled=False,
         )
-        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings), patch(
-            "antigravity_mcp.pipelines.publish.datetime",
-            FrozenDateTime,
+        with (
+            patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings),
+            patch(
+                "antigravity_mcp.pipelines.publish.datetime",
+                FrozenDateTime,
+            ),
         ):
             await publish_report(
                 report_id=sample_report.report_id,
@@ -722,9 +806,12 @@ class TestPublishPipeline:
             notion_reports_database_id="",
             auto_push_enabled=True,
         )
-        with patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings), patch(
-            "antigravity_mcp.pipelines.publish.XAdapter.split_to_thread",
-            return_value=["tweet-1", "tweet-2", "tweet-3"],
+        with (
+            patch("antigravity_mcp.pipelines.publish.get_settings", return_value=fake_settings),
+            patch(
+                "antigravity_mcp.pipelines.publish.XAdapter.split_to_thread",
+                return_value=["tweet-1", "tweet-2", "tweet-3"],
+            ),
         ):
             _, publication, warnings, status = await publish_report(
                 report_id=sample_report.report_id,
@@ -815,14 +902,20 @@ class TestPublishPipeline:
         assert "notion_resynced_at" in saved.analysis_meta["manual_update"]
         assert "channel_metadata_refreshed_at" in saved.analysis_meta["manual_update"]
 
-        rows = state_store._connect().execute(
-            "SELECT channel, status FROM channel_publications WHERE report_id = ? ORDER BY channel",
-            (sample_report.report_id,),
-        ).fetchall()
+        rows = (
+            state_store._connect()
+            .execute(
+                "SELECT channel, status FROM channel_publications WHERE report_id = ? ORDER BY channel",
+                (sample_report.report_id,),
+            )
+            .fetchall()
+        )
         assert [(row["channel"], row["status"]) for row in rows] == [("canva", "draft"), ("x", "draft")]
 
     @pytest.mark.asyncio
-    async def test_resync_report_without_notion_page_id_still_refreshes_channel_metadata(self, state_store, sample_report):
+    async def test_resync_report_without_notion_page_id_still_refreshes_channel_metadata(
+        self, state_store, sample_report
+    ):
         from antigravity_mcp.pipelines.publish import resync_report_publication
 
         sample_report.channel_drafts = [
@@ -842,10 +935,14 @@ class TestPublishPipeline:
         assert payload["notion_status"] == "missing_page_id"
         assert payload["channel_refresh_count"] == "1"
         assert any("no notion_page_id" in warning for warning in warnings)
-        rows = state_store._connect().execute(
-            "SELECT channel, status FROM channel_publications WHERE report_id = ?",
-            (sample_report.report_id,),
-        ).fetchall()
+        rows = (
+            state_store._connect()
+            .execute(
+                "SELECT channel, status FROM channel_publications WHERE report_id = ?",
+                (sample_report.report_id,),
+            )
+            .fetchall()
+        )
         assert len(rows) == 1
         assert rows[0]["channel"] == "x"
         assert rows[0]["status"] == "draft"
@@ -1053,8 +1150,8 @@ class TestStateStore:
 
 class TestV2PromptParser:
     def test_parse_v2_response_extracts_all_sections(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         v2_text = """### Signal
@@ -1104,8 +1201,8 @@ OpenAI just raised $40B. But the real signal is what that does to the funding ba
         assert any("$40B" in draft.content for draft in drafts)
 
     def test_parse_response_marks_parse_fallback_metadata(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         payload, warnings = parser.parse_response(
@@ -1128,8 +1225,8 @@ OpenAI just raised $40B. But the real signal is what that does to the funding ba
         assert "parse_fallback:Tech:morning" in warnings
 
     def test_parse_v2_response_collects_evidence_metadata(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         items = [
@@ -1181,8 +1278,8 @@ GPU demand is staying tighter for longer than many teams expected.
         assert evidence["article_ref_count"] == 2
 
     def test_parse_v1_brief_response_extracts_brief_body_and_limits_insights(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         payload, warnings = parser.parse_response(
@@ -1223,8 +1320,8 @@ Draft
         assert payload.parse_meta["sections_found"]["brief"] == 4
 
     def test_parse_v1_brief_response_accepts_markdown_section_headers(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         payload, warnings = parser.parse_response(
@@ -1268,8 +1365,8 @@ Draft
         assert payload.parse_meta["sections_found"]["draft"] == 1
 
     def test_parse_v1_brief_response_strips_asterisk_bullets(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         payload, warnings = parser.parse_response(
@@ -1302,8 +1399,8 @@ Draft text""",
         assert payload.insights == ["First insight line [A1]"]
 
     def test_parse_v1_brief_response_ignores_preamble_before_section_headers(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         payload, warnings = parser.parse_response(
@@ -1343,8 +1440,8 @@ Draft text""",
         assert "# Tech 리포트 (수정본)" not in payload.summary_lines
 
     def test_parse_v1_brief_response_accepts_inline_section_content(self):
-        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
         from antigravity_mcp.integrations.llm.draft_generators import DraftGenerator
+        from antigravity_mcp.integrations.llm.response_parser import ResponseParser
 
         parser = ResponseParser(draft_generator=DraftGenerator())
         payload, warnings = parser.parse_response(
@@ -1453,6 +1550,48 @@ Draft - Draft text""",
         assert ctx.summary_lines == original_summary
         assert ctx.analysis_meta["auto_heal"]["applied"] is False
         assert ctx.analysis_meta["auto_heal"]["reason"] == "no_improvement"
+
+    @pytest.mark.asyncio
+    async def test_finalize_quality_flags_prohibited_analogy_phrasing(self, state_store):
+        from antigravity_mcp.pipelines.assembly_context import ReportAssemblyContext
+        from antigravity_mcp.pipelines.qa_steps import finalize_quality
+
+        ctx = ReportAssemblyContext(
+            category="Tech",
+            items=[
+                ContentItem(
+                    source_name="Reuters",
+                    category="Tech",
+                    title="Story A",
+                    link="https://example.com/story-a",
+                    summary="Summary A",
+                )
+            ],
+            window_name="morning",
+            window_start="2026-04-10T00:00:00+00:00",
+            window_end="2026-04-10T12:00:00+00:00",
+            state_store=state_store,
+            report_id="report-tech-analogy-test",
+            generation_mode="v1-brief",
+            fingerprint="fp-analogy-test",
+            source_links=["https://example.com/story-a"],
+            enriched_items=[],
+            summary_lines=[
+                "AI 플랫폼 비용은 이번 주 12% 올랐다. [A1]",
+                "기업 구매팀은 벤더 교체 비용을 다시 계산해야 한다. [A1]",
+            ],
+            insights=[
+                "이 변화는 마치 예산표가 한 번에 흔들리는 상황 같다. [A1]",
+                "다음 분기 계약 조건에서 사용량 기준 단가를 확인해야 한다. [A1]",
+            ],
+            channel_drafts=[ChannelDraft(channel="x", status="draft", content="AI 비용 12% 상승. 계약 단가 확인.")],
+            analysis_meta={"parser": {"used_fallback": False, "format": "v1"}},
+        )
+
+        await finalize_quality(ctx)
+
+        assert ctx.quality_state == "needs_review"
+        assert "Prohibited analogy/metaphor phrasing detected." in ctx.analysis_meta["quality_review"]["warnings"]
 
     def test_report_markdown_prefers_styled_brief_for_v1_brief(self, sample_report):
         from antigravity_mcp.pipelines.publish import _report_markdown

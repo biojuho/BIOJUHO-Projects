@@ -1,3 +1,4 @@
+# ruff: noqa: N806  # TestingSessionLocal follows SQLAlchemy naming convention
 """
 Dashboard Router 통합 테스트 — demo mode fallback, 캐시 동작, 집계 로직 검증.
 
@@ -16,9 +17,8 @@ import os
 # database.py creates engine at import time — force SQLite before any import
 os.environ["DATABASE_URL"] = "sqlite://"
 
-import json
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import models
 import pytest
@@ -29,7 +29,6 @@ from routers import dashboard
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -186,7 +185,7 @@ def test_frontend_dashboard_real_data(client, db_session):
     """실데이터 존재 → farmer_count, product 기반 계산."""
     _seed_farmer(db_session, name="농부1")
     _seed_farmer(db_session, name="농부2")
-    p = _seed_product(db_session, product_id="prod-dash-1", harvest_date=None)
+    _seed_product(db_session, product_id="prod-dash-1", harvest_date=None)
     _seed_product(db_session, product_id="prod-dash-2", harvest_date=datetime.now(UTC))
     _seed_tracking_event(db_session, "prod-dash-1", status="delivered", location="Busan")
 
@@ -248,8 +247,8 @@ def test_supply_chain_summary_empty(client):
 
 def test_supply_chain_summary_with_data(client, db_session):
     """제품/인증서/추적이벤트 복합 집계."""
-    p1 = _seed_product(db_session, product_id="sc-1", origin="Naju", requires_cold_chain=True)
-    p2 = _seed_product(db_session, product_id="sc-2", origin="Jeju", requires_cold_chain=False)
+    _seed_product(db_session, product_id="sc-1", origin="Naju", requires_cold_chain=True)
+    _seed_product(db_session, product_id="sc-2", origin="Jeju", requires_cold_chain=False)
     _seed_certificate(db_session, "sc-1")
     _seed_tracking_event(db_session, "sc-1", status="in_transit", location="Seoul")
     _seed_tracking_event(db_session, "sc-1", status="delivered", location="Busan")
@@ -276,7 +275,6 @@ def test_supply_chain_summary_with_data(client, db_session):
 
 
 class TestBuildStatusDistribution:
-
     def test_empty_products(self):
         assert dashboard._build_status_distribution([]) == {}
 
@@ -301,7 +299,6 @@ class TestBuildStatusDistribution:
 
 
 class TestBuildOriginDistribution:
-
     def test_empty_products(self):
         assert dashboard._build_origin_distribution([]) == {}
 
@@ -324,9 +321,8 @@ class TestBuildOriginDistribution:
 
 
 class TestFormatTrackingEventAsActivity:
-
     def test_format_output(self, db_session):
-        p = _seed_product(db_session, product_id="abcd1234-rest-of-id")
+        _seed_product(db_session, product_id="abcd1234-rest-of-id")
         event = _seed_tracking_event(db_session, "abcd1234-rest-of-id", status="in_transit", location="Seoul Hub")
         db_session.refresh(event)
 

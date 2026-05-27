@@ -53,6 +53,7 @@ def _inject_newsletter_cta(content: str, *, signup_url: str = "") -> str:
         return content + cta
     return content  # Don't sacrifice content for CTA
 
+
 # ---------------------------------------------------------------------------
 # Optional tweepy import
 # ---------------------------------------------------------------------------
@@ -188,7 +189,9 @@ class XAdapter:
         if current_count + len(tweets) > limit:
             logger.warning(
                 "X daily limit would be exceeded by thread (%d + %d > %d); skipping.",
-                current_count, len(tweets), limit,
+                current_count,
+                len(tweets),
+                limit,
             )
             return [{"status": "blocked", "message": f"Daily limit ({limit}) would be exceeded."}] * len(tweets)
 
@@ -209,7 +212,10 @@ class XAdapter:
                 error_msg = f"{type(exc).__name__}: {exc}"
                 logger.error(
                     "Thread tweet %d/%d failed: %s (published %d so far)",
-                    i + 1, len(tweets), error_msg, len(results),
+                    i + 1,
+                    len(tweets),
+                    error_msg,
+                    len(results),
                 )
                 results.append({"status": "error", "message": error_msg, "tweet_index": str(i + 1)})
                 # 나머지 트윗을 skipped로 표시 (silent 유실 방지)

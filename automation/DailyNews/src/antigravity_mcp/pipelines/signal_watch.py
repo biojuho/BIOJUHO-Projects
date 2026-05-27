@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
+
     _PG_AVAILABLE = True
 except ImportError:
     _PG_AVAILABLE = False
@@ -109,7 +110,9 @@ class SignalStateStore:
             logger.info("SignalStateStore: using PostgreSQL (Supabase)")
         else:
             if self._pg_url and not _PG_AVAILABLE:
-                logger.warning("SignalStateStore: SUPABASE_DATABASE_URL set but psycopg2 unavailable — falling back to SQLite")
+                logger.warning(
+                    "SignalStateStore: SUPABASE_DATABASE_URL set but psycopg2 unavailable — falling back to SQLite"
+                )
             self._sqlite_path = self._explicit_db_path or str(_SIGNAL_DB_PATH)
             logger.info("SignalStateStore: using SQLite (%s)", self._sqlite_path)
 
@@ -205,18 +208,20 @@ class SignalStateStore:
 
         rows = []
         for s in signals:
-            rows.append((
-                s.keyword,
-                s.composite_score,
-                json.dumps(s.sources),
-                s.source_count,
-                s.arbitrage_type,
-                s.recommended_action,
-                s.velocity,
-                s.category_hint,
-                now,
-                json.dumps({"raw_count": len(s.raw_signals)}),
-            ))
+            rows.append(
+                (
+                    s.keyword,
+                    s.composite_score,
+                    json.dumps(s.sources),
+                    s.source_count,
+                    s.arbitrage_type,
+                    s.recommended_action,
+                    s.velocity,
+                    s.category_hint,
+                    now,
+                    json.dumps({"raw_count": len(s.raw_signals)}),
+                )
+            )
 
         with self._get_connection() as conn:
             if self._use_pg:
@@ -337,16 +342,18 @@ async def run_signal_watch(
     # Step 5: Format output
     signal_dicts = []
     for s in actionable:
-        signal_dicts.append({
-            "keyword": s.keyword,
-            "score": s.composite_score,
-            "sources": s.sources,
-            "source_count": s.source_count,
-            "type": s.arbitrage_type,
-            "action": s.recommended_action,
-            "velocity": s.velocity,
-            "category": s.category_hint,
-        })
+        signal_dicts.append(
+            {
+                "keyword": s.keyword,
+                "score": s.composite_score,
+                "sources": s.sources,
+                "source_count": s.source_count,
+                "type": s.arbitrage_type,
+                "action": s.recommended_action,
+                "velocity": s.velocity,
+                "category": s.category_hint,
+            }
+        )
 
     # Step 6: Auto-draft Trigger
     if auto_draft and actionable:
@@ -423,8 +430,7 @@ async def _trigger_auto_draft(signals: list[ScoredSignal], run_id: str) -> None:
             run_id=run_id,
         )
         logger.info(
-            "Auto-draft finished: status=%s, %d reports generated. Warnings: %s",
-            status, len(reports), warnings
+            "Auto-draft finished: status=%s, %d reports generated. Warnings: %s", status, len(reports), warnings
         )
     except Exception as exc:
         logger.error("Auto-draft pipeline failed: %s", exc)

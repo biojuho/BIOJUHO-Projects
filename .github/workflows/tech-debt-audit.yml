@@ -1,5 +1,8 @@
 name: Tech Debt Audit
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # 매주 월요일 09:00 KST (00:00 UTC)
@@ -32,15 +35,18 @@ concurrency:
 
 jobs:
   debt-audit:
+    environment: automation-ops
     name: VibeDebt Scanner
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: write # Required to create or update VibeDebt comments on pull requests.
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -63,13 +69,13 @@ jobs:
           OUTFILE="var/debt/${SCAN_DATE}.json"
 
           UNIT_ARG=""
-          if [ -n "${{ github.event.inputs.unit }}" ]; then
-            UNIT_ARG="--unit ${{ github.event.inputs.unit }}"
+          if [ -n "${GITHUB_EVENT_INPUTS_UNIT}" ]; then
+            UNIT_ARG="--unit ${GITHUB_EVENT_INPUTS_UNIT}"
           fi
 
           FAIL_ARG=""
-          if [ -n "${{ github.event.inputs.fail_on_grade }}" ]; then
-            FAIL_ARG="--fail-on-grade ${{ github.event.inputs.fail_on_grade }}"
+          if [ -n "${GITHUB_EVENT_INPUTS_FAIL_ON_GRADE}" ]; then
+            FAIL_ARG="--fail-on-grade ${GITHUB_EVENT_INPUTS_FAIL_ON_GRADE}"
           fi
 
           uv run python ops/scripts/tech_debt_scanner.py \
@@ -81,21 +87,25 @@ jobs:
 
           echo "report_file=$OUTFILE" >> "$GITHUB_OUTPUT"
           echo "scan_date=$SCAN_DATE" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_EVENT_INPUTS_UNIT: ${{ github.event.inputs.unit }}
+          GITHUB_EVENT_INPUTS_FAIL_ON_GRADE: ${{ github.event.inputs.fail_on_grade }}
 
       - name: Push metrics to Pushgateway
         if: success() && env.PUSHGATEWAY_URL != ''
         env:
           PUSHGATEWAY_URL: ${{ secrets.PUSHGATEWAY_URL }}
+          STEPS_SCAN_OUTPUTS_REPORT_FILE: ${{ steps.scan.outputs.report_file }}
         run: |
           uv run python ops/scripts/push_debt_metrics.py \
-            --report-file "${{ steps.scan.outputs.report_file }}" \
+            --report-file "${STEPS_SCAN_OUTPUTS_REPORT_FILE}" \
             --gateway "$PUSHGATEWAY_URL" || echo "[WARN] Pushgateway push failed (non-blocking)"
 
       - name: Parse scores for summary
         id: parse
         if: always()
         run: |
-          OUTFILE="${{ steps.scan.outputs.report_file }}"
+          OUTFILE="${STEPS_SCAN_OUTPUTS_REPORT_FILE}"
           if [ -f "$OUTFILE" ]; then
             WS_SCORE=$(uv run python -c "import json; d=json.load(open('$OUTFILE')); print(d['workspace_debt_score'])")
             WS_GRADE=$(uv run python -c "import json; d=json.load(open('$OUTFILE')); print(d['workspace_grade'])")
@@ -106,15 +116,17 @@ jobs:
             echo "total_hours=$TOTAL_H" >> "$GITHUB_OUTPUT"
             echo "total_todo=$TOTAL_TODO" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          STEPS_SCAN_OUTPUTS_REPORT_FILE: ${{ steps.scan.outputs.report_file }}
 
       - name: Generate GitHub Step Summary
         if: always()
         run: |
-          SCAN_DATE="${{ steps.scan.outputs.scan_date }}"
-          WS_SCORE="${{ steps.parse.outputs.ws_score }}"
-          WS_GRADE="${{ steps.parse.outputs.ws_grade }}"
-          TOTAL_H="${{ steps.parse.outputs.total_hours }}"
-          TOTAL_TODO="${{ steps.parse.outputs.total_todo }}"
+          SCAN_DATE="${STEPS_SCAN_OUTPUTS_SCAN_DATE}"
+          WS_SCORE="${STEPS_PARSE_OUTPUTS_WS_SCORE}"
+          WS_GRADE="${STEPS_PARSE_OUTPUTS_WS_GRADE}"
+          TOTAL_H="${STEPS_PARSE_OUTPUTS_TOTAL_HOURS}"
+          TOTAL_TODO="${STEPS_PARSE_OUTPUTS_TOTAL_TODO}"
 
           # 등급별 이모지
           case "$WS_GRADE" in
@@ -150,16 +162,27 @@ jobs:
 
           </details>
           EOF
+        env:
+          STEPS_SCAN_OUTPUTS_SCAN_DATE: ${{ steps.scan.outputs.scan_date }}
+          STEPS_PARSE_OUTPUTS_WS_SCORE: ${{ steps.parse.outputs.ws_score }}
+          STEPS_PARSE_OUTPUTS_WS_GRADE: ${{ steps.parse.outputs.ws_grade }}
+          STEPS_PARSE_OUTPUTS_TOTAL_HOURS: ${{ steps.parse.outputs.total_hours }}
+          STEPS_PARSE_OUTPUTS_TOTAL_TODO: ${{ steps.parse.outputs.total_todo }}
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          WS_SCORE: ${{ steps.parse.outputs.ws_score }}
+          WS_GRADE: ${{ steps.parse.outputs.ws_grade }}
+          TOTAL_HOURS: ${{ steps.parse.outputs.total_hours }}
+          TOTAL_TODO: ${{ steps.parse.outputs.total_todo }}
         with:
           script: |
-            const score = '${{ steps.parse.outputs.ws_score }}';
-            const grade = '${{ steps.parse.outputs.ws_grade }}';
-            const hours = '${{ steps.parse.outputs.total_hours }}';
-            const todo  = '${{ steps.parse.outputs.total_todo }}';
+            const score = process.env.WS_SCORE;
+            const grade = process.env.WS_GRADE;
+            const hours = process.env.TOTAL_HOURS;
+            const todo  = process.env.TOTAL_TODO;
 
             if (!score) return;
 
@@ -209,7 +232,7 @@ jobs:
 
       - name: Upload debt report artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: debt-report-${{ steps.scan.outputs.scan_date }}
           path: var/debt/${{ steps.scan.outputs.scan_date }}.json

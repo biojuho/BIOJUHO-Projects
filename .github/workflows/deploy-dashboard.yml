@@ -1,5 +1,12 @@
 name: Deploy Dashboard to Cloud Run
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -17,15 +24,19 @@ env:
 
 jobs:
   deploy:
+    name: Deploy dashboard
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js (for React frontend build)
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: '20'
+          node-version: "24.15.0"
           cache: 'npm'
           cache-dependency-path: 'apps/dashboard/package.json'
 
@@ -37,29 +48,31 @@ jobs:
 
       - name: Google Auth
         id: auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
 
       - name: Authorize Docker push
         run: gcloud auth configure-docker --quiet
 
       - name: Build and Deploy to Cloud Run
+        env:
+          SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
         run: |
           # .gitignore excludes dist/ by default, which prevents Cloud Build from seeing it.
           # We create a .gcloudignore that includes .gitignore but un-ignores the dist dir.
           cp .gitignore .gcloudignore
           echo "!apps/dashboard/dist/" >> .gcloudignore
           
-          gcloud builds submit --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
+          gcloud builds submit --tag gcr.io/${PROJECT_ID}/${SERVICE_NAME} \
             --file apps/dashboard/Dockerfile .
             
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }} \
-            --region ${{ env.REGION }} \
+          gcloud run deploy "$SERVICE_NAME" \
+            --image gcr.io/${PROJECT_ID}/${SERVICE_NAME} \
+            --region "$REGION" \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars="DASHBOARD_ALLOWED_ORIGINS=*,AGRIGUARD_DATABASE_URL=${{ secrets.SUPABASE_DATABASE_URL }},ENVIRONMENT=production"
+            --set-env-vars="DASHBOARD_ALLOWED_ORIGINS=*,AGRIGUARD_DATABASE_URL=${SUPABASE_DATABASE_URL},ENVIRONMENT=production"

@@ -54,6 +54,7 @@ async def _run_watch(args: argparse.Namespace) -> int:
     # Lazy-load Notifier (fail-safe)
     try:
         from shared.notifications import Notifier
+
         notifier = Notifier.from_env()
     except Exception as exc:
         logger.debug("Notifier disabled or failed to load: %s", exc)
@@ -101,15 +102,15 @@ async def _run_watch(args: argparse.Namespace) -> int:
 
 def _print_watch_result(result: dict) -> None:
     """Pretty-print signal watch results."""
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print("  Signal Watch Results")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"  Sources:    {', '.join(result.get('sources', []))}")
     print(f"  Collected:  {result.get('total_collected', 0)}")
     print(f"  Scored:     {result.get('total_scored', 0)}")
     print(f"  Actionable: {result.get('actionable', 0)}")
     print(f"  Elapsed:    {result.get('elapsed_sec', 0):.1f}s")
-    print(f"{'─'*60}")
+    print(f"{'─' * 60}")
 
     signals = result.get("signals", [])
     if not signals:
@@ -117,15 +118,12 @@ def _print_watch_result(result: dict) -> None:
     else:
         for _i, s in enumerate(signals, 1):
             icon = {"draft_now": "🔴", "differentiate": "🟡", "series": "🟢", "skip": "⚪"}.get(s["action"], "⚪")
-            print(
-                f"  {icon} [{s['score']:.2f}] {s['keyword']}"
-                f"  ({s['type']}, {s['source_count']} sources)"
-            )
+            print(f"  {icon} [{s['score']:.2f}] {s['keyword']}  ({s['type']}, {s['source_count']} sources)")
             print(f"       Action: {s['action']} | Velocity: {s['velocity']:.2f}")
             if s.get("category"):
                 print(f"       Category: {s['category']}")
 
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 def _run_history(args: argparse.Namespace) -> int:
@@ -150,9 +148,9 @@ def _run_history(args: argparse.Namespace) -> int:
 
 def _print_history(records: list[dict], *, hours: int = 24) -> None:
     """Pretty-print signal history."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  Signal History (last {hours}h)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if not records:
         print("  No signals found.")
@@ -167,4 +165,4 @@ def _print_history(records: list[dict], *, hours: int = 24) -> None:
             )
             print(f"       Action: {r['recommended_action']} | Detected: {r['detected_at'][:19]}")
 
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")

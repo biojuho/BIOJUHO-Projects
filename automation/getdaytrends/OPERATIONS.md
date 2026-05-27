@@ -1,7 +1,18 @@
 # GetDayTrends 운영 규칙 (Operational Rules)
 
 > 실시간 트렌드 파이프라인의 안정적 무인 운영을 위한 규칙.
-> 최종 업데이트: 2026-03-21
+> 최종 업데이트: 2026-05-19 (shortform-only 정책 + 비유/은유 가드 적용)
+
+---
+
+## Content Policy (2026-05, shortform-only)
+
+- 활성 출력: 단문 트윗 5종, `160–240자` (한국어 공백 포함)
+- 비활성 출력 (기본값): 네이버 블로그, 장문 글, X 멀티 쓰레드, Meta Threads
+- 3중 가드: `enable_long_form=False` + `enable_threads=False` + `*_min_score=999`
+- 발행: 수동 전용 (`AUTO_PUSH_ENABLED=False`, `CONTENT_APPROVAL_MODE=manual`)
+- QA 차감: `>240자` regulation/algorithm −2, `<160자` angle −4 + algorithm −2, 비유/은유 표현(`마치`, `~같다`, `~처럼`, `as if`, `like a`) tone −8
+- 옵트인 복귀: 보고용 프로파일 테스트에서만 `enable_long_form=True`/`enable_threads=True` 명시. 운영 기본값 변경 금지
 
 ---
 

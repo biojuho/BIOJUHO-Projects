@@ -21,9 +21,10 @@ Usage::
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Callable, Awaitable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +38,11 @@ except ImportError:
     END = "end"
     StateGraph = None  # type: ignore[assignment]
 
-from ..constitution import Constitution
 from ..adapters.native import NativeHarnessAdapter
-
+from ..constitution import Constitution
 
 # --- State ---
+
 
 class PipelineState(dict):
     """State for the content generation pipeline graph.
@@ -90,11 +91,11 @@ class ContentPipelineGraph:
     """
 
     adapter: NativeHarnessAdapter
-    collect_fn: Optional[AgentStepFn] = None
-    analyze_fn: Optional[AgentStepFn] = None
-    generate_fn: Optional[AgentStepFn] = None
-    qa_fn: Optional[AgentStepFn] = None
-    publish_fn: Optional[AgentStepFn] = None
+    collect_fn: AgentStepFn | None = None
+    analyze_fn: AgentStepFn | None = None
+    generate_fn: AgentStepFn | None = None
+    qa_fn: AgentStepFn | None = None
+    publish_fn: AgentStepFn | None = None
     qa_threshold: float = 7.0
 
     def _trace_entry(self, step_name: str, status: str, detail: str = "") -> dict:
@@ -135,18 +136,22 @@ class ContentPipelineGraph:
                     tools=["llm_call"],
                     cost_estimate=0.01,
                 )
-                generated.append({
-                    "source": item,
-                    "content": result.output,
-                    "success": result.success,
-                })
+                generated.append(
+                    {
+                        "source": item,
+                        "content": result.output,
+                        "success": result.success,
+                    }
+                )
             except Exception as e:
                 state["errors"].append(f"generate:{type(e).__name__}:{e}")
-                generated.append({
-                    "source": item,
-                    "content": None,
-                    "success": False,
-                })
+                generated.append(
+                    {
+                        "source": item,
+                        "content": None,
+                        "success": False,
+                    }
+                )
 
         state["generated"] = generated
         state["retry_count"] = state.get("retry_count", 0)
@@ -185,9 +190,7 @@ class ContentPipelineGraph:
     async def _default_publish(self, state: PipelineState) -> PipelineState:
         """Default publish node — logs success, actual publishing via override."""
         approved_items = [r["item"] for r in state.get("qa_results", []) if r.get("passed")]
-        state["trace"].append(
-            self._trace_entry("publish", "success", f"{len(approved_items)} items ready")
-        )
+        state["trace"].append(self._trace_entry("publish", "success", f"{len(approved_items)} items ready"))
         return state
 
     def _should_retry(self, state: PipelineState) -> str:
@@ -205,9 +208,7 @@ class ContentPipelineGraph:
     async def _retry_gate(self, state: PipelineState) -> PipelineState:
         """Increment retry counter before re-entering generate."""
         state["retry_count"] = state.get("retry_count", 0) + 1
-        state["trace"].append(
-            self._trace_entry("retry_gate", "retrying", f"attempt {state['retry_count']}")
-        )
+        state["trace"].append(self._trace_entry("retry_gate", "retrying", f"attempt {state['retry_count']}"))
         return state
 
     def build(self) -> Any:
@@ -217,10 +218,7 @@ class ContentPipelineGraph:
             result = await graph.ainvoke(PipelineState.initial(trends))
         """
         if not LANGGRAPH_AVAILABLE:
-            raise ImportError(
-                "langgraph is required for coordination graphs. "
-                "Install with: pip install langgraph"
-            )
+            raise ImportError("langgraph is required for coordination graphs. Install with: pip install langgraph")
 
         graph = StateGraph(dict)
 
@@ -269,15 +267,16 @@ class ContentPipelineGraph:
 
 # --- Factory ---
 
+
 def build_content_pipeline(
     constitution: Constitution,
     *,
     qa_threshold: float = 7.0,
-    collect_fn: Optional[AgentStepFn] = None,
-    analyze_fn: Optional[AgentStepFn] = None,
-    generate_fn: Optional[AgentStepFn] = None,
-    qa_fn: Optional[AgentStepFn] = None,
-    publish_fn: Optional[AgentStepFn] = None,
+    collect_fn: AgentStepFn | None = None,
+    analyze_fn: AgentStepFn | None = None,
+    generate_fn: AgentStepFn | None = None,
+    qa_fn: AgentStepFn | None = None,
+    publish_fn: AgentStepFn | None = None,
 ) -> ContentPipelineGraph:
     """Factory to create a governed content pipeline.
 

@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from packages.shared.metrics import _normalize_request_path
+from shared.metrics import _normalize_request_path
 
 
 def test_normalize_request_path_prefers_route_template():

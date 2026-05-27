@@ -1,3 +1,4 @@
+# ruff: noqa: S311  # demo/seed data generation; cryptographic randomness not required
 import random
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -59,7 +60,7 @@ def seed_db():
 
         # 3. Create Tracking Events
         statuses = ["Planted", "Harvested", "In Transit", "Delivered to Warehouse", "Quality Check Passed"]
-        for i in range(1500):
+        for _i in range(1500):
             product = random.choice(products)
             event = models.TrackingEvent(
                 id=str(uuid.uuid4()),

@@ -28,7 +28,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +44,27 @@ import sqlite3
 
 # --- Constants ---
 _MAX_NAME_LEN = 256
-_VALID_NODE_TYPES = frozenset({
-    "module", "class", "function", "method", "import", "variable", "file",
-})
-_VALID_EDGE_TYPES = frozenset({
-    "imports", "calls", "inherits", "contains", "uses", "defines",
-})
+_VALID_NODE_TYPES = frozenset(
+    {
+        "module",
+        "class",
+        "function",
+        "method",
+        "import",
+        "variable",
+        "file",
+    }
+)
+_VALID_EDGE_TYPES = frozenset(
+    {
+        "imports",
+        "calls",
+        "inherits",
+        "contains",
+        "uses",
+        "defines",
+    }
+)
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS nodes (
@@ -210,7 +225,8 @@ class PythonASTParser:
             tree = ast.parse(content, filename=file_path)
         except SyntaxError as exc:
             return FileParseResult(
-                file_path=file_path, file_hash=fhash,
+                file_path=file_path,
+                file_hash=fhash,
                 parse_errors=[f"SyntaxError: {exc}"],
             )
 
@@ -218,10 +234,15 @@ class PythonASTParser:
 
         # File-level node
         file_node_id = _make_node_id(file_path, file_path, "file")
-        result.nodes.append(GraphNode(
-            id=file_node_id, name=_sanitize_name(file_path),
-            type="file", file_path=file_path, file_hash=fhash,
-        ))
+        result.nodes.append(
+            GraphNode(
+                id=file_node_id,
+                name=_sanitize_name(file_path),
+                type="file",
+                file_path=file_path,
+                file_hash=fhash,
+            )
+        )
 
         self._walk_tree(tree, file_path, file_node_id, result)
         return result
@@ -243,26 +264,42 @@ class PythonASTParser:
                 self._handle_import(node, file_path, parent_id, result)
 
     def _handle_class(
-        self, node: ast.ClassDef, file_path: str,
-        parent_id: str, result: FileParseResult,
+        self,
+        node: ast.ClassDef,
+        file_path: str,
+        parent_id: str,
+        result: FileParseResult,
     ) -> None:
         node_id = _make_node_id(file_path, node.name, "class")
-        result.nodes.append(GraphNode(
-            id=node_id, name=_sanitize_name(node.name), type="class",
-            file_path=file_path,
-            line_start=node.lineno, line_end=node.end_lineno or node.lineno,
-        ))
-        result.edges.append(GraphEdge(
-            source_id=parent_id, target_id=node_id, edge_type="contains",
-        ))
+        result.nodes.append(
+            GraphNode(
+                id=node_id,
+                name=_sanitize_name(node.name),
+                type="class",
+                file_path=file_path,
+                line_start=node.lineno,
+                line_end=node.end_lineno or node.lineno,
+            )
+        )
+        result.edges.append(
+            GraphEdge(
+                source_id=parent_id,
+                target_id=node_id,
+                edge_type="contains",
+            )
+        )
 
         # Inheritance edges
         for base in node.bases:
             base_name = ast.unparse(base) if hasattr(ast, "unparse") else "<base>"
             base_id = _make_node_id(file_path, base_name, "class")
-            result.edges.append(GraphEdge(
-                source_id=node_id, target_id=base_id, edge_type="inherits",
-            ))
+            result.edges.append(
+                GraphEdge(
+                    source_id=node_id,
+                    target_id=base_id,
+                    edge_type="inherits",
+                )
+            )
 
         # Recurse into class body
         for child in ast.iter_child_nodes(node):
@@ -270,20 +307,33 @@ class PythonASTParser:
                 self._handle_function(child, file_path, node_id, result, is_method=True)
 
     def _handle_function(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef,
-        file_path: str, parent_id: str, result: FileParseResult,
-        *, is_method: bool = False,
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        file_path: str,
+        parent_id: str,
+        result: FileParseResult,
+        *,
+        is_method: bool = False,
     ) -> None:
         node_type = "method" if is_method else "function"
         node_id = _make_node_id(file_path, node.name, node_type)
-        result.nodes.append(GraphNode(
-            id=node_id, name=_sanitize_name(node.name), type=node_type,
-            file_path=file_path,
-            line_start=node.lineno, line_end=node.end_lineno or node.lineno,
-        ))
-        result.edges.append(GraphEdge(
-            source_id=parent_id, target_id=node_id, edge_type="defines",
-        ))
+        result.nodes.append(
+            GraphNode(
+                id=node_id,
+                name=_sanitize_name(node.name),
+                type=node_type,
+                file_path=file_path,
+                line_start=node.lineno,
+                line_end=node.end_lineno or node.lineno,
+            )
+        )
+        result.edges.append(
+            GraphEdge(
+                source_id=parent_id,
+                target_id=node_id,
+                edge_type="defines",
+            )
+        )
 
         # Extract function calls within body
         for child in ast.walk(node):
@@ -291,34 +341,59 @@ class PythonASTParser:
                 call_name = self._extract_call_name(child)
                 if call_name:
                     call_id = _make_node_id("", call_name, "function")
-                    result.edges.append(GraphEdge(
-                        source_id=node_id, target_id=call_id, edge_type="calls",
-                    ))
+                    result.edges.append(
+                        GraphEdge(
+                            source_id=node_id,
+                            target_id=call_id,
+                            edge_type="calls",
+                        )
+                    )
 
     def _handle_import(
-        self, node: ast.Import | ast.ImportFrom,
-        file_path: str, parent_id: str, result: FileParseResult,
+        self,
+        node: ast.Import | ast.ImportFrom,
+        file_path: str,
+        parent_id: str,
+        result: FileParseResult,
     ) -> None:
         if isinstance(node, ast.ImportFrom) and node.module:
             module_name = node.module
             import_id = _make_node_id(file_path, module_name, "import")
-            result.nodes.append(GraphNode(
-                id=import_id, name=_sanitize_name(module_name), type="import",
-                file_path=file_path, line_start=node.lineno,
-            ))
-            result.edges.append(GraphEdge(
-                source_id=parent_id, target_id=import_id, edge_type="imports",
-            ))
+            result.nodes.append(
+                GraphNode(
+                    id=import_id,
+                    name=_sanitize_name(module_name),
+                    type="import",
+                    file_path=file_path,
+                    line_start=node.lineno,
+                )
+            )
+            result.edges.append(
+                GraphEdge(
+                    source_id=parent_id,
+                    target_id=import_id,
+                    edge_type="imports",
+                )
+            )
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 import_id = _make_node_id(file_path, alias.name, "import")
-                result.nodes.append(GraphNode(
-                    id=import_id, name=_sanitize_name(alias.name), type="import",
-                    file_path=file_path, line_start=node.lineno,
-                ))
-                result.edges.append(GraphEdge(
-                    source_id=parent_id, target_id=import_id, edge_type="imports",
-                ))
+                result.nodes.append(
+                    GraphNode(
+                        id=import_id,
+                        name=_sanitize_name(alias.name),
+                        type="import",
+                        file_path=file_path,
+                        line_start=node.lineno,
+                    )
+                )
+                result.edges.append(
+                    GraphEdge(
+                        source_id=parent_id,
+                        target_id=import_id,
+                        edge_type="imports",
+                    )
+                )
 
     @staticmethod
     def _extract_call_name(node: ast.Call) -> str:
@@ -355,7 +430,7 @@ class CodeGraphStore:
         self._db_path = Path(db_path) if db_path else self._repo_root / "data" / "code_graph.db"
         self._max_depth = max_depth
         self._parser = PythonASTParser()
-        self._conn: Optional[Any] = None  # aiosqlite or sqlite3 connection
+        self._conn: Any | None = None  # aiosqlite or sqlite3 connection
         self._is_async = _HAS_AIOSQLITE
 
     async def __aenter__(self):
@@ -370,7 +445,8 @@ class CodeGraphStore:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
         if self._is_async:
-            import aiosqlite # type: ignore
+            import aiosqlite  # type: ignore
+
             conn = await aiosqlite.connect(str(self._db_path))
             self._conn = conn
             await conn.execute("PRAGMA journal_mode=WAL")
@@ -424,8 +500,10 @@ class CodeGraphStore:
         return result
 
     async def index_directory(
-        self, glob_pattern: str = "**/*.py",
-        *, exclude_patterns: list[str] | None = None,
+        self,
+        glob_pattern: str = "**/*.py",
+        *,
+        exclude_patterns: list[str] | None = None,
     ) -> dict[str, Any]:
         """Index all matching files in the repository."""
         exclude = exclude_patterns or ["__pycache__", ".git", "node_modules", ".venv", "venv"]
@@ -447,14 +525,19 @@ class CodeGraphStore:
 
         elapsed = (time.monotonic() - start) * 1000
         return {
-            "indexed": indexed, "skipped": skipped, "errors": errors,
+            "indexed": indexed,
+            "skipped": skipped,
+            "errors": errors,
             "elapsed_ms": round(elapsed, 1),
         }
 
     # --- Impact Analysis (CRG's core feature) ---
 
     async def get_impact_radius(
-        self, changed_files: list[str], *, max_depth: int | None = None,
+        self,
+        changed_files: list[str],
+        *,
+        max_depth: int | None = None,
     ) -> ImpactResult:
         """BFS impact analysis using Recursive CTE.
 
@@ -471,8 +554,11 @@ class CodeGraphStore:
         rows = await self._fetch_all(query, params)
         impacted = [
             {
-                "id": row[0], "name": row[1], "type": row[2],
-                "file_path": row[3], "depth": row[4],
+                "id": row[0],
+                "name": row[1],
+                "type": row[2],
+                "file_path": row[3],
+                "depth": row[4],
             }
             for row in rows
         ]
@@ -500,9 +586,7 @@ class CodeGraphStore:
         """Return graph statistics."""
         node_count = await self._fetch_one("SELECT COUNT(*) FROM nodes")
         edge_count = await self._fetch_one("SELECT COUNT(*) FROM edges")
-        file_count = await self._fetch_one(
-            "SELECT COUNT(DISTINCT file_path) FROM nodes WHERE type='file'"
-        )
+        file_count = await self._fetch_one("SELECT COUNT(DISTINCT file_path) FROM nodes WHERE type='file'")
         return {
             "nodes": node_count[0] if node_count else 0,
             "edges": edge_count[0] if edge_count else 0,
@@ -515,10 +599,7 @@ class CodeGraphStore:
             "SELECT id, name, type, file_path, line_start FROM nodes WHERE name = ?",
             [name],
         )
-        return [
-            {"id": r[0], "name": r[1], "type": r[2], "file_path": r[3], "line": r[4]}
-            for r in rows
-        ]
+        return [{"id": r[0], "name": r[1], "type": r[2], "file_path": r[3], "line": r[4]} for r in rows]
 
     async def get_dependencies(self, file_path: str) -> list[dict[str, str]]:
         """Get all outgoing edges from nodes in a file."""
@@ -533,10 +614,7 @@ class CodeGraphStore:
             """,
             [file_path],
         )
-        return [
-            {"edge_type": r[0], "name": r[1], "type": r[2], "file_path": r[3]}
-            for r in rows
-        ]
+        return [{"edge_type": r[0], "name": r[1], "type": r[2], "file_path": r[3]} for r in rows]
 
     # --- Internal DB helpers ---
 
@@ -566,13 +644,19 @@ class CodeGraphStore:
             await self._execute(
                 "INSERT OR REPLACE INTO nodes (id, name, type, file_path, line_start, line_end, file_hash) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [node.id, node.name, node.type, node.file_path,
-                 node.line_start, node.line_end, node.file_hash or result.file_hash],
+                [
+                    node.id,
+                    node.name,
+                    node.type,
+                    node.file_path,
+                    node.line_start,
+                    node.line_end,
+                    node.file_hash or result.file_hash,
+                ],
             )
         for edge in result.edges:
             await self._execute(
-                "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) "
-                "VALUES (?, ?, ?, ?)",
+                "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
                 [edge.source_id, edge.target_id, edge.edge_type, edge.weight],
             )
         if self._is_async:

@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 
 # Patterns that match common API tokens/secrets for redaction in audit logs.
 _SECRET_PATTERNS: list[re.Pattern] = [
-    re.compile(r"ntn_[A-Za-z0-9]{10,}"),           # Notion
+    re.compile(r"ntn_[A-Za-z0-9]{10,}"),  # Notion
     re.compile(r"xox[bpras]-[A-Za-z0-9\-]{10,}"),  # Slack
-    re.compile(r"sk-[A-Za-z0-9]{20,}"),             # OpenAI
-    re.compile(r"ghp_[A-Za-z0-9]{30,}"),            # GitHub PAT
-    re.compile(r"gho_[A-Za-z0-9]{30,}"),            # GitHub OAuth
-    re.compile(r"github_pat_[A-Za-z0-9_]{30,}"),    # GitHub fine-grained PAT
+    re.compile(r"sk-[A-Za-z0-9]{20,}"),  # OpenAI
+    re.compile(r"ghp_[A-Za-z0-9]{30,}"),  # GitHub PAT
+    re.compile(r"gho_[A-Za-z0-9]{30,}"),  # GitHub OAuth
+    re.compile(r"github_pat_[A-Za-z0-9_]{30,}"),  # GitHub fine-grained PAT
     re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]{20,}"),  # Bearer tokens
     re.compile(r"(?i)(password|api_key|secret_key|access_token)\s*[:=]\s*['\"]?[^\s'\"]{8,}"),
 ]

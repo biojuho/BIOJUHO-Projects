@@ -3,9 +3,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-
 from antigravity_mcp.domain.models import ContentItem, GeneratedPayload
-from antigravity_mcp.integrations import llm_adapter as llm_module
 from antigravity_mcp.integrations.llm_adapter import (
     LLMAdapter,
     bullet_set_overlap,

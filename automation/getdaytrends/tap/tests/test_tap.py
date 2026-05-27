@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-
 # ══════════════════════════════════════════════════════
 #  Fixtures
 # ══════════════════════════════════════════════════════
+
 
 def _make_trend_row(keyword: str, country: str, viral: int, hours_ago: float = 2.0):
     scored_at = (datetime.now() - timedelta(hours=hours_ago)).isoformat()
@@ -35,27 +35,33 @@ def _mock_conn_with_trends(trends: list[dict]):
 #  Detector Tests
 # ══════════════════════════════════════════════════════
 
+
 class TestKeywordSimilarity:
     """키워드 유사도 매칭 테스트."""
 
     def test_exact_match(self):
         from tap.detector import _is_same_topic
+
         assert _is_same_topic("Bitcoin", "bitcoin") is True
 
     def test_substring_match(self):
         from tap.detector import _is_same_topic
+
         assert _is_same_topic("Bitcoin ETF", "BitcoinETF") is True
 
     def test_bigram_similarity(self):
         from tap.detector import _is_same_topic
+
         assert _is_same_topic("bitcoin price", "bitcoinprice") is True
 
     def test_different_topics(self):
         from tap.detector import _is_same_topic
+
         assert _is_same_topic("Bitcoin", "Ethereum") is False
 
     def test_empty_keyword(self):
         from tap.detector import _is_same_topic
+
         assert _is_same_topic("", "Bitcoin") is False
         assert _is_same_topic("Bitcoin", "") is False
 
@@ -65,19 +71,23 @@ class TestTimePriorityFactor:
 
     def test_very_early(self):
         from tap.detector import _time_priority_factor
+
         assert _time_priority_factor(0.3) == 0.2
 
     def test_sweet_spot(self):
         from tap.detector import _time_priority_factor
+
         assert _time_priority_factor(5.0) == 1.0
 
     def test_declining(self):
         from tap.detector import _time_priority_factor
+
         factor = _time_priority_factor(10.0)
         assert 0.3 < factor < 1.0
 
     def test_very_late(self):
         from tap.detector import _time_priority_factor
+
         factor = _time_priority_factor(20.0)
         assert factor >= 0.1
 
@@ -89,6 +99,7 @@ class TestTrendArbitrageDetector:
     async def test_single_country_returns_empty(self):
         """단일 국가면 빈 결과."""
         from tap.detector import TrendArbitrageDetector
+
         trends = [
             _make_trend_row("AI혁명", "korea", 85, 3.0),
             _make_trend_row("반도체", "korea", 70, 2.0),
@@ -102,6 +113,7 @@ class TestTrendArbitrageDetector:
     async def test_cross_country_detects_gap(self):
         """한국에서 트렌딩이고 미국에서 미감지인 키워드 감지."""
         from tap.detector import TrendArbitrageDetector
+
         trends = [
             _make_trend_row("AI혁명", "korea", 85, 3.0),
             _make_trend_row("반도체 전쟁", "korea", 75, 2.0),
@@ -119,6 +131,7 @@ class TestTrendArbitrageDetector:
     async def test_same_keyword_both_countries_no_opportunity(self):
         """양쪽 국가에 같은 키워드가 있으면 기회 없음."""
         from tap.detector import TrendArbitrageDetector
+
         trends = [
             _make_trend_row("Bitcoin", "korea", 80, 3.0),
             _make_trend_row("Bitcoin", "united-states", 85, 1.0),
@@ -134,6 +147,7 @@ class TestTrendArbitrageDetector:
     async def test_priority_ordering(self):
         """priority가 높은 순서로 반환."""
         from tap.detector import TrendArbitrageDetector
+
         trends = [
             _make_trend_row("낮은점수", "korea", 60, 3.0),
             _make_trend_row("높은점수", "korea", 95, 5.0),
@@ -150,6 +164,7 @@ class TestTrendArbitrageDetector:
     async def test_db_error_graceful(self):
         """DB 에러 시 빈 결과 반환 (파이프라인 중단 없음)."""
         from tap.detector import TrendArbitrageDetector
+
         conn = AsyncMock()
         conn.execute = AsyncMock(side_effect=RuntimeError("DB 접속 실패"))
         detector = TrendArbitrageDetector(conn)
@@ -160,6 +175,7 @@ class TestTrendArbitrageDetector:
     async def test_max_opportunities_limit(self):
         """최대 반환 수 제한."""
         from tap.detector import TrendArbitrageDetector
+
         trends = []
         for i in range(15):
             trends.append(_make_trend_row(f"키워드_{i}", "korea", 80 + i, 3.0))
@@ -175,17 +191,20 @@ class TestTrendArbitrageDetector:
 #  Analyzer Tests
 # ══════════════════════════════════════════════════════
 
+
 class TestArbitrageAnalyzer:
     """차익거래 분석기 테스트."""
 
     def test_empty_opportunities_returns_empty_block(self):
         from tap.analyzer import ArbitrageAnalyzer
+
         analyzer = ArbitrageAnalyzer([])
         assert analyzer.to_prompt_block() == ""
         assert analyzer.count == 0
 
     def test_none_opportunities_returns_empty_block(self):
         from tap.analyzer import ArbitrageAnalyzer
+
         analyzer = ArbitrageAnalyzer(None)
         assert analyzer.to_prompt_block() == ""
 
@@ -262,6 +281,7 @@ class TestArbitrageAnalyzer:
 # ══════════════════════════════════════════════════════
 #  Entry Point Tests
 # ══════════════════════════════════════════════════════
+
 
 class TestEntryPoint:
     """패키지 진입점 테스트."""

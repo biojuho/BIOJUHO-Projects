@@ -30,6 +30,8 @@ def _config(**kw) -> AppConfig:
         long_form_min_score=95,
         thread_min_score=92,
         threads_min_score=65,
+        # [shortform-only] 기본 target_platforms는 ["x"]이지만 기존 통합 테스트는 threads도 검증
+        target_platforms=["x", "threads"],
     )
     defaults.update(kw)
     cfg = AppConfig()
@@ -178,9 +180,9 @@ class TestPipelineIntegration(unittest.TestCase):
             mock_combined.assert_called_once()
             mock_tweets.assert_called_once()  # 폴백 호출 확인
 
-    def test_tweet_280_char_trimming(self):
-        """280자 초과 트윗이 자동 트리밍되는지 검증."""
-        long_content = "A" * 300
+    def test_tweet_240_char_trimming(self):
+        """[shortform-only] 240자 초과 트윗이 자동 트리밍되는지 검증."""
+        long_content = "A" * 260
         valid_json = json.dumps(
             {
                 "topic": "테스트",
@@ -195,7 +197,7 @@ class TestPipelineIntegration(unittest.TestCase):
         result = asyncio.run(generate_tweets_async(_trend(), _config(), client))
 
         self.assertIsNotNone(result)
-        self.assertLessEqual(len(result.tweets[0].content), 280)
+        self.assertLessEqual(len(result.tweets[0].content), 240)
 
     def test_config_immutability(self):
         """Q1: 파이프라인 실행 후 원본 config가 변경되지 않음."""

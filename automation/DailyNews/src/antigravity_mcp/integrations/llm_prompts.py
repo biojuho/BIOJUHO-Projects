@@ -65,6 +65,40 @@ def get_category_contract(category: str) -> dict[str, Any]:
     return _CATEGORY_CONTRACTS["default"]
 
 
+# Reader-facing Korean display names for the internal English category keys.
+_CATEGORY_LABELS = {
+    "Tech": "테크",
+    "AI_Deep": "AI 심층",
+    "Economy_KR": "한국 경제",
+    "Economy_Global": "글로벌 경제",
+    "Crypto": "크립토",
+    "Global_Affairs": "국제 정세",
+}
+
+
+def category_label(category: str) -> str:
+    """Return the Korean reader-facing label for a category key.
+
+    Falls back to a humanized form of the raw key so unknown categories
+    never leak a raw ``snake_case`` token into reader-facing text.
+    """
+    if category in _CATEGORY_LABELS:
+        return _CATEGORY_LABELS[category]
+    return str(category or "").replace("_", " ").strip() or "뉴스"
+
+
+# Shared directive that forces every reader-facing word into natural Korean
+# while keeping the English section headers intact as parser anchors.
+_KOREAN_OUTPUT_RULE = (
+    "LANGUAGE: Write every reader-facing word — all analysis, bullet lines, "
+    "section bodies, and the Draft Post — in natural, fluent Korean (한국어). "
+    "Keep ONLY the section header keywords (Signal, Pattern, Ripple Effects, "
+    "Counterpoint, Action Items, Draft Post) in English so they can be parsed; "
+    "everything under each header must be Korean. Render any audience or role "
+    "names in natural Korean as well. Do not output English sentences."
+)
+
+
 def resolve_prompt_mode(window_name: str, item_count: int, detail_level: str = "standard") -> str:
     if detail_level == "minimal":
         return "v1-brief"
@@ -154,9 +188,7 @@ def _build_quality_feedback_block(quality_feedback: dict) -> str:
     return (
         "\n## 품질 개선 가이드라인 (새 리포트 작성 시 적용할 규칙 — 기존 리포트 수정 요청 아님)\n"
         "아래 규칙은 과거 반복된 품질 문제를 방지하기 위한 가이드입니다. "
-        "지금 제공된 기사들을 바탕으로 완전히 새로운 브리프를 작성하세요.\n"
-        + "\n".join(rules[:3])
-        + "\n"
+        "지금 제공된 기사들을 바탕으로 완전히 새로운 브리프를 작성하세요.\n" + "\n".join(rules[:3]) + "\n"
     )
 
 
@@ -189,6 +221,7 @@ def build_report_prompt(
 ) -> tuple[str, str, str]:
     contract = get_category_contract(category)
     mode = resolve_prompt_mode(window_name, len(items), detail_level=detail_level)
+    category_kr = category_label(category)
     audiences = ", ".join(contract["audiences"])
     x_length = str(contract["x_length"])
     tone = str(contract["tone"])
@@ -230,7 +263,7 @@ Rules:
 - Each insight line should explain why the story matters in plain language using no more than 2 short sentences.
 - CRITICAL TOPIC DIVERSITY: The 2 insight bullets MUST analyze 2 DIFFERENT stories, not two aspects of the same event. Tie each insight to a distinct summary bullet when possible.
 - Brief must be the main reader-facing briefing body in Korean.
-- Start Brief with: "오늘의 핫 이슈: {category}. ..." as a one-line opener.
+- Start Brief with: "오늘의 핫 이슈: {category_kr}. ..." as a one-line opener.
 - Then write 3 to 5 short sections using markdown headings like "## [emoji] short title".
 - Each section should naturally flow as fact -> background -> implication across 2 to 3 short paragraphs.
 - Do NOT use source citation tags (e.g., [A1]) inside the Brief section to keep it clean for readers.
@@ -254,7 +287,7 @@ Rules:
             "- ...\n"
             "- ...\n"
             "Brief\n"
-            "오늘의 핫 이슈: Category. ...\n"
+            f"오늘의 핫 이슈: {category_kr}. ...\n"
             "## 📌 short title\n"
             "첫 문단은 사실 요약.\n"
             "둘째 문단은 배경 설명.\n"
@@ -279,6 +312,8 @@ Do NOT say "죄송합니다", "이전 대화 없음", or ask for clarification.
 Generate the brief DIRECTLY using ONLY the articles provided in the user message.
 
 You are a senior intelligence analyst writing for {audiences}.
+
+{_KOREAN_OUTPUT_RULE}
 
 Your job is NOT to summarize headlines.
 Your job is to identify the 3 most important signals and explain what the reader should do next.
@@ -317,6 +352,8 @@ Rules:
         system_prompt = f"""
 You are a senior intelligence analyst writing for {audiences}.
 
+{_KOREAN_OUTPUT_RULE}
+
 Your job is NOT to summarize what happened.
 Your job is to surface one dominant signal, connect it to a broader pattern, and tell the reader what to do next.
 
@@ -345,6 +382,7 @@ Rules:
 
 __all__ = [
     "build_report_prompt",
+    "category_label",
     "get_category_contract",
     "resolve_brief_style",
     "resolve_prompt_mode",

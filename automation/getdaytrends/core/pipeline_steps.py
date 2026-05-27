@@ -9,7 +9,6 @@ Implementation modules:
 """
 
 import schedule
-from loguru import logger as log
 
 try:
     from ..config import AppConfig
@@ -41,7 +40,6 @@ from .steps_save import (  # noqa: F401
     _save_single_trend_db,
     _step_save,
 )
-
 
 # ══════════════════════════════════════════════════════
 #  Adaptive Schedule

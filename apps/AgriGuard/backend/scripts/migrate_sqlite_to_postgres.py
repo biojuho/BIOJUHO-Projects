@@ -1,3 +1,4 @@
+# ruff: noqa: S608  # table/column names from TABLE_ORDER constants and SQLite schema, not user input
 """AgriGuard — SQLite → PostgreSQL Data Migration Script.
 
 Usage:
@@ -174,9 +175,9 @@ def main() -> int:
         return 1
 
     mode = "DRY-RUN" if args.dry_run else "LIVE"
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"AgriGuard SQLite → PostgreSQL Migration [{mode}]")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Source: {args.sqlite_db}")
     print(f"Target: {args.pg_url[:50]}..." if args.pg_url else "Target: (dry-run)")
     print(f"Batch size: {args.batch_size}")
@@ -221,9 +222,9 @@ def main() -> int:
     total_migrated = sum(r["migrated"] for r in results)
     errors = [r for r in results if r["error"]]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Migration {'Preview' if args.dry_run else 'Complete'}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Total rows: {total_source:,}")
     print(f"Migrated:   {total_migrated:,}")
     print(f"Errors:     {len(errors)}")

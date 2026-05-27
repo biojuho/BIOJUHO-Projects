@@ -11,16 +11,14 @@ from __future__ import annotations
 
 import threading
 import time
-from collections import OrderedDict
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shared.llm.models import BridgeMeta, LLMPolicy, LLMResponse, TaskTier
-
 # ── Module-level cache/fail helpers ──────────────────────────────────
 # Import after models so TaskTier is available
 from shared.llm import client as _mod
+from shared.llm.models import BridgeMeta, LLMPolicy, LLMResponse, TaskTier
 
 # Aliases for the functions under test
 _is_failed = _mod._is_failed
@@ -33,6 +31,7 @@ _get_cache_ttl = _mod._get_cache_ttl
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def _reset_global_state():
@@ -57,6 +56,7 @@ def _default_policy() -> LLMPolicy:
 # ═══════════════════════════════════════════════════════════════════
 # 1. _is_failed / _mark_failed — TTL expiry
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestFailedBackendTTL:
     def test_mark_then_check(self):
@@ -91,10 +91,7 @@ class TestFailedBackendTTL:
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [
-            threading.Thread(target=_worker, args=(TaskTier.MEDIUM, f"b{i}"))
-            for i in range(4)
-        ]
+        threads = [threading.Thread(target=_worker, args=(TaskTier.MEDIUM, f"b{i}")) for i in range(4)]
         for t in threads:
             t.start()
         for t in threads:
@@ -105,6 +102,7 @@ class TestFailedBackendTTL:
 # ═══════════════════════════════════════════════════════════════════
 # 2. Cache — TTL, LRU eviction, purge 버그
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestCacheTTL:
     def test_cache_hit_within_ttl(self):
@@ -197,6 +195,7 @@ class TestPurgeExpired:
 # 3. Cache key determinism
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestCacheKey:
     def test_same_input_same_key(self):
         msgs = [{"role": "user", "content": "hi"}]
@@ -230,6 +229,7 @@ class TestCacheKey:
 # 4. Budget downgrade
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestBudgetDowngrade:
     def _make_client(self) -> _mod.LLMClient:
         with patch.object(_mod, "load_keys", return_value={"ANTHROPIC_API_KEY": "test"}):
@@ -243,16 +243,12 @@ class TestBudgetDowngrade:
 
     def test_heavy_to_medium_at_threshold(self):
         client = self._make_client()
-        client._tracker.get_today_cost = MagicMock(
-            return_value=_mod.LLM_BUDGET_DOWNGRADE_HEAVY
-        )
+        client._tracker.get_today_cost = MagicMock(return_value=_mod.LLM_BUDGET_DOWNGRADE_HEAVY)
         assert client._budget_downgrade(TaskTier.HEAVY) == TaskTier.MEDIUM
 
     def test_medium_to_lightweight_at_threshold(self):
         client = self._make_client()
-        client._tracker.get_today_cost = MagicMock(
-            return_value=_mod.LLM_BUDGET_DOWNGRADE_MEDIUM
-        )
+        client._tracker.get_today_cost = MagicMock(return_value=_mod.LLM_BUDGET_DOWNGRADE_MEDIUM)
         assert client._budget_downgrade(TaskTier.MEDIUM) == TaskTier.LIGHTWEIGHT
 
     def test_lightweight_never_downgrades(self):
@@ -269,6 +265,7 @@ class TestBudgetDowngrade:
 # ═══════════════════════════════════════════════════════════════════
 # 5. _dispatch: all backends fail
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestDispatchAllFail:
     def _make_client(self) -> _mod.LLMClient:
@@ -340,6 +337,7 @@ class TestDispatchAllFail:
 # 6. get_stats edge case
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TestGetStats:
     def _make_client(self) -> _mod.LLMClient:
         with patch.object(_mod, "load_keys", return_value={"ANTHROPIC_API_KEY": "test"}):
@@ -382,6 +380,7 @@ class TestGetStats:
 # ═══════════════════════════════════════════════════════════════════
 # 7. Rate limit lock file
 # ═══════════════════════════════════════════════════════════════════
+
 
 class TestRateLimitLock:
     def _make_client(self) -> _mod.LLMClient:

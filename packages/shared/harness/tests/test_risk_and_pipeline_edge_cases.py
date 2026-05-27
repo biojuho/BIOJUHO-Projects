@@ -14,26 +14,23 @@ Run:
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
-from shared.harness.audit import AuditLogger, AuditVerdict
+from shared.harness.audit import AuditVerdict
 from shared.harness.constitution import Constitution, ToolPermission
 from shared.harness.core import HarnessConfig, HarnessWrapper
 from shared.harness.errors import (
     BudgetExceededError,
-    RiskDetectedError,
     SessionLimitError,
-    ToolNotAllowedError,
 )
 from shared.harness.hooks import (
     HookChain,
     InputSanitizerHook,
-    OutputTruncatorHook,
     PreToolHook,
 )
 from shared.harness.risk import RiskResult, RiskScanner
-from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Shared factories
@@ -46,10 +43,8 @@ def _make_constitution(**overrides) -> Constitution:
         "max_budget_usd": 1.0,
         "tools": [
             {"name": "web_search", "allowed": True, "max_calls": 10},
-            {"name": "shell_execute", "allowed": True, "max_calls": 2,
-             "blocked_patterns": [r"rm\s+-rf"]},
-            {"name": "file_write", "allowed": True, "max_calls": 5,
-             "allowed_paths": ["d:/project/**"]},
+            {"name": "shell_execute", "allowed": True, "max_calls": 2, "blocked_patterns": [r"rm\s+-rf"]},
+            {"name": "file_write", "allowed": True, "max_calls": 5, "allowed_paths": ["d:/project/**"]},
         ],
         "risk_patterns": [r"TRUNCATE\s+TABLE"],
     }
@@ -201,9 +196,9 @@ class TestRiskScannerFlattenInput:
 
 class TestHarnessExecutorCrash:
     """Verify that when the tool executor itself throws, the harness:
-     - Logs an ERROR audit record (not ALLOWED/DENIED)
-     - Re-raises the original exception
-     - Does NOT increment call counters or cost
+    - Logs an ERROR audit record (not ALLOWED/DENIED)
+    - Re-raises the original exception
+    - Does NOT increment call counters or cost
     """
 
     @pytest.mark.asyncio
@@ -363,7 +358,6 @@ class _UpperCaseHook(PreToolHook):
 
 
 class TestHookChainEdgeCases:
-
     @pytest.mark.asyncio
     async def test_failing_pre_hook_stops_chain(self):
         """If a pre-hook raises, subsequent hooks must NOT run."""
@@ -414,7 +408,6 @@ class TestHookChainEdgeCases:
 
 
 class TestToolPermissionPathEdge:
-
     def test_backslash_normalized_to_forward_slash(self):
         """Windows paths with backslashes must match forward-slash patterns."""
         perm = ToolPermission(
@@ -426,6 +419,7 @@ class TestToolPermissionPathEdge:
     def test_case_sensitivity_in_path(self):
         """fnmatch on Windows is case-insensitive by default."""
         import sys
+
         perm = ToolPermission(
             name="file_write",
             allowed_paths=("d:/project/**",),

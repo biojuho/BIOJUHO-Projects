@@ -32,15 +32,19 @@ async def test_step_collect_trends_marks_degraded_and_blocks_publish():
     config = CIEConfig()
     config.platforms = ["x", "threads", "naver"]
 
-    with patch(
-        "collectors.x_collector.collect_x_trends",
-        new=AsyncMock(return_value=_report("x")),
-    ), patch(
-        "collectors.threads_collector.collect_threads_trends",
-        new=AsyncMock(side_effect=RuntimeError("threads unavailable")),
-    ), patch(
-        "collectors.naver_collector.collect_naver_trends",
-        new=AsyncMock(return_value=_report("naver")),
+    with (
+        patch(
+            "collectors.x_collector.collect_x_trends",
+            new=AsyncMock(return_value=_report("x")),
+        ),
+        patch(
+            "collectors.threads_collector.collect_threads_trends",
+            new=AsyncMock(side_effect=RuntimeError("threads unavailable")),
+        ),
+        patch(
+            "collectors.naver_collector.collect_naver_trends",
+            new=AsyncMock(return_value=_report("naver")),
+        ),
     ):
         merged = await cie_main.step_collect_trends(config)
 
@@ -63,27 +67,34 @@ async def test_run_pipeline_stops_when_trend_quorum_is_missed():
         quorum_required=2,
     )
 
-    with patch.object(cie_main, "step_collect_trends", new=AsyncMock(return_value=trend_report)), patch.object(
-        cie_main,
-        "step_save",
-        new=AsyncMock(),
-    ) as mock_save, patch.object(
-        cie_main,
-        "step_check_regulations",
-        new=AsyncMock(),
-    ) as mock_regulations, patch.object(
-        cie_main,
-        "step_generate_content",
-        new=AsyncMock(),
-    ) as mock_generate, patch.object(
-        cie_main,
-        "_step_predict_engagement",
-        new=AsyncMock(),
-    ) as mock_predict, patch.object(
-        cie_main,
-        "step_publish",
-        new=AsyncMock(),
-    ) as mock_publish:
+    with (
+        patch.object(cie_main, "step_collect_trends", new=AsyncMock(return_value=trend_report)),
+        patch.object(
+            cie_main,
+            "step_save",
+            new=AsyncMock(),
+        ) as mock_save,
+        patch.object(
+            cie_main,
+            "step_check_regulations",
+            new=AsyncMock(),
+        ) as mock_regulations,
+        patch.object(
+            cie_main,
+            "step_generate_content",
+            new=AsyncMock(),
+        ) as mock_generate,
+        patch.object(
+            cie_main,
+            "_step_predict_engagement",
+            new=AsyncMock(),
+        ) as mock_predict,
+        patch.object(
+            cie_main,
+            "step_publish",
+            new=AsyncMock(),
+        ) as mock_publish,
+    ):
         await cie_main.run_pipeline(config, mode="full", publish=True)
 
     mock_save.assert_awaited_once_with(config, trend_report=trend_report)
@@ -106,27 +117,34 @@ async def test_run_pipeline_skips_publish_for_degraded_but_quorum_met_run():
     )
     batch = ContentBatch(contents=[])
 
-    with patch.object(cie_main, "step_collect_trends", new=AsyncMock(return_value=trend_report)), patch.object(
-        cie_main,
-        "step_check_regulations",
-        new=AsyncMock(return_value=([], MagicMock())),
-    ) as mock_regulations, patch.object(
-        cie_main,
-        "step_generate_content",
-        new=AsyncMock(return_value=batch),
-    ) as mock_generate, patch.object(
-        cie_main,
-        "_step_predict_engagement",
-        new=AsyncMock(),
-    ) as mock_predict, patch.object(
-        cie_main,
-        "step_save",
-        new=AsyncMock(),
-    ) as mock_save, patch.object(
-        cie_main,
-        "step_publish",
-        new=AsyncMock(),
-    ) as mock_publish:
+    with (
+        patch.object(cie_main, "step_collect_trends", new=AsyncMock(return_value=trend_report)),
+        patch.object(
+            cie_main,
+            "step_check_regulations",
+            new=AsyncMock(return_value=([], MagicMock())),
+        ) as mock_regulations,
+        patch.object(
+            cie_main,
+            "step_generate_content",
+            new=AsyncMock(return_value=batch),
+        ) as mock_generate,
+        patch.object(
+            cie_main,
+            "_step_predict_engagement",
+            new=AsyncMock(),
+        ) as mock_predict,
+        patch.object(
+            cie_main,
+            "step_save",
+            new=AsyncMock(),
+        ) as mock_save,
+        patch.object(
+            cie_main,
+            "step_publish",
+            new=AsyncMock(),
+        ) as mock_publish,
+    ):
         await cie_main.run_pipeline(config, mode="full", publish=True)
 
     mock_regulations.assert_awaited_once()

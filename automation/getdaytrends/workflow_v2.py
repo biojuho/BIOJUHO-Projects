@@ -1,4 +1,4 @@
-﻿"""Helpers for the getdaytrends V2.0 workflow."""
+"""Helpers for the getdaytrends V2.0 workflow."""
 
 from __future__ import annotations
 

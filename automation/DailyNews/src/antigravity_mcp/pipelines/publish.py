@@ -4,6 +4,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 from antigravity_mcp.config import get_settings
 from antigravity_mcp.domain.models import ContentReport
@@ -24,7 +25,7 @@ def _notion_report_title(report: ContentReport, *, publish_date: str) -> str:
     return f"{report.category} {window_label} Brief {publish_date}"
 
 
-def _notion_duplicate_filter(report: ContentReport, *, publish_date: str) -> dict[str, list[dict[str, dict[str, str]]]]:
+def _notion_duplicate_filter(report: ContentReport, *, publish_date: str) -> dict[str, object]:
     return {
         "and": [
             {"property": "Date", "date": {"equals": publish_date}},
@@ -35,7 +36,9 @@ def _notion_duplicate_filter(report: ContentReport, *, publish_date: str) -> dic
 
 def _notion_report_properties(report: ContentReport, *, publish_date: str) -> dict:
     return {
-        "Name": {"title": [{"type": "text", "text": {"content": _notion_report_title(report, publish_date=publish_date)}}]},
+        "Name": {
+            "title": [{"type": "text", "text": {"content": _notion_report_title(report, publish_date=publish_date)}}]
+        },
         "Date": {"date": {"start": publish_date}},
         "Type": {"select": {"name": "News"}},
     }
@@ -156,11 +159,11 @@ def _build_telegram_message(report: ContentReport, publication: dict[str, str]) 
     notion_url = publication.get("notion_url", "")
     summary = report.summary_lines[0] if report.summary_lines else "No summary."
     link_part = f'\n<a href="{notion_url}">Notion에서 보기</a>' if notion_url else ""
-    return f"<b>[{report.category}] {report.window_name.title()} Brief 발행됨</b>\n" f"{summary}{link_part}"
+    return f"<b>[{report.category}] {report.window_name.title()} Brief 발행됨</b>\n{summary}{link_part}"
 
 
 def _has_notion_page_id(report: ContentReport) -> bool:
-    return report.has_notion_sync()
+    return bool(report.has_notion_sync())
 
 
 def _resolve_approval_mode(report: ContentReport, settings, approval_mode: str, warnings: list[str]) -> str:
@@ -203,10 +206,7 @@ async def _publish_to_notion(
         )
     except NotionAdapterError as exc:
         publication["notion_status"] = "duplicate_check_failed"
-        warnings.append(
-            "Notion duplicate check failed; skipped creation to avoid duplicate publish: "
-            f"{exc}"
-        )
+        warnings.append(f"Notion duplicate check failed; skipped creation to avoid duplicate publish: {exc}")
         return
 
     if existing_pages:
@@ -371,8 +371,12 @@ async def _publish_x_draft(
             publication["x_failed_status"] = first_failure.get("status", "error")
             for tid in published_ids:
                 _safe_db_write(
-                    state_store.record_published_tweet_id, report_id, tid, draft.content[:200],
-                    warnings=warnings, label="record_published_tweet_id",
+                    state_store.record_published_tweet_id,
+                    report_id,
+                    tid,
+                    draft.content[:200],
+                    warnings=warnings,
+                    label="record_published_tweet_id",
                 )
             failure_msg = f"X thread partially published: {len(published_ids)}/{len(thread_tweets)} tweets posted"
             if first_failure.get("tweet_index"):
@@ -387,23 +391,37 @@ async def _publish_x_draft(
             publication["x_published_count"] = str(len(published_ids))
             for tid in published_ids:
                 _safe_db_write(
-                    state_store.record_published_tweet_id, report_id, tid, draft.content[:200],
-                    warnings=warnings, label="record_published_tweet_id",
+                    state_store.record_published_tweet_id,
+                    report_id,
+                    tid,
+                    draft.content[:200],
+                    warnings=warnings,
+                    label="record_published_tweet_id",
                 )
         else:
             x_status = thread_results[0].get("status", "error") if thread_results else "error"
             if thread_results and thread_results[0].get("message"):
                 warnings.append(thread_results[0]["message"])
         _safe_db_write(
-            state_store.set_channel_publication, report_id, draft.channel, x_status, publication.get("x_url", ""),
-            warnings=warnings, label="set_channel_publication",
+            state_store.set_channel_publication,
+            report_id,
+            draft.channel,
+            x_status,
+            publication.get("x_url", ""),
+            warnings=warnings,
+            label="set_channel_publication",
         )
         publication[f"{draft.channel}_status"] = x_status
     else:
         x_result = await x_adapter.publish(report, draft.content, approval_mode=approval_mode)
         _safe_db_write(
-            state_store.set_channel_publication, report_id, draft.channel, x_result["status"], x_result.get("tweet_url", ""),
-            warnings=warnings, label="set_channel_publication",
+            state_store.set_channel_publication,
+            report_id,
+            draft.channel,
+            x_result["status"],
+            x_result.get("tweet_url", ""),
+            warnings=warnings,
+            label="set_channel_publication",
         )
         publication[f"{draft.channel}_status"] = x_result["status"]
         if x_result.get("tweet_url"):
@@ -412,8 +430,12 @@ async def _publish_x_draft(
             if "/status/" in tweet_url:
                 tid = tweet_url.rsplit("/status/", 1)[-1].split("?")[0]
                 _safe_db_write(
-                    state_store.record_published_tweet_id, report_id, tid, draft.content[:200],
-                    warnings=warnings, label="record_published_tweet_id",
+                    state_store.record_published_tweet_id,
+                    report_id,
+                    tid,
+                    draft.content[:200],
+                    warnings=warnings,
+                    label="record_published_tweet_id",
                 )
         if x_result.get("message"):
             warnings.append(x_result["message"])
@@ -470,6 +492,49 @@ async def _publish_newsletter(
         publication["newsletter_status"] = "error"
 
 
+async def _publish_channel_drafts(
+    *,
+    report: ContentReport,
+    report_id: str,
+    channels: list[str],
+    x_adapter: XAdapter,
+    state_store: PipelineStateStore,
+    approval_mode: str,
+    publication: dict[str, str],
+    warnings: list[str],
+) -> None:
+    for draft in report.channel_drafts:
+        if draft.channel not in channels:
+            continue
+        if draft.channel == "x":
+            try:
+                await _publish_x_draft(
+                    draft,
+                    report,
+                    report_id,
+                    x_adapter,
+                    state_store,
+                    approval_mode,
+                    publication,
+                    warnings,
+                )
+            except Exception as exc:
+                # X publish failures should not crash the whole publish_report pipeline.
+                logger.error("X draft publish crashed: %s: %s", type(exc).__name__, exc)
+                warnings.append(f"X publish crashed: {type(exc).__name__}: {exc}")
+                publication[f"{draft.channel}_status"] = "error"
+        else:
+            _safe_db_write(
+                state_store.set_channel_publication,
+                report_id,
+                draft.channel,
+                "draft",
+                warnings=warnings,
+                label="set_channel_publication",
+            )
+            publication[f"{draft.channel}_status"] = "draft"
+
+
 async def publish_report(
     *,
     report_id: str,
@@ -491,7 +556,8 @@ async def publish_report(
     telegram_adapter = telegram_adapter or TelegramAdapter()
     run_id = run_id or generate_run_id("publish_report")
     state_store.record_job_start(
-        run_id, "publish_report",
+        run_id,
+        "publish_report",
         summary={"report_id": report_id, "channels": channels, "approval_mode": approval_mode},
     )
 
@@ -510,8 +576,10 @@ async def publish_report(
             "Publishing blocked: report was generated by fallback template due to total LLM failure. "
             "Manual review required."
         )
-        state_store.record_job_finish(run_id, status="blocked", summary={"report_id": report_id, "reason": "quality_blocked"})
-        return run_id, {"report_id": report_id, "blocked": True}, warnings, "error"
+        state_store.record_job_finish(
+            run_id, status="blocked", summary={"report_id": report_id, "reason": "quality_blocked"}
+        )
+        return run_id, cast("dict[str, str]", {"report_id": report_id, "blocked": True}), warnings, "error"
 
     await _publish_to_notion(report, notion_adapter, settings, publication, warnings)
 
@@ -520,23 +588,16 @@ async def publish_report(
     if canva_result.get("edit_url"):
         publication["canva_edit_url"] = canva_result["edit_url"]
 
-    for draft in report.channel_drafts:
-        if draft.channel not in channels:
-            continue
-        if draft.channel == "x":
-            try:
-                await _publish_x_draft(draft, report, report_id, x_adapter, state_store, approval_mode, publication, warnings)
-            except Exception as exc:
-                # X 발행 크래시가 전체 publish_report를 죽이지 않도록 방어
-                logger.error("X draft publish crashed: %s: %s", type(exc).__name__, exc)
-                warnings.append(f"X publish crashed: {type(exc).__name__}: {exc}")
-                publication[f"{draft.channel}_status"] = "error"
-        else:
-            _safe_db_write(
-                state_store.set_channel_publication, report_id, draft.channel, "draft",
-                warnings=warnings, label="set_channel_publication",
-            )
-            publication[f"{draft.channel}_status"] = "draft"
+    await _publish_channel_drafts(
+        report=report,
+        report_id=report_id,
+        channels=channels,
+        x_adapter=x_adapter,
+        state_store=state_store,
+        approval_mode=approval_mode,
+        publication=publication,
+        warnings=warnings,
+    )
 
     # ── Newsletter channel (v2.0) ──────────────────────────────────────
     if "newsletter" in channels:
@@ -561,7 +622,8 @@ async def publish_report(
     _safe_db_write(
         state_store.record_job_finish,
         run_id,
-        warnings=warnings, label="record_job_finish",
+        warnings=warnings,
+        label="record_job_finish",
         **{  # keyword args for record_job_finish
             "status": "partial" if warnings else "success",
             "summary": publication,

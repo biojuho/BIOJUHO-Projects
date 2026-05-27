@@ -6,7 +6,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from config import AppConfig
 from models import RawTrend, TrendSource
 
@@ -36,9 +35,12 @@ class TestContextGlobalTimeout:
             await asyncio.sleep(0.2)
             return (keyword, source, f"{source} payload")
 
-        with patch("collectors.context._async_fetch_single_source", side_effect=_mixed_fetch), patch(
-            "news_scraper.enrich_news_context",
-            side_effect=lambda keyword, text: text,
+        with (
+            patch("collectors.context._async_fetch_single_source", side_effect=_mixed_fetch),
+            patch(
+                "news_scraper.enrich_news_context",
+                side_effect=lambda keyword, text: text,
+            ),
         ):
             contexts = await _async_collect_contexts([trend], config, session=None, conn=None)
 
@@ -56,29 +58,36 @@ class TestContextGlobalTimeout:
         config.context_global_timeout = 30
         trend = _make_raw_trend("quality-metrics")
 
-        with patch(
-            "collectors.context._async_fetch_twitter_trends",
-            new_callable=AsyncMock,
-            return_value="twitter insight payload",
-        ), patch(
-            "collectors.context._async_fetch_reddit_trends",
-            new_callable=AsyncMock,
-            return_value="reddit insight payload",
-        ), patch(
-            "collectors.context._async_fetch_google_news_trends",
-            new_callable=AsyncMock,
-            return_value="news insight payload",
-        ), patch(
-            "db.get_source_quality_summary",
-            new_callable=AsyncMock,
-            return_value={},
-        ), patch(
-            "db.record_source_quality",
-            new_callable=AsyncMock,
-            side_effect=RuntimeError("metrics db unavailable"),
-        ) as mock_record_quality, patch(
-            "news_scraper.enrich_news_context",
-            side_effect=lambda keyword, text: text,
+        with (
+            patch(
+                "collectors.context._async_fetch_twitter_trends",
+                new_callable=AsyncMock,
+                return_value="twitter insight payload",
+            ),
+            patch(
+                "collectors.context._async_fetch_reddit_trends",
+                new_callable=AsyncMock,
+                return_value="reddit insight payload",
+            ),
+            patch(
+                "collectors.context._async_fetch_google_news_trends",
+                new_callable=AsyncMock,
+                return_value="news insight payload",
+            ),
+            patch(
+                "db.get_source_quality_summary",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+            patch(
+                "db.record_source_quality",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("metrics db unavailable"),
+            ) as mock_record_quality,
+            patch(
+                "news_scraper.enrich_news_context",
+                side_effect=lambda keyword, text: text,
+            ),
         ):
             contexts = await _async_collect_contexts([trend], config, session=None, conn=MagicMock())
 
@@ -107,31 +116,124 @@ class TestContextGlobalTimeout:
             await asyncio.sleep(0.01)
             in_flight -= 1
 
-        with patch(
-            "collectors.context._async_fetch_twitter_trends",
-            new_callable=AsyncMock,
-            return_value="twitter insight payload",
-        ), patch(
-            "collectors.context._async_fetch_reddit_trends",
-            new_callable=AsyncMock,
-            return_value="reddit insight payload",
-        ), patch(
-            "collectors.context._async_fetch_google_news_trends",
-            new_callable=AsyncMock,
-            return_value="news insight payload",
-        ), patch(
-            "db.get_source_quality_summary",
-            new_callable=AsyncMock,
-            return_value={},
-        ), patch(
-            "db.record_source_quality",
-            side_effect=_record_serialized,
-        ) as mock_record_quality, patch(
-            "news_scraper.enrich_news_context",
-            side_effect=lambda keyword, text: text,
+        with (
+            patch(
+                "collectors.context._async_fetch_twitter_trends",
+                new_callable=AsyncMock,
+                return_value="twitter insight payload",
+            ),
+            patch(
+                "collectors.context._async_fetch_reddit_trends",
+                new_callable=AsyncMock,
+                return_value="reddit insight payload",
+            ),
+            patch(
+                "collectors.context._async_fetch_google_news_trends",
+                new_callable=AsyncMock,
+                return_value="news insight payload",
+            ),
+            patch(
+                "db.get_source_quality_summary",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+            patch(
+                "db.record_source_quality",
+                side_effect=_record_serialized,
+            ) as mock_record_quality,
+            patch(
+                "news_scraper.enrich_news_context",
+                side_effect=lambda keyword, text: text,
+            ),
         ):
             contexts = await _async_collect_contexts([trend], config, session=None, conn=MagicMock())
 
         assert "serialized-metrics" in contexts
         assert mock_record_quality.await_count == 3
         assert max_in_flight == 1
+
+    @pytest.mark.asyncio
+    async def test_low_quality_successful_source_is_timeout_tuned_not_skipped(self):
+        from collectors.context import _async_collect_contexts
+
+        config = AppConfig()
+        config.context_global_timeout = 30
+        trend = _make_raw_trend("not-starved")
+
+        with (
+            patch(
+                "collectors.context._async_fetch_twitter_trends",
+                new_callable=AsyncMock,
+                return_value="twitter insight payload",
+            ),
+            patch(
+                "collectors.context._async_fetch_reddit_trends",
+                new_callable=AsyncMock,
+                return_value="reddit insight payload",
+            ) as mock_reddit,
+            patch(
+                "collectors.context._async_fetch_google_news_trends",
+                new_callable=AsyncMock,
+                return_value="news insight payload",
+            ),
+            patch(
+                "db.get_source_quality_summary",
+                new_callable=AsyncMock,
+                return_value={
+                    "reddit": {
+                        "total_calls": 12,
+                        "success_rate": 100.0,
+                        "avg_quality_score": 0.0,
+                    }
+                },
+            ),
+            patch("db.record_source_quality", new_callable=AsyncMock),
+            patch("news_scraper.enrich_news_context", side_effect=lambda keyword, text: text),
+        ):
+            contexts = await _async_collect_contexts([trend], config, session=None, conn=MagicMock())
+
+        assert contexts["not-starved"].reddit_insight == "reddit insight payload"
+        assert mock_reddit.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_source_quality_skip_requires_enough_calls_and_low_success_rate(self):
+        from collectors.context import _async_collect_contexts
+
+        config = AppConfig()
+        config.context_global_timeout = 30
+        trend = _make_raw_trend("bad-source")
+
+        with (
+            patch(
+                "collectors.context._async_fetch_twitter_trends",
+                new_callable=AsyncMock,
+                return_value="twitter insight payload",
+            ),
+            patch(
+                "collectors.context._async_fetch_reddit_trends",
+                new_callable=AsyncMock,
+                return_value="reddit insight payload",
+            ) as mock_reddit,
+            patch(
+                "collectors.context._async_fetch_google_news_trends",
+                new_callable=AsyncMock,
+                return_value="news insight payload",
+            ),
+            patch(
+                "db.get_source_quality_summary",
+                new_callable=AsyncMock,
+                return_value={
+                    "reddit": {
+                        "total_calls": 12,
+                        "success_rate": 0.0,
+                        "avg_quality_score": 0.0,
+                    }
+                },
+            ),
+            patch("db.record_source_quality", new_callable=AsyncMock),
+            patch("news_scraper.enrich_news_context", side_effect=lambda keyword, text: text),
+        ):
+            contexts = await _async_collect_contexts([trend], config, session=None, conn=MagicMock())
+
+        assert contexts["bad-source"].reddit_insight == ""
+        assert mock_reddit.await_count == 0

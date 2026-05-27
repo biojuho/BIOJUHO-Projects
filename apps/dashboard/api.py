@@ -175,12 +175,25 @@ _DIST_DIR = Path(__file__).resolve().parent / "dist"
 if _DIST_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(_DIST_DIR / "assets")), name="assets")
 
+    _DIST_ROOT = _DIST_DIR.resolve()
+
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
-        """SPA fallback — serve index.html for all non-API routes."""
-        file_path = _DIST_DIR / full_path
-        if full_path and file_path.exists() and file_path.is_file():
-            return FileResponse(str(file_path))
+        """SPA fallback — serve index.html for all non-API routes.
+
+        Resolves the requested path under dist/ and rejects any traversal
+        that escapes (e.g. `..//etc/passwd`).
+        """
+        if full_path:
+            candidate = (_DIST_DIR / full_path).resolve()
+            try:
+                candidate.relative_to(_DIST_ROOT)
+            except ValueError:
+                # Path escapes dist/ — fall through to index.html below
+                pass
+            else:
+                if candidate.is_file():
+                    return FileResponse(str(candidate))
         return FileResponse(str(_DIST_DIR / "index.html"))
 
 

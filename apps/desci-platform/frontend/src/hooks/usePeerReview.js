@@ -3,6 +3,7 @@ import client from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useLocale } from '../contexts/LocaleContext';
+import { formatSupportError } from '../lib/support';
 
 export function usePeerReview() {
     const { walletAddress } = useAuth();
@@ -56,7 +57,7 @@ export function usePeerReview() {
             setExpandedPaperId(null);
             setPapers((prev) => prev.map((paper) => (paper.id === expandedPaperId ? { ...paper, reward_claimed: true } : paper)));
         } catch (err) {
-            showToast(t('peerReview.submitFailed', { message: err.response?.data?.detail || err.message }), 'error');
+            showToast(t('peerReview.submitFailed', { message: formatSupportError(err, t('common.unknownError')) }), 'error');
         } finally {
             setIsSubmitting(false);
         }

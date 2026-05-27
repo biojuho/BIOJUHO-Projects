@@ -64,9 +64,7 @@ async def check_platform_regulation(
         raw_response=str(data),
     )
 
-    log.info(
-        f"  ✅ {platform.upper()} 규제 점검 완료 — " f"DO {len(report.do_list)}건 / DON'T {len(report.dont_list)}건"
-    )
+    log.info(f"  ✅ {platform.upper()} 규제 점검 완료 — DO {len(report.do_list)}건 / DON'T {len(report.dont_list)}건")
     return report
 
 
@@ -121,7 +119,7 @@ def generate_unified_checklist(
     _merge_common(dont_items, "severity")
 
     platforms = ", ".join(r.platform.upper() for r in reports)
-    summary = f"{platforms} 통합 체크리스트 — " f"DO {len(do_items)}건 / DON'T {len(dont_items)}건"
+    summary = f"{platforms} 통합 체크리스트 — DO {len(do_items)}건 / DON'T {len(dont_items)}건"
 
     checklist = UnifiedChecklist(
         do_items=do_items,
@@ -141,7 +139,7 @@ def _merge_common(items: list[dict], extra_key: str) -> None:
         seen.setdefault(key, []).append(i)
 
     indices_to_remove = set()
-    for key, indices in seen.items():
+    for _key, indices in seen.items():
         if len(indices) >= 2:
             # 첫 번째를 "공통"으로 변경하고 나머지 제거
             items[indices[0]]["platform"] = "공통"

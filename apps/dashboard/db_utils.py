@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import logging
 import os
-import aiosqlite
 from pathlib import Path
 from typing import Any
+
+import aiosqlite
 
 log = logging.getLogger("dashboard")
 
@@ -51,10 +52,9 @@ async def _sqlite_scalar(db_path: Path, query: str, params: tuple = ()) -> Any:
     if not db_path.exists():
         return None
     try:
-        async with aiosqlite.connect(str(db_path)) as conn:
-            async with conn.execute(query, params) as cursor:
-                row = await cursor.fetchone()
-                return row[0] if row else None
+        async with aiosqlite.connect(str(db_path)) as conn, conn.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None
     except Exception as e:
         log.warning("SQLite scalar failed (%s): %s", db_path.name, e)
         return None
@@ -63,23 +63,59 @@ async def _sqlite_scalar(db_path: Path, query: str, params: tuple = ()) -> Any:
 # ── PostgreSQL ──
 _pg_engine = None
 
+
 def _get_pg_engine():
-    """Lazy singleton Async SQLAlchemy engine."""
+    """Lazy singleton Async SQLAlchemy engine.
+
+    Under FastAPI TestClient each request runs in its own event loop. A
+    pooled asyncpg connection bound to an earlier loop fails to close cleanly
+    in the next loop, leaving an unawaited ``Connection._cancel`` task. We
+    detect the test environment via ``PYTEST_CURRENT_TEST`` and use
+    ``NullPool`` so each request opens + closes its own connection inside the
+    same loop. Production runtime keeps the original pooled config.
+    """
     global _pg_engine
     if _pg_engine is None:
         try:
             from sqlalchemy.ext.asyncio import create_async_engine
-            _pg_engine = create_async_engine(AG_PG_URL, pool_pre_ping=True, pool_size=3)
+
+            kwargs: dict[str, Any] = {"pool_pre_ping": True}
+            if os.environ.get("PYTEST_CURRENT_TEST"):
+                from sqlalchemy.pool import NullPool
+
+                kwargs["poolclass"] = NullPool
+            else:
+                kwargs["pool_size"] = 3
+            _pg_engine = create_async_engine(AG_PG_URL, **kwargs)
         except Exception as e:
             log.warning("PostgreSQL async engine creation failed: %s", e)
             return None
     return _pg_engine
 
 
+async def dispose_pg_engine() -> None:
+    """Dispose the module-level async engine and its asyncpg pool.
+
+    Without this, asyncpg's ``Connection._cancel(waiter)`` task scheduled by
+    ``_connection.close(timeout=2)`` can outlive the event loop on interpreter
+    shutdown, producing ``RuntimeWarning: coroutine 'Connection._cancel' was
+    never awaited`` at GC time. Call this from session teardown.
+    """
+    global _pg_engine
+    if _pg_engine is not None:
+        try:
+            await _pg_engine.dispose()
+        except Exception as e:  # pragma: no cover - cleanup best-effort
+            log.warning("PostgreSQL async engine dispose failed: %s", e)
+        finally:
+            _pg_engine = None
+
+
 async def _pg_read(query: str) -> list[dict]:
     """PostgreSQL에서 비동기로 읽어 dict 리스트로 반환."""
     try:
         from sqlalchemy import text
+
         engine = _get_pg_engine()
         if engine is None:
             return [{"error": "PostgreSQL not available"}]
@@ -96,6 +132,7 @@ async def _pg_scalar(query: str) -> Any:
     """PostgreSQL에서 비동기로 단일 스칼라값을 반환."""
     try:
         from sqlalchemy import text
+
         engine = _get_pg_engine()
         if engine is None:
             return None

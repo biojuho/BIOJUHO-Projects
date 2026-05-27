@@ -59,21 +59,23 @@ describe('UploadPaper', () => {
 });
 
 describe('AssetManager', () => {
-  it('renders asset management heading', () => {
+  it('renders asset management heading', async () => {
     render(
       <MemoryRouter>
         <AssetManager />
       </MemoryRouter>,
     );
     expect(screen.getByText(/Asset Library/i)).toBeDefined();
+    expect(await screen.findByText(/No assets uploaded yet/i)).toBeDefined();
   });
 
-  it('renders file type selector', () => {
+  it('renders file type selector', async () => {
     render(
       <MemoryRouter>
         <AssetManager />
       </MemoryRouter>,
     );
     expect(screen.getByText(/IR Deck/i)).toBeDefined();
+    expect(await screen.findByText(/No assets uploaded yet/i)).toBeDefined();
   });
 });

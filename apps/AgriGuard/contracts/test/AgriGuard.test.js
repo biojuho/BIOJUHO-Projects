@@ -1,5 +1,7 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+import { expect } from "chai";
+import { network } from "hardhat";
+
+const { ethers } = await network.create();
 
 describe("AgriGuard", function () {
   let agriGuard;
@@ -76,13 +78,23 @@ describe("AgriGuard", function () {
     it("should NOT allow non-admin to add a farmer", async function () {
       await expect(
         agriGuard.connect(unauthorized).addFarmer(farmer.address)
-      ).to.be.reverted;
+      )
+        .to.be.revertedWithCustomError(
+          agriGuard,
+          "AccessControlUnauthorizedAccount"
+        )
+        .withArgs(unauthorized.address, ADMIN_ROLE);
     });
 
     it("should NOT allow non-admin to add a distributor", async function () {
       await expect(
         agriGuard.connect(unauthorized).addDistributor(distributor.address)
-      ).to.be.reverted;
+      )
+        .to.be.revertedWithCustomError(
+          agriGuard,
+          "AccessControlUnauthorizedAccount"
+        )
+        .withArgs(unauthorized.address, ADMIN_ROLE);
     });
   });
 

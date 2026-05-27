@@ -17,10 +17,10 @@ from shared.harness.validators.korean_quality import (
     validate_korean_output,
 )
 
-
 # ===========================================================================
 # Test: validate_korean_output — Core function
 # ===========================================================================
+
 
 class TestValidateKoreanOutput:
     def test_pure_korean_passes(self):
@@ -140,6 +140,7 @@ class TestValidateKoreanOutput:
 # Test: KoreanQualityResult properties
 # ===========================================================================
 
+
 class TestKoreanQualityResult:
     def test_blocking_flags_filters(self):
         result = KoreanQualityResult(
@@ -166,6 +167,7 @@ class TestKoreanQualityResult:
 # Test: KoreanQualityValidator PostToolHook
 # ===========================================================================
 
+
 class TestKoreanQualityValidatorHook:
     @pytest.mark.asyncio
     async def test_string_result_passes(self):
@@ -176,10 +178,13 @@ class TestKoreanQualityValidatorHook:
     @pytest.mark.asyncio
     async def test_dict_result_gets_metadata(self):
         hook = KoreanQualityValidator()
-        result = await hook.execute("llm_call", {
-            "text": "안녕하세요 분석 결과입니다",
-            "model": "claude",
-        })
+        result = await hook.execute(
+            "llm_call",
+            {
+                "text": "안녕하세요 분석 결과입니다",
+                "model": "claude",
+            },
+        )
         assert "_korean_quality" in result
         assert result["_korean_quality"]["passed"] is True
         assert result["_korean_quality"]["hangul_ratio"] > 0
@@ -193,9 +198,12 @@ class TestKoreanQualityValidatorHook:
     @pytest.mark.asyncio
     async def test_non_strict_mode_passes_bad_content(self):
         hook = KoreanQualityValidator(strict=False)
-        result = await hook.execute("llm_call", {
-            "content": "今天天气很好" * 10,
-        })
+        result = await hook.execute(
+            "llm_call",
+            {
+                "content": "今天天气很好" * 10,
+            },
+        )
         assert result["_korean_quality"]["passed"] is False
 
     @pytest.mark.asyncio
@@ -207,9 +215,12 @@ class TestKoreanQualityValidatorHook:
     @pytest.mark.asyncio
     async def test_extracts_from_output_key(self):
         hook = KoreanQualityValidator()
-        result = await hook.execute("llm_call", {
-            "output": "한국어 콘텐츠 테스트",
-        })
+        result = await hook.execute(
+            "llm_call",
+            {
+                "output": "한국어 콘텐츠 테스트",
+            },
+        )
         assert "_korean_quality" in result
         assert result["_korean_quality"]["passed"] is True
 
@@ -233,25 +244,31 @@ class TestKoreanQualityValidatorHook:
 # Test: DeepAgentsAdapter
 # ===========================================================================
 
+
 class TestDeepAgentsAdapter:
     @pytest.fixture
     def constitution(self):
         from shared.harness.constitution import Constitution
-        return Constitution.from_dict({
-            "agent_name": "test-deep",
-            "max_budget_usd": 2.0,
-            "tools": [
-                {"name": "web_search", "allowed": True, "max_calls": 50},
-                {"name": "llm_call", "allowed": True, "max_calls": 200},
-            ],
-        })
+
+        return Constitution.from_dict(
+            {
+                "agent_name": "test-deep",
+                "max_budget_usd": 2.0,
+                "tools": [
+                    {"name": "web_search", "allowed": True, "max_calls": 50},
+                    {"name": "llm_call", "allowed": True, "max_calls": 200},
+                ],
+            }
+        )
 
     def test_import(self):
         from shared.harness.adapters.deepagents import DeepAgentsAdapter
+
         assert DeepAgentsAdapter is not None
 
     def test_is_full_mode_without_sdk(self, constitution):
         from shared.harness.adapters.deepagents import DeepAgentsAdapter
+
         adapter = DeepAgentsAdapter(constitution)
         # DeepAgents SDK is not installed in test env
         assert not adapter.is_full_mode
@@ -274,6 +291,7 @@ class TestDeepAgentsAdapter:
     @pytest.mark.asyncio
     async def test_spawn_subagent(self, constitution):
         from shared.harness.adapters.deepagents import DeepAgentsAdapter
+
         adapter = DeepAgentsAdapter(constitution)
         result = await adapter.spawn_subagent(role="analyzer", task="analyze")
         assert result.success
@@ -282,6 +300,7 @@ class TestDeepAgentsAdapter:
 
     def test_session_summary(self, constitution):
         from shared.harness.adapters.deepagents import DeepAgentsAdapter
+
         adapter = DeepAgentsAdapter(constitution)
         summary = adapter.get_session_summary()
         assert summary["adapter_type"] == "deepagents"
@@ -292,10 +311,12 @@ class TestDeepAgentsAdapter:
 # Test: Content-Intelligence Constitution
 # ===========================================================================
 
+
 class TestContentIntelligenceConstitution:
     @pytest.fixture
     def constitution(self):
         from shared.harness.constitution import Constitution
+
         path = "d:/AI project/packages/shared/harness/constitutions/content_intelligence.yaml"
         try:
             return Constitution.from_yaml(path)

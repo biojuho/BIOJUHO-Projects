@@ -43,3 +43,25 @@ def _reset_llm_singleton():
     yield
     reset_client()
     LLMClient.reset()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _dispose_dashboard_pg_engine():
+    """Close the dashboard module-level asyncpg engine at session end.
+
+    Otherwise SQLAlchemy's asyncpg dialect schedules ``Connection._cancel``
+    tasks at process teardown that outlive the event loop, surfacing as
+    ``RuntimeWarning: coroutine 'Connection._cancel' was never awaited``
+    at GC. Best-effort: silently skip if dashboard module isn't importable
+    (e.g. uv-isolated test slices that don't install the dashboard deps).
+    """
+    yield
+    try:
+        import asyncio
+        import importlib
+
+        db_utils = importlib.import_module("db_utils")
+        if hasattr(db_utils, "dispose_pg_engine"):
+            asyncio.run(db_utils.dispose_pg_engine())
+    except Exception:
+        pass

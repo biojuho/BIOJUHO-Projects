@@ -58,7 +58,7 @@ AB_TEST_HYPOTHESIS = {
         "Average score of selected trends",
     ],
     "decision_rule": (
-        "Adopt version B if Precision@10 improves by >=20% relative and " "false positives do not increase."
+        "Adopt version B if Precision@10 improves by >=20% relative and false positives do not increase."
     ),
 }
 

@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
-import pytest
-
 import sys
+from datetime import datetime
 from pathlib import Path
 
 _CIE_DIR = Path(__file__).resolve().parents[1]
@@ -17,18 +14,14 @@ from storage.models import (
     ContentBatch,
     GeneratedContent,
     MergedTrendReport,
-    MonthlyReview,
     PersonaFitScore,
     PlatformTrend,
     PlatformTrendReport,
-    PublishResult,
     QAAxisDiagnostic,
     QAReport,
-    RegulationReport,
     ThreadPost,
     UnifiedChecklist,
 )
-
 
 # ─── QAAxisDiagnostic ─────────────────────────────
 
@@ -113,9 +106,9 @@ class TestQAReport:
 
     def test_weak_axes_returns_weak_only(self):
         diags = [
-            QAAxisDiagnostic(axis="hook", score=5, max_score=20),   # weak (0.25)
+            QAAxisDiagnostic(axis="hook", score=5, max_score=20),  # weak (0.25)
             QAAxisDiagnostic(axis="fact", score=12, max_score=15),  # ok (0.8)
-            QAAxisDiagnostic(axis="tone", score=3, max_score=15),   # weak (0.2)
+            QAAxisDiagnostic(axis="tone", score=3, max_score=15),  # weak (0.2)
         ]
         r = self._make_report(diagnostics=diags)
         weak = r.weak_axes
@@ -138,8 +131,11 @@ class TestQAReport:
     def test_to_retry_feedback_with_diagnostics(self):
         diags = [
             QAAxisDiagnostic(
-                axis="hook", score=3, max_score=20,
-                reason="첫 문장 평이함", suggestion="숫자로 시작",
+                axis="hook",
+                score=3,
+                max_score=20,
+                reason="첫 문장 평이함",
+                suggestion="숫자로 시작",
             ),
             QAAxisDiagnostic(axis="fact", score=12, max_score=15),  # ok
         ]
@@ -161,9 +157,13 @@ class TestQAReport:
 
     def test_to_emoji_report_fail(self):
         r = self._make_report(
-            hook_score=5, fact_score=5, tone_score=5,
-            kick_score=5, angle_score=5,
-            regulation_score=3, algorithm_score=2,
+            hook_score=5,
+            fact_score=5,
+            tone_score=5,
+            kick_score=5,
+            angle_score=5,
+            regulation_score=3,
+            algorithm_score=2,
             applied_min_score=70,
         )
         report = r.to_emoji_report()
@@ -171,7 +171,9 @@ class TestQAReport:
 
     def test_to_emoji_report_includes_supplementary(self):
         r = self._make_report(
-            reader_value_score=8, originality_score=6, credibility_score=7,
+            reader_value_score=8,
+            originality_score=6,
+            credibility_score=7,
         )
         report = r.to_emoji_report()
         assert "RV: 8/10" in report
@@ -202,9 +204,14 @@ class TestGeneratedContent:
 
     def test_qa_passed_pass(self):
         qa = QAReport(
-            hook_score=18, fact_score=14, tone_score=13,
-            kick_score=12, angle_score=12, regulation_score=9,
-            algorithm_score=8, applied_min_score=70,
+            hook_score=18,
+            fact_score=14,
+            tone_score=13,
+            kick_score=12,
+            angle_score=12,
+            regulation_score=9,
+            algorithm_score=8,
+            applied_min_score=70,
         )
         c = GeneratedContent(platform="x", content_type="post", qa_report=qa)
         assert c.qa_passed is True
@@ -217,14 +224,16 @@ class TestGeneratedContent:
 
     def test_is_thread(self):
         c = GeneratedContent(
-            platform="x", content_type="x_thread",
+            platform="x",
+            content_type="x_thread",
             thread_posts=[ThreadPost(index=0, role="hook", body="test")],
         )
         assert c.is_thread is True
 
     def test_is_not_thread_wrong_type(self):
         c = GeneratedContent(
-            platform="x", content_type="post",
+            platform="x",
+            content_type="post",
             thread_posts=[ThreadPost(index=0)],
         )
         assert c.is_thread is False
@@ -251,9 +260,14 @@ class TestGeneratedContent:
 class TestContentBatch:
     def test_all_passed_true(self):
         qa = QAReport(
-            hook_score=18, fact_score=14, tone_score=13,
-            kick_score=12, angle_score=12, regulation_score=9,
-            algorithm_score=8, applied_min_score=70,
+            hook_score=18,
+            fact_score=14,
+            tone_score=13,
+            kick_score=12,
+            angle_score=12,
+            regulation_score=9,
+            algorithm_score=8,
+            applied_min_score=70,
         )
         contents = [
             GeneratedContent(platform="x", content_type="post", qa_report=qa),
@@ -263,9 +277,14 @@ class TestContentBatch:
 
     def test_all_passed_false(self):
         qa_fail = QAReport(
-            hook_score=5, fact_score=5, tone_score=5,
-            kick_score=5, angle_score=5, regulation_score=3,
-            algorithm_score=2, applied_min_score=70,
+            hook_score=5,
+            fact_score=5,
+            tone_score=5,
+            kick_score=5,
+            angle_score=5,
+            regulation_score=3,
+            algorithm_score=2,
+            applied_min_score=70,
         )
         contents = [
             GeneratedContent(platform="x", content_type="post", qa_report=qa_fail),
@@ -275,8 +294,12 @@ class TestContentBatch:
 
     def test_summary(self):
         qa = QAReport(
-            hook_score=15, fact_score=10, tone_score=10,
-            kick_score=10, angle_score=10, regulation_score=8,
+            hook_score=15,
+            fact_score=10,
+            tone_score=10,
+            kick_score=10,
+            angle_score=10,
+            regulation_score=8,
             algorithm_score=7,
         )
         contents = [
@@ -306,8 +329,10 @@ class TestMergedTrendReport:
 
     def test_to_summary_text_with_sentiment(self):
         trend = PlatformTrend(
-            keyword="LLM", volume=50,
-            sentiment="positive", confidence=85,
+            keyword="LLM",
+            volume=50,
+            sentiment="positive",
+            confidence=85,
             hook_starter="LLM이 바꾸는 미래",
         )
         report = PlatformTrendReport(platform="threads", trends=[trend])

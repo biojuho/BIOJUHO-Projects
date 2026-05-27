@@ -1,4 +1,4 @@
-﻿"""
+"""
 getdaytrends — Prompt Builder
 프롬프트 빌드 + 시스템 프롬프트 + 페르소나 규칙.
 generator.py에서 분리됨.
@@ -58,7 +58,7 @@ async def _retry_generate(
             if attempt < max_retries:
                 delay = base_delay * (2**attempt)
                 log.warning(
-                    f"생성 재시도 ({attempt + 1}/{max_retries}) '{keyword}': " f"{type(e).__name__} → {delay:.0f}s 후"
+                    f"생성 재시도 ({attempt + 1}/{max_retries}) '{keyword}': {type(e).__name__} → {delay:.0f}s 후"
                 )
                 await asyncio.sleep(delay)
             else:
@@ -224,9 +224,7 @@ def _build_revision_feedback_section(revision_feedback: dict | None) -> str:
             with contextlib.suppress(TypeError, ValueError):
                 lines.append(f"- 검증 정확도: {float(accuracy_score):.0%}")
         if fact_check.get("hallucinated_claims", 0):
-            lines.append(
-                f"- 환각 의심 주장 수: {fact_check.get('hallucinated_claims', 0)}"
-            )
+            lines.append(f"- 환각 의심 주장 수: {fact_check.get('hallucinated_claims', 0)}")
         for issue in list(fact_check.get("issues", []) or [])[:3]:
             lines.append(f"- 제거 또는 완화할 주장: {issue}")
         lines.append("- 소스에서 직접 확인된 사실만 단정형으로 쓰고, 불확실한 내용은 추정 표현으로 낮춰라.")
@@ -365,6 +363,7 @@ def _build_audience_format_section(trend: ScoredTrend) -> str:
         f"'💡 바이럴 텐션: {viral_score}점' 이나 유사한 재치있는 표현으로 명시하여 크리에이터들이 이 정보를 가치있게 느끼도록 할 것.\n"
     )
 
+
 def _build_golden_reference_section(golden_refs: list | None) -> str:
     """[E] 골든 레퍼런스 벤치마크 섹션 — QA 기준으로 실제 고성과 트윗 주입."""
     if not golden_refs:
@@ -398,28 +397,44 @@ def _build_pattern_weights_section(pattern_weights: dict | None) -> str:
         return ""
 
     hook_labels = {
-        "number_shock": "숫자충격", "relatable_math": "체감환산", "reversal": "반전선언",
-        "insider": "내부자시선", "contrast": "대조병치", "question": "질문도발",
+        "number_shock": "숫자충격",
+        "relatable_math": "체감환산",
+        "reversal": "반전선언",
+        "insider": "내부자시선",
+        "contrast": "대조병치",
+        "question": "질문도발",
     }
     kick_labels = {
-        "mic_drop": "뒤통수", "self_deprecation": "자조형", "uncertainty": "질문형",
-        "manifesto": "선언형", "twist": "반전형",
+        "mic_drop": "뒤통수",
+        "self_deprecation": "자조형",
+        "uncertainty": "질문형",
+        "manifesto": "선언형",
+        "twist": "반전형",
     }
     angle_labels = {
-        "reversal": "반전시각", "data_punch": "데이터펀치", "empathy": "공감형",
-        "tips": "실용팁", "debate": "논쟁유발",
+        "reversal": "반전시각",
+        "data_punch": "데이터펀치",
+        "empathy": "공감형",
+        "tips": "실용팁",
+        "debate": "논쟁유발",
     }
 
     lines = ["\n[성과 기반 패턴 가중치 — 높은 가중치 패턴을 우선 사용할 것]"]
     if hook_w:
         hook_sorted = sorted(hook_w.items(), key=lambda x: x[1], reverse=True)[:3]
-        lines.append("- 훅(첫 문장) 성과 순위: " + ", ".join(f"{hook_labels.get(k, k)}({v:.0%})" for k, v in hook_sorted))
+        lines.append(
+            "- 훅(첫 문장) 성과 순위: " + ", ".join(f"{hook_labels.get(k, k)}({v:.0%})" for k, v in hook_sorted)
+        )
     if kick_w:
         kick_sorted = sorted(kick_w.items(), key=lambda x: x[1], reverse=True)[:3]
-        lines.append("- 킥(마무리) 성과 순위: " + ", ".join(f"{kick_labels.get(k, k)}({v:.0%})" for k, v in kick_sorted))
+        lines.append(
+            "- 킥(마무리) 성과 순위: " + ", ".join(f"{kick_labels.get(k, k)}({v:.0%})" for k, v in kick_sorted)
+        )
     if angle_w:
         angle_sorted = sorted(angle_w.items(), key=lambda x: x[1], reverse=True)[:2]
-        lines.append("- 앵글(전달 시각) 성과 순위: " + ", ".join(f"{angle_labels.get(k, k)}({v:.0%})" for k, v in angle_sorted))
+        lines.append(
+            "- 앵글(전달 시각) 성과 순위: " + ", ".join(f"{angle_labels.get(k, k)}({v:.0%})" for k, v in angle_sorted)
+        )
 
     return "\n".join(lines) + "\n"
 
@@ -707,7 +722,9 @@ Return JSON only:
 
 def _system_threads_biojuho() -> str:
     return (
-        _system_tweets_biojuho.__defaults__[0] if False else """You write for @biojuho.
+        _system_tweets_biojuho.__defaults__[0]
+        if False
+        else """You write for @biojuho.
 
 Voice:
 - dry wit, compressed sentences, aphoristic finish
@@ -1074,4 +1091,3 @@ def _system_tweets_and_threads(tone: str) -> str:
     except ImportError:
         import system_prompts as _system_prompts
     return _system_prompts._system_tweets_and_threads(tone)
-

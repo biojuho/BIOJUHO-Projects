@@ -5,9 +5,7 @@ from __future__ import annotations
 import json as _json
 import os
 from datetime import datetime
-from pathlib import Path
-
-from fastapi import APIRouter
+from typing import cast
 
 from db_utils import (
     CIE_DB,
@@ -18,6 +16,7 @@ from db_utils import (
     _sqlite_read,
     _sqlite_scalar,
 )
+from fastapi import APIRouter
 
 router = APIRouter()
 
@@ -114,14 +113,80 @@ async def costs():
     return _get_cost_summary()
 
 
-def _get_cost_summary() -> dict:
+def _get_cost_summary() -> dict[str, object]:
     """shared/telemetry에서 비용 데이터를 가져온다."""
     try:
         from shared.telemetry.cost_tracker import get_daily_cost_summary
 
-        return get_daily_cost_summary(days=7)
+        return cast("dict[str, object]", get_daily_cost_summary(days=7))
     except Exception as e:
         return {"error": str(e), "total_cost": 0, "total_calls": 0, "projects": {}}
+
+
+def _success_rate(successful_runs: int, total_runs: int) -> float:
+    return round(successful_runs / total_runs * 100, 2) if total_runs else 0
+
+
+def _duration_minutes(row: dict) -> float | None:
+    if not row.get("started_at") or not row.get("finished_at"):
+        return None
+    try:
+        start = datetime.fromisoformat(row["started_at"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(row["finished_at"].replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    return (end - start).total_seconds() / 60
+
+
+def _average_duration_minutes(rows: list[dict]) -> float:
+    durations = [duration for row in rows if (duration := _duration_minutes(row)) is not None]
+    return round(sum(durations) / len(durations), 1) if durations else 0
+
+
+def _is_gdt_success(row: dict) -> bool:
+    errors = row.get("errors", "[]")
+    return errors in ("[]", "", None) or (errors.startswith("[") and "생성 실패" in errors)
+
+
+def _gdt_recent_failures(rows: list[dict]) -> list[dict]:
+    return [
+        {"time": row.get("started_at", ""), "errors": row.get("errors", "")}
+        for row in rows[:5]
+        if row.get("errors", "[]") not in ("[]", "", None)
+    ][:3]
+
+
+def _dn_recent_failures(rows: list[dict]) -> list[dict]:
+    return [
+        {
+            "job": row.get("job_name", ""),
+            "time": row.get("started_at", ""),
+            "error": (row.get("error_text") or "")[:200],
+        }
+        for row in rows[:10]
+        if row.get("status") == "failed"
+    ][:3]
+
+
+def _build_pipeline_status(
+    *,
+    name: str,
+    total_runs: int,
+    successful_runs: int,
+    sla_target: float,
+    avg_duration_min: float,
+    recent_failures: list[dict],
+) -> dict:
+    success_rate = _success_rate(successful_runs, total_runs)
+    return {
+        "name": name,
+        "total_runs": total_runs,
+        "successful_runs": successful_runs,
+        "success_rate": success_rate,
+        "sla_met": success_rate >= sla_target,
+        "avg_duration_min": avg_duration_min,
+        "recent_failures": recent_failures,
+    }
 
 
 @router.get("/api/sla_status")
@@ -143,36 +208,17 @@ async def sla_status():
     )
     if gdt_runs:
         gdt_total = len(gdt_runs)
-        gdt_success = sum(
-            1 for r in gdt_runs
-            if r.get("errors", "[]") in ("[]", "", None)
-            or (r.get("errors", "[]").startswith("[") and "생성 실패" in r.get("errors", ""))
+        gdt_success = sum(1 for row in gdt_runs if _is_gdt_success(row))
+        pipelines.append(
+            _build_pipeline_status(
+                name="GetDayTrends",
+                total_runs=gdt_total,
+                successful_runs=gdt_success,
+                sla_target=sla_target,
+                avg_duration_min=_average_duration_minutes(gdt_runs),
+                recent_failures=_gdt_recent_failures(gdt_runs),
+            )
         )
-        gdt_success_rate = round(gdt_success / gdt_total * 100, 2) if gdt_total else 0
-        durations = []
-        for r in gdt_runs:
-            if r.get("started_at") and r.get("finished_at"):
-                try:
-                    start = datetime.fromisoformat(r["started_at"].replace("Z", "+00:00"))
-                    end = datetime.fromisoformat(r["finished_at"].replace("Z", "+00:00"))
-                    durations.append((end - start).total_seconds() / 60)
-                except (ValueError, TypeError):
-                    pass
-        avg_duration = round(sum(durations) / len(durations), 1) if durations else 0
-        recent_failures = [
-            {"time": r.get("started_at", ""), "errors": r.get("errors", "")}
-            for r in gdt_runs[:5]
-            if r.get("errors", "[]") not in ("[]", "", None)
-        ]
-        pipelines.append({
-            "name": "GetDayTrends",
-            "total_runs": gdt_total,
-            "successful_runs": gdt_success,
-            "success_rate": gdt_success_rate,
-            "sla_met": gdt_success_rate >= sla_target,
-            "avg_duration_min": avg_duration,
-            "recent_failures": recent_failures[:3],
-        })
 
     # ── DailyNews SLA ──
     dn_runs = await _sqlite_read(
@@ -184,32 +230,17 @@ async def sla_status():
     )
     if dn_runs:
         dn_total = len(dn_runs)
-        dn_success = sum(1 for r in dn_runs if r.get("status") in ("success", "partial"))
-        dn_success_rate = round(dn_success / dn_total * 100, 2) if dn_total else 0
-        dn_durations = []
-        for r in dn_runs:
-            if r.get("started_at") and r.get("finished_at"):
-                try:
-                    start = datetime.fromisoformat(r["started_at"].replace("Z", "+00:00"))
-                    end = datetime.fromisoformat(r["finished_at"].replace("Z", "+00:00"))
-                    dn_durations.append((end - start).total_seconds() / 60)
-                except (ValueError, TypeError):
-                    pass
-        dn_avg = round(sum(dn_durations) / len(dn_durations), 1) if dn_durations else 0
-        dn_failures = [
-            {"job": r.get("job_name", ""), "time": r.get("started_at", ""), "error": (r.get("error_text") or "")[:200]}
-            for r in dn_runs[:10]
-            if r.get("status") == "failed"
-        ]
-        pipelines.append({
-            "name": "DailyNews",
-            "total_runs": dn_total,
-            "successful_runs": dn_success,
-            "success_rate": dn_success_rate,
-            "sla_met": dn_success_rate >= sla_target,
-            "avg_duration_min": dn_avg,
-            "recent_failures": dn_failures[:3],
-        })
+        dn_success = sum(1 for row in dn_runs if row.get("status") in ("success", "partial"))
+        pipelines.append(
+            _build_pipeline_status(
+                name="DailyNews",
+                total_runs=dn_total,
+                successful_runs=dn_success,
+                sla_target=sla_target,
+                avg_duration_min=_average_duration_minutes(dn_runs),
+                recent_failures=_dn_recent_failures(dn_runs),
+            )
+        )
 
     # ── Content Intelligence SLA ──
     cie_contents = await _sqlite_read(
@@ -222,16 +253,16 @@ async def sla_status():
     if cie_contents:
         cie_total = len(cie_contents)
         cie_pass = sum(1 for c in cie_contents if (c.get("qa_total_score") or 0) >= 3.0)
-        cie_rate = round(cie_pass / cie_total * 100, 2) if cie_total else 0
-        pipelines.append({
-            "name": "ContentIntelligence",
-            "total_runs": cie_total,
-            "successful_runs": cie_pass,
-            "success_rate": cie_rate,
-            "sla_met": cie_rate >= sla_target,
-            "avg_duration_min": 0,
-            "recent_failures": [],
-        })
+        pipelines.append(
+            _build_pipeline_status(
+                name="ContentIntelligence",
+                total_runs=cie_total,
+                successful_runs=cie_pass,
+                sla_target=sla_target,
+                avg_duration_min=0,
+                recent_failures=[],
+            )
+        )
 
     overall_runs = sum(p["total_runs"] for p in pipelines)
     overall_success = sum(p["successful_runs"] for p in pipelines)
@@ -248,13 +279,12 @@ async def sla_status():
 @router.get("/api/mcp_health")
 async def mcp_health():
     """MCP 서버 헬스 체크."""
-    mcp_dir = WORKSPACE / "mcp"
     servers = []
     ws_map = WORKSPACE / "workspace-map.json"
     mcp_units = []
     if ws_map.exists():
         try:
-            with open(ws_map, "r", encoding="utf-8") as f:
+            with open(ws_map, encoding="utf-8") as f:
                 data = _json.load(f)
             mcp_units = [u for u in data.get("units", []) if u.get("category") == "mcp"]
         except Exception:

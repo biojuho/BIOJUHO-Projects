@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mcp.server.fastmcp import FastMCP
+
 from antigravity_mcp.config import configure_logging, get_settings
 from antigravity_mcp.state.events import json_dumps, ok
 from antigravity_mcp.state.store import PipelineStateStore
@@ -29,7 +31,6 @@ from antigravity_mcp.tooling.ops_tools import (
     ops_refresh_dashboard_tool,
     ops_run_frozen_eval_tool,
 )
-from mcp.server.fastmcp import FastMCP
 
 _DEPRECATION_MSG = " This tool will be removed in v0.3.0."
 

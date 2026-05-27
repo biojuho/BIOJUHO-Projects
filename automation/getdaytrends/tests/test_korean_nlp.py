@@ -1,7 +1,6 @@
 """korean_nlp.py 테스트 — Kiwipiepy 형태소 기반 AI어투 탐지 + 신조어 감지."""
 
 import pytest
-
 from korean_nlp import (
     KIWI_AVAILABLE,
     compute_quality_score,

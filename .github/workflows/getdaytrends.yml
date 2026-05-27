@@ -1,5 +1,12 @@
 name: GetDayTrends Pipeline
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: "0 */4 * * *"
@@ -21,6 +28,8 @@ on:
 
 jobs:
   generate-tweets:
+    name: Generate GetDayTrends content
+    environment: automation-ops
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -51,7 +60,9 @@ jobs:
       CONTENT_HUB_DATABASE_ID: ${{ secrets.CONTENT_HUB_DATABASE_ID }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
@@ -121,16 +132,20 @@ jobs:
         working-directory: automation/getdaytrends
         run: |
           FLAGS="--one-shot --verbose"
-          if [ -n "${{ github.event.inputs.country }}" ]; then
-            FLAGS="$FLAGS --country ${{ github.event.inputs.country }}"
+          if [ -n "${GITHUB_EVENT_INPUTS_COUNTRY}" ]; then
+            FLAGS="$FLAGS --country ${GITHUB_EVENT_INPUTS_COUNTRY}"
           fi
-          if [ -n "${{ github.event.inputs.limit }}" ]; then
-            FLAGS="$FLAGS --limit ${{ github.event.inputs.limit }}"
+          if [ -n "${GITHUB_EVENT_INPUTS_LIMIT}" ]; then
+            FLAGS="$FLAGS --limit ${GITHUB_EVENT_INPUTS_LIMIT}"
           fi
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${GITHUB_EVENT_INPUTS_DRY_RUN}" = "true" ]; then
             FLAGS="$FLAGS --dry-run"
           fi
           uv run python main.py $FLAGS
+        env:
+          GITHUB_EVENT_INPUTS_COUNTRY: ${{ github.event.inputs.country }}
+          GITHUB_EVENT_INPUTS_LIMIT: ${{ github.event.inputs.limit }}
+          GITHUB_EVENT_INPUTS_DRY_RUN: ${{ github.event.inputs.dry_run }}
 
       - name: Cleanup project .env
         if: always()
@@ -139,7 +154,7 @@ jobs:
 
       - name: Upload log artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: getdaytrends-log-${{ github.run_number }}
           path: automation/getdaytrends/tweet_bot.log
@@ -148,28 +163,41 @@ jobs:
 
       - name: Discord notification on failure
         if: failure()
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
             curl -s -H "Content-Type: application/json" \
-              -d "{\"content\":\"🔴 GetDayTrends #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+              -d "{\"content\":\"[FAIL] GetDayTrends #${GITHUB_RUN_NUMBER} failed\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
               "$DISCORD_WEBHOOK_URL" || true
           fi
 
       - name: Telegram notification on failure
         if: failure()
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"🔴 GetDayTrends #${{ github.run_number }} failed\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[FAIL] GetDayTrends #${GITHUB_RUN_NUMBER} failed\n${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" || true
           fi
 
       - name: Telegram heartbeat on success
         if: success()
+        env:
+          COUNTRY: ${{ github.event.inputs.country || 'korea' }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          echo "GetDayTrends run #${{ github.run_number }} completed successfully at $(date -u +%FT%TZ)"
+          echo "GetDayTrends run #${GITHUB_RUN_NUMBER} completed successfully at $(date -u +%FT%TZ)"
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               -H "Content-Type: application/json" \
-              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"✅ GetDayTrends #${{ github.run_number }} completed at $(date -u +%FT%TZ)\nCountry: ${{ github.event.inputs.country || 'korea' }}\"}" || true
+              -d "{\"chat_id\":\"${TELEGRAM_CHAT_ID}\",\"text\":\"[OK] GetDayTrends #${GITHUB_RUN_NUMBER} completed at $(date -u +%FT%TZ)\nCountry: ${COUNTRY}\"}" || true
           fi

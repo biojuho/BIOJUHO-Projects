@@ -8,19 +8,12 @@ from loguru import logger as log
 
 try:
     from shared.cache import get_cache
+
     _REDIS_OK = True
 except ImportError:
     _REDIS_OK = False
 
 try:
-    from .pg_adapter import PgAdapter as _PgAdapter
-    from .connection import (
-        close_pg_pool,
-        db_transaction,
-        get_connection,
-        get_pg_pool,
-        sqlite_write_lock,
-    )
     from ..db_schema import (
         _backfill_fingerprints,
         _normalize_name,
@@ -29,8 +22,15 @@ try:
         init_db,
     )
     from ..models import GeneratedThread, GeneratedTweet, RunResult, ScoredTrend
+    from .connection import (
+        close_pg_pool,
+        db_transaction,
+        get_connection,
+        get_pg_pool,
+        sqlite_write_lock,
+    )
+    from .pg_adapter import PgAdapter as _PgAdapter
 except ImportError:
-    from db_layer.pg_adapter import PgAdapter as _PgAdapter
     from db_layer.connection import (
         close_pg_pool,
         db_transaction,
@@ -38,6 +38,7 @@ except ImportError:
         get_pg_pool,
         sqlite_write_lock,
     )
+    from db_layer.pg_adapter import PgAdapter as _PgAdapter
     from db_schema import (
         _backfill_fingerprints,
         _normalize_name,
@@ -91,7 +92,7 @@ def _facade_module():
 def _redis_enabled() -> bool:
     facade = _facade_module()
     if facade is not None and hasattr(facade, "_REDIS_OK"):
-        return bool(getattr(facade, "_REDIS_OK"))
+        return bool(facade._REDIS_OK)
     return _REDIS_OK
 
 

@@ -13,21 +13,19 @@ StreamingPipeline 통합 테스트 — v16.0 핵심 비동기 파이프라인 �
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
-from unittest.mock import AsyncMock
-
-import pytest
-import pytest_asyncio
-
 import importlib
 import importlib.util
 import sys
+from dataclasses import dataclass
+
+import pytest
 
 # core/__init__.py 가 shared.llm 을 전이 임포트해서 dotenv 에러 발생할 수 있으므로
 # streaming_pipeline 모듈만 직접 로드한다.
 # 먼저 core 패키지를 빈 모듈로 등록해서 __init__.py 의 전이 임포트를 우회.
 if "core" not in sys.modules:
     import types as _types
+
     sys.modules["core"] = _types.ModuleType("core")
 
 _spec = importlib.util.spec_from_file_location(
@@ -98,7 +96,7 @@ async def _failing_generate_fn(scored_trend):
 
 
 async def _failing_save_fn(trend, batch):
-    raise IOError("disk full")
+    raise OSError("disk full")
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -139,8 +137,11 @@ def contexts(trends):
 async def test_happy_path_all_stages_complete(pipeline, trends, contexts):
     """정상 흐름: 5개 트렌드 → 모두 scored → generated → saved."""
     results = await pipeline.run(
-        trends, contexts,
-        score_fn=_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+        trends,
+        contexts,
+        score_fn=_score_fn,
+        generate_fn=_generate_fn,
+        save_fn=_save_fn,
     )
 
     assert len(results) == 5
@@ -159,8 +160,11 @@ async def test_happy_path_all_stages_complete(pipeline, trends, contexts):
 async def test_happy_path_no_generate_fn_dryrun(pipeline, trends, contexts):
     """generate_fn=None → dry-run 모드, batch는 None이지만 에러 없음."""
     results = await pipeline.run(
-        trends, contexts,
-        score_fn=_score_fn, generate_fn=None, save_fn=_save_fn,
+        trends,
+        contexts,
+        score_fn=_score_fn,
+        generate_fn=None,
+        save_fn=_save_fn,
     )
 
     assert len(results) == 5
@@ -174,8 +178,11 @@ async def test_happy_path_no_generate_fn_dryrun(pipeline, trends, contexts):
 async def test_happy_path_no_score_fn_passthrough(pipeline, trends, contexts):
     """score_fn=None → 트렌드가 그대로 통과."""
     results = await pipeline.run(
-        trends, contexts,
-        score_fn=None, generate_fn=_generate_fn, save_fn=_save_fn,
+        trends,
+        contexts,
+        score_fn=None,
+        generate_fn=_generate_fn,
+        save_fn=_save_fn,
     )
 
     assert len(results) == 5
@@ -194,8 +201,11 @@ async def test_scorer_timeout_does_not_deadlock(pipeline, trends, contexts):
     """스코어링 타임아웃 → 해당 트렌드만 에러, 파이프라인 정상 종료 (deadlock 없음)."""
     results = await asyncio.wait_for(
         pipeline.run(
-            trends, contexts,
-            score_fn=_slow_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+            trends,
+            contexts,
+            score_fn=_slow_score_fn,
+            generate_fn=_generate_fn,
+            save_fn=_save_fn,
         ),
         timeout=30,  # 전체 파이프라인이 30초 내에 끝나야 함 (deadlock 감지)
     )
@@ -221,8 +231,11 @@ async def test_scorer_exception_propagates_as_error(pipeline, contexts):
         return trend
 
     results = await pipeline.run(
-        trends, {t.name: {} for t in trends},
-        score_fn=mixed_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+        trends,
+        {t.name: {} for t in trends},
+        score_fn=mixed_score_fn,
+        generate_fn=_generate_fn,
+        save_fn=_save_fn,
     )
 
     # "good" 트렌드는 정상 저장, "bad"는 스코어링에서 탈락 (results에 안 들어감)
@@ -244,8 +257,11 @@ async def test_generator_timeout_captured_in_event(pipeline, trends, contexts):
     """생성 타임아웃 → event.error에 기록, 파이프라인 정상 종료."""
     results = await asyncio.wait_for(
         pipeline.run(
-            trends, contexts,
-            score_fn=_score_fn, generate_fn=_slow_generate_fn, save_fn=_save_fn,
+            trends,
+            contexts,
+            score_fn=_score_fn,
+            generate_fn=_slow_generate_fn,
+            save_fn=_save_fn,
         ),
         timeout=30,
     )
@@ -261,8 +277,11 @@ async def test_generator_timeout_captured_in_event(pipeline, trends, contexts):
 async def test_generator_exception_captured_in_event(pipeline, trends, contexts):
     """생성 예외 → event.error에 기록, saver가 해당 이벤트를 skip."""
     results = await pipeline.run(
-        trends, contexts,
-        score_fn=_score_fn, generate_fn=_failing_generate_fn, save_fn=_save_fn,
+        trends,
+        contexts,
+        score_fn=_score_fn,
+        generate_fn=_failing_generate_fn,
+        save_fn=_save_fn,
     )
 
     assert len(results) == 5
@@ -281,8 +300,11 @@ async def test_saver_timeout_captured_in_event(pipeline, trends, contexts):
     """저장 타임아웃 → event.error에 기록."""
     results = await asyncio.wait_for(
         pipeline.run(
-            trends, contexts,
-            score_fn=_score_fn, generate_fn=_generate_fn, save_fn=_slow_save_fn,
+            trends,
+            contexts,
+            score_fn=_score_fn,
+            generate_fn=_generate_fn,
+            save_fn=_slow_save_fn,
         ),
         timeout=30,
     )
@@ -296,8 +318,11 @@ async def test_saver_timeout_captured_in_event(pipeline, trends, contexts):
 async def test_saver_exception_captured_in_event(pipeline, trends, contexts):
     """저장 예외 → event.error에 기록, 나머지 트렌드 계속."""
     results = await pipeline.run(
-        trends, contexts,
-        score_fn=_score_fn, generate_fn=_generate_fn, save_fn=_failing_save_fn,
+        trends,
+        contexts,
+        score_fn=_score_fn,
+        generate_fn=_generate_fn,
+        save_fn=_failing_save_fn,
     )
 
     assert len(results) == 5
@@ -318,12 +343,18 @@ async def test_reentrant_run_does_not_leak_state(pipeline, contexts):
     trends_2 = [FakeTrend(name="run2-x")]
 
     results_1 = await pipeline.run(
-        trends_1, {t.name: {} for t in trends_1},
-        score_fn=_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+        trends_1,
+        {t.name: {} for t in trends_1},
+        score_fn=_score_fn,
+        generate_fn=_generate_fn,
+        save_fn=_save_fn,
     )
     results_2 = await pipeline.run(
-        trends_2, {t.name: {} for t in trends_2},
-        score_fn=_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+        trends_2,
+        {t.name: {} for t in trends_2},
+        score_fn=_score_fn,
+        generate_fn=_generate_fn,
+        save_fn=_save_fn,
     )
 
     assert len(results_1) == 2
@@ -360,8 +391,11 @@ async def test_single_trend_single_concurrency():
 
     trend = FakeTrend(name="solo")
     results = await sp.run(
-        [trend], {"solo": {}},
-        score_fn=_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+        [trend],
+        {"solo": {}},
+        score_fn=_score_fn,
+        generate_fn=_generate_fn,
+        save_fn=_save_fn,
     )
 
     assert len(results) == 1
@@ -378,8 +412,11 @@ async def test_high_concurrency_more_workers_than_trends():
     trends = [FakeTrend(name="a"), FakeTrend(name="b")]
     results = await asyncio.wait_for(
         sp.run(
-            trends, {t.name: {} for t in trends},
-            score_fn=_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+            trends,
+            {t.name: {} for t in trends},
+            score_fn=_score_fn,
+            generate_fn=_generate_fn,
+            save_fn=_save_fn,
         ),
         timeout=10,
     )
@@ -398,8 +435,11 @@ async def test_all_scores_fail_generators_still_exit():
 
     results = await asyncio.wait_for(
         sp.run(
-            trends, {t.name: {} for t in trends},
-            score_fn=_failing_score_fn, generate_fn=_generate_fn, save_fn=_save_fn,
+            trends,
+            {t.name: {} for t in trends},
+            score_fn=_failing_score_fn,
+            generate_fn=_generate_fn,
+            save_fn=_save_fn,
         ),
         timeout=15,
     )
