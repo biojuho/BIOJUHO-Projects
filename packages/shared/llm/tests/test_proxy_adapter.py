@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -122,6 +122,68 @@ def test_make_client_requires_proxy_url(monkeypatch):
     monkeypatch.delenv("LITELLM_PROXY_URL", raising=False)
     with pytest.raises(KeyError):
         proxy_adapter._make_client(async_client=False)
+
+
+@pytest.mark.asyncio
+async def test_acall_proxies_to_async_openai_client(monkeypatch):
+    """Async path must mirror the sync `call` contract — was previously
+    untested, leaving a regression hole in the await/AsyncOpenAI wiring."""
+    monkeypatch.setenv("LITELLM_PROXY_URL", "http://localhost:8010")
+    monkeypatch.setenv("LITELLM_MASTER_KEY", "sk-test")
+
+    fake_completion = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=" hello-async "))],
+        usage=SimpleNamespace(prompt_tokens=4, completion_tokens=6),
+        model="tier-heavy",
+    )
+    fake_client = MagicMock()
+    fake_client.chat.completions.create = AsyncMock(return_value=fake_completion)
+
+    with patch.object(proxy_adapter, "_make_client", return_value=fake_client) as mk:
+        response = await proxy_adapter.acall(
+            tier=TaskTier.HEAVY,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=64,
+            system="SYS-A",
+        )
+        mk.assert_called_once_with(async_client=True)
+
+    fake_client.chat.completions.create.assert_awaited_once()
+    kwargs = fake_client.chat.completions.create.call_args.kwargs
+    assert kwargs["model"] == "tier-heavy"
+    assert kwargs["max_tokens"] == 64
+    assert kwargs["messages"][0] == {"role": "system", "content": "SYS-A"}
+
+    assert isinstance(response, LLMResponse)
+    assert response.backend == "litellm-proxy"
+    assert response.text == "hello-async"
+    assert response.input_tokens == 4
+    assert response.output_tokens == 6
+    assert response.tier == TaskTier.HEAVY
+
+
+def test_coerce_response_handles_none_content(monkeypatch):
+    """Upstream APIs occasionally return `message.content = None` (e.g. when
+    a tool call is returned in lieu of text). `.strip()` on None would crash —
+    the adapter must coerce to empty string."""
+    monkeypatch.setenv("LITELLM_PROXY_URL", "http://localhost:8010")
+    fake_completion = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
+        usage=SimpleNamespace(prompt_tokens=2, completion_tokens=0),
+        model="tier-lightweight",
+    )
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = fake_completion
+    with patch.object(proxy_adapter, "_make_client", return_value=fake_client):
+        response = proxy_adapter.call(
+            tier=TaskTier.LIGHTWEIGHT,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=10,
+            system="",
+        )
+    assert response.text == ""
+    assert response.input_tokens == 2
+    assert response.output_tokens == 0
 
 
 def test_client_dispatch_invokes_proxy_when_enabled(monkeypatch):
