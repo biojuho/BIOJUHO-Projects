@@ -19,6 +19,8 @@ from shared.harness.token_tracker import TokenBudget
 from antigravity_mcp.integrations.shared_llm_resolver import resolve_shared_llm
 from antigravity_mcp.state.store import PipelineStateStore
 from antigravity_mcp.integrations.llm.response_parser import is_meta_response
+from shared.llm import tracing
+from shared.llm.models import TaskTier
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +86,27 @@ class LLMClientWrapper:
             logger.warning("generate_text aborted: Token budget exceeded.")
             raise LLMUnavailableError("Token budget exceeded")
 
-        return await self._complete_text(
-            prompt=prompt,
-            max_tokens=max_tokens,
-            cache_scope=cache_scope,
-        )
+        system_text = prompt[0] if isinstance(prompt, tuple) else ""
+        user_text = prompt[1] if isinstance(prompt, tuple) else prompt
+        with tracing.start_span(
+            tier=self._task_tier or TaskTier.MEDIUM,
+            system=system_text,
+            messages=[{"role": "user", "content": user_text}],
+            dispatcher=f"dailynews.{cache_scope}",
+        ) as span:
+            text, meta, warnings = await self._complete_text(
+                prompt=prompt,
+                max_tokens=max_tokens,
+                cache_scope=cache_scope,
+            )
+            span.record_text(
+                text=text,
+                model=str(meta.get("model_name", "")),
+                backend=str(meta.get("provider", "") or "unknown"),
+                input_tokens=int(meta.get("input_tokens", 0) or 0),
+                output_tokens=int(meta.get("output_tokens", 0) or 0),
+            )
+            return text, meta, warnings
 
     async def _complete_text(
         self,
