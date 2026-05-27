@@ -34,7 +34,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251120.0",
+    "@cloudflare/workers-types": "^4.20260331.1",
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.7",
