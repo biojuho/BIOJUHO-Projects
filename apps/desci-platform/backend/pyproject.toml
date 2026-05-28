@@ -13,3 +13,6 @@ dependencies = [
     "firebase-admin>=6.4.0,<7.0",
     "python-dotenv>=1.0.0",
 ]
+
+[tool.setuptools]
+py-modules = ["auth", "main"]
