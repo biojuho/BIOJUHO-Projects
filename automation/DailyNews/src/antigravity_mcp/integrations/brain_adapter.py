@@ -21,6 +21,32 @@ def _deep_insight_mode_enabled() -> bool:
     return raw not in ("0", "false", "off", "no")
 
 
+def _deep_insight_retry_enabled() -> bool:
+    """One-shot QC retry on warnings (default OFF, opt-in via env).
+
+    When enabled, a single repair pass is attempted whenever
+    ``validate_deep_insight`` returns ``ok == False`` on the first
+    LLM response. The retry only replaces the result when it has
+    *strictly fewer* warnings. Doubles cost when triggered, so the
+    flag is OFF by default; operators turn it on once the baseline
+    pass-rate justifies the spend.
+    """
+    raw = os.getenv("DAILYNEWS_DEEP_INSIGHT_RETRY", "0").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def _deep_insight_repair_prompt(prior_warnings: list[str]) -> str:
+    """Repair-pass directive appended to the original prompt on retry."""
+    if not prior_warnings:
+        return ""
+    return (
+        "\n[재시도 — 직전 출력의 누락 항목을 보강해 다시 작성]\n"
+        f"- 직전 시도에서 누락·미달한 항목: {', '.join(prior_warnings)}\n"
+        "- 5섹션 구조와 단일 thesis는 그대로 유지하되 위 항목을 반드시 충족시킬 것.\n"
+        "- 새 증거 태그·수치 앵커를 추가할 때도 사실 변형은 금지(원본 기사 사실관계 준수).\n"
+    )
+
+
 _DEEP_INSIGHT_DIRECTIVES = (
     "\n[단일 주제 수렴 모드 — 이 모드가 위 작성 규칙보다 우선한다]\n"
     "- 선택된 기사들을 '하나의 주제(Single Thesis)'로 수렴해 분석한다. 기사마다 분리된 섹션을 만들지 말 것.\n"
@@ -364,6 +390,35 @@ class BrainAdapter:
                         qc["warnings"],
                         qc["metrics"],
                     )
+                    if not qc["ok"] and _deep_insight_retry_enabled():
+                        repair_prompt = prompt + _deep_insight_repair_prompt(qc["warnings"])
+                        try:
+                            resp2 = await self._client.acreate(
+                                tier=TaskTier.HEAVY,
+                                max_tokens=4500,
+                                messages=[{"role": "user", "content": repair_prompt}],
+                            )
+                            text2 = (resp2.text or "").strip()
+                            result2 = _robust_json_parse(text2) if text2 else None
+                            if result2:
+                                qc2 = validate_deep_insight(result2)
+                                if len(qc2["warnings"]) < len(qc["warnings"]):
+                                    logger.info(
+                                        "[%s] deep-insight retry improved: %d → %d warnings",
+                                        category,
+                                        len(qc["warnings"]),
+                                        len(qc2["warnings"]),
+                                    )
+                                    result = result2
+                                else:
+                                    logger.info(
+                                        "[%s] deep-insight retry kept original (warnings %d → %d)",
+                                        category,
+                                        len(qc["warnings"]),
+                                        len(qc2["warnings"]),
+                                    )
+                        except Exception as retry_exc:
+                            logger.warning("[%s] deep-insight retry failed: %s", category, retry_exc)
             return result
         except Exception as exc:
             logger.warning("Brain analysis failed: %s", exc)

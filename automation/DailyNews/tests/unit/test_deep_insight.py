@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+
+
+def _resp(thread_text: str, tagline: str = "t") -> SimpleNamespace:
+    payload = {
+        "tagline": tagline,
+        "summary": [],
+        "insights": [],
+        "x_thread": [thread_text],
+    }
+    return SimpleNamespace(text=json.dumps(payload, ensure_ascii=False))
 
 
 class TestDeepInsightModeFlag:
@@ -187,3 +198,104 @@ class TestAnalyzeNewsDeepMode:
         result = await adapter.analyze_news("Tech", [{"title": "x", "description": "y"}], "today")
 
         assert result == {"tagline": "t", "summary": ["s1"], "insights": [], "x_thread": ["body"]}
+
+
+class TestDeepInsightRetry:
+    @pytest.mark.asyncio
+    async def test_default_off_no_second_call(self, monkeypatch):
+        monkeypatch.setenv("DAILYNEWS_DEEP_INSIGHT_MODE", "1")
+        monkeypatch.delenv("DAILYNEWS_DEEP_INSIGHT_RETRY", raising=False)
+        from antigravity_mcp.integrations.brain_adapter import BrainAdapter
+
+        call_count = {"n": 0}
+
+        class FakeClient:
+            async def acreate(self, *, tier, max_tokens, messages):
+                call_count["n"] += 1
+                return SimpleNamespace(
+                    text='{"tagline":"t","summary":[],"insights":[],"x_thread":["short body no tags"]}'
+                )
+
+        adapter = BrainAdapter()
+        adapter._client = FakeClient()
+        monkeypatch.setattr(adapter, "select_top_articles", AsyncMock(return_value=[0]))
+
+        await adapter.analyze_news("Tech", [{"title": "x", "description": "y"}], "today")
+
+        assert call_count["n"] == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_replaces_when_qc_improves(self, monkeypatch):
+        monkeypatch.setenv("DAILYNEWS_DEEP_INSIGHT_MODE", "1")
+        monkeypatch.setenv("DAILYNEWS_DEEP_INSIGHT_RETRY", "1")
+        from antigravity_mcp.integrations.brain_adapter import BrainAdapter
+
+        bad_thread = "## 🎯 Signal\n오늘은 평범한 하루였다."
+        good_thread = (
+            "## 🎯 Signal\n비트코인 **5.2%** [A1].\n"
+            "## 🔁 Pattern\n전년 대비 **-18%** [A2].\n"
+            "## 🌊 Ripple\n거래량 **33%** 감소 [Inference:A1+A2].\n"
+            "## ⚠️ Counterpoint\n그러나 ETF는 **6일** 연속 양전환 [Background].\n"
+            "## ✅ Action\n이번 주 안에 레버리지 축소 [A1]."
+        )
+        responses = [_resp(bad_thread), _resp(good_thread)]
+
+        class FakeClient:
+            def __init__(self):
+                self.calls = []
+
+            async def acreate(self, *, tier, max_tokens, messages):
+                self.calls.append(messages[0]["content"])
+                return responses[len(self.calls) - 1]
+
+        adapter = BrainAdapter()
+        client = FakeClient()
+        adapter._client = client
+        monkeypatch.setattr(adapter, "select_top_articles", AsyncMock(return_value=[0]))
+
+        result = await adapter.analyze_news("Tech", [{"title": "x", "description": "y"}], "today")
+
+        assert len(client.calls) == 2
+        assert "재시도" in client.calls[1]
+        assert result is not None
+        assert "Counterpoint" in result["x_thread"][0]
+
+    @pytest.mark.asyncio
+    async def test_retry_keeps_original_when_not_better(self, monkeypatch):
+        monkeypatch.setenv("DAILYNEWS_DEEP_INSIGHT_MODE", "1")
+        monkeypatch.setenv("DAILYNEWS_DEEP_INSIGHT_RETRY", "1")
+        from antigravity_mcp.integrations.brain_adapter import BrainAdapter
+
+        original_thread = "## 🎯 Signal\n수치 **1.2%** [A1].\n## 🔁 Pattern\n."
+        worse_thread = "no structure at all"
+        responses = [_resp(original_thread, tagline="orig"), _resp(worse_thread, tagline="worse")]
+
+        class FakeClient:
+            def __init__(self):
+                self.idx = 0
+
+            async def acreate(self, *, tier, max_tokens, messages):
+                r = responses[self.idx]
+                self.idx += 1
+                return r
+
+        adapter = BrainAdapter()
+        adapter._client = FakeClient()
+        monkeypatch.setattr(adapter, "select_top_articles", AsyncMock(return_value=[0]))
+
+        result = await adapter.analyze_news("Tech", [{"title": "x", "description": "y"}], "today")
+
+        assert result["tagline"] == "orig"
+
+    def test_retry_flag_default_off(self, monkeypatch):
+        monkeypatch.delenv("DAILYNEWS_DEEP_INSIGHT_RETRY", raising=False)
+        from antigravity_mcp.integrations.brain_adapter import _deep_insight_retry_enabled
+
+        assert _deep_insight_retry_enabled() is False
+
+    @pytest.mark.parametrize("val", ["1", "true", "yes", "on"])
+    def test_retry_flag_opt_in(self, monkeypatch, val):
+        monkeypatch.setenv("DAILYNEWS_DEEP_INSIGHT_RETRY", val)
+        from antigravity_mcp.integrations.brain_adapter import _deep_insight_retry_enabled
+
+        assert _deep_insight_retry_enabled() is True
