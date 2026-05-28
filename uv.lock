@@ -1726,6 +1726,7 @@ dependencies = [
     { name = "schedule" },
     { name = "scrapling" },
     { name = "selectolax" },
+    { name = "sqlalchemy" },
     { name = "twikit" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1769,6 +1770,7 @@ requires-dist = [
     { name = "schedule", specifier = ">=1.2.0,<2.0" },
     { name = "scrapling", specifier = ">=0.4.0" },
     { name = "selectolax", specifier = ">=0.3.21,<1.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.0,<3.0" },
     { name = "twikit", specifier = ">=2.3.0,<3.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0,<1.0" },
 ]
