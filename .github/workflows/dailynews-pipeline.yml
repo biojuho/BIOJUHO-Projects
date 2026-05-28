@@ -131,7 +131,11 @@ jobs:
           # Do not pipe through head. If the pipe closes early, Python can die
           # with SIGPIPE and hide category-level failures. Full logs are
           # uploaded as artifacts after every run.
-          uv run python -u scripts/run_daily_news.py "${FLAGS[@]}" 2>&1
+          # `tee` mirrors stdout/stderr into run_output.log so the next step
+          # can surface deep-insight QC metrics in the run summary without
+          # changing application code. pipefail keeps a python failure
+          # from being masked by tee's exit status.
+          uv run python -u scripts/run_daily_news.py "${FLAGS[@]}" 2>&1 | tee run_output.log
 
       - name: Write step summary
         if: always()
@@ -145,6 +149,33 @@ jobs:
             echo "- Max items: ${{ steps.run_context.outputs.max_items }}"
             echo "- Force enabled: ${{ steps.run_context.outputs.force_flag != '' && 'yes' || 'no' }}"
             echo "- Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deep-insight QC summary
+        if: always()
+        working-directory: automation/DailyNews
+        shell: bash
+        run: |
+          if [[ ! -f run_output.log ]]; then
+            exit 0
+          fi
+          QC_LINES=$(grep -E "deep-insight QC|deep-insight retry" run_output.log || true)
+          if [[ -z "$QC_LINES" ]]; then
+            # Deep-insight mode disabled or first pass clean. Still record so
+            # operators can tell quiet success from missing instrumentation.
+            {
+              echo
+              echo "### Deep-insight QC"
+              echo "_no QC events emitted (mode off or zero warnings)._"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo
+            echo "### Deep-insight QC"
+            echo '```'
+            echo "$QC_LINES"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload logs
