@@ -7,7 +7,7 @@ from typing import Any
 
 from antigravity_mcp.config import emit_metric
 from antigravity_mcp.domain.models import ContentItem, ContentReport
-from antigravity_mcp.integrations.embedding_adapter import EmbeddingAdapter
+from antigravity_mcp.integrations.embedding_adapter import ArticleCluster, EmbeddingAdapter
 from antigravity_mcp.integrations.insight_adapter import InsightAdapter
 from antigravity_mcp.integrations.jina_adapter import JinaAdapter
 from antigravity_mcp.integrations.llm_adapter import LLMAdapter
@@ -98,6 +98,49 @@ def _resolve_adapters(
         digest=digest_adapter or a.digest,
         jina=a.jina or JinaAdapter(),
     )
+
+
+def _build_source_intelligence(
+    items: list[ContentItem],
+    clusters: list[ArticleCluster] | None,
+) -> dict[str, Any] | None:
+    if not items:
+        return None
+    article_count = len(items)
+    distinct_sources = sorted({item.source_name for item in items if item.source_name})
+    full_text_count = sum(1 for item in items if item.full_text)
+    coverage = round(full_text_count / article_count, 4) if article_count else 0.0
+
+    cluster_list = list(clusters or [])
+    multi_source = [cluster for cluster in cluster_list if cluster.source_count > 1]
+    providers = [
+        cluster.embedding_provider
+        for cluster in cluster_list
+        if cluster.embedding_provider
+    ]
+    embedding_provider = providers[0] if providers else ""
+
+    top_multi_source_topics = [
+        {
+            "topic": cluster.topic_label,
+            "source_count": cluster.source_count,
+            "sources": sorted(
+                {article.source_name for article in cluster.articles if article.source_name}
+            ),
+        }
+        for cluster in multi_source[:5]
+    ]
+
+    return {
+        "article_count": article_count,
+        "source_count": len(distinct_sources),
+        "full_text_count": full_text_count,
+        "full_text_coverage": coverage,
+        "cluster_count": len(cluster_list),
+        "multi_source_topic_count": len(multi_source),
+        "embedding_provider": embedding_provider,
+        "top_multi_source_topics": top_multi_source_topics,
+    }
 
 
 async def _process_category(
@@ -198,6 +241,10 @@ async def _process_category(
         insight_adapter=resolved.insight if hasattr(resolved.insight, "generate_insights") else None,
     )
     await finalize_quality(ctx)
+
+    intel = _build_source_intelligence(category_items, cluster_meta.get(category))
+    if intel is not None:
+        ctx.analysis_meta["source_intelligence"] = intel
 
     report = persist_report(ctx)
     maybe_enqueue_digest(ctx=ctx, report=report, digest_adapter=resolved.digest)
