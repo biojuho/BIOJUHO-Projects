@@ -332,6 +332,35 @@ def get_refresh_history(limit: int = 10) -> list[dict]:
 # ──────────────────────────────────────────────────
 
 
+def _probe_notebooklm_cli() -> tuple[bool, int | None]:
+    """`notebooklm list --json` 호출로 CLI 도달성과 노트북 개수를 측정한다.
+
+    Returns (api_reachable, notebook_count). Notebook count is ``None`` when
+    the CLI returns non-JSON output but still exits 0.
+    """
+    try:
+        proc = subprocess.run(
+            ["notebooklm", "list", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace",
+            env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False, None
+    if proc.returncode != 0:
+        return False, None
+    try:
+        notebooks = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return True, None
+    if isinstance(notebooks, list):
+        return True, len(notebooks)
+    return True, None
+
+
 async def health_check(verbose: bool = False) -> dict:
     """
     종합 헬스 체크 — 인증 + 기본 API 동작 확인.
@@ -356,27 +385,9 @@ async def health_check(verbose: bool = False) -> dict:
         _log_health(result)
         return result
 
-    # API 도달 가능성 테스트 — list 명령 실행
-    try:
-        proc = subprocess.run(
-            ["notebooklm", "list", "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            encoding="utf-8",
-            errors="replace",
-            env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
-        )
-        if proc.returncode == 0:
-            result["api_reachable"] = True
-            try:
-                notebooks = json.loads(proc.stdout)
-                result["notebook_count"] = len(notebooks) if isinstance(notebooks, list) else None
-            except json.JSONDecodeError:
-                # JSON 파싱 실패해도 API 도달은 성공
-                result["notebook_count"] = None
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    api_reachable, notebook_count = _probe_notebooklm_cli()
+    result["api_reachable"] = api_reachable
+    result["notebook_count"] = notebook_count
 
     # 상태 판정
     if result["api_reachable"] and result["auth"]["authenticated"]:
