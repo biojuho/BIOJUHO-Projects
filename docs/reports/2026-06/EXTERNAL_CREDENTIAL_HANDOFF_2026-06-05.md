@@ -13,6 +13,16 @@
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 
+## Prioritized Unblock Queue
+
+| Rank | Boundary | Operator action | Env names | Verify after unblock |
+| ---: | --- | --- | --- | --- |
+| `1` | `canva_oauth_and_openapi_tool_execution` | Set required env and complete operator approval: A real Canva user completes login and consent through http://localhost:8001/auth/callback; Proxy authentication and tool-call authorization behavior are selected and verified | `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET` | `cd mcp/canva-mcp && npm run doctor:canva`<br>`cd mcp/canva-mcp && npm run auth:canva` |
+| `2` | `github_source_refresh_rate_limit_token` | Set one optional token/env value, then rerun verification: GITHUB_TOKEN, GH_TOKEN | `GITHUB_TOKEN`, `GH_TOKEN` | `python ops/scripts/github_source_freshness.py --json-out var/github-source-freshness-live.json --markdown-out var/github-source-freshness-live.md` |
+| `3` | `telegram_notification_mcp_credentials` | Set required env and complete operator approval: Notification bot token and chat target are provided for real delivery checks | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `python ops/scripts/mcp_service_runtime_smoke.py` |
+| `4` | `otel_collector_endpoint_and_credentials` | Set required env and complete operator approval: The operator selects the collector distribution, endpoint, authentication, retention, sampling, and retry policy | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE`, `OTEL_EXPORTER_OTLP_CLIENT_KEY` | `python ops/scripts/run_workspace_smoke.py --scope mcp --mcp-otel-out var/mcp-smoke-live-collector.otlp.jsonl`<br>`python ops/scripts/mcp_otel_collector_handoff.py --otel-jsonl var/mcp-smoke-live-collector.otlp.jsonl` |
+| `5` | `hosted_agent_runtime_credentials` | Set one optional token/env value, then rerun verification: OPENAI_API_KEY, LANGCHAIN_API_KEY, LOGFIRE_TOKEN | `OPENAI_API_KEY`, `LANGCHAIN_API_KEY`, `LOGFIRE_TOKEN` | `python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quality-dashboard --max-gates 1`<br>`python ops/scripts/autoresearch_completion_audit.py` |
+
 ## Boundaries
 
 | Boundary | Status | Missing required env | Verification commands |

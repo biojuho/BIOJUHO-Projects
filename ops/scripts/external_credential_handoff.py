@@ -32,6 +32,7 @@ def build_handoff(
     required_env = sorted({name for item in boundaries for name in item["required_env"]})
     optional_env = sorted({name for item in boundaries for name in item["optional_env_any_of"]})
     status = "operator_action_required" if audit["missing_required_env"] else "ready_for_live_verification"
+    unblock_queue = _build_unblock_queue(boundaries)
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -54,6 +55,7 @@ def build_handoff(
             for item in boundaries
             for command in item["verification_commands"]
         ],
+        "unblock_queue": unblock_queue,
         "boundaries": [
             {
                 "id": item["id"],
@@ -89,6 +91,28 @@ def format_markdown(handoff: dict[str, Any]) -> str:
         lines.extend(f"- `{name}`" for name in handoff["missing_required_env"])
     else:
         lines.append("- none")
+
+    lines.extend(
+        [
+            "",
+            "## Prioritized Unblock Queue",
+            "",
+            "| Rank | Boundary | Operator action | Env names | Verify after unblock |",
+            "| ---: | --- | --- | --- | --- |",
+        ]
+    )
+    for item in handoff["unblock_queue"]:
+        lines.append(
+            " | ".join(
+                [
+                    f"| `{item['rank']}`",
+                    f"`{item['boundary_id']}`",
+                    item["operator_action"],
+                    _format_env_names(item["env_names"]),
+                    f"{_format_inline_commands(item['verify_after_unblock'])} |",
+                ]
+            )
+        )
 
     lines.extend(
         [
@@ -263,6 +287,58 @@ def _format_env_names(names: list[str]) -> str:
     if not names:
         return "none"
     return ", ".join(f"`{name}`" for name in names)
+
+
+def _format_inline_commands(commands: list[str]) -> str:
+    if not commands:
+        return "none"
+    return "<br>".join(f"`{command}`" for command in commands)
+
+
+def _build_unblock_queue(boundaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    queue = sorted(boundaries, key=_unblock_sort_key)
+    return [
+        {
+            "rank": index + 1,
+            "boundary_id": item["id"],
+            "title": item["title"],
+            "status": item["status"],
+            "operator_action": _operator_action(item),
+            "env_names": _queue_env_names(item),
+            "verify_after_unblock": item["verification_commands"],
+            "claim_policy": item["claim_policy"],
+        }
+        for index, item in enumerate(queue)
+    ]
+
+
+def _unblock_sort_key(item: dict[str, Any]) -> tuple[int, int, str]:
+    status_priority = {
+        "external_auth_blocked": 0,
+        "optional_token_absent": 1,
+        "credential_gated": 2,
+        "future_scoped": 3,
+    }
+    if item["missing_required_env"]:
+        env_gap_priority = 0
+    elif item["optional_env_any_of"]:
+        env_gap_priority = 1
+    else:
+        env_gap_priority = 2
+    return (status_priority.get(item["status"], 99), env_gap_priority, item["id"])
+
+
+def _operator_action(item: dict[str, Any]) -> str:
+    blockers = "; ".join(value.rstrip(".") for value in item["blocked_until"])
+    if item["missing_required_env"]:
+        return "Set required env and complete operator approval: " + blockers
+    if item["optional_env_any_of"] and not item["optional_env_available"]:
+        return "Set one optional token/env value, then rerun verification: " + ", ".join(item["optional_env_any_of"])
+    return "Choose the runtime or policy decision, then rerun verification: " + blockers
+
+
+def _queue_env_names(item: dict[str, Any]) -> list[str]:
+    return [*item["required_env"], *item["optional_env_any_of"]]
 
 
 def _repo_relative(path: Path) -> str:

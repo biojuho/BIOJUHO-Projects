@@ -674,28 +674,28 @@
       "evidence": [
         {
           "path": "ops/scripts/external_credential_handoff.py",
-          "term_count": 6,
+          "term_count": 8,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "tests/test_external_credential_handoff.py",
-          "term_count": 5,
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json",
-          "term_count": 4,
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md",
-          "term_count": 4,
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -716,6 +716,13 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CREDENTIAL_UNBLOCK_QUEUE_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
