@@ -46,6 +46,19 @@ export function QualityPanel({ data, error, onRetry }) {
 
   const blockers = data.top_blocking_reasons || []
   const maxBlockCount = blockers.length > 0 ? blockers[0].count : 1
+  const smoke = data.workspace_smoke || null
+  const smokeSummary = smoke?.summary || {}
+  const smokePassed = smokeSummary.passed ?? 0
+  const smokeTotal = smokeSummary.total ?? 0
+  const smokeLabel = smoke?.status === 'partial'
+    ? 'PARTIAL'
+    : smoke?.available && smokePassed === smokeTotal && smokeTotal > 0
+      ? 'PASS'
+      : smoke?.available
+        ? 'FAIL'
+        : 'NO REPORT'
+  const smokeBadgeClass = smokeLabel === 'PASS' ? 'ok' : smokeLabel === 'PARTIAL' ? 'warn' : 'error'
+  const slowestChecks = smoke?.slowest_checks || []
 
   return (
     <div className="panel">
@@ -53,6 +66,38 @@ export function QualityPanel({ data, error, onRetry }) {
         <h2>🛡️ Quality Analytics</h2>
         <span className="badge">QA + FactCheck</span>
       </div>
+
+      {smoke && (
+        <>
+          <h3 style={{ fontSize: '0.7rem', color: '#22d3ee', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Workspace Smoke
+          </h3>
+          <div className="metric-row">
+            <span className="metric-label">Latest gate</span>
+            <span className={`status-badge ${smokeBadgeClass}`}>
+              {smokeTotal ? `${smokePassed}/${smokeTotal} ${smokeLabel}` : smokeLabel}
+            </span>
+          </div>
+          <div className="metric-row">
+            <span className="metric-label">Duration</span>
+            <span className="metric-value">{(smoke.duration_seconds || 0).toFixed(1)}s</span>
+          </div>
+          {slowestChecks.length > 0 && (
+            <table className="data-table" style={{ marginTop: '0.45rem', marginBottom: '0.8rem' }}>
+              <thead><tr><th>Slowest check</th><th>Scope</th><th>Seconds</th></tr></thead>
+              <tbody>
+                {slowestChecks.slice(0, 3).map((check, i) => (
+                  <tr key={`${check.scope}-${check.name}-${i}`}>
+                    <td>{check.name}</td>
+                    <td>{check.scope}</td>
+                    <td>{(check.elapsed_seconds || 0).toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
 
       {/* QA Grade Distribution */}
       {data.qa_grades?.length > 0 && (
@@ -144,7 +189,7 @@ export function QualityPanel({ data, error, onRetry }) {
         </>
       )}
 
-      {!data.qa_grades?.length && !data.daily_production?.length && (
+      {!data.qa_grades?.length && !data.daily_production?.length && !smoke?.available && (
         <div style={{ fontSize: '0.72rem', color: '#64748b', padding: '0.5rem 0' }}>
           QA 데이터가 없습니다. 파이프라인 실행 후 표시됩니다.
         </div>

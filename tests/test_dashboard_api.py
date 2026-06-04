@@ -7,6 +7,7 @@ with no live DB dependency — SQLite helpers gracefully return [].
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -29,6 +30,7 @@ if loaded_api_file and Path(loaded_api_file).resolve() != dashboard_api:
 
 from api import app  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from routers import gdt as gdt_router  # noqa: E402
 
 client = TestClient(app)
 
@@ -127,6 +129,36 @@ class TestQualityOverview:
     def test_has_confidence_distribution(self):
         data = client.get("/api/quality_overview").json()
         assert "confidence_distribution" in data
+
+    def test_includes_workspace_smoke_slowest_checks(self, tmp_path, monkeypatch):
+        smoke_dir = tmp_path / "var"
+        smoke_dir.mkdir()
+        smoke_report = smoke_dir / "workspace-smoke-cie.json"
+        smoke_report.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "status": "complete",
+                    "duration_seconds": 12.345,
+                    "summary": {"total": 2, "completed": 2, "passed": 2, "failed": 0, "remaining": 0},
+                    "results": [
+                        {"scope": "cie", "name": "cie compile", "ok": True, "returncode": 0, "elapsed_seconds": 0.5},
+                        {"scope": "cie", "name": "cie tests", "ok": True, "returncode": 0, "elapsed_seconds": 11.8},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(gdt_router, "WORKSPACE", tmp_path)
+
+        data = client.get("/api/quality_overview").json()
+        smoke = data["workspace_smoke"]
+
+        assert smoke["available"] is True
+        assert smoke["status"] == "complete"
+        assert smoke["summary"]["passed"] == 2
+        assert smoke["duration_seconds"] == 12.345
+        assert smoke["slowest_checks"][0]["name"] == "cie tests"
 
 
 # ── /api/overview structure ────────────────────────────────────────

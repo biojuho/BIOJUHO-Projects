@@ -3,11 +3,116 @@
 from __future__ import annotations
 
 import json as _json
+from pathlib import Path
+from typing import Any
 
-from db_utils import GDT_DB, _sqlite_read, _sqlite_scalar
+from db_utils import GDT_DB, WORKSPACE, _sqlite_read, _sqlite_scalar
 from fastapi import APIRouter
 
 router = APIRouter()
+
+SMOKE_REPORT_PATTERNS = ("var/smoke/*.json", "var/workspace-smoke*.json")
+
+
+def _relative_workspace_path(path: Path) -> str:
+    try:
+        return path.relative_to(WORKSPACE).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _latest_workspace_smoke_report() -> Path | None:
+    candidates: list[Path] = []
+    for pattern in SMOKE_REPORT_PATTERNS:
+        candidates.extend(path for path in WORKSPACE.glob(pattern) if path.is_file())
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _smoke_results(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, dict):
+        results = payload.get("results", [])
+    else:
+        results = payload
+    if not isinstance(results, list):
+        return []
+    return [item for item in results if isinstance(item, dict)]
+
+
+def _smoke_summary(payload: Any, results: list[dict[str, Any]]) -> dict[str, int]:
+    if isinstance(payload, dict) and isinstance(payload.get("summary"), dict):
+        summary = payload["summary"]
+        return {
+            "total": int(summary.get("total", len(results)) or 0),
+            "completed": int(summary.get("completed", len(results)) or 0),
+            "passed": int(summary.get("passed", sum(1 for item in results if item.get("ok"))) or 0),
+            "failed": int(summary.get("failed", sum(1 for item in results if not item.get("ok"))) or 0),
+            "remaining": int(summary.get("remaining", 0) or 0),
+        }
+
+    passed = sum(1 for item in results if item.get("ok"))
+    failed = len(results) - passed
+    return {
+        "total": len(results),
+        "completed": len(results),
+        "passed": passed,
+        "failed": failed,
+        "remaining": 0,
+    }
+
+
+def _workspace_smoke_overview() -> dict[str, Any]:
+    report_path = _latest_workspace_smoke_report()
+    if report_path is None:
+        return {
+            "available": False,
+            "status": "missing",
+            "path": None,
+            "schema_version": None,
+            "generated_at": None,
+            "duration_seconds": 0,
+            "summary": {"total": 0, "completed": 0, "passed": 0, "failed": 0, "remaining": 0},
+            "slowest_checks": [],
+        }
+
+    try:
+        payload = _json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {
+            "available": False,
+            "status": "corrupt",
+            "path": _relative_workspace_path(report_path),
+            "schema_version": None,
+            "generated_at": None,
+            "duration_seconds": 0,
+            "summary": {"total": 0, "completed": 0, "passed": 0, "failed": 0, "remaining": 0},
+            "slowest_checks": [],
+        }
+
+    results = _smoke_results(payload)
+    slowest = sorted(results, key=lambda item: float(item.get("elapsed_seconds") or 0), reverse=True)[:5]
+    return {
+        "available": True,
+        "status": payload.get("status", "complete") if isinstance(payload, dict) else "complete",
+        "path": _relative_workspace_path(report_path),
+        "schema_version": payload.get("schema_version") if isinstance(payload, dict) else "legacy",
+        "generated_at": payload.get("generated_at") if isinstance(payload, dict) else None,
+        "duration_seconds": round(float(payload.get("duration_seconds", 0) or 0), 3)
+        if isinstance(payload, dict)
+        else 0,
+        "summary": _smoke_summary(payload, results),
+        "slowest_checks": [
+            {
+                "scope": str(item.get("scope", "")),
+                "name": str(item.get("name", "")),
+                "ok": bool(item.get("ok")),
+                "returncode": int(item.get("returncode", 0) or 0),
+                "elapsed_seconds": round(float(item.get("elapsed_seconds") or 0), 3),
+            }
+            for item in slowest
+        ],
+    }
 
 
 @router.get("/api/getdaytrends")
@@ -249,4 +354,5 @@ async def quality_overview():
         "lifecycle_distribution": lifecycle_dist,
         "daily_production": daily_production,
         "confidence_distribution": confidence_dist,
+        "workspace_smoke": _workspace_smoke_overview(),
     }

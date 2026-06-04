@@ -55,6 +55,15 @@ const RESPONSES = {
     lifecycle_distribution: [],
     daily_production: [],
     confidence_distribution: [],
+    workspace_smoke: {
+      available: true,
+      status: 'complete',
+      duration_seconds: 28.028,
+      summary: { total: 2, completed: 2, passed: 2, failed: 0, remaining: 0 },
+      slowest_checks: [
+        { scope: 'cie', name: 'cie tests', ok: true, returncode: 0, elapsed_seconds: 27.273 },
+      ],
+    },
   },
   '/api/sla_status': {
     sla_target: 99.0,
@@ -142,5 +151,16 @@ describe('Dashboard App', () => {
       expect(screen.getByText('Panel unavailable')).toBeInTheDocument()
       expect(screen.getByText('Request failed with status 503')).toBeInTheDocument()
     })
+  })
+
+  it('renders workspace smoke timing in the quality panel', async () => {
+    const { default: App } = await import('./App')
+
+    render(<App />)
+
+    expect(await screen.findByText('Workspace Smoke')).toBeInTheDocument()
+    expect(screen.getByText('2/2 PASS')).toBeInTheDocument()
+    expect(screen.getByText('cie tests')).toBeInTheDocument()
+    expect(screen.getByText('27.3')).toBeInTheDocument()
   })
 })
