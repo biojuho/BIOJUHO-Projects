@@ -58,6 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Bootstrap legacy paths
+        working-directory: .
         run: python3 bootstrap_legacy_paths.py
       - uses: actions/setup-node@v4
         with:
@@ -82,6 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Bootstrap legacy paths
+        working-directory: .
         run: python3 bootstrap_legacy_paths.py
       - uses: actions/setup-node@v4
         with:
