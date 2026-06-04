@@ -35,9 +35,9 @@ if ! python -m pytest \
     exit 1
 fi
 
-if ! cmd.exe /c "cd apps\\dashboard && npm test -- --run" 2>/dev/null; then
+if ! npm.cmd --prefix apps/dashboard test -- --run 2>/dev/null; then
     echo "Dashboard UI test failed. Push blocked."
-    echo "   Run 'cmd /c \"cd apps\\dashboard && npm test -- --run\"' for details."
+    echo "   Run 'npm.cmd --prefix apps/dashboard test -- --run' for details."
     exit 1
 fi
 
