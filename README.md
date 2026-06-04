@@ -43,6 +43,12 @@ python3 -m http.server 5178
 node scripts/smoke-release.mjs
 ```
 
+요구사항별 증거와 외부 publish blocker까지 한 번에 감사하려면 아래 명령을 실행합니다. `--run-gates`는 위 전체 출시 게이트까지 실제 실행해 감사 결과에 포함합니다.
+
+```bash
+node scripts/audit-release-readiness.mjs --run-gates
+```
+
 ## 내 워크스페이스 (개인 관리)
 
 | 메뉴 | 기능 |
@@ -95,6 +101,7 @@ node scripts/smoke-release.mjs
 - `scripts/package-release.mjs` — 정적 출시 패키지와 SHA-256 manifest 생성
 - `scripts/verify-release.mjs` — 출시 패키지 manifest의 파일 목록·바이트·SHA-256 재검증
 - `scripts/smoke-release.mjs` — 출시 패키지를 임시 HTTP 서버로 실제 서빙해 Chrome 라우트 스모크까지 실행하는 전체 출시 게이트
+- `scripts/audit-release-readiness.mjs` — 출시 요구사항을 정적 파일·문서·manifest·브라우저 게이트·Git publish 조건 증거에 매핑하는 감사 리포트
 - `data/repos.json` — GitHub 저장소 스냅샷 (포트폴리오 시드) · `data/adoption-candidates.json` — OSS 도입 후보 스냅샷 · `scripts/sync-github.sh` — GitHub 스냅샷 재생성
 - `vendor/` — 로컬 동봉한 오픈소스 라이브러리 (아래 "도입한 오픈소스" 참고) · `vendor/LICENSES.md`
 

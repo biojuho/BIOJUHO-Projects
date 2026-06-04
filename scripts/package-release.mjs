@@ -119,12 +119,13 @@ function writeReleaseNotes(manifest) {
     "",
     "```bash",
     "node scripts/verify-release.mjs",
+    "node scripts/audit-release-readiness.mjs --run-gates",
     "BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs",
     "BASE_URL=http://127.0.0.1:5178 node scripts/smoke-interactions.mjs",
     "node scripts/smoke-release.mjs",
     "```",
     "",
-    "Expected result: verification and smoke commands report `status` as `pass`; the smoke output should also have empty `consoleIssues` and `networkIssues`. `smoke-release.mjs` is the full packaged-release gate: it rebuilds `dist/release`, verifies the manifest, serves the package on a temporary local port, route-smokes the served package, and runs the click/input interaction smoke.",
+    "Expected result: verification and smoke commands report `status` as `pass`; the smoke output should also have empty `consoleIssues` and `networkIssues`. `audit-release-readiness.mjs --run-gates` maps release requirements to concrete evidence and reports external publish blockers such as a missing Git remote. `smoke-release.mjs` is the full packaged-release gate: it rebuilds `dist/release`, verifies the manifest, serves the package on a temporary local port, route-smokes the served package, and runs the click/input interaction smoke.",
     "",
   ];
   writeFileSync(join(outDir, "RELEASE.md"), lines.join("\n"), "utf-8");
