@@ -6,6 +6,7 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- `dc6590f docs(ops): record dashboard click proof`
 - `02bfcea feat(ops): add dev server mcp contract`
 - `3983c4f feat(ops): export mcp smoke otlp spans`
 - `84ce8fc feat(ops): add agent workflow dry run plans`
@@ -53,6 +54,7 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `partially_adopted=5`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
+  - `27 passed` after `dc6590f`
   - `27 passed` after `02bfcea`
   - `27 passed` after `3983c4f`
   - `25 passed` after `84ce8fc`
@@ -73,6 +75,11 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - manifest-backed dashboard stack reached `2/2 READY`
   - Chromium clicked the refresh button and verified `WORKSPACE SMOKE`, `DEV SERVERS`, and `2/2 READY` with zero console/page/request failures
   - managed dashboard stack stopped and final status returned `0/2 READY`
+- AgriGuard live browser-click verification:
+  - `agriguard-api` and `agriguard-frontend` status returned `2/2 READY`
+  - Chromium clicked through home, `Registry`, `Supply Chain`, and `Scanner`
+  - route checks verified `/registry`, `/supply-chain`, and `/scan` with zero console/page/request failures
+  - AgriGuard frontend build passed and full Vitest completed with `29 passed`
 
 ## Decision
 
