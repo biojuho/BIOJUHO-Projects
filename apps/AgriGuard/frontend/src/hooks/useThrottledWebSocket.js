@@ -115,7 +115,15 @@ export function useThrottledWebSocket(url, options = {}) {
     return () => {
       disposed = true;
       if (wsRef.current) {
-        wsRef.current.close();
+        const ws = wsRef.current;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => ws.close();
+        } else {
+          ws.close();
+        }
         wsRef.current = null;
       }
       if (reconnectTimerRef.current) {
