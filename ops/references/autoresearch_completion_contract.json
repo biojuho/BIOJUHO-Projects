@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "a06d680",
+            "3d3d93d",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "a06d680",
+            "proof_commit": "3d3d93d",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -524,12 +524,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "a06d680",
+            "3d3d93d",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "a06d680",
+            "proof_commit": "3d3d93d",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -733,6 +733,74 @@
             "Dashboard Live Plan Status",
             "Rank 1 / 2 commands / blocked missing required env",
             "blocked missing required env",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dashboard_credential_live_unblock_queue",
+      "requirement": "The dashboard Quality panel surfaces the live-verifier credential unblock queue beyond the first boundary.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/dashboard/routers/gdt.py",
+          "must_contain": [
+            "_credential_live_plan_overview",
+            "live_plan",
+            "plan_rank",
+            "verification_command_count"
+          ]
+        },
+        {
+          "path": "apps/dashboard/src/components/QualityPanel.jsx",
+          "must_contain": [
+            "credentialLivePlanItems",
+            "credentialVisibleQueueItems",
+            "Queue #",
+            "Credential Unblock Queue"
+          ]
+        },
+        {
+          "path": "tests/test_dashboard_api.py",
+          "must_contain": [
+            "github_source_refresh_rate_limit_token",
+            "GitHub source-refresh token boundary",
+            "live_plan",
+            "blocked_missing_optional_env"
+          ]
+        },
+        {
+          "path": "apps/dashboard/src/App.test.jsx",
+          "must_contain": [
+            "Queue #2",
+            "GitHub source-refresh token boundary",
+            "blocked missing optional env"
+          ]
+        },
+        {
+          "path": "ops/references/dev_server_browser_checks.json",
+          "must_contain": [
+            "Queue #2",
+            "GitHub source-refresh token boundary"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_LIVE_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "Dev-Server Browser Smoke",
+            "Status: `pass`",
+            "dashboard-frontend",
+            "Failed: `0`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_UNBLOCK_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Live Unblock Queue",
+            "Queue #2",
+            "GitHub source-refresh token boundary",
             "global_objective_complete=false"
           ]
         }

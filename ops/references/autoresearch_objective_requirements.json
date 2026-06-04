@@ -22,6 +22,7 @@
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
+        "dashboard_credential_live_unblock_queue",
         "pre_push_regression_gate"
       ],
       "evidence": [
@@ -54,6 +55,14 @@
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_PLAN_STATUS_2026-06-05.md",
           "must_contain": [
             "Dashboard Live Plan Status",
+            "run_workspace_smoke.py",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_UNBLOCK_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Live Unblock Queue",
             "run_workspace_smoke.py",
             "global_objective_complete=false"
           ]
@@ -194,7 +203,8 @@
         "direct_browser_qa_freshness_gate",
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
-        "dashboard_credential_live_plan_status"
+        "dashboard_credential_live_plan_status",
+        "dashboard_credential_live_unblock_queue"
       ],
       "evidence": [
         {
@@ -230,6 +240,14 @@
           ]
         },
         {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_LIVE_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "Status: `pass`",
+            "dashboard-frontend",
+            "Failed: `0`"
+          ]
+        },
+        {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md",
           "must_contain": [
             "pass",
@@ -257,6 +275,7 @@
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
+        "dashboard_credential_live_unblock_queue",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -295,6 +314,14 @@
           ]
         },
         {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_UNBLOCK_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "operator planning",
+            "no credential values",
+            "global_objective_complete=false"
+          ]
+        },
+        {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md",
           "must_contain": [
             "operator-owned",
@@ -319,7 +346,8 @@
         "telegram_notification_live_delivery_verifier",
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
-        "dashboard_credential_live_plan_status"
+        "dashboard_credential_live_plan_status",
+        "dashboard_credential_live_unblock_queue"
       ],
       "evidence": [
         {
@@ -352,6 +380,14 @@
             "blocked missing required env",
             "CANVA_CLIENT_ID",
             "CANVA_CLIENT_SECRET"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_UNBLOCK_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "Canva remains blocked",
+            "GITHUB_TOKEN",
+            "GH_TOKEN"
           ]
         },
         {
