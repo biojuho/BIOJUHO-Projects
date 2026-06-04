@@ -122,7 +122,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `8`
+- Evidence paths: `9`
 
 ### mcp_runtime_subprocess_smoke
 

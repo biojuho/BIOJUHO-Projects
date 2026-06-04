@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T07:27:46+09:00",
+  "generated_at": "2026-06-05T07:31:42+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -1085,6 +1085,7 @@
             "tests/test_workspace_smoke.py",
             "tests/test_autoresearch_objective_coverage.py",
             "tests/test_autoresearch_completion_audit.py",
+            "tests/test_dashboard_api.py",
             "tests/test_mcp_service_runtime_smoke.py",
             "tests/test_mcp_otel_collector_handoff.py",
             "tests/test_agent_workflow_gate_runner.py",
@@ -1116,6 +1117,7 @@
           "must_contain": [
             "--check-operator-checklist-json",
             "--check-operator-checklist-markdown",
+            "tests/test_dashboard_api.py",
             "tests/test_canva_widget_click_smoke.py",
             "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json",
             "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md"
@@ -1172,6 +1174,15 @@
             "--check-operator-checklist-json",
             "--check-operator-checklist-markdown",
             "operator checklist drift",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_API_PRE_PUSH_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Dashboard API Pre-Push Guard",
+            "tests/test_dashboard_api.py",
+            "196 passed",
             "global_objective_complete=false"
           ]
         }
