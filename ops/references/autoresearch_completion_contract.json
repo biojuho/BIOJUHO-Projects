@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T02:31:00+09:00",
+  "generated_at": "2026-06-05T01:45:50+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -15,22 +15,22 @@
       "status": "covered",
       "evidence": [
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_ALL_SCOPE_SMOKE_2026-06-04.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKFLOW_MATRIX_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
           "must_contain": [
             "total=25",
             "passed=25",
-            "660.688s",
-            "Companion Evidence",
-            "mcp\\canva-mcp"
+            "601.252s",
+            "39d6a82",
+            "agent_workflow_gate_runner.py"
           ]
         },
         {
-          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_CURRENT_TIP_2026-06-04.json",
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_WORKFLOW_MATRIX_TIP_2026-06-05.json",
           "must_contain": [
             "\"passed\": 25",
             "\"failed\": 0",
-            "companion_proofs_after_all_scope_run",
-            "Canva MCP npm audit cleanup"
+            "\"duration_seconds\": 601.252",
+            "\"mcp_trace\""
           ]
         }
       ]

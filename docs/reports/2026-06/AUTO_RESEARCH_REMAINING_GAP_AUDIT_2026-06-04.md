@@ -146,6 +146,24 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json`
     and
     `docs\reports\2026-06\AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md`
+- Current-tip workflow matrix all-scope launch gate:
+  - current branch tip `39d6a82`
+  - fast gate passed: hook-equivalent pytest suite `72/72`, dev-server MCP
+    runtime smoke, MCP service runtime smoke, single workflow dry-run,
+    side-effect safety skip, matrix dry-run, and completion audit with `14`
+    criteria
+  - `python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-smoke-all-workflow-matrix-tip-2026-06-05.json --mcp-trace-out var\workspace-smoke-all-workflow-matrix-tip-2026-06-05.trace.jsonl --mcp-otel-out var\workspace-smoke-all-workflow-matrix-tip-2026-06-05.otlp.jsonl`
+  - `25/25 PASS` in `601.252s`
+  - scope summary: workspace `6/6`, desci `7/7`, agriguard `5/5`, MCP
+    `3/3`, getdaytrends `2/2`, CIE `2/2`
+  - MCP trace emitted `3` events and OTLP emitted `1` `resourceSpans` line
+    with `3` spans
+  - durable evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_WORKFLOW_MATRIX_TIP_ALL_SCOPE_SMOKE_2026-06-05.md`,
+    `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_WORKFLOW_MATRIX_TIP_2026-06-05.json`,
+    `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_WORKFLOW_MATRIX_TIP_2026-06-05.trace.jsonl`,
+    and
+    `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_WORKFLOW_MATRIX_TIP_2026-06-05.otlp.jsonl`
 - Agent workflow gate-runner verification:
   - `tests\test_agent_workflow_gate_runner.py` passed `11/11`
   - focused workflow/radar/audit suite passed `26/26`
