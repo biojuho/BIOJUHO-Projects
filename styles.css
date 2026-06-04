@@ -3498,3 +3498,223 @@ select:focus-visible,
 .kpi.kpi-amber::before { background: var(--amber); }
 .kpi.kpi-red::before { background: var(--red); }
 .kpi.kpi-blue::before { background: var(--blue); }
+
+/* ---------- Responsive shell and dense work surfaces ---------- */
+
+@media (max-width: 960px) {
+  body {
+    min-width: 0;
+  }
+
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: auto;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  .brand {
+    height: auto;
+    margin-bottom: 4px;
+  }
+
+  .brand strong {
+    font-size: 22px;
+  }
+
+  .nav-title {
+    margin: 8px 2px 2px;
+  }
+
+  .nav-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .nav-list a {
+    flex: 0 0 auto;
+    min-width: max-content;
+  }
+
+  .nav-item,
+  .new-project {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .main {
+    min-width: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 12px 12px 64px;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .project-select,
+  .search,
+  .user,
+  .cmdk-btn {
+    min-width: 0;
+  }
+
+  .search {
+    order: 3;
+    flex: 1 0 100%;
+  }
+
+  .project-picker {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 24px);
+  }
+
+  .view,
+  .panel,
+  .card,
+  .kpi {
+    min-width: 0;
+  }
+
+  .kpis,
+  .kpis-4,
+  .home-tiles,
+  .home-stats,
+  .portfolio-grid,
+  .portfolio-stats,
+  .db-layout,
+  .db-grid,
+  .db-status-grid,
+  .db-split,
+  .queries-layout,
+  .backups-layout,
+  .mig-grid,
+  .habit-grid,
+  .stats-grid,
+  .home-command,
+  .sched-layout,
+  .schema-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kanban {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gantt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .team-layout,
+  .db-detail-grid,
+  .instance-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .db-gauges {
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  }
+
+  .bkup-cal {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .mig-row {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  .mig-status {
+    grid-column: 2;
+    width: fit-content;
+  }
+
+  .todo-quickadd,
+  .form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modal-panel,
+  .palette-panel {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+
+  .sheet-panel {
+    width: min(420px, calc(100vw - 24px));
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    gap: 6px;
+  }
+
+  .nav-title {
+    font-size: 10px;
+  }
+
+  .nav-list a {
+    height: 34px;
+    padding: 0 10px;
+  }
+
+  .topbar {
+    align-items: stretch;
+  }
+
+  .user {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  .user strong,
+  .cmdk-btn kbd,
+  .cmdk-label {
+    display: none;
+  }
+
+  .kanban,
+  .sched-weekdays,
+  .sched-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sched-weekdays {
+    display: none;
+  }
+
+  .sched-grid {
+    grid-auto-rows: auto;
+  }
+
+  .sched-cell {
+    min-height: 78px;
+  }
+
+  .home-list li,
+  .agenda-item {
+    grid-template-columns: 4px minmax(0, 1fr);
+  }
+
+  .agenda-item > time,
+  .home-list li > em {
+    grid-column: 2;
+  }
+}

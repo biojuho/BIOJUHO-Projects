@@ -25,6 +25,12 @@ node scripts/smoke-chrome.mjs
 node scripts/smoke-interactions.mjs
 ```
 
+좁은 화면 레이아웃 회귀는 모바일 스모크로 확인합니다. 500px 폭 headless Chrome에서 15개 화면을 열고 horizontal overflow, 기본 텍스트, 콘솔/네트워크 문제를 검사합니다.
+
+```bash
+node scripts/smoke-mobile.mjs
+```
+
 ## 출시 패키지 생성
 
 정적 호스팅에 올릴 파일만 `dist/release/`로 복사하고, 파일별 SHA-256 manifest와 실행 안내를 생성합니다.
@@ -37,7 +43,7 @@ python3 -m http.server 5178
 
 패키지 검증은 프로젝트 루트에서 `BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs`로 실행합니다. 포트가 이미 사용 중이면 다른 포트로 서버를 띄우고 `BASE_URL`도 같은 포트로 바꿉니다.
 체크섬 manifest까지 함께 검증하려면 먼저 `node scripts/verify-release.mjs`를 실행합니다.
-전체 출시 게이트를 한 번에 돌리려면 프로젝트 루트에서 아래 명령을 실행합니다. 이 명령은 패키지 생성, manifest 검증, 임시 로컬 서버 기동, Chrome 라우트 스모크, interaction 스모크, 서버 종료까지 자동으로 처리합니다.
+전체 출시 게이트를 한 번에 돌리려면 프로젝트 루트에서 아래 명령을 실행합니다. 이 명령은 패키지 생성, manifest 검증, 임시 로컬 서버 기동, Chrome 라우트 스모크, 모바일 레이아웃 스모크, interaction 스모크, 서버 종료까지 자동으로 처리합니다.
 
 ```bash
 node scripts/smoke-release.mjs
@@ -100,6 +106,7 @@ node scripts/audit-release-readiness.mjs --run-gates
 - `scripts/smoke-interactions.mjs` — 독립 Chrome 프로필에서 주요 CRUD·토글·명령 팔레트 사용자 흐름을 클릭/입력으로 검증
 - `scripts/package-release.mjs` — 정적 출시 패키지와 SHA-256 manifest 생성
 - `scripts/verify-release.mjs` — 출시 패키지 manifest의 파일 목록·바이트·SHA-256 재검증
+- `scripts/smoke-mobile.mjs` — 500px 폭 Chrome에서 15개 화면의 모바일 레이아웃 overflow·텍스트·콘솔·네트워크 회귀 검증
 - `scripts/smoke-release.mjs` — 출시 패키지를 임시 HTTP 서버로 실제 서빙해 Chrome 라우트 스모크까지 실행하는 전체 출시 게이트
 - `scripts/audit-release-readiness.mjs` — 출시 요구사항을 정적 파일·문서·manifest·브라우저 게이트·Git publish 조건 증거에 매핑하는 감사 리포트
 - `data/repos.json` — GitHub 저장소 스냅샷 (포트폴리오 시드) · `data/adoption-candidates.json` — OSS 도입 후보 스냅샷 · `scripts/sync-github.sh` — GitHub 스냅샷 재생성

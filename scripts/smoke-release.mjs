@@ -232,10 +232,18 @@ async function main() {
   const baseUrl = `http://${host}:${port}`;
 
   let smokeResult;
+  let mobileResult;
   let interactionResult;
   try {
     smokeResult = parseJsonOutput(
       (await runNodeScriptAsync("scripts/smoke-chrome.mjs", {
+        BASE_URL: baseUrl,
+        SMOKE_PROGRESS: "1",
+      }, 120000)).stdout,
+      "fail",
+    );
+    mobileResult = parseJsonOutput(
+      (await runNodeScriptAsync("scripts/smoke-mobile.mjs", {
         BASE_URL: baseUrl,
         SMOKE_PROGRESS: "1",
       }, 120000)).stdout,
@@ -259,6 +267,13 @@ async function main() {
       stderr: "",
     });
   }
+  if (mobileResult.status !== "pass") {
+    throw Object.assign(new Error("release mobile smoke failed"), {
+      step: "scripts/smoke-mobile.mjs",
+      stdout: JSON.stringify(mobileResult, null, 2),
+      stderr: "",
+    });
+  }
   if (interactionResult.status !== "pass") {
     throw Object.assign(new Error("release interaction smoke failed"), {
       step: "scripts/smoke-interactions.mjs",
@@ -279,6 +294,15 @@ async function main() {
       consoleIssues: smokeResult.consoleIssues,
       networkIssues: smokeResult.networkIssues,
       failures: smokeResult.failures,
+    },
+    mobile: {
+      status: mobileResult.status,
+      routeCount: mobileResult.routeCount,
+      viewport: mobileResult.viewport,
+      layoutIssues: mobileResult.layoutIssues,
+      consoleIssues: mobileResult.consoleIssues,
+      networkIssues: mobileResult.networkIssues,
+      failures: mobileResult.failures,
     },
     interactions: {
       status: interactionResult.status,
