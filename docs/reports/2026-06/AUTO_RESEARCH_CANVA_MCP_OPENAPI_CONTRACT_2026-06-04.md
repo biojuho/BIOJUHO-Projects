@@ -17,6 +17,9 @@
 - Added read-only runtime metadata endpoints to `mcp/canva-mcp/src/server/server.ts`:
   - `GET /openapi.json`
   - `GET /tools`
+- Added an explicit disabled execution boundary for advertised OpenAPI calls:
+  - `POST /tools/{toolName}/call` returns `501 openapi_tool_execution_disabled` for known tools
+  - unknown tool names return `404 unknown_tool`
 - Added the actual local Canva widget preview origins to the server CORS allowlist:
   - `http://localhost:5176`
   - `http://127.0.0.1:5176`
@@ -47,8 +50,12 @@
   - `GET http://127.0.0.1:8001/tools` returned `20` tools
   - `OPTIONS http://127.0.0.1:8001/openapi.json` with origin `http://127.0.0.1:5176` returned `204` and `Access-Control-Allow-Origin=http://127.0.0.1:5176`
   - Evidence: `var/canva-mcp-openapi-live-proof-2026-06-04.json`
+  - `POST http://127.0.0.1:8001/tools/search-designs/call` returned `501 openapi_tool_execution_disabled`
+  - `POST http://127.0.0.1:8001/tools/not-a-tool/call` returned `404 unknown_tool`
+  - `OPTIONS http://127.0.0.1:8001/tools/search-designs/call` with origin `http://127.0.0.1:5176` returned `204`
+  - Evidence: `var/canva-mcp-openapi-disabled-call-proof-2026-06-04.json`
   - Server stopped with `0` remaining listeners on port `8001`
 
 ## Remaining Gap
 
-This is a live read-only metadata surface plus an offline OpenAPI contract, not a live MCP-to-OpenAPI execution proxy. Runtime tool execution through OpenAPI should wait until Canva OAuth and proxy authentication behavior are verified with real credentials.
+This is a live metadata surface plus an explicit disabled OpenAPI execution boundary, not a live MCP-to-OpenAPI execution proxy. Runtime tool execution through OpenAPI should wait until Canva OAuth and proxy authentication behavior are verified with real credentials.

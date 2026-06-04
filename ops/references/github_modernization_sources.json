@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T20:44:16+09:00",
+  "generated_at": "2026-06-04T20:50:32+09:00",
   "search_context": {
     "objective": "Search GitHub for systems similar to this AI workspace and map current patterns into local modernization evidence.",
     "queries": [
@@ -109,6 +109,7 @@
         "OpenAPI-compatible HTTP exposure for MCP tools",
         "offline OpenAPI contract for MCP tool inventory",
         "read-only runtime OpenAPI metadata endpoints",
+        "explicit disabled execution response for OpenAPI call attempts",
         "tool-level docs and interoperability with non-MCP clients",
         "API-key protected proxy operation"
       ],
@@ -127,7 +128,7 @@
         "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_PASS_2026-06-04.md",
         "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md"
       ],
-      "gap": "Read-only Canva MCP OpenAPI/tool metadata endpoints and the offline contract are adopted; live OpenAPI tool execution proxy remains future-scoped until OAuth and proxy authentication are verified."
+      "gap": "Canva MCP OpenAPI/tool metadata endpoints, offline contract generation, and explicit disabled execution responses are adopted; live OpenAPI tool execution proxy remains future-scoped until OAuth and proxy authentication are verified."
     },
     {
       "repo": "Uninen/devserver-mcp",

@@ -72,6 +72,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const ASSETS_DIR = path.resolve(ROOT_DIR, "assets");
 const metadataPaths = new Set(["/openapi.json", "/tools"]);
+const openApiCallPathPattern = /^\/tools\/([^/]+)\/call$/;
 
 function createCanvaServer(sessionId: string): Server {
   const server = new Server(
@@ -722,6 +723,8 @@ function buildOpenApiContract() {
               },
             },
             "401": { description: "Canva OAuth is missing or expired" },
+            "404": { description: "Unknown Canva MCP tool" },
+            "501": { description: "OpenAPI tool execution is intentionally disabled until proxy authentication is verified" },
             "502": { description: "MCP server or Canva API call failed" },
           },
         },
@@ -751,8 +754,19 @@ function buildOpenApiContract() {
   };
 }
 
-function sendJson(res: ServerResponse, payload: unknown) {
-  res.writeHead(200, {
+function getOpenApiToolCallName(pathname: string) {
+  const match = openApiCallPathPattern.exec(pathname);
+  if (!match) return null;
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+function sendJson(res: ServerResponse, payload: unknown, statusCode = 200) {
+  res.writeHead(statusCode, {
     "Content-Type": "application/json",
     "Cache-Control": "no-store",
   });
@@ -778,10 +792,14 @@ const httpServer = createServer(
     }
 
     const url = new URL(req.url, `http://${req.headers.host ?? "localhost"}`);
+    const openApiToolCallName = getOpenApiToolCallName(url.pathname);
 
     if (
       req.method === "OPTIONS" &&
-      (url.pathname === ssePath || url.pathname === postPath || metadataPaths.has(url.pathname))
+      (url.pathname === ssePath ||
+        url.pathname === postPath ||
+        metadataPaths.has(url.pathname) ||
+        openApiToolCallName !== null)
     ) {
       res.writeHead(204);
       res.end();
@@ -795,6 +813,36 @@ const httpServer = createServer(
 
     if (req.method === "GET" && url.pathname === "/tools") {
       sendJson(res, { tools: canvaToolSummaries() });
+      return;
+    }
+
+    if (req.method === "POST" && openApiToolCallName !== null) {
+      const tool = tools.find((candidate) => candidate.name === openApiToolCallName);
+      if (!tool) {
+        sendJson(
+          res,
+          {
+            error: "unknown_tool",
+            toolName: openApiToolCallName,
+            message: "Unknown Canva MCP tool.",
+          },
+          404
+        );
+        return;
+      }
+
+      sendJson(
+        res,
+        {
+          error: "openapi_tool_execution_disabled",
+          toolName: tool.name,
+          readOnly: Boolean(tool.annotations?.readOnlyHint),
+          destructive: Boolean(tool.annotations?.destructiveHint),
+          message:
+            "OpenAPI tool execution is intentionally disabled until Canva OAuth and proxy authentication are verified. Use the MCP /mcp transport for tool calls.",
+        },
+        501
+      );
       return;
     }
 

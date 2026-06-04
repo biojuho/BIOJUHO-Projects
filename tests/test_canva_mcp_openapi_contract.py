@@ -101,3 +101,6 @@ def test_canva_mcp_server_exposes_read_only_metadata_routes() -> None:
     assert "buildOpenApiContract" in server
     assert "canvaToolSummaries" in server
     assert '"http://127.0.0.1:5176"' in server
+    assert "getOpenApiToolCallName" in server
+    assert "openapi_tool_execution_disabled" in server
+    assert '"501"' in server

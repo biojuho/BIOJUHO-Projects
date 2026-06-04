@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=5, watch=0
-- Generated at: `2026-06-04T20:44:16+09:00`
+- Generated at: `2026-06-04T20:50:32+09:00`
 
 ## Search Context
 
@@ -107,6 +107,7 @@
   - OpenAPI-compatible HTTP exposure for MCP tools
   - offline OpenAPI contract for MCP tool inventory
   - read-only runtime OpenAPI metadata endpoints
+  - explicit disabled execution response for OpenAPI call attempts
   - tool-level docs and interoperability with non-MCP clients
   - API-key protected proxy operation
 - Local evidence:
@@ -123,7 +124,7 @@
   - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_PASS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
-- Gap: Read-only Canva MCP OpenAPI/tool metadata endpoints and the offline contract are adopted; live OpenAPI tool execution proxy remains future-scoped until OAuth and proxy authentication are verified.
+- Gap: Canva MCP OpenAPI/tool metadata endpoints, offline contract generation, and explicit disabled execution responses are adopted; live OpenAPI tool execution proxy remains future-scoped until OAuth and proxy authentication are verified.
 
 ### Uninen/devserver-mcp
 
