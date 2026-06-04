@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "source_report": "docs/reports/2026-06/AUTO_RESEARCH_FINAL_ALL_SCOPE_SMOKE_2026-06-04.md",
+  "source_command": "python ops\\scripts\\run_workspace_smoke.py --scope all --json-out var\\workspace-smoke-all-final-2026-06-04.json --mcp-trace-out var\\workspace-smoke-all-final-2026-06-04.trace.jsonl --mcp-otel-out var\\workspace-smoke-all-final-2026-06-04.otlp.jsonl",
+  "worktree_commit": "de44114",
+  "status": "complete",
+  "duration_seconds": 1070.688,
+  "summary": {
+    "total": 25,
+    "completed": 25,
+    "passed": 25,
+    "failed": 0,
+    "remaining": 0
+  },
+  "scope_summary": {
+    "workspace": {
+      "completed": 6,
+      "passed": 6,
+      "failed": 0,
+      "elapsed_seconds": 102.771
+    },
+    "desci": {
+      "completed": 7,
+      "passed": 7,
+      "failed": 0,
+      "elapsed_seconds": 483.4
+    },
+    "agriguard": {
+      "completed": 5,
+      "passed": 5,
+      "failed": 0,
+      "elapsed_seconds": 157.564
+    },
+    "mcp": {
+      "completed": 3,
+      "passed": 3,
+      "failed": 0,
+      "elapsed_seconds": 74.388
+    },
+    "getdaytrends": {
+      "completed": 2,
+      "passed": 2,
+      "failed": 0,
+      "elapsed_seconds": 223.871
+    },
+    "cie": {
+      "completed": 2,
+      "passed": 2,
+      "failed": 0,
+      "elapsed_seconds": 28.171
+    }
+  },
+  "slowest_checks": [
+    {
+      "name": "desci backend smoke",
+      "elapsed_seconds": 249.278
+    },
+    {
+      "name": "getdaytrends tests",
+      "elapsed_seconds": 221.431
+    },
+    {
+      "name": "desci frontend unit tests",
+      "elapsed_seconds": 126.868
+    },
+    {
+      "name": "agriguard backend tests",
+      "elapsed_seconds": 92.98
+    },
+    {
+      "name": "DailyNews unit tests",
+      "elapsed_seconds": 73.505
+    },
+    {
+      "name": "desci contracts compile",
+      "elapsed_seconds": 37.612
+    },
+    {
+      "name": "desci frontend lint",
+      "elapsed_seconds": 28.928
+    },
+    {
+      "name": "cie tests",
+      "elapsed_seconds": 26.546
+    }
+  ],
+  "trace_evidence": {
+    "mcp_trace_events": 3,
+    "mcp_otlp_resource_spans_lines": 1,
+    "mcp_otlp_spans": 3,
+    "mcp_command_kinds": {
+      "compileall": 2,
+      "pytest": 1
+    }
+  },
+  "post_rebase_focused_validation": {
+    "remote_tip_validated": "dccaad4",
+    "compile": "PASS",
+    "pytest_passed": 28,
+    "pytest_command": "python -m pytest tests\\test_dev_server_mcp_contract.py tests\\test_dev_server_status.py tests\\test_dev_server_control.py tests\\test_github_modernization_radar.py -q -p no:cacheprovider"
+  }
+}

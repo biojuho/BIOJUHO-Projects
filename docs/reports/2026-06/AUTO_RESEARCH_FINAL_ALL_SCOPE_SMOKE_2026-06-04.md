@@ -15,6 +15,7 @@ python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-s
 
 ## Result
 
+- Durable JSON summary: `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_FINAL_2026-06-04.json`
 - Status: `complete`
 - Summary: `total=25`, `completed=25`, `passed=25`, `failed=0`,
   `remaining=0`
@@ -48,11 +49,16 @@ python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-s
 
 ## Trace Evidence
 
-- JSON report: `var\workspace-smoke-all-final-2026-06-04.json`
-- MCP trace events: `var\workspace-smoke-all-final-2026-06-04.trace.jsonl`
-  wrote `3` `workspace_smoke.mcp_check` events
-- MCP OTLP export: `var\workspace-smoke-all-final-2026-06-04.otlp.jsonl`
-  wrote `1` `resourceSpans` line containing `3` spans
+- Raw JSON report generated during the clean worktree run:
+  `var\workspace-smoke-all-final-2026-06-04.json`
+- Raw MCP trace events generated during the clean worktree run:
+  `var\workspace-smoke-all-final-2026-06-04.trace.jsonl`, with `3`
+  `workspace_smoke.mcp_check` events
+- Raw MCP OTLP export generated during the clean worktree run:
+  `var\workspace-smoke-all-final-2026-06-04.otlp.jsonl`, with `1`
+  `resourceSpans` line containing `3` spans
+- The durable repo-owned summary is
+  `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_FINAL_2026-06-04.json`.
 - MCP command kinds: `compileall=2`, `pytest=1`
 
 ## Post-Rebase Focused Validation
