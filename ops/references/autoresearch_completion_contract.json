@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "a991150",
+            "71f4f42",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "a991150",
+            "proof_commit": "71f4f42",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -524,12 +524,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "a991150",
+            "71f4f42",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "a991150",
+            "proof_commit": "71f4f42",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -818,7 +818,9 @@
             "expected_text_count",
             "matched_expected_text",
             "missing_expected_text",
-            "expected=`{matched_count}/{expected_count}`"
+            "expected=`{matched_count}/{expected_count}`",
+            "Expected Text Evidence",
+            "_markdown_inline_text"
           ]
         },
         {
@@ -826,6 +828,7 @@
           "must_contain": [
             "test_route_result_records_expected_text_matches",
             "test_route_result_records_missing_expected_text",
+            "test_markdown_lists_expected_text_evidence",
             "Queue #2",
             "GitHub source-refresh token boundary"
           ]
@@ -846,6 +849,25 @@
             "expected=`11/11`",
             "dashboard-frontend",
             "Status: `pass`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
+          "must_contain": [
+            "Expected Text Evidence",
+            "matched=`11/11`",
+            "matched: `Queue #2`",
+            "matched: `GitHub source-refresh token boundary`",
+            "missing: none"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_MARKDOWN_EXPECTED_TEXT_EVIDENCE_2026-06-05.md",
+          "must_contain": [
+            "Browser Smoke Markdown Expected Text Evidence",
+            "Adopted",
+            "DEV_SERVER_BROWSER_SMOKE_DASHBOARD_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
+            "global_objective_complete=false"
           ]
         },
         {
