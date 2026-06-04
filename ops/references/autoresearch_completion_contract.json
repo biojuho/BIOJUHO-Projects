@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "3d3d93d",
+            "a991150",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "3d3d93d",
+            "proof_commit": "a991150",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -524,12 +524,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "3d3d93d",
+            "a991150",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "3d3d93d",
+            "proof_commit": "a991150",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -801,6 +801,59 @@
             "Dashboard Live Unblock Queue",
             "Queue #2",
             "GitHub source-refresh token boundary",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "browser_smoke_expected_text_evidence",
+      "requirement": "Manifest-backed browser smoke reports record which expected text checks matched, not only route pass/fail.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/dev_server_browser_smoke.py",
+          "must_contain": [
+            "expected_text_count",
+            "matched_expected_text",
+            "missing_expected_text",
+            "expected=`{matched_count}/{expected_count}`"
+          ]
+        },
+        {
+          "path": "tests/test_dev_server_browser_smoke.py",
+          "must_contain": [
+            "test_route_result_records_expected_text_matches",
+            "test_route_result_records_missing_expected_text",
+            "Queue #2",
+            "GitHub source-refresh token boundary"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_EXPECTED_TEXT_2026-06-05.json",
+          "must_contain": [
+            "\"expected_text_count\": 11",
+            "\"matched_expected_text\"",
+            "\"missing_expected_text\": []",
+            "GitHub source-refresh token boundary"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_EXPECTED_TEXT_2026-06-05.md",
+          "must_contain": [
+            "Dev-Server Browser Smoke",
+            "expected=`11/11`",
+            "dashboard-frontend",
+            "Status: `pass`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EXPECTED_TEXT_EVIDENCE_2026-06-05.md",
+          "must_contain": [
+            "Browser Smoke Expected Text Evidence",
+            "expected=11/11",
+            "matched expected text",
             "global_objective_complete=false"
           ]
         }

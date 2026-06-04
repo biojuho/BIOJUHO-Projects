@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T21:25:50.600103+00:00",
+  "generated_at": "2026-06-04T21:33:23.311820+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -156,6 +156,7 @@
       "completion_criteria": [
         "direct_app_click_qa",
         "direct_browser_qa_freshness_gate",
+        "browser_smoke_expected_text_evidence",
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
@@ -180,6 +181,10 @@
         },
         {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_LIVE_QUEUE_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_EXPECTED_TEXT_2026-06-05.md",
           "term_count": 3
         },
         {
@@ -209,6 +214,7 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
+        "browser_smoke_expected_text_evidence",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -231,6 +237,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_UNBLOCK_QUEUE_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EXPECTED_TEXT_EVIDENCE_2026-06-05.md",
           "term_count": 3
         },
         {

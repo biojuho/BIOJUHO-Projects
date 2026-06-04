@@ -201,6 +201,7 @@
       "completion_criteria": [
         "direct_app_click_qa",
         "direct_browser_qa_freshness_gate",
+        "browser_smoke_expected_text_evidence",
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
@@ -248,6 +249,14 @@
           ]
         },
         {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_EXPECTED_TEXT_2026-06-05.md",
+          "must_contain": [
+            "Status: `pass`",
+            "expected=`11/11`",
+            "dashboard-frontend"
+          ]
+        },
+        {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md",
           "must_contain": [
             "pass",
@@ -276,6 +285,7 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
+        "browser_smoke_expected_text_evidence",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -318,6 +328,14 @@
           "must_contain": [
             "operator planning",
             "no credential values",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EXPECTED_TEXT_EVIDENCE_2026-06-05.md",
+          "must_contain": [
+            "stronger direct browser QA evidence",
+            "matched expected text",
             "global_objective_complete=false"
           ]
         },

@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `35`
-- Status counts: `blocked=1, covered=34`
+- Criteria: `36`
+- Status counts: `blocked=1, covered=35`
 
 ## Missing Required
 
@@ -99,6 +99,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `7`
+
+### browser_smoke_expected_text_evidence
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### commit_push_evidence
 

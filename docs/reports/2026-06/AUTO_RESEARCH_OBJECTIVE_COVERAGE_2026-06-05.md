@@ -14,8 +14,8 @@
 | `github_related_project_research` | `continuous` | `7` | `3` |
 | `self_improving_autoresearch_skill` | `covered_current_cycle` | `4` | `2` |
 | `continuous_ab_adoption_commit_push` | `continuous` | `3` | `2` |
-| `direct_app_click_qa` | `covered_current_cycle` | `6` | `6` |
-| `beyond_user_expected_quality` | `covered_current_cycle` | `13` | `6` |
+| `direct_app_click_qa` | `covered_current_cycle` | `7` | `7` |
+| `beyond_user_expected_quality` | `covered_current_cycle` | `14` | `7` |
 | `external_credential_and_runtime_boundaries` | `blocked_external` | `9` | `6` |
 
 ## Continuous Requirements
