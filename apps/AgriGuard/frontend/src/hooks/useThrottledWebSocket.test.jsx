@@ -5,16 +5,25 @@ import { useThrottledWebSocket } from './useThrottledWebSocket';
 const sockets = [];
 
 class MockWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 3;
+
   constructor(url) {
     this.url = url;
+    this.readyState = MockWebSocket.CONNECTING;
+    this.closeCalls = 0;
     sockets.push(this);
   }
 
   close() {
+    this.readyState = MockWebSocket.CLOSED;
+    this.closeCalls += 1;
     this.onclose?.();
   }
 
   emitOpen() {
+    this.readyState = MockWebSocket.OPEN;
     this.onopen?.();
   }
 
@@ -108,5 +117,27 @@ describe('useThrottledWebSocket', () => {
       sockets[1].emitOpen();
     });
     expect(result.current.connected).toBe(true);
+  });
+
+  it('defers close until open when unmounted while the socket is connecting', () => {
+    const { unmount } = renderHook(() =>
+      useThrottledWebSocket('ws://example.test/iot', {
+        throttleMs: 25,
+        maxItems: 2,
+      }),
+    );
+
+    const socket = sockets[0];
+    expect(socket.readyState).toBe(MockWebSocket.CONNECTING);
+
+    unmount();
+
+    expect(socket.closeCalls).toBe(0);
+
+    act(() => {
+      socket.emitOpen();
+    });
+
+    expect(socket.closeCalls).toBe(1);
   });
 });
