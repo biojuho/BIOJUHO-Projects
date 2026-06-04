@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -10,6 +11,12 @@ SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "external_credential_live_verif
 REGISTRY_PATH = PROJECT_ROOT / "ops" / "references" / "external_credential_boundaries.json"
 DRY_RUN_JSON_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json"
 DRY_RUN_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md"
+READY_ONLY_JSON_PATH = (
+    PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_READY_ONLY_EXECUTE_2026-06-05.json"
+)
+READY_ONLY_MARKDOWN_PATH = (
+    PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_READY_ONLY_EXECUTE_2026-06-05.md"
+)
 
 
 def load_module():
@@ -174,6 +181,17 @@ def test_checked_in_dry_run_artifacts_match_current_plan() -> None:
     assert checked_markdown == verifier.render_markdown(expected)
 
 
+def test_checked_in_ready_only_execute_artifacts_match_current_run() -> None:
+    verifier = load_module()
+
+    expected = verifier.run(REGISTRY_PATH, env=_env_without_external_tokens(), ready_only=True, execute=True)
+    checked_json = json.loads(READY_ONLY_JSON_PATH.read_text(encoding="utf-8"))
+    checked_markdown = READY_ONLY_MARKDOWN_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+    assert _stable_report(checked_json) == _stable_report(expected)
+    assert checked_markdown == verifier.render_markdown(expected)
+
+
 def _write_registry(
     tmp_path: Path,
     *,
@@ -234,6 +252,21 @@ def _stable_report(report: dict) -> dict:
         ],
         "errors": report["errors"],
     }
+
+
+def _env_without_external_tokens() -> dict[str, str]:
+    env = dict(os.environ)
+    for name in [
+        "CANVA_CLIENT_ID",
+        "CANVA_CLIENT_SECRET",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID",
+    ]:
+        env.pop(name, None)
+    return env
 
 
 def _write_mixed_registry(tmp_path: Path) -> Path:
