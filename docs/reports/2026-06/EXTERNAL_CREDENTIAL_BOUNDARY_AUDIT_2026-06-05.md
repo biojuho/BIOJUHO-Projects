@@ -7,13 +7,13 @@
 
 ## Boundaries
 
-| Boundary | Status | Required env missing | Optional env available | Evidence paths |
-| --- | --- | ---: | --- | ---: |
-| `canva_oauth_and_openapi_tool_execution` | `external_auth_blocked` | `2` | `false` | `2` |
-| `otel_collector_endpoint_and_credentials` | `future_scoped` | `1` | `false` | `1` |
-| `hosted_agent_runtime_credentials` | `future_scoped` | `0` | `false` | `1` |
-| `github_source_refresh_rate_limit_token` | `optional_token_absent` | `0` | `false` | `1` |
-| `telegram_notification_mcp_credentials` | `credential_gated` | `2` | `false` | `2` |
+| Boundary | Status | Required env missing | Optional env available | Evidence paths | Verification commands |
+| --- | --- | ---: | --- | ---: | ---: |
+| `canva_oauth_and_openapi_tool_execution` | `external_auth_blocked` | `2` | `false` | `2` | `2` |
+| `otel_collector_endpoint_and_credentials` | `future_scoped` | `1` | `false` | `1` | `2` |
+| `hosted_agent_runtime_credentials` | `future_scoped` | `0` | `false` | `1` | `2` |
+| `github_source_refresh_rate_limit_token` | `optional_token_absent` | `0` | `false` | `1` | `1` |
+| `telegram_notification_mcp_credentials` | `credential_gated` | `2` | `false` | `2` | `1` |
 
 ## Missing Required Env
 

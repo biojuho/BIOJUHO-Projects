@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 external credential handoff slice: added a redacted, executable
+  operator handoff generated from the boundary registry, including env-template
+  output and verification commands while keeping real credential completion
+  blocked.
 - 2026-06-05 dashboard credential-boundaries proof-refresh slice: refreshed
   all-scope launch evidence at proof commit `0dfdf9a` after dashboard product
   code and browser-smoke expectations changed.
@@ -259,6 +263,25 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_CREDENTIAL_BOUNDARY_REGISTRY_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_CREDENTIAL_BOUNDARY_REGISTRY_2026-06-05.md`
+- External credential handoff verification:
+  - `ops\references\external_credential_boundaries.json` now includes
+    `verification_commands` for all `5` boundaries
+  - `ops\scripts\external_credential_handoff.py` generates redacted JSON,
+    Markdown, and env-template outputs without emitting secret values
+  - handoff status is `operator_action_required`
+  - handoff and boundary audits both report `missing_required_env=5`
+  - focused credential/completion suite passed `19/19`
+  - pre-push-equivalent pytest suite passed `97/97`
+  - completion audit reports `23` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md`,
+    `docs\reports\2026-06\EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json`,
+    `docs\reports\2026-06\EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md`,
+    `docs\reports\2026-06\EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md`
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-platform-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
   - `22` sources

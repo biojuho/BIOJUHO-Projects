@@ -46,6 +46,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",
         "external_credential_boundary_registry",
+        "external_credential_handoff",
         "agent_workflow_gate_matrix_reuse",
     }
 

@@ -31,6 +31,7 @@ def test_default_registry_validates_boundaries_without_secret_values() -> None:
     }
     assert summary["missing_required_env_count"] >= 1
     assert "CANVA_CLIENT_SECRET" in summary["missing_required_env"]
+    assert all(boundary["verification_commands"] for boundary in summary["boundaries"])
 
 
 def test_registry_rejects_missing_evidence_terms() -> None:
@@ -42,6 +43,17 @@ def test_registry_rejects_missing_evidence_terms() -> None:
 
     assert summary["status"] == "fail"
     assert any("definitely absent term" in error for error in summary["errors"])
+
+
+def test_registry_rejects_missing_verification_commands() -> None:
+    audit = load_module()
+    payload = audit.load_registry(REGISTRY_PATH)
+    payload["boundaries"][0].pop("verification_commands")
+
+    summary = audit.audit_registry(payload, workspace_root=PROJECT_ROOT, env={})
+
+    assert summary["status"] == "fail"
+    assert any("verification_commands" in error for error in summary["errors"])
 
 
 def test_required_env_reports_names_without_values(tmp_path: Path) -> None:
@@ -61,6 +73,7 @@ def test_required_env_reports_names_without_values(tmp_path: Path) -> None:
                 "required_env": ["SAMPLE_TOKEN"],
                 "optional_env_any_of": ["SAMPLE_ALT_TOKEN"],
                 "blocked_until": ["operator supplies credentials"],
+                "verification_commands": ["python verify-sample.py"],
                 "claim_policy": "do not claim complete without credentials",
                 "evidence": [
                     {

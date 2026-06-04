@@ -77,8 +77,8 @@ def format_markdown(report: dict[str, Any]) -> str:
         "",
         "## Boundaries",
         "",
-        "| Boundary | Status | Required env missing | Optional env available | Evidence paths |",
-        "| --- | --- | ---: | --- | ---: |",
+        "| Boundary | Status | Required env missing | Optional env available | Evidence paths | Verification commands |",
+        "| --- | --- | ---: | --- | ---: | ---: |",
     ]
     for boundary in report["boundaries"]:
         lines.append(
@@ -88,7 +88,8 @@ def format_markdown(report: dict[str, Any]) -> str:
                     f"`{boundary['status']}`",
                     f"`{len(boundary['missing_required_env'])}`",
                     f"`{str(boundary['optional_env_available']).lower()}`",
-                    f"`{boundary['evidence_count']}` |",
+                    f"`{boundary['evidence_count']}`",
+                    f"`{boundary['verification_command_count']}` |",
                 ]
             )
         )
@@ -193,6 +194,11 @@ def _validate_boundaries(
             f"{prefix}.optional_env_any_of",
             errors,
         )
+        verification_commands = _validate_string_list(
+            item.get("verification_commands"),
+            f"{prefix}.verification_commands",
+            errors,
+        )
         evidence = _validate_evidence(item.get("evidence"), f"{prefix}.evidence", workspace_root, errors)
         missing_required_env = [name for name in required_env if not env.get(name)]
         optional_env_available = any(env.get(name) for name in optional_env_any_of)
@@ -209,6 +215,8 @@ def _validate_boundaries(
                 "optional_env_any_of": optional_env_any_of,
                 "optional_env_available": optional_env_available,
                 "evidence_count": len(evidence),
+                "verification_commands": verification_commands,
+                "verification_command_count": len(verification_commands),
             }
         )
     return normalized
