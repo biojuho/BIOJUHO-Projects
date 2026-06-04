@@ -51,6 +51,9 @@ export function useFetch(url) {
       if (requestId === requestIdRef.current && !controller.signal.aborted) {
         setLoading(false)
       }
+      if (abortControllerRef.current === controller && !controller.signal.aborted) {
+        abortControllerRef.current = null
+      }
     }
   }, [url])
 

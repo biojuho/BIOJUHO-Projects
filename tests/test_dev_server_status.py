@@ -35,6 +35,10 @@ def test_current_manifest_validates_against_workspace_paths() -> None:
         "desci-frontend",
         "canva-widget-preview",
     }
+    dependencies = {target["id"]: target.get("depends_on", []) for target in payload["targets"]}
+    assert dependencies["dashboard-frontend"] == ["dashboard-api"]
+    assert dependencies["agriguard-frontend"] == ["agriguard-api"]
+    assert dependencies["desci-frontend"] == ["desci-api"]
 
 
 def test_manifest_rejects_unsafe_target_data() -> None:
@@ -46,6 +50,7 @@ def test_manifest_rejects_unsafe_target_data() -> None:
     payload["targets"][0]["url"] = "https://example.com:443/api"
     payload["targets"][0]["expected_status"] = [True]
     payload["targets"][1]["id"] = payload["targets"][2]["id"]
+    payload["targets"][3]["depends_on"] = ["missing-api"]
 
     errors = status.validate_manifest(payload, workspace_root=PROJECT_ROOT)
 
@@ -55,6 +60,7 @@ def test_manifest_rejects_unsafe_target_data() -> None:
     assert "targets[0].url must target localhost or 127.0.0.1" in errors
     assert "targets[0].expected_status[0] must be an HTTP status code" in errors
     assert "targets[2].id must be unique" in errors
+    assert "targets[3].depends_on references unknown target id: missing-api" in errors
 
 
 def test_probe_target_reports_ready_and_unready() -> None:
@@ -97,6 +103,35 @@ def test_run_writes_machine_report_with_target_filter(tmp_path: Path) -> None:
     assert [target["id"] for target in written["targets"]] == ["dashboard-api", "agriguard-api"]
     assert written["targets"][0]["ok"] is True
     assert written["targets"][1]["error"] == "offline"
+
+
+def test_frontend_dependency_failure_marks_target_unready() -> None:
+    status = load_status_module()
+
+    def fetcher(url: str, _timeout: float):
+        if "5173" in url:
+            return 200, 5, "AI Projects Dashboard", None
+        if "8080" in url:
+            return None, 2, None, "offline"
+        raise AssertionError(f"unexpected URL: {url}")
+
+    report = status.run(MANIFEST_PATH, target_ids=["dashboard-frontend"], fetcher=fetcher)
+
+    assert report["status"] == "degraded"
+    assert report["summary"] == {"total": 1, "ready": 0, "unready": 1}
+    target = report["targets"][0]
+    assert target["status_code"] == 200
+    assert target["ok"] is False
+    assert target["error"] == "dependency target(s) unready: dashboard-api"
+    assert target["dependencies"] == [
+        {
+            "id": "dashboard-api",
+            "ok": False,
+            "status_code": None,
+            "error": "offline",
+            "url": "http://127.0.0.1:8080/api/quality_overview",
+        }
+    ]
 
 
 def test_validate_only_cli_does_not_probe_network(tmp_path: Path) -> None:

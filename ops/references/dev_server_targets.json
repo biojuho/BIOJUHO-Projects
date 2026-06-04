@@ -26,6 +26,7 @@
       "url": "http://127.0.0.1:5173/",
       "expected_status": [200],
       "expected_body_contains": ["AI Projects Dashboard"],
+      "depends_on": ["dashboard-api"],
       "smoke_scope": "workspace",
       "tags": ["operator-dashboard", "browser"]
     },
@@ -52,6 +53,7 @@
       "url": "http://127.0.0.1:5174/",
       "expected_status": [200],
       "expected_body_contains": ["AgriGuard"],
+      "depends_on": ["agriguard-api"],
       "smoke_scope": "agriguard",
       "tags": ["product", "browser"]
     },
@@ -78,6 +80,7 @@
       "url": "http://127.0.0.1:5175/",
       "expected_status": [200],
       "expected_body_contains": ["DecentBio"],
+      "depends_on": ["desci-api"],
       "smoke_scope": "desci",
       "tags": ["product", "browser"]
     },

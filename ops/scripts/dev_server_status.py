@@ -56,6 +56,11 @@ def validate_manifest(payload: dict[str, Any], *, workspace_root: Path = WORKSPA
         errors.append("targets must be a non-empty array")
         return errors
 
+    declared_ids = {
+        target.get("id")
+        for target in targets
+        if isinstance(target, dict) and isinstance(target.get("id"), str)
+    }
     seen_ids: set[str] = set()
     for index, target in enumerate(targets):
         prefix = f"targets[{index}]"
@@ -84,12 +89,16 @@ def validate_manifest(payload: dict[str, Any], *, workspace_root: Path = WORKSPA
         markers = target.get("expected_body_contains")
         if markers is not None:
             _validate_string_list(markers, f"{prefix}.expected_body_contains", errors)
+        dependencies = target.get("depends_on")
+        if dependencies is not None:
+            _validate_string_list(dependencies, f"{prefix}.depends_on", errors)
         smoke_scope = target.get("smoke_scope")
         if smoke_scope is not None and smoke_scope not in ALLOWED_SMOKE_SCOPES:
             errors.append(f"{prefix}.smoke_scope must be a known smoke scope")
         tags = target.get("tags")
         if tags is not None:
             _validate_string_list(tags, f"{prefix}.tags", errors)
+    _validate_dependencies(targets, declared_ids, errors)
     return errors
 
 
@@ -162,7 +171,13 @@ def build_report(
     fetcher: FetchFn | None = None,
 ) -> dict[str, Any]:
     targets = select_targets(payload, target_ids)
-    results = [probe_target(target, timeout=timeout, fetcher=fetcher) for target in targets]
+    results = [
+        apply_dependency_status(
+            probe_target(target, timeout=timeout, fetcher=fetcher),
+            probe_dependencies(payload, target, timeout=timeout, fetcher=fetcher),
+        )
+        for target in targets
+    ]
     ready = sum(1 for result in results if result["ok"])
     total = len(results)
     return {
@@ -176,6 +191,42 @@ def build_report(
         },
         "targets": results,
     }
+
+
+def probe_dependencies(
+    payload: dict[str, Any],
+    target: dict[str, Any],
+    *,
+    timeout: float = 2.0,
+    fetcher: FetchFn | None = None,
+) -> list[dict[str, Any]]:
+    dependency_ids = target.get("depends_on", [])
+    if not dependency_ids:
+        return []
+    dependencies = select_targets(payload, dependency_ids)
+    return [probe_target(dependency, timeout=timeout, fetcher=fetcher) for dependency in dependencies]
+
+
+def apply_dependency_status(result: dict[str, Any], dependencies: list[dict[str, Any]]) -> dict[str, Any]:
+    if not dependencies:
+        return result
+    compact_dependencies = [
+        {
+            "id": dependency["id"],
+            "ok": dependency["ok"],
+            "status_code": dependency["status_code"],
+            "error": dependency["error"],
+            "url": dependency["url"],
+        }
+        for dependency in dependencies
+    ]
+    result["dependencies"] = compact_dependencies
+    unready = [dependency["id"] for dependency in compact_dependencies if not dependency["ok"]]
+    if unready:
+        result["ok"] = False
+        dependency_error = "dependency target(s) unready: " + ", ".join(unready)
+        result["error"] = f"{result['error']}; {dependency_error}" if result["error"] else dependency_error
+    return result
 
 
 def wait_for_ready(
@@ -385,6 +436,23 @@ def _validate_expected_status(value: Any, field: str, errors: list[str]) -> None
     for index, item in enumerate(value):
         if isinstance(item, bool) or not isinstance(item, int) or item < 100 or item > 599:
             errors.append(f"{field}[{index}] must be an HTTP status code")
+
+
+def _validate_dependencies(targets: list[Any], declared_ids: set[str], errors: list[str]) -> None:
+    for index, target in enumerate(targets):
+        if not isinstance(target, dict):
+            continue
+        target_id = target.get("id")
+        dependencies = target.get("depends_on")
+        if not isinstance(dependencies, list):
+            continue
+        for dependency in dependencies:
+            if not isinstance(dependency, str):
+                continue
+            if dependency == target_id:
+                errors.append(f"targets[{index}].depends_on must not include its own target id")
+            elif dependency not in declared_ids:
+                errors.append(f"targets[{index}].depends_on references unknown target id: {dependency}")
 
 
 def _validate_string_list(value: Any, field: str, errors: list[str]) -> None:
