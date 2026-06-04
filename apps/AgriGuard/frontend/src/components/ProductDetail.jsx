@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { Sprout, Loader2, ArrowLeft, ThermometerSnowflake, MapPin, Calendar, CheckCircle, Plus, ShieldCheck, Truck } from 'lucide-react';
-import { productApi } from '../services/api';
+import { hasOperatorToken, productApi } from '../services/api';
 import { trackQrEvent } from '../services/qrAnalytics';
 import ProductTimeline from './ProductTimeline';
 import { cn } from '../lib/utils';
@@ -12,6 +12,14 @@ import { Badge } from './ui/Badge';
 
 const VERIFICATION_TRACK_RETRY_DELAY_MS = 3000;
 const MAX_VERIFICATION_TRACK_ATTEMPTS = 3;
+const OPERATOR_AUTH_REQUIRED_MESSAGE = 'Operator authentication required to save chain updates.';
+
+function protectedActionErrorMessage(error, fallbackMessage) {
+  if (error?.response?.status === 401) {
+    return OPERATOR_AUTH_REQUIRED_MESSAGE;
+  }
+  return fallbackMessage;
+}
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -37,6 +45,10 @@ export default function ProductDetail() {
     loading: false,
     data: { cert_type: '', issued_by: '' }
   });
+  const [operatorTokenAvailable] = useState(() => hasOperatorToken());
+  const [operatorNotice, setOperatorNotice] = useState(
+    operatorTokenAvailable ? '' : 'Operator updates locked',
+  );
   const scanSource = searchParams.get('scan_source');
   const scanSession = searchParams.get('scan_session');
   const scanVariant = searchParams.get('scan_variant') || 'qr_page_v1';
@@ -161,13 +173,15 @@ export default function ProductDetail() {
   const handleAddTracking = useCallback(async (e) => {
     e.preventDefault();
     if (!trackingState.data.location || !trackingState.data.handler_id) return;
+    setOperatorNotice('');
     setTrackingState(prev => ({ ...prev, loading: true }));
     try {
       await productApi.addTracking(id, trackingState.data);
       await refreshProductDetails(id);
       setTrackingState({ showForm: false, loading: false, data: { status: 'IN_TRANSIT', location: '', handler_id: '' } });
+      setOperatorNotice('Tracking event saved');
     } catch (err) {
-      console.error('Failed to add tracking event', err);
+      setOperatorNotice(protectedActionErrorMessage(err, 'Tracking event could not be saved.'));
       setTrackingState(prev => ({ ...prev, loading: false }));
     }
   }, [id, trackingState.data, refreshProductDetails]);
@@ -175,13 +189,15 @@ export default function ProductDetail() {
   const handleAddCert = useCallback(async (e) => {
     e.preventDefault();
     if (!certState.data.cert_type || !certState.data.issued_by) return;
+    setOperatorNotice('');
     setCertState(prev => ({ ...prev, loading: true }));
     try {
       await productApi.addCertification(id, certState.data);
       await refreshProductDetails(id);
       setCertState({ showForm: false, loading: false, data: { cert_type: '', issued_by: '' } });
+      setOperatorNotice('Certificate saved');
     } catch (err) {
-      console.error('Failed to add certification', err);
+      setOperatorNotice(protectedActionErrorMessage(err, 'Certificate could not be saved.'));
       setCertState(prev => ({ ...prev, loading: false }));
     }
   }, [id, certState.data, refreshProductDetails]);
@@ -285,17 +301,32 @@ export default function ProductDetail() {
       </Card>
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {operatorNotice && (
+          <Badge variant={operatorTokenAvailable ? 'info' : 'outline'} className="border-amber-500/30 text-amber-300">
+            {operatorNotice}
+          </Badge>
+        )}
         <Button
           variant="outline"
-          onClick={() => setTrackingState(prev => ({ ...prev, showForm: !prev.showForm }))}
+          disabled={!operatorTokenAvailable}
+          title={operatorTokenAvailable ? undefined : OPERATOR_AUTH_REQUIRED_MESSAGE}
+          onClick={() => {
+            setOperatorNotice('');
+            setTrackingState(prev => ({ ...prev, showForm: !prev.showForm }));
+          }}
           className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
         >
           <Truck className="w-4 h-4" /> Add Tracking Event
         </Button>
         <Button
           variant="outline"
-          onClick={() => setCertState(prev => ({ ...prev, showForm: !prev.showForm }))}
+          disabled={!operatorTokenAvailable}
+          title={operatorTokenAvailable ? undefined : OPERATOR_AUTH_REQUIRED_MESSAGE}
+          onClick={() => {
+            setOperatorNotice('');
+            setCertState(prev => ({ ...prev, showForm: !prev.showForm }));
+          }}
           className="border-secondary/30 text-secondary hover:bg-secondary/10"
         >
           <ShieldCheck className="w-4 h-4" /> Add Certification
@@ -303,7 +334,7 @@ export default function ProductDetail() {
       </div>
 
       {/* Tracking Form */}
-      {trackingState.showForm && (
+      {operatorTokenAvailable && trackingState.showForm && (
         <Card className="glass border-orange-500/20">
           <CardContent className="p-6">
             <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
@@ -351,7 +382,7 @@ export default function ProductDetail() {
       )}
 
       {/* Certification Form */}
-      {certState.showForm && (
+      {operatorTokenAvailable && certState.showForm && (
         <Card className="glass border-secondary/20">
           <CardContent className="p-6">
             <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">

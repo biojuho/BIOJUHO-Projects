@@ -24,6 +24,7 @@ export default function QRReader() {
   const [sessionId] = useState(() => createQrSessionId());
   const failureSignatureRef = useRef('');
   const navigationTimerRef = useRef(null);
+  const scanStartTrackedAttemptRef = useRef(null);
   const scanHandledRef = useRef(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -36,6 +37,11 @@ export default function QRReader() {
   }, []);
 
   useEffect(() => {
+    if (scanStartTrackedAttemptRef.current === attempt) {
+      return;
+    }
+    scanStartTrackedAttemptRef.current = attempt;
+
     void trackQrEvent({
       session_id: sessionId,
       event_type: 'scan_start',

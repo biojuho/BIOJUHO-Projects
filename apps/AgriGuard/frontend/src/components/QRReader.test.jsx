@@ -1,4 +1,5 @@
 /* global describe, it, expect, vi, beforeEach, afterEach */
+import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import QRReader from './QRReader';
@@ -57,13 +58,27 @@ vi.mock('../services/qrAnalytics', () => ({
   trackQrEvent: vi.fn(() => Promise.resolve(true)),
 }));
 
-function renderReader() {
-  return render(
+function renderReader({ strict = false } = {}) {
+  const tree = (
     <ToastProvider>
       <MemoryRouter>
         <QRReader />
       </MemoryRouter>
-    </ToastProvider>,
+    </ToastProvider>
+  );
+
+  if (strict) {
+    return render(<StrictMode>{tree}</StrictMode>);
+  }
+
+  return render(
+    tree,
+  );
+}
+
+function scanStartCalls() {
+  return trackQrEvent.mock.calls.filter(
+    ([event]) => event?.event_type === 'scan_start',
   );
 }
 
@@ -101,6 +116,14 @@ describe('QRReader', () => {
       expect(trackQrEvent).toHaveBeenCalledWith(
         expect.objectContaining({ event_type: 'scan_recovery', recovery_method: 'retry_button' }),
       );
+    });
+  });
+
+  it('tracks one scan start per attempt under StrictMode effect replay', async () => {
+    renderReader({ strict: true });
+
+    await waitFor(() => {
+      expect(scanStartCalls()).toHaveLength(1);
     });
   });
 
