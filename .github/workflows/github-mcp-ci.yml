@@ -22,6 +22,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Bootstrap legacy paths
+        working-directory: .
         run: python3 bootstrap_legacy_paths.py
 
       - uses: ./.github/actions/setup-python-uv
@@ -56,6 +57,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Bootstrap legacy paths
+        working-directory: .
         run: python3 bootstrap_legacy_paths.py
 
       - uses: actions/setup-node@v4

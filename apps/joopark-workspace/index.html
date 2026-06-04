@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JooPark Workspace — 프로젝트 & DB 관리</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">J</div>
+          <div>
+            <strong>JooPark</strong>
+            <span>Workspace v3.0</span>
+          </div>
+        </div>
+
+        <button type="button" class="nav-item active" data-action="nav-to" data-view="home">
+          <span class="ico">⌘</span>
+          대시보드 홈
+        </button>
+
+        <p class="nav-title">내 워크스페이스</p>
+        <nav class="nav-list">
+          <a href="#cal"   data-action="nav-to" data-view="cal">   <span>◷</span> 일정 <b id="navCountEvents">0</b> </a>
+          <a href="#todo"  data-action="nav-to" data-view="todo">  <span>☑</span> 할 일 <b id="navCountTodos">0</b> </a>
+          <a href="#notes"   data-action="nav-to" data-view="notes">   <span>✎</span> 메모 <b id="navCountNotes">0</b> </a>
+          <a href="#habits"  data-action="nav-to" data-view="habits">  <span>◉</span> 습관 <b id="navCountHabits">0</b> </a>
+          <a href="#stats"   data-action="nav-to" data-view="stats">   <span>▤</span> 통계 </a>
+        </nav>
+
+        <p class="nav-title">프로젝트 관리</p>
+        <nav class="nav-list">
+          <a href="#pm-portfolio" data-action="nav-to" data-view="pm-portfolio"> <span>▦</span> 포트폴리오 <b id="navCountProjects">6</b> </a>
+          <a href="#pm-kanban"    data-action="nav-to" data-view="pm-kanban">    <span>▣</span> Kanban 보드 <b id="navCountIssues">30</b> </a>
+          <a href="#pm-gantt"     data-action="nav-to" data-view="pm-gantt">     <span>↔</span> 간트 차트 <b id="navCountTasks">21</b> </a>
+          <a href="#pm-team"      data-action="nav-to" data-view="pm-team">      <span>◈</span> 팀 / 리소스 <b id="navCountTeam">8</b> </a>
+        </nav>
+
+        <p class="nav-title">데이터베이스 관리</p>
+        <nav class="nav-list">
+          <a href="#dbm-instances" data-action="nav-to" data-view="dbm-instances"> <span>✺</span> 인스턴스 상태 <em>LIVE</em> </a>
+          <a href="#dbm-schema"    data-action="nav-to" data-view="dbm-schema">    <span>◎</span> 스키마 탐색 <b id="navCountTables">40</b> </a>
+          <a href="#dbm-queries"   data-action="nav-to" data-view="dbm-queries">   <span>◉</span> 질의 성능 <b class="hot" id="navCountSlow">12</b> </a>
+          <a href="#dbm-backups"   data-action="nav-to" data-view="dbm-backups">   <span>⌘</span> 백업 / 마이그 <b id="navCountMig">3</b> </a>
+        </nav>
+
+        <p class="nav-title">운영</p>
+        <nav class="nav-list">
+          <a href="#alerts"   data-action="open-notifications"> <span>▤</span> 알림 <b id="navCountAlerts">4</b> </a>
+          <a href="#settings" data-action="nav-to" data-view="settings"> <span>⚙</span> 설정 </a>
+          <a href="#system"   data-action="nav-to" data-view="settings"> <span>◌</span> 시스템 상태 </a>
+        </nav>
+
+        <button type="button" class="new-project" data-action="open-new-project">+ 새 프로젝트 등록</button>
+      </aside>
+
+      <main class="main">
+        <header class="topbar" id="top">
+          <button type="button" class="project-select" id="projectSelect" data-action="toggle-project-picker" aria-haspopup="dialog" aria-expanded="false" aria-controls="projectPicker">
+            <span aria-hidden="true">▣</span>
+            <div>
+              <small>현재 프로젝트</small>
+              <strong id="projectSelectLabel">프로젝트 선택</strong>
+            </div>
+            <span aria-hidden="true">⌄</span>
+          </button>
+          <div id="projectPicker" class="project-picker" role="dialog" aria-labelledby="projectSelectLabel" hidden></div>
+          <span class="pill ok">정상</span>
+          <label class="search">
+            <span>⌕</span>
+            <input id="globalSearch" placeholder="현재 뷰 안에서 검색... (/)" aria-label="현재 뷰 검색" />
+            <small id="searchCount" class="search-count" aria-live="polite"></small>
+          </label>
+          <button type="button" class="cmdk-btn" data-action="open-palette" title="명령 팔레트 — 검색·이동 (⌘K)" aria-label="명령 팔레트 열기">
+            <span class="cmdk-glyph" aria-hidden="true">⌘</span>
+            <span class="cmdk-label">검색·이동</span>
+            <kbd>⌘K</kbd>
+          </button>
+          <div class="user">
+            <button type="button" class="theme-btn" data-action="toggle-theme" aria-label="테마 전환" title="테마 전환 (라이트/다크)">◑</button>
+            <button type="button" class="bell" data-action="open-notifications" aria-label="알림 열기">
+              ●<span class="bell-badge" id="bellBadge" aria-hidden="true">0</span>
+            </button>
+            <div class="avatar" aria-hidden="true">J</div>
+            <strong>박주호</strong>
+          </div>
+        </header>
+
+        <section class="view" id="view-home"></section>
+        <section class="view" id="view-cal" hidden></section>
+        <section class="view" id="view-todo" hidden></section>
+        <section class="view" id="view-notes" hidden></section>
+        <section class="view" id="view-habits" hidden></section>
+        <section class="view" id="view-stats" hidden></section>
+        <section class="view" id="view-pm-portfolio" hidden></section>
+        <section class="view" id="view-pm-kanban" hidden></section>
+        <section class="view" id="view-pm-gantt" hidden></section>
+        <section class="view" id="view-pm-team" hidden></section>
+        <section class="view" id="view-dbm-instances" hidden></section>
+        <section class="view" id="view-dbm-schema" hidden></section>
+        <section class="view" id="view-dbm-queries" hidden></section>
+        <section class="view" id="view-dbm-backups" hidden></section>
+        <section class="view" id="view-settings" hidden></section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <span>JooPark Workspace</span>
+      <span>환경: 운영</span>
+      <span>지역: ap-northeast-2</span>
+      <span>DB: PostgreSQL 15.3 / Redis 7.2.4</span>
+      <span id="footerNow"></span>
+    </footer>
+
+    <section id="palette" class="palette" aria-hidden="true">
+      <div class="palette-backdrop" data-action="close-palette"></div>
+      <div class="palette-panel" role="dialog" aria-modal="true" aria-label="명령 팔레트">
+        <input id="paletteInput" type="text" role="combobox" aria-controls="paletteResults" aria-expanded="false" aria-autocomplete="list" placeholder="검색 또는 명령 입력... (일정·할 일·메모·습관·프로젝트·이슈)" autocomplete="off" spellcheck="false" />
+        <div id="paletteResults" class="palette-results" role="listbox" aria-label="명령 팔레트 결과"></div>
+        <div class="palette-hint">↑↓ 이동 &middot; Enter 실행 &middot; Esc 닫기</div>
+      </div>
+    </section>
+
+    <section id="sheet" class="sheet" aria-hidden="true">
+      <div class="sheet-backdrop" data-action="close-sheet"></div>
+      <div class="sheet-panel" role="dialog" aria-live="polite" aria-label="상세 패널">
+        <div class="sheet-head">
+          <h3 id="sheetTitle"></h3>
+          <button type="button" data-action="close-sheet">닫기</button>
+        </div>
+        <p id="sheetBody"></p>
+        <div id="sheetMeta" class="sheet-meta"></div>
+      </div>
+    </section>
+
+    <section id="modal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-action="close-modal"></div>
+      <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head">
+          <h3 id="modalTitle"></h3>
+          <button type="button" class="modal-close" data-action="close-modal" aria-label="닫기">✕</button>
+        </div>
+        <div id="modalBody" class="modal-body"></div>
+        <div class="modal-actions">
+          <button type="button" data-action="close-modal">취소</button>
+          <button type="button" data-action="modal-confirm" class="primary">확인</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toastRegion" class="toast-region" role="status" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- 도입한 오픈소스 (로컬 동봉, 빌드 불필요 · vendor/LICENSES.md) -->
+    <script src="./vendor/fuse.min.js"></script>
+    <script src="./vendor/marked.umd.js"></script>
+    <script src="./vendor/purify.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -35,6 +35,17 @@
       "test_scope": "workspace"
     },
     {
+      "id": "joopark-workspace",
+      "category": "app",
+      "canonical_path": "apps/joopark-workspace",
+      "legacy_path": "JooPark Project",
+      "active": true,
+      "runtime_dirs": [
+        "apps/joopark-workspace/dist"
+      ],
+      "test_scope": "joopark-workspace"
+    },
+    {
       "id": "getdaytrends",
       "category": "automation",
       "canonical_path": "automation/getdaytrends",

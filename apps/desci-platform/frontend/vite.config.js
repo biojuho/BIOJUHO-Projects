@@ -8,6 +8,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    environmentOptions: {
+      jsdom: {
+        url: "http://localhost/",
+      },
+    },
     setupFiles: ["src/__tests__/setup.jsx"],
     exclude: ["tests/e2e/**", "node_modules/**"],
     // Threads + per-file isolation avoids worker startup deadlocks on Windows.
