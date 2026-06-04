@@ -5,18 +5,25 @@
 echo "==> Running smoke tests before push..."
 if ! python -m pytest \
     tests/test_workspace_smoke.py \
+    tests/test_autoresearch_completion_audit.py \
     tests/test_dev_server_mcp_contract.py \
     tests/test_dev_server_mcp_runtime.py \
     tests/test_dev_server_mcp_runtime_smoke.py \
     -q --tb=line 2>/dev/null; then
     echo "Smoke test failed. Push blocked."
-    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
+    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_autoresearch_completion_audit.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
     exit 1
 fi
 
 if ! python ops/scripts/dev_server_mcp_runtime_smoke.py 2>/dev/null; then
     echo "MCP runtime subprocess smoke failed. Push blocked."
     echo "   Then run 'python ops/scripts/dev_server_mcp_runtime_smoke.py' for the subprocess smoke."
+    exit 1
+fi
+
+if ! python ops/scripts/autoresearch_completion_audit.py 2>/dev/null; then
+    echo "AutoResearch completion audit failed. Push blocked."
+    echo "   Then run 'python ops/scripts/autoresearch_completion_audit.py' for completion evidence details."
     exit 1
 fi
 

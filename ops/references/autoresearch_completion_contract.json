@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T23:04:52+09:00",
+  "generated_at": "2026-06-04T23:06:53+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -149,10 +149,12 @@
           "path": "ops/hooks/pre-push",
           "must_contain": [
             "tests/test_workspace_smoke.py",
+            "tests/test_autoresearch_completion_audit.py",
             "tests/test_dev_server_mcp_contract.py",
             "tests/test_dev_server_mcp_runtime.py",
             "tests/test_dev_server_mcp_runtime_smoke.py",
-            "ops/scripts/dev_server_mcp_runtime_smoke.py"
+            "ops/scripts/dev_server_mcp_runtime_smoke.py",
+            "ops/scripts/autoresearch_completion_audit.py"
           ]
         },
         {
@@ -161,6 +163,15 @@
             "38 passed",
             "git push --dry-run",
             "D:\\AI project\\.git\\hooks\\pre-push"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_COMPLETION_AUDIT_HOOK_2026-06-04.md",
+          "must_contain": [
+            "42",
+            "git push --dry-run",
+            "AutoResearch completion audit",
+            "global_objective_complete=false"
           ]
         }
       ]
