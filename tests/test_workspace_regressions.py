@@ -10,8 +10,8 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DESCI_PATH = PROJECT_ROOT / "apps" / "desci-platform"
 NOTION_SCRIPTS_PATH = PROJECT_ROOT / "automation" / "DailyNews" / "scripts"
-NOTION_SERVER_PATH = PROJECT_ROOT / "automation" / "DailyNews" / "server.py"
 DAILYNEWS_SRC_PATH = PROJECT_ROOT / "automation" / "DailyNews" / "src"
+HEALTHCHECK_PATH = PROJECT_ROOT / "ops" / "scripts" / "healthcheck.py"
 
 for candidate in (DESCI_PATH, NOTION_SCRIPTS_PATH, DAILYNEWS_SRC_PATH):
     candidate_text = str(candidate)
@@ -59,6 +59,17 @@ def test_notion_server_reads_db_id_from_env() -> None:
     config_path = PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "config.py"
     content = config_path.read_text(encoding="utf-8")
     assert "ANTIGRAVITY_DB_ID" in content
+
+
+def test_healthcheck_tracks_dailynews_canonical_server_path() -> None:
+    spec = importlib.util.spec_from_file_location("healthcheck_under_test", HEALTHCHECK_PATH)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    dailynews = next(project for project in module.CHECKS if project["name"] == "DailyNews")
+    assert dailynews["checks"] == [("server", "automation/DailyNews/src/antigravity_mcp/server.py")]
 
 
 def test_getdaytrends_package_imports_from_repo_root() -> None:
