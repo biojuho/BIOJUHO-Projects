@@ -118,10 +118,11 @@ function writeReleaseNotes(manifest) {
     "From the project root, run:",
     "",
     "```bash",
+    "node scripts/verify-release.mjs",
     "BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs",
     "```",
     "",
-    "Expected result: `status` is `pass`, with empty `consoleIssues` and `networkIssues`.",
+    "Expected result: both commands report `status` as `pass`; the smoke output should also have empty `consoleIssues` and `networkIssues`.",
     "",
   ];
   writeFileSync(join(outDir, "RELEASE.md"), lines.join("\n"), "utf-8");

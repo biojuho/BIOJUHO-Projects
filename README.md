@@ -31,6 +31,7 @@ python3 -m http.server 5178
 ```
 
 패키지 검증은 프로젝트 루트에서 `BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs`로 실행합니다. 포트가 이미 사용 중이면 다른 포트로 서버를 띄우고 `BASE_URL`도 같은 포트로 바꿉니다.
+체크섬 manifest까지 함께 검증하려면 먼저 `node scripts/verify-release.mjs`를 실행합니다.
 
 ## 내 워크스페이스 (개인 관리)
 
@@ -81,6 +82,7 @@ python3 -m http.server 5178
 - `favicon.svg` — 정적 배포 시 브라우저 favicon 404를 막는 로컬 SVG 아이콘
 - `scripts/smoke-chrome.mjs` — Chrome DevTools Protocol 기반 출시 스모크 검증
 - `scripts/package-release.mjs` — 정적 출시 패키지와 SHA-256 manifest 생성
+- `scripts/verify-release.mjs` — 출시 패키지 manifest의 파일 목록·바이트·SHA-256 재검증
 - `data/repos.json` — GitHub 저장소 스냅샷 (포트폴리오 시드) · `data/adoption-candidates.json` — OSS 도입 후보 스냅샷 · `scripts/sync-github.sh` — GitHub 스냅샷 재생성
 - `vendor/` — 로컬 동봉한 오픈소스 라이브러리 (아래 "도입한 오픈소스" 참고) · `vendor/LICENSES.md`
 
