@@ -150,16 +150,20 @@
   - manifest-backed start, stop, status, and log tailing
   - terminal table view for operator status checks
   - browser automation as a first-class workflow capability
-  - contract-only MCP tool definitions for dev-server status, start, stop, and logs
+  - checked MCP tool definitions for dev-server status, start, stop, and logs
+  - local stdio runtime for read-only operator status and logs
+  - explicit opt-in boundary for process-mutating tool calls
   - operator-facing runtime status
 - Local evidence:
   - `ops/references/dev_server_targets.json`
   - `ops/scripts/dev_server_status.py`
   - `ops/scripts/dev_server_control.py`
   - `ops/scripts/dev_server_mcp_contract.py`
+  - `ops/scripts/dev_server_mcp_runtime.py`
   - `tests/test_dev_server_status.py`
   - `tests/test_dev_server_control.py`
   - `tests/test_dev_server_mcp_contract.py`
+  - `tests/test_dev_server_mcp_runtime.py`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `apps/dashboard/src/components/QualityPanel.jsx`
   - `ops/scripts/run_workspace_smoke.py`
@@ -168,6 +172,7 @@
   - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.json`
   - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_CONTRACT_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_RUNTIME_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md`
@@ -176,7 +181,7 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_DEV_SERVER_READINESS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_TABLE_STATUS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TIMEOUT_TREE_2026-06-04.md`
-- Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, terminal table status, timeout-tree cleanup, and contract-only MCP tool definitions are adopted; live MCP runtime or TUI exposure remains watch-scoped until an authenticated process-control boundary is needed.
+- Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime are adopted. Full TUI exposure and non-local authentication policy remain future-scoped; process mutation is available only through explicit local environment opt-in.
 
 ## Operating Decision
 

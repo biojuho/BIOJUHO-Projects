@@ -24,7 +24,7 @@ Latest pushed commits in this slice:
 - `evalstate/fast-agent`: adopted launch workflow inventory plus dry-run command plans.
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
-- `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, and contract-only MCP tool definitions.
+- `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime with process mutation opt-in.
 
 ## Remaining Gaps
 
@@ -42,9 +42,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - Canva OpenAPI tool execution proxy:
   - Status: external-auth blocked
   - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior.
-- Live dev-server MCP runtime/TUI exposure:
-  - Status: watch-scoped
-  - Reason: the MCP tool contract now exists for status, start, stop, and logs; a live runtime should wait for a concrete authenticated process-control boundary.
+- Dev-server TUI exposure and non-local authentication policy:
+  - Status: future-scoped
+  - Reason: a local stdio MCP runtime now exists for the checked tool contract; full TUI exposure or non-local process-control authentication should wait for an operator-owned boundary.
 
 ## Verification
 
@@ -70,7 +70,12 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - Dev-server MCP contract verification:
   - `tests\test_dev_server_mcp_contract.py` `3 passed`
   - dev-server contract/status/control tests `24 passed`
-  - contract generation emitted `4` tools across `7` targets with runtime status `contract_only`
+  - contract generation emits `4` tools across `7` targets with runtime status `local_stdio_runtime`
+- Dev-server MCP runtime verification:
+  - focused dev-server/radar/completion suite `38 passed`
+  - PowerShell piped JSON-RPC `tools/list` smoke returned the four checked tools
+  - contract generation emitted `4` tools across `7` targets with runtime status `local_stdio_runtime`
+  - `start_server` and `stop_server` remain disabled by default unless `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true`
 - Dashboard live browser-click verification:
   - `apps\dashboard` build passed
   - dashboard Vitest `8 passed`
@@ -91,4 +96,4 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Decision
 
-The remaining items are not current implementation blockers. Treat them as explicit future work unless the user supplies external credentials, asks for a live runtime orchestrator, or scopes a concrete MCP adapter/collector/dev-server runtime build.
+The remaining items are not current implementation blockers. Treat them as explicit future work unless the user supplies external credentials, asks for a live runtime orchestrator, or scopes a concrete MCP adapter/collector/dev-server TUI or non-local authentication build.

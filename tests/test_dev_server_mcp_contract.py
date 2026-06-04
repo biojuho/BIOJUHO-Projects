@@ -28,7 +28,9 @@ def test_current_contract_matches_manifest_targets() -> None:
 
     target_ids = {target["id"] for target in payload["targets"]}
     assert errors == []
-    assert contract["runtime"]["status"] == "contract_only"
+    assert contract["runtime"]["status"] == "local_stdio_runtime"
+    assert contract["runtime"]["entrypoint"] == "python ops/scripts/dev_server_mcp_runtime.py"
+    assert contract["runtime"]["process_mutation_enable_env"] == "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION"
     assert contract["summary"] == {
         "target_count": 7,
         "tool_count": 4,
@@ -78,4 +80,5 @@ def test_cli_writes_contract_outputs(tmp_path: Path) -> None:
     assert payload["summary"]["target_count"] == 7
     assert "Dev-Server MCP Tool Contract" in markdown
     assert "start_server" in markdown
-    assert "contract_only" in markdown
+    assert "local_stdio_runtime" in markdown
+    assert "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION" in markdown

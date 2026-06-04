@@ -1,8 +1,8 @@
 # Dev-Server MCP Tool Contract
 
-- Generated at: `2026-06-04T12:24:55.153978+00:00`
+- Generated at: `2026-06-04T13:20:36.867353+00:00`
 - Source: `Uninen/devserver-mcp` (https://github.com/Uninen/devserver-mcp)
-- Runtime status: `contract_only`
+- Runtime status: `local_stdio_runtime`
 - Targets: `7`
 - Tools: `4`
 - Read-only tools: `2`
@@ -50,4 +50,5 @@
 
 ## Boundary
 
-This is a deterministic contract for future MCP exposure. It does not start a live MCP server by itself.
+A local stdio runtime is available at `python ops/scripts/dev_server_mcp_runtime.py`.
+Read-only status and log tools are enabled by default. Process-mutating start/stop tools require `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` in the local environment.

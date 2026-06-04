@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T12:24:55.153978+00:00",
+  "generated_at": "2026-06-04T13:20:36.867353+00:00",
   "source": {
     "repo": "Uninen/devserver-mcp",
     "url": "https://github.com/Uninen/devserver-mcp",
@@ -13,8 +13,11 @@
     "observed_pattern": "MCP tools for dev-server start, stop, status, logs, and browser-assisted workflows."
   },
   "runtime": {
-    "status": "contract_only",
-    "reason": "This file records the MCP tool contract a future live runtime must satisfy; it does not start an MCP server."
+    "status": "local_stdio_runtime",
+    "entrypoint": "python ops/scripts/dev_server_mcp_runtime.py",
+    "process_mutation_default": "disabled",
+    "process_mutation_enable_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
+    "reason": "A local stdio runtime exposes the contract. Read-only tools are enabled by default; start/stop require an explicit local environment opt-in."
   },
   "local_cli": {
     "status_script": "ops/scripts/dev_server_status.py",

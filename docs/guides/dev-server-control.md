@@ -30,15 +30,29 @@ Check one stack:
 python ops\scripts\dev_server_status.py --target dashboard-api --target dashboard-frontend --json-out var\dev-server-status-dashboard.json
 ```
 
-## MCP Tool Contract
+## MCP Runtime
 
-Generate the contract-only MCP tool surface for agents and future runtime wiring:
+Generate the MCP tool surface for agents:
 
 ```powershell
 python ops\scripts\dev_server_mcp_contract.py --json-out docs\reports\2026-06\DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.json --markdown-out docs\reports\2026-06\DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.md
 ```
 
-The contract maps the local CLI scripts to `start_server`, `stop_server`, `get_devserver_statuses`, and `get_devserver_logs`. It validates target id enums against `ops/references/dev_server_targets.json` and is intentionally `contract_only`; it does not start a live MCP endpoint.
+The contract maps the local scripts to `start_server`, `stop_server`, `get_devserver_statuses`, and `get_devserver_logs`. It validates target id enums against `ops/references/dev_server_targets.json`.
+
+Run the local stdio runtime:
+
+```powershell
+python ops\scripts\dev_server_mcp_runtime.py
+```
+
+Smoke one JSON-RPC request:
+
+```powershell
+'{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | python ops\scripts\dev_server_mcp_runtime.py --once
+```
+
+Read-only status and log tools are enabled by default. Process-mutating `start_server` and `stop_server` calls return `process_mutation_disabled` unless the local operator sets `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` before starting the runtime.
 
 ## Start A Browser Stack
 

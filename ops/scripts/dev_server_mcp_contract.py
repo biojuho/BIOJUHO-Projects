@@ -67,8 +67,11 @@ def build_contract(payload: dict[str, Any]) -> dict[str, Any]:
             "observed_pattern": "MCP tools for dev-server start, stop, status, logs, and browser-assisted workflows.",
         },
         "runtime": {
-            "status": "contract_only",
-            "reason": "This file records the MCP tool contract a future live runtime must satisfy; it does not start an MCP server.",
+            "status": "local_stdio_runtime",
+            "entrypoint": "python ops/scripts/dev_server_mcp_runtime.py",
+            "process_mutation_default": "disabled",
+            "process_mutation_enable_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
+            "reason": "A local stdio runtime exposes the contract. Read-only tools are enabled by default; start/stop require an explicit local environment opt-in.",
         },
         "local_cli": {
             "status_script": "ops/scripts/dev_server_status.py",
@@ -304,7 +307,8 @@ def render_markdown(contract: dict[str, Any]) -> str:
             "",
             "## Boundary",
             "",
-            "This is a deterministic contract for future MCP exposure. It does not start a live MCP server by itself.",
+            "A local stdio runtime is available at `python ops/scripts/dev_server_mcp_runtime.py`.",
+            "Read-only status and log tools are enabled by default. Process-mutating start/stop tools require `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` in the local environment.",
         ]
     )
     return "\n".join(lines).rstrip() + "\n"
