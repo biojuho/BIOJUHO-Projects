@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T15:30:55.969614+00:00",
+  "status": "pass",
+  "source_repo": "open-telemetry/opentelemetry-collector",
+  "source_url": "https://github.com/open-telemetry/opentelemetry-collector",
+  "source_docs_url": "https://opentelemetry.io/docs/collector/",
+  "collector_runtime": "future_scoped_operator_owned",
+  "default_behavior": "offline_local_file",
+  "manifest_path": "ops/references/mcp_otel_collector_handoff.json",
+  "otel_jsonl_path": "var\\workspace-smoke-mcp-otel-handoff-2026-06-05.otlp.jsonl",
+  "line_count": 1,
+  "resource_span_count": 1,
+  "scope_span_count": 1,
+  "span_count": 3,
+  "resource_attribute_hits": {
+    "service.name": 1,
+    "service.namespace": 1,
+    "workspace_smoke.exporter": 1,
+    "workspace_smoke.signal": 1
+  },
+  "span_attribute_hits": {
+    "workspace_smoke.scope": 3,
+    "workspace_smoke.check.name": 3,
+    "workspace_smoke.cwd": 3,
+    "workspace_smoke.command": 3,
+    "workspace_smoke.command.kind": 3,
+    "workspace_smoke.returncode": 3,
+    "workspace_smoke.ok": 3,
+    "workspace_smoke.elapsed_seconds": 3
+  },
+  "required_resource_attributes": [
+    "service.name",
+    "service.namespace",
+    "workspace_smoke.exporter",
+    "workspace_smoke.signal"
+  ],
+  "required_span_attributes": [
+    "workspace_smoke.scope",
+    "workspace_smoke.check.name",
+    "workspace_smoke.cwd",
+    "workspace_smoke.command",
+    "workspace_smoke.command.kind",
+    "workspace_smoke.returncode",
+    "workspace_smoke.ok",
+    "workspace_smoke.elapsed_seconds"
+  ],
+  "required_span_fields": [
+    "traceId",
+    "spanId",
+    "name",
+    "kind",
+    "startTimeUnixNano",
+    "endTimeUnixNano",
+    "attributes",
+    "status"
+  ],
+  "operator_decisions_required": [
+    "collector distribution and deployment target",
+    "OTLP endpoint and credentials",
+    "retention policy",
+    "sampling and processor policy",
+    "failure and retry handling"
+  ],
+  "errors": []
+}

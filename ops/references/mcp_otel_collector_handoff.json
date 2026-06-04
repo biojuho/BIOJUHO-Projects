@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T00:28:00+09:00",
+  "source": {
+    "repo": "open-telemetry/opentelemetry-collector",
+    "url": "https://github.com/open-telemetry/opentelemetry-collector",
+    "docs_url": "https://opentelemetry.io/docs/collector/",
+    "observed_pattern": "Use a vendor-neutral collector to receive, process, and export telemetry through explicit receivers, processors, exporters, connectors, and extensions."
+  },
+  "handoff": {
+    "status": "validated_local_file_handoff",
+    "input_command": "python ops/scripts/run_workspace_smoke.py --scope mcp --json-out var/workspace-smoke-mcp-otel-handoff-2026-06-05.json --mcp-trace-out var/workspace-smoke-mcp-otel-handoff-2026-06-05.trace.jsonl --mcp-otel-out var/workspace-smoke-mcp-otel-handoff-2026-06-05.otlp.jsonl",
+    "validator_command": "python ops/scripts/mcp_otel_collector_handoff.py --otel-jsonl var/workspace-smoke-mcp-otel-handoff-2026-06-05.otlp.jsonl --json-out docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json --markdown-out docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md",
+    "collector_runtime": "future_scoped_operator_owned",
+    "default_behavior": "offline_local_file",
+    "operator_decisions_required": [
+      "collector distribution and deployment target",
+      "OTLP endpoint and credentials",
+      "retention policy",
+      "sampling and processor policy",
+      "failure and retry handling"
+    ]
+  },
+  "required_resource_attributes": [
+    "service.name",
+    "service.namespace",
+    "workspace_smoke.exporter",
+    "workspace_smoke.signal"
+  ],
+  "required_span_attributes": [
+    "workspace_smoke.scope",
+    "workspace_smoke.check.name",
+    "workspace_smoke.cwd",
+    "workspace_smoke.command",
+    "workspace_smoke.command.kind",
+    "workspace_smoke.returncode",
+    "workspace_smoke.ok",
+    "workspace_smoke.elapsed_seconds"
+  ],
+  "required_span_fields": [
+    "traceId",
+    "spanId",
+    "name",
+    "kind",
+    "startTimeUnixNano",
+    "endTimeUnixNano",
+    "attributes",
+    "status"
+  ],
+  "collector_pipeline_candidate": {
+    "status": "reference_only",
+    "receiver": "filelog or equivalent operator-owned file shipper",
+    "processor": "batch",
+    "exporter": "otlp",
+    "reason": "The workspace can prove payload shape locally, but live collector runtime, network export, and credential handling must be owned by the operator."
+  },
+  "ab_contract": {
+    "baseline": "OTLP JSONL existed as a local file-exporter shaped artifact, but there was no executable handoff check before a collector integration.",
+    "variant": "Validate the generated OTLP JSONL against an operator-owned collector handoff contract while keeping live collector shipping disabled.",
+    "primary_kpi": "A real MCP smoke OTLP artifact validates as handoff-ready with zero schema or required-attribute errors.",
+    "decision_rule": "Adopt the handoff validator only if it passes against the real MCP smoke artifact and the completion audit still marks live collector shipping as future-scoped."
+  }
+}

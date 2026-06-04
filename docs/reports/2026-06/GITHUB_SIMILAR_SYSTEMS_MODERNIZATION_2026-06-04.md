@@ -2,9 +2,9 @@
 
 ## Summary
 
-- Sources reviewed: 9
-- Adoption counts: adopted=1, partially_adopted=8, watch=0
-- Generated at: `2026-06-04T23:55:13+09:00`
+- Sources reviewed: 10
+- Adoption counts: adopted=1, partially_adopted=9, watch=0
+- Generated at: `2026-06-05T00:39:00+09:00`
 
 ## Search Context
 
@@ -13,6 +13,7 @@
   - `MCP server Python FastAPI monorepo agents workflow smoke tests`
   - `AI agent workflow automation monorepo quality gate`
   - `multi agent orchestration quality gates TDD Codex Claude Gemini`
+  - `OpenTelemetry Collector OTLP file exporter trace pipeline`
   - `dev server MCP Playwright workflow automation`
   - `MCP inspector CLI tools/list tools/call stdio automation`
   - `Playwright MCP browser automation accessibility snapshots`
@@ -56,6 +57,7 @@
   - schema-level trace metrics for MCP smoke evidence
   - standalone JSONL trace exports for external consumers
   - OpenTelemetry Protocol file-exporter shaped local span export
+  - validated collector handoff contract before live collector shipping
   - OpenTelemetry-backed observability and performance signals
   - JSON and HTML evidence suitable for CI
 - Local evidence:
@@ -67,8 +69,36 @@
   - `apps/dashboard/src/components/QualityPanel.jsx`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_METRICS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_FILE_EXPORT_2026-06-04.md`
+  - `ops/references/mcp_otel_collector_handoff.json`
+  - `ops/scripts/mcp_otel_collector_handoff.py`
+  - `tests/test_mcp_otel_collector_handoff.py`
+  - `docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json`
+  - `docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
   - `docs/QUALITY_GATE.md`
-- Gap: Schema-level MCP smoke trace metrics, dashboard surfacing, standalone JSONL trace export, and local OTLP file-exporter shaped span export are adopted; live OpenTelemetry SDK or collector shipping remains manual or scheduled.
+- Gap: Schema-level MCP smoke trace metrics, dashboard surfacing, standalone JSONL trace export, local OTLP file-exporter shaped span export, and the collector handoff validator are adopted; live OpenTelemetry SDK or collector shipping remains operator-owned future work.
+
+### open-telemetry/opentelemetry-collector
+
+- URL: https://github.com/open-telemetry/opentelemetry-collector
+- Category: `otel-collector-observability`
+- Adoption status: `partially_adopted`
+- Why similar: Vendor-neutral telemetry collection, processing, and export is the closest upstream pattern for turning local smoke OTLP JSONL into an operator-owned observability pipeline.
+- Observed patterns:
+  - collector deployment as a separate operational component
+  - explicit receiver, processor, exporter, connector, and extension policy
+  - OTLP as a handoff boundary between local instrumentation and downstream systems
+  - operator-owned endpoint, credential, retention, and retry decisions
+  - local validation before live collector shipping
+- Local evidence:
+  - `ops/references/mcp_otel_collector_handoff.json`
+  - `ops/scripts/mcp_otel_collector_handoff.py`
+  - `tests/test_mcp_otel_collector_handoff.py`
+  - `docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json`
+  - `docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
+  - `docs/QUALITY_GATE.md`
+- Gap: Collector handoff validation is adopted for real MCP smoke OTLP artifacts. Live collector deployment, OTLP endpoint credentials, retention, sampling, and retry policy remain future-scoped until the operator owns those runtime choices.
 
 ### evalstate/fast-agent
 

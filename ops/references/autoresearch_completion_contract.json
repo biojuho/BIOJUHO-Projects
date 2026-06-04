@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T23:52:58+09:00",
+  "generated_at": "2026-06-05T00:47:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -46,6 +46,7 @@
           "must_contain": [
             "PrefectHQ/fastmcp",
             "lastmile-ai/mcp-eval",
+            "open-telemetry/opentelemetry-collector",
             "evalstate/fast-agent",
             "open-webui/mcpo",
             "Uninen/devserver-mcp",
@@ -55,8 +56,9 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 9",
+            "Sources reviewed: 10",
             "Adoption counts",
+            "open-telemetry/opentelemetry-collector",
             "microsoft/playwright-mcp",
             "microsoft/mcp-gateway"
           ]
@@ -197,6 +199,7 @@
           "must_contain": [
             "tests/test_workspace_smoke.py",
             "tests/test_autoresearch_completion_audit.py",
+            "tests/test_mcp_otel_collector_handoff.py",
             "tests/test_dev_server_browser_smoke.py",
             "tests/test_dev_server_mcp_contract.py",
             "tests/test_dev_server_mcp_runtime.py",
@@ -267,6 +270,51 @@
             "12 passed",
             "get_devserver_policy",
             "mutation_guard=process_mutation_disabled"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mcp_otel_collector_handoff",
+      "requirement": "The MCP OTLP smoke export has an executable, source-backed collector handoff check without claiming live collector shipping.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/references/mcp_otel_collector_handoff.json",
+          "must_contain": [
+            "open-telemetry/opentelemetry-collector",
+            "future_scoped_operator_owned",
+            "required_resource_attributes",
+            "required_span_attributes",
+            "workspace_smoke.command.kind"
+          ]
+        },
+        {
+          "path": "ops/scripts/mcp_otel_collector_handoff.py",
+          "must_contain": [
+            "resourceSpans",
+            "required_resource_attributes",
+            "required_span_attributes",
+            "collector_runtime"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"span_count\": 3",
+            "\"collector_runtime\": \"future_scoped_operator_owned\"",
+            "\"workspace_smoke.command.kind\": 3"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "OpenTelemetry Collector",
+            "future-scoped/operator-owned",
+            "validator status `pass`"
           ]
         }
       ]

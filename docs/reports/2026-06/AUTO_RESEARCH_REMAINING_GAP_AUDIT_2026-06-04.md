@@ -6,6 +6,8 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 collector-handoff slice: adopted an OpenTelemetry Collector
+  handoff manifest and validator for real MCP smoke OTLP JSONL artifacts.
 - 2026-06-05 policy-tool slice: adopted `get_devserver_policy` and
   `microsoft/mcp-gateway` radar evidence.
 - `0746be7 chore(canva): clear npm audit findings`
@@ -40,7 +42,9 @@ Latest pushed commits in this slice:
 ## Adopted Source-Backed Variants
 
 - `PrefectHQ/fastmcp`: adopted a validated MCP service manifest for composition planning.
-- `lastmile-ai/mcp-eval`: adopted MCP smoke schema metrics, dashboard surfacing, standalone JSONL trace export, and local OTLP file-exporter shaped span export.
+- `lastmile-ai/mcp-eval`: adopted MCP smoke schema metrics, dashboard surfacing, standalone JSONL trace export, local OTLP file-exporter shaped span export, and validated collector handoff evidence.
+- `open-telemetry/opentelemetry-collector`: adopted an operator-owned
+  collector handoff contract and validator for real MCP smoke OTLP artifacts.
 - `evalstate/fast-agent`: adopted launch workflow inventory plus dry-run command plans.
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
 - `modelcontextprotocol/inspector`: adopted a repo-owned stdio subprocess smoke for `initialize`, `tools/list`, guarded `tools/call`, and read-only log calls.
@@ -66,7 +70,10 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - Reason: the service inventory now exists; a runtime adapter should wait for a concrete MCP expansion target.
 - Live OpenTelemetry SDK or collector shipping:
   - Status: future-scoped
-  - Reason: local OTLP file-exporter shaped span output now exists; live SDK or collector shipping should wait for an operator-owned collector contract.
+  - Reason: local OTLP file-exporter shaped span output and an executable
+    collector handoff validator now exist; live SDK or collector shipping
+    should still wait for operator-owned endpoint, credential, retention,
+    sampling, and retry policy.
 - Live central agent workflow orchestration:
   - Status: future-scoped
   - Reason: dry-run plans exist; live orchestration should stay behind existing project CLIs and smoke/dev-server gates until execution ownership is clear.
@@ -82,11 +89,11 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
-- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-canva-browser-proof-2026-06-04.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
+- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-otel-handoff-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `8` sources
+  - `10` sources
   - `adopted=1`
-  - `partially_adopted=7`
+  - `partially_adopted=9`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
   - `47 passed` plus MCP subprocess smoke and completion audit after `0746be7`
@@ -105,6 +112,18 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - final MCP smoke `3/3 PASS`
   - final OTLP file `var\workspace-smoke-mcp-otel-file-export-final-2026-06-04.otlp.jsonl`
     contained `1` `resourceSpans` line with `3` spans
+- OTLP collector handoff verification:
+  - `tests\test_mcp_otel_collector_handoff.py` passed `4/4`
+  - real MCP smoke wrote
+    `var\workspace-smoke-mcp-otel-handoff-2026-06-05.otlp.jsonl`
+    after `3/3 PASS`
+  - `ops\scripts\mcp_otel_collector_handoff.py` validated that file with
+    `status=pass`, `line_count=1`, `resource_span_count=1`, and
+    `span_count=3`
+  - generated evidence:
+    `docs\reports\2026-06\MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json`
+    and
+    `docs\reports\2026-06\MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
 - Dev-server MCP contract verification:
   - `tests\test_dev_server_mcp_contract.py` `3 passed`
   - dev-server contract/status/control tests `24 passed`

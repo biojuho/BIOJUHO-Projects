@@ -126,6 +126,17 @@ OpenTelemetry Protocol file-exporter style JSONL object. The file is opt-in,
 refreshed after each completed check, contains one `resourceSpans` object with
 MCP check spans, and stays local/offline unless an operator ships it to a
 collector.
+Before a collector or scheduled shipper consumes this file, validate the
+operator handoff contract:
+
+```bash
+python ops/scripts/mcp_otel_collector_handoff.py --otel-jsonl var/workspace-smoke-mcp-otel-handoff-2026-06-05.otlp.jsonl --json-out docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json --markdown-out docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md
+```
+
+The handoff check validates the local OTLP JSONL shape and required
+`workspace_smoke.*` attributes. It deliberately keeps live collector runtime,
+endpoint credentials, retention, sampling, and retry policy future-scoped until
+an operator owns those choices.
 
 Top-level fields:
 

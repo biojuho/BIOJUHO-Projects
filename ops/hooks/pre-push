@@ -6,13 +6,14 @@ echo "==> Running smoke tests before push..."
 if ! python -m pytest \
     tests/test_workspace_smoke.py \
     tests/test_autoresearch_completion_audit.py \
+    tests/test_mcp_otel_collector_handoff.py \
     tests/test_dev_server_browser_smoke.py \
     tests/test_dev_server_mcp_contract.py \
     tests/test_dev_server_mcp_runtime.py \
     tests/test_dev_server_mcp_runtime_smoke.py \
     -q --tb=line 2>/dev/null; then
     echo "Smoke test failed. Push blocked."
-    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_autoresearch_completion_audit.py tests/test_dev_server_browser_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
+    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_autoresearch_completion_audit.py tests/test_mcp_otel_collector_handoff.py tests/test_dev_server_browser_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
     exit 1
 fi
 
