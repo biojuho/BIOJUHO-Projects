@@ -38,7 +38,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `4`
+- Evidence paths: `7`
 
 ### commit_push_evidence
 
@@ -50,7 +50,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `3`
+- Evidence paths: `4`
 
 ### mcp_runtime_subprocess_smoke
 

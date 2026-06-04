@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T23:38:15+09:00",
+  "generated_at": "2026-06-04T23:52:58+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -81,6 +81,18 @@
         {
           "path": "docs/reports/2026-06/DESCI_BROWSER_SMOKE_JSON_EVIDENCE_2026-06-04.json",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DESCI_2026-06-04.json",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_2026-06-04.json",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_AGRIGUARD_2026-06-04.json",
+          "term_count": 5
         }
       ]
     },
@@ -102,7 +114,7 @@
       "evidence": [
         {
           "path": "ops/hooks/pre-push",
-          "term_count": 7
+          "term_count": 8
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_GATE_MCP_RUNTIME_2026-06-04.md",
@@ -110,6 +122,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_COMPLETION_AUDIT_HOOK_2026-06-04.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_BROWSER_SMOKE_2026-06-04.md",
           "term_count": 4
         }
       ]

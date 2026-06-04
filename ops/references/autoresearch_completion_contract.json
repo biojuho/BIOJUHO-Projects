@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T23:38:15+09:00",
+  "generated_at": "2026-06-04T23:52:58+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -19,7 +19,7 @@
           "must_contain": [
             "total=25",
             "passed=25",
-            "603.734s"
+            "660.688s"
           ]
         },
         {
