@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=5, watch=0
-- Generated at: `2026-06-04T21:05:20+09:00`
+- Generated at: `2026-06-04T21:09:03+09:00`
 
 ## Search Context
 
@@ -74,6 +74,7 @@
 - Observed patterns:
   - declarative agent workflows and MCP server assignment
   - repo-level launch workflow inventory
+  - dry-run workflow plans with ordered inspect, run, and evidence steps
   - provider abstraction across OpenAI, Anthropic, Google, and local backends
   - token and tool-use tracking for agent runs
 - Local evidence:
@@ -85,8 +86,10 @@
   - `ops/scripts/agent_workflow_manifest.py`
   - `tests/test_agent_workflow_manifest.py`
   - `docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
-- Gap: Declarative launch workflow inventory is adopted; central runtime orchestration remains deliberate future work.
+- Gap: Declarative launch workflow inventory and dry-run command planning are adopted; live central runtime orchestration remains deliberate future work.
 
 ### dsifry/metaswarm
 

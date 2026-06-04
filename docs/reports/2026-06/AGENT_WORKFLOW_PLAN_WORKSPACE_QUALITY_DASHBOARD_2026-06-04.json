@@ -1,0 +1,74 @@
+{
+  "execution_mode": "dry_run",
+  "generated_at": "2026-06-04T21:08:55.833281+09:00",
+  "schema_version": 1,
+  "steps": [
+    {
+      "action": "inspect",
+      "dry_run": true,
+      "index": 1,
+      "path": "apps/dashboard/api.py",
+      "phase": "entrypoint"
+    },
+    {
+      "action": "inspect",
+      "dry_run": true,
+      "index": 2,
+      "path": "apps/dashboard/routers/gdt.py",
+      "phase": "entrypoint"
+    },
+    {
+      "action": "inspect",
+      "dry_run": true,
+      "index": 3,
+      "path": "apps/dashboard/src/components/QualityPanel.jsx",
+      "phase": "entrypoint"
+    },
+    {
+      "action": "run",
+      "command": "python ops/scripts/run_workspace_smoke.py --scope workspace",
+      "cwd": ".",
+      "dry_run": true,
+      "index": 1,
+      "phase": "quality_gate"
+    },
+    {
+      "action": "run",
+      "command": "npm.cmd run test -- src/App.test.jsx",
+      "cwd": "apps/dashboard",
+      "dry_run": true,
+      "index": 2,
+      "phase": "quality_gate"
+    },
+    {
+      "action": "review",
+      "dry_run": true,
+      "index": 1,
+      "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_DEV_SERVER_READINESS_2026-06-04.md",
+      "phase": "evidence"
+    },
+    {
+      "action": "review",
+      "dry_run": true,
+      "index": 2,
+      "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_METRICS_2026-06-04.md",
+      "phase": "evidence"
+    }
+  ],
+  "will_execute": false,
+  "workflow": {
+    "agent_roles": [
+      "quality-operator",
+      "browser-qa",
+      "release-operator"
+    ],
+    "goal": "Surface workspace quality, smoke, dev-server readiness, and MCP trace evidence for operators.",
+    "id": "workspace-quality-dashboard",
+    "launch_status": "active",
+    "mcp_servers": [
+      "playwright"
+    ],
+    "project": "apps/dashboard",
+    "smoke_scope": "workspace"
+  }
+}

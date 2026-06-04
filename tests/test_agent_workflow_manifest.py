@@ -73,6 +73,62 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     assert "workspace-quality-dashboard" in markdown
 
 
+def test_build_workflow_plan_parses_quality_gate_cwd() -> None:
+    manifest = load_manifest_module()
+    payload = manifest.load_manifest(MANIFEST_PATH)
+
+    plan = manifest.build_workflow_plan(payload, "dailynews-x-ops")
+
+    assert plan["execution_mode"] == "dry_run"
+    assert plan["will_execute"] is False
+    assert plan["workflow"]["id"] == "dailynews-x-ops"
+    quality_steps = [step for step in plan["steps"] if step["phase"] == "quality_gate"]
+    assert quality_steps[0]["cwd"] == "."
+    assert quality_steps[0]["command"] == "python ops/scripts/run_workspace_smoke.py --scope mcp"
+    assert quality_steps[1]["cwd"] == "automation/DailyNews"
+    assert quality_steps[1]["command"] == "python -m pytest tests/unit -q"
+
+
+def test_cli_writes_workflow_plan_outputs(tmp_path: Path) -> None:
+    manifest = load_manifest_module()
+    plan_json = tmp_path / "workflow-plan.json"
+    plan_markdown = tmp_path / "workflow-plan.md"
+
+    result = manifest.main(
+        [
+            "--manifest",
+            str(MANIFEST_PATH),
+            "--workflow-plan",
+            "workspace-quality-dashboard",
+            "--plan-json-out",
+            str(plan_json),
+            "--plan-markdown-out",
+            str(plan_markdown),
+        ]
+    )
+
+    plan = json.loads(plan_json.read_text(encoding="utf-8"))
+    markdown = plan_markdown.read_text(encoding="utf-8")
+    assert result == 0
+    assert plan["workflow"]["id"] == "workspace-quality-dashboard"
+    assert plan["execution_mode"] == "dry_run"
+    assert any(step["phase"] == "quality_gate" for step in plan["steps"])
+    assert "Agent Workflow Dry-Run Plan" in markdown
+    assert "workspace-quality-dashboard" in markdown
+
+
+def test_workflow_plan_rejects_unknown_workflow() -> None:
+    manifest = load_manifest_module()
+    payload = manifest.load_manifest(MANIFEST_PATH)
+
+    try:
+        manifest.build_workflow_plan(payload, "missing-workflow")
+    except ValueError as exc:
+        assert "unknown workflow id: missing-workflow" in str(exc)
+    else:
+        raise AssertionError("expected unknown workflow to fail")
+
+
 def test_manifest_rejects_missing_entrypoint() -> None:
     manifest = load_manifest_module()
     payload = manifest.load_manifest(MANIFEST_PATH)

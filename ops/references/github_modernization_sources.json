@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T21:05:20+09:00",
+  "generated_at": "2026-06-04T21:09:03+09:00",
   "search_context": {
     "objective": "Search GitHub for systems similar to this AI workspace and map current patterns into local modernization evidence.",
     "queries": [
@@ -72,6 +72,7 @@
       "observed_patterns": [
         "declarative agent workflows and MCP server assignment",
         "repo-level launch workflow inventory",
+        "dry-run workflow plans with ordered inspect, run, and evidence steps",
         "provider abstraction across OpenAI, Anthropic, Google, and local backends",
         "token and tool-use tracking for agent runs"
       ],
@@ -84,9 +85,11 @@
         "ops/scripts/agent_workflow_manifest.py",
         "tests/test_agent_workflow_manifest.py",
         "docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-04.md",
+        "docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.json",
+        "docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.md",
         "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md"
       ],
-      "gap": "Declarative launch workflow inventory is adopted; central runtime orchestration remains deliberate future work."
+      "gap": "Declarative launch workflow inventory and dry-run command planning are adopted; live central runtime orchestration remains deliberate future work."
     },
     {
       "repo": "dsifry/metaswarm",

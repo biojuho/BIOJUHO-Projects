@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from datetime import datetime
@@ -13,6 +14,7 @@ WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 DEFAULT_MANIFEST = WORKSPACE_ROOT / "ops" / "references" / "agent_workflows.json"
 ALLOWED_SMOKE_SCOPES = {"all", "workspace", "desci", "agriguard", "mcp", "getdaytrends", "cie", "manual"}
 ALLOWED_LAUNCH_STATUSES = {"active", "manual", "watch"}
+CWD_SUFFIX_RE = re.compile(r"\s+\(cwd=([^)]+)\)$")
 REQUIRED_WORKFLOW_FIELDS = {
     "id",
     "project",
@@ -156,6 +158,100 @@ def format_markdown(payload: dict[str, Any], summary: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_workflow_plan(payload: dict[str, Any], workflow_id: str) -> dict[str, Any]:
+    workflows = {workflow["id"]: workflow for workflow in payload["workflows"]}
+    if workflow_id not in workflows:
+        raise ValueError(f"unknown workflow id: {workflow_id}")
+    workflow = workflows[workflow_id]
+    steps: list[dict[str, Any]] = []
+    for index, entrypoint in enumerate(workflow["entrypoints"], start=1):
+        steps.append(
+            {
+                "phase": "entrypoint",
+                "index": index,
+                "action": "inspect",
+                "path": entrypoint,
+                "dry_run": True,
+            }
+        )
+    for index, gate in enumerate(workflow["quality_gates"], start=1):
+        command, cwd = split_quality_gate_command(gate)
+        steps.append(
+            {
+                "phase": "quality_gate",
+                "index": index,
+                "action": "run",
+                "command": command,
+                "cwd": cwd,
+                "dry_run": True,
+            }
+        )
+    for index, evidence in enumerate(workflow["evidence"], start=1):
+        steps.append(
+            {
+                "phase": "evidence",
+                "index": index,
+                "action": "review",
+                "path": evidence,
+                "dry_run": True,
+            }
+        )
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now().astimezone().isoformat(),
+        "execution_mode": "dry_run",
+        "will_execute": False,
+        "workflow": {
+            "id": workflow["id"],
+            "project": workflow["project"],
+            "goal": workflow["goal"],
+            "launch_status": workflow["launch_status"],
+            "smoke_scope": workflow["smoke_scope"],
+            "agent_roles": workflow["agent_roles"],
+            "mcp_servers": workflow["mcp_servers"],
+        },
+        "steps": steps,
+    }
+
+
+def format_workflow_plan_markdown(plan: dict[str, Any]) -> str:
+    workflow = plan["workflow"]
+    lines = [
+        f"# Agent Workflow Dry-Run Plan - {workflow['id']}",
+        "",
+        f"- Generated at: `{plan['generated_at']}`",
+        f"- Execution mode: `{plan['execution_mode']}`",
+        f"- Will execute: `{str(plan['will_execute']).lower()}`",
+        f"- Project: `{workflow['project']}`",
+        f"- Launch status: `{workflow['launch_status']}`",
+        f"- Smoke scope: `{workflow['smoke_scope']}`",
+        f"- Agent roles: `{', '.join(workflow['agent_roles'])}`",
+        f"- MCP servers: `{', '.join(workflow['mcp_servers'])}`",
+        "",
+        "## Steps",
+        "",
+    ]
+    for step in plan["steps"]:
+        lines.append(f"### {step['phase']} {step['index']}")
+        if step["phase"] == "quality_gate":
+            lines.append(f"- Action: `{step['action']}`")
+            lines.append(f"- CWD: `{step['cwd']}`")
+            lines.append(f"- Command: `{step['command']}`")
+        else:
+            lines.append(f"- Action: `{step['action']}`")
+            lines.append(f"- Path: `{step['path']}`")
+        lines.append("- Dry run: `true`")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def split_quality_gate_command(value: str) -> tuple[str, str]:
+    match = CWD_SUFFIX_RE.search(value)
+    if not match:
+        return value, "."
+    return value[: match.start()].strip(), match.group(1).strip()
+
+
 def run(manifest_path: Path, *, json_out: Path | None = None, markdown_out: Path | None = None) -> dict[str, Any]:
     payload = load_manifest(manifest_path)
     errors = validate_manifest(payload, workspace_root=WORKSPACE_ROOT)
@@ -174,9 +270,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
+    parser.add_argument("--workflow-plan", help="Render a dry-run plan for the given workflow id")
+    parser.add_argument("--plan-json-out", type=Path)
+    parser.add_argument("--plan-markdown-out", type=Path)
     args = parser.parse_args(argv)
     try:
-        summary = run(args.manifest, json_out=args.json_out, markdown_out=args.markdown_out)
+        payload = load_manifest(args.manifest)
+        errors = validate_manifest(payload, workspace_root=WORKSPACE_ROOT)
+        if errors:
+            raise ValueError("\n".join(errors))
+        summary = summarize_manifest(payload)
+        if args.json_out is not None:
+            _write_json_atomic(args.json_out, summary)
+        if args.markdown_out is not None:
+            _write_text_atomic(args.markdown_out, format_markdown(payload, summary))
+        if args.workflow_plan:
+            plan = build_workflow_plan(payload, args.workflow_plan)
+            if args.plan_json_out is not None:
+                _write_json_atomic(args.plan_json_out, plan)
+            if args.plan_markdown_out is not None:
+                _write_text_atomic(args.plan_markdown_out, format_workflow_plan_markdown(plan))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"agent workflow manifest failed: {exc}", file=sys.stderr)
         return 1
