@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T23:37:10.567758+00:00",
+  "generated_at": "2026-06-04T23:52:08.114401+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -52,8 +52,8 @@
           "term_count": 3
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
-          "term_count": 4
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md",
+          "term_count": 3
         },
         {
           "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_2026-06-05.json",
@@ -260,11 +260,12 @@
         "browser_smoke_expected_text_evidence",
         "canva_mcp_continuation_guard",
         "completion_audit_summary_drift_guard",
-        "objective_coverage_artifact_drift_guard"
+        "objective_coverage_artifact_drift_guard",
+        "hosted_agent_approval_boundary"
       ],
       "evidence": [
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md",
           "term_count": 4
         },
         {
@@ -300,7 +301,7 @@
           "term_count": 4
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md",
           "term_count": 3
         }
       ],
@@ -331,7 +332,8 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
-        "dashboard_credential_operator_checklist"
+        "dashboard_credential_operator_checklist",
+        "hosted_agent_approval_boundary"
       ],
       "evidence": [
         {
@@ -356,14 +358,14 @@
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
-          "term_count": 2
+          "term_count": 3
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md",
           "term_count": 4
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md",
           "term_count": 3
         }
       ],

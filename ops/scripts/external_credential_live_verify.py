@@ -86,7 +86,12 @@ def execute_plan(
         {
             name
             for boundary in plan["boundaries"]
-            for name in [*boundary["required_env"], *boundary["optional_env_any_of"]]
+            for name in [
+                *boundary["required_env"],
+                *boundary["optional_env_any_of"],
+                boundary.get("operator_approval_env", ""),
+            ]
+            if name
         }
     )
     commands: list[dict[str, Any]] = []
@@ -289,6 +294,9 @@ def _planned_boundary(boundary: dict[str, Any], *, plan_rank: int) -> dict[str, 
         "missing_required_env": missing,
         "optional_env_any_of": boundary["optional_env_any_of"],
         "optional_env_available": boundary["optional_env_available"],
+        "operator_approval_required": boundary["operator_approval_required"],
+        "operator_approval_env": boundary["operator_approval_env"],
+        "operator_approval_available": boundary["operator_approval_available"],
         "verification_commands": boundary["verification_commands"],
         "claim_policy": boundary["claim_policy"],
     }
@@ -318,7 +326,7 @@ def _next_unblock(boundaries: list[dict[str, Any]]) -> dict[str, Any] | None:
             "boundary_id": boundary["id"],
             "plan_rank": boundary["plan_rank"],
             "live_status": boundary["live_status"],
-            "env_names": [*boundary["required_env"], *boundary["optional_env_any_of"]],
+            "env_names": _boundary_env_names(boundary),
             "verification_commands": boundary["verification_commands"],
         }
     return None
@@ -340,6 +348,14 @@ def _format_next_unblock_cli(value: dict[str, Any] | None) -> str:
 def _live_status(boundary: dict[str, Any]) -> str:
     if boundary["missing_required_env"]:
         return "blocked_missing_required_env"
+    if boundary["operator_approval_required"] and not boundary["operator_approval_available"]:
+        return "blocked_operator_approval"
+    if (
+        boundary["operator_approval_required"]
+        and boundary["optional_env_any_of"]
+        and not boundary["optional_env_available"]
+    ):
+        return "blocked_missing_optional_env"
     if (
         boundary["status"] == "optional_token_absent"
         and boundary["optional_env_any_of"]
@@ -358,7 +374,16 @@ def _skip_reason(boundary: dict[str, Any]) -> str:
         return "missing optional token env"
     if boundary["live_status"] == "blocked_missing_required_env":
         return "missing required env"
+    if boundary["live_status"] == "blocked_operator_approval":
+        return "missing operator approval"
     return boundary["live_status"]
+
+
+def _boundary_env_names(boundary: dict[str, Any]) -> list[str]:
+    names = [*boundary["required_env"], *boundary["optional_env_any_of"]]
+    if boundary.get("operator_approval_env"):
+        names.append(boundary["operator_approval_env"])
+    return list(dict.fromkeys(names))
 
 
 def _planned_command(boundary: dict[str, Any], command: str) -> dict[str, Any]:

@@ -137,8 +137,8 @@ const RESPONSES = {
         status: 'operator_action_required',
         summary: {
           item_count: 5,
-          ready_to_execute: 1,
-          blocked: 4,
+          ready_to_execute: 0,
+          blocked: 5,
           next_boundary_id: 'canva_oauth_and_openapi_tool_execution',
         },
         items: [
@@ -157,10 +157,12 @@ const RESPONSES = {
             rank: 5,
             boundary_id: 'hosted_agent_runtime_credentials',
             title: 'Hosted agent runtime and tracing credentials',
-            live_status: 'ready_for_execution',
-            ready_to_execute: true,
+            live_status: 'blocked_operator_approval',
+            ready_to_execute: false,
+            blocked_reason: 'missing operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED',
             checklist: [
               { id: 'required_env', label: 'Required env', state: 'ready', detail: 'none required' },
+              { id: 'operator_approval_marker', label: 'Operator approval marker', state: 'blocked', detail: 'HOSTED_AGENT_RUNTIME_APPROVED' },
             ],
           },
         ],
@@ -328,7 +330,7 @@ describe('Dashboard App', () => {
     expect(screen.getAllByText('GitHub source-refresh token boundary').length).toBeGreaterThan(0)
     expect(screen.getByText('blocked missing optional env')).toBeInTheDocument()
     expect(screen.getByText('Credential Operator Checklist')).toBeInTheDocument()
-    expect(screen.getByText('1 ready / 4 blocked')).toBeInTheDocument()
+    expect(screen.getByText('0 ready / 5 blocked')).toBeInTheDocument()
     expect(screen.getByText('Checklist next')).toBeInTheDocument()
     expect(screen.getByText('Checklist item')).toBeInTheDocument()
     expect(screen.getByText('Required env: missing')).toBeInTheDocument()

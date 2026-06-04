@@ -37,8 +37,8 @@ def test_default_registry_dry_run_reports_ready_and_blocked_boundaries() -> None
     assert report["mode"] == "dry_run"
     assert report["plan_order"] == "unblock_queue"
     assert report["summary"]["selected_boundaries"] >= 5
-    assert report["summary"]["ready_boundaries"] == 1
-    assert report["summary"]["blocked_boundaries"] == 4
+    assert report["summary"]["ready_boundaries"] == 0
+    assert report["summary"]["blocked_boundaries"] == 5
     assert report["summary"]["next_unblock"]["boundary_id"] == "canva_oauth_and_openapi_tool_execution"
     assert report["summary"]["commands_executed"] == 0
     assert "canva_oauth_and_openapi_tool_execution" in {
@@ -129,11 +129,24 @@ def test_ready_only_filters_default_registry_to_runnable_boundaries() -> None:
 
     assert report["status"] == "pass"
     assert report["selection"] == "ready_only"
-    assert report["summary"]["selected_boundaries"] == 1
-    assert report["summary"]["ready_boundaries"] == 1
+    assert report["summary"]["selected_boundaries"] == 0
+    assert report["summary"]["ready_boundaries"] == 0
     assert report["summary"]["blocked_boundaries"] == 0
     assert report["summary"]["next_unblock"] is None
-    assert [boundary["id"] for boundary in report["boundaries"]] == ["hosted_agent_runtime_credentials"]
+    assert report["boundaries"] == []
+    assert report["commands"] == []
+
+
+def test_hosted_agent_runtime_requires_operator_approval_marker() -> None:
+    verifier = load_module()
+
+    report = verifier.run(REGISTRY_PATH, env={})
+    hosted = next(boundary for boundary in report["boundaries"] if boundary["id"] == "hosted_agent_runtime_credentials")
+
+    assert hosted["live_status"] == "blocked_operator_approval"
+    assert hosted["operator_approval_required"] is True
+    assert hosted["operator_approval_env"] == "HOSTED_AGENT_RUNTIME_APPROVED"
+    assert hosted["operator_approval_available"] is False
 
 
 def test_ready_only_execute_ignores_blocked_boundary(tmp_path: Path) -> None:
@@ -241,6 +254,7 @@ def _write_registry(
                 "owner": "operator",
                 "required_env": required_env,
                 "optional_env_any_of": optional_env_any_of or [],
+                "operator_approval_required": False,
                 "blocked_until": ["operator supplies credentials"],
                 "verification_commands": [command],
                 "claim_policy": "do not claim complete without live credentials",
@@ -292,6 +306,7 @@ def _env_without_external_tokens() -> dict[str, str]:
         "GH_TOKEN",
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID",
+        "HOSTED_AGENT_RUNTIME_APPROVED",
     ]:
         env.pop(name, None)
     return env
@@ -312,6 +327,7 @@ def _write_mixed_registry(tmp_path: Path) -> Path:
                 "owner": "operator",
                 "required_env": ["MISSING_TOKEN"],
                 "optional_env_any_of": [],
+                "operator_approval_required": False,
                 "blocked_until": ["operator supplies credentials"],
                 "verification_commands": [f"{sys.executable} -c \"print('should-not-run')\""],
                 "claim_policy": "do not claim complete without live credentials",
@@ -329,6 +345,7 @@ def _write_mixed_registry(tmp_path: Path) -> Path:
                 "owner": "operator",
                 "required_env": [],
                 "optional_env_any_of": [],
+                "operator_approval_required": False,
                 "blocked_until": ["operator confirms local dry-run is enough"],
                 "verification_commands": [f"{sys.executable} -c \"print('ready-ran')\""],
                 "claim_policy": "do not claim complete without live credentials",

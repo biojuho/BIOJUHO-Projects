@@ -55,6 +55,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "external_credential_boundary_registry",
         "external_credential_handoff",
         "external_credential_live_verifier",
+        "hosted_agent_approval_boundary",
         "telegram_notification_live_delivery_verifier",
         "agent_workflow_gate_matrix_reuse",
     }

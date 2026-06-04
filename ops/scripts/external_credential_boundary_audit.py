@@ -194,6 +194,24 @@ def _validate_boundaries(
             f"{prefix}.optional_env_any_of",
             errors,
         )
+        operator_approval_required = _validate_bool(
+            item.get("operator_approval_required", False),
+            f"{prefix}.operator_approval_required",
+            errors,
+        )
+        operator_approval_env = ""
+        if operator_approval_required:
+            operator_approval_env = _require_string(
+                item.get("operator_approval_env"),
+                f"{prefix}.operator_approval_env",
+                errors,
+            )
+        elif item.get("operator_approval_env") is not None:
+            operator_approval_env = _require_string(
+                item.get("operator_approval_env"),
+                f"{prefix}.operator_approval_env",
+                errors,
+            )
         verification_commands = _validate_string_list(
             item.get("verification_commands"),
             f"{prefix}.verification_commands",
@@ -202,6 +220,11 @@ def _validate_boundaries(
         evidence = _validate_evidence(item.get("evidence"), f"{prefix}.evidence", workspace_root, errors)
         missing_required_env = [name for name in required_env if not env.get(name)]
         optional_env_available = any(env.get(name) for name in optional_env_any_of)
+        operator_approval_available = (
+            _approval_env_enabled(env.get(operator_approval_env))
+            if operator_approval_required and operator_approval_env
+            else not operator_approval_required
+        )
         normalized.append(
             {
                 "id": boundary_id,
@@ -214,6 +237,9 @@ def _validate_boundaries(
                 "missing_required_env": missing_required_env,
                 "optional_env_any_of": optional_env_any_of,
                 "optional_env_available": optional_env_available,
+                "operator_approval_required": operator_approval_required,
+                "operator_approval_env": operator_approval_env,
+                "operator_approval_available": operator_approval_available,
                 "evidence_count": len(evidence),
                 "verification_commands": verification_commands,
                 "verification_command_count": len(verification_commands),
@@ -271,11 +297,22 @@ def _validate_string_list(value: Any, field: str, errors: list[str]) -> list[str
     return result
 
 
+def _validate_bool(value: Any, field: str, errors: list[str]) -> bool:
+    if isinstance(value, bool):
+        return value
+    errors.append(f"{field} must be a boolean")
+    return False
+
+
 def _require_string(value: Any, field: str, errors: list[str]) -> str:
     if not isinstance(value, str) or not value.strip():
         errors.append(f"{field} must be a non-empty string")
         return ""
     return value
+
+
+def _approval_env_enabled(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "approved"}
 
 
 def _is_repo_relative(value: str) -> bool:

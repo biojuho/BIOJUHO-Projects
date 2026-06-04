@@ -32,6 +32,10 @@ def test_default_registry_validates_boundaries_without_secret_values() -> None:
     assert summary["missing_required_env_count"] >= 1
     assert "CANVA_CLIENT_SECRET" in summary["missing_required_env"]
     assert all(boundary["verification_commands"] for boundary in summary["boundaries"])
+    hosted = next(boundary for boundary in summary["boundaries"] if boundary["id"] == "hosted_agent_runtime_credentials")
+    assert hosted["operator_approval_required"] is True
+    assert hosted["operator_approval_env"] == "HOSTED_AGENT_RUNTIME_APPROVED"
+    assert hosted["operator_approval_available"] is False
 
 
 def test_registry_rejects_missing_evidence_terms() -> None:

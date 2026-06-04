@@ -5,8 +5,8 @@
 - Selection: `selected`
 - Plan order: `unblock_queue`
 - Selected boundaries: `5`
-- Ready boundaries: `1`
-- Blocked boundaries: `4`
+- Ready boundaries: `0`
+- Blocked boundaries: `5`
 - Next unblock: `canva_oauth_and_openapi_tool_execution` (rank `1`, env: `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`)
 - Commands planned: `9`
 - Commands executed: `0`
@@ -19,7 +19,7 @@
 | `2` | `github_source_refresh_rate_limit_token` | `blocked_missing_optional_env` | `0` | `1` |
 | `3` | `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `2` | `2` |
 | `4` | `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `1` | `2` |
-| `5` | `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
+| `5` | `hosted_agent_runtime_credentials` | `blocked_operator_approval` | `0` | `2` |
 
 ## Commands
 

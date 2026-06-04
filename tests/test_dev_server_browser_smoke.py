@@ -46,7 +46,7 @@ def test_dashboard_operator_checklist_text_is_manifest_guarded() -> None:
     expected_text = home_route["expected_text"]
 
     assert "CREDENTIAL OPERATOR CHECKLIST" in expected_text
-    assert "1 ready / 4 blocked" in expected_text
+    assert "0 ready / 5 blocked" in expected_text
     assert "Checklist next" in expected_text
     assert "Required env: missing" in expected_text
     assert "Canva OAuth and OpenAPI tool execution" in expected_text

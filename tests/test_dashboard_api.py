@@ -374,8 +374,8 @@ class TestQualityOverview:
                     "generated_at": "2026-06-05T00:00:00+00:00",
                     "summary": {
                         "item_count": 2,
-                        "ready_to_execute": 1,
-                        "blocked": 1,
+                        "ready_to_execute": 0,
+                        "blocked": 2,
                         "next_boundary_id": "canva_oauth_and_openapi_tool_execution",
                         "secret_values_emitted": False,
                     },
@@ -401,13 +401,14 @@ class TestQualityOverview:
                             "rank": 2,
                             "boundary_id": "hosted_agent_runtime_credentials",
                             "title": "Hosted agent runtime and tracing credentials",
-                            "live_status": "ready_for_execution",
-                            "ready_to_execute": True,
-                            "blocked_reason": "",
-                            "env_names": ["OPENAI_API_KEY"],
+                            "live_status": "blocked_operator_approval",
+                            "ready_to_execute": False,
+                            "blocked_reason": "missing operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED",
+                            "env_names": ["HOSTED_AGENT_RUNTIME_APPROVED", "OPENAI_API_KEY"],
                             "verify_after_unblock": ["python ops/scripts/autoresearch_completion_audit.py"],
                             "checklist": [
                                 {"id": "required_env", "label": "Required env", "state": "ready", "detail": "none required"},
+                                {"id": "operator_approval_marker", "label": "Operator approval marker", "state": "blocked", "detail": "HOSTED_AGENT_RUNTIME_APPROVED"},
                             ],
                         },
                     ],
@@ -445,15 +446,16 @@ class TestQualityOverview:
         checklist = boundaries["operator_checklist"]
         assert checklist["available"] is True
         assert checklist["status"] == "operator_action_required"
-        assert checklist["summary"]["ready_to_execute"] == 1
-        assert checklist["summary"]["blocked"] == 1
+        assert checklist["summary"]["ready_to_execute"] == 0
+        assert checklist["summary"]["blocked"] == 2
         assert checklist["summary"]["next_boundary_id"] == "canva_oauth_and_openapi_tool_execution"
         assert checklist["items"][0]["boundary_id"] == "canva_oauth_and_openapi_tool_execution"
         assert checklist["items"][0]["checklist"][0]["label"] == "Required env"
         assert checklist["items"][0]["checklist"][0]["state"] == "missing"
         assert checklist["items"][0]["verification_command_count"] == 2
         assert checklist["items"][0]["first_verification_command"] == "cd mcp/canva-mcp && npm run doctor:canva"
-        assert checklist["items"][1]["ready_to_execute"] is True
+        assert checklist["items"][1]["ready_to_execute"] is False
+        assert checklist["items"][1]["blocked_reason"] == "missing operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED"
 
 
 # ── /api/overview structure ────────────────────────────────────────

@@ -40,8 +40,8 @@
 ### hosted_agent_runtime_credentials
 
 - Owner: `operator`
-- Policy: do not claim hosted autonomous agent runtime complete without operator-owned runtime, tracing, and approval credentials
-- Blocked until: A concrete hosted agent runtime, tracing backend, approval UI, and credential owner are selected.
+- Policy: do not claim hosted autonomous agent runtime complete without operator-owned runtime, tracing, approval credentials, and HOSTED_AGENT_RUNTIME_APPROVED=true
+- Blocked until: A concrete hosted agent runtime, tracing backend, approval UI, and credential owner are selected.; HOSTED_AGENT_RUNTIME_APPROVED=true is set only after the operator confirms the hosted runtime consent and approval policy.
 
 ### github_source_refresh_rate_limit_token
 

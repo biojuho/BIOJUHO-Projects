@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `42`
-- Status counts: `blocked=1, covered=41`
+- Criteria: `43`
+- Status counts: `blocked=1, covered=42`
 
 ## Missing Required
 
@@ -225,6 +225,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `8`
+
+### hosted_agent_approval_boundary
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `9`
 
 ### telegram_notification_live_delivery_verifier
 

@@ -92,7 +92,8 @@ def test_env_template_follows_unblock_queue_order() -> None:
     assert env_template.index("CANVA_CLIENT_SECRET=") < env_template.index("GITHUB_TOKEN=")
     assert env_template.index("GITHUB_TOKEN=") < env_template.index("TELEGRAM_BOT_TOKEN=")
     assert env_template.index("TELEGRAM_CHAT_ID=") < env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=")
-    assert env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=") < env_template.index("OPENAI_API_KEY=")
+    assert env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=") < env_template.index("HOSTED_AGENT_RUNTIME_APPROVED=")
+    assert env_template.index("HOSTED_AGENT_RUNTIME_APPROVED=") < env_template.index("OPENAI_API_KEY=")
 
 
 def test_operator_checklist_matches_live_readiness_without_secret_values() -> None:
@@ -113,7 +114,15 @@ def test_operator_checklist_matches_live_readiness_without_secret_values() -> No
     assert checklist["summary"]["blocked"] >= 1
     assert by_id["canva_oauth_and_openapi_tool_execution"]["live_status"] == "blocked_missing_required_env"
     assert by_id["github_source_refresh_rate_limit_token"]["live_status"] == "ready_for_execution"
-    assert by_id["hosted_agent_runtime_credentials"]["ready_to_execute"] is True
+    assert by_id["hosted_agent_runtime_credentials"]["live_status"] == "blocked_operator_approval"
+    assert by_id["hosted_agent_runtime_credentials"]["ready_to_execute"] is False
+    assert by_id["hosted_agent_runtime_credentials"]["blocked_reason"] == (
+        "missing operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED"
+    )
+    assert any(
+        step["id"] == "operator_approval_marker"
+        for step in by_id["hosted_agent_runtime_credentials"]["checklist"]
+    )
     assert "ready_to_execute" in serialized
     assert "client-id-secret-value" not in serialized
     assert "github-token-value" not in serialized
@@ -132,7 +141,8 @@ def test_operator_checklist_markdown_is_actionable() -> None:
     assert "Secret values: not emitted" in markdown
     assert "blocked_missing_required_env" in markdown
     assert "blocked_missing_optional_env" in markdown
-    assert "ready_for_execution" in markdown
+    assert "blocked_operator_approval" in markdown
+    assert "HOSTED_AGENT_RUNTIME_APPROVED" in markdown
     assert "cd mcp/canva-mcp && npm run doctor:canva" in markdown
 
 

@@ -66,6 +66,9 @@ def build_handoff(
                 "missing_required_env": item["missing_required_env"],
                 "optional_env_any_of": item["optional_env_any_of"],
                 "optional_env_available": item["optional_env_available"],
+                "operator_approval_required": item["operator_approval_required"],
+                "operator_approval_env": item["operator_approval_env"],
+                "operator_approval_available": item["operator_approval_available"],
                 "blocked_until": item["blocked_until"],
                 "verification_commands": item["verification_commands"],
                 "claim_policy": item["claim_policy"],
@@ -181,6 +184,10 @@ def format_env_template(handoff: dict[str, Any]) -> str:
             if name not in emitted:
                 lines.append(f"{name}=")
                 emitted.add(name)
+        if item["operator_approval_env"] and item["operator_approval_env"] not in emitted:
+            lines.append("# Non-secret operator approval marker")
+            lines.append(f"{item['operator_approval_env']}=")
+            emitted.add(item["operator_approval_env"])
         for name in item["optional_env_any_of"]:
             if name not in emitted:
                 lines.append(f"# Optional alternative")
@@ -479,13 +486,18 @@ def _operator_action(item: dict[str, Any]) -> str:
     blockers = "; ".join(value.rstrip(".") for value in item["blocked_until"])
     if item["missing_required_env"]:
         return "Set required env and complete operator approval: " + blockers
+    if item["operator_approval_required"] and not item["operator_approval_available"]:
+        return "Set operator approval marker after runtime/policy decision: " + item["operator_approval_env"]
     if item["optional_env_any_of"] and not item["optional_env_available"]:
         return "Set one optional token/env value, then rerun verification: " + ", ".join(item["optional_env_any_of"])
     return "Choose the runtime or policy decision, then rerun verification: " + blockers
 
 
 def _queue_env_names(item: dict[str, Any]) -> list[str]:
-    return [*item["required_env"], *item["optional_env_any_of"]]
+    names = [*item["required_env"], *item["optional_env_any_of"]]
+    if item.get("operator_approval_env"):
+        names.append(item["operator_approval_env"])
+    return list(dict.fromkeys(names))
 
 
 def _operator_checklist_item(boundary: dict[str, Any], queue_item: dict[str, Any]) -> dict[str, Any]:
@@ -506,6 +518,9 @@ def _operator_checklist_item(boundary: dict[str, Any], queue_item: dict[str, Any
         "missing_required_env": boundary["missing_required_env"],
         "optional_env_any_of": boundary["optional_env_any_of"],
         "optional_env_available": boundary["optional_env_available"],
+        "operator_approval_required": boundary["operator_approval_required"],
+        "operator_approval_env": boundary["operator_approval_env"],
+        "operator_approval_available": boundary["operator_approval_available"],
         "env_names": queue_item["env_names"],
         "verify_after_unblock": queue_item["verify_after_unblock"],
         "claim_policy": boundary["claim_policy"],
@@ -516,6 +531,14 @@ def _operator_checklist_item(boundary: dict[str, Any], queue_item: dict[str, Any
 def _checklist_live_status(boundary: dict[str, Any]) -> str:
     if boundary["missing_required_env"]:
         return "blocked_missing_required_env"
+    if boundary["operator_approval_required"] and not boundary["operator_approval_available"]:
+        return "blocked_operator_approval"
+    if (
+        boundary["operator_approval_required"]
+        and boundary["optional_env_any_of"]
+        and not boundary["optional_env_available"]
+    ):
+        return "blocked_missing_optional_env"
     if (
         boundary["status"] == "optional_token_absent"
         and boundary["optional_env_any_of"]
@@ -530,6 +553,8 @@ def _checklist_blocked_reason(boundary: dict[str, Any], live_status: str) -> str
         return "missing required env: " + ", ".join(boundary["missing_required_env"])
     if live_status == "blocked_missing_optional_env":
         return "missing optional env: " + ", ".join(boundary["optional_env_any_of"])
+    if live_status == "blocked_operator_approval":
+        return "missing operator approval marker: " + boundary["operator_approval_env"]
     blockers = "; ".join(value.rstrip(".") for value in boundary["blocked_until"])
     return blockers or live_status
 
@@ -537,6 +562,7 @@ def _checklist_blocked_reason(boundary: dict[str, Any], live_status: str) -> str
 def _operator_checklist_steps(boundary: dict[str, Any], live_status: str) -> list[dict[str, str]]:
     required_detail = _plain_env_names(boundary["required_env"])
     optional_detail = _plain_env_names(boundary["optional_env_any_of"])
+    approval_detail = boundary["operator_approval_env"] or "none required"
     return [
         {
             "id": "required_env",
@@ -552,9 +578,15 @@ def _operator_checklist_steps(boundary: dict[str, Any], live_status: str) -> lis
         },
         {
             "id": "operator_approval",
-            "state": "operator_owned" if live_status == "ready_for_execution" else "blocked",
+            "state": _operator_approval_step_state(boundary),
             "label": "Operator approval",
             "detail": "; ".join(value.rstrip(".") for value in boundary["blocked_until"]),
+        },
+        {
+            "id": "operator_approval_marker",
+            "state": "ready" if boundary["operator_approval_available"] else "blocked",
+            "label": "Operator approval marker",
+            "detail": approval_detail,
         },
         {
             "id": "verify_commands",
@@ -563,6 +595,12 @@ def _operator_checklist_steps(boundary: dict[str, Any], live_status: str) -> lis
             "detail": f"{len(boundary['verification_commands'])} command(s)",
         },
     ]
+
+
+def _operator_approval_step_state(boundary: dict[str, Any]) -> str:
+    if not boundary["operator_approval_required"]:
+        return "not_blocking"
+    return "ready" if boundary["operator_approval_available"] else "blocked"
 
 
 def _plain_env_names(names: list[str]) -> str:

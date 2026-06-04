@@ -4,32 +4,19 @@
 - Mode: `execute`
 - Selection: `ready_only`
 - Plan order: `unblock_queue`
-- Selected boundaries: `1`
-- Ready boundaries: `1`
+- Selected boundaries: `0`
+- Ready boundaries: `0`
 - Blocked boundaries: `0`
 - Next unblock: `none`
-- Commands planned: `2`
-- Commands executed: `2`
+- Commands planned: `0`
+- Commands executed: `0`
 
 ## Boundaries
 
 | Rank | Boundary | Live status | Missing required env | Commands |
 | ---: | --- | --- | ---: | ---: |
-| `5` | `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
 
 ## Commands
-
-### hosted_agent_runtime_credentials
-
-- Status: `pass`
-- Command: `python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quality-dashboard --max-gates 1`
-- Return code: `0`
-
-### hosted_agent_runtime_credentials
-
-- Status: `pass`
-- Command: `python ops/scripts/autoresearch_completion_audit.py`
-- Return code: `0`
 
 ## Errors
 
