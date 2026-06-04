@@ -2,15 +2,16 @@
 
 ## Summary
 
-- Sources reviewed: 10
-- Adoption counts: adopted=1, partially_adopted=9, watch=0
-- Generated at: `2026-06-05T00:39:00+09:00`
+- Sources reviewed: 11
+- Adoption counts: adopted=1, partially_adopted=10, watch=0
+- Generated at: `2026-06-05T00:49:00+09:00`
 
 ## Search Context
 
 - Objective: Search GitHub for systems similar to this AI workspace and map current patterns into local modernization evidence.
 - Queries:
   - `MCP server Python FastAPI monorepo agents workflow smoke tests`
+  - `MCP Python SDK FastMCP stdio tools/list streamable HTTP`
   - `AI agent workflow automation monorepo quality gate`
   - `multi agent orchestration quality gates TDD Codex Claude Gemini`
   - `OpenTelemetry Collector OTLP file exporter trace pipeline`
@@ -30,21 +31,51 @@
 - Observed patterns:
   - production MCP server composition and transport options
   - repo-local MCP service manifest for composition planning
+  - runtime initialize and tools/list checks for stdio services
   - uv-first Python installation and upgrade workflow
   - LLM-readable documentation surface
 - Local evidence:
   - `ops/references/mcp_service_manifest.json`
   - `ops/scripts/mcp_service_manifest.py`
+  - `ops/scripts/mcp_service_runtime_smoke.py`
   - `tests/test_mcp_service_manifest.py`
+  - `tests/test_mcp_service_runtime_smoke.py`
   - `docs/reports/2026-06/MCP_SERVICE_MANIFEST_2026-06-04.json`
   - `docs/reports/2026-06/MCP_SERVICE_MANIFEST_2026-06-04.md`
+  - `docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.json`
+  - `docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_MANIFEST_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
   - `mcp/canva-mcp/src/server/server.ts`
   - `mcp/canva-mcp/src/server/tools.ts`
   - `mcp/canva-mcp/src/server/auth.ts`
   - `ops/scripts/check_mcp_health.py`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_OAUTH_BOUNDARY_2026-06-04.md`
-- Gap: Validated MCP service inventory is adopted for FastMCP-style composition planning; runtime composition adapters and transport switching remain future-scoped until the next MCP expansion needs them.
+- Gap: Validated MCP service inventory and stdio runtime initialize/tools-list smoke are adopted for FastMCP-style composition planning; shared composition adapters and transport switching remain future-scoped until the next MCP expansion needs them.
+
+### modelcontextprotocol/python-sdk
+
+- URL: https://github.com/modelcontextprotocol/python-sdk
+- Category: `official-mcp-python-sdk`
+- Adoption status: `partially_adopted`
+- Why similar: Official Python SDK for MCP clients and servers with FastMCP, stdio, SSE, Streamable HTTP, direct execution, and inspector testing patterns that match the repo-local Python MCP services.
+- Observed patterns:
+  - FastMCP as the Python server interface
+  - standard stdio, SSE, and Streamable HTTP transports
+  - initialize and tools/list as runtime readiness signals
+  - direct server execution for local development
+  - inspector-compatible tool discovery before agent use
+- Local evidence:
+  - `ops/references/mcp_service_manifest.json`
+  - `ops/scripts/mcp_service_manifest.py`
+  - `ops/scripts/mcp_service_runtime_smoke.py`
+  - `tests/test_mcp_service_manifest.py`
+  - `tests/test_mcp_service_runtime_smoke.py`
+  - `docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.json`
+  - `docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
+  - `docs/QUALITY_GATE.md`
+- Gap: Local stdio FastMCP services now prove initialize and tools/list readiness through a shared runtime smoke. Streamable HTTP/SSE transport switching and a shared hosted adapter remain future-scoped until a concrete non-stdio service expansion is selected.
 
 ### lastmile-ai/mcp-eval
 

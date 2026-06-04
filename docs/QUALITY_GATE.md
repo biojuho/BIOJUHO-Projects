@@ -50,6 +50,17 @@ outer timeout. Set the smoke runner's check timeout lower than the outer timeout
 so `run_workspace_smoke.py` can terminate the child process tree itself and
 write partial JSON evidence.
 
+For repo-local MCP service composition readiness, use the manifest-backed stdio
+runtime smoke:
+
+```bash
+python ops/scripts/mcp_service_runtime_smoke.py --json-out docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.json --markdown-out docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md
+```
+
+This checks eligible stdio MCP services with real `initialize` and `tools/list`
+requests. It does not invoke side-effecting tools, and it skips services whose
+manifest does not declare stdio transport.
+
 Legacy compatibility commands remain available after:
 
 ```bash

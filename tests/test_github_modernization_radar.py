@@ -27,13 +27,14 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
     summary = radar.summarize_manifest(payload)
 
     assert errors == []
-    assert summary["source_count"] == 10
+    assert summary["source_count"] == 11
     assert summary["adoption_status_counts"] == {
         "adopted": 1,
-        "partially_adopted": 9,
+        "partially_adopted": 10,
     }
     assert {source["repo"] for source in summary["sources"]} == {
         "PrefectHQ/fastmcp",
+        "modelcontextprotocol/python-sdk",
         "lastmile-ai/mcp-eval",
         "open-telemetry/opentelemetry-collector",
         "evalstate/fast-agent",
@@ -66,10 +67,11 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     machine = json.loads(json_out.read_text(encoding="utf-8"))
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
-    assert machine["source_count"] == 10
-    assert machine["adoption_status_counts"]["partially_adopted"] == 9
+    assert machine["source_count"] == 11
+    assert machine["adoption_status_counts"]["partially_adopted"] == 10
     assert "GitHub Similar Systems Modernization Radar" in markdown
     assert "PrefectHQ/fastmcp" in markdown
+    assert "modelcontextprotocol/python-sdk" in markdown
     assert "modelcontextprotocol/inspector" in markdown
     assert "open-telemetry/opentelemetry-collector" in markdown
     assert "microsoft/mcp-gateway" in markdown

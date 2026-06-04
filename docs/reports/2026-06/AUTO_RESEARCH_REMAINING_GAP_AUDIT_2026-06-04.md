@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 MCP service runtime-smoke slice: adopted an official MCP
+  Python SDK-backed stdio initialize/tools-list smoke for repo-local MCP
+  services.
 - 2026-06-05 collector-handoff slice: adopted an OpenTelemetry Collector
   handoff manifest and validator for real MCP smoke OTLP JSONL artifacts.
 - 2026-06-05 policy-tool slice: adopted `get_devserver_policy` and
@@ -41,7 +44,9 @@ Latest pushed commits in this slice:
 
 ## Adopted Source-Backed Variants
 
-- `PrefectHQ/fastmcp`: adopted a validated MCP service manifest for composition planning.
+- `PrefectHQ/fastmcp`: adopted a validated MCP service manifest for composition planning plus stdio runtime initialize/tools-list evidence.
+- `modelcontextprotocol/python-sdk`: adopted official MCP Python SDK runtime
+  readiness patterns for stdio FastMCP services.
 - `lastmile-ai/mcp-eval`: adopted MCP smoke schema metrics, dashboard surfacing, standalone JSONL trace export, local OTLP file-exporter shaped span export, and validated collector handoff evidence.
 - `open-telemetry/opentelemetry-collector`: adopted an operator-owned
   collector handoff contract and validator for real MCP smoke OTLP artifacts.
@@ -65,9 +70,12 @@ Latest pushed commits in this slice:
 
 These are intentionally not promoted to live runtime changes in this cycle:
 
-- FastMCP runtime composition adapters and transport switching:
+- FastMCP shared composition adapters and transport switching:
   - Status: future-scoped
-  - Reason: the service inventory now exists; a runtime adapter should wait for a concrete MCP expansion target.
+  - Reason: the service inventory and stdio runtime initialize/tools-list
+    smoke now exist for eligible local services; a shared adapter or
+    Streamable HTTP/SSE transport switch should wait for a concrete MCP
+    expansion target.
 - Live OpenTelemetry SDK or collector shipping:
   - Status: future-scoped
   - Reason: local OTLP file-exporter shaped span output and an executable
@@ -89,11 +97,11 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
-- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-otel-handoff-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
+- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-mcp-runtime-smoke-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `10` sources
+  - `11` sources
   - `adopted=1`
-  - `partially_adopted=9`
+  - `partially_adopted=10`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
   - `47 passed` plus MCP subprocess smoke and completion audit after `0746be7`
@@ -124,6 +132,16 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json`
     and
     `docs\reports\2026-06\MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
+- MCP service runtime smoke verification:
+  - `tests\test_mcp_service_runtime_smoke.py` passed `5/5`
+  - `ops\scripts\mcp_service_runtime_smoke.py` passed against the real
+    repo-local stdio MCP services
+  - runtime smoke checked `3` services, passed `3`, skipped `1` non-stdio
+    service, and listed `39` tools
+  - generated evidence:
+    `docs\reports\2026-06\MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.json`
+    and
+    `docs\reports\2026-06\MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
 - Dev-server MCP contract verification:
   - `tests\test_dev_server_mcp_contract.py` `3 passed`
   - dev-server contract/status/control tests `24 passed`

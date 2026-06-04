@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T00:47:00+09:00",
+  "generated_at": "2026-06-05T00:54:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -45,6 +45,7 @@
           "path": "ops/references/github_modernization_sources.json",
           "must_contain": [
             "PrefectHQ/fastmcp",
+            "modelcontextprotocol/python-sdk",
             "lastmile-ai/mcp-eval",
             "open-telemetry/opentelemetry-collector",
             "evalstate/fast-agent",
@@ -56,8 +57,9 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 10",
+            "Sources reviewed: 11",
             "Adoption counts",
+            "modelcontextprotocol/python-sdk",
             "open-telemetry/opentelemetry-collector",
             "microsoft/playwright-mcp",
             "microsoft/mcp-gateway"
@@ -199,12 +201,14 @@
           "must_contain": [
             "tests/test_workspace_smoke.py",
             "tests/test_autoresearch_completion_audit.py",
+            "tests/test_mcp_service_runtime_smoke.py",
             "tests/test_mcp_otel_collector_handoff.py",
             "tests/test_dev_server_browser_smoke.py",
             "tests/test_dev_server_mcp_contract.py",
             "tests/test_dev_server_mcp_runtime.py",
             "tests/test_dev_server_mcp_runtime_smoke.py",
             "ops/scripts/dev_server_mcp_runtime_smoke.py",
+            "ops/scripts/mcp_service_runtime_smoke.py",
             "ops/scripts/autoresearch_completion_audit.py"
           ]
         },
@@ -270,6 +274,42 @@
             "12 passed",
             "get_devserver_policy",
             "mutation_guard=process_mutation_disabled"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mcp_service_runtime_smoke",
+      "requirement": "Repo-local stdio MCP services prove runtime initialize and tools/list readiness against the service manifest.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/mcp_service_runtime_smoke.py",
+          "must_contain": [
+            "initialize",
+            "tools/list",
+            "eligible_services",
+            "expected_min_tools"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"checked_services\": 3",
+            "\"passed_services\": 3",
+            "\"total_tools_listed\": 39",
+            "telegram-bot"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "modelcontextprotocol/python-sdk",
+            "checked services `3`",
+            "total tools listed `39`"
           ]
         }
       ]
