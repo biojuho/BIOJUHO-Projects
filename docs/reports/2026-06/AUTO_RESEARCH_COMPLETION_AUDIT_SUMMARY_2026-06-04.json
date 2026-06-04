@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T22:12:14+09:00",
+  "generated_at": "2026-06-04T22:51:35+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -22,11 +22,11 @@
       "status": "covered",
       "evidence": [
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_FINAL_ALL_SCOPE_SMOKE_2026-06-04.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_ALL_SCOPE_SMOKE_2026-06-04.md",
           "term_count": 3
         },
         {
-          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_FINAL_2026-06-04.json",
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_CURRENT_TIP_2026-06-04.json",
           "term_count": 2
         }
       ]

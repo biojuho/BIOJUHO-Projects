@@ -23,6 +23,7 @@
 - `apps/desci-platform/frontend/src/contexts/AuthContext.jsx`
   - Skips `onAuthStateChanged` when Firebase is not configured.
   - Returns explicit auth-not-configured errors for login/signup attempts in that state.
+  - Initializes `loading=false` for inert local auth so the fallback does not trigger the React hook set-state-in-effect lint warning.
 - `apps/desci-platform/frontend/src/firebase.test.js`
   - Covers missing and placeholder Firebase env fallback.
 - `apps/desci-platform/backend/main.py`
@@ -40,6 +41,8 @@
   - passed
 - `npm.cmd run typecheck` in `apps/desci-platform/frontend`
   - passed
+- `npm.cmd run lint` in `apps/desci-platform/frontend` after auth loading fallback cleanup
+  - passed with no React hook warning
 - `python -m pytest apps\desci-platform\backend\tests\test_api_endpoints.py::test_cors_allows_manifest_frontend_origin -q -p no:cacheprovider`
   - `1 passed`
 - `python -m pytest apps\desci-platform\backend\tests\test_api_endpoints.py -q -p no:cacheprovider`
@@ -62,4 +65,6 @@
   - screenshot: `var/desci-live-click-firebase-cors-fix-2026-06-04.png`
   - JSON evidence: `var/desci-live-click-firebase-cors-fix-2026-06-04.json`
 - `python ops\scripts\run_workspace_smoke.py --scope desci --json-out var\workspace-smoke-desci-firebase-cors-fix-2026-06-04.json`
+  - `7/7 PASS`
+- `python ops\scripts\run_workspace_smoke.py --scope desci --json-out var\workspace-smoke-desci-auth-loading-lint-fix-2026-06-04.json`
   - `7/7 PASS`

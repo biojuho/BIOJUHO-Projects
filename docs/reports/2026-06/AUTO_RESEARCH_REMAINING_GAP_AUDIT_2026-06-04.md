@@ -8,6 +8,22 @@ Latest pushed commits in this slice:
 
 - `0746be7 chore(canva): clear npm audit findings`
 - `554e935 feat(canva): harden widget preview browser smoke`
+- `5542450 docs(ops): add agriguard browser smoke proof`
+- `dcac1d6 docs(ops): add dashboard browser smoke proof`
+- `fb5e41f feat(ops): add dev server browser smoke`
+- `e161361 docs(ops): add playwright mcp radar source`
+- `bed8e0c feat(ops): add workspace smoke check timeout`
+- `1f049c6 chore(ops): run completion audit pre-push`
+- `93bd931 docs(ops): audit browser json evidence`
+- `0019feb feat(desci): write browser smoke json evidence`
+- `22ebc1a feat(ops): add mcp runtime subprocess smoke`
+- `2bc90cd fix(desci): initialize auth fallback loading`
+- `08442fe fix(desci): harden local auth and cors`
+- `961b50c docs(ops): add pre-push gate to completion audit`
+- `329406c chore(ops): include mcp runtime in pre-push smoke`
+- `434c172 feat(ops): add dev server mcp runtime`
+- `494f172 feat(ops): add autoresearch completion audit`
+- `26b2a44 feat(skill): require autoresearch completion audits`
 - `dccaad4 docs(ops): record agriguard click proof`
 - `dc6590f docs(ops): record dashboard click proof`
 - `02bfcea feat(ops): add dev server mcp contract`
@@ -61,6 +77,8 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - Pre-push hooks on the latest pushed slices passed:
   - `47 passed` plus MCP subprocess smoke and completion audit after `0746be7`
   - `47 passed` plus MCP subprocess smoke and completion audit after `554e935`
+  - `36 passed` after `2bc90cd`
+  - `36 passed` after `961b50c`
   - `27 passed` after `dccaad4`
   - `27 passed` after `dc6590f`
   - `27 passed` after `02bfcea`
@@ -102,7 +120,8 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - backend CORS now admits the manifest DeSci frontend origin `http://127.0.0.1:5175`
   - browser smoke returned `7/7 OK`
   - live click proof covered home, explore search, and pricing with zero console/page/request failures
-  - focused/full frontend tests, backend API tests, build/typecheck, and DeSci canonical smoke passed
+  - auth fallback loading now avoids the React hook set-state-in-effect lint warning
+  - focused/full frontend tests, lint, backend API tests, build/typecheck, and DeSci canonical smoke passed
 - Canva widget browser proof:
   - generic browser smoke returned `1/1 PASS` for `canva-widget-preview`
   - preview/mock widget data now uses deterministic inline SVG thumbnails instead of remote marketplace image requests
@@ -111,6 +130,10 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `wrangler` resolves to `4.98.0`
   - lockfile resolves `miniflare@4.20260603.0`, `ws@8.20.1`, and `qs@6.15.2`
   - `CANVA_NPM_AUDIT_2026-06-04.json` records `0` vulnerabilities
+- Current-tip all-scope launch gate:
+  - `python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.json --mcp-trace-out var\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.trace.jsonl --mcp-otel-out var\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.otlp.jsonl`
+  - `25/25 PASS` in `660.688s`
+  - MCP trace emitted `3` events and OTLP emitted `1` `resourceSpans` line with `3` spans
 
 ## Decision
 

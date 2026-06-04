@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "source_report": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_ALL_SCOPE_SMOKE_2026-06-04.md",
+  "source_command": "python ops\\scripts\\run_workspace_smoke.py --scope all --json-out var\\workspace-smoke-all-current-tip-2bc90cd-2026-06-04.json --mcp-trace-out var\\workspace-smoke-all-current-tip-2bc90cd-2026-06-04.trace.jsonl --mcp-otel-out var\\workspace-smoke-all-current-tip-2bc90cd-2026-06-04.otlp.jsonl",
+  "worktree_commit": "2bc90cd",
+  "generated_at": "2026-06-04T13:50:56.812378Z",
+  "status": "complete",
+  "duration_seconds": 616.259,
+  "summary": {
+    "total": 25,
+    "completed": 25,
+    "passed": 25,
+    "failed": 0,
+    "remaining": 0
+  },
+  "scope_summary": {
+    "workspace": {
+      "completed": 6,
+      "passed": 6,
+      "failed": 0,
+      "elapsed_seconds": 86.348
+    },
+    "desci": {
+      "completed": 7,
+      "passed": 7,
+      "failed": 0,
+      "elapsed_seconds": 220.403
+    },
+    "agriguard": {
+      "completed": 5,
+      "passed": 5,
+      "failed": 0,
+      "elapsed_seconds": 89.547
+    },
+    "mcp": {
+      "completed": 3,
+      "passed": 3,
+      "failed": 0,
+      "elapsed_seconds": 83.133
+    },
+    "getdaytrends": {
+      "completed": 2,
+      "passed": 2,
+      "failed": 0,
+      "elapsed_seconds": 85.827
+    },
+    "cie": {
+      "completed": 2,
+      "passed": 2,
+      "failed": 0,
+      "elapsed_seconds": 49.833
+    }
+  },
+  "slowest_checks": [
+    {
+      "name": "desci frontend unit tests",
+      "elapsed_seconds": 113.14
+    },
+    {
+      "name": "getdaytrends tests",
+      "elapsed_seconds": 85.195
+    },
+    {
+      "name": "DailyNews unit tests",
+      "elapsed_seconds": 82.417
+    },
+    {
+      "name": "cie tests",
+      "elapsed_seconds": 49.337
+    },
+    {
+      "name": "shared package tests",
+      "elapsed_seconds": 32.288
+    },
+    {
+      "name": "desci frontend lint",
+      "elapsed_seconds": 28.997
+    },
+    {
+      "name": "desci backend smoke",
+      "elapsed_seconds": 28.874
+    },
+    {
+      "name": "agriguard backend tests",
+      "elapsed_seconds": 28.215
+    }
+  ],
+  "trace_evidence": {
+    "mcp_trace_events": 3,
+    "mcp_otlp_resource_spans_lines": 1,
+    "mcp_otlp_spans": 3,
+    "mcp_command_kinds": {
+      "compileall": 2,
+      "pytest": 1
+    }
+  },
+  "pre_push_evidence": {
+    "pushed_commit": "2bc90cd",
+    "result": "36 passed",
+    "local_hook_refreshed_from_repo_source": true
+  }
+}
