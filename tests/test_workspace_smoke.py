@@ -109,6 +109,10 @@ def test_gitignore_excludes_local_autoresearch_artifacts() -> None:
         "var/**/*.md",
         "var/**/*.png",
         "var/**/*.pid",
+        "var/*.out",
+        "var/*.err",
+        "var/**/*.out",
+        "var/**/*.err",
         "var/dev-servers/",
     ):
         assert pattern in gitignore

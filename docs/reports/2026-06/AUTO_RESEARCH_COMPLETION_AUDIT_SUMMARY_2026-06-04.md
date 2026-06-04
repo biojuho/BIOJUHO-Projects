@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `20`
-- Status counts: `blocked=1, covered=19`
+- Criteria: `22`
+- Status counts: `blocked=1, covered=21`
 
 ## Missing Required
 
@@ -41,6 +41,12 @@
 - Evidence paths: `3`
 
 ### github_source_snapshot_recency_gate
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
+
+### github_source_viability_gate
 
 - Required: `true`
 - Status: `covered`
@@ -129,6 +135,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `1`
+
+### external_credential_boundary_registry
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### external_credential_boundaries
 

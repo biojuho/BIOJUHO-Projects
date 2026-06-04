@@ -820,6 +820,10 @@
             "var/**/*.md",
             "var/**/*.png",
             "var/**/*.pid",
+            "var/*.out",
+            "var/*.err",
+            "var/**/*.out",
+            "var/**/*.err",
             "var/dev-servers/"
           ]
         },
@@ -828,6 +832,7 @@
           "must_contain": [
             "test_gitignore_excludes_local_autoresearch_artifacts",
             "var/**/*.png",
+            "var/**/*.out",
             "var/dev-servers/"
           ]
         },
@@ -837,6 +842,8 @@
             "33",
             "0",
             "29 passed",
+            "93 passed",
+            "22",
             "docs/reports/2026-06/"
           ]
         }

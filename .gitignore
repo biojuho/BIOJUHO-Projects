@@ -116,6 +116,10 @@ var/**/*.json
 var/**/*.md
 var/**/*.png
 var/**/*.pid
+var/*.out
+var/*.err
+var/**/*.out
+var/**/*.err
 var/*.sarif
 var/*.txt
 var/dev-servers/

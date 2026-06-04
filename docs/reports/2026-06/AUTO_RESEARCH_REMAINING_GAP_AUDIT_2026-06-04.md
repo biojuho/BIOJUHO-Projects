@@ -297,17 +297,19 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - baseline `git ls-files --others --exclude-standard var` returned `33`
     untracked local artifacts from browser-click and runtime-smoke cycles
   - `.gitignore` now ignores nested `var/**/*.json`, `var/**/*.md`,
-    `var/**/*.png`, `var/**/*.pid`, and `var/dev-servers/` diagnostics while
+    `var/**/*.png`, `var/**/*.pid`, `var/*.out`, `var/*.err`,
+    `var/**/*.out`, `var/**/*.err`, and `var/dev-servers/` diagnostics while
     keeping durable launch evidence in `docs/reports/2026-06/`
   - variant `git ls-files --others --exclude-standard var` returned `0`
   - `git check-ignore -v` matched representative screenshot, markdown, PID,
-    and dev-server JSON artifacts
+    stdout/stderr, and dev-server JSON artifacts
   - `tests\test_workspace_smoke.py` passed `29/29`
-  - pre-push-equivalent pytest suite passed `88/88`
+  - focused workspace/credential/audit tests passed `44/44`
+  - pre-push-equivalent pytest suite passed `93/93`
   - hook-equivalent runtime probes passed for dev-server MCP runtime, MCP
     service runtime, single-workflow dry-run, side-effect safety skip, and
     all-workflow matrix dry-run
-  - completion audit now reports `20` criteria with
+  - completion audit now reports `22` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`
   - generated evidence:
     `docs\reports\2026-06\AUTO_RESEARCH_VAR_ARTIFACT_GITIGNORE_2026-06-05.md`
