@@ -89,6 +89,20 @@ Capture recent stdout and stderr:
 python ops\scripts\dev_server_control.py --json-out var\dev-server-control-dashboard-tail.json tail --target dashboard-frontend --lines 80
 ```
 
+## Browser Smoke
+
+Validate the browser route manifest without launching a browser:
+
+```powershell
+python ops\scripts\dev_server_browser_smoke.py --validate-only --json-out var\dev-server-browser-smoke-manifest.json
+```
+
+Run a browser smoke against a ready frontend target:
+
+```powershell
+python ops\scripts\dev_server_browser_smoke.py --target desci-frontend --timeout 30 --json-out var\dev-server-browser-smoke-desci.json --markdown-out var\dev-server-browser-smoke-desci.md
+```
+
 ## Stop A Stack
 
 Stop a frontend and its declared dependencies in one command:

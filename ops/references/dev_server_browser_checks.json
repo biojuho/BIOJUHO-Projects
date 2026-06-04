@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T23:23:52+09:00",
+  "description": "Browser route checks for manifest-backed local development frontends.",
+  "checks": [
+    {
+      "target_id": "dashboard-frontend",
+      "routes": [
+        {
+          "name": "home",
+          "path": "/",
+          "expected_text": ["AI Projects Dashboard"]
+        }
+      ]
+    },
+    {
+      "target_id": "agriguard-frontend",
+      "routes": [
+        {
+          "name": "home",
+          "path": "/",
+          "expected_text": ["AgriGuard"]
+        },
+        {
+          "name": "registry",
+          "path": "/registry",
+          "expected_text": ["Register new harvest batches"]
+        },
+        {
+          "name": "supply-chain",
+          "path": "/supply-chain",
+          "expected_text": ["Supply Chain Overview"]
+        }
+      ]
+    },
+    {
+      "target_id": "desci-frontend",
+      "routes": [
+        {
+          "name": "home",
+          "path": "/",
+          "expected_text": ["DSCI"]
+        },
+        {
+          "name": "pricing",
+          "path": "/pricing",
+          "expected_text": ["Starter", "Pro", "Enterprise"]
+        },
+        {
+          "name": "explore",
+          "path": "/explore",
+          "expected_text": ["CRISPR-Cas9", "IPFS"]
+        },
+        {
+          "name": "login",
+          "path": "/login",
+          "expected_text": ["DSCI"]
+        },
+        {
+          "name": "dashboard-redirect",
+          "path": "/dashboard",
+          "expected_text": ["DSCI"],
+          "expected_url_path": "/login"
+        }
+      ]
+    },
+    {
+      "target_id": "canva-widget-preview",
+      "routes": [
+        {
+          "name": "preview",
+          "path": "",
+          "expected_text": ["Canva MCP Server"]
+        }
+      ]
+    }
+  ]
+}

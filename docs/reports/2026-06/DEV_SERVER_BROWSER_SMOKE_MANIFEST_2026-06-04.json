@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "tool": "dev_server_browser_smoke",
+  "generated_at": "2026-06-04T14:21:32.376188Z",
+  "status": "valid",
+  "summary": {
+    "targets": 4,
+    "routes": 10,
+    "completed": 0,
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "results": [],
+  "failures": []
+}

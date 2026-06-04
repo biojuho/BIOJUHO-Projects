@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "tool": "dev_server_browser_smoke",
+  "generated_at": "2026-06-04T14:22:30.297437Z",
+  "status": "pass",
+  "summary": {
+    "targets": 1,
+    "routes": 5,
+    "completed": 5,
+    "passed": 5,
+    "failed": 0,
+    "blocked": 0
+  },
+  "results": [
+    {
+      "target_id": "desci-frontend",
+      "name": "home",
+      "path": "/",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "pricing",
+      "path": "/pricing",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/pricing"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "explore",
+      "path": "/explore",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/explore"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "login",
+      "path": "/login",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/login"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "dashboard-redirect",
+      "path": "/dashboard",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/login"
+    }
+  ],
+  "failures": []
+}

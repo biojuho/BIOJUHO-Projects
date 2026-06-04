@@ -11,6 +11,7 @@ def test_pre_push_hook_runs_completion_and_mcp_smokes() -> None:
 
     assert "tests/test_workspace_smoke.py" in hook
     assert "tests/test_autoresearch_completion_audit.py" in hook
+    assert "tests/test_dev_server_browser_smoke.py" in hook
     assert "tests/test_dev_server_mcp_contract.py" in hook
     assert "tests/test_dev_server_mcp_runtime.py" in hook
     assert "tests/test_dev_server_mcp_runtime_smoke.py" in hook

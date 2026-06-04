@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "dev_server_browser_smoke.py"
+BROWSER_MANIFEST_PATH = PROJECT_ROOT / "ops" / "references" / "dev_server_browser_checks.json"
+TARGETS_MANIFEST_PATH = PROJECT_ROOT / "ops" / "references" / "dev_server_targets.json"
+
+
+def load_browser_smoke_module():
+    spec = importlib.util.spec_from_file_location("dev_server_browser_smoke", SCRIPT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_current_browser_manifest_validates_against_dev_server_targets() -> None:
+    smoke = load_browser_smoke_module()
+    browser_manifest = smoke.load_browser_manifest(BROWSER_MANIFEST_PATH)
+    targets_manifest = smoke.load_targets_manifest(TARGETS_MANIFEST_PATH)
+
+    errors = smoke.validate_manifest(browser_manifest, targets_manifest)
+
+    assert errors == []
+    assert {check["target_id"] for check in browser_manifest["checks"]} == {
+        "dashboard-frontend",
+        "agriguard-frontend",
+        "desci-frontend",
+        "canva-widget-preview",
+    }
+    assert sum(len(check["routes"]) for check in browser_manifest["checks"]) == 10
+
+
+def test_url_helpers_use_target_origin_for_route_paths() -> None:
+    smoke = load_browser_smoke_module()
+
+    assert smoke.route_url("http://127.0.0.1:5175/", "/pricing") == "http://127.0.0.1:5175/pricing"
+    assert (
+        smoke.route_url("http://127.0.0.1:5176/src/dev/preview.html", "")
+        == "http://127.0.0.1:5176/src/dev/preview.html"
+    )
+    assert smoke.path_from_url("http://127.0.0.1:5175/login?next=%2Fdashboard") == "/login"
+
+
+def test_manifest_validation_rejects_bad_target_and_route() -> None:
+    smoke = load_browser_smoke_module()
+    browser_manifest = smoke.load_browser_manifest(BROWSER_MANIFEST_PATH)
+    targets_manifest = smoke.load_targets_manifest(TARGETS_MANIFEST_PATH)
+    browser_manifest["checks"][0]["target_id"] = "dashboard-api"
+    browser_manifest["checks"][1]["routes"][0]["path"] = "relative"
+    browser_manifest["checks"][2]["routes"][0]["expected_text"] = []
+
+    errors = smoke.validate_manifest(browser_manifest, targets_manifest)
+
+    assert "checks[0].target_id must reference a frontend target" in errors
+    assert "checks[1].routes[0].path must be empty or start with /" in errors
+    assert "checks[2].routes[0].expected_text must be a non-empty array" in errors
+
+
+def test_validate_only_writes_machine_and_markdown_reports(tmp_path: Path) -> None:
+    smoke = load_browser_smoke_module()
+    json_out = tmp_path / "browser-smoke.json"
+    markdown_out = tmp_path / "browser-smoke.md"
+
+    result = smoke.main(
+        [
+            "--validate-only",
+            "--target",
+            "desci-frontend",
+            "--json-out",
+            str(json_out),
+            "--markdown-out",
+            str(markdown_out),
+        ]
+    )
+
+    payload = json.loads(json_out.read_text(encoding="utf-8"))
+    markdown = markdown_out.read_text(encoding="utf-8")
+    assert result == 0
+    assert payload["status"] == "valid"
+    assert payload["summary"]["targets"] == 1
+    assert payload["summary"]["routes"] == 5
+    assert "Dev-Server Browser Smoke" in markdown

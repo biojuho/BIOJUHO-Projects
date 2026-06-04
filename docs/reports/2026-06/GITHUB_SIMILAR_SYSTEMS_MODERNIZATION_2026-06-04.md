@@ -4,7 +4,7 @@
 
 - Sources reviewed: 8
 - Adoption counts: adopted=1, partially_adopted=7, watch=0
-- Generated at: `2026-06-04T23:17:17+09:00`
+- Generated at: `2026-06-04T23:23:52+09:00`
 
 ## Search Context
 
@@ -178,9 +178,13 @@
   - optional browser capabilities such as vision, PDF, and DevTools
   - repeatable exploratory automation for long-running app QA loops
 - Local evidence:
+  - `ops/references/dev_server_browser_checks.json`
+  - `ops/scripts/dev_server_browser_smoke.py`
+  - `tests/test_dev_server_browser_smoke.py`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `tests/test_desci_browser_smoke.py`
   - `docs/reports/2026-06/DESCI_BROWSER_SMOKE_JSON_EVIDENCE_2026-06-04.json`
+  - `docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DESCI_2026-06-04.json`
   - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_BROWSER_SMOKE_JSON_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md`
@@ -204,12 +208,15 @@
   - operator-facing runtime status
 - Local evidence:
   - `ops/references/dev_server_targets.json`
+  - `ops/references/dev_server_browser_checks.json`
   - `ops/scripts/dev_server_status.py`
   - `ops/scripts/dev_server_control.py`
+  - `ops/scripts/dev_server_browser_smoke.py`
   - `ops/scripts/dev_server_mcp_contract.py`
   - `ops/scripts/dev_server_mcp_runtime.py`
   - `tests/test_dev_server_status.py`
   - `tests/test_dev_server_control.py`
+  - `tests/test_dev_server_browser_smoke.py`
   - `tests/test_dev_server_mcp_contract.py`
   - `tests/test_dev_server_mcp_runtime.py`
   - `apps/desci-platform/scripts/browser_smoke.py`

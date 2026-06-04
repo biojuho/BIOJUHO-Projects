@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T23:17:17+09:00",
+  "generated_at": "2026-06-04T23:23:52+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -122,6 +122,16 @@
             "\"dashboard-redirect\"",
             "\"upload-redirect\""
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DESCI_2026-06-04.json",
+          "must_contain": [
+            "\"tool\": \"dev_server_browser_smoke\"",
+            "\"status\": \"pass\"",
+            "\"passed\": 5",
+            "\"failed\": 0",
+            "\"dashboard-redirect\""
+          ]
         }
       ]
     },
@@ -151,6 +161,7 @@
           "must_contain": [
             "tests/test_workspace_smoke.py",
             "tests/test_autoresearch_completion_audit.py",
+            "tests/test_dev_server_browser_smoke.py",
             "tests/test_dev_server_mcp_contract.py",
             "tests/test_dev_server_mcp_runtime.py",
             "tests/test_dev_server_mcp_runtime_smoke.py",
@@ -173,6 +184,15 @@
             "git push --dry-run",
             "AutoResearch completion audit",
             "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_BROWSER_SMOKE_2026-06-04.md",
+          "must_contain": [
+            "47",
+            "git push --dry-run",
+            "MCP subprocess smoke",
+            "completion audit"
           ]
         }
       ]
