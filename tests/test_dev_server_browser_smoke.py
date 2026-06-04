@@ -87,3 +87,94 @@ def test_validate_only_writes_machine_and_markdown_reports(tmp_path: Path) -> No
     assert payload["summary"]["targets"] == 1
     assert payload["summary"]["routes"] == 5
     assert "Dev-Server Browser Smoke" in markdown
+
+
+def test_route_result_records_expected_text_matches() -> None:
+    smoke = load_browser_smoke_module()
+
+    class Response:
+        status = 200
+
+    class Locator:
+        def inner_text(self, timeout: int) -> str:
+            return "AI Projects Dashboard\nQueue #2\nGitHub source-refresh token boundary"
+
+    class Page:
+        url = "http://127.0.0.1:5173/"
+
+        def on(self, event: str, callback) -> None:
+            return None
+
+        def remove_listener(self, event: str, callback) -> None:
+            return None
+
+        def goto(self, url: str, wait_until: str, timeout: int):
+            self.url = url
+            return Response()
+
+        def locator(self, selector: str) -> Locator:
+            return Locator()
+
+    result = smoke.run_route(
+        Page(),
+        {"id": "dashboard-frontend", "url": "http://127.0.0.1:5173/"},
+        {
+            "name": "home",
+            "path": "/",
+            "expected_text": [
+                "AI Projects Dashboard",
+                "Queue #2",
+                "GitHub source-refresh token boundary",
+            ],
+        },
+        1000,
+    )
+
+    assert result.ok is True
+    assert result.expected_text_count == 3
+    assert result.matched_expected_text == [
+        "AI Projects Dashboard",
+        "Queue #2",
+        "GitHub source-refresh token boundary",
+    ]
+    assert result.missing_expected_text == []
+
+
+def test_route_result_records_missing_expected_text() -> None:
+    smoke = load_browser_smoke_module()
+
+    class Response:
+        status = 200
+
+    class Locator:
+        def inner_text(self, timeout: int) -> str:
+            return "AI Projects Dashboard"
+
+    class Page:
+        url = "http://127.0.0.1:5173/"
+
+        def on(self, event: str, callback) -> None:
+            return None
+
+        def remove_listener(self, event: str, callback) -> None:
+            return None
+
+        def goto(self, url: str, wait_until: str, timeout: int):
+            self.url = url
+            return Response()
+
+        def locator(self, selector: str) -> Locator:
+            return Locator()
+
+    result = smoke.run_route(
+        Page(),
+        {"id": "dashboard-frontend", "url": "http://127.0.0.1:5173/"},
+        {"name": "home", "path": "/", "expected_text": ["AI Projects Dashboard", "Queue #2"]},
+        1000,
+    )
+
+    assert result.ok is False
+    assert result.expected_text_count == 2
+    assert result.matched_expected_text == ["AI Projects Dashboard"]
+    assert result.missing_expected_text == ["Queue #2"]
+    assert any("missing expected text 'Queue #2'" in failure for failure in result.failures)

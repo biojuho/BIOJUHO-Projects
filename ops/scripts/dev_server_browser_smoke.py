@@ -38,6 +38,9 @@ class RouteResult:
     path: str
     ok: bool
     failures: list[str]
+    expected_text_count: int = 0
+    matched_expected_text: list[str] | None = None
+    missing_expected_text: list[str] | None = None
     status_code: int | None = None
     final_path: str | None = None
 
@@ -158,6 +161,9 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
     request_failures: list[str] = []
     status_code: int | None = None
     final_path: str | None = None
+    expected_text = [str(item) for item in route.get("expected_text", [])]
+    matched_expected_text: list[str] = []
+    missing_expected_text: list[str] = []
 
     def collect_console(message) -> None:
         if message.type == "error":
@@ -180,9 +186,12 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
         if status_code >= 400:
             failures.append(f"{target_id}/{route_name}: HTTP status {status_code}")
         body_text = page.locator("body").inner_text(timeout=timeout_ms)
-        for expected in route["expected_text"]:
+        for expected in expected_text:
             if expected not in body_text:
+                missing_expected_text.append(expected)
                 failures.append(f"{target_id}/{route_name}: missing expected text {expected!r}")
+            else:
+                matched_expected_text.append(expected)
         final_path = path_from_url(page.url)
         expected_url_path = route.get("expected_url_path")
         if expected_url_path and final_path != expected_url_path:
@@ -209,6 +218,9 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
         path=route["path"],
         ok=not failures,
         failures=failures,
+        expected_text_count=len(expected_text),
+        matched_expected_text=matched_expected_text,
+        missing_expected_text=missing_expected_text,
         status_code=status_code,
         final_path=final_path,
     )
@@ -280,7 +292,12 @@ def format_markdown(report: dict[str, Any]) -> str:
         lines.append("- none")
     for result in report["results"]:
         state = "PASS" if result["ok"] else "FAIL"
-        lines.append(f"- `{state}` `{result['target_id']}` `{result['name']}` `{result['path']}`")
+        matched_count = len(result.get("matched_expected_text") or [])
+        expected_count = int(result.get("expected_text_count") or 0)
+        lines.append(
+            f"- `{state}` `{result['target_id']}` `{result['name']}` `{result['path']}` "
+            f"expected=`{matched_count}/{expected_count}`"
+        )
     if report["failures"]:
         lines.extend(["", "## Failures", ""])
         lines.extend(f"- {failure}" for failure in report["failures"])
