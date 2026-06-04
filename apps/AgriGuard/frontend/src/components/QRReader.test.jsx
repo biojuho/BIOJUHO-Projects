@@ -70,12 +70,35 @@ function renderReader() {
 describe('QRReader', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn(),
+      },
+    });
     scannerApi = undefined;
   });
 
   afterEach(() => {
     vi.useRealTimers();
     cleanup();
+  });
+
+  it('shows a camera fallback without mounting the scanner when media devices are unavailable', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: undefined,
+    });
+
+    renderReader();
+
+    expect(screen.getByText('Camera unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Camera scanning is not supported in this browser.')).toBeInTheDocument();
+    expect(screen.queryByTestId('scanner-mock')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Retry scan/i })).not.toBeInTheDocument();
+    expect(trackQrEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event_type: 'scan_start' }),
+    );
   });
 
   it('tracks scan failure and recovery', async () => {

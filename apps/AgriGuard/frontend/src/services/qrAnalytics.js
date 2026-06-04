@@ -33,7 +33,7 @@ export async function trackQrEvent(event) {
     });
     return true;
   } catch (error) {
-    console.error('Failed to track QR event', error);
+    console.warn('Failed to track QR event', error);
     return false;
   }
 }

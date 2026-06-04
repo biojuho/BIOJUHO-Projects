@@ -14,10 +14,16 @@ import {
 } from '../services/qrAnalytics';
 
 const SCAN_SOURCE = 'qr_reader';
+const CAMERA_UNSUPPORTED_MESSAGE = 'Camera scanning is not supported in this browser.';
+
+function hasCameraSupport() {
+  return typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
+}
 
 export default function QRReader() {
-  const [error, setError] = useState('');
-  const [isScanning, setIsScanning] = useState(true);
+  const [cameraSupported] = useState(hasCameraSupport);
+  const [error, setError] = useState(() => (cameraSupported ? '' : CAMERA_UNSUPPORTED_MESSAGE));
+  const [isScanning, setIsScanning] = useState(() => cameraSupported);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [attempt, setAttempt] = useState(1);
   const [lastQrValue, setLastQrValue] = useState('');
@@ -36,6 +42,10 @@ export default function QRReader() {
   }, []);
 
   useEffect(() => {
+    if (!cameraSupported) {
+      return;
+    }
+
     void trackQrEvent({
       session_id: sessionId,
       event_type: 'scan_start',
@@ -43,7 +53,7 @@ export default function QRReader() {
         attempt,
       },
     });
-  }, [attempt, sessionId]);
+  }, [attempt, cameraSupported, sessionId]);
 
   const handleFailure = async ({ message, errorCode, qrValue = '' }) => {
     setLastQrValue(qrValue);
@@ -70,6 +80,12 @@ export default function QRReader() {
   };
 
   const handleRetry = async () => {
+    if (!cameraSupported) {
+      setError(CAMERA_UNSUPPORTED_MESSAGE);
+      setIsScanning(false);
+      return;
+    }
+
     if (navigationTimerRef.current) {
       window.clearTimeout(navigationTimerRef.current);
       navigationTimerRef.current = null;
@@ -150,7 +166,7 @@ export default function QRReader() {
 
         <CardContent className="p-6">
           <div className="relative aspect-square w-full rounded-xl overflow-hidden border-2 border-border bg-muted flex items-center justify-center">
-            {isScanning ? (
+            {isScanning && cameraSupported ? (
               <Scanner
                 onScan={handleScan}
                 onError={(scannerError) => {
@@ -192,8 +208,12 @@ export default function QRReader() {
             ) : (
               <div className="text-center text-muted-foreground px-6">
                 <Camera className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm font-medium">Scanner paused</p>
-                <p className="text-xs mt-2">Use retry to recover from camera or QR recognition issues.</p>
+                <p className="text-sm font-medium">{cameraSupported ? 'Scanner paused' : 'Camera unavailable'}</p>
+                <p className="text-xs mt-2">
+                  {cameraSupported
+                    ? 'Use retry to recover from camera or QR recognition issues.'
+                    : 'Use a browser or device with camera access to scan products.'}
+                </p>
               </div>
             )}
           </div>
@@ -215,12 +235,14 @@ export default function QRReader() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 flex justify-end">
-                  <Button type="button" onClick={handleRetry} className="bg-emerald-600 hover:bg-emerald-700">
-                    <RefreshCcw className="w-4 h-4" />
-                    Retry scan
-                  </Button>
-                </div>
+                {cameraSupported && (
+                  <div className="mt-4 flex justify-end">
+                    <Button type="button" onClick={handleRetry} className="bg-emerald-600 hover:bg-emerald-700">
+                      <RefreshCcw className="w-4 h-4" />
+                      Retry scan
+                    </Button>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
