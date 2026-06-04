@@ -10,6 +10,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "autoresearch_completion_audit.py"
 CONTRACT_PATH = PROJECT_ROOT / "ops" / "references" / "autoresearch_completion_contract.json"
+SUMMARY_JSON_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_2026-06-04.json"
+SUMMARY_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_2026-06-04.md"
 
 
 def load_module():
@@ -65,6 +67,17 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert persisted["criterion_count"] == summary["criterion_count"]
     assert "Global objective complete: `false`" in markdown
     assert "external_credential_boundaries" in markdown
+
+
+def test_checked_in_summary_artifacts_match_current_contract() -> None:
+    audit = load_module()
+
+    summary = audit.audit_contract(audit.load_contract(CONTRACT_PATH), workspace_root=PROJECT_ROOT)
+    expected_json = json.dumps(summary, indent=2, ensure_ascii=False)
+    expected_markdown = audit.format_markdown(summary)
+
+    assert SUMMARY_JSON_PATH.read_text(encoding="utf-8") == expected_json
+    assert SUMMARY_MARKDOWN_PATH.read_text(encoding="utf-8") == expected_markdown
 
 
 def test_missing_required_evidence_invalidates_contract(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T19:53:06.827531+00:00",
+  "generated_at": "2026-06-04T20:00:53.944532+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -161,7 +161,8 @@
         "mcp_otel_collector_handoff",
         "external_credential_boundary_registry",
         "external_credential_handoff",
-        "external_credential_live_verifier"
+        "external_credential_live_verifier",
+        "completion_audit_summary_drift_guard"
       ],
       "evidence": [
         {

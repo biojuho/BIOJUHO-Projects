@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T05:20:00+09:00",
+  "generated_at": "2026-06-05T05:35:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 25
+    "covered": 26
   },
-  "criterion_count": 26,
+  "criterion_count": 27,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -737,7 +737,7 @@
         },
         {
           "path": "tests/test_external_credential_live_verify.py",
-          "term_count": 7,
+          "term_count": 8,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -814,6 +814,27 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_PROMPT_TO_ARTIFACT_COVERAGE_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "completion_audit_summary_drift_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_autoresearch_completion_audit.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_DRIFT_GUARD_2026-06-05.md",
           "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,
