@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "71f4f42",
+            "b762e53",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "71f4f42",
+            "proof_commit": "b762e53",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -544,12 +544,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "71f4f42",
+            "b762e53",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "71f4f42",
+            "proof_commit": "b762e53",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
