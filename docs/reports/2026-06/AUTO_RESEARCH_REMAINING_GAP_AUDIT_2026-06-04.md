@@ -45,6 +45,12 @@ Latest pushed commits in this slice:
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
 - `microsoft/playwright-mcp`: adopted deterministic browser smoke and app-click evidence across DeSci, dashboard, AgriGuard, and Canva widget preview surfaces.
 - `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime with process mutation opt-in.
+- Canva widget-preview browser smoke: adopted deterministic inline SVG preview
+  thumbnails and shared manifest evidence so `canva-widget-preview` is covered
+  by direct browser proof.
+- Canva MCP npm audit cleanup: adopted patched `wrangler`, `miniflare`, `ws`,
+  and `qs` lock state so the local browser-smoke install path reports `0`
+  vulnerabilities.
 
 ## Remaining Gaps
 
@@ -134,6 +140,17 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.json --mcp-trace-out var\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.trace.jsonl --mcp-otel-out var\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.otlp.jsonl`
   - `25/25 PASS` in `660.688s`
   - MCP trace emitted `3` events and OTLP emitted `1` `resourceSpans` line with `3` spans
+- Canva companion proof after the all-scope run:
+  - `dev_server_browser_smoke.py --target canva-widget-preview` passed `1/1`
+    with `0` failures
+  - durable JSON:
+    `docs\reports\2026-06\DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json`
+  - `npm audit --json` reported `0` vulnerabilities and Canva `npm run build`
+    passed
+  - durable audit JSON:
+    `docs\reports\2026-06\CANVA_NPM_AUDIT_2026-06-04.json`
+  - these are focused companion proofs because `mcp\canva-mcp` is outside
+    `run_workspace_smoke.py --scope all`
 
 ## Decision
 

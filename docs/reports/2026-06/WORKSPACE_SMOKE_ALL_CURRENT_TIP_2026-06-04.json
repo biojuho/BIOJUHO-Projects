@@ -4,6 +4,8 @@
   "source_command": "python ops\\scripts\\run_workspace_smoke.py --scope all --json-out var\\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.json --mcp-trace-out var\\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.trace.jsonl --mcp-otel-out var\\workspace-smoke-all-current-tip-post-dev-browser-smoke-2026-06-04.otlp.jsonl",
   "smoke_run_commit": "d7f2403",
   "included_commits": [
+    "0746be7",
+    "554e935",
     "5542450",
     "dcac1d6",
     "fb5e41f",
@@ -13,6 +15,25 @@
     "0019feb",
     "22ebc1a",
     "2bc90cd"
+  ],
+  "all_scope_run_note": "The all-scope command ran at d7f2403. The later Canva companion proof commits are included as focused evidence because mcp/canva-mcp is outside run_workspace_smoke --scope all.",
+  "companion_proofs_after_all_scope_run": [
+    {
+      "commit": "554e935",
+      "scope": "Canva widget preview browser smoke",
+      "status": "pass",
+      "summary": "canva-widget-preview passed 1/1 routes with 0 failures",
+      "report": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_GENERIC_BROWSER_SMOKE_2026-06-04.md",
+      "json": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json"
+    },
+    {
+      "commit": "0746be7",
+      "scope": "Canva MCP npm audit cleanup",
+      "status": "pass",
+      "summary": "npm audit reports 0 vulnerabilities and npm run build passed",
+      "report": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_NPM_AUDIT_2026-06-04.md",
+      "json": "docs/reports/2026-06/CANVA_NPM_AUDIT_2026-06-04.json"
+    }
   ],
   "generated_at": "2026-06-04T14:52:49.238112Z",
   "status": "complete",

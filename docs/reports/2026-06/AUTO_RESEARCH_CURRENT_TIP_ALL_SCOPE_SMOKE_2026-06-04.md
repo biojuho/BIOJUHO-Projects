@@ -4,16 +4,18 @@ Date: 2026-06-04
 
 ## Scope
 
-This report records the current remote-head launch gate after the DeSci
-Firebase/CORS browser fix, the DeSci auth fallback loading lint fix, and the
-remote AutoResearch completion-audit plus dev-server MCP runtime/subprocess
-smoke, DeSci browser JSON evidence, workspace smoke check-timeout, Playwright
-MCP radar source, and dev-server browser smoke proof slices.
+This report records the latest all-scope launch gate plus focused companion
+proofs after the DeSci Firebase/CORS browser fix, the DeSci auth fallback
+loading lint fix, the remote AutoResearch completion-audit plus dev-server MCP
+runtime/subprocess smoke, DeSci browser JSON evidence, workspace smoke
+check-timeout, Playwright MCP radar source, dev-server browser smoke proof
+slices, and the Canva widget-preview browser/audit hardening slices.
 
-- Smoke run commit: `d7f2403`
-- Latest runtime/code/evidence commits included: `5542450`, `dcac1d6`,
+- Smoke run commit for the all-scope command: `d7f2403`
+- Latest evidence commits included: `0746be7`, `554e935`, `5542450`, `dcac1d6`,
   `fb5e41f`, `e161361`, `bed8e0c`, `1f049c6`, `0019feb`, `22ebc1a`,
   `2bc90cd`
+- Companion proof commits after the all-scope run: `0746be7` and `554e935`
 - Branch: `feat/observability-gateway-2026-05`
 - Latest repo-owned pre-push gate includes dev-server browser smoke tests,
   subprocess smoke, and completion audit
@@ -64,19 +66,39 @@ python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-s
   with `1` `resourceSpans` line containing `3` spans
 - MCP command kinds: `compileall=2`, `pytest=1`
 
+## Companion Evidence
+
+The all-scope smoke command does not cover `mcp\canva-mcp`, so the newer Canva
+commits are carried here as focused companion proof instead of being counted as
+part of the `25/25` all-scope command:
+
+- `554e935`: `canva-widget-preview` manifest-backed browser smoke passed
+  `1/1` with `0` failures; report:
+  `docs\reports\2026-06\AUTO_RESEARCH_CANVA_GENERIC_BROWSER_SMOKE_2026-06-04.md`;
+  durable JSON:
+  `docs\reports\2026-06\DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json`
+- `0746be7`: Canva MCP npm audit cleanup resolved the browser-smoke install
+  path to `0` vulnerabilities and kept `npm run build` green; report:
+  `docs\reports\2026-06\AUTO_RESEARCH_CANVA_NPM_AUDIT_2026-06-04.md`;
+  durable JSON:
+  `docs\reports\2026-06\CANVA_NPM_AUDIT_2026-06-04.json`
+
 ## Hook Note
 
-After rebasing over `5542450`, the repo-owned `ops\hooks\pre-push` includes
+After rebasing over `0746be7`, the repo-owned `ops\hooks\pre-push` includes
 dev-server browser smoke tests, dev-server MCP runtime subprocess smoke, and
 AutoResearch completion audit. Running `python ops\hooks\install_hooks.py`
-refreshed the installed common hook at `D:\AI project\.git\hooks\pre-push`
-before this final smoke refresh.
+should refresh the installed common hook at `D:\AI project\.git\hooks\pre-push`
+before pushing this final evidence refresh.
 
 ## Decision
 
 The branch has current-tip all-scope launch proof after the DeSci auth/CORS
 fixes, DeSci browser JSON evidence, dev-server MCP subprocess smoke,
 completion-audit pre-push gate, workspace smoke check-timeout, Playwright MCP
-radar source, and dev-server browser smoke proof slices. Future commits that
-touch runtime code, smoke definitions, dependency manifests, test contracts, or
-launch-critical documentation should refresh this proof before a release claim.
+radar source, and dev-server browser smoke proof slices. The newer Canva
+widget-preview and npm-audit changes have separate focused companion proof
+because they are outside the all-scope runner. Future commits that touch
+runtime code, smoke definitions, dependency manifests, test contracts, or
+launch-critical documentation should refresh either the all-scope gate or the
+appropriate focused companion proof before a release claim.

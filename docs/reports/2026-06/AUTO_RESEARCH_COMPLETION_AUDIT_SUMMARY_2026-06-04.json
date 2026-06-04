@@ -23,11 +23,11 @@
       "evidence": [
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_ALL_SCOPE_SMOKE_2026-06-04.md",
-          "term_count": 3
+          "term_count": 5
         },
         {
           "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_CURRENT_TIP_2026-06-04.json",
-          "term_count": 2
+          "term_count": 4
         }
       ]
     },
@@ -92,6 +92,10 @@
         },
         {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_AGRIGUARD_2026-06-04.json",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json",
           "term_count": 5
         }
       ]

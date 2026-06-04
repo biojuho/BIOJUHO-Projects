@@ -38,7 +38,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `7`
+- Evidence paths: `8`
 
 ### commit_push_evidence
 

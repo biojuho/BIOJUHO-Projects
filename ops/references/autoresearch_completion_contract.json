@@ -19,14 +19,18 @@
           "must_contain": [
             "total=25",
             "passed=25",
-            "660.688s"
+            "660.688s",
+            "Companion Evidence",
+            "mcp\\canva-mcp"
           ]
         },
         {
           "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_CURRENT_TIP_2026-06-04.json",
           "must_contain": [
             "\"passed\": 25",
-            "\"failed\": 0"
+            "\"failed\": 0",
+            "companion_proofs_after_all_scope_run",
+            "Canva MCP npm audit cleanup"
           ]
         }
       ]
