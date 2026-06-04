@@ -66,6 +66,46 @@ def build_report_fingerprint(
     return digest.hexdigest()
 
 
+def build_source_intelligence_meta(
+    category_items: list[ContentItem],
+    clusters: list[ArticleCluster] | None,
+) -> dict[str, Any]:
+    article_count = len(category_items)
+    source_count = len({item.source_name for item in category_items if item.source_name})
+    full_text_count = sum(1 for item in category_items if (item.full_text or "").strip())
+    cluster_list = list(clusters or [])
+    multi_source_clusters = [cluster for cluster in cluster_list if cluster.is_multi_source]
+
+    provider = ""
+    for cluster in cluster_list:
+        provider = str(getattr(cluster, "embedding_provider", "") or "")
+        if provider:
+            break
+
+    top_multi_source_topics = []
+    for cluster in sorted(multi_source_clusters, key=lambda value: (-value.source_count, -len(value.articles)))[:3]:
+        sources = sorted({item.source_name for item in cluster.articles if item.source_name})
+        top_multi_source_topics.append(
+            {
+                "topic_label": cluster.topic_label,
+                "article_count": len(cluster.articles),
+                "source_count": len(sources) or cluster.source_count,
+                "sources": sources,
+            }
+        )
+
+    return {
+        "article_count": article_count,
+        "source_count": source_count,
+        "full_text_count": full_text_count,
+        "full_text_coverage": round(full_text_count / article_count, 3) if article_count else 0.0,
+        "cluster_count": len(cluster_list),
+        "multi_source_topic_count": len(multi_source_clusters),
+        "embedding_provider": provider,
+        "top_multi_source_topics": top_multi_source_topics,
+    }
+
+
 async def build_cluster_meta(
     grouped: dict[str, list[ContentItem]],
     embedding_adapter: EmbeddingAdapter,
@@ -112,6 +152,11 @@ def prepare_category_batch(
             ordered.extend(cluster.articles)
         enriched_items = ordered if ordered else category_items
 
+    analysis_meta = {
+        "generation_mode": generation_mode,
+        "source_intelligence": build_source_intelligence_meta(category_items, clusters),
+    }
+
     ctx = ReportAssemblyContext(
         category=category,
         items=category_items,
@@ -124,7 +169,7 @@ def prepare_category_batch(
         fingerprint=fingerprint,
         source_links=[item.link for item in category_items],
         enriched_items=enriched_items,
-        analysis_meta={"generation_mode": generation_mode},
+        analysis_meta=analysis_meta,
     )
     return ctx, existing
 

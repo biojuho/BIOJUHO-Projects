@@ -30,6 +30,30 @@ REFRESH_HISTORY_FILE = NOTEBOOKLM_HOME / "refresh_history.json"
 SESSION_REFRESH_THRESHOLD_HOURS = 20  # 만료(24h) 전 여유 4시간
 
 
+def _probe_notebooklm_cli(timeout: int = 30) -> tuple[bool, int | None]:
+    try:
+        proc = subprocess.run(
+            ["notebooklm", "list", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="replace",
+            env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8"},
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False, None
+
+    if proc.returncode != 0:
+        return False, None
+
+    try:
+        notebooks = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return True, None
+    return True, len(notebooks) if isinstance(notebooks, list) else None
+
+
 def check_auth_status() -> dict:
     """
     인증 상태를 확인.
@@ -379,6 +403,8 @@ async def health_check(verbose: bool = False) -> dict:
         pass
 
     # 상태 판정
+    result["api_reachable"], result["notebook_count"] = _probe_notebooklm_cli()
+
     if result["api_reachable"] and result["auth"]["authenticated"]:
         if result["auth"]["needs_refresh"]:
             result["status"] = "degraded"  # 곧 만료 예정

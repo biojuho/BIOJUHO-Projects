@@ -37,12 +37,25 @@ def _collect_evidence_quality_warnings(parser_meta: dict[str, Any]) -> list[str]
     return warnings
 
 
+_PROHIBITED_ANALOGY_PATTERNS = (
+    re.compile(r"\ub9c8\uce58.{0,80}\uac19"),
+    re.compile(r"\ube44\uc720|\uc544\ub0a0\ub85c\uc9c0"),
+)
+
+
+def _has_prohibited_analogy(text: str) -> bool:
+    return any(pattern.search(text) for pattern in _PROHIBITED_ANALOGY_PATTERNS)
+
+
 def _quality_review_warnings(ctx: ReportAssemblyContext, draft_text: str, parser_meta: dict) -> list[str]:
     warnings: list[str] = []
+    review_text = "\n".join(ctx.summary_lines + ctx.insights + [draft_text])
     if _has_generic_cta("\n".join(ctx.insights) + "\n" + draft_text):
         warnings.append("Generic CTA detected without timeframe.")
     if any("..." in insight for insight in ctx.insights):
         warnings.append("Truncated insight text detected.")
+    if _has_prohibited_analogy(review_text):
+        warnings.append("Prohibited analogy/metaphor phrasing detected.")
     warnings.extend(_collect_evidence_quality_warnings(parser_meta))
     return warnings
 

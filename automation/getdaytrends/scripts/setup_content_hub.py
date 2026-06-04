@@ -29,6 +29,168 @@ load_dotenv(_project_root / ".env")
 load_dotenv(_workspace_root / ".env", override=True)
 
 
+CONTENT_HUB_TITLE = "Content Hub - Multiplatform Content Management"
+
+
+def _content_hub_properties() -> dict:
+    return {
+        "Name": {"title": {}},
+        "Status": {
+            "select": {
+                "options": [
+                    {"name": "Draft", "color": "gray"},
+                    {"name": "Ready", "color": "yellow"},
+                    {"name": "Approved", "color": "blue"},
+                    {"name": "Published", "color": "green"},
+                    {"name": "Rejected", "color": "red"},
+                    {"name": "Expired", "color": "orange"},
+                    {"name": "Archived", "color": "brown"},
+                ]
+            }
+        },
+        "Feedback State": {
+            "select": {
+                "options": [
+                    {"name": "Need Review", "color": "yellow"},
+                    {"name": "Need Revision", "color": "red"},
+                    {"name": "Recheck", "color": "blue"},
+                    {"name": "Approved", "color": "green"},
+                    {"name": "Parked", "color": "gray"},
+                ]
+            }
+        },
+        "Next Action": {
+            "select": {
+                "options": [
+                    {"name": "Review Copy", "color": "blue"},
+                    {"name": "Revise Draft", "color": "orange"},
+                    {"name": "Approve Publish", "color": "green"},
+                    {"name": "Wait Metrics", "color": "gray"},
+                    {"name": "Archive", "color": "brown"},
+                ]
+            }
+        },
+        "Priority": {
+            "select": {
+                "options": [
+                    {"name": "High", "color": "red"},
+                    {"name": "Medium", "color": "yellow"},
+                    {"name": "Low", "color": "gray"},
+                ]
+            }
+        },
+        "Category": {
+            "select": {
+                "options": [
+                    {"name": "Tech", "color": "blue"},
+                    {"name": "AI", "color": "purple"},
+                    {"name": "Economy", "color": "green"},
+                    {"name": "Society", "color": "orange"},
+                    {"name": "Science", "color": "pink"},
+                    {"name": "Global", "color": "red"},
+                    {"name": "Other", "color": "gray"},
+                ]
+            }
+        },
+        "Date": {"date": {}},
+        "Due Date": {"date": {}},
+        "Created Time": {"created_time": {}},
+        "Tags": {
+            "multi_select": {
+                "options": [
+                    {"name": "Trend", "color": "blue"},
+                    {"name": "Breaking", "color": "red"},
+                    {"name": "Evergreen", "color": "green"},
+                    {"name": "Manual", "color": "gray"},
+                    {"name": "Revised", "color": "orange"},
+                ]
+            }
+        },
+        "Score": {"number": {"format": "number"}},
+        "Platform": {
+            "multi_select": {
+                "options": [
+                    {"name": "X", "color": "blue"},
+                    {"name": "Threads", "color": "purple"},
+                    {"name": "NaverBlog", "color": "green"},
+                ]
+            }
+        },
+        "Reviewer": {"people": {}},
+        "Owner": {"people": {}},
+        "Feedback Notes": {"rich_text": {}},
+        "URL": {"url": {}},
+        "Trend ID": {"rich_text": {}},
+        "Draft ID": {"rich_text": {}},
+        "Prompt Version": {"rich_text": {}},
+        "QA Score": {"number": {"format": "number"}},
+        "Blocking Reasons": {"rich_text": {}},
+        "Published URL": {"url": {}},
+        "Published At": {"date": {}},
+        "Receipt ID": {"rich_text": {}},
+    }
+
+
+def _parent_page_from_database(notion, database_id: str) -> str | None:
+    db_info = notion.databases.retrieve(database_id=database_id)
+    parent = db_info.get("parent", {})
+    if parent.get("type") == "page_id":
+        return parent.get("page_id")
+    return None
+
+
+def _append_env_settings(env_path: Path, database_id: str) -> bool:
+    if not env_path.exists():
+        return False
+    with open(env_path, "a", encoding="utf-8") as f:
+        f.write("\n\n# Content Hub\n")
+        f.write("ENABLE_CONTENT_HUB=true\n")
+        f.write(f"CONTENT_HUB_DATABASE_ID={database_id}\n")
+        f.write("TARGET_PLATFORMS=x,threads,naver_blog\n")
+        f.write("BLOG_MIN_SCORE=70\n")
+    return True
+
+
+def _create_content_hub_database(notion, parent_page_id: str) -> dict:
+    return notion.databases.create(
+        parent={"type": "page_id", "page_id": parent_page_id},
+        title=[{"type": "text", "text": {"content": CONTENT_HUB_TITLE}}],
+        properties=_content_hub_properties(),
+        is_inline=True,
+    )
+
+
+def _create_sample_page(notion, database_id: str) -> dict:
+    from datetime import datetime
+
+    return notion.pages.create(
+        parent={"database_id": database_id},
+        properties={
+            "Name": {"title": [{"text": {"content": "[X] Content Hub smoke test"}}]},
+            "Status": {"select": {"name": "Draft"}},
+            "Feedback State": {"select": {"name": "Need Review"}},
+            "Next Action": {"select": {"name": "Review Copy"}},
+            "Priority": {"select": {"name": "High"}},
+            "Category": {"select": {"name": "Tech"}},
+            "Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
+            "Score": {"number": 85},
+            "Platform": {"multi_select": [{"name": "X"}]},
+            "Tags": {"multi_select": [{"name": "Manual"}]},
+        },
+        children=[
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "icon": {"type": "emoji", "emoji": "✅"},
+                    "rich_text": [{"type": "text", "text": {"content": "Content Hub setup smoke page."}}],
+                    "color": "green_background",
+                },
+            }
+        ],
+    )
+
+
 def main():
     try:
         from notion_client import Client as NotionClient

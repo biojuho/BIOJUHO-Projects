@@ -16,19 +16,28 @@ export default function SupplyChain() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    let cancelled = false;
 
-  const fetchProducts = async () => {
-    try {
-      const res = await productApi.getAll();
-      setProducts(res.data);
-    } catch (err) {
-      console.error('Failed to load supply chain data', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    productApi
+      .getAll()
+      .then((res) => {
+        if (!cancelled) {
+          setProducts(res.data);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load supply chain data', err);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getProductStatus = (product) => {
     const history = product.tracking_history || [];
