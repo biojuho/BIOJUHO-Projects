@@ -152,6 +152,23 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.md`
+- Browser QA freshness gate verification:
+  - `ops\scripts\autoresearch_completion_audit.py` now validates
+    `protected_path_freshness` evidence for launch-critical browser/app paths
+  - proof baseline `f53eb69` is an ancestor of
+    `origin/feat/observability-gateway-2026-05`
+  - protected path diff from `f53eb69` to the active remote is empty for
+    dashboard, DeSci, AgriGuard, Canva widget preview, dev-server browser
+    manifests/scripts, and browser-smoke tests
+  - focused audit tests passed `8/8`
+  - pre-push-equivalent suite passed `80/80`
+  - completion audit now reports `18` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_BROWSER_QA_FRESHNESS_GATE_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_BROWSER_QA_FRESHNESS_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_BROWSER_QA_FRESHNESS_2026-06-05.md`
 - Current-tip matrix-reuse all-scope launch gate:
   - current branch tip `77cc93d`
   - `python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-smoke-all-matrix-reuse-tip-2026-06-05.json --mcp-trace-out var\workspace-smoke-all-matrix-reuse-tip-2026-06-05.trace.jsonl --mcp-otel-out var\workspace-smoke-all-matrix-reuse-tip-2026-06-05.otlp.jsonl`

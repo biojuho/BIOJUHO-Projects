@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T02:13:28+09:00",
+  "generated_at": "2026-06-05T02:20:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -251,6 +251,56 @@
             "\"target_id\": \"canva-widget-preview\"",
             "\"passed\": 1",
             "\"failed\": 0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "direct_browser_qa_freshness_gate",
+      "requirement": "Launch-critical app/browser-smoke paths have not changed after the direct browser QA proof baseline.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/autoresearch_completion_audit.py",
+          "must_contain": [
+            "protected_path_freshness",
+            "protected_paths",
+            "has protected paths changed after proof commit"
+          ]
+        },
+        {
+          "path": "ops/references/autoresearch_completion_contract.json",
+          "must_contain": [
+            "direct_browser_qa_freshness_gate",
+            "f53eb69",
+            "apps/dashboard/",
+            "mcp/canva-mcp/"
+          ],
+          "protected_path_freshness": {
+            "proof_commit": "f53eb69",
+            "remote_ref": "origin/feat/observability-gateway-2026-05",
+            "protected_paths": [
+              "apps/dashboard/",
+              "apps/desci-platform/",
+              "apps/AgriGuard/",
+              "mcp/canva-mcp/",
+              "ops/references/dev_server_targets.json",
+              "ops/references/dev_server_browser_checks.json",
+              "ops/scripts/dev_server_browser_smoke.py",
+              "apps/desci-platform/scripts/browser_smoke.py",
+              "tests/test_dev_server_browser_smoke.py",
+              "tests/test_desci_browser_smoke.py"
+            ]
+          }
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_QA_FRESHNESS_GATE_2026-06-05.md",
+          "must_contain": [
+            "protected_path_freshness",
+            "no changed protected paths",
+            "80 passed",
+            "global_objective_complete=false"
           ]
         }
       ]

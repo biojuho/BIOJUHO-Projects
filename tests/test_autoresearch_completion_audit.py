@@ -30,7 +30,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
     assert summary["global_objective_complete"] is False
     assert summary["missing_required"] == []
     assert "external_credential_boundaries" in summary["explicit_blockers"]
-    assert summary["status_counts"]["covered"] >= 14
+    assert summary["status_counts"]["covered"] >= 16
     assert {item["id"] for item in summary["criteria"]} >= {
         "pre_push_regression_gate",
         "mcp_runtime_subprocess_smoke",
@@ -40,6 +40,8 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "agent_workflow_gate_safety",
         "agent_workflow_gate_matrix",
         "current_tip_freshness_gate",
+        "direct_browser_qa_freshness_gate",
+        "github_source_freshness_snapshot",
         "agent_workflow_gate_matrix_reuse",
     }
 
@@ -177,3 +179,90 @@ def test_git_freshness_requires_proof_ancestor(monkeypatch, tmp_path: Path) -> N
 
     assert summary["valid"] is False
     assert any("not an ancestor" in error for error in summary["errors"])
+
+
+def test_protected_path_freshness_rejects_changed_browser_surface(monkeypatch, tmp_path: Path) -> None:
+    audit = load_module()
+    evidence_file = tmp_path / "evidence.md"
+    evidence_file.write_text("ok\n", encoding="utf-8")
+    payload = _freshness_payload(
+        {
+            "protected_path_freshness": {
+                "proof_commit": "abc1234",
+                "remote_ref": "origin/main",
+                "protected_paths": ["apps/dashboard/", "ops/scripts/dev_server_browser_smoke.py"],
+            }
+        }
+    )
+
+    def fake_run_git(args: list[str], workspace_root: Path):
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:2] == ["diff", "--name-only"]:
+            return subprocess.CompletedProcess(args, 0, "docs/reports/proof.md\napps/dashboard/src/App.jsx\n", "")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(audit, "_run_git", fake_run_git)
+
+    summary = audit.audit_contract(payload, workspace_root=tmp_path)
+
+    assert summary["valid"] is False
+    assert summary["cycle_evidence_ready"] is False
+    assert any("apps/dashboard/src/App.jsx" in error for error in summary["errors"])
+
+
+def test_protected_path_freshness_allows_unrelated_changes(monkeypatch, tmp_path: Path) -> None:
+    audit = load_module()
+    evidence_file = tmp_path / "evidence.md"
+    evidence_file.write_text("ok\n", encoding="utf-8")
+    payload = _freshness_payload(
+        {
+            "protected_path_freshness": {
+                "proof_commit": "abc1234",
+                "remote_ref": "origin/main",
+                "protected_paths": ["apps/dashboard/", "mcp/canva-mcp/"],
+            }
+        }
+    )
+
+    def fake_run_git(args: list[str], workspace_root: Path):
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:2] == ["diff", "--name-only"]:
+            return subprocess.CompletedProcess(args, 0, "docs/reports/proof.md\nops/scripts/audit.py\n", "")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(audit, "_run_git", fake_run_git)
+
+    summary = audit.audit_contract(payload, workspace_root=tmp_path)
+
+    assert summary["valid"] is True
+    assert summary["cycle_evidence_ready"] is True
+    assert summary["errors"] == []
+
+
+def _freshness_payload(extra_evidence: dict) -> dict:
+    evidence = {
+        "path": "evidence.md",
+        "must_contain": ["ok"],
+    }
+    evidence.update(extra_evidence)
+    return {
+        "schema_version": 1,
+        "generated_at": "2026-06-05T02:20:00+09:00",
+        "objective": "test",
+        "global_completion_policy": {
+            "open_ended_until_user_stop": True,
+            "can_mark_complete": False,
+            "reason": "test",
+        },
+        "criteria": [
+            {
+                "id": "freshness",
+                "requirement": "fresh launch proof",
+                "required": True,
+                "status": "covered",
+                "evidence": [evidence],
+            }
+        ],
+    }

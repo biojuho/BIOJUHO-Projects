@@ -223,11 +223,20 @@ def _validate_evidence(value: Any, field: str, workspace_root: Path, errors: lis
         git_freshness = item.get("git_freshness")
         if git_freshness is not None:
             _validate_git_freshness(git_freshness, f"{prefix}.git_freshness", workspace_root, errors)
+        protected_path_freshness = item.get("protected_path_freshness")
+        if protected_path_freshness is not None:
+            _validate_protected_path_freshness(
+                protected_path_freshness,
+                f"{prefix}.protected_path_freshness",
+                workspace_root,
+                errors,
+            )
         normalized.append(
             {
                 "path": path_text,
                 "term_count": len(required_terms),
                 "git_freshness": bool(git_freshness),
+                "protected_path_freshness": bool(protected_path_freshness),
             }
         )
     return normalized
@@ -281,6 +290,54 @@ def _validate_git_freshness(value: Any, field: str, workspace_root: Path, errors
         errors.append(f"{field} has non-evidence changes after proof commit: {joined}")
 
 
+def _validate_protected_path_freshness(value: Any, field: str, workspace_root: Path, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{field} must be an object when present")
+        return
+
+    proof_commit = _require_string(value.get("proof_commit"), f"{field}.proof_commit", errors)
+    remote_ref = _require_string(value.get("remote_ref"), f"{field}.remote_ref", errors)
+    protected_paths = value.get("protected_paths", [])
+    if not isinstance(protected_paths, list) or not protected_paths:
+        errors.append(f"{field}.protected_paths must be a non-empty array")
+        protected_paths = []
+    normalized_protected: list[str] = []
+    for index, path_text in enumerate(protected_paths):
+        if not isinstance(path_text, str) or not path_text.strip():
+            errors.append(f"{field}.protected_paths[{index}] must be a non-empty string")
+            continue
+        normalized = _normalize_git_path(path_text)
+        if normalized.startswith("../") or normalized == "..":
+            errors.append(f"{field}.protected_paths[{index}] must be repo-relative")
+            continue
+        normalized_protected.append(normalized)
+
+    if not proof_commit or not remote_ref:
+        return
+
+    ancestor = _run_git(["merge-base", "--is-ancestor", proof_commit, remote_ref], workspace_root)
+    if ancestor.returncode != 0:
+        detail = ancestor.stderr.strip() or ancestor.stdout.strip() or f"exit {ancestor.returncode}"
+        errors.append(f"{field}.proof_commit is not an ancestor of {remote_ref}: {detail}")
+        return
+
+    changed = _run_git(["diff", "--name-only", f"{proof_commit}..{remote_ref}"], workspace_root)
+    if changed.returncode != 0:
+        detail = changed.stderr.strip() or changed.stdout.strip() or f"exit {changed.returncode}"
+        errors.append(f"{field} could not inspect changed paths since proof commit: {detail}")
+        return
+
+    changed_paths = [_normalize_git_path(line) for line in changed.stdout.splitlines() if line.strip()]
+    stale_paths = [
+        path for path in changed_paths if _matches_any_path(path, normalized_protected)
+    ]
+    if stale_paths:
+        joined = ", ".join(stale_paths[:10])
+        if len(stale_paths) > 10:
+            joined += f", ... ({len(stale_paths)} total)"
+        errors.append(f"{field} has protected paths changed after proof commit: {joined}")
+
+
 def _run_git(args: list[str], workspace_root: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
@@ -299,12 +356,19 @@ def _normalize_git_path(path_text: str) -> str:
 
 def _is_allowed_since_proof(path_text: str, allowed_paths: list[str]) -> bool:
     for allowed in allowed_paths:
-        if allowed.endswith("/"):
-            if path_text.startswith(allowed):
-                return True
-        elif path_text == allowed:
+        if _path_matches(path_text, allowed):
             return True
     return False
+
+
+def _matches_any_path(path_text: str, patterns: list[str]) -> bool:
+    return any(_path_matches(path_text, pattern) for pattern in patterns)
+
+
+def _path_matches(path_text: str, pattern: str) -> bool:
+    if pattern.endswith("/"):
+        return path_text.startswith(pattern)
+    return path_text == pattern
 
 
 def _validate_timestamp(value: Any, errors: list[str]) -> None:
