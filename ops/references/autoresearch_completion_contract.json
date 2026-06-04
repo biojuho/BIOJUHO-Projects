@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T08:20:00+09:00",
+  "generated_at": "2026-06-05T08:31:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -168,6 +168,7 @@
               "ops/scripts/external_credential_handoff.py",
               "ops/scripts/external_credential_live_verify.py",
               "ops/scripts/github_source_freshness.py",
+              "ops/scripts/github_source_commit_digest.py",
               "ops/scripts/github_source_review_queue.py",
               "ops/scripts/telegram_notification_live_verify.py",
               "tests/test_workspace_smoke.py",
@@ -181,6 +182,7 @@
               "tests/test_github_modernization_radar.py",
               "tests/test_autoresearch_completion_audit.py",
               "tests/test_github_source_freshness.py",
+              "tests/test_github_source_commit_digest.py",
               "tests/test_github_source_review_queue.py",
               "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
             ]
@@ -517,6 +519,69 @@
             "GitHub Source Review Queue",
             "27/27",
             "microsoft/agent-framework",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_source_commit_digest",
+      "requirement": "Highest-priority queued GitHub source code movements are reviewed against live commit subjects before a local adoption decision.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_commit_digest.py",
+          "must_contain": [
+            "api.github.com/repos",
+            "commits/main.atom",
+            "github_atom_feed",
+            "review_required_before_local_adoption",
+            "no_local_adoption_commit_window_empty"
+          ]
+        },
+        {
+          "path": "tests/test_github_source_commit_digest.py",
+          "must_contain": [
+            "test_build_commit_digest_selects_pushed_queue_items_and_windows",
+            "test_fetch_commit_delta_falls_back_to_atom_feed_on_rate_limit",
+            "test_checked_in_commit_digest_matches_renderer",
+            "GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"selected_repositories\": 4",
+            "\"failed_repositories\": 0",
+            "\"repo\": \"microsoft/agent-framework\"",
+            "\"repo\": \"mastra-ai/mastra\"",
+            "\"repo\": \"microsoft/playwright-mcp\"",
+            "\"repo\": \"vercel/ai\"",
+            "\"fetch_source\": \"github_atom_feed\"",
+            "\"no_local_adoption_commit_window_empty\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.md",
+          "must_contain": [
+            "GitHub Source Commit Delta Digest",
+            "Selected repositories: `4`",
+            "microsoft/agent-framework",
+            "mastra-ai/mastra",
+            "microsoft/playwright-mcp",
+            "vercel/ai",
+            "review_required_before_local_adoption",
+            "no_local_adoption_commit_window_empty"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.md",
+          "must_contain": [
+            "GitHub Source Commit Digest",
+            "4/4",
+            "github_atom_feed",
             "global_objective_complete=false"
           ]
         }

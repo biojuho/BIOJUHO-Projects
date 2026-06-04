@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `40`
-- Status counts: `blocked=1, covered=39`
+- Criteria: `41`
+- Status counts: `blocked=1, covered=40`
 
 ## Missing Required
 
@@ -65,6 +65,12 @@
 - Evidence paths: `5`
 
 ### github_source_review_queue
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
+
+### github_source_commit_digest
 
 - Required: `true`
 - Status: `covered`
