@@ -54,6 +54,10 @@ def execute_tool(
     allow_mutation = process_mutation_allowed() if allow_process_mutation is None else allow_process_mutation
     payload = contract_builder.load_validated_manifest()
 
+    if name == "get_devserver_policy":
+        _reject_unknown_arguments(args, set())
+        return load_contract()["operator_policy"]
+
     if name == "get_devserver_statuses":
         _reject_unknown_arguments(
             args,
@@ -309,7 +313,11 @@ def main(argv: list[str] | None = None) -> int:
     configure_stdio()
     parser = argparse.ArgumentParser(description="Run the local dev-server MCP stdio runtime.")
     parser.add_argument("--once", action="store_true", help="Read one JSON-RPC request from stdin, write one response, and exit.")
+    parser.add_argument("--policy", action="store_true", help="Print the read-only runtime operator policy as JSON and exit.")
     args = parser.parse_args(argv)
+    if args.policy:
+        print(json.dumps(load_contract()["operator_policy"], indent=2, ensure_ascii=False))
+        return 0
     if args.once:
         line = sys.stdin.readline()
         if not line:

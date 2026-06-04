@@ -6,6 +6,8 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 policy-tool slice: adopted `get_devserver_policy` and
+  `microsoft/mcp-gateway` radar evidence.
 - `0746be7 chore(canva): clear npm audit findings`
 - `554e935 feat(canva): harden widget preview browser smoke`
 - `5542450 docs(ops): add agriguard browser smoke proof`
@@ -44,6 +46,9 @@ Latest pushed commits in this slice:
 - `modelcontextprotocol/inspector`: adopted a repo-owned stdio subprocess smoke for `initialize`, `tools/list`, guarded `tools/call`, and read-only log calls.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
 - `microsoft/playwright-mcp`: adopted deterministic browser smoke and app-click evidence across DeSci, dashboard, AgriGuard, and Canva widget preview surfaces.
+- `microsoft/mcp-gateway`: adopted machine-readable local-only dev-server MCP
+  policy introspection for runtime status, stdio transport, no network
+  exposure, unsupported non-local control, and process-mutation defaults.
 - `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime with process mutation opt-in.
 - Canva widget-preview browser smoke: adopted deterministic inline SVG preview
   thumbnails and shared manifest evidence so `canva-widget-preview` is covered
@@ -68,9 +73,12 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - Canva OpenAPI tool execution proxy:
   - Status: external-auth blocked
   - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior.
-- Dev-server TUI exposure and non-local authentication policy:
+- Dev-server TUI exposure and network-facing non-local authentication:
   - Status: future-scoped
-  - Reason: a local stdio MCP runtime now exists for the checked tool contract; full TUI exposure or non-local process-control authentication should wait for an operator-owned boundary.
+  - Reason: a local stdio MCP runtime now exposes a read-only
+    `get_devserver_policy` tool for current local-only policy; full TUI
+    exposure or a network-facing gateway/authentication layer should wait for
+    an operator-owned boundary.
 
 ## Verification
 
@@ -110,6 +118,14 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `ops\scripts\dev_server_mcp_runtime_smoke.py` returned `4` requests, `4` tools, and `mutation_guard=process_mutation_disabled`
   - focused MCP/radar/audit suite `19 passed`
   - installed pre-push dry-run ran `38 passed` plus subprocess smoke
+- Dev-server MCP policy verification:
+  - `get_devserver_policy` is listed by `tools/list`
+  - subprocess smoke now returns `5` requests, `5` tools, and
+    `mutation_guard=process_mutation_disabled`
+  - policy payload reports `runtime_status=local_stdio_runtime`,
+    `network_exposure=none`, `non_local_control.status=unsupported`, and
+    `process_mutation.default=disabled`
+  - focused contract/runtime/smoke tests passed `12/12`
 - Dashboard live browser-click verification:
   - `apps\dashboard` build passed
   - dashboard Vitest `8 passed`

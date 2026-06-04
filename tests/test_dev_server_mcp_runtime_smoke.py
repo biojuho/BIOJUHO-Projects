@@ -29,11 +29,15 @@ def test_runtime_subprocess_smoke_passes(tmp_path: Path) -> None:
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
     assert payload["status"] == "pass"
-    assert payload["request_count"] == 4
-    assert payload["summary"]["tool_count"] == 4
+    assert payload["request_count"] == 5
+    assert payload["summary"]["tool_count"] == 5
+    assert payload["summary"]["policy_runtime_status"] == "local_stdio_runtime"
+    assert payload["summary"]["policy_non_local_control"] == "unsupported"
+    assert payload["summary"]["policy_process_mutation_default"] == "disabled"
     assert payload["summary"]["mutation_guard_status"] == "process_mutation_disabled"
     assert "Dev-Server MCP Runtime Smoke" in markdown
     assert "start_server" in markdown
+    assert "get_devserver_policy" in markdown
 
 
 def test_validator_rejects_missing_tool() -> None:
@@ -49,6 +53,18 @@ def test_validator_rejects_missing_tool() -> None:
             "jsonrpc": "2.0",
             "id": 3,
             "result": {
+                "isError": False,
+                "structuredContent": {
+                    "runtime_status": "local_stdio_runtime",
+                    "process_mutation": {"default": "disabled"},
+                    "non_local_control": {"status": "unsupported"},
+                },
+            },
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "result": {
                 "isError": True,
                 "structuredContent": {
                     "status": "process_mutation_disabled",
@@ -58,7 +74,7 @@ def test_validator_rejects_missing_tool() -> None:
         },
         {
             "jsonrpc": "2.0",
-            "id": 4,
+            "id": 5,
             "result": {
                 "isError": False,
                 "structuredContent": {"schema_version": 1, "target_id": "dashboard-api"},

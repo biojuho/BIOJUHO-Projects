@@ -2,8 +2,8 @@
 
 ## Summary
 
-- Sources reviewed: 8
-- Adoption counts: adopted=1, partially_adopted=7, watch=0
+- Sources reviewed: 9
+- Adoption counts: adopted=1, partially_adopted=8, watch=0
 - Generated at: `2026-06-04T23:55:13+09:00`
 
 ## Search Context
@@ -16,6 +16,7 @@
   - `dev server MCP Playwright workflow automation`
   - `MCP inspector CLI tools/list tools/call stdio automation`
   - `Playwright MCP browser automation accessibility snapshots`
+  - `MCP gateway routing authorization lifecycle management`
 
 ## Source Mapping
 
@@ -131,10 +132,38 @@
   - `tests/test_dev_server_mcp_runtime_smoke.py`
   - `ops/hooks/pre-push`
   - `docs/guides/dev-server-control.md`
-  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json`
-  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.md`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_SUBPROCESS_SMOKE_2026-06-04.md`
-- Gap: Local subprocess smoke now validates initialize, tools/list, tools/call, and the mutation guard. Full visual inspector or hosted TUI exposure remains future-scoped.
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md`
+- Gap: Local subprocess smoke now validates initialize, tools/list, tools/call, get_devserver_policy, and the mutation guard. Full visual inspector or hosted TUI exposure remains future-scoped.
+
+### microsoft/mcp-gateway
+
+- URL: https://github.com/microsoft/mcp-gateway
+- Category: `mcp-gateway-management`
+- Adoption status: `partially_adopted`
+- Why similar: MCP Gateway is a management and reverse-proxy layer for MCP servers with routing, authorization, lifecycle, telemetry, and observability concerns that match the local non-local-control policy gap.
+- Observed patterns:
+  - session-aware MCP server routing
+  - authorization and access-control policy before wider MCP exposure
+  - MCP server lifecycle management
+  - telemetry and observability as gateway-level concerns
+  - clear separation between local runtime behavior and network-facing control
+- Local evidence:
+  - `ops/scripts/dev_server_mcp_contract.py`
+  - `ops/scripts/dev_server_mcp_runtime.py`
+  - `ops/scripts/dev_server_mcp_runtime_smoke.py`
+  - `tests/test_dev_server_mcp_contract.py`
+  - `tests/test_dev_server_mcp_runtime.py`
+  - `tests/test_dev_server_mcp_runtime_smoke.py`
+  - `docs/guides/dev-server-control.md`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-05.json`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-05.md`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md`
+- Gap: Local dev-server MCP policy introspection is adopted with stdio-only, no-network-exposure, local-only, and process-mutation-disabled defaults. A real network-facing gateway, authorization layer, or TUI remains future-scoped until an operator-owned access policy exists.
 
 ### open-webui/mcpo
 
@@ -205,8 +234,9 @@
   - terminal table view for operator status checks
   - browser automation as a first-class workflow capability
   - checked MCP tool definitions for dev-server status, start, stop, and logs
-  - local stdio runtime for read-only operator status and logs
+  - local stdio runtime for read-only operator status, policy, and logs
   - explicit opt-in boundary for process-mutating tool calls
+  - machine-readable local-only and non-local-control policy
   - operator-facing runtime status
 - Local evidence:
   - `ops/references/dev_server_targets.json`
@@ -228,8 +258,13 @@
   - `docs/guides/dev-server-control.md`
   - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.json`
   - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.md`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-05.json`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-05.md`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_CONTRACT_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_RUNTIME_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md`
@@ -240,7 +275,7 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_DEV_SERVER_READINESS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_TABLE_STATUS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TIMEOUT_TREE_2026-06-04.md`
-- Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime are adopted. Full TUI exposure and non-local authentication policy remain future-scoped; process mutation is available only through explicit local environment opt-in.
+- Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, a local stdio MCP runtime, and read-only policy introspection are adopted. Full TUI exposure and a network-facing non-local authentication layer remain future-scoped; process mutation is available only through explicit local environment opt-in.
 
 ## Operating Decision
 

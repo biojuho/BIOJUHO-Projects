@@ -12,13 +12,15 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 DEFAULT_MANIFEST = WORKSPACE_ROOT / "ops" / "references" / "dev_server_targets.json"
 SOURCE_URL = "https://github.com/Uninen/devserver-mcp"
+GATEWAY_SOURCE_URL = "https://github.com/microsoft/mcp-gateway"
 OBSERVED_SOURCE_TOOLS = [
     "start_server",
     "stop_server",
     "get_devserver_statuses",
     "get_devserver_logs",
 ]
-REQUIRED_TOOL_NAMES = set(OBSERVED_SOURCE_TOOLS)
+LOCAL_POLICY_TOOL = "get_devserver_policy"
+REQUIRED_TOOL_NAMES = set(OBSERVED_SOURCE_TOOLS) | {LOCAL_POLICY_TOOL}
 
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
@@ -52,11 +54,13 @@ def build_contract(payload: dict[str, Any]) -> dict[str, Any]:
     ]
     tools = [
         build_status_tool(target_ids),
+        build_policy_tool(),
         build_start_tool(target_ids),
         build_stop_tool(target_ids),
         build_logs_tool(target_ids),
     ]
     safety_counts = Counter(tool["safety"] for tool in tools)
+    policy = build_operator_policy(tools)
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -65,6 +69,13 @@ def build_contract(payload: dict[str, Any]) -> dict[str, Any]:
             "url": SOURCE_URL,
             "observed_tools": OBSERVED_SOURCE_TOOLS,
             "observed_pattern": "MCP tools for dev-server start, stop, status, logs, and browser-assisted workflows.",
+            "companion_sources": [
+                {
+                    "repo": "microsoft/mcp-gateway",
+                    "url": GATEWAY_SOURCE_URL,
+                    "observed_pattern": "MCP routing, authorization, lifecycle management, and observability policy are first-class gateway concerns.",
+                }
+            ],
         },
         "runtime": {
             "status": "local_stdio_runtime",
@@ -73,6 +84,7 @@ def build_contract(payload: dict[str, Any]) -> dict[str, Any]:
             "process_mutation_enable_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
             "reason": "A local stdio runtime exposes the contract. Read-only tools are enabled by default; start/stop require an explicit local environment opt-in.",
         },
+        "operator_policy": policy,
         "local_cli": {
             "status_script": "ops/scripts/dev_server_status.py",
             "control_script": "ops/scripts/dev_server_control.py",
@@ -86,6 +98,40 @@ def build_contract(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "targets": compact_targets,
         "tools": tools,
+    }
+
+
+def build_operator_policy(tools: list[dict[str, Any]]) -> dict[str, Any]:
+    read_only_tools = sorted(tool["name"] for tool in tools if tool["safety"] == "read_only")
+    process_mutating_tools = sorted(tool["name"] for tool in tools if tool["safety"] == "process_mutating")
+    return {
+        "schema_version": 1,
+        "runtime_status": "local_stdio_runtime",
+        "transport": "stdio",
+        "network_exposure": "none",
+        "local_only": True,
+        "non_local_control": {
+            "status": "unsupported",
+            "reason": "The dev-server MCP runtime is intentionally stdio-only. Non-local process control needs a separate operator-owned authentication and gateway policy.",
+        },
+        "process_mutation": {
+            "default": "disabled",
+            "enable_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
+            "read_only_tools": read_only_tools,
+            "process_mutating_tools": process_mutating_tools,
+        },
+        "source_patterns": [
+            {
+                "repo": "Uninen/devserver-mcp",
+                "url": SOURCE_URL,
+                "pattern": "Expose status, logs, start, and stop as MCP tools for local development servers.",
+            },
+            {
+                "repo": "microsoft/mcp-gateway",
+                "url": GATEWAY_SOURCE_URL,
+                "pattern": "Keep routing, authorization, lifecycle management, and observability policy explicit before widening MCP server exposure.",
+            },
+        ],
     }
 
 
@@ -119,6 +165,22 @@ def build_status_tool(target_ids: list[str]) -> dict[str, Any]:
             "poll_interval_seconds": {"flag": "--poll-interval"},
         },
         "output_contract": "dev_server_status schema_version=1 JSON report",
+    }
+
+
+def build_policy_tool() -> dict[str, Any]:
+    return {
+        "name": LOCAL_POLICY_TOOL,
+        "description": "Return the local dev-server MCP runtime access, process-mutation, and non-local-control policy.",
+        "safety": "read_only",
+        "inputSchema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {},
+        },
+        "command_template": ["python", "ops/scripts/dev_server_mcp_runtime.py", "--policy"],
+        "argument_mapping": {},
+        "output_contract": "operator_policy schema_version=1 JSON policy",
     }
 
 
@@ -305,10 +367,17 @@ def render_markdown(contract: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "## Operator Policy",
+            "",
+            f"- Transport: `{contract['operator_policy']['transport']}`",
+            f"- Network exposure: `{contract['operator_policy']['network_exposure']}`",
+            f"- Non-local control: `{contract['operator_policy']['non_local_control']['status']}`",
+            f"- Process mutation default: `{contract['operator_policy']['process_mutation']['default']}`",
+            "",
             "## Boundary",
             "",
             "A local stdio runtime is available at `python ops/scripts/dev_server_mcp_runtime.py`.",
-            "Read-only status and log tools are enabled by default. Process-mutating start/stop tools require `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` in the local environment.",
+            "Read-only status, policy, and log tools are enabled by default. Process-mutating start/stop tools require `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` in the local environment.",
         ]
     )
     return "\n".join(lines).rstrip() + "\n"

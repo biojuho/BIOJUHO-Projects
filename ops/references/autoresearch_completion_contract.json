@@ -48,15 +48,17 @@
             "lastmile-ai/mcp-eval",
             "evalstate/fast-agent",
             "open-webui/mcpo",
-            "Uninen/devserver-mcp"
+            "Uninen/devserver-mcp",
+            "microsoft/mcp-gateway"
           ]
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 8",
+            "Sources reviewed: 9",
             "Adoption counts",
-            "microsoft/playwright-mcp"
+            "microsoft/playwright-mcp",
+            "microsoft/mcp-gateway"
           ]
         }
       ]
@@ -242,24 +244,28 @@
           "must_contain": [
             "subprocess.run",
             "tools/list",
+            "get_devserver_policy",
             "tools/call",
             "process_mutation_disabled"
           ]
         },
         {
-          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json",
+          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json",
           "must_contain": [
             "\"status\": \"pass\"",
-            "\"request_count\": 4",
-            "\"tool_count\": 4",
+            "\"request_count\": 5",
+            "\"tool_count\": 5",
+            "get_devserver_policy",
+            "\"policy_non_local_control\": \"unsupported\"",
             "process_mutation_disabled"
           ]
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_SUBPROCESS_SMOKE_2026-06-04.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md",
           "must_contain": [
-            "modelcontextprotocol/inspector",
-            "11 passed",
+            "microsoft/mcp-gateway",
+            "12 passed",
+            "get_devserver_policy",
             "mutation_guard=process_mutation_disabled"
           ]
         }

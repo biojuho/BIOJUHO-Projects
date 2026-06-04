@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T15:14:56.894837+00:00",
+  "status": "pass",
+  "runtime": "ops/scripts/dev_server_mcp_runtime.py",
+  "request_count": 5,
+  "response_count": 5,
+  "process_returncode": 0,
+  "stderr": "",
+  "summary": {
+    "tool_count": 5,
+    "tools": [
+      "get_devserver_logs",
+      "get_devserver_policy",
+      "get_devserver_statuses",
+      "start_server",
+      "stop_server"
+    ],
+    "policy_runtime_status": "local_stdio_runtime",
+    "policy_non_local_control": "unsupported",
+    "policy_process_mutation_default": "disabled",
+    "mutation_guard_status": "process_mutation_disabled",
+    "mutation_guard_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
+    "logs_target_id": "dashboard-api"
+  },
+  "errors": []
+}

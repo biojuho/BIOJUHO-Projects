@@ -1,0 +1,468 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T15:14:56.435415+00:00",
+  "source": {
+    "repo": "Uninen/devserver-mcp",
+    "url": "https://github.com/Uninen/devserver-mcp",
+    "observed_tools": [
+      "start_server",
+      "stop_server",
+      "get_devserver_statuses",
+      "get_devserver_logs"
+    ],
+    "observed_pattern": "MCP tools for dev-server start, stop, status, logs, and browser-assisted workflows.",
+    "companion_sources": [
+      {
+        "repo": "microsoft/mcp-gateway",
+        "url": "https://github.com/microsoft/mcp-gateway",
+        "observed_pattern": "MCP routing, authorization, lifecycle management, and observability policy are first-class gateway concerns."
+      }
+    ]
+  },
+  "runtime": {
+    "status": "local_stdio_runtime",
+    "entrypoint": "python ops/scripts/dev_server_mcp_runtime.py",
+    "process_mutation_default": "disabled",
+    "process_mutation_enable_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
+    "reason": "A local stdio runtime exposes the contract. Read-only tools are enabled by default; start/stop require an explicit local environment opt-in."
+  },
+  "operator_policy": {
+    "schema_version": 1,
+    "runtime_status": "local_stdio_runtime",
+    "transport": "stdio",
+    "network_exposure": "none",
+    "local_only": true,
+    "non_local_control": {
+      "status": "unsupported",
+      "reason": "The dev-server MCP runtime is intentionally stdio-only. Non-local process control needs a separate operator-owned authentication and gateway policy."
+    },
+    "process_mutation": {
+      "default": "disabled",
+      "enable_env": "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION",
+      "read_only_tools": [
+        "get_devserver_logs",
+        "get_devserver_policy",
+        "get_devserver_statuses"
+      ],
+      "process_mutating_tools": [
+        "start_server",
+        "stop_server"
+      ]
+    },
+    "source_patterns": [
+      {
+        "repo": "Uninen/devserver-mcp",
+        "url": "https://github.com/Uninen/devserver-mcp",
+        "pattern": "Expose status, logs, start, and stop as MCP tools for local development servers."
+      },
+      {
+        "repo": "microsoft/mcp-gateway",
+        "url": "https://github.com/microsoft/mcp-gateway",
+        "pattern": "Keep routing, authorization, lifecycle management, and observability policy explicit before widening MCP server exposure."
+      }
+    ]
+  },
+  "local_cli": {
+    "status_script": "ops/scripts/dev_server_status.py",
+    "control_script": "ops/scripts/dev_server_control.py",
+    "manifest": "ops/references/dev_server_targets.json"
+  },
+  "summary": {
+    "target_count": 7,
+    "tool_count": 5,
+    "read_only_tools": 3,
+    "process_mutating_tools": 2
+  },
+  "targets": [
+    {
+      "id": "dashboard-api",
+      "label": "Workspace Dashboard API",
+      "project": "dashboard",
+      "kind": "api",
+      "url": "http://127.0.0.1:8080/api/quality_overview",
+      "depends_on": [],
+      "smoke_scope": "workspace",
+      "tags": [
+        "operator-dashboard",
+        "quality"
+      ]
+    },
+    {
+      "id": "dashboard-frontend",
+      "label": "Workspace Dashboard Frontend",
+      "project": "dashboard",
+      "kind": "frontend",
+      "url": "http://127.0.0.1:5173/",
+      "depends_on": [
+        "dashboard-api"
+      ],
+      "smoke_scope": "workspace",
+      "tags": [
+        "operator-dashboard",
+        "browser"
+      ]
+    },
+    {
+      "id": "agriguard-api",
+      "label": "AgriGuard API",
+      "project": "agriguard",
+      "kind": "api",
+      "url": "http://127.0.0.1:8002/",
+      "depends_on": [],
+      "smoke_scope": "agriguard",
+      "tags": [
+        "product",
+        "browser"
+      ]
+    },
+    {
+      "id": "agriguard-frontend",
+      "label": "AgriGuard Frontend",
+      "project": "agriguard",
+      "kind": "frontend",
+      "url": "http://127.0.0.1:5174/",
+      "depends_on": [
+        "agriguard-api"
+      ],
+      "smoke_scope": "agriguard",
+      "tags": [
+        "product",
+        "browser"
+      ]
+    },
+    {
+      "id": "desci-api",
+      "label": "DeSci API",
+      "project": "desci",
+      "kind": "api",
+      "url": "http://127.0.0.1:8000/health",
+      "depends_on": [],
+      "smoke_scope": "desci",
+      "tags": [
+        "product",
+        "readiness"
+      ]
+    },
+    {
+      "id": "desci-frontend",
+      "label": "DeSci Frontend",
+      "project": "desci",
+      "kind": "frontend",
+      "url": "http://127.0.0.1:5175/",
+      "depends_on": [
+        "desci-api"
+      ],
+      "smoke_scope": "desci",
+      "tags": [
+        "product",
+        "browser"
+      ]
+    },
+    {
+      "id": "canva-widget-preview",
+      "label": "Canva Widget Preview",
+      "project": "canva-mcp",
+      "kind": "frontend",
+      "url": "http://127.0.0.1:5176/src/dev/preview.html",
+      "depends_on": [],
+      "smoke_scope": "mcp",
+      "tags": [
+        "mcp",
+        "browser",
+        "widgets"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_devserver_statuses",
+      "description": "Return readiness status for all or selected local development server targets.",
+      "safety": "read_only",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "dashboard-api",
+                "dashboard-frontend",
+                "agriguard-api",
+                "agriguard-frontend",
+                "desci-api",
+                "desci-frontend",
+                "canva-widget-preview"
+              ]
+            },
+            "uniqueItems": true,
+            "description": "Optional target ids to probe. Omit to probe every configured target."
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "minimum": 0.1,
+            "default": 2.0
+          },
+          "wait_ready": {
+            "type": "boolean",
+            "default": false
+          },
+          "wait_timeout_seconds": {
+            "type": "number",
+            "minimum": 0.0,
+            "default": 30.0
+          },
+          "poll_interval_seconds": {
+            "type": "number",
+            "minimum": 0.0,
+            "default": 1.0
+          }
+        }
+      },
+      "command_template": [
+        "python",
+        "ops/scripts/dev_server_status.py",
+        "--format",
+        "json"
+      ],
+      "argument_mapping": {
+        "target_ids": {
+          "repeat_flag": "--target"
+        },
+        "timeout_seconds": {
+          "flag": "--timeout"
+        },
+        "wait_ready": {
+          "flag": "--wait-ready",
+          "when_true": true
+        },
+        "wait_timeout_seconds": {
+          "flag": "--wait-timeout"
+        },
+        "poll_interval_seconds": {
+          "flag": "--poll-interval"
+        }
+      },
+      "output_contract": "dev_server_status schema_version=1 JSON report"
+    },
+    {
+      "name": "get_devserver_policy",
+      "description": "Return the local dev-server MCP runtime access, process-mutation, and non-local-control policy.",
+      "safety": "read_only",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "command_template": [
+        "python",
+        "ops/scripts/dev_server_mcp_runtime.py",
+        "--policy"
+      ],
+      "argument_mapping": {},
+      "output_contract": "operator_policy schema_version=1 JSON policy"
+    },
+    {
+      "name": "start_server",
+      "description": "Start a configured local development server target, optionally waiting for readiness.",
+      "safety": "process_mutating",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_id"
+        ],
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "enum": [
+              "dashboard-api",
+              "dashboard-frontend",
+              "agriguard-api",
+              "agriguard-frontend",
+              "desci-api",
+              "desci-frontend",
+              "canva-widget-preview"
+            ]
+          },
+          "wait_ready": {
+            "type": "boolean",
+            "default": true
+          },
+          "wait_timeout_seconds": {
+            "type": "number",
+            "minimum": 0.0,
+            "default": 90.0
+          },
+          "poll_interval_seconds": {
+            "type": "number",
+            "minimum": 0.0,
+            "default": 2.0
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "minimum": 0.1,
+            "default": 3.0
+          },
+          "start_dependencies": {
+            "type": "boolean",
+            "default": true
+          },
+          "reuse_ready": {
+            "type": "boolean",
+            "default": true
+          },
+          "append_logs": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "command_template": [
+        "python",
+        "ops/scripts/dev_server_control.py",
+        "start",
+        "--target",
+        "{target_id}"
+      ],
+      "argument_mapping": {
+        "target_id": {
+          "flag": "--target",
+          "required": true
+        },
+        "wait_ready": {
+          "flag": "--wait-ready",
+          "when_true": true
+        },
+        "wait_timeout_seconds": {
+          "flag": "--wait-timeout"
+        },
+        "poll_interval_seconds": {
+          "flag": "--poll-interval"
+        },
+        "timeout_seconds": {
+          "flag": "--timeout"
+        },
+        "start_dependencies": {
+          "flag": "--no-start-dependencies",
+          "when_false": true
+        },
+        "reuse_ready": {
+          "flag": "--no-reuse-ready",
+          "when_false": true
+        },
+        "append_logs": {
+          "flag": "--append-logs",
+          "when_true": true
+        }
+      },
+      "output_contract": "dev_server_control start JSON state when --json-out is supplied"
+    },
+    {
+      "name": "stop_server",
+      "description": "Stop a managed local development server target, optionally stopping recorded dependencies.",
+      "safety": "process_mutating",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_id"
+        ],
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "enum": [
+              "dashboard-api",
+              "dashboard-frontend",
+              "agriguard-api",
+              "agriguard-frontend",
+              "desci-api",
+              "desci-frontend",
+              "canva-widget-preview"
+            ]
+          },
+          "include_dependencies": {
+            "type": "boolean",
+            "default": true
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "minimum": 0.0,
+            "default": 10.0
+          }
+        }
+      },
+      "command_template": [
+        "python",
+        "ops/scripts/dev_server_control.py",
+        "stop",
+        "--target",
+        "{target_id}"
+      ],
+      "argument_mapping": {
+        "target_id": {
+          "flag": "--target",
+          "required": true
+        },
+        "include_dependencies": {
+          "flag": "--include-dependencies",
+          "when_true": true
+        },
+        "timeout_seconds": {
+          "flag": "--timeout"
+        }
+      },
+      "output_contract": "dev_server_control stop JSON state when --json-out is supplied"
+    },
+    {
+      "name": "get_devserver_logs",
+      "description": "Return recent stdout and stderr lines for a managed local development server target.",
+      "safety": "read_only",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_id"
+        ],
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "enum": [
+              "dashboard-api",
+              "dashboard-frontend",
+              "agriguard-api",
+              "agriguard-frontend",
+              "desci-api",
+              "desci-frontend",
+              "canva-widget-preview"
+            ]
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 80
+          }
+        }
+      },
+      "command_template": [
+        "python",
+        "ops/scripts/dev_server_control.py",
+        "tail",
+        "--target",
+        "{target_id}"
+      ],
+      "argument_mapping": {
+        "target_id": {
+          "flag": "--target",
+          "required": true
+        },
+        "lines": {
+          "flag": "--lines"
+        }
+      },
+      "output_contract": "dev_server_control tail JSON logs when --json-out is supplied"
+    }
+  ]
+}

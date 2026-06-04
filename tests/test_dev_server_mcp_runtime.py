@@ -27,6 +27,7 @@ def test_tools_list_exposes_contract_tool_names() -> None:
     assert response["result"]["tools"]
     assert {tool["name"] for tool in response["result"]["tools"]} == {
         "get_devserver_statuses",
+        "get_devserver_policy",
         "start_server",
         "stop_server",
         "get_devserver_logs",
@@ -53,6 +54,23 @@ def test_status_tool_returns_read_only_manifest_report() -> None:
     assert result["summary"] == {"total": 1, "ready": 1, "unready": 0}
     assert result["targets"][0]["id"] == "dashboard-api"
     assert result["targets"][0]["ok"] is True
+
+
+def test_policy_tool_returns_read_only_runtime_boundary() -> None:
+    runtime = load_runtime_module()
+
+    result = runtime.execute_tool("get_devserver_policy")
+
+    assert result["schema_version"] == 1
+    assert result["runtime_status"] == "local_stdio_runtime"
+    assert result["transport"] == "stdio"
+    assert result["network_exposure"] == "none"
+    assert result["local_only"] is True
+    assert result["non_local_control"]["status"] == "unsupported"
+    assert result["process_mutation"]["default"] == "disabled"
+    assert result["process_mutation"]["enable_env"] == "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION"
+    assert "start_server" in result["process_mutation"]["process_mutating_tools"]
+    assert "get_devserver_statuses" in result["process_mutation"]["read_only_tools"]
 
 
 def test_mutating_tool_returns_mcp_error_until_env_opt_in() -> None:

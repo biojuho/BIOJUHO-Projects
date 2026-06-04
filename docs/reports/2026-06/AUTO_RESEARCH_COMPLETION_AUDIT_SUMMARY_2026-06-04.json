@@ -38,11 +38,11 @@
       "evidence": [
         {
           "path": "ops/references/github_modernization_sources.json",
-          "term_count": 5
+          "term_count": 6
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
-          "term_count": 3
+          "term_count": 4
         }
       ]
     },
@@ -141,15 +141,15 @@
       "evidence": [
         {
           "path": "ops/scripts/dev_server_mcp_runtime_smoke.py",
-          "term_count": 4
+          "term_count": 5
         },
         {
-          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json",
-          "term_count": 4
+          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json",
+          "term_count": 6
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_SUBPROCESS_SMOKE_2026-06-04.md",
-          "term_count": 3
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md",
+          "term_count": 4
         }
       ]
     },

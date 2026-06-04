@@ -13,6 +13,7 @@ WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 RUNTIME_SCRIPT = WORKSPACE_ROOT / "ops" / "scripts" / "dev_server_mcp_runtime.py"
 EXPECTED_TOOLS = {
     "get_devserver_statuses",
+    "get_devserver_policy",
     "start_server",
     "stop_server",
     "get_devserver_logs",
@@ -28,13 +29,22 @@ def build_requests() -> list[dict[str, Any]]:
             "id": 3,
             "method": "tools/call",
             "params": {
+                "name": "get_devserver_policy",
+                "arguments": {},
+            },
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {
                 "name": "start_server",
                 "arguments": {"target_id": "dashboard-api", "wait_ready": False},
             },
         },
         {
             "jsonrpc": "2.0",
-            "id": 4,
+            "id": 5,
             "method": "tools/call",
             "params": {
                 "name": "get_devserver_logs",
@@ -81,8 +91,8 @@ def validate_responses(responses: list[dict[str, Any]], returncode: int, stderr:
         errors.append(f"runtime exited with return code {returncode}")
     if stderr.strip():
         errors.append("runtime wrote to stderr")
-    if len(responses) != 4:
-        errors.append(f"expected 4 responses, got {len(responses)}")
+    if len(responses) != 5:
+        errors.append(f"expected 5 responses, got {len(responses)}")
         return errors
 
     for expected_id, response in enumerate(responses, start=1):
@@ -103,7 +113,18 @@ def validate_responses(responses: list[dict[str, Any]], returncode: int, stderr:
     if tools != EXPECTED_TOOLS:
         errors.append(f"tools/list mismatch: {sorted(tools)}")
 
-    start_result = _result(responses[2])
+    policy_result = _result(responses[2])
+    policy_payload = policy_result.get("structuredContent", {})
+    if policy_result.get("isError") is not False:
+        errors.append("get_devserver_policy must succeed without process mutation")
+    if policy_payload.get("runtime_status") != "local_stdio_runtime":
+        errors.append("get_devserver_policy runtime_status mismatch")
+    if policy_payload.get("process_mutation", {}).get("default") != "disabled":
+        errors.append("get_devserver_policy process mutation default mismatch")
+    if policy_payload.get("non_local_control", {}).get("status") != "unsupported":
+        errors.append("get_devserver_policy non-local control status mismatch")
+
+    start_result = _result(responses[3])
     start_payload = start_result.get("structuredContent", {})
     if start_result.get("isError") is not True:
         errors.append("start_server must return an MCP tool error when mutation is disabled")
@@ -112,7 +133,7 @@ def validate_responses(responses: list[dict[str, Any]], returncode: int, stderr:
     if start_payload.get("enable_env") != "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION":
         errors.append("start_server mutation guard env mismatch")
 
-    logs_result = _result(responses[3])
+    logs_result = _result(responses[4])
     logs_payload = logs_result.get("structuredContent", {})
     if logs_result.get("isError") is not False:
         errors.append("get_devserver_logs must succeed without process mutation")
@@ -125,11 +146,15 @@ def validate_responses(responses: list[dict[str, Any]], returncode: int, stderr:
 
 def summarize_responses(responses: list[dict[str, Any]]) -> dict[str, Any]:
     tools = _tools_from_response(responses[1]) if len(responses) > 1 else set()
-    mutation_payload = _result(responses[2]).get("structuredContent", {}) if len(responses) > 2 else {}
-    logs_payload = _result(responses[3]).get("structuredContent", {}) if len(responses) > 3 else {}
+    policy_payload = _result(responses[2]).get("structuredContent", {}) if len(responses) > 2 else {}
+    mutation_payload = _result(responses[3]).get("structuredContent", {}) if len(responses) > 3 else {}
+    logs_payload = _result(responses[4]).get("structuredContent", {}) if len(responses) > 4 else {}
     return {
         "tool_count": len(tools),
         "tools": sorted(tools),
+        "policy_runtime_status": policy_payload.get("runtime_status"),
+        "policy_non_local_control": policy_payload.get("non_local_control", {}).get("status"),
+        "policy_process_mutation_default": policy_payload.get("process_mutation", {}).get("default"),
         "mutation_guard_status": mutation_payload.get("status"),
         "mutation_guard_env": mutation_payload.get("enable_env"),
         "logs_target_id": logs_payload.get("target_id"),
@@ -147,6 +172,9 @@ def render_markdown(summary: dict[str, Any]) -> str:
         f"- Requests: `{summary['request_count']}`",
         f"- Responses: `{summary['response_count']}`",
         f"- Tools: `{details['tool_count']}`",
+        f"- Policy runtime: `{details.get('policy_runtime_status')}`",
+        f"- Non-local control: `{details.get('policy_non_local_control')}`",
+        f"- Policy process mutation default: `{details.get('policy_process_mutation_default')}`",
         f"- Mutation guard: `{details.get('mutation_guard_status')}` via `{details.get('mutation_guard_env')}`",
         f"- Log target: `{details.get('logs_target_id')}`",
         "",

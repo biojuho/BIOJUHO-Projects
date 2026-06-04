@@ -33,16 +33,21 @@ def test_current_contract_matches_manifest_targets() -> None:
     assert contract["runtime"]["process_mutation_enable_env"] == "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION"
     assert contract["summary"] == {
         "target_count": 7,
-        "tool_count": 4,
-        "read_only_tools": 2,
+        "tool_count": 5,
+        "read_only_tools": 3,
         "process_mutating_tools": 2,
     }
     assert {tool["name"] for tool in contract["tools"]} == {
+        "get_devserver_policy",
         "start_server",
         "stop_server",
         "get_devserver_statuses",
         "get_devserver_logs",
     }
+    assert contract["operator_policy"]["transport"] == "stdio"
+    assert contract["operator_policy"]["network_exposure"] == "none"
+    assert contract["operator_policy"]["non_local_control"]["status"] == "unsupported"
+    assert contract["operator_policy"]["process_mutation"]["default"] == "disabled"
     for tool in contract["tools"]:
         properties = tool["inputSchema"]["properties"]
         if "target_id" in properties:
@@ -60,7 +65,7 @@ def test_contract_validation_rejects_target_enum_drift() -> None:
 
     errors = contract_module.validate_contract(contract, payload)
 
-    assert "tools[1].inputSchema.properties.target_id.enum must match manifest targets" in errors
+    assert any(error.endswith(".inputSchema.properties.target_id.enum must match manifest targets") for error in errors)
 
 
 def test_cli_writes_contract_outputs(tmp_path: Path) -> None:
@@ -76,9 +81,11 @@ def test_cli_writes_contract_outputs(tmp_path: Path) -> None:
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
     assert payload["source"]["repo"] == "Uninen/devserver-mcp"
-    assert payload["summary"]["tool_count"] == 4
+    assert payload["summary"]["tool_count"] == 5
     assert payload["summary"]["target_count"] == 7
+    assert payload["operator_policy"]["non_local_control"]["status"] == "unsupported"
     assert "Dev-Server MCP Tool Contract" in markdown
     assert "start_server" in markdown
+    assert "get_devserver_policy" in markdown
     assert "local_stdio_runtime" in markdown
     assert "DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION" in markdown

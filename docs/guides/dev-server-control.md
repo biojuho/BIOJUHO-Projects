@@ -38,7 +38,9 @@ Generate the MCP tool surface for agents:
 python ops\scripts\dev_server_mcp_contract.py --json-out docs\reports\2026-06\DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.json --markdown-out docs\reports\2026-06\DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.md
 ```
 
-The contract maps the local scripts to `start_server`, `stop_server`, `get_devserver_statuses`, and `get_devserver_logs`. It validates target id enums against `ops/references/dev_server_targets.json`.
+The contract maps the local scripts to `start_server`, `stop_server`,
+`get_devserver_statuses`, `get_devserver_policy`, and `get_devserver_logs`. It
+validates target id enums against `ops/references/dev_server_targets.json`.
 
 Run the local stdio runtime:
 
@@ -52,13 +54,23 @@ Smoke one JSON-RPC request:
 '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | python ops\scripts\dev_server_mcp_runtime.py --once
 ```
 
+Inspect the local-only runtime policy without starting the MCP loop:
+
+```powershell
+python ops\scripts\dev_server_mcp_runtime.py --policy
+```
+
 Run the repo-owned subprocess smoke:
 
 ```powershell
 python ops\scripts\dev_server_mcp_runtime_smoke.py --json-out docs\reports\2026-06\DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json --markdown-out docs\reports\2026-06\DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.md
 ```
 
-Read-only status and log tools are enabled by default. Process-mutating `start_server` and `stop_server` calls return `process_mutation_disabled` unless the local operator sets `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` before starting the runtime.
+Read-only status, policy, and log tools are enabled by default. Process-mutating
+`start_server` and `stop_server` calls return `process_mutation_disabled` unless
+the local operator sets `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` before
+starting the runtime. Non-local process control is intentionally unsupported
+until an operator-owned gateway/auth policy exists.
 
 ## Start A Browser Stack
 
