@@ -3,6 +3,7 @@
 - Status: `pass`
 - Mode: `dry_run`
 - Selection: `selected`
+- Plan order: `unblock_queue`
 - Selected boundaries: `5`
 - Ready boundaries: `1`
 - Blocked boundaries: `4`
@@ -11,13 +12,13 @@
 
 ## Boundaries
 
-| Boundary | Live status | Missing required env | Commands |
-| --- | --- | ---: | ---: |
-| `canva_oauth_and_openapi_tool_execution` | `blocked_missing_required_env` | `2` | `2` |
-| `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `1` | `2` |
-| `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
-| `github_source_refresh_rate_limit_token` | `blocked_missing_optional_env` | `0` | `1` |
-| `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `2` | `1` |
+| Rank | Boundary | Live status | Missing required env | Commands |
+| ---: | --- | --- | ---: | ---: |
+| `1` | `canva_oauth_and_openapi_tool_execution` | `blocked_missing_required_env` | `2` | `2` |
+| `2` | `github_source_refresh_rate_limit_token` | `blocked_missing_optional_env` | `0` | `1` |
+| `3` | `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `2` | `1` |
+| `4` | `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `1` | `2` |
+| `5` | `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
 
 ## Commands
 
@@ -30,6 +31,16 @@
 
 - Status: `planned`
 - Command: `cd mcp/canva-mcp && npm run auth:canva`
+
+### github_source_refresh_rate_limit_token
+
+- Status: `planned`
+- Command: `python ops/scripts/github_source_freshness.py --json-out var/github-source-freshness-live.json --markdown-out var/github-source-freshness-live.md`
+
+### telegram_notification_mcp_credentials
+
+- Status: `planned`
+- Command: `python ops/scripts/mcp_service_runtime_smoke.py`
 
 ### otel_collector_endpoint_and_credentials
 
@@ -50,16 +61,6 @@
 
 - Status: `planned`
 - Command: `python ops/scripts/autoresearch_completion_audit.py`
-
-### github_source_refresh_rate_limit_token
-
-- Status: `planned`
-- Command: `python ops/scripts/github_source_freshness.py --json-out var/github-source-freshness-live.json --markdown-out var/github-source-freshness-live.md`
-
-### telegram_notification_mcp_credentials
-
-- Status: `planned`
-- Command: `python ops/scripts/mcp_service_runtime_smoke.py`
 
 ## Errors
 

@@ -3,6 +3,7 @@
 - Status: `pass`
 - Mode: `execute`
 - Selection: `ready_only`
+- Plan order: `unblock_queue`
 - Selected boundaries: `1`
 - Ready boundaries: `1`
 - Blocked boundaries: `0`
@@ -11,9 +12,9 @@
 
 ## Boundaries
 
-| Boundary | Live status | Missing required env | Commands |
-| --- | --- | ---: | ---: |
-| `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
+| Rank | Boundary | Live status | Missing required env | Commands |
+| ---: | --- | --- | ---: | ---: |
+| `5` | `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
 
 ## Commands
 
