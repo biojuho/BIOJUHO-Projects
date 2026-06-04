@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T20:34:56.715041+00:00",
+  "generated_at": "2026-06-04T20:53:02.415491+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -23,12 +23,17 @@
       "completion_criteria": [
         "product_launch_gate",
         "current_tip_freshness_gate",
+        "dashboard_next_credential_unblock",
         "pre_push_regression_gate"
       ],
       "evidence": [
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "term_count": 3
         },
         {
           "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json",
@@ -135,11 +140,16 @@
       "blockers": [],
       "completion_criteria": [
         "direct_app_click_qa",
-        "direct_browser_qa_freshness_gate"
+        "direct_browser_qa_freshness_gate",
+        "dashboard_next_credential_unblock"
       ],
       "evidence": [
         {
           "path": "docs/reports/2026-06/DASHBOARD_CREDENTIAL_BOUNDARIES_CLICK_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_NEXT_UNBLOCK_2026-06-05.md",
           "term_count": 3
         },
         {
@@ -165,6 +175,7 @@
         "external_credential_handoff",
         "external_credential_live_verifier",
         "telegram_notification_live_delivery_verifier",
+        "dashboard_next_credential_unblock",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -172,6 +183,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "term_count": 3
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md",
@@ -199,11 +214,16 @@
         "external_credential_boundary_registry",
         "external_credential_handoff",
         "external_credential_live_verifier",
-        "telegram_notification_live_delivery_verifier"
+        "telegram_notification_live_delivery_verifier",
+        "dashboard_next_credential_unblock"
       ],
       "evidence": [
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
           "term_count": 3
         },
         {

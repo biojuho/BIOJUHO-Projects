@@ -19,6 +19,7 @@
       "completion_criteria": [
         "product_launch_gate",
         "current_tip_freshness_gate",
+        "dashboard_next_credential_unblock",
         "pre_push_regression_gate"
       ],
       "evidence": [
@@ -28,6 +29,14 @@
             "total=25",
             "passed=25",
             "protected_path_freshness",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Next Credential Unblock",
+            "workspace smoke",
             "global_objective_complete=false"
           ]
         },
@@ -164,7 +173,8 @@
       "requirement": "User-facing app paths must have direct browser/click evidence and freshness protection.",
       "completion_criteria": [
         "direct_app_click_qa",
-        "direct_browser_qa_freshness_gate"
+        "direct_browser_qa_freshness_gate",
+        "dashboard_next_credential_unblock"
       ],
       "evidence": [
         {
@@ -173,6 +183,14 @@
             "Credential Boundaries",
             "Console errors: `0`",
             "Request failures: `0`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_NEXT_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "Status: `pass`",
+            "dashboard-frontend",
+            "Failed: `0`"
           ]
         },
         {
@@ -200,6 +218,7 @@
         "external_credential_handoff",
         "external_credential_live_verifier",
         "telegram_notification_live_delivery_verifier",
+        "dashboard_next_credential_unblock",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -210,6 +229,14 @@
             "external credential live verifier",
             "ready=1",
             "blocked=4",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "no credential values emitted",
+            "Next Unblock",
             "global_objective_complete=false"
           ]
         },
@@ -235,7 +262,8 @@
         "external_credential_boundary_registry",
         "external_credential_handoff",
         "external_credential_live_verifier",
-        "telegram_notification_live_delivery_verifier"
+        "telegram_notification_live_delivery_verifier",
+        "dashboard_next_credential_unblock"
       ],
       "evidence": [
         {
@@ -244,6 +272,14 @@
             "Missing required env names: `5`",
             "CANVA_CLIENT_SECRET",
             "TELEGRAM_CHAT_ID"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "Canva OAuth and OpenAPI tool execution",
+            "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
+            "does not claim the external credential boundary complete"
           ]
         },
         {

@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "0dfdf9a",
+            "0d9c8a2",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "0dfdf9a",
+            "proof_commit": "0d9c8a2",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -524,12 +524,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "0dfdf9a",
+            "0d9c8a2",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "0dfdf9a",
+            "proof_commit": "0d9c8a2",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -551,6 +551,74 @@
             "protected_path_freshness",
             "no changed protected paths",
             "93 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dashboard_next_credential_unblock",
+      "requirement": "The dashboard Quality panel surfaces the live verifier next credential unblock without exposing credential values.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/dashboard/routers/gdt.py",
+          "must_contain": [
+            "CREDENTIAL_LIVE_VERIFY_PATTERNS",
+            "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN",
+            "next_unblock",
+            "verification_command_count"
+          ]
+        },
+        {
+          "path": "apps/dashboard/src/components/QualityPanel.jsx",
+          "must_contain": [
+            "Next Unblock",
+            "next_unblock",
+            "env_names",
+            "credentialNextEnvNames"
+          ]
+        },
+        {
+          "path": "tests/test_dashboard_api.py",
+          "must_contain": [
+            "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json",
+            "next_unblock",
+            "CANVA_CLIENT_ID",
+            "verification_command_count"
+          ]
+        },
+        {
+          "path": "apps/dashboard/src/App.test.jsx",
+          "must_contain": [
+            "Next Unblock",
+            "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
+            "canva_oauth_and_openapi_tool_execution"
+          ]
+        },
+        {
+          "path": "ops/references/dev_server_browser_checks.json",
+          "must_contain": [
+            "Next Unblock",
+            "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_NEXT_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "Dev-Server Browser Smoke",
+            "Status: `pass`",
+            "dashboard-frontend",
+            "Failed: `0`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Next Credential Unblock",
+            "Next Unblock",
+            "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
             "global_objective_complete=false"
           ]
         }
