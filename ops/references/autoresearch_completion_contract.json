@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:10:00+09:00",
+  "generated_at": "2026-06-05T09:25:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,15 +141,15 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "06feb55",
+            "8d5e263",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
             ".gitattributes",
-            "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "06feb55",
+            "proof_commit": "8d5e263",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -827,12 +827,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "06feb55",
+            "8d5e263",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "06feb55",
+            "proof_commit": "8d5e263",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -849,24 +849,22 @@
           }
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_HOSTED_AGENT_APPROVAL_BOUNDARY_2026-06-05.md",
           "must_contain": [
-            "Canva MCP Pre-Push Typecheck Build Guard",
+            "Hosted Agent Approval Boundary",
             "protected_path_freshness",
-            "06feb55",
+            "8d5e263",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_VITE_LINE_ENDINGS_PROOF_2026-06-05.md",
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_HOSTED_AGENT_APPROVAL_2026-06-05.md",
           "must_contain": [
-            "Canva Vite Line Endings Proof",
-            "protected_path_freshness",
-            "06feb55",
-            "mcp/canva-mcp/vite.config.ts",
-            "8/8",
-            "global_objective_complete=false"
+            "Status: `pass`",
+            "expected=`15/15`",
+            "0 ready / 5 blocked",
+            "missing: none"
           ]
         }
       ]

@@ -38,6 +38,15 @@
 - Dashboard browser smoke pass: `1/1` route with `15/15` expected text checks,
   including `0 ready / 5 blocked`.
 
+## Post-Push Freshness
+
+- Pushed proof commit: `8d5e263`.
+- `current_tip_freshness_gate`: `origin/feat/observability-gateway-2026-05`
+  now uses proof commit `8d5e263`.
+- `protected_path_freshness`: dashboard protected-path changes are covered by
+  the hosted approval browser smoke proof at `8d5e263`.
+- Freshness result after this evidence-only follow-up: no changed protected paths after proof.
+
 ## Changed Paths
 
 - `ops/references/external_credential_boundaries.json`
