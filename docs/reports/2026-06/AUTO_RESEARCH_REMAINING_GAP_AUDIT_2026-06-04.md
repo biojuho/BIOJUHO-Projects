@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 optional-token boundary hardening slice: changed the live verifier
+  so `optional_token_absent` boundaries without a supplied optional token are
+  blocked as `blocked_missing_optional_env` instead of being treated as
+  executable.
 - 2026-06-05 ready credential live-execution slice: executed the two verifier
   boundaries with no missing required env, passing hosted-agent dry-run checks
   and confirming GitHub source refresh now requires a token because
@@ -409,9 +413,12 @@ These are intentionally not promoted to live runtime changes in this cycle:
     verification commands in dry-run mode
   - missing required env boundaries are marked `blocked_missing_required_env`
   - execute mode redacts env values in captured output
-  - default dry-run reports `selected=5`, `ready=2`, `blocked=3`, and
+  - default dry-run reports `selected=5`, `ready=1`, `blocked=4`, and
     `executed=0`
-  - focused credential/completion suite passed `26/26`
+  - optional-token boundaries without a supplied token are marked
+    `blocked_missing_optional_env`
+  - focused credential/completion suite passed `27/27`
+  - pre-push-equivalent pytest suite passed `117/117`
   - pre-push-equivalent pytest suite passed `104/104`
   - completion audit reports `24` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`

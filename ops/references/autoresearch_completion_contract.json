@@ -1061,6 +1061,7 @@
           "path": "ops/scripts/external_credential_live_verify.py",
           "must_contain": [
             "blocked_missing_required_env",
+            "blocked_missing_optional_env",
             "--execute",
             "external credential live verifier valid",
             "commands_executed",
@@ -1073,6 +1074,7 @@
             "test_default_registry_dry_run_reports_ready_and_blocked_boundaries",
             "test_execute_runs_ready_boundary_and_redacts_secret",
             "test_execute_skips_missing_required_env",
+            "test_execute_skips_missing_optional_token_boundary",
             "super-secret-token"
           ]
         },
@@ -1081,8 +1083,8 @@
           "must_contain": [
             "\"mode\": \"dry_run\"",
             "\"selected_boundaries\": 5",
-            "\"ready_boundaries\": 2",
-            "\"blocked_boundaries\": 3",
+            "\"ready_boundaries\": 1",
+            "\"blocked_boundaries\": 4",
             "\"commands_executed\": 0"
           ]
         },
@@ -1091,6 +1093,7 @@
           "must_contain": [
             "External Credential Live Verifier",
             "blocked_missing_required_env",
+            "blocked_missing_optional_env",
             "Commands planned",
             "Commands executed: `0`"
           ]
@@ -1100,8 +1103,8 @@
           "must_contain": [
             "external credential live verifier",
             "dry_run",
-            "ready=2",
-            "blocked=3",
+            "ready=1",
+            "blocked=4",
             "global_objective_complete=false"
           ]
         }

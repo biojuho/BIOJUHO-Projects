@@ -33,8 +33,8 @@ complete.
 
 - Default mode: `dry_run`
 - Boundaries selected: `5`
-- `ready=2`
-- `blocked=3`
+- `ready=1`
+- `blocked=4`
 - Commands executed in dry-run: `0`
 - Execute mode redacts env values in captured output.
 - Missing required env remains visible and explicit:
@@ -43,6 +43,9 @@ complete.
   - `OTEL_EXPORTER_OTLP_ENDPOINT`
   - `TELEGRAM_BOT_TOKEN`
   - `TELEGRAM_CHAT_ID`
+- Missing optional token env now blocks optional-token live execution instead
+  of producing a predictable partial source-refresh artifact:
+  - `GITHUB_TOKEN` or `GH_TOKEN`
 - `global_objective_complete=false`
 
 ## Verification
@@ -50,11 +53,11 @@ complete.
 - `python ops\scripts\external_credential_live_verify.py --json-out docs\reports\2026-06\EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json --markdown-out docs\reports\2026-06\EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md`
   - `mode=dry_run`
   - `selected=5`
-  - `ready=2`
-  - `blocked=3`
+  - `ready=1`
+  - `blocked=4`
   - `executed=0`
 - `python -m pytest tests\test_external_credential_live_verify.py tests\test_external_credential_handoff.py tests\test_external_credential_boundary_audit.py tests\test_autoresearch_completion_audit.py -q --tb=line`
-  - `26 passed`
+  - `27 passed`
 - `python -m pytest tests\test_workspace_smoke.py tests\test_autoresearch_completion_audit.py tests\test_mcp_service_runtime_smoke.py tests\test_mcp_otel_collector_handoff.py tests\test_external_credential_boundary_audit.py tests\test_external_credential_handoff.py tests\test_external_credential_live_verify.py tests\test_agent_workflow_gate_runner.py tests\test_github_modernization_radar.py tests\test_github_source_freshness.py tests\test_dev_server_browser_smoke.py tests\test_dev_server_mcp_contract.py tests\test_dev_server_mcp_runtime.py tests\test_dev_server_mcp_runtime_smoke.py -q --tb=line`
   - `104 passed`
 - `python -m py_compile ops\scripts\external_credential_live_verify.py ops\scripts\external_credential_handoff.py ops\scripts\external_credential_boundary_audit.py ops\scripts\autoresearch_completion_audit.py`

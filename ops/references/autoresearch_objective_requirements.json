@@ -202,8 +202,8 @@
           "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md",
           "must_contain": [
             "external credential live verifier",
-            "ready=2",
-            "blocked=3",
+            "ready=1",
+            "blocked=4",
             "global_objective_complete=false"
           ]
         },
@@ -242,7 +242,7 @@
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
           "must_contain": [
-            "Blocked boundaries: `3`",
+            "Blocked boundaries: `4`",
             "Commands executed: `0`"
           ]
         }
@@ -250,6 +250,7 @@
       "blockers": [
         "Real Canva OAuth login and proxy authorization decision",
         "Live OTLP collector endpoint and credential policy",
+        "GitHub source-refresh token for complete live external-source reruns",
         "Telegram bot token and chat target",
         "Hosted runtime/tracing credentials and approval UI decision"
       ]

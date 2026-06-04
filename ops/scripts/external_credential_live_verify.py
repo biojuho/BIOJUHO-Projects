@@ -47,7 +47,7 @@ def build_plan(
         "summary": {
             "selected_boundaries": len(boundaries),
             "ready_boundaries": status_counts.get("ready_for_execution", 0),
-            "blocked_boundaries": status_counts.get("blocked_missing_required_env", 0),
+            "blocked_boundaries": _blocked_boundary_count(status_counts),
             "commands_planned": command_count,
             "commands_executed": 0,
             "commands_passed": 0,
@@ -87,7 +87,7 @@ def execute_plan(
                     {
                         **_planned_command(boundary, command),
                         "status": "skipped",
-                        "skip_reason": "missing required env",
+                        "skip_reason": _skip_reason(boundary),
                     }
                 )
                 continue
@@ -249,11 +249,12 @@ def _select_boundaries(boundaries: list[dict[str, Any]], boundary_ids: list[str]
 
 def _planned_boundary(boundary: dict[str, Any]) -> dict[str, Any]:
     missing = boundary["missing_required_env"]
+    live_status = _live_status(boundary)
     return {
         "id": boundary["id"],
         "title": boundary["title"],
         "registry_status": boundary["status"],
-        "live_status": "blocked_missing_required_env" if missing else "ready_for_execution",
+        "live_status": live_status,
         "owner": boundary["owner"],
         "required_env": boundary["required_env"],
         "missing_required_env": missing,
@@ -262,6 +263,30 @@ def _planned_boundary(boundary: dict[str, Any]) -> dict[str, Any]:
         "verification_commands": boundary["verification_commands"],
         "claim_policy": boundary["claim_policy"],
     }
+
+
+def _live_status(boundary: dict[str, Any]) -> str:
+    if boundary["missing_required_env"]:
+        return "blocked_missing_required_env"
+    if (
+        boundary["status"] == "optional_token_absent"
+        and boundary["optional_env_any_of"]
+        and not boundary["optional_env_available"]
+    ):
+        return "blocked_missing_optional_env"
+    return "ready_for_execution"
+
+
+def _blocked_boundary_count(status_counts: Counter[str]) -> int:
+    return sum(count for status, count in status_counts.items() if status != "ready_for_execution")
+
+
+def _skip_reason(boundary: dict[str, Any]) -> str:
+    if boundary["live_status"] == "blocked_missing_optional_env":
+        return "missing optional token env"
+    if boundary["live_status"] == "blocked_missing_required_env":
+        return "missing required env"
+    return boundary["live_status"]
 
 
 def _planned_command(boundary: dict[str, Any], command: str) -> dict[str, Any]:

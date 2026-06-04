@@ -27,12 +27,18 @@ def test_default_registry_dry_run_reports_ready_and_blocked_boundaries() -> None
     assert report["status"] == "pass"
     assert report["mode"] == "dry_run"
     assert report["summary"]["selected_boundaries"] >= 5
-    assert report["summary"]["blocked_boundaries"] >= 1
+    assert report["summary"]["ready_boundaries"] == 1
+    assert report["summary"]["blocked_boundaries"] == 4
     assert report["summary"]["commands_executed"] == 0
     assert "canva_oauth_and_openapi_tool_execution" in {
         boundary["id"]
         for boundary in report["boundaries"]
         if boundary["live_status"] == "blocked_missing_required_env"
+    }
+    assert "github_source_refresh_rate_limit_token" in {
+        boundary["id"]
+        for boundary in report["boundaries"]
+        if boundary["live_status"] == "blocked_missing_optional_env"
     }
 
 
@@ -58,6 +64,27 @@ def test_execute_skips_missing_required_env(tmp_path: Path) -> None:
     assert report["status"] == "fail"
     assert report["summary"]["commands_executed"] == 0
     assert report["summary"]["commands_skipped"] == 1
+    assert report["commands"][0]["skip_reason"] == "missing required env"
+
+
+def test_execute_skips_missing_optional_token_boundary(tmp_path: Path) -> None:
+    verifier = load_module()
+    registry = _write_registry(
+        tmp_path,
+        status="optional_token_absent",
+        required_env=[],
+        optional_env_any_of=["SAMPLE_TOKEN"],
+        command=f"{sys.executable} -c \"print('should-not-run')\"",
+    )
+
+    plan = verifier.build_plan(registry, env={}, workspace_root=tmp_path)
+    report = verifier.execute_plan(plan, env={}, workspace_root=tmp_path)
+
+    assert plan["boundaries"][0]["live_status"] == "blocked_missing_optional_env"
+    assert report["status"] == "fail"
+    assert report["summary"]["commands_executed"] == 0
+    assert report["summary"]["commands_skipped"] == 1
+    assert report["commands"][0]["skip_reason"] == "missing optional token env"
 
 
 def test_execute_runs_ready_boundary_and_redacts_secret(tmp_path: Path) -> None:
@@ -111,6 +138,8 @@ def _write_registry(
     tmp_path: Path,
     *,
     required_env: list[str],
+    status: str = "credential_gated",
+    optional_env_any_of: list[str] | None = None,
     command: str,
 ) -> Path:
     evidence = tmp_path / "evidence.md"
@@ -123,10 +152,10 @@ def _write_registry(
             {
                 "id": "sample",
                 "title": "Sample",
-                "status": "credential_gated",
+                "status": status,
                 "owner": "operator",
                 "required_env": required_env,
-                "optional_env_any_of": [],
+                "optional_env_any_of": optional_env_any_of or [],
                 "blocked_until": ["operator supplies credentials"],
                 "verification_commands": [command],
                 "claim_policy": "do not claim complete without live credentials",

@@ -3,8 +3,8 @@
 - Status: `pass`
 - Mode: `dry_run`
 - Selected boundaries: `5`
-- Ready boundaries: `2`
-- Blocked boundaries: `3`
+- Ready boundaries: `1`
+- Blocked boundaries: `4`
 - Commands planned: `8`
 - Commands executed: `0`
 
@@ -15,7 +15,7 @@
 | `canva_oauth_and_openapi_tool_execution` | `blocked_missing_required_env` | `2` | `2` |
 | `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `1` | `2` |
 | `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
-| `github_source_refresh_rate_limit_token` | `ready_for_execution` | `0` | `1` |
+| `github_source_refresh_rate_limit_token` | `blocked_missing_optional_env` | `0` | `1` |
 | `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `2` | `1` |
 
 ## Commands
