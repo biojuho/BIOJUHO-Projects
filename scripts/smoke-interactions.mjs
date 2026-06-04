@@ -164,6 +164,7 @@ const interactionExpression = `
   const storeKey = "joopark.workspace.v3";
   const steps = [];
   const failures = [];
+  let backupExportOk = false;
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function assert(condition, message) {
@@ -451,6 +452,51 @@ const interactionExpression = `
     assert(payload.ui.theme === "light", "theme was not persisted");
   });
 
+  await runStep("settings export backup payload", async () => {
+    await nav("settings");
+    const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+    window.__smokeExportText = "";
+    window.__smokeExportType = "";
+    window.__smokeExportName = "";
+    URL.createObjectURL = (blob) => {
+      window.__smokeExportType = blob.type || "";
+      blob.text().then((text) => { window.__smokeExportText = text; });
+      return originalCreateObjectURL(blob);
+    };
+    const originalAppendChild = document.body.appendChild.bind(document.body);
+    document.body.appendChild = (node) => {
+      if (node && node.tagName === "A" && node.download) window.__smokeExportName = node.download;
+      return originalAppendChild(node);
+    };
+    try {
+      click('[data-action="export-data"]');
+      await waitFor(() => window.__smokeExportText && window.__smokeExportText.length > 200, "backup export payload was not captured");
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      document.body.appendChild = originalAppendChild;
+    }
+
+    const exported = JSON.parse(window.__smokeExportText);
+    const requiredArrays = ["events", "todos", "notes", "habits", "projects", "issues", "team", "dbInstances", "schemas", "queries", "migrations"];
+    const missingArrays = requiredArrays.filter((key) => !Array.isArray(exported[key]));
+    assert(missingArrays.length === 0, "export is missing arrays: " + missingArrays.join(", "));
+    assert(exported.app === "JooPark Workspace", "export app name is wrong");
+    assert(exported.v === 3, "export version is wrong");
+    assert(exported.exportedAt, "export timestamp is missing");
+    assert(exported.ui && exported.ui.theme === "light", "exported theme is wrong");
+    assert(exported.imports && typeof exported.imports === "object", "exported imports registry is missing");
+    assert(window.__smokeExportType.includes("application/json"), "export MIME type is not JSON");
+    assert(/^joopark-workspace-\\d{4}-\\d{2}-\\d{2}\\.json$/.test(window.__smokeExportName), "export filename is not dated JSON");
+    assert(exported.events.some((event) => event.title === marker + " event"), "exported event is missing");
+    assert(exported.todos.some((todo) => todo.title === marker + " todo" && todo.done), "exported done todo is missing");
+    assert(exported.notes.some((note) => note.title === marker + " note" && note.pinned), "exported pinned note is missing");
+    assert(exported.projects.some((project) => project.name === marker + " project"), "exported project is missing");
+    assert(exported.issues.some((issue) => issue.title === marker + " issue" && issue.status === "in-progress"), "exported issue is missing");
+    assert(exported.dbInstances.some((instance) => instance.name === marker + " db"), "exported DB instance is missing");
+    assert(exported.queries.some((query) => query.text === "SELECT '" + marker + "' AS smoke"), "exported saved query is missing");
+    backupExportOk = true;
+  });
+
   await runStep("command palette opens created issue", async () => {
     assert(issueId, "no created issue id available");
     click('[data-action="open-palette"]');
@@ -471,6 +517,7 @@ const interactionExpression = `
     issue: finalPayload.issues.some((issue) => issue.title === marker + " issue" && issue.status === "in-progress"),
     dbInstance: finalPayload.dbInstances.some((instance) => instance.name === marker + " db"),
     settings: finalPayload.settings.displayName === marker + " user",
+    backupExport: backupExportOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);
