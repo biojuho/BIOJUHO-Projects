@@ -6,6 +6,8 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- `0746be7 chore(canva): clear npm audit findings`
+- `554e935 feat(canva): harden widget preview browser smoke`
 - `dccaad4 docs(ops): record agriguard click proof`
 - `dc6590f docs(ops): record dashboard click proof`
 - `02bfcea feat(ops): add dev server mcp contract`
@@ -25,6 +27,7 @@ Latest pushed commits in this slice:
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
 - `modelcontextprotocol/inspector`: adopted a repo-owned stdio subprocess smoke for `initialize`, `tools/list`, guarded `tools/call`, and read-only log calls.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
+- `microsoft/playwright-mcp`: adopted deterministic browser smoke and app-click evidence across DeSci, dashboard, AgriGuard, and Canva widget preview surfaces.
 - `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime with process mutation opt-in.
 
 ## Remaining Gaps
@@ -49,13 +52,15 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
-- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-workflow-plan-2026-06-04.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
+- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-canva-browser-proof-2026-06-04.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `7` sources
+  - `8` sources
   - `adopted=1`
-  - `partially_adopted=6`
+  - `partially_adopted=7`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
+  - `47 passed` plus MCP subprocess smoke and completion audit after `0746be7`
+  - `47 passed` plus MCP subprocess smoke and completion audit after `554e935`
   - `27 passed` after `dccaad4`
   - `27 passed` after `dc6590f`
   - `27 passed` after `02bfcea`
@@ -98,6 +103,14 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - browser smoke returned `7/7 OK`
   - live click proof covered home, explore search, and pricing with zero console/page/request failures
   - focused/full frontend tests, backend API tests, build/typecheck, and DeSci canonical smoke passed
+- Canva widget browser proof:
+  - generic browser smoke returned `1/1 PASS` for `canva-widget-preview`
+  - preview/mock widget data now uses deterministic inline SVG thumbnails instead of remote marketplace image requests
+  - completion audit includes `DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json` as direct app-click/browser evidence
+- Canva npm audit cleanup:
+  - `wrangler` resolves to `4.98.0`
+  - lockfile resolves `miniflare@4.20260603.0`, `ws@8.20.1`, and `qs@6.15.2`
+  - `CANVA_NPM_AUDIT_2026-06-04.json` records `0` vulnerabilities
 
 ## Decision
 

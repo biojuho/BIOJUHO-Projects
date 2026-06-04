@@ -4,7 +4,7 @@
 
 - Sources reviewed: 8
 - Adoption counts: adopted=1, partially_adopted=7, watch=0
-- Generated at: `2026-06-04T23:23:52+09:00`
+- Generated at: `2026-06-04T23:55:13+09:00`
 
 ## Search Context
 
@@ -185,9 +185,11 @@
   - `tests/test_desci_browser_smoke.py`
   - `docs/reports/2026-06/DESCI_BROWSER_SMOKE_JSON_EVIDENCE_2026-06-04.json`
   - `docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DESCI_2026-06-04.json`
+  - `docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json`
   - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_BROWSER_SMOKE_JSON_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_GENERIC_BROWSER_SMOKE_2026-06-04.md`
   - `docs/QUALITY_GATE.md`
 - Gap: Playwright browser automation is adopted through deterministic CLI smoke scripts and app-click evidence; a persistent MCP browser server remains future-scoped unless a workflow needs long-lived browser context or richer page-state introspection.
 
@@ -231,6 +233,8 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md`
+  - `docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_GENERIC_BROWSER_SMOKE_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_CONTROL_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_GROUP_STOP_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_DEV_SERVER_READINESS_2026-06-04.md`
