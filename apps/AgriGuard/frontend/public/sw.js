@@ -1,6 +1,7 @@
-const CACHE_NAME = "agriguard-v2";
-const STATIC_ASSETS = ["/", "/index.html"];
+const CACHE_NAME = "agriguard-v3";
+const STATIC_ASSETS = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 const CACHEABLE_API_PATHS = new Set();
+const CACHEABLE_STATIC_PATHS = new Set(STATIC_ASSETS);
 
 function isSameOrigin(url) {
   return url.origin === self.location.origin;
@@ -8,6 +9,14 @@ function isSameOrigin(url) {
 
 function isCacheableStaticResponse(response) {
   return response.ok;
+}
+
+function isCacheableStaticRequest(url) {
+  return (
+    CACHEABLE_STATIC_PATHS.has(url.pathname) ||
+    url.pathname.startsWith("/assets/") ||
+    url.pathname.startsWith("/icons/")
+  );
 }
 
 function isCacheableApiResponse(request, response, url) {
@@ -61,19 +70,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) {
-        return cached;
-      }
-
-      return fetch(request).then((response) => {
-        if (isCacheableStaticResponse(response)) {
-          const clone = response.clone();
-          void caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+  if (isCacheableStaticRequest(url)) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) {
+          return cached;
         }
-        return response;
-      });
-    })
-  );
+
+        return fetch(request).then((response) => {
+          if (isCacheableStaticResponse(response)) {
+            const clone = response.clone();
+            void caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        });
+      })
+    );
+  }
 });
