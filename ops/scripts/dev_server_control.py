@@ -100,12 +100,13 @@ def start_target(
     if reuse_ready:
         current = status_probe.build_report(payload, target_ids=[target_id], timeout=timeout, fetcher=fetcher)
         if current["summary"]["unready"] == 0:
+            existing_pid_live = existing_pid is not None and process_checker(existing_pid)
             state = base_state(target, paths)
             state.update(
                 {
                     "status": "already_ready",
-                    "managed": existing.get("managed", False) if existing else False,
-                    "pid": existing_pid,
+                    "managed": existing.get("managed", False) if existing and existing_pid_live else False,
+                    "pid": existing_pid if existing_pid_live else None,
                     "checked_at": utc_now(),
                     "last_status": compact_status(current),
                 }

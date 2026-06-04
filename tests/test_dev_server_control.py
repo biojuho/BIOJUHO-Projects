@@ -59,6 +59,10 @@ def test_start_target_spawns_manifest_command_and_writes_state(tmp_path: Path) -
 def test_start_target_reuses_already_ready_target_without_spawning(tmp_path: Path) -> None:
     control = load_control_module()
     payload = control.load_validated_manifest(MANIFEST_PATH)
+    (tmp_path / "dashboard-api.json").write_text(
+        json.dumps({"schema_version": 1, "target_id": "dashboard-api", "status": "started", "managed": True, "pid": 1111}),
+        encoding="utf-8",
+    )
 
     def fake_popen(_command, **_kwargs):
         raise AssertionError("ready targets should not spawn a duplicate process")
@@ -69,6 +73,7 @@ def test_start_target_reuses_already_ready_target_without_spawning(tmp_path: Pat
         state_dir=tmp_path,
         fetcher=lambda _url, _timeout: (200, 3, '{"workspace_smoke":{}}', None),
         popen_factory=fake_popen,
+        process_checker=lambda _pid: False,
     )
 
     assert state["status"] == "already_ready"

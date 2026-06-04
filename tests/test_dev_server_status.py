@@ -39,6 +39,8 @@ def test_current_manifest_validates_against_workspace_paths() -> None:
     assert dependencies["dashboard-frontend"] == ["dashboard-api"]
     assert dependencies["agriguard-frontend"] == ["agriguard-api"]
     assert dependencies["desci-frontend"] == ["desci-api"]
+    timeouts = {target["id"]: target.get("timeout_seconds") for target in payload["targets"]}
+    assert timeouts["desci-api"] == 5
 
 
 def test_manifest_rejects_unsafe_target_data() -> None:
@@ -51,6 +53,7 @@ def test_manifest_rejects_unsafe_target_data() -> None:
     payload["targets"][0]["expected_status"] = [True]
     payload["targets"][1]["id"] = payload["targets"][2]["id"]
     payload["targets"][3]["depends_on"] = ["missing-api"]
+    payload["targets"][4]["timeout_seconds"] = 0
 
     errors = status.validate_manifest(payload, workspace_root=PROJECT_ROOT)
 
@@ -61,6 +64,7 @@ def test_manifest_rejects_unsafe_target_data() -> None:
     assert "targets[0].expected_status[0] must be an HTTP status code" in errors
     assert "targets[2].id must be unique" in errors
     assert "targets[3].depends_on references unknown target id: missing-api" in errors
+    assert "targets[4].timeout_seconds must be a positive number" in errors
 
 
 def test_probe_target_reports_ready_and_unready() -> None:
@@ -78,6 +82,25 @@ def test_probe_target_reports_ready_and_unready() -> None:
     assert wrong_service["error"] == "response body missing marker(s): workspace_smoke"
     assert unready["ok"] is False
     assert unready["error"] == "connection refused"
+
+
+def test_probe_target_uses_target_specific_timeout() -> None:
+    status = load_status_module()
+    target = {
+        **status.load_manifest(MANIFEST_PATH)["targets"][0],
+        "timeout_seconds": 4.5,
+    }
+    seen_timeouts = []
+
+    result = status.probe_target(
+        target,
+        timeout=1,
+        fetcher=lambda _url, timeout: (seen_timeouts.append(timeout) or (200, 12, '{"workspace_smoke":{}}', None)),
+    )
+
+    assert result["ok"] is True
+    assert result["timeout_seconds"] == 4.5
+    assert seen_timeouts == [4.5]
 
 
 def test_run_writes_machine_report_with_target_filter(tmp_path: Path) -> None:

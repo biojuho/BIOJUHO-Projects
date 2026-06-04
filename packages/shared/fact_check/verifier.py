@@ -199,7 +199,10 @@ def verify_text_against_sources(
     if not claims:
         return result
 
-    source_corpus = "\n".join(s for s in source_texts if s)
+    source_parts = [source for source in source_texts if source]
+    if source_names:
+        source_parts.extend(source for source in source_names if source)
+    source_corpus = "\n".join(source_parts)
 
     # Credibility from source names
     if source_names:

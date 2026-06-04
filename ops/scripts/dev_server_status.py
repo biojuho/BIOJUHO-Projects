@@ -85,6 +85,9 @@ def validate_manifest(payload: dict[str, Any], *, workspace_root: Path = WORKSPA
         _validate_cwd(target.get("cwd"), f"{prefix}.cwd", workspace_root, errors)
         _validate_command(target.get("command"), f"{prefix}.command", errors)
         _validate_url(target.get("url"), f"{prefix}.url", errors)
+        timeout_seconds = target.get("timeout_seconds")
+        if timeout_seconds is not None:
+            _validate_timeout(timeout_seconds, f"{prefix}.timeout_seconds", errors)
         _validate_expected_status(target.get("expected_status"), f"{prefix}.expected_status", errors)
         markers = target.get("expected_body_contains")
         if markers is not None:
@@ -116,7 +119,8 @@ def select_targets(payload: dict[str, Any], target_ids: list[str] | None = None)
 
 def probe_target(target: dict[str, Any], *, timeout: float = 2.0, fetcher: FetchFn | None = None) -> dict[str, Any]:
     fetch = fetch_http_status if fetcher is None else fetcher
-    status_code, latency_ms, body, error = fetch(target["url"], timeout)
+    timeout_seconds = float(target.get("timeout_seconds", timeout))
+    status_code, latency_ms, body, error = fetch(target["url"], timeout_seconds)
     expected_status = target["expected_status"]
     expected_markers = target.get("expected_body_contains", [])
     missing_markers = _missing_body_markers(body, expected_markers)
@@ -135,6 +139,7 @@ def probe_target(target: dict[str, Any], *, timeout: float = 2.0, fetcher: Fetch
         "url": target["url"],
         "expected_status": expected_status,
         "expected_body_contains": expected_markers,
+        "timeout_seconds": timeout_seconds,
         "status_code": status_code,
         "latency_ms": latency_ms,
         "ok": ok,
@@ -436,6 +441,11 @@ def _validate_expected_status(value: Any, field: str, errors: list[str]) -> None
     for index, item in enumerate(value):
         if isinstance(item, bool) or not isinstance(item, int) or item < 100 or item > 599:
             errors.append(f"{field}[{index}] must be an HTTP status code")
+
+
+def _validate_timeout(value: Any, field: str, errors: list[str]) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        errors.append(f"{field} must be a positive number")
 
 
 def _validate_dependencies(targets: list[Any], declared_ids: set[str], errors: list[str]) -> None:
