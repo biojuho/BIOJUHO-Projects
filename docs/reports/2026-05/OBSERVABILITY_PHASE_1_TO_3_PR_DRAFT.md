@@ -70,7 +70,16 @@ docs/reports/2026-05/IMPROVEMENT_PLAN_2026-05-27.md               +planning doc
 
 ## Deferred / out-of-scope (intentional)
 
-- **desci-platform `services/llm_clients.py`** — currently untracked, owned by a parallel session re-architecting desci. Instrumentation was attempted and reverted to avoid bundling unrelated WIP. Refile as Phase 3.x after that file lands on `main`.
+- **desci-platform `services/llm_clients.py`** — currently untracked, owned by a parallel session re-architecting desci. Instrumentation is deferred to avoid bundling unrelated WIP. **Turnkey follow-up (Phase 3.x), after the file lands on `main`:** wrap the three direct-SDK call sites with the existing tracing primitive — `GeminiTextClient` (`genai.Client → aio.models.generate_content`), `OpenAITextClient` (`AsyncOpenAI → chat.completions.create`), and `GoogleGenAIEmbeddings` (`genai.Client → models.embed_content`). Pattern, identical to `getdaytrends/structured_output.py`:
+
+  ```python
+  from shared.llm.tracing import start_span
+  with start_span(tier=tier, system=system, messages=msgs, dispatcher="desci.<client>") as span:
+      resp = await self._client...generate_content(...)
+      span.record_text(text=resp.text, model=<model>, backend="desci-<client>",
+                       input_tokens=<in>, output_tokens=<out>)
+  ```
+  Env-unset path stays a no-op (the span is `_NoOpSpan`). Add a small tracing test mirroring `automation/getdaytrends/tests/test_structured_output_tracing.py`.
 - **content-intelligence** — audit found zero direct-SDK call sites; all LLM work routes through `shared.llm`, which Phase 2 already traces. No action required.
 - **Phase 4 (BackendManager deprecation)** — out of scope for this PR. The native backend chain is still primary; the proxy is opt-in. Removing the legacy chain would force every install onto the proxy, which is a separate decision.
 
@@ -106,8 +115,9 @@ feat(observability): LiteLLM + Langfuse gateway (Phase 1-3, opt-in)
 - [x] `automation/getdaytrends/tests/test_structured_output*.py`: 21 pass (15 existing + 6 new)
 - [x] DailyNews wrapper/adapter regression (`-k "llm or wrapper or adapter"`): 125 pass (122 existing + 3 new)
 - [x] Ruff lint + format clean
+- [x] Offline contract verifier (`python ops/scripts/verify_observability.py`): 6/6 pass; regression `tests/test_verify_observability.py`: 7 pass
 - [ ] Workspace smoke (`run_workspace_smoke.py --scope all`) — re-run after merge
-- [ ] Operational smoke: bring up `docker compose --profile observability up`, set env, hit one endpoint, verify trace lands in Langfuse UI
+- [ ] Live operational smoke: `docker compose --profile observability up`, set env, hit one endpoint, verify trace in Langfuse UI — procedure in `docs/runbook.md` §관찰성 게이트 (needs running infra)
 
 ## Deferred
 - desci-platform `services/llm_clients.py` instrumentation — file is uncommitted WIP from a parallel session; refile after it lands on main.
