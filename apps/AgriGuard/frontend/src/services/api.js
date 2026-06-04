@@ -10,6 +10,35 @@ const api = axios.create({
   },
 });
 
+export function getOperatorToken() {
+  const envToken = import.meta.env.VITE_AGRIGUARD_OPERATOR_TOKEN;
+  if (envToken) {
+    return envToken;
+  }
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  return window.localStorage.getItem('agriguard-operator-token') || '';
+}
+
+export function hasOperatorToken() {
+  return Boolean(getOperatorToken());
+}
+
+function withOperatorAuth(config = {}) {
+  const token = getOperatorToken();
+  if (!token) {
+    return config;
+  }
+  return {
+    ...config,
+    headers: {
+      ...config.headers,
+      Authorization: `Bearer ${token}`,
+    },
+  };
+}
+
 // 429 Rate Limit 재시도 (1회)
 api.interceptors.response.use(
   (response) => response,
@@ -26,20 +55,20 @@ api.interceptors.response.use(
 
 export const productApi = {
   // Product Operations
-  create: ({ owner_id, ...body }) => api.post('/products/', body, { params: { owner_id } }),
+  create: ({ owner_id, ...body }) => api.post('/products/', body, withOperatorAuth({ params: { owner_id } })),
   getAll: () => api.get('/products/'),
   getById: (id) => api.get(`/products/${id}`),
 
   // Tracking & Blockchain (backend expects query params)
-  addTracking: (id, data) => api.post(`/products/${id}/track`, null, { params: data }),
+  addTracking: (id, data) => api.post(`/products/${id}/track`, null, withOperatorAuth({ params: data })),
   getHistory: (id) => api.get(`/products/${id}/history`),
 
   // Certifications (backend expects query params)
-  addCertification: (id, data) => api.post(`/products/${id}/certifications`, null, { params: data }),
+  addCertification: (id, data) => api.post(`/products/${id}/certifications`, null, withOperatorAuth({ params: data })),
 };
 
 export const userApi = {
-  create: (data) => api.post('/users/', data),
+  create: (data) => api.post('/users/', data, withOperatorAuth()),
 };
 
 export const analyticsApi = {

@@ -2,10 +2,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProductDetail from './ProductDetail';
-import { productApi } from '../services/api';
+import { hasOperatorToken, productApi } from '../services/api';
 import { trackQrEvent } from '../services/qrAnalytics';
 
 vi.mock('../services/api', () => ({
+  hasOperatorToken: vi.fn(() => false),
   productApi: {
     getById: vi.fn(),
     getHistory: vi.fn(),
@@ -49,6 +50,7 @@ const mockHistory = [
 describe('ProductDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hasOperatorToken.mockReturnValue(false);
     vi.useRealTimers();
   });
 
@@ -67,12 +69,14 @@ describe('ProductDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Organic Apples')).toBeInTheDocument();
       expect(screen.getByText('Seoul Farm')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Add Certification/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Add Tracking Event/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Add Certification/i })).toBeDisabled();
+      expect(screen.getByText('Operator updates locked')).toBeInTheDocument();
     });
   });
 
-  it('shows the tracking form when the button is clicked', async () => {
+  it('shows the tracking form when an operator token is available', async () => {
+    hasOperatorToken.mockReturnValue(true);
     productApi.getById.mockResolvedValueOnce({ data: mockProduct });
     productApi.getHistory.mockResolvedValueOnce({ data: { history: mockHistory } });
 
@@ -87,6 +91,37 @@ describe('ProductDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /Add Tracking Event/i }));
 
     expect(screen.getByPlaceholderText(/Location/i)).toBeInTheDocument();
+  });
+
+  it('shows an inline auth notice when a protected tracking update is rejected', async () => {
+    hasOperatorToken.mockReturnValue(true);
+    productApi.getById.mockResolvedValueOnce({ data: mockProduct });
+    productApi.getHistory.mockResolvedValueOnce({ data: { history: mockHistory } });
+    productApi.addTracking.mockRejectedValueOnce({ response: { status: 401 } });
+
+    renderWithRouter(<ProductDetail />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Organic Apples')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Tracking Event/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Location/i), {
+      target: { value: 'Seoul Distribution Center' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Handler ID/i), {
+      target: { value: 'QA-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Add Event$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Operator authentication required to save chain updates.')).toBeInTheDocument();
+    });
+    expect(productApi.addTracking).toHaveBeenCalledWith('1', {
+      status: 'IN_TRANSIT',
+      location: 'Seoul Distribution Center',
+      handler_id: 'QA-1',
+    });
   });
 
   it('renders the not found fallback when product loading fails', async () => {
