@@ -189,12 +189,16 @@ jobs:
 
           # Lint
           echo "::group::Ruff Lint"
-          ruff check --select=E,F,W,I,N,UP,S,B --output-format=json $PY_FILES > ruff-report.json || true
+          set +e
+          ruff check --select=E,F,W,I,N,UP,S,B --output-format=json $PY_FILES > ruff-report.json
+          set -e
           echo "::endgroup::"
 
           # Security
           echo "::group::Bandit Security Scan"
-          bandit -f json -o bandit-report.json -ll $PY_FILES || true
+          set +e
+          bandit -f json -o bandit-report.json -ll $PY_FILES
+          set -e
           echo "::endgroup::"
 
           python - <<'PY'
