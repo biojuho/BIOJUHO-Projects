@@ -6,6 +6,7 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- `02bfcea feat(ops): add dev server mcp contract`
 - `3983c4f feat(ops): export mcp smoke otlp spans`
 - `84ce8fc feat(ops): add agent workflow dry run plans`
 - `c4442da feat(ops): add mcp service manifest`
@@ -52,6 +53,7 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `partially_adopted=5`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
+  - `27 passed` after `02bfcea`
   - `27 passed` after `3983c4f`
   - `25 passed` after `84ce8fc`
   - `25 passed` after `c4442da`
@@ -65,6 +67,12 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `tests\test_dev_server_mcp_contract.py` `3 passed`
   - dev-server contract/status/control tests `24 passed`
   - contract generation emitted `4` tools across `7` targets with runtime status `contract_only`
+- Dashboard live browser-click verification:
+  - `apps\dashboard` build passed
+  - dashboard Vitest `8 passed`
+  - manifest-backed dashboard stack reached `2/2 READY`
+  - Chromium clicked the refresh button and verified `WORKSPACE SMOKE`, `DEV SERVERS`, and `2/2 READY` with zero console/page/request failures
+  - managed dashboard stack stopped and final status returned `0/2 READY`
 
 ## Decision
 
