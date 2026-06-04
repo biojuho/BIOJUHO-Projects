@@ -1035,6 +1035,8 @@
             "verification_sequence",
             "unblock_queue",
             "Prioritized Unblock Queue",
+            "Queue rank",
+            "boundary_by_id",
             "check_outputs",
             "--check-json",
             "external credential handoff check valid",
@@ -1047,6 +1049,7 @@
           "must_contain": [
             "test_handoff_lists_required_env_without_secret_values",
             "test_unblock_queue_prioritizes_operator_actions",
+            "test_env_template_follows_unblock_queue_order",
             "test_checked_in_handoff_artifacts_match_registry",
             "test_cli_check_rejects_stale_markdown",
             "client-secret-value",
@@ -1077,6 +1080,8 @@
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example",
           "must_contain": [
             "Fill values locally; do not commit populated secrets.",
+            "# Queue rank: 1",
+            "# Queue rank: 2",
             "CANVA_CLIENT_SECRET=",
             "TELEGRAM_CHAT_ID="
           ]
@@ -1107,6 +1112,16 @@
             "canva_oauth_and_openapi_tool_execution",
             "github_source_refresh_rate_limit_token",
             "33 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CREDENTIAL_ENV_TEMPLATE_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "env template queue order",
+            "# Queue rank: 1",
+            "GITHUB_TOKEN",
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
             "global_objective_complete=false"
           ]
         }

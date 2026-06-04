@@ -77,6 +77,18 @@ def test_unblock_queue_prioritizes_operator_actions() -> None:
     assert "python ops/scripts/github_source_freshness.py" in github["verify_after_unblock"][0]
 
 
+def test_env_template_follows_unblock_queue_order() -> None:
+    handoff_module = load_module()
+    handoff = handoff_module.build_handoff(REGISTRY_PATH, env={})
+    env_template = handoff_module.format_env_template(handoff)
+
+    assert "# Queue rank: 1" in env_template
+    assert env_template.index("CANVA_CLIENT_SECRET=") < env_template.index("GITHUB_TOKEN=")
+    assert env_template.index("GITHUB_TOKEN=") < env_template.index("TELEGRAM_BOT_TOKEN=")
+    assert env_template.index("TELEGRAM_CHAT_ID=") < env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=")
+    assert env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=") < env_template.index("OPENAI_API_KEY=")
+
+
 def test_cli_writes_redacted_handoff_package(tmp_path: Path) -> None:
     handoff_module = load_module()
     json_out = tmp_path / "handoff.json"
