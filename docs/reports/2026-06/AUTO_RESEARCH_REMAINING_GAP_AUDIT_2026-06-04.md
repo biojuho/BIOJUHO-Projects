@@ -146,6 +146,25 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json`
     and
     `docs\reports\2026-06\AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md`
+- Current-tip freshness gate verification:
+  - `ops\scripts\autoresearch_completion_audit.py` now validates optional
+    `git_freshness` evidence by checking proof-commit ancestry and changed
+    paths after the proof commit
+  - configured proof commit `39d6a82` is an ancestor of
+    `origin/feat/observability-gateway-2026-05`
+  - allowed post-proof paths are limited to reports, `next-actions.md`, the
+    completion contract, the completion-audit script, and its tests
+  - focused audit tests passed `6/6`
+  - pre-push-equivalent test suite passed `74/74`, and the hook runtime
+    probes passed for dev-server MCP runtime, MCP service runtime, single
+    workflow dry-run, side-effect safety skip, and matrix dry-run
+  - completion audit now reports `15` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_CURRENT_TIP_FRESHNESS_GATE_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_TIP_FRESHNESS_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_TIP_FRESHNESS_2026-06-05.md`
 - Current-tip workflow matrix all-scope launch gate:
   - current branch tip `39d6a82`
   - fast gate passed: hook-equivalent pytest suite `72/72`, dev-server MCP

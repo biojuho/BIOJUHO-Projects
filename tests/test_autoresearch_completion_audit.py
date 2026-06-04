@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -38,6 +39,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "agent_workflow_gate_runner",
         "agent_workflow_gate_safety",
         "agent_workflow_gate_matrix",
+        "current_tip_freshness_gate",
     }
 
 
@@ -77,3 +79,100 @@ def test_required_partial_criterion_blocks_cycle_readiness() -> None:
     assert summary["valid"] is True
     assert summary["cycle_evidence_ready"] is False
     assert summary["missing_required"] == ["product_launch_gate"]
+
+
+def test_git_freshness_rejects_non_evidence_changes(monkeypatch, tmp_path: Path) -> None:
+    audit = load_module()
+    evidence_file = tmp_path / "evidence.md"
+    evidence_file.write_text("ok\n", encoding="utf-8")
+    payload = {
+        "schema_version": 1,
+        "generated_at": "2026-06-05T01:45:50+09:00",
+        "objective": "test",
+        "global_completion_policy": {
+            "open_ended_until_user_stop": True,
+            "can_mark_complete": False,
+            "reason": "test",
+        },
+        "criteria": [
+            {
+                "id": "freshness",
+                "requirement": "fresh launch proof",
+                "required": True,
+                "status": "covered",
+                "evidence": [
+                    {
+                        "path": "evidence.md",
+                        "must_contain": ["ok"],
+                        "git_freshness": {
+                            "proof_commit": "abc1234",
+                            "remote_ref": "origin/main",
+                            "allowed_paths_since_proof": ["docs/reports/"],
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    def fake_run_git(args: list[str], workspace_root: Path):
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[:2] == ["diff", "--name-only"]:
+            return subprocess.CompletedProcess(args, 0, "docs/reports/proof.md\napps/product/app.py\n", "")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(audit, "_run_git", fake_run_git)
+
+    summary = audit.audit_contract(payload, workspace_root=tmp_path)
+
+    assert summary["valid"] is False
+    assert summary["cycle_evidence_ready"] is False
+    assert any("apps/product/app.py" in error for error in summary["errors"])
+
+
+def test_git_freshness_requires_proof_ancestor(monkeypatch, tmp_path: Path) -> None:
+    audit = load_module()
+    evidence_file = tmp_path / "evidence.md"
+    evidence_file.write_text("ok\n", encoding="utf-8")
+    payload = {
+        "schema_version": 1,
+        "generated_at": "2026-06-05T01:45:50+09:00",
+        "objective": "test",
+        "global_completion_policy": {
+            "open_ended_until_user_stop": True,
+            "can_mark_complete": False,
+            "reason": "test",
+        },
+        "criteria": [
+            {
+                "id": "freshness",
+                "requirement": "fresh launch proof",
+                "required": True,
+                "status": "covered",
+                "evidence": [
+                    {
+                        "path": "evidence.md",
+                        "must_contain": ["ok"],
+                        "git_freshness": {
+                            "proof_commit": "abc1234",
+                            "remote_ref": "origin/main",
+                            "allowed_paths_since_proof": ["docs/reports/"],
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    def fake_run_git(args: list[str], workspace_root: Path):
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args, 1, "", "not ancestor")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(audit, "_run_git", fake_run_git)
+
+    summary = audit.audit_contract(payload, workspace_root=tmp_path)
+
+    assert summary["valid"] is False
+    assert any("not an ancestor" in error for error in summary["errors"])

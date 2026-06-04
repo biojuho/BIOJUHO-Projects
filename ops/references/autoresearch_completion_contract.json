@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T01:45:50+09:00",
+  "generated_at": "2026-06-05T01:52:31+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -68,6 +68,43 @@
             "microsoft/playwright-mcp",
             "microsoft/mcp-gateway"
           ]
+        }
+      ]
+    },
+    {
+      "id": "current_tip_freshness_gate",
+      "requirement": "The active launch proof is checked against the current remote branch so product-code changes after the proof invalidate cycle readiness.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/autoresearch_completion_audit.py",
+          "must_contain": [
+            "git_freshness",
+            "merge-base",
+            "diff",
+            "allowed_paths_since_proof"
+          ]
+        },
+        {
+          "path": "ops/references/autoresearch_completion_contract.json",
+          "must_contain": [
+            "current_tip_freshness_gate",
+            "origin/feat/observability-gateway-2026-05",
+            "39d6a82",
+            "allowed_paths_since_proof"
+          ],
+          "git_freshness": {
+            "proof_commit": "39d6a82",
+            "remote_ref": "origin/feat/observability-gateway-2026-05",
+            "allowed_paths_since_proof": [
+              "docs/reports/2026-06/",
+              "next-actions.md",
+              "ops/references/autoresearch_completion_contract.json",
+              "ops/scripts/autoresearch_completion_audit.py",
+              "tests/test_autoresearch_completion_audit.py"
+            ]
+          }
         }
       ]
     },

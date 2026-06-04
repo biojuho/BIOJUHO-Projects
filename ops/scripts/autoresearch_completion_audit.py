@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from collections import Counter
 from datetime import datetime
@@ -219,8 +220,91 @@ def _validate_evidence(value: Any, field: str, workspace_root: Path, errors: lis
                 continue
             if content and term not in content:
                 errors.append(f"{prefix}.must_contain[{term_index}] missing from {path_text}: {term}")
-        normalized.append({"path": path_text, "term_count": len(required_terms)})
+        git_freshness = item.get("git_freshness")
+        if git_freshness is not None:
+            _validate_git_freshness(git_freshness, f"{prefix}.git_freshness", workspace_root, errors)
+        normalized.append(
+            {
+                "path": path_text,
+                "term_count": len(required_terms),
+                "git_freshness": bool(git_freshness),
+            }
+        )
     return normalized
+
+
+def _validate_git_freshness(value: Any, field: str, workspace_root: Path, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{field} must be an object when present")
+        return
+
+    proof_commit = _require_string(value.get("proof_commit"), f"{field}.proof_commit", errors)
+    remote_ref = _require_string(value.get("remote_ref"), f"{field}.remote_ref", errors)
+    allowed_paths = value.get("allowed_paths_since_proof", [])
+    if not isinstance(allowed_paths, list) or not allowed_paths:
+        errors.append(f"{field}.allowed_paths_since_proof must be a non-empty array")
+        allowed_paths = []
+    normalized_allowed: list[str] = []
+    for index, path_text in enumerate(allowed_paths):
+        if not isinstance(path_text, str) or not path_text.strip():
+            errors.append(f"{field}.allowed_paths_since_proof[{index}] must be a non-empty string")
+            continue
+        normalized = _normalize_git_path(path_text)
+        if normalized.startswith("../") or normalized == "..":
+            errors.append(f"{field}.allowed_paths_since_proof[{index}] must be repo-relative")
+            continue
+        normalized_allowed.append(normalized)
+
+    if not proof_commit or not remote_ref:
+        return
+
+    ancestor = _run_git(["merge-base", "--is-ancestor", proof_commit, remote_ref], workspace_root)
+    if ancestor.returncode != 0:
+        detail = ancestor.stderr.strip() or ancestor.stdout.strip() or f"exit {ancestor.returncode}"
+        errors.append(f"{field}.proof_commit is not an ancestor of {remote_ref}: {detail}")
+        return
+
+    changed = _run_git(["diff", "--name-only", f"{proof_commit}..{remote_ref}"], workspace_root)
+    if changed.returncode != 0:
+        detail = changed.stderr.strip() or changed.stdout.strip() or f"exit {changed.returncode}"
+        errors.append(f"{field} could not inspect changed paths since proof commit: {detail}")
+        return
+
+    changed_paths = [_normalize_git_path(line) for line in changed.stdout.splitlines() if line.strip()]
+    disallowed = [
+        path for path in changed_paths if not _is_allowed_since_proof(path, normalized_allowed)
+    ]
+    if disallowed:
+        joined = ", ".join(disallowed[:10])
+        if len(disallowed) > 10:
+            joined += f", ... ({len(disallowed)} total)"
+        errors.append(f"{field} has non-evidence changes after proof commit: {joined}")
+
+
+def _run_git(args: list[str], workspace_root: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=workspace_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def _normalize_git_path(path_text: str) -> str:
+    return path_text.strip().replace("\\", "/").lstrip("./")
+
+
+def _is_allowed_since_proof(path_text: str, allowed_paths: list[str]) -> bool:
+    for allowed in allowed_paths:
+        if allowed.endswith("/"):
+            if path_text.startswith(allowed):
+                return True
+        elif path_text == allowed:
+            return True
+    return False
 
 
 def _validate_timestamp(value: Any, errors: list[str]) -> None:
