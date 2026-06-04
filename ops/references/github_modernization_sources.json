@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T00:49:00+09:00",
+  "generated_at": "2026-06-05T01:18:00+09:00",
   "search_context": {
     "objective": "Search GitHub for systems similar to this AI workspace and map current patterns into local modernization evidence.",
     "queries": [
@@ -12,7 +12,8 @@
       "dev server MCP Playwright workflow automation",
       "MCP inspector CLI tools/list tools/call stdio automation",
       "Playwright MCP browser automation accessibility snapshots",
-      "MCP gateway routing authorization lifecycle management"
+      "MCP gateway routing authorization lifecycle management",
+      "stateful agent workflow quality gates LangGraph durable execution human in the loop"
     ]
   },
   "sources": [
@@ -143,6 +144,8 @@
         "declarative agent workflows and MCP server assignment",
         "repo-level launch workflow inventory",
         "dry-run workflow plans with ordered inspect, run, and evidence steps",
+        "bounded workflow gate execution through declared quality gates",
+        "CLI-first agent workflow verification before autonomous runtime",
         "provider abstraction across OpenAI, Anthropic, Google, and local backends",
         "token and tool-use tracking for agent runs"
       ],
@@ -154,12 +157,47 @@
         "ops/references/agent_workflows.json",
         "ops/scripts/agent_workflow_manifest.py",
         "tests/test_agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
         "docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-04.md",
         "docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.json",
         "docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.md",
-        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md"
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.json",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md",
+        "docs/QUALITY_GATE.md"
       ],
-      "gap": "Declarative launch workflow inventory and dry-run command planning are adopted; live central runtime orchestration remains deliberate future work."
+      "gap": "Declarative launch workflow inventory, dry-run command planning, and bounded quality-gate execution are adopted; live central runtime orchestration remains deliberate future work."
+    },
+    {
+      "repo": "langchain-ai/langgraph",
+      "url": "https://github.com/langchain-ai/langgraph",
+      "category": "stateful-agent-orchestration",
+      "adoption_status": "partially_adopted",
+      "why_similar": "Stateful agent orchestration framework for long-running workflows, durable execution, memory, and human-in-the-loop control that maps to the local agent workflow gap without requiring a premature hosted runtime.",
+      "observed_patterns": [
+        "stateful workflow orchestration for long-running agents",
+        "durable execution as a runtime boundary",
+        "human-in-the-loop checkpoints before irreversible work",
+        "memory and state persistence for agent workflows",
+        "bounded quality-gate execution before adopting full orchestration"
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "tests/test_agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.json",
+        "docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.md",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.json",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md",
+        "docs/QUALITY_GATE.md"
+      ],
+      "gap": "Bounded workflow quality-gate execution is adopted through existing project CLIs and smoke gates. Full stateful LangGraph-style runtime orchestration, durable agent memory, human approval checkpoints, and hosted deployment remain future-scoped until the operator owns those runtime policies."
     },
     {
       "repo": "dsifry/metaswarm",

@@ -8,13 +8,14 @@ if ! python -m pytest \
     tests/test_autoresearch_completion_audit.py \
     tests/test_mcp_service_runtime_smoke.py \
     tests/test_mcp_otel_collector_handoff.py \
+    tests/test_agent_workflow_gate_runner.py \
     tests/test_dev_server_browser_smoke.py \
     tests/test_dev_server_mcp_contract.py \
     tests/test_dev_server_mcp_runtime.py \
     tests/test_dev_server_mcp_runtime_smoke.py \
     -q --tb=line 2>/dev/null; then
     echo "Smoke test failed. Push blocked."
-    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_autoresearch_completion_audit.py tests/test_mcp_service_runtime_smoke.py tests/test_mcp_otel_collector_handoff.py tests/test_dev_server_browser_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
+    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_autoresearch_completion_audit.py tests/test_mcp_service_runtime_smoke.py tests/test_mcp_otel_collector_handoff.py tests/test_agent_workflow_gate_runner.py tests/test_dev_server_browser_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
     exit 1
 fi
 
@@ -27,6 +28,12 @@ fi
 if ! python ops/scripts/mcp_service_runtime_smoke.py 2>/dev/null; then
     echo "MCP service runtime smoke failed. Push blocked."
     echo "   Then run 'python ops/scripts/mcp_service_runtime_smoke.py' for service startup/tool-list details."
+    exit 1
+fi
+
+if ! python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quality-dashboard --max-gates 1 2>/dev/null; then
+    echo "Agent workflow gate runner dry-run failed. Push blocked."
+    echo "   Then run 'python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quality-dashboard --max-gates 1' for gate planning details."
     exit 1
 fi
 

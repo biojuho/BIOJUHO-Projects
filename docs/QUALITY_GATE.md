@@ -40,6 +40,17 @@ python ops/scripts/run_workspace_smoke.py --scope desci --check-timeout 420 --js
 For live browser QA and local dev-server lifecycle evidence, use
 `docs/guides/dev-server-control.md`.
 
+For launch workflow gate execution, run a declared workflow quality gate through
+the bounded agent workflow runner:
+
+```bash
+python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quality-dashboard --execute --max-gates 1 --json-out docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.json --markdown-out docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md
+```
+
+The runner defaults to dry-run unless `--execute` is supplied. It executes only
+the selected manifest quality gates through existing project-owned CLI/smoke
+commands.
+
 When an npm-based smoke check runs in a clean worktree, the runner installs
 lockfile-backed Node dependencies with `npm ci --no-audit` if `node_modules` is
 missing for that package directory. Dependency artifacts are local runtime state

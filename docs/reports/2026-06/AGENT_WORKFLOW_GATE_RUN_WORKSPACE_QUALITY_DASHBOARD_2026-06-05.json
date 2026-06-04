@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T15:50:04.718477+00:00",
+  "status": "pass",
+  "execution_mode": "execute",
+  "will_execute": true,
+  "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+  "source_context": {
+    "repo": "evalstate/fast-agent",
+    "url": "https://github.com/evalstate/fast-agent",
+    "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+  },
+  "workflow": {
+    "id": "workspace-quality-dashboard",
+    "project": "apps/dashboard",
+    "goal": "Surface workspace quality, smoke, dev-server readiness, and MCP trace evidence for operators.",
+    "smoke_scope": "workspace",
+    "launch_status": "active",
+    "agent_roles": [
+      "quality-operator",
+      "browser-qa",
+      "release-operator"
+    ],
+    "mcp_servers": [
+      "playwright"
+    ],
+    "quality_gate_count": 2
+  },
+  "summary": {
+    "requested_max_gates": 1,
+    "selected_gates": 1,
+    "passed_gates": 1,
+    "failed_gates": 0,
+    "planned_gates": 0,
+    "elapsed_seconds": 191.444
+  },
+  "gates": [
+    {
+      "index": 1,
+      "workflow_id": "workspace-quality-dashboard",
+      "command": [
+        "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+        "ops/scripts/run_workspace_smoke.py",
+        "--scope",
+        "workspace"
+      ],
+      "cwd": ".",
+      "source": "python ops/scripts/run_workspace_smoke.py --scope workspace",
+      "status": "pass",
+      "returncode": 0,
+      "elapsed_seconds": 191.444,
+      "stdout_tail": "[smoke] running: shared package tests\n[smoke] running: dashboard frontend lint\n[smoke] running: dashboard frontend tests\n[smoke] running: dashboard frontend build\n[smoke] running: dashboard bundle budget\n[smoke] summary: passed=6, failed=0, total=6\n- [PASS] workspace regression tests (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-workspace-workspace-regression-tests-d8c774e4\")\n- [PASS] shared package tests (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m pytest packages/shared/tests/ -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-workspace-shared-package-tests-cfba4840\")\n- [PASS] dashboard frontend lint (npm.cmd run lint)\n- [PASS] dashboard frontend tests (npm.cmd run test)\n- [PASS] dashboard frontend build (npm.cmd run build)\n- [PASS] dashboard bundle budget (npm.cmd run check:bundle)",
+      "stderr_tail": ""
+    }
+  ],
+  "errors": []
+}

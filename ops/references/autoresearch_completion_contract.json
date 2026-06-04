@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T00:54:00+09:00",
+  "generated_at": "2026-06-05T01:18:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -49,6 +49,7 @@
             "lastmile-ai/mcp-eval",
             "open-telemetry/opentelemetry-collector",
             "evalstate/fast-agent",
+            "langchain-ai/langgraph",
             "open-webui/mcpo",
             "Uninen/devserver-mcp",
             "microsoft/mcp-gateway"
@@ -57,10 +58,11 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 11",
+            "Sources reviewed: 12",
             "Adoption counts",
             "modelcontextprotocol/python-sdk",
             "open-telemetry/opentelemetry-collector",
+            "langchain-ai/langgraph",
             "microsoft/playwright-mcp",
             "microsoft/mcp-gateway"
           ]
@@ -203,12 +205,14 @@
             "tests/test_autoresearch_completion_audit.py",
             "tests/test_mcp_service_runtime_smoke.py",
             "tests/test_mcp_otel_collector_handoff.py",
+            "tests/test_agent_workflow_gate_runner.py",
             "tests/test_dev_server_browser_smoke.py",
             "tests/test_dev_server_mcp_contract.py",
             "tests/test_dev_server_mcp_runtime.py",
             "tests/test_dev_server_mcp_runtime_smoke.py",
             "ops/scripts/dev_server_mcp_runtime_smoke.py",
             "ops/scripts/mcp_service_runtime_smoke.py",
+            "ops/scripts/agent_workflow_gate_runner.py",
             "ops/scripts/autoresearch_completion_audit.py"
           ]
         },
@@ -355,6 +359,42 @@
             "OpenTelemetry Collector",
             "future-scoped/operator-owned",
             "validator status `pass`"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent_workflow_gate_runner",
+      "requirement": "Declared agent workflow quality gates can be executed through existing project CLIs without claiming full autonomous orchestration.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/agent_workflow_gate_runner.py",
+          "must_contain": [
+            "--execute",
+            "split_quality_gate_command",
+            "run_workflow_gates",
+            "quality_gates"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"execution_mode\": \"execute\"",
+            "\"selected_gates\": 1",
+            "\"passed_gates\": 1",
+            "workspace-quality-dashboard"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "langchain-ai/langgraph",
+            "nested workspace smoke `6/6 PASS`",
+            "future-scoped"
           ]
         }
       ]

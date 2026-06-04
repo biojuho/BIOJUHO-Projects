@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 agent workflow gate-runner slice: adopted bounded execution
+  of declared workflow quality gates through existing project CLIs while
+  leaving stateful autonomous orchestration future-scoped.
 - 2026-06-05 MCP service runtime-smoke slice: adopted an official MCP
   Python SDK-backed stdio initialize/tools-list smoke for repo-local MCP
   services.
@@ -50,7 +53,11 @@ Latest pushed commits in this slice:
 - `lastmile-ai/mcp-eval`: adopted MCP smoke schema metrics, dashboard surfacing, standalone JSONL trace export, local OTLP file-exporter shaped span export, and validated collector handoff evidence.
 - `open-telemetry/opentelemetry-collector`: adopted an operator-owned
   collector handoff contract and validator for real MCP smoke OTLP artifacts.
-- `evalstate/fast-agent`: adopted launch workflow inventory plus dry-run command plans.
+- `evalstate/fast-agent`: adopted launch workflow inventory, dry-run command plans, and bounded quality-gate execution.
+- `langchain-ai/langgraph`: adopted the conservative local equivalent of
+  stateful workflow orchestration by executing declared gates through existing
+  project CLIs before any full runtime, memory, human-checkpoint, or hosted
+  deployment adoption.
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
 - `modelcontextprotocol/inspector`: adopted a repo-owned stdio subprocess smoke for `initialize`, `tools/list`, guarded `tools/call`, and read-only log calls.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
@@ -84,7 +91,11 @@ These are intentionally not promoted to live runtime changes in this cycle:
     sampling, and retry policy.
 - Live central agent workflow orchestration:
   - Status: future-scoped
-  - Reason: dry-run plans exist; live orchestration should stay behind existing project CLIs and smoke/dev-server gates until execution ownership is clear.
+  - Reason: declarative workflow inventory, dry-run plans, and bounded
+    execution of selected quality gates now exist; full stateful orchestration,
+    durable agent memory, human approval checkpoints, and hosted deployment
+    should stay behind existing project CLIs and smoke/dev-server gates until
+    execution ownership is clear.
 - Canva OpenAPI tool execution proxy:
   - Status: external-auth blocked
   - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior.
@@ -99,10 +110,23 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-mcp-runtime-smoke-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `11` sources
+  - `12` sources
   - `adopted=1`
-  - `partially_adopted=10`
+  - `partially_adopted=11`
   - `watch=0`
+- Agent workflow gate-runner verification:
+  - `tests\test_agent_workflow_gate_runner.py` passed `5/5`
+  - focused workflow/radar/audit suite passed `20/20`
+  - pre-push-equivalent test suite passed `62/62`
+  - hook script checks passed: dev-server MCP runtime smoke, MCP service
+    runtime smoke, agent workflow gate-runner dry-run, and completion audit
+  - `ops\scripts\agent_workflow_gate_runner.py` compiled
+  - real `workspace-quality-dashboard` gate execution selected `1` gate,
+    passed `1`, failed `0`, and nested workspace smoke returned `6/6 PASS`
+  - generated evidence:
+    `docs\reports\2026-06\AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.json`
+    and
+    `docs\reports\2026-06\AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md`
 - Pre-push hooks on the latest pushed slices passed:
   - `47 passed` plus MCP subprocess smoke and completion audit after `0746be7`
   - `47 passed` plus MCP subprocess smoke and completion audit after `554e935`
