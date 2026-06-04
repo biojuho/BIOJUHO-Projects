@@ -1077,6 +1077,7 @@
             "test_execute_skips_missing_required_env",
             "test_execute_skips_missing_optional_token_boundary",
             "test_ready_only_execute_ignores_blocked_boundary",
+            "test_checked_in_dry_run_artifacts_match_current_plan",
             "super-secret-token"
           ]
         },

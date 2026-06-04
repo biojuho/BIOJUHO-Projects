@@ -8,6 +8,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "external_credential_live_verify.py"
 REGISTRY_PATH = PROJECT_ROOT / "ops" / "references" / "external_credential_boundaries.json"
+DRY_RUN_JSON_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json"
+DRY_RUN_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md"
 
 
 def load_module():
@@ -161,6 +163,17 @@ def test_cli_writes_dry_run_markdown(tmp_path: Path) -> None:
     assert "blocked_missing_required_env" in markdown
 
 
+def test_checked_in_dry_run_artifacts_match_current_plan() -> None:
+    verifier = load_module()
+
+    expected = verifier.run(REGISTRY_PATH, env={})
+    checked_json = json.loads(DRY_RUN_JSON_PATH.read_text(encoding="utf-8"))
+    checked_markdown = DRY_RUN_MARKDOWN_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+    assert _stable_report(checked_json) == _stable_report(expected)
+    assert checked_markdown == verifier.render_markdown(expected)
+
+
 def _write_registry(
     tmp_path: Path,
     *,
@@ -198,6 +211,29 @@ def _write_registry(
     registry = tmp_path / "registry.json"
     registry.write_text(json.dumps(payload), encoding="utf-8")
     return registry
+
+
+def _stable_report(report: dict) -> dict:
+    return {
+        "schema_version": report["schema_version"],
+        "registry_path": report["registry_path"],
+        "mode": report["mode"],
+        "selection": report["selection"],
+        "status": report["status"],
+        "summary": report["summary"],
+        "boundaries": report["boundaries"],
+        "commands": [
+            {
+                "boundary_id": command["boundary_id"],
+                "command": command["command"],
+                "status": command["status"],
+                "returncode": command["returncode"],
+                "skip_reason": command["skip_reason"],
+            }
+            for command in report["commands"]
+        ],
+        "errors": report["errors"],
+    }
 
 
 def _write_mixed_registry(tmp_path: Path) -> Path:
