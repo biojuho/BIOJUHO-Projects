@@ -234,6 +234,7 @@ async function main() {
   let smokeResult;
   let mobileResult;
   let interactionResult;
+  let accessibilityResult;
   try {
     smokeResult = parseJsonOutput(
       (await runNodeScriptAsync("scripts/smoke-chrome.mjs", {
@@ -251,6 +252,13 @@ async function main() {
     );
     interactionResult = parseJsonOutput(
       (await runNodeScriptAsync("scripts/smoke-interactions.mjs", {
+        BASE_URL: baseUrl,
+        SMOKE_PROGRESS: "1",
+      }, 120000)).stdout,
+      "fail",
+    );
+    accessibilityResult = parseJsonOutput(
+      (await runNodeScriptAsync("scripts/smoke-a11y.mjs", {
         BASE_URL: baseUrl,
         SMOKE_PROGRESS: "1",
       }, 120000)).stdout,
@@ -278,6 +286,13 @@ async function main() {
     throw Object.assign(new Error("release interaction smoke failed"), {
       step: "scripts/smoke-interactions.mjs",
       stdout: JSON.stringify(interactionResult, null, 2),
+      stderr: "",
+    });
+  }
+  if (accessibilityResult.status !== "pass") {
+    throw Object.assign(new Error("release accessibility smoke failed"), {
+      step: "scripts/smoke-a11y.mjs",
+      stdout: JSON.stringify(accessibilityResult, null, 2),
       stderr: "",
     });
   }
@@ -311,6 +326,13 @@ async function main() {
       consoleIssues: interactionResult.consoleIssues,
       networkIssues: interactionResult.networkIssues,
       failures: interactionResult.failures,
+    },
+    accessibility: {
+      status: accessibilityResult.status,
+      checks: accessibilityResult.checks,
+      consoleIssues: accessibilityResult.consoleIssues,
+      networkIssues: accessibilityResult.networkIssues,
+      failures: accessibilityResult.failures,
     },
   }, null, 2));
 }

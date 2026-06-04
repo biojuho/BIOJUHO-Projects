@@ -31,6 +31,12 @@ node scripts/smoke-interactions.mjs
 node scripts/smoke-mobile.mjs
 ```
 
+키보드·보조기술 회귀는 접근성 스모크로 확인합니다. 명령 팔레트, 단축키 도움말 모달, 프로젝트 선택기의 포커스 복귀와 ARIA 연결 상태를 실제 DOM에서 검사합니다.
+
+```bash
+node scripts/smoke-a11y.mjs
+```
+
 ## 출시 패키지 생성
 
 정적 호스팅에 올릴 파일만 `dist/release/`로 복사하고, 파일별 SHA-256 manifest와 실행 안내를 생성합니다.
@@ -43,7 +49,7 @@ python3 -m http.server 5178
 
 패키지 검증은 프로젝트 루트에서 `BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs`로 실행합니다. 포트가 이미 사용 중이면 다른 포트로 서버를 띄우고 `BASE_URL`도 같은 포트로 바꿉니다.
 체크섬 manifest까지 함께 검증하려면 먼저 `node scripts/verify-release.mjs`를 실행합니다.
-전체 출시 게이트를 한 번에 돌리려면 프로젝트 루트에서 아래 명령을 실행합니다. 이 명령은 패키지 생성, manifest 검증, 임시 로컬 서버 기동, Chrome 라우트 스모크, 모바일 레이아웃 스모크, interaction 스모크, 서버 종료까지 자동으로 처리합니다.
+전체 출시 게이트를 한 번에 돌리려면 프로젝트 루트에서 아래 명령을 실행합니다. 이 명령은 패키지 생성, manifest 검증, 임시 로컬 서버 기동, Chrome 라우트 스모크, 모바일 레이아웃 스모크, interaction 스모크, 접근성 스모크, 서버 종료까지 자동으로 처리합니다.
 
 ```bash
 node scripts/smoke-release.mjs
@@ -104,6 +110,7 @@ node scripts/audit-release-readiness.mjs --run-gates
 - `favicon.svg` — 정적 배포 시 브라우저 favicon 404를 막는 로컬 SVG 아이콘
 - `scripts/smoke-chrome.mjs` — Chrome DevTools Protocol 기반 출시 스모크 검증
 - `scripts/smoke-interactions.mjs` — 독립 Chrome 프로필에서 주요 CRUD·토글·JSON 백업 내보내기/가져오기/전체 초기화/초기화 후 재시작 유지/초기화 후 첫 생성·명령 팔레트 사용자 흐름을 클릭/입력으로 검증
+- `scripts/smoke-a11y.mjs` — 명령 팔레트·모달·프로젝트 선택기의 키보드 포커스 복귀와 ARIA 상태를 실제 Chrome DOM에서 검증
 - `scripts/package-release.mjs` — 정적 출시 패키지와 SHA-256 manifest 생성
 - `scripts/verify-release.mjs` — 출시 패키지 manifest의 파일 목록·바이트·SHA-256 재검증
 - `scripts/smoke-mobile.mjs` — 500px 폭 Chrome에서 15개 화면의 모바일 레이아웃 overflow·텍스트·콘솔·네트워크 회귀 검증

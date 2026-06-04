@@ -30,6 +30,7 @@ const releaseScripts = [
   "scripts/smoke-chrome.mjs",
   "scripts/smoke-mobile.mjs",
   "scripts/smoke-interactions.mjs",
+  "scripts/smoke-a11y.mjs",
   "scripts/smoke-release.mjs",
 ];
 
@@ -151,7 +152,7 @@ function buildChecklist() {
   const scriptEvidence = releaseScripts.map((path) => ({ path, exists: fileExists(path) }));
   checklist.push({
     id: "release_gate_scripts",
-    requirement: "Release packaging, manifest verification, route smoke, mobile layout smoke, interaction smoke, and full release gate scripts exist.",
+    requirement: "Release packaging, manifest verification, route smoke, mobile layout smoke, interaction smoke, accessibility smoke, and full release gate scripts exist.",
     status: scriptEvidence.every((item) => item.exists) ? "pass" : "fail",
     evidence: scriptEvidence,
   });
@@ -180,6 +181,7 @@ function buildChecklist() {
     "node scripts/smoke-release.mjs",
     "node scripts/smoke-mobile.mjs",
     "node scripts/smoke-interactions.mjs",
+    "node scripts/smoke-a11y.mjs",
     "localStorage 키 `joopark.workspace.v3`",
     "실제로 생성/편집/삭제",
     "인스턴스·데이터베이스·테이블·컬럼·저장 쿼리·마이그레이션",
@@ -210,14 +212,14 @@ function buildChecklist() {
   if (gateEvidence) {
     checklist.push({
       id: "packaged_browser_gates",
-      requirement: "The packaged release passes route smoke, mobile layout smoke, and click/input interaction smoke from a temporary local server.",
+      requirement: "The packaged release passes route smoke, mobile layout smoke, click/input interaction smoke, and keyboard/ARIA accessibility smoke from a temporary local server.",
       status: gateEvidence.status,
       evidence: gateEvidence,
     });
   } else {
     checklist.push({
       id: "packaged_browser_gates",
-      requirement: "The packaged release passes route smoke, mobile layout smoke, and click/input interaction smoke from a temporary local server.",
+      requirement: "The packaged release passes route smoke, mobile layout smoke, click/input interaction smoke, and keyboard/ARIA accessibility smoke from a temporary local server.",
       status: "not_run",
       evidence: { command: "node scripts/audit-release-readiness.mjs --run-gates" },
     });

@@ -60,7 +60,7 @@
 
       <main class="main">
         <header class="topbar" id="top">
-          <button type="button" class="project-select" id="projectSelect" data-action="toggle-project-picker" aria-haspopup="listbox" aria-expanded="false">
+          <button type="button" class="project-select" id="projectSelect" data-action="toggle-project-picker" aria-haspopup="dialog" aria-expanded="false" aria-controls="projectPicker">
             <span aria-hidden="true">▣</span>
             <div>
               <small>현재 프로젝트</small>
@@ -68,7 +68,7 @@
             </div>
             <span aria-hidden="true">⌄</span>
           </button>
-          <div id="projectPicker" class="project-picker" role="listbox" aria-labelledby="projectSelectLabel" hidden></div>
+          <div id="projectPicker" class="project-picker" role="dialog" aria-labelledby="projectSelectLabel" hidden></div>
           <span class="pill ok">정상</span>
           <label class="search">
             <span>⌕</span>
@@ -119,8 +119,8 @@
     <section id="palette" class="palette" aria-hidden="true">
       <div class="palette-backdrop" data-action="close-palette"></div>
       <div class="palette-panel" role="dialog" aria-modal="true" aria-label="명령 팔레트">
-        <input id="paletteInput" type="text" placeholder="검색 또는 명령 입력... (일정·할 일·메모·습관·프로젝트·이슈)" autocomplete="off" spellcheck="false" />
-        <div id="paletteResults" class="palette-results" role="listbox"></div>
+        <input id="paletteInput" type="text" role="combobox" aria-controls="paletteResults" aria-expanded="false" aria-autocomplete="list" placeholder="검색 또는 명령 입력... (일정·할 일·메모·습관·프로젝트·이슈)" autocomplete="off" spellcheck="false" />
+        <div id="paletteResults" class="palette-results" role="listbox" aria-label="명령 팔레트 결과"></div>
         <div class="palette-hint">↑↓ 이동 &middot; Enter 실행 &middot; Esc 닫기</div>
       </div>
     </section>

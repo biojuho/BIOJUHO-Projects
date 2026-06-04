@@ -1690,6 +1690,10 @@ function openModal(title, bodyHTML, onConfirm) {
   refs.modal.root.setAttribute("aria-hidden", "false");
   const firstInput = refs.modal.body.querySelector("input, select, textarea");
   if (firstInput) firstInput.focus();
+  else {
+    const closeBtn = refs.modal.root.querySelector(".modal-close");
+    if (closeBtn) closeBtn.focus();
+  }
 }
 
 function closeModal() {
@@ -1747,10 +1751,10 @@ function renderProjectOptions() {
     setHTML(list, html`<div class="project-empty">일치하는 프로젝트가 없습니다.</div>`);
     return;
   }
-  const body = filtered.map((p) => {
+  const body = filtered.map((p, idx) => {
     const isCurrent = p.id === dashboard.currentProjectId;
     return html`
-      <button type="button" role="option" class="project-option ${raw(isCurrent ? "is-current" : "")}" data-action="pick-project" data-project-id="${p.id}" aria-selected="${raw(isCurrent ? "true" : "false")}">
+      <button type="button" id="project-option-${idx}" role="option" class="project-option ${raw(isCurrent ? "is-current" : "")}" data-action="pick-project" data-project-id="${p.id}" aria-selected="${raw(isCurrent ? "true" : "false")}">
         <div class="project-option-row">
           <strong>${p.name}</strong>
           <span class="project-env-pill">${p.category || p.owner}</span>
@@ -1768,14 +1772,25 @@ function renderProjectOptions() {
 }
 
 let projectPickerInitialized = false;
+function restoreProjectPickerFocus() {
+  if (!refs.projectSelect) return;
+  refs.projectSelect.focus();
+  setTimeout(() => {
+    if (refs.projectPicker && refs.projectPicker.hasAttribute("hidden")) refs.projectSelect.focus();
+  }, 0);
+  setTimeout(() => {
+    if (refs.projectPicker && refs.projectPicker.hasAttribute("hidden")) refs.projectSelect.focus();
+  }, 80);
+}
+
 function ensureProjectPickerScaffold() {
   if (projectPickerInitialized || !refs.projectPicker) return;
   setHTML(refs.projectPicker, html`
     <div class="project-search">
       <span aria-hidden="true">⌕</span>
-      <input id="projectPickerSearch" type="search" placeholder="프로젝트 검색" autocomplete="off" aria-label="프로젝트 검색" />
+      <input id="projectPickerSearch" type="search" placeholder="프로젝트 검색" autocomplete="off" aria-label="프로젝트 검색" aria-controls="projectPickerList" />
     </div>
-    <div id="projectPickerList" class="project-list" role="presentation"></div>
+    <div id="projectPickerList" class="project-list" role="listbox" aria-label="프로젝트 목록"></div>
   `);
   const searchInput = refs.projectPicker.querySelector("#projectPickerSearch");
   if (searchInput) {
@@ -1808,8 +1823,11 @@ function setProjectPickerOpen(open) {
     refs.projectSelect.setAttribute("aria-expanded", "true");
     if (searchInput) searchInput.focus();
   } else {
+    const restoreFocus = refs.projectPicker.contains(document.activeElement);
+    if (restoreFocus) refs.projectSelect.focus();
     refs.projectPicker.setAttribute("hidden", "");
     refs.projectSelect.setAttribute("aria-expanded", "false");
+    if (restoreFocus) restoreProjectPickerFocus();
   }
 }
 function toggleProjectPicker() {
@@ -5106,7 +5124,11 @@ function openPalette() {
   el.classList.add("open");
   el.setAttribute("aria-hidden", "false");
   const input = _palInput();
-  if (input) { input.value = ""; input.focus(); }
+  if (input) {
+    input.value = "";
+    input.setAttribute("aria-expanded", "true");
+    input.focus();
+  }
   renderPaletteResults("");
 }
 
@@ -5117,6 +5139,11 @@ function closePalette() {
   if (!el) return;
   el.classList.remove("open");
   el.setAttribute("aria-hidden", "true");
+  const input = _palInput();
+  if (input) {
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+  }
   // Restore focus
   if (state.previousFocus && typeof state.previousFocus.focus === "function") {
     state.previousFocus.focus();
@@ -5236,11 +5263,13 @@ function _buildPaletteItems(query) {
 function renderPaletteResults(query) {
   const resultsEl = _palResultsEl();
   if (!resultsEl) return;
+  const input = _palInput();
   _palItems = _buildPaletteItems(query);
   _palIndex = 0;
 
   if (_palItems.length === 0) {
     resultsEl.innerHTML = "";
+    if (input) input.removeAttribute("aria-activedescendant");
     return;
   }
 
@@ -5252,7 +5281,7 @@ function renderPaletteResults(query) {
       html_out += `<div class="pal-group">${escapeHtml(currentGroup)}</div>`;
     }
     const active = idx === 0 ? " is-active" : "";
-    html_out += `<button type="button" class="pal-item${active}" data-pal-index="${idx}" role="option" aria-selected="${idx === 0}">`;
+    html_out += `<button type="button" id="pal-option-${idx}" class="pal-item${active}" data-pal-index="${idx}" role="option" aria-selected="${idx === 0}">`;
     html_out += `<span class="pal-icon ${escapeHtml(item.iconCls || "pal-icon-misc")}">${escapeHtml(item.icon)}</span>`;
     html_out += `<span class="pal-text">`;
     html_out += `<span class="pal-label">${escapeHtml(item.label)}</span>`;
@@ -5260,6 +5289,7 @@ function renderPaletteResults(query) {
     html_out += `</span></button>`;
   });
   resultsEl.innerHTML = html_out;
+  if (input) input.setAttribute("aria-activedescendant", "pal-option-0");
 }
 
 function _palSetIndex(idx) {
@@ -5271,13 +5301,17 @@ function _palSetIndex(idx) {
   _palIndex = idx;
 
   const resultsEl = _palResultsEl();
+  const input = _palInput();
   if (!resultsEl) return;
   resultsEl.querySelectorAll(".pal-item").forEach((btn) => {
     const i = parseInt(btn.dataset.palIndex, 10);
     const active = i === _palIndex;
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-selected", String(active));
-    if (active) btn.scrollIntoView({ block: "nearest" });
+    if (active) {
+      if (input && btn.id) input.setAttribute("aria-activedescendant", btn.id);
+      btn.scrollIntoView({ block: "nearest" });
+    }
   });
 }
 
@@ -5409,8 +5443,9 @@ function setupInteractions() {
     if (event.key === "Escape") {
       if (_palOpen) { closePalette(); return; }
       if (refs.projectPicker && !refs.projectPicker.hasAttribute("hidden")) {
+        event.preventDefault();
         setProjectPickerOpen(false);
-        if (refs.projectSelect) refs.projectSelect.focus();
+        restoreProjectPickerFocus();
         return;
       }
       if (refs.modal.root && refs.modal.root.classList.contains("open")) { closeModal(); }
