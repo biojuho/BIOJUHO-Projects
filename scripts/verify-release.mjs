@@ -7,11 +7,11 @@ import {
   readdirSync,
   statSync,
 } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const releaseDir = process.argv[2] ? join(root, process.argv[2]) : join(root, "dist", "release");
+const releaseDir = process.argv[2] ? resolve(root, process.argv[2]) : join(root, "dist", "release");
 const manifestPath = join(releaseDir, "release-manifest.json");
 const expectedRuntimeFiles = [
   "README.md",

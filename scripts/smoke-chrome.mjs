@@ -8,6 +8,7 @@ import { join } from "node:path";
 const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-chrome-smoke-"));
+const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 
 const routes = [
   ["home", ["좋은 오후입니다", "팀 · 시스템 관리"]],
@@ -91,6 +92,34 @@ class CdpClient {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function progress(event, extra = {}) {
+  if (!progressEnabled) return;
+  console.error(JSON.stringify({
+    event,
+    ...extra,
+  }));
+}
+
+function waitForProcessExit(child, timeoutMs) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    child.once("exit", () => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
+async function terminateProcess(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  child.kill("SIGTERM");
+  const exited = await waitForProcessExit(child, 1500);
+  if (exited) return;
+  child.kill("SIGKILL");
+  await waitForProcessExit(child, 1500);
 }
 
 async function waitForDevTools(chrome) {
@@ -177,6 +206,7 @@ async function main() {
   try {
     const response = await fetch(baseUrl, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    progress("base-url-ok", { baseUrl, status: response.status });
   } catch (error) {
     throw new Error(`Unable to reach BASE_URL ${baseUrl}: ${error.message}${error.cause ? ` (${error.cause})` : ""}`);
   }
@@ -204,9 +234,11 @@ async function main() {
 
   try {
     const browserWs = await waitForDevTools(chrome);
+    progress("devtools-ready");
     const pageWs = await pageWebSocketUrl(browserWs);
     pageClient = new CdpClient(pageWs);
     await pageClient.open();
+    progress("page-client-open");
 
     pageClient.on("Runtime.consoleAPICalled", (params) => {
       if (!["error", "warning", "assert"].includes(params.type)) return;
@@ -245,10 +277,12 @@ async function main() {
     await pageClient.send("Runtime.enable");
     await pageClient.send("Page.enable");
     await pageClient.send("Network.enable");
+    progress("cdp-domains-enabled");
 
     for (const [route, expectedTexts] of routes) {
       currentRoute = route;
       const url = `${baseUrl}/index.html#${route}`;
+      progress("route-start", { route, url });
       await pageClient.send("Page.navigate", { url });
       await waitForAppRoute(pageClient, route);
 
@@ -282,12 +316,18 @@ async function main() {
       if (report.textLength < 80) failures.push(`${route}: rendered text too short (${report.textLength})`);
       if (report.missingText.length > 0) failures.push(`${route}: missing text ${report.missingText.join(", ")}`);
       routeReports.push(report);
+      progress("route-end", {
+        route,
+        textLength: report.textLength,
+        missingText: report.missingText,
+      });
     }
   } finally {
+    progress("cleanup-start", { currentRoute });
     if (pageClient) pageClient.close();
-    chrome.kill("SIGTERM");
-    await delay(250);
+    await terminateProcess(chrome);
     rmSync(tmpProfile, { recursive: true, force: true });
+    progress("cleanup-end", { currentRoute });
   }
 
   const appConsoleIssues = consoleIssues.filter((issue) => issue.text && !issue.text.includes("Autofill.enable"));
