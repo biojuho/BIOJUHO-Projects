@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 hook install sync-guard slice: added a tracked-vs-installed
+  hook check so stale common-dir pre-push hooks fail before smoke execution,
+  with configured `core.hooksPath` support for worktree-local hook paths.
 - 2026-06-05 hook installer freshness-gate slice: restored the completion
   audit after the pushed LF-normalizing hook installer guardrail became part
   of the current remote tip.
@@ -356,6 +359,22 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALLER_FRESHNESS_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALLER_FRESHNESS_2026-06-05.md`
+- Hook install sync-guard verification:
+  - `ops\hooks\install_hooks.py --check` compares installed hooks against
+    LF-normalized tracked hook content
+  - `ops\hooks\pre-push` runs the check before the pytest/probe suite
+  - stale installed hook was detected before reinstall
+  - refreshed installed hook passed the check with `crlf_pairs=0`
+  - configured `core.hooksPath=ops/hooks` check passed for the tracked
+    worktree hook path
+  - focused completion/objective/hook suite passed `20/20`
+  - completion audit reports `25` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_HOOK_INSTALL_SYNC_GUARD_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALL_SYNC_GUARD_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALL_SYNC_GUARD_2026-06-05.md`
 - External credential live-verifier verification:
   - `ops\scripts\external_credential_live_verify.py` plans all registry
     verification commands in dry-run mode

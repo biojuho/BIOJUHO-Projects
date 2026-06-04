@@ -2,6 +2,12 @@
 # pre-push hook - run minimal smoke tests before push.
 # Install: python ops/hooks/install_hooks.py
 
+if ! python ops/hooks/install_hooks.py --check 2>/dev/null; then
+    echo "Git hook install check failed. Push blocked."
+    echo "   Run 'python ops/hooks/install_hooks.py' to refresh the installed hook."
+    exit 1
+fi
+
 echo "==> Running smoke tests before push..."
 if ! python -m pytest \
     tests/test_workspace_smoke.py \

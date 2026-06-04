@@ -532,6 +532,7 @@
         {
           "path": "ops/hooks/pre-push",
           "must_contain": [
+            "python ops/hooks/install_hooks.py --check",
             "tests/test_workspace_smoke.py",
             "tests/test_autoresearch_objective_coverage.py",
             "tests/test_autoresearch_completion_audit.py",
@@ -556,6 +557,15 @@
             "ops/scripts/external_credential_live_verify.py",
             "ops/scripts/autoresearch_objective_coverage.py",
             "ops/scripts/autoresearch_completion_audit.py"
+          ]
+        },
+        {
+          "path": "ops/hooks/install_hooks.py",
+          "must_contain": [
+            "core.hooksPath",
+            "resolve_common_hooks_dir",
+            "_installed_hook_matches",
+            "replace(\"\\r\\n\", \"\\n\")"
           ]
         },
         {
