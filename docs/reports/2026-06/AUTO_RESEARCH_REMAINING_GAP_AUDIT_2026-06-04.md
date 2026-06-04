@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 ready-only credential execution slice: added `--ready-only` to
+  execute only currently runnable verifier boundaries, producing passing
+  evidence for `hosted_agent_runtime_credentials` without running known blocked
+  credential commands.
 - 2026-06-05 optional-token boundary hardening slice: changed the live verifier
   so `optional_token_absent` boundaries without a supplied optional token are
   blocked as `blocked_missing_optional_env` instead of being treated as
@@ -419,6 +423,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `blocked_missing_optional_env`
   - focused credential/completion suite passed `27/27`
   - pre-push-equivalent pytest suite passed `117/117`
+  - ready-only execute mode passed with `selected=1`, `ready=1`, `blocked=0`,
+    and `executed=2`
+  - pre-push-equivalent pytest suite passed `119/119` after ready-only tests
   - pre-push-equivalent pytest suite passed `104/104`
   - completion audit reports `24` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`

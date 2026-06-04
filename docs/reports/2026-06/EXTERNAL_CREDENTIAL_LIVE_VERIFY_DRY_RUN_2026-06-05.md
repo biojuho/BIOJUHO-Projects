@@ -2,6 +2,7 @@
 
 - Status: `pass`
 - Mode: `dry_run`
+- Selection: `selected`
 - Selected boundaries: `5`
 - Ready boundaries: `1`
 - Blocked boundaries: `4`

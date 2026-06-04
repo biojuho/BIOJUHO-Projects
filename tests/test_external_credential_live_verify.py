@@ -87,6 +87,33 @@ def test_execute_skips_missing_optional_token_boundary(tmp_path: Path) -> None:
     assert report["commands"][0]["skip_reason"] == "missing optional token env"
 
 
+def test_ready_only_filters_default_registry_to_runnable_boundaries() -> None:
+    verifier = load_module()
+
+    report = verifier.run(REGISTRY_PATH, env={}, ready_only=True)
+
+    assert report["status"] == "pass"
+    assert report["selection"] == "ready_only"
+    assert report["summary"]["selected_boundaries"] == 1
+    assert report["summary"]["ready_boundaries"] == 1
+    assert report["summary"]["blocked_boundaries"] == 0
+    assert [boundary["id"] for boundary in report["boundaries"]] == ["hosted_agent_runtime_credentials"]
+
+
+def test_ready_only_execute_ignores_blocked_boundary(tmp_path: Path) -> None:
+    verifier = load_module()
+    registry = _write_mixed_registry(tmp_path)
+
+    report = verifier.run(registry, execute=True, ready_only=True, env={}, workspace_root=tmp_path)
+
+    assert report["status"] == "pass"
+    assert report["summary"]["selected_boundaries"] == 1
+    assert report["summary"]["commands_executed"] == 1
+    assert report["summary"]["commands_skipped"] == 0
+    assert report["commands"][0]["boundary_id"] == "ready"
+    assert "ready-ran" in report["commands"][0]["stdout_tail"]
+
+
 def test_execute_runs_ready_boundary_and_redacts_secret(tmp_path: Path) -> None:
     verifier = load_module()
     registry = _write_registry(
@@ -166,6 +193,55 @@ def _write_registry(
                     }
                 ],
             }
+        ],
+    }
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps(payload), encoding="utf-8")
+    return registry
+
+
+def _write_mixed_registry(tmp_path: Path) -> Path:
+    evidence = tmp_path / "evidence.md"
+    evidence.write_text("do not claim external completion\n", encoding="utf-8")
+    payload = {
+        "schema_version": 1,
+        "generated_at": "2026-06-05T04:00:00+09:00",
+        "objective": "test registry",
+        "boundaries": [
+            {
+                "id": "blocked",
+                "title": "Blocked",
+                "status": "credential_gated",
+                "owner": "operator",
+                "required_env": ["MISSING_TOKEN"],
+                "optional_env_any_of": [],
+                "blocked_until": ["operator supplies credentials"],
+                "verification_commands": [f"{sys.executable} -c \"print('should-not-run')\""],
+                "claim_policy": "do not claim complete without live credentials",
+                "evidence": [
+                    {
+                        "path": "evidence.md",
+                        "must_contain": ["do not claim external completion"],
+                    }
+                ],
+            },
+            {
+                "id": "ready",
+                "title": "Ready",
+                "status": "future_scoped",
+                "owner": "operator",
+                "required_env": [],
+                "optional_env_any_of": [],
+                "blocked_until": ["operator confirms local dry-run is enough"],
+                "verification_commands": [f"{sys.executable} -c \"print('ready-ran')\""],
+                "claim_policy": "do not claim complete without live credentials",
+                "evidence": [
+                    {
+                        "path": "evidence.md",
+                        "must_contain": ["do not claim external completion"],
+                    }
+                ],
+            },
         ],
     }
     registry = tmp_path / "registry.json"

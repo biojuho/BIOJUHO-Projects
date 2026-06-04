@@ -1062,6 +1062,7 @@
           "must_contain": [
             "blocked_missing_required_env",
             "blocked_missing_optional_env",
+            "--ready-only",
             "--execute",
             "external credential live verifier valid",
             "commands_executed",
@@ -1075,6 +1076,7 @@
             "test_execute_runs_ready_boundary_and_redacts_secret",
             "test_execute_skips_missing_required_env",
             "test_execute_skips_missing_optional_token_boundary",
+            "test_ready_only_execute_ignores_blocked_boundary",
             "super-secret-token"
           ]
         },
@@ -1106,6 +1108,15 @@
             "ready=1",
             "blocked=4",
             "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_READY_ONLY_EXECUTE_2026-06-05.md",
+          "must_contain": [
+            "Selection: `ready_only`",
+            "Selected boundaries: `1`",
+            "Commands executed: `2`",
+            "Status: `pass`"
           ]
         }
       ]

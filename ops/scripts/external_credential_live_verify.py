@@ -26,6 +26,7 @@ def build_plan(
     *,
     env: Mapping[str, str] | None = None,
     boundary_ids: list[str] | None = None,
+    ready_only: bool = False,
     workspace_root: Path = WORKSPACE_ROOT,
 ) -> dict[str, Any]:
     env_map = env if env is not None else os.environ
@@ -36,6 +37,8 @@ def build_plan(
 
     selected = _select_boundaries(audit["boundaries"], boundary_ids)
     boundaries = [_planned_boundary(boundary) for boundary in selected]
+    if ready_only:
+        boundaries = [boundary for boundary in boundaries if boundary["live_status"] == "ready_for_execution"]
     status_counts = Counter(boundary["live_status"] for boundary in boundaries)
     command_count = sum(len(boundary["verification_commands"]) for boundary in boundaries)
     return {
@@ -43,6 +46,7 @@ def build_plan(
         "generated_at": datetime.now(UTC).isoformat(),
         "registry_path": _repo_relative(registry_path, workspace_root),
         "mode": "dry_run",
+        "selection": "ready_only" if ready_only else "selected",
         "status": "pass",
         "summary": {
             "selected_boundaries": len(boundaries),
@@ -131,13 +135,20 @@ def run(
     *,
     execute: bool = False,
     boundary_ids: list[str] | None = None,
+    ready_only: bool = False,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
     json_out: Path | None = None,
     markdown_out: Path | None = None,
     env: Mapping[str, str] | None = None,
     workspace_root: Path = WORKSPACE_ROOT,
 ) -> dict[str, Any]:
-    plan = build_plan(registry_path, env=env, boundary_ids=boundary_ids, workspace_root=workspace_root)
+    plan = build_plan(
+        registry_path,
+        env=env,
+        boundary_ids=boundary_ids,
+        ready_only=ready_only,
+        workspace_root=workspace_root,
+    )
     report = (
         execute_plan(plan, env=env, timeout_seconds=timeout_seconds, workspace_root=workspace_root)
         if execute
@@ -159,6 +170,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         f"- Status: `{report['status']}`",
         f"- Mode: `{report['mode']}`",
+        f"- Selection: `{report.get('selection', 'selected')}`",
         f"- Selected boundaries: `{summary['selected_boundaries']}`",
         f"- Ready boundaries: `{summary['ready_boundaries']}`",
         f"- Blocked boundaries: `{summary['blocked_boundaries']}`",
@@ -209,6 +221,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Plan or run external credential live verification commands.")
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY)
     parser.add_argument("--boundary", action="append", dest="boundary_ids")
+    parser.add_argument(
+        "--ready-only",
+        action="store_true",
+        help="select only boundaries that are currently ready for execution",
+    )
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--timeout-seconds", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--json-out", type=Path)
@@ -219,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             args.registry,
             execute=args.execute,
             boundary_ids=args.boundary_ids,
+            ready_only=args.ready_only,
             timeout_seconds=args.timeout_seconds,
             json_out=args.json_out,
             markdown_out=args.markdown_out,
