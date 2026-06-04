@@ -1,0 +1,222 @@
+{
+  "blocked_requirements": [
+    "external_credential_and_runtime_boundaries"
+  ],
+  "continuous_requirements": [
+    "github_related_project_research",
+    "continuous_ab_adoption_commit_push"
+  ],
+  "covered_current_cycle": [
+    "launch_ready_product_hardening",
+    "self_improving_autoresearch_skill",
+    "direct_app_click_qa",
+    "beyond_user_expected_quality"
+  ],
+  "cycle_prompt_covered": true,
+  "errors": [],
+  "generated_at": "2026-06-04T19:12:01.429399+00:00",
+  "global_objective_complete": false,
+  "requirement_count": 7,
+  "requirements": [
+    {
+      "blockers": [],
+      "completion_criteria": [
+        "product_launch_gate",
+        "current_tip_freshness_gate",
+        "pre_push_regression_gate"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json",
+          "term_count": 3
+        }
+      ],
+      "id": "launch_ready_product_hardening",
+      "prompt_terms": [
+        "\uc81c\ud488\ucd9c\uc2dc",
+        "\uc81c\ud488\uc644\uc131"
+      ],
+      "residual_risk": "",
+      "status": "covered_current_cycle"
+    },
+    {
+      "blockers": [],
+      "completion_criteria": [
+        "github_external_research",
+        "github_source_freshness_snapshot",
+        "github_source_snapshot_recency_gate",
+        "github_source_viability_gate"
+      ],
+      "evidence": [
+        {
+          "path": "ops/references/github_modernization_sources.json",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
+          "term_count": 2
+        }
+      ],
+      "id": "github_related_project_research",
+      "prompt_terms": [
+        "\uae43\ud5c8\ube0c \uad00\ub828 \ud504\ub85c\uc81d\ud2b8",
+        "\uc678\ubd80 \uc870\uc0ac",
+        "\ucd5c\uc2e0 \ucf54\ub4dc"
+      ],
+      "residual_risk": "The word 'all' is unbounded; the current cycle proves a live tracked source set and recency gate, not an exhaustive internet-wide proof.",
+      "status": "continuous"
+    },
+    {
+      "blockers": [],
+      "completion_criteria": [
+        "self_improving_skill",
+        "agent_workflow_gate_runner",
+        "agent_workflow_gate_matrix",
+        "agent_workflow_gate_matrix_reuse"
+      ],
+      "evidence": [
+        {
+          "path": ".agents/skills/auto-research-karpathy/SKILL.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_COMPLETION_AUDIT_2026-06-04.md",
+          "term_count": 2
+        }
+      ],
+      "id": "self_improving_autoresearch_skill",
+      "prompt_terms": [
+        "\uc790\uac00\uac1c\uc120\ud558\ub294 \uc2a4\ud0ac",
+        "$\uc624\ud1a0\ub9ac\uc11c\uce58",
+        "\uc624\ud1a0\ub9ac\uc11c\uce58 \uc2a4\ud0ac"
+      ],
+      "residual_risk": "",
+      "status": "covered_current_cycle"
+    },
+    {
+      "blockers": [],
+      "completion_criteria": [
+        "commit_push_evidence",
+        "agent_workflow_gate_safety",
+        "remaining_gap_tracking"
+      ],
+      "evidence": [
+        {
+          "path": "next-actions.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md",
+          "term_count": 3
+        }
+      ],
+      "id": "continuous_ab_adoption_commit_push",
+      "prompt_terms": [
+        "\ub04a\uc784\uc5c6\uc774 A/B\ud14c\uc2a4\ud2b8",
+        "\ub354 \uc88b\uc73c\uba74 \ucc44\ud0dd",
+        "\ucee4\ubc0b\ud478\uc2dc",
+        "\uba48\ucd94\ub77c\uace0 \ud558\uae30\uc804\uae4c\uc9c0"
+      ],
+      "residual_risk": "",
+      "status": "continuous"
+    },
+    {
+      "blockers": [],
+      "completion_criteria": [
+        "direct_app_click_qa",
+        "direct_browser_qa_freshness_gate"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/DASHBOARD_CREDENTIAL_BOUNDARIES_CLICK_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md",
+          "term_count": 2
+        }
+      ],
+      "id": "direct_app_click_qa",
+      "prompt_terms": [
+        "\uc9c1\uc811 \uc571 \ud558\ub098\uc529 \ud074\ub9ad",
+        "\uc624\ub958 \uc7a1\uace0 \ucd5c\uc801\ud654"
+      ],
+      "residual_risk": "",
+      "status": "covered_current_cycle"
+    },
+    {
+      "blockers": [],
+      "completion_criteria": [
+        "mcp_runtime_subprocess_smoke",
+        "mcp_service_runtime_smoke",
+        "mcp_otel_collector_handoff",
+        "external_credential_boundary_registry",
+        "external_credential_handoff",
+        "external_credential_live_verifier"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md",
+          "term_count": 2
+        }
+      ],
+      "id": "beyond_user_expected_quality",
+      "prompt_terms": [
+        "\ub0b4\uac00 \uc0dd\uac01\ud558\uc9c0 \ubabb\ud55c \ubd80\ubd84",
+        "\ud004\ub9ac\ud2f0 \ub192\uc5ec"
+      ],
+      "residual_risk": "",
+      "status": "covered_current_cycle"
+    },
+    {
+      "blockers": [
+        "Real Canva OAuth login and proxy authorization decision",
+        "Live OTLP collector endpoint and credential policy",
+        "Telegram bot token and chat target",
+        "Hosted runtime/tracing credentials and approval UI decision"
+      ],
+      "completion_criteria": [
+        "external_credential_boundaries",
+        "external_credential_boundary_registry",
+        "external_credential_handoff",
+        "external_credential_live_verifier"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
+          "term_count": 2
+        }
+      ],
+      "id": "external_credential_and_runtime_boundaries",
+      "prompt_terms": [
+        "\uc81c\ud488\ucd9c\uc2dc",
+        "\ucd5c\uc2e0 \ucf54\ub4dc \ubc18\uc601"
+      ],
+      "residual_risk": "",
+      "status": "blocked_external"
+    }
+  ],
+  "schema_version": 1,
+  "status_counts": {
+    "blocked_external": 1,
+    "continuous": 2,
+    "covered_current_cycle": 4
+  },
+  "valid": true
+}

@@ -9,6 +9,10 @@ Latest pushed commits in this slice:
 - 2026-06-05 hook installer freshness-gate slice: restored the completion
   audit after the pushed LF-normalizing hook installer guardrail became part
   of the current remote tip.
+- 2026-06-05 prompt-to-artifact coverage slice: added a direct objective
+  coverage manifest and validator that maps the original Korean request to
+  completion criteria, evidence paths, continuous requirements, and external
+  blockers.
 - 2026-06-05 external credential live-verifier slice: added a dry-run-first
   live verifier that plans registry verification commands, blocks
   missing-required-env boundaries, and supports redacted execution only for
@@ -370,6 +374,24 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md`
+- Prompt-to-artifact objective coverage verification:
+  - `ops\references\autoresearch_objective_requirements.json` maps the
+    original Korean objective to `7` requirements
+  - `ops\scripts\autoresearch_objective_coverage.py` validates evidence paths,
+    required terms, mapped completion criteria, and external blockers
+  - objective coverage audit reports `cycle_prompt_covered=true`
+  - objective coverage audit keeps `global_objective_complete=false`
+  - focused objective/completion suite passed `16/16`
+  - pre-push-equivalent pytest suite passed `109/109`
+  - completion audit reports `25` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_PROMPT_TO_ARTIFACT_COVERAGE_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.json`,
+    `docs\reports\2026-06\AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_OBJECTIVE_COVERAGE_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_OBJECTIVE_COVERAGE_2026-06-05.md`
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-runtime-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
   - `30` sources

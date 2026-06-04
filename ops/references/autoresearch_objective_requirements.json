@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T04:20:00+09:00",
+  "objective_original": "제품출시할꺼야 제품완성해줘\n\n깃허브 관련 프로젝트도 모두 찾아서 보완하고 절대 명시적 멈추라는 말하기 전까지 끊임없이 A/B테스트 후 더 좋으면 채택하고 커밋푸시하는 자가개선하는 스킬을 만들어줘.\n\n코덱스 컴퓨터유즈 기능 사용해서 직접 앱 하나씩 클릭하며 오류 잡고 최적화해. 내가 생각하지 못한 부분까지 알아서 퀄리티 높여. 외부 조사 a/b 조사도하고 최신 코드 반영해서 내가 멈추라고 하기전까지 무한반복해 $오토리서치 오토리서치 스킬도 적극적으로 활용해.",
+  "completion_contract": "ops/references/autoresearch_completion_contract.json",
+  "policy": {
+    "global_completion_expected": false,
+    "reason": "The objective asks for continuous improvement until an explicit stop and includes external credential/runtime boundaries that cannot be completed locally."
+  },
+  "requirements": [
+    {
+      "id": "launch_ready_product_hardening",
+      "prompt_terms": [
+        "제품출시",
+        "제품완성"
+      ],
+      "status": "covered_current_cycle",
+      "requirement": "Product launch hardening must have real smoke evidence and current-tip freshness.",
+      "completion_criteria": [
+        "product_launch_gate",
+        "current_tip_freshness_gate",
+        "pre_push_regression_gate"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "must_contain": [
+            "total=25",
+            "passed=25",
+            "protected_path_freshness",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json",
+          "must_contain": [
+            "\"passed\": 25",
+            "\"failed\": 0",
+            "\"mcp_trace\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_related_project_research",
+      "prompt_terms": [
+        "깃허브 관련 프로젝트",
+        "외부 조사",
+        "최신 코드"
+      ],
+      "status": "continuous",
+      "requirement": "Related GitHub projects must be tracked with live source freshness and mapped to local evidence.",
+      "completion_criteria": [
+        "github_external_research",
+        "github_source_freshness_snapshot",
+        "github_source_snapshot_recency_gate",
+        "github_source_viability_gate"
+      ],
+      "evidence": [
+        {
+          "path": "ops/references/github_modernization_sources.json",
+          "must_contain": [
+            "modelcontextprotocol/python-sdk",
+            "open-webui/mcpo",
+            "microsoft/agent-framework",
+            "FlowiseAI/Flowise"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
+          "must_contain": [
+            "\"source_count\": 30",
+            "\"passed\": 30",
+            "\"failed\": 0"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
+          "must_contain": [
+            "Sources reviewed: 30",
+            "Adoption counts"
+          ]
+        }
+      ],
+      "residual_risk": "The word 'all' is unbounded; the current cycle proves a live tracked source set and recency gate, not an exhaustive internet-wide proof."
+    },
+    {
+      "id": "self_improving_autoresearch_skill",
+      "prompt_terms": [
+        "자가개선하는 스킬",
+        "$오토리서치",
+        "오토리서치 스킬"
+      ],
+      "status": "covered_current_cycle",
+      "requirement": "AutoResearch skill and deterministic loop rules must exist and be validated.",
+      "completion_criteria": [
+        "self_improving_skill",
+        "agent_workflow_gate_runner",
+        "agent_workflow_gate_matrix",
+        "agent_workflow_gate_matrix_reuse"
+      ],
+      "evidence": [
+        {
+          "path": ".agents/skills/auto-research-karpathy/SKILL.md",
+          "must_contain": [
+            "prompt-to-artifact checklist",
+            "Adopt a variant only when",
+            "Stage, commit, or push only files owned by"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_COMPLETION_AUDIT_2026-06-04.md",
+          "must_contain": [
+            "completion-audit section",
+            "ok=true"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "continuous_ab_adoption_commit_push",
+      "prompt_terms": [
+        "끊임없이 A/B테스트",
+        "더 좋으면 채택",
+        "커밋푸시",
+        "멈추라고 하기전까지"
+      ],
+      "status": "continuous",
+      "requirement": "The loop must record A/B decisions, adopt only verified variants, and push owned commits.",
+      "completion_criteria": [
+        "commit_push_evidence",
+        "agent_workflow_gate_safety",
+        "remaining_gap_tracking"
+      ],
+      "evidence": [
+        {
+          "path": "next-actions.md",
+          "must_contain": [
+            "AutoResearch cycle",
+            "Report:",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md",
+          "must_contain": [
+            "Adopted",
+            "reused",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "direct_app_click_qa",
+      "prompt_terms": [
+        "직접 앱 하나씩 클릭",
+        "오류 잡고 최적화"
+      ],
+      "status": "covered_current_cycle",
+      "requirement": "User-facing app paths must have direct browser/click evidence and freshness protection.",
+      "completion_criteria": [
+        "direct_app_click_qa",
+        "direct_browser_qa_freshness_gate"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/DASHBOARD_CREDENTIAL_BOUNDARIES_CLICK_2026-06-05.md",
+          "must_contain": [
+            "Credential Boundaries",
+            "Console errors: `0`",
+            "Request failures: `0`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md",
+          "must_contain": [
+            "pass",
+            "dashboard-frontend"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "beyond_user_expected_quality",
+      "prompt_terms": [
+        "내가 생각하지 못한 부분",
+        "퀄리티 높여"
+      ],
+      "status": "covered_current_cycle",
+      "requirement": "The loop should add safety, freshness, and credential-boundary protections beyond narrow bug fixes.",
+      "completion_criteria": [
+        "mcp_runtime_subprocess_smoke",
+        "mcp_service_runtime_smoke",
+        "mcp_otel_collector_handoff",
+        "external_credential_boundary_registry",
+        "external_credential_handoff",
+        "external_credential_live_verifier"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md",
+          "must_contain": [
+            "external credential live verifier",
+            "ready=2",
+            "blocked=3",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md",
+          "must_contain": [
+            "operator-owned",
+            "OTLP endpoint and credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "external_credential_and_runtime_boundaries",
+      "prompt_terms": [
+        "제품출시",
+        "최신 코드 반영"
+      ],
+      "status": "blocked_external",
+      "requirement": "Credential-gated external actions must not be claimed complete without real operator credentials or runtime choices.",
+      "completion_criteria": [
+        "external_credential_boundaries",
+        "external_credential_boundary_registry",
+        "external_credential_handoff",
+        "external_credential_live_verifier"
+      ],
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_2026-06-05.md",
+          "must_contain": [
+            "Missing required env names: `5`",
+            "CANVA_CLIENT_SECRET",
+            "TELEGRAM_CHAT_ID"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
+          "must_contain": [
+            "Blocked boundaries: `3`",
+            "Commands executed: `0`"
+          ]
+        }
+      ],
+      "blockers": [
+        "Real Canva OAuth login and proxy authorization decision",
+        "Live OTLP collector endpoint and credential policy",
+        "Telegram bot token and chat target",
+        "Hosted runtime/tracing credentials and approval UI decision"
+      ]
+    }
+  ]
+}
