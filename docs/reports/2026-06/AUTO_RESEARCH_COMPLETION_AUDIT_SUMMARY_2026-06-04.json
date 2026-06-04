@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T08:02:07+09:00",
+  "generated_at": "2026-06-05T08:13:04+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 6,
+          "term_count": 8,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -414,8 +414,8 @@
           "json_freshness": false
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_ALL_SCOPE_SMOKE_2026-06-05.md",
-          "term_count": 4,
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md",
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -786,14 +786,14 @@
       "evidence": [
         {
           "path": "ops/hooks/pre-push",
-          "term_count": 35,
+          "term_count": 39,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "tests/test_pre_push_hook.py",
-          "term_count": 12,
+          "term_count": 16,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -864,6 +864,13 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_PRE_PUSH_STAGE_MARKERS_2026-06-05.md",
           "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md",
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

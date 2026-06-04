@@ -1,0 +1,5 @@
+mcp/canva-mcp/assets/**/*.css text eol=lf
+mcp/canva-mcp/assets/**/*.html text eol=lf
+mcp/canva-mcp/assets/**/*.js text eol=lf
+mcp/canva-mcp/src/**/*.html text eol=lf
+mcp/canva-mcp/vite.config.ts text eol=lf

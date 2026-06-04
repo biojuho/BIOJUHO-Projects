@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T08:02:07+09:00",
+  "generated_at": "2026-06-05T08:13:04+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,15 +141,18 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "9c86c89",
+            "06feb55",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
-            "tests/test_pre_push_hook.py"
+            "tests/test_pre_push_hook.py",
+            ".gitattributes",
+            "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "9c86c89",
+            "proof_commit": "06feb55",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
+              ".gitattributes",
               ".gitignore",
               "docs/reports/2026-06/",
               "next-actions.md",
@@ -176,7 +179,8 @@
               "tests/test_pre_push_hook.py",
               "tests/test_github_modernization_radar.py",
               "tests/test_autoresearch_completion_audit.py",
-              "tests/test_github_source_freshness.py"
+              "tests/test_github_source_freshness.py",
+              "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
             ]
           }
         }
@@ -655,12 +659,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "9c86c89",
+            "06feb55",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "9c86c89",
+            "proof_commit": "06feb55",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -677,11 +681,12 @@
           }
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md",
           "must_contain": [
+            "Canva MCP Pre-Push Typecheck Build Guard",
             "protected_path_freshness",
-            "no changed protected paths",
-            "145 passed",
+            "06feb55",
+            "no changed protected paths after proof",
             "global_objective_complete=false"
           ]
         }
@@ -1175,7 +1180,11 @@
             "--check-operator-checklist-markdown",
             "ops/scripts/external_credential_live_verify.py",
             "ops/scripts/autoresearch_objective_coverage.py",
-            "ops/scripts/autoresearch_completion_audit.py"
+            "ops/scripts/autoresearch_completion_audit.py",
+            "==> Running Canva MCP typecheck...",
+            "npm.cmd --prefix mcp/canva-mcp run typecheck",
+            "==> Running Canva MCP production build...",
+            "npm.cmd --prefix mcp/canva-mcp run build"
           ]
         },
         {
@@ -1192,7 +1201,11 @@
             "tests/test_dashboard_api.py",
             "tests/test_canva_widget_click_smoke.py",
             "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json",
-            "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md"
+            "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md",
+            "==> Running Canva MCP typecheck...",
+            "npm.cmd --prefix mcp/canva-mcp run typecheck",
+            "==> Running Canva MCP production build...",
+            "npm.cmd --prefix mcp/canva-mcp run build"
           ]
         },
         {
@@ -1282,6 +1295,16 @@
             "Dashboard Pre-Push Stage Markers",
             "Running dashboard production build",
             "Running dashboard bundle budget check",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Canva MCP Pre-Push Typecheck Build Guard",
+            "npm.cmd --prefix mcp/canva-mcp run typecheck",
+            "npm.cmd --prefix mcp/canva-mcp run build",
+            ".gitattributes",
             "global_objective_complete=false"
           ]
         }

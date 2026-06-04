@@ -56,6 +56,20 @@ if ! npm.cmd --prefix apps/dashboard run check:bundle 2>/dev/null; then
     exit 1
 fi
 
+echo "==> Running Canva MCP typecheck..."
+if ! npm.cmd --prefix mcp/canva-mcp run typecheck 2>/dev/null; then
+    echo "Canva MCP typecheck failed. Push blocked."
+    echo "   Run 'npm.cmd --prefix mcp/canva-mcp run typecheck' for details."
+    exit 1
+fi
+
+echo "==> Running Canva MCP production build..."
+if ! npm.cmd --prefix mcp/canva-mcp run build 2>/dev/null; then
+    echo "Canva MCP production build failed. Push blocked."
+    echo "   Run 'npm.cmd --prefix mcp/canva-mcp run build' for details."
+    exit 1
+fi
+
 if ! python ops/scripts/external_credential_handoff.py --check-json docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json --check-markdown docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md --check-env-template docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example --check-operator-checklist-json docs/reports/2026-06/EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json --check-operator-checklist-markdown docs/reports/2026-06/EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md 2>/dev/null; then
     echo "External credential handoff check failed. Push blocked."
     echo "   Then run 'python ops/scripts/external_credential_handoff.py --check-json docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json --check-markdown docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md --check-env-template docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example --check-operator-checklist-json docs/reports/2026-06/EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json --check-operator-checklist-markdown docs/reports/2026-06/EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md' for drift details."
