@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T07:05:00+09:00",
+  "generated_at": "2026-06-05T07:27:46+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -660,7 +660,14 @@
         },
         {
           "path": "tests/test_dev_server_browser_smoke.py",
-          "term_count": 5,
+          "term_count": 8,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_BROWSER_TEXT_GUARD_2026-06-05.md",
+          "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

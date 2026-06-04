@@ -110,7 +110,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `9`
+- Evidence paths: `10`
 
 ### commit_push_evidence
 
