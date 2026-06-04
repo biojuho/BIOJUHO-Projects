@@ -3,7 +3,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { productApi } from './api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8002';
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002';
 
 // MSW (Mock Service Worker): 백엔드 서버가 아직 없거나 테스트 환경일 때,
 // 프론트엔드에서 보내는 웹 요청을 중간에 가로채서 백엔드인 척 가짜 응답을 내려주는 환상적인 도구입니다.
