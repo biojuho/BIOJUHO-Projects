@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "tool": "dev_server_browser_smoke",
+  "generated_at": "2026-06-04T14:36:40.666784Z",
+  "status": "pass",
+  "summary": {
+    "targets": 1,
+    "routes": 3,
+    "completed": 3,
+    "passed": 3,
+    "failed": 0,
+    "blocked": 0
+  },
+  "results": [
+    {
+      "target_id": "agriguard-frontend",
+      "name": "home",
+      "path": "/",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/"
+    },
+    {
+      "target_id": "agriguard-frontend",
+      "name": "registry",
+      "path": "/registry",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/registry"
+    },
+    {
+      "target_id": "agriguard-frontend",
+      "name": "supply-chain",
+      "path": "/supply-chain",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/supply-chain"
+    }
+  ],
+  "failures": []
+}
