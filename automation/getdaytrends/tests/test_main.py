@@ -105,6 +105,20 @@ def test_acquire_lock_replaces_stale_lockfile(tmp_path, monkeypatch):
     assert not lock_path.exists()
 
 
+def test_release_lock_does_not_remove_token_owned_by_another_thread(tmp_path, monkeypatch):
+    lock_path = tmp_path / "getdaytrends.lock"
+    other_owner = f"{os.getpid()}:999999:other-owner-token"
+    lock_path.write_text(other_owner, encoding="utf-8")
+    monkeypatch.setattr(main_mod, "_LOCK_FILE", lock_path)
+    for attr in ("token", "path"):
+        if hasattr(main_mod._LOCK_OWNER, attr):
+            delattr(main_mod._LOCK_OWNER, attr)
+
+    _release_lock()
+
+    assert lock_path.read_text(encoding="utf-8") == other_owner
+
+
 @pytest.mark.asyncio
 async def test_parallel_runner_disables_smart_schedule_for_each_country():
     config = AppConfig()

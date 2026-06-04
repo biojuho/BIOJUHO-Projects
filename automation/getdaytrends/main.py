@@ -158,7 +158,7 @@ def _release_lock() -> None:
         try:
             if lock_file.exists():
                 lock_text = lock_file.read_text().strip()
-                legacy_owned = token is None and _parse_lock_pid(lock_text) == os.getpid()
+                legacy_owned = token is None and ":" not in lock_text and _parse_lock_pid(lock_text) == os.getpid()
                 if lock_text == token or legacy_owned:
                     lock_file.unlink(missing_ok=True)
         except (ValueError, OSError):
