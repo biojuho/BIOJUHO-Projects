@@ -71,6 +71,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const ASSETS_DIR = path.resolve(ROOT_DIR, "assets");
+const metadataPaths = new Set(["/openapi.json", "/tools"]);
 
 function createCanvaServer(sessionId: string): Server {
   const server = new Server(
@@ -414,6 +415,9 @@ const defaultAllowedOrigins = [
   "https://zerotwo.ai",
   "http://localhost:3000",
   "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5176",
+  "http://127.0.0.1:5176",
 ];
 
 // ─── HTTP request handlers ──────────────────────────────────────────────────
@@ -607,6 +611,154 @@ function setCorsHeaders(res: ServerResponse, origin?: string) {
   res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
 }
 
+function toolComponentName(toolName: string): string {
+  return `${toolName
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join("")}Input`;
+}
+
+function canvaToolSummaries() {
+  return tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description ?? "",
+    readOnly: Boolean(tool.annotations?.readOnlyHint),
+    destructive: Boolean(tool.annotations?.destructiveHint),
+    inputSchemaRef: `#/components/schemas/${toolComponentName(tool.name)}`,
+  }));
+}
+
+function buildOpenApiContract() {
+  const toolNames = tools.map((tool) => tool.name);
+  const inputSchemas = Object.fromEntries(
+    tools.map((tool) => [toolComponentName(tool.name), tool.inputSchema ?? { type: "object" }])
+  );
+
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Canva MCP OpenAPI Interop Contract",
+      version: "2026-06-04",
+      description:
+        "Read-only OpenAPI-compatible metadata for the Canva MCP tool surface. Tool execution still uses MCP unless a separate proxy is deployed.",
+    },
+    servers: [
+      {
+        url: `http://127.0.0.1:${port}`,
+        description: "Local Canva MCP server metadata endpoints",
+      },
+    ],
+    paths: {
+      "/tools": {
+        get: {
+          summary: "List Canva MCP tools",
+          operationId: "listCanvaMcpTools",
+          responses: {
+            "200": {
+              description: "Available Canva MCP tools",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      tools: {
+                        type: "array",
+                        items: { $ref: "#/components/schemas/CanvaMcpTool" },
+                      },
+                    },
+                    required: ["tools"],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/tools/{toolName}/call": {
+        post: {
+          summary: "Call a Canva MCP tool through a future OpenAPI-compatible proxy",
+          operationId: "callCanvaMcpTool",
+          parameters: [
+            {
+              name: "toolName",
+              in: "path",
+              required: true,
+              schema: { $ref: "#/components/schemas/CanvaMcpToolName" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    arguments: {
+                      type: "object",
+                      additionalProperties: true,
+                    },
+                  },
+                  required: ["arguments"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "MCP tool result envelope",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      toolName: { $ref: "#/components/schemas/CanvaMcpToolName" },
+                      result: { type: "object", additionalProperties: true },
+                    },
+                    required: ["toolName", "result"],
+                  },
+                },
+              },
+            },
+            "401": { description: "Canva OAuth is missing or expired" },
+            "502": { description: "MCP server or Canva API call failed" },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        CanvaMcpToolName: {
+          type: "string",
+          enum: toolNames,
+        },
+        CanvaMcpTool: {
+          type: "object",
+          properties: {
+            name: { $ref: "#/components/schemas/CanvaMcpToolName" },
+            description: { type: "string" },
+            readOnly: { type: "boolean" },
+            destructive: { type: "boolean" },
+            inputSchemaRef: { type: "string" },
+          },
+          required: ["name", "description", "readOnly", "destructive", "inputSchemaRef"],
+        },
+        ...inputSchemas,
+      },
+    },
+    "x-mcp-tools": canvaToolSummaries(),
+  };
+}
+
+function sendJson(res: ServerResponse, payload: unknown) {
+  res.writeHead(200, {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+  });
+  res.end(JSON.stringify(payload, null, 2));
+}
+
 const httpServer = createServer(
   async (req: IncomingMessage, res: ServerResponse) => {
     const rawOrigin = req.headers.origin;
@@ -629,10 +781,20 @@ const httpServer = createServer(
 
     if (
       req.method === "OPTIONS" &&
-      (url.pathname === ssePath || url.pathname === postPath)
+      (url.pathname === ssePath || url.pathname === postPath || metadataPaths.has(url.pathname))
     ) {
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/openapi.json") {
+      sendJson(res, buildOpenApiContract());
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/tools") {
+      sendJson(res, { tools: canvaToolSummaries() });
       return;
     }
 
@@ -704,6 +866,8 @@ httpServer.listen(port, '0.0.0.0', () => {
   console.log(`  SSE stream: GET http://0.0.0.0:${port}${ssePath}`);
   console.log(`  Message post endpoint: POST http://0.0.0.0:${port}${postPath}?sessionId=...`);
   console.log(`  OAuth callback: GET http://0.0.0.0:${port}${authCallbackPath}`);
+  console.log(`  OpenAPI metadata: GET http://0.0.0.0:${port}/openapi.json`);
+  console.log(`  Tool metadata: GET http://0.0.0.0:${port}/tools`);
   console.log(`\nMake sure to set your environment variables:`);
   console.log(`  CANVA_CLIENT_ID=<your_client_id>`);
   console.log(`  CANVA_CLIENT_SECRET=<your_client_secret>`);

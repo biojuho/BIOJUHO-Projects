@@ -11,6 +11,7 @@
     "strictPropertyInitialization": false,
     "noImplicitThis": false,
     "alwaysStrict": false,
+    "ignoreDeprecations": "6.0",
     "skipLibCheck": true
   },
   "exclude": ["node_modules", "dist", "assets", "src/components", "src/dev", "src/hooks"]

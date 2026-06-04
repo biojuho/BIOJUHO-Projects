@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=5, watch=0
-- Generated at: `2026-06-04T20:33:01+09:00`
+- Generated at: `2026-06-04T20:44:16+09:00`
 
 ## Search Context
 
@@ -106,11 +106,15 @@
 - Observed patterns:
   - OpenAPI-compatible HTTP exposure for MCP tools
   - offline OpenAPI contract for MCP tool inventory
+  - read-only runtime OpenAPI metadata endpoints
   - tool-level docs and interoperability with non-MCP clients
   - API-key protected proxy operation
 - Local evidence:
+  - `mcp/canva-mcp/src/server/server.ts`
   - `mcp/canva-mcp/src/server/tools.ts`
   - `mcp/canva-mcp/src/server/auth.ts`
+  - `mcp/canva-mcp/src/types/css.d.ts`
+  - `mcp/canva-mcp/tsconfig.build.json`
   - `mcp/canva-mcp/assets/preview.js`
   - `ops/scripts/check_mcp_health.py`
   - `ops/scripts/canva_mcp_openapi_contract.py`
@@ -119,7 +123,7 @@
   - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_PASS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
-- Gap: Offline Canva MCP OpenAPI contract is adopted; live MCP-to-OpenAPI proxy exposure remains future-scoped until OAuth and proxy authentication are verified.
+- Gap: Read-only Canva MCP OpenAPI/tool metadata endpoints and the offline contract are adopted; live OpenAPI tool execution proxy remains future-scoped until OAuth and proxy authentication are verified.
 
 ### Uninen/devserver-mcp
 

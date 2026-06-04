@@ -8,6 +8,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "canva_mcp_openapi_contract.py"
 TOOLS_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "tools.ts"
+SERVER_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "server.ts"
 
 
 def load_contract_module():
@@ -90,3 +91,13 @@ def test_openapi_validation_rejects_enum_drift() -> None:
     errors = contract.validate_openapi(spec, tools)
 
     assert "CanvaMcpToolName enum must match parsed tool order" in errors
+
+
+def test_canva_mcp_server_exposes_read_only_metadata_routes() -> None:
+    server = SERVER_PATH.read_text(encoding="utf-8")
+
+    assert '"/openapi.json"' in server
+    assert '"/tools"' in server
+    assert "buildOpenApiContract" in server
+    assert "canvaToolSummaries" in server
+    assert '"http://127.0.0.1:5176"' in server
