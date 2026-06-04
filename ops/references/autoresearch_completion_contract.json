@@ -503,6 +503,26 @@
             "\"passed\": 1",
             "\"failed\": 0"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"targets\": 4",
+            "\"routes\": 10",
+            "\"passed\": 10",
+            "\"failed\": 0",
+            "\"target_id\": \"canva-widget-preview\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_ALL_FRONTENDS_BROWSER_SMOKE_EXPECTED_TEXT_2026-06-05.md",
+          "must_contain": [
+            "All Frontends Browser Smoke Expected Text",
+            "10/10",
+            "dashboard, AgriGuard, DeSci, and Canva widget preview",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -867,6 +887,26 @@
             "Browser Smoke Markdown Expected Text Evidence",
             "Adopted",
             "DEV_SERVER_BROWSER_SMOKE_DASHBOARD_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
+          "must_contain": [
+            "Targets: `4`",
+            "Routes: `10`",
+            "Expected Text Evidence",
+            "matched: `CRISPR-Cas9`",
+            "matched: `Canva Design Widgets`",
+            "missing: none"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_ALL_FRONTENDS_BROWSER_SMOKE_EXPECTED_TEXT_2026-06-05.md",
+          "must_contain": [
+            "All Frontends Browser Smoke Expected Text",
+            "4` frontend targets",
+            "10/10",
             "global_objective_complete=false"
           ]
         },

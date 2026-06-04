@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T21:44:00.533550+00:00",
+  "generated_at": "2026-06-04T21:53:47.057369+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -190,6 +190,14 @@
         {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md",
           "term_count": 2
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_ALL_FRONTENDS_BROWSER_SMOKE_EXPECTED_TEXT_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "direct_app_click_qa",

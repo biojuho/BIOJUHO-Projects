@@ -262,6 +262,24 @@
             "pass",
             "dashboard-frontend"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
+          "must_contain": [
+            "Targets: `4`",
+            "Routes: `10`",
+            "Expected Text Evidence",
+            "matched: `Canva Design Widgets`",
+            "missing: none"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_ALL_FRONTENDS_BROWSER_SMOKE_EXPECTED_TEXT_2026-06-05.md",
+          "must_contain": [
+            "All Frontends Browser Smoke Expected Text",
+            "10/10",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },

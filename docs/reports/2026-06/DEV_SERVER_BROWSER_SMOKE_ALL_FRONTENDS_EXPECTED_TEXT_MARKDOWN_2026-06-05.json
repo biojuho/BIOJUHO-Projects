@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "tool": "dev_server_browser_smoke",
+  "generated_at": "2026-06-04T21:50:27.701235Z",
+  "status": "pass",
+  "summary": {
+    "targets": 4,
+    "routes": 10,
+    "completed": 10,
+    "passed": 10,
+    "failed": 0,
+    "blocked": 0
+  },
+  "results": [
+    {
+      "target_id": "dashboard-frontend",
+      "name": "home",
+      "path": "/",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 11,
+      "matched_expected_text": [
+        "AI Projects Dashboard",
+        "CREDENTIAL BOUNDARIES",
+        "Next Unblock",
+        "Live plan",
+        "Rank 1 / 2 commands / blocked missing required env",
+        "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
+        "Next command",
+        "cd mcp/canva-mcp && npm run doctor:canva",
+        "Queue #2",
+        "GitHub source-refresh token boundary",
+        "Canva OAuth and OpenAPI tool execution"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/"
+    },
+    {
+      "target_id": "agriguard-frontend",
+      "name": "home",
+      "path": "/",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "AgriGuard"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/"
+    },
+    {
+      "target_id": "agriguard-frontend",
+      "name": "registry",
+      "path": "/registry",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "Register new harvest batches"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/registry"
+    },
+    {
+      "target_id": "agriguard-frontend",
+      "name": "supply-chain",
+      "path": "/supply-chain",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "Supply Chain Overview"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/supply-chain"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "home",
+      "path": "/",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "DSCI"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "pricing",
+      "path": "/pricing",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 3,
+      "matched_expected_text": [
+        "Starter",
+        "Pro",
+        "Enterprise"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/pricing"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "explore",
+      "path": "/explore",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 2,
+      "matched_expected_text": [
+        "CRISPR-Cas9",
+        "IPFS"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/explore"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "login",
+      "path": "/login",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "DSCI"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/login"
+    },
+    {
+      "target_id": "desci-frontend",
+      "name": "dashboard-redirect",
+      "path": "/dashboard",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "DSCI"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/login"
+    },
+    {
+      "target_id": "canva-widget-preview",
+      "name": "preview",
+      "path": "",
+      "ok": true,
+      "failures": [],
+      "expected_text_count": 1,
+      "matched_expected_text": [
+        "Canva Design Widgets"
+      ],
+      "missing_expected_text": [],
+      "status_code": 200,
+      "final_path": "/src/dev/preview.html"
+    }
+  ],
+  "failures": []
+}

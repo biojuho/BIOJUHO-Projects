@@ -68,7 +68,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `8`
+- Evidence paths: `10`
 
 ### direct_browser_qa_freshness_gate
 
@@ -104,7 +104,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `7`
+- Evidence paths: `9`
 
 ### commit_push_evidence
 

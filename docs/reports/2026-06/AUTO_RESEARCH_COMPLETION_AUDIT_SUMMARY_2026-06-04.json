@@ -300,6 +300,20 @@
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.json",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_ALL_FRONTENDS_BROWSER_SMOKE_EXPECTED_TEXT_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
         }
       ]
     },
@@ -583,6 +597,20 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_MARKDOWN_EXPECTED_TEXT_EVIDENCE_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_ALL_FRONTENDS_BROWSER_SMOKE_EXPECTED_TEXT_2026-06-05.md",
           "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,
