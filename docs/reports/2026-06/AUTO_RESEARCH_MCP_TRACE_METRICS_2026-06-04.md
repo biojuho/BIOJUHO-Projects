@@ -10,6 +10,7 @@
 
 - Added `scope_summary` to `ops/scripts/run_workspace_smoke.py` JSON reports.
 - Added `mcp_trace` to the same JSON schema with MCP counts, elapsed time, checked units, command kinds, and per-check status.
+- Added `--mcp-trace-out` to emit standalone JSONL `workspace_smoke.mcp_check` events for scheduled or manual external trace consumers.
 - Passed `scope_summary` and `mcp_trace` through `/api/quality_overview`.
 - Added a compact `MCP Trace` section to the dashboard Quality panel.
 - Updated `docs/QUALITY_GATE.md` so the new fields are part of the documented schema contract.
@@ -18,12 +19,21 @@
 
 - `python -m pytest tests\test_workspace_smoke.py tests\test_smoke_report_readers.py tests\test_dashboard_api.py::TestQualityOverview::test_includes_workspace_smoke_slowest_checks -q -p no:cacheprovider`
   - `22 passed`
+- `python -m pytest tests\test_workspace_smoke.py -q -p no:cacheprovider`
+  - `25 passed`
+- `python -m compileall -q ops\scripts\run_workspace_smoke.py`
+  - passed
 - `npm.cmd run test -- src/App.test.jsx`
   - `1` test file, `6` tests passed
 - `python ops\scripts\run_workspace_smoke.py --scope mcp --json-out var\workspace-smoke-mcp-trace-metrics-2026-06-04.json`
   - `3/3` MCP checks passed
   - `mcp_trace.enabled=true`
   - `mcp_trace.command_kinds={"compileall": 2, "pytest": 1}`
+- `python ops\scripts\run_workspace_smoke.py --scope mcp --json-out var\workspace-smoke-mcp-trace-export-2026-06-04.json --mcp-trace-out var\workspace-smoke-mcp-trace-export-2026-06-04.jsonl`
+  - `3/3` MCP checks passed
+  - JSONL export wrote `3` `workspace_smoke.mcp_check` events
+  - Event command kinds: `compileall`, `compileall`, `pytest`
+  - DailyNews unit event captured `218 passed`
 - `python ops\scripts\run_workspace_smoke.py --scope workspace --json-out var\workspace-smoke-workspace-mcp-trace-2026-06-04.json`
   - `6/6` workspace checks passed
 - `python ops\scripts\run_workspace_smoke.py --scope workspace --json-out var\workspace-smoke-workspace-mcp-trace-final-2026-06-04.json`
@@ -44,4 +54,4 @@
 
 ## Remaining Gap
 
-External live MCP trace export and OpenTelemetry-style spans are still outside the deterministic default smoke gate. Keep those in manual or scheduled MCP health workflows until they have a repeatable local contract.
+Standalone external MCP trace export is now covered by the deterministic CLI contract. OpenTelemetry-style span emission remains outside the default smoke gate and should stay in manual or scheduled MCP health workflows until a repeatable local collector contract exists.

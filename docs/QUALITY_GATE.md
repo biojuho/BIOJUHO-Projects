@@ -110,6 +110,11 @@ DailyNews rule:
 `run_workspace_smoke.py --json-out <path>` writes a schema-v1 object. The
 runner refreshes the file after each completed check, so a crash or timeout in a
 later check leaves a `partial` report with the finished checks preserved.
+Use `--mcp-trace-out <path>` when a scheduled or manual MCP run needs a
+standalone JSONL event stream for external trace consumers. The JSONL file is
+also refreshed after each completed check and contains one
+`workspace_smoke.mcp_check` event per completed MCP check. Non-MCP scopes write
+an empty trace file when the flag is supplied.
 
 Top-level fields:
 
@@ -133,3 +138,19 @@ Each `results` entry contains:
 - `stdout_tail`
 - `stderr_tail`
 - `elapsed_seconds`
+
+Each `--mcp-trace-out` JSONL event contains:
+
+- `schema_version`
+- `event_type` (`workspace_smoke.mcp_check`)
+- `generated_at`
+- `scope`
+- `name`
+- `cwd`
+- `command`
+- `command_kind`
+- `returncode`
+- `ok`
+- `elapsed_seconds`
+- `stdout_tail`
+- `stderr_tail`

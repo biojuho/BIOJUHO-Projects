@@ -167,6 +167,36 @@ def test_build_json_report_adds_scope_summary_and_mcp_trace() -> None:
     assert report["mcp_trace"]["checks"][1]["command_kind"] == "pytest"
 
 
+def test_build_mcp_trace_events_exports_jsonl_ready_rows() -> None:
+    smoke = load_smoke_module()
+    results = [
+        smoke.Result("workspace", "workspace regression tests", ".", "python -m pytest tests", 0, True, "ok", ""),
+        smoke.Result(
+            "mcp",
+            "DailyNews unit tests",
+            "automation/DailyNews",
+            "python -m pytest tests/unit",
+            1,
+            False,
+            "",
+            "failed",
+            elapsed_seconds=2.5,
+        ),
+    ]
+
+    events = smoke.build_mcp_trace_events(results)
+
+    assert len(events) == 1
+    assert events[0]["schema_version"] == 1
+    assert events[0]["event_type"] == "workspace_smoke.mcp_check"
+    assert events[0]["scope"] == "mcp"
+    assert events[0]["name"] == "DailyNews unit tests"
+    assert events[0]["command_kind"] == "pytest"
+    assert events[0]["returncode"] == 1
+    assert events[0]["ok"] is False
+    assert events[0]["stderr_tail"] == "failed"
+
+
 def test_resolve_python_executable_prefers_workspace_venv_over_current_interpreter(tmp_path: Path, monkeypatch) -> None:
     smoke = load_smoke_module()
     venv_python_rel = "Scripts/python.exe" if os.name == "nt" else "bin/python"
@@ -551,3 +581,59 @@ def test_write_json_report_replaces_existing_report(tmp_path) -> None:
     assert report["mcp_trace"]["enabled"] is False
     assert report["results"][0]["elapsed_seconds"] == 0.5
     assert (tmp_path / ".smoke.json.tmp").exists() is False
+
+
+def test_write_mcp_trace_export_replaces_existing_jsonl(tmp_path) -> None:
+    smoke = load_smoke_module()
+    trace_path = tmp_path / "mcp-trace.jsonl"
+    trace_path.write_text("stale\n", encoding="utf-8")
+    results = [
+        smoke.Result("workspace", "fake check", ".", "python -V", 0, True, "ok", ""),
+        smoke.Result("mcp", "DailyNews unit tests", "automation/DailyNews", "python -m pytest tests/unit", 0, True, "ok", ""),
+    ]
+
+    smoke.write_mcp_trace_export(trace_path, results)
+
+    lines = trace_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["event_type"] == "workspace_smoke.mcp_check"
+    assert event["name"] == "DailyNews unit tests"
+    assert event["command_kind"] == "pytest"
+    assert (tmp_path / ".mcp-trace.jsonl.tmp").exists() is False
+
+
+def test_main_writes_mcp_trace_export_for_selected_scope(tmp_path, monkeypatch) -> None:
+    smoke = load_smoke_module()
+    fake_check = smoke.Check("mcp", "fake mcp check", ".", ["python", "-V"])
+    fake_result = smoke.Result("mcp", "fake mcp check", ".", "python -V", 0, True, "ok", "")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(smoke, "resolve_python_executable", lambda root: "python")
+    monkeypatch.setattr(smoke, "ensure_workspace_environment", lambda root, python_exe, checks: python_exe)
+    monkeypatch.setattr(smoke, "has_module", lambda python_exe, module_name: True)
+    monkeypatch.setattr(smoke, "default_checks", lambda python_exe: [fake_check])
+    monkeypatch.setattr(smoke, "ensure_node_environments", lambda root, checks: None)
+    monkeypatch.setattr(smoke, "run_one", lambda root, item: fake_result)
+    monkeypatch.setattr(
+        smoke.sys,
+        "argv",
+        [
+            "run_workspace_smoke.py",
+            "--scope",
+            "mcp",
+            "--json-out",
+            "smoke.json",
+            "--mcp-trace-out",
+            "mcp-trace.jsonl",
+        ],
+    )
+
+    exit_code = smoke.main()
+
+    assert exit_code == 0
+    report = json.loads((tmp_path / "smoke.json").read_text(encoding="utf-8"))
+    events = (tmp_path / "mcp-trace.jsonl").read_text(encoding="utf-8").splitlines()
+    assert report["mcp_trace"]["enabled"] is True
+    assert len(events) == 1
+    assert json.loads(events[0])["name"] == "fake mcp check"

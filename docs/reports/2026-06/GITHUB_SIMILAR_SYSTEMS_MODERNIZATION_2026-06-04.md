@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=5, watch=0
-- Generated at: `2026-06-04T20:50:32+09:00`
+- Generated at: `2026-06-04T20:56:42+09:00`
 
 ## Search Context
 
@@ -44,6 +44,7 @@
 - Observed patterns:
   - real environment tests instead of mocks for agent tool paths
   - schema-level trace metrics for MCP smoke evidence
+  - standalone JSONL trace exports for external consumers
   - OpenTelemetry-backed observability and performance signals
   - JSON and HTML evidence suitable for CI
 - Local evidence:
@@ -55,7 +56,7 @@
   - `apps/dashboard/src/components/QualityPanel.jsx`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_METRICS_2026-06-04.md`
   - `docs/QUALITY_GATE.md`
-- Gap: Schema-level MCP smoke trace metrics and dashboard surfacing are adopted; external live MCP trace export and OpenTelemetry spans remain manual or scheduled.
+- Gap: Schema-level MCP smoke trace metrics, dashboard surfacing, and standalone JSONL trace export are adopted; OpenTelemetry spans remain manual or scheduled until a local collector contract exists.
 
 ### evalstate/fast-agent
 

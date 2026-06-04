@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T20:50:32+09:00",
+  "generated_at": "2026-06-04T20:56:42+09:00",
   "search_context": {
     "objective": "Search GitHub for systems similar to this AI workspace and map current patterns into local modernization evidence.",
     "queries": [
@@ -40,6 +40,7 @@
       "observed_patterns": [
         "real environment tests instead of mocks for agent tool paths",
         "schema-level trace metrics for MCP smoke evidence",
+        "standalone JSONL trace exports for external consumers",
         "OpenTelemetry-backed observability and performance signals",
         "JSON and HTML evidence suitable for CI"
       ],
@@ -53,7 +54,7 @@
         "docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_METRICS_2026-06-04.md",
         "docs/QUALITY_GATE.md"
       ],
-      "gap": "Schema-level MCP smoke trace metrics and dashboard surfacing are adopted; external live MCP trace export and OpenTelemetry spans remain manual or scheduled."
+      "gap": "Schema-level MCP smoke trace metrics, dashboard surfacing, and standalone JSONL trace export are adopted; OpenTelemetry spans remain manual or scheduled until a local collector contract exists."
     },
     {
       "repo": "evalstate/fast-agent",

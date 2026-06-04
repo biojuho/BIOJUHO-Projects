@@ -765,6 +765,29 @@ def build_mcp_trace(results: Sequence[Result]) -> dict[str, object]:
     }
 
 
+def build_mcp_trace_events(results: Sequence[Result]) -> list[dict[str, object]]:
+    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return [
+        {
+            "schema_version": 1,
+            "event_type": "workspace_smoke.mcp_check",
+            "generated_at": generated_at,
+            "scope": result.scope,
+            "name": result.name,
+            "cwd": result.cwd,
+            "command": result.command,
+            "command_kind": classify_command_kind(result.command),
+            "returncode": result.returncode,
+            "ok": result.ok,
+            "elapsed_seconds": result.elapsed_seconds,
+            "stdout_tail": result.stdout_tail,
+            "stderr_tail": result.stderr_tail,
+        }
+        for result in results
+        if result.scope == "mcp"
+    ]
+
+
 def build_json_report(
     results: Sequence[Result],
     *,
@@ -812,6 +835,15 @@ def write_json_report(
     tmp_path.replace(out_path)
 
 
+def write_mcp_trace_export(out_path: Path, results: Sequence[Result]) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = out_path.with_name(f".{out_path.name}.tmp")
+    events = build_mcp_trace_events(results)
+    content = "".join(f"{json.dumps(event, ensure_ascii=False)}\n" for event in events)
+    tmp_path.write_text(content, encoding="utf-8")
+    tmp_path.replace(out_path)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
     # Windows stdout UTF-8 설정
@@ -828,6 +860,7 @@ def main() -> int:
         "--scope", default="all", choices=["all", "workspace", "desci", "agriguard", "mcp", "getdaytrends", "cie"]
     )
     parser.add_argument("--json-out", help="Optional JSON output file")
+    parser.add_argument("--mcp-trace-out", help="Optional JSONL output file for MCP trace events")
     args = parser.parse_args()
 
     root = find_workspace_root()
@@ -858,7 +891,9 @@ def main() -> int:
     results: list[Result] = []
     run_started = time.perf_counter()
     out_path = resolve_json_out_path(args.json_out) if args.json_out else None
+    mcp_trace_out_path = resolve_json_out_path(args.mcp_trace_out) if args.mcp_trace_out else None
     json_write_failed = False
+    mcp_trace_write_failed = False
     for check in checks:
         print(f"[smoke] running: {check.name}")
         results.append(run_check(root, check))
@@ -874,6 +909,12 @@ def main() -> int:
             except OSError as exc:
                 print(f"[smoke] warning: could not write json report to {out_path}: {exc}")
                 json_write_failed = True
+        if mcp_trace_out_path and not mcp_trace_write_failed:
+            try:
+                write_mcp_trace_export(mcp_trace_out_path, results)
+            except OSError as exc:
+                print(f"[smoke] warning: could not write MCP trace export to {mcp_trace_out_path}: {exc}")
+                mcp_trace_write_failed = True
 
     passed = sum(1 for result in results if result.ok)
     failed = len(results) - passed
@@ -885,6 +926,8 @@ def main() -> int:
 
     if out_path and not json_write_failed:
         print(f"[smoke] json written: {out_path}")
+    if mcp_trace_out_path and not mcp_trace_write_failed:
+        print(f"[smoke] mcp trace written: {mcp_trace_out_path}")
 
     return 0 if failed == 0 else 1
 
