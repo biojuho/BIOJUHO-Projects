@@ -38,6 +38,7 @@ def test_handoff_lists_required_env_without_secret_values() -> None:
     assert handoff["boundary_count"] >= 5
     assert "CANVA_CLIENT_ID" in {item["name"] for item in handoff["required_env"]}
     assert "verification_sequence" in handoff
+    assert "unblock_queue" in handoff
     assert "client-id-secret-value" not in serialized
     assert "client-secret-value" not in serialized
     assert "telegram-token-value" not in serialized
@@ -52,9 +53,28 @@ def test_markdown_and_env_template_are_operator_actionable() -> None:
 
     assert "External Credential Handoff" in markdown
     assert "Secret values: not emitted" in markdown
+    assert "Prioritized Unblock Queue" in markdown
     assert "cd mcp/canva-mcp && npm run doctor:canva" in markdown
+    assert "mcp_otel_collector_handoff.py" in markdown
     assert "CANVA_CLIENT_SECRET=" in env_template
     assert "TELEGRAM_CHAT_ID=" in env_template
+
+
+def test_unblock_queue_prioritizes_operator_actions() -> None:
+    handoff_module = load_module()
+    handoff = handoff_module.build_handoff(REGISTRY_PATH, env={})
+
+    queue_ids = [item["boundary_id"] for item in handoff["unblock_queue"]]
+    canva = handoff["unblock_queue"][0]
+    github = next(item for item in handoff["unblock_queue"] if item["boundary_id"] == "github_source_refresh_rate_limit_token")
+
+    assert queue_ids[0] == "canva_oauth_and_openapi_tool_execution"
+    assert queue_ids.index("github_source_refresh_rate_limit_token") < queue_ids.index("hosted_agent_runtime_credentials")
+    assert queue_ids.index("otel_collector_endpoint_and_credentials") < queue_ids.index("hosted_agent_runtime_credentials")
+    assert canva["rank"] == 1
+    assert "CANVA_CLIENT_SECRET" in canva["env_names"]
+    assert github["env_names"] == ["GITHUB_TOKEN", "GH_TOKEN"]
+    assert "python ops/scripts/github_source_freshness.py" in github["verify_after_unblock"][0]
 
 
 def test_cli_writes_redacted_handoff_package(tmp_path: Path) -> None:

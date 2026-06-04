@@ -6,6 +6,11 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 credential unblock queue slice: added a generated
+  `unblock_queue` to the redacted external credential handoff and a Markdown
+  `Prioritized Unblock Queue` so operators can address Canva OAuth/OpenAPI,
+  GitHub token, Telegram credentials, OTLP collector credentials, and hosted
+  runtime credentials in a deterministic order.
 - 2026-06-05 ready-only execution drift-guard slice: added a deterministic
   test that re-runs ready-only execute mode and compares stable JSON/Markdown
   fields against the checked-in ready-only evidence.
@@ -243,6 +248,10 @@ Latest pushed commits in this slice:
 - Dashboard credential-boundary visibility: adopted dashboard API/UI surfacing
   of the latest boundary audit so operators can see credential blockers in the
   launch Quality panel.
+- Credential unblock queue: adopted deterministic handoff ordering so the
+  remaining operator-owned credential work is ranked before future-scoped
+  runtime policy choices while preserving redaction and blocked completion
+  semantics.
 
 ## Remaining Gaps
 
@@ -282,6 +291,24 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
+- Credential unblock queue verification:
+  - `EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json` now includes
+    `unblock_queue`
+  - `EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md` now includes
+    `Prioritized Unblock Queue`
+  - queue order is Canva OAuth/OpenAPI execution, GitHub source token,
+    Telegram notification credentials, OTLP collector credentials, then hosted
+    runtime credentials
+  - `tests\test_external_credential_handoff.py` passed `6/6`
+  - focused credential/completion suite passed `33/33`
+  - pre-push pytest bundle passed `127/127`
+  - push-hook runtime probes passed for handoff drift, live verifier dry-run,
+    objective coverage, dev-server MCP runtime smoke, MCP service runtime
+    smoke, workflow dry-run, side-effect safety, and all-workflow matrix
+  - rebased completion audit reports `28` criteria with
+    `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_CREDENTIAL_UNBLOCK_QUEUE_2026-06-05.md`
 - Dashboard credential-boundaries launch proof refresh:
   - proof commit `0dfdf9a`
   - canonical all-scope smoke passed `25/25`

@@ -1033,6 +1033,8 @@
           "path": "ops/scripts/external_credential_handoff.py",
           "must_contain": [
             "verification_sequence",
+            "unblock_queue",
+            "Prioritized Unblock Queue",
             "check_outputs",
             "--check-json",
             "external credential handoff check valid",
@@ -1044,6 +1046,7 @@
           "path": "tests/test_external_credential_handoff.py",
           "must_contain": [
             "test_handoff_lists_required_env_without_secret_values",
+            "test_unblock_queue_prioritizes_operator_actions",
             "test_checked_in_handoff_artifacts_match_registry",
             "test_cli_check_rejects_stale_markdown",
             "client-secret-value",
@@ -1055,6 +1058,7 @@
           "must_contain": [
             "\"status\": \"operator_action_required\"",
             "\"verification_sequence\"",
+            "\"unblock_queue\"",
             "\"CANVA_CLIENT_SECRET\"",
             "\"TELEGRAM_CHAT_ID\""
           ]
@@ -1064,6 +1068,7 @@
           "must_contain": [
             "External Credential Handoff",
             "Secret values: not emitted",
+            "Prioritized Unblock Queue",
             "cd mcp/canva-mcp && npm run doctor:canva",
             "TELEGRAM_CHAT_ID"
           ]
@@ -1092,6 +1097,16 @@
             "--check-json",
             "external credential handoff check valid",
             "99 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CREDENTIAL_UNBLOCK_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "credential unblock queue",
+            "canva_oauth_and_openapi_tool_execution",
+            "github_source_refresh_rate_limit_token",
+            "33 passed",
             "global_objective_complete=false"
           ]
         }

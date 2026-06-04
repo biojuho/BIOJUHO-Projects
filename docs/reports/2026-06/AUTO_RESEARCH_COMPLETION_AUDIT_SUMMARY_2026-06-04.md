@@ -152,7 +152,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `7`
+- Evidence paths: `8`
 
 ### external_credential_live_verifier
 
