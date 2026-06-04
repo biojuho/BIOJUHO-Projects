@@ -114,11 +114,14 @@
   - browser automation as a first-class workflow capability
   - operator-facing runtime status
 - Local evidence:
+  - `ops/references/dev_server_targets.json`
+  - `ops/scripts/dev_server_status.py`
+  - `tests/test_dev_server_status.py`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `apps/dashboard/src/components/QualityPanel.jsx`
   - `ops/scripts/workspace_smoke_report.py`
   - `docs/QUALITY_GATE.md`
-- Gap: The dashboard shows smoke state, but there is no unified live dev-server controller.
+- Gap: The workspace now has a manifest-backed live dev-server readiness probe; start-stop orchestration and log tailing remain future scoped work.
 
 ## Operating Decision
 

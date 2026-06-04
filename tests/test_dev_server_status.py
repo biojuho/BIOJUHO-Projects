@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+STATUS_SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "dev_server_status.py"
+MANIFEST_PATH = PROJECT_ROOT / "ops" / "references" / "dev_server_targets.json"
+
+
+def load_status_module():
+    spec = importlib.util.spec_from_file_location("dev_server_status", STATUS_SCRIPT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_current_manifest_validates_against_workspace_paths() -> None:
+    status = load_status_module()
+    payload = status.load_manifest(MANIFEST_PATH)
+
+    errors = status.validate_manifest(payload, workspace_root=PROJECT_ROOT)
+
+    assert errors == []
+    assert {target["id"] for target in payload["targets"]} == {
+        "dashboard-api",
+        "dashboard-frontend",
+        "agriguard-api",
+        "agriguard-frontend",
+        "desci-api",
+        "desci-frontend",
+        "canva-widget-preview",
+    }
+
+
+def test_manifest_rejects_unsafe_target_data() -> None:
+    status = load_status_module()
+    payload = status.load_manifest(MANIFEST_PATH)
+    payload["targets"][0]["id"] = "bad id"
+    payload["targets"][0]["cwd"] = "../outside"
+    payload["targets"][0]["command"] = ["python", "api.py && whoami"]
+    payload["targets"][0]["url"] = "https://example.com:443/api"
+    payload["targets"][0]["expected_status"] = [True]
+    payload["targets"][1]["id"] = payload["targets"][2]["id"]
+
+    errors = status.validate_manifest(payload, workspace_root=PROJECT_ROOT)
+
+    assert "targets[0].id must use lowercase letters, numbers, hyphens, or underscores" in errors
+    assert "targets[0].cwd must be a repo-relative path" in errors
+    assert "targets[0].command[1] must not include shell command separators" in errors
+    assert "targets[0].url must target localhost or 127.0.0.1" in errors
+    assert "targets[0].expected_status[0] must be an HTTP status code" in errors
+    assert "targets[2].id must be unique" in errors
+
+
+def test_probe_target_reports_ready_and_unready() -> None:
+    status = load_status_module()
+    target = status.load_manifest(MANIFEST_PATH)["targets"][0]
+
+    ready = status.probe_target(target, fetcher=lambda _url, _timeout: (200, 12, '{"workspace_smoke":{}}', None))
+    wrong_service = status.probe_target(target, fetcher=lambda _url, _timeout: (200, 4, '{"other":"service"}', None))
+    unready = status.probe_target(target, fetcher=lambda _url, _timeout: (None, 3, None, "connection refused"))
+
+    assert ready["ok"] is True
+    assert ready["status_code"] == 200
+    assert ready["latency_ms"] == 12
+    assert wrong_service["ok"] is False
+    assert wrong_service["error"] == "response body missing marker(s): workspace_smoke"
+    assert unready["ok"] is False
+    assert unready["error"] == "connection refused"
+
+
+def test_run_writes_machine_report_with_target_filter(tmp_path: Path) -> None:
+    status = load_status_module()
+    json_out = tmp_path / "dev-server-status.json"
+
+    report = status.run(
+        MANIFEST_PATH,
+        json_out=json_out,
+        target_ids=["dashboard-api", "agriguard-api"],
+        fetcher=lambda url, _timeout: (
+            200 if "8080" in url else None,
+            5,
+            '{"workspace_smoke":{}}' if "8080" in url else None,
+            None if "8080" in url else "offline",
+        ),
+    )
+
+    written = json.loads(json_out.read_text(encoding="utf-8"))
+    assert report["schema_version"] == 1
+    assert report["status"] == "degraded"
+    assert report["summary"] == {"total": 2, "ready": 1, "unready": 1}
+    assert [target["id"] for target in written["targets"]] == ["dashboard-api", "agriguard-api"]
+    assert written["targets"][0]["ok"] is True
+    assert written["targets"][1]["error"] == "offline"
+
+
+def test_validate_only_cli_does_not_probe_network(tmp_path: Path) -> None:
+    status = load_status_module()
+    json_out = tmp_path / "manifest.json"
+
+    result = status.main(["--manifest", str(MANIFEST_PATH), "--validate-only", "--json-out", str(json_out)])
+
+    report = json.loads(json_out.read_text(encoding="utf-8"))
+    assert result == 0
+    assert report["status"] == "validated"
+    assert report["summary"]["total"] == 7

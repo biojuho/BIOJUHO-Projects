@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T17:05:00+09:00",
+  "description": "Local development service targets for operator readiness checks and browser automation setup.",
+  "targets": [
+    {
+      "id": "dashboard-api",
+      "label": "Workspace Dashboard API",
+      "project": "dashboard",
+      "kind": "api",
+      "cwd": "apps/dashboard",
+      "command": ["python", "api.py", "--host", "127.0.0.1", "--port", "8080"],
+      "url": "http://127.0.0.1:8080/api/quality_overview",
+      "expected_status": [200],
+      "expected_body_contains": ["workspace_smoke"],
+      "smoke_scope": "workspace",
+      "tags": ["operator-dashboard", "quality"]
+    },
+    {
+      "id": "dashboard-frontend",
+      "label": "Workspace Dashboard Frontend",
+      "project": "dashboard",
+      "kind": "frontend",
+      "cwd": "apps/dashboard",
+      "command": ["npm.cmd", "run", "dev", "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
+      "url": "http://127.0.0.1:5173/",
+      "expected_status": [200],
+      "expected_body_contains": ["AI Projects Dashboard"],
+      "smoke_scope": "workspace",
+      "tags": ["operator-dashboard", "browser"]
+    },
+    {
+      "id": "agriguard-api",
+      "label": "AgriGuard API",
+      "project": "agriguard",
+      "kind": "api",
+      "cwd": "apps/AgriGuard/backend",
+      "command": ["python", "main.py"],
+      "url": "http://127.0.0.1:8002/",
+      "expected_status": [200],
+      "expected_body_contains": ["AgriGuard API"],
+      "smoke_scope": "agriguard",
+      "tags": ["product", "browser"]
+    },
+    {
+      "id": "agriguard-frontend",
+      "label": "AgriGuard Frontend",
+      "project": "agriguard",
+      "kind": "frontend",
+      "cwd": "apps/AgriGuard/frontend",
+      "command": ["npm.cmd", "run", "dev", "--", "--host", "127.0.0.1", "--port", "5174", "--strictPort"],
+      "url": "http://127.0.0.1:5174/",
+      "expected_status": [200],
+      "expected_body_contains": ["AgriGuard"],
+      "smoke_scope": "agriguard",
+      "tags": ["product", "browser"]
+    },
+    {
+      "id": "desci-api",
+      "label": "DeSci API",
+      "project": "desci",
+      "kind": "api",
+      "cwd": "apps/desci-platform/backend",
+      "command": ["python", "main.py"],
+      "url": "http://127.0.0.1:8000/health",
+      "expected_status": [200],
+      "expected_body_contains": ["vector_store_backend"],
+      "smoke_scope": "desci",
+      "tags": ["product", "readiness"]
+    },
+    {
+      "id": "desci-frontend",
+      "label": "DeSci Frontend",
+      "project": "desci",
+      "kind": "frontend",
+      "cwd": "apps/desci-platform/frontend",
+      "command": ["npm.cmd", "run", "dev", "--", "--host", "127.0.0.1", "--port", "5175", "--strictPort"],
+      "url": "http://127.0.0.1:5175/",
+      "expected_status": [200],
+      "expected_body_contains": ["DecentBio"],
+      "smoke_scope": "desci",
+      "tags": ["product", "browser"]
+    },
+    {
+      "id": "canva-widget-preview",
+      "label": "Canva Widget Preview",
+      "project": "canva-mcp",
+      "kind": "frontend",
+      "cwd": "mcp/canva-mcp",
+      "command": ["npm.cmd", "run", "dev:preview", "--", "--host", "127.0.0.1", "--port", "5176", "--strictPort"],
+      "url": "http://127.0.0.1:5176/src/dev/preview.html",
+      "expected_status": [200],
+      "expected_body_contains": ["Canva MCP Server"],
+      "smoke_scope": "mcp",
+      "tags": ["mcp", "browser", "widgets"]
+    }
+  ]
+}
