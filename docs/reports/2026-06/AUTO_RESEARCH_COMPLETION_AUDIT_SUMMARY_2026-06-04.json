@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T07:47:39+09:00",
+  "generated_at": "2026-06-05T07:51:48+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -22,14 +22,14 @@
       "status": "covered",
       "evidence": [
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_ALL_SCOPE_SMOKE_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
-          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json",
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_2026-06-05.json",
           "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,
@@ -372,7 +372,7 @@
           "json_freshness": false
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_ALL_SCOPE_SMOKE_2026-06-05.md",
           "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,

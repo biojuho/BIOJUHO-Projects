@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T07:47:39+09:00",
+  "generated_at": "2026-06-05T07:51:48+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -15,21 +15,21 @@
       "status": "covered",
       "evidence": [
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_ALL_SCOPE_SMOKE_2026-06-05.md",
           "must_contain": [
             "total=25",
             "passed=25",
-            "827.403s",
-            "0dfdf9a",
-            "Credential Boundaries"
+            "557.185s",
+            "9c86c89",
+            "Dashboard Operator Checklist"
           ]
         },
         {
-          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json",
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_2026-06-05.json",
           "must_contain": [
             "\"passed\": 25",
             "\"failed\": 0",
-            "\"duration_seconds\": 827.403",
+            "\"duration_seconds\": 557.185",
             "\"mcp_trace\""
           ]
         }
@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "e53d825",
+            "9c86c89",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "e53d825",
+            "proof_commit": "9c86c89",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -595,12 +595,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "e53d825",
+            "9c86c89",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "e53d825",
+            "proof_commit": "9c86c89",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -617,11 +617,11 @@
           }
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_DASHBOARD_CANVA_GUARDS_ALL_SCOPE_SMOKE_2026-06-05.md",
           "must_contain": [
             "protected_path_freshness",
             "no changed protected paths",
-            "93 passed",
+            "145 passed",
             "global_objective_complete=false"
           ]
         }
