@@ -24,6 +24,10 @@ REQUIRED_TRIGGERS = [
 ]
 REQUIRED_TERMS = [
     "prompt-to-artifact checklist",
+    "completion audit",
+    "success criteria",
+    "uncovered requirements",
+    "proxy-verified",
     "github_modernization_radar.py",
     "run_workspace_smoke.py",
     "browser_smoke.py",
@@ -99,7 +103,18 @@ def validate(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
 
     example = skill_dir / "examples" / "self-improvement-cycle.yaml"
     example_text = example.read_text(encoding="utf-8") if example.exists() else ""
-    for key in ["schema_version:", "cycle_id:", "ab_test:", "decision_rule:", "commit_policy:"]:
+    for key in [
+        "schema_version:",
+        "cycle_id:",
+        "ab_test:",
+        "decision_rule:",
+        "completion_audit:",
+        "success_criteria:",
+        "evidence:",
+        "uncovered_requirements:",
+        "continue_if_missing:",
+        "commit_policy:",
+    ]:
         ok = key in example_text
         checks.append({"name": f"example_key:{key}", "ok": ok})
         if not ok:

@@ -35,6 +35,18 @@ verification:
     - "python -m pytest apps/desci-platform/backend/tests/test_product_smoke.py -q -p no:cacheprovider"
   smoke:
     - "python ops/scripts/run_workspace_smoke.py --scope desci --json-out var/workspace-smoke-desci-auto-research.json"
+completion_audit:
+  success_criteria:
+    - "The selected product path is improved or the blocking defect is fixed."
+    - "Every prompt-to-artifact checklist item has concrete evidence."
+    - "No requirement is represented only by a proxy signal."
+  evidence:
+    - path: docs/reports/2026-06/AUTO_RESEARCH_LOOP_example.md
+      covers: "A/B decision, verification, and next-cycle recommendation"
+    - path: var/workspace-smoke-desci-auto-research.json
+      covers: "canonical desci smoke result for the changed surface"
+  uncovered_requirements: []
+  continue_if_missing: true
 commit_policy:
   stage_only_owned_paths: true
   require_cached_diff_check: true

@@ -53,6 +53,13 @@ Create a prompt-to-artifact checklist before claiming completion. Map each
 requirement to a file path, command output, test result, browser evidence,
 source citation, report, commit, or explicit blocker.
 
+For open-ended launch loops, distinguish a completed cycle from the whole
+objective. Before claiming the objective is complete, run a completion audit:
+restate the success criteria, verify every checklist item against actual current
+artifacts, identify uncovered requirements, and continue the loop when any item
+is missing or only proxy-verified. Passing tests, green manifests, or a pushed
+commit are evidence, not completion by themselves.
+
 ### 2. Refresh External and GitHub Evidence
 
 Browse or search live sources when the request mentions latest, current,
@@ -131,6 +138,7 @@ Write cycle evidence to `docs/reports/<year-month>/` or the project's own
 - changed paths
 - verification commands and results
 - accepted variant or rejected candidates
+- completion audit with uncovered requirements
 - next cycle recommendation
 
 Commit and push only after verification is sufficient for the owned paths. Stage

@@ -86,6 +86,8 @@ Create `docs/reports/<year-month>/AUTO_RESEARCH_LOOP_<date>_<slug>.md` with:
 - Variant evidence
 - Adopt/reject decision
 - Verification commands
+- Completion audit: success criteria, prompt-to-artifact evidence, uncovered
+  requirements, and whether the loop must continue
 - Commit and push status
 - Next cycle
 
