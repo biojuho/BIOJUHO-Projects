@@ -856,6 +856,51 @@
       ]
     },
     {
+      "id": "external_credential_boundary_registry",
+      "requirement": "Credential-gated and operator-owned launch boundaries are machine-readable and executable without exposing secret values.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/references/external_credential_boundaries.json",
+          "must_contain": [
+            "canva_oauth_and_openapi_tool_execution",
+            "otel_collector_endpoint_and_credentials",
+            "github_source_refresh_rate_limit_token",
+            "do not claim complete",
+            "operator"
+          ]
+        },
+        {
+          "path": "ops/scripts/external_credential_boundary_audit.py",
+          "must_contain": [
+            "missing_required_env",
+            "optional_env_any_of",
+            "do not claim",
+            "external credential boundary audit valid"
+          ]
+        },
+        {
+          "path": "tests/test_external_credential_boundary_audit.py",
+          "must_contain": [
+            "test_default_registry_validates_boundaries_without_secret_values",
+            "test_required_env_reports_names_without_values",
+            "super-secret-value"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_BOUNDARY_REGISTRY_2026-06-05.md",
+          "must_contain": [
+            "5 boundaries",
+            "missing_required_env",
+            "CANVA_CLIENT_SECRET",
+            "93 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
       "id": "external_credential_boundaries",
       "requirement": "Credential-gated actions are not claimed complete without real user credentials.",
       "required": false,

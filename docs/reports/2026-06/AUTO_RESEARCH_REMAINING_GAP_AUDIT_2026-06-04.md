@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 external credential boundary registry slice: added a
+  machine-readable credential boundary registry and audit so external-auth,
+  optional-token, and operator-owned runtime gaps stay explicit without
+  exposing secret values.
 - 2026-06-05 GitHub source viability gate slice: hardened live source
   freshness so archived, disabled, or metadata-incomplete repositories fail
   the per-source check instead of remaining passive metadata.
@@ -144,6 +148,11 @@ Latest pushed commits in this slice:
 - Canva MCP npm audit cleanup: adopted patched `wrangler`, `miniflare`, `ws`,
   and `qs` lock state so the local browser-smoke install path reports `0`
   vulnerabilities.
+- External credential boundary registry: adopted executable tracking for Canva
+  OAuth/OpenAPI execution, OTLP collector credentials, hosted agent runtime
+  credentials, GitHub source-refresh token limits, and Telegram notification
+  MCP credentials while preserving the blocked/future-scoped status of those
+  boundaries.
 
 ## Remaining Gaps
 
@@ -173,7 +182,7 @@ These are intentionally not promoted to live runtime changes in this cycle:
     is clear.
 - Canva OpenAPI tool execution proxy:
   - Status: external-auth blocked
-  - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior.
+  - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior. The executable boundary registry now keeps this visible through `canva_oauth_and_openapi_tool_execution`.
 - Dev-server TUI exposure and network-facing non-local authentication:
   - Status: future-scoped
   - Reason: a local stdio MCP runtime now exposes a read-only
@@ -183,6 +192,26 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
+- External credential boundary registry verification:
+  - `ops\references\external_credential_boundaries.json` tracks `5`
+    credential or operator-owned boundaries
+  - `ops\scripts\external_credential_boundary_audit.py` validates evidence
+    paths, required env names, optional env alternatives, and `do not claim`
+    claim policies without emitting secret values
+  - focused boundary tests passed `4/4`
+  - focused credential/completion audit tests passed `15/15`
+  - pre-push-equivalent suite passed `93/93`
+  - boundary audit reports `missing_required_env=5`, including
+    `CANVA_CLIENT_SECRET`
+  - completion audit reports `22` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_EXTERNAL_CREDENTIAL_BOUNDARY_REGISTRY_2026-06-05.md`,
+    `docs\reports\2026-06\EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_2026-06-05.json`,
+    `docs\reports\2026-06\EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_CREDENTIAL_BOUNDARY_REGISTRY_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_CREDENTIAL_BOUNDARY_REGISTRY_2026-06-05.md`
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-platform-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
   - `22` sources
