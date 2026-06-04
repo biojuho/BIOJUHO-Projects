@@ -22,6 +22,18 @@ if str(SCRIPT_DIR) not in sys.path:
 import github_modernization_radar as radar  # noqa: E402
 
 FetchRepo = Callable[[str, float], dict[str, Any]]
+FETCH_FAILURE_TYPE = "fetch_error"
+RATE_LIMIT_FAILURE_TYPE = "github_api_rate_limit"
+VIABILITY_FAILURE_TYPE = "metadata_viability"
+
+
+class GitHubApiError(RuntimeError):
+    def __init__(self, repo: str, status_code: int, message: str, *, failure_type: str, requires_token: bool) -> None:
+        self.repo = repo
+        self.status_code = status_code
+        self.failure_type = failure_type
+        self.requires_token = requires_token
+        super().__init__(f"GitHub API returned {status_code} for {repo}: {message}")
 
 
 def fetch_repo_metadata(repo: str, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, Any]:
@@ -35,7 +47,14 @@ def fetch_repo_metadata(repo: str, timeout_seconds: float = DEFAULT_TIMEOUT_SECO
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"GitHub API returned {exc.code} for {repo}: {body[:200]}") from exc
+        failure_type, requires_token = _classify_http_error(exc.code, body, exc.headers)
+        raise GitHubApiError(
+            repo,
+            exc.code,
+            body[:200],
+            failure_type=failure_type,
+            requires_token=requires_token,
+        ) from exc
     if not isinstance(payload, dict):
         raise RuntimeError(f"GitHub API returned non-object payload for {repo}")
     return {
@@ -79,9 +98,12 @@ def collect_source_freshness(
                     "status": "fail" if viability_error else "pass",
                     "metadata": metadata,
                     "error": viability_error,
+                    "failure_type": VIABILITY_FAILURE_TYPE if viability_error else "",
+                    "requires_token": False,
                 }
             )
         except Exception as exc:  # noqa: BLE001 - keep per-repo failure visible in report.
+            failure_type, requires_token = _classify_exception(exc)
             records.append(
                 {
                     "repo": repo,
@@ -90,16 +112,28 @@ def collect_source_freshness(
                     "status": "fail",
                     "metadata": {},
                     "error": str(exc),
+                    "failure_type": failure_type,
+                    "requires_token": requires_token,
                 }
             )
     failed = [record for record in records if record["status"] != "pass"]
+    rate_limited = [record for record in failed if record.get("failure_type") == RATE_LIMIT_FAILURE_TYPE]
+    token_available = _github_token_available()
+    token_required = bool(rate_limited) and not token_available
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
         "status": "fail" if failed else "pass",
+        "complete": not failed,
+        "partial": bool(failed) and len(failed) < len(records),
         "source_count": len(records),
         "passed": len(records) - len(failed),
         "failed": len(failed),
+        "rate_limited": bool(rate_limited),
+        "rate_limited_count": len(rate_limited),
+        "token_available": token_available,
+        "token_required": token_required,
+        "token_hint": _token_hint(token_required),
         "manifest_generated_at": payload.get("generated_at"),
         "github_api_version": GITHUB_API_VERSION,
         "records": records,
@@ -111,9 +145,13 @@ def render_markdown(report: dict[str, Any]) -> str:
         "# GitHub Source Freshness Snapshot",
         "",
         f"- Status: `{report['status']}`",
+        f"- Complete: `{str(report.get('complete', report['status'] == 'pass')).lower()}`",
+        f"- Partial: `{str(report.get('partial', False)).lower()}`",
         f"- Sources: `{report['source_count']}`",
         f"- Passed: `{report['passed']}`",
         f"- Failed: `{report['failed']}`",
+        f"- Rate-limited failures: `{report.get('rate_limited_count', 0)}`",
+        f"- Token available: `{str(report.get('token_available', False)).lower()}`",
         f"- Generated at: `{report['generated_at']}`",
         f"- GitHub API version: `{report['github_api_version']}`",
         "",
@@ -144,9 +182,14 @@ def render_markdown(report: dict[str, Any]) -> str:
     failures = [record for record in report["records"] if record["status"] != "pass"]
     lines.extend(["", "## Failures", ""])
     if failures:
-        lines.extend(f"- `{record['repo']}`: {record['error']}" for record in failures)
+        lines.extend(
+            f"- `{record['repo']}`: [{record.get('failure_type') or 'unknown'}] {record['error']}"
+            for record in failures
+        )
     else:
         lines.append("- none")
+    if report.get("token_hint"):
+        lines.extend(["", "## Token Boundary", "", f"- {report['token_hint']}"])
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -163,7 +206,10 @@ def run(
     if markdown_out:
         _write_text_atomic(markdown_out, render_markdown(report))
     if report["status"] != "pass":
-        raise ValueError(f"{report['failed']} GitHub source checks failed")
+        detail = f"{report['failed']} GitHub source checks failed"
+        if report.get("rate_limited_count"):
+            detail += f"; rate_limited={report['rate_limited_count']}; {report.get('token_hint')}"
+        raise ValueError(detail)
     return report
 
 
@@ -192,10 +238,54 @@ def _github_headers() -> dict[str, str]:
         "User-Agent": "BIOJUHO-AutoResearch-Freshness/1.0",
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
     }
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return headers
+
+
+def _github_token_available() -> bool:
+    return bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"))
+
+
+def _classify_http_error(status_code: int, body: str, headers: Any) -> tuple[str, bool]:
+    if _is_rate_limit_error(status_code, body, headers):
+        return RATE_LIMIT_FAILURE_TYPE, True
+    return FETCH_FAILURE_TYPE, False
+
+
+def _classify_exception(exc: Exception) -> tuple[str, bool]:
+    if isinstance(exc, GitHubApiError):
+        return exc.failure_type, exc.requires_token
+    if _is_rate_limit_text(str(exc)):
+        return RATE_LIMIT_FAILURE_TYPE, True
+    return FETCH_FAILURE_TYPE, False
+
+
+def _is_rate_limit_error(status_code: int, body: str, headers: Any) -> bool:
+    if status_code not in {403, 429}:
+        return False
+    remaining = _header_value(headers, "X-RateLimit-Remaining")
+    return remaining == "0" or _is_rate_limit_text(body)
+
+
+def _is_rate_limit_text(value: str) -> bool:
+    lower = value.lower()
+    return "rate limit" in lower or "rate-limited" in lower or "rate limited" in lower
+
+
+def _header_value(headers: Any, name: str) -> str:
+    getter = getattr(headers, "get", None)
+    if callable(getter):
+        value = getter(name)
+        return str(value) if value is not None else ""
+    return ""
+
+
+def _token_hint(token_required: bool) -> str:
+    if not token_required:
+        return ""
+    return "Set GITHUB_TOKEN or GH_TOKEN before adopting this live source snapshot."
 
 
 def _license_spdx(value: Any) -> str | None:

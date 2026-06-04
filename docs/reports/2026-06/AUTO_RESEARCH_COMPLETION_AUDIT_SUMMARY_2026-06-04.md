@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `25`
-- Status counts: `blocked=1, covered=24`
+- Criteria: `26`
+- Status counts: `blocked=1, covered=25`
 
 ## Missing Required
 
@@ -47,6 +47,12 @@
 - Evidence paths: `4`
 
 ### github_source_viability_gate
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
+
+### github_source_rate_limit_guard
 
 - Required: `true`
 - Status: `covered`
@@ -152,7 +158,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `5`
+- Evidence paths: `6`
 
 ### prompt_to_artifact_objective_coverage
 

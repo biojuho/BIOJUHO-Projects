@@ -92,6 +92,61 @@ def test_collect_source_freshness_records_fetch_failures() -> None:
     assert report["status"] == "fail"
     assert report["failed"] == 1
     assert report["records"][0]["error"] == "rate limited"
+    assert report["records"][0]["failure_type"] == "github_api_rate_limit"
+    assert report["rate_limited_count"] == 1
+    assert report["partial"] is True
+    assert report["complete"] is False
+    assert report["token_required"] is True
+
+
+def test_collect_source_freshness_marks_github_rate_limit_boundary() -> None:
+    freshness = load_module()
+    seen = 0
+
+    def fake_fetch(repo: str, timeout_seconds: float):
+        nonlocal seen
+        seen += 1
+        if seen > 19:
+            raise freshness.GitHubApiError(
+                repo,
+                403,
+                '{"message":"API rate limit exceeded for 203.0.113.10"}',
+                failure_type=freshness.RATE_LIMIT_FAILURE_TYPE,
+                requires_token=True,
+            )
+        return {
+            "repo": repo,
+            "html_url": f"https://github.com/{repo}",
+            "default_branch": "main",
+            "pushed_at": "2026-06-05T00:00:00Z",
+            "updated_at": "2026-06-05T00:01:00Z",
+            "archived": False,
+            "disabled": False,
+            "visibility": "public",
+            "stargazers_count": 10,
+            "forks_count": 2,
+            "open_issues_count": 1,
+            "license": "MIT",
+        }
+
+    report = freshness.collect_source_freshness(MANIFEST_PATH, fetch_repo=fake_fetch)
+    markdown = freshness.render_markdown(report)
+
+    assert report["status"] == "fail"
+    assert report["passed"] == 19
+    assert report["failed"] == 11
+    assert report["complete"] is False
+    assert report["partial"] is True
+    assert report["rate_limited"] is True
+    assert report["rate_limited_count"] == 11
+    assert report["token_required"] is True
+    assert report["token_hint"] == "Set GITHUB_TOKEN or GH_TOKEN before adopting this live source snapshot."
+    assert {record["failure_type"] for record in report["records"] if record["status"] == "fail"} == {
+        "github_api_rate_limit"
+    }
+    assert "Partial: `true`" in markdown
+    assert "Rate-limited failures: `11`" in markdown
+    assert "GITHUB_TOKEN or GH_TOKEN" in markdown
 
 
 def test_collect_source_freshness_rejects_nonviable_metadata() -> None:
@@ -129,6 +184,17 @@ def test_collect_source_freshness_rejects_nonviable_metadata() -> None:
         assert report["status"] == "fail"
         assert report["failed"] == 30
         assert {record["error"] for record in report["records"]} == {expected_error}
+        assert {record["failure_type"] for record in report["records"]} == {"metadata_viability"}
+
+
+def test_github_headers_accepts_gh_token(monkeypatch) -> None:
+    freshness = load_module()
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("GH_TOKEN", "ghp_example")
+
+    headers = freshness._github_headers()
+
+    assert headers["Authorization"] == "Bearer ghp_example"
 
 
 def test_render_markdown_includes_repo_table() -> None:

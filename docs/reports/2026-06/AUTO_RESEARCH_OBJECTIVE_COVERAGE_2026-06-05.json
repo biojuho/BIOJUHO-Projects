@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T19:36:12.398478+00:00",
+  "generated_at": "2026-06-04T19:53:06.827531+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -49,7 +49,8 @@
         "github_external_research",
         "github_source_freshness_snapshot",
         "github_source_snapshot_recency_gate",
-        "github_source_viability_gate"
+        "github_source_viability_gate",
+        "github_source_rate_limit_guard"
       ],
       "evidence": [
         {
@@ -184,6 +185,7 @@
       "blockers": [
         "Real Canva OAuth login and proxy authorization decision",
         "Live OTLP collector endpoint and credential policy",
+        "GitHub source-refresh token for complete live external-source reruns",
         "Telegram bot token and chat target",
         "Hosted runtime/tracing credentials and approval UI decision"
       ],

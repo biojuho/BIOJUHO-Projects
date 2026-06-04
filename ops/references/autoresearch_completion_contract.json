@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T05:05:00+09:00",
+  "generated_at": "2026-06-05T05:20:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -345,6 +345,52 @@
             "missing default_branch",
             "viability_errors=[]",
             "89 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_source_rate_limit_guard",
+      "requirement": "GitHub source freshness marks unauthenticated API rate-limit refreshes as partial token-required failures and keeps them separate from complete source snapshots.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_freshness.py",
+          "must_contain": [
+            "RATE_LIMIT_FAILURE_TYPE",
+            "rate_limited_count",
+            "token_required",
+            "GITHUB_TOKEN or GH_TOKEN",
+            "\"partial\""
+          ]
+        },
+        {
+          "path": "tests/test_github_source_freshness.py",
+          "must_contain": [
+            "test_collect_source_freshness_marks_github_rate_limit_boundary",
+            "GitHubApiError",
+            "Rate-limited failures: `11`",
+            "token_required"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_READY_CREDENTIAL_LIVE_EXECUTION_2026-06-05.md",
+          "must_contain": [
+            "failed after `19/30` sources",
+            "403",
+            "GITHUB_TOKEN",
+            "partial"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_RATE_LIMIT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "github_api_rate_limit",
+            "partial",
+            "token_required",
+            "7 passed",
             "global_objective_complete=false"
           ]
         }
