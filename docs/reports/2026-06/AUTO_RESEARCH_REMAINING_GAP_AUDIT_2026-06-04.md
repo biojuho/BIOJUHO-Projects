@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 dashboard credential-boundaries proof-refresh slice: refreshed
+  all-scope launch evidence at proof commit `0dfdf9a` after dashboard product
+  code and browser-smoke expectations changed.
 - 2026-06-05 dashboard credential-boundaries slice: surfaced the executable
   credential boundary audit in the operator dashboard Quality panel and
   browser-smoked the rendered blocker table.
@@ -198,6 +201,24 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
+- Dashboard credential-boundaries launch proof refresh:
+  - proof commit `0dfdf9a`
+  - canonical all-scope smoke passed `25/25`
+  - duration `827.403s`
+  - workspace `6/6`, DeSci `7/7`, AgriGuard `5/5`, MCP `3/3`,
+    getdaytrends `2/2`, and CIE `2/2`
+  - MCP trace recorded `3/3` checks
+  - OTLP output contained `1` `resourceSpans` line with `3` spans
+  - completion contract now uses `0dfdf9a` for `current_tip_freshness_gate`
+    and `direct_browser_qa_freshness_gate`
+  - refreshed completion audit reports `22` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md`,
+    `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md`
 - Dashboard credential-boundaries verification:
   - `/api/quality_overview` includes `credential_boundaries`
   - `QualityPanel` renders the Credential Boundaries table with missing-env

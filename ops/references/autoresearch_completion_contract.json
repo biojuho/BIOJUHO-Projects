@@ -15,21 +15,21 @@
       "status": "covered",
       "evidence": [
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_MATRIX_REUSE_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
           "must_contain": [
             "total=25",
             "passed=25",
-            "598.448s",
-            "77cc93d",
-            "reuse duplicate workflow gates"
+            "827.403s",
+            "0dfdf9a",
+            "Credential Boundaries"
           ]
         },
         {
-          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_MATRIX_REUSE_TIP_2026-06-05.json",
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json",
           "must_contain": [
             "\"passed\": 25",
             "\"failed\": 0",
-            "\"duration_seconds\": 598.448",
+            "\"duration_seconds\": 827.403",
             "\"mcp_trace\""
           ]
         }
@@ -122,11 +122,11 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "77cc93d",
+            "0dfdf9a",
             "allowed_paths_since_proof"
           ],
           "git_freshness": {
-            "proof_commit": "77cc93d",
+            "proof_commit": "0dfdf9a",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -429,12 +429,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "f53eb69",
+            "0dfdf9a",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "f53eb69",
+            "proof_commit": "0dfdf9a",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -451,11 +451,11 @@
           }
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_QA_FRESHNESS_GATE_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md",
           "must_contain": [
             "protected_path_freshness",
             "no changed protected paths",
-            "80 passed",
+            "93 passed",
             "global_objective_complete=false"
           ]
         }
