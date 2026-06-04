@@ -22,6 +22,10 @@ def test_pre_push_hook_runs_completion_and_mcp_smokes() -> None:
     assert "python ops/scripts/dev_server_mcp_runtime_smoke.py" in hook
     assert "python ops/scripts/autoresearch_completion_audit.py" in hook
     assert "python ops/scripts/telegram_notification_live_verify.py" in hook
+    assert "--check-operator-checklist-json" in hook
+    assert "--check-operator-checklist-markdown" in hook
+    assert "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json" in hook
+    assert "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md" in hook
 
 
 def test_pre_push_hook_uses_read_only_installer_check() -> None:

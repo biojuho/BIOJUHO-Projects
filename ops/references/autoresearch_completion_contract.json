@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T06:34:13+09:00",
+  "generated_at": "2026-06-05T06:42:25+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -927,9 +927,20 @@
             "ops/scripts/external_credential_handoff.py",
             "--check-json",
             "--check-env-template",
+            "--check-operator-checklist-json",
+            "--check-operator-checklist-markdown",
             "ops/scripts/external_credential_live_verify.py",
             "ops/scripts/autoresearch_objective_coverage.py",
             "ops/scripts/autoresearch_completion_audit.py"
+          ]
+        },
+        {
+          "path": "tests/test_pre_push_hook.py",
+          "must_contain": [
+            "--check-operator-checklist-json",
+            "--check-operator-checklist-markdown",
+            "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json",
+            "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md"
           ]
         },
         {
@@ -965,6 +976,16 @@
             "git push --dry-run",
             "MCP subprocess smoke",
             "completion audit"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_OPERATOR_CHECKLIST_DRIFT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Pre-Push Operator Checklist Drift Guard",
+            "--check-operator-checklist-json",
+            "--check-operator-checklist-markdown",
+            "operator checklist drift",
+            "global_objective_complete=false"
           ]
         }
       ]
