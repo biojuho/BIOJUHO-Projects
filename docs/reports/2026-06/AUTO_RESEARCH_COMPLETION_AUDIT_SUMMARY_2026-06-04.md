@@ -158,7 +158,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `7`
+- Evidence paths: `8`
 
 ### telegram_notification_live_delivery_verifier
 

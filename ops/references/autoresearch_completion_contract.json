@@ -1143,6 +1143,8 @@
             "blocked_missing_optional_env",
             "plan_order",
             "unblock_queue",
+            "next_unblock",
+            "_format_next_unblock",
             "_unblock_sort_key",
             "--ready-only",
             "--execute",
@@ -1171,6 +1173,7 @@
             "\"mode\": \"dry_run\"",
             "\"selected_boundaries\": 5",
             "\"plan_order\": \"unblock_queue\"",
+            "\"next_unblock\"",
             "\"ready_boundaries\": 1",
             "\"blocked_boundaries\": 4",
             "\"commands_executed\": 0"
@@ -1181,6 +1184,7 @@
           "must_contain": [
             "External Credential Live Verifier",
             "Plan order: `unblock_queue`",
+            "Next unblock: `canva_oauth_and_openapi_tool_execution`",
             "blocked_missing_required_env",
             "blocked_missing_optional_env",
             "telegram_notification_live_verify.py --execute",
@@ -1215,6 +1219,16 @@
             "plan_order",
             "github_source_refresh_rate_limit_token",
             "35 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_LIVE_VERIFIER_NEXT_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "live verifier next unblock",
+            "next_unblock",
+            "canva_oauth_and_openapi_tool_execution",
+            "CANVA_CLIENT_SECRET",
             "global_objective_complete=false"
           ]
         }

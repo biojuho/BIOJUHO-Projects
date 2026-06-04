@@ -7,6 +7,7 @@
 - Selected boundaries: `5`
 - Ready boundaries: `1`
 - Blocked boundaries: `4`
+- Next unblock: `canva_oauth_and_openapi_tool_execution` (rank `1`, env: `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`)
 - Commands planned: `9`
 - Commands executed: `0`
 

@@ -12,6 +12,9 @@ Latest pushed commits in this slice:
   `--execute`; updated the external credential registry and handoff so
   Telegram unblock now requires real delivery verification plus MCP runtime
   smoke instead of tools/list-only proof.
+- 2026-06-05 live-verifier next-unblock slice: started surfacing the first
+  operator unblock target directly in dry-run JSON, Markdown, and CLI output
+  while keeping ready-only execution free of blocked next actions.
 - 2026-06-05 live-verifier unblock-order slice: started aligning default
   external credential live-verifier dry-run planning with the generated
   unblock queue while preserving explicit `--boundary` order for targeted
@@ -276,6 +279,9 @@ Latest pushed commits in this slice:
 - Live verifier unblock order: adopted the same default boundary order in
   dry-run live verification so planned commands and operator handoff artifacts
   no longer disagree on the next credential to unblock.
+- Live verifier next-unblock hint: adopted a first-action summary that points
+  to `canva_oauth_and_openapi_tool_execution` and its env names without
+  exposing secret values.
 
 ## Remaining Gaps
 
@@ -322,6 +328,15 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
+- Live verifier next-unblock verification:
+  - dry-run JSON includes `summary.next_unblock`
+  - Markdown renders `Next unblock:
+    canva_oauth_and_openapi_tool_execution`
+  - CLI summary prints
+    `next=canva_oauth_and_openapi_tool_execution`
+  - ready-only execution reports `next_unblock=null`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_LIVE_VERIFIER_NEXT_UNBLOCK_2026-06-05.md`
 - Live verifier unblock-order verification:
   - default dry-run records `plan_order=unblock_queue`
   - planned boundary order is Canva, GitHub token, Telegram, OTLP collector,

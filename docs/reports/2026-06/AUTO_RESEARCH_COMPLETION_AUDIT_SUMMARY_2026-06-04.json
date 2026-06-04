@@ -744,7 +744,7 @@
       "evidence": [
         {
           "path": "ops/scripts/external_credential_live_verify.py",
-          "term_count": 10,
+          "term_count": 12,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -758,14 +758,14 @@
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json",
-          "term_count": 6,
+          "term_count": 7,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
-          "term_count": 8,
+          "term_count": 9,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -786,6 +786,13 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_LIVE_VERIFIER_UNBLOCK_ORDER_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_LIVE_VERIFIER_NEXT_UNBLOCK_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,

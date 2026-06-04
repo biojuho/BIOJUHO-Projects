@@ -44,6 +44,7 @@ def build_plan(
         boundaries = [boundary for boundary in boundaries if boundary["live_status"] == "ready_for_execution"]
     status_counts = Counter(boundary["live_status"] for boundary in boundaries)
     command_count = sum(len(boundary["verification_commands"]) for boundary in boundaries)
+    next_unblock = _next_unblock(boundaries)
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -61,6 +62,7 @@ def build_plan(
             "commands_passed": 0,
             "commands_failed": 0,
             "commands_skipped": command_count,
+            "next_unblock": next_unblock,
         },
         "boundaries": boundaries,
         "commands": [
@@ -179,6 +181,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Selected boundaries: `{summary['selected_boundaries']}`",
         f"- Ready boundaries: `{summary['ready_boundaries']}`",
         f"- Blocked boundaries: `{summary['blocked_boundaries']}`",
+        f"- Next unblock: {_format_next_unblock(summary['next_unblock'])}",
         f"- Commands planned: `{summary['commands_planned']}`",
         f"- Commands executed: `{summary['commands_executed']}`",
         "",
@@ -256,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
         f"selected={report['summary']['selected_boundaries']}, "
         f"ready={report['summary']['ready_boundaries']}, "
         f"blocked={report['summary']['blocked_boundaries']}, "
+        f"next={_format_next_unblock_cli(report['summary']['next_unblock'])}, "
         f"executed={report['summary']['commands_executed']}"
     )
     return 0
@@ -304,6 +308,33 @@ def _unblock_sort_key(item: dict[str, Any]) -> tuple[int, int, str]:
     else:
         env_gap_priority = 2
     return (status_priority.get(item["status"], 99), env_gap_priority, item["id"])
+
+
+def _next_unblock(boundaries: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for boundary in boundaries:
+        if boundary["live_status"] == "ready_for_execution":
+            continue
+        return {
+            "boundary_id": boundary["id"],
+            "plan_rank": boundary["plan_rank"],
+            "live_status": boundary["live_status"],
+            "env_names": [*boundary["required_env"], *boundary["optional_env_any_of"]],
+            "verification_commands": boundary["verification_commands"],
+        }
+    return None
+
+
+def _format_next_unblock(value: dict[str, Any] | None) -> str:
+    if value is None:
+        return "`none`"
+    env_names = ", ".join(f"`{name}`" for name in value["env_names"]) if value["env_names"] else "`none`"
+    return f"`{value['boundary_id']}` (rank `{value['plan_rank']}`, env: {env_names})"
+
+
+def _format_next_unblock_cli(value: dict[str, Any] | None) -> str:
+    if value is None:
+        return "none"
+    return value["boundary_id"]
 
 
 def _live_status(boundary: dict[str, Any]) -> str:
