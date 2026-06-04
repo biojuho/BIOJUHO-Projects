@@ -6,6 +6,7 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- `3983c4f feat(ops): export mcp smoke otlp spans`
 - `84ce8fc feat(ops): add agent workflow dry run plans`
 - `c4442da feat(ops): add mcp service manifest`
 - `cd199f1 feat(ops): add dev server status table`
@@ -16,7 +17,7 @@ Latest pushed commits in this slice:
 ## Adopted Source-Backed Variants
 
 - `PrefectHQ/fastmcp`: adopted a validated MCP service manifest for composition planning.
-- `lastmile-ai/mcp-eval`: adopted MCP smoke schema metrics, dashboard surfacing, and standalone JSONL trace export.
+- `lastmile-ai/mcp-eval`: adopted MCP smoke schema metrics, dashboard surfacing, standalone JSONL trace export, and local OTLP file-exporter shaped span export.
 - `evalstate/fast-agent`: adopted launch workflow inventory plus dry-run command plans.
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
@@ -29,9 +30,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - FastMCP runtime composition adapters and transport switching:
   - Status: future-scoped
   - Reason: the service inventory now exists; a runtime adapter should wait for a concrete MCP expansion target.
-- OpenTelemetry-style MCP spans:
+- Live OpenTelemetry SDK or collector shipping:
   - Status: future-scoped
-  - Reason: JSONL trace export is local and deterministic; OTEL should wait for a local collector/export contract.
+  - Reason: local OTLP file-exporter shaped span output now exists; live SDK or collector shipping should wait for an operator-owned collector contract.
 - Live central agent workflow orchestration:
   - Status: future-scoped
   - Reason: dry-run plans exist; live orchestration should stay behind existing project CLIs and smoke/dev-server gates until execution ownership is clear.
@@ -51,9 +52,15 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `partially_adopted=5`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
+  - `27 passed` after `3983c4f`
   - `25 passed` after `84ce8fc`
   - `25 passed` after `c4442da`
   - `25 passed` after `cd199f1`
+- OTLP span export verification:
+  - expanded focused tests `56 passed`
+  - final MCP smoke `3/3 PASS`
+  - final OTLP file `var\workspace-smoke-mcp-otel-file-export-final-2026-06-04.otlp.jsonl`
+    contained `1` `resourceSpans` line with `3` spans
 
 ## Decision
 
