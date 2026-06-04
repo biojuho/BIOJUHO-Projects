@@ -8,6 +8,10 @@ jobs:
   self-review:
     name: Self-Review Checklist
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
