@@ -1,7 +1,9 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
-const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
+import { expect } from "chai";
+import { network } from "hardhat";
+import { anyValue } from "@nomicfoundation/hardhat-ethers-chai-matchers/withArgs";
+
+const { ethers, networkHelpers } = await network.create();
+const { time } = networkHelpers;
 
 describe("DeSciDAO", function () {
     let DeSciToken, DeSciDAO;
@@ -279,7 +281,7 @@ describe("DeSciDAO", function () {
             await dao.connect(owner).vote(1, true);
 
             await time.increase(VOTING_PERIOD + EXECUTION_DELAY + 1);
-            await expect(dao.executeProposal(1)).to.not.be.reverted;
+            await expect(dao.executeProposal(1)).to.not.revert(ethers);
         });
 
         it("Should count both for and against votes toward quorum", async function () {

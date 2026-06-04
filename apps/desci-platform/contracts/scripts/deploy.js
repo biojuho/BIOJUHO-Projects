@@ -1,9 +1,11 @@
-const hre = require("hardhat");
+import { network } from "hardhat";
+
+const { ethers } = await network.create();
 
 async function main() {
     console.log("🚀 Deploying DeSci Token...");
 
-    const DeSciToken = await hre.ethers.getContractFactory("DeSciToken");
+    const DeSciToken = await ethers.getContractFactory("DeSciToken");
     const token = await DeSciToken.deploy();
 
     await token.waitForDeployment();
