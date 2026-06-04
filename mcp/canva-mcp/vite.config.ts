@@ -1,13 +1,51 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { resolve } from 'path';
+import { readFileSync, writeFileSync } from 'fs';
+import { isAbsolute, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+function normalizeGeneratedHtmlLineEndings(): Plugin {
+  return {
+    name: 'normalize-generated-html-line-endings',
+    generateBundle(_options, bundle) {
+      for (const asset of Object.values(bundle)) {
+        if (
+          asset.type === 'asset' &&
+          asset.fileName.endsWith('.html') &&
+          typeof asset.source === 'string'
+        ) {
+          asset.source = asset.source.replace(/\r\n?/g, '\n');
+        }
+      }
+    },
+    writeBundle(options, bundle) {
+      const outDir = options.dir
+        ? isAbsolute(options.dir)
+          ? options.dir
+          : resolve(__dirname, options.dir)
+        : resolve(__dirname, 'assets');
+
+      for (const asset of Object.values(bundle)) {
+        if (!asset.fileName.endsWith('.html')) {
+          continue;
+        }
+
+        const assetPath = resolve(outDir, asset.fileName);
+        const html = readFileSync(assetPath, 'utf8');
+        const normalizedHtml = html.replace(/\r\n?/g, '\n');
+        if (normalizedHtml !== html) {
+          writeFileSync(assetPath, normalizedHtml, 'utf8');
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), normalizeGeneratedHtmlLineEndings()],
   root: './',
   build: {
     outDir: 'assets',
