@@ -131,6 +131,45 @@ def test_run_writes_machine_report_with_target_filter(tmp_path: Path) -> None:
     assert written["targets"][1]["error"] == "offline"
 
 
+def test_format_status_table_renders_operator_rows() -> None:
+    status = load_status_module()
+
+    report = status.run(
+        MANIFEST_PATH,
+        target_ids=["dashboard-api", "agriguard-api"],
+        fetcher=lambda url, _timeout: (
+            200 if "8080" in url else None,
+            5,
+            '{"qa_grades":[],"daily_production":[]}' if "8080" in url else None,
+            None if "8080" in url else "offline",
+        ),
+    )
+
+    table = status.format_status_table(report)
+
+    assert "target" in table
+    assert "state" in table
+    assert "dashboard-api" in table
+    assert "READY" in table
+    assert "agriguard-api" in table
+    assert "UNREADY" in table
+    assert "offline" in table
+
+
+def test_cli_table_format_prints_target_rows(capsys) -> None:
+    status = load_status_module()
+
+    result = status.main(
+        ["--manifest", str(MANIFEST_PATH), "--validate-only", "--target", "dashboard-api", "--format", "table"]
+    )
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "target" in output
+    assert "dashboard-api" in output
+    assert "VALID" in output
+
+
 def test_frontend_dependency_failure_marks_target_unready() -> None:
     status = load_status_module()
 

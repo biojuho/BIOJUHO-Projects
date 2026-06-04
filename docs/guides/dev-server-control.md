@@ -16,6 +16,14 @@ Check all configured targets:
 python ops\scripts\dev_server_status.py --json-out var\dev-server-status.json
 ```
 
+Show the same status in a terminal-friendly table:
+
+```powershell
+python ops\scripts\dev_server_status.py --format table
+```
+
+Use `--format json` when stdout JSON is more convenient than `--json-out`.
+
 Check one stack:
 
 ```powershell

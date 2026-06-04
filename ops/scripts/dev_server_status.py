@@ -333,6 +333,42 @@ def run(
     return report
 
 
+def format_status_table(report: dict[str, Any]) -> str:
+    rows: list[list[str]] = []
+    is_validated = report.get("status") == "validated"
+    for target in report.get("targets", []):
+        if is_validated:
+            state = "VALID"
+        else:
+            state = "READY" if target.get("ok") else "UNREADY"
+        status_code = target.get("status_code")
+        latency_ms = target.get("latency_ms")
+        rows.append(
+            [
+                str(target.get("id", "")),
+                str(target.get("project", "")),
+                str(target.get("kind", "")),
+                state,
+                "" if status_code is None else str(status_code),
+                "" if latency_ms is None else f"{latency_ms}ms",
+                str(target.get("error") or ""),
+            ]
+        )
+
+    headers = ["target", "project", "kind", "state", "status", "latency", "error"]
+    widths = [
+        max(len(headers[index]), *(len(row[index]) for row in rows)) if rows else len(headers[index])
+        for index in range(len(headers))
+    ]
+
+    def render_row(values: list[str]) -> str:
+        return "  ".join(value.ljust(widths[index]) for index, value in enumerate(values)).rstrip()
+
+    lines = [render_row(headers), render_row(["-" * width for width in widths])]
+    lines.extend(render_row(row) for row in rows)
+    return "\n".join(lines)
+
+
 def format_command(command: list[str]) -> str:
     return " ".join(_quote_command_part(part) for part in command)
 
@@ -348,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wait-timeout", type=float, default=30.0)
     parser.add_argument("--poll-interval", type=float, default=1.0)
     parser.add_argument("--fail-on-unready", action="store_true")
+    parser.add_argument("--format", choices=["summary", "table", "json"], default="summary", dest="output_format")
     args = parser.parse_args(argv)
 
     try:
@@ -366,15 +403,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     summary = report["summary"]
-    if args.validate_only:
+    if args.output_format == "json":
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    elif args.output_format == "table":
+        print(format_status_table(report))
+    elif args.validate_only:
         print(f"dev server manifest valid: {summary['total']} target(s)")
-        return 0
+    else:
+        prefix = "dev server wait" if args.wait_ready else "dev server status"
+        wait_suffix = ""
+        if args.wait_ready and "wait" in report:
+            wait_suffix = f", attempts={report['wait']['attempts']}"
+        print(f"{prefix}: {summary['ready']}/{summary['total']} ready, {summary['unready']} unready{wait_suffix}")
 
-    prefix = "dev server wait" if args.wait_ready else "dev server status"
-    wait_suffix = ""
-    if args.wait_ready and "wait" in report:
-        wait_suffix = f", attempts={report['wait']['attempts']}"
-    print(f"{prefix}: {summary['ready']}/{summary['total']} ready, {summary['unready']} unready{wait_suffix}")
+    if args.validate_only:
+        return 0
     if args.fail_on_unready and summary["unready"]:
         return 1
     return 0
