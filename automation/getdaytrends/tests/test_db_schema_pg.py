@@ -425,4 +425,5 @@ async def test_pool_recreation_after_close() -> None:
 
         # 재요청 시 새 풀 생성
         pool2 = await get_pg_pool("postgresql://u:p@h/db")
-        assert mock_asyncpg.create_pool.call_count == 2
+        if mock_asyncpg.create_pool.call_count != 2:
+            pytest.fail("closed Postgres pool should be recreated on the next request")
