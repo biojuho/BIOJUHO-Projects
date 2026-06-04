@@ -199,7 +199,15 @@ def verify_text_against_sources(
     if not claims:
         return result
 
-    source_corpus = "\n".join(s for s in source_texts if s)
+    # Augment the verification corpus with source publisher names so that
+    # citing a known source (e.g. "MarketWatch") does not surface as an
+    # entity hallucination. The corpus is the union of source texts and
+    # source names; both are first-party context that a generated claim
+    # may legitimately reference.
+    corpus_parts = [s for s in source_texts if s]
+    if source_names:
+        corpus_parts.extend(name for name in source_names if name)
+    source_corpus = "\n".join(corpus_parts)
 
     # Credibility from source names
     if source_names:

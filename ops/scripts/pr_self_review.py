@@ -110,12 +110,22 @@ def analyze(stats: DiffStats) -> list[ReviewFinding]:
     findings: list[ReviewFinding] = []
 
     # ── 1. Contract violation ──
-    for f in stats.files_changed:
-        if f.startswith("packages/shared/"):
+    shared_files = [f for f in stats.files_changed if f.startswith("packages/shared/")]
+    shared_sources = [f for f in shared_files if "test" not in f.lower()]
+    shared_tests = [f for f in shared_files if "test" in f.lower()]
+    for f in shared_sources:
+        if shared_tests:
+            findings.append(ReviewFinding(
+                category="1. 계약 위반",
+                severity="🟡",
+                message="shared/ contract change has matching tests; verify downstream consumers",
+                file=f,
+            ))
+        else:
             findings.append(ReviewFinding(
                 category="1. 계약 위반",
                 severity="🔴",
-                message=f"shared/ 모듈 수정 — 모든 소비자 프로젝트에 영향",
+                message="shared/ module source changed without matching shared tests",
                 file=f,
             ))
 
