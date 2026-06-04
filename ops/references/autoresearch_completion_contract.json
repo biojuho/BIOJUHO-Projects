@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T23:23:52+09:00",
+  "generated_at": "2026-06-04T23:33:45+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -131,6 +131,16 @@
             "\"passed\": 5",
             "\"failed\": 0",
             "\"dashboard-redirect\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_2026-06-04.json",
+          "must_contain": [
+            "\"tool\": \"dev_server_browser_smoke\"",
+            "\"status\": \"pass\"",
+            "\"target_id\": \"dashboard-frontend\"",
+            "\"passed\": 1",
+            "\"failed\": 0"
           ]
         }
       ]
