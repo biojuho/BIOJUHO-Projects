@@ -41,7 +41,7 @@ CHECKS = [
     {
         "name": "DailyNews",
         "type": "python",
-        "checks": [("server", rel_unit_path("dailynews", "server.py"))],
+        "checks": [("server", rel_unit_path("dailynews", "src", "antigravity_mcp", "server.py"))],
         "key_imports": ["notion_client"],
         "requirements": None,
     },
