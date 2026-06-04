@@ -57,6 +57,7 @@ services:
     container_name: agriguard-api
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agriguard
+      ALLOWED_ORIGINS: ${AGRIGUARD_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
       WEB3_PROVIDER_URI: ${WEB3_PROVIDER_URI}
       PRIVATE_KEY: ${AGRIGUARD_PRIVATE_KEY}
     ports:

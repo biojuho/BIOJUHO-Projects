@@ -60,7 +60,7 @@ npm run dev
 
 ```bash
 cd apps/AgriGuard/backend
-pip install -r requirements.txt
+pip install -e .
 python -m uvicorn main:app --reload --port 8002
 ```
 

@@ -1,0 +1,6 @@
+- generic [ref=e3] [box=0,0,1434,1128]:
+  - navigation "Main navigation" [ref=e4] [box=0,0,1434,66]:
+    - generic [ref=e6] [box=109,1,1216,64]:
+      - generic [ref=e7] [box=109,13,148,40]
+      - generic [ref=e14] [box=719,14,606,38]
+  - main [ref=e38] [box=77,0,1280,1128]

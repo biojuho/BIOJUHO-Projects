@@ -1,0 +1,12 @@
+- generic [active] [ref=e1] [box=0,0,1530,781]:
+  - generic [ref=e3] [box=0,0,1530,781]:
+    - navigation "Main navigation" [ref=e4] [box=0,0,1530,66]:
+      - generic [ref=e6] [box=157,1,1216,64]:
+        - generic [ref=e7] [box=157,13,148,40]
+        - generic [ref=e14] [box=767,14,606,38]
+    - main [ref=e38] [box=125,0,1280,781]:
+      - generic [ref=e41] [box=157,80,1216,653]:
+        - generic [ref=e42] [box=189,112,1152,36]
+        - generic [ref=e48] [box=189,180,1152,136]
+        - generic [ref=e89] [box=189,348,1152,354]
+  - generic [ref=e165] [box=0,-20000,57,20]: In Transit

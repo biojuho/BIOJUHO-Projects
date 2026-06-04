@@ -1,5 +1,7 @@
 # Next Actions
 
+> 2026-06-04 AutoResearch cycle: AgriGuard live browser QA found and fixed a real CORS/runtime gap between `http://127.0.0.1:5174` and Docker backend `8002`. Adopted variant recorded in `docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_CORS_DOCKER_BROWSER_2026-06-04.md`; evidence includes fixed CORS GET/preflight headers, rebuilt `agriguard-backend`, Playwright clicks through Dashboard/Registry/Supply Chain/Scanner/camera toggle with `0` console warnings/errors, targeted backend tests `31 passed`, dev-server status `2/2 ready`, and AgriGuard smoke `5/5 PASS` via `var/workspace-smoke-agriguard-auto-research-cors-fix-2026-06-04.json`.
+
 > 2026-05-21 기준 — PR #117 + PR #120 CI 게이트 정리 완료 (16+ commits, py/zizmor 50+ alerts 처리). PR #120: 22/22 PASS, mergeable=CLEAN. PR #117: 15 pass / 3 fail (CodeQL aggregate 캐시는 다음 commit 시 refresh, zizmor 0 findings 로컬 확인).
 > 2026-05-21 기준 전체 시스템 QC 완료 (`run_workspace_smoke.py --scope all`, 25/25 PASS, report: `docs/reports/2026-05/SYSTEM_WIDE_QC_2026-05-21.md`)
 > 2026-05-20 기준 전체 시스템 QC 완료 (`run_workspace_smoke.py --scope all`, 25/25 PASS, report: `docs/reports/2026-05/SYSTEM_WIDE_QC_2026-05-20.md`)

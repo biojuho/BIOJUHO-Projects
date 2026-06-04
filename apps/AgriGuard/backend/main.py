@@ -22,7 +22,18 @@ from starlette.middleware.sessions import SessionMiddleware
 
 logger = logging.getLogger(__name__)
 
-_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
+def _resolve_workspace_root(current_file: Path | None = None) -> Path:
+    configured = os.environ.get("WORKSPACE_ROOT", "").strip()
+    if configured:
+        return Path(configured).resolve()
+
+    backend_dir = (current_file or Path(__file__)).resolve().parent
+    if len(backend_dir.parents) >= 3:
+        return backend_dir.parents[2]
+    return backend_dir
+
+
+_WORKSPACE_ROOT = _resolve_workspace_root()
 if str(_WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(_WORKSPACE_ROOT))
 
@@ -189,6 +200,7 @@ DEFAULT_ALLOWED_ORIGINS = ",".join(
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
         "http://127.0.0.1:5174",
     ]
 )

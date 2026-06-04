@@ -1,0 +1,80 @@
+- generic [active] [ref=e1] [box=0,0,1530,781]:
+  - generic [ref=e3] [box=0,0,1530,781]:
+    - navigation "Main navigation" [ref=e4] [box=0,0,1530,66]:
+      - generic [ref=e6] [box=157,1,1216,64]:
+        - generic [ref=e7] [box=157,13,148,40]:
+          - img [ref=e9] [box=165,21,24,24]
+          - generic [ref=e12] [box=205,19,100,28]: AgriGuard
+        - generic [ref=e14] [box=767,14,606,38]:
+          - link "Dashboard" [ref=e15] [cursor=pointer] [box=767,14,123,38]:
+            - /url: /
+            - img [ref=e16] [box=780,25,16,16]
+            - text: Dashboard
+          - link "Registry" [ref=e19] [cursor=pointer] [box=893,15,103,36]:
+            - /url: /registry
+            - img [ref=e20] [box=905,25,16,16]
+            - text: Registry
+          - link "Supply Chain" [ref=e23] [cursor=pointer] [box=1001,15,137,36]:
+            - /url: /supply-chain
+            - img [ref=e24] [box=1013,25,16,16]
+            - text: Supply Chain
+          - link "Cold-Chain" [ref=e29] [cursor=pointer] [box=1142,15,124,36]:
+            - /url: /cold-chain
+            - img [ref=e30] [box=1154,25,16,16]
+            - text: Cold-Chain
+          - link "Scanner" [ref=e32] [cursor=pointer] [box=1270,15,104,36]:
+            - /url: /scan
+            - img [ref=e33] [box=1282,25,16,16]
+            - text: Scanner
+    - main [ref=e38] [box=125,0,1280,781]:
+      - generic [ref=e41] [box=157,80,1216,653]:
+        - generic [ref=e42] [box=189,112,1152,36]:
+          - heading "AgriGuard 공급망 현황" [level=1] [ref=e43] [box=189,112,314,36]
+          - generic [ref=e44] [box=1225,119,117,22]:
+            - img [ref=e45] [box=1235,123,14,14]
+            - text: 실시간 데이터
+        - generic [ref=e48] [box=189,180,1152,136]:
+          - generic [ref=e51] [box=214,205,220,64]:
+            - generic [ref=e52] [box=214,205,60,64]:
+              - paragraph [ref=e53] [box=214,205,60,20]: 전체 제품
+              - paragraph [ref=e54] [box=214,233,60,36]: "502"
+            - img [ref=e56] [box=400,219,20,20]
+          - generic [ref=e62] [box=508,205,220,86]:
+            - generic [ref=e63] [box=508,205,60,86]:
+              - paragraph [ref=e64] [box=508,205,60,20]: 인증 제품
+              - paragraph [ref=e65] [box=508,233,60,36]: "1"
+              - paragraph [ref=e66] [box=508,275,60,16]: 0% 인증률
+            - img [ref=e68] [box=694,219,20,20]
+          - generic [ref=e73] [box=802,205,220,64]:
+            - generic [ref=e74] [box=802,205,88,64]:
+              - paragraph [ref=e75] [box=802,205,88,20]: 콜드체인 제품
+              - paragraph [ref=e76] [box=802,233,88,36]: "258"
+            - img [ref=e78] [box=988,219,20,20]
+          - generic [ref=e82] [box=1096,205,220,64]:
+            - generic [ref=e83] [box=1096,205,74,64]:
+              - paragraph [ref=e84] [box=1096,205,74,20]: 추적 이벤트
+              - paragraph [ref=e85] [box=1096,233,74,36]: "1503"
+            - img [ref=e87] [box=1282,219,20,20]
+        - generic [ref=e89] [box=189,348,1152,354]:
+          - generic [ref=e90] [box=189,348,564,354]:
+            - heading "추적 상태 분포" [level=3] [ref=e92] [box=214,372,514,24]:
+              - img [ref=e93] [box=214,376,16,16]
+              - text: 추적 상태 분포
+            - application [ref=e100] [box=214,420,514,256]:
+              - generic [ref=e124] [box=256,438,71,221]:
+                - generic [ref=e126] [box=269,438,57,16]: In Transit
+                - generic [ref=e128] [box=263,479,63,16]: Harvested
+                - generic [ref=e130] [box=280,520,46,16]: Planted
+                - generic [ref=e132] [box=281,548,45,42]: QualityCheckPassed
+                - generic [ref=e134] [box=257,589,70,42]: DeliveredtoWarehouse
+                - generic [ref=e136] [box=256,643,71,16]: DELIVERED
+          - generic [ref=e137] [box=777,348,564,354]:
+            - heading "원산지별 제품 현황" [level=3] [ref=e139] [box=802,372,514,24]:
+              - img [ref=e140] [box=802,376,16,16]
+              - text: 원산지별 제품 현황
+            - generic [ref=e146] [box=802,420,514,256]:
+              - list [ref=e148] [box=807,635,504,24]:
+                - listitem [ref=e149] [box=947,635,143,24]
+                - listitem [ref=e152] [box=1099,635,62,24]
+              - application [ref=e155] [box=802,420,514,256]
+  - generic [ref=e165] [box=0,-20000,57,20]: In Transit

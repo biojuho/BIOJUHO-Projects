@@ -259,6 +259,7 @@ services:
       - ALLOW_TEST_BYPASS=true
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agriguard  # 컨테이너 내부 포트(5432) 사용 — 호스트 포트와 무관
       - AUTO_CREATE_SCHEMA=false  # Use Alembic migrations
+      - ALLOWED_ORIGINS=${AGRIGUARD_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
       - MQTT_BROKER_HOST=mosquitto
       - MQTT_BROKER_PORT=1883
       # Blockchain

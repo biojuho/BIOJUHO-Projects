@@ -1,0 +1,39 @@
+- generic [ref=e1] [box=0,0,1530,864]:
+  - generic [ref=e3] [box=0,0,1530,864]:
+    - navigation "Main navigation" [ref=e4] [box=0,0,1530,66]:
+      - generic [ref=e6] [box=157,1,1216,64]:
+        - generic [ref=e7] [box=157,13,148,40]:
+          - img [ref=e9] [box=165,21,24,24]
+          - generic [ref=e12] [box=205,19,100,28]: AgriGuard
+        - generic [ref=e14] [box=767,14,606,38]:
+          - link "Dashboard" [ref=e15] [cursor=pointer] [box=767,15,121,36]:
+            - /url: /
+            - img [ref=e16] [box=779,25,16,16]
+            - text: Dashboard
+          - link "Registry" [ref=e19] [cursor=pointer] [box=892,15,103,36]:
+            - /url: /registry
+            - img [ref=e20] [box=904,25,16,16]
+            - text: Registry
+          - link "Supply Chain" [ref=e23] [cursor=pointer] [box=999,15,137,36]:
+            - /url: /supply-chain
+            - img [ref=e24] [box=1011,25,16,16]
+            - text: Supply Chain
+          - link "Cold-Chain" [ref=e29] [cursor=pointer] [box=1140,15,124,36]:
+            - /url: /cold-chain
+            - img [ref=e30] [box=1152,25,16,16]
+            - text: Cold-Chain
+          - link "Scanner" [active] [ref=e32] [cursor=pointer] [box=1268,14,105,38]:
+            - /url: /scan
+            - img [ref=e33] [box=1281,25,16,16]
+            - text: Scanner
+    - main [ref=e38] [box=125,0,1280,864]:
+      - generic [ref=e1296] [box=541,112,448,704]:
+        - generic [ref=e1297] [box=542,113,446,208]:
+          - img [ref=e1299] [box=749,153,32,32]
+          - heading "Scan Product QR" [level=2] [ref=e1304] [box=566,217,398,32]
+          - paragraph [ref=e1305] [box=566,257,398,40]: Point the camera at an AgriGuard verification QR to open the product journey.
+        - generic [ref=e1306] [box=542,321,446,494]:
+          - button "Turn camera on" [ref=e1314] [cursor=pointer] [box=919,621,36,36]:
+            - img [ref=e1315] [box=923,625,28,28]
+          - paragraph [ref=e1319] [box=566,767,398,16]: For stable results, keep the QR fully inside the frame and avoid glare.
+  - generic [ref=e165] [box=0,-20000,57,20]: In Transit
