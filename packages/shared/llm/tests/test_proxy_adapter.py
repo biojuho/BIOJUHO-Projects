@@ -240,11 +240,13 @@ def test_client_dispatch_falls_back_when_proxy_raises(monkeypatch):
         tier=TaskTier.LIGHTWEIGHT,
     )
     try:
-        with patch.object(client_mod.proxy_adapter, "call", side_effect=RuntimeError("proxy down")), \
-             patch.object(client, "_dispatch_via_proxy_sync", side_effect=RuntimeError("proxy down")), \
-             patch.object(client, "_iter_chain", return_value=[("anthropic", "claude-haiku")]), \
-             patch.object(client._backends, "has_key", return_value=True), \
-             patch.object(client._backends, "call", return_value=native_response):
+        with (
+            patch.object(client_mod.proxy_adapter, "call", side_effect=RuntimeError("proxy down")),
+            patch.object(client, "_dispatch_via_proxy_sync", side_effect=RuntimeError("proxy down")),
+            patch.object(client, "_iter_chain", return_value=[("anthropic", "claude-haiku")]),
+            patch.object(client._backends, "has_key", return_value=True),
+            patch.object(client._backends, "call", return_value=native_response),
+        ):
             response = client.create(
                 tier=TaskTier.LIGHTWEIGHT,
                 messages=[{"role": "user", "content": "hi"}],
@@ -279,7 +281,9 @@ async def test_client_acreate_invokes_proxy_when_enabled(monkeypatch):
     LLMClient.reset()
     client = LLMClient()
     try:
-        with patch.object(client_mod.proxy_adapter, "acall", new=AsyncMock(return_value=sentinel_response)) as proxy_acall:
+        with patch.object(
+            client_mod.proxy_adapter, "acall", new=AsyncMock(return_value=sentinel_response)
+        ) as proxy_acall:
             response = await client.acreate(
                 tier=TaskTier.MEDIUM,
                 messages=[{"role": "user", "content": "hi-async"}],
@@ -313,11 +317,13 @@ async def test_client_acreate_falls_back_when_proxy_raises(monkeypatch):
         tier=TaskTier.LIGHTWEIGHT,
     )
     try:
-        with patch.object(client_mod.proxy_adapter, "acall", new=AsyncMock(side_effect=RuntimeError("proxy down"))), \
-             patch.object(client, "_dispatch_via_proxy_async", new=AsyncMock(side_effect=RuntimeError("proxy down"))), \
-             patch.object(client, "_iter_chain", return_value=[("anthropic", "claude-haiku")]), \
-             patch.object(client._backends, "has_key", return_value=True), \
-             patch.object(client._backends, "acall", new=AsyncMock(return_value=native_response)):
+        with (
+            patch.object(client_mod.proxy_adapter, "acall", new=AsyncMock(side_effect=RuntimeError("proxy down"))),
+            patch.object(client, "_dispatch_via_proxy_async", new=AsyncMock(side_effect=RuntimeError("proxy down"))),
+            patch.object(client, "_iter_chain", return_value=[("anthropic", "claude-haiku")]),
+            patch.object(client._backends, "has_key", return_value=True),
+            patch.object(client._backends, "acall", new=AsyncMock(return_value=native_response)),
+        ):
             response = await client.acreate(
                 tier=TaskTier.LIGHTWEIGHT,
                 messages=[{"role": "user", "content": "hi-async"}],

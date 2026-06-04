@@ -235,9 +235,7 @@ def check_observability_endpoints() -> list[dict]:
         try:
             with urllib.request.urlopen(url, timeout=3) as resp:  # nosec B310
                 ok = 200 <= resp.status < 300
-                results.append(
-                    {"name": name, "ok": ok, "url": url, "message": f"HTTP {resp.status}"}
-                )
+                results.append({"name": name, "ok": ok, "url": url, "message": f"HTTP {resp.status}"})
         except Exception as exc:
             results.append({"name": name, "ok": False, "url": url, "message": str(exc)})
     return results
