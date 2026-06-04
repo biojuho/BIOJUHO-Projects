@@ -248,6 +248,67 @@ def test_stop_target_falls_back_to_managed_listener_port(tmp_path: Path) -> None
     assert state["status"] == "stopped"
 
 
+def test_stop_target_group_stops_frontend_before_dependencies(tmp_path: Path) -> None:
+    control = load_control_module()
+    payload = control.load_validated_manifest(MANIFEST_PATH)
+    (tmp_path / "dashboard-frontend.json").write_text(
+        json.dumps({"schema_version": 1, "target_id": "dashboard-frontend", "status": "started", "pid": 3333}),
+        encoding="utf-8",
+    )
+    (tmp_path / "dashboard-api.json").write_text(
+        json.dumps({"schema_version": 1, "target_id": "dashboard-api", "status": "started", "pid": 2222}),
+        encoding="utf-8",
+    )
+    alive = {2222, 3333}
+    terminated = []
+
+    def process_checker(pid: int) -> bool:
+        return pid in alive
+
+    def terminator(pid: int, _timeout: float) -> None:
+        terminated.append(pid)
+        alive.discard(pid)
+
+    result = control.stop_target_group(
+        payload,
+        "dashboard-frontend",
+        include_dependencies=True,
+        state_dir=tmp_path,
+        process_checker=process_checker,
+        terminator=terminator,
+    )
+
+    assert result["stop_order"] == ["dashboard-frontend", "dashboard-api"]
+    assert terminated == [3333, 2222]
+    assert result["status"] == "stopped"
+    assert result["summary"] == {"total": 2, "stopped": 2, "remaining": 0}
+    assert [item["status"] for item in result["results"]] == ["stopped", "stopped"]
+
+
+def test_stop_target_group_treats_missing_dependency_state_as_not_managed(tmp_path: Path) -> None:
+    control = load_control_module()
+    payload = control.load_validated_manifest(MANIFEST_PATH)
+    (tmp_path / "dashboard-frontend.json").write_text(
+        json.dumps({"schema_version": 1, "target_id": "dashboard-frontend", "status": "started", "pid": 3333}),
+        encoding="utf-8",
+    )
+
+    result = control.stop_target_group(
+        payload,
+        "dashboard-frontend",
+        include_dependencies=True,
+        state_dir=tmp_path,
+        process_checker=lambda _pid: False,
+        port_pid_finder=lambda _port: [],
+    )
+
+    assert result["status"] == "stopped"
+    assert result["summary"] == {"total": 2, "stopped": 2, "remaining": 0}
+    assert result["results"][0]["status"] == "not_running"
+    assert result["results"][1]["target_id"] == "dashboard-api"
+    assert result["results"][1]["status"] == "not_managed"
+
+
 def test_tail_target_returns_recent_stdout_and_stderr(tmp_path: Path) -> None:
     control = load_control_module()
     (tmp_path / "dashboard-api.out.log").write_text("one\ntwo\nthree\n", encoding="utf-8")

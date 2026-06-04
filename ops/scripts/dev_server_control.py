@@ -255,6 +255,93 @@ def stop_target(
     return state
 
 
+def stop_target_group(
+    payload: dict[str, Any],
+    target_id: str,
+    *,
+    include_dependencies: bool = False,
+    state_dir: Path = DEFAULT_STATE_DIR,
+    timeout: float = 5.0,
+    process_checker: ProcessChecker | None = None,
+    terminator: Terminator | None = None,
+    port_pid_finder: PortPidFinder | None = None,
+) -> dict[str, Any]:
+    target_ids = [target_id]
+    if include_dependencies:
+        target_ids = stop_order_with_dependencies(payload, target_id)
+
+    results = []
+    for next_target_id in target_ids:
+        try:
+            state = stop_target(
+                next_target_id,
+                state_dir=state_dir,
+                timeout=timeout,
+                process_checker=process_checker,
+                terminator=terminator,
+                port_pid_finder=port_pid_finder,
+            )
+        except RuntimeError as exc:
+            if not str(exc).startswith("no managed state found"):
+                raise
+            state = {
+                "schema_version": 1,
+                "target_id": next_target_id,
+                "status": "not_managed",
+                "checked_at": utc_now(),
+                "error": str(exc),
+            }
+        results.append(compact_stop_state(state))
+
+    stopped = sum(1 for result in results if result["status"] in STOPPED_STATUSES)
+    return {
+        "schema_version": 1,
+        "target_id": target_id,
+        "include_dependencies": include_dependencies,
+        "stop_order": target_ids,
+        "status": "stopped" if stopped == len(results) else "partial",
+        "summary": {
+            "total": len(results),
+            "stopped": stopped,
+            "remaining": len(results) - stopped,
+        },
+        "results": results,
+        "checked_at": utc_now(),
+    }
+
+
+def stop_order_with_dependencies(payload: dict[str, Any], target_id: str) -> list[str]:
+    order: list[str] = []
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(next_target_id: str) -> None:
+        if next_target_id in visiting:
+            raise RuntimeError(f"dev-server dependency cycle includes {next_target_id}")
+        if next_target_id in visited:
+            return
+        visiting.add(next_target_id)
+        target = get_target(payload, next_target_id)
+        order.append(next_target_id)
+        for dependency_id in target.get("depends_on", []):
+            visit(dependency_id)
+        visiting.remove(next_target_id)
+        visited.add(next_target_id)
+
+    visit(target_id)
+    return order
+
+
+def compact_stop_state(state: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "target_id": state["target_id"],
+        "status": state["status"],
+        "managed": state.get("managed"),
+        "pid": state.get("pid"),
+        "error": state.get("error"),
+    }
+
+
 def tail_target(target_id: str, *, state_dir: Path = DEFAULT_STATE_DIR, lines: int = 40) -> dict[str, Any]:
     paths = state_paths(target_id, state_dir)
     return {
@@ -487,6 +574,7 @@ def main(argv: list[str] | None = None) -> int:
     stop_parser = subparsers.add_parser("stop")
     stop_parser.add_argument("--target", required=True)
     stop_parser.add_argument("--timeout", type=float, default=5.0)
+    stop_parser.add_argument("--include-dependencies", action="store_true")
 
     tail_parser = subparsers.add_parser("tail")
     tail_parser.add_argument("--target", required=True)
@@ -516,9 +604,26 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return 0
         if args.command == "stop":
-            result = stop_target(args.target, state_dir=args.state_dir, timeout=args.timeout)
+            if args.include_dependencies:
+                payload = load_validated_manifest(args.manifest)
+                result = stop_target_group(
+                    payload,
+                    args.target,
+                    include_dependencies=True,
+                    state_dir=args.state_dir,
+                    timeout=args.timeout,
+                )
+            else:
+                result = stop_target(args.target, state_dir=args.state_dir, timeout=args.timeout)
             if args.json_out:
                 write_json_atomic(args.json_out, result)
+            if args.include_dependencies:
+                summary = result["summary"]
+                print(
+                    f"dev server group {result['status']}: {args.target} "
+                    f"stopped={summary['stopped']}/{summary['total']}"
+                )
+                return 0 if result["status"] == "stopped" else 1
             print(f"dev server {result['status']}: {args.target}")
             return 0 if result["status"] in STOPPED_STATUSES or result["status"] == "stopped" else 1
         if args.command == "tail":
