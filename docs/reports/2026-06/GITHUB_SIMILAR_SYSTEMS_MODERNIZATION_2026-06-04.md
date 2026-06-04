@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=5, watch=0
-- Generated at: `2026-06-04T21:14:41+09:00`
+- Generated at: `2026-06-04T21:25:54+09:00`
 
 ## Search Context
 
@@ -150,23 +150,30 @@
   - manifest-backed start, stop, status, and log tailing
   - terminal table view for operator status checks
   - browser automation as a first-class workflow capability
+  - contract-only MCP tool definitions for dev-server status, start, stop, and logs
   - operator-facing runtime status
 - Local evidence:
   - `ops/references/dev_server_targets.json`
   - `ops/scripts/dev_server_status.py`
   - `ops/scripts/dev_server_control.py`
+  - `ops/scripts/dev_server_mcp_contract.py`
   - `tests/test_dev_server_status.py`
   - `tests/test_dev_server_control.py`
+  - `tests/test_dev_server_mcp_contract.py`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `apps/dashboard/src/components/QualityPanel.jsx`
   - `ops/scripts/run_workspace_smoke.py`
   - `docs/QUALITY_GATE.md`
+  - `docs/guides/dev-server-control.md`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.json`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_TOOL_CONTRACT_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_CONTRACT_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_CONTROL_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_GROUP_STOP_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_DEV_SERVER_READINESS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_TABLE_STATUS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TIMEOUT_TREE_2026-06-04.md`
-- Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, terminal table status, and timeout-tree cleanup are adopted; MCP exposure remains a watch item rather than a release blocker.
+- Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, terminal table status, timeout-tree cleanup, and contract-only MCP tool definitions are adopted; live MCP runtime or TUI exposure remains watch-scoped until an authenticated process-control boundary is needed.
 
 ## Operating Decision
 

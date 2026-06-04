@@ -21,7 +21,7 @@ Latest pushed commits in this slice:
 - `evalstate/fast-agent`: adopted launch workflow inventory plus dry-run command plans.
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
-- `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, and timeout-tree cleanup.
+- `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, and contract-only MCP tool definitions.
 
 ## Remaining Gaps
 
@@ -39,9 +39,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - Canva OpenAPI tool execution proxy:
   - Status: external-auth blocked
   - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior.
-- Dev-server MCP exposure:
+- Live dev-server MCP runtime/TUI exposure:
   - Status: watch-scoped
-  - Reason: CLI, JSON, table, dashboard, and browser workflows cover current operator needs; MCP exposure is not a release blocker.
+  - Reason: the MCP tool contract now exists for status, start, stop, and logs; a live runtime should wait for a concrete authenticated process-control boundary.
 
 ## Verification
 
@@ -61,7 +61,11 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - final MCP smoke `3/3 PASS`
   - final OTLP file `var\workspace-smoke-mcp-otel-file-export-final-2026-06-04.otlp.jsonl`
     contained `1` `resourceSpans` line with `3` spans
+- Dev-server MCP contract verification:
+  - `tests\test_dev_server_mcp_contract.py` `3 passed`
+  - dev-server contract/status/control tests `24 passed`
+  - contract generation emitted `4` tools across `7` targets with runtime status `contract_only`
 
 ## Decision
 
-The remaining items are not current implementation blockers. Treat them as explicit future work unless the user supplies external credentials, asks for a live runtime orchestrator, or scopes a concrete MCP adapter/collector build.
+The remaining items are not current implementation blockers. Treat them as explicit future work unless the user supplies external credentials, asks for a live runtime orchestrator, or scopes a concrete MCP adapter/collector/dev-server runtime build.
