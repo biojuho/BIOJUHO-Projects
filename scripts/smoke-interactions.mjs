@@ -233,6 +233,105 @@ async function verifyResetPersistsAfterReload(client) {
   `);
 }
 
+async function verifyFirstCreatesAfterReset(client) {
+  return await evaluate(client, `
+    (async () => {
+      const failures = [];
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+      }
+      function qs(selector, root = document) {
+        const node = root.querySelector(selector);
+        if (!node) throw new Error("Missing selector: " + selector);
+        return node;
+      }
+      function click(selector, root = document) {
+        const node = qs(selector, root);
+        node.scrollIntoView({ block: "center", inline: "center" });
+        node.click();
+        return node;
+      }
+      function fill(selector, value, root = document) {
+        const node = qs(selector, root);
+        node.focus();
+        node.value = value;
+        node.dispatchEvent(new Event("input", { bubbles: true }));
+        node.dispatchEvent(new Event("change", { bubbles: true }));
+        return node;
+      }
+      async function waitFor(predicate, message, timeout = 7000) {
+        const started = Date.now();
+        while (Date.now() - started < timeout) {
+          if (predicate()) return true;
+          await sleep(80);
+        }
+        throw new Error(message);
+      }
+      async function nav(view) {
+        click('[data-action="nav-to"][data-view="' + view + '"]');
+        await waitFor(() => document.body.dataset.view === view && !document.getElementById("view-" + view).hidden, "route not ready: " + view);
+        await sleep(120);
+      }
+      async function confirmModal() {
+        assert(document.querySelector("#modal.open"), "modal is not open");
+        click('#modal [data-action="modal-confirm"]');
+        await waitFor(() => !document.querySelector("#modal.open"), "modal did not close after confirm");
+        await sleep(120);
+      }
+
+      try {
+        const marker = "RESET-REBUILD-" + Date.now();
+        await nav("pm-portfolio");
+        assert(dashboard.projects.length === 0, "expected empty projects before first rebuild create");
+        click('[data-action="project-add"]');
+        fill('#projectForm [name="name"]', marker + " project");
+        fill('#projectForm [name="owner"]', "Reset QA");
+        fill('#projectForm [name="deadline"]', "2026-08-01");
+        await confirmModal();
+        const project = dashboard.projects.find((item) => item.name === marker + " project");
+        assert(project, "first project after reset was not saved");
+        assert(dashboard.currentProjectId === project.id, "first project after reset was not selected");
+
+        await nav("dbm-instances");
+        assert(dashboard.dbInstances.length === 0, "expected empty DB instances before first rebuild create");
+        click('[data-action="instance-add"]');
+        fill('#instanceForm [name="name"]', marker + " db");
+        fill('#instanceForm [name="engine"]', "PostgreSQL 16");
+        fill('#instanceForm [name="region"]', "ap-northeast-2");
+        await confirmModal();
+        const instance = dashboard.dbInstances.find((item) => item.name === marker + " db");
+        assert(instance, "first DB instance after reset was not saved");
+        assert(dashboard.currentInstanceId === instance.id, "first DB instance after reset was not selected");
+
+        const payload = JSON.parse(localStorage.getItem("joopark.workspace.v3") || "null");
+        assert(payload.projects.length === 1 && payload.projects[0].id === project.id, "first reset project was not persisted");
+        assert(payload.dbInstances.length === 1 && payload.dbInstances[0].id === instance.id, "first reset DB instance was not persisted");
+        return {
+          status: "pass",
+          failures,
+          projectId: project.id,
+          instanceId: instance.id,
+          counts: {
+            projects: dashboard.projects.length,
+            dbInstances: dashboard.dbInstances.length,
+          },
+        };
+      } catch (error) {
+        failures.push(error.message);
+        return {
+          status: "fail",
+          failures,
+          counts: {
+            projects: dashboard.projects.length,
+            dbInstances: dashboard.dbInstances.length,
+          },
+        };
+      }
+    })()
+  `);
+}
+
 const interactionExpression = `
 (async () => {
   const marker = "ARSMOKE-" + Date.now();
@@ -793,6 +892,12 @@ async function main() {
     interactionResult.persistedChecks.backupResetReload = postResetReload.status === "pass";
     if (postResetReload.status !== "pass") {
       interactionResult.failures.push(`post-reset reload failed: ${postResetReload.failures.join("; ")}`);
+    }
+    const postResetFirstCreate = await verifyFirstCreatesAfterReset(pageClient);
+    interactionResult.postResetFirstCreate = postResetFirstCreate;
+    interactionResult.persistedChecks.backupResetFirstCreate = postResetFirstCreate.status === "pass";
+    if (postResetFirstCreate.status !== "pass") {
+      interactionResult.failures.push(`post-reset first-create failed: ${postResetFirstCreate.failures.join("; ")}`);
     }
     const appConsoleIssues = consoleIssues.filter((issue) => issue.text && !issue.text.includes("Autofill.enable"));
     const appNetworkIssues = networkIssues.filter((issue) => !String(issue.text || "").includes("net::ERR_ABORTED"));

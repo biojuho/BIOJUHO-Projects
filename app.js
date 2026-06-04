@@ -4026,6 +4026,7 @@ function saveProjectFromForm(id) {
     const newId = uid("proj");
     const proj = { id: newId, name, owner, progress, status, health, deadline, burn: [0, 0, 0, 0, 0, 0, 0], risks: 0, openIssues: 0, members };
     dashboard.projects.push(proj);
+    dashboard.currentProjectId = newId;
   }
   rebuildIndexes();
   // 멤버의 projects 목록도 동기화
@@ -4046,8 +4047,8 @@ function saveProjectFromForm(id) {
     });
     showToast(`프로젝트 '${name}' 등록`, "info");
   }
-  if (refs.projectSelectLabel && dashboard.currentProjectId === id) {
-    const cur = indexes.projectById.get(id);
+  if (refs.projectSelectLabel) {
+    const cur = currentProject();
     if (cur) refs.projectSelectLabel.textContent = cur.name;
   }
   commit();
@@ -4485,6 +4486,7 @@ function saveInstanceFromForm(id) {
   } else {
     const newId = uid("db");
     dashboard.dbInstances.push({ id: newId, name, engine, region, cpu, mem, conn, connMax, health, latencyMs, series: [] });
+    dashboard.currentInstanceId = newId;
     showToast(`인스턴스 '${name}' 추가`, "info");
   }
   rebuildIndexes();
