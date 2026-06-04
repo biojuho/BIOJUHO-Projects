@@ -17,7 +17,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(isFirebaseConfigured);
     const [walletAddress, setWalletAddress] = useState(null);
 
     // Firebase error messages in Korean
@@ -37,8 +37,6 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         if (!isFirebaseConfigured) {
-            setUser(null);
-            setLoading(false);
             return () => {};
         }
 
