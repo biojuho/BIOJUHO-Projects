@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `28`
-- Status counts: `blocked=1, covered=27`
+- Criteria: `29`
+- Status counts: `blocked=1, covered=28`
 
 ## Missing Required
 
@@ -165,6 +165,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `6`
+
+### github_source_snapshot_manifest_drift_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### objective_coverage_artifact_drift_guard
 

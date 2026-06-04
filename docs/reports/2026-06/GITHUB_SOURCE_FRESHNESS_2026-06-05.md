@@ -1,9 +1,13 @@
 # GitHub Source Freshness Snapshot
 
 - Status: `pass`
+- Complete: `true`
+- Partial: `false`
 - Sources: `30`
 - Passed: `30`
 - Failed: `0`
+- Rate-limited failures: `0`
+- Token available: `false`
 - Generated at: `2026-06-04T18:54:22.968302+00:00`
 - GitHub API version: `2022-11-28`
 

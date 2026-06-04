@@ -3,11 +3,14 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "github_source_freshness.py"
 MANIFEST_PATH = PROJECT_ROOT / "ops" / "references" / "github_modernization_sources.json"
+SNAPSHOT_JSON_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "GITHUB_SOURCE_FRESHNESS_2026-06-05.json"
+SNAPSHOT_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "GITHUB_SOURCE_FRESHNESS_2026-06-05.md"
 
 
 def load_module():
@@ -64,6 +67,32 @@ def test_collect_source_freshness_maps_manifest_repos() -> None:
         "mastra-ai/mastra",
         "lastmile-ai/mcp-agent",
     }
+
+
+def test_checked_in_source_snapshot_matches_manifest_and_renderer() -> None:
+    freshness = load_module()
+    manifest = freshness.radar.load_manifest(MANIFEST_PATH)
+    snapshot = json.loads(SNAPSHOT_JSON_PATH.read_text(encoding="utf-8"))
+    records = snapshot["records"]
+    sources = manifest["sources"]
+
+    datetime.fromisoformat(snapshot["generated_at"].replace("Z", "+00:00"))
+    assert snapshot["status"] == "pass"
+    assert snapshot["source_count"] == len(sources) == 30
+    assert snapshot["passed"] == len(sources)
+    assert snapshot["failed"] == 0
+    assert snapshot["manifest_generated_at"] == manifest["generated_at"]
+    assert [record["repo"] for record in records] == [source["repo"] for source in sources]
+
+    for record, source in zip(records, sources, strict=True):
+        assert record["category"] == source["category"]
+        assert record["adoption_status"] == source["adoption_status"]
+        assert record["status"] == "pass"
+        assert record["error"] == ""
+        assert record["metadata"]["repo"] == source["repo"]
+        assert freshness._metadata_viability_error(record["metadata"]) == ""
+
+    assert SNAPSHOT_MARKDOWN_PATH.read_text(encoding="utf-8") == freshness.render_markdown(snapshot)
 
 
 def test_collect_source_freshness_records_fetch_failures() -> None:
