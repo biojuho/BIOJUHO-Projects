@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T07:53:41+09:00",
+  "generated_at": "2026-06-05T08:02:07+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -393,6 +393,66 @@
             "partial",
             "token_required",
             "7 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_source_change_summary",
+      "requirement": "Live GitHub source refreshes compare current repository metadata against the last adopted snapshot so upstream movement becomes an actionable continuous-research signal.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_freshness.py",
+          "must_contain": [
+            "CHANGE_TRACKED_FIELDS",
+            "summarize_source_changes",
+            "change_summary",
+            "--previous-json",
+            "changed_repositories"
+          ]
+        },
+        {
+          "path": "tests/test_github_source_freshness.py",
+          "must_contain": [
+            "test_collect_source_freshness_summarizes_metadata_changes",
+            "test_render_markdown_includes_change_summary_when_compared",
+            "removed/repo",
+            "Changed repositories: `1`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_CHANGE_SUMMARY_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"source_count\": 30",
+            "\"failed\": 0",
+            "\"change_summary\"",
+            "\"baseline_generated_at\": \"2026-06-04T18:54:22.968302+00:00\"",
+            "\"changed_repositories\": 27",
+            "\"new_repositories\": []",
+            "\"removed_repositories\": []"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_CHANGE_SUMMARY_2026-06-05.md",
+          "must_contain": [
+            "GitHub Source Freshness Snapshot",
+            "Change Summary",
+            "Changed repositories: `27`",
+            "New repositories: `0`",
+            "Removed repositories: `0`",
+            "Metadata Changes"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_CHANGE_SUMMARY_2026-06-05.md",
+          "must_contain": [
+            "GitHub Source Change Summary",
+            "27/30",
+            "changed_repositories=27",
             "global_objective_complete=false"
           ]
         }

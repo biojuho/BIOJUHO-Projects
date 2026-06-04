@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `38`
-- Status counts: `blocked=1, covered=37`
+- Criteria: `39`
+- Status counts: `blocked=1, covered=38`
 
 ## Missing Required
 
@@ -57,6 +57,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### github_source_change_summary
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### self_improving_skill
 

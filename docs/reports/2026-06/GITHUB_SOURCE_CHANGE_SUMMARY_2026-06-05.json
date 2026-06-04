@@ -1,0 +1,1419 @@
+{
+  "change_summary": {
+    "baseline_generated_at": "2026-06-04T18:54:22.968302+00:00",
+    "baseline_status": "pass",
+    "changed_repositories": 27,
+    "compared": true,
+    "new_repositories": [],
+    "records": [
+      {
+        "adoption_status": "partially_adopted",
+        "category": "production-mcp-framework",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count"
+        ],
+        "changes": {
+          "stargazers_count": {
+            "current": 25489,
+            "previous": 25482
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:39:10Z",
+            "previous": "2026-06-04T18:48:37Z"
+          }
+        },
+        "repo": "PrefectHQ/fastmcp"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "official-mcp-python-sdk",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count"
+        ],
+        "changes": {
+          "stargazers_count": {
+            "current": 23237,
+            "previous": 23235
+          },
+          "updated_at": {
+            "current": "2026-06-04T19:35:57Z",
+            "previous": "2026-06-04T15:47:08Z"
+          }
+        },
+        "repo": "modelcontextprotocol/python-sdk"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "mcp-agent-evaluation",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count"
+        ],
+        "changes": {
+          "stargazers_count": {
+            "current": 24,
+            "previous": 23
+          },
+          "updated_at": {
+            "current": "2026-06-04T21:42:52Z",
+            "previous": "2026-05-19T08:53:15Z"
+          }
+        },
+        "repo": "lastmile-ai/mcp-eval"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "otel-collector-observability",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count"
+        ],
+        "changes": {
+          "stargazers_count": {
+            "current": 7104,
+            "previous": 7102
+          },
+          "updated_at": {
+            "current": "2026-06-04T21:10:17Z",
+            "previous": "2026-06-04T17:43:08Z"
+          }
+        },
+        "repo": "open-telemetry/opentelemetry-collector"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "agent-workflow-runtime",
+        "changed_fields": [
+          "pushed_at"
+        ],
+        "changes": {
+          "pushed_at": {
+            "current": "2026-06-04T20:23:44Z",
+            "previous": "2026-06-04T11:40:20Z"
+          }
+        },
+        "repo": "evalstate/fast-agent"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "stateful-agent-orchestration",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count",
+          "forks_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 5704,
+            "previous": 5700
+          },
+          "stargazers_count": {
+            "current": 33893,
+            "previous": 33887
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:22:46Z",
+            "previous": "2026-06-04T18:44:00Z"
+          }
+        },
+        "repo": "langchain-ai/langgraph"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "multi-agent-flow-control",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "open_issues_count": {
+            "current": 393,
+            "previous": 391
+          },
+          "pushed_at": {
+            "current": "2026-06-04T22:45:24Z",
+            "previous": "2026-06-04T18:28:34Z"
+          },
+          "stargazers_count": {
+            "current": 52843,
+            "previous": 52833
+          },
+          "updated_at": {
+            "current": "2026-06-04T21:58:10Z",
+            "previous": "2026-06-04T18:43:28Z"
+          }
+        },
+        "repo": "crewAIInc/crewAI"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "openai-agent-runtime-sdk",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "open_issues_count": {
+            "current": 132,
+            "previous": 131
+          },
+          "stargazers_count": {
+            "current": 26919,
+            "previous": 26917
+          },
+          "updated_at": {
+            "current": "2026-06-04T21:44:25Z",
+            "previous": "2026-06-04T18:13:33Z"
+          }
+        },
+        "repo": "openai/openai-agents-python"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "browser-agent-automation",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 10872,
+            "previous": 10870
+          },
+          "open_issues_count": {
+            "current": 259,
+            "previous": 257
+          },
+          "stargazers_count": {
+            "current": 97190,
+            "previous": 97174
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:57:29Z",
+            "previous": "2026-06-04T18:19:29Z"
+          }
+        },
+        "repo": "browser-use/browser-use"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "typed-agent-framework",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 2174,
+            "previous": 2172
+          },
+          "open_issues_count": {
+            "current": 597,
+            "previous": 599
+          },
+          "pushed_at": {
+            "current": "2026-06-04T22:52:35Z",
+            "previous": "2026-06-04T08:54:32Z"
+          },
+          "stargazers_count": {
+            "current": 17521,
+            "previous": 17519
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:52:56Z",
+            "previous": "2026-06-04T18:12:41Z"
+          }
+        },
+        "repo": "pydantic/pydantic-ai"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "human-in-loop-coding-agents",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count"
+        ],
+        "changes": {
+          "stargazers_count": {
+            "current": 10956,
+            "previous": 10955
+          },
+          "updated_at": {
+            "current": "2026-06-04T19:58:55Z",
+            "previous": "2026-06-04T18:18:18Z"
+          }
+        },
+        "repo": "humanlayer/humanlayer"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "enterprise-agent-framework",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "open_issues_count": {
+            "current": 684,
+            "previous": 689
+          },
+          "pushed_at": {
+            "current": "2026-06-04T22:36:03Z",
+            "previous": "2026-06-04T18:52:34Z"
+          },
+          "stargazers_count": {
+            "current": 11045,
+            "previous": 11042
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:39:51Z",
+            "previous": "2026-06-04T18:15:56Z"
+          }
+        },
+        "repo": "microsoft/agent-framework"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "full-stack-agent-platform",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "open_issues_count": {
+            "current": 860,
+            "previous": 863
+          },
+          "pushed_at": {
+            "current": "2026-06-04T22:22:34Z",
+            "previous": "2026-06-04T18:49:40Z"
+          },
+          "stargazers_count": {
+            "current": 40523,
+            "previous": 40522
+          },
+          "updated_at": {
+            "current": "2026-06-04T20:11:40Z",
+            "previous": "2026-06-04T18:43:37Z"
+          }
+        },
+        "repo": "agno-agi/agno"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "typescript-ai-app-toolkit",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 4532,
+            "previous": 4531
+          },
+          "open_issues_count": {
+            "current": 1677,
+            "previous": 1680
+          },
+          "pushed_at": {
+            "current": "2026-06-04T23:01:19Z",
+            "previous": "2026-06-04T18:46:15Z"
+          },
+          "stargazers_count": {
+            "current": 24663,
+            "previous": 24662
+          },
+          "updated_at": {
+            "current": "2026-06-04T23:01:15Z",
+            "previous": "2026-06-04T18:48:22Z"
+          }
+        },
+        "repo": "vercel/ai"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "continuous-agent-platform",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 46189,
+            "previous": 46188
+          },
+          "open_issues_count": {
+            "current": 442,
+            "previous": 441
+          },
+          "pushed_at": {
+            "current": "2026-06-04T21:54:28Z",
+            "previous": "2026-06-04T16:34:25Z"
+          },
+          "stargazers_count": {
+            "current": 184764,
+            "previous": 184759
+          },
+          "updated_at": {
+            "current": "2026-06-04T21:58:14Z",
+            "previous": "2026-06-04T18:31:31Z"
+          }
+        },
+        "repo": "Significant-Gravitas/AutoGPT"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "low-code-agent-workflow-builder",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count"
+        ],
+        "changes": {
+          "stargazers_count": {
+            "current": 53341,
+            "previous": 53340
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:59:45Z",
+            "previous": "2026-06-04T18:31:59Z"
+          }
+        },
+        "repo": "FlowiseAI/Flowise"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "mcp-runtime-inspection",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "open_issues_count": {
+            "current": 285,
+            "previous": 284
+          },
+          "stargazers_count": {
+            "current": 9992,
+            "previous": 9991
+          },
+          "updated_at": {
+            "current": "2026-06-04T20:38:54Z",
+            "previous": "2026-06-04T15:56:27Z"
+          }
+        },
+        "repo": "modelcontextprotocol/inspector"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "mcp-browser-automation",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 2759,
+            "previous": 2758
+          },
+          "open_issues_count": {
+            "current": 9,
+            "previous": 8
+          },
+          "pushed_at": {
+            "current": "2026-06-04T20:56:00Z",
+            "previous": "2026-05-28T01:32:25Z"
+          },
+          "stargazers_count": {
+            "current": 33500,
+            "previous": 33494
+          },
+          "updated_at": {
+            "current": "2026-06-04T21:27:47Z",
+            "previous": "2026-06-04T17:59:13Z"
+          }
+        },
+        "repo": "microsoft/playwright-mcp"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "devserver-observability",
+        "changed_fields": [
+          "pushed_at"
+        ],
+        "changes": {
+          "pushed_at": {
+            "current": "2026-06-04T20:52:26Z",
+            "previous": "2026-06-03T17:50:22Z"
+          }
+        },
+        "repo": "Uninen/devserver-mcp"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "autonomous-coding-agent-platform",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 9626,
+            "previous": 9623
+          },
+          "open_issues_count": {
+            "current": 362,
+            "previous": 359
+          },
+          "pushed_at": {
+            "current": "2026-06-04T22:58:36Z",
+            "previous": "2026-06-04T17:44:55Z"
+          },
+          "stargazers_count": {
+            "current": 75848,
+            "previous": 75839
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:54:46Z",
+            "previous": "2026-06-04T18:42:32Z"
+          }
+        },
+        "repo": "OpenHands/OpenHands"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "multi-agent-conversation-framework",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count",
+          "forks_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 8861,
+            "previous": 8862
+          },
+          "stargazers_count": {
+            "current": 58694,
+            "previous": 58693
+          },
+          "updated_at": {
+            "current": "2026-06-04T21:17:35Z",
+            "previous": "2026-06-04T17:37:46Z"
+          }
+        },
+        "repo": "microsoft/autogen"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "code-first-agent-development-kit",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "forks_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 3508,
+            "previous": 3506
+          },
+          "pushed_at": {
+            "current": "2026-06-04T22:53:18Z",
+            "previous": "2026-06-04T18:03:48Z"
+          },
+          "stargazers_count": {
+            "current": 19987,
+            "previous": 19986
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:53:23Z",
+            "previous": "2026-06-04T18:04:33Z"
+          }
+        },
+        "repo": "google/adk-python"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "document-agent-workflow-platform",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 7509,
+            "previous": 7508
+          },
+          "open_issues_count": {
+            "current": 428,
+            "previous": 424
+          },
+          "stargazers_count": {
+            "current": 49921,
+            "previous": 49919
+          },
+          "updated_at": {
+            "current": "2026-06-04T20:45:15Z",
+            "previous": "2026-06-04T17:37:45Z"
+          }
+        },
+        "repo": "run-llama/llama_index"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "model-driven-agent-sdk",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "open_issues_count": {
+            "current": 712,
+            "previous": 711
+          },
+          "pushed_at": {
+            "current": "2026-06-04T20:44:46Z",
+            "previous": "2026-06-04T17:19:57Z"
+          },
+          "stargazers_count": {
+            "current": 6022,
+            "previous": 6019
+          },
+          "updated_at": {
+            "current": "2026-06-04T22:56:34Z",
+            "previous": "2026-06-04T17:20:02Z"
+          }
+        },
+        "repo": "strands-agents/harness-sdk"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "production-llm-orchestration",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "open_issues_count": {
+            "current": 124,
+            "previous": 123
+          },
+          "stargazers_count": {
+            "current": 25459,
+            "previous": 25458
+          },
+          "updated_at": {
+            "current": "2026-06-04T19:12:35Z",
+            "previous": "2026-06-04T17:40:54Z"
+          }
+        },
+        "repo": "deepset-ai/haystack"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "typescript-agent-application-framework",
+        "changed_fields": [
+          "pushed_at",
+          "updated_at",
+          "stargazers_count",
+          "forks_count",
+          "open_issues_count"
+        ],
+        "changes": {
+          "forks_count": {
+            "current": 2198,
+            "previous": 2197
+          },
+          "open_issues_count": {
+            "current": 376,
+            "previous": 382
+          },
+          "pushed_at": {
+            "current": "2026-06-04T23:01:11Z",
+            "previous": "2026-06-04T18:53:13Z"
+          },
+          "stargazers_count": {
+            "current": 24772,
+            "previous": 24767
+          },
+          "updated_at": {
+            "current": "2026-06-04T23:00:06Z",
+            "previous": "2026-06-04T18:29:03Z"
+          }
+        },
+        "repo": "mastra-ai/mastra"
+      },
+      {
+        "adoption_status": "partially_adopted",
+        "category": "mcp-agent-workflow-framework",
+        "changed_fields": [
+          "updated_at",
+          "stargazers_count"
+        ],
+        "changes": {
+          "stargazers_count": {
+            "current": 8353,
+            "previous": 8352
+          },
+          "updated_at": {
+            "current": "2026-06-04T19:08:12Z",
+            "previous": "2026-06-02T21:52:07Z"
+          }
+        },
+        "repo": "lastmile-ai/mcp-agent"
+      }
+    ],
+    "removed_repositories": [],
+    "tracked_fields": [
+      "default_branch",
+      "pushed_at",
+      "updated_at",
+      "archived",
+      "disabled",
+      "visibility",
+      "stargazers_count",
+      "forks_count",
+      "open_issues_count",
+      "license"
+    ]
+  },
+  "complete": true,
+  "failed": 0,
+  "generated_at": "2026-06-04T23:01:51.324669+00:00",
+  "github_api_version": "2022-11-28",
+  "manifest_generated_at": "2026-06-05T05:05:00+09:00",
+  "partial": false,
+  "passed": 30,
+  "rate_limited": false,
+  "rate_limited_count": 0,
+  "records": [
+    {
+      "adoption_status": "partially_adopted",
+      "category": "production-mcp-framework",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2050,
+        "html_url": "https://github.com/PrefectHQ/fastmcp",
+        "license": "Apache-2.0",
+        "open_issues_count": 248,
+        "pushed_at": "2026-06-04T17:12:48Z",
+        "repo": "PrefectHQ/fastmcp",
+        "stargazers_count": 25489,
+        "updated_at": "2026-06-04T22:39:10Z",
+        "visibility": "public"
+      },
+      "repo": "PrefectHQ/fastmcp",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "official-mcp-python-sdk",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 3506,
+        "html_url": "https://github.com/modelcontextprotocol/python-sdk",
+        "license": "MIT",
+        "open_issues_count": 519,
+        "pushed_at": "2026-06-04T18:49:06Z",
+        "repo": "modelcontextprotocol/python-sdk",
+        "stargazers_count": 23237,
+        "updated_at": "2026-06-04T19:35:57Z",
+        "visibility": "public"
+      },
+      "repo": "modelcontextprotocol/python-sdk",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-agent-evaluation",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 8,
+        "html_url": "https://github.com/lastmile-ai/mcp-eval",
+        "license": "Apache-2.0",
+        "open_issues_count": 23,
+        "pushed_at": "2025-11-19T17:53:42Z",
+        "repo": "lastmile-ai/mcp-eval",
+        "stargazers_count": 24,
+        "updated_at": "2026-06-04T21:42:52Z",
+        "visibility": "public"
+      },
+      "repo": "lastmile-ai/mcp-eval",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "otel-collector-observability",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2095,
+        "html_url": "https://github.com/open-telemetry/opentelemetry-collector",
+        "license": "Apache-2.0",
+        "open_issues_count": 698,
+        "pushed_at": "2026-06-04T15:51:04Z",
+        "repo": "open-telemetry/opentelemetry-collector",
+        "stargazers_count": 7104,
+        "updated_at": "2026-06-04T21:10:17Z",
+        "visibility": "public"
+      },
+      "repo": "open-telemetry/opentelemetry-collector",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "agent-workflow-runtime",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 405,
+        "html_url": "https://github.com/evalstate/fast-agent",
+        "license": "Apache-2.0",
+        "open_issues_count": 26,
+        "pushed_at": "2026-06-04T20:23:44Z",
+        "repo": "evalstate/fast-agent",
+        "stargazers_count": 3807,
+        "updated_at": "2026-06-04T05:10:36Z",
+        "visibility": "public"
+      },
+      "repo": "evalstate/fast-agent",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "stateful-agent-orchestration",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 5704,
+        "html_url": "https://github.com/langchain-ai/langgraph",
+        "license": "MIT",
+        "open_issues_count": 560,
+        "pushed_at": "2026-06-04T17:35:36Z",
+        "repo": "langchain-ai/langgraph",
+        "stargazers_count": 33893,
+        "updated_at": "2026-06-04T22:22:46Z",
+        "visibility": "public"
+      },
+      "repo": "langchain-ai/langgraph",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "multi-agent-flow-control",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 7377,
+        "html_url": "https://github.com/crewAIInc/crewAI",
+        "license": "MIT",
+        "open_issues_count": 393,
+        "pushed_at": "2026-06-04T22:45:24Z",
+        "repo": "crewAIInc/crewAI",
+        "stargazers_count": 52843,
+        "updated_at": "2026-06-04T21:58:10Z",
+        "visibility": "public"
+      },
+      "repo": "crewAIInc/crewAI",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "openai-agent-runtime-sdk",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 4158,
+        "html_url": "https://github.com/openai/openai-agents-python",
+        "license": "MIT",
+        "open_issues_count": 132,
+        "pushed_at": "2026-06-04T07:38:27Z",
+        "repo": "openai/openai-agents-python",
+        "stargazers_count": 26919,
+        "updated_at": "2026-06-04T21:44:25Z",
+        "visibility": "public"
+      },
+      "repo": "openai/openai-agents-python",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "browser-agent-automation",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 10872,
+        "html_url": "https://github.com/browser-use/browser-use",
+        "license": "MIT",
+        "open_issues_count": 259,
+        "pushed_at": "2026-06-01T18:49:47Z",
+        "repo": "browser-use/browser-use",
+        "stargazers_count": 97190,
+        "updated_at": "2026-06-04T22:57:29Z",
+        "visibility": "public"
+      },
+      "repo": "browser-use/browser-use",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typed-agent-framework",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2174,
+        "html_url": "https://github.com/pydantic/pydantic-ai",
+        "license": "MIT",
+        "open_issues_count": 597,
+        "pushed_at": "2026-06-04T22:52:35Z",
+        "repo": "pydantic/pydantic-ai",
+        "stargazers_count": 17521,
+        "updated_at": "2026-06-04T22:52:56Z",
+        "visibility": "public"
+      },
+      "repo": "pydantic/pydantic-ai",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "human-in-loop-coding-agents",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 926,
+        "html_url": "https://github.com/humanlayer/humanlayer",
+        "license": "NOASSERTION",
+        "open_issues_count": 74,
+        "pushed_at": "2026-03-07T22:34:40Z",
+        "repo": "humanlayer/humanlayer",
+        "stargazers_count": 10956,
+        "updated_at": "2026-06-04T19:58:55Z",
+        "visibility": "public"
+      },
+      "repo": "humanlayer/humanlayer",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "enterprise-agent-framework",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 1845,
+        "html_url": "https://github.com/microsoft/agent-framework",
+        "license": "MIT",
+        "open_issues_count": 684,
+        "pushed_at": "2026-06-04T22:36:03Z",
+        "repo": "microsoft/agent-framework",
+        "stargazers_count": 11045,
+        "updated_at": "2026-06-04T22:39:51Z",
+        "visibility": "public"
+      },
+      "repo": "microsoft/agent-framework",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "full-stack-agent-platform",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 5475,
+        "html_url": "https://github.com/agno-agi/agno",
+        "license": "Apache-2.0",
+        "open_issues_count": 860,
+        "pushed_at": "2026-06-04T22:22:34Z",
+        "repo": "agno-agi/agno",
+        "stargazers_count": 40523,
+        "updated_at": "2026-06-04T20:11:40Z",
+        "visibility": "public"
+      },
+      "repo": "agno-agi/agno",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typescript-ai-app-toolkit",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 4532,
+        "html_url": "https://github.com/vercel/ai",
+        "license": "NOASSERTION",
+        "open_issues_count": 1677,
+        "pushed_at": "2026-06-04T23:01:19Z",
+        "repo": "vercel/ai",
+        "stargazers_count": 24663,
+        "updated_at": "2026-06-04T23:01:15Z",
+        "visibility": "public"
+      },
+      "repo": "vercel/ai",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "continuous-agent-platform",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "master",
+        "disabled": false,
+        "forks_count": 46189,
+        "html_url": "https://github.com/Significant-Gravitas/AutoGPT",
+        "license": "NOASSERTION",
+        "open_issues_count": 442,
+        "pushed_at": "2026-06-04T21:54:28Z",
+        "repo": "Significant-Gravitas/AutoGPT",
+        "stargazers_count": 184764,
+        "updated_at": "2026-06-04T21:58:14Z",
+        "visibility": "public"
+      },
+      "repo": "Significant-Gravitas/AutoGPT",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "low-code-agent-workflow-builder",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 24482,
+        "html_url": "https://github.com/FlowiseAI/Flowise",
+        "license": "NOASSERTION",
+        "open_issues_count": 886,
+        "pushed_at": "2026-06-04T13:39:57Z",
+        "repo": "FlowiseAI/Flowise",
+        "stargazers_count": 53341,
+        "updated_at": "2026-06-04T22:59:45Z",
+        "visibility": "public"
+      },
+      "repo": "FlowiseAI/Flowise",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "adopted",
+      "category": "agentic-sdlc-quality-gates",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 36,
+        "html_url": "https://github.com/dsifry/metaswarm",
+        "license": "MIT",
+        "open_issues_count": 19,
+        "pushed_at": "2026-05-16T04:02:13Z",
+        "repo": "dsifry/metaswarm",
+        "stargazers_count": 305,
+        "updated_at": "2026-06-03T08:03:40Z",
+        "visibility": "public"
+      },
+      "repo": "dsifry/metaswarm",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-runtime-inspection",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 1355,
+        "html_url": "https://github.com/modelcontextprotocol/inspector",
+        "license": "NOASSERTION",
+        "open_issues_count": 285,
+        "pushed_at": "2026-06-04T17:23:41Z",
+        "repo": "modelcontextprotocol/inspector",
+        "stargazers_count": 9992,
+        "updated_at": "2026-06-04T20:38:54Z",
+        "visibility": "public"
+      },
+      "repo": "modelcontextprotocol/inspector",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-gateway-management",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 69,
+        "html_url": "https://github.com/microsoft/mcp-gateway",
+        "license": "MIT",
+        "open_issues_count": 12,
+        "pushed_at": "2026-05-28T18:46:12Z",
+        "repo": "microsoft/mcp-gateway",
+        "stargazers_count": 665,
+        "updated_at": "2026-06-04T09:50:17Z",
+        "visibility": "public"
+      },
+      "repo": "microsoft/mcp-gateway",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-openapi-interop",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 466,
+        "html_url": "https://github.com/open-webui/mcpo",
+        "license": "MIT",
+        "open_issues_count": 45,
+        "pushed_at": "2026-05-17T20:40:30Z",
+        "repo": "open-webui/mcpo",
+        "stargazers_count": 4237,
+        "updated_at": "2026-06-04T06:09:30Z",
+        "visibility": "public"
+      },
+      "repo": "open-webui/mcpo",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-browser-automation",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2759,
+        "html_url": "https://github.com/microsoft/playwright-mcp",
+        "license": "Apache-2.0",
+        "open_issues_count": 9,
+        "pushed_at": "2026-06-04T20:56:00Z",
+        "repo": "microsoft/playwright-mcp",
+        "stargazers_count": 33500,
+        "updated_at": "2026-06-04T21:27:47Z",
+        "visibility": "public"
+      },
+      "repo": "microsoft/playwright-mcp",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "devserver-observability",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2,
+        "html_url": "https://github.com/Uninen/devserver-mcp",
+        "license": "MIT",
+        "open_issues_count": 9,
+        "pushed_at": "2026-06-04T20:52:26Z",
+        "repo": "Uninen/devserver-mcp",
+        "stargazers_count": 1,
+        "updated_at": "2026-04-23T02:55:54Z",
+        "visibility": "public"
+      },
+      "repo": "Uninen/devserver-mcp",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "autonomous-coding-agent-platform",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 9626,
+        "html_url": "https://github.com/OpenHands/OpenHands",
+        "license": "NOASSERTION",
+        "open_issues_count": 362,
+        "pushed_at": "2026-06-04T22:58:36Z",
+        "repo": "OpenHands/OpenHands",
+        "stargazers_count": 75848,
+        "updated_at": "2026-06-04T22:54:46Z",
+        "visibility": "public"
+      },
+      "repo": "OpenHands/OpenHands",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "multi-agent-conversation-framework",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 8861,
+        "html_url": "https://github.com/microsoft/autogen",
+        "license": "CC-BY-4.0",
+        "open_issues_count": 877,
+        "pushed_at": "2026-04-15T11:59:09Z",
+        "repo": "microsoft/autogen",
+        "stargazers_count": 58694,
+        "updated_at": "2026-06-04T21:17:35Z",
+        "visibility": "public"
+      },
+      "repo": "microsoft/autogen",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "code-first-agent-development-kit",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 3508,
+        "html_url": "https://github.com/google/adk-python",
+        "license": "Apache-2.0",
+        "open_issues_count": 848,
+        "pushed_at": "2026-06-04T22:53:18Z",
+        "repo": "google/adk-python",
+        "stargazers_count": 19987,
+        "updated_at": "2026-06-04T22:53:23Z",
+        "visibility": "public"
+      },
+      "repo": "google/adk-python",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "document-agent-workflow-platform",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 7509,
+        "html_url": "https://github.com/run-llama/llama_index",
+        "license": "MIT",
+        "open_issues_count": 428,
+        "pushed_at": "2026-06-04T16:59:44Z",
+        "repo": "run-llama/llama_index",
+        "stargazers_count": 49921,
+        "updated_at": "2026-06-04T20:45:15Z",
+        "visibility": "public"
+      },
+      "repo": "run-llama/llama_index",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "model-driven-agent-sdk",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 863,
+        "html_url": "https://github.com/strands-agents/harness-sdk",
+        "license": "Apache-2.0",
+        "open_issues_count": 712,
+        "pushed_at": "2026-06-04T20:44:46Z",
+        "repo": "strands-agents/harness-sdk",
+        "stargazers_count": 6022,
+        "updated_at": "2026-06-04T22:56:34Z",
+        "visibility": "public"
+      },
+      "repo": "strands-agents/harness-sdk",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "production-llm-orchestration",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2829,
+        "html_url": "https://github.com/deepset-ai/haystack",
+        "license": "Apache-2.0",
+        "open_issues_count": 124,
+        "pushed_at": "2026-06-04T17:05:37Z",
+        "repo": "deepset-ai/haystack",
+        "stargazers_count": 25459,
+        "updated_at": "2026-06-04T19:12:35Z",
+        "visibility": "public"
+      },
+      "repo": "deepset-ai/haystack",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typescript-agent-application-framework",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2198,
+        "html_url": "https://github.com/mastra-ai/mastra",
+        "license": "NOASSERTION",
+        "open_issues_count": 376,
+        "pushed_at": "2026-06-04T23:01:11Z",
+        "repo": "mastra-ai/mastra",
+        "stargazers_count": 24772,
+        "updated_at": "2026-06-04T23:00:06Z",
+        "visibility": "public"
+      },
+      "repo": "mastra-ai/mastra",
+      "requires_token": false,
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-agent-workflow-framework",
+      "error": "",
+      "failure_type": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 850,
+        "html_url": "https://github.com/lastmile-ai/mcp-agent",
+        "license": "Apache-2.0",
+        "open_issues_count": 132,
+        "pushed_at": "2026-01-25T16:35:16Z",
+        "repo": "lastmile-ai/mcp-agent",
+        "stargazers_count": 8353,
+        "updated_at": "2026-06-04T19:08:12Z",
+        "visibility": "public"
+      },
+      "repo": "lastmile-ai/mcp-agent",
+      "requires_token": false,
+      "status": "pass"
+    }
+  ],
+  "schema_version": 1,
+  "source_count": 30,
+  "status": "pass",
+  "token_available": false,
+  "token_hint": "",
+  "token_required": false
+}

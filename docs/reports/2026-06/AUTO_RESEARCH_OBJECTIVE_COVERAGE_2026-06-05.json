@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T22:52:46.179477+00:00",
+  "generated_at": "2026-06-04T23:05:37.229100+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -76,6 +76,7 @@
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",
         "github_source_rate_limit_guard",
+        "github_source_change_summary",
         "github_source_snapshot_manifest_drift_guard",
         "github_modernization_radar_report_drift_guard"
       ],
@@ -87,6 +88,10 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_CHANGE_SUMMARY_2026-06-05.json",
+          "term_count": 4
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",

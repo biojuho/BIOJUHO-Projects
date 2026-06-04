@@ -95,6 +95,69 @@ def test_checked_in_source_snapshot_matches_manifest_and_renderer() -> None:
     assert SNAPSHOT_MARKDOWN_PATH.read_text(encoding="utf-8") == freshness.render_markdown(snapshot)
 
 
+def test_collect_source_freshness_summarizes_metadata_changes() -> None:
+    freshness = load_module()
+    previous_snapshot = {
+        "generated_at": "2026-06-04T00:00:00+00:00",
+        "status": "pass",
+        "records": [
+            {
+                "repo": "PrefectHQ/fastmcp",
+                "metadata": {
+                    "default_branch": "main",
+                    "pushed_at": "2026-06-04T00:00:00Z",
+                    "updated_at": "2026-06-04T00:01:00Z",
+                    "archived": False,
+                    "disabled": False,
+                    "visibility": "public",
+                    "stargazers_count": 9,
+                    "forks_count": 1,
+                    "open_issues_count": 1,
+                    "license": "MIT",
+                },
+            },
+            {"repo": "removed/repo", "metadata": {"default_branch": "main"}},
+        ],
+    }
+
+    def fake_fetch(repo: str, timeout_seconds: float):
+        return {
+            "repo": repo,
+            "html_url": f"https://github.com/{repo}",
+            "default_branch": "main",
+            "pushed_at": "2026-06-05T00:00:00Z",
+            "updated_at": "2026-06-05T00:01:00Z",
+            "archived": False,
+            "disabled": False,
+            "visibility": "public",
+            "stargazers_count": 10,
+            "forks_count": 2,
+            "open_issues_count": 1,
+            "license": "MIT",
+        }
+
+    report = freshness.collect_source_freshness(
+        MANIFEST_PATH,
+        fetch_repo=fake_fetch,
+        previous_snapshot=previous_snapshot,
+    )
+    summary = report["change_summary"]
+
+    assert summary["compared"] is True
+    assert summary["baseline_generated_at"] == "2026-06-04T00:00:00+00:00"
+    assert summary["changed_repositories"] == 1
+    assert summary["new_repositories"][0] == "modelcontextprotocol/python-sdk"
+    assert len(summary["new_repositories"]) == 29
+    assert summary["removed_repositories"] == ["removed/repo"]
+    assert summary["records"][0]["repo"] == "PrefectHQ/fastmcp"
+    assert summary["records"][0]["changed_fields"] == [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+    ]
+
+
 def test_collect_source_freshness_records_fetch_failures() -> None:
     freshness = load_module()
 
@@ -258,12 +321,44 @@ def test_render_markdown_includes_repo_table() -> None:
     assert "- none" in markdown
 
 
+def test_render_markdown_includes_change_summary_when_compared() -> None:
+    freshness = load_module()
+    report = {
+        "status": "pass",
+        "source_count": 1,
+        "passed": 1,
+        "failed": 0,
+        "generated_at": "2026-06-05T00:00:00+00:00",
+        "github_api_version": "2022-11-28",
+        "records": [],
+        "change_summary": {
+            "compared": True,
+            "baseline_generated_at": "2026-06-04T00:00:00+00:00",
+            "changed_repositories": 1,
+            "new_repositories": [],
+            "removed_repositories": [],
+            "records": [
+                {
+                    "repo": "owner/repo",
+                    "changed_fields": ["pushed_at", "stargazers_count"],
+                }
+            ],
+        },
+    }
+
+    markdown = freshness.render_markdown(report)
+
+    assert "## Change Summary" in markdown
+    assert "Changed repositories: `1`" in markdown
+    assert "`owner/repo`: pushed_at, stargazers_count" in markdown
+
+
 def test_run_writes_outputs_with_fake_collector(monkeypatch, tmp_path: Path) -> None:
     freshness = load_module()
     json_out = tmp_path / "freshness.json"
     markdown_out = tmp_path / "freshness.md"
 
-    def fake_collect(manifest_path: Path, *, timeout_seconds: float):
+    def fake_collect(manifest_path: Path, *, timeout_seconds: float, previous_snapshot=None):
         return {
             "schema_version": 1,
             "generated_at": "2026-06-05T00:00:00+00:00",

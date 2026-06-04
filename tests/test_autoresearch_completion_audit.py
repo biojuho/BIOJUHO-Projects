@@ -47,6 +47,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "github_source_freshness_snapshot",
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",
+        "github_source_change_summary",
         "prompt_to_artifact_objective_coverage",
         "external_credential_boundary_registry",
         "external_credential_handoff",

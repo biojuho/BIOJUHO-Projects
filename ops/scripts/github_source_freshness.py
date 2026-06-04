@@ -15,6 +15,18 @@ WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 DEFAULT_MANIFEST = WORKSPACE_ROOT / "ops" / "references" / "github_modernization_sources.json"
 DEFAULT_TIMEOUT_SECONDS = 20.0
 GITHUB_API_VERSION = "2022-11-28"
+CHANGE_TRACKED_FIELDS = (
+    "default_branch",
+    "pushed_at",
+    "updated_at",
+    "archived",
+    "disabled",
+    "visibility",
+    "stargazers_count",
+    "forks_count",
+    "open_issues_count",
+    "license",
+)
 
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
@@ -78,6 +90,7 @@ def collect_source_freshness(
     *,
     fetch_repo: FetchRepo = fetch_repo_metadata,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    previous_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload = radar.load_manifest(manifest_path)
     errors = radar.validate_manifest(payload, workspace_root=WORKSPACE_ROOT)
@@ -120,7 +133,7 @@ def collect_source_freshness(
     rate_limited = [record for record in failed if record.get("failure_type") == RATE_LIMIT_FAILURE_TYPE]
     token_available = _github_token_available()
     token_required = bool(rate_limited) and not token_available
-    return {
+    report = {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
         "status": "fail" if failed else "pass",
@@ -137,6 +150,59 @@ def collect_source_freshness(
         "manifest_generated_at": payload.get("generated_at"),
         "github_api_version": GITHUB_API_VERSION,
         "records": records,
+    }
+    if previous_snapshot is not None:
+        report["change_summary"] = summarize_source_changes(report, previous_snapshot)
+    return report
+
+
+def summarize_source_changes(current_report: dict[str, Any], previous_snapshot: dict[str, Any]) -> dict[str, Any]:
+    previous_records = _records_by_repo(previous_snapshot)
+    current_records = _records_by_repo(current_report)
+    changed_records: list[dict[str, Any]] = []
+    new_repositories: list[str] = []
+
+    for record in current_report.get("records", []):
+        if not isinstance(record, dict):
+            continue
+        repo = record.get("repo")
+        if not isinstance(repo, str) or not repo:
+            continue
+        previous = previous_records.get(repo)
+        if previous is None:
+            new_repositories.append(repo)
+            continue
+        current_metadata = _record_metadata(record)
+        previous_metadata = _record_metadata(previous)
+        changes = {
+            field: {
+                "previous": previous_metadata.get(field),
+                "current": current_metadata.get(field),
+            }
+            for field in CHANGE_TRACKED_FIELDS
+            if previous_metadata.get(field) != current_metadata.get(field)
+        }
+        if changes:
+            changed_records.append(
+                {
+                    "repo": repo,
+                    "category": record.get("category", ""),
+                    "adoption_status": record.get("adoption_status", ""),
+                    "changed_fields": list(changes),
+                    "changes": changes,
+                }
+            )
+
+    removed_repositories = sorted(set(previous_records) - set(current_records))
+    return {
+        "compared": True,
+        "baseline_generated_at": previous_snapshot.get("generated_at", ""),
+        "baseline_status": previous_snapshot.get("status", ""),
+        "tracked_fields": list(CHANGE_TRACKED_FIELDS),
+        "changed_repositories": len(changed_records),
+        "new_repositories": new_repositories,
+        "removed_repositories": removed_repositories,
+        "records": changed_records,
     }
 
 
@@ -190,6 +256,32 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append("- none")
     if report.get("token_hint"):
         lines.extend(["", "## Token Boundary", "", f"- {report['token_hint']}"])
+    change_summary = report.get("change_summary")
+    if isinstance(change_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Change Summary",
+                "",
+                f"- Compared: `{str(change_summary.get('compared', False)).lower()}`",
+                f"- Baseline generated at: `{change_summary.get('baseline_generated_at', '')}`",
+                f"- Changed repositories: `{change_summary.get('changed_repositories', 0)}`",
+                f"- New repositories: `{len(change_summary.get('new_repositories', []))}`",
+                f"- Removed repositories: `{len(change_summary.get('removed_repositories', []))}`",
+                "",
+            ]
+        )
+        changed_records = change_summary.get("records", [])
+        if changed_records:
+            lines.append("### Metadata Changes")
+            lines.append("")
+            lines.extend(
+                f"- `{record['repo']}`: {', '.join(record.get('changed_fields', []))}"
+                for record in changed_records
+                if isinstance(record, dict) and record.get("repo")
+            )
+        else:
+            lines.append("- no metadata changes")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -199,8 +291,14 @@ def run(
     json_out: Path | None = None,
     markdown_out: Path | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    previous_json: Path | None = None,
 ) -> dict[str, Any]:
-    report = collect_source_freshness(manifest_path, timeout_seconds=timeout_seconds)
+    previous_snapshot = _load_previous_snapshot(previous_json) if previous_json else None
+    report = collect_source_freshness(
+        manifest_path,
+        timeout_seconds=timeout_seconds,
+        previous_snapshot=previous_snapshot,
+    )
     if json_out:
         _write_json_atomic(json_out, report)
     if markdown_out:
@@ -219,9 +317,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
+    parser.add_argument(
+        "--previous-json",
+        type=Path,
+        help="Optional prior source freshness JSON to compare current live metadata against.",
+    )
     args = parser.parse_args(argv)
     try:
-        report = run(args.manifest, json_out=args.json_out, markdown_out=args.markdown_out, timeout_seconds=args.timeout)
+        report = run(
+            args.manifest,
+            json_out=args.json_out,
+            markdown_out=args.markdown_out,
+            timeout_seconds=args.timeout,
+            previous_json=args.previous_json,
+        )
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"github source freshness failed: {exc}", file=sys.stderr)
         return 1
@@ -305,6 +414,35 @@ def _metadata_viability_error(metadata: dict[str, Any]) -> str:
         if not isinstance(value, str) or not value.strip():
             return f"missing {field}"
     return ""
+
+
+def _load_previous_snapshot(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"previous source snapshot root must be an object: {path}")
+    records = payload.get("records")
+    if not isinstance(records, list):
+        raise ValueError(f"previous source snapshot records must be an array: {path}")
+    return payload
+
+
+def _records_by_repo(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    records = report.get("records", [])
+    if not isinstance(records, list):
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        repo = record.get("repo")
+        if isinstance(repo, str) and repo:
+            result[repo] = record
+    return result
+
+
+def _record_metadata(record: dict[str, Any]) -> dict[str, Any]:
+    metadata = record.get("metadata")
+    return metadata if isinstance(metadata, dict) else {}
 
 
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
