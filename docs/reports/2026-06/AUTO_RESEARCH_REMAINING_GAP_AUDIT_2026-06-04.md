@@ -12,6 +12,10 @@ Latest pushed commits in this slice:
   `--execute`; updated the external credential registry and handoff so
   Telegram unblock now requires real delivery verification plus MCP runtime
   smoke instead of tools/list-only proof.
+- 2026-06-05 live-verifier unblock-order slice: started aligning default
+  external credential live-verifier dry-run planning with the generated
+  unblock queue while preserving explicit `--boundary` order for targeted
+  checks.
 - 2026-06-05 credential env-template queue slice: started aligning the
   redacted env-template sections with the generated unblock queue order so the
   operator copy/edit path follows Canva, GitHub token, Telegram, OTLP, and
@@ -269,6 +273,9 @@ Latest pushed commits in this slice:
 - Credential env-template queue order: adopted ranked env-template sections so
   the operator's secret-entry file follows the same unblock priority as JSON
   and Markdown evidence.
+- Live verifier unblock order: adopted the same default boundary order in
+  dry-run live verification so planned commands and operator handoff artifacts
+  no longer disagree on the next credential to unblock.
 
 ## Remaining Gaps
 
@@ -315,6 +322,17 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
+- Live verifier unblock-order verification:
+  - default dry-run records `plan_order=unblock_queue`
+  - planned boundary order is Canva, GitHub token, Telegram, OTLP collector,
+    then hosted runtime/tracing
+  - live-verifier tests passed `11/11`
+  - focused credential/completion suite passed `35/35`
+  - pre-push pytest bundle passed `130/130`
+  - completion audit reports `30` criteria with
+    `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_LIVE_VERIFIER_UNBLOCK_ORDER_2026-06-05.md`
 - Credential env-template queue verification:
   - `EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example` now emits
     `# Queue rank: 1` through `# Queue rank: 5`

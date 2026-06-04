@@ -36,7 +36,10 @@ def build_plan(
         raise ValueError("\n".join(audit["errors"]))
 
     selected = _select_boundaries(audit["boundaries"], boundary_ids)
-    boundaries = [_planned_boundary(boundary) for boundary in selected]
+    plan_order = "explicit" if boundary_ids else "unblock_queue"
+    if not boundary_ids:
+        selected = sorted(selected, key=_unblock_sort_key)
+    boundaries = [_planned_boundary(boundary, plan_rank=index + 1) for index, boundary in enumerate(selected)]
     if ready_only:
         boundaries = [boundary for boundary in boundaries if boundary["live_status"] == "ready_for_execution"]
     status_counts = Counter(boundary["live_status"] for boundary in boundaries)
@@ -47,6 +50,7 @@ def build_plan(
         "registry_path": _repo_relative(registry_path, workspace_root),
         "mode": "dry_run",
         "selection": "ready_only" if ready_only else "selected",
+        "plan_order": plan_order,
         "status": "pass",
         "summary": {
             "selected_boundaries": len(boundaries),
@@ -171,6 +175,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Status: `{report['status']}`",
         f"- Mode: `{report['mode']}`",
         f"- Selection: `{report.get('selection', 'selected')}`",
+        f"- Plan order: `{report.get('plan_order', 'explicit')}`",
         f"- Selected boundaries: `{summary['selected_boundaries']}`",
         f"- Ready boundaries: `{summary['ready_boundaries']}`",
         f"- Blocked boundaries: `{summary['blocked_boundaries']}`",
@@ -179,14 +184,15 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Boundaries",
         "",
-        "| Boundary | Live status | Missing required env | Commands |",
-        "| --- | --- | ---: | ---: |",
+        "| Rank | Boundary | Live status | Missing required env | Commands |",
+        "| ---: | --- | --- | ---: | ---: |",
     ]
     for boundary in report["boundaries"]:
         lines.append(
             " | ".join(
                 [
-                    f"| `{boundary['id']}`",
+                    f"| `{boundary['plan_rank']}`",
+                    f"`{boundary['id']}`",
                     f"`{boundary['live_status']}`",
                     f"`{len(boundary['missing_required_env'])}`",
                     f"`{len(boundary['verification_commands'])}` |",
@@ -265,11 +271,12 @@ def _select_boundaries(boundaries: list[dict[str, Any]], boundary_ids: list[str]
     return [by_id[boundary_id] for boundary_id in boundary_ids]
 
 
-def _planned_boundary(boundary: dict[str, Any]) -> dict[str, Any]:
+def _planned_boundary(boundary: dict[str, Any], *, plan_rank: int) -> dict[str, Any]:
     missing = boundary["missing_required_env"]
     live_status = _live_status(boundary)
     return {
         "id": boundary["id"],
+        "plan_rank": plan_rank,
         "title": boundary["title"],
         "registry_status": boundary["status"],
         "live_status": live_status,
@@ -281,6 +288,22 @@ def _planned_boundary(boundary: dict[str, Any]) -> dict[str, Any]:
         "verification_commands": boundary["verification_commands"],
         "claim_policy": boundary["claim_policy"],
     }
+
+
+def _unblock_sort_key(item: dict[str, Any]) -> tuple[int, int, str]:
+    status_priority = {
+        "external_auth_blocked": 0,
+        "optional_token_absent": 1,
+        "credential_gated": 2,
+        "future_scoped": 3,
+    }
+    if item["missing_required_env"]:
+        env_gap_priority = 0
+    elif item["optional_env_any_of"]:
+        env_gap_priority = 1
+    else:
+        env_gap_priority = 2
+    return (status_priority.get(item["status"], 99), env_gap_priority, item["id"])
 
 
 def _live_status(boundary: dict[str, Any]) -> str:

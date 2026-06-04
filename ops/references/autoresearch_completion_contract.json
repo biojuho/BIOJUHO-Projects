@@ -1141,6 +1141,9 @@
           "must_contain": [
             "blocked_missing_required_env",
             "blocked_missing_optional_env",
+            "plan_order",
+            "unblock_queue",
+            "_unblock_sort_key",
             "--ready-only",
             "--execute",
             "external credential live verifier valid",
@@ -1152,6 +1155,7 @@
           "path": "tests/test_external_credential_live_verify.py",
           "must_contain": [
             "test_default_registry_dry_run_reports_ready_and_blocked_boundaries",
+            "test_default_registry_dry_run_uses_unblock_queue_order",
             "test_execute_runs_ready_boundary_and_redacts_secret",
             "test_execute_skips_missing_required_env",
             "test_execute_skips_missing_optional_token_boundary",
@@ -1166,6 +1170,7 @@
           "must_contain": [
             "\"mode\": \"dry_run\"",
             "\"selected_boundaries\": 5",
+            "\"plan_order\": \"unblock_queue\"",
             "\"ready_boundaries\": 1",
             "\"blocked_boundaries\": 4",
             "\"commands_executed\": 0"
@@ -1175,9 +1180,11 @@
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
           "must_contain": [
             "External Credential Live Verifier",
+            "Plan order: `unblock_queue`",
             "blocked_missing_required_env",
             "blocked_missing_optional_env",
             "telegram_notification_live_verify.py --execute",
+            "`github_source_refresh_rate_limit_token`",
             "Commands planned",
             "Commands executed: `0`"
           ]
@@ -1199,6 +1206,16 @@
             "Selected boundaries: `1`",
             "Commands executed: `2`",
             "Status: `pass`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_LIVE_VERIFIER_UNBLOCK_ORDER_2026-06-05.md",
+          "must_contain": [
+            "live verifier unblock order",
+            "plan_order",
+            "github_source_refresh_rate_limit_token",
+            "35 passed",
+            "global_objective_complete=false"
           ]
         }
       ]

@@ -35,6 +35,7 @@ def test_default_registry_dry_run_reports_ready_and_blocked_boundaries() -> None
 
     assert report["status"] == "pass"
     assert report["mode"] == "dry_run"
+    assert report["plan_order"] == "unblock_queue"
     assert report["summary"]["selected_boundaries"] >= 5
     assert report["summary"]["ready_boundaries"] == 1
     assert report["summary"]["blocked_boundaries"] == 4
@@ -49,6 +50,28 @@ def test_default_registry_dry_run_reports_ready_and_blocked_boundaries() -> None
         for boundary in report["boundaries"]
         if boundary["live_status"] == "blocked_missing_optional_env"
     }
+
+
+def test_default_registry_dry_run_uses_unblock_queue_order() -> None:
+    verifier = load_module()
+
+    report = verifier.run(REGISTRY_PATH, env={})
+    boundary_ids = [boundary["id"] for boundary in report["boundaries"]]
+
+    assert boundary_ids == [
+        "canva_oauth_and_openapi_tool_execution",
+        "github_source_refresh_rate_limit_token",
+        "telegram_notification_mcp_credentials",
+        "otel_collector_endpoint_and_credentials",
+        "hosted_agent_runtime_credentials",
+    ]
+    assert [boundary["plan_rank"] for boundary in report["boundaries"]] == [1, 2, 3, 4, 5]
+    assert [command["boundary_id"] for command in report["commands"][:4]] == [
+        "canva_oauth_and_openapi_tool_execution",
+        "canva_oauth_and_openapi_tool_execution",
+        "github_source_refresh_rate_limit_token",
+        "telegram_notification_mcp_credentials",
+    ]
 
 
 def test_boundary_filter_rejects_unknown_id() -> None:
@@ -237,6 +260,7 @@ def _stable_report(report: dict) -> dict:
         "registry_path": report["registry_path"],
         "mode": report["mode"],
         "selection": report["selection"],
+        "plan_order": report["plan_order"],
         "status": report["status"],
         "summary": report["summary"],
         "boundaries": report["boundaries"],
