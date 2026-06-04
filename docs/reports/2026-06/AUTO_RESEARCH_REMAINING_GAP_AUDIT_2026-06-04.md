@@ -184,8 +184,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `github_source_snapshot_recency_gate` requires
     `docs\reports\2026-06\GITHUB_SOURCE_FRESHNESS_2026-06-05.json`
     to keep `status=pass` and `generated_at` within `72` hours
-  - focused audit tests passed `10/10`
-  - pre-push-equivalent suite passed `86/86`
+  - focused audit tests passed `11/11`
+  - focused source/radar/audit suite passed `19/19`
+  - pre-push-equivalent suite passed `87/87`
   - runtime probes passed for dev-server MCP runtime, MCP service runtime,
     single-workflow dry-run, side-effect safety skip, and matrix dry-run
   - completion audit now reports `19` criteria with

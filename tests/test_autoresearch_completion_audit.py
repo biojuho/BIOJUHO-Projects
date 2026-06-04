@@ -298,6 +298,33 @@ def test_json_freshness_rejects_stale_snapshot(tmp_path: Path) -> None:
     assert any("is stale" in error for error in summary["errors"])
 
 
+def test_json_freshness_rejects_wrong_status(tmp_path: Path) -> None:
+    audit = load_module()
+    evidence_file = tmp_path / "source.json"
+    evidence_file.write_text(
+        json.dumps({"status": "fail", "generated_at": datetime.now(UTC).isoformat()}),
+        encoding="utf-8",
+    )
+    payload = _freshness_payload(
+        {
+            "path": "source.json",
+            "must_contain": ["fail"],
+            "json_freshness": {
+                "timestamp_field": "generated_at",
+                "max_age_hours": 72,
+                "status_field": "status",
+                "required_status": "pass",
+            },
+        }
+    )
+
+    summary = audit.audit_contract(payload, workspace_root=tmp_path)
+
+    assert summary["valid"] is False
+    assert summary["cycle_evidence_ready"] is False
+    assert any("status must be 'pass'" in error for error in summary["errors"])
+
+
 def _freshness_payload(extra_evidence: dict) -> dict:
     evidence = {
         "path": "evidence.md",

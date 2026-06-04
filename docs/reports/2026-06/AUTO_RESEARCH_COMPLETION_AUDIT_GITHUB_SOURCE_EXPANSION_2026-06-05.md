@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `18`
-- Status counts: `blocked=1, covered=17`
+- Criteria: `19`
+- Status counts: `blocked=1, covered=18`
 
 ## Missing Required
 
@@ -39,6 +39,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### github_source_snapshot_recency_gate
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### self_improving_skill
 
