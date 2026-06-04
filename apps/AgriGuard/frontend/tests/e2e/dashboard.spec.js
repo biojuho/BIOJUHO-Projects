@@ -1,5 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+import { expect, test } from '@playwright/test';
 
 test.describe('AgriGuard Dashboard', () => {
   test('should load dashboard page', async ({ page }) => {
@@ -24,7 +24,7 @@ test.describe('AgriGuard Dashboard', () => {
     await page.goto('/scan');
     await expect(page).toHaveURL(/scan/);
     // QR scanner page should show scan-related content
-    await expect(page.getByText(/QR|스캔/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Scan Product QR' })).toBeVisible();
   });
 
   test('should navigate to supply chain', async ({ page }) => {
