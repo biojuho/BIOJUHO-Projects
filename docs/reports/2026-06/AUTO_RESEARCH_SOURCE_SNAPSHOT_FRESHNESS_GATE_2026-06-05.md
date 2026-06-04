@@ -17,7 +17,7 @@ Adopted a JSON timestamp freshness gate for external-source evidence.
   - Normalizes evidence summaries with `json_freshness=true` when the gate is configured.
 - `ops/references/autoresearch_completion_contract.json`
   - Added required criterion `github_source_snapshot_recency_gate`.
-  - Applies `json_freshness` to the expanded `17`-source `docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json`.
+  - Applies `json_freshness` to the expanded `22`-source `docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json`.
   - Requires `status=pass` and `generated_at` no older than `72 hours`.
 
 ## Verification

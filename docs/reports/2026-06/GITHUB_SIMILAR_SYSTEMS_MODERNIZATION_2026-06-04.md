@@ -2,9 +2,9 @@
 
 ## Summary
 
-- Sources reviewed: 17
-- Adoption counts: adopted=1, partially_adopted=16, watch=0
-- Generated at: `2026-06-05T03:33:00+09:00`
+- Sources reviewed: 22
+- Adoption counts: adopted=1, partially_adopted=21, watch=0
+- Generated at: `2026-06-05T04:05:00+09:00`
 
 ## Search Context
 
@@ -25,6 +25,11 @@
   - `browser-use persistent browser automation AI agents CLI`
   - `Pydantic AI type-safe agent framework evals OpenTelemetry`
   - `HumanLayer coding agents human-in-the-loop control plane`
+  - `Microsoft Agent Framework multi-agent workflows MCP A2A GitHub`
+  - `Agno agent framework memory teams observability GitHub`
+  - `Vercel AI SDK TypeScript agents tools AI Gateway GitHub`
+  - `AutoGPT platform continuous agents workflow marketplace GitHub`
+  - `Flowise low-code agent workflow builder GitHub`
 
 ## Source Mapping
 
@@ -355,6 +360,128 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_REMAINING_GAP_AUDIT_2026-06-04.md`
   - `next-actions.md`
 - Gap: Human-checkpoint-style side-effect skips, worktree-safe commit/push loops, durable next-action capture, and matrix quality gates are adopted. A hosted agent control plane, remote workers, multi-session UI, and live approval workflow remain future-scoped until operator-owned runtime policy exists.
+
+### microsoft/agent-framework
+
+- URL: https://github.com/microsoft/agent-framework
+- Category: `enterprise-agent-framework`
+- Adoption status: `partially_adopted`
+- Why similar: Microsoft Agent Framework is the current Microsoft agent-workflow source for multi-agent orchestration, MCP/A2A interop, observability, and production agent runtime patterns that map to the local safe workflow-gate runner without requiring a hosted runtime switch.
+- Observed patterns:
+  - current Microsoft agent framework successor path instead of maintenance-mode AutoGen
+  - multi-agent orchestration with explicit workflow boundaries
+  - MCP and A2A interoperability as first-class agent runtime concerns
+  - observable production agent execution
+  - Python and .NET SDK boundaries for operator-owned runtime adoption
+- Local evidence:
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `ops/references/mcp_service_manifest.json`
+  - `ops/scripts/mcp_service_runtime_smoke.py`
+  - `tests/test_mcp_service_runtime_smoke.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
+  - `docs/QUALITY_GATE.md`
+- Gap: Multi-agent workflow declarations, safe gate execution, MCP service runtime smoke, and observability handoff evidence are locally adopted. A live Microsoft Agent Framework runtime, A2A deployment, and SDK-level orchestration remain future-scoped until a concrete runtime owner and hosting policy exist.
+
+### agno-agi/agno
+
+- URL: https://github.com/agno-agi/agno
+- Category: `full-stack-agent-platform`
+- Adoption status: `partially_adopted`
+- Why similar: Agno provides a full-stack agent platform with agents, teams, workflows, memory, knowledge, tool use, and observability patterns relevant to the local self-improving AutoResearch loop.
+- Observed patterns:
+  - agent teams and workflow abstractions
+  - memory and knowledge as explicit runtime surfaces
+  - observability and evaluation as product-readiness signals
+  - tool-use integration for production assistants
+  - separation between local framework adoption and hosted agent platform operation
+- Local evidence:
+  - `.agents/skills/auto-research-karpathy/SKILL.md`
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `ops/scripts/autoresearch_completion_audit.py`
+  - `tests/test_autoresearch_completion_audit.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_SOURCE_SNAPSHOT_FRESHNESS_2026-06-05.md`
+  - `next-actions.md`
+- Gap: The local loop adopts deterministic workflow gates, completion audits, and durable next-action memory. Agno-style persistent memory stores, hosted agent platform, team UI, and long-running runtime deployment remain future-scoped until operator-owned storage and approval policies are selected.
+
+### vercel/ai
+
+- URL: https://github.com/vercel/ai
+- Category: `typescript-ai-app-toolkit`
+- Adoption status: `partially_adopted`
+- Why similar: Vercel AI SDK is a primary TypeScript toolkit for AI applications, agent tool calls, streaming UI, provider abstraction, and AI Gateway patterns that are relevant to the dashboard and TypeScript MCP surfaces.
+- Observed patterns:
+  - provider abstraction for AI app surfaces
+  - tool calling and agent loop support for product workflows
+  - streaming UI and app-router friendly AI UX patterns
+  - AI Gateway and runtime deployment as separate production concerns
+  - TypeScript-first ergonomics for frontend-facing AI features
+- Local evidence:
+  - `apps/dashboard/src/App.jsx`
+  - `apps/dashboard/src/components/QualityPanel.jsx`
+  - `mcp/canva-mcp/src/server/server.ts`
+  - `mcp/canva-mcp/src/server/tools.ts`
+  - `ops/scripts/dev_server_browser_smoke.py`
+  - `tests/test_dev_server_browser_smoke.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_GENERIC_BROWSER_SMOKE_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md`
+- Gap: TypeScript app and MCP tool surfaces are browser-smoked and policy-gated locally. Vercel AI SDK runtime migration, streaming chat UX, AI Gateway deployment, and hosted frontend AI runtime remain future-scoped until a concrete user-facing AI feature is selected.
+
+### Significant-Gravitas/AutoGPT
+
+- URL: https://github.com/Significant-Gravitas/AutoGPT
+- Category: `continuous-agent-platform`
+- Adoption status: `partially_adopted`
+- Why similar: AutoGPT is a long-running autonomous agent platform with workflow, marketplace, and deployment patterns related to the user's request for a continuous self-improving product loop.
+- Observed patterns:
+  - continuous agent workflow execution
+  - agent platform packaging and deployment boundaries
+  - marketplace-style reusable agent components
+  - human operator oversight before broad autonomy
+  - durable run evidence for long-running loops
+- Local evidence:
+  - `.agents/skills/auto-research-karpathy/SKILL.md`
+  - `ops/references/autoresearch_completion_contract.json`
+  - `ops/scripts/autoresearch_completion_audit.py`
+  - `tests/test_autoresearch_completion_audit.py`
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_SOURCE_SNAPSHOT_FRESHNESS_GATE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md`
+  - `next-actions.md`
+- Gap: The local AutoResearch loop is continuous, evidence-backed, and commit/push oriented, but broad AutoGPT-style hosted platform deployment, marketplace packaging, and unattended autonomous execution remain future-scoped behind deterministic gates and explicit operator ownership.
+
+### FlowiseAI/Flowise
+
+- URL: https://github.com/FlowiseAI/Flowise
+- Category: `low-code-agent-workflow-builder`
+- Adoption status: `partially_adopted`
+- Why similar: Flowise is a visual low-code builder for AI agents, workflows, and tool integrations; it is relevant to the local dashboard, dev-server control, and workflow manifest surfaces even though a visual builder is not yet adopted.
+- Observed patterns:
+  - visual workflow builder for agents and tools
+  - operator-facing workflow inspection
+  - template-style reusable agent flows
+  - separation between builder UI and execution runtime
+  - browser-verified UX as a launch-readiness concern
+- Local evidence:
+  - `apps/dashboard/src/App.jsx`
+  - `apps/dashboard/src/components/QualityPanel.jsx`
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_manifest.py`
+  - `ops/scripts/dev_server_control.py`
+  - `ops/scripts/dev_server_browser_smoke.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `tests/test_dev_server_browser_smoke.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_DEV_SERVER_READINESS_2026-06-04.md`
+- Gap: Dashboard quality panels, workflow manifests, and browser-smoked operator surfaces are adopted. A Flowise-style visual agent builder, template marketplace, and runtime graph editor remain future-scoped until a concrete operator UX requirement is selected.
 
 ### dsifry/metaswarm
 

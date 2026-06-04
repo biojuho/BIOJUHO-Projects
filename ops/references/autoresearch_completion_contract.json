@@ -57,13 +57,18 @@
             "openai/openai-agents-python",
             "browser-use/browser-use",
             "pydantic/pydantic-ai",
-            "humanlayer/humanlayer"
+            "humanlayer/humanlayer",
+            "microsoft/agent-framework",
+            "agno-agi/agno",
+            "vercel/ai",
+            "Significant-Gravitas/AutoGPT",
+            "FlowiseAI/Flowise"
           ]
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 17",
+            "Sources reviewed: 22",
             "Adoption counts",
             "modelcontextprotocol/python-sdk",
             "open-telemetry/opentelemetry-collector",
@@ -74,7 +79,25 @@
             "openai/openai-agents-python",
             "browser-use/browser-use",
             "pydantic/pydantic-ai",
-            "humanlayer/humanlayer"
+            "humanlayer/humanlayer",
+            "microsoft/agent-framework",
+            "agno-agi/agno",
+            "vercel/ai",
+            "Significant-Gravitas/AutoGPT",
+            "FlowiseAI/Flowise"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_AGENT_PLATFORM_EXPANSION_2026-06-05.md",
+          "must_contain": [
+            "22",
+            "microsoft/agent-framework",
+            "agno-agi/agno",
+            "vercel/ai",
+            "Significant-Gravitas/AutoGPT",
+            "FlowiseAI/Flowise",
+            "22/22",
+            "global_objective_complete=false"
           ]
         }
       ]
@@ -139,14 +162,19 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
           "must_contain": [
-            "\"source_count\": 17",
-            "\"passed\": 17",
+            "\"source_count\": 22",
+            "\"passed\": 22",
             "\"failed\": 0",
             "\"github_api_version\": \"2022-11-28\"",
             "openai/openai-agents-python",
             "browser-use/browser-use",
             "pydantic/pydantic-ai",
-            "humanlayer/humanlayer"
+            "humanlayer/humanlayer",
+            "microsoft/agent-framework",
+            "agno-agi/agno",
+            "vercel/ai",
+            "Significant-Gravitas/AutoGPT",
+            "FlowiseAI/Flowise"
           ]
         },
         {
@@ -160,6 +188,11 @@
             "browser-use/browser-use",
             "pydantic/pydantic-ai",
             "humanlayer/humanlayer",
+            "microsoft/agent-framework",
+            "agno-agi/agno",
+            "vercel/ai",
+            "Significant-Gravitas/AutoGPT",
+            "FlowiseAI/Flowise",
             "Failed: `0`"
           ]
         }
@@ -192,8 +225,8 @@
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
           "must_contain": [
             "\"status\": \"pass\"",
-            "\"generated_at\": \"2026-06-04T17:24:23",
-            "\"source_count\": 17",
+            "\"generated_at\": \"2026-06-04T17:44:09",
+            "\"source_count\": 22",
             "\"failed\": 0"
           ],
           "json_freshness": {

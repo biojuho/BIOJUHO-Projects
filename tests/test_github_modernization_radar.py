@@ -27,10 +27,10 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
     summary = radar.summarize_manifest(payload)
 
     assert errors == []
-    assert summary["source_count"] == 17
+    assert summary["source_count"] == 22
     assert summary["adoption_status_counts"] == {
         "adopted": 1,
-        "partially_adopted": 16,
+        "partially_adopted": 21,
     }
     assert {source["repo"] for source in summary["sources"]} == {
         "PrefectHQ/fastmcp",
@@ -44,6 +44,11 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
         "browser-use/browser-use",
         "pydantic/pydantic-ai",
         "humanlayer/humanlayer",
+        "microsoft/agent-framework",
+        "agno-agi/agno",
+        "vercel/ai",
+        "Significant-Gravitas/AutoGPT",
+        "FlowiseAI/Flowise",
         "dsifry/metaswarm",
         "modelcontextprotocol/inspector",
         "microsoft/mcp-gateway",
@@ -73,8 +78,8 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     machine = json.loads(json_out.read_text(encoding="utf-8"))
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
-    assert machine["source_count"] == 17
-    assert machine["adoption_status_counts"]["partially_adopted"] == 16
+    assert machine["source_count"] == 22
+    assert machine["adoption_status_counts"]["partially_adopted"] == 21
     assert "GitHub Similar Systems Modernization Radar" in markdown
     assert "PrefectHQ/fastmcp" in markdown
     assert "modelcontextprotocol/python-sdk" in markdown
@@ -86,6 +91,11 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     assert "browser-use/browser-use" in markdown
     assert "pydantic/pydantic-ai" in markdown
     assert "humanlayer/humanlayer" in markdown
+    assert "microsoft/agent-framework" in markdown
+    assert "agno-agi/agno" in markdown
+    assert "vercel/ai" in markdown
+    assert "Significant-Gravitas/AutoGPT" in markdown
+    assert "FlowiseAI/Flowise" in markdown
     assert "microsoft/mcp-gateway" in markdown
     assert "microsoft/playwright-mcp" in markdown
     assert "Keep the default smoke gate deterministic and offline" in markdown

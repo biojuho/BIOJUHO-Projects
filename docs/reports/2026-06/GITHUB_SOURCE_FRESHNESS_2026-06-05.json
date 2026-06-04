@@ -1,9 +1,9 @@
 {
   "failed": 0,
-  "generated_at": "2026-06-04T17:24:23.418814+00:00",
+  "generated_at": "2026-06-04T17:44:09.050004+00:00",
   "github_api_version": "2022-11-28",
-  "manifest_generated_at": "2026-06-05T03:33:00+09:00",
-  "passed": 17,
+  "manifest_generated_at": "2026-06-05T04:05:00+09:00",
+  "passed": 22,
   "records": [
     {
       "adoption_status": "partially_adopted",
@@ -83,7 +83,7 @@
         "pushed_at": "2026-06-04T15:51:04Z",
         "repo": "open-telemetry/opentelemetry-collector",
         "stargazers_count": 7102,
-        "updated_at": "2026-06-04T15:51:09Z",
+        "updated_at": "2026-06-04T17:43:08Z",
         "visibility": "public"
       },
       "repo": "open-telemetry/opentelemetry-collector",
@@ -118,14 +118,14 @@
         "archived": false,
         "default_branch": "main",
         "disabled": false,
-        "forks_count": 5700,
+        "forks_count": 5699,
         "html_url": "https://github.com/langchain-ai/langgraph",
         "license": "MIT",
-        "open_issues_count": 558,
-        "pushed_at": "2026-06-04T17:13:54Z",
+        "open_issues_count": 560,
+        "pushed_at": "2026-06-04T17:35:36Z",
         "repo": "langchain-ai/langgraph",
-        "stargazers_count": 33879,
-        "updated_at": "2026-06-04T17:04:10Z",
+        "stargazers_count": 33880,
+        "updated_at": "2026-06-04T17:38:25Z",
         "visibility": "public"
       },
       "repo": "langchain-ai/langgraph",
@@ -142,11 +142,11 @@
         "forks_count": 7377,
         "html_url": "https://github.com/crewAIInc/crewAI",
         "license": "MIT",
-        "open_issues_count": 392,
-        "pushed_at": "2026-06-04T17:12:01Z",
+        "open_issues_count": 393,
+        "pushed_at": "2026-06-04T17:42:15Z",
         "repo": "crewAIInc/crewAI",
-        "stargazers_count": 52831,
-        "updated_at": "2026-06-04T17:23:35Z",
+        "stargazers_count": 52832,
+        "updated_at": "2026-06-04T17:35:44Z",
         "visibility": "public"
       },
       "repo": "crewAIInc/crewAI",
@@ -166,8 +166,8 @@
         "open_issues_count": 130,
         "pushed_at": "2026-06-04T07:38:27Z",
         "repo": "openai/openai-agents-python",
-        "stargazers_count": 26915,
-        "updated_at": "2026-06-04T16:26:12Z",
+        "stargazers_count": 26916,
+        "updated_at": "2026-06-04T17:32:02Z",
         "visibility": "public"
       },
       "repo": "openai/openai-agents-python",
@@ -202,7 +202,7 @@
         "archived": false,
         "default_branch": "main",
         "disabled": false,
-        "forks_count": 2169,
+        "forks_count": 2170,
         "html_url": "https://github.com/pydantic/pydantic-ai",
         "license": "MIT",
         "open_issues_count": 596,
@@ -234,6 +234,111 @@
         "visibility": "public"
       },
       "repo": "humanlayer/humanlayer",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "enterprise-agent-framework",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 1845,
+        "html_url": "https://github.com/microsoft/agent-framework",
+        "license": "MIT",
+        "open_issues_count": 690,
+        "pushed_at": "2026-06-04T17:41:52Z",
+        "repo": "microsoft/agent-framework",
+        "stargazers_count": 11042,
+        "updated_at": "2026-06-04T17:38:18Z",
+        "visibility": "public"
+      },
+      "repo": "microsoft/agent-framework",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "full-stack-agent-platform",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 5475,
+        "html_url": "https://github.com/agno-agi/agno",
+        "license": "Apache-2.0",
+        "open_issues_count": 862,
+        "pushed_at": "2026-06-04T17:26:46Z",
+        "repo": "agno-agi/agno",
+        "stargazers_count": 40521,
+        "updated_at": "2026-06-04T15:55:46Z",
+        "visibility": "public"
+      },
+      "repo": "agno-agi/agno",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typescript-ai-app-toolkit",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 4531,
+        "html_url": "https://github.com/vercel/ai",
+        "license": "NOASSERTION",
+        "open_issues_count": 1681,
+        "pushed_at": "2026-06-04T17:37:08Z",
+        "repo": "vercel/ai",
+        "stargazers_count": 24661,
+        "updated_at": "2026-06-04T17:42:02Z",
+        "visibility": "public"
+      },
+      "repo": "vercel/ai",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "continuous-agent-platform",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "master",
+        "disabled": false,
+        "forks_count": 46186,
+        "html_url": "https://github.com/Significant-Gravitas/AutoGPT",
+        "license": "NOASSERTION",
+        "open_issues_count": 441,
+        "pushed_at": "2026-06-04T16:34:25Z",
+        "repo": "Significant-Gravitas/AutoGPT",
+        "stargazers_count": 184757,
+        "updated_at": "2026-06-04T16:57:55Z",
+        "visibility": "public"
+      },
+      "repo": "Significant-Gravitas/AutoGPT",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "low-code-agent-workflow-builder",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 24479,
+        "html_url": "https://github.com/FlowiseAI/Flowise",
+        "license": "NOASSERTION",
+        "open_issues_count": 885,
+        "pushed_at": "2026-06-04T13:39:57Z",
+        "repo": "FlowiseAI/Flowise",
+        "stargazers_count": 53339,
+        "updated_at": "2026-06-04T17:42:24Z",
+        "visibility": "public"
+      },
+      "repo": "FlowiseAI/Flowise",
       "status": "pass"
     },
     {
@@ -335,7 +440,7 @@
         "pushed_at": "2026-05-28T01:32:25Z",
         "repo": "microsoft/playwright-mcp",
         "stargazers_count": 33493,
-        "updated_at": "2026-06-04T16:58:13Z",
+        "updated_at": "2026-06-04T17:31:26Z",
         "visibility": "public"
       },
       "repo": "microsoft/playwright-mcp",
@@ -364,6 +469,6 @@
     }
   ],
   "schema_version": 1,
-  "source_count": 17,
+  "source_count": 22,
   "status": "pass"
 }

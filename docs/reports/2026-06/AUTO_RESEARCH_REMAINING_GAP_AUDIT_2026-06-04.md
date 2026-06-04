@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 GitHub agent-platform expansion slice: expanded the
+  modernization radar from `17` to `22` live GitHub repositories by adding
+  Microsoft Agent Framework, Agno, Vercel AI SDK, AutoGPT, and Flowise as
+  source-backed comparison projects.
 - 2026-06-05 source snapshot recency gate slice: added generic
   `json_freshness` validation to the completion audit so old GitHub
   external-source snapshots stop satisfying launch readiness after the
@@ -107,6 +111,26 @@ Latest pushed commits in this slice:
   side-effect skips, worktree-safe commit/push loops, durable next-action
   capture, and matrix quality gates; hosted control plane and multi-session UI
   remain future-scoped.
+- `microsoft/agent-framework`: partially adopted through declared workflow
+  gates, MCP runtime smoke, and observability handoff evidence; live Microsoft
+  Agent Framework runtime, A2A deployment, and SDK-level orchestration remain
+  future-scoped.
+- `agno-agi/agno`: partially adopted through the deterministic AutoResearch
+  loop, workflow gates, completion audits, and durable next-action capture;
+  persistent memory stores, hosted agent platform, team UI, and long-running
+  runtime deployment remain future-scoped.
+- `vercel/ai`: partially adopted through browser-smoked dashboard and
+  TypeScript MCP tool surfaces plus provider/tool policy evidence; Vercel AI
+  SDK runtime migration, streaming chat UX, AI Gateway deployment, and hosted
+  frontend AI runtime remain future-scoped.
+- `Significant-Gravitas/AutoGPT`: partially adopted through continuous,
+  evidence-backed, commit/push-oriented AutoResearch cycles; hosted platform
+  deployment, marketplace packaging, and unattended autonomous execution remain
+  future-scoped.
+- `FlowiseAI/Flowise`: partially adopted through dashboard quality panels,
+  workflow manifests, dev-server control, and browser-smoked operator surfaces;
+  a visual agent builder, template marketplace, and runtime graph editor remain
+  future-scoped.
 - Canva widget-preview browser smoke: adopted deterministic inline SVG preview
   thumbnails and shared manifest evidence so `canva-widget-preview` is covered
   by direct browser proof.
@@ -152,22 +176,38 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
-- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-mcp-runtime-smoke-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
+- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-platform-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `17` sources
+  - `22` sources
   - `adopted=1`
-  - `partially_adopted=16`
+  - `partially_adopted=21`
   - `watch=0`
+- GitHub agent-platform source expansion verification:
+  - added `microsoft/agent-framework`, `agno-agi/agno`, `vercel/ai`,
+    `Significant-Gravitas/AutoGPT`, and `FlowiseAI/Flowise`
+  - focused radar/source tests passed `8/8`
+  - focused source/radar/audit tests passed `18/18`
+  - live GitHub source freshness passed `22/22` sources with `0` failures
+  - newest upstream `pushed_at` in the refreshed snapshot was
+    `2026-06-04T17:42:15Z`
+  - completion audit reports `19` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_GITHUB_AGENT_PLATFORM_EXPANSION_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_AGENT_PLATFORM_EXPANSION_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_AGENT_PLATFORM_EXPANSION_2026-06-05.md`
 - GitHub source freshness verification:
   - `ops\scripts\github_source_freshness.py` checks the live GitHub REST API
     metadata for every repo in `ops\references\github_modernization_sources.json`
-  - live snapshot passed `17/17` sources with `0` failures
-  - newest upstream `pushed_at` in the snapshot was `2026-06-04T17:23:41Z`
+  - live snapshot passed `22/22` sources with `0` failures
+  - newest upstream `pushed_at` in the snapshot was `2026-06-04T17:42:15Z`
+  - snapshot generated at `2026-06-04T17:44:09.050004+00:00`
   - focused source-freshness tests passed `4/4`
-  - pre-push-equivalent suite passed `84/84`
-  - installed pre-push dry-run ran `84/84` plus runtime probes and completion
+  - pre-push-equivalent suite passed `86/86`
+  - installed pre-push dry-run ran `86/86` plus runtime probes and completion
     audit
-  - completion audit now reports `18` criteria with
+  - completion audit now reports `19` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`
   - generated evidence:
     `docs\reports\2026-06\AUTO_RESEARCH_GITHUB_SOURCE_FRESHNESS_2026-06-05.md`,
