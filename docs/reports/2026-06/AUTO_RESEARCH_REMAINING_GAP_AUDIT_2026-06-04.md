@@ -9,6 +9,10 @@ Latest pushed commits in this slice:
 - 2026-06-05 hook install sync-guard slice: added a tracked-vs-installed
   hook check so stale common-dir pre-push hooks fail before smoke execution,
   with configured `core.hooksPath` support for worktree-local hook paths.
+- 2026-06-05 hook installer check-mode slice: added an explicit read-only
+  `--check` mode so stale bootstrap hooks can validate hook freshness without
+  rewriting the pre-push file while Git is executing it, and added the hook
+  regression tests to the pre-push pytest bundle.
 - 2026-06-05 hook installer freshness-gate slice: restored the completion
   audit after the pushed LF-normalizing hook installer guardrail became part
   of the current remote tip.

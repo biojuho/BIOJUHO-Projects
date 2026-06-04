@@ -11,6 +11,7 @@ def test_pre_push_hook_runs_completion_and_mcp_smokes() -> None:
     hook = HOOK_PATH.read_text(encoding="utf-8")
 
     assert "tests/test_workspace_smoke.py" in hook
+    assert "tests/test_pre_push_hook.py" in hook
     assert "tests/test_autoresearch_completion_audit.py" in hook
     assert "tests/test_dev_server_browser_smoke.py" in hook
     assert "tests/test_dev_server_mcp_contract.py" in hook
@@ -21,14 +22,13 @@ def test_pre_push_hook_runs_completion_and_mcp_smokes() -> None:
     assert "python ops/scripts/autoresearch_completion_audit.py" in hook
 
 
-def load_installer():
-    import importlib.util
+def test_pre_push_hook_uses_read_only_installer_check() -> None:
+    hook_lines = HOOK_PATH.read_text(encoding="utf-8").splitlines()
+    executable_lines = [line.strip() for line in hook_lines if line.strip() and not line.lstrip().startswith("#")]
+    installer_lines = [line for line in executable_lines if "install_hooks.py" in line and not line.startswith("echo ")]
 
-    spec = importlib.util.spec_from_file_location("install_hooks", INSTALLER_PATH)
-    installer = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(installer)
-    return installer
+    assert installer_lines
+    assert all("--check" in line for line in installer_lines)
 
 
 def test_hook_installer_normalizes_shell_hook_line_endings(tmp_path: Path) -> None:
@@ -67,3 +67,35 @@ def test_hook_installer_check_normalizes_destination_line_endings(tmp_path: Path
     destination.write_text("#!/bin/sh\r\necho ok\r\n", encoding="utf-8", newline="")
 
     assert installer._installed_hook_matches(source, destination) is True
+
+
+def test_hook_installer_check_mode_does_not_overwrite_stale_hook(tmp_path: Path) -> None:
+    installer = load_installer()
+
+    source_dir = tmp_path / "source"
+    hooks_dir = tmp_path / "hooks"
+    source_dir.mkdir()
+    hooks_dir.mkdir()
+    source = source_dir / "pre-push"
+    destination = hooks_dir / "pre-push"
+    source.write_text("#!/bin/sh\necho current\n", encoding="utf-8")
+    destination.write_text("#!/bin/sh\necho stale\n", encoding="utf-8")
+
+    original_source_dir = installer.HOOKS_SRC
+    installer.HOOKS_SRC = source_dir
+    try:
+        assert installer.check_hooks(hooks_dir) is False
+    finally:
+        installer.HOOKS_SRC = original_source_dir
+
+    assert destination.read_text(encoding="utf-8") == "#!/bin/sh\necho stale\n"
+
+
+def load_installer():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("install_hooks", INSTALLER_PATH)
+    installer = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(installer)
+    return installer

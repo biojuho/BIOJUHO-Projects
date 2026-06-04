@@ -3,20 +3,21 @@
 import argparse
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOKS_SRC = REPO_ROOT / "ops" / "hooks"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Install or verify repo Git hooks.")
     parser.add_argument(
         "--check",
         action="store_true",
-        help="fail if installed hooks differ from the tracked ops/hooks files",
+        help="fail if installed hooks differ from the tracked ops/hooks files without writing",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     hooks_dst = resolve_hooks_dir()
     if hooks_dst is None:
@@ -66,9 +67,7 @@ def install_hooks(hooks_dst: Path) -> None:
         return
 
     installed = 0
-    for hook_file in HOOKS_SRC.iterdir():
-        if not hook_file.is_file() or hook_file.name.startswith(".") or hook_file.name.endswith(".py"):
-            continue
+    for hook_file in _iter_hook_files():
         dst = hooks_dst / hook_file.name
         if hook_file.resolve() == dst.resolve():
             print(f"[ok] Hook source already active: {dst}")
@@ -99,7 +98,10 @@ def check_hooks(hooks_dst: Path) -> bool:
             ok = False
             continue
         print(f"[ok] Hook is current: {dst}")
-    if checked == 0:
+
+    if checked:
+        print(f"\n{checked} hook(s) checked.")
+    else:
         print("No hooks found in ops/hooks/")
     return ok and checked > 0
 
@@ -139,4 +141,4 @@ def _git_stdout(args: list[str]) -> str:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
