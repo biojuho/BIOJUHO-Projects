@@ -320,6 +320,33 @@ class TestQualityOverview:
             ),
             encoding="utf-8",
         )
+        live_report = report_dir / "EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json"
+        live_report.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "summary": {
+                        "next_unblock": {
+                            "boundary_id": "canva_oauth_and_openapi_tool_execution",
+                            "env_names": ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"],
+                            "live_status": "blocked_missing_required_env",
+                            "plan_rank": 1,
+                            "verification_commands": [
+                                "cd mcp/canva-mcp && npm run doctor:canva",
+                                "cd mcp/canva-mcp && npm run auth:canva",
+                            ],
+                        }
+                    },
+                    "boundaries": [
+                        {
+                            "id": "canva_oauth_and_openapi_tool_execution",
+                            "title": "Canva OAuth and OpenAPI tool execution",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
         monkeypatch.setattr(gdt_router, "WORKSPACE", tmp_path)
 
         data = client.get("/api/quality_overview").json()
@@ -331,6 +358,11 @@ class TestQualityOverview:
         assert boundaries["missing_required_env_count"] == 3
         assert boundaries["boundaries"][0]["id"] == "canva_oauth_and_openapi_tool_execution"
         assert boundaries["boundaries"][0]["missing_required_env_count"] == 2
+        next_unblock = boundaries["next_unblock"]
+        assert next_unblock["boundary_id"] == "canva_oauth_and_openapi_tool_execution"
+        assert next_unblock["title"] == "Canva OAuth and OpenAPI tool execution"
+        assert next_unblock["env_names"] == ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"]
+        assert next_unblock["verification_command_count"] == 2
 
 
 # ── /api/overview structure ────────────────────────────────────────

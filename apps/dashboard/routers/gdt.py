@@ -14,6 +14,7 @@ router = APIRouter()
 SMOKE_REPORT_PATTERNS = ("var/smoke/*.json", "var/workspace-smoke*.json")
 DEV_SERVER_STATUS_PATTERNS = ("var/dev-server-status*.json",)
 CREDENTIAL_BOUNDARY_PATTERNS = ("docs/reports/2026-06/EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_*.json",)
+CREDENTIAL_LIVE_VERIFY_PATTERNS = ("docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_*.json",)
 
 
 def _relative_workspace_path(path: Path) -> str:
@@ -73,6 +74,10 @@ def _latest_dev_server_status_report() -> Path | None:
 
 def _latest_credential_boundary_report() -> Path | None:
     return _latest_workspace_file(CREDENTIAL_BOUNDARY_PATTERNS)
+
+
+def _latest_credential_live_verify_report() -> Path | None:
+    return _latest_workspace_file(CREDENTIAL_LIVE_VERIFY_PATTERNS)
 
 
 def _smoke_results(payload: Any) -> list[dict[str, Any]]:
@@ -221,6 +226,7 @@ def _empty_credential_boundaries(status: str, path: str | None = None) -> dict[s
         "missing_required_env": [],
         "status_counts": {},
         "boundaries": [],
+        "next_unblock": None,
     }
 
 
@@ -266,6 +272,54 @@ def _dev_server_status_overview() -> dict[str, Any]:
         "summary": {"total": total, "ready": ready, "unready": unready},
         "targets": targets,
         "unready_targets": [target for target in targets if not target["ok"]][:5],
+    }
+
+
+def _credential_next_unblock_overview() -> dict[str, Any] | None:
+    report_path = _latest_credential_live_verify_report()
+    if report_path is None:
+        return None
+
+    try:
+        payload = _json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    raw_next = summary.get("next_unblock")
+    if not isinstance(raw_next, dict):
+        return None
+
+    boundary_id = str(raw_next.get("boundary_id", ""))
+    raw_boundaries = payload.get("boundaries") if isinstance(payload.get("boundaries"), list) else []
+    boundaries_by_id = {
+        str(item.get("id", "")): item for item in raw_boundaries if isinstance(item, dict)
+    }
+    boundary = boundaries_by_id.get(boundary_id, {})
+    raw_env_names = raw_next.get("env_names") if isinstance(raw_next.get("env_names"), list) else []
+    raw_commands = (
+        raw_next.get("verification_commands")
+        if isinstance(raw_next.get("verification_commands"), list)
+        else []
+    )
+
+    try:
+        plan_rank = int(raw_next.get("plan_rank", 0) or 0)
+    except (TypeError, ValueError):
+        plan_rank = 0
+
+    return {
+        "boundary_id": boundary_id,
+        "title": str(boundary.get("title") or boundary_id),
+        "plan_rank": plan_rank,
+        "live_status": str(raw_next.get("live_status", "")),
+        "env_names": [str(item) for item in raw_env_names][:6],
+        "verification_command_count": len(raw_commands),
+        "first_verification_command": str(raw_commands[0]) if raw_commands else "",
+        "path": _relative_workspace_path(report_path),
     }
 
 
@@ -320,6 +374,7 @@ def _credential_boundary_overview() -> dict[str, Any]:
         "missing_required_env": [str(item) for item in missing_required_env][:8],
         "status_counts": payload.get("status_counts") if isinstance(payload.get("status_counts"), dict) else {},
         "boundaries": boundaries[:6],
+        "next_unblock": _credential_next_unblock_overview(),
     }
 
 

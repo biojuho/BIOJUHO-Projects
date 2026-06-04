@@ -89,6 +89,8 @@ export function QualityPanel({ data, error, onRetry }) {
   const credentialBoundaryItems = credentialBoundaries?.boundaries || []
   const credentialBoundaryTotal = credentialBoundaries?.boundary_count ?? 0
   const credentialMissingEnv = credentialBoundaries?.missing_required_env_count ?? 0
+  const credentialNextUnblock = credentialBoundaries?.next_unblock || null
+  const credentialNextEnvNames = (credentialNextUnblock?.env_names || []).join(', ')
   const credentialLabel = credentialBoundaries?.available
     ? credentialMissingEnv > 0
       ? 'ACTION'
@@ -209,6 +211,22 @@ export function QualityPanel({ data, error, onRetry }) {
             <span className="metric-label">Missing env names</span>
             <span className="metric-value">{credentialMissingEnv}</span>
           </div>
+          {credentialNextUnblock && (
+            <>
+              <div className="metric-row">
+                <span className="metric-label">Next Unblock</span>
+                <span className="metric-value" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {credentialNextUnblock.title || credentialNextUnblock.boundary_id}
+                </span>
+              </div>
+              <div className="metric-row">
+                <span className="metric-label">Next env</span>
+                <span className="metric-value" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {credentialNextEnvNames || 'none'}
+                </span>
+              </div>
+            </>
+          )}
           {credentialBoundaryItems.length > 0 && (
             <table className="data-table" style={{ marginTop: '0.45rem', marginBottom: '0.8rem' }}>
               <thead><tr><th>Boundary</th><th>Status</th><th>Env</th></tr></thead>

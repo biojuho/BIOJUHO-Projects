@@ -103,6 +103,14 @@ const RESPONSES = {
       missing_required_env_count: 5,
       missing_required_env: ['CANVA_CLIENT_SECRET', 'TELEGRAM_BOT_TOKEN'],
       status_counts: { external_auth_blocked: 1, future_scoped: 2 },
+      next_unblock: {
+        boundary_id: 'canva_oauth_and_openapi_tool_execution',
+        title: 'Canva OAuth and OpenAPI tool execution',
+        live_status: 'blocked_missing_required_env',
+        plan_rank: 1,
+        env_names: ['CANVA_CLIENT_ID', 'CANVA_CLIENT_SECRET'],
+        verification_command_count: 2,
+      },
       boundaries: [
         {
           id: 'canva_oauth_and_openapi_tool_execution',
@@ -252,7 +260,9 @@ describe('Dashboard App', () => {
 
     expect(await screen.findByText('Credential Boundaries')).toBeInTheDocument()
     expect(screen.getByText('5 ACTION')).toBeInTheDocument()
-    expect(screen.getByText('Canva OAuth and OpenAPI tool execution')).toBeInTheDocument()
+    expect(screen.getAllByText('Canva OAuth and OpenAPI tool execution').length).toBeGreaterThan(0)
+    expect(screen.getByText('Next Unblock')).toBeInTheDocument()
+    expect(screen.getByText('CANVA_CLIENT_ID, CANVA_CLIENT_SECRET')).toBeInTheDocument()
     expect(screen.getByText('external auth blocked')).toBeInTheDocument()
   })
 })
