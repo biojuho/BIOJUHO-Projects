@@ -101,7 +101,8 @@ async def test_get_connection_ignores_shared_database_url_by_default(tmp_path) -
         conn = await get_connection(db_path=db_file)
 
         mock_asyncpg.create_pool.assert_not_called()
-        assert not isinstance(conn, _PgAdapter)
+        if isinstance(conn, _PgAdapter):
+            pytest.fail("shared DATABASE_URL should not route GetDayTrends to Postgres")
         await conn.close()
 
 
@@ -135,7 +136,8 @@ async def test_get_connection_can_opt_in_to_shared_database_url() -> None:
             max_size=10,
             statement_cache_size=0,
         )
-        assert isinstance(conn, _PgAdapter)
+        if not isinstance(conn, _PgAdapter):
+            pytest.fail("explicit shared DATABASE_URL opt-in should route to Postgres")
 
         await close_pg_pool()
 
