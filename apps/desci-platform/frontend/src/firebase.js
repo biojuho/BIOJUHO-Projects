@@ -14,11 +14,27 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const REQUIRED_CONFIG_KEYS = [
+    'apiKey',
+    'authDomain',
+    'projectId',
+    'storageBucket',
+    'messagingSenderId',
+    'appId',
+];
+
+function hasUsableConfigValue(value) {
+    return typeof value === 'string' && value.trim() !== '' && !value.startsWith('your_');
+}
+
+export const isFirebaseConfigured = REQUIRED_CONFIG_KEYS.every((key) => hasUsableConfigValue(firebaseConfig[key]));
+
+// Initialize Firebase only when the deployed environment supplies a complete config.
+// Local smoke and public route checks must not blank the app because auth credentials are absent.
+const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 // Auth exports
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
+export const auth = isFirebaseConfigured ? getAuth(app) : { currentUser: null };
+export const googleProvider = isFirebaseConfigured ? new GoogleAuthProvider() : null;
 
 export default app;

@@ -6,6 +6,7 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- `dccaad4 docs(ops): record agriguard click proof`
 - `dc6590f docs(ops): record dashboard click proof`
 - `02bfcea feat(ops): add dev server mcp contract`
 - `3983c4f feat(ops): export mcp smoke otlp spans`
@@ -54,6 +55,7 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `partially_adopted=5`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
+  - `27 passed` after `dccaad4`
   - `27 passed` after `dc6590f`
   - `27 passed` after `02bfcea`
   - `27 passed` after `3983c4f`
@@ -80,6 +82,12 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - Chromium clicked through home, `Registry`, `Supply Chain`, and `Scanner`
   - route checks verified `/registry`, `/supply-chain`, and `/scan` with zero console/page/request failures
   - AgriGuard frontend build passed and full Vitest completed with `29 passed`
+- DeSci live browser remediation:
+  - Firebase config fallback restored public route rendering without real Firebase credentials
+  - backend CORS now admits the manifest DeSci frontend origin `http://127.0.0.1:5175`
+  - browser smoke returned `7/7 OK`
+  - live click proof covered home, explore search, and pricing with zero console/page/request failures
+  - focused/full frontend tests, backend API tests, build/typecheck, and DeSci canonical smoke passed
 
 ## Decision
 

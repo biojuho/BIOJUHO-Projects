@@ -84,6 +84,21 @@ async def test_health_degraded_when_vector_store_fails(monkeypatch):
 # ─── GET /notices ────────────────────────────────────────────────────────────
 
 
+def test_cors_allows_manifest_frontend_origin(sync_client):
+    """Local manifest frontend origin should pass CORS preflight."""
+    response = sync_client.options(
+        "/papers/public",
+        headers={
+            "Origin": "http://127.0.0.1:5175",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5175"
+
+
 @pytest.mark.asyncio
 async def test_ready_returns_product_readiness_checks(async_client: AsyncClient):
     """GET /ready should expose structured launch-readiness checks."""

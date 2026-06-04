@@ -11,7 +11,7 @@ import {
     createUserWithEmailAndPassword,
     signOut,
 } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
+import { auth, googleProvider, isFirebaseConfigured } from '../firebase';
 
 const AuthContext = createContext(null);
 
@@ -36,6 +36,12 @@ export function AuthProvider({ children }) {
     };
 
     useEffect(() => {
+        if (!isFirebaseConfigured) {
+            setUser(null);
+            setLoading(false);
+            return () => {};
+        }
+
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             setLoading(false);
@@ -71,6 +77,9 @@ export function AuthProvider({ children }) {
 
     // Google Sign In
     const loginWithGoogle = async () => {
+        if (!isFirebaseConfigured) {
+            return { success: false, error: 'Authentication is not configured in this environment.' };
+        }
         try {
             const result = await signInWithPopup(auth, googleProvider);
             return { success: true, user: result.user };
@@ -81,6 +90,9 @@ export function AuthProvider({ children }) {
 
     // Email Sign Up
     const signUpWithEmail = async (email, password) => {
+        if (!isFirebaseConfigured) {
+            return { success: false, error: 'Authentication is not configured in this environment.' };
+        }
         try {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             return { success: true, user: result.user };
@@ -91,6 +103,9 @@ export function AuthProvider({ children }) {
 
     // Email Sign In
     const loginWithEmail = async (email, password) => {
+        if (!isFirebaseConfigured) {
+            return { success: false, error: 'Authentication is not configured in this environment.' };
+        }
         try {
             const result = await signInWithEmailAndPassword(auth, email, password);
             return { success: true, user: result.user };
@@ -101,6 +116,10 @@ export function AuthProvider({ children }) {
 
     // Sign Out
     const logout = async () => {
+        if (!isFirebaseConfigured) {
+            setWalletAddress(null);
+            return { success: true };
+        }
         try {
             await signOut(auth);
             setWalletAddress(null); // Clear wallet on logout

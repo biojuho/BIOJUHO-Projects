@@ -131,7 +131,18 @@ if RateLimitExceeded is not None and _rate_limit_exceeded_handler is not None:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 _default_origins = (
-    "http://localhost:5173,http://localhost:5174" if os.getenv("ENV", "development") != "production" else ""
+    ",".join(
+        (
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
+            "http://localhost:5175",
+            "http://127.0.0.1:5175",
+        )
+    )
+    if os.getenv("ENV", "development") != "production"
+    else ""
 )
 allowed_origins = os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
 app.add_middleware(
