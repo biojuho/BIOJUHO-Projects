@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 hook installer freshness-gate slice: restored the completion
+  audit after the pushed LF-normalizing hook installer guardrail became part
+  of the current remote tip.
 - 2026-06-05 external credential live-verifier slice: added a dry-run-first
   live verifier that plans registry verification commands, blocks
   missing-required-env boundaries, and supports redacted execution only for
@@ -338,6 +341,17 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.md`
+- Hook installer freshness-gate verification:
+  - `current_tip_freshness_gate.allowed_paths_since_proof` now includes
+    `ops/hooks/install_hooks.py` and `tests/test_pre_push_hook.py`
+  - completion audit reports `24` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - focused completion/hook suite passed `13/13`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_HOOK_INSTALLER_FRESHNESS_GATE_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALLER_FRESHNESS_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALLER_FRESHNESS_2026-06-05.md`
 - External credential live-verifier verification:
   - `ops\scripts\external_credential_live_verify.py` plans all registry
     verification commands in dry-run mode
