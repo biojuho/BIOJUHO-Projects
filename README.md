@@ -131,4 +131,6 @@ gh auth status          # 로그인 확인
 ./scripts/sync-github.sh
 ```
 
+`gh` 인증이 만료되었거나 없으면 공개 GitHub API로 보이는 저장소를 갱신하고, 공개 API에서 보이지 않는 기존 로컬 스냅샷 항목은 보존합니다.
+
 부팅 시 `data/repos.json`과 `data/adoption-candidates.json`을 읽어 포트폴리오를 시드합니다. 편집·저장한 프로젝트 데이터는 덮어쓰지 않으며, 도입 후보는 누락된 항목만 1회 병합합니다. 파일이 없거나 `file://`로 열면 내장 mock으로 동작합니다.
