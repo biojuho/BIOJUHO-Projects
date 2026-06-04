@@ -117,6 +117,34 @@ def start_target(
             return state
 
     if existing_pid and existing_status not in STOPPED_STATUSES and process_checker(existing_pid):
+        if reuse_ready and wait_ready:
+            report = status_probe.wait_for_ready(
+                payload,
+                target_ids=[target_id],
+                timeout=timeout,
+                wait_timeout=wait_timeout,
+                poll_interval=poll_interval,
+                fetcher=fetcher,
+                sleeper=sleeper,
+                clock=clock,
+            )
+            state = base_state(target, paths)
+            state.update(
+                {
+                    "status": "already_running_ready"
+                    if report["summary"]["unready"] == 0
+                    else "already_running_unready",
+                    "managed": existing.get("managed", True) if existing else True,
+                    "pid": existing_pid,
+                    "checked_at": utc_now(),
+                    "last_status": compact_status(report),
+                    "wait": report["wait"],
+                }
+            )
+            if dependency_states:
+                state["dependencies"] = dependency_states
+            write_json_atomic(paths["state"], state)
+            return state
         raise RuntimeError(f"{target_id} is already managed with live pid {existing_pid}")
 
     cwd = (WORKSPACE_ROOT / target["cwd"]).resolve()

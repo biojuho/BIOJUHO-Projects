@@ -307,6 +307,7 @@ def run(
                     "cwd": target["cwd"],
                     "command": format_command(target["command"]),
                     "url": target["url"],
+                    "timeout_seconds": float(target.get("timeout_seconds", timeout)),
                     "expected_status": target["expected_status"],
                     "expected_body_contains": target.get("expected_body_contains", []),
                 }
