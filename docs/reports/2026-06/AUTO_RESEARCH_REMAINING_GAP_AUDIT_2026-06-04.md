@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 dashboard credential-boundaries slice: surfaced the executable
+  credential boundary audit in the operator dashboard Quality panel and
+  browser-smoked the rendered blocker table.
 - 2026-06-05 external credential boundary registry slice: added a
   machine-readable credential boundary registry and audit so external-auth,
   optional-token, and operator-owned runtime gaps stay explicit without
@@ -153,6 +156,9 @@ Latest pushed commits in this slice:
   credentials, GitHub source-refresh token limits, and Telegram notification
   MCP credentials while preserving the blocked/future-scoped status of those
   boundaries.
+- Dashboard credential-boundary visibility: adopted dashboard API/UI surfacing
+  of the latest boundary audit so operators can see credential blockers in the
+  launch Quality panel.
 
 ## Remaining Gaps
 
@@ -192,6 +198,26 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
+- Dashboard credential-boundaries verification:
+  - `/api/quality_overview` includes `credential_boundaries`
+  - `QualityPanel` renders the Credential Boundaries table with missing-env
+    counts
+  - dashboard browser manifest requires `CREDENTIAL BOUNDARIES` and
+    `Canva OAuth and OpenAPI tool execution`
+  - dashboard API/browser-manifest tests passed `55/55`
+  - dashboard Vitest passed `9/9`
+  - dashboard lint/build/bundle checks passed
+  - live dashboard browser smoke passed `1/1`
+  - refresh-click proof passed with `0` console errors, `0` page errors, and
+    `0` request failures
+  - workspace smoke passed `6/6`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md`,
+    `docs\reports\2026-06\DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.json`,
+    `docs\reports\2026-06\DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md`,
+    `docs\reports\2026-06\DASHBOARD_CREDENTIAL_BOUNDARIES_CLICK_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\DASHBOARD_CREDENTIAL_BOUNDARIES_CLICK_2026-06-05.md`
 - External credential boundary registry verification:
   - `ops\references\external_credential_boundaries.json` tracks `5`
     credential or operator-owned boundaries

@@ -96,6 +96,34 @@ const RESPONSES = {
       ],
       unready_targets: [],
     },
+    credential_boundaries: {
+      available: true,
+      status: 'pass',
+      boundary_count: 5,
+      missing_required_env_count: 5,
+      missing_required_env: ['CANVA_CLIENT_SECRET', 'TELEGRAM_BOT_TOKEN'],
+      status_counts: { external_auth_blocked: 1, future_scoped: 2 },
+      boundaries: [
+        {
+          id: 'canva_oauth_and_openapi_tool_execution',
+          title: 'Canva OAuth and OpenAPI tool execution',
+          status: 'external_auth_blocked',
+          owner: 'operator',
+          missing_required_env_count: 2,
+          optional_env_available: false,
+          evidence_count: 2,
+        },
+        {
+          id: 'telegram_notification_mcp_credentials',
+          title: 'Telegram notification MCP credentials',
+          status: 'credential_gated',
+          owner: 'operator',
+          missing_required_env_count: 2,
+          optional_env_available: false,
+          evidence_count: 2,
+        },
+      ],
+    },
   },
   '/api/sla_status': {
     sla_target: 99.0,
@@ -215,5 +243,16 @@ describe('Dashboard App', () => {
     expect(await screen.findByText('Dev Servers')).toBeInTheDocument()
     expect(screen.getByText('2/2 READY')).toBeInTheDocument()
     expect(screen.getByText('Dashboard API')).toBeInTheDocument()
+  })
+
+  it('renders credential boundary blockers in the quality panel', async () => {
+    const { default: App } = await import('./App')
+
+    render(<App />)
+
+    expect(await screen.findByText('Credential Boundaries')).toBeInTheDocument()
+    expect(screen.getByText('5 ACTION')).toBeInTheDocument()
+    expect(screen.getByText('Canva OAuth and OpenAPI tool execution')).toBeInTheDocument()
+    expect(screen.getByText('external auth blocked')).toBeInTheDocument()
   })
 })

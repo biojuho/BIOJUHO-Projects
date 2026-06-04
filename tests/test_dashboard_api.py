@@ -282,6 +282,56 @@ class TestQualityOverview:
         assert dev_status["summary"] == {"total": 2, "ready": 1, "unready": 1}
         assert dev_status["unready_targets"][0]["id"] == "dashboard-frontend"
 
+    def test_includes_external_credential_boundary_summary(self, tmp_path, monkeypatch):
+        report_dir = tmp_path / "docs" / "reports" / "2026-06"
+        report_dir.mkdir(parents=True)
+        report = report_dir / "EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_2026-06-05.json"
+        report.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "generated_at": "2026-06-05T00:00:00+00:00",
+                    "registry_generated_at": "2026-06-05T03:04:31+09:00",
+                    "boundary_count": 2,
+                    "missing_required_env_count": 3,
+                    "missing_required_env": ["CANVA_CLIENT_SECRET", "TELEGRAM_BOT_TOKEN"],
+                    "status_counts": {"external_auth_blocked": 1, "credential_gated": 1},
+                    "boundaries": [
+                        {
+                            "id": "hosted_agent_runtime_credentials",
+                            "title": "Hosted agent runtime and tracing credentials",
+                            "status": "future_scoped",
+                            "owner": "operator",
+                            "missing_required_env": [],
+                            "optional_env_available": False,
+                            "evidence_count": 1,
+                        },
+                        {
+                            "id": "canva_oauth_and_openapi_tool_execution",
+                            "title": "Canva OAuth and OpenAPI tool execution",
+                            "status": "external_auth_blocked",
+                            "owner": "operator",
+                            "missing_required_env": ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"],
+                            "optional_env_available": False,
+                            "evidence_count": 2,
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(gdt_router, "WORKSPACE", tmp_path)
+
+        data = client.get("/api/quality_overview").json()
+        boundaries = data["credential_boundaries"]
+
+        assert boundaries["available"] is True
+        assert boundaries["status"] == "pass"
+        assert boundaries["boundary_count"] == 2
+        assert boundaries["missing_required_env_count"] == 3
+        assert boundaries["boundaries"][0]["id"] == "canva_oauth_and_openapi_tool_execution"
+        assert boundaries["boundaries"][0]["missing_required_env_count"] == 2
+
 
 # ── /api/overview structure ────────────────────────────────────────
 

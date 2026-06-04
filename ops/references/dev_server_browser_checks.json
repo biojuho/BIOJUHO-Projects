@@ -9,7 +9,11 @@
         {
           "name": "home",
           "path": "/",
-          "expected_text": ["AI Projects Dashboard"]
+          "expected_text": [
+            "AI Projects Dashboard",
+            "CREDENTIAL BOUNDARIES",
+            "Canva OAuth and OpenAPI tool execution"
+          ]
         }
       ]
     },

@@ -85,6 +85,16 @@ export function QualityPanel({ data, error, onRetry }) {
   const devTargets = devStatus?.unready_targets?.length > 0
     ? devStatus.unready_targets
     : devStatus?.targets || []
+  const credentialBoundaries = data.credential_boundaries || null
+  const credentialBoundaryItems = credentialBoundaries?.boundaries || []
+  const credentialBoundaryTotal = credentialBoundaries?.boundary_count ?? 0
+  const credentialMissingEnv = credentialBoundaries?.missing_required_env_count ?? 0
+  const credentialLabel = credentialBoundaries?.available
+    ? credentialMissingEnv > 0
+      ? 'ACTION'
+      : 'TRACKED'
+    : 'NO REPORT'
+  const credentialBadgeClass = credentialLabel === 'TRACKED' ? 'ok' : credentialLabel === 'ACTION' ? 'warn' : 'error'
 
   return (
     <div className="panel">
@@ -184,6 +194,38 @@ export function QualityPanel({ data, error, onRetry }) {
         </>
       )}
 
+      {credentialBoundaries && (
+        <>
+          <h3 style={{ fontSize: '0.7rem', color: '#fbbf24', marginBottom: '0.4rem', marginTop: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Credential Boundaries
+          </h3>
+          <div className="metric-row">
+            <span className="metric-label">Operator blockers</span>
+            <span className={`status-badge ${credentialBadgeClass}`}>
+              {credentialBoundaryTotal ? `${credentialBoundaryTotal} ${credentialLabel}` : credentialLabel}
+            </span>
+          </div>
+          <div className="metric-row">
+            <span className="metric-label">Missing env names</span>
+            <span className="metric-value">{credentialMissingEnv}</span>
+          </div>
+          {credentialBoundaryItems.length > 0 && (
+            <table className="data-table" style={{ marginTop: '0.45rem', marginBottom: '0.8rem' }}>
+              <thead><tr><th>Boundary</th><th>Status</th><th>Env</th></tr></thead>
+              <tbody>
+                {credentialBoundaryItems.slice(0, 4).map((boundary, i) => (
+                  <tr key={`${boundary.id}-${i}`}>
+                    <td>{boundary.title || boundary.id}</td>
+                    <td>{String(boundary.status || '').replaceAll('_', ' ')}</td>
+                    <td>{boundary.missing_required_env_count ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+
       {/* QA Grade Distribution */}
       {data.qa_grades?.length > 0 && (
         <>
@@ -274,7 +316,7 @@ export function QualityPanel({ data, error, onRetry }) {
         </>
       )}
 
-      {!data.qa_grades?.length && !data.daily_production?.length && !smoke?.available && !devStatus?.available && (
+      {!data.qa_grades?.length && !data.daily_production?.length && !smoke?.available && !devStatus?.available && !credentialBoundaries?.available && (
         <div style={{ fontSize: '0.72rem', color: '#64748b', padding: '0.5rem 0' }}>
           QA 데이터가 없습니다. 파이프라인 실행 후 표시됩니다.
         </div>

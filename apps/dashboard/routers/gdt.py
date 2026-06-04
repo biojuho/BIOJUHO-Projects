@@ -13,6 +13,7 @@ router = APIRouter()
 
 SMOKE_REPORT_PATTERNS = ("var/smoke/*.json", "var/workspace-smoke*.json")
 DEV_SERVER_STATUS_PATTERNS = ("var/dev-server-status*.json",)
+CREDENTIAL_BOUNDARY_PATTERNS = ("docs/reports/2026-06/EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_*.json",)
 
 
 def _relative_workspace_path(path: Path) -> str:
@@ -68,6 +69,10 @@ def _latest_mcp_trace_report() -> tuple[Path | None, dict[str, Any] | None]:
 
 def _latest_dev_server_status_report() -> Path | None:
     return _latest_workspace_file(DEV_SERVER_STATUS_PATTERNS, skip_validated_status=True)
+
+
+def _latest_credential_boundary_report() -> Path | None:
+    return _latest_workspace_file(CREDENTIAL_BOUNDARY_PATTERNS)
 
 
 def _smoke_results(payload: Any) -> list[dict[str, Any]]:
@@ -204,6 +209,21 @@ def _empty_dev_server_status(status: str, path: str | None = None) -> dict[str, 
     }
 
 
+def _empty_credential_boundaries(status: str, path: str | None = None) -> dict[str, Any]:
+    return {
+        "available": False,
+        "status": status,
+        "path": path,
+        "generated_at": None,
+        "registry_generated_at": None,
+        "boundary_count": 0,
+        "missing_required_env_count": 0,
+        "missing_required_env": [],
+        "status_counts": {},
+        "boundaries": [],
+    }
+
+
 def _dev_server_status_overview() -> dict[str, Any]:
     report_path = _latest_dev_server_status_report()
     if report_path is None:
@@ -246,6 +266,60 @@ def _dev_server_status_overview() -> dict[str, Any]:
         "summary": {"total": total, "ready": ready, "unready": unready},
         "targets": targets,
         "unready_targets": [target for target in targets if not target["ok"]][:5],
+    }
+
+
+def _credential_boundary_overview() -> dict[str, Any]:
+    report_path = _latest_credential_boundary_report()
+    if report_path is None:
+        return _empty_credential_boundaries("missing")
+
+    try:
+        payload = _json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return _empty_credential_boundaries("corrupt", _relative_workspace_path(report_path))
+
+    if not isinstance(payload, dict):
+        return _empty_credential_boundaries("corrupt", _relative_workspace_path(report_path))
+
+    raw_boundaries = payload.get("boundaries") if isinstance(payload.get("boundaries"), list) else []
+    boundaries = []
+    for item in raw_boundaries:
+        if not isinstance(item, dict):
+            continue
+        missing_env = item.get("missing_required_env") if isinstance(item.get("missing_required_env"), list) else []
+        boundaries.append(
+            {
+                "id": str(item.get("id", "")),
+                "title": str(item.get("title", item.get("id", ""))),
+                "status": str(item.get("status", "")),
+                "owner": str(item.get("owner", "")),
+                "missing_required_env_count": len(missing_env),
+                "optional_env_available": bool(item.get("optional_env_available", False)),
+                "evidence_count": int(item.get("evidence_count", 0) or 0),
+            }
+        )
+    boundaries.sort(
+        key=lambda item: (
+            item["missing_required_env_count"] == 0,
+            item["status"],
+            item["title"].lower(),
+        )
+    )
+    missing_required_env = (
+        payload.get("missing_required_env") if isinstance(payload.get("missing_required_env"), list) else []
+    )
+    return {
+        "available": True,
+        "status": str(payload.get("status", "unknown")),
+        "path": _relative_workspace_path(report_path),
+        "generated_at": payload.get("generated_at"),
+        "registry_generated_at": payload.get("registry_generated_at"),
+        "boundary_count": int(payload.get("boundary_count", len(boundaries)) or 0),
+        "missing_required_env_count": int(payload.get("missing_required_env_count", 0) or 0),
+        "missing_required_env": [str(item) for item in missing_required_env][:8],
+        "status_counts": payload.get("status_counts") if isinstance(payload.get("status_counts"), dict) else {},
+        "boundaries": boundaries[:6],
     }
 
 
@@ -490,4 +564,5 @@ async def quality_overview():
         "confidence_distribution": confidence_dist,
         "workspace_smoke": _workspace_smoke_overview(),
         "dev_server_status": _dev_server_status_overview(),
+        "credential_boundaries": _credential_boundary_overview(),
     }
