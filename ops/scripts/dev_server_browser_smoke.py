@@ -298,11 +298,34 @@ def format_markdown(report: dict[str, Any]) -> str:
             f"- `{state}` `{result['target_id']}` `{result['name']}` `{result['path']}` "
             f"expected=`{matched_count}/{expected_count}`"
         )
+    expected_results = [
+        result for result in report["results"] if int(result.get("expected_text_count") or 0) > 0
+    ]
+    if expected_results:
+        lines.extend(["", "## Expected Text Evidence", ""])
+        for result in expected_results:
+            matched_text = result.get("matched_expected_text") or []
+            missing_text = result.get("missing_expected_text") or []
+            matched_count = len(matched_text)
+            expected_count = int(result.get("expected_text_count") or 0)
+            lines.append(
+                f"- `{result['target_id']}` `{result['name']}` matched=`{matched_count}/{expected_count}`"
+            )
+            if matched_text:
+                lines.extend(f"  - matched: `{_markdown_inline_text(item)}`" for item in matched_text)
+            if missing_text:
+                lines.extend(f"  - missing: `{_markdown_inline_text(item)}`" for item in missing_text)
+            if not missing_text:
+                lines.append("  - missing: none")
     if report["failures"]:
         lines.extend(["", "## Failures", ""])
         lines.extend(f"- {failure}" for failure in report["failures"])
     lines.append("")
     return "\n".join(lines)
+
+
+def _markdown_inline_text(value: Any) -> str:
+    return str(value).replace("`", "'").replace("\r", " ").replace("\n", " ")
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:

@@ -178,3 +178,31 @@ def test_route_result_records_missing_expected_text() -> None:
     assert result.matched_expected_text == ["AI Projects Dashboard"]
     assert result.missing_expected_text == ["Queue #2"]
     assert any("missing expected text 'Queue #2'" in failure for failure in result.failures)
+
+
+def test_markdown_lists_expected_text_evidence() -> None:
+    smoke = load_browser_smoke_module()
+    route_result = smoke.RouteResult(
+        target_id="dashboard-frontend",
+        name="home",
+        path="/",
+        ok=False,
+        failures=["dashboard-frontend/home: missing expected text 'Queue #2'"],
+        expected_text_count=2,
+        matched_expected_text=["AI Projects Dashboard"],
+        missing_expected_text=["Queue #2"],
+        status_code=200,
+        final_path="/",
+    )
+    report = smoke.build_report(
+        [{"target_id": "dashboard-frontend", "routes": [{"name": "home"}]}],
+        [route_result],
+        status="fail",
+    )
+
+    markdown = smoke.format_markdown(report)
+
+    assert "## Expected Text Evidence" in markdown
+    assert "- `dashboard-frontend` `home` matched=`1/2`" in markdown
+    assert "  - matched: `AI Projects Dashboard`" in markdown
+    assert "  - missing: `Queue #2`" in markdown
