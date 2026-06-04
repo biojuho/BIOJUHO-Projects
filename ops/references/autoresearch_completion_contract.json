@@ -1278,6 +1278,41 @@
       ]
     },
     {
+      "id": "github_modernization_radar_report_drift_guard",
+      "requirement": "Checked-in GitHub modernization radar report matches the current modernization source manifest and renderer output.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_github_modernization_radar.py",
+          "must_contain": [
+            "test_checked_in_modernization_report_matches_manifest_renderer",
+            "REPORT_MARKDOWN_PATH",
+            "format_markdown(payload, summary)"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
+          "must_contain": [
+            "GitHub Similar Systems Modernization Radar",
+            "Sources reviewed: 30",
+            "Adoption counts: adopted=1, partially_adopted=29, watch=0",
+            "Generated at: `2026-06-05T05:05:00+09:00`",
+            "Keep the default smoke gate deterministic and offline"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_MODERNIZATION_RADAR_DRIFT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "GitHub Modernization Radar Drift Guard",
+            "test_checked_in_modernization_report_matches_manifest_renderer",
+            "`5 passed`",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
       "id": "objective_coverage_artifact_drift_guard",
       "requirement": "Checked-in AutoResearch objective coverage artifacts match the current requirements manifest and renderer output.",
       "required": true,

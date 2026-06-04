@@ -56,7 +56,8 @@
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",
         "github_source_rate_limit_guard",
-        "github_source_snapshot_manifest_drift_guard"
+        "github_source_snapshot_manifest_drift_guard",
+        "github_modernization_radar_report_drift_guard"
       ],
       "evidence": [
         {

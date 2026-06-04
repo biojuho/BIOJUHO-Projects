@@ -8,6 +8,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RADAR_SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "github_modernization_radar.py"
 MANIFEST_PATH = PROJECT_ROOT / "ops" / "references" / "github_modernization_sources.json"
+REPORT_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md"
 
 
 def load_radar_module():
@@ -115,6 +116,18 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     assert "mastra-ai/mastra" in markdown
     assert "lastmile-ai/mcp-agent" in markdown
     assert "Keep the default smoke gate deterministic and offline" in markdown
+
+
+def test_checked_in_modernization_report_matches_manifest_renderer() -> None:
+    radar = load_radar_module()
+    payload = radar.load_manifest(MANIFEST_PATH)
+
+    errors = radar.validate_manifest(payload, workspace_root=PROJECT_ROOT)
+    summary = radar.summarize_manifest(payload)
+    expected = radar.format_markdown(payload, summary)
+
+    assert errors == []
+    assert REPORT_MARKDOWN_PATH.read_text(encoding="utf-8") == expected
 
 
 def test_manifest_rejects_missing_local_evidence(tmp_path: Path) -> None:
