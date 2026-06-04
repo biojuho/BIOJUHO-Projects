@@ -32,6 +32,8 @@ REQUIRED_TARGET_FIELDS = {
 
 FetchResult = tuple[int | None, int | None, str | None, str | None]
 FetchFn = Callable[[str, float], FetchResult]
+SleepFn = Callable[[float], None]
+ClockFn = Callable[[], float]
 
 
 def load_manifest(path: Path = DEFAULT_MANIFEST) -> dict[str, Any]:
@@ -176,6 +178,44 @@ def build_report(
     }
 
 
+def wait_for_ready(
+    payload: dict[str, Any],
+    *,
+    target_ids: list[str] | None = None,
+    timeout: float = 2.0,
+    wait_timeout: float = 30.0,
+    poll_interval: float = 1.0,
+    fetcher: FetchFn | None = None,
+    sleeper: SleepFn = time.sleep,
+    clock: ClockFn = time.monotonic,
+) -> dict[str, Any]:
+    wait_timeout = max(wait_timeout, 0.0)
+    poll_interval = max(poll_interval, 0.0)
+    deadline = clock() + wait_timeout
+    attempts = 0
+    report: dict[str, Any] | None = None
+
+    while True:
+        attempts += 1
+        report = build_report(payload, target_ids=target_ids, timeout=timeout, fetcher=fetcher)
+        if report["summary"]["unready"] == 0:
+            break
+        remaining = deadline - clock()
+        if remaining <= 0:
+            break
+        sleeper(min(poll_interval, remaining))
+
+    assert report is not None
+    report["wait"] = {
+        "enabled": True,
+        "attempts": attempts,
+        "timeout_seconds": wait_timeout,
+        "poll_interval_seconds": poll_interval,
+        "ready": report["summary"]["unready"] == 0,
+    }
+    return report
+
+
 def run(
     manifest_path: Path = DEFAULT_MANIFEST,
     *,
@@ -183,7 +223,12 @@ def run(
     target_ids: list[str] | None = None,
     timeout: float = 2.0,
     validate_only: bool = False,
+    wait_ready: bool = False,
+    wait_timeout: float = 30.0,
+    poll_interval: float = 1.0,
     fetcher: FetchFn | None = None,
+    sleeper: SleepFn = time.sleep,
+    clock: ClockFn = time.monotonic,
 ) -> dict[str, Any]:
     payload = load_manifest(manifest_path)
     errors = validate_manifest(payload, workspace_root=WORKSPACE_ROOT)
@@ -212,6 +257,17 @@ def run(
                 for target in targets
             ],
         }
+    elif wait_ready:
+        report = wait_for_ready(
+            payload,
+            target_ids=target_ids,
+            timeout=timeout,
+            wait_timeout=wait_timeout,
+            poll_interval=poll_interval,
+            fetcher=fetcher,
+            sleeper=sleeper,
+            clock=clock,
+        )
     else:
         report = build_report(payload, target_ids=target_ids, timeout=timeout, fetcher=fetcher)
 
@@ -231,6 +287,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target", action="append", dest="target_ids")
     parser.add_argument("--timeout", type=float, default=2.0)
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--wait-ready", action="store_true")
+    parser.add_argument("--wait-timeout", type=float, default=30.0)
+    parser.add_argument("--poll-interval", type=float, default=1.0)
     parser.add_argument("--fail-on-unready", action="store_true")
     args = parser.parse_args(argv)
 
@@ -241,6 +300,9 @@ def main(argv: list[str] | None = None) -> int:
             target_ids=args.target_ids,
             timeout=args.timeout,
             validate_only=args.validate_only,
+            wait_ready=args.wait_ready,
+            wait_timeout=args.wait_timeout,
+            poll_interval=args.poll_interval,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"dev server status failed: {exc}", file=sys.stderr)
@@ -251,10 +313,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"dev server manifest valid: {summary['total']} target(s)")
         return 0
 
-    print(
-        "dev server status: "
-        f"{summary['ready']}/{summary['total']} ready, {summary['unready']} unready"
-    )
+    prefix = "dev server wait" if args.wait_ready else "dev server status"
+    wait_suffix = ""
+    if args.wait_ready and "wait" in report:
+        wait_suffix = f", attempts={report['wait']['attempts']}"
+    print(f"{prefix}: {summary['ready']}/{summary['total']} ready, {summary['unready']} unready{wait_suffix}")
     if args.fail_on_unready and summary["unready"]:
         return 1
     return 0

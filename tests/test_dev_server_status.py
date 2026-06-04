@@ -109,3 +109,68 @@ def test_validate_only_cli_does_not_probe_network(tmp_path: Path) -> None:
     assert result == 0
     assert report["status"] == "validated"
     assert report["summary"]["total"] == 7
+
+
+def test_wait_for_ready_retries_until_target_is_ready() -> None:
+    status = load_status_module()
+    calls = {"count": 0}
+
+    def fetcher(_url: str, _timeout: float):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return None, 2, None, "offline"
+        return 200, 3, '{"workspace_smoke":{}}', None
+
+    report = status.run(
+        MANIFEST_PATH,
+        target_ids=["dashboard-api"],
+        wait_ready=True,
+        wait_timeout=5,
+        poll_interval=0.01,
+        fetcher=fetcher,
+        sleeper=lambda _seconds: None,
+    )
+
+    assert report["status"] == "ready"
+    assert report["summary"] == {"total": 1, "ready": 1, "unready": 0}
+    assert report["wait"] == {
+        "enabled": True,
+        "attempts": 2,
+        "timeout_seconds": 5,
+        "poll_interval_seconds": 0.01,
+        "ready": True,
+    }
+
+
+def test_wait_for_ready_respects_zero_timeout() -> None:
+    status = load_status_module()
+    report = status.run(
+        MANIFEST_PATH,
+        target_ids=["dashboard-api"],
+        wait_ready=True,
+        wait_timeout=0,
+        poll_interval=0.01,
+        fetcher=lambda _url, _timeout: (None, 1, None, "offline"),
+        sleeper=lambda _seconds: None,
+    )
+
+    assert report["status"] == "degraded"
+    assert report["summary"] == {"total": 1, "ready": 0, "unready": 1}
+    assert report["wait"]["attempts"] == 1
+    assert report["wait"]["ready"] is False
+
+
+def test_wait_for_ready_normalizes_negative_timing_values() -> None:
+    status = load_status_module()
+    report = status.run(
+        MANIFEST_PATH,
+        target_ids=["dashboard-api"],
+        wait_ready=True,
+        wait_timeout=-1,
+        poll_interval=-1,
+        fetcher=lambda _url, _timeout: (None, 1, None, "offline"),
+        sleeper=lambda _seconds: None,
+    )
+
+    assert report["wait"]["timeout_seconds"] == 0.0
+    assert report["wait"]["poll_interval_seconds"] == 0.0
