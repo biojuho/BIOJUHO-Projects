@@ -86,6 +86,43 @@ def test_collect_source_freshness_records_fetch_failures() -> None:
     assert report["records"][0]["error"] == "rate limited"
 
 
+def test_collect_source_freshness_rejects_nonviable_metadata() -> None:
+    freshness = load_module()
+
+    base_metadata = {
+        "repo": "repo",
+        "html_url": "https://github.com/owner/repo",
+        "default_branch": "main",
+        "pushed_at": "2026-06-05T00:00:00Z",
+        "updated_at": "2026-06-05T00:01:00Z",
+        "archived": False,
+        "disabled": False,
+        "visibility": "public",
+        "stargazers_count": 10,
+        "forks_count": 2,
+        "open_issues_count": 1,
+        "license": "MIT",
+    }
+
+    cases = [
+        ({"archived": True}, "repository is archived"),
+        ({"disabled": True}, "repository is disabled"),
+        ({"default_branch": ""}, "missing default_branch"),
+    ]
+    for override, expected_error in cases:
+        def fake_fetch(repo: str, timeout_seconds: float, override=override):
+            metadata = dict(base_metadata)
+            metadata.update({"repo": repo, "html_url": f"https://github.com/{repo}"})
+            metadata.update(override)
+            return metadata
+
+        report = freshness.collect_source_freshness(MANIFEST_PATH, fetch_repo=fake_fetch)
+
+        assert report["status"] == "fail"
+        assert report["failed"] == 22
+        assert {record["error"] for record in report["records"]} == {expected_error}
+
+
 def test_render_markdown_includes_repo_table() -> None:
     freshness = load_module()
     report = {

@@ -70,14 +70,15 @@ def collect_source_freshness(
         repo = source["repo"]
         try:
             metadata = fetch_repo(repo, timeout_seconds)
+            viability_error = _metadata_viability_error(metadata)
             records.append(
                 {
                     "repo": repo,
                     "category": source["category"],
                     "adoption_status": source["adoption_status"],
-                    "status": "pass",
+                    "status": "fail" if viability_error else "pass",
                     "metadata": metadata,
-                    "error": "",
+                    "error": viability_error,
                 }
             )
         except Exception as exc:  # noqa: BLE001 - keep per-repo failure visible in report.
@@ -118,8 +119,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Repositories",
         "",
-        "| Repo | Status | Default branch | Pushed at | Updated at | Stars | Forks | Archived |",
-        "| --- | --- | --- | --- | --- | ---: | ---: | --- |",
+        "| Repo | Status | Default branch | Pushed at | Updated at | Stars | Forks | Archived | Disabled |",
+        "| --- | --- | --- | --- | --- | ---: | ---: | --- | --- |",
     ]
     for record in report["records"]:
         metadata = record.get("metadata", {})
@@ -135,6 +136,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                     str(metadata.get("stargazers_count", "")),
                     str(metadata.get("forks_count", "")),
                     str(metadata.get("archived", "")),
+                    str(metadata.get("disabled", "")),
                 ]
             )
             + " |"
@@ -201,6 +203,18 @@ def _license_spdx(value: Any) -> str | None:
         return None
     spdx = value.get("spdx_id")
     return spdx if isinstance(spdx, str) else None
+
+
+def _metadata_viability_error(metadata: dict[str, Any]) -> str:
+    if metadata.get("archived") is True:
+        return "repository is archived"
+    if metadata.get("disabled") is True:
+        return "repository is disabled"
+    for field in ["html_url", "default_branch", "pushed_at", "updated_at"]:
+        value = metadata.get(field)
+        if not isinstance(value, str) or not value.strip():
+            return f"missing {field}"
+    return ""
 
 
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:

@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 GitHub source viability gate slice: hardened live source
+  freshness so archived, disabled, or metadata-incomplete repositories fail
+  the per-source check instead of remaining passive metadata.
 - 2026-06-05 local artifact hygiene slice: extended `.gitignore` for
   transient AutoResearch/browser-smoke `var/` artifacts so local screenshots,
   probe notes, PID files, and dev-server state do not pollute commit/push
@@ -201,6 +204,27 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_AGENT_PLATFORM_EXPANSION_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_AGENT_PLATFORM_EXPANSION_2026-06-05.md`
+- GitHub source viability gate verification:
+  - `ops\scripts\github_source_freshness.py` now fails a source record when
+    metadata says the repository is archived, disabled, or missing `html_url`,
+    `default_branch`, `pushed_at`, or `updated_at`
+  - markdown output now surfaces both `Archived` and `Disabled`
+  - focused source freshness tests passed `5/5`
+  - focused source/radar/audit tests passed `20/20`
+  - pre-push-equivalent suite passed `89/89`
+  - current cached live snapshot remains viable with `22` records,
+    `22` passed, `0` failed, and `viability_errors=[]` under the stricter
+    predicate
+  - a stricter live rerun hit GitHub unauthenticated API rate limits after 8
+    repositories; no `GITHUB_TOKEN` or `GH_TOKEN` was available, so the failed
+    partial artifact was not adopted
+  - completion audit reports `21` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_GITHUB_SOURCE_VIABILITY_GATE_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_SOURCE_VIABILITY_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_SOURCE_VIABILITY_2026-06-05.md`
 - GitHub source freshness verification:
   - `ops\scripts\github_source_freshness.py` checks the live GitHub REST API
     metadata for every repo in `ops\references\github_modernization_sources.json`

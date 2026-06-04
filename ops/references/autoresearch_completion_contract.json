@@ -252,6 +252,55 @@
       ]
     },
     {
+      "id": "github_source_viability_gate",
+      "requirement": "GitHub source freshness fails when a tracked repository is archived, disabled, or missing core repository metadata.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_freshness.py",
+          "must_contain": [
+            "_metadata_viability_error",
+            "repository is archived",
+            "repository is disabled",
+            "missing {field}",
+            "default_branch",
+            "disabled"
+          ]
+        },
+        {
+          "path": "tests/test_github_source_freshness.py",
+          "must_contain": [
+            "test_collect_source_freshness_rejects_nonviable_metadata",
+            "repository is archived",
+            "repository is disabled",
+            "missing default_branch"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
+          "must_contain": [
+            "\"source_count\": 22",
+            "\"passed\": 22",
+            "\"failed\": 0",
+            "\"archived\": false",
+            "\"disabled\": false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_VIABILITY_GATE_2026-06-05.md",
+          "must_contain": [
+            "archived",
+            "disabled",
+            "missing default_branch",
+            "viability_errors=[]",
+            "89 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
       "id": "self_improving_skill",
       "requirement": "AutoResearch self-improvement skill exists and enforces A/B, evidence, commit/push, and completion-audit behavior.",
       "required": true,
