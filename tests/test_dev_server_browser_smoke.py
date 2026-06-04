@@ -37,6 +37,21 @@ def test_current_browser_manifest_validates_against_dev_server_targets() -> None
     assert sum(len(check["routes"]) for check in browser_manifest["checks"]) == 10
 
 
+def test_dashboard_operator_checklist_text_is_manifest_guarded() -> None:
+    browser_manifest = json.loads(BROWSER_MANIFEST_PATH.read_text(encoding="utf-8"))
+    dashboard_check = next(
+        check for check in browser_manifest["checks"] if check["target_id"] == "dashboard-frontend"
+    )
+    home_route = next(route for route in dashboard_check["routes"] if route["name"] == "home")
+    expected_text = home_route["expected_text"]
+
+    assert "CREDENTIAL OPERATOR CHECKLIST" in expected_text
+    assert "1 ready / 4 blocked" in expected_text
+    assert "Checklist next" in expected_text
+    assert "Required env: missing" in expected_text
+    assert "Canva OAuth and OpenAPI tool execution" in expected_text
+
+
 def test_url_helpers_use_target_origin_for_route_paths() -> None:
     smoke = load_browser_smoke_module()
 
