@@ -41,8 +41,8 @@ def test_collect_source_freshness_maps_manifest_repos() -> None:
     report = freshness.collect_source_freshness(MANIFEST_PATH, fetch_repo=fake_fetch)
 
     assert report["status"] == "pass"
-    assert report["source_count"] == 22
-    assert report["passed"] == 22
+    assert report["source_count"] == 30
+    assert report["passed"] == 30
     assert report["failed"] == 0
     assert {record["repo"] for record in report["records"]} >= {
         "PrefectHQ/fastmcp",
@@ -55,6 +55,14 @@ def test_collect_source_freshness_maps_manifest_repos() -> None:
         "Significant-Gravitas/AutoGPT",
         "FlowiseAI/Flowise",
         "microsoft/playwright-mcp",
+        "OpenHands/OpenHands",
+        "microsoft/autogen",
+        "google/adk-python",
+        "run-llama/llama_index",
+        "strands-agents/harness-sdk",
+        "deepset-ai/haystack",
+        "mastra-ai/mastra",
+        "lastmile-ai/mcp-agent",
     }
 
 
@@ -119,7 +127,7 @@ def test_collect_source_freshness_rejects_nonviable_metadata() -> None:
         report = freshness.collect_source_freshness(MANIFEST_PATH, fetch_repo=fake_fetch)
 
         assert report["status"] == "fail"
-        assert report["failed"] == 22
+        assert report["failed"] == 30
         assert {record["error"] for record in report["records"]} == {expected_error}
 
 

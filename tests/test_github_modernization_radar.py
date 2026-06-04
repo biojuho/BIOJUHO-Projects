@@ -27,10 +27,10 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
     summary = radar.summarize_manifest(payload)
 
     assert errors == []
-    assert summary["source_count"] == 22
+    assert summary["source_count"] == 30
     assert summary["adoption_status_counts"] == {
         "adopted": 1,
-        "partially_adopted": 21,
+        "partially_adopted": 29,
     }
     assert {source["repo"] for source in summary["sources"]} == {
         "PrefectHQ/fastmcp",
@@ -55,6 +55,14 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
         "open-webui/mcpo",
         "microsoft/playwright-mcp",
         "Uninen/devserver-mcp",
+        "OpenHands/OpenHands",
+        "microsoft/autogen",
+        "google/adk-python",
+        "run-llama/llama_index",
+        "strands-agents/harness-sdk",
+        "deepset-ai/haystack",
+        "mastra-ai/mastra",
+        "lastmile-ai/mcp-agent",
     }
     assert all(source["evidence_count"] >= 4 for source in summary["sources"])
 
@@ -78,8 +86,8 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     machine = json.loads(json_out.read_text(encoding="utf-8"))
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
-    assert machine["source_count"] == 22
-    assert machine["adoption_status_counts"]["partially_adopted"] == 21
+    assert machine["source_count"] == 30
+    assert machine["adoption_status_counts"]["partially_adopted"] == 29
     assert "GitHub Similar Systems Modernization Radar" in markdown
     assert "PrefectHQ/fastmcp" in markdown
     assert "modelcontextprotocol/python-sdk" in markdown
@@ -98,6 +106,14 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     assert "FlowiseAI/Flowise" in markdown
     assert "microsoft/mcp-gateway" in markdown
     assert "microsoft/playwright-mcp" in markdown
+    assert "OpenHands/OpenHands" in markdown
+    assert "microsoft/autogen" in markdown
+    assert "google/adk-python" in markdown
+    assert "run-llama/llama_index" in markdown
+    assert "strands-agents/harness-sdk" in markdown
+    assert "deepset-ai/haystack" in markdown
+    assert "mastra-ai/mastra" in markdown
+    assert "lastmile-ai/mcp-agent" in markdown
     assert "Keep the default smoke gate deterministic and offline" in markdown
 
 

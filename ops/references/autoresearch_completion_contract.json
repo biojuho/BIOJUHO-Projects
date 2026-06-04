@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T03:55:00+09:00",
+  "generated_at": "2026-06-05T05:05:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -62,13 +62,21 @@
             "agno-agi/agno",
             "vercel/ai",
             "Significant-Gravitas/AutoGPT",
-            "FlowiseAI/Flowise"
+            "FlowiseAI/Flowise",
+            "OpenHands/OpenHands",
+            "microsoft/autogen",
+            "google/adk-python",
+            "run-llama/llama_index",
+            "strands-agents/harness-sdk",
+            "deepset-ai/haystack",
+            "mastra-ai/mastra",
+            "lastmile-ai/mcp-agent"
           ]
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 22",
+            "Sources reviewed: 30",
             "Adoption counts",
             "modelcontextprotocol/python-sdk",
             "open-telemetry/opentelemetry-collector",
@@ -84,19 +92,30 @@
             "agno-agi/agno",
             "vercel/ai",
             "Significant-Gravitas/AutoGPT",
-            "FlowiseAI/Flowise"
+            "FlowiseAI/Flowise",
+            "OpenHands/OpenHands",
+            "microsoft/autogen",
+            "google/adk-python",
+            "run-llama/llama_index",
+            "strands-agents/harness-sdk",
+            "deepset-ai/haystack",
+            "mastra-ai/mastra",
+            "lastmile-ai/mcp-agent"
           ]
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_AGENT_PLATFORM_EXPANSION_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_AGENT_RUNTIME_EXPANSION_2026-06-05.md",
           "must_contain": [
-            "22",
-            "microsoft/agent-framework",
-            "agno-agi/agno",
-            "vercel/ai",
-            "Significant-Gravitas/AutoGPT",
-            "FlowiseAI/Flowise",
-            "22/22",
+            "30",
+            "OpenHands/OpenHands",
+            "microsoft/autogen",
+            "google/adk-python",
+            "run-llama/llama_index",
+            "strands-agents/harness-sdk",
+            "deepset-ai/haystack",
+            "mastra-ai/mastra",
+            "lastmile-ai/mcp-agent",
+            "30/30",
             "global_objective_complete=false"
           ]
         }
@@ -171,8 +190,8 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
           "must_contain": [
-            "\"source_count\": 22",
-            "\"passed\": 22",
+            "\"source_count\": 30",
+            "\"passed\": 30",
             "\"failed\": 0",
             "\"github_api_version\": \"2022-11-28\"",
             "openai/openai-agents-python",
@@ -183,7 +202,15 @@
             "agno-agi/agno",
             "vercel/ai",
             "Significant-Gravitas/AutoGPT",
-            "FlowiseAI/Flowise"
+            "FlowiseAI/Flowise",
+            "OpenHands/OpenHands",
+            "microsoft/autogen",
+            "google/adk-python",
+            "run-llama/llama_index",
+            "strands-agents/harness-sdk",
+            "deepset-ai/haystack",
+            "mastra-ai/mastra",
+            "lastmile-ai/mcp-agent"
           ]
         },
         {
@@ -202,6 +229,14 @@
             "vercel/ai",
             "Significant-Gravitas/AutoGPT",
             "FlowiseAI/Flowise",
+            "OpenHands/OpenHands",
+            "microsoft/autogen",
+            "google/adk-python",
+            "run-llama/llama_index",
+            "strands-agents/harness-sdk",
+            "deepset-ai/haystack",
+            "mastra-ai/mastra",
+            "lastmile-ai/mcp-agent",
             "Failed: `0`"
           ]
         }
@@ -234,8 +269,8 @@
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
           "must_contain": [
             "\"status\": \"pass\"",
-            "\"generated_at\": \"2026-06-04T17:44:09",
-            "\"source_count\": 22",
+            "\"generated_at\": \"2026-06-04T18:54:22",
+            "\"source_count\": 30",
             "\"failed\": 0"
           ],
           "json_freshness": {
@@ -287,8 +322,8 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
           "must_contain": [
-            "\"source_count\": 22",
-            "\"passed\": 22",
+            "\"source_count\": 30",
+            "\"passed\": 30",
             "\"failed\": 0",
             "\"archived\": false",
             "\"disabled\": false"

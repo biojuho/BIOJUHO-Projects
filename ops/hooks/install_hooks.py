@@ -1,7 +1,7 @@
 """Install Git hooks from ops/hooks/ into Git's common hooks directory."""
 
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -47,7 +47,7 @@ def install_hooks(hooks_dst: Path) -> None:
         if not hook_file.is_file() or hook_file.name.startswith(".") or hook_file.name.endswith(".py"):
             continue
         dst = hooks_dst / hook_file.name
-        shutil.copy2(hook_file, dst)
+        _install_hook_file(hook_file, dst)
         print(f"[ok] Installed {hook_file.name} -> {dst}")
         installed += 1
 
@@ -55,6 +55,12 @@ def install_hooks(hooks_dst: Path) -> None:
         print(f"\n{installed} hook(s) installed.")
     else:
         print("No hooks found in ops/hooks/")
+
+
+def _install_hook_file(source: Path, destination: Path) -> None:
+    content = source.read_text(encoding="utf-8")
+    destination.write_text(content.replace("\r\n", "\n"), encoding="utf-8", newline="\n")
+    shutil.copystat(source, destination)
 
 
 if __name__ == "__main__":

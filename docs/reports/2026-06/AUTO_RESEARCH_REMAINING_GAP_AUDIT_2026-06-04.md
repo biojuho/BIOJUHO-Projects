@@ -10,6 +10,10 @@ Latest pushed commits in this slice:
   live verifier that plans registry verification commands, blocks
   missing-required-env boundaries, and supports redacted execution only for
   ready boundaries.
+- 2026-06-05 GitHub agent-runtime expansion slice: expanded the modernization
+  radar from `22` to `30` live GitHub repositories by adding OpenHands,
+  AutoGen, Google ADK, LlamaIndex, Strands Agents, Haystack, Mastra, and MCP
+  Agent as source-backed comparison projects.
 - 2026-06-05 external credential handoff drift-guard slice: added checked-in
   handoff sync checks to the generator and pre-push hook so registry changes
   cannot silently stale the JSON, Markdown, or env-template artifacts.
@@ -158,6 +162,36 @@ Latest pushed commits in this slice:
 - `FlowiseAI/Flowise`: partially adopted through dashboard quality panels,
   workflow manifests, dev-server control, and browser-smoked operator surfaces;
   a visual agent builder, template marketplace, and runtime graph editor remain
+  future-scoped.
+- `OpenHands/OpenHands`: partially adopted through the AutoResearch skill,
+  workflow gates, completion audits, and durable next-action capture; hosted
+  agent GUI, RBAC, cloud deployment, and enterprise controls remain
+  future-scoped.
+- `microsoft/autogen`: partially adopted through bounded multi-agent gate
+  execution and side-effect approval skips; AutoGen runtime migration,
+  autonomous web/code execution teams, and persistent conversation state remain
+  future-scoped.
+- `google/adk-python`: partially adopted through code-first Python workflow
+  manifests, gate execution, and credential-boundary tracking; ADK hosted
+  deployment and provider-specific credentials remain future-scoped.
+- `run-llama/llama_index`: partially adopted through DeSci/research browser
+  proof and workflow gates; LlamaIndex ingestion, OCR, AgentWorkflow runtime,
+  and document-provider credentials remain future-scoped.
+- `strands-agents/harness-sdk`: partially adopted through MCP runtime smoke
+  and OTLP handoff validation; Strands SDK runtime migration, provider
+  abstraction, live cloud deployment, and SDK-native multi-agent graphs remain
+  future-scoped.
+- `deepset-ai/haystack`: partially adopted through dashboard quality
+  visibility, DeSci browser proof, and deterministic workflow smoke; Haystack
+  pipeline runtime, retrieval/memory backend selection, and hosted production
+  orchestration remain future-scoped.
+- `mastra-ai/mastra`: partially adopted through TypeScript dashboard and Canva
+  MCP surfaces with browser smoke and explicit execution boundaries; Mastra
+  runtime migration and hosted TypeScript-native agent workflows remain
+  future-scoped.
+- `lastmile-ai/mcp-agent`: partially adopted through MCP service discovery,
+  stdio runtime smoke, dev-server MCP policy, and workflow gate matrices; MCP
+  Agent runtime migration and long-running agent server operation remain
   future-scoped.
 - Canva widget-preview browser smoke: adopted deterministic inline SVG preview
   thumbnails and shared manifest evidence so `canva-widget-preview` is covered
@@ -322,12 +356,32 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md`
-- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-platform-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
+- `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-runtime-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `22` sources
+  - `30` sources
   - `adopted=1`
-  - `partially_adopted=21`
+  - `partially_adopted=29`
   - `watch=0`
+- GitHub agent-runtime source expansion verification:
+  - added `OpenHands/OpenHands`, `microsoft/autogen`, `google/adk-python`,
+    `run-llama/llama_index`, `strands-agents/harness-sdk`,
+    `deepset-ai/haystack`, `mastra-ai/mastra`, and
+    `lastmile-ai/mcp-agent`
+  - focused radar/source tests passed `9/9`
+  - focused source/radar/audit tests passed `20/20`
+  - focused credential/completion guardrail tests passed `21/21`
+  - pre-push-equivalent pytest suite passed `99/99`
+  - hook-equivalent runtime probes passed for the external credential handoff
+    drift check, dev-server MCP runtime, MCP service runtime, single-workflow
+    dry-run, side-effect safety skip, all-workflow matrix dry-run, and
+    completion audit
+  - live GitHub source freshness passed `30/30` sources with `0` failures
+  - newest upstream `pushed_at` in the refreshed snapshot was
+    `2026-06-04T18:53:13Z`
+  - completion audit reports `23` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_GITHUB_AGENT_RUNTIME_EXPANSION_2026-06-05.md`
 - GitHub agent-platform source expansion verification:
   - added `microsoft/agent-framework`, `agno-agi/agno`, `vercel/ai`,
     `Significant-Gravitas/AutoGPT`, and `FlowiseAI/Flowise`
@@ -351,12 +405,12 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - focused source freshness tests passed `5/5`
   - focused source/radar/audit tests passed `20/20`
   - pre-push-equivalent suite passed `89/89`
-  - current cached live snapshot remains viable with `22` records,
-    `22` passed, `0` failed, and `viability_errors=[]` under the stricter
+  - current cached live snapshot remains viable with `30` records,
+    `30` passed, `0` failed, and `viability_errors=[]` under the stricter
     predicate
-  - a stricter live rerun hit GitHub unauthenticated API rate limits after 8
-    repositories; no `GITHUB_TOKEN` or `GH_TOKEN` was available, so the failed
-    partial artifact was not adopted
+  - an earlier stricter live rerun hit GitHub unauthenticated API rate limits
+    after 8 repositories; no `GITHUB_TOKEN` or `GH_TOKEN` was available, so
+    that failed partial artifact was not adopted
   - completion audit reports `21` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`
   - generated evidence:
@@ -367,9 +421,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - GitHub source freshness verification:
   - `ops\scripts\github_source_freshness.py` checks the live GitHub REST API
     metadata for every repo in `ops\references\github_modernization_sources.json`
-  - live snapshot passed `22/22` sources with `0` failures
-  - newest upstream `pushed_at` in the snapshot was `2026-06-04T17:42:15Z`
-  - snapshot generated at `2026-06-04T17:44:09.050004+00:00`
+  - live snapshot passed `30/30` sources with `0` failures
+  - newest upstream `pushed_at` in the snapshot was `2026-06-04T18:53:13Z`
+  - snapshot generated at `2026-06-04T18:54:22.968302+00:00`
   - focused source-freshness tests passed `4/4`
   - pre-push-equivalent suite passed `86/86`
   - installed pre-push dry-run ran `86/86` plus runtime probes and completion

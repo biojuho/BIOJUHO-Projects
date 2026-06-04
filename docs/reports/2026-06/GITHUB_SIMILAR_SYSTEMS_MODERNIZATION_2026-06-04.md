@@ -2,9 +2,9 @@
 
 ## Summary
 
-- Sources reviewed: 22
-- Adoption counts: adopted=1, partially_adopted=21, watch=0
-- Generated at: `2026-06-05T04:05:00+09:00`
+- Sources reviewed: 30
+- Adoption counts: adopted=1, partially_adopted=29, watch=0
+- Generated at: `2026-06-05T05:05:00+09:00`
 
 ## Search Context
 
@@ -30,6 +30,14 @@
   - `Vercel AI SDK TypeScript agents tools AI Gateway GitHub`
   - `AutoGPT platform continuous agents workflow marketplace GitHub`
   - `Flowise low-code agent workflow builder GitHub`
+  - `OpenHands autonomous coding agent SDK CLI local GUI GitHub`
+  - `AutoGen multi-agent conversation framework GitHub`
+  - `Google ADK code-first agent development kit GitHub`
+  - `LlamaIndex document agent workflow orchestration GitHub`
+  - `Strands Agents MCP OpenTelemetry multi-agent SDK GitHub`
+  - `Haystack production LLM orchestration agent workflows GitHub`
+  - `Mastra TypeScript AI agent framework GitHub`
+  - `MCP Agent LastMile workflow patterns GitHub`
 
 ## Source Mapping
 
@@ -673,6 +681,186 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_TABLE_STATUS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TIMEOUT_TREE_2026-06-04.md`
 - Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, a local stdio MCP runtime, and read-only policy introspection are adopted. Full TUI exposure and a network-facing non-local authentication layer remain future-scoped; process mutation is available only through explicit local environment opt-in.
+
+### OpenHands/OpenHands
+
+- URL: https://github.com/OpenHands/OpenHands
+- Category: `autonomous-coding-agent-platform`
+- Adoption status: `partially_adopted`
+- Why similar: OpenHands combines a software-agent SDK, CLI, REST API, local GUI, cloud deployment, and enterprise controls for AI-driven development, directly matching the user's Codex computer-use and self-improving launch-loop objective.
+- Observed patterns:
+  - software-agent SDK and CLI as separable operator surfaces
+  - local GUI plus REST API for inspecting agent work
+  - cloud and enterprise deployment boundaries with RBAC and permissions
+  - skills and evaluation infrastructure as durable agent scaffolding
+  - clear licensing boundary between open core and enterprise-only features
+- Local evidence:
+  - `.agents/skills/auto-research-karpathy/SKILL.md`
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md`
+  - `ops/references/autoresearch_completion_contract.json`
+  - `next-actions.md`
+- Gap: Local AutoResearch skills, deterministic workflow gates, completion audits, and durable next-action capture are adopted. A hosted OpenHands-style agent GUI, RBAC layer, and cloud deployment remain future-scoped until the operator selects credentials, tenancy, and approval policy.
+
+### microsoft/autogen
+
+- URL: https://github.com/microsoft/autogen
+- Category: `multi-agent-conversation-framework`
+- Adoption status: `partially_adopted`
+- Why similar: AutoGen provides autonomous and human-assisted multi-agent application patterns, useful as a comparison point for bounded AutoResearch loops and side-effect approvals.
+- Observed patterns:
+  - multi-agent collaboration around tasks and tools
+  - human-assisted operation before risky actions
+  - web browsing, code execution, and file-handling capabilities in agent teams
+  - migration pressure toward Microsoft Agent Framework as the newer runtime
+  - explicit separation between framework capability and local safety policy
+- Local evidence:
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_REUSE_SAFE_FIRST_GATES_2026-06-05.json`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_SAFETY_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md`
+- Gap: Bounded multi-agent gate execution and human-checkpoint-style side-effect skips are adopted. AutoGen runtime migration, autonomous web/code execution teams, and persistent conversation state remain future-scoped while Microsoft Agent Framework is the primary Microsoft successor source.
+
+### google/adk-python
+
+- URL: https://github.com/google/adk-python
+- Category: `code-first-agent-development-kit`
+- Adoption status: `partially_adopted`
+- Why similar: Google ADK is a code-first Python toolkit for building, evaluating, and deploying agents with flexibility and control, matching the workspace's preference for repo-owned scripts and deterministic quality gates.
+- Observed patterns:
+  - agent logic and tools defined directly in Python
+  - evaluation and deployment concerns treated as first-class
+  - versioned code-first workflows instead of chat-only plans
+  - local quality gates before deployment claims
+  - credential and hosted-runtime choices separated from local proofs
+- Local evidence:
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_manifest.py`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `tests/test_agent_workflow_manifest.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md`
+  - `ops/references/external_credential_boundaries.json`
+- Gap: Code-first workflow manifests, Python gate execution, and credential-boundary tracking are adopted. ADK runtime deployment, hosted Agent Engine integration, and provider-specific credentials remain future-scoped.
+
+### run-llama/llama_index
+
+- URL: https://github.com/run-llama/llama_index
+- Category: `document-agent-workflow-platform`
+- Adoption status: `partially_adopted`
+- Why similar: LlamaIndex focuses on document agents, workflows, and data-grounded application orchestration, relevant to the repo's DeSci and research-heavy launch surfaces.
+- Observed patterns:
+  - document-agent and OCR-oriented data workflows
+  - retrieval and workflow steps kept inspectable
+  - async workflow orchestration for agent applications
+  - agent code focused on orchestration, business logic, and review
+  - runtime durability and identity concerns treated as separate adoption choices
+- Local evidence:
+  - `apps/desci-platform`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md`
+  - `docs/reports/2026-06/DESCI_BROWSER_SMOKE_JSON_EVIDENCE_2026-06-04.json`
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md`
+- Gap: Research-heavy DeSci browser proof and workflow gates are adopted. LlamaIndex-specific ingestion, OCR, AgentWorkflow runtime migration, and external document-provider credentials remain future-scoped until a concrete research-data workflow requires them.
+
+### strands-agents/harness-sdk
+
+- URL: https://github.com/strands-agents/harness-sdk
+- Category: `model-driven-agent-sdk`
+- Adoption status: `partially_adopted`
+- Why similar: Strands Agents emphasizes model-agnostic agents, MCP, multi-agent patterns, deployment options, and OpenTelemetry, aligning with the workspace's MCP runtime and OTLP handoff work.
+- Observed patterns:
+  - model-agnostic provider abstraction
+  - native MCP support for agent tools
+  - multi-agent graph, swarm, and workflow patterns
+  - OpenTelemetry observability for production agents
+  - deployment choices spanning local, container, and cloud runtimes
+- Local evidence:
+  - `ops/references/mcp_service_manifest.json`
+  - `ops/scripts/mcp_service_runtime_smoke.py`
+  - `ops/scripts/run_workspace_smoke.py`
+  - `ops/scripts/mcp_otel_collector_handoff.py`
+  - `tests/test_mcp_service_runtime_smoke.py`
+  - `tests/test_mcp_otel_collector_handoff.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md`
+- Gap: MCP initialize/tools-list smoke and OTLP handoff validation are adopted. Strands runtime migration, model-provider abstraction, live cloud deployment, and SDK-native multi-agent graphs remain future-scoped until a concrete hosted runtime is selected.
+
+### deepset-ai/haystack
+
+- URL: https://github.com/deepset-ai/haystack
+- Category: `production-llm-orchestration`
+- Adoption status: `partially_adopted`
+- Why similar: Haystack is a production-oriented LLM orchestration framework with modular pipelines, agent workflows, retrieval, routing, memory, and debugging visibility, relevant to product-ready research and dashboard workflows.
+- Observed patterns:
+  - modular pipeline and agent workflow composition
+  - explicit routing, retrieval, memory, and generation stages
+  - inspectable decisions for debugging and optimization
+  - production-grade orchestration without hiding credentials
+  - separation of pipeline design from runtime deployment
+- Local evidence:
+  - `apps/desci-platform`
+  - `apps/dashboard/src/components/QualityPanel.jsx`
+  - `ops/scripts/run_workspace_smoke.py`
+  - `ops/references/agent_workflows.json`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_ALL_SCOPE_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md`
+- Gap: Dashboard quality visibility, DeSci browser proof, and deterministic workflow smoke are adopted. Haystack pipeline runtime, retrieval/memory backend selection, and hosted production orchestration remain future-scoped.
+
+### mastra-ai/mastra
+
+- URL: https://github.com/mastra-ai/mastra
+- Category: `typescript-agent-application-framework`
+- Adoption status: `partially_adopted`
+- Why similar: Mastra is a TypeScript framework for AI-powered applications and agents, matching the dashboard and Canva TypeScript surfaces that need browser-visible, operator-facing behavior.
+- Observed patterns:
+  - TypeScript-first agent application structure
+  - operator-facing agent workflows and UI surfaces
+  - tool and runtime boundaries in application code
+  - modern frontend integration for AI products
+  - dual-license or hosted-runtime boundaries kept explicit
+- Local evidence:
+  - `apps/dashboard/src/App.jsx`
+  - `apps/dashboard/src/components/QualityPanel.jsx`
+  - `mcp/canva-mcp/src/server/server.ts`
+  - `mcp/canva-mcp/src/server/tools.ts`
+  - `ops/references/dev_server_browser_checks.json`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
+- Gap: TypeScript dashboard and Canva MCP tool surfaces are adopted with browser smoke and explicit execution boundaries. Mastra runtime migration, TypeScript-native agent workflows, and hosted deployment remain future-scoped.
+
+### lastmile-ai/mcp-agent
+
+- URL: https://github.com/lastmile-ai/mcp-agent
+- Category: `mcp-agent-workflow-framework`
+- Adoption status: `partially_adopted`
+- Why similar: MCP Agent builds composable agents around Model Context Protocol and workflow patterns, directly matching the repo-local MCP service manifest, runtime smoke, and workflow gate matrix.
+- Observed patterns:
+  - MCP-native agent workflows
+  - composable workflow patterns around tool servers
+  - server discovery before agent execution
+  - observability and controls for agent tool use
+  - secret handling kept out of source control
+- Local evidence:
+  - `ops/references/mcp_service_manifest.json`
+  - `ops/scripts/mcp_service_runtime_smoke.py`
+  - `ops/scripts/dev_server_mcp_runtime_smoke.py`
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md`
+- Gap: MCP service discovery, stdio runtime smoke, dev-server MCP policy, and workflow gate matrices are adopted. MCP Agent runtime migration and long-running agent server operation remain future-scoped pending hosted runtime and credential choices.
 
 ## Operating Decision
 
