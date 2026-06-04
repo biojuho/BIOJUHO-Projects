@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T08:31:00+09:00",
+  "generated_at": "2026-06-05T08:37:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -179,6 +179,7 @@
               "tests/test_external_credential_live_verify.py",
               "tests/test_telegram_notification_live_verify.py",
               "tests/test_pre_push_hook.py",
+              "tests/test_canva_mcp_openapi_contract.py",
               "tests/test_github_modernization_radar.py",
               "tests/test_autoresearch_completion_audit.py",
               "tests/test_github_source_freshness.py",
@@ -582,6 +583,48 @@
             "GitHub Source Commit Digest",
             "4/4",
             "github_atom_feed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "canva_mcp_continuation_guard",
+      "requirement": "Canva MCP continuation-capable tools preserve pagination continuation schema, descriptions, and server propagation, with the guard wired into pre-push.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_canva_mcp_openapi_contract.py",
+          "must_contain": [
+            "test_canva_continuation_tools_keep_schema_description_and_server_propagation",
+            "continuation_tools",
+            "search-designs",
+            "list-folder-items",
+            "list-comments",
+            "list-replies",
+            "params.append(\"continuation\", args.continuation)"
+          ]
+        },
+        {
+          "path": "ops/hooks/pre-push",
+          "must_contain": [
+            "tests/test_canva_mcp_openapi_contract.py"
+          ]
+        },
+        {
+          "path": "tests/test_pre_push_hook.py",
+          "must_contain": [
+            "tests/test_canva_mcp_openapi_contract.py"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_CONTINUATION_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Canva MCP Continuation Guard",
+            "mastra-ai/mastra",
+            "continuation",
+            "12 passed",
             "global_objective_complete=false"
           ]
         }

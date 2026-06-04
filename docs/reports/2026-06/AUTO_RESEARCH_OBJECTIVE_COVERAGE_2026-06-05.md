@@ -15,7 +15,7 @@
 | `self_improving_autoresearch_skill` | `covered_current_cycle` | `4` | `2` |
 | `continuous_ab_adoption_commit_push` | `continuous` | `3` | `2` |
 | `direct_app_click_qa` | `covered_current_cycle` | `8` | `12` |
-| `beyond_user_expected_quality` | `covered_current_cycle` | `16` | `9` |
+| `beyond_user_expected_quality` | `covered_current_cycle` | `17` | `10` |
 | `external_credential_and_runtime_boundaries` | `blocked_external` | `11` | `8` |
 
 ## Continuous Requirements

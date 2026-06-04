@@ -17,6 +17,7 @@ def test_pre_push_hook_runs_completion_and_mcp_smokes() -> None:
     assert "tests/test_telegram_notification_live_verify.py" in hook
     assert "tests/test_github_source_review_queue.py" in hook
     assert "tests/test_github_source_commit_digest.py" in hook
+    assert "tests/test_canva_mcp_openapi_contract.py" in hook
     assert "tests/test_canva_widget_click_smoke.py" in hook
     assert "tests/test_dev_server_browser_smoke.py" in hook
     assert "tests/test_dev_server_mcp_contract.py" in hook

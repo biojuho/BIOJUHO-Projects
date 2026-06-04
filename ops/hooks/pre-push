@@ -26,6 +26,7 @@ if ! python -m pytest \
     tests/test_github_source_freshness.py \
     tests/test_github_source_review_queue.py \
     tests/test_github_source_commit_digest.py \
+    tests/test_canva_mcp_openapi_contract.py \
     tests/test_canva_widget_click_smoke.py \
     tests/test_dev_server_browser_smoke.py \
     tests/test_dev_server_mcp_contract.py \
@@ -33,7 +34,7 @@ if ! python -m pytest \
     tests/test_dev_server_mcp_runtime_smoke.py \
     -q --tb=line 2>/dev/null; then
     echo "Smoke test failed. Push blocked."
-    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_pre_push_hook.py tests/test_autoresearch_objective_coverage.py tests/test_autoresearch_completion_audit.py tests/test_dashboard_api.py tests/test_mcp_service_runtime_smoke.py tests/test_mcp_otel_collector_handoff.py tests/test_external_credential_boundary_audit.py tests/test_external_credential_handoff.py tests/test_external_credential_live_verify.py tests/test_telegram_notification_live_verify.py tests/test_agent_workflow_gate_runner.py tests/test_github_modernization_radar.py tests/test_github_source_freshness.py tests/test_github_source_review_queue.py tests/test_github_source_commit_digest.py tests/test_canva_widget_click_smoke.py tests/test_dev_server_browser_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
+    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_pre_push_hook.py tests/test_autoresearch_objective_coverage.py tests/test_autoresearch_completion_audit.py tests/test_dashboard_api.py tests/test_mcp_service_runtime_smoke.py tests/test_mcp_otel_collector_handoff.py tests/test_external_credential_boundary_audit.py tests/test_external_credential_handoff.py tests/test_external_credential_live_verify.py tests/test_telegram_notification_live_verify.py tests/test_agent_workflow_gate_runner.py tests/test_github_modernization_radar.py tests/test_github_source_freshness.py tests/test_github_source_review_queue.py tests/test_github_source_commit_digest.py tests/test_canva_mcp_openapi_contract.py tests/test_canva_widget_click_smoke.py tests/test_dev_server_browser_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -v' for details."
     exit 1
 fi
 

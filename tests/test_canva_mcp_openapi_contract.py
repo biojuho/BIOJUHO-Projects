@@ -9,6 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "canva_mcp_openapi_contract.py"
 TOOLS_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "tools.ts"
 SERVER_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "server.ts"
+SCHEMAS_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "schemas.ts"
 
 
 def load_contract_module():
@@ -104,3 +105,27 @@ def test_canva_mcp_server_exposes_read_only_metadata_routes() -> None:
     assert "getOpenApiToolCallName" in server
     assert "openapi_tool_execution_disabled" in server
     assert '"501"' in server
+
+
+def test_canva_continuation_tools_keep_schema_description_and_server_propagation() -> None:
+    contract = load_contract_module()
+    tools = {tool["name"]: tool for tool in contract.parse_tools(TOOLS_PATH)}
+    schemas = SCHEMAS_PATH.read_text(encoding="utf-8")
+    server = SERVER_PATH.read_text(encoding="utf-8")
+    continuation_tools = {
+        "search-designs": ("searchDesignsSchema", "searchDesignsParser"),
+        "list-folder-items": ("listFolderItemsSchema", "listFolderItemsParser"),
+        "list-comments": ("listCommentsSchema", "listCommentsParser"),
+        "list-replies": ("listRepliesSchema", "listRepliesParser"),
+    }
+
+    for tool_name, (schema_name, parser_name) in continuation_tools.items():
+        assert "continuation" in tools[tool_name]["description"].lower()
+        assert f"export const {schema_name}" in schemas
+        assert f"export const {parser_name}" in schemas
+        assert f"{parser_name} = z.object" in schemas
+
+    assert schemas.count("continuation: {") >= len(continuation_tools)
+    assert schemas.count("continuation: z.string().optional()") >= len(continuation_tools)
+    assert server.count('params.append("continuation", args.continuation)') >= len(continuation_tools)
+    assert "structuredContent: { query: args.query, designs: data.items || [], continuation: data.continuation }" in server

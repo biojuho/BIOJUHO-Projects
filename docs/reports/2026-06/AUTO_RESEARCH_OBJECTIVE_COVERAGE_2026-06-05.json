@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T23:30:58.349689+00:00",
+  "generated_at": "2026-06-04T23:37:10.567758+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -258,6 +258,7 @@
         "dashboard_credential_live_unblock_queue",
         "dashboard_credential_operator_checklist",
         "browser_smoke_expected_text_evidence",
+        "canva_mcp_continuation_guard",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -281,6 +282,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_UNBLOCK_QUEUE_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_CONTINUATION_GUARD_2026-06-05.md",
+          "term_count": 4
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EXPECTED_TEXT_EVIDENCE_2026-06-05.md",

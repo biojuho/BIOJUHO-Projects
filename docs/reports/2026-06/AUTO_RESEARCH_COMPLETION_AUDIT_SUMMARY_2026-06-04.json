@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T08:31:00+09:00",
+  "generated_at": "2026-06-05T08:37:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 40
+    "covered": 41
   },
-  "criterion_count": 41,
+  "criterion_count": 42,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -339,6 +339,41 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.md",
           "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "canva_mcp_continuation_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_canva_mcp_openapi_contract.py",
+          "term_count": 7,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "ops/hooks/pre-push",
+          "term_count": 1,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_pre_push_hook.py",
+          "term_count": 1,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_CONTINUATION_GUARD_2026-06-05.md",
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
