@@ -187,6 +187,7 @@ def stop_target(
     process_checker: ProcessChecker | None = None,
     terminator: Terminator | None = None,
     port_pid_finder: PortPidFinder | None = None,
+    include_dependencies: bool = False,
 ) -> dict[str, Any]:
     process_checker = process_exists if process_checker is None else process_checker
     terminator = terminate_process_tree if terminator is None else terminator
@@ -224,8 +225,47 @@ def stop_target(
     else:
         state["status"] = "not_running"
         state["checked_at"] = utc_now()
+    if include_dependencies:
+        state["dependency_stops"] = stop_dependencies(
+            state.get("dependencies", []),
+            state_dir=state_dir,
+            timeout=timeout,
+            process_checker=process_checker,
+            terminator=terminator,
+            port_pid_finder=port_pid_finder,
+        )
     write_json_atomic(paths["state"], state)
     return state
+
+
+def stop_dependencies(
+    dependencies: list[Any],
+    *,
+    state_dir: Path,
+    timeout: float,
+    process_checker: ProcessChecker,
+    terminator: Terminator,
+    port_pid_finder: PortPidFinder,
+) -> list[dict[str, Any]]:
+    stopped = []
+    for dependency in dependencies:
+        if not isinstance(dependency, dict) or not isinstance(dependency.get("target_id"), str):
+            continue
+        dependency_id = dependency["target_id"]
+        try:
+            dependency_state = stop_target(
+                dependency_id,
+                state_dir=state_dir,
+                timeout=timeout,
+                process_checker=process_checker,
+                terminator=terminator,
+                port_pid_finder=port_pid_finder,
+                include_dependencies=True,
+            )
+            stopped.append({"target_id": dependency_id, "status": dependency_state["status"]})
+        except RuntimeError as exc:
+            stopped.append({"target_id": dependency_id, "status": "error", "error": str(exc)})
+    return stopped
 
 
 def tail_target(target_id: str, *, state_dir: Path = DEFAULT_STATE_DIR, lines: int = 40) -> dict[str, Any]:
@@ -460,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
     stop_parser = subparsers.add_parser("stop")
     stop_parser.add_argument("--target", required=True)
     stop_parser.add_argument("--timeout", type=float, default=5.0)
+    stop_parser.add_argument("--include-dependencies", action="store_true")
 
     tail_parser = subparsers.add_parser("tail")
     tail_parser.add_argument("--target", required=True)
@@ -489,7 +530,12 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return 0
         if args.command == "stop":
-            result = stop_target(args.target, state_dir=args.state_dir, timeout=args.timeout)
+            result = stop_target(
+                args.target,
+                state_dir=args.state_dir,
+                timeout=args.timeout,
+                include_dependencies=args.include_dependencies,
+            )
             if args.json_out:
                 write_json_atomic(args.json_out, result)
             print(f"dev server {result['status']}: {args.target}")

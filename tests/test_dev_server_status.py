@@ -71,7 +71,7 @@ def test_probe_target_reports_ready_and_unready() -> None:
     status = load_status_module()
     target = status.load_manifest(MANIFEST_PATH)["targets"][0]
 
-    ready = status.probe_target(target, fetcher=lambda _url, _timeout: (200, 12, '{"workspace_smoke":{}}', None))
+    ready = status.probe_target(target, fetcher=lambda _url, _timeout: (200, 12, '{"qa_grades":[],"daily_production":[]}', None))
     wrong_service = status.probe_target(target, fetcher=lambda _url, _timeout: (200, 4, '{"other":"service"}', None))
     unready = status.probe_target(target, fetcher=lambda _url, _timeout: (None, 3, None, "connection refused"))
 
@@ -79,7 +79,7 @@ def test_probe_target_reports_ready_and_unready() -> None:
     assert ready["status_code"] == 200
     assert ready["latency_ms"] == 12
     assert wrong_service["ok"] is False
-    assert wrong_service["error"] == "response body missing marker(s): workspace_smoke"
+    assert wrong_service["error"] == "response body missing marker(s): qa_grades, daily_production"
     assert unready["ok"] is False
     assert unready["error"] == "connection refused"
 
@@ -95,7 +95,7 @@ def test_probe_target_uses_target_specific_timeout() -> None:
     result = status.probe_target(
         target,
         timeout=1,
-        fetcher=lambda _url, timeout: (seen_timeouts.append(timeout) or (200, 12, '{"workspace_smoke":{}}', None)),
+        fetcher=lambda _url, timeout: (seen_timeouts.append(timeout) or (200, 12, '{"qa_grades":[],"daily_production":[]}', None)),
     )
 
     assert result["ok"] is True
@@ -114,7 +114,7 @@ def test_run_writes_machine_report_with_target_filter(tmp_path: Path) -> None:
         fetcher=lambda url, _timeout: (
             200 if "8080" in url else None,
             5,
-            '{"workspace_smoke":{}}' if "8080" in url else None,
+            '{"qa_grades":[],"daily_production":[]}' if "8080" in url else None,
             None if "8080" in url else "offline",
         ),
     )
@@ -177,7 +177,7 @@ def test_wait_for_ready_retries_until_target_is_ready() -> None:
         calls["count"] += 1
         if calls["count"] == 1:
             return None, 2, None, "offline"
-        return 200, 3, '{"workspace_smoke":{}}', None
+        return 200, 3, '{"qa_grades":[],"daily_production":[]}', None
 
     report = status.run(
         MANIFEST_PATH,

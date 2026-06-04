@@ -71,7 +71,7 @@ def test_start_target_reuses_already_ready_target_without_spawning(tmp_path: Pat
         payload,
         "dashboard-api",
         state_dir=tmp_path,
-        fetcher=lambda _url, _timeout: (200, 3, '{"workspace_smoke":{}}', None),
+        fetcher=lambda _url, _timeout: (200, 3, '{"qa_grades":[],"daily_production":[]}', None),
         popen_factory=fake_popen,
         process_checker=lambda _pid: False,
     )
@@ -103,7 +103,7 @@ def test_start_target_can_start_dependencies_before_frontend(tmp_path: Path) -> 
             probes["api"] += 1
             if probes["api"] == 1:
                 return None, 1, None, "offline"
-            return 200, 2, '{"workspace_smoke":{}}', None
+            return 200, 2, '{"qa_grades":[],"daily_production":[]}', None
         if "5173" in url:
             probes["frontend"] += 1
             if probes["frontend"] == 1:
@@ -212,6 +212,58 @@ def test_stop_target_falls_back_to_managed_listener_port(tmp_path: Path) -> None
 
     assert terminated == [4444]
     assert state["status"] == "stopped"
+
+
+def test_stop_target_can_include_dependencies(tmp_path: Path) -> None:
+    control = load_control_module()
+    (tmp_path / "dashboard-frontend.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "target_id": "dashboard-frontend",
+                "status": "ready",
+                "managed": True,
+                "pid": 3001,
+                "url": "http://127.0.0.1:5173/",
+                "dependencies": [{"target_id": "dashboard-api", "status": "ready"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "dashboard-api.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "target_id": "dashboard-api",
+                "status": "ready",
+                "managed": True,
+                "pid": 3002,
+                "url": "http://127.0.0.1:8080/api/quality_overview",
+            }
+        ),
+        encoding="utf-8",
+    )
+    alive = {3001, 3002}
+
+    def process_checker(pid: int) -> bool:
+        return pid in alive
+
+    def terminator(pid: int, _timeout: float) -> None:
+        alive.discard(pid)
+
+    state = control.stop_target(
+        "dashboard-frontend",
+        state_dir=tmp_path,
+        process_checker=process_checker,
+        terminator=terminator,
+        port_pid_finder=lambda _port: [],
+        include_dependencies=True,
+    )
+
+    dependency_state = json.loads((tmp_path / "dashboard-api.json").read_text(encoding="utf-8"))
+    assert state["status"] == "stopped"
+    assert state["dependency_stops"] == [{"target_id": "dashboard-api", "status": "stopped"}]
+    assert dependency_state["status"] == "stopped"
 
 
 def test_tail_target_returns_recent_stdout_and_stderr(tmp_path: Path) -> None:

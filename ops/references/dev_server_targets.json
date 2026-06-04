@@ -12,7 +12,7 @@
       "command": ["python", "api.py", "--host", "127.0.0.1", "--port", "8080"],
       "url": "http://127.0.0.1:8080/api/quality_overview",
       "expected_status": [200],
-      "expected_body_contains": ["workspace_smoke"],
+      "expected_body_contains": ["qa_grades", "daily_production"],
       "smoke_scope": "workspace",
       "tags": ["operator-dashboard", "quality"]
     },
