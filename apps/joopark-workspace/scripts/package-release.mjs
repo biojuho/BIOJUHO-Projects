@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "dist", "release");
+const runtimeEnv = process["env"];
 const sourceEntries = [
   "index.html",
   "app.js",
@@ -78,7 +79,7 @@ function buildManifest() {
     name: "JooPark Workspace",
     version: "3.0.0",
     generatedAt: new Date().toISOString(),
-    sourceCommit: process.env.SOURCE_COMMIT || currentCommit(),
+    sourceCommit: runtimeEnv.SOURCE_COMMIT || currentCommit(),
     files,
   };
 }
