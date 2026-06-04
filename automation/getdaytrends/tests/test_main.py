@@ -66,15 +66,19 @@ def test_acquire_lock_allows_only_one_concurrent_owner(tmp_path, monkeypatch):
     monkeypatch.setattr(main_mod, "_LOCK_FILE", lock_path)
 
     barrier = threading.Barrier(4)
+    attempts_done = threading.Barrier(4)
     results: list[bool] = []
 
     def worker():
         barrier.wait()
         acquired = _acquire_lock()
         results.append(acquired)
-        if acquired:
-            time.sleep(0.05)
-            _release_lock()
+        try:
+            attempts_done.wait()
+        finally:
+            if acquired:
+                time.sleep(0.01)
+                _release_lock()
 
     threads = [threading.Thread(target=worker) for _ in range(4)]
     for thread in threads:
@@ -82,9 +86,8 @@ def test_acquire_lock_allows_only_one_concurrent_owner(tmp_path, monkeypatch):
     for thread in threads:
         thread.join()
 
-    # At least one and at most one thread should acquire the lock;
-    # CI environments occasionally allow 2 due to threading timing.
-    assert 1 <= sum(results) <= 2
+    if sum(results) != 1:
+        raise AssertionError(f"expected one lock owner, got {results!r}")
     assert not lock_path.exists()
 
 
@@ -95,7 +98,8 @@ def test_acquire_lock_replaces_stale_lockfile(tmp_path, monkeypatch):
     monkeypatch.setattr(main_mod, "_is_pid_alive", lambda pid: False)
 
     assert _acquire_lock() is True
-    assert lock_path.read_text(encoding="utf-8") == str(os.getpid())
+    if not lock_path.read_text(encoding="utf-8").startswith(f"{os.getpid()}:"):
+        raise AssertionError("lockfile should use the current owner-token format")
 
     _release_lock()
     assert not lock_path.exists()

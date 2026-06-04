@@ -19,6 +19,7 @@ import signal
 import sys
 import threading
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -68,6 +69,17 @@ from getdaytrends.utils import run_async
 # ══════════════════════════════════════════════════════
 
 _LOCK_FILE = Path(__file__).parent / "data" / "getdaytrends.lock"
+_LOCK_OWNER = threading.local()
+_LOCK_MUTEX = threading.Lock()
+
+
+def _parse_lock_pid(lock_text: str) -> int:
+    """Return the process id from current and legacy lockfile formats."""
+    return int(lock_text.split(":", 1)[0])
+
+
+def _new_lock_owner_token() -> str:
+    return f"{os.getpid()}:{threading.get_ident()}:{uuid.uuid4().hex}"
 
 
 def _is_pid_alive(pid: int) -> bool:
@@ -94,48 +106,68 @@ def _is_pid_alive(pid: int) -> bool:
 
 def _acquire_lock() -> bool:
     """Lockfile을 획득해 중복 실행을 방지. 이미 실행 중이면 False 반환."""
-    _LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_file = _LOCK_FILE
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
 
     def _try_create_lockfile() -> bool:
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
         try:
-            fd = os.open(_LOCK_FILE, flags)
+            fd = os.open(lock_file, flags, 0o600)
         except FileExistsError:
             return False
 
+        token = _new_lock_owner_token()
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                handle.write(str(os.getpid()))
+                handle.write(token)
                 handle.flush()
+            _LOCK_OWNER.token = token
+            _LOCK_OWNER.path = lock_file
             return True
         except Exception:
-            _LOCK_FILE.unlink(missing_ok=True)
+            lock_file.unlink(missing_ok=True)
+            if getattr(_LOCK_OWNER, "token", None) == token:
+                del _LOCK_OWNER.token
+                if hasattr(_LOCK_OWNER, "path"):
+                    del _LOCK_OWNER.path
             raise
 
-    if _LOCK_FILE.exists():
+    with _LOCK_MUTEX:
+        if _try_create_lockfile():
+            return True
+
         try:
-            pid = int(_LOCK_FILE.read_text().strip())
+            pid = _parse_lock_pid(lock_file.read_text().strip())
             if _is_pid_alive(pid):
                 print(f"\n  [오류] GetDayTrends가 이미 실행 중입니다 (PID {pid}).")
                 print("  중복 실행을 방지하기 위해 종료합니다.\n")
                 return False
             # 스테일 lockfile (이전 프로세스가 비정상 종료)
-            _LOCK_FILE.unlink(missing_ok=True)
+            lock_file.unlink(missing_ok=True)
         except (ValueError, OSError):
-            _LOCK_FILE.unlink(missing_ok=True)
+            lock_file.unlink(missing_ok=True)
 
-    return _try_create_lockfile()
+        return _try_create_lockfile()
 
 
 def _release_lock() -> None:
     """Lockfile 해제. 자신이 생성한 lockfile만 삭제."""
-    try:
-        if _LOCK_FILE.exists():
-            pid = int(_LOCK_FILE.read_text().strip())
-            if pid == os.getpid():
-                _LOCK_FILE.unlink(missing_ok=True)
-    except (ValueError, OSError):
-        pass
+    token = getattr(_LOCK_OWNER, "token", None)
+    lock_file = getattr(_LOCK_OWNER, "path", _LOCK_FILE)
+    with _LOCK_MUTEX:
+        try:
+            if lock_file.exists():
+                lock_text = lock_file.read_text().strip()
+                legacy_owned = token is None and _parse_lock_pid(lock_text) == os.getpid()
+                if lock_text == token or legacy_owned:
+                    lock_file.unlink(missing_ok=True)
+        except (ValueError, OSError):
+            pass
+        finally:
+            if token is not None:
+                del _LOCK_OWNER.token
+            if hasattr(_LOCK_OWNER, "path"):
+                del _LOCK_OWNER.path
 
 
 # ══════════════════════════════════════════════════════
