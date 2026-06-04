@@ -36,6 +36,8 @@ python ops/scripts/run_workspace_smoke.py --scope getdaytrends
 python ops/scripts/run_workspace_smoke.py --scope cie
 python ops/scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 ```
+For live browser QA and local dev-server lifecycle evidence, use
+`docs/guides/dev-server-control.md`.
 
 Legacy compatibility commands remain available after:
 
