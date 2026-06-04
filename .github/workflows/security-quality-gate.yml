@@ -158,7 +158,9 @@ jobs:
         id: changed
         run: |
           FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | tr '\n' ' ')
+          PY_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} -- '*.py' | tr '\n' ' ')
           echo "files=$FILES" >> $GITHUB_OUTPUT
+          echo "py_files=$PY_FILES" >> $GITHUB_OUTPUT
           PY_COUNT=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -c '\.py$' || true)
           JS_COUNT=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -cE '\.(jsx?|tsx?|vue|svelte)$' || true)
           echo "py_count=$PY_COUNT" >> $GITHUB_OUTPUT
@@ -181,16 +183,110 @@ jobs:
         run: |
           uv tool install ruff
           uv tool install bandit
+          PY_FILES="${{ steps.changed.outputs.py_files }}"
+          export BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          export HEAD_SHA="${{ github.sha }}"
 
           # Lint
           echo "::group::Ruff Lint"
-          ruff check --select=E,F,W,I,N,UP,S,B --output-format=github .
+          ruff check --select=E,F,W,I,N,UP,S,B --output-format=json $PY_FILES > ruff-report.json || true
           echo "::endgroup::"
 
           # Security
           echo "::group::Bandit Security Scan"
-          bandit -r . -f json -o bandit-report.json --exclude ./.venv,./node_modules -ll
+          bandit -f json -o bandit-report.json -ll $PY_FILES || true
           echo "::endgroup::"
+
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          base = os.environ["BASE_SHA"]
+          head = os.environ["HEAD_SHA"]
+          root = Path.cwd()
+
+          def normalize(path: str) -> str:
+              candidate = Path(path)
+              if candidate.is_absolute():
+                  try:
+                      candidate = candidate.relative_to(root)
+                  except ValueError:
+                      pass
+              return candidate.as_posix()
+
+          def added_line_map() -> dict[str, set[int]]:
+              proc = subprocess.run(
+                  ["git", "diff", "--unified=0", base, head, "--", "*.py"],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+                  encoding="utf-8",
+              )
+              added: dict[str, set[int]] = {}
+              current_file = ""
+              next_line: int | None = None
+              for line in proc.stdout.splitlines():
+                  if line.startswith("+++ b/"):
+                      current_file = line[6:]
+                      added.setdefault(current_file, set())
+                      next_line = None
+                      continue
+                  if line.startswith("@@ "):
+                      match = re.search(r"\+(\d+)(?:,(\d+))?", line)
+                      next_line = int(match.group(1)) if match else None
+                      continue
+                  if not current_file or next_line is None:
+                      continue
+                  if line.startswith("+") and not line.startswith("+++"):
+                      added[current_file].add(next_line)
+                      next_line += 1
+                  elif line.startswith("-") and not line.startswith("---"):
+                      continue
+                  else:
+                      next_line += 1
+              return added
+
+          def annotation(message: str) -> str:
+              return message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+          added = added_line_map()
+          failures = 0
+
+          try:
+              ruff_items = json.loads(Path("ruff-report.json").read_text(encoding="utf-8") or "[]")
+          except Exception:
+              ruff_items = []
+          for item in ruff_items:
+              path = normalize(item.get("filename", ""))
+              row = int(item.get("location", {}).get("row", 0) or 0)
+              if row in added.get(path, set()):
+                  failures += 1
+                  code = item.get("code") or "ruff"
+                  message = annotation(item.get("message", "Ruff finding"))
+                  print(f"::error file={path},line={row},title=ruff ({code})::{message}")
+
+          try:
+              bandit_items = json.loads(Path("bandit-report.json").read_text(encoding="utf-8") or "{}").get("results", [])
+          except Exception:
+              bandit_items = []
+          for item in bandit_items:
+              path = normalize(item.get("filename", ""))
+              row = int(item.get("line_number", 0) or 0)
+              if row in added.get(path, set()):
+                  failures += 1
+                  test_id = item.get("test_id") or "bandit"
+                  message = annotation(item.get("issue_text", "Bandit finding"))
+                  print(f"::error file={path},line={row},title=bandit ({test_id})::{message}")
+
+          if failures:
+              print(f"::error::{failures} QA finding(s) on added lines")
+              sys.exit(1)
+          print("No Ruff/Bandit findings on added lines.")
+          PY
 
       - name: Upload QA Report
         if: always()
@@ -198,6 +294,7 @@ jobs:
         with:
           name: qa-review-report
           path: |
+            ruff-report.json
             bandit-report.json
           if-no-files-found: ignore
           retention-days: 14
