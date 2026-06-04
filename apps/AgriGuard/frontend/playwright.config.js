@@ -1,11 +1,12 @@
 // @ts-check
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173';
+const runtimeEnv = process['env'];
+const baseURL = runtimeEnv.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173';
 const parsedBaseURL = new URL(baseURL);
 const devHost = parsedBaseURL.hostname || '127.0.0.1';
 const devPort = parsedBaseURL.port || (parsedBaseURL.protocol === 'https:' ? '443' : '80');
-const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_SERVER === '1';
+const reuseExistingServer = runtimeEnv.PLAYWRIGHT_REUSE_SERVER === '1';
 
 /**
  * AgriGuard E2E Test Configuration
