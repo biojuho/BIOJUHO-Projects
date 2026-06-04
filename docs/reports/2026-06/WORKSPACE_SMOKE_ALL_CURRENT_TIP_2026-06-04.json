@@ -1,11 +1,15 @@
 {
   "schema_version": 1,
   "source_report": "docs/reports/2026-06/AUTO_RESEARCH_CURRENT_TIP_ALL_SCOPE_SMOKE_2026-06-04.md",
-  "source_command": "python ops\\scripts\\run_workspace_smoke.py --scope all --json-out var\\workspace-smoke-all-current-tip-2bc90cd-2026-06-04.json --mcp-trace-out var\\workspace-smoke-all-current-tip-2bc90cd-2026-06-04.trace.jsonl --mcp-otel-out var\\workspace-smoke-all-current-tip-2bc90cd-2026-06-04.otlp.jsonl",
-  "worktree_commit": "2bc90cd",
-  "generated_at": "2026-06-04T13:50:56.812378Z",
+  "source_command": "python ops\\scripts\\run_workspace_smoke.py --scope all --json-out var\\workspace-smoke-all-current-tip-post-mcp-subprocess-2026-06-04.json --mcp-trace-out var\\workspace-smoke-all-current-tip-post-mcp-subprocess-2026-06-04.trace.jsonl --mcp-otel-out var\\workspace-smoke-all-current-tip-post-mcp-subprocess-2026-06-04.otlp.jsonl",
+  "smoke_run_commit": "4c09968",
+  "included_commits": [
+    "22ebc1a",
+    "2bc90cd"
+  ],
+  "generated_at": "2026-06-04T14:10:31.531504Z",
   "status": "complete",
-  "duration_seconds": 616.259,
+  "duration_seconds": 798.968,
   "summary": {
     "total": 25,
     "completed": 25,
@@ -18,71 +22,71 @@
       "completed": 6,
       "passed": 6,
       "failed": 0,
-      "elapsed_seconds": 86.348
+      "elapsed_seconds": 141.323
     },
     "desci": {
       "completed": 7,
       "passed": 7,
       "failed": 0,
-      "elapsed_seconds": 220.403
+      "elapsed_seconds": 284.782
     },
     "agriguard": {
       "completed": 5,
       "passed": 5,
       "failed": 0,
-      "elapsed_seconds": 89.547
+      "elapsed_seconds": 141.619
     },
     "mcp": {
       "completed": 3,
       "passed": 3,
       "failed": 0,
-      "elapsed_seconds": 83.133
+      "elapsed_seconds": 91.949
     },
     "getdaytrends": {
       "completed": 2,
       "passed": 2,
       "failed": 0,
-      "elapsed_seconds": 85.827
+      "elapsed_seconds": 96.722
     },
     "cie": {
       "completed": 2,
       "passed": 2,
       "failed": 0,
-      "elapsed_seconds": 49.833
+      "elapsed_seconds": 42.07
     }
   },
   "slowest_checks": [
     {
       "name": "desci frontend unit tests",
-      "elapsed_seconds": 113.14
+      "elapsed_seconds": 141.53
     },
     {
       "name": "getdaytrends tests",
-      "elapsed_seconds": 85.195
+      "elapsed_seconds": 95.771
     },
     {
       "name": "DailyNews unit tests",
-      "elapsed_seconds": 82.417
-    },
-    {
-      "name": "cie tests",
-      "elapsed_seconds": 49.337
-    },
-    {
-      "name": "shared package tests",
-      "elapsed_seconds": 32.288
+      "elapsed_seconds": 91.292
     },
     {
       "name": "desci frontend lint",
-      "elapsed_seconds": 28.997
+      "elapsed_seconds": 45.063
+    },
+    {
+      "name": "cie tests",
+      "elapsed_seconds": 41.572
+    },
+    {
+      "name": "agriguard frontend lint",
+      "elapsed_seconds": 40.191
+    },
+    {
+      "name": "agriguard frontend build",
+      "elapsed_seconds": 37.25
     },
     {
       "name": "desci backend smoke",
-      "elapsed_seconds": 28.874
-    },
-    {
-      "name": "agriguard backend tests",
-      "elapsed_seconds": 28.215
+      "elapsed_seconds": 37.184
     }
   ],
   "trace_evidence": {
@@ -95,8 +99,8 @@
     }
   },
   "pre_push_evidence": {
-    "pushed_commit": "2bc90cd",
-    "result": "36 passed",
-    "local_hook_refreshed_from_repo_source": true
+    "latest_repo_gate": "38 passed plus subprocess smoke",
+    "local_hook_refreshed_from_repo_source": true,
+    "installed_hook_path": "D:\\AI project\\.git\\hooks\\pre-push"
   }
 }
