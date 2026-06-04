@@ -20,6 +20,7 @@
         "product_launch_gate",
         "current_tip_freshness_gate",
         "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command",
         "pre_push_regression_gate"
       ],
       "evidence": [
@@ -37,6 +38,14 @@
           "must_contain": [
             "Dashboard Next Credential Unblock",
             "workspace smoke",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_COMMAND_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Next Credential Command",
+            "run_workspace_smoke.py",
             "global_objective_complete=false"
           ]
         },
@@ -174,7 +183,8 @@
       "completion_criteria": [
         "direct_app_click_qa",
         "direct_browser_qa_freshness_gate",
-        "dashboard_next_credential_unblock"
+        "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command"
       ],
       "evidence": [
         {
@@ -187,6 +197,14 @@
         },
         {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_NEXT_UNBLOCK_2026-06-05.md",
+          "must_contain": [
+            "Status: `pass`",
+            "dashboard-frontend",
+            "Failed: `0`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_NEXT_COMMAND_2026-06-05.md",
           "must_contain": [
             "Status: `pass`",
             "dashboard-frontend",
@@ -219,6 +237,7 @@
         "external_credential_live_verifier",
         "telegram_notification_live_delivery_verifier",
         "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -237,6 +256,14 @@
           "must_contain": [
             "no credential values emitted",
             "Next Unblock",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_COMMAND_2026-06-05.md",
+          "must_contain": [
+            "first safe verifier command",
+            "no credential values",
             "global_objective_complete=false"
           ]
         },
@@ -263,7 +290,8 @@
         "external_credential_handoff",
         "external_credential_live_verifier",
         "telegram_notification_live_delivery_verifier",
-        "dashboard_next_credential_unblock"
+        "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command"
       ],
       "evidence": [
         {
@@ -280,6 +308,14 @@
             "Canva OAuth and OpenAPI tool execution",
             "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
             "does not claim the external credential boundary complete"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_COMMAND_2026-06-05.md",
+          "must_contain": [
+            "cd mcp/canva-mcp && npm run doctor:canva",
+            "credential-gated after the local doctor step",
+            "before the command sequence can be claimed complete"
           ]
         },
         {

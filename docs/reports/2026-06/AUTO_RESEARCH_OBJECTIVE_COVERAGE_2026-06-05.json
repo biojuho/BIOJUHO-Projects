@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T20:53:02.415491+00:00",
+  "generated_at": "2026-06-04T21:03:04.140634+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -24,6 +24,7 @@
         "product_launch_gate",
         "current_tip_freshness_gate",
         "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command",
         "pre_push_regression_gate"
       ],
       "evidence": [
@@ -33,6 +34,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_COMMAND_2026-06-05.md",
           "term_count": 3
         },
         {
@@ -141,7 +146,8 @@
       "completion_criteria": [
         "direct_app_click_qa",
         "direct_browser_qa_freshness_gate",
-        "dashboard_next_credential_unblock"
+        "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command"
       ],
       "evidence": [
         {
@@ -150,6 +156,10 @@
         },
         {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_NEXT_UNBLOCK_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_NEXT_COMMAND_2026-06-05.md",
           "term_count": 3
         },
         {
@@ -176,6 +186,7 @@
         "external_credential_live_verifier",
         "telegram_notification_live_delivery_verifier",
         "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -186,6 +197,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_COMMAND_2026-06-05.md",
           "term_count": 3
         },
         {
@@ -215,7 +230,8 @@
         "external_credential_handoff",
         "external_credential_live_verifier",
         "telegram_notification_live_delivery_verifier",
-        "dashboard_next_credential_unblock"
+        "dashboard_next_credential_unblock",
+        "dashboard_next_credential_command"
       ],
       "evidence": [
         {
@@ -224,6 +240,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_UNBLOCK_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_NEXT_CREDENTIAL_COMMAND_2026-06-05.md",
           "term_count": 3
         },
         {
