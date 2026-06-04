@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=4, watch=1
-- Generated at: `2026-06-04T20:15:40+09:00`
+- Generated at: `2026-06-04T20:29:36+09:00`
 
 ## Search Context
 
@@ -65,6 +65,7 @@
 - Why similar: Agent workflow runtime with MCP server composition, provider flexibility, workflow patterns, and tested glue code.
 - Observed patterns:
   - declarative agent workflows and MCP server assignment
+  - repo-level launch workflow inventory
   - provider abstraction across OpenAI, Anthropic, Google, and local backends
   - token and tool-use tracking for agent runs
 - Local evidence:
@@ -72,7 +73,12 @@
   - `packages/shared/harness/adapters/native.py`
   - `packages/shared/harness/token_tracker.py`
   - `packages/shared/harness/tests/test_harness.py`
-- Gap: The shared harness has runtime pieces, but no single manifest that declares agent workflows for every app.
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_manifest.py`
+  - `tests/test_agent_workflow_manifest.py`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
+- Gap: Declarative launch workflow inventory is adopted; central runtime orchestration remains deliberate future work.
 
 ### dsifry/metaswarm
 
