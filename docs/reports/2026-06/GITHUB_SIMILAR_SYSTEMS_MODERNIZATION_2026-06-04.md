@@ -2,9 +2,9 @@
 
 ## Summary
 
-- Sources reviewed: 7
-- Adoption counts: adopted=1, partially_adopted=6, watch=0
-- Generated at: `2026-06-04T22:04:54+09:00`
+- Sources reviewed: 8
+- Adoption counts: adopted=1, partially_adopted=7, watch=0
+- Generated at: `2026-06-04T23:17:17+09:00`
 
 ## Search Context
 
@@ -15,6 +15,7 @@
   - `multi agent orchestration quality gates TDD Codex Claude Gemini`
   - `dev server MCP Playwright workflow automation`
   - `MCP inspector CLI tools/list tools/call stdio automation`
+  - `Playwright MCP browser automation accessibility snapshots`
 
 ## Source Mapping
 
@@ -163,6 +164,28 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_PASS_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
 - Gap: Canva MCP OpenAPI/tool metadata endpoints, offline contract generation, and explicit disabled execution responses are adopted; live OpenAPI tool execution proxy remains future-scoped until OAuth and proxy authentication are verified.
+
+### microsoft/playwright-mcp
+
+- URL: https://github.com/microsoft/playwright-mcp
+- Category: `mcp-browser-automation`
+- Adoption status: `partially_adopted`
+- Why similar: Official Playwright MCP server for browser automation through structured page state, relevant to app-click QA and agent-driven UI inspection.
+- Observed patterns:
+  - browser automation through structured accessibility snapshots
+  - agent-friendly app interaction without screenshot-only reasoning
+  - CLI and skill workflows for token-efficient coding agents
+  - optional browser capabilities such as vision, PDF, and DevTools
+  - repeatable exploratory automation for long-running app QA loops
+- Local evidence:
+  - `apps/desci-platform/scripts/browser_smoke.py`
+  - `tests/test_desci_browser_smoke.py`
+  - `docs/reports/2026-06/DESCI_BROWSER_SMOKE_JSON_EVIDENCE_2026-06-04.json`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DESCI_BROWSER_SMOKE_JSON_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md`
+  - `docs/QUALITY_GATE.md`
+- Gap: Playwright browser automation is adopted through deterministic CLI smoke scripts and app-click evidence; a persistent MCP browser server remains future-scoped unless a workflow needs long-lived browser context or richer page-state introspection.
 
 ### Uninen/devserver-mcp
 

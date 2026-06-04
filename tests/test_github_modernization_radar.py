@@ -27,10 +27,10 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
     summary = radar.summarize_manifest(payload)
 
     assert errors == []
-    assert summary["source_count"] == 7
+    assert summary["source_count"] == 8
     assert summary["adoption_status_counts"] == {
         "adopted": 1,
-        "partially_adopted": 6,
+        "partially_adopted": 7,
     }
     assert {source["repo"] for source in summary["sources"]} == {
         "PrefectHQ/fastmcp",
@@ -39,6 +39,7 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
         "dsifry/metaswarm",
         "modelcontextprotocol/inspector",
         "open-webui/mcpo",
+        "microsoft/playwright-mcp",
         "Uninen/devserver-mcp",
     }
     assert all(source["evidence_count"] >= 4 for source in summary["sources"])
@@ -63,11 +64,12 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     machine = json.loads(json_out.read_text(encoding="utf-8"))
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
-    assert machine["source_count"] == 7
-    assert machine["adoption_status_counts"]["partially_adopted"] == 6
+    assert machine["source_count"] == 8
+    assert machine["adoption_status_counts"]["partially_adopted"] == 7
     assert "GitHub Similar Systems Modernization Radar" in markdown
     assert "PrefectHQ/fastmcp" in markdown
     assert "modelcontextprotocol/inspector" in markdown
+    assert "microsoft/playwright-mcp" in markdown
     assert "Keep the default smoke gate deterministic and offline" in markdown
 
 
