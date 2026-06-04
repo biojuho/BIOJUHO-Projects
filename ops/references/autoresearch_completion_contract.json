@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T01:47:00+09:00",
+  "generated_at": "2026-06-05T02:31:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -50,6 +50,7 @@
             "open-telemetry/opentelemetry-collector",
             "evalstate/fast-agent",
             "langchain-ai/langgraph",
+            "crewAIInc/crewAI",
             "open-webui/mcpo",
             "Uninen/devserver-mcp",
             "microsoft/mcp-gateway"
@@ -58,11 +59,12 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 12",
+            "Sources reviewed: 13",
             "Adoption counts",
             "modelcontextprotocol/python-sdk",
             "open-telemetry/opentelemetry-collector",
             "langchain-ai/langgraph",
+            "crewAIInc/crewAI",
             "microsoft/playwright-mcp",
             "microsoft/mcp-gateway"
           ]
@@ -214,6 +216,7 @@
             "ops/scripts/mcp_service_runtime_smoke.py",
             "ops/scripts/agent_workflow_gate_runner.py",
             "--gate-index 2",
+            "--all-workflows",
             "ops/scripts/autoresearch_completion_audit.py"
           ]
         },
@@ -434,6 +437,47 @@
             "A/B Contract",
             "LangGraph-style human-checkpoint",
             "skipped gates `1`",
+            "future-scoped"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent_workflow_gate_matrix",
+      "requirement": "All declared launch workflows can be verified through a safe deterministic gate matrix.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/agent_workflow_gate_runner.py",
+          "must_contain": [
+            "--all-workflows",
+            "run_workflow_matrix",
+            "build_matrix_report",
+            "render_matrix_markdown"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"execution_mode\": \"execute\"",
+            "\"workflow_count\": 6",
+            "\"passed_workflows\": 6",
+            "\"selected_gates\": 6",
+            "\"passed_gates\": 6",
+            "\"failed_gates\": 0",
+            "dailynews-x-ops",
+            "workspace-quality-dashboard"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "crewAIInc/crewAI",
+            "selected gates `6`",
+            "failed gates `0`",
             "future-scoped"
           ]
         }

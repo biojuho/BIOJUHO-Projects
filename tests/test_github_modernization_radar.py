@@ -27,10 +27,10 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
     summary = radar.summarize_manifest(payload)
 
     assert errors == []
-    assert summary["source_count"] == 12
+    assert summary["source_count"] == 13
     assert summary["adoption_status_counts"] == {
         "adopted": 1,
-        "partially_adopted": 11,
+        "partially_adopted": 12,
     }
     assert {source["repo"] for source in summary["sources"]} == {
         "PrefectHQ/fastmcp",
@@ -39,6 +39,7 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
         "open-telemetry/opentelemetry-collector",
         "evalstate/fast-agent",
         "langchain-ai/langgraph",
+        "crewAIInc/crewAI",
         "dsifry/metaswarm",
         "modelcontextprotocol/inspector",
         "microsoft/mcp-gateway",
@@ -68,14 +69,15 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     machine = json.loads(json_out.read_text(encoding="utf-8"))
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
-    assert machine["source_count"] == 12
-    assert machine["adoption_status_counts"]["partially_adopted"] == 11
+    assert machine["source_count"] == 13
+    assert machine["adoption_status_counts"]["partially_adopted"] == 12
     assert "GitHub Similar Systems Modernization Radar" in markdown
     assert "PrefectHQ/fastmcp" in markdown
     assert "modelcontextprotocol/python-sdk" in markdown
     assert "modelcontextprotocol/inspector" in markdown
     assert "open-telemetry/opentelemetry-collector" in markdown
     assert "langchain-ai/langgraph" in markdown
+    assert "crewAIInc/crewAI" in markdown
     assert "microsoft/mcp-gateway" in markdown
     assert "microsoft/playwright-mcp" in markdown
     assert "Keep the default smoke gate deterministic and offline" in markdown

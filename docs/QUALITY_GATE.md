@@ -55,6 +55,12 @@ Use `--gate-index <n>` to target exactly one 1-based quality gate. Gates that
 can start long-running services or otherwise need operator approval are skipped
 in execute mode unless `--allow-side-effect-gates` is supplied.
 
+For a broad launch matrix across every declared active workflow, run:
+
+```bash
+python ops/scripts/agent_workflow_gate_runner.py --all-workflows --execute --max-gates 1 --timeout 1200 --json-out docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json --markdown-out docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md
+```
+
 When an npm-based smoke check runs in a clean worktree, the runner installs
 lockfile-backed Node dependencies with `npm ci --no-audit` if `node_modules` is
 missing for that package directory. Dependency artifacts are local runtime state

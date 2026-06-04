@@ -1,0 +1,429 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T16:26:08.164785+00:00",
+  "status": "pass",
+  "execution_mode": "execute",
+  "will_execute": true,
+  "allow_side_effect_gates": false,
+  "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+  "source_context": {
+    "repo": "evalstate/fast-agent",
+    "url": "https://github.com/evalstate/fast-agent",
+    "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+  },
+  "summary": {
+    "requested_max_gates": 1,
+    "workflow_count": 6,
+    "passed_workflows": 6,
+    "failed_workflows": 0,
+    "selected_gates": 6,
+    "passed_gates": 6,
+    "failed_gates": 0,
+    "skipped_gates": 0,
+    "planned_gates": 0,
+    "approval_required_gates": 0,
+    "elapsed_seconds": 1161.195
+  },
+  "workflows": [
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-04T16:08:16.502758+00:00",
+      "status": "pass",
+      "execution_mode": "execute",
+      "will_execute": true,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "dailynews-x-ops",
+        "project": "automation/DailyNews",
+        "goal": "Build ranked X/Twitter conversation packs and operator actions from DailyNews content intelligence.",
+        "smoke_scope": "mcp",
+        "launch_status": "active",
+        "agent_roles": [
+          "content-operator",
+          "conversation-ranker",
+          "x-publisher"
+        ],
+        "mcp_servers": [
+          "notion",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 1,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "planned_gates": 0,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 89.537
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "dailynews-x-ops",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "mcp"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope mcp",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "pass",
+          "returncode": 0,
+          "elapsed_seconds": 89.537,
+          "stdout_tail": "[smoke] using python executable: D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\n[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var\n[smoke] running: notebooklm compile\n[smoke] running: github-mcp compile\n[smoke] running: DailyNews unit tests\n[smoke] summary: passed=3, failed=0, total=3\n- [PASS] notebooklm compile (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) mcp\\notebooklm-mcp/scripts mcp\\notebooklm-mcp/tests)\n- [PASS] github-mcp compile (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) mcp\\github-mcp/scripts)\n- [PASS] DailyNews unit tests (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m pytest tests/unit -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-mcp-dailynews-unit-tests-b36bdd4d\")",
+          "stderr_tail": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-04T16:10:09.952326+00:00",
+      "status": "pass",
+      "execution_mode": "execute",
+      "will_execute": true,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "getdaytrends-operator-run",
+        "project": "automation/getdaytrends",
+        "goal": "Collect trends, generate platform-ready content, and verify scheduler/operator readiness.",
+        "smoke_scope": "getdaytrends",
+        "launch_status": "active",
+        "agent_roles": [
+          "trend-collector",
+          "content-generator",
+          "operator"
+        ],
+        "mcp_servers": [
+          "notion",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 1,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "planned_gates": 0,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 113.449
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "getdaytrends-operator-run",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "getdaytrends"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope getdaytrends",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "pass",
+          "returncode": 0,
+          "elapsed_seconds": 113.449,
+          "stdout_tail": "[smoke] using python executable: D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\n[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var\n[smoke] running: getdaytrends compile\n[smoke] running: getdaytrends tests\n[smoke] summary: passed=2, failed=0, total=2\n- [PASS] getdaytrends compile (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) automation\\getdaytrends)\n- [PASS] getdaytrends tests (uv run --isolated --no-project --with pytest>=8.0 --with pytest-asyncio>=0.23.0 --with-editable \"D:\\AI project_push_8921d77\" --with-editable \"D:\\AI project_push_8921d77\\automation\\getdaytrends\" --with respx>=0.21.0,<1.0 --with sqlalchemy>=2.0.0,<3.0 --with redis>=5.0.0,<8.0 python -m pytest -c pytest.ini tests -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-getdaytrends-getdaytrends-tests-630a0fad\")",
+          "stderr_tail": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-04T16:16:49.327754+00:00",
+      "status": "pass",
+      "execution_mode": "execute",
+      "will_execute": true,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "desci-launch-readiness",
+        "project": "apps/desci-platform",
+        "goal": "Operate grant discovery, readiness scoring, browser smoke, and managed dev-server proof for DeSci launch paths.",
+        "smoke_scope": "desci",
+        "launch_status": "active",
+        "agent_roles": [
+          "grant-analyst",
+          "browser-qa",
+          "release-operator"
+        ],
+        "mcp_servers": [
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 1,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "planned_gates": 0,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 399.375
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "desci-launch-readiness",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "desci"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope desci",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "pass",
+          "returncode": 0,
+          "elapsed_seconds": 399.375,
+          "stdout_tail": "[smoke] running: desci bundle budget\n[smoke] running: desci contracts compile\n[smoke] running: desci contracts tests\n[smoke] running: desci backend smoke\n[smoke] summary: passed=7, failed=0, total=7\n- [PASS] desci frontend lint (npm.cmd run lint)\n- [PASS] desci frontend unit tests (npm.cmd run test:lts -- --fileParallelism false)\n- [PASS] desci frontend build (npm.cmd run build:lts)\n- [PASS] desci bundle budget (npm.cmd run check:bundle)\n- [PASS] desci contracts compile (npm.cmd run compile)\n- [PASS] desci contracts tests (npm.cmd run test)\n- [PASS] desci backend smoke (uv run --isolated --no-project --with pytest>=8.0 --with pytest-asyncio>=0.23.0 --with-editable \"D:\\AI project_push_8921d77\" --with fastapi>=0.115.0,<1.0 --with uvicorn>=0.32.0,<1.0 --with python-dotenv>=1.0.0 --with firebase-admin>=6.1.0,<7.0 --with langchain>=0.3.0,<1.0 --with langchain-openai>=0.3.0,<1.0 --with langchain-google-genai>=2.0.0,<3.0 --with qdrant-client>=1.9.1,<2.0 --with pydantic>=2.0.0,<3.0 --with pydantic-settings>=2.0.0,<3.0 --with structlog>=24.0.0,<26.0 --with aiohttp>=3.10.0,<4.0 --with beautifulsoup4>=4.12.0 --with python-multipart>=0.0.9 --with web3>=7.0.0,<8.0 --with pypdf>=4.0.0,<5.0 --with numpy>=1.26.0,<3.0 --with apscheduler>=3.10.0,<4.0 --with duckduckgo-search>=6.0.0,<8.0 --with youtube-transcript-api>=1.0.0,<2.0 --with httpx>=0.27.0 --with slowapi>=0.1.9,<1.0 --with stripe>=9.0.0,<12.0 --with prometheus_client>=0.21.0 --with redis>=5.0.0,<6.0.0 --with pika>=1.3.0,<2.0.0 python -m pytest apps\\desci-platform\\backend/tests/test_smoke_pipeline.py -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-desci-desci-backend-smoke-8775374a\")",
+          "stderr_tail": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-04T16:20:34.731814+00:00",
+      "status": "pass",
+      "execution_mode": "execute",
+      "will_execute": true,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "agriguard-qr-product-verification",
+        "project": "apps/AgriGuard",
+        "goal": "Verify QR visitor safety, product detail read-only mode, scan analytics, and product browser flow.",
+        "smoke_scope": "agriguard",
+        "launch_status": "active",
+        "agent_roles": [
+          "product-qa",
+          "browser-qa",
+          "supply-chain-operator"
+        ],
+        "mcp_servers": [
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 1,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "planned_gates": 0,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 225.403
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "agriguard-qr-product-verification",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "agriguard"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope agriguard",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "pass",
+          "returncode": 0,
+          "elapsed_seconds": 225.403,
+          "stdout_tail": "[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var\n[smoke] running: agriguard frontend lint\n[smoke] running: agriguard frontend build\n[smoke] running: agriguard contracts compile\n[smoke] running: agriguard contracts tests\n[smoke] running: agriguard backend tests\n[smoke] summary: passed=5, failed=0, total=5\n- [PASS] agriguard frontend lint (npm.cmd run lint)\n- [PASS] agriguard frontend build (npm.cmd run build:lts)\n- [PASS] agriguard contracts compile (npm.cmd run compile)\n- [PASS] agriguard contracts tests (npm.cmd run test)\n- [PASS] agriguard backend tests (uv run --isolated --no-project --with pytest>=8.0 --with pytest-asyncio>=0.23.0 --with-editable \"D:\\AI project_push_8921d77\" --with-editable \"D:\\AI project_push_8921d77\\apps\\AgriGuard\\backend\" python -m pytest tests -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-agriguard-agriguard-backend-tests-834275ab\")",
+          "stderr_tail": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-04T16:22:12.618805+00:00",
+      "status": "pass",
+      "execution_mode": "execute",
+      "will_execute": true,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "canva-widget-oauth-preview",
+        "project": "mcp/canva-mcp",
+        "goal": "Run Canva widget preview, auth boundary checks, and MCP tool surface verification.",
+        "smoke_scope": "mcp",
+        "launch_status": "active",
+        "agent_roles": [
+          "mcp-operator",
+          "widget-qa",
+          "oauth-operator"
+        ],
+        "mcp_servers": [
+          "canva-local",
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 1,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "planned_gates": 0,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 97.886
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "canva-widget-oauth-preview",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "mcp"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope mcp",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "pass",
+          "returncode": 0,
+          "elapsed_seconds": 97.886,
+          "stdout_tail": "[smoke] using python executable: D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\n[smoke] excluded directories for python compile checks: .agent, .agents, venv, __pycache__, output, archive, var\n[smoke] running: notebooklm compile\n[smoke] running: github-mcp compile\n[smoke] running: DailyNews unit tests\n[smoke] summary: passed=3, failed=0, total=3\n- [PASS] notebooklm compile (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) mcp\\notebooklm-mcp/scripts mcp\\notebooklm-mcp/tests)\n- [PASS] github-mcp compile (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) mcp\\github-mcp/scripts)\n- [PASS] DailyNews unit tests (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m pytest tests/unit -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-mcp-dailynews-unit-tests-b36bdd4d\")",
+          "stderr_tail": ""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "schema_version": 1,
+      "generated_at": "2026-06-04T16:26:08.164694+00:00",
+      "status": "pass",
+      "execution_mode": "execute",
+      "will_execute": true,
+      "allow_side_effect_gates": false,
+      "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+      "source_context": {
+        "repo": "evalstate/fast-agent",
+        "url": "https://github.com/evalstate/fast-agent",
+        "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+      },
+      "workflow": {
+        "id": "workspace-quality-dashboard",
+        "project": "apps/dashboard",
+        "goal": "Surface workspace quality, smoke, dev-server readiness, and MCP trace evidence for operators.",
+        "smoke_scope": "workspace",
+        "launch_status": "active",
+        "agent_roles": [
+          "quality-operator",
+          "browser-qa",
+          "release-operator"
+        ],
+        "mcp_servers": [
+          "playwright"
+        ],
+        "quality_gate_count": 2
+      },
+      "summary": {
+        "requested_max_gates": 1,
+        "requested_gate_index": null,
+        "selected_gates": 1,
+        "passed_gates": 1,
+        "failed_gates": 0,
+        "skipped_gates": 0,
+        "planned_gates": 0,
+        "approval_required_gates": 0,
+        "elapsed_seconds": 235.545
+      },
+      "gates": [
+        {
+          "index": 1,
+          "workflow_id": "workspace-quality-dashboard",
+          "command": [
+            "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+            "ops/scripts/run_workspace_smoke.py",
+            "--scope",
+            "workspace"
+          ],
+          "cwd": ".",
+          "source": "python ops/scripts/run_workspace_smoke.py --scope workspace",
+          "safety": {
+            "risk": "deterministic",
+            "requires_approval": false,
+            "reasons": []
+          },
+          "status": "pass",
+          "returncode": 0,
+          "elapsed_seconds": 235.545,
+          "stdout_tail": "[smoke] running: shared package tests\n[smoke] running: dashboard frontend lint\n[smoke] running: dashboard frontend tests\n[smoke] running: dashboard frontend build\n[smoke] running: dashboard bundle budget\n[smoke] summary: passed=6, failed=0, total=6\n- [PASS] workspace regression tests (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-workspace-workspace-regression-tests-d8c774e4\")\n- [PASS] shared package tests (\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m pytest packages/shared/tests/ -q --basetemp \"D:\\AI project_push_8921d77\\var\\tmp\\pytest-workspace-shared-package-tests-cfba4840\")\n- [PASS] dashboard frontend lint (npm.cmd run lint)\n- [PASS] dashboard frontend tests (npm.cmd run test)\n- [PASS] dashboard frontend build (npm.cmd run build)\n- [PASS] dashboard bundle budget (npm.cmd run check:bundle)",
+          "stderr_tail": ""
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "errors": []
+}

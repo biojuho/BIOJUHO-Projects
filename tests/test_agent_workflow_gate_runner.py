@@ -224,6 +224,87 @@ def test_execute_gate_index_skips_side_effecting_gate_without_running(monkeypatc
     assert report["gates"][0]["status"] == "skipped"
 
 
+def test_matrix_dry_run_plans_all_workflows(tmp_path: Path) -> None:
+    runner = load_module()
+    json_out = tmp_path / "matrix.json"
+    markdown_out = tmp_path / "matrix.md"
+
+    report = runner.run_workflow_matrix(
+        MANIFEST_PATH,
+        execute=False,
+        max_gates=1,
+        timeout_seconds=10,
+        json_out=json_out,
+        markdown_out=markdown_out,
+    )
+
+    persisted = json.loads(json_out.read_text(encoding="utf-8"))
+    markdown = markdown_out.read_text(encoding="utf-8")
+    assert report["status"] == "pass"
+    assert report["summary"]["workflow_count"] == 6
+    assert report["summary"]["selected_gates"] == 6
+    assert report["summary"]["planned_gates"] == 6
+    assert persisted["summary"]["workflow_count"] == 6
+    assert "Agent Workflow Gate Matrix" in markdown
+    assert "dailynews-x-ops" in markdown
+
+
+def test_matrix_execute_runs_safe_gates_and_skips_side_effecting(monkeypatch) -> None:
+    runner = load_module()
+    seen: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        seen.append(command)
+        return subprocess.CompletedProcess(command, 0, "ok\n", "")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    report = runner.run_workflow_matrix(
+        MANIFEST_PATH,
+        execute=True,
+        max_gates=2,
+        timeout_seconds=10,
+    )
+
+    assert report["status"] == "pass"
+    assert report["summary"]["workflow_count"] == 6
+    assert report["summary"]["selected_gates"] == 12
+    assert report["summary"]["skipped_gates"] == 2
+    assert report["summary"]["approval_required_gates"] == 2
+    assert report["summary"]["passed_gates"] == 10
+    assert len(seen) == 10
+
+
+def test_cli_writes_matrix_dry_run_outputs(tmp_path: Path) -> None:
+    runner = load_module()
+    json_out = tmp_path / "matrix.json"
+    markdown_out = tmp_path / "matrix.md"
+
+    exit_code = runner.main(
+        [
+            "--all-workflows",
+            "--max-gates",
+            "1",
+            "--json-out",
+            str(json_out),
+            "--markdown-out",
+            str(markdown_out),
+        ]
+    )
+
+    assert exit_code == 0
+    assert json.loads(json_out.read_text(encoding="utf-8"))["summary"]["workflow_count"] == 6
+    assert "Agent Workflow Gate Matrix" in markdown_out.read_text(encoding="utf-8")
+
+
+def test_cli_rejects_ambiguous_or_missing_workflow_selection() -> None:
+    runner = load_module()
+
+    assert runner.main([]) == 1
+    assert runner.main(["--workflow", "dailynews-x-ops", "--all-workflows"]) == 1
+    assert runner.main(["--all-workflows", "--gate-index", "1"]) == 1
+
+
 def test_cli_writes_dry_run_outputs(tmp_path: Path) -> None:
     runner = load_module()
     json_out = tmp_path / "gate-runner.json"

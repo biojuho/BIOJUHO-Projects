@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 agent workflow gate-matrix slice: adopted safe
+  `--all-workflows --execute --max-gates 1` matrix evidence across all six
+  declared active workflows.
 - 2026-06-05 agent workflow gate-safety slice: adopted targeted gate
   selection and default skips for side-effecting gates unless the operator
   supplies `--allow-side-effect-gates`.
@@ -58,12 +61,17 @@ Latest pushed commits in this slice:
   collector handoff contract and validator for real MCP smoke OTLP artifacts.
 - `evalstate/fast-agent`: adopted launch workflow inventory, dry-run command
   plans, bounded quality-gate execution, targeted gate selection, and
-  side-effect approval skips.
+  side-effect approval skips, and safe matrix execution across active
+  workflows.
 - `langchain-ai/langgraph`: adopted the conservative local equivalent of
   stateful workflow orchestration by executing declared gates through existing
   project CLIs and adding an explicit human-checkpoint-style side-effect
   override before any full runtime, memory, human approval UI, or hosted
   deployment adoption.
+- `crewAIInc/crewAI`: adopted the local launch-control equivalent of
+  production flow orchestration by verifying every active workflow through a
+  deterministic matrix while keeping autonomous crews/control-plane deployment
+  future-scoped.
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
 - `modelcontextprotocol/inspector`: adopted a repo-owned stdio subprocess smoke for `initialize`, `tools/list`, guarded `tools/call`, and read-only log calls.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
@@ -99,10 +107,10 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - Status: future-scoped
   - Reason: declarative workflow inventory, dry-run plans, bounded execution
     of selected quality gates, targeted gate selection, and default skips for
-    side-effecting gates now exist; full stateful orchestration, durable agent
-    memory, human approval UI, and hosted deployment should stay behind
-    existing project CLIs and smoke/dev-server gates until execution ownership
-    is clear.
+    side-effecting gates, and a safe launch matrix over all active workflows
+    now exist; full stateful orchestration, durable agent memory, human
+    approval UI, and hosted deployment should stay behind existing project CLIs
+    and smoke/dev-server gates until execution ownership is clear.
 - Canva OpenAPI tool execution proxy:
   - Status: external-auth blocked
   - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior.
@@ -117,10 +125,27 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-mcp-runtime-smoke-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `12` sources
+  - `13` sources
   - `adopted=1`
-  - `partially_adopted=11`
+  - `partially_adopted=12`
   - `watch=0`
+- Agent workflow gate-matrix verification:
+  - real matrix command selected first deterministic gates for all `6`
+    workflows and returned `passed_workflows=6`, `selected_gates=6`,
+    `passed_gates=6`, `failed_gates=0`, `skipped_gates=0`
+  - elapsed seconds `1161.195`
+  - focused workflow/radar/audit suite passed `30/30`
+  - pre-push-equivalent test suite passed `72/72`
+  - hook script checks passed: dev-server MCP runtime smoke, MCP service
+    runtime smoke, single-workflow dry-run, side-effect safety check, matrix
+    dry-run, and completion audit
+  - covered workflow IDs: `dailynews-x-ops`, `getdaytrends-operator-run`,
+    `desci-launch-readiness`, `agriguard-qr-product-verification`,
+    `canva-widget-oauth-preview`, and `workspace-quality-dashboard`
+  - generated evidence:
+    `docs\reports\2026-06\AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json`
+    and
+    `docs\reports\2026-06\AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md`
 - Agent workflow gate-runner verification:
   - `tests\test_agent_workflow_gate_runner.py` passed `11/11`
   - focused workflow/radar/audit suite passed `26/26`

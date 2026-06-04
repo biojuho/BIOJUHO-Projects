@@ -2,9 +2,9 @@
 
 ## Summary
 
-- Sources reviewed: 12
-- Adoption counts: adopted=1, partially_adopted=11, watch=0
-- Generated at: `2026-06-05T01:47:00+09:00`
+- Sources reviewed: 13
+- Adoption counts: adopted=1, partially_adopted=12, watch=0
+- Generated at: `2026-06-05T02:31:00+09:00`
 
 ## Search Context
 
@@ -20,6 +20,7 @@
   - `Playwright MCP browser automation accessibility snapshots`
   - `MCP gateway routing authorization lifecycle management`
   - `stateful agent workflow quality gates LangGraph durable execution human in the loop`
+  - `CrewAI flows production multi agent orchestration control plane`
 
 ## Source Mapping
 
@@ -145,6 +146,7 @@
   - bounded workflow gate execution through declared quality gates
   - CLI-first agent workflow verification before autonomous runtime
   - operator approval boundary for side-effecting workflow gates
+  - launch matrix execution across declared workflows
   - provider abstraction across OpenAI, Anthropic, Google, and local backends
   - token and tool-use tracking for agent runs
 - Local evidence:
@@ -164,11 +166,14 @@
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.md`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_SAFETY_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_2026-06-05.md`
   - `docs/QUALITY_GATE.md`
-- Gap: Declarative launch workflow inventory, dry-run command planning, bounded quality-gate execution, targeted gate selection, and side-effect approval skips are adopted; live central runtime orchestration remains deliberate future work.
+- Gap: Declarative launch workflow inventory, dry-run command planning, bounded quality-gate execution, targeted gate selection, side-effect approval skips, and matrix execution across declared workflows are adopted; live central runtime orchestration remains deliberate future work.
 
 ### langchain-ai/langgraph
 
@@ -183,6 +188,7 @@
   - memory and state persistence for agent workflows
   - bounded quality-gate execution before adopting full orchestration
   - explicit approval before side-effecting gate execution
+  - matrix verification before hosted orchestration
 - Local evidence:
   - `ops/references/agent_workflows.json`
   - `ops/scripts/agent_workflow_manifest.py`
@@ -195,11 +201,37 @@
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.md`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_SAFETY_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_2026-06-05.md`
   - `docs/QUALITY_GATE.md`
-- Gap: Bounded workflow quality-gate execution, targeted gate selection, and side-effect approval skips are adopted through existing project CLIs and smoke gates. Full stateful LangGraph-style runtime orchestration, durable agent memory, human approval UI, and hosted deployment remain future-scoped until the operator owns those runtime policies.
+- Gap: Bounded workflow quality-gate execution, targeted gate selection, side-effect approval skips, and matrix execution are adopted through existing project CLIs and smoke gates. Full stateful LangGraph-style runtime orchestration, durable agent memory, human approval UI, and hosted deployment remain future-scoped until the operator owns those runtime policies.
+
+### crewAIInc/crewAI
+
+- URL: https://github.com/crewAIInc/crewAI
+- Category: `multi-agent-flow-control`
+- Adoption status: `partially_adopted`
+- Why similar: CrewAI combines autonomous crews with production-oriented Flows, tracing, control-plane concepts, and precise workflow control that map to the local launch workflow matrix without requiring a hosted agent platform.
+- Observed patterns:
+  - production-oriented flows for precise multi-step control
+  - balance autonomy with deterministic workflow control
+  - centralized monitoring and workflow visibility
+  - controlled launch matrix before broad autonomous agent runtime
+  - workflow evidence that separates deterministic gates from credential-bound or side-effecting actions
+- Local evidence:
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_gate_runner.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_2026-06-05.md`
+  - `docs/QUALITY_GATE.md`
+  - `next-actions.md`
+- Gap: CrewAI-style flow control is partially adopted through a safe, deterministic launch matrix over repo-owned workflow gates. A live CrewAI runtime, hosted control plane, tracing platform, and autonomous crew deployment remain future-scoped until operator-owned credentials and runtime policies exist.
 
 ### dsifry/metaswarm
 
@@ -211,9 +243,15 @@
   - quality gates before PR and release handoff
   - structured multi-phase work records
   - durable learning and next-action capture
+  - matrix-style independent verification before trusting agent workflow reports
 - Local evidence:
   - `ops/scripts/run_workspace_smoke.py`
+  - `ops/scripts/agent_workflow_gate_runner.py`
   - `tests/test_workspace_smoke.py`
+  - `tests/test_agent_workflow_gate_runner.py`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_2026-06-04.md`
   - `next-actions.md`
 - Gap: No remaining structural gap for deterministic quality gates; future work should keep evidence current.

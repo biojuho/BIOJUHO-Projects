@@ -49,6 +49,14 @@ def select_workflow(payload: dict[str, Any], workflow_id: str) -> dict[str, Any]
     raise ValueError(f"unknown workflow id: {workflow_id}")
 
 
+def select_workflows(payload: dict[str, Any], workflow_id: str | None, *, all_workflows: bool) -> list[dict[str, Any]]:
+    if all_workflows:
+        return list(payload.get("workflows", []))
+    if workflow_id:
+        return [select_workflow(payload, workflow_id)]
+    raise ValueError("provide --workflow or --all-workflows")
+
+
 def build_gate_steps(
     workflow: dict[str, Any],
     *,
@@ -61,7 +69,8 @@ def build_gate_steps(
             raise ValueError(f"gate index must be between 1 and {len(gates)}")
         indexed_gates = [(gate_index, gates[gate_index - 1])]
     else:
-        gates = gates[: max(max_gates, 0)]
+        if max_gates is not None:
+            gates = gates[: max(max_gates, 0)]
         indexed_gates = list(enumerate(gates, start=1))
     steps: list[dict[str, Any]] = []
     for index, gate in indexed_gates:
@@ -177,6 +186,34 @@ def skip_gate_step(step: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def execute_or_plan_steps(
+    steps: list[dict[str, Any]],
+    *,
+    execute: bool,
+    allow_side_effect_gates: bool,
+    timeout_seconds: float,
+) -> list[dict[str, Any]]:
+    if execute:
+        return [
+            run_gate_step(step, timeout_seconds=timeout_seconds)
+            if allow_side_effect_gates or not step["safety"]["requires_approval"]
+            else skip_gate_step(step)
+            for step in steps
+        ]
+    return [
+        {
+            **step,
+            "status": "planned",
+            "returncode": None,
+            "elapsed_seconds": 0.0,
+            "stdout_tail": "",
+            "stderr_tail": "",
+            "skip_reason": "",
+        }
+        for step in steps
+    ]
+
+
 def run_workflow_gates(
     manifest_path: Path,
     workflow_id: str,
@@ -197,26 +234,12 @@ def run_workflow_gates(
         raise ValueError("--max-gates and --gate-index cannot be combined")
     workflow = select_workflow(payload, workflow_id)
     steps = build_gate_steps(workflow, max_gates=max_gates, gate_index=gate_index)
-    if execute:
-        results = [
-            run_gate_step(step, timeout_seconds=timeout_seconds)
-            if allow_side_effect_gates or not step["safety"]["requires_approval"]
-            else skip_gate_step(step)
-            for step in steps
-        ]
-    else:
-        results = [
-            {
-                **step,
-                "status": "planned",
-                "returncode": None,
-                "elapsed_seconds": 0.0,
-                "stdout_tail": "",
-                "stderr_tail": "",
-                "skip_reason": "",
-            }
-            for step in steps
-        ]
+    results = execute_or_plan_steps(
+        steps,
+        execute=execute,
+        allow_side_effect_gates=allow_side_effect_gates,
+        timeout_seconds=timeout_seconds,
+    )
     report = build_report(
         payload,
         workflow,
@@ -230,6 +253,56 @@ def run_workflow_gates(
         write_json_atomic(json_out, report)
     if markdown_out:
         write_text_atomic(markdown_out, render_markdown(report))
+    if report["status"] == "fail":
+        raise ValueError("\n".join(report["errors"]))
+    return report
+
+
+def run_workflow_matrix(
+    manifest_path: Path,
+    *,
+    execute: bool,
+    max_gates: int | None,
+    timeout_seconds: float,
+    allow_side_effect_gates: bool = False,
+    json_out: Path | None = None,
+    markdown_out: Path | None = None,
+) -> dict[str, Any]:
+    payload = workflow_manifest.load_manifest(manifest_path)
+    errors = workflow_manifest.validate_manifest(payload, workspace_root=WORKSPACE_ROOT)
+    if errors:
+        raise ValueError("\n".join(errors))
+    workflow_reports: list[dict[str, Any]] = []
+    for workflow in select_workflows(payload, None, all_workflows=True):
+        steps = build_gate_steps(workflow, max_gates=max_gates)
+        results = execute_or_plan_steps(
+            steps,
+            execute=execute,
+            allow_side_effect_gates=allow_side_effect_gates,
+            timeout_seconds=timeout_seconds,
+        )
+        workflow_reports.append(
+            build_report(
+                payload,
+                workflow,
+                results,
+                execute=execute,
+                allow_side_effect_gates=allow_side_effect_gates,
+                max_gates=max_gates,
+                gate_index=None,
+            )
+        )
+    report = build_matrix_report(
+        payload,
+        workflow_reports,
+        execute=execute,
+        allow_side_effect_gates=allow_side_effect_gates,
+        max_gates=max_gates,
+    )
+    if json_out:
+        write_json_atomic(json_out, report)
+    if markdown_out:
+        write_text_atomic(markdown_out, render_matrix_markdown(report))
     if report["status"] == "fail":
         raise ValueError("\n".join(report["errors"]))
     return report
@@ -288,6 +361,56 @@ def build_report(
     }
 
 
+def build_matrix_report(
+    payload: dict[str, Any],
+    workflow_reports: list[dict[str, Any]],
+    *,
+    execute: bool,
+    allow_side_effect_gates: bool,
+    max_gates: int | None,
+) -> dict[str, Any]:
+    workflow_counts = Counter(report["status"] for report in workflow_reports)
+    gate_counts: Counter[str] = Counter()
+    elapsed_seconds = 0.0
+    approval_required = 0
+    errors: list[str] = []
+    for report in workflow_reports:
+        summary = report["summary"]
+        gate_counts["selected_gates"] += summary["selected_gates"]
+        gate_counts["passed_gates"] += summary["passed_gates"]
+        gate_counts["failed_gates"] += summary["failed_gates"]
+        gate_counts["skipped_gates"] += summary["skipped_gates"]
+        gate_counts["planned_gates"] += summary["planned_gates"]
+        approval_required += summary["approval_required_gates"]
+        elapsed_seconds += summary["elapsed_seconds"]
+        errors.extend(f"{report['workflow']['id']}: {error}" for error in report["errors"])
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "status": "fail" if errors else "pass",
+        "execution_mode": "execute" if execute else "dry_run",
+        "will_execute": execute,
+        "allow_side_effect_gates": allow_side_effect_gates,
+        "manifest_generated_at": payload.get("generated_at"),
+        "source_context": payload.get("source_context"),
+        "summary": {
+            "requested_max_gates": max_gates,
+            "workflow_count": len(workflow_reports),
+            "passed_workflows": workflow_counts.get("pass", 0),
+            "failed_workflows": workflow_counts.get("fail", 0),
+            "selected_gates": gate_counts["selected_gates"],
+            "passed_gates": gate_counts["passed_gates"],
+            "failed_gates": gate_counts["failed_gates"],
+            "skipped_gates": gate_counts["skipped_gates"],
+            "planned_gates": gate_counts["planned_gates"],
+            "approval_required_gates": approval_required,
+            "elapsed_seconds": round(elapsed_seconds, 3),
+        },
+        "workflows": workflow_reports,
+        "errors": errors,
+    }
+
+
 def render_markdown(report: dict[str, Any]) -> str:
     workflow = report["workflow"]
     summary = report["summary"]
@@ -335,6 +458,56 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_matrix_markdown(report: dict[str, Any]) -> str:
+    summary = report["summary"]
+    lines = [
+        "# Agent Workflow Gate Matrix",
+        "",
+        f"- Status: `{report['status']}`",
+        f"- Execution mode: `{report['execution_mode']}`",
+        f"- Will execute: `{str(report['will_execute']).lower()}`",
+        f"- Allow side-effect gates: `{str(report['allow_side_effect_gates']).lower()}`",
+        f"- Workflows: `{summary['workflow_count']}`",
+        f"- Passed workflows: `{summary['passed_workflows']}`",
+        f"- Failed workflows: `{summary['failed_workflows']}`",
+        f"- Selected gates: `{summary['selected_gates']}`",
+        f"- Passed gates: `{summary['passed_gates']}`",
+        f"- Failed gates: `{summary['failed_gates']}`",
+        f"- Skipped gates: `{summary['skipped_gates']}`",
+        f"- Planned gates: `{summary['planned_gates']}`",
+        f"- Approval-required gates: `{summary['approval_required_gates']}`",
+        f"- Elapsed seconds: `{summary['elapsed_seconds']}`",
+        "",
+        "## Workflows",
+        "",
+    ]
+    for workflow_report in report["workflows"]:
+        workflow = workflow_report["workflow"]
+        workflow_summary = workflow_report["summary"]
+        lines.extend(
+            [
+                f"### {workflow['id']}",
+                "",
+                f"- Status: `{workflow_report['status']}`",
+                f"- Project: `{workflow['project']}`",
+                f"- Smoke scope: `{workflow['smoke_scope']}`",
+                f"- Selected gates: `{workflow_summary['selected_gates']}`",
+                f"- Passed gates: `{workflow_summary['passed_gates']}`",
+                f"- Failed gates: `{workflow_summary['failed_gates']}`",
+                f"- Skipped gates: `{workflow_summary['skipped_gates']}`",
+                f"- Planned gates: `{workflow_summary['planned_gates']}`",
+                f"- Approval-required gates: `{workflow_summary['approval_required_gates']}`",
+                "",
+            ]
+        )
+    lines.extend(["## Errors", ""])
+    if report["errors"]:
+        lines.extend(f"- {error}" for error in report["errors"])
+    else:
+        lines.append("- none")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def format_command(command: list[str]) -> str:
     return " ".join(f'"{part}"' if any(ch.isspace() for ch in part) else part for part in command)
 
@@ -361,7 +534,8 @@ def write_text_atomic(path: Path, content: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run or plan declared agent workflow quality gates.")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--workflow", required=True)
+    parser.add_argument("--workflow")
+    parser.add_argument("--all-workflows", action="store_true", help="Run or plan selected gates for every workflow.")
     parser.add_argument("--execute", action="store_true", help="Run selected quality gates. Default only plans them.")
     parser.add_argument(
         "--allow-side-effect-gates",
@@ -375,20 +549,48 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--markdown-out", type=Path)
     args = parser.parse_args(argv)
     try:
-        report = run_workflow_gates(
-            args.manifest,
-            args.workflow,
-            execute=args.execute,
-            allow_side_effect_gates=args.allow_side_effect_gates,
-            max_gates=args.max_gates,
-            gate_index=args.gate_index,
-            timeout_seconds=args.timeout,
-            json_out=args.json_out,
-            markdown_out=args.markdown_out,
-        )
+        if args.all_workflows and args.workflow:
+            raise ValueError("--workflow and --all-workflows cannot be combined")
+        if args.all_workflows and args.gate_index is not None:
+            raise ValueError("--gate-index cannot be used with --all-workflows")
+        if args.all_workflows:
+            report = run_workflow_matrix(
+                args.manifest,
+                execute=args.execute,
+                allow_side_effect_gates=args.allow_side_effect_gates,
+                max_gates=args.max_gates,
+                timeout_seconds=args.timeout,
+                json_out=args.json_out,
+                markdown_out=args.markdown_out,
+            )
+        else:
+            if not args.workflow:
+                raise ValueError("provide --workflow or --all-workflows")
+            report = run_workflow_gates(
+                args.manifest,
+                args.workflow,
+                execute=args.execute,
+                allow_side_effect_gates=args.allow_side_effect_gates,
+                max_gates=args.max_gates,
+                gate_index=args.gate_index,
+                timeout_seconds=args.timeout,
+                json_out=args.json_out,
+                markdown_out=args.markdown_out,
+            )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"agent workflow gate runner failed: {exc}", file=sys.stderr)
         return 1
+    if args.all_workflows:
+        print(
+            "agent workflow gate matrix valid: "
+            f"workflows={report['summary']['workflow_count']}, "
+            f"mode={report['execution_mode']}, "
+            f"selected={report['summary']['selected_gates']}, "
+            f"passed={report['summary']['passed_gates']}, "
+            f"failed={report['summary']['failed_gates']}, "
+            f"skipped={report['summary']['skipped_gates']}"
+        )
+        return 0
     print(
         "agent workflow gate runner valid: "
         f"workflow={report['workflow']['id']}, "

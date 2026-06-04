@@ -43,6 +43,12 @@ if ! python ops/scripts/agent_workflow_gate_runner.py --workflow desci-launch-re
     exit 1
 fi
 
+if ! python ops/scripts/agent_workflow_gate_runner.py --all-workflows --max-gates 1 2>/dev/null; then
+    echo "Agent workflow matrix dry-run failed. Push blocked."
+    echo "   Then run 'python ops/scripts/agent_workflow_gate_runner.py --all-workflows --max-gates 1' for matrix planning details."
+    exit 1
+fi
+
 if ! python ops/scripts/autoresearch_completion_audit.py 2>/dev/null; then
     echo "AutoResearch completion audit failed. Push blocked."
     echo "   Then run 'python ops/scripts/autoresearch_completion_audit.py' for completion evidence details."
