@@ -341,6 +341,25 @@ class TestQualityOverview:
                         {
                             "id": "canva_oauth_and_openapi_tool_execution",
                             "title": "Canva OAuth and OpenAPI tool execution",
+                            "live_status": "blocked_missing_required_env",
+                            "registry_status": "external_auth_blocked",
+                            "plan_rank": 1,
+                            "missing_required_env": ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"],
+                            "verification_commands": [
+                                "cd mcp/canva-mcp && npm run doctor:canva",
+                                "cd mcp/canva-mcp && npm run auth:canva",
+                            ],
+                        },
+                        {
+                            "id": "github_source_refresh_rate_limit_token",
+                            "title": "GitHub source-refresh token boundary",
+                            "live_status": "blocked_missing_optional_env",
+                            "registry_status": "optional_token_absent",
+                            "plan_rank": 2,
+                            "missing_required_env": [],
+                            "verification_commands": [
+                                "python ops/scripts/github_source_freshness.py --json-out var/github-source-freshness-live.json"
+                            ],
                         }
                     ],
                 }
@@ -366,6 +385,14 @@ class TestQualityOverview:
         assert next_unblock["env_names"] == ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"]
         assert next_unblock["verification_command_count"] == 2
         assert next_unblock["first_verification_command"] == "cd mcp/canva-mcp && npm run doctor:canva"
+        assert [item["id"] for item in boundaries["live_plan"][:2]] == [
+            "canva_oauth_and_openapi_tool_execution",
+            "github_source_refresh_rate_limit_token",
+        ]
+        assert boundaries["live_plan"][1]["title"] == "GitHub source-refresh token boundary"
+        assert boundaries["live_plan"][1]["plan_rank"] == 2
+        assert boundaries["live_plan"][1]["live_status"] == "blocked_missing_optional_env"
+        assert boundaries["live_plan"][1]["verification_command_count"] == 1
 
 
 # ── /api/overview structure ────────────────────────────────────────

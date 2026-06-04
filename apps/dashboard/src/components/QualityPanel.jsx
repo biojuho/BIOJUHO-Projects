@@ -87,6 +87,8 @@ export function QualityPanel({ data, error, onRetry }) {
     : devStatus?.targets || []
   const credentialBoundaries = data.credential_boundaries || null
   const credentialBoundaryItems = credentialBoundaries?.boundaries || []
+  const credentialLivePlanItems = credentialBoundaries?.live_plan || []
+  const credentialVisibleQueueItems = credentialLivePlanItems.slice(0, 2)
   const credentialBoundaryTotal = credentialBoundaries?.boundary_count ?? 0
   const credentialMissingEnv = credentialBoundaries?.missing_required_env_count ?? 0
   const credentialNextUnblock = credentialBoundaries?.next_unblock || null
@@ -237,6 +239,14 @@ export function QualityPanel({ data, error, onRetry }) {
                   </span>
                 </div>
               )}
+              {credentialVisibleQueueItems.map((item, i) => (
+                <div className="metric-row" key={`${item.id}-queue-${i}`}>
+                  <span className="metric-label">Queue #{item.plan_rank || i + 1}</span>
+                  <span className="metric-value" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.title || item.id}
+                  </span>
+                </div>
+              ))}
               <div className="metric-row">
                 <span className="metric-label">Next env</span>
                 <span className="metric-value" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -251,6 +261,25 @@ export function QualityPanel({ data, error, onRetry }) {
                   </span>
                 </div>
               )}
+            </>
+          )}
+          {credentialLivePlanItems.length > 0 && (
+            <>
+              <h3 style={{ fontSize: '0.7rem', color: '#facc15', marginBottom: '0.4rem', marginTop: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Credential Unblock Queue
+              </h3>
+              <table className="data-table" style={{ marginTop: '0.45rem', marginBottom: '0.8rem' }}>
+                <thead><tr><th>Rank</th><th>Boundary</th><th>Live state</th></tr></thead>
+                <tbody>
+                  {credentialLivePlanItems.slice(0, 5).map((item, i) => (
+                    <tr key={`${item.id}-${i}`}>
+                      <td>{item.plan_rank ? `#${item.plan_rank}` : '-'}</td>
+                      <td>{item.title || item.id}</td>
+                      <td>{String(item.live_status || '').replaceAll('_', ' ')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </>
           )}
           {credentialBoundaryItems.length > 0 && (

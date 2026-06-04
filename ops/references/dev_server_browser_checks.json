@@ -18,6 +18,8 @@
             "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
             "Next command",
             "cd mcp/canva-mcp && npm run doctor:canva",
+            "Queue #2",
+            "GitHub source-refresh token boundary",
             "Canva OAuth and OpenAPI tool execution"
           ]
         }

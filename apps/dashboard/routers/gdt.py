@@ -227,6 +227,7 @@ def _empty_credential_boundaries(status: str, path: str | None = None) -> dict[s
         "status_counts": {},
         "boundaries": [],
         "next_unblock": None,
+        "live_plan": [],
     }
 
 
@@ -323,6 +324,46 @@ def _credential_next_unblock_overview() -> dict[str, Any] | None:
     }
 
 
+def _credential_live_plan_overview() -> list[dict[str, Any]]:
+    report_path = _latest_credential_live_verify_report()
+    if report_path is None:
+        return []
+
+    try:
+        payload = _json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return []
+
+    if not isinstance(payload, dict):
+        return []
+
+    raw_boundaries = payload.get("boundaries") if isinstance(payload.get("boundaries"), list) else []
+    plan_items: list[dict[str, Any]] = []
+    for item in raw_boundaries:
+        if not isinstance(item, dict):
+            continue
+        try:
+            plan_rank = int(item.get("plan_rank", 0) or 0)
+        except (TypeError, ValueError):
+            plan_rank = 0
+        raw_commands = item.get("verification_commands") if isinstance(item.get("verification_commands"), list) else []
+        missing_env = item.get("missing_required_env") if isinstance(item.get("missing_required_env"), list) else []
+        plan_items.append(
+            {
+                "id": str(item.get("id", "")),
+                "title": str(item.get("title", item.get("id", ""))),
+                "plan_rank": plan_rank,
+                "live_status": str(item.get("live_status", "")),
+                "registry_status": str(item.get("registry_status", "")),
+                "verification_command_count": len(raw_commands),
+                "missing_required_env_count": len(missing_env),
+            }
+        )
+
+    plan_items.sort(key=lambda item: (item["plan_rank"] == 0, item["plan_rank"], item["title"].lower()))
+    return plan_items[:6]
+
+
 def _credential_boundary_overview() -> dict[str, Any]:
     report_path = _latest_credential_boundary_report()
     if report_path is None:
@@ -375,6 +416,7 @@ def _credential_boundary_overview() -> dict[str, Any]:
         "status_counts": payload.get("status_counts") if isinstance(payload.get("status_counts"), dict) else {},
         "boundaries": boundaries[:6],
         "next_unblock": _credential_next_unblock_overview(),
+        "live_plan": _credential_live_plan_overview(),
     }
 
 

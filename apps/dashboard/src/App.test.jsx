@@ -112,6 +112,26 @@ const RESPONSES = {
         verification_command_count: 2,
         first_verification_command: 'cd mcp/canva-mcp && npm run doctor:canva',
       },
+      live_plan: [
+        {
+          id: 'canva_oauth_and_openapi_tool_execution',
+          title: 'Canva OAuth and OpenAPI tool execution',
+          plan_rank: 1,
+          live_status: 'blocked_missing_required_env',
+          registry_status: 'external_auth_blocked',
+          verification_command_count: 2,
+          missing_required_env_count: 2,
+        },
+        {
+          id: 'github_source_refresh_rate_limit_token',
+          title: 'GitHub source-refresh token boundary',
+          plan_rank: 2,
+          live_status: 'blocked_missing_optional_env',
+          registry_status: 'optional_token_absent',
+          verification_command_count: 1,
+          missing_required_env_count: 0,
+        },
+      ],
       boundaries: [
         {
           id: 'canva_oauth_and_openapi_tool_execution',
@@ -268,6 +288,12 @@ describe('Dashboard App', () => {
     expect(screen.getByText('CANVA_CLIENT_ID, CANVA_CLIENT_SECRET')).toBeInTheDocument()
     expect(screen.getByText('Next command')).toBeInTheDocument()
     expect(screen.getByText('cd mcp/canva-mcp && npm run doctor:canva')).toBeInTheDocument()
+    expect(screen.getByText('Queue #1')).toBeInTheDocument()
+    expect(screen.getByText('Queue #2')).toBeInTheDocument()
+    expect(screen.getByText('Credential Unblock Queue')).toBeInTheDocument()
+    expect(screen.getByText('#2')).toBeInTheDocument()
+    expect(screen.getAllByText('GitHub source-refresh token boundary').length).toBeGreaterThan(0)
+    expect(screen.getByText('blocked missing optional env')).toBeInTheDocument()
     expect(screen.getByText('external auth blocked')).toBeInTheDocument()
   })
 })
