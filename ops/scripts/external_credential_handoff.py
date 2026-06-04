@@ -190,12 +190,98 @@ def format_env_template(handoff: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_operator_checklist(handoff: dict[str, Any]) -> dict[str, Any]:
+    boundary_by_id = {item["id"]: item for item in handoff["boundaries"]}
+    items = [
+        _operator_checklist_item(boundary_by_id[queue_item["boundary_id"]], queue_item)
+        for queue_item in handoff["unblock_queue"]
+    ]
+    ready_count = sum(1 for item in items if item["ready_to_execute"])
+    blocked_count = len(items) - ready_count
+    next_action = next((item for item in items if not item["ready_to_execute"]), None)
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "handoff_generated_at": handoff["generated_at"],
+        "registry_path": handoff["registry_path"],
+        "status": "operator_action_required" if blocked_count else "ready_for_live_verification",
+        "summary": {
+            "item_count": len(items),
+            "ready_to_execute": ready_count,
+            "blocked": blocked_count,
+            "next_boundary_id": next_action["boundary_id"] if next_action else None,
+            "secret_values_emitted": False,
+        },
+        "items": items,
+    }
+
+
+def format_operator_checklist_markdown(checklist: dict[str, Any]) -> str:
+    summary = checklist["summary"]
+    lines = [
+        "# External Credential Operator Checklist",
+        "",
+        f"- Status: `{checklist['status']}`",
+        f"- Items: `{summary['item_count']}`",
+        f"- Ready to execute: `{summary['ready_to_execute']}`",
+        f"- Blocked: `{summary['blocked']}`",
+        f"- Next boundary: `{summary['next_boundary_id'] or 'none'}`",
+        "- Secret values: not emitted; checklist contains env names only.",
+        "",
+        "## Queue",
+        "",
+        "| Rank | Boundary | Live status | Ready now | Blocked reason | Env names | Commands |",
+        "| ---: | --- | --- | --- | --- | --- | ---: |",
+    ]
+    for item in checklist["items"]:
+        lines.append(
+            " | ".join(
+                [
+                    f"| `{item['rank']}`",
+                    f"`{item['boundary_id']}`",
+                    f"`{item['live_status']}`",
+                    f"`{str(item['ready_to_execute']).lower()}`",
+                    item["blocked_reason"] or "none",
+                    _format_env_names(item["env_names"]),
+                    f"`{len(item['verify_after_unblock'])}` |",
+                ]
+            )
+        )
+
+    lines.extend(["", "## Boundary Steps", ""])
+    for item in checklist["items"]:
+        lines.extend(
+            [
+                f"### {item['title']}",
+                "",
+                f"- Boundary id: `{item['boundary_id']}`",
+                f"- Registry status: `{item['registry_status']}`",
+                f"- Live status: `{item['live_status']}`",
+                f"- Ready to execute: `{str(item['ready_to_execute']).lower()}`",
+                f"- Operator action: {item['operator_action']}",
+                f"- Claim policy: {item['claim_policy']}",
+                "",
+                "Checklist:",
+            ]
+        )
+        lines.extend(
+            f"- `{step['state']}` {step['label']}: {step['detail']}"
+            for step in item["checklist"]
+        )
+        lines.extend(["", "Verify after unblock:"])
+        lines.extend(f"- `{command}`" for command in item["verify_after_unblock"])
+        lines.append("")
+    return "\n".join(lines)
+
+
 def run(
     registry_path: Path = DEFAULT_REGISTRY,
     *,
     json_out: Path | None = None,
     markdown_out: Path | None = None,
     env_template_out: Path | None = None,
+    operator_checklist_json_out: Path | None = None,
+    operator_checklist_markdown_out: Path | None = None,
 ) -> dict[str, Any]:
     handoff = build_handoff(registry_path)
     if json_out is not None:
@@ -204,6 +290,12 @@ def run(
         _write_text_atomic(markdown_out, format_markdown(handoff))
     if env_template_out is not None:
         _write_text_atomic(env_template_out, format_env_template(handoff))
+    if operator_checklist_json_out is not None or operator_checklist_markdown_out is not None:
+        checklist = build_operator_checklist(handoff)
+        if operator_checklist_json_out is not None:
+            _write_json_atomic(operator_checklist_json_out, checklist)
+        if operator_checklist_markdown_out is not None:
+            _write_text_atomic(operator_checklist_markdown_out, format_operator_checklist_markdown(checklist))
     return handoff
 
 
@@ -213,8 +305,11 @@ def check_outputs(
     json_path: Path | None = None,
     markdown_path: Path | None = None,
     env_template_path: Path | None = None,
+    operator_checklist_json_path: Path | None = None,
+    operator_checklist_markdown_path: Path | None = None,
 ) -> list[str]:
     errors: list[str] = []
+    checklist = build_operator_checklist(handoff)
     if json_path is not None:
         try:
             actual_json = json.loads(json_path.read_text(encoding="utf-8"))
@@ -241,6 +336,27 @@ def check_outputs(
             expected_template = format_env_template(handoff)
             if _normalize_env_template(actual_template) != _normalize_env_template(expected_template):
                 errors.append(f"{env_template_path} is stale; regenerate the credential handoff env template")
+    if operator_checklist_json_path is not None:
+        try:
+            actual_checklist_json = json.loads(operator_checklist_json_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"{operator_checklist_json_path} is not readable JSON: {exc}")
+        else:
+            if _normalize_generated_at(actual_checklist_json) != _normalize_generated_at(checklist):
+                errors.append(
+                    f"{operator_checklist_json_path} is stale; regenerate the operator checklist JSON"
+                )
+    if operator_checklist_markdown_path is not None:
+        try:
+            actual_checklist_markdown = operator_checklist_markdown_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"{operator_checklist_markdown_path} is not readable: {exc}")
+        else:
+            expected_checklist_markdown = format_operator_checklist_markdown(checklist)
+            if _normalize_newlines(actual_checklist_markdown) != _normalize_newlines(expected_checklist_markdown):
+                errors.append(
+                    f"{operator_checklist_markdown_path} is stale; regenerate the operator checklist Markdown"
+                )
     return errors
 
 
@@ -250,12 +366,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
     parser.add_argument("--env-template-out", type=Path)
+    parser.add_argument("--operator-checklist-json-out", type=Path)
+    parser.add_argument("--operator-checklist-markdown-out", type=Path)
     parser.add_argument("--check-json", type=Path)
     parser.add_argument("--check-markdown", type=Path)
     parser.add_argument("--check-env-template", type=Path)
+    parser.add_argument("--check-operator-checklist-json", type=Path)
+    parser.add_argument("--check-operator-checklist-markdown", type=Path)
     args = parser.parse_args(argv)
     try:
-        check_requested = any([args.check_json, args.check_markdown, args.check_env_template])
+        check_requested = any(
+            [
+                args.check_json,
+                args.check_markdown,
+                args.check_env_template,
+                args.check_operator_checklist_json,
+                args.check_operator_checklist_markdown,
+            ]
+        )
         handoff = build_handoff(args.registry, env={} if check_requested else None)
         if args.json_out is not None:
             _write_json_atomic(args.json_out, handoff)
@@ -263,11 +391,22 @@ def main(argv: list[str] | None = None) -> int:
             _write_text_atomic(args.markdown_out, format_markdown(handoff))
         if args.env_template_out is not None:
             _write_text_atomic(args.env_template_out, format_env_template(handoff))
+        if args.operator_checklist_json_out is not None or args.operator_checklist_markdown_out is not None:
+            checklist = build_operator_checklist(handoff)
+            if args.operator_checklist_json_out is not None:
+                _write_json_atomic(args.operator_checklist_json_out, checklist)
+            if args.operator_checklist_markdown_out is not None:
+                _write_text_atomic(
+                    args.operator_checklist_markdown_out,
+                    format_operator_checklist_markdown(checklist),
+                )
         errors = check_outputs(
             handoff,
             json_path=args.check_json,
             markdown_path=args.check_markdown,
             env_template_path=args.check_env_template,
+            operator_checklist_json_path=args.check_operator_checklist_json,
+            operator_checklist_markdown_path=args.check_operator_checklist_markdown,
         )
         if errors:
             raise ValueError("\n".join(errors))
@@ -349,6 +488,87 @@ def _queue_env_names(item: dict[str, Any]) -> list[str]:
     return [*item["required_env"], *item["optional_env_any_of"]]
 
 
+def _operator_checklist_item(boundary: dict[str, Any], queue_item: dict[str, Any]) -> dict[str, Any]:
+    live_status = _checklist_live_status(boundary)
+    ready_to_execute = live_status == "ready_for_execution"
+    blocked_reason = "" if ready_to_execute else _checklist_blocked_reason(boundary, live_status)
+    return {
+        "rank": queue_item["rank"],
+        "boundary_id": boundary["id"],
+        "title": boundary["title"],
+        "owner": boundary["owner"],
+        "registry_status": boundary["status"],
+        "live_status": live_status,
+        "ready_to_execute": ready_to_execute,
+        "blocked_reason": blocked_reason,
+        "operator_action": queue_item["operator_action"],
+        "required_env": boundary["required_env"],
+        "missing_required_env": boundary["missing_required_env"],
+        "optional_env_any_of": boundary["optional_env_any_of"],
+        "optional_env_available": boundary["optional_env_available"],
+        "env_names": queue_item["env_names"],
+        "verify_after_unblock": queue_item["verify_after_unblock"],
+        "claim_policy": boundary["claim_policy"],
+        "checklist": _operator_checklist_steps(boundary, live_status),
+    }
+
+
+def _checklist_live_status(boundary: dict[str, Any]) -> str:
+    if boundary["missing_required_env"]:
+        return "blocked_missing_required_env"
+    if (
+        boundary["status"] == "optional_token_absent"
+        and boundary["optional_env_any_of"]
+        and not boundary["optional_env_available"]
+    ):
+        return "blocked_missing_optional_env"
+    return "ready_for_execution"
+
+
+def _checklist_blocked_reason(boundary: dict[str, Any], live_status: str) -> str:
+    if live_status == "blocked_missing_required_env":
+        return "missing required env: " + ", ".join(boundary["missing_required_env"])
+    if live_status == "blocked_missing_optional_env":
+        return "missing optional env: " + ", ".join(boundary["optional_env_any_of"])
+    blockers = "; ".join(value.rstrip(".") for value in boundary["blocked_until"])
+    return blockers or live_status
+
+
+def _operator_checklist_steps(boundary: dict[str, Any], live_status: str) -> list[dict[str, str]]:
+    required_detail = _plain_env_names(boundary["required_env"])
+    optional_detail = _plain_env_names(boundary["optional_env_any_of"])
+    return [
+        {
+            "id": "required_env",
+            "state": "missing" if boundary["missing_required_env"] else "ready",
+            "label": "Required env",
+            "detail": required_detail if boundary["required_env"] else "none required",
+        },
+        {
+            "id": "optional_env",
+            "state": "blocked" if live_status == "blocked_missing_optional_env" else "not_blocking",
+            "label": "Optional env",
+            "detail": optional_detail if boundary["optional_env_any_of"] else "none",
+        },
+        {
+            "id": "operator_approval",
+            "state": "operator_owned" if live_status == "ready_for_execution" else "blocked",
+            "label": "Operator approval",
+            "detail": "; ".join(value.rstrip(".") for value in boundary["blocked_until"]),
+        },
+        {
+            "id": "verify_commands",
+            "state": "ready" if live_status == "ready_for_execution" else "blocked",
+            "label": "Verification commands",
+            "detail": f"{len(boundary['verification_commands'])} command(s)",
+        },
+    ]
+
+
+def _plain_env_names(names: list[str]) -> str:
+    return ", ".join(names) if names else "none"
+
+
 def _repo_relative(path: Path) -> str:
     resolved = path.resolve()
     try:
@@ -360,7 +580,7 @@ def _repo_relative(path: Path) -> str:
 def _normalize_generated_at(value: Any) -> Any:
     if isinstance(value, dict):
         return {
-            key: "<ignored>" if key == "generated_at" else _normalize_generated_at(item)
+            key: "<ignored>" if key in {"generated_at", "handoff_generated_at"} else _normalize_generated_at(item)
             for key, item in value.items()
         }
     if isinstance(value, list):

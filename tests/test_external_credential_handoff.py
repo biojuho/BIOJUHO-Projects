@@ -11,6 +11,12 @@ REGISTRY_PATH = PROJECT_ROOT / "ops" / "references" / "external_credential_bound
 HANDOFF_JSON_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json"
 HANDOFF_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md"
 HANDOFF_ENV_TEMPLATE_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example"
+OPERATOR_CHECKLIST_JSON_PATH = (
+    PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json"
+)
+OPERATOR_CHECKLIST_MARKDOWN_PATH = (
+    PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md"
+)
 
 
 def load_module():
@@ -89,11 +95,54 @@ def test_env_template_follows_unblock_queue_order() -> None:
     assert env_template.index("OTEL_EXPORTER_OTLP_ENDPOINT=") < env_template.index("OPENAI_API_KEY=")
 
 
+def test_operator_checklist_matches_live_readiness_without_secret_values() -> None:
+    handoff_module = load_module()
+    handoff = handoff_module.build_handoff(
+        REGISTRY_PATH,
+        env={
+            "CANVA_CLIENT_ID": "client-id-secret-value",
+            "GITHUB_TOKEN": "github-token-value",
+            "TELEGRAM_BOT_TOKEN": "telegram-token-value",
+        },
+    )
+
+    checklist = handoff_module.build_operator_checklist(handoff)
+    serialized = json.dumps(checklist)
+    by_id = {item["boundary_id"]: item for item in checklist["items"]}
+
+    assert checklist["summary"]["blocked"] >= 1
+    assert by_id["canva_oauth_and_openapi_tool_execution"]["live_status"] == "blocked_missing_required_env"
+    assert by_id["github_source_refresh_rate_limit_token"]["live_status"] == "ready_for_execution"
+    assert by_id["hosted_agent_runtime_credentials"]["ready_to_execute"] is True
+    assert "ready_to_execute" in serialized
+    assert "client-id-secret-value" not in serialized
+    assert "github-token-value" not in serialized
+    assert "telegram-token-value" not in serialized
+
+
+def test_operator_checklist_markdown_is_actionable() -> None:
+    handoff_module = load_module()
+    checklist = handoff_module.build_operator_checklist(
+        handoff_module.build_handoff(REGISTRY_PATH, env={})
+    )
+
+    markdown = handoff_module.format_operator_checklist_markdown(checklist)
+
+    assert "External Credential Operator Checklist" in markdown
+    assert "Secret values: not emitted" in markdown
+    assert "blocked_missing_required_env" in markdown
+    assert "blocked_missing_optional_env" in markdown
+    assert "ready_for_execution" in markdown
+    assert "cd mcp/canva-mcp && npm run doctor:canva" in markdown
+
+
 def test_cli_writes_redacted_handoff_package(tmp_path: Path) -> None:
     handoff_module = load_module()
     json_out = tmp_path / "handoff.json"
     markdown_out = tmp_path / "handoff.md"
     env_template_out = tmp_path / "handoff.env.example"
+    operator_checklist_json_out = tmp_path / "operator-checklist.json"
+    operator_checklist_markdown_out = tmp_path / "operator-checklist.md"
 
     exit_code = handoff_module.main(
         [
@@ -105,15 +154,22 @@ def test_cli_writes_redacted_handoff_package(tmp_path: Path) -> None:
             str(markdown_out),
             "--env-template-out",
             str(env_template_out),
+            "--operator-checklist-json-out",
+            str(operator_checklist_json_out),
+            "--operator-checklist-markdown-out",
+            str(operator_checklist_markdown_out),
         ]
     )
 
     payload = json.loads(json_out.read_text(encoding="utf-8"))
+    checklist = json.loads(operator_checklist_json_out.read_text(encoding="utf-8"))
     assert exit_code == 0
     assert payload["status"] == "operator_action_required"
     assert payload["missing_required_env_count"] >= 1
+    assert checklist["summary"]["next_boundary_id"] == "canva_oauth_and_openapi_tool_execution"
     assert "External Credential Handoff" in markdown_out.read_text(encoding="utf-8")
     assert "CANVA_CLIENT_ID=" in env_template_out.read_text(encoding="utf-8")
+    assert "External Credential Operator Checklist" in operator_checklist_markdown_out.read_text(encoding="utf-8")
 
 
 def test_checked_in_handoff_artifacts_match_registry() -> None:
@@ -129,6 +185,10 @@ def test_checked_in_handoff_artifacts_match_registry() -> None:
             str(HANDOFF_MARKDOWN_PATH),
             "--check-env-template",
             str(HANDOFF_ENV_TEMPLATE_PATH),
+            "--check-operator-checklist-json",
+            str(OPERATOR_CHECKLIST_JSON_PATH),
+            "--check-operator-checklist-markdown",
+            str(OPERATOR_CHECKLIST_MARKDOWN_PATH),
         ]
     )
 
