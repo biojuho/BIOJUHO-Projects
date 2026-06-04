@@ -3,8 +3,8 @@
 ## Summary
 
 - Sources reviewed: 6
-- Adoption counts: adopted=1, partially_adopted=4, watch=1
-- Generated at: `2026-06-04T20:29:36+09:00`
+- Adoption counts: adopted=1, partially_adopted=5, watch=0
+- Generated at: `2026-06-04T20:33:01+09:00`
 
 ## Search Context
 
@@ -101,10 +101,11 @@
 
 - URL: https://github.com/open-webui/mcpo
 - Category: `mcp-openapi-interop`
-- Adoption status: `watch`
+- Adoption status: `partially_adopted`
 - Why similar: MCP-to-OpenAPI proxy pattern that makes MCP tools available through standard HTTP/OpenAPI contracts.
 - Observed patterns:
   - OpenAPI-compatible HTTP exposure for MCP tools
+  - offline OpenAPI contract for MCP tool inventory
   - tool-level docs and interoperability with non-MCP clients
   - API-key protected proxy operation
 - Local evidence:
@@ -112,8 +113,13 @@
   - `mcp/canva-mcp/src/server/auth.ts`
   - `mcp/canva-mcp/assets/preview.js`
   - `ops/scripts/check_mcp_health.py`
+  - `ops/scripts/canva_mcp_openapi_contract.py`
+  - `tests/test_canva_mcp_openapi_contract.py`
+  - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.json`
+  - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_PASS_2026-06-04.md`
-- Gap: The workspace does not yet publish MCP tools as OpenAPI endpoints; keep this as an interoperability option.
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md`
+- Gap: Offline Canva MCP OpenAPI contract is adopted; live MCP-to-OpenAPI proxy exposure remains future-scoped until OAuth and proxy authentication are verified.
 
 ### Uninen/devserver-mcp
 
