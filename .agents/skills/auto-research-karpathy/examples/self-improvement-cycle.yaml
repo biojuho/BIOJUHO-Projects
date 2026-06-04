@@ -1,0 +1,43 @@
+schema_version: 1
+cycle_id: auto-research-example
+objective: "Improve one launch-critical product surface with source-backed A/B evidence."
+scope:
+  projects:
+    - apps/desci-platform
+  owned_paths:
+    - apps/desci-platform/scripts/product_smoke.py
+    - docs/reports/2026-06/AUTO_RESEARCH_LOOP_example.md
+external_research:
+  required: true
+  sources:
+    - repo: lastmile-ai/mcp-eval
+      url: https://github.com/lastmile-ai/mcp-eval
+      adopted_pattern: "real agent-to-tool evaluation"
+    - repo: Uninen/devserver-mcp
+      url: https://github.com/Uninen/devserver-mcp
+      adopted_pattern: "dev server status plus Playwright automation"
+ab_test:
+  hypothesis: "Variant B improves the product smoke diagnostic signal without reducing pass coverage."
+  baseline:
+    command: "python apps/desci-platform/scripts/product_smoke.py --json-out var/product-smoke-a.json"
+    evidence_path: var/product-smoke-a.json
+  variant:
+    command: "python apps/desci-platform/scripts/product_smoke.py --json-out var/product-smoke-b.json"
+    evidence_path: var/product-smoke-b.json
+  primary_kpi: "actionable_failed_check_count"
+  guardrails:
+    - "schema_version remains 1"
+    - "all existing checks still execute"
+    - "canonical desci smoke passes"
+  decision_rule: "Adopt B only if diagnostics improve and every guardrail passes."
+verification:
+  targeted:
+    - "python -m pytest apps/desci-platform/backend/tests/test_product_smoke.py -q -p no:cacheprovider"
+  smoke:
+    - "python ops/scripts/run_workspace_smoke.py --scope desci --json-out var/workspace-smoke-desci-auto-research.json"
+commit_policy:
+  stage_only_owned_paths: true
+  require_cached_diff_check: true
+  push_when_remote_available: true
+next_cycle:
+  choose_by: "highest product impact, clearest verification, smallest reversible patch"
