@@ -42,6 +42,11 @@ Implementation:
   -> `20 passed`
 - `python ops\scripts\run_workspace_smoke.py --scope cie --json-out var\workspace-smoke-cie-timeout-hardening-2026-06-04.json`
   -> `2/2 PASS`
+- Controlled live process-tree proof:
+  `python - <<inline>>` launched a parent Python process that spawned a sleeping
+  child, called `run_command_with_timeout(..., timeout_seconds=1)`, captured
+  `PARENT=21728 CHILD=1656`, and verified `child_alive_after_kill=false`.
+  Evidence: `var/workspace-smoke-timeout-tree-live-proof-2026-06-04.json`.
 
 Live artifact summary:
 
