@@ -8,6 +8,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "external_credential_handoff.py"
 REGISTRY_PATH = PROJECT_ROOT / "ops" / "references" / "external_credential_boundaries.json"
+HANDOFF_JSON_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json"
+HANDOFF_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md"
+HANDOFF_ENV_TEMPLATE_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example"
 
 
 def load_module():
@@ -79,3 +82,39 @@ def test_cli_writes_redacted_handoff_package(tmp_path: Path) -> None:
     assert payload["missing_required_env_count"] >= 1
     assert "External Credential Handoff" in markdown_out.read_text(encoding="utf-8")
     assert "CANVA_CLIENT_ID=" in env_template_out.read_text(encoding="utf-8")
+
+
+def test_checked_in_handoff_artifacts_match_registry() -> None:
+    handoff_module = load_module()
+
+    exit_code = handoff_module.main(
+        [
+            "--registry",
+            str(REGISTRY_PATH),
+            "--check-json",
+            str(HANDOFF_JSON_PATH),
+            "--check-markdown",
+            str(HANDOFF_MARKDOWN_PATH),
+            "--check-env-template",
+            str(HANDOFF_ENV_TEMPLATE_PATH),
+        ]
+    )
+
+    assert exit_code == 0
+
+
+def test_cli_check_rejects_stale_markdown(tmp_path: Path) -> None:
+    handoff_module = load_module()
+    stale_markdown = tmp_path / "stale.md"
+    stale_markdown.write_text("# stale handoff\n", encoding="utf-8")
+
+    exit_code = handoff_module.main(
+        [
+            "--registry",
+            str(REGISTRY_PATH),
+            "--check-markdown",
+            str(stale_markdown),
+        ]
+    )
+
+    assert exit_code == 1

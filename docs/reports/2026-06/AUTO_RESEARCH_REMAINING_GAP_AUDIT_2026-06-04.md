@@ -6,6 +6,9 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 external credential handoff drift-guard slice: added checked-in
+  handoff sync checks to the generator and pre-push hook so registry changes
+  cannot silently stale the JSON, Markdown, or env-template artifacts.
 - 2026-06-05 external credential handoff slice: added a redacted, executable
   operator handoff generated from the boundary registry, including env-template
   output and verification commands while keeping real credential completion
@@ -282,6 +285,21 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md`
+- External credential handoff drift-guard verification:
+  - `ops\scripts\external_credential_handoff.py` supports `--check-json`,
+    `--check-markdown`, and `--check-env-template`
+  - `ops\hooks\pre-push` runs the checked-in artifact sync check before
+    runtime smoke probes
+  - focused credential/completion suite passed `21/21`
+  - pre-push-equivalent pytest suite passed `99/99`
+  - handoff check reports `5` boundaries and `missing_required_env=5`
+  - completion audit reports `23` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.md`
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-platform-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
   - `22` sources

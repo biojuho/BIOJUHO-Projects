@@ -175,23 +175,81 @@ def run(
     return handoff
 
 
+def check_outputs(
+    handoff: dict[str, Any],
+    *,
+    json_path: Path | None = None,
+    markdown_path: Path | None = None,
+    env_template_path: Path | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if json_path is not None:
+        try:
+            actual_json = json.loads(json_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"{json_path} is not readable JSON: {exc}")
+        else:
+            if _normalize_generated_at(actual_json) != _normalize_generated_at(handoff):
+                errors.append(f"{json_path} is stale; regenerate the credential handoff JSON")
+    if markdown_path is not None:
+        try:
+            actual_markdown = markdown_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"{markdown_path} is not readable: {exc}")
+        else:
+            expected_markdown = format_markdown(handoff)
+            if _normalize_newlines(actual_markdown) != _normalize_newlines(expected_markdown):
+                errors.append(f"{markdown_path} is stale; regenerate the credential handoff Markdown")
+    if env_template_path is not None:
+        try:
+            actual_template = env_template_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"{env_template_path} is not readable: {exc}")
+        else:
+            expected_template = format_env_template(handoff)
+            if _normalize_env_template(actual_template) != _normalize_env_template(expected_template):
+                errors.append(f"{env_template_path} is stale; regenerate the credential handoff env template")
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate a redacted external credential handoff package.")
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY)
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
     parser.add_argument("--env-template-out", type=Path)
+    parser.add_argument("--check-json", type=Path)
+    parser.add_argument("--check-markdown", type=Path)
+    parser.add_argument("--check-env-template", type=Path)
     args = parser.parse_args(argv)
     try:
-        handoff = run(
-            args.registry,
-            json_out=args.json_out,
-            markdown_out=args.markdown_out,
-            env_template_out=args.env_template_out,
+        check_requested = any([args.check_json, args.check_markdown, args.check_env_template])
+        handoff = build_handoff(args.registry, env={} if check_requested else None)
+        if args.json_out is not None:
+            _write_json_atomic(args.json_out, handoff)
+        if args.markdown_out is not None:
+            _write_text_atomic(args.markdown_out, format_markdown(handoff))
+        if args.env_template_out is not None:
+            _write_text_atomic(args.env_template_out, format_env_template(handoff))
+        errors = check_outputs(
+            handoff,
+            json_path=args.check_json,
+            markdown_path=args.check_markdown,
+            env_template_path=args.check_env_template,
         )
+        if errors:
+            raise ValueError("\n".join(errors))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"external credential handoff failed: {exc}", file=sys.stderr)
         return 1
+    if any([args.check_json, args.check_markdown, args.check_env_template]):
+        print(
+            "external credential handoff check valid: "
+            f"{handoff['boundary_count']} boundaries, "
+            f"status={handoff['status']}, "
+            f"missing_required_env={handoff['missing_required_env_count']}"
+        )
+        return 0
     print(
         "external credential handoff generated: "
         f"{handoff['boundary_count']} boundaries, "
@@ -213,6 +271,29 @@ def _repo_relative(path: Path) -> str:
         return resolved.relative_to(WORKSPACE_ROOT).as_posix()
     except ValueError:
         return resolved.as_posix()
+
+
+def _normalize_generated_at(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: "<ignored>" if key == "generated_at" else _normalize_generated_at(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_normalize_generated_at(item) for item in value]
+    return value
+
+
+def _normalize_env_template(value: str) -> str:
+    lines = _normalize_newlines(value).split("\n")
+    return "\n".join(
+        "# Generated at: <ignored>" if line.startswith("# Generated at:") else line
+        for line in lines
+    )
+
+
+def _normalize_newlines(value: str) -> str:
+    return value.replace("\r\n", "\n")
 
 
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
