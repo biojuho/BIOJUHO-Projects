@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "b762e53",
+            "c785e54",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "b762e53",
+            "proof_commit": "c785e54",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -523,6 +523,57 @@
             "dashboard, AgriGuard, DeSci, and Canva widget preview",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "ops/scripts/canva_widget_click_smoke.py",
+          "must_contain": [
+            "canva_widget_click_smoke",
+            "Toggle theme",
+            "Select design candidate 2",
+            "Open Canva design Corporate Presentation",
+            "canva-create-from-candidate",
+            "canva-design-clicked"
+          ]
+        },
+        {
+          "path": "tests/test_canva_widget_click_smoke.py",
+          "must_contain": [
+            "test_build_report_counts_actions_and_messages",
+            "test_format_markdown_lists_actions_messages_and_failures",
+            "test_record_action_captures_unexpected_exceptions",
+            "test_cli_writes_blocked_reports_when_playwright_missing"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_ACCESSIBLE_CONTROLS_2026-06-05.md",
+          "must_contain": [
+            "Canva Widget Click Smoke",
+            "Status: `pass`",
+            "Passed: `8`",
+            "select-candidate-keyboard",
+            "open-design-keyboard"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_ACCESSIBLE_CONTROLS_2026-06-05.json",
+          "must_contain": [
+            "\"tool\": \"canva_widget_click_smoke\"",
+            "\"status\": \"pass\"",
+            "\"actions\": 8",
+            "\"failed\": 0",
+            "\"candidateId\": \"candidate_2\"",
+            "\"designId\": \"design_2\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_ACCESSIBLE_CLICK_SMOKE_2026-06-05.md",
+          "must_contain": [
+            "Canva Widget Accessible Click Smoke",
+            "W3C WAI-ARIA APG Button Pattern",
+            "MDN ARIA button role",
+            "pass: 8/8 actions",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -544,12 +595,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "b762e53",
+            "c785e54",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "b762e53",
+            "proof_commit": "c785e54",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",

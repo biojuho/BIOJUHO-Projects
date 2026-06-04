@@ -68,7 +68,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `10`
+- Evidence paths: `15`
 
 ### direct_browser_qa_freshness_gate
 

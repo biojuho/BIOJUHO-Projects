@@ -314,6 +314,41 @@
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
+        },
+        {
+          "path": "ops/scripts/canva_widget_click_smoke.py",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_canva_widget_click_smoke.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_ACCESSIBLE_CONTROLS_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_ACCESSIBLE_CONTROLS_2026-06-05.json",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_ACCESSIBLE_CLICK_SMOKE_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
         }
       ]
     },

@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T22:09:51.205628+00:00",
+  "generated_at": "2026-06-04T22:15:43.558854+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -207,6 +207,14 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_ALL_FRONTENDS_BROWSER_SMOKE_EXPECTED_TEXT_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_ACCESSIBLE_CONTROLS_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_ACCESSIBLE_CLICK_SMOKE_2026-06-05.md",
           "term_count": 3
         }
       ],

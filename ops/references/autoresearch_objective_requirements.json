@@ -300,6 +300,23 @@
             "10/10",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_ACCESSIBLE_CONTROLS_2026-06-05.md",
+          "must_contain": [
+            "Canva Widget Click Smoke",
+            "Passed: `8`",
+            "select-candidate-keyboard",
+            "open-design-keyboard"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_ACCESSIBLE_CLICK_SMOKE_2026-06-05.md",
+          "must_contain": [
+            "Canva Widget Accessible Click Smoke",
+            "pass: 8/8 actions",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
