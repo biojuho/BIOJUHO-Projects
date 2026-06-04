@@ -160,6 +160,51 @@ class TestQualityOverview:
         assert smoke["duration_seconds"] == 12.345
         assert smoke["slowest_checks"][0]["name"] == "cie tests"
 
+    def test_includes_dev_server_readiness_summary(self, tmp_path, monkeypatch):
+        status_dir = tmp_path / "var"
+        status_dir.mkdir()
+        status_report = status_dir / "dev-server-status-dashboard.json"
+        status_report.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "status": "degraded",
+                    "summary": {"total": 2, "ready": 1, "unready": 1},
+                    "targets": [
+                        {
+                            "id": "dashboard-api",
+                            "label": "Dashboard API",
+                            "project": "dashboard",
+                            "kind": "api",
+                            "ok": True,
+                            "status_code": 200,
+                            "url": "http://127.0.0.1:8080/api/quality_overview",
+                        },
+                        {
+                            "id": "dashboard-frontend",
+                            "label": "Dashboard Frontend",
+                            "project": "dashboard",
+                            "kind": "frontend",
+                            "ok": False,
+                            "status_code": None,
+                            "url": "http://127.0.0.1:5173/",
+                            "error": "offline",
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(gdt_router, "WORKSPACE", tmp_path)
+
+        data = client.get("/api/quality_overview").json()
+        dev_status = data["dev_server_status"]
+
+        assert dev_status["available"] is True
+        assert dev_status["status"] == "degraded"
+        assert dev_status["summary"] == {"total": 2, "ready": 1, "unready": 1}
+        assert dev_status["unready_targets"][0]["id"] == "dashboard-frontend"
+
 
 # ── /api/overview structure ────────────────────────────────────────
 

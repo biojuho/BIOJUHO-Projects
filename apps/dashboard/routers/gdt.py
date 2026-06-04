@@ -12,6 +12,7 @@ from fastapi import APIRouter
 router = APIRouter()
 
 SMOKE_REPORT_PATTERNS = ("var/smoke/*.json", "var/workspace-smoke*.json")
+DEV_SERVER_STATUS_PATTERNS = ("var/dev-server-status*.json",)
 
 
 def _relative_workspace_path(path: Path) -> str:
@@ -21,13 +22,32 @@ def _relative_workspace_path(path: Path) -> str:
         return str(path)
 
 
-def _latest_workspace_smoke_report() -> Path | None:
+def _latest_workspace_file(patterns: tuple[str, ...], *, skip_validated_status: bool = False) -> Path | None:
     candidates: list[Path] = []
-    for pattern in SMOKE_REPORT_PATTERNS:
+    for pattern in patterns:
         candidates.extend(path for path in WORKSPACE.glob(pattern) if path.is_file())
+    if skip_validated_status:
+        filtered: list[Path] = []
+        for path in candidates:
+            try:
+                payload = _json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                filtered.append(path)
+                continue
+            if not isinstance(payload, dict) or payload.get("status") != "validated":
+                filtered.append(path)
+        candidates = filtered
     if not candidates:
         return None
     return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _latest_workspace_smoke_report() -> Path | None:
+    return _latest_workspace_file(SMOKE_REPORT_PATTERNS)
+
+
+def _latest_dev_server_status_report() -> Path | None:
+    return _latest_workspace_file(DEV_SERVER_STATUS_PATTERNS, skip_validated_status=True)
 
 
 def _smoke_results(payload: Any) -> list[dict[str, Any]]:
@@ -112,6 +132,63 @@ def _workspace_smoke_overview() -> dict[str, Any]:
             }
             for item in slowest
         ],
+    }
+
+
+def _empty_dev_server_status(status: str, path: str | None = None) -> dict[str, Any]:
+    return {
+        "available": False,
+        "status": status,
+        "path": path,
+        "generated_at": None,
+        "summary": {"total": 0, "ready": 0, "unready": 0},
+        "targets": [],
+        "unready_targets": [],
+    }
+
+
+def _dev_server_status_overview() -> dict[str, Any]:
+    report_path = _latest_dev_server_status_report()
+    if report_path is None:
+        return _empty_dev_server_status("missing")
+
+    try:
+        payload = _json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return _empty_dev_server_status("corrupt", _relative_workspace_path(report_path))
+
+    if not isinstance(payload, dict):
+        return _empty_dev_server_status("corrupt", _relative_workspace_path(report_path))
+
+    raw_summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    raw_targets = payload.get("targets") if isinstance(payload.get("targets"), list) else []
+    targets = []
+    for item in raw_targets:
+        if not isinstance(item, dict):
+            continue
+        target = {
+            "id": str(item.get("id", "")),
+            "label": str(item.get("label", item.get("id", ""))),
+            "project": str(item.get("project", "")),
+            "kind": str(item.get("kind", "")),
+            "ok": bool(item.get("ok")),
+            "status_code": item.get("status_code"),
+            "url": str(item.get("url", "")),
+            "error": str(item.get("error", "")) if item.get("error") else None,
+        }
+        targets.append(target)
+
+    ready = int(raw_summary.get("ready", sum(1 for item in targets if item["ok"])) or 0)
+    total = int(raw_summary.get("total", len(targets)) or 0)
+    unready = int(raw_summary.get("unready", max(total - ready, 0)) or 0)
+    return {
+        "available": True,
+        "status": str(payload.get("status", "unknown")),
+        "path": _relative_workspace_path(report_path),
+        "generated_at": payload.get("generated_at"),
+        "summary": {"total": total, "ready": ready, "unready": unready},
+        "targets": targets,
+        "unready_targets": [target for target in targets if not target["ok"]][:5],
     }
 
 
@@ -355,4 +432,5 @@ async def quality_overview():
         "daily_production": daily_production,
         "confidence_distribution": confidence_dist,
         "workspace_smoke": _workspace_smoke_overview(),
+        "dev_server_status": _dev_server_status_overview(),
     }

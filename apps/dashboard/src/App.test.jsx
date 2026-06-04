@@ -64,6 +64,16 @@ const RESPONSES = {
         { scope: 'cie', name: 'cie tests', ok: true, returncode: 0, elapsed_seconds: 27.273 },
       ],
     },
+    dev_server_status: {
+      available: true,
+      status: 'ready',
+      summary: { total: 2, ready: 2, unready: 0 },
+      targets: [
+        { id: 'dashboard-api', label: 'Dashboard API', project: 'dashboard', kind: 'api', ok: true },
+        { id: 'dashboard-frontend', label: 'Dashboard Frontend', project: 'dashboard', kind: 'frontend', ok: true },
+      ],
+      unready_targets: [],
+    },
   },
   '/api/sla_status': {
     sla_target: 99.0,
@@ -162,5 +172,15 @@ describe('Dashboard App', () => {
     expect(screen.getByText('2/2 PASS')).toBeInTheDocument()
     expect(screen.getByText('cie tests')).toBeInTheDocument()
     expect(screen.getByText('27.3')).toBeInTheDocument()
+  })
+
+  it('renders dev-server readiness in the quality panel', async () => {
+    const { default: App } = await import('./App')
+
+    render(<App />)
+
+    expect(await screen.findByText('Dev Servers')).toBeInTheDocument()
+    expect(screen.getByText('2/2 READY')).toBeInTheDocument()
+    expect(screen.getByText('Dashboard API')).toBeInTheDocument()
   })
 })

@@ -59,6 +59,20 @@ export function QualityPanel({ data, error, onRetry }) {
         : 'NO REPORT'
   const smokeBadgeClass = smokeLabel === 'PASS' ? 'ok' : smokeLabel === 'PARTIAL' ? 'warn' : 'error'
   const slowestChecks = smoke?.slowest_checks || []
+  const devStatus = data.dev_server_status || null
+  const devSummary = devStatus?.summary || {}
+  const devReady = devSummary.ready ?? 0
+  const devTotal = devSummary.total ?? 0
+  const devUnready = devSummary.unready ?? 0
+  const devLabel = devStatus?.available
+    ? devUnready === 0 && devTotal > 0
+      ? 'READY'
+      : 'DEGRADED'
+    : 'NO STATUS'
+  const devBadgeClass = devLabel === 'READY' ? 'ok' : devLabel === 'DEGRADED' ? 'warn' : 'error'
+  const devTargets = devStatus?.unready_targets?.length > 0
+    ? devStatus.unready_targets
+    : devStatus?.targets || []
 
   return (
     <div className="panel">
@@ -91,6 +105,34 @@ export function QualityPanel({ data, error, onRetry }) {
                     <td>{check.name}</td>
                     <td>{check.scope}</td>
                     <td>{(check.elapsed_seconds || 0).toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+
+      {devStatus && (
+        <>
+          <h3 style={{ fontSize: '0.7rem', color: '#34d399', marginBottom: '0.4rem', marginTop: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Dev Servers
+          </h3>
+          <div className="metric-row">
+            <span className="metric-label">Readiness</span>
+            <span className={`status-badge ${devBadgeClass}`}>
+              {devTotal ? `${devReady}/${devTotal} ${devLabel}` : devLabel}
+            </span>
+          </div>
+          {devTargets.length > 0 && (
+            <table className="data-table" style={{ marginTop: '0.45rem', marginBottom: '0.8rem' }}>
+              <thead><tr><th>Target</th><th>Project</th><th>State</th></tr></thead>
+              <tbody>
+                {devTargets.slice(0, 4).map((target, i) => (
+                  <tr key={`${target.id}-${i}`}>
+                    <td>{target.label || target.id}</td>
+                    <td>{target.project}</td>
+                    <td>{target.ok ? 'ready' : target.error || 'unready'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -189,7 +231,7 @@ export function QualityPanel({ data, error, onRetry }) {
         </>
       )}
 
-      {!data.qa_grades?.length && !data.daily_production?.length && !smoke?.available && (
+      {!data.qa_grades?.length && !data.daily_production?.length && !smoke?.available && !devStatus?.available && (
         <div style={{ fontSize: '0.72rem', color: '#64748b', padding: '0.5rem 0' }}>
           QA 데이터가 없습니다. 파이프라인 실행 후 표시됩니다.
         </div>
