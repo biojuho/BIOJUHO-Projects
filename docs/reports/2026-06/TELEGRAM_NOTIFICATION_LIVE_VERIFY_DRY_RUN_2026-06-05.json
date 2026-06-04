@@ -1,0 +1,35 @@
+{
+  "delivery": {
+    "attempted": false,
+    "error": "",
+    "message_id": null,
+    "ok": false
+  },
+  "errors": [],
+  "generated_at": "2026-06-04T20:23:33.498325+00:00",
+  "live_status": "blocked_missing_required_env",
+  "missing_required_env": [
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_ID"
+  ],
+  "mode": "dry_run",
+  "required_env": [
+    {
+      "name": "TELEGRAM_BOT_TOKEN",
+      "present": false
+    },
+    {
+      "name": "TELEGRAM_CHAT_ID",
+      "present": false
+    }
+  ],
+  "schema_version": 1,
+  "status": "pass",
+  "summary": {
+    "elapsed_seconds": 0.0,
+    "message_attempted": false,
+    "message_sent": false,
+    "missing_required_env_count": 2,
+    "required_env_count": 2
+  }
+}

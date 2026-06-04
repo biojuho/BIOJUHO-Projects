@@ -199,6 +199,7 @@
         "external_credential_boundary_registry",
         "external_credential_handoff",
         "external_credential_live_verifier",
+        "telegram_notification_live_delivery_verifier",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -233,7 +234,8 @@
         "external_credential_boundaries",
         "external_credential_boundary_registry",
         "external_credential_handoff",
-        "external_credential_live_verifier"
+        "external_credential_live_verifier",
+        "telegram_notification_live_delivery_verifier"
       ],
       "evidence": [
         {

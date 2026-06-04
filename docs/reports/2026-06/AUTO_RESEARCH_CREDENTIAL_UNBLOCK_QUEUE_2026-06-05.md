@@ -26,7 +26,7 @@ weakening the `global_objective_complete=false` status.
 | ---: | --- | --- |
 | `1` | `canva_oauth_and_openapi_tool_execution` | Provide `CANVA_CLIENT_ID` and `CANVA_CLIENT_SECRET`, complete real Canva login/consent, then verify with `cd mcp/canva-mcp && npm run doctor:canva`. |
 | `2` | `github_source_refresh_rate_limit_token` | Provide `GITHUB_TOKEN` or `GH_TOKEN`, then rerun live GitHub source freshness. |
-| `3` | `telegram_notification_mcp_credentials` | Provide `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, then run the MCP service runtime smoke. |
+| `3` | `telegram_notification_mcp_credentials` | Provide `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, then run the Telegram live delivery verifier and MCP service runtime smoke. |
 | `4` | `otel_collector_endpoint_and_credentials` | Provide `OTEL_EXPORTER_OTLP_ENDPOINT` and any selected OTLP auth env, then run live MCP OTLP smoke and collector handoff validation. |
 | `5` | `hosted_agent_runtime_credentials` | Choose the hosted runtime/tracing/approval policy and credentials, then rerun the workflow gate. |
 

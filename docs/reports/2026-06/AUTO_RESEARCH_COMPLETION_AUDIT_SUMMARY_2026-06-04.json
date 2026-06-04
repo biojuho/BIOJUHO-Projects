@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 29
+    "covered": 30
   },
-  "criterion_count": 30,
+  "criterion_count": 31,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -695,7 +695,7 @@
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.md",
-          "term_count": 5,
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -758,7 +758,7 @@
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
-          "term_count": 5,
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -772,6 +772,48 @@
         },
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_READY_ONLY_EXECUTE_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "telegram_notification_live_delivery_verifier",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/telegram_notification_live_verify.py",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_telegram_notification_live_verify.py",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "ops/references/external_credential_boundaries.json",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/TELEGRAM_NOTIFICATION_LIVE_VERIFY_DRY_RUN_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_TELEGRAM_NOTIFICATION_LIVE_VERIFIER_2026-06-05.md",
           "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,

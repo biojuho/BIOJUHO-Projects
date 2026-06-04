@@ -6,6 +6,12 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 Telegram notification live-verifier slice: added
+  `ops/scripts/telegram_notification_live_verify.py`, a redacted dry-run by
+  default verifier that only calls Telegram Bot API `sendMessage` with explicit
+  `--execute`; updated the external credential registry and handoff so
+  Telegram unblock now requires real delivery verification plus MCP runtime
+  smoke instead of tools/list-only proof.
 - 2026-06-05 credential unblock queue slice: added a generated
   `unblock_queue` to the redacted external credential handoff and a Markdown
   `Prioritized Unblock Queue` so operators can address Canva OAuth/OpenAPI,
@@ -252,6 +258,10 @@ Latest pushed commits in this slice:
   remaining operator-owned credential work is ranked before future-scoped
   runtime policy choices while preserving redaction and blocked completion
   semantics.
+- Telegram notification live verifier: adopted a separate delivery verifier
+  for `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`; current dry-run remains
+  `blocked_missing_required_env`, and live delivery is not claimed complete
+  until the operator supplies credentials and runs the `--execute` command.
 
 ## Remaining Gaps
 
@@ -282,6 +292,13 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - Canva OpenAPI tool execution proxy:
   - Status: external-auth blocked
   - Reason: metadata and disabled-call boundary are live; actual execution should wait for verified Canva OAuth credentials plus proxy authentication behavior. The executable boundary registry now keeps this visible through `canva_oauth_and_openapi_tool_execution`.
+- Telegram live notification delivery:
+  - Status: credential-gated
+  - Reason: `telegram_notification_live_verify.py` now provides a real
+    Telegram Bot API `sendMessage` proof path, but current dry-run evidence
+    reports missing `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Delivery
+    remains unclaimed until the operator supplies those env values and runs
+    the verifier with `--execute`.
 - Dev-server TUI exposure and network-facing non-local authentication:
   - Status: future-scoped
   - Reason: a local stdio MCP runtime now exposes a read-only

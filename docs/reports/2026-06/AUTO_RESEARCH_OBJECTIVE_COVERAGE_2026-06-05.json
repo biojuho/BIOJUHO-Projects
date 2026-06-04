@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T20:18:16.462526+00:00",
+  "generated_at": "2026-06-04T20:25:21.717475+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -164,6 +164,7 @@
         "external_credential_boundary_registry",
         "external_credential_handoff",
         "external_credential_live_verifier",
+        "telegram_notification_live_delivery_verifier",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
       ],
@@ -197,7 +198,8 @@
         "external_credential_boundaries",
         "external_credential_boundary_registry",
         "external_credential_handoff",
-        "external_credential_live_verifier"
+        "external_credential_live_verifier",
+        "telegram_notification_live_delivery_verifier"
       ],
       "evidence": [
         {

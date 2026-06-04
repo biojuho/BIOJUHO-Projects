@@ -13,7 +13,7 @@
 | `otel_collector_endpoint_and_credentials` | `future_scoped` | `1` | `false` | `1` | `2` |
 | `hosted_agent_runtime_credentials` | `future_scoped` | `0` | `false` | `1` | `2` |
 | `github_source_refresh_rate_limit_token` | `optional_token_absent` | `0` | `false` | `1` | `1` |
-| `telegram_notification_mcp_credentials` | `credential_gated` | `2` | `false` | `2` | `1` |
+| `telegram_notification_mcp_credentials` | `credential_gated` | `2` | `false` | `2` | `2` |
 
 ## Missing Required Env
 
