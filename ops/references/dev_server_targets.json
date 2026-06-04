@@ -65,6 +65,7 @@
       "cwd": "apps/desci-platform/backend",
       "command": ["python", "main.py"],
       "url": "http://127.0.0.1:8000/health",
+      "timeout_seconds": 5.0,
       "expected_status": [200],
       "expected_body_contains": ["vector_store_backend"],
       "smoke_scope": "desci",

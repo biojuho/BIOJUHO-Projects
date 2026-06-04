@@ -142,6 +142,45 @@ def test_start_target_refuses_existing_live_managed_pid(tmp_path: Path) -> None:
         )
 
 
+def test_start_target_waits_for_existing_live_managed_pid_when_reusing(tmp_path: Path) -> None:
+    control = load_control_module()
+    payload = control.load_validated_manifest(MANIFEST_PATH)
+    (tmp_path / "dashboard-api.json").write_text(
+        json.dumps({"schema_version": 1, "target_id": "dashboard-api", "status": "started", "pid": 1111}),
+        encoding="utf-8",
+    )
+    probes = {"count": 0}
+
+    def fake_popen(_command, **_kwargs):
+        raise AssertionError("managed live targets should not spawn a duplicate process")
+
+    def fetcher(_url: str, _timeout: float):
+        probes["count"] += 1
+        if probes["count"] == 1:
+            return None, 1, None, "warming"
+        return 200, 2, '{"workspace_smoke":{}}', None
+
+    state = control.start_target(
+        payload,
+        "dashboard-api",
+        state_dir=tmp_path,
+        wait_ready=True,
+        wait_timeout=5,
+        poll_interval=0.01,
+        fetcher=fetcher,
+        popen_factory=fake_popen,
+        process_checker=lambda _pid: True,
+        sleeper=lambda _seconds: None,
+    )
+
+    assert state["status"] == "already_running_ready"
+    assert state["managed"] is True
+    assert state["pid"] == 1111
+    assert state["last_status"]["summary"] == {"total": 1, "ready": 1, "unready": 0}
+    assert probes["count"] == 2
+    assert state["wait"]["attempts"] == 1
+
+
 def test_stop_target_requests_termination_and_marks_stopped(tmp_path: Path) -> None:
     control = load_control_module()
     (tmp_path / "dashboard-api.json").write_text(

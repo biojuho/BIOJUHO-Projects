@@ -39,6 +39,8 @@ def test_current_manifest_validates_against_workspace_paths() -> None:
     assert dependencies["dashboard-frontend"] == ["dashboard-api"]
     assert dependencies["agriguard-frontend"] == ["agriguard-api"]
     assert dependencies["desci-frontend"] == ["desci-api"]
+    timeouts = {target["id"]: target.get("timeout_seconds") for target in payload["targets"]}
+    assert timeouts["desci-api"] == 5.0
 
 
 def test_manifest_rejects_unsafe_target_data() -> None:
@@ -49,6 +51,7 @@ def test_manifest_rejects_unsafe_target_data() -> None:
     payload["targets"][0]["command"] = ["python", "api.py && whoami"]
     payload["targets"][0]["url"] = "https://example.com:443/api"
     payload["targets"][0]["expected_status"] = [True]
+    payload["targets"][0]["timeout_seconds"] = 0
     payload["targets"][1]["id"] = payload["targets"][2]["id"]
     payload["targets"][3]["depends_on"] = ["missing-api"]
 
@@ -59,6 +62,7 @@ def test_manifest_rejects_unsafe_target_data() -> None:
     assert "targets[0].command[1] must not include shell command separators" in errors
     assert "targets[0].url must target localhost or 127.0.0.1" in errors
     assert "targets[0].expected_status[0] must be an HTTP status code" in errors
+    assert "targets[0].timeout_seconds must be a positive number" in errors
     assert "targets[2].id must be unique" in errors
     assert "targets[3].depends_on references unknown target id: missing-api" in errors
 
@@ -74,10 +78,28 @@ def test_probe_target_reports_ready_and_unready() -> None:
     assert ready["ok"] is True
     assert ready["status_code"] == 200
     assert ready["latency_ms"] == 12
+    assert ready["timeout_seconds"] == 2.0
     assert wrong_service["ok"] is False
     assert wrong_service["error"] == "response body missing marker(s): workspace_smoke"
     assert unready["ok"] is False
     assert unready["error"] == "connection refused"
+
+
+def test_probe_target_uses_target_timeout_override() -> None:
+    status = load_status_module()
+    target = dict(status.load_manifest(MANIFEST_PATH)["targets"][0])
+    target["timeout_seconds"] = 7.5
+    seen = {}
+
+    def fetcher(_url: str, timeout: float):
+        seen["timeout"] = timeout
+        return 200, 1, '{"workspace_smoke":{}}', None
+
+    ready = status.probe_target(target, timeout=2.0, fetcher=fetcher)
+
+    assert seen["timeout"] == 7.5
+    assert ready["timeout_seconds"] == 7.5
+    assert ready["ok"] is True
 
 
 def test_run_writes_machine_report_with_target_filter(tmp_path: Path) -> None:
