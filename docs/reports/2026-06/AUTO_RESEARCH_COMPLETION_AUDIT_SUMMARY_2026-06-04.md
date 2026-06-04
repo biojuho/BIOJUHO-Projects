@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `16`
-- Status counts: `blocked=1, covered=15`
+- Criteria: `18`
+- Status counts: `blocked=1, covered=17`
 
 ## Missing Required
 
@@ -34,6 +34,12 @@
 - Status: `covered`
 - Evidence paths: `2`
 
+### github_source_freshness_snapshot
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
+
 ### self_improving_skill
 
 - Required: `true`
@@ -45,6 +51,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `8`
+
+### direct_browser_qa_freshness_gate
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### commit_push_evidence
 

@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 GitHub source expansion slice: expanded the modernization radar
+  from `13` to `17` live GitHub repositories by adding OpenAI Agents SDK,
+  Browser Use, Pydantic AI, and HumanLayer as source-backed comparison
+  projects.
 - 2026-06-05 agent workflow gate-matrix reuse slice: optimized the
   all-workflows matrix by reusing duplicate deterministic gate results while
   preserving per-workflow evidence.
@@ -83,6 +87,22 @@ Latest pushed commits in this slice:
   policy introspection for runtime status, stdio transport, no network
   exposure, unsupported non-local control, and process-mutation defaults.
 - `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime with process mutation opt-in.
+- `openai/openai-agents-python`: partially adopted through AutoResearch
+  workflow gates, side-effect guardrails, completion audits, source freshness,
+  and deterministic launch matrices; hosted Agents SDK runtime, tracing,
+  sessions, and sandbox-agent execution remain future-scoped.
+- `browser-use/browser-use`: partially adopted through deterministic browser
+  smoke and app-click evidence across launch-critical surfaces; persistent
+  browser-agent CLI, authenticated browser-profile reuse, and cloud browser
+  execution remain future-scoped.
+- `pydantic/pydantic-ai`: partially adopted through structured harness,
+  token tracking, deterministic smokes, OTLP-shaped evidence, and completion
+  audits; full typed agent runtime and Logfire/provider migration remain
+  future-scoped.
+- `humanlayer/humanlayer`: partially adopted through human-checkpoint-style
+  side-effect skips, worktree-safe commit/push loops, durable next-action
+  capture, and matrix quality gates; hosted control plane and multi-session UI
+  remain future-scoped.
 - Canva widget-preview browser smoke: adopted deterministic inline SVG preview
   thumbnails and shared manifest evidence so `canva-widget-preview` is covered
   by direct browser proof.
@@ -137,8 +157,8 @@ These are intentionally not promoted to live runtime changes in this cycle:
 - GitHub source freshness verification:
   - `ops\scripts\github_source_freshness.py` checks the live GitHub REST API
     metadata for every repo in `ops\references\github_modernization_sources.json`
-  - live snapshot passed `13/13` sources with `0` failures
-  - newest upstream `pushed_at` in the snapshot was `2026-06-04T16:56:53Z`
+  - live snapshot passed `17/17` sources with `0` failures
+  - newest upstream `pushed_at` in the snapshot was `2026-06-04T17:23:41Z`
   - focused source-freshness tests passed `4/4`
   - pre-push-equivalent suite passed `78/78`
   - installed pre-push dry-run ran `78/78` plus runtime probes and completion

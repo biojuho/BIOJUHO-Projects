@@ -41,12 +41,14 @@ def test_collect_source_freshness_maps_manifest_repos() -> None:
     report = freshness.collect_source_freshness(MANIFEST_PATH, fetch_repo=fake_fetch)
 
     assert report["status"] == "pass"
-    assert report["source_count"] == 13
-    assert report["passed"] == 13
+    assert report["source_count"] == 17
+    assert report["passed"] == 17
     assert report["failed"] == 0
     assert {record["repo"] for record in report["records"]} >= {
         "PrefectHQ/fastmcp",
         "crewAIInc/crewAI",
+        "openai/openai-agents-python",
+        "browser-use/browser-use",
         "microsoft/playwright-mcp",
     }
 

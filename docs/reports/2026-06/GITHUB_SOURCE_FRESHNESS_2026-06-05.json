@@ -1,9 +1,9 @@
 {
   "failed": 0,
-  "generated_at": "2026-06-04T16:57:45.841603+00:00",
+  "generated_at": "2026-06-04T17:24:23.418814+00:00",
   "github_api_version": "2022-11-28",
-  "manifest_generated_at": "2026-06-05T02:31:00+09:00",
-  "passed": 13,
+  "manifest_generated_at": "2026-06-05T03:33:00+09:00",
+  "passed": 17,
   "records": [
     {
       "adoption_status": "partially_adopted",
@@ -16,8 +16,8 @@
         "forks_count": 2050,
         "html_url": "https://github.com/PrefectHQ/fastmcp",
         "license": "Apache-2.0",
-        "open_issues_count": 246,
-        "pushed_at": "2026-06-03T15:23:08Z",
+        "open_issues_count": 247,
+        "pushed_at": "2026-06-04T17:12:48Z",
         "repo": "PrefectHQ/fastmcp",
         "stargazers_count": 25480,
         "updated_at": "2026-06-04T12:54:04Z",
@@ -121,11 +121,11 @@
         "forks_count": 5700,
         "html_url": "https://github.com/langchain-ai/langgraph",
         "license": "MIT",
-        "open_issues_count": 557,
-        "pushed_at": "2026-06-04T03:41:55Z",
+        "open_issues_count": 558,
+        "pushed_at": "2026-06-04T17:13:54Z",
         "repo": "langchain-ai/langgraph",
-        "stargazers_count": 33876,
-        "updated_at": "2026-06-04T16:30:04Z",
+        "stargazers_count": 33879,
+        "updated_at": "2026-06-04T17:04:10Z",
         "visibility": "public"
       },
       "repo": "langchain-ai/langgraph",
@@ -139,17 +139,101 @@
         "archived": false,
         "default_branch": "main",
         "disabled": false,
-        "forks_count": 7376,
+        "forks_count": 7377,
         "html_url": "https://github.com/crewAIInc/crewAI",
         "license": "MIT",
         "open_issues_count": 392,
-        "pushed_at": "2026-06-04T16:56:53Z",
+        "pushed_at": "2026-06-04T17:12:01Z",
         "repo": "crewAIInc/crewAI",
-        "stargazers_count": 52829,
-        "updated_at": "2026-06-04T16:24:07Z",
+        "stargazers_count": 52831,
+        "updated_at": "2026-06-04T17:23:35Z",
         "visibility": "public"
       },
       "repo": "crewAIInc/crewAI",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "openai-agent-runtime-sdk",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 4157,
+        "html_url": "https://github.com/openai/openai-agents-python",
+        "license": "MIT",
+        "open_issues_count": 130,
+        "pushed_at": "2026-06-04T07:38:27Z",
+        "repo": "openai/openai-agents-python",
+        "stargazers_count": 26915,
+        "updated_at": "2026-06-04T16:26:12Z",
+        "visibility": "public"
+      },
+      "repo": "openai/openai-agents-python",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "browser-agent-automation",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 10868,
+        "html_url": "https://github.com/browser-use/browser-use",
+        "license": "MIT",
+        "open_issues_count": 257,
+        "pushed_at": "2026-06-01T18:49:47Z",
+        "repo": "browser-use/browser-use",
+        "stargazers_count": 97170,
+        "updated_at": "2026-06-04T17:23:27Z",
+        "visibility": "public"
+      },
+      "repo": "browser-use/browser-use",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typed-agent-framework",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2169,
+        "html_url": "https://github.com/pydantic/pydantic-ai",
+        "license": "MIT",
+        "open_issues_count": 596,
+        "pushed_at": "2026-06-04T08:54:32Z",
+        "repo": "pydantic/pydantic-ai",
+        "stargazers_count": 17517,
+        "updated_at": "2026-06-04T16:23:43Z",
+        "visibility": "public"
+      },
+      "repo": "pydantic/pydantic-ai",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "human-in-loop-coding-agents",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 926,
+        "html_url": "https://github.com/humanlayer/humanlayer",
+        "license": "NOASSERTION",
+        "open_issues_count": 74,
+        "pushed_at": "2026-03-07T22:34:40Z",
+        "repo": "humanlayer/humanlayer",
+        "stargazers_count": 10954,
+        "updated_at": "2026-06-04T02:53:01Z",
+        "visibility": "public"
+      },
+      "repo": "humanlayer/humanlayer",
       "status": "pass"
     },
     {
@@ -185,7 +269,7 @@
         "html_url": "https://github.com/modelcontextprotocol/inspector",
         "license": "NOASSERTION",
         "open_issues_count": 284,
-        "pushed_at": "2026-06-04T16:24:40Z",
+        "pushed_at": "2026-06-04T17:23:41Z",
         "repo": "modelcontextprotocol/inspector",
         "stargazers_count": 9991,
         "updated_at": "2026-06-04T15:56:27Z",
@@ -250,8 +334,8 @@
         "open_issues_count": 8,
         "pushed_at": "2026-05-28T01:32:25Z",
         "repo": "microsoft/playwright-mcp",
-        "stargazers_count": 33492,
-        "updated_at": "2026-06-04T16:29:03Z",
+        "stargazers_count": 33493,
+        "updated_at": "2026-06-04T16:58:13Z",
         "visibility": "public"
       },
       "repo": "microsoft/playwright-mcp",
@@ -280,6 +364,6 @@
     }
   ],
   "schema_version": 1,
-  "source_count": 13,
+  "source_count": 17,
   "status": "pass"
 }

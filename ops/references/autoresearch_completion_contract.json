@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T02:20:00+09:00",
+  "generated_at": "2026-06-05T03:40:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -53,20 +53,28 @@
             "crewAIInc/crewAI",
             "open-webui/mcpo",
             "Uninen/devserver-mcp",
-            "microsoft/mcp-gateway"
+            "microsoft/mcp-gateway",
+            "openai/openai-agents-python",
+            "browser-use/browser-use",
+            "pydantic/pydantic-ai",
+            "humanlayer/humanlayer"
           ]
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 13",
+            "Sources reviewed: 17",
             "Adoption counts",
             "modelcontextprotocol/python-sdk",
             "open-telemetry/opentelemetry-collector",
             "langchain-ai/langgraph",
             "crewAIInc/crewAI",
             "microsoft/playwright-mcp",
-            "microsoft/mcp-gateway"
+            "microsoft/mcp-gateway",
+            "openai/openai-agents-python",
+            "browser-use/browser-use",
+            "pydantic/pydantic-ai",
+            "humanlayer/humanlayer"
           ]
         }
       ]
@@ -102,8 +110,10 @@
               "next-actions.md",
               "ops/hooks/pre-push",
               "ops/references/autoresearch_completion_contract.json",
+              "ops/references/github_modernization_sources.json",
               "ops/scripts/autoresearch_completion_audit.py",
               "ops/scripts/github_source_freshness.py",
+              "tests/test_github_modernization_radar.py",
               "tests/test_autoresearch_completion_audit.py",
               "tests/test_github_source_freshness.py"
             ]
@@ -129,10 +139,14 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
           "must_contain": [
-            "\"source_count\": 13",
-            "\"passed\": 13",
+            "\"source_count\": 17",
+            "\"passed\": 17",
             "\"failed\": 0",
-            "\"github_api_version\": \"2022-11-28\""
+            "\"github_api_version\": \"2022-11-28\"",
+            "openai/openai-agents-python",
+            "browser-use/browser-use",
+            "pydantic/pydantic-ai",
+            "humanlayer/humanlayer"
           ]
         },
         {
@@ -142,6 +156,10 @@
             "PrefectHQ/fastmcp",
             "modelcontextprotocol/python-sdk",
             "crewAIInc/crewAI",
+            "openai/openai-agents-python",
+            "browser-use/browser-use",
+            "pydantic/pydantic-ai",
+            "humanlayer/humanlayer",
             "Failed: `0`"
           ]
         }

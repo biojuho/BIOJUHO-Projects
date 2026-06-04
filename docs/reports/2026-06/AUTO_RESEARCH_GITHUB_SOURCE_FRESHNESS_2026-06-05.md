@@ -22,7 +22,7 @@ hardening loop.
   REST snapshot that checks every radar repository and records default branch,
   pushed/updated timestamps, archive/disabled state, visibility, license,
   stars, forks, and open issue count.
-- Primary KPI: live source freshness returns `source_count=13`, `passed=13`,
+- Primary KPI: live source freshness returns `source_count=17`, `passed=17`,
   and `failed=0`.
 - Guardrails: no network access is required for unit tests; the script uses
   unauthenticated public API calls by default and supports `GITHUB_TOKEN` only
@@ -47,11 +47,18 @@ python ops\scripts\github_source_freshness.py --json-out docs\reports\2026-06\GI
 
 Result:
 
-- `13` sources
-- `13` passed
+- `17` sources
+- `17` passed
 - `0` failed
 - GitHub API version `2022-11-28`
-- newest upstream `pushed_at`: `2026-06-04T16:56:53Z`
+- newest upstream `pushed_at`: `2026-06-04T17:23:41Z`
+
+New sources added after the expansion slice:
+
+- `openai/openai-agents-python`
+- `browser-use/browser-use`
+- `pydantic/pydantic-ai`
+- `humanlayer/humanlayer`
 
 ## Verification
 

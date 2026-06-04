@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T02:51:00+09:00",
+  "generated_at": "2026-06-05T03:33:00+09:00",
   "search_context": {
     "objective": "Search GitHub for systems similar to this AI workspace and map current patterns into local modernization evidence.",
     "queries": [
@@ -14,7 +14,11 @@
       "Playwright MCP browser automation accessibility snapshots",
       "MCP gateway routing authorization lifecycle management",
       "stateful agent workflow quality gates LangGraph durable execution human in the loop",
-      "CrewAI flows production multi agent orchestration control plane"
+      "CrewAI flows production multi agent orchestration control plane",
+      "OpenAI Agents SDK sandbox agents guardrails sessions tracing",
+      "browser-use persistent browser automation AI agents CLI",
+      "Pydantic AI type-safe agent framework evals OpenTelemetry",
+      "HumanLayer coding agents human-in-the-loop control plane"
     ]
   },
   "sources": [
@@ -252,6 +256,121 @@
         "next-actions.md"
       ],
       "gap": "CrewAI-style flow control is partially adopted through a safe, deterministic launch matrix over repo-owned workflow gates plus duplicate deterministic gate reuse. A live CrewAI runtime, hosted control plane, tracing platform, and autonomous crew deployment remain future-scoped until operator-owned credentials and runtime policies exist."
+    },
+    {
+      "repo": "openai/openai-agents-python",
+      "url": "https://github.com/openai/openai-agents-python",
+      "category": "openai-agent-runtime-sdk",
+      "adoption_status": "partially_adopted",
+      "why_similar": "OpenAI's Agents SDK is a lightweight framework for multi-agent workflows with tools, handoffs, guardrails, human-in-the-loop, sessions, tracing, and sandbox agents that map directly to the local AutoResearch loop and launch workflow gates.",
+      "observed_patterns": [
+        "multi-agent workflow framework with tools and handoffs",
+        "guardrails as explicit input and output validation",
+        "human-in-the-loop mechanisms across agent runs",
+        "sessions for long-running conversation history",
+        "tracing for debugging and optimizing agent workflows",
+        "sandbox agents for filesystem and command execution over long-horizon tasks"
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "ops/scripts/autoresearch_completion_audit.py",
+        "tests/test_agent_workflow_manifest.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "tests/test_autoresearch_completion_audit.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_SAFETY_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.md",
+        "docs/QUALITY_GATE.md"
+      ],
+      "gap": "Local AutoResearch workflows now cover tools-as-gates, side-effect guardrails, deterministic matrix execution, source freshness, and completion audits. Full OpenAI Agents SDK runtime adoption, hosted tracing, sessions, sandbox-agent execution, and human-in-the-loop UI remain future-scoped until a concrete runtime owner and credential policy are selected."
+    },
+    {
+      "repo": "browser-use/browser-use",
+      "url": "https://github.com/browser-use/browser-use",
+      "category": "browser-agent-automation",
+      "adoption_status": "partially_adopted",
+      "why_similar": "Browser Use focuses on making websites accessible to AI agents through browser automation, CLI state/click/type/screenshot flows, custom tools, and production browser considerations that match the user's computer-use app-click QA requirement.",
+      "observed_patterns": [
+        "agent-accessible browser automation for real websites",
+        "CLI browser state, click, type, screenshot, and persistent session commands",
+        "custom tools to extend browser-agent capabilities",
+        "cloud or profile-backed browser sessions for authenticated flows",
+        "benchmarked real-world browser tasks for product QA"
+      ],
+      "local_evidence": [
+        "ops/references/dev_server_browser_checks.json",
+        "ops/scripts/dev_server_browser_smoke.py",
+        "tests/test_dev_server_browser_smoke.py",
+        "apps/desci-platform/scripts/browser_smoke.py",
+        "tests/test_desci_browser_smoke.py",
+        "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DESCI_2026-06-04.json",
+        "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_2026-06-04.json",
+        "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_AGRIGUARD_2026-06-04.json",
+        "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json",
+        "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_CANVA_GENERIC_BROWSER_SMOKE_2026-06-04.md"
+      ],
+      "gap": "Deterministic app-click browser smokes are adopted across launch-critical local surfaces. A persistent browser-agent CLI, authenticated browser-profile reuse, cloud browser execution, and task-benchmark harness remain future-scoped until a specific app workflow needs them."
+    },
+    {
+      "repo": "pydantic/pydantic-ai",
+      "url": "https://github.com/pydantic/pydantic-ai",
+      "category": "typed-agent-framework",
+      "adoption_status": "partially_adopted",
+      "why_similar": "Pydantic AI emphasizes type-safe production-grade agent workflows, broad provider support, OpenTelemetry-style observability, evals, and composable capabilities, matching the local structured harness, smoke evidence, and completion-audit direction.",
+      "observed_patterns": [
+        "type-safe agent framework for production workflows",
+        "model-agnostic provider abstraction",
+        "observability with OpenTelemetry-compatible tracing",
+        "systematic evals and monitoring for agent performance",
+        "composable capabilities that bundle tools, hooks, and instructions"
+      ],
+      "local_evidence": [
+        "packages/shared/harness/core.py",
+        "packages/shared/harness/adapters/native.py",
+        "packages/shared/harness/token_tracker.py",
+        "packages/shared/harness/tests/test_harness.py",
+        "ops/scripts/run_workspace_smoke.py",
+        "ops/scripts/mcp_otel_collector_handoff.py",
+        "tests/test_mcp_otel_collector_handoff.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_FILE_EXPORT_2026-06-04.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_TOOL_2026-06-04.md",
+        "docs/QUALITY_GATE.md"
+      ],
+      "gap": "Structured harness, token tracking, deterministic smokes, OTLP-shaped evidence, and completion audits are adopted. A full Pydantic AI runtime, Logfire integration, typed agent result schemas, and provider abstraction migration remain future-scoped until a concrete agent application is selected."
+    },
+    {
+      "repo": "humanlayer/humanlayer",
+      "url": "https://github.com/humanlayer/humanlayer",
+      "category": "human-in-loop-coding-agents",
+      "adoption_status": "partially_adopted",
+      "why_similar": "HumanLayer targets AI coding agents in complex codebases, human-in-the-loop control, parallel coding sessions, and agent control-plane ideas that match the user's continuous Codex self-improvement loop without requiring live hosted execution.",
+      "observed_patterns": [
+        "human-in-the-loop control for coding agents",
+        "parallel AI coding sessions and worktree-oriented workflows",
+        "context engineering for complex codebases",
+        "agent control-plane concepts for long-running work",
+        "explicit separation between open-source SDK and hosted/team workflow layers"
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_SAFETY_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_REMAINING_GAP_AUDIT_2026-06-04.md",
+        "next-actions.md"
+      ],
+      "gap": "Human-checkpoint-style side-effect skips, worktree-safe commit/push loops, durable next-action capture, and matrix quality gates are adopted. A hosted agent control plane, remote workers, multi-session UI, and live approval workflow remain future-scoped until operator-owned runtime policy exists."
     },
     {
       "repo": "dsifry/metaswarm",
