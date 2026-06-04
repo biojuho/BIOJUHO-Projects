@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output|archive|var)([\\/]|$)"
 TAIL_LINE_COUNT = 20
+DEFAULT_CHECK_TIMEOUT_SECONDS = 600.0
 NPM_INSTALL_TIMEOUT_SECONDS = 600
 TRANSIENT_RETRY_CHECK = "desci frontend unit tests"
 TRANSIENT_RETRY_PATTERNS = (
@@ -540,6 +541,11 @@ def result_timing(started: float, started_wall_ns: int) -> dict[str, float | int
     }
 
 
+def format_timeout_seconds(timeout_seconds: float) -> str:
+    value = float(timeout_seconds)
+    return str(int(value)) if value.is_integer() else str(value)
+
+
 def terminate_process_tree(pid: int) -> None:
     if os.name == "nt":
         subprocess.run(
@@ -587,7 +593,7 @@ def run_command_with_timeout(
     return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
 
 
-def run_one(root: Path, item: Check) -> Result:
+def run_one(root: Path, item: Check, *, timeout_seconds: float = DEFAULT_CHECK_TIMEOUT_SECONDS) -> Result:
     started = time.perf_counter()
     started_wall_ns = time.time_ns()
     cwd = (root / item.cwd).resolve()
@@ -632,7 +638,7 @@ def run_one(root: Path, item: Check) -> Result:
             command,
             cwd=str(cwd),
             env=env,
-            timeout_seconds=600,  # 10분 타임아웃 (uv setup + 큰 테스트 스위트 대응)
+            timeout_seconds=timeout_seconds,
         )
         stdout_text = decode_output(proc.stdout)
         stderr_text = decode_output(proc.stderr)
@@ -647,7 +653,7 @@ def run_one(root: Path, item: Check) -> Result:
             124,
             False,
             tail_lines(stdout_text),
-            f"Command timed out after 600s\n{tail_lines(stderr_text)}",
+            f"Command timed out after {format_timeout_seconds(timeout_seconds)}s\n{tail_lines(stderr_text)}",
             **result_timing(started, started_wall_ns),
         )
     except OSError as exc:
@@ -694,8 +700,8 @@ def should_retry(check: Check, result: Result) -> bool:
     )
 
 
-def run_check(root: Path, item: Check) -> Result:
-    result = run_one(root, item)
+def run_check(root: Path, item: Check, *, timeout_seconds: float = DEFAULT_CHECK_TIMEOUT_SECONDS) -> Result:
+    result = run_one(root, item, timeout_seconds=timeout_seconds)
     if not should_retry(item, result):
         return result
 
@@ -703,7 +709,7 @@ def run_check(root: Path, item: Check) -> Result:
     while should_retry(item, result) and attempt < TRANSIENT_RETRY_MAX:
         attempt += 1
         print(f"[smoke] retrying: {item.name} (attempt {attempt}/{TRANSIENT_RETRY_MAX})")
-        result = run_one(root, item)
+        result = run_one(root, item, timeout_seconds=timeout_seconds)
     return result
 
 
@@ -975,6 +981,12 @@ def main() -> int:
     parser.add_argument("--json-out", help="Optional JSON output file")
     parser.add_argument("--mcp-trace-out", help="Optional JSONL output file for MCP trace events")
     parser.add_argument("--mcp-otel-out", help="Optional OTLP JSONL output file for MCP check spans")
+    parser.add_argument(
+        "--check-timeout",
+        type=float,
+        default=DEFAULT_CHECK_TIMEOUT_SECONDS,
+        help="Timeout per smoke check in seconds before terminating the process tree",
+    )
     args = parser.parse_args()
 
     root = find_workspace_root()
@@ -1013,7 +1025,7 @@ def main() -> int:
     mcp_otel_write_failed = False
     for check in checks:
         print(f"[smoke] running: {check.name}")
-        results.append(run_check(root, check))
+        results.append(run_check(root, check, timeout_seconds=args.check_timeout))
         if out_path and not json_write_failed:
             try:
                 write_json_report(

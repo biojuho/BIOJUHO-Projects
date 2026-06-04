@@ -27,6 +27,7 @@ def test_quality_gate_documents_all_supported_scopes() -> None:
 
     for scope in ("all", "workspace", "desci", "agriguard", "mcp"):
         assert f"--scope {scope}" in quality_gate
+    assert "--check-timeout" in quality_gate
 
 
 def test_default_checks_cover_expected_scopes_and_existing_paths() -> None:
@@ -444,12 +445,31 @@ def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) ->
         ]
     )
 
-    monkeypatch.setattr(smoke, "run_one", lambda root, item: next(attempts))
+    monkeypatch.setattr(smoke, "run_one", lambda root, item, *, timeout_seconds=600.0: next(attempts))
 
     result = smoke.run_check(PROJECT_ROOT, check)
 
     assert result.ok is True
     assert result.stdout_tail == "31 passed"
+
+
+def test_run_one_uses_configurable_check_timeout(monkeypatch) -> None:
+    smoke = load_smoke_module()
+    check = smoke.Check("workspace", "timeout check", ".", [sys.executable, "-V"])
+    seen_timeouts: list[float] = []
+
+    def fake_run(command, *, cwd, env, timeout_seconds):
+        seen_timeouts.append(timeout_seconds)
+        raise smoke.subprocess.TimeoutExpired(command, timeout_seconds, output=b"partial", stderr=b"slow")
+
+    monkeypatch.setattr(smoke, "run_command_with_timeout", fake_run)
+
+    result = smoke.run_one(PROJECT_ROOT, check, timeout_seconds=1.5)
+
+    assert seen_timeouts == [1.5]
+    assert result.returncode == 124
+    assert result.stdout_tail == "partial"
+    assert "Command timed out after 1.5s" in result.stderr_tail
 
 
 def test_should_retry_ignores_non_transient_failures() -> None:
@@ -497,7 +517,7 @@ def test_main_writes_json_report_for_selected_scope(tmp_path, monkeypatch) -> No
     monkeypatch.setattr(smoke, "resolve_python_executable", lambda root: "python")
     monkeypatch.setattr(smoke, "has_module", lambda python_exe, module_name: True)
     monkeypatch.setattr(smoke, "default_checks", lambda python_exe: [fake_check])
-    monkeypatch.setattr(smoke, "run_one", lambda root, item: fake_result)
+    monkeypatch.setattr(smoke, "run_one", lambda root, item, *, timeout_seconds=600.0: fake_result)
     monkeypatch.setattr(
         smoke.sys,
         "argv",
@@ -569,7 +589,7 @@ def test_main_keeps_partial_json_report_when_later_check_crashes(tmp_path, monke
         elapsed_seconds=1.25,
     )
 
-    def fake_run_one(root, item):
+    def fake_run_one(root, item, *, timeout_seconds=600.0):
         if item.name == "first check":
             return first_result
         raise RuntimeError("boom")
@@ -693,7 +713,7 @@ def test_main_writes_mcp_trace_export_for_selected_scope(tmp_path, monkeypatch) 
     monkeypatch.setattr(smoke, "has_module", lambda python_exe, module_name: True)
     monkeypatch.setattr(smoke, "default_checks", lambda python_exe: [fake_check])
     monkeypatch.setattr(smoke, "ensure_node_environments", lambda root, checks: None)
-    monkeypatch.setattr(smoke, "run_one", lambda root, item: fake_result)
+    monkeypatch.setattr(smoke, "run_one", lambda root, item, *, timeout_seconds=600.0: fake_result)
     monkeypatch.setattr(
         smoke.sys,
         "argv",

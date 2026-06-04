@@ -35,6 +35,7 @@ python ops/scripts/run_workspace_smoke.py --scope mcp
 python ops/scripts/run_workspace_smoke.py --scope getdaytrends
 python ops/scripts/run_workspace_smoke.py --scope cie
 python ops/scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
+python ops/scripts/run_workspace_smoke.py --scope desci --check-timeout 420 --json-out smoke-desci.json
 ```
 For live browser QA and local dev-server lifecycle evidence, use
 `docs/guides/dev-server-control.md`.
@@ -43,6 +44,11 @@ When an npm-based smoke check runs in a clean worktree, the runner installs
 lockfile-backed Node dependencies with `npm ci --no-audit` if `node_modules` is
 missing for that package directory. Dependency artifacts are local runtime state
 and must not be staged.
+
+Use `--check-timeout <seconds>` when the shell, CI job, or agent tool has its own
+outer timeout. Set the smoke runner's check timeout lower than the outer timeout
+so `run_workspace_smoke.py` can terminate the child process tree itself and
+write partial JSON evidence.
 
 Legacy compatibility commands remain available after:
 
