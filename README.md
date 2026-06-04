@@ -19,6 +19,11 @@ node scripts/smoke-chrome.mjs
 ```
 
 성공 기준은 `status: "pass"`, `consoleIssues: []`, `networkIssues: []` 입니다.
+실제 클릭/입력 워크플로우까지 확인하려면 아래 명령을 추가로 실행합니다. 독립 Chrome 프로필에서 일정·할 일·메모·습관·프로젝트·이슈·간트·팀·DB 인스턴스·테이블·쿼리·마이그레이션·설정·명령 팔레트 흐름을 생성/토글/저장합니다.
+
+```bash
+node scripts/smoke-interactions.mjs
+```
 
 ## 출시 패키지 생성
 
@@ -32,7 +37,7 @@ python3 -m http.server 5178
 
 패키지 검증은 프로젝트 루트에서 `BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs`로 실행합니다. 포트가 이미 사용 중이면 다른 포트로 서버를 띄우고 `BASE_URL`도 같은 포트로 바꿉니다.
 체크섬 manifest까지 함께 검증하려면 먼저 `node scripts/verify-release.mjs`를 실행합니다.
-전체 출시 게이트를 한 번에 돌리려면 프로젝트 루트에서 아래 명령을 실행합니다. 이 명령은 패키지 생성, manifest 검증, 임시 로컬 서버 기동, Chrome 라우트 스모크, 서버 종료까지 자동으로 처리합니다.
+전체 출시 게이트를 한 번에 돌리려면 프로젝트 루트에서 아래 명령을 실행합니다. 이 명령은 패키지 생성, manifest 검증, 임시 로컬 서버 기동, Chrome 라우트 스모크, interaction 스모크, 서버 종료까지 자동으로 처리합니다.
 
 ```bash
 node scripts/smoke-release.mjs
@@ -86,6 +91,7 @@ node scripts/smoke-release.mjs
 - `app.js` — 뷰 렌더, 전 영역 CRUD + localStorage v3 영속화, 반복 일정 전개, 알림 계산, 명령 팔레트, 인덱스, GitHub/도입 후보 스냅샷 머지
 - `favicon.svg` — 정적 배포 시 브라우저 favicon 404를 막는 로컬 SVG 아이콘
 - `scripts/smoke-chrome.mjs` — Chrome DevTools Protocol 기반 출시 스모크 검증
+- `scripts/smoke-interactions.mjs` — 독립 Chrome 프로필에서 주요 CRUD·토글·명령 팔레트 사용자 흐름을 클릭/입력으로 검증
 - `scripts/package-release.mjs` — 정적 출시 패키지와 SHA-256 manifest 생성
 - `scripts/verify-release.mjs` — 출시 패키지 manifest의 파일 목록·바이트·SHA-256 재검증
 - `scripts/smoke-release.mjs` — 출시 패키지를 임시 HTTP 서버로 실제 서빙해 Chrome 라우트 스모크까지 실행하는 전체 출시 게이트

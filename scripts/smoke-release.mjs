@@ -232,9 +232,17 @@ async function main() {
   const baseUrl = `http://${host}:${port}`;
 
   let smokeResult;
+  let interactionResult;
   try {
     smokeResult = parseJsonOutput(
       (await runNodeScriptAsync("scripts/smoke-chrome.mjs", {
+        BASE_URL: baseUrl,
+        SMOKE_PROGRESS: "1",
+      }, 120000)).stdout,
+      "fail",
+    );
+    interactionResult = parseJsonOutput(
+      (await runNodeScriptAsync("scripts/smoke-interactions.mjs", {
         BASE_URL: baseUrl,
         SMOKE_PROGRESS: "1",
       }, 120000)).stdout,
@@ -251,6 +259,13 @@ async function main() {
       stderr: "",
     });
   }
+  if (interactionResult.status !== "pass") {
+    throw Object.assign(new Error("release interaction smoke failed"), {
+      step: "scripts/smoke-interactions.mjs",
+      stdout: JSON.stringify(interactionResult, null, 2),
+      stderr: "",
+    });
+  }
 
   console.log(JSON.stringify({
     status: "pass",
@@ -264,6 +279,14 @@ async function main() {
       consoleIssues: smokeResult.consoleIssues,
       networkIssues: smokeResult.networkIssues,
       failures: smokeResult.failures,
+    },
+    interactions: {
+      status: interactionResult.status,
+      stepCount: interactionResult.steps ? interactionResult.steps.length : 0,
+      persistedChecks: interactionResult.persistedChecks,
+      consoleIssues: interactionResult.consoleIssues,
+      networkIssues: interactionResult.networkIssues,
+      failures: interactionResult.failures,
     },
   }, null, 2));
 }
