@@ -1079,6 +1079,7 @@
             "tests/test_external_credential_live_verify.py",
             "tests/test_github_modernization_radar.py",
             "tests/test_github_source_freshness.py",
+            "tests/test_canva_widget_click_smoke.py",
             "tests/test_dev_server_browser_smoke.py",
             "tests/test_dev_server_mcp_contract.py",
             "tests/test_dev_server_mcp_runtime.py",
@@ -1103,6 +1104,7 @@
           "must_contain": [
             "--check-operator-checklist-json",
             "--check-operator-checklist-markdown",
+            "tests/test_canva_widget_click_smoke.py",
             "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json",
             "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md"
           ]
@@ -1114,6 +1116,15 @@
             "resolve_common_hooks_dir",
             "_installed_hook_matches",
             "replace(\"\\r\\n\", \"\\n\")"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_CLICK_SMOKE_PRE_PUSH_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Canva Click Smoke Pre-Push Guard",
+            "tests/test_canva_widget_click_smoke.py",
+            "Adopted",
+            "global_objective_complete=false"
           ]
         },
         {

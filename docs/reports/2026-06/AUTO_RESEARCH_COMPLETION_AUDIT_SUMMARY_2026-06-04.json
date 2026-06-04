@@ -737,20 +737,27 @@
       "evidence": [
         {
           "path": "ops/hooks/pre-push",
-          "term_count": 27,
+          "term_count": 28,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "tests/test_pre_push_hook.py",
-          "term_count": 4,
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "ops/hooks/install_hooks.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_CLICK_SMOKE_PRE_PUSH_GUARD_2026-06-05.md",
           "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,
