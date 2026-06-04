@@ -11,6 +11,9 @@ Latest pushed commits in this slice:
   and confirming GitHub source refresh now requires a token because
   unauthenticated API quota returned 403 rate-limit responses after `19/30`
   sources.
+- 2026-06-05 objective text quality slice: restored the missing Korean
+  AutoResearch skill clause in the prompt-to-artifact manifest and added a
+  mojibake regression guard.
 - 2026-06-05 hook install sync-guard slice: added a tracked-vs-installed
   hook check so stale common-dir pre-push hooks fail before smoke execution,
   with configured `core.hooksPath` support for worktree-local hook paths.
@@ -384,6 +387,23 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALL_SYNC_GUARD_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_HOOK_INSTALL_SYNC_GUARD_2026-06-05.md`
+- Objective text quality guard verification:
+  - `ops\references\autoresearch_objective_requirements.json` preserves the
+    missing `오토리서치 카파시 개념 스킬로 만들어줘` clause plus Korean terms including
+    `제품출시`, `오토리서치`, `깃허브 관련 프로젝트`, and `직접 앱 하나씩 클릭`
+  - `ops\scripts\autoresearch_objective_coverage.py` rejects known mojibake
+    markers
+  - focused objective/completion/pre-push-hook suite passed `23/23`
+  - pre-push dry-run hook passed `116/116` tests plus runtime probes
+  - objective coverage reports `7` requirements with
+    `cycle_prompt_covered=true` and `global_objective_complete=false`
+  - completion audit reports `25` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_OBJECTIVE_TEXT_QUALITY_GUARD_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_OBJECTIVE_TEXT_QUALITY_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_OBJECTIVE_TEXT_QUALITY_2026-06-05.md`
 - External credential live-verifier verification:
   - `ops\scripts\external_credential_live_verify.py` plans all registry
     verification commands in dry-run mode
@@ -409,7 +429,7 @@ These are intentionally not promoted to live runtime changes in this cycle:
     required terms, mapped completion criteria, and external blockers
   - objective coverage audit reports `cycle_prompt_covered=true`
   - objective coverage audit keeps `global_objective_complete=false`
-  - focused objective/completion suite passed `16/16`
+  - focused objective/completion suite passed `17/17`
   - pre-push-equivalent pytest suite passed `109/109`
   - completion audit reports `25` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`

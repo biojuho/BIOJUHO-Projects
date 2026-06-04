@@ -1117,6 +1117,7 @@
           "path": "ops/references/autoresearch_objective_requirements.json",
           "must_contain": [
             "제품출시",
+            "오토리서치",
             "깃허브 관련 프로젝트",
             "직접 앱 하나씩 클릭",
             "external_credential_and_runtime_boundaries"
@@ -1127,6 +1128,7 @@
           "must_contain": [
             "cycle_prompt_covered",
             "global_objective_complete",
+            "MOJIBAKE_MARKERS",
             "completion_criteria unknown id",
             "autoresearch objective coverage audit valid"
           ]
@@ -1136,7 +1138,8 @@
           "must_contain": [
             "test_default_requirements_map_prompt_to_artifacts",
             "test_unknown_completion_criterion_is_invalid",
-            "test_blocked_requirement_requires_blockers"
+            "test_blocked_requirement_requires_blockers",
+            "test_mojibake_prompt_terms_are_invalid"
           ]
         },
         {

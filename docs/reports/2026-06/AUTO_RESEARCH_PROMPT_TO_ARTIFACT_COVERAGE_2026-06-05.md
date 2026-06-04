@@ -24,6 +24,11 @@ criteria, evidence paths, continuous work, and external blockers.
 - `7 requirements`
 - `cycle_prompt_covered=true`
 - `global_objective_complete=false`
+- Korean prompt text and `prompt_terms` are preserved as readable UTF-8 in
+  `ops/references/autoresearch_objective_requirements.json`.
+- `ops/scripts/autoresearch_objective_coverage.py` rejects known mojibake
+  markers so prompt-to-artifact evidence cannot silently degrade into
+  unreadable text.
 - Continuous requirements remain explicit:
   - GitHub-related project research
   - A/B adoption/commit/push loop until explicit stop
@@ -48,8 +53,12 @@ criteria, evidence paths, continuous work, and external blockers.
   - `16 passed`
 - `python -m pytest tests\test_workspace_smoke.py tests\test_autoresearch_objective_coverage.py tests\test_autoresearch_completion_audit.py tests\test_mcp_service_runtime_smoke.py tests\test_mcp_otel_collector_handoff.py tests\test_external_credential_boundary_audit.py tests\test_external_credential_handoff.py tests\test_external_credential_live_verify.py tests\test_agent_workflow_gate_runner.py tests\test_github_modernization_radar.py tests\test_github_source_freshness.py tests\test_dev_server_browser_smoke.py tests\test_dev_server_mcp_contract.py tests\test_dev_server_mcp_runtime.py tests\test_dev_server_mcp_runtime_smoke.py -q --tb=line`
   - `109 passed`
+- `git -c core.hooksPath=ops/hooks push --dry-run origin HEAD:feat/observability-gateway-2026-05`
+  - `116 passed` plus runtime probes
 - `python -m py_compile ops\scripts\autoresearch_objective_coverage.py ops\scripts\autoresearch_completion_audit.py`
   - passed
+- `python -m pytest tests\test_autoresearch_objective_coverage.py tests\test_autoresearch_completion_audit.py -q -p no:cacheprovider`
+  - `17 passed`
 - `python ops\scripts\autoresearch_completion_audit.py --json-out docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_OBJECTIVE_COVERAGE_2026-06-05.json --markdown-out docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_OBJECTIVE_COVERAGE_2026-06-05.md`
   - valid `25` criteria
   - `global_objective_complete=false`

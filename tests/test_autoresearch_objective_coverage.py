@@ -21,13 +21,16 @@ def load_module():
 
 def test_default_requirements_map_prompt_to_artifacts() -> None:
     coverage = load_module()
+    payload = coverage.load_requirements(REQUIREMENTS_PATH)
 
-    report = coverage.audit_requirements(coverage.load_requirements(REQUIREMENTS_PATH), workspace_root=PROJECT_ROOT)
+    report = coverage.audit_requirements(payload, workspace_root=PROJECT_ROOT)
 
     assert report["valid"] is True
     assert report["cycle_prompt_covered"] is True
     assert report["global_objective_complete"] is False
     assert report["requirement_count"] >= 7
+    assert "제품출시" in payload["objective_original"]
+    assert "오토리서치" in payload["objective_original"]
     assert "external_credential_and_runtime_boundaries" in report["blocked_requirements"]
     assert {
         requirement["id"]
@@ -91,3 +94,14 @@ def test_blocked_requirement_requires_blockers() -> None:
 
     assert report["valid"] is False
     assert any("blockers" in error for error in report["errors"])
+
+
+def test_mojibake_prompt_terms_are_invalid() -> None:
+    coverage = load_module()
+    payload = coverage.load_requirements(REQUIREMENTS_PATH)
+    payload["requirements"][0]["prompt_terms"] = ["?쒗뭹異쒖떆"]
+
+    report = coverage.audit_requirements(payload, workspace_root=PROJECT_ROOT)
+
+    assert report["valid"] is False
+    assert any("mojibake" in error for error in report["errors"])

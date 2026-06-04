@@ -12,6 +12,17 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 DEFAULT_REQUIREMENTS = WORKSPACE_ROOT / "ops" / "references" / "autoresearch_objective_requirements.json"
 ALLOWED_STATUSES = {"covered_current_cycle", "continuous", "blocked_external"}
+MOJIBAKE_MARKERS = (
+    "\ufffd",
+    "?쒗",
+    "源껎",
+    "肄붾",
+    "吏곸",
+    "理쒖",
+    "而ㅻ",
+    "遺",
+    "ㅽ넗",
+)
 
 
 def load_requirements(path: Path = DEFAULT_REQUIREMENTS) -> dict[str, Any]:
@@ -27,7 +38,8 @@ def audit_requirements(payload: dict[str, Any], *, workspace_root: Path = WORKSP
     if payload.get("schema_version") != 1 or isinstance(payload.get("schema_version"), bool):
         errors.append("schema_version must be 1")
     _validate_timestamp(payload.get("generated_at"), "generated_at", errors)
-    _require_string(payload.get("objective_original"), "objective_original", errors)
+    objective_original = _require_string(payload.get("objective_original"), "objective_original", errors)
+    _validate_text_quality(objective_original, "objective_original", errors)
     policy = _validate_policy(payload.get("policy"), errors)
     completion_contract_path = _repo_relative_path(payload.get("completion_contract"), "completion_contract", errors)
     completion_criteria = _load_completion_criteria(completion_contract_path, workspace_root, errors)
@@ -286,6 +298,7 @@ def _validate_string_list(value: Any, field: str, errors: list[str]) -> list[str
         if not isinstance(item, str) or not item:
             errors.append(f"{field}[{index}] must be a non-empty string")
             continue
+        _validate_text_quality(item, f"{field}[{index}]", errors)
         result.append(item)
     return result
 
@@ -295,6 +308,13 @@ def _require_string(value: Any, field: str, errors: list[str]) -> str:
         errors.append(f"{field} must be a non-empty string")
         return ""
     return value
+
+
+def _validate_text_quality(value: str, field: str, errors: list[str]) -> None:
+    for marker in MOJIBAKE_MARKERS:
+        if marker in value:
+            errors.append(f"{field} contains mojibake marker: {marker}")
+            return
 
 
 def _format_counts(counts: dict[str, int]) -> str:

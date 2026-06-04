@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T19:12:01.429399+00:00",
+  "generated_at": "2026-06-04T19:36:12.398478+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -123,7 +123,7 @@
         "\ub04a\uc784\uc5c6\uc774 A/B\ud14c\uc2a4\ud2b8",
         "\ub354 \uc88b\uc73c\uba74 \ucc44\ud0dd",
         "\ucee4\ubc0b\ud478\uc2dc",
-        "\uba48\ucd94\ub77c\uace0 \ud558\uae30\uc804\uae4c\uc9c0"
+        "\uba48\ucd94\ub77c\uace0 \ud558\uae30 \uc804\uae4c\uc9c0"
       ],
       "residual_risk": "",
       "status": "continuous"
