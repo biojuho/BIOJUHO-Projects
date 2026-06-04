@@ -165,6 +165,7 @@ const interactionExpression = `
   const steps = [];
   const failures = [];
   let backupExportOk = false;
+  let backupImportOk = false;
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function assert(condition, message) {
@@ -508,18 +509,70 @@ const interactionExpression = `
     click('#modal [data-action="close-modal"]');
   });
 
-  const finalPayload = savedPayload();
+  const preImportPayload = savedPayload();
   const persistedChecks = {
-    event: finalPayload.events.some((event) => event.title === marker + " event"),
-    todo: finalPayload.todos.some((todo) => todo.title === marker + " todo" && todo.done),
-    note: finalPayload.notes.some((note) => note.title === marker + " note" && note.pinned),
-    project: finalPayload.projects.some((project) => project.name === marker + " project"),
-    issue: finalPayload.issues.some((issue) => issue.title === marker + " issue" && issue.status === "in-progress"),
-    dbInstance: finalPayload.dbInstances.some((instance) => instance.name === marker + " db"),
-    settings: finalPayload.settings.displayName === marker + " user",
+    event: preImportPayload.events.some((event) => event.title === marker + " event"),
+    todo: preImportPayload.todos.some((todo) => todo.title === marker + " todo" && todo.done),
+    note: preImportPayload.notes.some((note) => note.title === marker + " note" && note.pinned),
+    project: preImportPayload.projects.some((project) => project.name === marker + " project"),
+    issue: preImportPayload.issues.some((issue) => issue.title === marker + " issue" && issue.status === "in-progress"),
+    dbInstance: preImportPayload.dbInstances.some((instance) => instance.name === marker + " db"),
+    settings: preImportPayload.settings.displayName === marker + " user",
     backupExport: backupExportOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
+    if (!ok) failures.push("persisted check failed: " + key);
+  });
+
+  await runStep("settings import backup payload", async () => {
+    const imported = marker + " imported";
+    await nav("settings");
+    const backup = {
+      app: "JooPark Workspace",
+      v: 3,
+      events: [{ id: "evt-import", title: imported + " event", date: "2026-06-21", category: "work", allDay: true, repeat: "none", exceptions: [] }],
+      todos: [{ id: "todo-import", title: imported + " todo", priority: "low", due: "2026-06-22", done: false }],
+      notes: [{ id: "note-import", title: imported + " note", body: "import smoke", color: "#22d3ee", pinned: true, updatedAt: new Date().toISOString() }],
+      settings: { displayName: imported + " user" },
+      habits: [{ id: "habit-import", name: imported + " habit", emoji: "OK", target: 3, log: {} }],
+      projects: [],
+      issues: [],
+      gantt: { tasks: [] },
+      team: [],
+      dbInstances: [],
+      schemas: [],
+      queries: [],
+      migrations: [],
+      ui: { theme: "dark" },
+      imports: { projectImports: {} },
+      exportedAt: new Date().toISOString(),
+    };
+    const file = new File([JSON.stringify(backup)], "joopark-import-smoke.json", { type: "application/json" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const input = qs("#importFile");
+    Object.defineProperty(input, "files", { value: transfer.files, configurable: true });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await waitFor(() => document.querySelector("#modal.open") && document.querySelector("#modal").innerText.includes("백업 가져오기"), "import confirmation modal did not open");
+    assert(document.querySelector("#modal").innerText.includes("일정 1"), "import modal did not summarize imported events");
+    await confirmModal();
+    await waitFor(() => dashboard.events.some((event) => event.title === imported + " event"), "imported event was not applied");
+    const payload = savedPayload();
+    assert(payload.events.length === 1 && payload.events[0].title === imported + " event", "imported events did not replace old events");
+    assert(payload.todos.length === 1 && payload.todos[0].title === imported + " todo", "imported todos did not replace old todos");
+    assert(payload.notes.length === 1 && payload.notes[0].title === imported + " note" && payload.notes[0].pinned, "imported notes did not replace old notes");
+    assert(payload.habits.length === 1 && payload.habits[0].name === imported + " habit", "imported habit was not saved");
+    assert(payload.settings.displayName === imported + " user", "imported settings were not persisted");
+    assert(payload.ui.theme === "dark", "imported theme was not persisted");
+    assert(!payload.events.some((event) => event.title === marker + " event"), "old event remained after import replacement");
+    backupImportOk = true;
+  });
+
+  const finalChecks = {
+    ...persistedChecks,
+    backupImport: backupImportOk,
+  };
+  Object.entries({ backupImport: backupImportOk }).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);
   });
 
@@ -528,7 +581,7 @@ const interactionExpression = `
     status: failures.length === 0 ? "pass" : "fail",
     steps,
     failures,
-    persistedChecks,
+    persistedChecks: finalChecks,
     final: snapshot(),
   };
 })()
