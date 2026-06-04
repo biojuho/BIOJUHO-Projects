@@ -29,7 +29,8 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
     assert summary["global_objective_complete"] is False
     assert summary["missing_required"] == []
     assert "external_credential_boundaries" in summary["explicit_blockers"]
-    assert summary["status_counts"]["covered"] >= 6
+    assert summary["status_counts"]["covered"] >= 7
+    assert {item["id"] for item in summary["criteria"]} >= {"pre_push_regression_gate"}
 
 
 def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:

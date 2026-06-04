@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `7`
-- Status counts: `blocked=1, covered=6`
+- Criteria: `8`
+- Status counts: `blocked=1, covered=7`
 
 ## Missing Required
 
@@ -45,6 +45,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `1`
+
+### pre_push_regression_gate
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `2`
 
 ### remaining_gap_tracking
 

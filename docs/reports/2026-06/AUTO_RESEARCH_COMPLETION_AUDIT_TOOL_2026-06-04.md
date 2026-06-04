@@ -28,9 +28,11 @@ The audit reports:
 - `valid=true`
 - `cycle_evidence_ready=true`
 - `global_objective_complete=false`
-- `covered=6`
+- `criteria=8`
+- `covered=7`
 - `blocked=1`
 - explicit blocker: `external_credential_boundaries`
+- protected push gate: `pre_push_regression_gate`
 
 This matches the intended distinction: the current evidence cycle is complete, while the overall objective remains open-ended.
 

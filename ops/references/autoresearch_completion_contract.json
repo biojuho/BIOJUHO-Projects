@@ -129,6 +129,30 @@
       ]
     },
     {
+      "id": "pre_push_regression_gate",
+      "requirement": "The local push gate protects the MCP runtime and completion-critical smoke tests.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/hooks/pre-push",
+          "must_contain": [
+            "tests/test_workspace_smoke.py",
+            "tests/test_dev_server_mcp_contract.py",
+            "tests/test_dev_server_mcp_runtime.py"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_GATE_MCP_RUNTIME_2026-06-04.md",
+          "must_contain": [
+            "36 passed",
+            "git push --dry-run",
+            "D:\\AI project\\.git\\hooks\\pre-push"
+          ]
+        }
+      ]
+    },
+    {
       "id": "remaining_gap_tracking",
       "requirement": "Unfinished or credential-bound work is explicitly tracked instead of hidden behind green tests.",
       "required": true,

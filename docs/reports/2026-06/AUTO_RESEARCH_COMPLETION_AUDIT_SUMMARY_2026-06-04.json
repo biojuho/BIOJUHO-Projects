@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 6
+    "covered": 7
   },
-  "criterion_count": 7,
+  "criterion_count": 8,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -88,6 +88,21 @@
         {
           "path": "next-actions.md",
           "term_count": 2
+        }
+      ]
+    },
+    {
+      "id": "pre_push_regression_gate",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/hooks/pre-push",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_GATE_MCP_RUNTIME_2026-06-04.md",
+          "term_count": 3
         }
       ]
     },
