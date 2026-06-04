@@ -2,13 +2,13 @@
 PostgreSQL Adapter & Connection Routing Tests
 ==============================================
 Covers:
-  1. DATABASE_URL routing (get_connection → asyncpg pool → _PgAdapter)
+  1. Project-scoped database URL routing (get_connection → asyncpg pool → _PgAdapter)
   2. _PgAdapter._ph: SQLite ? → PostgreSQL $N placeholder conversion
   3. _PgAdapter.executescript: AUTOINCREMENT → BIGSERIAL DDL rewrite
   4. _PgAdapter.execute: INSERT RETURNING id injection & SELECT passthrough
   5. Fallback: missing asyncpg raises ImportError
   6. Pool singleton lifecycle (create / close / re-create)
-  7. Dashboard _get_conn with DATABASE_URL
+  7. Dashboard _get_conn with configured database URL
 """
 
 import os
@@ -30,11 +30,11 @@ _PG_MODULE = "getdaytrends.db_layer.connection"
 
 @pytest.mark.asyncio
 async def test_get_connection_postgres_routing() -> None:
-    """DATABASE_URL이 설정되면 asyncpg Pool에서 _PgAdapter를 반환해야 한다."""
+    """GETDAYTRENDS_DATABASE_URL이 설정되면 asyncpg Pool에서 _PgAdapter를 반환해야 한다."""
     import getdaytrends.db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
-    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@localhost:5432/db"}), \
+    with patch.dict(os.environ, {"GETDAYTRENDS_DATABASE_URL": "postgresql://user:pass@localhost:5432/db"}), \
          patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
          patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
 
@@ -63,7 +63,7 @@ async def test_get_connection_postgres_scheme_variant() -> None:
     import getdaytrends.db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
-    with patch.dict(os.environ, {"DATABASE_URL": "postgres://u:p@host:5432/mydb"}), \
+    with patch.dict(os.environ, {"DATABASE_URL_GETDAYTRENDS": "postgres://u:p@host:5432/mydb"}), \
          patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
          patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
 
@@ -92,12 +92,63 @@ async def test_get_connection_falls_back_to_sqlite_without_url(tmp_path) -> None
 
 
 @pytest.mark.asyncio
+async def test_get_connection_ignores_shared_database_url_by_default(tmp_path) -> None:
+    """공용 DATABASE_URL만 있을 때는 SQLite로 폴백해야 한다."""
+    db_file = str(tmp_path / "shared-ignored.db")
+
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://global.example/db"}, clear=True), \
+         patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
+        conn = await get_connection(db_path=db_file)
+
+        mock_asyncpg.create_pool.assert_not_called()
+        if isinstance(conn, _PgAdapter):
+            pytest.fail("shared DATABASE_URL should not route GetDayTrends to Postgres")
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_get_connection_can_opt_in_to_shared_database_url() -> None:
+    """명시 플래그가 있으면 기존 DATABASE_URL 배포도 계속 지원한다."""
+    import getdaytrends.db_layer.connection as dbconn
+    dbconn._PG_POOL = None
+
+    with patch.dict(
+        os.environ,
+        {
+            "DATABASE_URL": "postgresql://user:pass@localhost:5432/db",
+            "GETDAYTRENDS_ALLOW_SHARED_DATABASE_URL": "true",
+        },
+        clear=True,
+    ), \
+         patch(f"{_PG_MODULE}._PG_AVAILABLE", True), \
+         patch(f"{_PG_MODULE}.asyncpg") as mock_asyncpg:
+
+        mock_pool = AsyncMock()
+        mock_pool.acquire = AsyncMock(return_value=MagicMock())
+        mock_pool._closed = False
+        mock_asyncpg.create_pool = AsyncMock(return_value=mock_pool)
+
+        conn = await get_connection()
+
+        mock_asyncpg.create_pool.assert_called_once_with(
+            "postgresql://user:pass@localhost:5432/db",
+            min_size=2,
+            max_size=10,
+            statement_cache_size=0,
+        )
+        if not isinstance(conn, _PgAdapter):
+            pytest.fail("explicit shared DATABASE_URL opt-in should route to Postgres")
+
+        await close_pg_pool()
+
+
+@pytest.mark.asyncio
 async def test_get_connection_raises_when_asyncpg_missing() -> None:
     """asyncpg 미설치 상태에서 PostgreSQL URL 사용 시 ImportError를 발생시켜야 한다."""
     import getdaytrends.db_layer.connection as dbconn
     dbconn._PG_POOL = None
 
-    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://u:p@host/db"}), \
+    with patch.dict(os.environ, {"GETDAYTRENDS_DATABASE_URL": "postgresql://u:p@host/db"}), \
          patch(f"{_PG_MODULE}._PG_AVAILABLE", False):
 
         with pytest.raises(ImportError, match="asyncpg"):
@@ -374,4 +425,5 @@ async def test_pool_recreation_after_close() -> None:
 
         # 재요청 시 새 풀 생성
         pool2 = await get_pg_pool("postgresql://u:p@h/db")
-        assert mock_asyncpg.create_pool.call_count == 2
+        if mock_asyncpg.create_pool.call_count != 2:
+            pytest.fail("closed Postgres pool should be recreated on the next request")

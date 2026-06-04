@@ -5,6 +5,11 @@ config.py에서 분리됨. AppConfig.from_env()에서 호출됩니다.
 
 import os
 
+try:
+    from .db_env import database_url_from_env
+except ImportError:
+    from db_env import database_url_from_env
+
 
 def _env_flag(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
@@ -22,7 +27,7 @@ def storage_env() -> dict:
         google_sheet_id=os.getenv("GOOGLE_SHEET_ID", ""),
         storage_type=os.getenv("STORAGE_TYPE", "notion").lower(),
         db_path=os.getenv("DB_PATH", "data/getdaytrends.db"),
-        database_url=os.getenv("DATABASE_URL", ""),
+        database_url=database_url_from_env(),
         cache_volume_bucket=int(os.getenv("CACHE_VOLUME_BUCKET", "5000")),
         data_retention_days=int(os.getenv("DATA_RETENTION_DAYS", "90")),
         notion_sem_limit=int(os.getenv("NOTION_SEM_LIMIT", "10")),

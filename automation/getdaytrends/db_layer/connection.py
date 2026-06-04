@@ -13,6 +13,10 @@ import aiosqlite
 from loguru import logger as log
 
 from .pg_adapter import PgAdapter
+try:
+    from ..db_env import database_url_from_env
+except ImportError:
+    from db_env import database_url_from_env
 
 # === PostgreSQL 선택적 지원 ===
 try:
@@ -31,6 +35,12 @@ _SQLITE_WRITE_LOCK = threading.RLock()
 def _uses_in_memory_sqlite(db_path: str) -> bool:
     normalized = (db_path or "").strip().lower()
     return normalized == ":memory:" or normalized.startswith("file::memory:")
+
+
+def _resolve_database_url(db_path: str, database_url: str) -> str:
+    if _uses_in_memory_sqlite(db_path):
+        return ""
+    return (database_url or database_url_from_env()).strip()
 
 
 # === 트랜잭션 컨텍스트 매니저 ===
@@ -114,10 +124,8 @@ async def get_connection(
     db_path: str = "data/getdaytrends.db",
     database_url: str = "",
 ):
-    """DB 연결 반환. DATABASE_URL 설정 시 asyncpg Pool에서 연결 획득."""
-    # Explicit in-memory SQLite requests should not be overridden by a
-    # workspace-level DATABASE_URL leaking in from the shell environment.
-    url = "" if _uses_in_memory_sqlite(db_path) else (database_url or os.getenv("DATABASE_URL", ""))
+    """DB 연결 반환. 프로젝트 전용 Postgres URL 설정 시 asyncpg Pool에서 연결 획득."""
+    url = _resolve_database_url(db_path, database_url)
     if url.startswith(("postgresql://", "postgres://")):
         if not _PG_AVAILABLE:
             raise ImportError("PostgreSQL 사용을 위해 asyncpg 설치 필요:\n  pip install asyncpg")
