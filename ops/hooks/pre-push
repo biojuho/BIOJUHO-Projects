@@ -1,15 +1,18 @@
 #!/bin/sh
-# pre-push hook — push 전 최소 smoke test 실행
-# 설치: copy ops/hooks/pre-push .git/hooks/pre-push
-# Windows에서는 Git Bash가 실행합니다
+# pre-push hook - run minimal smoke tests before push.
+# Install: python ops/hooks/install_hooks.py
 
 echo "==> Running smoke tests before push..."
-python -m pytest tests/test_workspace_smoke.py -q --tb=line 2>/dev/null
+python -m pytest \
+    tests/test_workspace_smoke.py \
+    tests/test_dev_server_mcp_contract.py \
+    tests/test_dev_server_mcp_runtime.py \
+    -q --tb=line 2>/dev/null
 
 if [ $? -ne 0 ]; then
-    echo "❌ Smoke test failed. Push blocked."
-    echo "   Run 'python -m pytest tests/test_workspace_smoke.py -v' for details."
+    echo "Smoke test failed. Push blocked."
+    echo "   Run 'python -m pytest tests/test_workspace_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py -v' for details."
     exit 1
 fi
 
-echo "✅ Smoke passed. Pushing..."
+echo "Smoke passed. Pushing..."
