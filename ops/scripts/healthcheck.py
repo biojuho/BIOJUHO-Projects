@@ -207,11 +207,8 @@ def check_npm_build(rel_path: str) -> dict:
         )
         if proc.returncode == 0:
             return {"ok": True, "message": "OK build dry-run"}
-        stderr = next(
-            (line.strip() for line in proc.stderr.splitlines() if "error" in line.lower() or "failed" in line.lower()),
-            "",
-        )
-        return {"ok": False, "message": f"FAILED build dry-run: {stderr or 'unknown error'}"}
+        failure_line = _summarize_process_failure(proc.stderr, proc.stdout)
+        return {"ok": False, "message": f"FAILED build dry-run: {failure_line or 'unknown error'}"}
     except Exception as exc:
         return {"ok": False, "message": f"FAILED build dry-run: {exc}"}
 
@@ -239,6 +236,21 @@ def check_observability_endpoints() -> list[dict]:
         except Exception as exc:
             results.append({"name": name, "ok": False, "url": url, "message": str(exc)})
     return results
+
+
+def _summarize_process_failure(*streams: str) -> str:
+    fallback = ""
+    for stream in streams:
+        for line in stream.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if not fallback:
+                fallback = stripped
+            lowered = stripped.lower()
+            if "error" in lowered or "failed" in lowered or "not found" in lowered:
+                return stripped
+    return fallback
 
 
 def run_healthcheck() -> dict:
