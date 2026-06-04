@@ -1,0 +1,674 @@
+{
+  "baseline_generated_at": "2026-06-04T18:54:22.968302+00:00",
+  "changed_repositories": 27,
+  "items": [
+    {
+      "adoption_status": "partially_adopted",
+      "category": "enterprise-agent-framework",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "ops/references/mcp_service_manifest.json",
+        "ops/scripts/mcp_service_runtime_smoke.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 1,
+      "repo": "microsoft/agent-framework",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 47,
+      "url": "https://github.com/microsoft/agent-framework"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typescript-agent-application-framework",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "apps/dashboard/src/App.jsx",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "mcp/canva-mcp/src/server/server.ts",
+        "mcp/canva-mcp/src/server/tools.ts",
+        "ops/references/dev_server_browser_checks.json"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 2,
+      "repo": "mastra-ai/mastra",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 46,
+      "url": "https://github.com/mastra-ai/mastra"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-browser-automation",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "ops/references/dev_server_browser_checks.json",
+        "ops/scripts/dev_server_browser_smoke.py",
+        "tests/test_dev_server_browser_smoke.py",
+        "apps/desci-platform/scripts/browser_smoke.py",
+        "tests/test_desci_browser_smoke.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 3,
+      "repo": "microsoft/playwright-mcp",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 46,
+      "url": "https://github.com/microsoft/playwright-mcp"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typescript-ai-app-toolkit",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "apps/dashboard/src/App.jsx",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "mcp/canva-mcp/src/server/server.ts",
+        "mcp/canva-mcp/src/server/tools.ts",
+        "ops/scripts/dev_server_browser_smoke.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 4,
+      "repo": "vercel/ai",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 46,
+      "url": "https://github.com/vercel/ai"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "autonomous-coding-agent-platform",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 5,
+      "repo": "OpenHands/OpenHands",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 44,
+      "url": "https://github.com/OpenHands/OpenHands"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "typed-agent-framework",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "packages/shared/harness/core.py",
+        "packages/shared/harness/adapters/native.py",
+        "packages/shared/harness/token_tracker.py",
+        "packages/shared/harness/tests/test_harness.py",
+        "ops/scripts/run_workspace_smoke.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 6,
+      "repo": "pydantic/pydantic-ai",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 44,
+      "url": "https://github.com/pydantic/pydantic-ai"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "continuous-agent-platform",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/autoresearch_completion_contract.json",
+        "ops/scripts/autoresearch_completion_audit.py",
+        "tests/test_autoresearch_completion_audit.py",
+        "ops/references/agent_workflows.json"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 7,
+      "repo": "Significant-Gravitas/AutoGPT",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 44,
+      "url": "https://github.com/Significant-Gravitas/AutoGPT"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "full-stack-agent-platform",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "ops/scripts/autoresearch_completion_audit.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 8,
+      "repo": "agno-agi/agno",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 43,
+      "url": "https://github.com/agno-agi/agno"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "multi-agent-flow-control",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 9,
+      "repo": "crewAIInc/crewAI",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 43,
+      "url": "https://github.com/crewAIInc/crewAI"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "model-driven-agent-sdk",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "ops/references/mcp_service_manifest.json",
+        "ops/scripts/mcp_service_runtime_smoke.py",
+        "ops/scripts/run_workspace_smoke.py",
+        "ops/scripts/mcp_otel_collector_handoff.py",
+        "tests/test_mcp_service_runtime_smoke.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 10,
+      "repo": "strands-agents/harness-sdk",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 43,
+      "url": "https://github.com/strands-agents/harness-sdk"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "code-first-agent-development-kit",
+      "changed_fields": [
+        "pushed_at",
+        "updated_at",
+        "stargazers_count",
+        "forks_count"
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_manifest.py",
+        "tests/test_agent_workflow_gate_runner.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "high",
+      "rank": 11,
+      "repo": "google/adk-python",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 38,
+      "url": "https://github.com/google/adk-python"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "agent-workflow-runtime",
+      "changed_fields": [
+        "pushed_at"
+      ],
+      "local_evidence": [
+        "packages/shared/harness/core.py",
+        "packages/shared/harness/adapters/native.py",
+        "packages/shared/harness/token_tracker.py",
+        "packages/shared/harness/tests/test_harness.py",
+        "ops/references/agent_workflows.json"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "medium",
+      "rank": 12,
+      "repo": "evalstate/fast-agent",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 29,
+      "url": "https://github.com/evalstate/fast-agent"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "openai-agent-runtime-sdk",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "ops/scripts/autoresearch_completion_audit.py"
+      ],
+      "next_action": "Review issue movement when selecting the next source-backed experiment.",
+      "priority": "medium",
+      "rank": 13,
+      "repo": "openai/openai-agents-python",
+      "review_reason": "issue volume changed since the baseline snapshot",
+      "score": 27,
+      "url": "https://github.com/openai/openai-agents-python"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "devserver-observability",
+      "changed_fields": [
+        "pushed_at"
+      ],
+      "local_evidence": [
+        "ops/references/dev_server_targets.json",
+        "ops/references/dev_server_browser_checks.json",
+        "ops/scripts/dev_server_status.py",
+        "ops/scripts/dev_server_control.py",
+        "ops/scripts/dev_server_browser_smoke.py"
+      ],
+      "next_action": "Review upstream commits or release notes before the next adoption decision.",
+      "priority": "medium",
+      "rank": 14,
+      "repo": "Uninen/devserver-mcp",
+      "review_reason": "upstream source code moved since the baseline snapshot",
+      "score": 27,
+      "url": "https://github.com/Uninen/devserver-mcp"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "browser-agent-automation",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "ops/references/dev_server_browser_checks.json",
+        "ops/scripts/dev_server_browser_smoke.py",
+        "tests/test_dev_server_browser_smoke.py",
+        "apps/desci-platform/scripts/browser_smoke.py",
+        "tests/test_desci_browser_smoke.py"
+      ],
+      "next_action": "Review issue movement when selecting the next source-backed experiment.",
+      "priority": "medium",
+      "rank": 15,
+      "repo": "browser-use/browser-use",
+      "review_reason": "issue volume changed since the baseline snapshot",
+      "score": 24,
+      "url": "https://github.com/browser-use/browser-use"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "document-agent-workflow-platform",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count",
+        "forks_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "apps/desci-platform",
+        "docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md",
+        "docs/reports/2026-06/DESCI_BROWSER_SMOKE_JSON_EVIDENCE_2026-06-04.json",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py"
+      ],
+      "next_action": "Review issue movement when selecting the next source-backed experiment.",
+      "priority": "medium",
+      "rank": 16,
+      "repo": "run-llama/llama_index",
+      "review_reason": "issue volume changed since the baseline snapshot",
+      "score": 24,
+      "url": "https://github.com/run-llama/llama_index"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "production-llm-orchestration",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "apps/desci-platform",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "ops/scripts/run_workspace_smoke.py",
+        "ops/references/agent_workflows.json",
+        "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md"
+      ],
+      "next_action": "Review issue movement when selecting the next source-backed experiment.",
+      "priority": "medium",
+      "rank": 17,
+      "repo": "deepset-ai/haystack",
+      "review_reason": "issue volume changed since the baseline snapshot",
+      "score": 23,
+      "url": "https://github.com/deepset-ai/haystack"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-runtime-inspection",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count",
+        "open_issues_count"
+      ],
+      "local_evidence": [
+        "ops/scripts/dev_server_mcp_runtime.py",
+        "ops/scripts/dev_server_mcp_runtime_smoke.py",
+        "tests/test_dev_server_mcp_runtime.py",
+        "tests/test_dev_server_mcp_runtime_smoke.py",
+        "ops/hooks/pre-push"
+      ],
+      "next_action": "Review issue movement when selecting the next source-backed experiment.",
+      "priority": "medium",
+      "rank": 18,
+      "repo": "modelcontextprotocol/inspector",
+      "review_reason": "issue volume changed since the baseline snapshot",
+      "score": 23,
+      "url": "https://github.com/modelcontextprotocol/inspector"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "stateful-agent-orchestration",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count",
+        "forks_count"
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "tests/test_agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 19,
+      "repo": "langchain-ai/langgraph",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 20,
+      "url": "https://github.com/langchain-ai/langgraph"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-agent-workflow-framework",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count"
+      ],
+      "local_evidence": [
+        "ops/references/mcp_service_manifest.json",
+        "ops/scripts/mcp_service_runtime_smoke.py",
+        "ops/scripts/dev_server_mcp_runtime_smoke.py",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 20,
+      "repo": "lastmile-ai/mcp-agent",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 20,
+      "url": "https://github.com/lastmile-ai/mcp-agent"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "official-mcp-python-sdk",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count"
+      ],
+      "local_evidence": [
+        "ops/references/mcp_service_manifest.json",
+        "ops/scripts/mcp_service_manifest.py",
+        "ops/scripts/mcp_service_runtime_smoke.py",
+        "tests/test_mcp_service_manifest.py",
+        "tests/test_mcp_service_runtime_smoke.py"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 21,
+      "repo": "modelcontextprotocol/python-sdk",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 20,
+      "url": "https://github.com/modelcontextprotocol/python-sdk"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "multi-agent-conversation-framework",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count",
+        "forks_count"
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_REUSE_SAFE_FIRST_GATES_2026-06-05.json"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 22,
+      "repo": "microsoft/autogen",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 18,
+      "url": "https://github.com/microsoft/autogen"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "low-code-agent-workflow-builder",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count"
+      ],
+      "local_evidence": [
+        "apps/dashboard/src/App.jsx",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "ops/scripts/dev_server_control.py"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 23,
+      "repo": "FlowiseAI/Flowise",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 17,
+      "url": "https://github.com/FlowiseAI/Flowise"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "human-in-loop-coding-agents",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count"
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 24,
+      "repo": "humanlayer/humanlayer",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 17,
+      "url": "https://github.com/humanlayer/humanlayer"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-agent-evaluation",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count"
+      ],
+      "local_evidence": [
+        "ops/scripts/run_workspace_smoke.py",
+        "tests/test_smoke_report_readers.py",
+        "apps/desci-platform/scripts/product_smoke.py",
+        "apps/desci-platform/scripts/browser_smoke.py",
+        "apps/dashboard/routers/gdt.py"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 25,
+      "repo": "lastmile-ai/mcp-eval",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 17,
+      "url": "https://github.com/lastmile-ai/mcp-eval"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "otel-collector-observability",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count"
+      ],
+      "local_evidence": [
+        "ops/references/mcp_otel_collector_handoff.json",
+        "ops/scripts/mcp_otel_collector_handoff.py",
+        "tests/test_mcp_otel_collector_handoff.py",
+        "docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.json",
+        "docs/reports/2026-06/MCP_OTEL_COLLECTOR_HANDOFF_2026-06-05.md"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 26,
+      "repo": "open-telemetry/opentelemetry-collector",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 17,
+      "url": "https://github.com/open-telemetry/opentelemetry-collector"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "production-mcp-framework",
+      "changed_fields": [
+        "updated_at",
+        "stargazers_count"
+      ],
+      "local_evidence": [
+        "ops/references/mcp_service_manifest.json",
+        "ops/scripts/mcp_service_manifest.py",
+        "ops/scripts/mcp_service_runtime_smoke.py",
+        "tests/test_mcp_service_manifest.py",
+        "tests/test_mcp_service_runtime_smoke.py"
+      ],
+      "next_action": "Keep on the watchlist unless code or policy metadata changes.",
+      "priority": "medium",
+      "rank": 27,
+      "repo": "PrefectHQ/fastmcp",
+      "review_reason": "community or activity metadata changed since the baseline snapshot",
+      "score": 17,
+      "url": "https://github.com/PrefectHQ/fastmcp"
+    }
+  ],
+  "new_repositories": [],
+  "queued_repositories": 27,
+  "ranking_policy": {
+    "adoption_status_weights": {
+      "adopted": 1,
+      "partially_adopted": 3,
+      "watch": 5
+    },
+    "category_weights": {
+      "agent-workflow-runtime": 6,
+      "enterprise-agent-framework": 8,
+      "mcp-agent-workflow-framework": 7,
+      "mcp-browser-automation": 6,
+      "official-mcp-python-sdk": 7,
+      "openai-agent-runtime-sdk": 8,
+      "stateful-agent-orchestration": 6,
+      "typescript-agent-application-framework": 6,
+      "typescript-ai-app-toolkit": 6
+    },
+    "decision_rule": "Review pushed_at, repository policy, and high-impact runtime framework changes before passive community-metric changes.",
+    "field_weights": {
+      "archived": 100,
+      "default_branch": 40,
+      "disabled": 100,
+      "forks_count": 1,
+      "license": 25,
+      "open_issues_count": 6,
+      "pushed_at": 20,
+      "stargazers_count": 2,
+      "updated_at": 8,
+      "visibility": 80
+    }
+  },
+  "removed_repositories": [],
+  "schema_version": 1,
+  "source_change_generated_at": "2026-06-04T23:01:51.324669+00:00",
+  "source_change_summary": "docs/reports/2026-06/GITHUB_SOURCE_CHANGE_SUMMARY_2026-06-05.json",
+  "source_count": 30,
+  "status": "pass"
+}

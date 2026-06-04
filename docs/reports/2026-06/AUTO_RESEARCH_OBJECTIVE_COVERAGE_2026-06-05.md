@@ -11,7 +11,7 @@
 | Requirement | Status | Criteria | Evidence paths |
 | --- | --- | ---: | ---: |
 | `launch_ready_product_hardening` | `covered_current_cycle` | `8` | `7` |
-| `github_related_project_research` | `continuous` | `8` | `4` |
+| `github_related_project_research` | `continuous` | `9` | `5` |
 | `self_improving_autoresearch_skill` | `covered_current_cycle` | `4` | `2` |
 | `continuous_ab_adoption_commit_push` | `continuous` | `3` | `2` |
 | `direct_app_click_qa` | `covered_current_cycle` | `8` | `12` |

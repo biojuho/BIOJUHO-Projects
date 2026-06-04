@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T08:13:04+09:00",
+  "generated_at": "2026-06-05T08:20:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -168,6 +168,7 @@
               "ops/scripts/external_credential_handoff.py",
               "ops/scripts/external_credential_live_verify.py",
               "ops/scripts/github_source_freshness.py",
+              "ops/scripts/github_source_review_queue.py",
               "ops/scripts/telegram_notification_live_verify.py",
               "tests/test_workspace_smoke.py",
               "tests/test_autoresearch_objective_coverage.py",
@@ -180,6 +181,7 @@
               "tests/test_github_modernization_radar.py",
               "tests/test_autoresearch_completion_audit.py",
               "tests/test_github_source_freshness.py",
+              "tests/test_github_source_review_queue.py",
               "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
             ]
           }
@@ -463,6 +465,64 @@
       ]
     },
     {
+      "id": "github_source_review_queue",
+      "requirement": "Changed GitHub source metadata is ranked into an actionable review queue for the next source-backed AutoResearch adoption decision.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_review_queue.py",
+          "must_contain": [
+            "FIELD_WEIGHTS",
+            "build_review_queue",
+            "changed_repositories",
+            "queued_repositories",
+            "Review upstream commits or release notes"
+          ]
+        },
+        {
+          "path": "tests/test_github_source_review_queue.py",
+          "must_contain": [
+            "test_build_review_queue_prioritizes_source_code_movement",
+            "test_checked_in_review_queue_matches_change_summary_and_renderer",
+            "QUEUE_JSON_PATH",
+            "queued_repositories"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_REVIEW_QUEUE_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"changed_repositories\": 27",
+            "\"queued_repositories\": 27",
+            "\"repo\": \"microsoft/agent-framework\"",
+            "\"priority\": \"high\"",
+            "\"new_repositories\": []",
+            "\"removed_repositories\": []"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_REVIEW_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "GitHub Source Review Queue",
+            "Queued repositories: `27`",
+            "microsoft/agent-framework",
+            "Review upstream commits or release notes",
+            "Decision Rule"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_REVIEW_QUEUE_2026-06-05.md",
+          "must_contain": [
+            "GitHub Source Review Queue",
+            "27/27",
+            "microsoft/agent-framework",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
       "id": "self_improving_skill",
       "requirement": "AutoResearch self-improvement skill exists and enforces A/B, evidence, commit/push, and completion-audit behavior.",
       "required": true,
@@ -687,6 +747,17 @@
             "protected_path_freshness",
             "06feb55",
             "no changed protected paths after proof",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_VITE_LINE_ENDINGS_PROOF_2026-06-05.md",
+          "must_contain": [
+            "Canva Vite Line Endings Proof",
+            "protected_path_freshness",
+            "06feb55",
+            "mcp/canva-mcp/vite.config.ts",
+            "8/8",
             "global_objective_complete=false"
           ]
         }
@@ -1157,6 +1228,7 @@
             "tests/test_external_credential_live_verify.py",
             "tests/test_github_modernization_radar.py",
             "tests/test_github_source_freshness.py",
+            "tests/test_github_source_review_queue.py",
             "tests/test_canva_widget_click_smoke.py",
             "tests/test_dev_server_browser_smoke.py",
             "tests/test_dev_server_mcp_contract.py",
@@ -1199,6 +1271,7 @@
             "==> Running dashboard bundle budget check...",
             "npm.cmd --prefix apps/dashboard run check:bundle",
             "tests/test_dashboard_api.py",
+            "tests/test_github_source_review_queue.py",
             "tests/test_canva_widget_click_smoke.py",
             "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json",
             "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md",
