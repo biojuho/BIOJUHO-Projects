@@ -2,22 +2,31 @@
     "name": "desci-token-contracts",
     "version": "1.0.0",
     "description": "Smart contracts for DeSci Platform",
+    "type": "module",
     "scripts": {
         "test": "hardhat test",
         "compile": "hardhat compile",
         "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia"
     },
     "devDependencies": {
-        "hardhat": "^2.19.0",
-        "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-        "dotenv": "^16.3.1"
+        "@nomicfoundation/hardhat-ethers": "4.0.12",
+        "@nomicfoundation/hardhat-ethers-chai-matchers": "3.0.9",
+        "@nomicfoundation/hardhat-mocha": "3.0.20",
+        "@nomicfoundation/hardhat-network-helpers": "3.0.9",
+        "chai": "6.2.2",
+        "dotenv": "^16.3.1",
+        "ethers": "6.16.0",
+        "hardhat": "3.7.0",
+        "mocha": "11.7.6"
     },
     "dependencies": {
         "@openzeppelin/contracts": "^5.0.0"
     },
     "overrides": {
+        "diff": "9.0.0",
         "serialize-javascript": "7.0.5",
         "tmp": "0.2.7",
-        "undici": "6.26.0"
+        "undici": "6.26.0",
+        "ws": "8.21.0"
     }
 }

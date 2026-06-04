@@ -1,11 +1,13 @@
-const hre = require("hardhat");
+import { network } from "hardhat";
+
+const { ethers } = await network.create();
 
 async function main() {
-    const [deployer] = await hre.ethers.getSigners();
+    const [deployer] = await ethers.getSigners();
 
     console.log("🚀 Deploying ResearchPaperNFT with account:", deployer.address);
 
-    const ResearchPaperNFT = await hre.ethers.getContractFactory("ResearchPaperNFT");
+    const ResearchPaperNFT = await ethers.getContractFactory("ResearchPaperNFT");
     const nft = await ResearchPaperNFT.deploy(deployer.address);
 
     await nft.waitForDeployment();

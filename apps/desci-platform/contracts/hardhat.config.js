@@ -1,5 +1,11 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
+import hardhatEthers from "@nomicfoundation/hardhat-ethers";
+import hardhatEthersChaiMatchers from "@nomicfoundation/hardhat-ethers-chai-matchers";
+import hardhatMocha from "@nomicfoundation/hardhat-mocha";
+import hardhatNetworkHelpers from "@nomicfoundation/hardhat-network-helpers";
+import { configVariable, defineConfig } from "hardhat/config";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const AMOY_RPC_URL = process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL;
@@ -12,37 +18,52 @@ if (!PRIVATE_KEY && (process.argv.includes("--network") && !process.argv.include
 }
 
 /** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+const config = defineConfig({
+    plugins: [
+        hardhatEthers,
+        hardhatEthersChaiMatchers,
+        hardhatMocha,
+        hardhatNetworkHelpers,
+    ],
     solidity: {
-        version: "0.8.24",
-        settings: {
-            optimizer: {
-                enabled: true,
-                runs: 200,
+        profiles: {
+            default: {
+                version: "0.8.24",
+                settings: {
+                    optimizer: {
+                        enabled: true,
+                        runs: 200,
+                    },
+                    viaIR: true,
+                },
             },
-            viaIR: true,
         },
     },
     networks: {
+        hardhatMainnet: {
+            type: "edr-simulated",
+            chainType: "l1",
+        },
         amoy: {
+            type: "http",
+            chainType: "l1",
             url: AMOY_RPC_URL,
             accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
             chainId: 80002,
         },
         sepolia: {
-            url: SEPOLIA_RPC_URL || "",
+            type: "http",
+            chainType: "l1",
+            url: SEPOLIA_RPC_URL || configVariable("SEPOLIA_RPC_URL"),
             accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
             chainId: 11155111,
         },
         localhost: {
+            type: "http",
+            chainType: "l1",
             url: "http://127.0.0.1:8545",
         },
     },
-    etherscan: {
-        apiKey: process.env.ETHERSCAN_API_KEY,
-    },
-    gasReporter: {
-        enabled: process.env.REPORT_GAS === "true",
-        currency: "USD",
-    },
-};
+});
+
+export default config;

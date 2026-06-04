@@ -1,6 +1,5 @@
-const hre = require("hardhat");
-const fs = require("fs");
-const path = require("path");
+import hre from "hardhat";
+import fs from "fs";
 
 async function main() {
     console.log("Sources path:", hre.config.paths.sources);
