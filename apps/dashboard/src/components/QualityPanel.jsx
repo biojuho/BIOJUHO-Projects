@@ -59,6 +59,18 @@ export function QualityPanel({ data, error, onRetry }) {
         : 'NO REPORT'
   const smokeBadgeClass = smokeLabel === 'PASS' ? 'ok' : smokeLabel === 'PARTIAL' ? 'warn' : 'error'
   const slowestChecks = smoke?.slowest_checks || []
+  const mcpTrace = smoke?.mcp_trace || null
+  const mcpTraceEnabled = Boolean(mcpTrace?.enabled)
+  const mcpTracePassed = mcpTrace?.passed ?? 0
+  const mcpTraceCompleted = mcpTrace?.completed ?? 0
+  const mcpTraceFailed = mcpTrace?.failed ?? 0
+  const mcpTraceLabel = mcpTraceEnabled
+    ? mcpTraceFailed === 0
+      ? 'PASS'
+      : 'FAIL'
+    : 'NO TRACE'
+  const mcpTraceBadgeClass = mcpTraceLabel === 'PASS' ? 'ok' : mcpTraceLabel === 'FAIL' ? 'error' : 'warn'
+  const mcpTraceChecks = mcpTrace?.checks || []
   const devStatus = data.dev_server_status || null
   const devSummary = devStatus?.summary || {}
   const devReady = devSummary.ready ?? 0
@@ -109,6 +121,37 @@ export function QualityPanel({ data, error, onRetry }) {
                 ))}
               </tbody>
             </table>
+          )}
+          {mcpTraceEnabled && (
+            <>
+              <h3 style={{ fontSize: '0.7rem', color: '#38bdf8', marginBottom: '0.4rem', marginTop: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                MCP Trace
+              </h3>
+              <div className="metric-row">
+                <span className="metric-label">MCP checks</span>
+                <span className={`status-badge ${mcpTraceBadgeClass}`}>
+                  {mcpTraceCompleted ? `${mcpTracePassed}/${mcpTraceCompleted} ${mcpTraceLabel}` : mcpTraceLabel}
+                </span>
+              </div>
+              <div className="metric-row">
+                <span className="metric-label">MCP elapsed</span>
+                <span className="metric-value">{(mcpTrace.elapsed_seconds || 0).toFixed(1)}s</span>
+              </div>
+              {mcpTraceChecks.length > 0 && (
+                <table className="data-table" style={{ marginTop: '0.45rem', marginBottom: '0.8rem' }}>
+                  <thead><tr><th>Check</th><th>Kind</th><th>Seconds</th></tr></thead>
+                  <tbody>
+                    {mcpTraceChecks.slice(0, 3).map((check, i) => (
+                      <tr key={`${check.name}-${i}`}>
+                        <td>{check.name}</td>
+                        <td>{check.command_kind}</td>
+                        <td>{(check.elapsed_seconds || 0).toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
           )}
         </>
       )}

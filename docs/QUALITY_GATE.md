@@ -113,6 +113,8 @@ Top-level fields:
 - `status` (`partial` or `complete`)
 - `duration_seconds`
 - `summary` (`total`, `completed`, `passed`, `failed`, `remaining`)
+- `scope_summary` (per completed scope: `completed`, `passed`, `failed`, `elapsed_seconds`)
+- `mcp_trace` (MCP-specific smoke evidence: `enabled`, counts, elapsed time, checked units, command kinds, and per-check status)
 - `results`
 
 Each `results` entry contains:

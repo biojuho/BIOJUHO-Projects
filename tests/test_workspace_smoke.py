@@ -114,6 +114,59 @@ def test_command_for_check_appends_workspace_local_basetemp() -> None:
     assert command[-2:] == ["--basetemp", str(smoke.pytest_temp_dir(temp_dir))]
 
 
+def test_build_json_report_adds_scope_summary_and_mcp_trace() -> None:
+    smoke = load_smoke_module()
+    results = [
+        smoke.Result("workspace", "workspace regression tests", ".", "python -m pytest tests", 0, True, "ok", ""),
+        smoke.Result(
+            "mcp",
+            "notebooklm compile",
+            ".",
+            "python -m compileall mcp/notebooklm-mcp",
+            0,
+            True,
+            "ok",
+            "",
+            elapsed_seconds=1.25,
+        ),
+        smoke.Result(
+            "mcp",
+            "DailyNews unit tests",
+            "automation/DailyNews",
+            "python -m pytest tests/unit",
+            1,
+            False,
+            "",
+            "failed",
+            elapsed_seconds=2.5,
+        ),
+    ]
+
+    report = smoke.build_json_report(results, total_checks=3, complete=True, duration_seconds=4.0)
+
+    assert report["scope_summary"]["workspace"] == {
+        "completed": 1,
+        "passed": 1,
+        "failed": 0,
+        "elapsed_seconds": 0.0,
+    }
+    assert report["scope_summary"]["mcp"] == {
+        "completed": 2,
+        "passed": 1,
+        "failed": 1,
+        "elapsed_seconds": 3.75,
+    }
+    assert report["mcp_trace"]["enabled"] is True
+    assert report["mcp_trace"]["completed"] == 2
+    assert report["mcp_trace"]["passed"] == 1
+    assert report["mcp_trace"]["failed"] == 1
+    assert report["mcp_trace"]["elapsed_seconds"] == 3.75
+    assert report["mcp_trace"]["checked_units"] == [".", "automation/DailyNews"]
+    assert report["mcp_trace"]["command_kinds"] == {"compileall": 1, "pytest": 1}
+    assert report["mcp_trace"]["checks"][0]["command_kind"] == "compileall"
+    assert report["mcp_trace"]["checks"][1]["command_kind"] == "pytest"
+
+
 def test_resolve_python_executable_prefers_workspace_venv_over_current_interpreter(tmp_path: Path, monkeypatch) -> None:
     smoke = load_smoke_module()
     venv_python_rel = "Scripts/python.exe" if os.name == "nt" else "bin/python"
@@ -344,6 +397,24 @@ def test_main_writes_json_report_for_selected_scope(tmp_path, monkeypatch) -> No
         "failed": 0,
         "remaining": 0,
     }
+    assert report["scope_summary"] == {
+        "workspace": {
+            "completed": 1,
+            "passed": 1,
+            "failed": 0,
+            "elapsed_seconds": 0.0,
+        }
+    }
+    assert report["mcp_trace"] == {
+        "enabled": False,
+        "completed": 0,
+        "passed": 0,
+        "failed": 0,
+        "elapsed_seconds": 0,
+        "checked_units": [],
+        "command_kinds": {},
+        "checks": [],
+    }
     assert report["results"] == [
         {
             "scope": "workspace",
@@ -405,6 +476,8 @@ def test_main_keeps_partial_json_report_when_later_check_crashes(tmp_path, monke
         "failed": 0,
         "remaining": 1,
     }
+    assert report["scope_summary"]["workspace"]["completed"] == 1
+    assert report["mcp_trace"]["enabled"] is False
     assert report["results"][0]["elapsed_seconds"] == 1.25
 
 
@@ -425,5 +498,7 @@ def test_write_json_report_replaces_existing_report(tmp_path) -> None:
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["status"] == "partial"
     assert report["duration_seconds"] == 3.457
+    assert report["scope_summary"]["workspace"]["elapsed_seconds"] == 0.5
+    assert report["mcp_trace"]["enabled"] is False
     assert report["results"][0]["elapsed_seconds"] == 0.5
     assert (tmp_path / ".smoke.json.tmp").exists() is False

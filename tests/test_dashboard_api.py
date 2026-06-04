@@ -8,6 +8,7 @@ with no live DB dependency — SQLite helpers gracefully return [].
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -141,6 +142,28 @@ class TestQualityOverview:
                     "status": "complete",
                     "duration_seconds": 12.345,
                     "summary": {"total": 2, "completed": 2, "passed": 2, "failed": 0, "remaining": 0},
+                    "scope_summary": {
+                        "cie": {"completed": 2, "passed": 2, "failed": 0, "elapsed_seconds": 12.3}
+                    },
+                    "mcp_trace": {
+                        "enabled": True,
+                        "completed": 1,
+                        "passed": 1,
+                        "failed": 0,
+                        "elapsed_seconds": 3.2,
+                        "checked_units": ["automation/DailyNews"],
+                        "command_kinds": {"pytest": 1},
+                        "checks": [
+                            {
+                                "name": "DailyNews unit tests",
+                                "cwd": "automation/DailyNews",
+                                "ok": True,
+                                "returncode": 0,
+                                "elapsed_seconds": 3.2,
+                                "command_kind": "pytest",
+                            }
+                        ],
+                    },
                     "results": [
                         {"scope": "cie", "name": "cie compile", "ok": True, "returncode": 0, "elapsed_seconds": 0.5},
                         {"scope": "cie", "name": "cie tests", "ok": True, "returncode": 0, "elapsed_seconds": 11.8},
@@ -157,8 +180,62 @@ class TestQualityOverview:
         assert smoke["available"] is True
         assert smoke["status"] == "complete"
         assert smoke["summary"]["passed"] == 2
+        assert smoke["scope_summary"]["cie"]["completed"] == 2
+        assert smoke["mcp_trace"]["enabled"] is True
+        assert smoke["mcp_trace"]["command_kinds"] == {"pytest": 1}
         assert smoke["duration_seconds"] == 12.345
         assert smoke["slowest_checks"][0]["name"] == "cie tests"
+
+    def test_uses_latest_enabled_mcp_trace_when_latest_smoke_is_workspace_only(self, tmp_path, monkeypatch):
+        smoke_dir = tmp_path / "var"
+        smoke_dir.mkdir()
+        mcp_report = smoke_dir / "workspace-smoke-mcp.json"
+        workspace_report = smoke_dir / "workspace-smoke-workspace.json"
+        mcp_report.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "status": "complete",
+                    "duration_seconds": 8.4,
+                    "summary": {"total": 1, "completed": 1, "passed": 1, "failed": 0, "remaining": 0},
+                    "mcp_trace": {
+                        "enabled": True,
+                        "completed": 1,
+                        "passed": 1,
+                        "failed": 0,
+                        "elapsed_seconds": 8.4,
+                        "checked_units": ["automation/DailyNews"],
+                        "command_kinds": {"pytest": 1},
+                        "checks": [],
+                    },
+                    "results": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        workspace_report.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "status": "complete",
+                    "duration_seconds": 2.0,
+                    "summary": {"total": 1, "completed": 1, "passed": 1, "failed": 0, "remaining": 0},
+                    "mcp_trace": {"enabled": False},
+                    "results": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        os.utime(mcp_report, (100, 100))
+        os.utime(workspace_report, (200, 200))
+        monkeypatch.setattr(gdt_router, "WORKSPACE", tmp_path)
+
+        smoke = client.get("/api/quality_overview").json()["workspace_smoke"]
+
+        assert smoke["path"] == "var/workspace-smoke-workspace.json"
+        assert smoke["mcp_trace_path"] == "var/workspace-smoke-mcp.json"
+        assert smoke["mcp_trace"]["enabled"] is True
+        assert smoke["mcp_trace"]["command_kinds"] == {"pytest": 1}
 
     def test_includes_dev_server_readiness_summary(self, tmp_path, monkeypatch):
         status_dir = tmp_path / "var"

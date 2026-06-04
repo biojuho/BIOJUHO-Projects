@@ -639,6 +639,69 @@ def resolve_json_out_path(path_value: str) -> Path:
     return out_path
 
 
+def classify_command_kind(command: str) -> str:
+    normalized = f" {command.lower()} "
+    if " -m compileall " in normalized:
+        return "compileall"
+    if " -m pytest " in normalized:
+        return "pytest"
+    if normalized.lstrip().startswith(("npm ", "npm.cmd ")):
+        return "npm"
+    if normalized.lstrip().startswith("uv run "):
+        return "uv"
+    return "command"
+
+
+def build_scope_summary(results: Sequence[Result]) -> dict[str, dict[str, object]]:
+    summary: dict[str, dict[str, object]] = {}
+    for result in results:
+        scope = summary.setdefault(
+            result.scope,
+            {
+                "completed": 0,
+                "passed": 0,
+                "failed": 0,
+                "elapsed_seconds": 0.0,
+            },
+        )
+        scope["completed"] = int(scope["completed"]) + 1
+        if result.ok:
+            scope["passed"] = int(scope["passed"]) + 1
+        else:
+            scope["failed"] = int(scope["failed"]) + 1
+        scope["elapsed_seconds"] = round(float(scope["elapsed_seconds"]) + result.elapsed_seconds, 3)
+    return summary
+
+
+def build_mcp_trace(results: Sequence[Result]) -> dict[str, object]:
+    mcp_results = [result for result in results if result.scope == "mcp"]
+    command_kinds: dict[str, int] = {}
+    for result in mcp_results:
+        kind = classify_command_kind(result.command)
+        command_kinds[kind] = command_kinds.get(kind, 0) + 1
+
+    return {
+        "enabled": bool(mcp_results),
+        "completed": len(mcp_results),
+        "passed": sum(1 for result in mcp_results if result.ok),
+        "failed": sum(1 for result in mcp_results if not result.ok),
+        "elapsed_seconds": round(sum(result.elapsed_seconds for result in mcp_results), 3),
+        "checked_units": sorted({result.cwd for result in mcp_results}),
+        "command_kinds": dict(sorted(command_kinds.items())),
+        "checks": [
+            {
+                "name": result.name,
+                "cwd": result.cwd,
+                "ok": result.ok,
+                "returncode": result.returncode,
+                "elapsed_seconds": result.elapsed_seconds,
+                "command_kind": classify_command_kind(result.command),
+            }
+            for result in mcp_results
+        ],
+    }
+
+
 def build_json_report(
     results: Sequence[Result],
     *,
@@ -660,6 +723,8 @@ def build_json_report(
             "failed": failed,
             "remaining": max(total_checks - len(results), 0),
         },
+        "scope_summary": build_scope_summary(results),
+        "mcp_trace": build_mcp_trace(results),
         "results": [asdict(result) for result in results],
     }
 

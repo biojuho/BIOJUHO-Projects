@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T20:00:26+09:00",
+  "generated_at": "2026-06-04T20:15:40+09:00",
   "search_context": {
     "objective": "Search GitHub for systems similar to this AI workspace and map current patterns into local modernization evidence.",
     "queries": [
@@ -39,6 +39,7 @@
       "why_similar": "MCP eval framework focused on real agent-to-server tests, observability, reports, and CI-friendly regression detection.",
       "observed_patterns": [
         "real environment tests instead of mocks for agent tool paths",
+        "schema-level trace metrics for MCP smoke evidence",
         "OpenTelemetry-backed observability and performance signals",
         "JSON and HTML evidence suitable for CI"
       ],
@@ -47,9 +48,12 @@
         "tests/test_smoke_report_readers.py",
         "apps/desci-platform/scripts/product_smoke.py",
         "apps/desci-platform/scripts/browser_smoke.py",
+        "apps/dashboard/routers/gdt.py",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_METRICS_2026-06-04.md",
         "docs/QUALITY_GATE.md"
       ],
-      "gap": "MCP-specific trace metrics are not yet first-class in the workspace smoke schema."
+      "gap": "Schema-level MCP smoke trace metrics and dashboard surfacing are adopted; external live MCP trace export and OpenTelemetry spans remain manual or scheduled."
     },
     {
       "repo": "evalstate/fast-agent",

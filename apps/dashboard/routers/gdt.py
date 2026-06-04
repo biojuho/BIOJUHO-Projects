@@ -46,6 +46,26 @@ def _latest_workspace_smoke_report() -> Path | None:
     return _latest_workspace_file(SMOKE_REPORT_PATTERNS)
 
 
+def _latest_mcp_trace_report() -> tuple[Path | None, dict[str, Any] | None]:
+    candidates: list[tuple[Path, dict[str, Any]]] = []
+    for pattern in SMOKE_REPORT_PATTERNS:
+        for path in WORKSPACE.glob(pattern):
+            if not path.is_file():
+                continue
+            try:
+                payload = _json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            trace = payload.get("mcp_trace")
+            if isinstance(trace, dict) and trace.get("enabled"):
+                candidates.append((path, payload))
+    if not candidates:
+        return None, None
+    return max(candidates, key=lambda item: item[0].stat().st_mtime)
+
+
 def _latest_dev_server_status_report() -> Path | None:
     return _latest_workspace_file(DEV_SERVER_STATUS_PATTERNS, skip_validated_status=True)
 
@@ -82,6 +102,27 @@ def _smoke_summary(payload: Any, results: list[dict[str, Any]]) -> dict[str, int
     }
 
 
+def _smoke_scope_summary(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict) and isinstance(payload.get("scope_summary"), dict):
+        return payload["scope_summary"]
+    return {}
+
+
+def _smoke_mcp_trace(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict) and isinstance(payload.get("mcp_trace"), dict):
+        return payload["mcp_trace"]
+    return {
+        "enabled": False,
+        "completed": 0,
+        "passed": 0,
+        "failed": 0,
+        "elapsed_seconds": 0,
+        "checked_units": [],
+        "command_kinds": {},
+        "checks": [],
+    }
+
+
 def _workspace_smoke_overview() -> dict[str, Any]:
     report_path = _latest_workspace_smoke_report()
     if report_path is None:
@@ -89,10 +130,13 @@ def _workspace_smoke_overview() -> dict[str, Any]:
             "available": False,
             "status": "missing",
             "path": None,
+            "mcp_trace_path": None,
             "schema_version": None,
             "generated_at": None,
             "duration_seconds": 0,
             "summary": {"total": 0, "completed": 0, "passed": 0, "failed": 0, "remaining": 0},
+            "scope_summary": {},
+            "mcp_trace": _smoke_mcp_trace(None),
             "slowest_checks": [],
         }
 
@@ -103,25 +147,38 @@ def _workspace_smoke_overview() -> dict[str, Any]:
             "available": False,
             "status": "corrupt",
             "path": _relative_workspace_path(report_path),
+            "mcp_trace_path": None,
             "schema_version": None,
             "generated_at": None,
             "duration_seconds": 0,
             "summary": {"total": 0, "completed": 0, "passed": 0, "failed": 0, "remaining": 0},
+            "scope_summary": {},
+            "mcp_trace": _smoke_mcp_trace(None),
             "slowest_checks": [],
         }
 
     results = _smoke_results(payload)
     slowest = sorted(results, key=lambda item: float(item.get("elapsed_seconds") or 0), reverse=True)[:5]
+    mcp_trace_path = report_path
+    mcp_trace_payload = payload
+    if not _smoke_mcp_trace(payload).get("enabled"):
+        fallback_path, fallback_payload = _latest_mcp_trace_report()
+        if fallback_path is not None and fallback_payload is not None:
+            mcp_trace_path = fallback_path
+            mcp_trace_payload = fallback_payload
     return {
         "available": True,
         "status": payload.get("status", "complete") if isinstance(payload, dict) else "complete",
         "path": _relative_workspace_path(report_path),
+        "mcp_trace_path": _relative_workspace_path(mcp_trace_path),
         "schema_version": payload.get("schema_version") if isinstance(payload, dict) else "legacy",
         "generated_at": payload.get("generated_at") if isinstance(payload, dict) else None,
         "duration_seconds": round(float(payload.get("duration_seconds", 0) or 0), 3)
         if isinstance(payload, dict)
         else 0,
         "summary": _smoke_summary(payload, results),
+        "scope_summary": _smoke_scope_summary(payload),
+        "mcp_trace": _smoke_mcp_trace(mcp_trace_payload),
         "slowest_checks": [
             {
                 "scope": str(item.get("scope", "")),
