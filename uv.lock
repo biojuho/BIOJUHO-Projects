@@ -67,7 +67,9 @@ name = "ai-projects-workspace"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "sqlalchemy" },
 ]
 
 [package.optional-dependencies]
@@ -79,10 +81,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pydantic", specifier = ">=2.0,<3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3,<8.4" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "python-dotenv" },
     { name = "radon", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.0,<3.0" },
 ]
 provides-extras = ["dev"]
 
