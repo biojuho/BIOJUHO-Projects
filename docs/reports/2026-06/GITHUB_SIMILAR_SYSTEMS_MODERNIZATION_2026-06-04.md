@@ -2,8 +2,8 @@
 
 ## Summary
 
-- Sources reviewed: 6
-- Adoption counts: adopted=1, partially_adopted=5, watch=0
+- Sources reviewed: 7
+- Adoption counts: adopted=1, partially_adopted=6, watch=0
 - Generated at: `2026-06-04T22:04:54+09:00`
 
 ## Search Context
@@ -14,6 +14,7 @@
   - `AI agent workflow automation monorepo quality gate`
   - `multi agent orchestration quality gates TDD Codex Claude Gemini`
   - `dev server MCP Playwright workflow automation`
+  - `MCP inspector CLI tools/list tools/call stdio automation`
 
 ## Source Mapping
 
@@ -109,6 +110,30 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_2026-06-04.md`
   - `next-actions.md`
 - Gap: No remaining structural gap for deterministic quality gates; future work should keep evidence current.
+
+### modelcontextprotocol/inspector
+
+- URL: https://github.com/modelcontextprotocol/inspector
+- Category: `mcp-runtime-inspection`
+- Adoption status: `partially_adopted`
+- Why similar: Official MCP developer tool for testing and debugging MCP servers through UI and CLI modes.
+- Observed patterns:
+  - CLI mode for programmatic MCP server interaction
+  - tools/list checks for runtime tool discovery
+  - tools/call checks for runtime behavior validation
+  - stdio transport support for local MCP subprocesses
+  - scriptable feedback loops for MCP server development
+- Local evidence:
+  - `ops/scripts/dev_server_mcp_runtime.py`
+  - `ops/scripts/dev_server_mcp_runtime_smoke.py`
+  - `tests/test_dev_server_mcp_runtime.py`
+  - `tests/test_dev_server_mcp_runtime_smoke.py`
+  - `ops/hooks/pre-push`
+  - `docs/guides/dev-server-control.md`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json`
+  - `docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_SUBPROCESS_SMOKE_2026-06-04.md`
+- Gap: Local subprocess smoke now validates initialize, tools/list, tools/call, and the mutation guard. Full visual inspector or hosted TUI exposure remains future-scoped.
 
 ### open-webui/mcpo
 

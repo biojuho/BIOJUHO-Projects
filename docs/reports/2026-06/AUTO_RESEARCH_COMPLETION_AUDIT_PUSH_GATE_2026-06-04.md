@@ -14,7 +14,8 @@ Make the executable completion audit verify the repo-owned pre-push gate after t
 - Added required criterion `pre_push_regression_gate` to `ops/references/autoresearch_completion_contract.json`.
 - The criterion validates:
   - `ops/hooks/pre-push` includes workspace smoke plus dev-server MCP contract/runtime tests.
-  - `docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_GATE_MCP_RUNTIME_2026-06-04.md` records `git push --dry-run`, `36 passed`, and the installed common hook path.
+  - `ops/hooks/pre-push` includes `ops/scripts/dev_server_mcp_runtime_smoke.py`.
+  - `docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_GATE_MCP_RUNTIME_2026-06-04.md` records `git push --dry-run`, `38 passed`, the subprocess smoke result, and the installed common hook path.
 - Updated `tests/test_autoresearch_completion_audit.py` so the default contract must include this criterion.
 
 ## Verification
@@ -31,4 +32,4 @@ Make the executable completion audit verify the repo-owned pre-push gate after t
 
 ## Decision
 
-Accepted. The audit now fails if the pre-push gate drops MCP runtime coverage or loses its recorded dry-run evidence.
+Accepted. The audit now fails if the pre-push gate drops MCP runtime coverage, drops subprocess smoke coverage, or loses its recorded dry-run evidence.

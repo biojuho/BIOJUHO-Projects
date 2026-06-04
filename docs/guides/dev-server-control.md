@@ -52,6 +52,12 @@ Smoke one JSON-RPC request:
 '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | python ops\scripts\dev_server_mcp_runtime.py --once
 ```
 
+Run the repo-owned subprocess smoke:
+
+```powershell
+python ops\scripts\dev_server_mcp_runtime_smoke.py --json-out docs\reports\2026-06\DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json --markdown-out docs\reports\2026-06\DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.md
+```
+
 Read-only status and log tools are enabled by default. Process-mutating `start_server` and `stop_server` calls return `process_mutation_disabled` unless the local operator sets `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true` before starting the runtime.
 
 ## Start A Browser Stack

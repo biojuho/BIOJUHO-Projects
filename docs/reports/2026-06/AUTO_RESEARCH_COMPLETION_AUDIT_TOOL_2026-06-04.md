@@ -28,11 +28,12 @@ The audit reports:
 - `valid=true`
 - `cycle_evidence_ready=true`
 - `global_objective_complete=false`
-- `criteria=8`
-- `covered=7`
+- `criteria=9`
+- `covered=8`
 - `blocked=1`
 - explicit blocker: `external_credential_boundaries`
 - protected push gate: `pre_push_regression_gate`
+- protected runtime smoke: `mcp_runtime_subprocess_smoke`
 
 This matches the intended distinction: the current evidence cycle is complete, while the overall objective remains open-ended.
 

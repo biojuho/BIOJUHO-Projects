@@ -23,6 +23,7 @@ Latest pushed commits in this slice:
 - `lastmile-ai/mcp-eval`: adopted MCP smoke schema metrics, dashboard surfacing, standalone JSONL trace export, and local OTLP file-exporter shaped span export.
 - `evalstate/fast-agent`: adopted launch workflow inventory plus dry-run command plans.
 - `dsifry/metaswarm`: deterministic quality gates and durable next-action capture are structurally adopted.
+- `modelcontextprotocol/inspector`: adopted a repo-owned stdio subprocess smoke for `initialize`, `tools/list`, guarded `tools/call`, and read-only log calls.
 - `open-webui/mcpo`: adopted Canva MCP offline OpenAPI contract, live read-only metadata endpoints, and explicit disabled execution responses.
 - `Uninen/devserver-mcp`: adopted manifest-backed start/stop/status/tail, dashboard readiness, terminal table status, timeout-tree cleanup, checked MCP tool definitions, and a local stdio MCP runtime with process mutation opt-in.
 
@@ -50,9 +51,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-workflow-plan-2026-06-04.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `6` sources
+  - `7` sources
   - `adopted=1`
-  - `partially_adopted=5`
+  - `partially_adopted=6`
   - `watch=0`
 - Pre-push hooks on the latest pushed slices passed:
   - `27 passed` after `dccaad4`
@@ -76,6 +77,10 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - PowerShell piped JSON-RPC `tools/list` smoke returned the four checked tools
   - contract generation emitted `4` tools across `7` targets with runtime status `local_stdio_runtime`
   - `start_server` and `stop_server` remain disabled by default unless `DEV_SERVER_MCP_ALLOW_PROCESS_MUTATION=true`
+- Dev-server MCP subprocess smoke verification:
+  - `ops\scripts\dev_server_mcp_runtime_smoke.py` returned `4` requests, `4` tools, and `mutation_guard=process_mutation_disabled`
+  - focused MCP/radar/audit suite `19 passed`
+  - installed pre-push dry-run ran `38 passed` plus subprocess smoke
 - Dashboard live browser-click verification:
   - `apps\dashboard` build passed
   - dashboard Vitest `8 passed`

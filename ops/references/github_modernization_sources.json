@@ -7,7 +7,8 @@
       "MCP server Python FastAPI monorepo agents workflow smoke tests",
       "AI agent workflow automation monorepo quality gate",
       "multi agent orchestration quality gates TDD Codex Claude Gemini",
-      "dev server MCP Playwright workflow automation"
+      "dev server MCP Playwright workflow automation",
+      "MCP inspector CLI tools/list tools/call stdio automation"
     ]
   },
   "sources": [
@@ -111,6 +112,32 @@
         "next-actions.md"
       ],
       "gap": "No remaining structural gap for deterministic quality gates; future work should keep evidence current."
+    },
+    {
+      "repo": "modelcontextprotocol/inspector",
+      "url": "https://github.com/modelcontextprotocol/inspector",
+      "category": "mcp-runtime-inspection",
+      "adoption_status": "partially_adopted",
+      "why_similar": "Official MCP developer tool for testing and debugging MCP servers through UI and CLI modes.",
+      "observed_patterns": [
+        "CLI mode for programmatic MCP server interaction",
+        "tools/list checks for runtime tool discovery",
+        "tools/call checks for runtime behavior validation",
+        "stdio transport support for local MCP subprocesses",
+        "scriptable feedback loops for MCP server development"
+      ],
+      "local_evidence": [
+        "ops/scripts/dev_server_mcp_runtime.py",
+        "ops/scripts/dev_server_mcp_runtime_smoke.py",
+        "tests/test_dev_server_mcp_runtime.py",
+        "tests/test_dev_server_mcp_runtime_smoke.py",
+        "ops/hooks/pre-push",
+        "docs/guides/dev-server-control.md",
+        "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json",
+        "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_SUBPROCESS_SMOKE_2026-06-04.md"
+      ],
+      "gap": "Local subprocess smoke now validates initialize, tools/list, tools/call, and the mutation guard. Full visual inspector or hosted TUI exposure remains future-scoped."
     },
     {
       "repo": "open-webui/mcpo",

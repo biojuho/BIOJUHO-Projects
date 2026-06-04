@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `8`
-- Status counts: `blocked=1, covered=7`
+- Criteria: `9`
+- Status counts: `blocked=1, covered=8`
 
 ## Missing Required
 
@@ -51,6 +51,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `2`
+
+### mcp_runtime_subprocess_smoke
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### remaining_gap_tracking
 

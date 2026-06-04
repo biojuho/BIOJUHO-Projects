@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 7
+    "covered": 8
   },
-  "criterion_count": 8,
+  "criterion_count": 9,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -98,10 +98,29 @@
       "evidence": [
         {
           "path": "ops/hooks/pre-push",
-          "term_count": 3
+          "term_count": 5
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_GATE_MCP_RUNTIME_2026-06-04.md",
+          "term_count": 3
+        }
+      ]
+    },
+    {
+      "id": "mcp_runtime_subprocess_smoke",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/dev_server_mcp_runtime_smoke.py",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_SUBPROCESS_SMOKE_2026-06-04.md",
           "term_count": 3
         }
       ]

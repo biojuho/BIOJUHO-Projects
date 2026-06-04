@@ -50,7 +50,7 @@
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
           "must_contain": [
-            "Sources reviewed: 6",
+            "Sources reviewed: 7",
             "Adoption counts"
           ]
         }
@@ -139,15 +139,51 @@
           "must_contain": [
             "tests/test_workspace_smoke.py",
             "tests/test_dev_server_mcp_contract.py",
-            "tests/test_dev_server_mcp_runtime.py"
+            "tests/test_dev_server_mcp_runtime.py",
+            "tests/test_dev_server_mcp_runtime_smoke.py",
+            "ops/scripts/dev_server_mcp_runtime_smoke.py"
           ]
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_PRE_PUSH_GATE_MCP_RUNTIME_2026-06-04.md",
           "must_contain": [
-            "36 passed",
+            "38 passed",
             "git push --dry-run",
             "D:\\AI project\\.git\\hooks\\pre-push"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mcp_runtime_subprocess_smoke",
+      "requirement": "The dev-server MCP runtime has a repo-owned subprocess smoke that validates real JSON-RPC stdio behavior.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/dev_server_mcp_runtime_smoke.py",
+          "must_contain": [
+            "subprocess.run",
+            "tools/list",
+            "tools/call",
+            "process_mutation_disabled"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-04.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"request_count\": 4",
+            "\"tool_count\": 4",
+            "process_mutation_disabled"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_SUBPROCESS_SMOKE_2026-06-04.md",
+          "must_contain": [
+            "modelcontextprotocol/inspector",
+            "11 passed",
+            "mutation_guard=process_mutation_disabled"
           ]
         }
       ]
