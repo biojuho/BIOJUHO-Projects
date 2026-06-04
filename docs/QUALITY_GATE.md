@@ -102,7 +102,20 @@ DailyNews rule:
 
 ## JSON report schema
 
-`run_workspace_smoke.py --json-out <path>` writes an array of objects containing:
+`run_workspace_smoke.py --json-out <path>` writes a schema-v1 object. The
+runner refreshes the file after each completed check, so a crash or timeout in a
+later check leaves a `partial` report with the finished checks preserved.
+
+Top-level fields:
+
+- `schema_version`
+- `generated_at`
+- `status` (`partial` or `complete`)
+- `duration_seconds`
+- `summary` (`total`, `completed`, `passed`, `failed`, `remaining`)
+- `results`
+
+Each `results` entry contains:
 
 - `scope`
 - `name`
@@ -112,3 +125,4 @@ DailyNews rule:
 - `ok`
 - `stdout_tail`
 - `stderr_tail`
+- `elapsed_seconds`

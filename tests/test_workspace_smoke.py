@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SMOKE_SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "run_workspace_smoke.py"
 QUALITY_GATE_PATH = PROJECT_ROOT / "docs" / "QUALITY_GATE.md"
@@ -175,6 +177,7 @@ def test_run_one_uses_uv_isolated_runner_for_python_checks_when_bootstrap_fallba
     result = smoke.run_one(PROJECT_ROOT, check)
 
     assert result.ok is True
+    assert result.elapsed_seconds >= 0
     assert commands[0][:4] == ["uv", "run", "--isolated", "--no-project"]
     assert "--with" in commands[0]
     assert "--with-editable" in commands[0]
@@ -214,6 +217,7 @@ def test_run_one_reports_missing_working_directory() -> None:
     assert result.ok is False
     assert result.returncode == 2
     assert result.stderr_tail == "working directory missing"
+    assert result.elapsed_seconds >= 0
 
 
 def test_run_check_retries_transient_desci_vitest_worker_failure(monkeypatch) -> None:
@@ -310,7 +314,17 @@ def test_main_writes_json_report_for_selected_scope(tmp_path, monkeypatch) -> No
 
     report = json.loads((tmp_path / "smoke.json").read_text(encoding="utf-8"))
     assert exit_code == 0
-    assert report == [
+    assert report["schema_version"] == 1
+    assert report["status"] == "complete"
+    assert report["duration_seconds"] >= 0
+    assert report["summary"] == {
+        "total": 1,
+        "completed": 1,
+        "passed": 1,
+        "failed": 0,
+        "remaining": 0,
+    }
+    assert report["results"] == [
         {
             "scope": "workspace",
             "name": "fake check",
@@ -320,5 +334,76 @@ def test_main_writes_json_report_for_selected_scope(tmp_path, monkeypatch) -> No
             "ok": True,
             "stdout_tail": "ok",
             "stderr_tail": "",
+            "elapsed_seconds": 0.0,
         }
     ]
+
+
+def test_main_keeps_partial_json_report_when_later_check_crashes(tmp_path, monkeypatch) -> None:
+    smoke = load_smoke_module()
+    first_check = smoke.Check("workspace", "first check", ".", ["python", "-V"])
+    second_check = smoke.Check("workspace", "second check", ".", ["python", "-V"])
+    first_result = smoke.Result(
+        "workspace",
+        "first check",
+        ".",
+        "python -V",
+        0,
+        True,
+        "ok",
+        "",
+        elapsed_seconds=1.25,
+    )
+
+    def fake_run_one(root, item):
+        if item.name == "first check":
+            return first_result
+        raise RuntimeError("boom")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(smoke, "resolve_python_executable", lambda root: "python")
+    monkeypatch.setattr(smoke, "ensure_workspace_environment", lambda root, python_exe, checks: python_exe)
+    monkeypatch.setattr(smoke, "has_module", lambda python_exe, module_name: True)
+    monkeypatch.setattr(smoke, "default_checks", lambda python_exe: [first_check, second_check])
+    monkeypatch.setattr(smoke, "run_one", fake_run_one)
+    monkeypatch.setattr(
+        smoke.sys,
+        "argv",
+        ["run_workspace_smoke.py", "--scope", "workspace", "--json-out", "smoke.json"],
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        smoke.main()
+
+    report = json.loads((tmp_path / "smoke.json").read_text(encoding="utf-8"))
+    assert report["schema_version"] == 1
+    assert report["status"] == "partial"
+    assert report["summary"] == {
+        "total": 2,
+        "completed": 1,
+        "passed": 1,
+        "failed": 0,
+        "remaining": 1,
+    }
+    assert report["results"][0]["elapsed_seconds"] == 1.25
+
+
+def test_write_json_report_replaces_existing_report(tmp_path) -> None:
+    smoke = load_smoke_module()
+    report_path = tmp_path / "smoke.json"
+    report_path.write_text("stale", encoding="utf-8")
+    result = smoke.Result("workspace", "fake check", ".", "python -V", 0, True, "ok", "", elapsed_seconds=0.5)
+
+    smoke.write_json_report(
+        report_path,
+        [result],
+        total_checks=2,
+        complete=False,
+        duration_seconds=3.4567,
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["status"] == "partial"
+    assert report["duration_seconds"] == 3.457
+    assert report["results"][0]["elapsed_seconds"] == 0.5
+    assert (tmp_path / ".smoke.json.tmp").exists() is False

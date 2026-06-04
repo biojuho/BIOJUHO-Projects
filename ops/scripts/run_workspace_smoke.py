@@ -14,7 +14,9 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -135,6 +137,7 @@ class Result:
     ok: bool
     stdout_tail: str
     stderr_tail: str
+    elapsed_seconds: float = 0.0
 
 
 def format_command(command: Sequence[str]) -> str:
@@ -458,11 +461,24 @@ def command_for_check(item: Check, temp_dir: Path) -> list[str]:
     return command
 
 
+def elapsed_since(started: float) -> float:
+    return round(max(time.perf_counter() - started, 0.0), 3)
+
+
 def run_one(root: Path, item: Check) -> Result:
+    started = time.perf_counter()
     cwd = (root / item.cwd).resolve()
     if not cwd.exists():
         return Result(
-            item.scope, item.name, item.cwd, format_command(item.command), 2, False, "", "working directory missing"
+            item.scope,
+            item.name,
+            item.cwd,
+            format_command(item.command),
+            2,
+            False,
+            "",
+            "working directory missing",
+            elapsed_seconds=elapsed_since(started),
         )
 
     env = os.environ.copy()
@@ -513,9 +529,20 @@ def run_one(root: Path, item: Check) -> Result:
             False,
             tail_lines(stdout_text),
             f"Command timed out after 600s\n{tail_lines(stderr_text)}",
+            elapsed_seconds=elapsed_since(started),
         )
     except OSError as exc:
-        return Result(item.scope, item.name, item.cwd, command_text, 2, False, "", str(exc))
+        return Result(
+            item.scope,
+            item.name,
+            item.cwd,
+            command_text,
+            2,
+            False,
+            "",
+            str(exc),
+            elapsed_seconds=elapsed_since(started),
+        )
 
     return Result(
         scope=item.scope,
@@ -526,6 +553,7 @@ def run_one(root: Path, item: Check) -> Result:
         ok=proc.returncode == 0,
         stdout_tail=tail_lines(stdout_text),
         stderr_tail=tail_lines(stderr_text),
+        elapsed_seconds=elapsed_since(started),
     )
 
 
@@ -558,6 +586,58 @@ def run_check(root: Path, item: Check) -> Result:
         print(f"[smoke] retrying: {item.name} (attempt {attempt}/{TRANSIENT_RETRY_MAX})")
         result = run_one(root, item)
     return result
+
+
+def resolve_json_out_path(path_value: str) -> Path:
+    out_path = Path(path_value)
+    if not out_path.is_absolute():
+        out_path = Path.cwd() / out_path
+    return out_path
+
+
+def build_json_report(
+    results: Sequence[Result],
+    *,
+    total_checks: int,
+    complete: bool,
+    duration_seconds: float,
+) -> dict[str, object]:
+    passed = sum(1 for result in results if result.ok)
+    failed = len(results) - passed
+    return {
+        "schema_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "status": "complete" if complete else "partial",
+        "duration_seconds": round(max(duration_seconds, 0.0), 3),
+        "summary": {
+            "total": total_checks,
+            "completed": len(results),
+            "passed": passed,
+            "failed": failed,
+            "remaining": max(total_checks - len(results), 0),
+        },
+        "results": [asdict(result) for result in results],
+    }
+
+
+def write_json_report(
+    out_path: Path,
+    results: Sequence[Result],
+    *,
+    total_checks: int,
+    complete: bool,
+    duration_seconds: float,
+) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = out_path.with_name(f".{out_path.name}.tmp")
+    payload = build_json_report(
+        results,
+        total_checks=total_checks,
+        complete=complete,
+        duration_seconds=duration_seconds,
+    )
+    tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(out_path)
 
 
 def main() -> int:
@@ -602,9 +682,24 @@ def main() -> int:
     )
 
     results: list[Result] = []
+    run_started = time.perf_counter()
+    out_path = resolve_json_out_path(args.json_out) if args.json_out else None
+    json_write_failed = False
     for check in checks:
         print(f"[smoke] running: {check.name}")
         results.append(run_check(root, check))
+        if out_path and not json_write_failed:
+            try:
+                write_json_report(
+                    out_path,
+                    results,
+                    total_checks=len(checks),
+                    complete=len(results) == len(checks),
+                    duration_seconds=elapsed_since(run_started),
+                )
+            except OSError as exc:
+                print(f"[smoke] warning: could not write json report to {out_path}: {exc}")
+                json_write_failed = True
 
     passed = sum(1 for result in results if result.ok)
     failed = len(results) - passed
@@ -614,18 +709,8 @@ def main() -> int:
         status = "PASS" if result.ok else "FAIL"
         print(f"- [{status}] {result.name} ({result.command})")
 
-    if args.json_out:
-        out_path = Path(args.json_out)
-        if not out_path.is_absolute():
-            out_path = Path.cwd() / out_path
-        try:
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(
-                json.dumps([asdict(result) for result in results], indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-            print(f"[smoke] json written: {out_path}")
-        except OSError as exc:
-            print(f"[smoke] warning: could not write json report to {out_path}: {exc}")
+    if out_path and not json_write_failed:
+        print(f"[smoke] json written: {out_path}")
 
     return 0 if failed == 0 else 1
 

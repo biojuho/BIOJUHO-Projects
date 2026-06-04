@@ -45,6 +45,33 @@ def _run(cmd: list[str], cwd: Path | None = None) -> str:
         return ""
 
 
+def _smoke_report_counts(payload: object) -> tuple[int, int, str]:
+    status = "complete"
+    data = payload
+    if isinstance(data, dict):
+        raw_status = data.get("status")
+        if isinstance(raw_status, str):
+            status = raw_status
+        summary = data.get("summary")
+        if isinstance(summary, dict) and isinstance(summary.get("passed"), int) and isinstance(
+            summary.get("total"), int
+        ):
+            return int(summary["passed"]), int(summary["total"]), status
+        data = data.get("results")
+
+    if isinstance(data, list):
+        results = [item for item in data if isinstance(item, dict)]
+        return sum(1 for result in results if result.get("ok")), len(results), status
+
+    raise ValueError("unsupported smoke report schema")
+
+
+def _smoke_report_label(passed: int, total: int, status: str) -> str:
+    if status == "partial":
+        return "PARTIAL"
+    return "PASS" if passed == total else "FAIL"
+
+
 def git_status() -> dict:
     """Gather git state: branch, uncommitted changes, ahead/behind."""
     branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
@@ -99,10 +126,10 @@ def test_suite_summary() -> dict:
         if reports:
             try:
                 data = json.loads(reports[0].read_text(encoding="utf-8"))
-                passed = sum(1 for r in data if r.get("ok"))
-                total = len(data)
-                latest_smoke = f"{passed}/{total} PASS ({reports[0].name})"
-            except (json.JSONDecodeError, KeyError):
+                passed, total, status = _smoke_report_counts(data)
+                label = _smoke_report_label(passed, total, status)
+                latest_smoke = f"{passed}/{total} {label} ({reports[0].name})"
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError):
                 latest_smoke = f"corrupt ({reports[0].name})"
 
     return {
