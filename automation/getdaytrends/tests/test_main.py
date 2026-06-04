@@ -116,7 +116,8 @@ def test_release_lock_does_not_remove_token_owned_by_another_thread(tmp_path, mo
 
     _release_lock()
 
-    assert lock_path.read_text(encoding="utf-8") == other_owner
+    if lock_path.read_text(encoding="utf-8") != other_owner:
+        raise AssertionError("release should not remove another thread's owner-token lock")
 
 
 @pytest.mark.asyncio
