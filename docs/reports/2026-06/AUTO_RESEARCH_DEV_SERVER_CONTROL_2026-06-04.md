@@ -28,7 +28,7 @@ Adopt the variant if:
 - a real dashboard stack start reaches `2/2` readiness and stops cleanly,
 - focused tests and the canonical workspace smoke pass.
 
-## Evidence
+## Dashboard Evidence
 
 - Syntax:
   - `python -m py_compile ops\scripts\dev_server_status.py ops\scripts\dev_server_control.py`
@@ -55,11 +55,42 @@ Adopt the variant if:
   - `python ops/scripts/dev_server_control.py --json-out var/dev-server-control-dashboard-frontend-final-stack-stop-2026-06-04.json stop --target dashboard-frontend --timeout 10`
   - `python ops/scripts/dev_server_control.py --json-out var/dev-server-control-dashboard-api-final-stack-stop-2026-06-04.json stop --target dashboard-api --timeout 10`
   - Result: both stopped; final status for `dashboard-api` and `dashboard-frontend` was `0/2` ready and no `LISTENING` sockets remained on `8080` or `5173`.
-- Canonical smoke:
-  - `python ops/scripts/run_workspace_smoke.py --scope workspace --json-out var/workspace-smoke-workspace-dev-server-control-2026-06-04.json`
-  - Result: passed `8/8`.
+
+## Canva Evidence
+
+- Start Canva preview:
+  - `python ops\scripts\dev_server_control.py --json-out var\dev-server-control-canva-start-2026-06-04.json start --target canva-widget-preview --wait-ready --wait-timeout 60 --poll-interval 2 --timeout 2`
+  - Result: `dev server ready: canva-widget-preview pid=17716, attempts=5`.
+- Browser click pass at `http://127.0.0.1:5176/src/dev/preview.html`:
+  - clicked theme toggle,
+  - selected generated candidate 2,
+  - opened `Corporate Presentation`,
+  - switched editor tab `2`,
+  - clicked `Plan edits`.
+  - Console evidence: `canva-auto-research-console-dev-server-control-clicks.md` -> `0` errors, `0` warnings.
+  - Screenshot: `canva-auto-research-dev-server-control-clicks.png`.
+- Tail logs:
+  - `python ops\scripts\dev_server_control.py --json-out var\dev-server-control-canva-tail-2026-06-04.json tail --target canva-widget-preview --lines 30`
+  - Result: Vite ready at `http://127.0.0.1:5176/`, stderr empty.
+- Status:
+  - `python ops\scripts\dev_server_status.py --target canva-widget-preview --json-out var\dev-server-status-canva-control-clicks-2026-06-04.json`
+  - Result: `1/1 ready`.
+- Stop:
+  - `python ops\scripts\dev_server_control.py --json-out var\dev-server-control-canva-stop-2026-06-04.json stop --target canva-widget-preview --timeout 5`
+  - Result: `dev server stopped: canva-widget-preview`.
+
+## Verification
+
+- `python -m pytest tests\test_dev_server_control.py tests\test_dev_server_status.py -q -p no:cacheprovider` -> `16 passed`.
+- `python -m pytest tests\test_dev_server_control.py tests\test_dev_server_status.py tests\test_workspace_smoke.py::test_quality_gate_documents_default_check_names -q -p no:cacheprovider` -> `17 passed`.
+- `python ops\scripts\run_workspace_smoke.py --scope workspace --json-out var\workspace-smoke-workspace-dev-server-control-2026-06-04.json` -> passed `8/8`.
+
+## Decision
+
+Adopted. The controller now has repeatable evidence across a dependency-backed dashboard stack and an independently managed Canva widget preview, so AutoResearch browser loops can start, inspect, and stop local targets without ad hoc shell setup.
 
 ## Remaining Launch Work
 
-- Extend the dependency-aware browser pass to AgriGuard, DeSci, and Canva widget targets with the same managed start/stop path.
+- Use the controller for the next DeSci frontend/browser pass after its API readiness blocker is addressed.
 - Add optional grouped stop by dependency chain if repeated multi-target sessions make manual stop ordering noisy.
+- Surface managed server state in the dashboard quality panel only after the control loop is used in more than one app family.
