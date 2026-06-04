@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useFetch } from './useFetch.js'
 
@@ -53,5 +54,16 @@ describe('useFetch', () => {
     expect(signals).toHaveLength(2)
     expect(signals[0].aborted).toBe(false)
     expect(signals[1].aborted).toBe(false)
+  })
+
+  it('does not launch stale StrictMode microtask fetches', async () => {
+    render(
+      <StrictMode>
+        <Harness />
+      </StrictMode>,
+    )
+
+    expect(await screen.findByText('value-1')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 })

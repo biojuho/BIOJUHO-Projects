@@ -31,6 +31,12 @@ Implementation:
   exposes `dev_server_status`.
 - `apps/dashboard/src/components/QualityPanel.jsx` now displays dev-server
   readiness counts and the monitored targets or unready targets.
+- `apps/dashboard/src/hooks/useFetch.js` now guards queued microtask fetches so
+  React dev StrictMode cleanup cannot start stale requests that immediately
+  abort.
+- `tests/conftest.py` now inserts the clean worktree `packages/` path before
+  importing `shared.paths`, preventing auxiliary worktrees from importing a
+  primary-worktree editable `shared` package.
 - `tests/test_dashboard_api.py` and `apps/dashboard/src/App.test.jsx` cover the
   API payload and visible React panel.
 
@@ -41,6 +47,8 @@ Implementation:
   `49 passed`
 - `npm ci` in `apps/dashboard` -> installed dependencies, `0` vulnerabilities
 - `npm.cmd run test -- src/App.test.jsx` -> `5 passed`
+- `npm.cmd run test -- src/hooks/useFetch.test.jsx src/App.test.jsx` ->
+  `7 passed`
 - `npm.cmd run lint` -> PASS
 - `npm.cmd run build` -> PASS; retained the pre-existing Lightning CSS
   `@extend` warning in `src/index.css`
@@ -60,6 +68,9 @@ Live dashboard proof:
   -> `2/2 ready`
 - Browser opened `http://127.0.0.1:5173/`, loaded the dashboard, clicked the
   refresh button, and reported `0` console errors and `0` warnings.
+- Follow-up browser proof verified `DEV SERVERS` and `2/2 READY` before and
+  after refresh, saved `var/dashboard-dev-server-status-panel-2026-06-04.png`,
+  and reported `0` console issues, `0` page errors, and `0` failed requests.
 - Live proxied API check at `/api/quality_overview` returned
   `dev_server_status.available=true`, `status=ready`, `ready=2/total=2`, and
   both `dashboard-api` and `dashboard-frontend` as OK.

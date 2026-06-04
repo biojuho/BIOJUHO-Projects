@@ -58,11 +58,16 @@ export function useFetch(url) {
   }, [url])
 
   useEffect(() => {
+    let active = true
+
     queueMicrotask(() => {
-      void runFetch()
+      if (active) {
+        void runFetch()
+      }
     })
 
     return () => {
+      active = false
       requestIdRef.current += 1
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()

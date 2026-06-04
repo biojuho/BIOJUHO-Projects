@@ -8,9 +8,12 @@ import pytest
 # Ensure canonical workspace paths are importable.
 # shared.paths adds the workspace root, packages/, automation/, etc.
 _ROOT = Path(__file__).resolve().parents[1]
+_PACKAGES = _ROOT / "packages"
 # Bootstrap: ensure shared/ is importable before importing shared.paths
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+for _path in (_ROOT, _PACKAGES):
+    _path_text = str(_path)
+    if _path.exists() and _path_text not in sys.path:
+        sys.path.insert(0, _path_text)
 
 from shared.paths import ensure_importable  # noqa: E402
 
