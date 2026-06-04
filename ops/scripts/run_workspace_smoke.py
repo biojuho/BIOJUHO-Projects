@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import signal
 import shutil
 import subprocess
 import sys
@@ -465,6 +466,53 @@ def elapsed_since(started: float) -> float:
     return round(max(time.perf_counter() - started, 0.0), 3)
 
 
+def terminate_process_tree(pid: int) -> None:
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            text=False,
+            shell=False,
+            check=False,
+        )
+        return
+
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def run_command_with_timeout(
+    command: list[str],
+    *,
+    cwd: str,
+    env: dict[str, str],
+    timeout_seconds: float,
+) -> subprocess.CompletedProcess[bytes]:
+    popen_kwargs: dict[str, object] = {
+        "cwd": cwd,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "env": env,
+        "shell": False,
+    }
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(command, **popen_kwargs)
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(proc.pid)
+        stdout, stderr = proc.communicate()
+        raise subprocess.TimeoutExpired(command, timeout_seconds, output=stdout, stderr=stderr)
+
+    return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
+
+
 def run_one(root: Path, item: Check) -> Result:
     started = time.perf_counter()
     cwd = (root / item.cwd).resolve()
@@ -505,15 +553,11 @@ def run_one(root: Path, item: Check) -> Result:
     command_text = format_command(command)
 
     try:
-        proc = subprocess.run(
+        proc = run_command_with_timeout(
             command,
             cwd=str(cwd),
-            capture_output=True,
-            text=False,
             env=env,
-            shell=False,
-            check=False,
-            timeout=600,  # 10분 타임아웃 (uv setup + 큰 테스트 스위트 대응)
+            timeout_seconds=600,  # 10분 타임아웃 (uv setup + 큰 테스트 스위트 대응)
         )
         stdout_text = decode_output(proc.stdout)
         stderr_text = decode_output(proc.stderr)

@@ -163,16 +163,10 @@ def test_run_one_uses_uv_isolated_runner_for_python_checks_when_bootstrap_fallba
 
     def fake_run(command, **kwargs):
         commands.append(command)
-
-        class Proc:
-            returncode = 0
-            stdout = b"ok"
-            stderr = b""
-
-        return Proc()
+        return smoke.subprocess.CompletedProcess(command, 0, b"ok", b"")
 
     monkeypatch.setattr(smoke, "USE_UV_ISOLATED_RUNNER", True)
-    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+    monkeypatch.setattr(smoke, "run_command_with_timeout", fake_run)
 
     result = smoke.run_one(PROJECT_ROOT, check)
 
@@ -189,6 +183,32 @@ def test_run_one_uses_uv_isolated_runner_for_python_checks_when_bootstrap_fallba
         "--basetemp",
         str(smoke.pytest_temp_dir(smoke.runtime_temp_dir(PROJECT_ROOT, check))),
     ]
+
+
+def test_run_command_with_timeout_terminates_process_tree(monkeypatch) -> None:
+    smoke = load_smoke_module()
+    killed: list[int] = []
+
+    class FakeProcess:
+        pid = 12345
+        returncode = 124
+        calls = 0
+
+        def communicate(self, timeout=None):
+            self.calls += 1
+            if timeout is not None:
+                raise smoke.subprocess.TimeoutExpired(["slow"], timeout, output=b"partial", stderr=b"err")
+            return b"after kill", b"after kill err"
+
+    monkeypatch.setattr(smoke.subprocess, "Popen", lambda command, **kwargs: FakeProcess())
+    monkeypatch.setattr(smoke, "terminate_process_tree", lambda pid: killed.append(pid))
+
+    with pytest.raises(smoke.subprocess.TimeoutExpired) as exc_info:
+        smoke.run_command_with_timeout(["slow"], cwd=str(PROJECT_ROOT), env={}, timeout_seconds=0.01)
+
+    assert killed == [12345]
+    assert exc_info.value.output == b"after kill"
+    assert exc_info.value.stderr == b"after kill err"
 
 
 def test_run_one_cleans_stale_temp_dir(tmp_path, monkeypatch) -> None:
