@@ -264,6 +264,55 @@ def test_run_command_with_timeout_terminates_process_tree(monkeypatch) -> None:
     assert exc_info.value.stderr == b"after kill err"
 
 
+def test_node_dependency_workspaces_dedupes_npm_check_dirs(tmp_path: Path) -> None:
+    smoke = load_smoke_module()
+    app_dir = tmp_path / "apps" / "dashboard"
+    app_dir.mkdir(parents=True)
+    (app_dir / "package-lock.json").write_text("{}", encoding="utf-8")
+    checks = [
+        smoke.Check("workspace", "lint", "apps/dashboard", ["npm.cmd", "run", "lint"]),
+        smoke.Check("workspace", "test", "apps/dashboard", ["npm.cmd", "run", "test"]),
+        smoke.Check("workspace", "python", ".", [sys.executable, "-V"]),
+    ]
+
+    assert smoke.node_dependency_workspaces(tmp_path, checks) == [app_dir.resolve()]
+
+
+def test_ensure_node_environments_runs_npm_ci_for_missing_node_modules(tmp_path: Path, monkeypatch) -> None:
+    smoke = load_smoke_module()
+    app_dir = tmp_path / "apps" / "dashboard"
+    app_dir.mkdir(parents=True)
+    (app_dir / "package-lock.json").write_text("{}", encoding="utf-8")
+    check = smoke.Check("workspace", "lint", "apps/dashboard", ["npm.cmd", "run", "lint"])
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_run(command, *, cwd, env, timeout_seconds):
+        calls.append((command, cwd))
+        return smoke.subprocess.CompletedProcess(command, 0, b"installed", b"")
+
+    monkeypatch.setattr(smoke, "run_command_with_timeout", fake_run)
+
+    smoke.ensure_node_environments(tmp_path, [check])
+
+    assert calls == [(["npm.cmd" if smoke.os.name == "nt" else "npm", "ci", "--no-audit"], str(app_dir.resolve()))]
+
+
+def test_ensure_node_environments_skips_existing_node_modules(tmp_path: Path, monkeypatch) -> None:
+    smoke = load_smoke_module()
+    app_dir = tmp_path / "apps" / "dashboard"
+    (app_dir / "node_modules").mkdir(parents=True)
+    (app_dir / "package-lock.json").write_text("{}", encoding="utf-8")
+    check = smoke.Check("workspace", "lint", "apps/dashboard", ["npm.cmd", "run", "lint"])
+
+    monkeypatch.setattr(
+        smoke,
+        "run_command_with_timeout",
+        lambda *args, **kwargs: pytest.fail("npm ci should not run when node_modules exists"),
+    )
+
+    smoke.ensure_node_environments(tmp_path, [check])
+
+
 def test_run_one_cleans_stale_temp_dir(tmp_path, monkeypatch) -> None:
     smoke = load_smoke_module()
     temp_dir = tmp_path / "workspace-smoke-temp"

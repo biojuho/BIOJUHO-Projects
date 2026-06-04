@@ -39,6 +39,11 @@ python ops/scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 For live browser QA and local dev-server lifecycle evidence, use
 `docs/guides/dev-server-control.md`.
 
+When an npm-based smoke check runs in a clean worktree, the runner installs
+lockfile-backed Node dependencies with `npm ci --no-audit` if `node_modules` is
+missing for that package directory. Dependency artifacts are local runtime state
+and must not be staged.
+
 Legacy compatibility commands remain available after:
 
 ```bash

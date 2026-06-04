@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 EXCLUDE_REGEX = r"(^|[\\/])(\.agent|\.agents|venv|__pycache__|output|archive|var)([\\/]|$)"
 TAIL_LINE_COUNT = 20
+NPM_INSTALL_TIMEOUT_SECONDS = 600
 TRANSIENT_RETRY_CHECK = "desci frontend unit tests"
 TRANSIENT_RETRY_PATTERNS = (
     "Failed to start threads worker",
@@ -405,6 +406,68 @@ def is_python_command(command: Sequence[str]) -> bool:
     if not command:
         return False
     return Path(command[0]).name.lower().startswith("python")
+
+
+def is_npm_command(command: Sequence[str]) -> bool:
+    if not command:
+        return False
+    return Path(command[0]).name.lower() in {"npm", "npm.cmd"}
+
+
+def node_dependency_workspaces(root: Path, checks: Sequence[Check]) -> list[Path]:
+    workspaces: list[Path] = []
+    seen: set[str] = set()
+    for check in checks:
+        if not is_npm_command(check.command):
+            continue
+        cwd = (root / check.cwd).resolve()
+        if not (cwd / "package-lock.json").exists():
+            continue
+        key = str(cwd).lower() if os.name == "nt" else str(cwd)
+        if key in seen:
+            continue
+        seen.add(key)
+        workspaces.append(cwd)
+    return workspaces
+
+
+def npm_install_environment(root: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    cache_dir = root / "var" / "tmp" / "workspace-smoke" / ".tool-cache" / "npm"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    env["npm_config_cache"] = str(cache_dir)
+    env["NPM_CONFIG_CACHE"] = str(cache_dir)
+    return env
+
+
+def ensure_node_environments(root: Path, checks: Sequence[Check]) -> None:
+    npm_exe = "npm.cmd" if os.name == "nt" else "npm"
+    for workspace in node_dependency_workspaces(root, checks):
+        if (workspace / "node_modules").exists():
+            continue
+        rel_workspace = workspace.relative_to(root) if workspace.is_relative_to(root) else workspace
+        print(f"[smoke] installing npm dependencies: {rel_workspace}")
+        try:
+            proc = run_command_with_timeout(
+                [npm_exe, "ci", "--no-audit"],
+                cwd=str(workspace),
+                env=npm_install_environment(root),
+                timeout_seconds=NPM_INSTALL_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            print(
+                "[smoke] warning: npm ci timed out for "
+                f"{rel_workspace}\n{tail_lines(decode_output(exc.stderr))}"
+            )
+            continue
+        except OSError as exc:
+            print(f"[smoke] warning: npm ci failed for {rel_workspace}: {exc}")
+            continue
+        if proc.returncode != 0:
+            print(
+                "[smoke] warning: npm ci returned "
+                f"{proc.returncode} for {rel_workspace}\n{tail_lines(decode_output(proc.stderr))}"
+            )
 
 
 def editable_paths_for_check(root: Path, check: Check) -> list[str]:
@@ -781,6 +844,8 @@ def main() -> int:
     checks = default_checks(python_exe)
     if args.scope != "all":
         checks = [check for check in checks if check.scope == args.scope]
+
+    ensure_node_environments(root, checks)
 
     print(f"[smoke] using python executable: {python_exe}")
     if not has_module(python_exe, "pytest"):
