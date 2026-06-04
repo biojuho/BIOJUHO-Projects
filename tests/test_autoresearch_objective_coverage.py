@@ -3,11 +3,14 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "autoresearch_objective_coverage.py"
 REQUIREMENTS_PATH = PROJECT_ROOT / "ops" / "references" / "autoresearch_objective_requirements.json"
+COVERAGE_JSON_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.json"
+COVERAGE_MARKDOWN_PATH = PROJECT_ROOT / "docs" / "reports" / "2026-06" / "AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.md"
 
 
 def load_module():
@@ -58,6 +61,25 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert persisted["requirement_count"] == report["requirement_count"]
     assert "AutoResearch Objective Coverage Audit" in markdown
     assert "Global objective complete: `false`" in markdown
+
+
+def test_checked_in_coverage_artifacts_match_current_requirements() -> None:
+    coverage = load_module()
+
+    report = coverage.audit_requirements(
+        coverage.load_requirements(REQUIREMENTS_PATH),
+        workspace_root=PROJECT_ROOT,
+    )
+    persisted = json.loads(COVERAGE_JSON_PATH.read_text(encoding="utf-8"))
+    datetime.fromisoformat(persisted["generated_at"].replace("Z", "+00:00"))
+
+    expected = dict(report)
+    expected["generated_at"] = persisted["generated_at"]
+    expected_json = json.dumps(expected, indent=2, sort_keys=True) + "\n"
+    expected_markdown = coverage.format_markdown(report)
+
+    assert COVERAGE_JSON_PATH.read_text(encoding="utf-8") == expected_json
+    assert COVERAGE_MARKDOWN_PATH.read_text(encoding="utf-8") == expected_markdown
 
 
 def test_unknown_completion_criterion_is_invalid() -> None:

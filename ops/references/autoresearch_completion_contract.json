@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T05:35:00+09:00",
+  "generated_at": "2026-06-05T05:50:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -1228,6 +1228,32 @@
             "prompt-to-artifact coverage",
             "7 requirements",
             "cycle_prompt_covered=true",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "objective_coverage_artifact_drift_guard",
+      "requirement": "Checked-in AutoResearch objective coverage artifacts match the current requirements manifest and renderer output.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_autoresearch_objective_coverage.py",
+          "must_contain": [
+            "test_checked_in_coverage_artifacts_match_current_requirements",
+            "COVERAGE_JSON_PATH",
+            "COVERAGE_MARKDOWN_PATH",
+            "format_markdown(report)"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_OBJECTIVE_COVERAGE_DRIFT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Objective Coverage Drift Guard",
+            "test_checked_in_coverage_artifacts_match_current_requirements",
+            "valid `28` criteria",
             "global_objective_complete=false"
           ]
         }
