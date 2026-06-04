@@ -61,6 +61,10 @@ For a broad launch matrix across every declared active workflow, run:
 python ops/scripts/agent_workflow_gate_runner.py --all-workflows --execute --max-gates 1 --timeout 1200 --json-out docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json --markdown-out docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md
 ```
 
+Matrix execution reuses identical deterministic gate commands within the same
+run. Reused gates remain visible as `status=reused` and include `reused_from`
+metadata in JSON evidence.
+
 When an npm-based smoke check runs in a clean worktree, the runner installs
 lockfile-backed Node dependencies with `npm ci --no-audit` if `node_modules` is
 missing for that package directory. Dependency artifacts are local runtime state

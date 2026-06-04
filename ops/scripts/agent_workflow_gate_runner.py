@@ -186,6 +186,28 @@ def skip_gate_step(step: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def gate_cache_key(step: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
+    return step["cwd"], tuple(step["command"])
+
+
+def reuse_gate_step(step: dict[str, Any], cached_result: dict[str, Any]) -> dict[str, Any]:
+    status = "fail" if cached_result["status"] == "fail" else "reused"
+    return {
+        **step,
+        "status": status,
+        "returncode": cached_result.get("returncode"),
+        "elapsed_seconds": 0.0,
+        "stdout_tail": cached_result.get("stdout_tail", ""),
+        "stderr_tail": cached_result.get("stderr_tail", ""),
+        "skip_reason": "",
+        "reused_from": {
+            "workflow_id": cached_result.get("workflow_id"),
+            "gate_index": cached_result.get("index"),
+            "status": cached_result.get("status"),
+        },
+    }
+
+
 def execute_or_plan_steps(
     steps: list[dict[str, Any]],
     *,
@@ -273,14 +295,30 @@ def run_workflow_matrix(
     if errors:
         raise ValueError("\n".join(errors))
     workflow_reports: list[dict[str, Any]] = []
+    gate_cache: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = {}
     for workflow in select_workflows(payload, None, all_workflows=True):
         steps = build_gate_steps(workflow, max_gates=max_gates)
-        results = execute_or_plan_steps(
-            steps,
-            execute=execute,
-            allow_side_effect_gates=allow_side_effect_gates,
-            timeout_seconds=timeout_seconds,
-        )
+        if execute:
+            results = []
+            for step in steps:
+                if not allow_side_effect_gates and step["safety"]["requires_approval"]:
+                    results.append(skip_gate_step(step))
+                    continue
+                key = gate_cache_key(step)
+                if key in gate_cache:
+                    results.append(reuse_gate_step(step, gate_cache[key]))
+                    continue
+                result = run_gate_step(step, timeout_seconds=timeout_seconds)
+                if not step["safety"]["requires_approval"]:
+                    gate_cache[key] = result
+                results.append(result)
+        else:
+            results = execute_or_plan_steps(
+                steps,
+                execute=False,
+                allow_side_effect_gates=allow_side_effect_gates,
+                timeout_seconds=timeout_seconds,
+            )
         workflow_reports.append(
             build_report(
                 payload,
@@ -350,6 +388,7 @@ def build_report(
             "passed_gates": counts.get("pass", 0),
             "failed_gates": counts.get("fail", 0),
             "skipped_gates": counts.get("skipped", 0),
+            "reused_gates": counts.get("reused", 0),
             "planned_gates": counts.get("planned", 0),
             "approval_required_gates": sum(
                 1 for result in results if result.get("safety", {}).get("requires_approval")
@@ -380,6 +419,7 @@ def build_matrix_report(
         gate_counts["passed_gates"] += summary["passed_gates"]
         gate_counts["failed_gates"] += summary["failed_gates"]
         gate_counts["skipped_gates"] += summary["skipped_gates"]
+        gate_counts["reused_gates"] += summary["reused_gates"]
         gate_counts["planned_gates"] += summary["planned_gates"]
         approval_required += summary["approval_required_gates"]
         elapsed_seconds += summary["elapsed_seconds"]
@@ -402,6 +442,7 @@ def build_matrix_report(
             "passed_gates": gate_counts["passed_gates"],
             "failed_gates": gate_counts["failed_gates"],
             "skipped_gates": gate_counts["skipped_gates"],
+            "reused_gates": gate_counts["reused_gates"],
             "planned_gates": gate_counts["planned_gates"],
             "approval_required_gates": approval_required,
             "elapsed_seconds": round(elapsed_seconds, 3),
@@ -427,6 +468,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Passed gates: `{summary['passed_gates']}`",
         f"- Failed gates: `{summary['failed_gates']}`",
         f"- Skipped gates: `{summary['skipped_gates']}`",
+        f"- Reused gates: `{summary['reused_gates']}`",
         f"- Planned gates: `{summary['planned_gates']}`",
         f"- Approval-required gates: `{summary['approval_required_gates']}`",
         f"- Elapsed seconds: `{summary['elapsed_seconds']}`",
@@ -474,6 +516,7 @@ def render_matrix_markdown(report: dict[str, Any]) -> str:
         f"- Passed gates: `{summary['passed_gates']}`",
         f"- Failed gates: `{summary['failed_gates']}`",
         f"- Skipped gates: `{summary['skipped_gates']}`",
+        f"- Reused gates: `{summary['reused_gates']}`",
         f"- Planned gates: `{summary['planned_gates']}`",
         f"- Approval-required gates: `{summary['approval_required_gates']}`",
         f"- Elapsed seconds: `{summary['elapsed_seconds']}`",
@@ -495,6 +538,7 @@ def render_matrix_markdown(report: dict[str, Any]) -> str:
                 f"- Passed gates: `{workflow_summary['passed_gates']}`",
                 f"- Failed gates: `{workflow_summary['failed_gates']}`",
                 f"- Skipped gates: `{workflow_summary['skipped_gates']}`",
+                f"- Reused gates: `{workflow_summary['reused_gates']}`",
                 f"- Planned gates: `{workflow_summary['planned_gates']}`",
                 f"- Approval-required gates: `{workflow_summary['approval_required_gates']}`",
                 "",
@@ -588,7 +632,8 @@ def main(argv: list[str] | None = None) -> int:
             f"selected={report['summary']['selected_gates']}, "
             f"passed={report['summary']['passed_gates']}, "
             f"failed={report['summary']['failed_gates']}, "
-            f"skipped={report['summary']['skipped_gates']}"
+            f"skipped={report['summary']['skipped_gates']}, "
+            f"reused={report['summary']['reused_gates']}"
         )
         return 0
     print(
@@ -598,7 +643,8 @@ def main(argv: list[str] | None = None) -> int:
         f"selected={report['summary']['selected_gates']}, "
         f"passed={report['summary']['passed_gates']}, "
         f"failed={report['summary']['failed_gates']}, "
-        f"skipped={report['summary']['skipped_gates']}"
+        f"skipped={report['summary']['skipped_gates']}, "
+        f"reused={report['summary']['reused_gates']}"
     )
     return 0
 

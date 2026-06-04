@@ -244,6 +244,7 @@ def test_matrix_dry_run_plans_all_workflows(tmp_path: Path) -> None:
     assert report["summary"]["workflow_count"] == 6
     assert report["summary"]["selected_gates"] == 6
     assert report["summary"]["planned_gates"] == 6
+    assert report["summary"]["reused_gates"] == 0
     assert persisted["summary"]["workflow_count"] == 6
     assert "Agent Workflow Gate Matrix" in markdown
     assert "dailynews-x-ops" in markdown
@@ -270,9 +271,18 @@ def test_matrix_execute_runs_safe_gates_and_skips_side_effecting(monkeypatch) ->
     assert report["summary"]["workflow_count"] == 6
     assert report["summary"]["selected_gates"] == 12
     assert report["summary"]["skipped_gates"] == 2
+    assert report["summary"]["reused_gates"] == 1
     assert report["summary"]["approval_required_gates"] == 2
-    assert report["summary"]["passed_gates"] == 10
-    assert len(seen) == 10
+    assert report["summary"]["passed_gates"] == 9
+    assert len(seen) == 9
+    reused = [
+        gate
+        for workflow in report["workflows"]
+        for gate in workflow["gates"]
+        if gate["status"] == "reused"
+    ]
+    assert reused[0]["workflow_id"] == "canva-widget-oauth-preview"
+    assert reused[0]["reused_from"]["workflow_id"] == "dailynews-x-ops"
 
 
 def test_cli_writes_matrix_dry_run_outputs(tmp_path: Path) -> None:

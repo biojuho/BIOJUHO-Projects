@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T01:52:31+09:00",
+  "generated_at": "2026-06-05T02:51:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -515,6 +515,46 @@
             "crewAIInc/crewAI",
             "selected gates `6`",
             "failed gates `0`",
+            "future-scoped"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent_workflow_gate_matrix_reuse",
+      "requirement": "The launch workflow matrix reuses duplicate deterministic gate results without hiding per-workflow evidence.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/agent_workflow_gate_runner.py",
+          "must_contain": [
+            "gate_cache_key",
+            "reuse_gate_step",
+            "reused_gates",
+            "reused_from"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_REUSE_SAFE_FIRST_GATES_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"workflow_count\": 6",
+            "\"selected_gates\": 6",
+            "\"passed_gates\": 5",
+            "\"reused_gates\": 1",
+            "\"failed_gates\": 0",
+            "canva-widget-oauth-preview",
+            "reused_from",
+            "dailynews-x-ops"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "improvement `326.350s`",
+            "about `28.1%`",
             "future-scoped"
           ]
         }
