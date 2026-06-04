@@ -5,14 +5,24 @@ from shared.fact_check.claim_extractor import Claim, ClaimType
 from shared.fact_check.verifier import verify_claim_against_source, verify_text_against_sources
 
 
+def _expect(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def _expect_equal(actual, expected) -> None:
+    if actual != expected:
+        raise AssertionError(f"Expected {expected!r}, got {actual!r}")
+
+
 def test_verify_number_exact_match() -> None:
     claim = Claim(value="1,200", claim_type=ClaimType.NUMBER, context="")
 
     result = verify_claim_against_source(claim, "The company reported 1,200 new users.")
 
-    assert result.verified is True
-    assert result.confidence == 1.0
-    assert "1,200" in result.source_match
+    _expect(result.verified is True, "number claim should verify")
+    _expect_equal(result.confidence, 1.0)
+    _expect("1,200" in result.source_match, "exact number should be present in source match")
 
 
 def test_verify_percentage_numeric_match() -> None:
@@ -20,8 +30,8 @@ def test_verify_percentage_numeric_match() -> None:
 
     result = verify_claim_against_source(claim, "Revenue increased by 37% year over year.")
 
-    assert result.verified is True
-    assert result.confidence == 1.0
+    _expect(result.verified is True, "percentage claim should verify")
+    _expect_equal(result.confidence, 1.0)
 
 
 def test_verify_entity_partial_match() -> None:
@@ -29,9 +39,9 @@ def test_verify_entity_partial_match() -> None:
 
     result = verify_claim_against_source(claim, "OpenAI announced a new model.")
 
-    assert result.verified is True
-    assert result.confidence == 0.5
-    assert result.source_match.strip() == "OpenAI"
+    _expect(result.verified is True, "partial entity should verify")
+    _expect_equal(result.confidence, 0.5)
+    _expect_equal(result.source_match.strip(), "OpenAI")
 
 
 def test_empty_source_sets_zero_confidence() -> None:
@@ -39,16 +49,16 @@ def test_empty_source_sets_zero_confidence() -> None:
 
     result = verify_claim_against_source(claim, "")
 
-    assert result.verified is False
-    assert result.confidence == 0.0
+    _expect(result.verified is False, "empty source should not verify")
+    _expect_equal(result.confidence, 0.0)
 
 
 def test_verify_text_returns_empty_pass_for_blank_text() -> None:
     result = verify_text_against_sources("", ["source"])
 
-    assert result.passed is True
-    assert result.total_claims == 0
-    assert result.accuracy_score == 1.0
+    _expect(result.passed is True, "blank generated text should pass")
+    _expect_equal(result.total_claims, 0)
+    _expect_equal(result.accuracy_score, 1.0)
 
 
 def test_verify_text_counts_verified_unverified_and_hallucinated_claims(monkeypatch) -> None:
@@ -61,13 +71,13 @@ def test_verify_text_counts_verified_unverified_and_hallucinated_claims(monkeypa
 
     result = verify_text_against_sources("generated", ["OpenAI reported 37% growth."], min_accuracy=0.75)
 
-    assert result.passed is False
-    assert result.total_claims == 3
-    assert result.verified_claims == 2
-    assert result.unverified_claims == 1
-    assert result.hallucinated_claims == 0
-    assert result.accuracy_score == 0.67
-    assert result.issues == ["[Unverified number] '900'"]
+    _expect(result.passed is False, "accuracy below threshold should fail")
+    _expect_equal(result.total_claims, 3)
+    _expect_equal(result.verified_claims, 2)
+    _expect_equal(result.unverified_claims, 1)
+    _expect_equal(result.hallucinated_claims, 0)
+    _expect_equal(result.accuracy_score, 0.67)
+    _expect_equal(result.issues, ["[Unverified number] '900'"])
 
 
 def test_verify_text_fails_on_hallucinated_entity(monkeypatch) -> None:
@@ -76,13 +86,13 @@ def test_verify_text_fails_on_hallucinated_entity(monkeypatch) -> None:
 
     result = verify_text_against_sources("generated", ["No matching company here."], min_accuracy=0.1)
 
-    assert result.passed is False
-    assert result.hallucinated_claims == 1
-    assert result.issues == ["[Hallucination] entity: 'NonexistentCo'"]
+    _expect(result.passed is False, "hallucinated entity should fail")
+    _expect_equal(result.hallucinated_claims, 1)
+    _expect_equal(result.issues, ["[Hallucination] entity: 'NonexistentCo'"])
 
 
 def test_verify_text_includes_source_names_in_corpus() -> None:
-    """Regression: source publisher names (MarketWatch, Reuters, …) must be
+    """Regression: source publisher names (MarketWatch, Reuters, etc.) must be
     treated as verified when the brief cites them. Previously they leaked
     through as hallucinated entities because the verifier only inspected
     title/description/summary fields.
@@ -96,8 +106,11 @@ def test_verify_text_includes_source_names_in_corpus() -> None:
 
     # The only entity claim ("MarketWatch") must now resolve against the
     # source_names augmented corpus, so no hallucinations remain.
-    assert result.hallucinated_claims == 0
-    assert all("MarketWatch" not in issue for issue in result.issues)
+    _expect_equal(result.hallucinated_claims, 0)
+    _expect(
+        all("MarketWatch" not in issue for issue in result.issues),
+        "source name should not be reported as a hallucination",
+    )
 
 
 def test_verify_text_honors_min_accuracy(monkeypatch) -> None:
@@ -109,7 +122,7 @@ def test_verify_text_honors_min_accuracy(monkeypatch) -> None:
 
     result = verify_text_against_sources("generated", ["OpenAI source"], min_accuracy=0.75)
 
-    assert result.passed is False
-    assert result.verified_claims == 1
-    assert result.unverified_claims == 1
-    assert result.accuracy_score == 0.5
+    _expect(result.passed is False, "min accuracy should be enforced")
+    _expect_equal(result.verified_claims, 1)
+    _expect_equal(result.unverified_claims, 1)
+    _expect_equal(result.accuracy_score, 0.5)
