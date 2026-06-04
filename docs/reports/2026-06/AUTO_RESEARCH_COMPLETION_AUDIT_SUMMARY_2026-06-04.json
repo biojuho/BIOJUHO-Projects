@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T23:24:34+09:00",
+  "generated_at": "2026-06-04T23:38:15+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -42,7 +42,7 @@
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
-          "term_count": 2
+          "term_count": 3
         }
       ]
     },
