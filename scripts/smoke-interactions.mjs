@@ -166,6 +166,8 @@ const interactionExpression = `
   const failures = [];
   let backupExportOk = false;
   let backupImportOk = false;
+  let backupResetOk = false;
+  let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function assert(condition, message) {
@@ -526,6 +528,7 @@ const interactionExpression = `
 
   await runStep("settings import backup payload", async () => {
     const imported = marker + " imported";
+    importedMarker = imported;
     await nav("settings");
     const backup = {
       app: "JooPark Workspace",
@@ -535,16 +538,16 @@ const interactionExpression = `
       notes: [{ id: "note-import", title: imported + " note", body: "import smoke", color: "#22d3ee", pinned: true, updatedAt: new Date().toISOString() }],
       settings: { displayName: imported + " user" },
       habits: [{ id: "habit-import", name: imported + " habit", emoji: "OK", target: 3, log: {} }],
-      projects: [],
-      issues: [],
-      gantt: { tasks: [] },
-      team: [],
-      dbInstances: [],
-      schemas: [],
-      queries: [],
-      migrations: [],
+      projects: [{ id: "proj-import", name: imported + " project", owner: "Import QA", deadline: "2026-07-15", progress: 18, status: "on-track", health: "green", members: ["member-import"], burn: [1, 1, 1, 1, 1, 1, 1], openIssues: 1, risks: 0, description: "import smoke", category: "qa" }],
+      issues: [{ id: "ISS-import", project: "proj-import", title: imported + " issue", status: "todo", priority: "high", assignee: "member-import", due: "2026-07-10", labels: ["import"], estimate: 1 }],
+      gantt: { rangeStart: "2026-06-01", rangeEnd: "2026-07-31", tasks: [{ id: "task-import", project: "proj-import", name: imported + " task", owner: "member-import", start: "2026-06-25", end: "2026-06-28", color: "blue", deps: [], milestone: false }] },
+      team: [{ id: "member-import", name: imported + " member", role: "QA", load: 10, projects: ["proj-import"], avatar: "I" }],
+      dbInstances: [{ id: "db-import", name: imported + " db", engine: "PostgreSQL 16", region: "ap-northeast-2", health: "green", cpu: 12, mem: 20, conn: 5, connMax: 50, latencyMs: 3, series: [1, 2, 3, 4] }],
+      schemas: [{ id: "db-import", databases: [{ name: "release", tables: [{ id: "table-import", name: "import_table", rows: 1, sizeMb: 1, columns: [{ name: "id", type: "uuid", pk: true, nullable: false, idx: ["pk_import"] }], indexes: [{ name: "pk_import", cols: ["id"], unique: true }], fks: [] }] }] }],
+      queries: [{ id: "Q-import", instance: "db-import", db: "release", text: "SELECT 1 AS import_smoke", avgMs: 11, p95Ms: 15, count: 1, lastRun: "2026-06-04 09:00", planHint: "OK" }],
+      migrations: [{ id: "M-import", instance: "db-import", title: imported + " migration", status: "pending", scheduledAt: "2026-07-01 02:00" }],
       ui: { theme: "dark" },
-      imports: { projectImports: {} },
+      imports: { projectImports: { "import/smoke": { projectId: "proj-import", importedAt: new Date().toISOString() } } },
       exportedAt: new Date().toISOString(),
     };
     const file = new File([JSON.stringify(backup)], "joopark-import-smoke.json", { type: "application/json" });
@@ -562,17 +565,62 @@ const interactionExpression = `
     assert(payload.todos.length === 1 && payload.todos[0].title === imported + " todo", "imported todos did not replace old todos");
     assert(payload.notes.length === 1 && payload.notes[0].title === imported + " note" && payload.notes[0].pinned, "imported notes did not replace old notes");
     assert(payload.habits.length === 1 && payload.habits[0].name === imported + " habit", "imported habit was not saved");
+    assert(payload.projects.length === 1 && payload.projects[0].name === imported + " project", "imported project was not saved");
+    assert(payload.issues.length === 1 && payload.issues[0].title === imported + " issue", "imported issue was not saved");
+    assert(payload.gantt.tasks.length === 1 && payload.gantt.tasks[0].name === imported + " task", "imported gantt task was not saved");
+    assert(payload.team.length === 1 && payload.team[0].name === imported + " member", "imported team member was not saved");
+    assert(payload.dbInstances.length === 1 && payload.dbInstances[0].name === imported + " db", "imported DB instance was not saved");
+    assert(payload.schemas.length === 1 && payload.schemas[0].databases[0].tables[0].name === "import_table", "imported schema table was not saved");
+    assert(payload.queries.length === 1 && payload.queries[0].text === "SELECT 1 AS import_smoke", "imported query was not saved");
+    assert(payload.migrations.length === 1 && payload.migrations[0].title === imported + " migration", "imported migration was not saved");
+    assert(payload.imports && payload.imports.projectImports && payload.imports.projectImports["import/smoke"], "import registry was not saved");
     assert(payload.settings.displayName === imported + " user", "imported settings were not persisted");
     assert(payload.ui.theme === "dark", "imported theme was not persisted");
     assert(!payload.events.some((event) => event.title === marker + " event"), "old event remained after import replacement");
     backupImportOk = true;
   });
 
+  await runStep("settings reset all workspace data", async () => {
+    await nav("settings");
+    click('[data-action="reset-data"]');
+    await waitFor(() => document.querySelector("#modal.open") && document.querySelector("#modal").innerText.includes("전체 초기화"), "reset confirmation modal did not open");
+    await confirmModal();
+    await waitFor(() => savedPayload().events.length === 0, "reset did not persist empty events");
+    const payload = savedPayload();
+    const clearedArrays = ["events", "todos", "notes", "habits", "projects", "issues", "team", "dbInstances", "schemas", "queries", "migrations"];
+    const uncleared = clearedArrays.filter((key) => !Array.isArray(payload[key]) || payload[key].length !== 0);
+    assert(uncleared.length === 0, "reset left data in: " + uncleared.join(", "));
+    assert(payload.gantt && Array.isArray(payload.gantt.tasks) && payload.gantt.tasks.length === 0, "reset left gantt tasks");
+    assert(payload.imports && payload.imports.projectImports && Object.keys(payload.imports.projectImports).length === 0, "reset left imports registry");
+    assert(payload.settings.displayName === importedMarker + " user", "reset should preserve display name");
+    assert(payload.ui.theme === "dark", "reset should preserve theme");
+
+    const emptyViews = [
+      ["home", "프로젝트 포트폴리오"],
+      ["pm-portfolio", "일치하는 프로젝트가 없습니다."],
+      ["pm-kanban", "Kanban"],
+      ["pm-gantt", "간트 차트"],
+      ["pm-team", "일치하는 멤버가 없습니다."],
+      ["dbm-instances", "등록된 DB 인스턴스가 없습니다."],
+      ["dbm-schema", "등록된 스키마가 없습니다."],
+      ["dbm-queries", "저장된 쿼리가 없습니다."],
+      ["dbm-backups", "마이그레이션 이력"],
+      ["settings", "데이터 백업"],
+    ];
+    for (const [view, expectedText] of emptyViews) {
+      await nav(view);
+      const text = document.getElementById("view-" + view).innerText;
+      assert(text.includes(expectedText), "empty reset view did not render expected text for " + view);
+    }
+    backupResetOk = true;
+  });
+
   const finalChecks = {
     ...persistedChecks,
     backupImport: backupImportOk,
+    backupReset: backupResetOk,
   };
-  Object.entries({ backupImport: backupImportOk }).forEach(([key, ok]) => {
+  Object.entries({ backupImport: backupImportOk, backupReset: backupResetOk }).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);
   });
 

@@ -13,7 +13,7 @@ const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-mobile-smoke-"));
 const progressEnabled = process.env.SMOKE_PROGRESS === "1";
 
 const routes = [
-  ["home", ["좋은 오후입니다", "팀 · 시스템 관리"]],
+  ["home", ["오늘 일정", "팀 · 시스템 관리"]],
   ["cal", ["이번 달 일정", "일정 추가"]],
   ["todo", ["미완료", "새 할 일"]],
   ["notes", ["개의 메모", "+ 메모"]],

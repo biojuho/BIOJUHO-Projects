@@ -533,10 +533,10 @@ function projectName(id) {
   return p ? p.name : id;
 }
 function currentProject() {
-  return indexes.projectById.get(dashboard.currentProjectId) || dashboard.projects[0];
+  return indexes.projectById.get(dashboard.currentProjectId) || dashboard.projects[0] || null;
 }
 function currentInstance() {
-  return indexes.instanceById.get(dashboard.currentInstanceId) || dashboard.dbInstances[0];
+  return indexes.instanceById.get(dashboard.currentInstanceId) || dashboard.dbInstances[0] || null;
 }
 
 /* ---------- Panel head helper ---------- */
@@ -779,7 +779,7 @@ function renderPortfolio() {
 
   const stats = {
     total: dashboard.projects.length,
-    avg: Math.round(dashboard.projects.reduce((a, p) => a + p.progress, 0) / dashboard.projects.length),
+    avg: dashboard.projects.length ? Math.round(dashboard.projects.reduce((a, p) => a + p.progress, 0) / dashboard.projects.length) : 0,
     delayed: dashboard.projects.filter((p) => p.status === "delayed").length,
     risky: dashboard.projects.filter((p) => p.health !== "green").length,
   };
@@ -1173,10 +1173,12 @@ function renderDbInstances() {
   const q = state.query;
   const list = dashboard.dbInstances.filter((d) => matches(`${d.name} ${d.engine} ${d.region}`, q));
   const inst = currentInstance();
-  const cur = list.find((d) => d.id === inst.id) || list[0] || inst;
+  const cur = inst ? (list.find((d) => d.id === inst.id) || list[0] || inst) : (list[0] || null);
 
   const totalConn = dashboard.dbInstances.reduce((a, d) => a + d.conn, 0);
-  const avgCpu = Math.round(dashboard.dbInstances.reduce((a, d) => a + d.cpu, 0) / dashboard.dbInstances.length);
+  const avgCpu = dashboard.dbInstances.length
+    ? Math.round(dashboard.dbInstances.reduce((a, d) => a + d.cpu, 0) / dashboard.dbInstances.length)
+    : 0;
   const unhealthy = dashboard.dbInstances.filter((d) => d.health !== "green").length;
 
   const kpis = [
@@ -1188,7 +1190,7 @@ function renderDbInstances() {
 
   const card = (d) => html`
     <div class="db-card-wrap">
-      <button type="button" class="db-card ${raw(d.id === cur.id ? "is-current" : "")}" data-action="pick-instance" data-instance-id="${d.id}">
+      <button type="button" class="db-card ${raw(cur && d.id === cur.id ? "is-current" : "")}" data-action="pick-instance" data-instance-id="${d.id}">
         <div class="db-card-head">
           <strong>${d.name}</strong>
           <span class="db-health" style="background:${raw(HEALTH_COLOR[d.health])}"></span>
@@ -1207,6 +1209,31 @@ function renderDbInstances() {
     </div>
   `;
 
+  const detail = cur ? html`
+    ${raw(panelHead(cur.name, null, html`<small>${cur.engine} · ${cur.region}</small>`))}
+    <div class="db-detail">
+      <div class="db-gauges">
+        <div class="gauge db-gauge" style="--g:${raw(cur.cpu)}"><span>CPU</span><b>${cur.cpu}%</b></div>
+        <div class="gauge db-gauge" style="--g:${raw(cur.mem)}"><span>메모리</span><b>${cur.mem}%</b></div>
+        <div class="gauge db-gauge" style="--g:${raw(Math.round((cur.conn / cur.connMax) * 100))}"><span>연결</span><b>${cur.conn}/${cur.connMax}</b></div>
+      </div>
+      <div class="db-spark-row">
+        <div class="db-spark">
+          <strong>연결 추이 (24h)</strong>
+          ${raw(spark(cur.series, "#22d3ee"))}
+        </div>
+        <div class="db-meta">
+          <span><b>지연</b> ${cur.latencyMs}ms</span>
+          <span><b>리전</b> ${cur.region}</span>
+          <span><b>상태</b> <em style="color:${raw(HEALTH_COLOR[cur.health])}">● ${cur.health}</em></span>
+        </div>
+      </div>
+    </div>
+  ` : html`
+    ${raw(panelHead("인스턴스 없음", null, ""))}
+    <article class="empty">등록된 DB 인스턴스가 없습니다. 새 인스턴스를 추가하세요.</article>
+  `;
+
   setHTML(view, html`
     <section class="kpis kpis-4">${raw(kpis.map((k) => kpiCard(k)).join(""))}</section>
     <section class="db-layout">
@@ -1217,25 +1244,7 @@ function renderDbInstances() {
         </div>
       </article>
       <article class="panel db-detail-panel">
-        ${raw(panelHead(cur.name, null, html`<small>${cur.engine} · ${cur.region}</small>`))}
-        <div class="db-detail">
-          <div class="db-gauges">
-            <div class="gauge db-gauge" style="--g:${raw(cur.cpu)}"><span>CPU</span><b>${cur.cpu}%</b></div>
-            <div class="gauge db-gauge" style="--g:${raw(cur.mem)}"><span>메모리</span><b>${cur.mem}%</b></div>
-            <div class="gauge db-gauge" style="--g:${raw(Math.round((cur.conn / cur.connMax) * 100))}"><span>연결</span><b>${cur.conn}/${cur.connMax}</b></div>
-          </div>
-          <div class="db-spark-row">
-            <div class="db-spark">
-              <strong>연결 추이 (24h)</strong>
-              ${raw(spark(cur.series, "#22d3ee"))}
-            </div>
-            <div class="db-meta">
-              <span><b>지연</b> ${cur.latencyMs}ms</span>
-              <span><b>리전</b> ${cur.region}</span>
-              <span><b>상태</b> <em style="color:${raw(HEALTH_COLOR[cur.health])}">● ${cur.health}</em></span>
-            </div>
-          </div>
-        </div>
+        ${raw(detail)}
       </article>
     </section>
   `);
@@ -1252,17 +1261,18 @@ function renderDbSchema() {
 
   // Compute selected table (default: first table of current instance's first db)
   let selected = state.schemaSelectedTable;
-  if (!selected) {
+  if (!selected && dashboard.schemas.length) {
     const cur = dashboard.schemas.find((s) => s.id === dashboard.currentInstanceId) || dashboard.schemas[0];
-    const firstDb = cur.databases[0];
+    const firstDb = cur && cur.databases ? cur.databases[0] : null;
     const firstTable = firstDb && firstDb.tables[0];
     if (firstTable) selected = firstTable.id;
   }
 
-  const allTables = dashboard.schemas.flatMap((s) => s.databases.flatMap((db) => db.tables.map((t) => ({ ...t, instance: s.id, db: db.name }))));
-  const selectedTable = allTables.find((t) => t.id === selected) || allTables[0];
+  const allTables = dashboard.schemas.flatMap((s) =>
+    (s.databases || []).flatMap((db) => (db.tables || []).map((t) => ({ ...t, instance: s.id, db: db.name }))));
+  const selectedTable = allTables.find((t) => t.id === selected) || allTables[0] || null;
 
-  const totalDbs = dashboard.schemas.reduce((a, s) => a + s.databases.length, 0);
+  const totalDbs = dashboard.schemas.reduce((a, s) => a + (s.databases || []).length, 0);
   const totalTables = allTables.length;
   const totalIdx = allTables.reduce((a, t) => a + (t.indexes ? t.indexes.length : 0), 0);
   const totalFk = allTables.reduce((a, t) => a + (t.fks ? t.fks.length : 0), 0);
@@ -1275,15 +1285,15 @@ function renderDbSchema() {
   ];
 
   // Tree
-  const tree = dashboard.schemas.map((s) => {
+  const tree = dashboard.schemas.length === 0 ? html`<article class="empty">등록된 스키마가 없습니다. 테이블을 추가하세요.</article>` : dashboard.schemas.map((s) => {
     const inst = dashboard.dbInstances.find((d) => d.id === s.id);
     const expanded = state.schemaExpanded.has(s.id);
-    const dbs = s.databases.map((db) => html`
+    const dbs = (s.databases || []).map((db) => html`
       <details class="schema-db" open>
         <summary>${db.name}</summary>
-        <ul>${db.tables.filter((t) => matches(`${t.name} ${(t.columns || []).map((c) => c.name).join(" ")}`, q)).map((t) => raw(html`
+        <ul>${(db.tables || []).filter((t) => matches(`${t.name} ${(t.columns || []).map((c) => c.name).join(" ")}`, q)).map((t) => raw(html`
           <li class="schema-table-li">
-            <button type="button" class="schema-table-btn ${raw(t.id === selectedTable.id ? "is-current" : "")}" data-action="open-table" data-table-id="${t.id}">
+            <button type="button" class="schema-table-btn ${raw(selectedTable && t.id === selectedTable.id ? "is-current" : "")}" data-action="open-table" data-table-id="${t.id}">
               <span>${t.name}</span>
               <em>${(t.rows || 0).toLocaleString()}</em>
             </button>
@@ -1304,10 +1314,11 @@ function renderDbSchema() {
   }).join("");
 
   // Columns table
+  const selectedColumns = selectedTable && Array.isArray(selectedTable.columns) ? selectedTable.columns : [];
   const columnsBody = selectedTable ? html`
     <table class="schema-columns-table">
       <thead><tr><th>컬럼</th><th>타입</th><th>제약</th><th>인덱스</th></tr></thead>
-      <tbody>${selectedTable.columns.map((c) => raw(html`
+      <tbody>${selectedColumns.map((c) => raw(html`
         <tr>
           <td><strong>${c.name}</strong></td>
           <td><code>${c.type}</code></td>
@@ -1323,10 +1334,12 @@ function renderDbSchema() {
   ` : html`<article class="empty">테이블을 선택하세요.</article>`;
 
   // Indexes / FK panel
+  const selectedIndexes = selectedTable && Array.isArray(selectedTable.indexes) ? selectedTable.indexes : [];
+  const selectedFks = selectedTable && Array.isArray(selectedTable.fks) ? selectedTable.fks : [];
   const relBody = selectedTable ? html`
     <div class="schema-rel-block">
       <h4>인덱스</h4>
-      ${selectedTable.indexes.length === 0 ? raw(html`<small class="empty-line">없음</small>`) : raw(selectedTable.indexes.map((i) => html`
+      ${selectedIndexes.length === 0 ? raw(html`<small class="empty-line">없음</small>`) : raw(selectedIndexes.map((i) => html`
         <div class="schema-rel-row">
           <strong>${i.name}</strong>
           <code>(${i.cols.join(", ")})</code>
@@ -1336,7 +1349,7 @@ function renderDbSchema() {
     </div>
     <div class="schema-rel-block">
       <h4>외래키</h4>
-      ${selectedTable.fks.length === 0 ? raw(html`<small class="empty-line">없음</small>`) : raw(selectedTable.fks.map((f) => html`
+      ${selectedFks.length === 0 ? raw(html`<small class="empty-line">없음</small>`) : raw(selectedFks.map((f) => html`
         <div class="schema-rel-row">
           <code>${f.col}</code>
           <span>→</span>
@@ -1382,9 +1395,9 @@ function renderDbQueries() {
   const list = dashboard.queries.filter((x) => matches(`${x.id} ${x.text} ${x.db} ${x.instance}`, q));
 
   const total = dashboard.queries.length;
-  const avg = Math.round(dashboard.queries.reduce((a, x) => a + x.avgMs, 0) / total);
-  const p95 = Math.round(dashboard.queries.reduce((a, x) => a + x.p95Ms, 0) / total);
-  const tps = Math.round(dashboard.queries.reduce((a, x) => a + x.count, 0) / 24);
+  const avg = total ? Math.round(dashboard.queries.reduce((a, x) => a + x.avgMs, 0) / total) : 0;
+  const p95 = total ? Math.round(dashboard.queries.reduce((a, x) => a + x.p95Ms, 0) / total) : 0;
+  const tps = total ? Math.round(dashboard.queries.reduce((a, x) => a + x.count, 0) / 24) : 0;
 
   const kpis = [
     { title: "slow query",  value: String(total), unit: "건", color: "#ff4d5e", badge: "◉", delta: "" },
@@ -1395,7 +1408,7 @@ function renderDbQueries() {
 
   // Histogram
   const buckets = dashboard.queryHistogram;
-  const maxC = Math.max(...buckets.map((b) => b.count));
+  const maxC = Math.max(1, ...buckets.map((b) => b.count));
   const barW = 28;
   const gap = 8;
   const histW = (barW + gap) * buckets.length + gap;
@@ -1451,7 +1464,7 @@ function renderDbQueries() {
       <div class="query-table-wrap">
         <table class="query-table">
           <thead><tr><th>ID</th><th>SQL</th><th>인스턴스/DB</th><th>평균(ms)</th><th>p95(ms)</th><th>호출</th><th>최근 실행</th><th>관리</th></tr></thead>
-          <tbody>${raw(rows)}</tbody>
+          <tbody>${raw(rows || html`<tr><td colspan="8"><div class="empty">저장된 쿼리가 없습니다.</div></td></tr>`)}</tbody>
         </table>
       </div>
     </section>
@@ -2462,6 +2475,24 @@ function normalizeAllData() {
     dashboard.gantt = { tasks: [] };
   }
   if (!Array.isArray(dashboard.gantt.tasks)) dashboard.gantt.tasks = [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dashboard.gantt.rangeStart || "")) dashboard.gantt.rangeStart = todayISO();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dashboard.gantt.rangeEnd || "") || dashboard.gantt.rangeEnd < dashboard.gantt.rangeStart) {
+    dashboard.gantt.rangeEnd = addDaysISO(dashboard.gantt.rangeStart, 60);
+  }
+  dashboard.gantt.tasks = dashboard.gantt.tasks.filter((t) => t && typeof t === "object" && t.id && t.name);
+  dashboard.gantt.tasks.forEach((t) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(t.start || "")) t.start = dashboard.gantt.rangeStart;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(t.end || "") || t.end < t.start) t.end = t.start;
+    if (!Array.isArray(t.deps)) t.deps = [];
+    t.milestone = !!t.milestone;
+    if (!["blue", "cyan", "green", "amber", "red", "violet"].includes(t.color)) t.color = "blue";
+  });
+  dashboard.currentProjectId = dashboard.projects.some((p) => p.id === dashboard.currentProjectId)
+    ? dashboard.currentProjectId
+    : (dashboard.projects[0] ? dashboard.projects[0].id : "");
+  dashboard.currentInstanceId = dashboard.dbInstances.some((d) => d.id === dashboard.currentInstanceId)
+    ? dashboard.currentInstanceId
+    : (dashboard.dbInstances[0] ? dashboard.dbInstances[0].id : "");
 
   // ---- UI 슬라이스 ----
   if (!dashboard.ui || typeof dashboard.ui !== "object") dashboard.ui = { theme: "dark" };
@@ -3718,13 +3749,29 @@ function handleImportFile(event) {
 function confirmResetData() {
   openModal("전체 초기화", html`
     <div class="modal-confirm-body">
-      <p>모든 <strong>일정 · 할 일 · 메모</strong>가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+      <p>모든 <strong>일정 · 할 일 · 메모 · 습관 · 프로젝트 · DB 관리 데이터</strong>가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
       <p class="muted-note">먼저 “데이터 내보내기”로 백업하는 것을 권장합니다.</p>
     </div>
   `, () => {
     dashboard.events = [];
     dashboard.todos = [];
     dashboard.notes = [];
+    dashboard.habits = [];
+    dashboard.projects = [];
+    dashboard.issues = [];
+    dashboard.gantt = { rangeStart: todayISO(), rangeEnd: addDaysISO(todayISO(), 60), tasks: [] };
+    dashboard.team = [];
+    dashboard.dbInstances = [];
+    dashboard.schemas = [];
+    dashboard.queries = [];
+    dashboard.migrations = [];
+    dashboard.imports = { projectImports: {} };
+    dashboard.currentProjectId = "";
+    dashboard.currentInstanceId = "";
+    state.schemaExpanded = new Set();
+    state.schemaSelectedTable = null;
+    normalizeAllData();
+    rebuildIndexes();
     commit();
     showToast("초기화했습니다", "info");
     return true;
