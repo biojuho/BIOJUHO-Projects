@@ -61,6 +61,12 @@ Result:
   - passed
 - `python -m pytest tests/test_workspace_smoke.py tests/test_autoresearch_completion_audit.py tests/test_mcp_service_runtime_smoke.py tests/test_mcp_otel_collector_handoff.py tests/test_agent_workflow_gate_runner.py tests/test_github_source_freshness.py tests/test_dev_server_browser_smoke.py tests/test_dev_server_mcp_contract.py tests/test_dev_server_mcp_runtime.py tests/test_dev_server_mcp_runtime_smoke.py -q --tb=line`
   - `78 passed`
+- `python ops\hooks\install_hooks.py`
+  - installed `pre-push` to `D:\AI project\.git\hooks\pre-push`
+- `git push --dry-run origin HEAD:feat/observability-gateway-2026-05`
+  - installed hook ran `78 passed`
+  - runtime probes and completion audit passed
+  - remote reported `Everything up-to-date`
 - Completion contract now includes required
   `github_source_freshness_snapshot` evidence.
 - `python ops\scripts\autoresearch_completion_audit.py --json-out docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.json --markdown-out docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.md`

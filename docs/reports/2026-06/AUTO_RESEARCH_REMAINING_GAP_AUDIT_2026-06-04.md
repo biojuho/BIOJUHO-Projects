@@ -141,6 +141,8 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - newest upstream `pushed_at` in the snapshot was `2026-06-04T16:56:53Z`
   - focused source-freshness tests passed `4/4`
   - pre-push-equivalent suite passed `78/78`
+  - installed pre-push dry-run ran `78/78` plus runtime probes and completion
+    audit, then reported `Everything up-to-date`
   - completion audit now reports `17` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`
   - generated evidence:
