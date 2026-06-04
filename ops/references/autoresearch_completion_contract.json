@@ -134,10 +134,13 @@
               "next-actions.md",
               "ops/hooks/pre-push",
               "ops/references/autoresearch_completion_contract.json",
+              "ops/references/external_credential_boundaries.json",
               "ops/references/github_modernization_sources.json",
               "ops/scripts/autoresearch_completion_audit.py",
+              "ops/scripts/external_credential_boundary_audit.py",
               "ops/scripts/github_source_freshness.py",
               "tests/test_workspace_smoke.py",
+              "tests/test_external_credential_boundary_audit.py",
               "tests/test_github_modernization_radar.py",
               "tests/test_autoresearch_completion_audit.py",
               "tests/test_github_source_freshness.py"
