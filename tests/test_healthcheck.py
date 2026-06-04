@@ -4,14 +4,14 @@ import importlib.util
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 HEALTHCHECK_PATH = PROJECT_ROOT / "ops" / "scripts" / "healthcheck.py"
 
 
 def load_healthcheck_module():
     spec = importlib.util.spec_from_file_location("healthcheck_under_test", HEALTHCHECK_PATH)
-    assert spec and spec.loader
+    if spec is None or spec.loader is None:
+        raise AssertionError("healthcheck module spec could not be loaded")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -33,4 +33,6 @@ def test_npm_build_failure_reports_command_not_found(monkeypatch, tmp_path: Path
 
     result = healthcheck.check_npm_build("frontend")
 
-    assert result == {"ok": False, "message": "FAILED build dry-run: sh: vite: command not found"}
+    expected = {"ok": False, "message": "FAILED build dry-run: sh: vite: command not found"}
+    if result != expected:
+        raise AssertionError(result)
