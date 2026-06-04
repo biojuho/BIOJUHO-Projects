@@ -2541,6 +2541,8 @@ function loadPersisted() {
   try { rawV3 = JSON.parse(localStorage.getItem(STORE_KEY_V3) || "null"); } catch (_) { rawV3 = null; }
 
   if (rawV3 && typeof rawV3 === "object" && rawV3.v === 3) {
+    const hasPersonalSlices =
+      Array.isArray(rawV3.events) || Array.isArray(rawV3.todos) || Array.isArray(rawV3.notes);
     // v3 슬라이스가 존재하면 덮어쓰고, 없으면 현재 하드코딩 기본값을 유지
     if (Array.isArray(rawV3.events))      dashboard.events      = rawV3.events;
     if (Array.isArray(rawV3.todos))       dashboard.todos       = rawV3.todos;
@@ -2563,8 +2565,9 @@ function loadPersisted() {
     pmWasPersisted = true;
     normalizeAllData();
     rebuildIndexes();
-    // 개인 데이터가 없으면 시드 (v3 파일에 personal 슬라이스가 없는 엣지케이스)
-    if (!dashboard.events.length && !dashboard.todos.length && !dashboard.notes.length) {
+    // 개인 슬라이스 자체가 없는 구형 v3 파일만 시드한다.
+    // reset/import처럼 빈 배열을 명시한 저장소는 사용자의 빈 상태로 보존한다.
+    if (!hasPersonalSlices && !dashboard.events.length && !dashboard.todos.length && !dashboard.notes.length) {
       seedPersonalData();
       persist();
     }
@@ -3765,7 +3768,7 @@ function confirmResetData() {
     dashboard.schemas = [];
     dashboard.queries = [];
     dashboard.migrations = [];
-    dashboard.imports = { projectImports: {} };
+    dashboard.imports = { projectImports: {}, autoProjectSeedDisabled: true, resetAt: nowISO() };
     dashboard.currentProjectId = "";
     dashboard.currentInstanceId = "";
     state.schemaExpanded = new Set();
@@ -5546,6 +5549,10 @@ async function loadGithubProjects() {
   const snapshot = mergeProjectSnapshots(repoSnapshot, adoptionSnapshot);
   if (!snapshot) {
     console.info("[workspace] project snapshots not loaded (using mock data)");
+    return false;
+  }
+  if (dashboard.imports && dashboard.imports.autoProjectSeedDisabled === true) {
+    console.info("[workspace] github snapshot skipped — project auto seed disabled after reset");
     return false;
   }
 

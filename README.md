@@ -19,7 +19,7 @@ node scripts/smoke-chrome.mjs
 ```
 
 성공 기준은 `status: "pass"`, `consoleIssues: []`, `networkIssues: []` 입니다.
-실제 클릭/입력 워크플로우까지 확인하려면 아래 명령을 추가로 실행합니다. 독립 Chrome 프로필에서 일정·할 일·메모·습관·프로젝트·이슈·간트·팀·DB 인스턴스·테이블·쿼리·마이그레이션·설정·JSON 백업 내보내기/가져오기/전체 초기화·명령 팔레트 흐름을 생성/토글/저장/검증합니다.
+실제 클릭/입력 워크플로우까지 확인하려면 아래 명령을 추가로 실행합니다. 독립 Chrome 프로필에서 일정·할 일·메모·습관·프로젝트·이슈·간트·팀·DB 인스턴스·테이블·쿼리·마이그레이션·설정·JSON 백업 내보내기/가져오기/전체 초기화·초기화 후 재시작 유지·명령 팔레트 흐름을 생성/토글/저장/검증합니다.
 
 ```bash
 node scripts/smoke-interactions.mjs
@@ -103,7 +103,7 @@ node scripts/audit-release-readiness.mjs --run-gates
 - `app.js` — 뷰 렌더, 전 영역 CRUD + localStorage v3 영속화, 반복 일정 전개, 알림 계산, 명령 팔레트, 인덱스, GitHub/도입 후보 스냅샷 머지
 - `favicon.svg` — 정적 배포 시 브라우저 favicon 404를 막는 로컬 SVG 아이콘
 - `scripts/smoke-chrome.mjs` — Chrome DevTools Protocol 기반 출시 스모크 검증
-- `scripts/smoke-interactions.mjs` — 독립 Chrome 프로필에서 주요 CRUD·토글·JSON 백업 내보내기/가져오기/전체 초기화·명령 팔레트 사용자 흐름을 클릭/입력으로 검증
+- `scripts/smoke-interactions.mjs` — 독립 Chrome 프로필에서 주요 CRUD·토글·JSON 백업 내보내기/가져오기/전체 초기화/초기화 후 재시작 유지·명령 팔레트 사용자 흐름을 클릭/입력으로 검증
 - `scripts/package-release.mjs` — 정적 출시 패키지와 SHA-256 manifest 생성
 - `scripts/verify-release.mjs` — 출시 패키지 manifest의 파일 목록·바이트·SHA-256 재검증
 - `scripts/smoke-mobile.mjs` — 500px 폭 Chrome에서 15개 화면의 모바일 레이아웃 overflow·텍스트·콘솔·네트워크 회귀 검증

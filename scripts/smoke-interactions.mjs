@@ -158,6 +158,81 @@ function formatArg(arg) {
   return "";
 }
 
+async function verifyResetPersistsAfterReload(client) {
+  await client.send("Page.reload", { ignoreCache: true });
+  await delay(1000);
+  await evaluate(client, `
+    new Promise((resolve, reject) => {
+      const started = Date.now();
+      const check = () => {
+        const ready = document.readyState === "complete" &&
+          document.body &&
+          document.body.dataset.view === "settings" &&
+          typeof dashboard !== "undefined";
+        if (ready) resolve(true);
+        else if (Date.now() - started > 9000) reject(new Error("settings route not ready after reset reload"));
+        else setTimeout(check, 100);
+      };
+      check();
+    })
+  `);
+  return await evaluate(client, `
+    (() => {
+      const storeKey = "joopark.workspace.v3";
+      const failures = [];
+      const raw = localStorage.getItem(storeKey);
+      let payload = null;
+      try { payload = JSON.parse(raw || "null"); } catch (error) { failures.push("reset payload is not valid JSON"); }
+      const clearedArrays = ["events", "todos", "notes", "habits", "projects", "issues", "team", "dbInstances", "schemas", "queries", "migrations"];
+      const payloadCounts = {};
+      if (!payload) {
+        failures.push("reset payload is missing after reload");
+      } else {
+        clearedArrays.forEach((key) => {
+          payloadCounts[key] = Array.isArray(payload[key]) ? payload[key].length : null;
+          if (payloadCounts[key] !== 0) failures.push("payload " + key + " count is " + payloadCounts[key]);
+        });
+        payloadCounts.ganttTasks = payload.gantt && Array.isArray(payload.gantt.tasks) ? payload.gantt.tasks.length : null;
+        if (payloadCounts.ganttTasks !== 0) failures.push("payload gantt task count is " + payloadCounts.ganttTasks);
+        const importCount = payload.imports && payload.imports.projectImports ? Object.keys(payload.imports.projectImports).length : null;
+        payloadCounts.projectImports = importCount;
+        if (importCount !== 0) failures.push("payload import registry count is " + importCount);
+        if (!payload.imports || payload.imports.autoProjectSeedDisabled !== true) failures.push("project auto seed suppression was not preserved after reload");
+        if (!payload.settings || !String(payload.settings.displayName || "").includes("imported user")) failures.push("display name was not preserved after reload");
+        if (!payload.ui || payload.ui.theme !== "dark") failures.push("theme was not preserved after reload");
+      }
+
+      const dashboardCounts = {
+        events: dashboard.events.length,
+        todos: dashboard.todos.length,
+        notes: dashboard.notes.length,
+        habits: Array.isArray(dashboard.habits) ? dashboard.habits.length : null,
+        projects: dashboard.projects.length,
+        issues: dashboard.issues.length,
+        tasks: dashboard.gantt && Array.isArray(dashboard.gantt.tasks) ? dashboard.gantt.tasks.length : null,
+        team: dashboard.team.length,
+        dbInstances: dashboard.dbInstances.length,
+        schemas: dashboard.schemas.length,
+        queries: dashboard.queries.length,
+        migrations: dashboard.migrations.length,
+      };
+      Object.entries(dashboardCounts).forEach(([key, value]) => {
+        if (value !== 0) failures.push("dashboard " + key + " count is " + value);
+      });
+      const viewText = document.getElementById("view-settings")?.innerText || "";
+      if (!viewText.includes("데이터 백업")) failures.push("settings view did not render after reload");
+      return {
+        status: failures.length === 0 ? "pass" : "fail",
+        failures,
+        payloadCounts,
+        dashboardCounts,
+        view: document.body.dataset.view || "",
+        storageBytes: raw ? raw.length : 0,
+      };
+    })()
+  `);
+}
+
 const interactionExpression = `
 (async () => {
   const marker = "ARSMOKE-" + Date.now();
@@ -592,6 +667,7 @@ const interactionExpression = `
     assert(uncleared.length === 0, "reset left data in: " + uncleared.join(", "));
     assert(payload.gantt && Array.isArray(payload.gantt.tasks) && payload.gantt.tasks.length === 0, "reset left gantt tasks");
     assert(payload.imports && payload.imports.projectImports && Object.keys(payload.imports.projectImports).length === 0, "reset left imports registry");
+    assert(payload.imports.autoProjectSeedDisabled === true, "reset did not disable automatic project seed imports");
     assert(payload.settings.displayName === importedMarker + " user", "reset should preserve display name");
     assert(payload.ui.theme === "dark", "reset should preserve theme");
 
@@ -712,6 +788,12 @@ async function main() {
     progress("app-ready");
 
     const interactionResult = await evaluate(pageClient, interactionExpression);
+    const postResetReload = await verifyResetPersistsAfterReload(pageClient);
+    interactionResult.postResetReload = postResetReload;
+    interactionResult.persistedChecks.backupResetReload = postResetReload.status === "pass";
+    if (postResetReload.status !== "pass") {
+      interactionResult.failures.push(`post-reset reload failed: ${postResetReload.failures.join("; ")}`);
+    }
     const appConsoleIssues = consoleIssues.filter((issue) => issue.text && !issue.text.includes("Autofill.enable"));
     const appNetworkIssues = networkIssues.filter((issue) => !String(issue.text || "").includes("net::ERR_ABORTED"));
     if (appConsoleIssues.length > 0) interactionResult.failures.push(`console issues: ${appConsoleIssues.length}`);
