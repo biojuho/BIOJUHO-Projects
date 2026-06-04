@@ -7,6 +7,7 @@
 - Selected boundaries: `1`
 - Ready boundaries: `1`
 - Blocked boundaries: `0`
+- Next unblock: `none`
 - Commands planned: `2`
 - Commands executed: `2`
 

@@ -39,6 +39,7 @@ def test_default_registry_dry_run_reports_ready_and_blocked_boundaries() -> None
     assert report["summary"]["selected_boundaries"] >= 5
     assert report["summary"]["ready_boundaries"] == 1
     assert report["summary"]["blocked_boundaries"] == 4
+    assert report["summary"]["next_unblock"]["boundary_id"] == "canva_oauth_and_openapi_tool_execution"
     assert report["summary"]["commands_executed"] == 0
     assert "canva_oauth_and_openapi_tool_execution" in {
         boundary["id"]
@@ -66,6 +67,8 @@ def test_default_registry_dry_run_uses_unblock_queue_order() -> None:
         "hosted_agent_runtime_credentials",
     ]
     assert [boundary["plan_rank"] for boundary in report["boundaries"]] == [1, 2, 3, 4, 5]
+    assert report["summary"]["next_unblock"]["plan_rank"] == 1
+    assert report["summary"]["next_unblock"]["env_names"] == ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"]
     assert [command["boundary_id"] for command in report["commands"][:4]] == [
         "canva_oauth_and_openapi_tool_execution",
         "canva_oauth_and_openapi_tool_execution",
@@ -129,6 +132,7 @@ def test_ready_only_filters_default_registry_to_runnable_boundaries() -> None:
     assert report["summary"]["selected_boundaries"] == 1
     assert report["summary"]["ready_boundaries"] == 1
     assert report["summary"]["blocked_boundaries"] == 0
+    assert report["summary"]["next_unblock"] is None
     assert [boundary["id"] for boundary in report["boundaries"]] == ["hosted_agent_runtime_credentials"]
 
 

@@ -158,7 +158,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `7`
+- Evidence paths: `8`
 
 ### prompt_to_artifact_objective_coverage
 
