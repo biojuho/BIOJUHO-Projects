@@ -167,8 +167,16 @@ def format_env_template(handoff: dict[str, Any]) -> str:
         "",
     ]
     emitted: set[str] = set()
-    for item in handoff["boundaries"]:
-        lines.extend([f"# Boundary: {item['title']}", f"# Status: {item['status']}"])
+    boundary_by_id = {item["id"]: item for item in handoff["boundaries"]}
+    for queue_item in handoff["unblock_queue"]:
+        item = boundary_by_id[queue_item["boundary_id"]]
+        lines.extend(
+            [
+                f"# Queue rank: {queue_item['rank']}",
+                f"# Boundary: {item['title']}",
+                f"# Status: {item['status']}",
+            ]
+        )
         for name in item["required_env"]:
             if name not in emitted:
                 lines.append(f"{name}=")

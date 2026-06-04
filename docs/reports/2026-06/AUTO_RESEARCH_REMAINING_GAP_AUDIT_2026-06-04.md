@@ -12,6 +12,10 @@ Latest pushed commits in this slice:
   `--execute`; updated the external credential registry and handoff so
   Telegram unblock now requires real delivery verification plus MCP runtime
   smoke instead of tools/list-only proof.
+- 2026-06-05 credential env-template queue slice: started aligning the
+  redacted env-template sections with the generated unblock queue order so the
+  operator copy/edit path follows Canva, GitHub token, Telegram, OTLP, and
+  hosted runtime priority instead of registry order.
 - 2026-06-05 credential unblock queue slice: added a generated
   `unblock_queue` to the redacted external credential handoff and a Markdown
   `Prioritized Unblock Queue` so operators can address Canva OAuth/OpenAPI,
@@ -262,6 +266,9 @@ Latest pushed commits in this slice:
   for `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`; current dry-run remains
   `blocked_missing_required_env`, and live delivery is not claimed complete
   until the operator supplies credentials and runs the `--execute` command.
+- Credential env-template queue order: adopted ranked env-template sections so
+  the operator's secret-entry file follows the same unblock priority as JSON
+  and Markdown evidence.
 
 ## Remaining Gaps
 
@@ -308,6 +315,18 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 ## Verification
 
+- Credential env-template queue verification:
+  - `EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.env.example` now emits
+    `# Queue rank: 1` through `# Queue rank: 5`
+  - env order is Canva, GitHub token, Telegram, OTLP collector, then hosted
+    runtime/tracing
+  - handoff tests passed `7/7`
+  - focused credential/completion suite passed `34/34`
+  - pre-push pytest bundle passed `129/129`
+  - completion audit reports `30` criteria with
+    `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_CREDENTIAL_ENV_TEMPLATE_QUEUE_2026-06-05.md`
 - Credential unblock queue verification:
   - `EXTERNAL_CREDENTIAL_HANDOFF_2026-06-05.json` now includes
     `unblock_queue`
