@@ -182,7 +182,7 @@ GOOGLE_API_KEY=your_google_key
 OPENAI_API_KEY=your_openai_key
 NOTION_API_TOKEN=your_notion_token
 TELEGRAM_BOT_TOKEN=your_telegram_token
-DATABASE_URL=postgresql://user:pass@host/db  # For production
+GETDAYTRENDS_DATABASE_URL=postgresql://user:pass@host/db  # Optional production Postgres
 ```
 
 ---

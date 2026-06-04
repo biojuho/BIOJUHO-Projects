@@ -25,17 +25,30 @@ import pytest_asyncio
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = PROJECT_ROOT.parents[1]
 TMP_ROOT = WORKSPACE_ROOT / ".smoke-tmp" / "getdaytrends-tests"
+DATABASE_ENV_KEYS = (
+    "DATABASE_URL",
+    "GETDAYTRENDS_DATABASE_URL",
+    "DATABASE_URL_GETDAYTRENDS",
+    "GETDAYTRENDS_ALLOW_SHARED_DATABASE_URL",
+)
 
 # ── Path priority ───────────────────────────────────────────────────────────
 
 
 def pytest_configure(config):
     pkg_root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+    workspace_root = os.path.normpath(str(WORKSPACE_ROOT))
+    packages_root = os.path.normpath(str(WORKSPACE_ROOT / "packages"))
     notebooklm_src = os.path.normpath(os.path.join(pkg_root, "..", "notebooklm-automation", "src"))
     # Ensure getdaytrends package root takes priority for bare 'core', 'models' etc.
     while pkg_root in sys.path:
         sys.path.remove(pkg_root)
     sys.path.insert(0, pkg_root)
+    for extra_path in (packages_root, workspace_root):
+        if os.path.isdir(extra_path):
+            while extra_path in sys.path:
+                sys.path.remove(extra_path)
+            sys.path.insert(1, extra_path)
     if os.path.isdir(notebooklm_src):
         while notebooklm_src in sys.path:
             sys.path.remove(notebooklm_src)
@@ -98,13 +111,16 @@ def tmp_path():
 
 @pytest.fixture(autouse=True)
 def isolate_database_url():
-    """Keep workspace DATABASE_URL from leaking into SQLite-focused tests."""
-    original = os.environ.pop("DATABASE_URL", None)
+    """Keep workspace database URLs from leaking into SQLite-focused tests."""
+    original = {key: os.environ.pop(key, None) for key in DATABASE_ENV_KEYS}
     try:
         yield
     finally:
-        if original is not None:
-            os.environ["DATABASE_URL"] = original
+        for key, value in original.items():
+            if value is not None:
+                os.environ[key] = value
+            else:
+                os.environ.pop(key, None)
 
 
 @pytest.fixture
@@ -139,13 +155,14 @@ def _reset_pg_pool():
     import db_layer.connection as _dbconn
 
     _dbconn._PG_POOL = None
-    old_url = os.environ.pop("DATABASE_URL", None)
+    old_urls = {key: os.environ.pop(key, None) for key in DATABASE_ENV_KEYS}
     yield
     _dbconn._PG_POOL = None
-    if old_url is not None:
-        os.environ["DATABASE_URL"] = old_url
-    else:
-        os.environ.pop("DATABASE_URL", None)
+    for key, value in old_urls.items():
+        if value is not None:
+            os.environ[key] = value
+        else:
+            os.environ.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
@@ -201,7 +218,7 @@ async def memory_db():
     import db_layer.connection as _dbconn
 
     _dbconn._PG_POOL = None
-    old_url = os.environ.pop("DATABASE_URL", None)
+    old_urls = {key: os.environ.pop(key, None) for key in DATABASE_ENV_KEYS}
 
     from db import get_connection, init_db
 
@@ -210,9 +227,11 @@ async def memory_db():
     yield db
     await db.close()
 
-    # Restore DATABASE_URL if it was set
-    if old_url is not None:
-        os.environ["DATABASE_URL"] = old_url
+    for key, value in old_urls.items():
+        if value is not None:
+            os.environ[key] = value
+        else:
+            os.environ.pop(key, None)
 
 
 # ── Trend / Batch factory functions ─────────────────────────────────────────

@@ -1,6 +1,8 @@
 """config.py 테스트: 환경변수 로드, 검증, 국가 코드 매핑."""
 
+import os
 import unittest
+from unittest.mock import patch
 
 # 프로젝트 루트를 path에 추가
 from config import COUNTRY_MAP, AppConfig
@@ -65,6 +67,41 @@ class TestAppConfigDefaults(unittest.TestCase):
         self.assertEqual(self.config.get_quality_threshold("threads_posts"), 65)
         self.assertEqual(self.config.get_quality_threshold("long_posts"), 70)
         self.assertEqual(self.config.get_quality_threshold("blog_posts"), 75)
+
+
+class TestAppConfigDatabaseUrlEnv(unittest.TestCase):
+    """GetDayTrends must not consume unrelated workspace database secrets."""
+
+    def test_shared_database_url_ignored_by_default(self):
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://global.invalid/db"}, clear=True):
+            self.assertEqual(AppConfig.from_env().database_url, "")
+
+    def test_project_database_url_is_used(self):
+        with patch.dict(
+            os.environ,
+            {"GETDAYTRENDS_DATABASE_URL": "postgresql://getdaytrends.example/db"},
+            clear=True,
+        ):
+            self.assertEqual(AppConfig.from_env().database_url, "postgresql://getdaytrends.example/db")
+
+    def test_legacy_project_database_url_alias_is_used(self):
+        with patch.dict(
+            os.environ,
+            {"DATABASE_URL_GETDAYTRENDS": "postgres://getdaytrends.example/db"},
+            clear=True,
+        ):
+            self.assertEqual(AppConfig.from_env().database_url, "postgres://getdaytrends.example/db")
+
+    def test_shared_database_url_requires_explicit_opt_in(self):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://global.example/db",
+                "GETDAYTRENDS_ALLOW_SHARED_DATABASE_URL": "true",
+            },
+            clear=True,
+        ):
+            self.assertEqual(AppConfig.from_env().database_url, "postgresql://global.example/db")
 
 
 class TestAppConfigValidation(unittest.TestCase):
