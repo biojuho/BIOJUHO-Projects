@@ -13,6 +13,8 @@
             "AI Projects Dashboard",
             "CREDENTIAL BOUNDARIES",
             "Next Unblock",
+            "Live plan",
+            "Rank 1 / 2 commands / blocked missing required env",
             "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
             "Next command",
             "cd mcp/canva-mcp && npm run doctor:canva",

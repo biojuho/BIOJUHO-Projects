@@ -263,6 +263,8 @@ describe('Dashboard App', () => {
     expect(screen.getByText('5 ACTION')).toBeInTheDocument()
     expect(screen.getAllByText('Canva OAuth and OpenAPI tool execution').length).toBeGreaterThan(0)
     expect(screen.getByText('Next Unblock')).toBeInTheDocument()
+    expect(screen.getByText('Live plan')).toBeInTheDocument()
+    expect(screen.getByText('Rank 1 / 2 commands / blocked missing required env')).toBeInTheDocument()
     expect(screen.getByText('CANVA_CLIENT_ID, CANVA_CLIENT_SECRET')).toBeInTheDocument()
     expect(screen.getByText('Next command')).toBeInTheDocument()
     expect(screen.getByText('cd mcp/canva-mcp && npm run doctor:canva')).toBeInTheDocument()

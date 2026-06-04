@@ -92,6 +92,15 @@ export function QualityPanel({ data, error, onRetry }) {
   const credentialNextUnblock = credentialBoundaries?.next_unblock || null
   const credentialNextEnvNames = (credentialNextUnblock?.env_names || []).join(', ')
   const credentialNextCommand = credentialNextUnblock?.first_verification_command || ''
+  const credentialNextLiveStatus = String(credentialNextUnblock?.live_status || '').replaceAll('_', ' ')
+  const credentialNextCommandCount = credentialNextUnblock?.verification_command_count ?? 0
+  const credentialNextPlanSummary = credentialNextUnblock
+    ? [
+        credentialNextUnblock.plan_rank ? `Rank ${credentialNextUnblock.plan_rank}` : '',
+        credentialNextCommandCount ? `${credentialNextCommandCount} ${credentialNextCommandCount === 1 ? 'command' : 'commands'}` : '',
+        credentialNextLiveStatus,
+      ].filter(Boolean).join(' / ')
+    : ''
   const credentialLabel = credentialBoundaries?.available
     ? credentialMissingEnv > 0
       ? 'ACTION'
@@ -220,6 +229,14 @@ export function QualityPanel({ data, error, onRetry }) {
                   {credentialNextUnblock.title || credentialNextUnblock.boundary_id}
                 </span>
               </div>
+              {credentialNextPlanSummary && (
+                <div className="metric-row">
+                  <span className="metric-label">Live plan</span>
+                  <span className="metric-value" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {credentialNextPlanSummary}
+                  </span>
+                </div>
+              )}
               <div className="metric-row">
                 <span className="metric-label">Next env</span>
                 <span className="metric-value" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

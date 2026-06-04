@@ -361,6 +361,8 @@ class TestQualityOverview:
         next_unblock = boundaries["next_unblock"]
         assert next_unblock["boundary_id"] == "canva_oauth_and_openapi_tool_execution"
         assert next_unblock["title"] == "Canva OAuth and OpenAPI tool execution"
+        assert next_unblock["plan_rank"] == 1
+        assert next_unblock["live_status"] == "blocked_missing_required_env"
         assert next_unblock["env_names"] == ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"]
         assert next_unblock["verification_command_count"] == 2
         assert next_unblock["first_verification_command"] == "cd mcp/canva-mcp && npm run doctor:canva"
