@@ -103,7 +103,7 @@ jobs:
 
       - name: Run security contract tests
         run: |
-          uv run --with pytest python -m pytest tests/test_security_gate_contracts.py tests/test_vibe_tools_validation.py -q --tb=short
+          uv run --with pytest --with sqlalchemy --with pydantic python -m pytest tests/test_security_gate_contracts.py tests/test_vibe_tools_validation.py -q --tb=short
 
   # ── Workspace Smoke Test ──
   smoke-test:
@@ -142,6 +142,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
