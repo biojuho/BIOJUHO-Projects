@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -231,12 +231,16 @@ def _validate_evidence(value: Any, field: str, workspace_root: Path, errors: lis
                 workspace_root,
                 errors,
             )
+        json_freshness = item.get("json_freshness")
+        if json_freshness is not None:
+            _validate_json_freshness(json_freshness, f"{prefix}.json_freshness", content, path_text, errors)
         normalized.append(
             {
                 "path": path_text,
                 "term_count": len(required_terms),
                 "git_freshness": bool(git_freshness),
                 "protected_path_freshness": bool(protected_path_freshness),
+                "json_freshness": bool(json_freshness),
             }
         )
     return normalized
@@ -336,6 +340,79 @@ def _validate_protected_path_freshness(value: Any, field: str, workspace_root: P
         if len(stale_paths) > 10:
             joined += f", ... ({len(stale_paths)} total)"
         errors.append(f"{field} has protected paths changed after proof commit: {joined}")
+
+
+def _validate_json_freshness(value: Any, field: str, content: str, path_text: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{field} must be an object when present")
+        return
+
+    timestamp_field = _require_string(value.get("timestamp_field"), f"{field}.timestamp_field", errors)
+    max_age_hours = value.get("max_age_hours")
+    if isinstance(max_age_hours, bool) or not isinstance(max_age_hours, (int, float)) or max_age_hours <= 0:
+        errors.append(f"{field}.max_age_hours must be a positive number")
+        max_age_hours = 0
+    status_field = value.get("status_field")
+    required_status = value.get("required_status")
+    if status_field is not None:
+        status_field = _require_string(status_field, f"{field}.status_field", errors)
+        required_status = _require_string(required_status, f"{field}.required_status", errors)
+
+    if not content:
+        return
+
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError as exc:
+        errors.append(f"{field} could not parse JSON from {path_text}: {exc.msg}")
+        return
+    if not isinstance(payload, dict):
+        errors.append(f"{field} JSON root must be an object: {path_text}")
+        return
+
+    if status_field:
+        found, status_value = _get_json_field(payload, status_field)
+        if not found:
+            errors.append(f"{field}.{status_field} missing from {path_text}")
+        elif status_value != required_status:
+            errors.append(f"{field}.{status_field} must be {required_status!r}: {status_value!r}")
+
+    if not timestamp_field or not max_age_hours:
+        return
+    found, timestamp_value = _get_json_field(payload, timestamp_field)
+    if not found:
+        errors.append(f"{field}.{timestamp_field} missing from {path_text}")
+        return
+    if not isinstance(timestamp_value, str) or not timestamp_value.strip():
+        errors.append(f"{field}.{timestamp_field} must be a non-empty ISO timestamp")
+        return
+    try:
+        parsed = datetime.fromisoformat(timestamp_value.replace("Z", "+00:00"))
+    except ValueError:
+        errors.append(f"{field}.{timestamp_field} must be parseable as ISO datetime")
+        return
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        errors.append(f"{field}.{timestamp_field} must include a timezone offset")
+        return
+
+    now = datetime.now(UTC)
+    age = now - parsed.astimezone(UTC)
+    if age < -timedelta(minutes=5):
+        errors.append(f"{field}.{timestamp_field} is more than 5 minutes in the future")
+    elif age > timedelta(hours=float(max_age_hours)):
+        errors.append(
+            f"{field}.{timestamp_field} is stale: "
+            f"age_hours={age.total_seconds() / 3600:.2f}, max_age_hours={float(max_age_hours):.2f}"
+        )
+
+
+def _get_json_field(payload: dict[str, Any], field_path: str) -> tuple[bool, Any]:
+    current: Any = payload
+    for part in field_path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return False, None
+        current = current[part]
+    return True, current
 
 
 def _run_git(args: list[str], workspace_root: Path) -> subprocess.CompletedProcess[str]:

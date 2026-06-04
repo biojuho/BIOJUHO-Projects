@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T03:48:00+09:00",
+  "generated_at": "2026-06-05T02:35:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -161,6 +161,55 @@
             "pydantic/pydantic-ai",
             "humanlayer/humanlayer",
             "Failed: `0`"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_source_snapshot_recency_gate",
+      "requirement": "The GitHub source freshness snapshot has a recent generated_at timestamp and passing status so old external-source evidence cannot satisfy the launch cycle indefinitely.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/autoresearch_completion_audit.py",
+          "must_contain": [
+            "json_freshness",
+            "max_age_hours",
+            "is stale"
+          ]
+        },
+        {
+          "path": "ops/references/autoresearch_completion_contract.json",
+          "must_contain": [
+            "github_source_snapshot_recency_gate",
+            "json_freshness",
+            "generated_at",
+            "72"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"generated_at\": \"2026-06-04T17:24:23",
+            "\"source_count\": 17",
+            "\"failed\": 0"
+          ],
+          "json_freshness": {
+            "timestamp_field": "generated_at",
+            "max_age_hours": 72,
+            "status_field": "status",
+            "required_status": "pass"
+          }
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SOURCE_SNAPSHOT_FRESHNESS_GATE_2026-06-05.md",
+          "must_contain": [
+            "json_freshness",
+            "72 hours",
+            "86 passed",
+            "global_objective_complete=false"
           ]
         }
       ]

@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +43,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "current_tip_freshness_gate",
         "direct_browser_qa_freshness_gate",
         "github_source_freshness_snapshot",
+        "github_source_snapshot_recency_gate",
         "agent_workflow_gate_matrix_reuse",
     }
 
@@ -239,6 +241,61 @@ def test_protected_path_freshness_allows_unrelated_changes(monkeypatch, tmp_path
     assert summary["valid"] is True
     assert summary["cycle_evidence_ready"] is True
     assert summary["errors"] == []
+
+
+def test_json_freshness_accepts_recent_passing_snapshot(tmp_path: Path) -> None:
+    audit = load_module()
+    evidence_file = tmp_path / "source.json"
+    evidence_file.write_text(
+        json.dumps({"status": "pass", "generated_at": datetime.now(UTC).isoformat()}),
+        encoding="utf-8",
+    )
+    payload = _freshness_payload(
+        {
+            "path": "source.json",
+            "must_contain": ["pass"],
+            "json_freshness": {
+                "timestamp_field": "generated_at",
+                "max_age_hours": 72,
+                "status_field": "status",
+                "required_status": "pass",
+            },
+        }
+    )
+
+    summary = audit.audit_contract(payload, workspace_root=tmp_path)
+
+    assert summary["valid"] is True
+    assert summary["cycle_evidence_ready"] is True
+    assert summary["criteria"][0]["evidence"][0]["json_freshness"] is True
+
+
+def test_json_freshness_rejects_stale_snapshot(tmp_path: Path) -> None:
+    audit = load_module()
+    evidence_file = tmp_path / "source.json"
+    stale_timestamp = (datetime.now(UTC) - timedelta(hours=5)).isoformat()
+    evidence_file.write_text(
+        json.dumps({"status": "pass", "generated_at": stale_timestamp}),
+        encoding="utf-8",
+    )
+    payload = _freshness_payload(
+        {
+            "path": "source.json",
+            "must_contain": ["pass"],
+            "json_freshness": {
+                "timestamp_field": "generated_at",
+                "max_age_hours": 1,
+                "status_field": "status",
+                "required_status": "pass",
+            },
+        }
+    )
+
+    summary = audit.audit_contract(payload, workspace_root=tmp_path)
+
+    assert summary["valid"] is False
+    assert summary["cycle_evidence_ready"] is False
+    assert any("is stale" in error for error in summary["errors"])
 
 
 def _freshness_payload(extra_evidence: dict) -> dict:

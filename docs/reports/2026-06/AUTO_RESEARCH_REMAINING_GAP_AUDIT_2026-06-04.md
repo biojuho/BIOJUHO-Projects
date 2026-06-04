@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 source snapshot recency gate slice: added generic
+  `json_freshness` validation to the completion audit so old GitHub
+  external-source snapshots stop satisfying launch readiness after the
+  configured freshness window.
 - 2026-06-05 GitHub source expansion slice: expanded the modernization radar
   from `13` to `17` live GitHub repositories by adding OpenAI Agents SDK,
   Browser Use, Pydantic AI, and HumanLayer as source-backed comparison
@@ -150,9 +154,9 @@ These are intentionally not promoted to live runtime changes in this cycle:
 
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-mcp-runtime-smoke-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
-  - `13` sources
+  - `17` sources
   - `adopted=1`
-  - `partially_adopted=12`
+  - `partially_adopted=16`
   - `watch=0`
 - GitHub source freshness verification:
   - `ops\scripts\github_source_freshness.py` checks the live GitHub REST API
@@ -160,10 +164,10 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - live snapshot passed `17/17` sources with `0` failures
   - newest upstream `pushed_at` in the snapshot was `2026-06-04T17:23:41Z`
   - focused source-freshness tests passed `4/4`
-  - pre-push-equivalent suite passed `78/78`
-  - installed pre-push dry-run ran `78/78` plus runtime probes and completion
-    audit, then reported `Everything up-to-date`
-  - completion audit now reports `17` criteria with
+  - pre-push-equivalent suite passed `84/84`
+  - installed pre-push dry-run ran `84/84` plus runtime probes and completion
+    audit
+  - completion audit now reports `18` criteria with
     `cycle_evidence_ready=true` and `global_objective_complete=false`
   - generated evidence:
     `docs\reports\2026-06\AUTO_RESEARCH_GITHUB_SOURCE_FRESHNESS_2026-06-05.md`,
@@ -172,6 +176,25 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.md`
+- Source snapshot recency gate verification:
+  - `ops\scripts\autoresearch_completion_audit.py` now validates optional
+    `json_freshness` evidence by parsing JSON evidence, checking
+    `status=pass`, validating the configured timestamp field, rejecting future
+    timestamps, and rejecting snapshots older than the configured window
+  - `github_source_snapshot_recency_gate` requires
+    `docs\reports\2026-06\GITHUB_SOURCE_FRESHNESS_2026-06-05.json`
+    to keep `status=pass` and `generated_at` within `72` hours
+  - focused audit tests passed `10/10`
+  - pre-push-equivalent suite passed `86/86`
+  - runtime probes passed for dev-server MCP runtime, MCP service runtime,
+    single-workflow dry-run, side-effect safety skip, and matrix dry-run
+  - completion audit now reports `19` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_SOURCE_SNAPSHOT_FRESHNESS_GATE_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_SOURCE_SNAPSHOT_FRESHNESS_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_SOURCE_SNAPSHOT_FRESHNESS_2026-06-05.md`
 - Browser QA freshness gate verification:
   - `ops\scripts\autoresearch_completion_audit.py` now validates
     `protected_path_freshness` evidence for launch-critical browser/app paths
