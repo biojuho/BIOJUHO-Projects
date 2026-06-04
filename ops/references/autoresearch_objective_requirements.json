@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T06:34:13+09:00",
+  "generated_at": "2026-06-05T07:05:00+09:00",
   "objective_original": "제품출시할꺼야 제품완성해줘\n\n오토리서치 카파시 개념 스킬로 만들어줘 깃허브 관련 프로젝트도 모두 찾아서 보완하고 절대 명시적 멈추라는 말하기 전까지 끊임없이 A/B테스트 후 더 좋으면 채택하고 커밋푸시하는 자가개선하는 스킬을 만들어줘.\n\n코덱스 컴퓨터유즈 기능 사용해서 직접 앱 하나씩 클릭하며 오류 잡고 최적화해. 내가 생각하지 못한 부분까지 알아서 퀄리티 높여. 외부 조사 a/b 조사도하고 최신 코드 반영해서 내가 멈추라고 하기전까지 무한반복해 $오토리서치 오토리서치 스킬도 적극적으로 활용해.",
   "completion_contract": "ops/references/autoresearch_completion_contract.json",
   "policy": {
@@ -23,6 +23,7 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist",
         "pre_push_regression_gate"
       ],
       "evidence": [
@@ -64,6 +65,15 @@
           "must_contain": [
             "Dashboard Live Unblock Queue",
             "run_workspace_smoke.py",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Operator Checklist",
+            "1 ready / 4 blocked",
+            "browser smoke pass",
             "global_objective_complete=false"
           ]
         },
@@ -205,7 +215,8 @@
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
-        "dashboard_credential_live_unblock_queue"
+        "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist"
       ],
       "evidence": [
         {
@@ -264,6 +275,15 @@
           ]
         },
         {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "must_contain": [
+            "Status: `pass`",
+            "expected=`15/15`",
+            "CREDENTIAL OPERATOR CHECKLIST",
+            "Required env: missing"
+          ]
+        },
+        {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
           "must_contain": [
             "Targets: `4`",
@@ -304,6 +324,7 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist",
         "browser_smoke_expected_text_evidence",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
@@ -373,6 +394,14 @@
             "blocked=4",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "must_contain": [
+            "operator clarity",
+            "no credential values",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -394,7 +423,8 @@
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
-        "dashboard_credential_live_unblock_queue"
+        "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist"
       ],
       "evidence": [
         {
@@ -451,6 +481,14 @@
             "Ready to execute: `1`",
             "Blocked: `4`",
             "Secret values: not emitted"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Operator Checklist",
+            "Canva OAuth and OpenAPI tool execution",
+            "does not claim credential-gated commands complete"
           ]
         }
       ],

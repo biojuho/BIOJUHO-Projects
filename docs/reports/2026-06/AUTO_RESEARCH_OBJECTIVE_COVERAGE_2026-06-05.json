@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-04T21:53:47.057369+00:00",
+  "generated_at": "2026-06-04T22:03:06.010119+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -27,6 +27,7 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist",
         "pre_push_regression_gate"
       ],
       "evidence": [
@@ -49,6 +50,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_UNBLOCK_QUEUE_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "term_count": 4
         },
         {
           "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_DASHBOARD_CREDENTIAL_BOUNDARIES_TIP_2026-06-05.json",
@@ -160,7 +165,8 @@
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
-        "dashboard_credential_live_unblock_queue"
+        "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist"
       ],
       "evidence": [
         {
@@ -190,6 +196,10 @@
         {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_CREDENTIAL_BOUNDARIES_2026-06-05.md",
           "term_count": 2
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "term_count": 4
         },
         {
           "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_ALL_FRONTENDS_EXPECTED_TEXT_MARKDOWN_2026-06-05.md",
@@ -223,6 +233,7 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist",
         "browser_smoke_expected_text_evidence",
         "completion_audit_summary_drift_guard",
         "objective_coverage_artifact_drift_guard"
@@ -259,6 +270,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "beyond_user_expected_quality",
@@ -287,7 +302,8 @@
         "dashboard_next_credential_unblock",
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
-        "dashboard_credential_live_unblock_queue"
+        "dashboard_credential_live_unblock_queue",
+        "dashboard_credential_operator_checklist"
       ],
       "evidence": [
         {
@@ -317,6 +333,10 @@
         {
           "path": "docs/reports/2026-06/EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "external_credential_and_runtime_boundaries",

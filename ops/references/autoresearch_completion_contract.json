@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T06:42:25+09:00",
+  "generated_at": "2026-06-05T07:05:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -821,6 +821,79 @@
             "Dashboard Live Unblock Queue",
             "Queue #2",
             "GitHub source-refresh token boundary",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dashboard_credential_operator_checklist",
+      "requirement": "The dashboard Quality panel surfaces the standalone external credential operator checklist readiness from redacted checklist artifacts.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/dashboard/routers/gdt.py",
+          "must_contain": [
+            "CREDENTIAL_OPERATOR_CHECKLIST_PATTERNS",
+            "_credential_operator_checklist_overview",
+            "operator_checklist",
+            "ready_to_execute",
+            "blocked_reason"
+          ]
+        },
+        {
+          "path": "apps/dashboard/src/components/QualityPanel.jsx",
+          "must_contain": [
+            "Credential Operator Checklist",
+            "Checklist progress",
+            "ready /",
+            "Checklist next",
+            "firstBlockedStep.label"
+          ]
+        },
+        {
+          "path": "tests/test_dashboard_api.py",
+          "must_contain": [
+            "operator_checklist",
+            "ready_to_execute",
+            "first_verification_command",
+            "Required env"
+          ]
+        },
+        {
+          "path": "apps/dashboard/src/App.test.jsx",
+          "must_contain": [
+            "Credential Operator Checklist",
+            "1 ready / 4 blocked",
+            "Required env: missing",
+            "Hosted agent runtime and tracing credentials"
+          ]
+        },
+        {
+          "path": "ops/references/dev_server_browser_checks.json",
+          "must_contain": [
+            "CREDENTIAL OPERATOR CHECKLIST",
+            "1 ready / 4 blocked",
+            "Checklist next",
+            "Required env: missing"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "must_contain": [
+            "Status: `pass`",
+            "expected=`15/15`",
+            "CREDENTIAL OPERATOR CHECKLIST",
+            "Required env: missing"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_OPERATOR_CHECKLIST_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Operator Checklist",
+            "1 ready / 4 blocked",
+            "browser smoke pass",
             "global_objective_complete=false"
           ]
         }

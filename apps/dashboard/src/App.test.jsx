@@ -132,6 +132,39 @@ const RESPONSES = {
           missing_required_env_count: 0,
         },
       ],
+      operator_checklist: {
+        available: true,
+        status: 'operator_action_required',
+        summary: {
+          item_count: 5,
+          ready_to_execute: 1,
+          blocked: 4,
+          next_boundary_id: 'canva_oauth_and_openapi_tool_execution',
+        },
+        items: [
+          {
+            rank: 1,
+            boundary_id: 'canva_oauth_and_openapi_tool_execution',
+            title: 'Canva OAuth and OpenAPI tool execution',
+            live_status: 'blocked_missing_required_env',
+            ready_to_execute: false,
+            checklist: [
+              { id: 'required_env', label: 'Required env', state: 'missing', detail: 'CANVA_CLIENT_ID, CANVA_CLIENT_SECRET' },
+              { id: 'operator_approval', label: 'Operator approval', state: 'blocked', detail: 'login required' },
+            ],
+          },
+          {
+            rank: 5,
+            boundary_id: 'hosted_agent_runtime_credentials',
+            title: 'Hosted agent runtime and tracing credentials',
+            live_status: 'ready_for_execution',
+            ready_to_execute: true,
+            checklist: [
+              { id: 'required_env', label: 'Required env', state: 'ready', detail: 'none required' },
+            ],
+          },
+        ],
+      },
       boundaries: [
         {
           id: 'canva_oauth_and_openapi_tool_execution',
@@ -294,6 +327,13 @@ describe('Dashboard App', () => {
     expect(screen.getByText('#2')).toBeInTheDocument()
     expect(screen.getAllByText('GitHub source-refresh token boundary').length).toBeGreaterThan(0)
     expect(screen.getByText('blocked missing optional env')).toBeInTheDocument()
+    expect(screen.getByText('Credential Operator Checklist')).toBeInTheDocument()
+    expect(screen.getByText('1 ready / 4 blocked')).toBeInTheDocument()
+    expect(screen.getByText('Checklist next')).toBeInTheDocument()
+    expect(screen.getByText('Checklist item')).toBeInTheDocument()
+    expect(screen.getByText('Required env: missing')).toBeInTheDocument()
+    expect(screen.getByText('Hosted agent runtime and tracing credentials')).toBeInTheDocument()
+    expect(screen.getAllByText('ready').length).toBeGreaterThan(0)
     expect(screen.getByText('external auth blocked')).toBeInTheDocument()
   })
 })

@@ -15,6 +15,7 @@ SMOKE_REPORT_PATTERNS = ("var/smoke/*.json", "var/workspace-smoke*.json")
 DEV_SERVER_STATUS_PATTERNS = ("var/dev-server-status*.json",)
 CREDENTIAL_BOUNDARY_PATTERNS = ("docs/reports/2026-06/EXTERNAL_CREDENTIAL_BOUNDARY_AUDIT_*.json",)
 CREDENTIAL_LIVE_VERIFY_PATTERNS = ("docs/reports/2026-06/EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_*.json",)
+CREDENTIAL_OPERATOR_CHECKLIST_PATTERNS = ("docs/reports/2026-06/EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_*.json",)
 
 
 def _relative_workspace_path(path: Path) -> str:
@@ -78,6 +79,10 @@ def _latest_credential_boundary_report() -> Path | None:
 
 def _latest_credential_live_verify_report() -> Path | None:
     return _latest_workspace_file(CREDENTIAL_LIVE_VERIFY_PATTERNS)
+
+
+def _latest_credential_operator_checklist_report() -> Path | None:
+    return _latest_workspace_file(CREDENTIAL_OPERATOR_CHECKLIST_PATTERNS)
 
 
 def _smoke_results(payload: Any) -> list[dict[str, Any]]:
@@ -228,6 +233,7 @@ def _empty_credential_boundaries(status: str, path: str | None = None) -> dict[s
         "boundaries": [],
         "next_unblock": None,
         "live_plan": [],
+        "operator_checklist": _empty_credential_operator_checklist(status),
     }
 
 
@@ -364,6 +370,89 @@ def _credential_live_plan_overview() -> list[dict[str, Any]]:
     return plan_items[:6]
 
 
+def _empty_credential_operator_checklist(status: str, path: str | None = None) -> dict[str, Any]:
+    return {
+        "available": False,
+        "status": status,
+        "path": path,
+        "generated_at": None,
+        "summary": {
+            "item_count": 0,
+            "ready_to_execute": 0,
+            "blocked": 0,
+            "next_boundary_id": None,
+        },
+        "items": [],
+    }
+
+
+def _credential_operator_checklist_overview() -> dict[str, Any]:
+    report_path = _latest_credential_operator_checklist_report()
+    if report_path is None:
+        return _empty_credential_operator_checklist("missing")
+
+    try:
+        payload = _json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return _empty_credential_operator_checklist("corrupt", _relative_workspace_path(report_path))
+
+    if not isinstance(payload, dict):
+        return _empty_credential_operator_checklist("corrupt", _relative_workspace_path(report_path))
+
+    raw_summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    raw_items = payload.get("items") if isinstance(payload.get("items"), list) else []
+    items: list[dict[str, Any]] = []
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            continue
+        raw_steps = raw_item.get("checklist") if isinstance(raw_item.get("checklist"), list) else []
+        raw_commands = raw_item.get("verify_after_unblock") if isinstance(raw_item.get("verify_after_unblock"), list) else []
+        raw_env_names = raw_item.get("env_names") if isinstance(raw_item.get("env_names"), list) else []
+        try:
+            rank = int(raw_item.get("rank", 0) or 0)
+        except (TypeError, ValueError):
+            rank = 0
+        steps = [
+            {
+                "id": str(step.get("id", "")),
+                "label": str(step.get("label", "")),
+                "state": str(step.get("state", "")),
+                "detail": str(step.get("detail", "")),
+            }
+            for step in raw_steps
+            if isinstance(step, dict)
+        ]
+        items.append(
+            {
+                "rank": rank,
+                "boundary_id": str(raw_item.get("boundary_id", "")),
+                "title": str(raw_item.get("title", raw_item.get("boundary_id", ""))),
+                "live_status": str(raw_item.get("live_status", "")),
+                "ready_to_execute": bool(raw_item.get("ready_to_execute", False)),
+                "blocked_reason": str(raw_item.get("blocked_reason", "")),
+                "env_names": [str(item) for item in raw_env_names][:6],
+                "checklist": steps[:4],
+                "verification_command_count": len(raw_commands),
+                "first_verification_command": str(raw_commands[0]) if raw_commands else "",
+            }
+        )
+
+    items.sort(key=lambda item: (item["rank"] == 0, item["rank"], item["title"].lower()))
+    return {
+        "available": True,
+        "status": str(payload.get("status", "unknown")),
+        "path": _relative_workspace_path(report_path),
+        "generated_at": payload.get("generated_at"),
+        "summary": {
+            "item_count": int(raw_summary.get("item_count", len(items)) or 0),
+            "ready_to_execute": int(raw_summary.get("ready_to_execute", 0) or 0),
+            "blocked": int(raw_summary.get("blocked", 0) or 0),
+            "next_boundary_id": raw_summary.get("next_boundary_id"),
+        },
+        "items": items[:6],
+    }
+
+
 def _credential_boundary_overview() -> dict[str, Any]:
     report_path = _latest_credential_boundary_report()
     if report_path is None:
@@ -417,6 +506,7 @@ def _credential_boundary_overview() -> dict[str, Any]:
         "boundaries": boundaries[:6],
         "next_unblock": _credential_next_unblock_overview(),
         "live_plan": _credential_live_plan_overview(),
+        "operator_checklist": _credential_operator_checklist_overview(),
     }
 
 

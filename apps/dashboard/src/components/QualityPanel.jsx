@@ -88,6 +88,11 @@ export function QualityPanel({ data, error, onRetry }) {
   const credentialBoundaries = data.credential_boundaries || null
   const credentialBoundaryItems = credentialBoundaries?.boundaries || []
   const credentialLivePlanItems = credentialBoundaries?.live_plan || []
+  const credentialOperatorChecklist = credentialBoundaries?.operator_checklist || null
+  const credentialChecklistSummary = credentialOperatorChecklist?.summary || {}
+  const credentialChecklistItems = credentialOperatorChecklist?.items || []
+  const credentialChecklistReady = credentialChecklistSummary.ready_to_execute ?? 0
+  const credentialChecklistBlocked = credentialChecklistSummary.blocked ?? 0
   const credentialVisibleQueueItems = credentialLivePlanItems.slice(0, 2)
   const credentialBoundaryTotal = credentialBoundaries?.boundary_count ?? 0
   const credentialMissingEnv = credentialBoundaries?.missing_required_env_count ?? 0
@@ -280,6 +285,49 @@ export function QualityPanel({ data, error, onRetry }) {
                   ))}
                 </tbody>
               </table>
+            </>
+          )}
+          {credentialOperatorChecklist?.available && (
+            <>
+              <h3 style={{ fontSize: '0.7rem', color: '#f59e0b', marginBottom: '0.4rem', marginTop: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Credential Operator Checklist
+              </h3>
+              <div className="metric-row">
+                <span className="metric-label">Checklist progress</span>
+                <span className="metric-value">
+                  {credentialChecklistReady} ready / {credentialChecklistBlocked} blocked
+                </span>
+              </div>
+              {credentialChecklistSummary.next_boundary_id && (
+                <div className="metric-row">
+                  <span className="metric-label">Checklist next</span>
+                  <span className="metric-value" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {credentialChecklistSummary.next_boundary_id}
+                  </span>
+                </div>
+              )}
+              {credentialChecklistItems.length > 0 && (
+                <table className="data-table" style={{ marginTop: '0.45rem', marginBottom: '0.8rem' }}>
+                  <thead><tr><th>Rank</th><th>Checklist item</th><th>State</th></tr></thead>
+                  <tbody>
+                    {credentialChecklistItems.slice(0, 5).map((item, i) => {
+                      const firstBlockedStep = (item.checklist || []).find(step => ['missing', 'blocked'].includes(step.state))
+                      const stateText = item.ready_to_execute
+                        ? 'ready'
+                        : firstBlockedStep
+                          ? `${firstBlockedStep.label}: ${firstBlockedStep.state}`
+                          : String(item.live_status || '').replaceAll('_', ' ')
+                      return (
+                        <tr key={`${item.boundary_id}-${i}`}>
+                          <td>{item.rank ? `#${item.rank}` : '-'}</td>
+                          <td>{item.title || item.boundary_id}</td>
+                          <td>{stateText}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
             </>
           )}
           {credentialBoundaryItems.length > 0 && (

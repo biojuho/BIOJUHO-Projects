@@ -366,6 +366,55 @@ class TestQualityOverview:
             ),
             encoding="utf-8",
         )
+        checklist_report = report_dir / "EXTERNAL_CREDENTIAL_OPERATOR_CHECKLIST_2026-06-05.json"
+        checklist_report.write_text(
+            json.dumps(
+                {
+                    "status": "operator_action_required",
+                    "generated_at": "2026-06-05T00:00:00+00:00",
+                    "summary": {
+                        "item_count": 2,
+                        "ready_to_execute": 1,
+                        "blocked": 1,
+                        "next_boundary_id": "canva_oauth_and_openapi_tool_execution",
+                        "secret_values_emitted": False,
+                    },
+                    "items": [
+                        {
+                            "rank": 1,
+                            "boundary_id": "canva_oauth_and_openapi_tool_execution",
+                            "title": "Canva OAuth and OpenAPI tool execution",
+                            "live_status": "blocked_missing_required_env",
+                            "ready_to_execute": False,
+                            "blocked_reason": "missing required env: CANVA_CLIENT_ID, CANVA_CLIENT_SECRET",
+                            "env_names": ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"],
+                            "verify_after_unblock": [
+                                "cd mcp/canva-mcp && npm run doctor:canva",
+                                "cd mcp/canva-mcp && npm run auth:canva",
+                            ],
+                            "checklist": [
+                                {"id": "required_env", "label": "Required env", "state": "missing", "detail": "CANVA_CLIENT_ID, CANVA_CLIENT_SECRET"},
+                                {"id": "operator_approval", "label": "Operator approval", "state": "blocked", "detail": "login required"},
+                            ],
+                        },
+                        {
+                            "rank": 2,
+                            "boundary_id": "hosted_agent_runtime_credentials",
+                            "title": "Hosted agent runtime and tracing credentials",
+                            "live_status": "ready_for_execution",
+                            "ready_to_execute": True,
+                            "blocked_reason": "",
+                            "env_names": ["OPENAI_API_KEY"],
+                            "verify_after_unblock": ["python ops/scripts/autoresearch_completion_audit.py"],
+                            "checklist": [
+                                {"id": "required_env", "label": "Required env", "state": "ready", "detail": "none required"},
+                            ],
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
         monkeypatch.setattr(gdt_router, "WORKSPACE", tmp_path)
 
         data = client.get("/api/quality_overview").json()
@@ -393,6 +442,18 @@ class TestQualityOverview:
         assert boundaries["live_plan"][1]["plan_rank"] == 2
         assert boundaries["live_plan"][1]["live_status"] == "blocked_missing_optional_env"
         assert boundaries["live_plan"][1]["verification_command_count"] == 1
+        checklist = boundaries["operator_checklist"]
+        assert checklist["available"] is True
+        assert checklist["status"] == "operator_action_required"
+        assert checklist["summary"]["ready_to_execute"] == 1
+        assert checklist["summary"]["blocked"] == 1
+        assert checklist["summary"]["next_boundary_id"] == "canva_oauth_and_openapi_tool_execution"
+        assert checklist["items"][0]["boundary_id"] == "canva_oauth_and_openapi_tool_execution"
+        assert checklist["items"][0]["checklist"][0]["label"] == "Required env"
+        assert checklist["items"][0]["checklist"][0]["state"] == "missing"
+        assert checklist["items"][0]["verification_command_count"] == 2
+        assert checklist["items"][0]["first_verification_command"] == "cd mcp/canva-mcp && npm run doctor:canva"
+        assert checklist["items"][1]["ready_to_execute"] is True
 
 
 # ── /api/overview structure ────────────────────────────────────────

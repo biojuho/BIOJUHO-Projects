@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `37`
-- Status counts: `blocked=1, covered=36`
+- Criteria: `38`
+- Status counts: `blocked=1, covered=37`
 
 ## Missing Required
 
@@ -95,6 +95,12 @@
 - Evidence paths: `6`
 
 ### dashboard_credential_live_unblock_queue
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `7`
+
+### dashboard_credential_operator_checklist
 
 - Required: `true`
 - Status: `covered`
