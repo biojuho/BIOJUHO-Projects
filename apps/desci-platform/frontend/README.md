@@ -68,5 +68,5 @@ npm run check:bundle
 With the API and frontend running, add a browser-level smoke check:
 
 ```bash
-python ../scripts/browser_smoke.py --frontend http://127.0.0.1:5173
+python ../scripts/browser_smoke.py --frontend http://127.0.0.1:5173 --json-out ../../../var/desci-browser-smoke.json
 ```

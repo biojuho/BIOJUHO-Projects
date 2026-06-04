@@ -92,7 +92,7 @@ With backend and frontend running:
 ```bash
 cd apps/desci-platform
 python scripts/product_smoke.py --api http://127.0.0.1:8000 --frontend http://127.0.0.1:5173
-python scripts/browser_smoke.py --frontend http://127.0.0.1:5173
+python scripts/browser_smoke.py --frontend http://127.0.0.1:5173 --json-out ../../var/desci-browser-smoke.json
 ```
 
 `product_smoke.py` validates `/health`, `/ready`, and `/launch`. The `/launch`

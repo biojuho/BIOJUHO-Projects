@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "tool": "desci_browser_smoke",
+  "generated_at": "2026-06-04T13:53:19.009177Z",
+  "frontend": "http://127.0.0.1:5175",
+  "timeout_seconds": 30.0,
+  "playwright_available": true,
+  "status": "pass",
+  "summary": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "blocked": 0,
+    "planned": 7
+  },
+  "checks": [
+    {
+      "name": "home",
+      "path": "/",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/"
+    },
+    {
+      "name": "pricing",
+      "path": "/pricing",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/pricing"
+    },
+    {
+      "name": "explore",
+      "path": "/explore",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/explore"
+    },
+    {
+      "name": "login",
+      "path": "/login",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/login"
+    },
+    {
+      "name": "not-found",
+      "path": "/does-not-exist",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/does-not-exist"
+    },
+    {
+      "name": "dashboard-redirect",
+      "path": "/dashboard",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/login"
+    },
+    {
+      "name": "upload-redirect",
+      "path": "/upload",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/login"
+    }
+  ],
+  "failures": []
+}

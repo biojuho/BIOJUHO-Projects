@@ -8,8 +8,11 @@ and catches broken routes, runtime exceptions, and console errors.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 
 try:
     from playwright.sync_api import Error as PlaywrightError
@@ -27,6 +30,26 @@ class RouteCheck:
     path: str
     expected_text: tuple[str, ...]
     expected_url_path: str | None = None
+
+
+@dataclass(frozen=True)
+class RouteCheckResult:
+    name: str
+    path: str
+    ok: bool
+    failures: tuple[str, ...]
+    status_code: int | None
+    final_path: str | None
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "path": self.path,
+            "ok": self.ok,
+            "failures": list(self.failures),
+            "status_code": self.status_code,
+            "final_path": self.final_path,
+        }
 
 
 PUBLIC_CHECKS = (
@@ -61,10 +84,12 @@ def _path_from_url(url: str) -> str:
     return path.rstrip("/") or "/"
 
 
-def _run_check(page, base_url: str, check: RouteCheck, timeout_ms: int) -> list[str]:
+def _run_check(page, base_url: str, check: RouteCheck, timeout_ms: int) -> RouteCheckResult:
     failures: list[str] = []
     console_errors: list[str] = []
     page_errors: list[str] = []
+    status_code: int | None = None
+    final_path: str | None = None
 
     def collect_console(message) -> None:
         if message.type == "error":
@@ -78,9 +103,9 @@ def _run_check(page, base_url: str, check: RouteCheck, timeout_ms: int) -> list[
 
     try:
         response = page.goto(_url(base_url, check.path), wait_until="networkidle", timeout=timeout_ms)
-        status = response.status if response is not None else 0
-        if status >= 400:
-            failures.append(f"{check.name}: HTTP status {status}")
+        status_code = response.status if response is not None else 0
+        if status_code >= 400:
+            failures.append(f"{check.name}: HTTP status {status_code}")
 
         body_text = page.locator("body").inner_text(timeout=timeout_ms)
         if len(body_text.strip()) < 20:
@@ -94,11 +119,13 @@ def _run_check(page, base_url: str, check: RouteCheck, timeout_ms: int) -> list[
             failures.append(f"{check.name}: rendered the error boundary")
 
         if check.expected_url_path:
-            actual_path = _path_from_url(page.url)
-            if actual_path != check.expected_url_path:
+            final_path = _path_from_url(page.url)
+            if final_path != check.expected_url_path:
                 failures.append(
-                    f"{check.name}: expected final path {check.expected_url_path}, got {actual_path}",
+                    f"{check.name}: expected final path {check.expected_url_path}, got {final_path}",
                 )
+        elif page.url:
+            final_path = _path_from_url(page.url)
     except PlaywrightTimeoutError as exc:
         failures.append(f"{check.name}: timed out ({exc})")
     except PlaywrightError as exc:
@@ -114,38 +141,110 @@ def _run_check(page, base_url: str, check: RouteCheck, timeout_ms: int) -> list[
         for message in page_errors[:5]:
             failures.append(f"{check.name}: page error: {message[:300]}")
 
-    return failures
+    return RouteCheckResult(
+        name=check.name,
+        path=check.path,
+        ok=not failures,
+        failures=tuple(failures),
+        status_code=status_code,
+        final_path=final_path,
+    )
 
 
-def main() -> int:
+def build_report(
+    frontend: str,
+    checks: list[RouteCheck],
+    results: list[RouteCheckResult],
+    timeout_seconds: float,
+    *,
+    playwright_available: bool,
+    blocker: str | None = None,
+) -> dict[str, object]:
+    failures = [failure for result in results for failure in result.failures]
+    if blocker:
+        failures.insert(0, blocker)
+
+    failed = sum(1 for result in results if not result.ok)
+    blocked = 1 if blocker else 0
+    status = "blocked" if blocker else ("fail" if failed else "pass")
+    return {
+        "schema_version": 1,
+        "tool": "desci_browser_smoke",
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "frontend": frontend,
+        "timeout_seconds": timeout_seconds,
+        "playwright_available": playwright_available,
+        "status": status,
+        "summary": {
+            "total": len(results),
+            "passed": sum(1 for result in results if result.ok),
+            "failed": failed,
+            "blocked": blocked,
+            "planned": len(checks),
+        },
+        "checks": [result.to_payload() for result in results],
+        "failures": failures,
+    }
+
+
+def write_json_report(path: Path, report: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def main(argv: list[str] | None = None) -> int:
     _configure_utf8_output()
 
     parser = argparse.ArgumentParser(description="Run browser smoke checks against the DSCI frontend.")
     parser.add_argument("--frontend", default="http://127.0.0.1:5173", help="Frontend base URL")
     parser.add_argument("--timeout", type=float, default=20.0, help="Timeout per route in seconds")
     parser.add_argument("--skip-protected", action="store_true", help="Skip protected route redirect checks")
-    args = parser.parse_args()
-
-    if sync_playwright is None:
-        print("[browser-smoke] Playwright is not installed. Install with: python -m pip install playwright")
-        return 2
+    parser.add_argument("--json-out", type=Path, help="Write machine-readable smoke evidence to this path")
+    args = parser.parse_args(argv)
 
     checks = list(PUBLIC_CHECKS)
     if not args.skip_protected:
         checks.extend(PROTECTED_REDIRECT_CHECKS)
 
+    if sync_playwright is None:
+        blocker = "Playwright is not installed. Install with: python -m pip install playwright"
+        if args.json_out:
+            report = build_report(
+                args.frontend,
+                checks,
+                [],
+                args.timeout,
+                playwright_available=False,
+                blocker=blocker,
+            )
+            write_json_report(args.json_out, report)
+        print(f"[browser-smoke] {blocker}")
+        return 2
+
     failures: list[str] = []
+    results: list[RouteCheckResult] = []
     timeout_ms = int(args.timeout * 1000)
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page()
         for check in checks:
-            check_failures = _run_check(page, args.frontend, check, timeout_ms)
-            status = "FAIL" if check_failures else "OK"
+            result = _run_check(page, args.frontend, check, timeout_ms)
+            results.append(result)
+            status = "FAIL" if result.failures else "OK"
             print(f"[browser-smoke] {check.name:<18} {status} {check.path}")
-            failures.extend(check_failures)
+            failures.extend(result.failures)
         browser.close()
+
+    if args.json_out:
+        report = build_report(
+            args.frontend,
+            checks,
+            results,
+            args.timeout,
+            playwright_available=True,
+        )
+        write_json_report(args.json_out, report)
 
     if failures:
         print("\n[browser-smoke] FAILED")
