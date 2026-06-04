@@ -115,6 +115,11 @@ standalone JSONL event stream for external trace consumers. The JSONL file is
 also refreshed after each completed check and contains one
 `workspace_smoke.mcp_check` event per completed MCP check. Non-MCP scopes write
 an empty trace file when the flag is supplied.
+Use `--mcp-otel-out <path>` when the same MCP evidence needs an
+OpenTelemetry Protocol file-exporter style JSONL object. The file is opt-in,
+refreshed after each completed check, contains one `resourceSpans` object with
+MCP check spans, and stays local/offline unless an operator ships it to a
+collector.
 
 Top-level fields:
 
@@ -138,6 +143,8 @@ Each `results` entry contains:
 - `stdout_tail`
 - `stderr_tail`
 - `elapsed_seconds`
+- `started_at_unix_nano`
+- `ended_at_unix_nano`
 
 Each `--mcp-trace-out` JSONL event contains:
 
@@ -154,3 +161,16 @@ Each `--mcp-trace-out` JSONL event contains:
 - `elapsed_seconds`
 - `stdout_tail`
 - `stderr_tail`
+
+Each `--mcp-otel-out` JSONL line follows the OpenTelemetry Protocol file
+exporter shape:
+
+- top-level `resourceSpans`
+- resource attributes including `service.name=workspace-smoke`
+- `scopeSpans[].scope.name=workspace_smoke.mcp`
+- one span per completed MCP check, named `workspace_smoke.mcp_check <check>`
+- span `traceId`, `spanId`, `parentSpanId`, `kind`, `startTimeUnixNano`,
+  `endTimeUnixNano`, `attributes`, and `status`
+- smoke attributes under the `workspace_smoke.*` namespace, including scope,
+  check name, working directory, command, command kind, return code, pass/fail
+  state, and elapsed seconds

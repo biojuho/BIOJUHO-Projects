@@ -140,6 +140,8 @@ class Result:
     stdout_tail: str
     stderr_tail: str
     elapsed_seconds: float = 0.0
+    started_at_unix_nano: int = 0
+    ended_at_unix_nano: int = 0
 
 
 def format_command(command: Sequence[str]) -> str:
@@ -529,6 +531,15 @@ def elapsed_since(started: float) -> float:
     return round(max(time.perf_counter() - started, 0.0), 3)
 
 
+def result_timing(started: float, started_wall_ns: int) -> dict[str, float | int]:
+    ended_wall_ns = time.time_ns()
+    return {
+        "elapsed_seconds": elapsed_since(started),
+        "started_at_unix_nano": started_wall_ns,
+        "ended_at_unix_nano": max(ended_wall_ns, started_wall_ns),
+    }
+
+
 def terminate_process_tree(pid: int) -> None:
     if os.name == "nt":
         subprocess.run(
@@ -578,6 +589,7 @@ def run_command_with_timeout(
 
 def run_one(root: Path, item: Check) -> Result:
     started = time.perf_counter()
+    started_wall_ns = time.time_ns()
     cwd = (root / item.cwd).resolve()
     if not cwd.exists():
         return Result(
@@ -589,7 +601,7 @@ def run_one(root: Path, item: Check) -> Result:
             False,
             "",
             "working directory missing",
-            elapsed_seconds=elapsed_since(started),
+            **result_timing(started, started_wall_ns),
         )
 
     env = os.environ.copy()
@@ -636,7 +648,7 @@ def run_one(root: Path, item: Check) -> Result:
             False,
             tail_lines(stdout_text),
             f"Command timed out after 600s\n{tail_lines(stderr_text)}",
-            elapsed_seconds=elapsed_since(started),
+            **result_timing(started, started_wall_ns),
         )
     except OSError as exc:
         return Result(
@@ -648,7 +660,7 @@ def run_one(root: Path, item: Check) -> Result:
             False,
             "",
             str(exc),
-            elapsed_seconds=elapsed_since(started),
+            **result_timing(started, started_wall_ns),
         )
 
     return Result(
@@ -660,7 +672,7 @@ def run_one(root: Path, item: Check) -> Result:
         ok=proc.returncode == 0,
         stdout_tail=tail_lines(stdout_text),
         stderr_tail=tail_lines(stderr_text),
-        elapsed_seconds=elapsed_since(started),
+        **result_timing(started, started_wall_ns),
     )
 
 
@@ -788,6 +800,98 @@ def build_mcp_trace_events(results: Sequence[Result]) -> list[dict[str, object]]
     ]
 
 
+def make_otel_trace_id(seed: str) -> str:
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+
+
+def make_otel_span_id(trace_id: str, result: Result, index: int) -> str:
+    seed = f"{trace_id}|{index}|{result.scope}|{result.name}|{result.command}"
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+
+
+def otel_value(value: object) -> dict[str, object]:
+    if isinstance(value, bool):
+        return {"boolValue": value}
+    if isinstance(value, int):
+        return {"intValue": str(value)}
+    if isinstance(value, float):
+        return {"doubleValue": value}
+    return {"stringValue": str(value)}
+
+
+def otel_attributes(values: dict[str, object]) -> list[dict[str, object]]:
+    return [{"key": key, "value": otel_value(value)} for key, value in values.items() if value is not None]
+
+
+def otel_span_bounds(result: Result, export_time_ns: int) -> tuple[int, int]:
+    end_ns = result.ended_at_unix_nano or export_time_ns
+    duration_ns = max(int(result.elapsed_seconds * 1_000_000_000), 0)
+    start_ns = result.started_at_unix_nano or max(end_ns - duration_ns, 0)
+    return start_ns, max(end_ns, start_ns)
+
+
+def build_mcp_otel_export(results: Sequence[Result], *, trace_id: str | None = None) -> dict[str, object] | None:
+    mcp_results = [result for result in results if result.scope == "mcp"]
+    if not mcp_results:
+        return None
+
+    export_time_ns = time.time_ns()
+    trace_id = trace_id or make_otel_trace_id(f"workspace-smoke-mcp|{export_time_ns}|{len(mcp_results)}")
+    spans = []
+    for index, result in enumerate(mcp_results):
+        start_ns, end_ns = otel_span_bounds(result, export_time_ns)
+        status: dict[str, object] = {"code": 1 if result.ok else 2}
+        if not result.ok:
+            status["message"] = result.stderr_tail or result.stdout_tail or f"returncode {result.returncode}"
+        spans.append(
+            {
+                "traceId": trace_id,
+                "spanId": make_otel_span_id(trace_id, result, index),
+                "parentSpanId": "",
+                "name": f"workspace_smoke.mcp_check {result.name}",
+                "kind": 1,
+                "startTimeUnixNano": str(start_ns),
+                "endTimeUnixNano": str(end_ns),
+                "attributes": otel_attributes(
+                    {
+                        "workspace_smoke.scope": result.scope,
+                        "workspace_smoke.check.name": result.name,
+                        "workspace_smoke.cwd": result.cwd,
+                        "workspace_smoke.command": result.command,
+                        "workspace_smoke.command.kind": classify_command_kind(result.command),
+                        "workspace_smoke.returncode": result.returncode,
+                        "workspace_smoke.ok": result.ok,
+                        "workspace_smoke.elapsed_seconds": result.elapsed_seconds,
+                    }
+                ),
+                "status": status,
+            }
+        )
+
+    return {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": otel_attributes(
+                        {
+                            "service.name": "workspace-smoke",
+                            "service.namespace": "biojuho-projects",
+                            "workspace_smoke.exporter": "run_workspace_smoke.py",
+                            "workspace_smoke.signal": "mcp",
+                        }
+                    )
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": "workspace_smoke.mcp", "version": "1"},
+                        "spans": spans,
+                    }
+                ],
+            }
+        ]
+    }
+
+
 def build_json_report(
     results: Sequence[Result],
     *,
@@ -844,6 +948,15 @@ def write_mcp_trace_export(out_path: Path, results: Sequence[Result]) -> None:
     tmp_path.replace(out_path)
 
 
+def write_mcp_otel_export(out_path: Path, results: Sequence[Result], *, trace_id: str | None = None) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = out_path.with_name(f".{out_path.name}.tmp")
+    export = build_mcp_otel_export(results, trace_id=trace_id)
+    content = "" if export is None else f"{json.dumps(export, ensure_ascii=False)}\n"
+    tmp_path.write_text(content, encoding="utf-8")
+    tmp_path.replace(out_path)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run deterministic smoke checks across workspace projects.")
     # Windows stdout UTF-8 설정
@@ -861,6 +974,7 @@ def main() -> int:
     )
     parser.add_argument("--json-out", help="Optional JSON output file")
     parser.add_argument("--mcp-trace-out", help="Optional JSONL output file for MCP trace events")
+    parser.add_argument("--mcp-otel-out", help="Optional OTLP JSONL output file for MCP check spans")
     args = parser.parse_args()
 
     root = find_workspace_root()
@@ -892,8 +1006,11 @@ def main() -> int:
     run_started = time.perf_counter()
     out_path = resolve_json_out_path(args.json_out) if args.json_out else None
     mcp_trace_out_path = resolve_json_out_path(args.mcp_trace_out) if args.mcp_trace_out else None
+    mcp_otel_out_path = resolve_json_out_path(args.mcp_otel_out) if args.mcp_otel_out else None
+    mcp_otel_trace_id = make_otel_trace_id(f"{root}|{time.time_ns()}") if mcp_otel_out_path else None
     json_write_failed = False
     mcp_trace_write_failed = False
+    mcp_otel_write_failed = False
     for check in checks:
         print(f"[smoke] running: {check.name}")
         results.append(run_check(root, check))
@@ -915,6 +1032,12 @@ def main() -> int:
             except OSError as exc:
                 print(f"[smoke] warning: could not write MCP trace export to {mcp_trace_out_path}: {exc}")
                 mcp_trace_write_failed = True
+        if mcp_otel_out_path and not mcp_otel_write_failed:
+            try:
+                write_mcp_otel_export(mcp_otel_out_path, results, trace_id=mcp_otel_trace_id)
+            except OSError as exc:
+                print(f"[smoke] warning: could not write MCP OTLP export to {mcp_otel_out_path}: {exc}")
+                mcp_otel_write_failed = True
 
     passed = sum(1 for result in results if result.ok)
     failed = len(results) - passed
@@ -928,6 +1051,8 @@ def main() -> int:
         print(f"[smoke] json written: {out_path}")
     if mcp_trace_out_path and not mcp_trace_write_failed:
         print(f"[smoke] mcp trace written: {mcp_trace_out_path}")
+    if mcp_otel_out_path and not mcp_otel_write_failed:
+        print(f"[smoke] mcp otlp written: {mcp_otel_out_path}")
 
     return 0 if failed == 0 else 1
 

@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=5, watch=0
-- Generated at: `2026-06-04T21:09:03+09:00`
+- Generated at: `2026-06-04T21:14:41+09:00`
 
 ## Search Context
 
@@ -52,6 +52,7 @@
   - real environment tests instead of mocks for agent tool paths
   - schema-level trace metrics for MCP smoke evidence
   - standalone JSONL trace exports for external consumers
+  - OpenTelemetry Protocol file-exporter shaped local span export
   - OpenTelemetry-backed observability and performance signals
   - JSON and HTML evidence suitable for CI
 - Local evidence:
@@ -62,8 +63,9 @@
   - `apps/dashboard/routers/gdt.py`
   - `apps/dashboard/src/components/QualityPanel.jsx`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_METRICS_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_OTEL_FILE_EXPORT_2026-06-04.md`
   - `docs/QUALITY_GATE.md`
-- Gap: Schema-level MCP smoke trace metrics, dashboard surfacing, and standalone JSONL trace export are adopted; OpenTelemetry spans remain manual or scheduled until a local collector contract exists.
+- Gap: Schema-level MCP smoke trace metrics, dashboard surfacing, standalone JSONL trace export, and local OTLP file-exporter shaped span export are adopted; live OpenTelemetry SDK or collector shipping remains manual or scheduled.
 
 ### evalstate/fast-agent
 

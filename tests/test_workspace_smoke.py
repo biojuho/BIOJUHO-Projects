@@ -197,6 +197,48 @@ def test_build_mcp_trace_events_exports_jsonl_ready_rows() -> None:
     assert events[0]["stderr_tail"] == "failed"
 
 
+def test_build_mcp_otel_export_uses_file_exporter_shape() -> None:
+    smoke = load_smoke_module()
+    results = [
+        smoke.Result("workspace", "workspace regression tests", ".", "python -m pytest tests", 0, True, "ok", ""),
+        smoke.Result(
+            "mcp",
+            "DailyNews unit tests",
+            "automation/DailyNews",
+            "python -m pytest tests/unit",
+            1,
+            False,
+            "",
+            "failed",
+            elapsed_seconds=2.5,
+            started_at_unix_nano=1000,
+            ended_at_unix_nano=3000,
+        ),
+    ]
+
+    export = smoke.build_mcp_otel_export(results, trace_id="1" * 32)
+
+    assert export is not None
+    resource_span = export["resourceSpans"][0]
+    resource_attrs = {item["key"]: next(iter(item["value"].values())) for item in resource_span["resource"]["attributes"]}
+    assert resource_attrs["service.name"] == "workspace-smoke"
+    assert resource_attrs["workspace_smoke.signal"] == "mcp"
+    scope_span = resource_span["scopeSpans"][0]
+    assert scope_span["scope"] == {"name": "workspace_smoke.mcp", "version": "1"}
+    span = scope_span["spans"][0]
+    attrs = {item["key"]: next(iter(item["value"].values())) for item in span["attributes"]}
+    assert span["traceId"] == "1" * 32
+    assert len(span["spanId"]) == 16
+    assert span["name"] == "workspace_smoke.mcp_check DailyNews unit tests"
+    assert span["kind"] == 1
+    assert span["startTimeUnixNano"] == "1000"
+    assert span["endTimeUnixNano"] == "3000"
+    assert span["status"] == {"code": 2, "message": "failed"}
+    assert attrs["workspace_smoke.command.kind"] == "pytest"
+    assert attrs["workspace_smoke.ok"] is False
+    assert attrs["workspace_smoke.returncode"] == "1"
+
+
 def test_resolve_python_executable_prefers_workspace_venv_over_current_interpreter(tmp_path: Path, monkeypatch) -> None:
     smoke = load_smoke_module()
     venv_python_rel = "Scripts/python.exe" if os.name == "nt" else "bin/python"
@@ -505,6 +547,8 @@ def test_main_writes_json_report_for_selected_scope(tmp_path, monkeypatch) -> No
             "stdout_tail": "ok",
             "stderr_tail": "",
             "elapsed_seconds": 0.0,
+            "started_at_unix_nano": 0,
+            "ended_at_unix_nano": 0,
         }
     ]
 
@@ -603,10 +647,45 @@ def test_write_mcp_trace_export_replaces_existing_jsonl(tmp_path) -> None:
     assert (tmp_path / ".mcp-trace.jsonl.tmp").exists() is False
 
 
+def test_write_mcp_otel_export_replaces_existing_jsonl(tmp_path) -> None:
+    smoke = load_smoke_module()
+    otel_path = tmp_path / "mcp-otel.jsonl"
+    otel_path.write_text("stale\n", encoding="utf-8")
+    results = [
+        smoke.Result("workspace", "fake check", ".", "python -V", 0, True, "ok", ""),
+        smoke.Result("mcp", "DailyNews unit tests", "automation/DailyNews", "python -m pytest tests/unit", 0, True, "ok", ""),
+    ]
+
+    smoke.write_mcp_otel_export(otel_path, results, trace_id="2" * 32)
+
+    lines = otel_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    payload = json.loads(lines[0])
+    span = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    assert span["traceId"] == "2" * 32
+    assert span["status"] == {"code": 1}
+    assert (tmp_path / ".mcp-otel.jsonl.tmp").exists() is False
+
+    smoke.write_mcp_otel_export(otel_path, [results[0]], trace_id="2" * 32)
+    assert otel_path.read_text(encoding="utf-8") == ""
+
+
 def test_main_writes_mcp_trace_export_for_selected_scope(tmp_path, monkeypatch) -> None:
     smoke = load_smoke_module()
     fake_check = smoke.Check("mcp", "fake mcp check", ".", ["python", "-V"])
-    fake_result = smoke.Result("mcp", "fake mcp check", ".", "python -V", 0, True, "ok", "")
+    fake_result = smoke.Result(
+        "mcp",
+        "fake mcp check",
+        ".",
+        "python -V",
+        0,
+        True,
+        "ok",
+        "",
+        elapsed_seconds=0.25,
+        started_at_unix_nano=1000,
+        ended_at_unix_nano=2000,
+    )
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(smoke, "resolve_python_executable", lambda root: "python")
@@ -626,6 +705,8 @@ def test_main_writes_mcp_trace_export_for_selected_scope(tmp_path, monkeypatch) 
             "smoke.json",
             "--mcp-trace-out",
             "mcp-trace.jsonl",
+            "--mcp-otel-out",
+            "mcp-otel.jsonl",
         ],
     )
 
@@ -634,6 +715,12 @@ def test_main_writes_mcp_trace_export_for_selected_scope(tmp_path, monkeypatch) 
     assert exit_code == 0
     report = json.loads((tmp_path / "smoke.json").read_text(encoding="utf-8"))
     events = (tmp_path / "mcp-trace.jsonl").read_text(encoding="utf-8").splitlines()
+    otel_lines = (tmp_path / "mcp-otel.jsonl").read_text(encoding="utf-8").splitlines()
     assert report["mcp_trace"]["enabled"] is True
     assert len(events) == 1
     assert json.loads(events[0])["name"] == "fake mcp check"
+    assert len(otel_lines) == 1
+    otel_payload = json.loads(otel_lines[0])
+    assert otel_payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["name"] == (
+        "workspace_smoke.mcp_check fake mcp check"
+    )
