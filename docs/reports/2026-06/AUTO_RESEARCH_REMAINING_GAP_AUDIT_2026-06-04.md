@@ -134,6 +134,36 @@ These are intentionally not promoted to live runtime changes in this cycle:
   - `adopted=1`
   - `partially_adopted=12`
   - `watch=0`
+- GitHub source freshness verification:
+  - `ops\scripts\github_source_freshness.py` checks the live GitHub REST API
+    metadata for every repo in `ops\references\github_modernization_sources.json`
+  - live snapshot passed `13/13` sources with `0` failures
+  - newest upstream `pushed_at` in the snapshot was `2026-06-04T16:56:53Z`
+  - focused source-freshness tests passed `4/4`
+  - pre-push-equivalent suite passed `78/78`
+  - completion audit now reports `17` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_GITHUB_SOURCE_FRESHNESS_2026-06-05.md`,
+    `docs\reports\2026-06\GITHUB_SOURCE_FRESHNESS_2026-06-05.json`
+    `docs\reports\2026-06\GITHUB_SOURCE_FRESHNESS_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_GITHUB_SOURCE_FRESHNESS_2026-06-05.md`
+- Current-tip matrix-reuse all-scope launch gate:
+  - current branch tip `77cc93d`
+  - `python ops\scripts\run_workspace_smoke.py --scope all --json-out var\workspace-smoke-all-matrix-reuse-tip-2026-06-05.json --mcp-trace-out var\workspace-smoke-all-matrix-reuse-tip-2026-06-05.trace.jsonl --mcp-otel-out var\workspace-smoke-all-matrix-reuse-tip-2026-06-05.otlp.jsonl`
+  - `25/25 PASS` in `598.448s`
+  - scope summary: workspace `6/6`, desci `7/7`, agriguard `5/5`, MCP
+    `3/3`, getdaytrends `2/2`, CIE `2/2`
+  - MCP trace emitted `3` events and OTLP emitted `1` `resourceSpans` line
+    with `3` spans
+  - durable evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_MATRIX_REUSE_TIP_ALL_SCOPE_SMOKE_2026-06-05.md`,
+    `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_MATRIX_REUSE_TIP_2026-06-05.json`,
+    `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_MATRIX_REUSE_TIP_2026-06-05.trace.jsonl`,
+    and
+    `docs\reports\2026-06\WORKSPACE_SMOKE_ALL_MATRIX_REUSE_TIP_2026-06-05.otlp.jsonl`
 - Agent workflow gate-matrix verification:
   - real matrix command selected first deterministic gates for all `6`
     workflows and returned `passed_workflows=6`, `selected_gates=6`,

@@ -1,0 +1,419 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T17:12:39.809679Z",
+  "status": "complete",
+  "duration_seconds": 598.448,
+  "summary": {
+    "total": 25,
+    "completed": 25,
+    "passed": 25,
+    "failed": 0,
+    "remaining": 0
+  },
+  "scope_summary": {
+    "workspace": {
+      "completed": 6,
+      "passed": 6,
+      "failed": 0,
+      "elapsed_seconds": 84.17
+    },
+    "desci": {
+      "completed": 7,
+      "passed": 7,
+      "failed": 0,
+      "elapsed_seconds": 228.598
+    },
+    "agriguard": {
+      "completed": 5,
+      "passed": 5,
+      "failed": 0,
+      "elapsed_seconds": 108.227
+    },
+    "mcp": {
+      "completed": 3,
+      "passed": 3,
+      "failed": 0,
+      "elapsed_seconds": 65.772
+    },
+    "getdaytrends": {
+      "completed": 2,
+      "passed": 2,
+      "failed": 0,
+      "elapsed_seconds": 81.365
+    },
+    "cie": {
+      "completed": 2,
+      "passed": 2,
+      "failed": 0,
+      "elapsed_seconds": 29.855
+    }
+  },
+  "mcp_trace": {
+    "enabled": true,
+    "completed": 3,
+    "passed": 3,
+    "failed": 0,
+    "elapsed_seconds": 65.772,
+    "checked_units": [
+      ".",
+      "automation\\DailyNews"
+    ],
+    "command_kinds": {
+      "compileall": 2,
+      "pytest": 1
+    },
+    "checks": [
+      {
+        "name": "notebooklm compile",
+        "cwd": ".",
+        "ok": true,
+        "returncode": 0,
+        "elapsed_seconds": 0.554,
+        "command_kind": "compileall"
+      },
+      {
+        "name": "github-mcp compile",
+        "cwd": ".",
+        "ok": true,
+        "returncode": 0,
+        "elapsed_seconds": 0.292,
+        "command_kind": "compileall"
+      },
+      {
+        "name": "DailyNews unit tests",
+        "cwd": "automation\\DailyNews",
+        "ok": true,
+        "returncode": 0,
+        "elapsed_seconds": 64.926,
+        "command_kind": "pytest"
+      }
+    ]
+  },
+  "results": [
+    {
+      "scope": "workspace",
+      "name": "workspace regression tests",
+      "cwd": ".",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-workspace-workspace-regression-tests-d8c774e4\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "..................................                                       [100%]\r\n34 passed in 9.70s\r\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 15.31,
+      "started_at_unix_nano": 1780592561361174000,
+      "ended_at_unix_nano": 1780592576671511800
+    },
+    {
+      "scope": "workspace",
+      "name": "shared package tests",
+      "cwd": ".",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m pytest packages/shared/tests/ -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-workspace-shared-package-tests-cfba4840\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "........................................................................ [ 25%]\r\n........................................................................ [ 50%]\r\n........................................................................ [ 76%]\r\n....................................................................     [100%]\r\n284 passed in 17.40s\r\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 21.899,
+      "started_at_unix_nano": 1780592576685076800,
+      "ended_at_unix_nano": 1780592598584007400
+    },
+    {
+      "scope": "workspace",
+      "name": "dashboard frontend lint",
+      "cwd": "apps\\dashboard",
+      "command": "npm.cmd run lint",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> dashboard@1.0.0 lint\n> eslint .\n\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 18.167,
+      "started_at_unix_nano": 1780592598597554500,
+      "ended_at_unix_nano": 1780592616764238400
+    },
+    {
+      "scope": "workspace",
+      "name": "dashboard frontend tests",
+      "cwd": "apps\\dashboard",
+      "command": "npm.cmd run test",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> dashboard@1.0.0 test\n> vitest run\n\n\n RUN  v4.1.6 D:/AI project.browser-loop/apps/dashboard\n\n\n Test Files  2 passed (2)\n      Tests  8 passed (8)\n   Start at  02:03:45\n   Duration  12.78s (transform 858ms, setup 1.26s, import 1.17s, tests 2.33s, environment 16.42s)\n\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 21.649,
+      "started_at_unix_nano": 1780592616779447300,
+      "ended_at_unix_nano": 1780592638428628800
+    },
+    {
+      "scope": "workspace",
+      "name": "dashboard frontend build",
+      "cwd": "apps\\dashboard",
+      "command": "npm.cmd run build",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> dashboard@1.0.0 build\n> node scripts/build.mjs\n\n\u001b[36mvite v8.0.13 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\n\u001b[2K\rtransforming...✓ 35 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.79 kB │ gzip:  0.54 kB\ndist/assets/index-4E62nmy9.css   17.73 kB │ gzip:  4.31 kB\ndist/assets/charts-Csu_3Sky.js  186.97 kB │ gzip: 65.09 kB\ndist/assets/index-qP8rikOv.js   222.72 kB │ gzip: 68.28 kB\n\n\u001b[32m✓ built in 1.93s\u001b[39m\n",
+      "stderr_tail": "\u001b[33m[lightningcss minify] Unknown at rule: @extend\n563 |  }\n564 |  /* ── Backward-compat alias ── */\n565 |  .refresh-btn { @extend .btn; }\n    |                        ^\n566 |  /* ────────────────────────────────────────────────────────────\n567 |     9. CHARTS\u001b[39m\n",
+      "elapsed_seconds": 5.208,
+      "started_at_unix_nano": 1780592638442479300,
+      "ended_at_unix_nano": 1780592643650426200
+    },
+    {
+      "scope": "workspace",
+      "name": "dashboard bundle budget",
+      "cwd": "apps\\dashboard",
+      "command": "npm.cmd run check:bundle",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> dashboard@1.0.0 check:bundle\n> node scripts/check-bundle-size.mjs\n\n[bundle-check] JS bundle summary (KB):\n- index-qP8rikOv.js: 217.51\n- charts-Csu_3Sky.js: 182.59\n[bundle-check] OK (max chunk <= 450KB, entry <= 400KB)\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 1.937,
+      "started_at_unix_nano": 1780592643666175700,
+      "ended_at_unix_nano": 1780592645603574400
+    },
+    {
+      "scope": "desci",
+      "name": "desci frontend lint",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run lint",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> frontend@0.0.0 lint\n> eslint .\n\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 31.605,
+      "started_at_unix_nano": 1780592645619210900,
+      "ended_at_unix_nano": 1780592677224118600
+    },
+    {
+      "scope": "desci",
+      "name": "desci frontend unit tests",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run test:lts -- --fileParallelism false",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> frontend@0.0.0 test:lts\n> npx -y node@24.15.0 node_modules/vitest/vitest.mjs run --pool=threads --maxWorkers=1 --isolate --fileParallelism false\n\n\n RUN  v4.1.6 D:/AI project.browser-loop/apps/desci-platform/frontend\n\n\n Test Files  17 passed (17)\n      Tests  70 passed (70)\n   Start at  02:04:56\n   Duration  91.26s (transform 1.94s, setup 11.01s, import 8.94s, tests 7.96s, environment 55.27s)\n\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 115.355,
+      "started_at_unix_nano": 1780592677240761500,
+      "ended_at_unix_nano": 1780592792595408300
+    },
+    {
+      "scope": "desci",
+      "name": "desci frontend build",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run build:lts",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "dist/assets/PeerReview-BwJVo0GR.js          6.57 kB │ gzip:  2.32 kB\ndist/assets/Notices-Ct_03FJz.js             6.65 kB │ gzip:  2.33 kB\ndist/assets/MyLab-CXQww8Vu.js               7.19 kB │ gzip:  2.52 kB\ndist/assets/UploadPaper-CKBnF3C0.js         7.51 kB │ gzip:  2.65 kB\ndist/assets/Login-BJPiK_nK.js               7.90 kB │ gzip:  2.60 kB\ndist/assets/PricingPage-BnimUQ_x.js         9.04 kB │ gzip:  3.66 kB\ndist/assets/AILab-Kia1ZB44.js               9.31 kB │ gzip:  3.11 kB\ndist/assets/VCDashboard-y7tptLRE.js        14.14 kB │ gzip:  3.42 kB\ndist/assets/ResearchFeed-BL21l9Wy.js       15.16 kB │ gzip:  6.06 kB\ndist/assets/BioLinker-CUyxsbC4.js          15.92 kB │ gzip:  4.26 kB\ndist/assets/LandingPage-CiJLtjdd.js        18.03 kB │ gzip:  6.15 kB\ndist/assets/Dashboard-RRnNFDg6.js          19.76 kB │ gzip:  5.03 kB\ndist/assets/utils-hXKuYRKL.js              27.26 kB │ gzip:  8.69 kB\ndist/assets/index-DRn0yhRc.js             104.43 kB │ gzip: 33.49 kB\ndist/assets/vendor-firebase-B9RXM-5w.js   112.26 kB │ gzip: 33.25 kB\ndist/assets/vendor-markdown-BIgZs-LJ.js   122.83 kB │ gzip: 37.51 kB\ndist/assets/vendor-motion-BKpHYJ1L.js     125.32 kB │ gzip: 40.85 kB\ndist/assets/vendor-react-BJxeNw-7.js      224.03 kB │ gzip: 71.65 kB\n\n\u001b[32m✓ built in 3.16s\u001b[39m",
+      "stderr_tail": "",
+      "elapsed_seconds": 21.707,
+      "started_at_unix_nano": 1780592792611389400,
+      "ended_at_unix_nano": 1780592814318756900
+    },
+    {
+      "scope": "desci",
+      "name": "desci bundle budget",
+      "cwd": "apps\\desci-platform\\frontend",
+      "command": "npm.cmd run check:bundle",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> frontend@0.0.0 check:bundle\n> node scripts/check-bundle-size.mjs\n\n[bundle-check] JS bundle summary (KB):\n- vendor-react-BJxeNw-7.js: 218.78\n- vendor-motion-BKpHYJ1L.js: 122.39\n- vendor-markdown-BIgZs-LJ.js: 119.96\n- vendor-firebase-B9RXM-5w.js: 109.63\n- index-DRn0yhRc.js: 101.98\n- utils-hXKuYRKL.js: 26.62\n- Dashboard-RRnNFDg6.js: 19.3\n- LandingPage-CiJLtjdd.js: 17.62\n- BioLinker-CUyxsbC4.js: 15.55\n- ResearchFeed-BL21l9Wy.js: 14.81\n[bundle-check] OK (max chunk <= 500KB, entry <= 260KB)\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 1.818,
+      "started_at_unix_nano": 1780592814341649400,
+      "ended_at_unix_nano": 1780592816159790200
+    },
+    {
+      "scope": "desci",
+      "name": "desci contracts compile",
+      "cwd": "apps\\desci-platform\\contracts",
+      "command": "npm.cmd run compile",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> desci-contracts@1.0.0 compile\n> hardhat --build-profile default compile\n\nNo contracts to compile\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 6.699,
+      "started_at_unix_nano": 1780592816176770000,
+      "ended_at_unix_nano": 1780592822875333300
+    },
+    {
+      "scope": "desci",
+      "name": "desci contracts tests",
+      "cwd": "apps\\desci-platform\\contracts",
+      "command": "npm.cmd run test",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "      ✔ Should require delegation before votes are active\n      ✔ Should move delegated voting power on transfers\n      ✔ Should preserve historical voting power snapshots\n\n  ResearchPaperNFT\n    ✔ Should set the right owner\n    ✔ Should mint a paper NFT to recipient\n    ✔ Should only allow owner to mint\n    ✔ Should reject an empty token URI\n    ✔ Should configure a default 5% royalty\n    ✔ Should allow the owner to update default royalty\n    ✔ Should allow token-level royalty overrides\n    ✔ Should reject zero-address initial owner\n\n\n  77 passing (4s)\n\n\n77 passing (77 mocha)\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 18.553,
+      "started_at_unix_nano": 1780592822923914200,
+      "ended_at_unix_nano": 1780592841476807900
+    },
+    {
+      "scope": "desci",
+      "name": "desci backend smoke",
+      "cwd": ".",
+      "command": "uv run --isolated --no-project --with pytest>=8.0 --with pytest-asyncio>=0.23.0 --with-editable \"D:\\AI project.browser-loop\" --with fastapi>=0.115.0,<1.0 --with uvicorn>=0.32.0,<1.0 --with python-dotenv>=1.0.0 --with firebase-admin>=6.1.0,<7.0 --with langchain>=0.3.0,<1.0 --with langchain-openai>=0.3.0,<1.0 --with langchain-google-genai>=2.0.0,<3.0 --with qdrant-client>=1.9.1,<2.0 --with pydantic>=2.0.0,<3.0 --with pydantic-settings>=2.0.0,<3.0 --with structlog>=24.0.0,<26.0 --with aiohttp>=3.10.0,<4.0 --with beautifulsoup4>=4.12.0 --with python-multipart>=0.0.9 --with web3>=7.0.0,<8.0 --with pypdf>=4.0.0,<5.0 --with numpy>=1.26.0,<3.0 --with apscheduler>=3.10.0,<4.0 --with duckduckgo-search>=6.0.0,<8.0 --with youtube-transcript-api>=1.0.0,<2.0 --with httpx>=0.27.0 --with slowapi>=0.1.9,<1.0 --with stripe>=9.0.0,<12.0 --with prometheus_client>=0.21.0 --with redis>=5.0.0,<6.0.0 --with pika>=1.3.0,<2.0.0 python -m pytest apps\\desci-platform\\backend/tests/test_smoke_pipeline.py -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-desci-desci-backend-smoke-8775374a\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "........                                                                 [100%]\r\n============================== warnings summary ===============================\r\nvar\\tmp\\workspace-smoke\\.tool-cache\\uv\\archive-v0\\6NSerz2qtAjugpYG6sPXO\\Lib\\site-packages\\fastapi\\testclient.py:1\r\n  D:\\AI project.browser-loop\\var\\tmp\\workspace-smoke\\.tool-cache\\uv\\archive-v0\\6NSerz2qtAjugpYG6sPXO\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\r\n    from starlette.testclient import TestClient as TestClient  # noqa\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n8 passed, 1 warning in 15.36s\r\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 32.861,
+      "started_at_unix_nano": 1780592841495389800,
+      "ended_at_unix_nano": 1780592874356052500
+    },
+    {
+      "scope": "agriguard",
+      "name": "agriguard frontend lint",
+      "cwd": "apps\\AgriGuard\\frontend",
+      "command": "npm.cmd run lint",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> frontend@0.0.0 lint\n> eslint .\n\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 27.66,
+      "started_at_unix_nano": 1780592874377566700,
+      "ended_at_unix_nano": 1780592902037412300
+    },
+    {
+      "scope": "agriguard",
+      "name": "agriguard frontend build",
+      "cwd": "apps\\AgriGuard\\frontend",
+      "command": "npm.cmd run build:lts",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "dist/assets/ProductDetail-B2H82ZpU.js       13.14 kB │ gzip:  3.98 kB\ndist/assets/vendor-recharts-BXuc2BvY.js     20.28 kB │ gzip:  8.00 kB\ndist/assets/vendor-motion-yn3qnVCR.js       22.60 kB │ gzip:  8.52 kB\ndist/assets/vendor-recharts-BorwBSjz.js     27.84 kB │ gzip:  7.41 kB\ndist/assets/vendor-motion-DmIbmgae.js       30.96 kB │ gzip:  9.34 kB\ndist/assets/vendor-motion-C_ht8vRs.js       31.02 kB │ gzip: 11.54 kB\ndist/assets/vendor-motion-D7EOfwP5.js       32.57 kB │ gzip: 11.20 kB\ndist/assets/index-BS8xe3E8.js               39.79 kB │ gzip: 13.19 kB\ndist/assets/api-C3w3Njgg.js                 41.97 kB │ gzip: 16.28 kB\ndist/assets/vendor-react-core-6dcFL2S9.js   42.32 kB │ gzip: 15.11 kB\ndist/assets/vendor-recharts-BSpKTFJg.js     42.44 kB │ gzip: 14.56 kB\ndist/assets/vendor-recharts-_0ZNUxc9.js     47.49 kB │ gzip: 14.84 kB\ndist/assets/vendor-recharts-PviU74td.js     47.87 kB │ gzip: 14.12 kB\ndist/assets/vendor-recharts-vFNaOwBc.js     57.68 kB │ gzip: 15.21 kB\ndist/assets/vendor-recharts-BiJuW8Bo.js     59.15 kB │ gzip: 14.11 kB\ndist/assets/vendor-recharts-C_q4BWXF.js     61.86 kB │ gzip: 20.12 kB\ndist/assets/QRReader-DMWoAxW2.js           150.37 kB │ gzip: 59.87 kB\ndist/assets/vendor-react-dom-Jjz2nPbJ.js   177.77 kB │ gzip: 55.78 kB\n\n\u001b[32m✓ built in 4.80s\u001b[39m",
+      "stderr_tail": "",
+      "elapsed_seconds": 26.258,
+      "started_at_unix_nano": 1780592902057700100,
+      "ended_at_unix_nano": 1780592928315203200
+    },
+    {
+      "scope": "agriguard",
+      "name": "agriguard contracts compile",
+      "cwd": "apps\\AgriGuard\\contracts",
+      "command": "npm.cmd run compile",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "\n> contracts@1.0.0 compile\n> hardhat compile\n\nNo contracts to compile\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 6.325,
+      "started_at_unix_nano": 1780592928335042300,
+      "ended_at_unix_nano": 1780592934660087400
+    },
+    {
+      "scope": "agriguard",
+      "name": "agriguard contracts tests",
+      "cwd": "apps\\AgriGuard\\contracts",
+      "command": "npm.cmd run test",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "    logEventWithHandler\n      ✔ should log an event with a specific handler address\n      ✔ should reject unauthorized callers\n    batchLogEvents\n      ✔ should log multiple products in one transaction\n      ✔ should emit BatchLogged event with correct count\n      ✔ should emit ProductVerified for each product in the batch\n      ✔ should revert on array length mismatch\n      ✔ should revert on empty batch\n      ✔ should reject unauthorized callers\n    getProduct\n      ✔ should return empty product for unknown ID\n      ✔ should return the latest state after overwrite\n\n\n  26 passing (644ms)\n\n\n26 passing (26 mocha)\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 15.072,
+      "started_at_unix_nano": 1780592934681055900,
+      "ended_at_unix_nano": 1780592949752757400
+    },
+    {
+      "scope": "agriguard",
+      "name": "agriguard backend tests",
+      "cwd": "apps\\AgriGuard\\backend",
+      "command": "uv run --isolated --no-project --with pytest>=8.0 --with pytest-asyncio>=0.23.0 --with-editable \"D:\\AI project.browser-loop\" --with-editable \"D:\\AI project.browser-loop\\apps\\AgriGuard\\backend\" python -m pytest tests -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-agriguard-agriguard-backend-tests-834275ab\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "....................................................                     [100%]\r\n============================== warnings summary ===============================\r\nmain.py:218\r\n  D:\\AI project.browser-loop\\apps\\AgriGuard\\backend\\main.py:218: UserWarning: SECRET_KEY is not set! Using an insecure default. Set SECRET_KEY environment variable for production.\r\n    warnings.warn(\r\n\r\n..\\..\\..\\var\\tmp\\workspace-smoke\\.tool-cache\\uv\\archive-v0\\x49Obmp61Md8JA0YvJ_9a\\Lib\\site-packages\\fastapi\\testclient.py:1\r\n  D:\\AI project.browser-loop\\var\\tmp\\workspace-smoke\\.tool-cache\\uv\\archive-v0\\x49Obmp61Md8JA0YvJ_9a\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\r\n    from starlette.testclient import TestClient as TestClient  # noqa\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n52 passed, 2 warnings in 27.07s\r\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 32.912,
+      "started_at_unix_nano": 1780592949773915000,
+      "ended_at_unix_nano": 1780592982686288100
+    },
+    {
+      "scope": "mcp",
+      "name": "notebooklm compile",
+      "cwd": ".",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) mcp\\notebooklm-mcp/scripts mcp\\notebooklm-mcp/tests",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "elapsed_seconds": 0.554,
+      "started_at_unix_nano": 1780592982699959400,
+      "ended_at_unix_nano": 1780592983254213200
+    },
+    {
+      "scope": "mcp",
+      "name": "github-mcp compile",
+      "cwd": ".",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) mcp\\github-mcp/scripts",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "elapsed_seconds": 0.292,
+      "started_at_unix_nano": 1780592983288029800,
+      "ended_at_unix_nano": 1780592983579932100
+    },
+    {
+      "scope": "mcp",
+      "name": "DailyNews unit tests",
+      "cwd": "automation\\DailyNews",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m pytest tests/unit -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-mcp-dailynews-unit-tests-b36bdd4d\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "........................................................................ [ 33%]\r\n........................................................................ [ 66%]\r\n........................................................................ [ 99%]\r\n..                                                                       [100%]\r\n218 passed in 58.70s\r\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 64.926,
+      "started_at_unix_nano": 1780592983597793100,
+      "ended_at_unix_nano": 1780593048523881500
+    },
+    {
+      "scope": "getdaytrends",
+      "name": "getdaytrends compile",
+      "cwd": ".",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) automation\\getdaytrends",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "elapsed_seconds": 0.662,
+      "started_at_unix_nano": 1780593048540730400,
+      "ended_at_unix_nano": 1780593049202458400
+    },
+    {
+      "scope": "getdaytrends",
+      "name": "getdaytrends tests",
+      "cwd": "automation\\getdaytrends",
+      "command": "uv run --isolated --no-project --with pytest>=8.0 --with pytest-asyncio>=0.23.0 --with-editable \"D:\\AI project.browser-loop\" --with-editable \"D:\\AI project.browser-loop\\automation\\getdaytrends\" --with respx>=0.21.0,<1.0 --with sqlalchemy>=2.0.0,<3.0 --with redis>=5.0.0,<8.0 python -m pytest -c pytest.ini tests -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-getdaytrends-getdaytrends-tests-630a0fad\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "23, 'Skipped: Diagnostic network/task-scheduler probe; run this file as a \nscript when needed.')\nTest \ntests/test_korean_nlp.py::TestExtractNovelWords::test_extracts_unknown_tokens \nwas skipped. Reason: ('D:\\\\AI \nproject.browser-loop\\\\automation\\\\getdaytrends\\\\tests\\\\test_korean_nlp.py', 72,\n'Skipped: Kiwipiepy 미설치')\nTest tests/test_korean_nlp.py::TestRefineKeyword::test_extracts_nouns was \nskipped. Reason: ('D:\\\\AI \nproject.browser-loop\\\\automation\\\\getdaytrends\\\\tests\\\\test_korean_nlp.py', 88,\n'Skipped: Kiwipiepy 미설치')\nTest tests/test_korean_nlp.py::TestRefineKeyword::test_detects_fragment was \nskipped. Reason: ('D:\\\\AI \nproject.browser-loop\\\\automation\\\\getdaytrends\\\\tests\\\\test_korean_nlp.py', 94,\n'Skipped: Kiwipiepy 미설치')\nTest tests/test_news_scraper.py::TestFetchNewsEnhanced::test_article_structure \nwas skipped. Reason: ('D:\\\\AI \nproject.browser-loop\\\\automation\\\\getdaytrends\\\\tests\\\\test_news_scraper.py', \n23, 'Skipped: Scrapling 미설치')\n785 passed, 7 skipped, 1 warning in 57.84s",
+      "stderr_tail": "",
+      "elapsed_seconds": 80.703,
+      "started_at_unix_nano": 1780593049219282200,
+      "ended_at_unix_nano": 1780593129922725500
+    },
+    {
+      "scope": "cie",
+      "name": "cie compile",
+      "cwd": ".",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m compileall -q -x (^|[\\\\/])(\\.agent|\\.agents|venv|__pycache__|output|archive|var)([\\\\/]|$) automation\\content-intelligence",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "elapsed_seconds": 0.352,
+      "started_at_unix_nano": 1780593129939819000,
+      "ended_at_unix_nano": 1780593130292188300
+    },
+    {
+      "scope": "cie",
+      "name": "cie tests",
+      "cwd": "automation\\content-intelligence",
+      "command": "C:\\Users\\bioju\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m pytest tests -q --basetemp \"D:\\AI project.browser-loop\\var\\tmp\\pytest-cie-cie-tests-bc310a91\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "........................................................................ [ 27%]\r\n........................................................................ [ 54%]\r\n........................................................................ [ 82%]\r\n..............................................                           [100%]\r\n262 passed in 25.38s\r\n",
+      "stderr_tail": "",
+      "elapsed_seconds": 29.503,
+      "started_at_unix_nano": 1780593130306376600,
+      "ended_at_unix_nano": 1780593159809155400
+    }
+  ]
+}

@@ -1,0 +1,285 @@
+{
+  "failed": 0,
+  "generated_at": "2026-06-04T16:57:45.841603+00:00",
+  "github_api_version": "2022-11-28",
+  "manifest_generated_at": "2026-06-05T02:31:00+09:00",
+  "passed": 13,
+  "records": [
+    {
+      "adoption_status": "partially_adopted",
+      "category": "production-mcp-framework",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2050,
+        "html_url": "https://github.com/PrefectHQ/fastmcp",
+        "license": "Apache-2.0",
+        "open_issues_count": 246,
+        "pushed_at": "2026-06-03T15:23:08Z",
+        "repo": "PrefectHQ/fastmcp",
+        "stargazers_count": 25480,
+        "updated_at": "2026-06-04T12:54:04Z",
+        "visibility": "public"
+      },
+      "repo": "PrefectHQ/fastmcp",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "official-mcp-python-sdk",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 3506,
+        "html_url": "https://github.com/modelcontextprotocol/python-sdk",
+        "license": "MIT",
+        "open_issues_count": 520,
+        "pushed_at": "2026-06-04T14:32:04Z",
+        "repo": "modelcontextprotocol/python-sdk",
+        "stargazers_count": 23235,
+        "updated_at": "2026-06-04T15:47:08Z",
+        "visibility": "public"
+      },
+      "repo": "modelcontextprotocol/python-sdk",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-agent-evaluation",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 8,
+        "html_url": "https://github.com/lastmile-ai/mcp-eval",
+        "license": "Apache-2.0",
+        "open_issues_count": 23,
+        "pushed_at": "2025-11-19T17:53:42Z",
+        "repo": "lastmile-ai/mcp-eval",
+        "stargazers_count": 23,
+        "updated_at": "2026-05-19T08:53:15Z",
+        "visibility": "public"
+      },
+      "repo": "lastmile-ai/mcp-eval",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "otel-collector-observability",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2095,
+        "html_url": "https://github.com/open-telemetry/opentelemetry-collector",
+        "license": "Apache-2.0",
+        "open_issues_count": 698,
+        "pushed_at": "2026-06-04T15:51:04Z",
+        "repo": "open-telemetry/opentelemetry-collector",
+        "stargazers_count": 7102,
+        "updated_at": "2026-06-04T15:51:09Z",
+        "visibility": "public"
+      },
+      "repo": "open-telemetry/opentelemetry-collector",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "agent-workflow-runtime",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 405,
+        "html_url": "https://github.com/evalstate/fast-agent",
+        "license": "Apache-2.0",
+        "open_issues_count": 26,
+        "pushed_at": "2026-06-04T11:40:20Z",
+        "repo": "evalstate/fast-agent",
+        "stargazers_count": 3807,
+        "updated_at": "2026-06-04T05:10:36Z",
+        "visibility": "public"
+      },
+      "repo": "evalstate/fast-agent",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "stateful-agent-orchestration",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 5700,
+        "html_url": "https://github.com/langchain-ai/langgraph",
+        "license": "MIT",
+        "open_issues_count": 557,
+        "pushed_at": "2026-06-04T03:41:55Z",
+        "repo": "langchain-ai/langgraph",
+        "stargazers_count": 33876,
+        "updated_at": "2026-06-04T16:30:04Z",
+        "visibility": "public"
+      },
+      "repo": "langchain-ai/langgraph",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "multi-agent-flow-control",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 7376,
+        "html_url": "https://github.com/crewAIInc/crewAI",
+        "license": "MIT",
+        "open_issues_count": 392,
+        "pushed_at": "2026-06-04T16:56:53Z",
+        "repo": "crewAIInc/crewAI",
+        "stargazers_count": 52829,
+        "updated_at": "2026-06-04T16:24:07Z",
+        "visibility": "public"
+      },
+      "repo": "crewAIInc/crewAI",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "adopted",
+      "category": "agentic-sdlc-quality-gates",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 36,
+        "html_url": "https://github.com/dsifry/metaswarm",
+        "license": "MIT",
+        "open_issues_count": 19,
+        "pushed_at": "2026-05-16T04:02:13Z",
+        "repo": "dsifry/metaswarm",
+        "stargazers_count": 305,
+        "updated_at": "2026-06-03T08:03:40Z",
+        "visibility": "public"
+      },
+      "repo": "dsifry/metaswarm",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-runtime-inspection",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 1355,
+        "html_url": "https://github.com/modelcontextprotocol/inspector",
+        "license": "NOASSERTION",
+        "open_issues_count": 284,
+        "pushed_at": "2026-06-04T16:24:40Z",
+        "repo": "modelcontextprotocol/inspector",
+        "stargazers_count": 9991,
+        "updated_at": "2026-06-04T15:56:27Z",
+        "visibility": "public"
+      },
+      "repo": "modelcontextprotocol/inspector",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-gateway-management",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 69,
+        "html_url": "https://github.com/microsoft/mcp-gateway",
+        "license": "MIT",
+        "open_issues_count": 12,
+        "pushed_at": "2026-05-28T18:46:12Z",
+        "repo": "microsoft/mcp-gateway",
+        "stargazers_count": 665,
+        "updated_at": "2026-06-04T09:50:17Z",
+        "visibility": "public"
+      },
+      "repo": "microsoft/mcp-gateway",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-openapi-interop",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 466,
+        "html_url": "https://github.com/open-webui/mcpo",
+        "license": "MIT",
+        "open_issues_count": 45,
+        "pushed_at": "2026-05-17T20:40:30Z",
+        "repo": "open-webui/mcpo",
+        "stargazers_count": 4237,
+        "updated_at": "2026-06-04T06:09:30Z",
+        "visibility": "public"
+      },
+      "repo": "open-webui/mcpo",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "mcp-browser-automation",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2756,
+        "html_url": "https://github.com/microsoft/playwright-mcp",
+        "license": "Apache-2.0",
+        "open_issues_count": 8,
+        "pushed_at": "2026-05-28T01:32:25Z",
+        "repo": "microsoft/playwright-mcp",
+        "stargazers_count": 33492,
+        "updated_at": "2026-06-04T16:29:03Z",
+        "visibility": "public"
+      },
+      "repo": "microsoft/playwright-mcp",
+      "status": "pass"
+    },
+    {
+      "adoption_status": "partially_adopted",
+      "category": "devserver-observability",
+      "error": "",
+      "metadata": {
+        "archived": false,
+        "default_branch": "main",
+        "disabled": false,
+        "forks_count": 2,
+        "html_url": "https://github.com/Uninen/devserver-mcp",
+        "license": "MIT",
+        "open_issues_count": 9,
+        "pushed_at": "2026-06-03T17:50:22Z",
+        "repo": "Uninen/devserver-mcp",
+        "stargazers_count": 1,
+        "updated_at": "2026-04-23T02:55:54Z",
+        "visibility": "public"
+      },
+      "repo": "Uninen/devserver-mcp",
+      "status": "pass"
+    }
+  ],
+  "schema_version": 1,
+  "source_count": 13,
+  "status": "pass"
+}
