@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T22:12:14+09:00",
+  "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
+  "global_completion_policy": {
+    "open_ended_until_user_stop": true,
+    "can_mark_complete": false,
+    "reason": "The user requested a continuous self-improvement loop until an explicit stop. Current cycles can be complete, but the global objective remains active."
+  },
+  "criteria": [
+    {
+      "id": "product_launch_gate",
+      "requirement": "Product launch hardening has a clean-worktree all-scope proof.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_FINAL_ALL_SCOPE_SMOKE_2026-06-04.md",
+          "must_contain": [
+            "total=25",
+            "passed=25",
+            "1070.688s"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_FINAL_2026-06-04.json",
+          "must_contain": [
+            "\"passed\": 25",
+            "\"failed\": 0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_external_research",
+      "requirement": "GitHub-related similar projects are tracked and mapped to local evidence.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/references/github_modernization_sources.json",
+          "must_contain": [
+            "PrefectHQ/fastmcp",
+            "lastmile-ai/mcp-eval",
+            "evalstate/fast-agent",
+            "open-webui/mcpo",
+            "Uninen/devserver-mcp"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
+          "must_contain": [
+            "Sources reviewed: 6",
+            "Adoption counts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "self_improving_skill",
+      "requirement": "AutoResearch self-improvement skill exists and enforces A/B, evidence, commit/push, and completion-audit behavior.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".agents/skills/auto-research-karpathy/SKILL.md",
+          "must_contain": [
+            "A/B",
+            "completion audit",
+            "commit",
+            "push"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_COMPLETION_AUDIT_2026-06-04.md",
+          "must_contain": [
+            "ok=true",
+            "completion_audit"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "direct_app_click_qa",
+      "requirement": "Direct browser/app-click QA was performed on launch-critical user surfaces.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md",
+          "must_contain": [
+            "no console errors",
+            "no page errors",
+            "no failed browser requests",
+            "2/2 READY"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md",
+          "must_contain": [
+            "no console errors",
+            "no page errors",
+            "no failed browser requests",
+            "Scanner"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md",
+          "must_contain": [
+            "zero console/page/request failures",
+            "7/7 OK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "commit_push_evidence",
+      "requirement": "Accepted variants are recorded, committed, and pushed to the active branch.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "next-actions.md",
+          "must_contain": [
+            "AutoResearch cycle",
+            "Report:"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "remaining_gap_tracking",
+      "requirement": "Unfinished or credential-bound work is explicitly tracked instead of hidden behind green tests.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_REMAINING_GAP_AUDIT_2026-06-04.md",
+          "must_contain": [
+            "Remaining Gaps",
+            "external-auth blocked",
+            "future-scoped"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "external_credential_boundaries",
+      "requirement": "Credential-gated actions are not claimed complete without real user credentials.",
+      "required": false,
+      "status": "blocked",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_OAUTH_BOUNDARY_2026-06-04.md",
+          "must_contain": [
+            "remaining blocker is external",
+            "complete Canva login/consent"
+          ]
+        }
+      ],
+      "blocker": "Canva OAuth and live OpenAPI execution require real user login/consent and proxy authentication decisions."
+    }
+  ]
+}

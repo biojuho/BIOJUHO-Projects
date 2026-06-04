@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T22:12:14+09:00",
+  "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
+  "valid": true,
+  "cycle_evidence_ready": true,
+  "global_objective_complete": false,
+  "status_counts": {
+    "blocked": 1,
+    "covered": 6
+  },
+  "criterion_count": 7,
+  "missing_required": [],
+  "explicit_blockers": [
+    "external_credential_boundaries"
+  ],
+  "errors": [],
+  "criteria": [
+    {
+      "id": "product_launch_gate",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_FINAL_ALL_SCOPE_SMOKE_2026-06-04.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/WORKSPACE_SMOKE_ALL_FINAL_2026-06-04.json",
+          "term_count": 2
+        }
+      ]
+    },
+    {
+      "id": "github_external_research",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/references/github_modernization_sources.json",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
+          "term_count": 2
+        }
+      ]
+    },
+    {
+      "id": "self_improving_skill",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".agents/skills/auto-research-karpathy/SKILL.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_COMPLETION_AUDIT_2026-06-04.md",
+          "term_count": 2
+        }
+      ]
+    },
+    {
+      "id": "direct_app_click_qa",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_CLICK_REFRESH_2026-06-04.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGRIGUARD_LIVE_NAV_CLICK_2026-06-04.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_FIREBASE_CORS_BROWSER_2026-06-04.md",
+          "term_count": 2
+        }
+      ]
+    },
+    {
+      "id": "commit_push_evidence",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "next-actions.md",
+          "term_count": 2
+        }
+      ]
+    },
+    {
+      "id": "remaining_gap_tracking",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_REMAINING_GAP_AUDIT_2026-06-04.md",
+          "term_count": 3
+        }
+      ]
+    },
+    {
+      "id": "external_credential_boundaries",
+      "required": false,
+      "status": "blocked",
+      "evidence": [
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_OAUTH_BOUNDARY_2026-06-04.md",
+          "term_count": 2
+        }
+      ]
+    }
+  ]
+}
