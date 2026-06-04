@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T07:51:48+09:00",
+  "generated_at": "2026-06-05T07:53:41+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -1097,8 +1097,11 @@
             "tests/test_dev_server_mcp_contract.py",
             "tests/test_dev_server_mcp_runtime.py",
             "tests/test_dev_server_mcp_runtime_smoke.py",
+            "==> Running dashboard UI tests...",
             "npm.cmd --prefix apps/dashboard test -- --run",
+            "==> Running dashboard production build...",
             "npm.cmd --prefix apps/dashboard run build",
+            "==> Running dashboard bundle budget check...",
             "npm.cmd --prefix apps/dashboard run check:bundle",
             "ops/scripts/dev_server_mcp_runtime_smoke.py",
             "ops/scripts/mcp_service_runtime_smoke.py",
@@ -1120,8 +1123,11 @@
           "must_contain": [
             "--check-operator-checklist-json",
             "--check-operator-checklist-markdown",
+            "==> Running dashboard UI tests...",
             "npm.cmd --prefix apps/dashboard test -- --run",
+            "==> Running dashboard production build...",
             "npm.cmd --prefix apps/dashboard run build",
+            "==> Running dashboard bundle budget check...",
             "npm.cmd --prefix apps/dashboard run check:bundle",
             "tests/test_dashboard_api.py",
             "tests/test_canva_widget_click_smoke.py",
@@ -1207,6 +1213,15 @@
             "Dashboard Production Pre-Push Guard",
             "npm.cmd --prefix apps/dashboard run build",
             "npm.cmd --prefix apps/dashboard run check:bundle",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_PRE_PUSH_STAGE_MARKERS_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Pre-Push Stage Markers",
+            "Running dashboard production build",
+            "Running dashboard bundle budget check",
             "global_objective_complete=false"
           ]
         }

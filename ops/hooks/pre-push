@@ -35,18 +35,21 @@ if ! python -m pytest \
     exit 1
 fi
 
+echo "==> Running dashboard UI tests..."
 if ! npm.cmd --prefix apps/dashboard test -- --run 2>/dev/null; then
     echo "Dashboard UI test failed. Push blocked."
     echo "   Run 'npm.cmd --prefix apps/dashboard test -- --run' for details."
     exit 1
 fi
 
+echo "==> Running dashboard production build..."
 if ! npm.cmd --prefix apps/dashboard run build 2>/dev/null; then
     echo "Dashboard production build failed. Push blocked."
     echo "   Run 'npm.cmd --prefix apps/dashboard run build' for details."
     exit 1
 fi
 
+echo "==> Running dashboard bundle budget check..."
 if ! npm.cmd --prefix apps/dashboard run check:bundle 2>/dev/null; then
     echo "Dashboard bundle budget check failed. Push blocked."
     echo "   Run 'npm.cmd --prefix apps/dashboard run check:bundle' for details."

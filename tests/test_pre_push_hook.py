@@ -21,8 +21,11 @@ def test_pre_push_hook_runs_completion_and_mcp_smokes() -> None:
     assert "tests/test_dev_server_mcp_runtime.py" in hook
     assert "tests/test_dev_server_mcp_runtime_smoke.py" in hook
     assert "python ops/hooks/install_hooks.py --check" in hook
+    assert "==> Running dashboard UI tests..." in hook
     assert "npm.cmd --prefix apps/dashboard test -- --run" in hook
+    assert "==> Running dashboard production build..." in hook
     assert "npm.cmd --prefix apps/dashboard run build" in hook
+    assert "==> Running dashboard bundle budget check..." in hook
     assert "npm.cmd --prefix apps/dashboard run check:bundle" in hook
     assert "python ops/scripts/dev_server_mcp_runtime_smoke.py" in hook
     assert "python ops/scripts/autoresearch_completion_audit.py" in hook
