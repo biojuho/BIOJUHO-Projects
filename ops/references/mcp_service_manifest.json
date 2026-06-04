@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T21:03:00+09:00",
+  "description": "Repo-local MCP service inventory for FastMCP-style composition, launch planning, and smoke evidence.",
+  "services": [
+    {
+      "id": "dailynews-antigravity",
+      "name": "Antigravity Content Engine MCP",
+      "project": "DailyNews",
+      "language": "python",
+      "framework": "FastMCP",
+      "source_path": "automation/DailyNews/src/antigravity_mcp/server.py",
+      "cwd": "automation/DailyNews",
+      "command": ["python", "-m", "antigravity_mcp", "serve"],
+      "transports": ["stdio"],
+      "domains": ["notion", "content", "operations", "analytics"],
+      "required_env": [],
+      "smoke_checks": ["DailyNews unit tests"],
+      "expected_min_tools": 26
+    },
+    {
+      "id": "desci-research",
+      "name": "DeSci Research MCP",
+      "project": "desci",
+      "language": "python",
+      "framework": "FastMCP",
+      "source_path": "mcp/desci-research-mcp/server.py",
+      "cwd": "mcp/desci-research-mcp",
+      "command": ["python", "server.py"],
+      "transports": ["stdio"],
+      "domains": ["research", "papers", "grants"],
+      "required_env": [],
+      "smoke_checks": ["desci-research-mcp helper tests"],
+      "expected_min_tools": 6
+    },
+    {
+      "id": "telegram-bot",
+      "name": "Telegram Bot MCP",
+      "project": "notifications",
+      "language": "python",
+      "framework": "FastMCP",
+      "source_path": "mcp/telegram-mcp/server.py",
+      "cwd": "mcp/telegram-mcp",
+      "command": ["python", "server.py"],
+      "transports": ["stdio"],
+      "domains": ["notifications", "approvals", "monitoring"],
+      "required_env": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"],
+      "smoke_checks": ["telegram-mcp helper tests"],
+      "expected_min_tools": 7
+    },
+    {
+      "id": "canva-local",
+      "name": "Canva MCP",
+      "project": "canva-mcp",
+      "language": "typescript",
+      "framework": "MCP SDK",
+      "source_path": "mcp/canva-mcp/src/server/server.ts",
+      "tool_source_path": "mcp/canva-mcp/src/server/tools.ts",
+      "cwd": "mcp/canva-mcp",
+      "command": ["npm.cmd", "run", "dev"],
+      "transports": ["sse", "http-metadata"],
+      "domains": ["canva", "design", "widgets"],
+      "required_env": ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"],
+      "smoke_checks": ["canva mcp typecheck", "canva mcp server build"],
+      "expected_min_tools": 20
+    }
+  ]
+}

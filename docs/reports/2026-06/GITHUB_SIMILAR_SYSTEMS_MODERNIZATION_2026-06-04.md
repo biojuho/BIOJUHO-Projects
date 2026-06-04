@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=5, watch=0
-- Generated at: `2026-06-04T21:00:07+09:00`
+- Generated at: `2026-06-04T21:05:20+09:00`
 
 ## Search Context
 
@@ -25,15 +25,22 @@
 - Why similar: Production MCP framework with transport, auth, tooling, docs, and testing patterns relevant to local MCP projects.
 - Observed patterns:
   - production MCP server composition and transport options
+  - repo-local MCP service manifest for composition planning
   - uv-first Python installation and upgrade workflow
   - LLM-readable documentation surface
 - Local evidence:
+  - `ops/references/mcp_service_manifest.json`
+  - `ops/scripts/mcp_service_manifest.py`
+  - `tests/test_mcp_service_manifest.py`
+  - `docs/reports/2026-06/MCP_SERVICE_MANIFEST_2026-06-04.json`
+  - `docs/reports/2026-06/MCP_SERVICE_MANIFEST_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_MANIFEST_2026-06-04.md`
   - `mcp/canva-mcp/src/server/server.ts`
   - `mcp/canva-mcp/src/server/tools.ts`
   - `mcp/canva-mcp/src/server/auth.ts`
   - `ops/scripts/check_mcp_health.py`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_OAUTH_BOUNDARY_2026-06-04.md`
-- Gap: Python MCP services can evaluate FastMCP-style composition when the next MCP expansion is scoped.
+- Gap: Validated MCP service inventory is adopted for FastMCP-style composition planning; runtime composition adapters and transport switching remain future-scoped until the next MCP expansion needs them.
 
 ### lastmile-ai/mcp-eval
 

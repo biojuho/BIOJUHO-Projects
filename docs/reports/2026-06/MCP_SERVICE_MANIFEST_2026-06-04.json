@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T12:05:12.843643+00:00",
+  "manifest_generated_at": "2026-06-04T21:03:00+09:00",
+  "summary": {
+    "total_services": 4,
+    "fastmcp_services": 3,
+    "languages": {
+      "python": 3,
+      "typescript": 1
+    },
+    "frameworks": {
+      "FastMCP": 3,
+      "MCP SDK": 1
+    },
+    "transports": {
+      "http-metadata": 1,
+      "sse": 1,
+      "stdio": 3
+    }
+  },
+  "services": [
+    {
+      "id": "dailynews-antigravity",
+      "name": "Antigravity Content Engine MCP",
+      "project": "DailyNews",
+      "language": "python",
+      "framework": "FastMCP",
+      "transports": [
+        "stdio"
+      ],
+      "tool_count_detected": 26,
+      "required_env_count": 0,
+      "smoke_checks": [
+        "DailyNews unit tests"
+      ]
+    },
+    {
+      "id": "desci-research",
+      "name": "DeSci Research MCP",
+      "project": "desci",
+      "language": "python",
+      "framework": "FastMCP",
+      "transports": [
+        "stdio"
+      ],
+      "tool_count_detected": 6,
+      "required_env_count": 0,
+      "smoke_checks": [
+        "desci-research-mcp helper tests"
+      ]
+    },
+    {
+      "id": "telegram-bot",
+      "name": "Telegram Bot MCP",
+      "project": "notifications",
+      "language": "python",
+      "framework": "FastMCP",
+      "transports": [
+        "stdio"
+      ],
+      "tool_count_detected": 7,
+      "required_env_count": 2,
+      "smoke_checks": [
+        "telegram-mcp helper tests"
+      ]
+    },
+    {
+      "id": "canva-local",
+      "name": "Canva MCP",
+      "project": "canva-mcp",
+      "language": "typescript",
+      "framework": "MCP SDK",
+      "transports": [
+        "sse",
+        "http-metadata"
+      ],
+      "tool_count_detected": 20,
+      "required_env_count": 2,
+      "smoke_checks": [
+        "canva mcp typecheck",
+        "canva mcp server build"
+      ]
+    }
+  ]
+}
