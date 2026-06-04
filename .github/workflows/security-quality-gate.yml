@@ -103,7 +103,7 @@ jobs:
 
       - name: Run security contract tests
         run: |
-          uv run --with pytest python -m pytest tests/test_security_gate_contracts.py tests/test_vibe_tools_validation.py -q --tb=short
+          uv run --with pytest --with sqlalchemy python -m pytest tests/test_security_gate_contracts.py tests/test_vibe_tools_validation.py -q --tb=short
 
   # ── Workspace Smoke Test ──
   smoke-test:
