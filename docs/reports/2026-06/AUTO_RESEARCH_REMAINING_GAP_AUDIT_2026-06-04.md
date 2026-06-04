@@ -6,6 +6,11 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 ready credential live-execution slice: executed the two verifier
+  boundaries with no missing required env, passing hosted-agent dry-run checks
+  and confirming GitHub source refresh now requires a token because
+  unauthenticated API quota returned 403 rate-limit responses after `19/30`
+  sources.
 - 2026-06-05 hook install sync-guard slice: added a tracked-vs-installed
   hook check so stale common-dir pre-push hooks fail before smoke execution,
   with configured `core.hooksPath` support for worktree-local hook paths.
