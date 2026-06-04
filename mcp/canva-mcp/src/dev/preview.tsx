@@ -29,6 +29,7 @@ function App() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200 p-8">
       <div className="fixed top-4 right-4 z-50">
         <button
+          type="button"
           onClick={toggleTheme}
           className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 hover:scale-105 transition-all duration-200"
           aria-label="Toggle theme"

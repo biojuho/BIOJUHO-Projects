@@ -63,6 +63,16 @@ const CanvaSearchDesigns: React.FC = () => {
     }
   };
 
+  const handleDesignKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+    design: Design
+  ) => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      handleDesignClick(design);
+    }
+  };
+
   const handleLoadMore = () => {
     if (window.parent && window.parent.postMessage) {
       window.parent.postMessage({
@@ -94,9 +104,14 @@ const CanvaSearchDesigns: React.FC = () => {
         {designs.map((design) => (
           <div
             key={design.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`Open Canva design ${design.title || design.id}`}
             onClick={() => handleDesignClick(design)}
+            onKeyDown={(event) => handleDesignKeyDown(event, design)}
             className={cn(
               "cursor-pointer rounded-lg overflow-hidden",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2",
               "w-[192px] h-[192px]"
             )}
           >

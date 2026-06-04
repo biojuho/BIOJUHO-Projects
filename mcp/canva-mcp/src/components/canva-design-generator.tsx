@@ -53,6 +53,16 @@ const CanvaDesignGenerator: React.FC = () => {
     }
   };
 
+  const handleCandidateKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+    candidate: Candidate
+  ) => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      handleSelect(candidate);
+    }
+  };
+
   const scroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
       const scrollAmount = 200;
@@ -78,6 +88,8 @@ const CanvaDesignGenerator: React.FC = () => {
     <div className="h-[192px] rounded-xl relative">
       {/* Left scroll button */}
       <button
+        type="button"
+        aria-label="Scroll design candidates left"
         onClick={() => scroll('left')}
         className={cn(
           "absolute left-2 top-1/2 -translate-y-1/2 z-10",
@@ -104,11 +116,16 @@ const CanvaDesignGenerator: React.FC = () => {
           return (
             <div
               key={candidate.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select design candidate ${index + 1}`}
               onClick={() => handleSelect(candidate)}
+              onKeyDown={(event) => handleCandidateKeyDown(event, candidate)}
               className={cn(
-                "flex-shrink-0 w-[192px] h-[192px] rounded-3xl overflow-hidden",
+                "relative flex-shrink-0 w-[192px] h-[192px] rounded-3xl overflow-hidden",
                 "cursor-pointer",
                 "bg-white border-2",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2",
                 isSelected ? "border-purple-500 shadow-lg" : "border-transparent"
               )}
             >
@@ -132,6 +149,8 @@ const CanvaDesignGenerator: React.FC = () => {
 
       {/* Right scroll button */}
       <button
+        type="button"
+        aria-label="Scroll design candidates right"
         onClick={() => scroll('right')}
         className={cn(
           "absolute right-2 top-1/2 -translate-y-1/2 z-10",
