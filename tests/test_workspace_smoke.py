@@ -100,6 +100,20 @@ def test_runtime_temp_dir_stays_under_workspace_var_tmp() -> None:
     assert temp_dir.parts[-2] == "workspace"
 
 
+def test_gitignore_excludes_local_autoresearch_artifacts() -> None:
+    gitignore = (PROJECT_ROOT / ".gitignore").read_text(encoding="utf-8")
+
+    for pattern in (
+        "var/*.json",
+        "var/**/*.json",
+        "var/**/*.md",
+        "var/**/*.png",
+        "var/**/*.pid",
+        "var/dev-servers/",
+    ):
+        assert pattern in gitignore
+
+
 def test_command_for_check_appends_workspace_local_basetemp() -> None:
     smoke = load_smoke_module()
     check = smoke.Check(

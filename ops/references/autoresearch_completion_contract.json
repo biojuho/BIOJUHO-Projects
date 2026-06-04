@@ -129,6 +129,7 @@
             "proof_commit": "77cc93d",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
+              ".gitignore",
               "docs/reports/2026-06/",
               "next-actions.md",
               "ops/hooks/pre-push",
@@ -136,6 +137,7 @@
               "ops/references/github_modernization_sources.json",
               "ops/scripts/autoresearch_completion_audit.py",
               "ops/scripts/github_source_freshness.py",
+              "tests/test_workspace_smoke.py",
               "tests/test_github_modernization_radar.py",
               "tests/test_autoresearch_completion_audit.py",
               "tests/test_github_source_freshness.py"
@@ -749,6 +751,41 @@
             "improvement `326.350s`",
             "about `28.1%`",
             "future-scoped"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "autoresearch_local_artifact_hygiene",
+      "requirement": "Transient AutoResearch/browser-smoke artifacts under var stay local-only so repeated self-improvement cycles do not pollute commit and push decisions.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".gitignore",
+          "must_contain": [
+            "var/**/*.json",
+            "var/**/*.md",
+            "var/**/*.png",
+            "var/**/*.pid",
+            "var/dev-servers/"
+          ]
+        },
+        {
+          "path": "tests/test_workspace_smoke.py",
+          "must_contain": [
+            "test_gitignore_excludes_local_autoresearch_artifacts",
+            "var/**/*.png",
+            "var/dev-servers/"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_VAR_ARTIFACT_GITIGNORE_2026-06-05.md",
+          "must_contain": [
+            "33",
+            "0",
+            "29 passed",
+            "docs/reports/2026-06/"
           ]
         }
       ]

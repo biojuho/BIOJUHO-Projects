@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 18
+    "covered": 19
   },
-  "criterion_count": 19,
+  "criterion_count": 20,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -44,14 +44,21 @@
       "evidence": [
         {
           "path": "ops/references/github_modernization_sources.json",
-          "term_count": 14,
+          "term_count": 19,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md",
-          "term_count": 12,
+          "term_count": 17,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_AGENT_PLATFORM_EXPANSION_2026-06-05.md",
+          "term_count": 8,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -93,14 +100,14 @@
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.json",
-          "term_count": 8,
+          "term_count": 13,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_FRESHNESS_2026-06-05.md",
-          "term_count": 9,
+          "term_count": 14,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -499,6 +506,34 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_MATRIX_REUSE_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "autoresearch_local_artifact_hygiene",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".gitignore",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_workspace_smoke.py",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_VAR_ARTIFACT_GITIGNORE_2026-06-05.md",
           "term_count": 4,
           "git_freshness": false,
           "protected_path_freshness": false,

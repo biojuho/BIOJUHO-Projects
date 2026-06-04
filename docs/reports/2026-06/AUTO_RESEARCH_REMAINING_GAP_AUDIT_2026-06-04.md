@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 local artifact hygiene slice: extended `.gitignore` for
+  transient AutoResearch/browser-smoke `var/` artifacts so local screenshots,
+  probe notes, PID files, and dev-server state do not pollute commit/push
+  decisions.
 - 2026-06-05 GitHub agent-platform expansion slice: expanded the
   modernization radar from `17` to `22` live GitHub repositories by adding
   Microsoft Agent Framework, Agno, Vercel AI SDK, AutoGPT, and Flowise as
@@ -236,6 +240,24 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_SOURCE_SNAPSHOT_FRESHNESS_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_SOURCE_SNAPSHOT_FRESHNESS_2026-06-05.md`
+- Local artifact hygiene verification:
+  - baseline `git ls-files --others --exclude-standard var` returned `33`
+    untracked local artifacts from browser-click and runtime-smoke cycles
+  - `.gitignore` now ignores nested `var/**/*.json`, `var/**/*.md`,
+    `var/**/*.png`, `var/**/*.pid`, and `var/dev-servers/` diagnostics while
+    keeping durable launch evidence in `docs/reports/2026-06/`
+  - variant `git ls-files --others --exclude-standard var` returned `0`
+  - `git check-ignore -v` matched representative screenshot, markdown, PID,
+    and dev-server JSON artifacts
+  - `tests\test_workspace_smoke.py` passed `29/29`
+  - pre-push-equivalent pytest suite passed `88/88`
+  - hook-equivalent runtime probes passed for dev-server MCP runtime, MCP
+    service runtime, single-workflow dry-run, side-effect safety skip, and
+    all-workflow matrix dry-run
+  - completion audit now reports `20` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_VAR_ARTIFACT_GITIGNORE_2026-06-05.md`
 - Browser QA freshness gate verification:
   - `ops\scripts\autoresearch_completion_audit.py` now validates
     `protected_path_freshness` evidence for launch-critical browser/app paths

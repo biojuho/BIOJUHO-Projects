@@ -112,8 +112,13 @@ var/session-bootstrap-*.json
 var/legacy-root-backups/
 # Snapshot/QC outputs are local-only diagnostics, not source of truth
 var/*.json
+var/**/*.json
+var/**/*.md
+var/**/*.png
+var/**/*.pid
 var/*.sarif
 var/*.txt
+var/dev-servers/
 
 # SQLite databases
 *.db

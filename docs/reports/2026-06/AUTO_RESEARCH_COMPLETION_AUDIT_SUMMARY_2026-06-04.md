@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `19`
-- Status counts: `blocked=1, covered=18`
+- Criteria: `20`
+- Status counts: `blocked=1, covered=19`
 
 ## Missing Required
 
@@ -26,7 +26,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `2`
+- Evidence paths: `3`
 
 ### current_tip_freshness_gate
 
@@ -113,6 +113,12 @@
 - Evidence paths: `3`
 
 ### agent_workflow_gate_matrix_reuse
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
+
+### autoresearch_local_artifact_hygiene
 
 - Required: `true`
 - Status: `covered`
