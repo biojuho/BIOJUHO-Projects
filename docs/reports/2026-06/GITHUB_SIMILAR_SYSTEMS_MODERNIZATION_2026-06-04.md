@@ -4,7 +4,7 @@
 
 - Sources reviewed: 12
 - Adoption counts: adopted=1, partially_adopted=11, watch=0
-- Generated at: `2026-06-05T01:18:00+09:00`
+- Generated at: `2026-06-05T01:47:00+09:00`
 
 ## Search Context
 
@@ -144,6 +144,7 @@
   - dry-run workflow plans with ordered inspect, run, and evidence steps
   - bounded workflow gate execution through declared quality gates
   - CLI-first agent workflow verification before autonomous runtime
+  - operator approval boundary for side-effecting workflow gates
   - provider abstraction across OpenAI, Anthropic, Google, and local backends
   - token and tool-use tracking for agent runs
 - Local evidence:
@@ -161,10 +162,13 @@
   - `docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.md`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.json`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_SAFETY_2026-06-05.md`
   - `docs/QUALITY_GATE.md`
-- Gap: Declarative launch workflow inventory, dry-run command planning, and bounded quality-gate execution are adopted; live central runtime orchestration remains deliberate future work.
+- Gap: Declarative launch workflow inventory, dry-run command planning, bounded quality-gate execution, targeted gate selection, and side-effect approval skips are adopted; live central runtime orchestration remains deliberate future work.
 
 ### langchain-ai/langgraph
 
@@ -178,6 +182,7 @@
   - human-in-the-loop checkpoints before irreversible work
   - memory and state persistence for agent workflows
   - bounded quality-gate execution before adopting full orchestration
+  - explicit approval before side-effecting gate execution
 - Local evidence:
   - `ops/references/agent_workflows.json`
   - `ops/scripts/agent_workflow_manifest.py`
@@ -188,10 +193,13 @@
   - `docs/reports/2026-06/AGENT_WORKFLOW_PLAN_WORKSPACE_QUALITY_DASHBOARD_2026-06-04.md`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.json`
   - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_RUN_WORKSPACE_QUALITY_DASHBOARD_2026-06-05.md`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.json`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_GATE_SAFETY_DESCI_GATE2_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_MANIFEST_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_SAFETY_2026-06-05.md`
   - `docs/QUALITY_GATE.md`
-- Gap: Bounded workflow quality-gate execution is adopted through existing project CLIs and smoke gates. Full stateful LangGraph-style runtime orchestration, durable agent memory, human approval checkpoints, and hosted deployment remain future-scoped until the operator owns those runtime policies.
+- Gap: Bounded workflow quality-gate execution, targeted gate selection, and side-effect approval skips are adopted through existing project CLIs and smoke gates. Full stateful LangGraph-style runtime orchestration, durable agent memory, human approval UI, and hosted deployment remain future-scoped until the operator owns those runtime policies.
 
 ### dsifry/metaswarm
 

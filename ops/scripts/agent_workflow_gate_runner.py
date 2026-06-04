@@ -15,6 +15,13 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 DEFAULT_MANIFEST = WORKSPACE_ROOT / "ops" / "references" / "agent_workflows.json"
 DEFAULT_TIMEOUT_SECONDS = 600.0
+SIDE_EFFECT_HINTS = (
+    ("dev_server_start", "dev_server_control.py start"),
+    ("npm_dev_server", "npm.cmd run dev"),
+    ("npm_dev_server", "npm run dev"),
+    ("preview_server", "dev:preview"),
+    ("wait_ready_process", "--wait-ready"),
+)
 
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
@@ -42,12 +49,22 @@ def select_workflow(payload: dict[str, Any], workflow_id: str) -> dict[str, Any]
     raise ValueError(f"unknown workflow id: {workflow_id}")
 
 
-def build_gate_steps(workflow: dict[str, Any], *, max_gates: int | None = None) -> list[dict[str, Any]]:
+def build_gate_steps(
+    workflow: dict[str, Any],
+    *,
+    max_gates: int | None = None,
+    gate_index: int | None = None,
+) -> list[dict[str, Any]]:
     gates = workflow.get("quality_gates", [])
-    if max_gates is not None:
+    if gate_index is not None:
+        if gate_index < 1 or gate_index > len(gates):
+            raise ValueError(f"gate index must be between 1 and {len(gates)}")
+        indexed_gates = [(gate_index, gates[gate_index - 1])]
+    else:
         gates = gates[: max(max_gates, 0)]
+        indexed_gates = list(enumerate(gates, start=1))
     steps: list[dict[str, Any]] = []
-    for index, gate in enumerate(gates, start=1):
+    for index, gate in indexed_gates:
         command_text, cwd = workflow_manifest.split_quality_gate_command(gate)
         steps.append(
             {
@@ -56,9 +73,24 @@ def build_gate_steps(workflow: dict[str, Any], *, max_gates: int | None = None) 
                 "command": normalize_command(command_text),
                 "cwd": cwd,
                 "source": gate,
+                "safety": classify_gate_safety(command_text),
             }
         )
     return steps
+
+
+def classify_gate_safety(command_text: str) -> dict[str, Any]:
+    normalized = " ".join(command_text.lower().split())
+    reasons = [
+        hint_name
+        for hint_name, needle in SIDE_EFFECT_HINTS
+        if needle in normalized
+    ]
+    return {
+        "risk": "side_effecting" if reasons else "deterministic",
+        "requires_approval": bool(reasons),
+        "reasons": sorted(set(reasons)),
+    }
 
 
 def normalize_command(command_text: str, *, python_exe: str | None = None) -> list[str]:
@@ -131,6 +163,20 @@ def run_gate_step(step: dict[str, Any], *, timeout_seconds: float) -> dict[str, 
         }
 
 
+def skip_gate_step(step: dict[str, Any]) -> dict[str, Any]:
+    safety = step.get("safety", {})
+    reasons = ", ".join(safety.get("reasons", [])) or "approval_required"
+    return {
+        **step,
+        "status": "skipped",
+        "returncode": None,
+        "elapsed_seconds": 0.0,
+        "stdout_tail": "",
+        "stderr_tail": "",
+        "skip_reason": f"side-effecting gate requires --allow-side-effect-gates ({reasons})",
+    }
+
+
 def run_workflow_gates(
     manifest_path: Path,
     workflow_id: str,
@@ -138,6 +184,8 @@ def run_workflow_gates(
     execute: bool,
     max_gates: int | None,
     timeout_seconds: float,
+    gate_index: int | None = None,
+    allow_side_effect_gates: bool = False,
     json_out: Path | None = None,
     markdown_out: Path | None = None,
 ) -> dict[str, Any]:
@@ -145,10 +193,17 @@ def run_workflow_gates(
     errors = workflow_manifest.validate_manifest(payload, workspace_root=WORKSPACE_ROOT)
     if errors:
         raise ValueError("\n".join(errors))
+    if max_gates is not None and gate_index is not None:
+        raise ValueError("--max-gates and --gate-index cannot be combined")
     workflow = select_workflow(payload, workflow_id)
-    steps = build_gate_steps(workflow, max_gates=max_gates)
+    steps = build_gate_steps(workflow, max_gates=max_gates, gate_index=gate_index)
     if execute:
-        results = [run_gate_step(step, timeout_seconds=timeout_seconds) for step in steps]
+        results = [
+            run_gate_step(step, timeout_seconds=timeout_seconds)
+            if allow_side_effect_gates or not step["safety"]["requires_approval"]
+            else skip_gate_step(step)
+            for step in steps
+        ]
     else:
         results = [
             {
@@ -158,10 +213,19 @@ def run_workflow_gates(
                 "elapsed_seconds": 0.0,
                 "stdout_tail": "",
                 "stderr_tail": "",
+                "skip_reason": "",
             }
             for step in steps
         ]
-    report = build_report(payload, workflow, results, execute=execute, max_gates=max_gates)
+    report = build_report(
+        payload,
+        workflow,
+        results,
+        execute=execute,
+        allow_side_effect_gates=allow_side_effect_gates,
+        max_gates=max_gates,
+        gate_index=gate_index,
+    )
     if json_out:
         write_json_atomic(json_out, report)
     if markdown_out:
@@ -177,7 +241,9 @@ def build_report(
     results: list[dict[str, Any]],
     *,
     execute: bool,
+    allow_side_effect_gates: bool,
     max_gates: int | None,
+    gate_index: int | None,
 ) -> dict[str, Any]:
     counts = Counter(result["status"] for result in results)
     errors = [
@@ -191,6 +257,7 @@ def build_report(
         "status": "fail" if errors else "pass",
         "execution_mode": "execute" if execute else "dry_run",
         "will_execute": execute,
+        "allow_side_effect_gates": allow_side_effect_gates,
         "manifest_generated_at": payload.get("generated_at"),
         "source_context": payload.get("source_context"),
         "workflow": {
@@ -205,10 +272,15 @@ def build_report(
         },
         "summary": {
             "requested_max_gates": max_gates,
+            "requested_gate_index": gate_index,
             "selected_gates": len(results),
             "passed_gates": counts.get("pass", 0),
             "failed_gates": counts.get("fail", 0),
+            "skipped_gates": counts.get("skipped", 0),
             "planned_gates": counts.get("planned", 0),
+            "approval_required_gates": sum(
+                1 for result in results if result.get("safety", {}).get("requires_approval")
+            ),
             "elapsed_seconds": round(sum(result.get("elapsed_seconds", 0.0) for result in results), 3),
         },
         "gates": results,
@@ -225,12 +297,15 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Status: `{report['status']}`",
         f"- Execution mode: `{report['execution_mode']}`",
         f"- Will execute: `{str(report['will_execute']).lower()}`",
+        f"- Allow side-effect gates: `{str(report['allow_side_effect_gates']).lower()}`",
         f"- Project: `{workflow['project']}`",
         f"- Smoke scope: `{workflow['smoke_scope']}`",
         f"- Selected gates: `{summary['selected_gates']}`",
         f"- Passed gates: `{summary['passed_gates']}`",
         f"- Failed gates: `{summary['failed_gates']}`",
+        f"- Skipped gates: `{summary['skipped_gates']}`",
         f"- Planned gates: `{summary['planned_gates']}`",
+        f"- Approval-required gates: `{summary['approval_required_gates']}`",
         f"- Elapsed seconds: `{summary['elapsed_seconds']}`",
         "",
         "## Gates",
@@ -244,8 +319,11 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- Status: `{gate['status']}`",
                 f"- CWD: `{gate['cwd']}`",
                 f"- Command: `{format_command(gate['command'])}`",
+                f"- Safety: `{gate['safety']['risk']}`",
+                f"- Safety reasons: `{', '.join(gate['safety']['reasons']) or '-'}`",
                 f"- Return code: `{gate['returncode']}`",
                 f"- Elapsed seconds: `{gate['elapsed_seconds']}`",
+                f"- Skip reason: `{gate.get('skip_reason') or '-'}`",
                 "",
             ]
         )
@@ -285,7 +363,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--workflow", required=True)
     parser.add_argument("--execute", action="store_true", help="Run selected quality gates. Default only plans them.")
+    parser.add_argument(
+        "--allow-side-effect-gates",
+        action="store_true",
+        help="Allow gates that can start long-running local services or otherwise require operator approval.",
+    )
     parser.add_argument("--max-gates", type=int)
+    parser.add_argument("--gate-index", type=int, help="Select exactly one 1-based quality gate index.")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
@@ -295,7 +379,9 @@ def main(argv: list[str] | None = None) -> int:
             args.manifest,
             args.workflow,
             execute=args.execute,
+            allow_side_effect_gates=args.allow_side_effect_gates,
             max_gates=args.max_gates,
+            gate_index=args.gate_index,
             timeout_seconds=args.timeout,
             json_out=args.json_out,
             markdown_out=args.markdown_out,
@@ -309,7 +395,8 @@ def main(argv: list[str] | None = None) -> int:
         f"mode={report['execution_mode']}, "
         f"selected={report['summary']['selected_gates']}, "
         f"passed={report['summary']['passed_gates']}, "
-        f"failed={report['summary']['failed_gates']}"
+        f"failed={report['summary']['failed_gates']}, "
+        f"skipped={report['summary']['skipped_gates']}"
     )
     return 0
 

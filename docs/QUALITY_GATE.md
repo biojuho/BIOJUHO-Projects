@@ -51,6 +51,10 @@ The runner defaults to dry-run unless `--execute` is supplied. It executes only
 the selected manifest quality gates through existing project-owned CLI/smoke
 commands.
 
+Use `--gate-index <n>` to target exactly one 1-based quality gate. Gates that
+can start long-running services or otherwise need operator approval are skipped
+in execute mode unless `--allow-side-effect-gates` is supplied.
+
 When an npm-based smoke check runs in a clean worktree, the runner installs
 lockfile-backed Node dependencies with `npm ci --no-audit` if `node_modules` is
 missing for that package directory. Dependency artifacts are local runtime state

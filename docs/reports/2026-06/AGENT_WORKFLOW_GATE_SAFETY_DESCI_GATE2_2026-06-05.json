@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T16:00:01.165063+00:00",
+  "status": "pass",
+  "execution_mode": "execute",
+  "will_execute": true,
+  "allow_side_effect_gates": false,
+  "manifest_generated_at": "2026-06-04T20:27:50+09:00",
+  "source_context": {
+    "repo": "evalstate/fast-agent",
+    "url": "https://github.com/evalstate/fast-agent",
+    "adopted_pattern": "Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates."
+  },
+  "workflow": {
+    "id": "desci-launch-readiness",
+    "project": "apps/desci-platform",
+    "goal": "Operate grant discovery, readiness scoring, browser smoke, and managed dev-server proof for DeSci launch paths.",
+    "smoke_scope": "desci",
+    "launch_status": "active",
+    "agent_roles": [
+      "grant-analyst",
+      "browser-qa",
+      "release-operator"
+    ],
+    "mcp_servers": [
+      "playwright"
+    ],
+    "quality_gate_count": 2
+  },
+  "summary": {
+    "requested_max_gates": null,
+    "requested_gate_index": 2,
+    "selected_gates": 1,
+    "passed_gates": 0,
+    "failed_gates": 0,
+    "skipped_gates": 1,
+    "planned_gates": 0,
+    "approval_required_gates": 1,
+    "elapsed_seconds": 0.0
+  },
+  "gates": [
+    {
+      "index": 2,
+      "workflow_id": "desci-launch-readiness",
+      "command": [
+        "D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe",
+        "ops/scripts/dev_server_control.py",
+        "start",
+        "--target",
+        "desci-frontend",
+        "--wait-ready"
+      ],
+      "cwd": ".",
+      "source": "python ops/scripts/dev_server_control.py start --target desci-frontend --wait-ready",
+      "safety": {
+        "risk": "side_effecting",
+        "requires_approval": true,
+        "reasons": [
+          "dev_server_start",
+          "wait_ready_process"
+        ]
+      },
+      "status": "skipped",
+      "returncode": null,
+      "elapsed_seconds": 0.0,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "skip_reason": "side-effecting gate requires --allow-side-effect-gates (dev_server_start, wait_ready_process)"
+    }
+  ],
+  "errors": []
+}

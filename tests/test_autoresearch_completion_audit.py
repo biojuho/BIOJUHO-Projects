@@ -29,13 +29,14 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
     assert summary["global_objective_complete"] is False
     assert summary["missing_required"] == []
     assert "external_credential_boundaries" in summary["explicit_blockers"]
-    assert summary["status_counts"]["covered"] >= 11
+    assert summary["status_counts"]["covered"] >= 12
     assert {item["id"] for item in summary["criteria"]} >= {
         "pre_push_regression_gate",
         "mcp_runtime_subprocess_smoke",
         "mcp_service_runtime_smoke",
         "mcp_otel_collector_handoff",
         "agent_workflow_gate_runner",
+        "agent_workflow_gate_safety",
     }
 
 

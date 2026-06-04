@@ -30,8 +30,36 @@ def test_build_gate_steps_parses_workflow_quality_gates() -> None:
     assert len(steps) == 2
     assert steps[0]["cwd"] == "."
     assert steps[0]["command"][1:] == ["ops/scripts/run_workspace_smoke.py", "--scope", "workspace"]
+    assert steps[0]["safety"]["risk"] == "deterministic"
     assert steps[1]["cwd"] == "apps/dashboard"
     assert steps[1]["command"][-2:] == ["--", "src/App.test.jsx"]
+    assert steps[1]["safety"]["requires_approval"] is False
+
+
+def test_build_gate_steps_marks_side_effecting_gates() -> None:
+    runner = load_module()
+    payload = runner.workflow_manifest.load_manifest(MANIFEST_PATH)
+    workflow = runner.select_workflow(payload, "desci-launch-readiness")
+
+    steps = runner.build_gate_steps(workflow, max_gates=2)
+
+    assert steps[0]["safety"]["risk"] == "deterministic"
+    assert steps[1]["safety"]["risk"] == "side_effecting"
+    assert steps[1]["safety"]["requires_approval"] is True
+    assert "dev_server_start" in steps[1]["safety"]["reasons"]
+
+
+def test_build_gate_steps_selects_single_gate_index() -> None:
+    runner = load_module()
+    payload = runner.workflow_manifest.load_manifest(MANIFEST_PATH)
+    workflow = runner.select_workflow(payload, "desci-launch-readiness")
+
+    steps = runner.build_gate_steps(workflow, gate_index=2)
+
+    assert len(steps) == 1
+    assert steps[0]["index"] == 2
+    assert steps[0]["cwd"] == "."
+    assert steps[0]["safety"]["requires_approval"] is True
 
 
 def test_dry_run_report_keeps_gates_planned(tmp_path: Path) -> None:
@@ -102,6 +130,98 @@ def test_execute_failure_marks_report_failed(monkeypatch) -> None:
         assert "gate 1 failed" in str(exc)
     else:
         raise AssertionError("expected failed gate to raise")
+
+
+def test_execute_skips_side_effecting_gates_without_override(monkeypatch) -> None:
+    runner = load_module()
+    seen: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        seen.append(command)
+        return subprocess.CompletedProcess(command, 0, "ok\n", "")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    report = runner.run_workflow_gates(
+        MANIFEST_PATH,
+        "desci-launch-readiness",
+        execute=True,
+        max_gates=2,
+        timeout_seconds=10,
+    )
+
+    assert report["status"] == "pass"
+    assert report["summary"]["passed_gates"] == 1
+    assert report["summary"]["skipped_gates"] == 1
+    assert report["summary"]["approval_required_gates"] == 1
+    assert report["gates"][1]["status"] == "skipped"
+    assert "--allow-side-effect-gates" in report["gates"][1]["skip_reason"]
+    assert len(seen) == 1
+
+
+def test_execute_allows_side_effecting_gates_with_override(monkeypatch) -> None:
+    runner = load_module()
+    seen: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        seen.append(command)
+        return subprocess.CompletedProcess(command, 0, "ok\n", "")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    report = runner.run_workflow_gates(
+        MANIFEST_PATH,
+        "desci-launch-readiness",
+        execute=True,
+        allow_side_effect_gates=True,
+        max_gates=2,
+        timeout_seconds=10,
+    )
+
+    assert report["summary"]["passed_gates"] == 2
+    assert report["summary"]["skipped_gates"] == 0
+    assert len(seen) == 2
+
+
+def test_run_rejects_combined_gate_limits() -> None:
+    runner = load_module()
+
+    try:
+        runner.run_workflow_gates(
+            MANIFEST_PATH,
+            "desci-launch-readiness",
+            execute=False,
+            max_gates=1,
+            gate_index=2,
+            timeout_seconds=10,
+        )
+    except ValueError as exc:
+        assert "--max-gates and --gate-index cannot be combined" in str(exc)
+    else:
+        raise AssertionError("expected combined gate selectors to fail")
+
+
+def test_execute_gate_index_skips_side_effecting_gate_without_running(monkeypatch) -> None:
+    runner = load_module()
+
+    def fake_run(command, **kwargs):
+        raise AssertionError("side-effecting gate should be skipped before subprocess.run")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    report = runner.run_workflow_gates(
+        MANIFEST_PATH,
+        "desci-launch-readiness",
+        execute=True,
+        max_gates=None,
+        gate_index=2,
+        timeout_seconds=10,
+    )
+
+    assert report["summary"]["selected_gates"] == 1
+    assert report["summary"]["requested_gate_index"] == 2
+    assert report["summary"]["skipped_gates"] == 1
+    assert report["gates"][0]["status"] == "skipped"
 
 
 def test_cli_writes_dry_run_outputs(tmp_path: Path) -> None:

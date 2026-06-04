@@ -37,6 +37,12 @@ if ! python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quali
     exit 1
 fi
 
+if ! python ops/scripts/agent_workflow_gate_runner.py --workflow desci-launch-readiness --execute --gate-index 2 2>/dev/null; then
+    echo "Agent workflow side-effect safety check failed. Push blocked."
+    echo "   Then run 'python ops/scripts/agent_workflow_gate_runner.py --workflow desci-launch-readiness --execute --gate-index 2' for safety details."
+    exit 1
+fi
+
 if ! python ops/scripts/autoresearch_completion_audit.py 2>/dev/null; then
     echo "AutoResearch completion audit failed. Push blocked."
     echo "   Then run 'python ops/scripts/autoresearch_completion_audit.py' for completion evidence details."
