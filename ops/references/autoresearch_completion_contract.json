@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-04T22:12:14+09:00",
+  "generated_at": "2026-06-04T23:04:52+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -109,6 +109,17 @@
           "must_contain": [
             "zero console/page/request failures",
             "7/7 OK"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DESCI_BROWSER_SMOKE_JSON_EVIDENCE_2026-06-04.json",
+          "must_contain": [
+            "\"status\": \"pass\"",
+            "\"passed\": 7",
+            "\"failed\": 0",
+            "\"planned\": 7",
+            "\"dashboard-redirect\"",
+            "\"upload-redirect\""
           ]
         }
       ]
