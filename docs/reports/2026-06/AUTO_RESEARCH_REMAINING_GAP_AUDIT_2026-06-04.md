@@ -6,6 +6,10 @@ This audit records the state after the 2026-06-04 AutoResearch adoption cycle on
 
 Latest pushed commits in this slice:
 
+- 2026-06-05 external credential live-verifier slice: added a dry-run-first
+  live verifier that plans registry verification commands, blocks
+  missing-required-env boundaries, and supports redacted execution only for
+  ready boundaries.
 - 2026-06-05 external credential handoff drift-guard slice: added checked-in
   handoff sync checks to the generator and pre-push hook so registry changes
   cannot silently stale the JSON, Markdown, or env-template artifacts.
@@ -300,6 +304,24 @@ These are intentionally not promoted to live runtime changes in this cycle:
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.json`,
     and
     `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_HANDOFF_DRIFT_GUARD_2026-06-05.md`
+- External credential live-verifier verification:
+  - `ops\scripts\external_credential_live_verify.py` plans all registry
+    verification commands in dry-run mode
+  - missing required env boundaries are marked `blocked_missing_required_env`
+  - execute mode redacts env values in captured output
+  - default dry-run reports `selected=5`, `ready=2`, `blocked=3`, and
+    `executed=0`
+  - focused credential/completion suite passed `26/26`
+  - pre-push-equivalent pytest suite passed `104/104`
+  - completion audit reports `24` criteria with
+    `cycle_evidence_ready=true` and `global_objective_complete=false`
+  - generated evidence:
+    `docs\reports\2026-06\AUTO_RESEARCH_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md`,
+    `docs\reports\2026-06\EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.json`,
+    `docs\reports\2026-06\EXTERNAL_CREDENTIAL_LIVE_VERIFY_DRY_RUN_2026-06-05.md`,
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.json`,
+    and
+    `docs\reports\2026-06\AUTO_RESEARCH_COMPLETION_AUDIT_EXTERNAL_CREDENTIAL_LIVE_VERIFIER_2026-06-05.md`
 - `python ops\scripts\github_modernization_radar.py --json-out var\github-modernization-radar-agent-platform-expansion-2026-06-05.json --markdown-out docs\reports\2026-06\GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md`
   - valid
   - `22` sources

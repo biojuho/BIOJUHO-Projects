@@ -1,0 +1,65 @@
+# External Credential Live Verifier
+
+- Status: `pass`
+- Mode: `dry_run`
+- Selected boundaries: `5`
+- Ready boundaries: `2`
+- Blocked boundaries: `3`
+- Commands planned: `8`
+- Commands executed: `0`
+
+## Boundaries
+
+| Boundary | Live status | Missing required env | Commands |
+| --- | --- | ---: | ---: |
+| `canva_oauth_and_openapi_tool_execution` | `blocked_missing_required_env` | `2` | `2` |
+| `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `1` | `2` |
+| `hosted_agent_runtime_credentials` | `ready_for_execution` | `0` | `2` |
+| `github_source_refresh_rate_limit_token` | `ready_for_execution` | `0` | `1` |
+| `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `2` | `1` |
+
+## Commands
+
+### canva_oauth_and_openapi_tool_execution
+
+- Status: `planned`
+- Command: `cd mcp/canva-mcp && npm run doctor:canva`
+
+### canva_oauth_and_openapi_tool_execution
+
+- Status: `planned`
+- Command: `cd mcp/canva-mcp && npm run auth:canva`
+
+### otel_collector_endpoint_and_credentials
+
+- Status: `planned`
+- Command: `python ops/scripts/run_workspace_smoke.py --scope mcp --mcp-otel-out var/mcp-smoke-live-collector.otlp.jsonl`
+
+### otel_collector_endpoint_and_credentials
+
+- Status: `planned`
+- Command: `python ops/scripts/mcp_otel_collector_handoff.py --otel-jsonl var/mcp-smoke-live-collector.otlp.jsonl`
+
+### hosted_agent_runtime_credentials
+
+- Status: `planned`
+- Command: `python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quality-dashboard --max-gates 1`
+
+### hosted_agent_runtime_credentials
+
+- Status: `planned`
+- Command: `python ops/scripts/autoresearch_completion_audit.py`
+
+### github_source_refresh_rate_limit_token
+
+- Status: `planned`
+- Command: `python ops/scripts/github_source_freshness.py --json-out var/github-source-freshness-live.json --markdown-out var/github-source-freshness-live.md`
+
+### telegram_notification_mcp_credentials
+
+- Status: `planned`
+- Command: `python ops/scripts/mcp_service_runtime_smoke.py`
+
+## Errors
+
+- none
