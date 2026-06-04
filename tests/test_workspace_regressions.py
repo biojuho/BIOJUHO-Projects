@@ -36,6 +36,16 @@ _OPTIONAL_MEMBER_DEPENDENCIES = {
 }
 
 
+def _expect(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def _expect_equal(actual, expected) -> None:
+    if actual != expected:
+        raise AssertionError(f"Expected {expected!r}, got {actual!r}")
+
+
 def _import_workspace_module(module_name: str):
     try:
         return importlib.import_module(module_name)
@@ -51,25 +61,25 @@ def _import_workspace_module(module_name: str):
 def test_brain_module_robust_json_parse(monkeypatch) -> None:
     from antigravity_mcp.integrations.brain_adapter import _robust_json_parse
 
-    assert _robust_json_parse('```json\n{"key":"value"}\n```') == {"key": "value"}
-    assert _robust_json_parse('{"key":"value", }') == {"key": "value"}
+    _expect_equal(_robust_json_parse('```json\n{"key":"value"}\n```'), {"key": "value"})
+    _expect_equal(_robust_json_parse('{"key":"value", }'), {"key": "value"})
 
 
 def test_notion_server_reads_db_id_from_env() -> None:
     config_path = PROJECT_ROOT / "automation" / "DailyNews" / "src" / "antigravity_mcp" / "config.py"
     content = config_path.read_text(encoding="utf-8")
-    assert "ANTIGRAVITY_DB_ID" in content
+    _expect("ANTIGRAVITY_DB_ID" in content, "DailyNews config should read ANTIGRAVITY_DB_ID")
 
 
 def test_healthcheck_tracks_dailynews_canonical_server_path() -> None:
     spec = importlib.util.spec_from_file_location("healthcheck_under_test", HEALTHCHECK_PATH)
-    assert spec and spec.loader
+    _expect(spec is not None and spec.loader is not None, "healthcheck module spec should load")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
 
     dailynews = next(project for project in module.CHECKS if project["name"] == "DailyNews")
-    assert dailynews["checks"] == [("server", "automation/DailyNews/src/antigravity_mcp/server.py")]
+    _expect_equal(dailynews["checks"], [("server", "automation/DailyNews/src/antigravity_mcp/server.py")])
 
 
 def test_getdaytrends_package_imports_from_repo_root() -> None:
@@ -78,10 +88,10 @@ def test_getdaytrends_package_imports_from_repo_root() -> None:
     analyzer = _import_workspace_module("getdaytrends.analyzer")
     db_module = _import_workspace_module("getdaytrends.db")
 
-    assert hasattr(collectors, "_async_collect_contexts")
-    assert callable(generation.select_persona)
-    assert callable(analyzer.analyze_trends)
-    assert hasattr(db_module, "compute_fingerprint")
+    _expect(hasattr(collectors, "_async_collect_contexts"), "collectors should expose async context collection")
+    _expect(callable(generation.select_persona), "generation.select_persona should be callable")
+    _expect(callable(analyzer.analyze_trends), "analyzer.analyze_trends should be callable")
+    _expect(hasattr(db_module, "compute_fingerprint"), "db module should expose compute_fingerprint")
 
 
 def test_getdaytrends_pipeline_modules_import_from_repo_root() -> None:
@@ -95,15 +105,15 @@ def test_getdaytrends_pipeline_modules_import_from_repo_root() -> None:
     fact_checker = _import_workspace_module("getdaytrends.fact_checker")
     prompts = _import_workspace_module("getdaytrends.generation.prompts")
 
-    assert callable(scraper.collect_trends)
-    assert callable(generator.generate_for_trend_async)
-    assert callable(storage.save_to_notion)
-    assert callable(pipeline.run_pipeline)
-    assert callable(pipeline_steps._step_generate)
-    assert callable(main_module.parse_args)
-    assert hasattr(canva, "CanvaMCPClient")
-    assert callable(fact_checker.verify_content)
-    assert hasattr(prompts, "_select_generation_tier")
+    _expect(callable(scraper.collect_trends), "scraper.collect_trends should be callable")
+    _expect(callable(generator.generate_for_trend_async), "generator.generate_for_trend_async should be callable")
+    _expect(callable(storage.save_to_notion), "storage.save_to_notion should be callable")
+    _expect(callable(pipeline.run_pipeline), "pipeline.run_pipeline should be callable")
+    _expect(callable(pipeline_steps._step_generate), "pipeline_steps._step_generate should be callable")
+    _expect(callable(main_module.parse_args), "main.parse_args should be callable")
+    _expect(hasattr(canva, "CanvaMCPClient"), "canva module should expose CanvaMCPClient")
+    _expect(callable(fact_checker.verify_content), "fact_checker.verify_content should be callable")
+    _expect(hasattr(prompts, "_select_generation_tier"), "prompts should expose _select_generation_tier")
 
 
 @patch("biolinker.services.pdf_parser.pypdf.PdfReader")
@@ -120,7 +130,7 @@ def test_pdf_parser_extracts_page_text(mock_reader_class: MagicMock) -> None:
 
     parser = PDFParser()
     result = parser.parse(b"dummy pdf content")
-    assert result == "Page 1 Text\nPage 2 Text"
+    _expect_equal(result, "Page 1 Text\nPage 2 Text")
 
 
 @patch("biolinker.services.pdf_parser.pypdf.PdfReader")
@@ -129,4 +139,4 @@ def test_pdf_parser_returns_empty_string_on_error(mock_reader_class: MagicMock) 
 
     mock_reader_class.side_effect = Exception("Invalid PDF")
     parser = PDFParser()
-    assert parser.parse(b"invalid content") == ""
+    _expect_equal(parser.parse(b"invalid content"), "")
