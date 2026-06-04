@@ -7,10 +7,13 @@ import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 
+const PAGE_SIZE = 20;
+
 export default function SupplyChain() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetchProducts();
@@ -39,6 +42,13 @@ export default function SupplyChain() {
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.origin || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + PAGE_SIZE;
+  const visibleProducts = filteredProducts.slice(pageStart, pageEnd);
+  const firstVisible = filteredProducts.length === 0 ? 0 : pageStart + 1;
+  const lastVisible = Math.min(pageEnd, filteredProducts.length);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -91,15 +101,47 @@ export default function SupplyChain() {
             type="text"
             placeholder="Search products or locations..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
             className="w-full bg-white/5 border border-input rounded-lg pl-10 pr-4 py-2 text-foreground focus:outline-none focus:border-primary transition-colors"
           />
           <Search className="w-5 h-5 text-muted-foreground absolute left-3 top-2.5" />
         </div>
       </div>
 
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-muted-foreground">
+        <span aria-live="polite">
+          Showing {firstVisible}-{lastVisible} of {filteredProducts.length} products
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="min-w-20 text-center">
+            Page {currentPage} / {totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-6">
-        {filteredProducts.map((product) => (
+        {visibleProducts.map((product) => (
           <Card key={product.id} className="hover:bg-white/10 transition-colors">
             <CardContent className="p-6">
               <div className="flex flex-col lg:flex-row justify-between gap-6">
