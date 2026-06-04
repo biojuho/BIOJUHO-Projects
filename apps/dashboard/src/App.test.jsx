@@ -110,6 +110,7 @@ const RESPONSES = {
         plan_rank: 1,
         env_names: ['CANVA_CLIENT_ID', 'CANVA_CLIENT_SECRET'],
         verification_command_count: 2,
+        first_verification_command: 'cd mcp/canva-mcp && npm run doctor:canva',
       },
       boundaries: [
         {
@@ -263,6 +264,8 @@ describe('Dashboard App', () => {
     expect(screen.getAllByText('Canva OAuth and OpenAPI tool execution').length).toBeGreaterThan(0)
     expect(screen.getByText('Next Unblock')).toBeInTheDocument()
     expect(screen.getByText('CANVA_CLIENT_ID, CANVA_CLIENT_SECRET')).toBeInTheDocument()
+    expect(screen.getByText('Next command')).toBeInTheDocument()
+    expect(screen.getByText('cd mcp/canva-mcp && npm run doctor:canva')).toBeInTheDocument()
     expect(screen.getByText('external auth blocked')).toBeInTheDocument()
   })
 })

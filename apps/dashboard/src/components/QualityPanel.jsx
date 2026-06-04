@@ -91,6 +91,7 @@ export function QualityPanel({ data, error, onRetry }) {
   const credentialMissingEnv = credentialBoundaries?.missing_required_env_count ?? 0
   const credentialNextUnblock = credentialBoundaries?.next_unblock || null
   const credentialNextEnvNames = (credentialNextUnblock?.env_names || []).join(', ')
+  const credentialNextCommand = credentialNextUnblock?.first_verification_command || ''
   const credentialLabel = credentialBoundaries?.available
     ? credentialMissingEnv > 0
       ? 'ACTION'
@@ -225,6 +226,14 @@ export function QualityPanel({ data, error, onRetry }) {
                   {credentialNextEnvNames || 'none'}
                 </span>
               </div>
+              {credentialNextCommand && (
+                <div className="metric-row">
+                  <span className="metric-label">Next command</span>
+                  <span className="metric-value mono" style={{ maxWidth: '58%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {credentialNextCommand}
+                  </span>
+                </div>
+              )}
             </>
           )}
           {credentialBoundaryItems.length > 0 && (

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "tool": "dev_server_browser_smoke",
+  "generated_at": "2026-06-04T20:57:15.996073Z",
+  "status": "pass",
+  "summary": {
+    "targets": 1,
+    "routes": 1,
+    "completed": 1,
+    "passed": 1,
+    "failed": 0,
+    "blocked": 0
+  },
+  "results": [
+    {
+      "target_id": "dashboard-frontend",
+      "name": "home",
+      "path": "/",
+      "ok": true,
+      "failures": [],
+      "status_code": 200,
+      "final_path": "/"
+    }
+  ],
+  "failures": []
+}

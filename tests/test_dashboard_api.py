@@ -363,6 +363,7 @@ class TestQualityOverview:
         assert next_unblock["title"] == "Canva OAuth and OpenAPI tool execution"
         assert next_unblock["env_names"] == ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"]
         assert next_unblock["verification_command_count"] == 2
+        assert next_unblock["first_verification_command"] == "cd mcp/canva-mcp && npm run doctor:canva"
 
 
 # ── /api/overview structure ────────────────────────────────────────
