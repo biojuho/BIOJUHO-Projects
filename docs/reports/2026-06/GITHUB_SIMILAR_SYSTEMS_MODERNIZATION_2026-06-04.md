@@ -4,7 +4,7 @@
 
 - Sources reviewed: 6
 - Adoption counts: adopted=1, partially_adopted=4, watch=1
-- Generated at: `2026-06-04T12:25:00+09:00`
+- Generated at: `2026-06-04T20:00:26+09:00`
 
 ## Search Context
 
@@ -29,9 +29,10 @@
   - LLM-readable documentation surface
 - Local evidence:
   - `mcp/canva-mcp/src/server/server.ts`
-  - `mcp/canva-mcp/src/server/stdio.ts`
-  - `mcp/canva-mcp/tests`
-  - `docs/MCP_HEALTH_CHECK.md`
+  - `mcp/canva-mcp/src/server/tools.ts`
+  - `mcp/canva-mcp/src/server/auth.ts`
+  - `ops/scripts/check_mcp_health.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_OAUTH_BOUNDARY_2026-06-04.md`
 - Gap: Python MCP services can evaluate FastMCP-style composition when the next MCP expansion is scoped.
 
 ### lastmile-ai/mcp-eval
@@ -46,7 +47,7 @@
   - JSON and HTML evidence suitable for CI
 - Local evidence:
   - `ops/scripts/run_workspace_smoke.py`
-  - `ops/scripts/workspace_smoke_report.py`
+  - `tests/test_smoke_report_readers.py`
   - `apps/desci-platform/scripts/product_smoke.py`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `docs/QUALITY_GATE.md`
@@ -66,7 +67,7 @@
   - `packages/shared/harness/core.py`
   - `packages/shared/harness/adapters/native.py`
   - `packages/shared/harness/token_tracker.py`
-  - `packages/shared/tests/test_workflow_trace.py`
+  - `packages/shared/harness/tests/test_harness.py`
 - Gap: The shared harness has runtime pieces, but no single manifest that declares agent workflows for every app.
 
 ### dsifry/metaswarm
@@ -81,8 +82,8 @@
   - durable learning and next-action capture
 - Local evidence:
   - `ops/scripts/run_workspace_smoke.py`
-  - `ops/scripts/release_approval_check.py`
-  - `docs/reports/2026-05/RELEASE_APPROVAL_WORKSPACE_2026-05-28.json`
+  - `tests/test_workspace_smoke.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_2026-06-04.md`
   - `next-actions.md`
 - Gap: No remaining structural gap for deterministic quality gates; future work should keep evidence current.
 
@@ -100,7 +101,8 @@
   - `mcp/canva-mcp/src/server/tools.ts`
   - `mcp/canva-mcp/src/server/auth.ts`
   - `mcp/canva-mcp/assets/preview.js`
-  - `docs/MCP_HEALTH_CHECK.md`
+  - `ops/scripts/check_mcp_health.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_PASS_2026-06-04.md`
 - Gap: The workspace does not yet publish MCP tools as OpenAPI endpoints; keep this as an interoperability option.
 
 ### Uninen/devserver-mcp
@@ -111,17 +113,24 @@
 - Why similar: MCP-driven development server manager with process monitoring, log visibility, and Playwright automation.
 - Observed patterns:
   - multiple local service process monitoring
+  - manifest-backed start, stop, status, and log tailing
   - browser automation as a first-class workflow capability
   - operator-facing runtime status
 - Local evidence:
   - `ops/references/dev_server_targets.json`
   - `ops/scripts/dev_server_status.py`
+  - `ops/scripts/dev_server_control.py`
   - `tests/test_dev_server_status.py`
+  - `tests/test_dev_server_control.py`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `apps/dashboard/src/components/QualityPanel.jsx`
-  - `ops/scripts/workspace_smoke_report.py`
+  - `ops/scripts/run_workspace_smoke.py`
   - `docs/QUALITY_GATE.md`
-- Gap: The workspace now has a manifest-backed live dev-server readiness probe; start-stop orchestration and log tailing remain future scoped work.
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_CONTROL_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_GROUP_STOP_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_DEV_SERVER_READINESS_2026-06-04.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TIMEOUT_TREE_2026-06-04.md`
+- Gap: CLI manifest-backed start, stop, status, tail, dashboard readiness, and timeout-tree cleanup are adopted; MCP/TUI exposure remains a watch item rather than a release blocker.
 
 ## Operating Decision
 
