@@ -27,6 +27,17 @@ interface Props extends Record<string, unknown> {
   continuation?: string | null;
 }
 
+const FALLBACK_THUMBNAIL =
+  `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 140">
+      <rect width="192" height="140" rx="12" fill="#f3f4f6" />
+      <rect x="22" y="28" width="92" height="12" rx="6" fill="#9ca3af" />
+      <rect x="22" y="56" width="148" height="10" rx="5" fill="#d1d5db" />
+      <rect x="22" y="80" width="112" height="10" rx="5" fill="#d1d5db" />
+      <circle cx="150" cy="38" r="18" fill="#00c4cc" opacity="0.75" />
+    </svg>
+  `)}`;
+
 const CanvaSearchDesigns: React.FC = () => {
   const props = useWidgetProps<Props>({
     query: '',
@@ -92,7 +103,7 @@ const CanvaSearchDesigns: React.FC = () => {
             {/* Image container - takes most of the 192px height */}
             <div className="relative w-full h-[140px] bg-gray-100 rounded-t-lg overflow-hidden">
               <img
-                src={design.thumbnail?.url || 'https://via.placeholder.com/192x140?text=No+Preview'}
+                src={design.thumbnail?.url || FALLBACK_THUMBNAIL}
                 alt={design.title || 'Untitled Design'}
                 className="w-full h-full object-cover"
                 loading="lazy"

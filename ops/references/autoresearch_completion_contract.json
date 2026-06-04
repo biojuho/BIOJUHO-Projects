@@ -152,6 +152,16 @@
             "\"passed\": 3",
             "\"failed\": 0"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_CANVA_2026-06-04.json",
+          "must_contain": [
+            "\"tool\": \"dev_server_browser_smoke\"",
+            "\"status\": \"pass\"",
+            "\"target_id\": \"canva-widget-preview\"",
+            "\"passed\": 1",
+            "\"failed\": 0"
+          ]
         }
       ]
     },

@@ -15,6 +15,18 @@ interface Props extends Record<string, unknown> {
   job_id?: string | null;
 }
 
+const FALLBACK_DESIGN =
+  `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+      <rect width="192" height="192" rx="24" fill="#f3f4f6" />
+      <rect x="28" y="34" width="136" height="124" rx="16" fill="#ffffff" />
+      <rect x="46" y="58" width="66" height="12" rx="6" fill="#7d2ae8" opacity="0.8" />
+      <rect x="46" y="88" width="100" height="10" rx="5" fill="#9ca3af" />
+      <rect x="46" y="112" width="78" height="10" rx="5" fill="#d1d5db" />
+      <circle cx="136" cy="62" r="18" fill="#00c4cc" opacity="0.75" />
+    </svg>
+  `)}`;
+
 const CanvaDesignGenerator: React.FC = () => {
   const props = useWidgetProps<Props>({
     candidates: [],
@@ -101,7 +113,7 @@ const CanvaDesignGenerator: React.FC = () => {
               )}
             >
               <img
-                src={candidate.thumbnail_url || candidate.preview_url || 'https://via.placeholder.com/192x192?text=Design'}
+                src={candidate.thumbnail_url || candidate.preview_url || FALLBACK_DESIGN}
                 alt={`Design ${index + 1}`}
                 className="w-full h-full object-cover"
                 loading="lazy"
