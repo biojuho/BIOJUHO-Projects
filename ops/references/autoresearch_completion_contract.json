@@ -141,13 +141,13 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "1058ddd",
+            "a06d680",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py"
           ],
           "git_freshness": {
-            "proof_commit": "1058ddd",
+            "proof_commit": "a06d680",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitignore",
@@ -524,12 +524,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "1058ddd",
+            "a06d680",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "1058ddd",
+            "proof_commit": "a06d680",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -676,6 +676,63 @@
             "Dashboard Next Credential Command",
             "Next command",
             "cd mcp/canva-mcp && npm run doctor:canva",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dashboard_credential_live_plan_status",
+      "requirement": "The dashboard Quality panel surfaces the live verifier queue rank, command count, and current blocker status for the next credential unblock.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/dashboard/src/components/QualityPanel.jsx",
+          "must_contain": [
+            "Live plan",
+            "credentialNextPlanSummary",
+            "credentialNextLiveStatus",
+            "verification_command_count"
+          ]
+        },
+        {
+          "path": "tests/test_dashboard_api.py",
+          "must_contain": [
+            "plan_rank",
+            "blocked_missing_required_env",
+            "verification_command_count"
+          ]
+        },
+        {
+          "path": "apps/dashboard/src/App.test.jsx",
+          "must_contain": [
+            "Live plan",
+            "Rank 1 / 2 commands / blocked missing required env"
+          ]
+        },
+        {
+          "path": "ops/references/dev_server_browser_checks.json",
+          "must_contain": [
+            "Live plan",
+            "Rank 1 / 2 commands / blocked missing required env"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_LIVE_PLAN_2026-06-05.md",
+          "must_contain": [
+            "Dev-Server Browser Smoke",
+            "Status: `pass`",
+            "dashboard-frontend",
+            "Failed: `0`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_LIVE_PLAN_STATUS_2026-06-05.md",
+          "must_contain": [
+            "Dashboard Live Plan Status",
+            "Rank 1 / 2 commands / blocked missing required env",
+            "blocked missing required env",
             "global_objective_complete=false"
           ]
         }
