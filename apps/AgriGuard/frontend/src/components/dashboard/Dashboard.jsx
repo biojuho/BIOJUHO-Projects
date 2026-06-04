@@ -113,8 +113,8 @@ export default function Dashboard() {
                 추적 이벤트가 없습니다
               </div>
             ) : (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-64 min-w-0">
+                <ResponsiveContainer width="100%" height={256} minWidth={320}>
                   <BarChart data={statusChartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                     <XAxis type="number" hide />
                     <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 13 }} width={80} />
@@ -154,8 +154,8 @@ export default function Dashboard() {
                 제품이 없습니다
               </div>
             ) : (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-64 min-w-0">
+                <ResponsiveContainer width="100%" height={256} minWidth={320}>
                   <PieChart>
                     <Pie
                       data={originChartData}

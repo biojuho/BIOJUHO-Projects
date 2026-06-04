@@ -189,6 +189,7 @@ DEFAULT_ALLOWED_ORIGINS = ",".join(
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
     ]
 )
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS).split(",")
