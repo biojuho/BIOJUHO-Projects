@@ -19,6 +19,15 @@ class StubUploadFile:
         return self._content
 
 
+class NameOnlyUploadFile:
+    def __init__(self, name: str, content: bytes) -> None:
+        self.name = name
+        self._content = content
+
+    async def read(self) -> bytes:
+        return self._content
+
+
 @pytest.mark.asyncio
 async def test_upload_asset_uses_parser_metadata(monkeypatch, tmp_path):
     """Structured parser output should feed indexing metadata and response analysis."""
@@ -84,6 +93,36 @@ async def test_upload_asset_normalizes_url_like_filename(monkeypatch, tmp_path):
     assert captured["parser_filename"] == "private-paper.pdf"
     assert captured["title"] == "private-paper.pdf"
     assert captured["metadata"]["original_filename"] == "private-paper.pdf"
+
+
+@pytest.mark.asyncio
+async def test_upload_asset_uses_name_fallback_without_preserving_file_url(monkeypatch, tmp_path):
+    """Upload adapters that expose only ``name`` should still get a safe local label."""
+    captured: dict[str, object] = {}
+    parse_result = SimpleNamespace(text="Uploaded paper text", metadata={}, parser="grobid")
+
+    def parse_document(content, filename="document.pdf"):  # noqa: ARG001
+        captured["parser_filename"] = filename
+        return parse_result
+
+    class StubVectorStore:
+        def add_company_asset(self, asset_id, title, content, metadata):  # noqa: ARG002
+            captured["title"] = title
+            captured["metadata"] = metadata
+
+    monkeypatch.setattr(asset_manager_module, "get_pdf_parser", lambda: SimpleNamespace(parse_document=parse_document))
+    monkeypatch.setattr(asset_manager_module, "get_vector_store", lambda: StubVectorStore())
+
+    manager = asset_manager_module.AssetManager(asset_dir=str(tmp_path))
+    result = await manager.upload_asset(
+        NameOnlyUploadFile("https://private.example.org/uploads/research-note.pdf?token=secret", b"%PDF-1.4 test"),
+        asset_type="paper",
+    )
+
+    assert result["filename"] == "research-note.pdf"
+    assert captured["parser_filename"] == "research-note.pdf"
+    assert captured["title"] == "research-note.pdf"
+    assert captured["metadata"]["original_filename"] == "research-note.pdf"
 
 
 @pytest.mark.asyncio

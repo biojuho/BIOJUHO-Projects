@@ -9,7 +9,7 @@ from fastapi import UploadFile
 
 from .ipfs_service import PaperMetadata, get_ipfs_service
 from .pdf_parser import get_pdf_parser
-from .upload_security import normalize_client_upload_filename
+from .upload_security import normalize_client_upload_filename, upload_filename_candidate
 from .vector_store import get_vector_store
 
 
@@ -28,7 +28,7 @@ class AssetManager:
     def _save_upload(self, file: UploadFile, content: bytes) -> tuple[str, str, str, str]:
         """Persist the uploaded file locally and return identifiers."""
         asset_id = str(uuid.uuid4())
-        display_filename = normalize_client_upload_filename(getattr(file, "filename", None))
+        display_filename = normalize_client_upload_filename(upload_filename_candidate(file))
         file_ext = os.path.splitext(display_filename)[1]
         saved_filename = f"{asset_id}{file_ext}"
         file_path = os.path.join(self.asset_dir, saved_filename)

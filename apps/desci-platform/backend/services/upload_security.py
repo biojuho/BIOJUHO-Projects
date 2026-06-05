@@ -11,6 +11,18 @@ _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 _DEFAULT_UPLOAD_FILENAME = "upload.bin"
 
 
+def upload_filename_candidate(file: Any) -> str | None:
+    """Return the first client-supplied filename-like label on an upload object."""
+    for attr in ("filename", "name"):
+        value = getattr(file, attr, None)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
 def normalize_client_upload_filename(filename: str | None, *, default: str = _DEFAULT_UPLOAD_FILENAME) -> str:
     """Return a local filename label without preserving URL/path semantics."""
     raw = str(filename or "").strip()
@@ -33,5 +45,5 @@ def normalize_client_upload_filename(filename: str | None, *, default: str = _DE
 
 def normalize_upload_file(file: Any) -> Any:
     """Normalize ``UploadFile.filename`` in place and return the same object."""
-    file.filename = normalize_client_upload_filename(getattr(file, "filename", None))
+    file.filename = normalize_client_upload_filename(upload_filename_candidate(file))
     return file
