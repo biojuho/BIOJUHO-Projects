@@ -47,6 +47,14 @@
 - `python -m pytest tests/test_workspace_smoke.py -q`
   - Passed: `31`.
 
+## Post-Push Freshness
+
+- Pushed proof commit: `07c0eb9`.
+- `current_tip_freshness_gate`: `07c0eb9` is the active proof baseline for
+  `origin/feat/observability-gateway-2026-05`.
+- `protected_path_freshness`: no changed protected paths after proof.
+- Audit marker: `global_objective_complete=false`.
+
 ## Next Cycle
 
 - Continue reviewing top-8 source digest candidates, especially

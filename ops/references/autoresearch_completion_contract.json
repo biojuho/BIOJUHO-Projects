@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:45:00+09:00",
+  "generated_at": "2026-06-05T09:50:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,15 +141,15 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "582695b",
+            "07c0eb9",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
             ".gitattributes",
-            "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_FALLBACK_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "582695b",
+            "proof_commit": "07c0eb9",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -959,12 +959,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "582695b",
+            "07c0eb9",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "582695b",
+            "proof_commit": "07c0eb9",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -981,11 +981,11 @@
           }
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_FALLBACK_GUARD_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md",
           "must_contain": [
-            "DeSci Job Stream Fallback Guard",
+            "Workspace Smoke Trace Drain Guard",
             "protected_path_freshness",
-            "582695b",
+            "07c0eb9",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]
