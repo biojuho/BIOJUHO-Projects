@@ -221,6 +221,16 @@ function workspaceCandidateSnapshot(relPath) {
   const freshnessCommitPattern = /^[0-9a-f]{40}$/i;
   const workspaceFreshnessExpectations = [
     {
+      key: "epicenter",
+      name: "EpicenterHQ/epicenter",
+      sourceMarker: "github-api:epicenter-freshness-refresh",
+    },
+    {
+      key: "openLoaf",
+      name: "OpenLoaf/OpenLoaf",
+      sourceMarker: "github-api:openloaf-freshness-refresh",
+    },
+    {
       key: "colanode",
       name: "colanode/colanode",
       sourceMarker: "github-api:colanode-freshness-refresh",
@@ -670,6 +680,8 @@ function buildChecklist() {
   });
 
   const workspaceBenchmarkFreshnessUiTerms = [
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotEpicenter", "shortEpicenterCommit", "Epicenter freshness commit did not render", "epicenterCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotOpenLoaf", "shortOpenLoafCommit", "OpenLoaf freshness commit did not render", "openLoafCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotColanode", "shortColanodeCommit", "Colanode freshness commit did not render", "colanodeCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotParabol", "shortParabolCommit", "Parabol freshness commit did not render", "parabolCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorklenz", "shortWorklenzCommit", "Worklenz freshness commit did not render", "worklenzCandidateFreshnessVisible"] },
@@ -678,7 +690,7 @@ function buildChecklist() {
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "workspace_benchmark_freshness_ui_smoke",
-    requirement: "The portfolio UI exposes refreshed Colanode, Parabol, Worklenz, Anytype, and Focalboard upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
+    requirement: "The portfolio UI exposes refreshed workspace benchmark upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
     status: workspaceBenchmarkFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: workspaceBenchmarkFreshnessUiTerms,
   });
