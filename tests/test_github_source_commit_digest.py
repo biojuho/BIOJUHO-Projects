@@ -226,6 +226,41 @@ def test_fetch_commit_feed_delta_tries_master_when_main_feed_404(monkeypatch) ->
     assert commits[0]["source"] == "github_atom_feed"
 
 
+def test_github_timestamp_parser_returns_naive_utc() -> None:
+    digest = load_module()
+
+    z_suffix = digest._github_ts_to_naive_utc("2026-06-04T20:00:00Z")
+    offset = digest._github_ts_to_naive_utc("2026-06-04T22:00:00+02:00")
+    naive = digest._github_ts_to_naive_utc("2026-06-04T20:00:00")
+
+    assert z_suffix == offset == naive
+    assert z_suffix.tzinfo is None
+
+
+def test_parse_commit_feed_handles_naive_window_and_z_feed_timestamp() -> None:
+    digest = load_module()
+    payload = b"""<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <title>fix: normalize timestamps</title>
+    <updated>2026-06-04T20:00:00Z</updated>
+    <author><name>bot</name></author>
+    <link rel="alternate" href="https://github.com/OpenHands/OpenHands/commit/abc123456789"/>
+    <id>tag:github.com,2008:Grit::Commit/abc123456789</id>
+  </entry>
+</feed>"""
+
+    commits = digest._parse_commit_feed(
+        payload,
+        since="2026-06-04T19:00:00",
+        until="2026-06-04T21:00:00",
+        limit=5,
+    )
+
+    assert commits[0]["subject"] == "fix: normalize timestamps"
+    assert commits[0]["source"] == "github_atom_feed"
+
+
 def test_checked_in_commit_digest_matches_renderer() -> None:
     digest = load_module()
     payload = json.loads(DIGEST_JSON_PATH.read_text(encoding="utf-8"))

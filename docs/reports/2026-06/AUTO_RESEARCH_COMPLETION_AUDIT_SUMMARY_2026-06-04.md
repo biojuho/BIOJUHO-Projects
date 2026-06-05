@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `68`
-- Status counts: `blocked=1, covered=67`
+- Criteria: `69`
+- Status counts: `blocked=1, covered=68`
 
 ## Missing Required
 
@@ -81,6 +81,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### github_commit_digest_naive_utc_timestamp_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### canva_mcp_continuation_guard
 

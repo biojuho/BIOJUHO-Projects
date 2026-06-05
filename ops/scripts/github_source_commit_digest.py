@@ -458,10 +458,17 @@ def _commit_feed_urls(repo: str) -> list[str]:
     ]
 
 
-def _parse_github_time(value: str) -> datetime:
+def _github_ts_to_naive_utc(value: str) -> datetime:
     if not value:
         raise ValueError("missing GitHub timestamp")
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed
+    return parsed.astimezone(UTC).replace(tzinfo=None)
+
+
+def _parse_github_time(value: str) -> datetime:
+    return _github_ts_to_naive_utc(value)
 
 
 def _entry_link(entry: ET.Element, namespace: dict[str, str]) -> str:

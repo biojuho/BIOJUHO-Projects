@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T12:41:53+09:00",
+  "generated_at": "2026-06-05T12:52:44+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -755,6 +755,43 @@
             "A/B Contract",
             "selected=12",
             "failed=0",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_commit_digest_naive_utc_timestamp_guard",
+      "requirement": "GitHub source commit-digest timestamp filtering normalizes GitHub ISO timestamps to naive UTC before comparing source windows.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_commit_digest.py",
+          "must_contain": [
+            "_github_ts_to_naive_utc",
+            "astimezone(UTC)",
+            "replace(tzinfo=None)",
+            "_parse_github_time"
+          ]
+        },
+        {
+          "path": "tests/test_github_source_commit_digest.py",
+          "must_contain": [
+            "test_github_timestamp_parser_returns_naive_utc",
+            "test_parse_commit_feed_handles_naive_window_and_z_feed_timestamp",
+            "OpenHands/OpenHands",
+            "fix: normalize timestamps"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_TIMESTAMP_NAIVE_UTC_GUARD_2026-06-05.md",
+          "must_contain": [
+            "GitHub Timestamp Naive UTC Guard",
+            "OpenHands/OpenHands",
+            "PLTF-2899: store GitHub PR timestamps as naive UTC (asyncpg DataError)",
+            "_github_ts_to_naive_utc",
+            "9 passed",
             "global_objective_complete=false"
           ]
         }
