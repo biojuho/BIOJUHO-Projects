@@ -1,6 +1,6 @@
 # Shared LLM Grok Seed Settings Guard
 
-Generated at: `2026-06-05T11:44:48+09:00`
+Generated at: `2026-06-05T11:48:44+09:00`
 
 ## Source Signal
 
@@ -67,5 +67,5 @@ Generated at: `2026-06-05T11:44:48+09:00`
 This cycle hardens the local shared LLM adapter. It does not add a full
 Pydantic AI runtime or require live xAI credentials.
 
-- Product proof baseline for this commit: `4401cb2`.
+- Product proof baseline for this commit: `c1caf13`.
 - `global_objective_complete=false`

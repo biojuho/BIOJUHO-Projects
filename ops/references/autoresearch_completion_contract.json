@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T11:36:44+09:00",
+  "generated_at": "2026-06-05T11:48:44+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -183,10 +183,10 @@
             "ops/scripts/pr_triage.py",
             "tests/test_pr_triage.py",
             "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
-            "4401cb2"
+            "c1caf13"
           ],
           "git_freshness": {
-            "proof_commit": "4401cb2",
+            "proof_commit": "c1caf13",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
