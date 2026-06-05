@@ -51,6 +51,10 @@ const freshnessDriftScripts = [
   "scripts/check-candidate-freshness-drift.mjs",
 ];
 
+const veritasSnapshotWriterScripts = [
+  "scripts/refresh-veritas-candidate-snapshot.mjs",
+];
+
 const appMarkers = [
   { id: "calendar_crud", file: "app.js", terms: ["function openEventModal", "function saveEventFromForm", "function deleteEvent"] },
   { id: "todo_crud", file: "app.js", terms: ["function quickAddTodo", "function saveTodoFromForm", "function toggleTodo", "function deleteTodo"] },
@@ -692,6 +696,30 @@ function buildChecklist() {
     },
   });
 
+  const veritasSnapshotWriterFiles = veritasSnapshotWriterScripts.map((path) => ({ path, exists: fileExists(path) }));
+  const veritasSnapshotWriterTerms = [
+    { file: "scripts/refresh-veritas-candidate-snapshot.mjs", terms: ["--snapshot-only", "--write", "gh api", "graphql", "veritas-focused-drift-refresh", "messageHeadline"] },
+    { file: "README.md", terms: ["refresh-veritas-candidate-snapshot.mjs", "--snapshot-only", "--write", "Veritas-7/autoresearch-skill-system"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const veritasSnapshotWriter = run("node", ["scripts/refresh-veritas-candidate-snapshot.mjs", "--snapshot-only"]);
+  checklist.push({
+    id: "veritas_snapshot_writer",
+    requirement: "The high-churn Veritas candidate snapshot has an explicit dry-run/write helper with an offline audit mode before repeated manual refreshes are automated.",
+    status: veritasSnapshotWriterFiles.every((item) => item.exists) &&
+      veritasSnapshotWriterTerms.every((item) => item.missingTerms.length === 0) &&
+      veritasSnapshotWriter.ok ? "pass" : "fail",
+    evidence: {
+      files: veritasSnapshotWriterFiles,
+      terms: veritasSnapshotWriterTerms,
+      snapshotOnly: {
+        command: "node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only",
+        status: veritasSnapshotWriter.ok ? "pass" : "fail",
+        result: parseJson(veritasSnapshotWriter.stdout) || veritasSnapshotWriter.stdout.trim(),
+        stderr: veritasSnapshotWriter.stderr.trim(),
+      },
+    },
+  });
+
   const autoresearchCandidates = autoresearchCandidateSnapshot("data/adoption-candidates.json");
   checklist.push({
     id: "autoresearch_ecosystem_candidates",
@@ -870,6 +898,19 @@ function buildChecklist() {
     requirement: "The portfolio candidate action queue exposes a summary of the selected action, including count, top candidate, review reason, and risk count, with browser smoke coverage.",
     status: candidateActionSummaryTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: candidateActionSummaryTerms,
+  });
+
+  const taskosaurWorkstreamBenchmarkTerms = [
+    { file: "data/adoption-candidates.json", terms: ["github-readme:taskosaur-workstream-ux-benchmark", "benchmarkFocus", "JooPark PM/Calendar", "JooPark PM/Kanban", "Conversational AI task execution", "PR + task + calendar command center"] },
+    { file: "app.js", terms: ["function projectBenchmarkFocus", "data-candidate-benchmark", "data-benchmark-flow", "portfolio-benchmark"] },
+    { file: "styles.css", terms: [".portfolio-benchmark"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkFocusVisible", "Workstream benchmark focus did not render", "Taskosaur benchmark focus did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_focus",
+    requirement: "Taskosaur and Workstream adoption candidates expose UX benchmark focus chips mapped to JooPark PM, Kanban, and Calendar surfaces, with browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkTerms,
   });
 
   const vendorTerms = [

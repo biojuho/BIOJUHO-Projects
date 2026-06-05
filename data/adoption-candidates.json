@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T02:14:17+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424",
+  "generatedAt": "2026-06-06T02:29:21+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -441,7 +441,7 @@
     {
       "id": "repo-veritas-autoresearch-skill-system",
       "name": "Veritas-7/autoresearch-skill-system",
-      "description": "v8.424 최신 session token header redaction을 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
+      "description": "v8.428 최신 quoted whitespace header redaction을 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
       "category": "Harness/오토리서치",
       "owner": "도입 후보",
       "language": "Python",
@@ -463,9 +463,9 @@
       "stars": 1,
       "forks": 1,
       "diskKb": 826,
-      "pushedAt": "2026-06-05T17:13:31Z",
+      "pushedAt": "2026-06-05T17:25:20Z",
       "createdAt": "2026-06-03T04:43:01Z",
-      "lastCommit": "6e833346ef5ba9f8d3426ff8287f89c151435bc8"
+      "lastCommit": "18e1c7ac4f59164bafbe898b04ae963be25c8f79"
     },
     {
       "id": "repo-biojuho-autoresearch-skill-system",
@@ -784,7 +784,12 @@
       "diskKb": 1632,
       "pushedAt": "2026-04-24T09:38:51Z",
       "createdAt": "2026-04-14T13:33:49Z",
-      "lastCommit": "ff358f14d0624529589a4c86df14f6928d0e46a2"
+      "lastCommit": "ff358f14d0624529589a4c86df14f6928d0e46a2",
+      "benchmarkFocus": {
+        "surface": "JooPark PM/Calendar",
+        "flow": "PR + task + calendar command center",
+        "signals": ["PR dashboard", "calendar agenda", "AI review/readiness"]
+      }
     },
     {
       "id": "repo-taskosaur-taskosaur",
@@ -813,7 +818,12 @@
       "diskKb": 9677,
       "pushedAt": "2026-06-02T11:00:39Z",
       "createdAt": "2025-07-30T07:23:19Z",
-      "lastCommit": "3a6e39f662c6fd8b22980c16d4441d8887347c31"
+      "lastCommit": "3a6e39f662c6fd8b22980c16d4441d8887347c31",
+      "benchmarkFocus": {
+        "surface": "JooPark PM/Kanban",
+        "flow": "Conversational AI task execution",
+        "signals": ["natural-language task creation", "Kanban/sprint workflow", "self-hosted PM"]
+      }
     },
     {
       "id": "repo-mattermost-community-focalboard",
