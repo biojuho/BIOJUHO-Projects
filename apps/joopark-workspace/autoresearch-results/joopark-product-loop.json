@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T03:38:01+09:00",
+  "generatedAt": "2026-06-06T03:45:38+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 42,
+      "pass": 43,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 42
+      "total": 43
     },
     "browserEvidence": {
       "routes": 15,
@@ -78,7 +78,9 @@
       "candidateBenchmarkQueueVisible": true,
       "taskosaurWorkstreamBenchmarkQueueChecks": 3,
       "candidateBenchmarkRubricVisible": true,
-      "taskosaurWorkstreamBenchmarkRubricChecks": 4
+      "taskosaurWorkstreamBenchmarkRubricChecks": 4,
+      "candidateBenchmarkScoredRubricVisible": true,
+      "taskosaurWorkstreamBenchmarkScoredRubricChecks": 5
     }
   },
   "experiments": [
@@ -501,6 +503,13 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
+    },
+    {
+      "id": "taskosaur-workstream-benchmark-scored-rubric",
+      "primaryMetric": "taskosaurWorkstreamBenchmarkScoredRubricChecks",
+      "baseline": 0,
+      "candidate": 5,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -514,7 +523,7 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "add scored recommendation weights to the benchmark rubric",
+    "add a benchmark recommendation export for the scored rubric",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "use the Veritas snapshot writer for the next focused refresh when dry-run reports changed true"
   ]

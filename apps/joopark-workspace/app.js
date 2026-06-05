@@ -213,12 +213,20 @@ function projectBenchmarkRubric(p) {
   const focus = p && typeof p.benchmarkFocus === "object" ? p.benchmarkFocus : null;
   const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
   return rubric
-    .map((row) => ({
-      axis: String(row && row.axis || "").trim(),
-      value: String(row && row.value || "").trim(),
-    }))
+    .map((row) => {
+      const score = Number(row && row.score);
+      return {
+        axis: String(row && row.axis || "").trim(),
+        value: String(row && row.value || "").trim(),
+        score: Number.isFinite(score) ? Math.max(0, Math.round(score)) : null,
+      };
+    })
     .filter((row) => row.axis && row.value)
     .slice(0, 6);
+}
+
+function projectBenchmarkRubricScore(project) {
+  return projectBenchmarkRubric(project).reduce((sum, row) => sum + (Number.isFinite(row.score) ? row.score : 0), 0);
 }
 
 function projectAdoptionMeta(p) {
@@ -1053,20 +1061,33 @@ function candidateBenchmarkRubric(projects, filter) {
   const focused = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0)).slice(0, 2);
   if (focused.length < 2) return "";
   const axes = ["입력 소스", "AI 보조", "PM 표면", "운영 방식"];
-  const valueFor = (project, axis) => projectBenchmarkRubric(project).find((row) => row.axis === axis)?.value || "비교 대기";
+  const rowFor = (project, axis) => projectBenchmarkRubric(project).find((row) => row.axis === axis) || { value: "비교 대기", score: null };
   const header = html`
     <div class="portfolio-rubric-axis">비교 축</div>
-    ${focused.map((project) => html`<div class="portfolio-rubric-project" data-rubric-project="${project.name}">${project.name}</div>`).join("")}
+    ${focused.map((project) => html`
+      <div class="portfolio-rubric-project" data-rubric-project="${project.name}" data-rubric-total="${projectBenchmarkRubricScore(project)}">
+        <span>${project.name}</span>
+        <strong class="portfolio-rubric-project-score">${projectBenchmarkRubricScore(project)}점</strong>
+      </div>
+    `).join("")}
   `;
   const rows = axes.map((axis) => html`
     <div class="portfolio-rubric-axis" data-benchmark-rubric-axis="${axis}">${axis}</div>
-    ${focused.map((project) => html`<div class="portfolio-rubric-value" data-rubric-project="${project.name}" data-rubric-axis="${axis}">${valueFor(project, axis)}</div>`).join("")}
+    ${focused.map((project) => {
+      const row = rowFor(project, axis);
+      return html`
+        <div class="portfolio-rubric-value" data-rubric-project="${project.name}" data-rubric-axis="${axis}" data-rubric-score="${Number.isFinite(row.score) ? row.score : ""}">
+          <span>${row.value}</span>
+          ${Number.isFinite(row.score) ? raw(html`<b class="portfolio-rubric-score">${row.score}점</b>`) : ""}
+        </div>
+      `;
+    }).join("")}
   `).join("");
   return html`
     <section class="portfolio-benchmark-rubric" data-candidate-benchmark-rubric>
       <div class="portfolio-rubric-head">
         <span>벤치 비교표</span>
-        <strong>${focused.map((project) => project.name.split("/").pop()).join(" / ")}</strong>
+        <strong>${focused.map((project) => `${project.name.split("/").pop()} ${projectBenchmarkRubricScore(project)}점`).join(" / ")}</strong>
       </div>
       <div class="portfolio-rubric-grid">
         ${raw(header)}
