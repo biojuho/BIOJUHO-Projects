@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T03:22:05+09:00
+Generated: 2026-06-06T03:45:38+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -817,6 +817,35 @@ Generated: 2026-06-06T03:22:05+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_rubric`.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 42/42.
 
+## Experiment: Veritas writer refresh v8.452
+
+- Hypothesis: After the benchmark comparison rubric landed on main, the release snapshot should still track the current high-churn Veritas source before promoting the next PR.
+- Primary metric: Veritas snapshot writer write.
+- Baseline: main recorded Veritas v8.442, while `--dry-run --fail-on-change` reported v8.452.
+- Candidate: `data/adoption-candidates.json` records Veritas v8.452 (`fe7a7fe5ca0b2008a00a72a848fe3236ddb72f06`), `pushedAt: 2026-06-05T18:36:42Z`, disk size 845 KB, and `github-api:veritas-focused-drift-refresh-v8452`.
+- Decision: keep; the writer refreshed only the high-churn Veritas row plus snapshot metadata.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` exited non-zero with live drift before the write.
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated the Veritas row plus snapshot metadata to v8.452.
+
+## Experiment: Taskosaur/Workstream scored benchmark rubric
+
+- Hypothesis: The comparison rubric becomes more actionable when each candidate exposes a total recommendation score plus key axis scores instead of unweighted text rows.
+- Primary metric: Taskosaur/Workstream scored benchmark rubric checks.
+- Baseline: 0 scored rubric checks.
+- Candidate: Workstream and Taskosaur rubric rows now carry axis scores, the portfolio rubric renders project totals and cell score badges, and interaction smoke verifies the Workstream total, Taskosaur total, Workstream input score, Taskosaur AI score, and score labels.
+- Decision: keep; the full release gate passed.
+
+## Evidence
+
+- Current GitHub metadata still maps Workstream to PR/task/calendar plus AI productivity, and Taskosaur to conversational AI task execution, Kanban, sprint planning, and self-hosted PM.
+- `app.js` now includes `projectBenchmarkRubricScore` and renders `data-rubric-total` plus `data-rubric-score`.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkScoredRubricVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_scored_rubric`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 43/43.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, add scored recommendation weights to the benchmark rubric, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, add a benchmark recommendation export for the scored rubric, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
