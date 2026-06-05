@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +19,12 @@ def load_module():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def assert_utc_timestamp(value: str) -> None:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    assert parsed.tzinfo is not None
+    assert parsed.utcoffset() == UTC.utcoffset(parsed)
 
 
 def test_build_gate_steps_parses_workflow_quality_gates() -> None:
@@ -82,8 +89,33 @@ def test_dry_run_report_keeps_gates_planned(tmp_path: Path) -> None:
     assert report["status"] == "pass"
     assert report["execution_mode"] == "dry_run"
     assert report["summary"]["planned_gates"] == 1
+    assert_utc_timestamp(report["generated_at"])
+    assert persisted["generated_at"] == report["generated_at"]
     assert persisted["workflow"]["id"] == "workspace-quality-dashboard"
     assert "Agent Workflow Gate Runner" in markdown
+
+
+def test_matrix_and_workflow_reports_use_utc_generated_at() -> None:
+    runner = load_module()
+
+    workflow_report = runner.run_workflow_gates(
+        MANIFEST_PATH,
+        "workspace-quality-dashboard",
+        execute=False,
+        max_gates=1,
+        timeout_seconds=1,
+    )
+    matrix_report = runner.run_workflow_matrix(
+        MANIFEST_PATH,
+        execute=False,
+        max_gates=1,
+        timeout_seconds=1,
+    )
+
+    assert_utc_timestamp(workflow_report["generated_at"])
+    assert_utc_timestamp(matrix_report["generated_at"])
+    for nested_workflow in matrix_report["workflows"]:
+        assert_utc_timestamp(nested_workflow["generated_at"])
 
 
 def test_execute_uses_existing_quality_gate_command(monkeypatch) -> None:
@@ -283,6 +315,8 @@ def test_matrix_execute_runs_safe_gates_and_skips_side_effecting(monkeypatch) ->
     ]
     assert reused[0]["workflow_id"] == "canva-widget-oauth-preview"
     assert reused[0]["reused_from"]["workflow_id"] == "dailynews-x-ops"
+    assert reused[0]["reused_from"]["gate_index"] == 1
+    assert reused[0]["reused_from"]["status"] == "pass"
 
 
 def test_cli_writes_matrix_dry_run_outputs(tmp_path: Path) -> None:

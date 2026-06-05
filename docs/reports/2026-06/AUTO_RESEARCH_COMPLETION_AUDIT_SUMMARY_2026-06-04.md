@@ -110,7 +110,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `4`
+- Evidence paths: `5`
 
 ### dashboard_next_credential_unblock
 

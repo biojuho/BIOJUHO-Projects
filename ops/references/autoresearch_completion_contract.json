@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:50:00+09:00",
+  "generated_at": "2026-06-05T09:51:55+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,15 +141,17 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "07c0eb9",
+            "6a60bba",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
+            "tests/test_agent_workflow_gate_runner.py",
             ".gitattributes",
-            "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md",
+            "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_TIMESTAMP_IDENTITY_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "07c0eb9",
+            "proof_commit": "6a60bba",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -185,6 +187,7 @@
               "tests/test_github_source_freshness.py",
               "tests/test_github_source_commit_digest.py",
               "tests/test_github_source_review_queue.py",
+              "tests/test_agent_workflow_gate_runner.py",
               "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
             ]
           }
@@ -959,12 +962,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "07c0eb9",
+            "6a60bba",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "07c0eb9",
+            "proof_commit": "6a60bba",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -986,6 +989,16 @@
             "Workspace Smoke Trace Drain Guard",
             "protected_path_freshness",
             "07c0eb9",
+            "no changed protected paths after proof",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_TIMESTAMP_IDENTITY_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Agent Workflow Timestamp Identity Guard",
+            "protected_path_freshness",
+            "6a60bba",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]
