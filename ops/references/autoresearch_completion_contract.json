@@ -258,7 +258,11 @@
             "docs/reports/2026-06/AUTO_RESEARCH_SCHEMA_TRANSACTIONAL_INDEX_GUARD_2026-06-05.md",
             "github_workflow_dynamic_fork_owner_guard",
             "test_github_workflows_avoid_static_fork_owner_push_targets",
-            "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_DYNAMIC_FORK_OWNER_GUARD_2026-06-05.md",
+            "autoresearch_skill_body_hygiene_guard",
+            ".agents/skills/auto-research-karpathy/scripts/validate_skill.py",
+            "tests/test_auto_research_karpathy_skill.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_SKILL_BODY_HYGIENE_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
             "proof_commit": "3145ea1",
@@ -294,6 +298,8 @@
               "ops/scripts/mcp_service_manifest.py",
               "ops/scripts/mcp_service_runtime_smoke.py",
               "ops/scripts/pr_triage.py",
+              ".agents/skills/auto-research-karpathy/scripts/validate_skill.py",
+              "tests/test_auto_research_karpathy_skill.py",
               "tests/test_schema_snapshot.py",
               "tests/test_workspace_smoke.py",
               "tests/test_autoresearch_objective_coverage.py",
@@ -1191,6 +1197,47 @@
           "must_contain": [
             "ok=true",
             "completion_audit"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "autoresearch_skill_body_hygiene_guard",
+      "requirement": "The AutoResearch skill validator rejects embedded script/resource body blocks and keeps scripts, references, and examples as external assets.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".agents/skills/auto-research-karpathy/scripts/validate_skill.py",
+          "must_contain": [
+            "FORBIDDEN_BODY_BLOCKS",
+            "body_hygiene",
+            "embedded script body block",
+            "embedded resource body block",
+            "skill_path = skill_dir / \"SKILL.md\""
+          ]
+        },
+        {
+          "path": "tests/test_auto_research_karpathy_skill.py",
+          "must_contain": [
+            "test_auto_research_skill_keeps_scripts_and_resources_external",
+            "<scripts><script name=\\\"run\\\">",
+            "<resources><resource name=\\\"notes\\\">",
+            "embedded script body block",
+            "embedded resource body block"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_BODY_HYGIENE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "AutoResearch Skill Body Hygiene Guard",
+            "microsoft/agent-framework",
+            "bb9ed63a347b3e437106b27ff7547bd388fd5bbe",
+            "script_schemas",
+            "A/B Contract",
+            "5 passed",
+            "ok=true",
+            "global_objective_complete=false"
           ]
         }
       ]

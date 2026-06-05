@@ -40,6 +40,10 @@ FORBIDDEN_PATTERNS = [
     r"git\s+checkout\s+--\s",
     r"rm\s+-rf",
 ]
+FORBIDDEN_BODY_BLOCKS = [
+    (r"<\s*/?\s*scripts?\b", "embedded script body block"),
+    (r"<\s*/?\s*resources?\b", "embedded resource body block"),
+]
 
 
 def validate(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
@@ -53,7 +57,8 @@ def validate(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
         if not ok:
             errors.append(f"missing required file: {relative}")
 
-    text = SKILL_PATH.read_text(encoding="utf-8") if SKILL_PATH.exists() else ""
+    skill_path = skill_dir / "SKILL.md"
+    text = skill_path.read_text(encoding="utf-8") if skill_path.exists() else ""
     frontmatter_ok = bool(re.match(r"^---\n[\s\S]+?\n---\n", text))
     checks.append({"name": "frontmatter", "ok": frontmatter_ok})
     if not frontmatter_ok:
@@ -86,6 +91,12 @@ def validate(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
         checks.append({"name": f"forbidden:{pattern}", "ok": ok})
         if not ok:
             errors.append(f"forbidden destructive pattern found: {pattern}")
+
+    for pattern, label in FORBIDDEN_BODY_BLOCKS:
+        ok = re.search(pattern, text, flags=re.IGNORECASE) is None
+        checks.append({"name": f"body_hygiene:{label}", "ok": ok})
+        if not ok:
+            errors.append(f"SKILL.md must keep {label} external instead of embedding it")
 
     source_reference = skill_dir / "references" / "source-backed-patterns.md"
     source_text = source_reference.read_text(encoding="utf-8") if source_reference.exists() else ""

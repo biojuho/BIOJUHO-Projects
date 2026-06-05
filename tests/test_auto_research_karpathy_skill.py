@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import sys
 from pathlib import Path
 
@@ -24,7 +25,26 @@ def test_auto_research_skill_package_validates() -> None:
     result = validator.validate(SKILL_DIR)
 
     assert result["ok"], result["errors"]
-    assert len(result["checks"]) >= 25
+    assert len(result["checks"]) >= 27
+
+
+def test_auto_research_skill_keeps_scripts_and_resources_external(tmp_path: Path) -> None:
+    validator = load_validator()
+    skill_copy = tmp_path / "auto-research-karpathy"
+    shutil.copytree(SKILL_DIR, skill_copy)
+    skill_path = skill_copy / "SKILL.md"
+    skill_path.write_text(
+        skill_path.read_text(encoding="utf-8")
+        + "\n<scripts><script name=\"run\"><parameters_schema>{}</parameters_schema></script></scripts>\n"
+        + "<resources><resource name=\"notes\">large body</resource></resources>\n",
+        encoding="utf-8",
+    )
+
+    result = validator.validate(skill_copy)
+
+    assert not result["ok"]
+    assert any("embedded script body block" in error for error in result["errors"])
+    assert any("embedded resource body block" in error for error in result["errors"])
 
 
 def test_auto_research_skill_has_launch_loop_contract() -> None:

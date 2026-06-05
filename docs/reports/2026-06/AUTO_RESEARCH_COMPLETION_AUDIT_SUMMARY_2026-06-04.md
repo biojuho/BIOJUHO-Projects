@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `85`
-- Status counts: `blocked=1, covered=84`
+- Criteria: `86`
+- Status counts: `blocked=1, covered=85`
 
 ## Missing Required
 
@@ -123,6 +123,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `2`
+
+### autoresearch_skill_body_hygiene_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### direct_app_click_qa
 

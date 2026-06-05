@@ -304,7 +304,8 @@
         "dashboard_release_refresh_workflow_guard",
         "agent_workflow_role_policy_guard",
         "schema_transactional_index_guard",
-        "github_workflow_dynamic_fork_owner_guard"
+        "github_workflow_dynamic_fork_owner_guard",
+        "autoresearch_skill_body_hygiene_guard"
       ],
       "evidence": [
         {
@@ -410,6 +411,16 @@
             "google/adk-python",
             "faa5db63c5761d87093e27e1969a221ea3d4997a",
             "Dynamically resolve bot fork repo",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_BODY_HYGIENE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "microsoft/agent-framework",
+            "bb9ed63a347b3e437106b27ff7547bd388fd5bbe",
+            "remove resources from body",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -703,7 +714,8 @@
         "agent_workflow_gate_runner",
         "agent_workflow_gate_matrix",
         "agent_workflow_gate_matrix_reuse",
-        "agent_workflow_role_policy_guard"
+        "agent_workflow_role_policy_guard",
+        "autoresearch_skill_body_hygiene_guard"
       ],
       "evidence": [
         {
@@ -727,6 +739,16 @@
             "A/B Contract",
             "Decision: adopted",
             "10 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_BODY_HYGIENE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "AutoResearch Skill Body Hygiene Guard",
+            "FORBIDDEN_BODY_BLOCKS",
+            "body_hygiene",
+            "5 passed",
             "global_objective_complete=false"
           ]
         }
@@ -762,7 +784,8 @@
         "workspace_smoke_ci_manifest_guard",
         "github_workflow_fork_remote_flag_guard",
         "schema_transactional_index_guard",
-        "github_workflow_dynamic_fork_owner_guard"
+        "github_workflow_dynamic_fork_owner_guard",
+        "autoresearch_skill_body_hygiene_guard"
       ],
       "evidence": [
         {
@@ -929,6 +952,15 @@
             "A/B Contract",
             "Decision: adopted B",
             "8 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_BODY_HYGIENE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted B",
+            "5 passed",
             "global_objective_complete=false"
           ]
         }
@@ -1181,7 +1213,8 @@
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
         "schema_transactional_index_guard",
-        "github_workflow_dynamic_fork_owner_guard"
+        "github_workflow_dynamic_fork_owner_guard",
+        "autoresearch_skill_body_hygiene_guard"
       ],
       "evidence": [
         {
@@ -1532,6 +1565,15 @@
             "hard-coded fork owners",
             "static `--head owner:branch`",
             "test_github_workflows_avoid_static_fork_owner_push_targets",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_BODY_HYGIENE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "body-hygiene validator rule",
+            "scripts and resources external",
+            "embedded script/resource body content",
             "global_objective_complete=false"
           ]
         }
