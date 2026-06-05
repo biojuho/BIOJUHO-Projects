@@ -148,6 +148,9 @@ def build_failed_service_result(
         "tool_count": 0,
         "tools": [],
         "missing_expected_tools": sorted(service.get("expected_tools", [])),
+        "long_running_tool_count": 0,
+        "long_running_tools": [],
+        "task_capability_advertised": False,
         "server_name": "",
         "server_version": "",
         "capability_keys": [],
@@ -171,8 +174,10 @@ def build_service_result(
     tool_names = sorted(tool["name"] for tool in tools)
     expected_tools = sorted(service.get("expected_tools", []))
     missing_expected_tools = sorted(set(expected_tools) - set(tool_names))
+    long_running_tools = long_running_tool_names(tools)
     server_info = initialize.get("serverInfo", {}) if isinstance(initialize.get("serverInfo"), dict) else {}
     capabilities = initialize.get("capabilities", {}) if isinstance(initialize.get("capabilities"), dict) else {}
+    task_capability_advertised = "tasks" in capabilities
     return {
         "id": service["id"],
         "name": service["name"],
@@ -185,6 +190,9 @@ def build_service_result(
         "tool_count": len(tools),
         "tools": tool_names,
         "missing_expected_tools": missing_expected_tools,
+        "long_running_tool_count": len(long_running_tools),
+        "long_running_tools": long_running_tools,
+        "task_capability_advertised": task_capability_advertised,
         "server_name": server_info.get("name", ""),
         "server_version": server_info.get("version", ""),
         "capability_keys": sorted(capabilities),
@@ -223,6 +231,12 @@ def validate_responses(service: dict[str, Any], responses: list[dict[str, Any]],
         missing_expected_tools = sorted(set(expected_tools) - tool_names)
         if missing_expected_tools:
             errors.append(f"missing expected tools: {', '.join(missing_expected_tools)}")
+    long_running_tools = long_running_tool_names(tools)
+    if long_running_tools and "tasks" not in capabilities:
+        errors.append(
+            "long-running MCP tools require tasks capability: "
+            + ", ".join(long_running_tools)
+        )
     return errors
 
 
@@ -271,6 +285,7 @@ def build_report(
     ]
     status_counts = Counter(service["status"] for service in service_results)
     missing_env_count = sum(1 for service in service_results if service.get("missing_env"))
+    task_capable_count = sum(1 for service in service_results if service.get("task_capability_advertised"))
     errors = [*manifest_errors, *service_errors]
     return {
         "schema_version": 1,
@@ -285,6 +300,10 @@ def build_report(
             "failed_services": status_counts.get("fail", 0),
             "credential_gated_checked_services": missing_env_count,
             "total_tools_listed": sum(service.get("tool_count", 0) for service in service_results),
+            "task_capable_services": task_capable_count,
+            "long_running_tools_listed": sum(
+                service.get("long_running_tool_count", 0) for service in service_results
+            ),
         },
         "services": service_results,
         "skipped_services": skipped_services,
@@ -305,6 +324,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Failed services: `{summary['failed_services']}`",
         f"- Credential-gated checked services: `{summary['credential_gated_checked_services']}`",
         f"- Total tools listed: `{summary['total_tools_listed']}`",
+        f"- Task-capable services: `{summary.get('task_capable_services', 0)}`",
+        f"- Long-running tools listed: `{summary.get('long_running_tools_listed', 0)}`",
         "",
         "## Services",
         "",
@@ -313,6 +334,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         missing_env = ", ".join(service["missing_env"]) if service["missing_env"] else "none"
         expected_tools = service.get("expected_tools", [])
         missing_expected_tools = service.get("missing_expected_tools", [])
+        long_running_tools = service.get("long_running_tools", [])
         lines.extend(
             [
                 f"### {service['id']}",
@@ -324,6 +346,8 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- Expected minimum tools: `{service['expected_min_tools']}`",
                 f"- Expected runtime tools: `{', '.join(expected_tools) if expected_tools else 'none'}`",
                 f"- Missing expected tools: `{', '.join(missing_expected_tools) if missing_expected_tools else 'none'}`",
+                f"- Task capability advertised: `{str(service.get('task_capability_advertised', False)).lower()}`",
+                f"- Long-running tools: `{', '.join(long_running_tools) if long_running_tools else 'none'}`",
                 f"- Missing env for tool calls: `{missing_env}`",
                 f"- Capability keys: `{', '.join(service['capability_keys'])}`",
                 "",
@@ -369,6 +393,17 @@ def tools_from_result(result: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(tools, list):
         return []
     return [tool for tool in tools if isinstance(tool, dict) and isinstance(tool.get("name"), str)]
+
+
+def long_running_tool_names(tools: list[dict[str, Any]]) -> list[str]:
+    names: list[str] = []
+    for tool in tools:
+        execution = tool.get("execution")
+        if not isinstance(execution, dict):
+            continue
+        if execution.get("taskSupport") == "required":
+            names.append(tool["name"])
+    return sorted(names)
 
 
 def missing_env(service: dict[str, Any]) -> list[str]:

@@ -1,0 +1,829 @@
+{
+  "baseline_generated_at": "2026-06-04T18:54:22.968302+00:00",
+  "commit_limit_per_repo": 8,
+  "complete": true,
+  "failed_repositories": 0,
+  "generated_at": "2026-06-05T04:32:14.934621+00:00",
+  "github_api_version": "2022-11-28",
+  "items": [
+    {
+      "adoption_signal": "Compare workflow and orchestration changes against local agent workflow gate evidence.",
+      "adoption_status": "partially_adopted",
+      "category": "enterprise-agent-framework",
+      "commit_count_returned": 6,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "peibekwe",
+          "authored_at": "2026-06-05T00:04:55Z",
+          "committed_at": "2026-06-05T00:04:55Z",
+          "html_url": "https://github.com/microsoft/agent-framework/commit/bf4ad48cf24c8eb86c994cc62e3e2848a926887d",
+          "sha": "bf4ad48cf24c",
+          "source": "github_atom_feed",
+          "subject": "Python: MCP long-running task support in Python (#6319)"
+        },
+        {
+          "author": "giles17",
+          "authored_at": "2026-06-04T23:03:24Z",
+          "committed_at": "2026-06-04T23:03:24Z",
+          "html_url": "https://github.com/microsoft/agent-framework/commit/01fc518b290527ecc89919664c90a5fed8e14d8d",
+          "sha": "01fc518b2905",
+          "source": "github_atom_feed",
+          "subject": "Python: bump package versions for 1.8.0 release (#6351)"
+        },
+        {
+          "author": "giles17",
+          "authored_at": "2026-06-04T22:06:26Z",
+          "committed_at": "2026-06-04T22:06:26Z",
+          "html_url": "https://github.com/microsoft/agent-framework/commit/f3c3efed4301905cff795794790bd4b4719742a4",
+          "sha": "f3c3efed4301",
+          "source": "github_atom_feed",
+          "subject": "Python: Add GitHub Copilot integration tests to CI workflows (#6346)"
+        },
+        {
+          "author": "neerajkaram",
+          "authored_at": "2026-06-04T20:51:15Z",
+          "committed_at": "2026-06-04T20:51:15Z",
+          "html_url": "https://github.com/microsoft/agent-framework/commit/bbccb7c28c86a0c2712d65e367fa8029065294eb",
+          "sha": "bbccb7c28c86",
+          "source": "github_atom_feed",
+          "subject": ".NET: Bump ModelContextProtocol from 1.1.0 to 1.2.0 (#3956) (#6239)"
+        },
+        {
+          "author": "TaoChenOSU",
+          "authored_at": "2026-06-04T20:28:59Z",
+          "committed_at": "2026-06-04T20:28:59Z",
+          "html_url": "https://github.com/microsoft/agent-framework/commit/dbc312a78a7579170068910599bfff5ca639c0d6",
+          "sha": "dbc312a78a75",
+          "source": "github_atom_feed",
+          "subject": "Python: Fix toolbox consent flow in hosted agent (#6249)"
+        },
+        {
+          "author": "SergeyMenshykh",
+          "authored_at": "2026-06-04T20:15:29Z",
+          "committed_at": "2026-06-04T20:15:29Z",
+          "html_url": "https://github.com/microsoft/agent-framework/commit/bb9ed63a347b3e437106b27ff7547bd388fd5bbe",
+          "sha": "bb9ed63a347b",
+          "source": "github_atom_feed",
+          "subject": ".NET: Restructure skill script schemas XML and remove resources from ..."
+        }
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "ops/references/mcp_service_manifest.json",
+        "ops/scripts/mcp_service_runtime_smoke.py"
+      ],
+      "priority": "high",
+      "rank": 1,
+      "repo": "microsoft/agent-framework",
+      "requires_token": false,
+      "score": 48,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/microsoft/agent-framework",
+      "window": {
+        "since": "2026-06-04T18:52:34Z",
+        "until": "2026-06-05T01:16:19Z"
+      }
+    },
+    {
+      "adoption_signal": "Review commit subjects against the mapped local evidence before adoption.",
+      "adoption_status": "partially_adopted",
+      "category": "openai-agent-runtime-sdk",
+      "commit_count_returned": 2,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "seratch",
+          "authored_at": "2026-06-05T00:53:07Z",
+          "committed_at": "2026-06-05T00:53:07Z",
+          "html_url": "https://github.com/openai/openai-agents-python/commit/5121f302a5d43fa20c9f78966e4db6f08f724622",
+          "sha": "5121f302a5d4",
+          "source": "github_atom_feed",
+          "subject": "docs: translate pages"
+        },
+        {
+          "author": "guillemwilly",
+          "authored_at": "2026-06-04T23:03:01Z",
+          "committed_at": "2026-06-04T23:03:01Z",
+          "html_url": "https://github.com/openai/openai-agents-python/commit/f4e5d96f9fda158f9541b575d2aa5232107cb939",
+          "sha": "f4e5d96f9fda",
+          "source": "github_atom_feed",
+          "subject": "docs: add Latitude to external tracing processors list (#3577)"
+        }
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "ops/scripts/autoresearch_completion_audit.py"
+      ],
+      "priority": "high",
+      "rank": 2,
+      "repo": "openai/openai-agents-python",
+      "requires_token": false,
+      "score": 47,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/openai/openai-agents-python",
+      "window": {
+        "since": "2026-06-04T07:38:27Z",
+        "until": "2026-06-05T01:11:08Z"
+      }
+    },
+    {
+      "adoption_signal": "Compare TypeScript agent-app changes against dashboard and Canva operator surfaces.",
+      "adoption_status": "partially_adopted",
+      "category": "typescript-agent-application-framework",
+      "commit_count_returned": 8,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "TylerBarnes",
+          "authored_at": "2026-06-05T02:37:51Z",
+          "committed_at": "2026-06-05T02:37:51Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/0c72f032abb13254df5a7856d64be2f207b8006d",
+          "sha": "0c72f032abb1",
+          "source": "github_atom_feed",
+          "subject": "fix(core): keep part timestamps out of message ordering (#17598)"
+        },
+        {
+          "author": "TylerBarnes",
+          "authored_at": "2026-06-04T23:00:01Z",
+          "committed_at": "2026-06-04T23:00:01Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/b3e9781a93a18e8e492849040016ddf239c00d9c",
+          "sha": "b3e9781a93a1",
+          "source": "github_atom_feed",
+          "subject": "fix(client-js): keep client tools for signal continuations (#17593)"
+        },
+        {
+          "author": "abhiaiyer91",
+          "authored_at": "2026-06-04T19:46:16Z",
+          "committed_at": "2026-06-04T19:46:16Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/b756ff19ef26da52c9a0d5e258343c1f53bc8394",
+          "sha": "b756ff19ef26",
+          "source": "github_atom_feed",
+          "subject": "docs(reference/pubsub): document opt-in subscriber batching (#17586)"
+        },
+        {
+          "author": "rase-",
+          "authored_at": "2026-06-04T19:42:22Z",
+          "committed_at": "2026-06-04T19:42:22Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/3b45ea95015557a6cb9d70dc5252af54ab1b78ac",
+          "sha": "3b45ea950155",
+          "source": "github_atom_feed",
+          "subject": "feat(core/events): opt-in batched delivery for PubSub subscribers (#1..."
+        },
+        {
+          "author": "devin-ai-integration",
+          "authored_at": "2026-06-04T19:40:56Z",
+          "committed_at": "2026-06-04T19:40:56Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/e9be4e747ec3d8b65548bff92f9377db06105376",
+          "sha": "e9be4e747ec3",
+          "source": "github_atom_feed",
+          "subject": "feat(core): add SignalProvider abstraction + @mastra/github-signals p..."
+        },
+        {
+          "author": "daneatmastra",
+          "authored_at": "2026-06-04T19:35:23Z",
+          "committed_at": "2026-06-04T19:35:23Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/151f90efa07649e3dd1b4632a46a43f67363728c",
+          "sha": "151f90efa076",
+          "source": "github_atom_feed",
+          "subject": "chore(deps): update opentelemetry (#17519)"
+        },
+        {
+          "author": "daneatmastra",
+          "authored_at": "2026-06-04T19:34:44Z",
+          "committed_at": "2026-06-04T19:34:44Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/6c6eff0c67b7329b6c74bed6806a944ce2057d84",
+          "sha": "6c6eff0c67b7",
+          "source": "github_atom_feed",
+          "subject": "chore(deps): update dependency @blaxel/core to ^0.2.86 (#17384)"
+        },
+        {
+          "author": "daneatmastra",
+          "authored_at": "2026-06-04T19:34:00Z",
+          "committed_at": "2026-06-04T19:34:00Z",
+          "html_url": "https://github.com/mastra-ai/mastra/commit/3103d763617b795c3eb8abd3bf79188908b3855b",
+          "sha": "3103d763617b",
+          "source": "github_atom_feed",
+          "subject": "chore(deps): update dependency @fastify/swagger-ui to ^5.2.6 (#17552)"
+        }
+      ],
+      "local_evidence": [
+        "apps/dashboard/src/App.jsx",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "mcp/canva-mcp/src/server/server.ts",
+        "mcp/canva-mcp/src/server/tools.ts",
+        "ops/references/dev_server_browser_checks.json"
+      ],
+      "priority": "high",
+      "rank": 3,
+      "repo": "mastra-ai/mastra",
+      "requires_token": false,
+      "score": 46,
+      "status": "pass",
+      "truncated": true,
+      "url": "https://github.com/mastra-ai/mastra",
+      "window": {
+        "since": "2026-06-04T18:53:13Z",
+        "until": "2026-06-05T04:03:09Z"
+      }
+    },
+    {
+      "adoption_signal": "No commit subjects returned for the pushed_at window.",
+      "adoption_status": "partially_adopted",
+      "category": "mcp-browser-automation",
+      "commit_count_returned": 0,
+      "commit_limit": 8,
+      "decision": "no_local_adoption_commit_window_empty",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "none",
+      "latest_commits": [],
+      "local_evidence": [
+        "ops/references/dev_server_browser_checks.json",
+        "ops/scripts/dev_server_browser_smoke.py",
+        "tests/test_dev_server_browser_smoke.py",
+        "apps/desci-platform/scripts/browser_smoke.py",
+        "tests/test_desci_browser_smoke.py"
+      ],
+      "priority": "high",
+      "rank": 4,
+      "repo": "microsoft/playwright-mcp",
+      "requires_token": false,
+      "score": 46,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/microsoft/playwright-mcp",
+      "window": {
+        "since": "2026-05-28T01:32:25Z",
+        "until": "2026-06-04T20:56:00Z"
+      }
+    },
+    {
+      "adoption_signal": "Compare TypeScript agent-app changes against dashboard and Canva operator surfaces.",
+      "adoption_status": "partially_adopted",
+      "category": "typescript-ai-app-toolkit",
+      "commit_count_returned": 8,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "github-actions",
+          "authored_at": "2026-06-05T04:31:05Z",
+          "committed_at": "2026-06-05T04:31:05Z",
+          "html_url": "https://github.com/vercel/ai/commit/7254ac64a7b91838844f9a05d56c3e37faabec06",
+          "sha": "7254ac64a7b9",
+          "source": "github_atom_feed",
+          "subject": "Version Packages (canary) (#15839)"
+        },
+        {
+          "author": "gr2m",
+          "authored_at": "2026-06-05T04:28:13Z",
+          "committed_at": "2026-06-05T04:28:13Z",
+          "html_url": "https://github.com/vercel/ai/commit/ce769dd2f392ec82529f626223630f8222f7b475",
+          "sha": "ce769dd2f392",
+          "source": "github_atom_feed",
+          "subject": "feat: Realtime API support for browser<->provider websocket connectio..."
+        },
+        {
+          "author": "github-actions",
+          "authored_at": "2026-06-04T23:01:09Z",
+          "committed_at": "2026-06-04T23:01:09Z",
+          "html_url": "https://github.com/vercel/ai/commit/43ad34c6a665973f9d949e38bf8e34481bd5aef0",
+          "sha": "43ad34c6a665",
+          "source": "github_atom_feed",
+          "subject": "Version Packages (canary) (#15836)"
+        },
+        {
+          "author": "31Carlton7",
+          "authored_at": "2026-06-04T22:48:42Z",
+          "committed_at": "2026-06-04T22:48:42Z",
+          "html_url": "https://github.com/vercel/ai/commit/2ce3c65448f36eb3629c50095888a64326167d0d",
+          "sha": "2ce3c65448f3",
+          "source": "github_atom_feed",
+          "subject": "feat(provider/google-vertex): add Gemini text-to-speech (speech) mode..."
+        },
+        {
+          "author": "edawerd",
+          "authored_at": "2026-06-04T22:22:30Z",
+          "committed_at": "2026-06-04T22:22:30Z",
+          "html_url": "https://github.com/vercel/ai/commit/94eba1b0594ec6e34726cf3436bb953e46000106",
+          "sha": "94eba1b0594e",
+          "source": "github_atom_feed",
+          "subject": "fix(openai): round-trip namespace on function_call input items (#15193)"
+        },
+        {
+          "author": "gr2m",
+          "authored_at": "2026-06-04T20:59:14Z",
+          "committed_at": "2026-06-04T20:59:14Z",
+          "html_url": "https://github.com/vercel/ai/commit/beb6c72357fc970c3985a9b7e5ec346622102f28",
+          "sha": "beb6c72357fc",
+          "source": "github_atom_feed",
+          "subject": "docs(contributing): document the Experimental_ prefix seam convention..."
+        },
+        {
+          "author": "github-actions",
+          "authored_at": "2026-06-04T19:13:12Z",
+          "committed_at": "2026-06-04T19:13:12Z",
+          "html_url": "https://github.com/vercel/ai/commit/480c2fb3913e56808278da8a89bc82665cc403da",
+          "sha": "480c2fb3913e",
+          "source": "github_atom_feed",
+          "subject": "Version Packages (canary) (#15827)"
+        },
+        {
+          "author": "gr2m",
+          "authored_at": "2026-06-04T19:09:33Z",
+          "committed_at": "2026-06-04T19:09:33Z",
+          "html_url": "https://github.com/vercel/ai/commit/9a1b0ea29bf46745a551801c64cea95cecff4d4d",
+          "sha": "9a1b0ea29bf4",
+          "source": "github_atom_feed",
+          "subject": "release @ai-sdk/policy-opa (#15832)"
+        }
+      ],
+      "local_evidence": [
+        "apps/dashboard/src/App.jsx",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "mcp/canva-mcp/src/server/server.ts",
+        "mcp/canva-mcp/src/server/tools.ts",
+        "ops/scripts/dev_server_browser_smoke.py"
+      ],
+      "priority": "high",
+      "rank": 5,
+      "repo": "vercel/ai",
+      "requires_token": false,
+      "score": 46,
+      "status": "pass",
+      "truncated": true,
+      "url": "https://github.com/vercel/ai",
+      "window": {
+        "since": "2026-06-04T18:46:15Z",
+        "until": "2026-06-05T04:31:08Z"
+      }
+    },
+    {
+      "adoption_signal": "No commit subjects returned for the pushed_at window.",
+      "adoption_status": "partially_adopted",
+      "category": "full-stack-agent-platform",
+      "commit_count_returned": 0,
+      "commit_limit": 8,
+      "decision": "no_local_adoption_commit_window_empty",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "none",
+      "latest_commits": [],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "ops/scripts/autoresearch_completion_audit.py"
+      ],
+      "priority": "high",
+      "rank": 6,
+      "repo": "agno-agi/agno",
+      "requires_token": false,
+      "score": 44,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/agno-agi/agno",
+      "window": {
+        "since": "2026-06-04T18:49:40Z",
+        "until": "2026-06-05T02:55:20Z"
+      }
+    },
+    {
+      "adoption_signal": "Review commit subjects against the mapped local evidence before adoption.",
+      "adoption_status": "partially_adopted",
+      "category": "multi-agent-flow-control",
+      "commit_count_returned": 2,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "vinibrsl",
+          "authored_at": "2026-06-04T21:07:49Z",
+          "committed_at": "2026-06-04T21:07:49Z",
+          "html_url": "https://github.com/crewAIInc/crewAI/commit/906cd9769d7e2125485bbc09e8d8ef5cb1c29805",
+          "sha": "906cd9769d7e",
+          "source": "github_atom_feed",
+          "subject": "feat(flow): type DSL triggers as route-aware decorators (#6042)"
+        },
+        {
+          "author": "lorenzejay",
+          "authored_at": "2026-06-04T20:36:48Z",
+          "committed_at": "2026-06-04T20:36:48Z",
+          "html_url": "https://github.com/crewAIInc/crewAI/commit/14ce97d787873a2c310d40c508a9d70c0ffd3616",
+          "sha": "14ce97d78787",
+          "source": "github_atom_feed",
+          "subject": "chat api for convo flows (#6034)"
+        }
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.json",
+        "docs/reports/2026-06/AGENT_WORKFLOW_GATE_MATRIX_SAFE_FIRST_GATES_2026-06-05.md"
+      ],
+      "priority": "high",
+      "rank": 7,
+      "repo": "crewAIInc/crewAI",
+      "requires_token": false,
+      "score": 44,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/crewAIInc/crewAI",
+      "window": {
+        "since": "2026-06-04T18:28:34Z",
+        "until": "2026-06-05T01:38:54Z"
+      }
+    },
+    {
+      "adoption_signal": "Review commit subjects against the mapped local evidence before adoption.",
+      "adoption_status": "partially_adopted",
+      "category": "low-code-agent-workflow-builder",
+      "commit_count_returned": 1,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "yau-wd",
+          "authored_at": "2026-06-05T03:41:04Z",
+          "committed_at": "2026-06-05T03:41:04Z",
+          "html_url": "https://github.com/FlowiseAI/Flowise/commit/42d593f8ca854471059051a7fdd89bf8d8ab7c12",
+          "sha": "42d593f8ca85",
+          "source": "github_atom_feed",
+          "subject": "Fix Flowise 591 (#6476)"
+        }
+      ],
+      "local_evidence": [
+        "apps/dashboard/src/App.jsx",
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "ops/scripts/dev_server_control.py"
+      ],
+      "priority": "high",
+      "rank": 8,
+      "repo": "FlowiseAI/Flowise",
+      "requires_token": false,
+      "score": 44,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/FlowiseAI/Flowise",
+      "window": {
+        "since": "2026-06-04T13:39:57Z",
+        "until": "2026-06-05T03:41:08Z"
+      }
+    },
+    {
+      "adoption_signal": "Review commit subjects against the mapped local evidence before adoption.",
+      "adoption_status": "partially_adopted",
+      "category": "code-first-agent-development-kit",
+      "commit_count_returned": 8,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "xuanyang15",
+          "authored_at": "2026-06-04T23:45:00Z",
+          "committed_at": "2026-06-04T23:45:00Z",
+          "html_url": "https://github.com/google/adk-python/commit/9670ce2644f422892997c65940e7330f1a26f799",
+          "sha": "9670ce2644f4",
+          "source": "github_atom_feed",
+          "subject": "fix: Format the files"
+        },
+        {
+          "author": "boyangsvl",
+          "authored_at": "2026-06-04T23:35:46Z",
+          "committed_at": "2026-06-04T23:35:46Z",
+          "html_url": "https://github.com/google/adk-python/commit/10e5f07ab649398c7ed724b0c3b251ade9833375",
+          "sha": "10e5f07ab649",
+          "source": "github_atom_feed",
+          "subject": "refactor: Separate PR analysis from triage for automation"
+        },
+        {
+          "author": "he-yufeng",
+          "authored_at": "2026-06-04T23:20:26Z",
+          "committed_at": "2026-06-04T23:20:26Z",
+          "html_url": "https://github.com/google/adk-python/commit/c1e852fd2df3b476d298193a489da27e9271f6ec",
+          "sha": "c1e852fd2df3",
+          "source": "github_atom_feed",
+          "subject": "fix(cli): Serialize LiteLlm graph models safely"
+        },
+        {
+          "author": "wyf7107",
+          "authored_at": "2026-06-04T22:53:01Z",
+          "committed_at": "2026-06-04T22:53:01Z",
+          "html_url": "https://github.com/google/adk-python/commit/928017d3919401a6225a9a51b3f762a6ceb7836c",
+          "sha": "928017d39194",
+          "source": "github_atom_feed",
+          "subject": "chore: add automatic adk web updates in release process"
+        },
+        {
+          "author": "google-genai-bot",
+          "authored_at": "2026-06-04T22:29:20Z",
+          "committed_at": "2026-06-04T22:29:20Z",
+          "html_url": "https://github.com/google/adk-python/commit/139d851aa449eaf85df526585395e1dc5e28e82b",
+          "sha": "139d851aa449",
+          "source": "github_atom_feed",
+          "subject": "chore: 2.2.0 release"
+        },
+        {
+          "author": "xuanyang15",
+          "authored_at": "2026-06-04T21:46:07Z",
+          "committed_at": "2026-06-04T21:46:07Z",
+          "html_url": "https://github.com/google/adk-python/commit/cd81f7bde91df78d6cece539a6f98dda2aa8c9c0",
+          "sha": "cd81f7bde91d",
+          "source": "github_atom_feed",
+          "subject": "fix(streaming): Ensure final partial=False frame is always yielded"
+        },
+        {
+          "author": "google-genai-bot",
+          "authored_at": "2026-06-04T21:41:36Z",
+          "committed_at": "2026-06-04T21:41:36Z",
+          "html_url": "https://github.com/google/adk-python/commit/2c52af00752d8c586cf48a9847e5a0d65b6ba157",
+          "sha": "2c52af00752d",
+          "source": "github_atom_feed",
+          "subject": "chore: 2.1 tag"
+        },
+        {
+          "author": "boyangsvl",
+          "authored_at": "2026-06-04T21:06:58Z",
+          "committed_at": "2026-06-04T21:06:58Z",
+          "html_url": "https://github.com/google/adk-python/commit/e87558cb0e39e7594b4dc9fa65ecb72c47f33957",
+          "sha": "e87558cb0e39",
+          "source": "github_atom_feed",
+          "subject": "ci: Remove unsupported --remote flag from gh repo fork"
+        }
+      ],
+      "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_manifest.py",
+        "tests/test_agent_workflow_gate_runner.py"
+      ],
+      "priority": "high",
+      "rank": 9,
+      "repo": "google/adk-python",
+      "requires_token": false,
+      "score": 44,
+      "status": "pass",
+      "truncated": true,
+      "url": "https://github.com/google/adk-python",
+      "window": {
+        "since": "2026-06-04T18:03:48Z",
+        "until": "2026-06-04T23:45:20Z"
+      }
+    },
+    {
+      "adoption_signal": "Review commit subjects against the mapped local evidence before adoption.",
+      "adoption_status": "partially_adopted",
+      "category": "autonomous-coding-agent-platform",
+      "commit_count_returned": 4,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "all-hands-bot",
+          "authored_at": "2026-06-04T21:41:11Z",
+          "committed_at": "2026-06-04T21:41:11Z",
+          "html_url": "https://github.com/OpenHands/OpenHands/commit/64ae0752086fd1b2408f42fd4ac36d9e26651aba",
+          "sha": "64ae0752086f",
+          "source": "github_atom_feed",
+          "subject": "Bump SDK packages to v1.25.0 (#14653)"
+        },
+        {
+          "author": "aivong-openhands",
+          "authored_at": "2026-06-04T20:27:00Z",
+          "committed_at": "2026-06-04T20:27:00Z",
+          "html_url": "https://github.com/OpenHands/OpenHands/commit/21b3b46ed1986cff8c87f804148b12053fee5ddc",
+          "sha": "21b3b46ed198",
+          "source": "github_atom_feed",
+          "subject": "PLTF-2899: await SaaS get_user_id() in Slack repo-inference log (#14658)"
+        },
+        {
+          "author": "aivong-openhands",
+          "authored_at": "2026-06-04T20:21:38Z",
+          "committed_at": "2026-06-04T20:21:38Z",
+          "html_url": "https://github.com/OpenHands/OpenHands/commit/f2f77a666c9286a9df5b5a7d9597eca1e1ddc2c3",
+          "sha": "f2f77a666c92",
+          "source": "github_atom_feed",
+          "subject": "PLTF-2899: store GitHub PR timestamps as naive UTC (asyncpg DataError..."
+        },
+        {
+          "author": "aivong-openhands",
+          "authored_at": "2026-06-04T20:18:39Z",
+          "committed_at": "2026-06-04T20:18:39Z",
+          "html_url": "https://github.com/OpenHands/OpenHands/commit/57b0da3df60794ea05e25258ad81a661034293d5",
+          "sha": "57b0da3df607",
+          "source": "github_atom_feed",
+          "subject": "PLTF-2895: event_callback index ? use plain CREATE INDEX (#14651)"
+        }
+      ],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_gate_runner.py",
+        "tests/test_agent_workflow_gate_runner.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_GATE_RUNNER_2026-06-05.md"
+      ],
+      "priority": "high",
+      "rank": 10,
+      "repo": "OpenHands/OpenHands",
+      "requires_token": false,
+      "score": 44,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/OpenHands/OpenHands",
+      "window": {
+        "since": "2026-06-04T17:44:55Z",
+        "until": "2026-06-04T23:14:37Z"
+      }
+    },
+    {
+      "adoption_signal": "Review commit subjects against the mapped local evidence before adoption.",
+      "adoption_status": "partially_adopted",
+      "category": "typed-agent-framework",
+      "commit_count_returned": 5,
+      "commit_limit": 8,
+      "decision": "review_required_before_local_adoption",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "github_atom_feed",
+      "latest_commits": [
+        {
+          "author": "devteamaegis",
+          "authored_at": "2026-06-05T00:51:26Z",
+          "committed_at": "2026-06-05T00:51:26Z",
+          "html_url": "https://github.com/pydantic/pydantic-ai/commit/1b42945de65b2816fed3cffa371671a2ac759241",
+          "sha": "1b42945de65b",
+          "source": "github_atom_feed",
+          "subject": "fix(messages): from_data_uri crashes on a valid non-base64 data URI (..."
+        },
+        {
+          "author": "colesmcintosh",
+          "authored_at": "2026-06-04T23:35:42Z",
+          "committed_at": "2026-06-04T23:35:42Z",
+          "html_url": "https://github.com/pydantic/pydantic-ai/commit/78bfaaed27abffecb761973d841608ba8b1edbf6",
+          "sha": "78bfaaed27ab",
+          "source": "github_atom_feed",
+          "subject": "Add `api_host` and `timeout` to `XaiProvider` (#5742)"
+        },
+        {
+          "author": "colesmcintosh",
+          "authored_at": "2026-06-04T22:52:34Z",
+          "committed_at": "2026-06-04T22:52:34Z",
+          "html_url": "https://github.com/pydantic/pydantic-ai/commit/70cb782fdc39c26a2b2123a6eb7e338c0d8f0654",
+          "sha": "70cb782fdc39",
+          "source": "github_atom_feed",
+          "subject": "Map base `seed` setting to xAI (#5741)"
+        },
+        {
+          "author": "dsfaccini",
+          "authored_at": "2026-06-04T22:02:29Z",
+          "committed_at": "2026-06-04T22:02:29Z",
+          "html_url": "https://github.com/pydantic/pydantic-ai/commit/ed31bdd64e11ce1475916a398ee3312791ed2d38",
+          "sha": "ed31bdd64e11",
+          "source": "github_atom_feed",
+          "subject": "Handle `UploadedFile` consistently with `FileUrl` in UI adapters (#5772)"
+        },
+        {
+          "author": "adtyavrdhn",
+          "authored_at": "2026-06-04T21:47:50Z",
+          "committed_at": "2026-06-04T21:47:50Z",
+          "html_url": "https://github.com/pydantic/pydantic-ai/commit/49f62a386041abd6e0d960dd629c3b4fe28eac63",
+          "sha": "49f62a386041",
+          "source": "github_atom_feed",
+          "subject": "Fix incomplete streamed response when `event_stream_handler` doesn't ..."
+        }
+      ],
+      "local_evidence": [
+        "packages/shared/harness/core.py",
+        "packages/shared/harness/adapters/native.py",
+        "packages/shared/harness/token_tracker.py",
+        "packages/shared/harness/tests/test_harness.py",
+        "ops/scripts/run_workspace_smoke.py"
+      ],
+      "priority": "high",
+      "rank": 11,
+      "repo": "pydantic/pydantic-ai",
+      "requires_token": false,
+      "score": 44,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/pydantic/pydantic-ai",
+      "window": {
+        "since": "2026-06-04T08:54:32Z",
+        "until": "2026-06-05T02:31:14Z"
+      }
+    },
+    {
+      "adoption_signal": "No commit subjects returned for the pushed_at window.",
+      "adoption_status": "partially_adopted",
+      "category": "continuous-agent-platform",
+      "commit_count_returned": 0,
+      "commit_limit": 8,
+      "decision": "no_local_adoption_commit_window_empty",
+      "error": "",
+      "failure_type": "",
+      "fetch_source": "none",
+      "latest_commits": [],
+      "local_evidence": [
+        ".agents/skills/auto-research-karpathy/SKILL.md",
+        "ops/references/autoresearch_completion_contract.json",
+        "ops/scripts/autoresearch_completion_audit.py",
+        "tests/test_autoresearch_completion_audit.py",
+        "ops/references/agent_workflows.json"
+      ],
+      "priority": "high",
+      "rank": 12,
+      "repo": "Significant-Gravitas/AutoGPT",
+      "requires_token": false,
+      "score": 44,
+      "status": "pass",
+      "truncated": false,
+      "url": "https://github.com/Significant-Gravitas/AutoGPT",
+      "window": {
+        "since": "2026-06-04T16:34:25Z",
+        "until": "2026-06-05T04:23:52Z"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "selected_repositories": 12,
+  "selection_batch": {
+    "batch_size": 12,
+    "candidate_repositories": 16,
+    "overflow_policy": "defer_to_next_digest_without_fetching",
+    "overflow_queue": [
+      {
+        "priority": "high",
+        "rank": 13,
+        "repo": "open-telemetry/opentelemetry-collector",
+        "score": 43
+      },
+      {
+        "priority": "high",
+        "rank": 14,
+        "repo": "evalstate/fast-agent",
+        "score": 39
+      },
+      {
+        "priority": "high",
+        "rank": 15,
+        "repo": "strands-agents/harness-sdk",
+        "score": 37
+      },
+      {
+        "priority": "medium",
+        "rank": 16,
+        "repo": "Uninen/devserver-mcp",
+        "score": 27
+      }
+    ],
+    "overflow_repositories": 4,
+    "selected_repositories": 12,
+    "source_signal": "mastra-ai/mastra opt-in PubSub subscriber batching"
+  },
+  "selection_policy": "Select the highest-ranked queued repositories with pushed_at movement, then review live commit subjects before any local adoption decision. Repositories beyond the configured batch are reported as overflow for the next digest instead of being silently hidden.",
+  "source_change_generated_at": "2026-06-05T04:32:03.154499+00:00",
+  "source_change_summary": "var\\github-source-change-summary-continue.json",
+  "source_queue": "var\\github-source-review-queue-continue.json",
+  "status": "pass",
+  "token_available": false
+}

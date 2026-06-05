@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T04:32:50.022855+00:00",
+  "generated_at": "2026-06-05T04:39:07.015481+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -146,7 +146,8 @@
         "typescript_experimental_export_seam_guard",
         "canva_widget_message_capture_order_guard",
         "agent_workflow_json_safe_model_serialization_guard",
-        "getdaytrends_tap_alert_batch_coalesce_guard"
+        "getdaytrends_tap_alert_batch_coalesce_guard",
+        "mcp_long_running_task_capability_guard"
       ],
       "evidence": [
         {
@@ -264,6 +265,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_TAP_ALERT_BATCH_COALESCE_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_LONG_RUNNING_TASK_CAPABILITY_GUARD_2026-06-05.md",
+          "term_count": 5
         }
       ],
       "id": "github_related_project_research",
@@ -313,7 +318,8 @@
         "github_commit_digest_naive_utc_timestamp_guard",
         "canva_widget_message_capture_order_guard",
         "agent_workflow_json_safe_model_serialization_guard",
-        "getdaytrends_tap_alert_batch_coalesce_guard"
+        "getdaytrends_tap_alert_batch_coalesce_guard",
+        "mcp_long_running_task_capability_guard"
       ],
       "evidence": [
         {
@@ -347,6 +353,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_TAP_ALERT_BATCH_COALESCE_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_LONG_RUNNING_TASK_CAPABILITY_GUARD_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "continuous_ab_adoption_commit_push",
@@ -506,7 +516,8 @@
         "typescript_experimental_export_seam_guard",
         "canva_widget_message_capture_order_guard",
         "agent_workflow_json_safe_model_serialization_guard",
-        "getdaytrends_tap_alert_batch_coalesce_guard"
+        "getdaytrends_tap_alert_batch_coalesce_guard",
+        "mcp_long_running_task_capability_guard"
       ],
       "evidence": [
         {
@@ -648,6 +659,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_TAP_ALERT_BATCH_COALESCE_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_LONG_RUNNING_TASK_CAPABILITY_GUARD_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "beyond_user_expected_quality",

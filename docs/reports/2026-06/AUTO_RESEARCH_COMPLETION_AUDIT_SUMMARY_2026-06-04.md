@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `74`
-- Status counts: `blocked=1, covered=73`
+- Criteria: `75`
+- Status counts: `blocked=1, covered=74`
 
 ## Missing Required
 
@@ -449,6 +449,12 @@
 - Evidence paths: `5`
 
 ### agent_workflow_json_safe_model_serialization_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
+
+### mcp_long_running_task_capability_guard
 
 - Required: `true`
 - Status: `covered`

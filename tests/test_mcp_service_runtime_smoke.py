@@ -20,8 +20,15 @@ def load_module():
     return module
 
 
-def sample_process(tool_count: int = 3) -> subprocess.CompletedProcess[str]:
-    tools = [{"name": f"tool_{index}"} for index in range(tool_count)]
+def sample_process(
+    tool_count: int = 3,
+    *,
+    capabilities: dict[str, object] | None = None,
+    tools: list[dict[str, object]] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    if tools is None:
+        tools = [{"name": f"tool_{index}"} for index in range(tool_count)]
+    capabilities = capabilities or {"tools": {}}
     stdout = "\n".join(
         [
             json.dumps(
@@ -30,7 +37,7 @@ def sample_process(tool_count: int = 3) -> subprocess.CompletedProcess[str]:
                     "id": 1,
                     "result": {
                         "protocolVersion": "2025-03-26",
-                        "capabilities": {"tools": {}},
+                        "capabilities": capabilities,
                         "serverInfo": {"name": "sample-server", "version": "1.0"},
                     },
                 }
@@ -75,6 +82,9 @@ def test_build_service_result_accepts_tools_list_response() -> None:
     assert result["capability_keys"] == ["tools"]
     assert result["expected_tools"] == ["tool_0", "tool_2"]
     assert result["missing_expected_tools"] == []
+    assert result["long_running_tool_count"] == 0
+    assert result["long_running_tools"] == []
+    assert result["task_capability_advertised"] is False
     assert result["missing_env"] == ["SAMPLE_TOKEN"]
     assert result["stderr_tail"] == "runtime warning"
 
@@ -113,6 +123,65 @@ def test_build_service_result_fails_when_expected_tool_is_missing() -> None:
     assert result["status"] == "fail"
     assert result["missing_expected_tools"] == ["tool_missing"]
     assert result["errors"] == ["missing expected tools: tool_missing"]
+
+
+def test_build_service_result_fails_when_long_running_tool_lacks_task_capability() -> None:
+    smoke = load_module()
+    service = {
+        "id": "sample",
+        "name": "Sample MCP",
+        "cwd": ".",
+        "command": ["python", "server.py"],
+        "required_env": [],
+        "expected_min_tools": 1,
+    }
+    process = sample_process(
+        tools=[
+            {
+                "name": "background_import",
+                "execution": {"taskSupport": "required"},
+            }
+        ]
+    )
+
+    result = smoke.build_service_result(service, ["python", "server.py"], process)
+
+    assert result["status"] == "fail"
+    assert result["long_running_tool_count"] == 1
+    assert result["long_running_tools"] == ["background_import"]
+    assert result["task_capability_advertised"] is False
+    assert result["errors"] == [
+        "long-running MCP tools require tasks capability: background_import",
+    ]
+
+
+def test_build_service_result_accepts_long_running_tool_with_task_capability() -> None:
+    smoke = load_module()
+    service = {
+        "id": "sample",
+        "name": "Sample MCP",
+        "cwd": ".",
+        "command": ["python", "server.py"],
+        "required_env": [],
+        "expected_min_tools": 1,
+    }
+    process = sample_process(
+        capabilities={"tools": {}, "tasks": {}},
+        tools=[
+            {
+                "name": "background_import",
+                "execution": {"taskSupport": "required"},
+            }
+        ],
+    )
+
+    result = smoke.build_service_result(service, ["python", "server.py"], process)
+
+    assert result["status"] == "pass"
+    assert result["capability_keys"] == ["tasks", "tools"]
+    assert result["long_running_tool_count"] == 1
+    assert result["long_running_tools"] == ["background_import"]
+    assert result["task_capability_advertised"] is True
 
 
 def test_run_service_smoke_converts_launch_error_to_failed_service(monkeypatch) -> None:
@@ -175,6 +244,9 @@ def test_runtime_smoke_cli_writes_report_with_fake_runner(tmp_path: Path, monkey
             "tool_count": service["expected_min_tools"],
             "tools": ["tool"],
             "missing_expected_tools": [],
+            "long_running_tool_count": 0,
+            "long_running_tools": [],
+            "task_capability_advertised": False,
             "server_name": service["name"],
             "server_version": "1.0",
             "capability_keys": ["tools"],
@@ -202,3 +274,4 @@ def test_runtime_smoke_cli_writes_report_with_fake_runner(tmp_path: Path, monkey
     assert report["status"] == "pass"
     assert report["summary"]["checked_services"] == 3
     assert "MCP Service Runtime Smoke" in markdown
+    assert "Long-running tools listed: `0`" in markdown
