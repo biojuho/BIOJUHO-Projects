@@ -125,6 +125,12 @@ node scripts/check-candidate-freshness-drift.mjs --live
 node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift
 ```
 
+빠르게 움직이는 후보만 별도로 확인하려면 `--repo owner/name`을 붙입니다. 이 필터는 반복할 수 있고 `--snapshot-only`와 `--live` 모두에서 동작합니다.
+
+```bash
+node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system
+```
+
 ## 구성
 
 - `index.html` — 사이드바/메인/시트/모달/명령 팔레트 레이아웃, 뷰 컨테이너

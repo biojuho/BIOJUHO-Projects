@@ -6,21 +6,51 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const args = new Set(process.argv.slice(2));
+const rawArgs = process.argv.slice(2);
+const args = new Set(rawArgs);
 const live = args.has("--live");
 const snapshotOnly = args.has("--snapshot-only") || !live;
 const failOnDrift = args.has("--fail-on-drift");
 const dataPath = join(root, "data/adoption-candidates.json");
 const commitPattern = /^[0-9a-f]{40}$/i;
+const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
+
+function collectOptionValues(flag) {
+  const values = [];
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const item = rawArgs[index];
+    if (item === flag && rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--")) {
+      values.push(rawArgs[index + 1]);
+      index += 1;
+    } else if (item.startsWith(`${flag}=`)) {
+      values.push(item.slice(flag.length + 1));
+    }
+  }
+  return values;
+}
+
+function normalizeRepoFilter(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^https:\/\/github\.com\//i, "")
+    .replace(/\/+$/g, "")
+    .toLowerCase();
+}
+
+function matchesRepoFilter(project) {
+  if (repoFilters.length === 0) return true;
+  return repoFilters.includes(String(project.repo?.nameWithOwner || "").toLowerCase());
+}
 
 function readSnapshot() {
   const payload = JSON.parse(readFileSync(dataPath, "utf-8"));
   const projects = Array.isArray(payload.projects) ? payload.projects : [];
   const monitored = projects
     .map((project) => ({ ...project, repo: githubRepo(project.url) }))
-    .filter((project) => project.sourceKind === "adoption-candidate" && project.repo && commitPattern.test(String(project.lastCommit || "")));
+    .filter((project) => project.sourceKind === "adoption-candidate" && project.repo && matchesRepoFilter(project) && commitPattern.test(String(project.lastCommit || "")));
   const invalid = projects
-    .filter((project) => project.sourceKind === "adoption-candidate" && project.repo && project.lastCommit != null && !commitPattern.test(String(project.lastCommit || "")))
+    .map((project) => ({ ...project, repo: githubRepo(project.url) }))
+    .filter((project) => project.sourceKind === "adoption-candidate" && project.repo && matchesRepoFilter(project) && project.lastCommit != null && !commitPattern.test(String(project.lastCommit || "")))
     .map((project) => project.name);
   const sourceMarkers = String(payload.source || "")
     .split("+")
@@ -158,6 +188,7 @@ if (snapshot.invalid.length > 0 || snapshot.monitored.length === 0) {
     status: "fail",
     mode: snapshotOnly ? "snapshot-only" : "live",
     generatedAt: snapshot.payload.generatedAt || "",
+    repoFilters,
     monitored: snapshot.monitored.length,
     sourceMarkers: snapshot.sourceMarkers.length,
     invalidSnapshots: snapshot.invalid,
@@ -169,6 +200,7 @@ if (snapshotOnly) {
     status: "pass",
     mode: "snapshot-only",
     generatedAt: snapshot.payload.generatedAt || "",
+    repoFilters,
     monitored: snapshot.monitored.length,
     sourceMarkers: snapshot.sourceMarkers.length,
     checks: {
@@ -186,6 +218,7 @@ if (!liveResult.ok) {
     status: "blocked",
     mode: "live",
     generatedAt: snapshot.payload.generatedAt || "",
+    repoFilters,
     monitored: snapshot.monitored.length,
     reason: liveResult.error,
     stderr: liveResult.stderr || "",
@@ -198,6 +231,7 @@ finish({
   status: drifted.length === 0 ? "pass" : "drift",
   mode: "live",
   generatedAt: snapshot.payload.generatedAt || "",
+  repoFilters,
   monitored: snapshot.monitored.length,
   driftCount: drifted.length,
   failOnDrift,
