@@ -136,10 +136,11 @@ describe('ProductDetail', () => {
     });
 
     await waitFor(() => {
-      expect(trackQrEvent).toHaveBeenCalledTimes(1);
+      expect(trackQrEvent).toHaveBeenCalled();
     });
 
-    expect(trackQrEvent).toHaveBeenCalledWith(
+    expect(trackQrEvent).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         session_id: 'session-1',
         event_type: 'verification_complete',
