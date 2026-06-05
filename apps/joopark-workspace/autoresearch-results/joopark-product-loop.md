@@ -1044,6 +1044,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/audit-release-readiness.mjs` now includes `bookstack_documentation_candidate_freshness_ui_smoke`.
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 20 monitored candidates and 34 source markers.
 
+## Experiment: Wiki.js self-hosted wiki benchmark candidate
+
+- Hypothesis: The GitHub project discovery surface becomes more useful for JooPark planning when Wiki.js is tracked beside Outline and BookStack as a Node/Vue self-hosted wiki model with Git-backed documentation workflows.
+- Primary metric: Wiki.js self-hosted wiki candidate freshness checks.
+- Baseline: 0 Wiki.js self-hosted wiki candidate checks; `requarks/wiki` was absent from the adoption candidate snapshot.
+- Candidate: add `requarks/wiki` as a researched self-hosted wiki benchmark candidate with current GitHub metadata, default-branch commit, Git/Markdown context, and portfolio interaction smoke.
+- Decision: keep; Wiki.js has 28,414 stars, 3,238 forks, 58 open issues, 129 open PRs, recent push `2026-05-01T10:34:55Z`, and commit `6f042e97cc2d3acda6b6ff611de8e0faacce91c1`.
+
+## Evidence
+
+- `data/adoption-candidates.json` now includes `requarks/wiki` with source markers `github-search:wikijs-self-hosted-wiki-benchmark` and `github-api:wikijs-freshness-refresh`.
+- `scripts/smoke-interactions.mjs` now reports `wikiJsCandidateFreshnessVisible` and verifies Wiki.js by commit search, star/fork count, language, Git-backed description, architecture-benchmark action, pushedAt, and safe GitHub link.
+- `scripts/audit-release-readiness.mjs` now includes `wikijs_self_hosted_wiki_candidate_freshness_ui_smoke`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 21 monitored candidates and 35 source markers.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, research Wiki.js as a self-hosted wiki benchmark after the BookStack candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, turn Outline/BookStack/Wiki.js evidence into an information-architecture comparison rubric, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
