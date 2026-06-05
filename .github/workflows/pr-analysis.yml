@@ -3,13 +3,16 @@ name: PR Analysis
 on:
   pull_request:
     types: [opened, reopened, synchronize, edited, ready_for_review]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
   pull-requests: read
+  issues: read
 
 concurrency:
-  group: pr-analysis-${{ github.event.pull_request.number }}
+  group: pr-analysis-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
@@ -17,6 +20,11 @@ jobs:
     name: Generate read-only PR analysis
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '/pr-analysis'))
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -31,16 +39,81 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Resolve PR refs
+        id: resolve-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p var/pr-analysis
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          if event_name == "pull_request":
+              pr = event["pull_request"]
+          elif event_name == "issue_comment":
+              issue = event.get("issue") or {}
+              if not issue.get("pull_request"):
+                  raise SystemExit("issue_comment event is not attached to a pull request")
+              pr_number = issue["number"]
+              pr_payload = subprocess.check_output(
+                  ["gh", "api", f"repos/{repository}/pulls/{pr_number}"],
+                  text=True,
+                  encoding="utf-8",
+              )
+              pr = json.loads(pr_payload)
+          else:
+              raise SystemExit(f"unsupported event: {event_name}")
+
+          context = {
+              "number": pr["number"],
+              "base_sha": pr["base"]["sha"],
+              "base_ref": pr["base"]["ref"],
+              "title": pr.get("title") or "",
+              "body": pr.get("body") or "",
+              "url": pr.get("html_url") or "",
+          }
+          out_dir = Path("var/pr-analysis")
+          (out_dir / "pr-context.json").write_text(
+              json.dumps(context, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          (out_dir / "pr-title.txt").write_text(context["title"], encoding="utf-8")
+          (out_dir / "pr-body.md").write_text(context["body"], encoding="utf-8")
+          PY
+          BASE_SHA="$(python -c "import json; print(json.load(open('var/pr-analysis/pr-context.json', encoding='utf-8'))['base_sha'])")"
+          BASE_REF="$(python -c "import json; print(json.load(open('var/pr-analysis/pr-context.json', encoding='utf-8'))['base_ref'])")"
+          PR_NUMBER="$(python -c "import json; print(json.load(open('var/pr-analysis/pr-context.json', encoding='utf-8'))['number'])")"
+          HEAD_REF="refs/remotes/origin/pr/${PR_NUMBER}/head"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer ${GITHUB_TOKEN}" fetch --no-tags --prune --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/pr/${PR_NUMBER}/base" "+refs/pull/${PR_NUMBER}/head:${HEAD_REF}"
+          {
+            echo "number=${PR_NUMBER}"
+            echo "base_sha=${BASE_SHA}"
+            echo "head_ref=${HEAD_REF}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Generate read-only PR analysis
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ steps.resolve-pr.outputs.base_sha }}
+          HEAD_REF: ${{ steps.resolve-pr.outputs.head_ref }}
         run: |
           python ops/scripts/pr_triage.py \
             --base "$BASE_SHA" \
-            --head "$HEAD_SHA" \
+            --head "$HEAD_REF" \
+            --title "$(cat var/pr-analysis/pr-title.txt)" \
+            --body-file var/pr-analysis/pr-body.md \
             --mode analysis \
             --output-dir var/pr-analysis
 
@@ -50,7 +123,7 @@ jobs:
       - name: Upload analysis artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: pr-analysis-${{ github.event.pull_request.number }}
+          name: pr-analysis-${{ steps.resolve-pr.outputs.number }}
           path: var/pr-analysis/
           if-no-files-found: error
           retention-days: 14

@@ -77,6 +77,11 @@ read-only repository and pull-request permissions. It creates:
 This keeps automated metadata, diff, and risk analysis separate from the
 write-capable triage lane that updates pull-request comments.
 
+The read-only analysis lane also supports manual reruns from pull-request
+comments. Comment `/pr-analysis` on a PR to rerun the artifact-only analysis.
+Issue comments that are not attached to a PR are ignored, and the workflow keeps
+`contents: read`, `pull-requests: read`, and `issues: read` permissions only.
+
 ### 4. Local CLI
 
 You can run the same triage logic locally:

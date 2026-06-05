@@ -32,8 +32,29 @@ def test_pr_analysis_workflow_is_read_only_and_separate_from_triage_comment() ->
 
     assert "name: PR Analysis" in workflow
     assert "pull-requests: read" in workflow
+    assert "issues: read" in workflow
     assert "issues: write" not in workflow
     assert "--mode analysis" in workflow
     assert "var/pr-analysis/pr-analysis-summary.md" in workflow
     assert "github-script" not in workflow
     assert "pr-triage-comment.md" not in workflow
+
+
+def test_pr_analysis_workflow_supports_read_only_comment_trigger() -> None:
+    workflow = PR_ANALYSIS_WORKFLOW.read_text(encoding="utf-8")
+    normalized_workflow = " ".join(workflow.split())
+
+    assert "issue_comment:" in workflow
+    assert "contains(github.event.comment.body, '/pr-analysis')" in workflow
+    assert "github.event.issue.pull_request != null" in workflow
+    assert (
+        '["gh", "api", f"repos/{repository}/pulls/{pr_number}"]'
+        in normalized_workflow
+    )
+    assert "repos/{repository}/pulls/{pr_number}" in workflow
+    assert "refs/heads/${BASE_REF}:refs/remotes/origin/pr/${PR_NUMBER}/base" in workflow
+    assert "refs/pull/${PR_NUMBER}/head" in workflow
+    assert "steps.resolve-pr.outputs.head_ref" in workflow
+    assert "--body-file var/pr-analysis/pr-body.md" in workflow
+    assert "github-script" not in workflow
+    assert "issues: write" not in workflow

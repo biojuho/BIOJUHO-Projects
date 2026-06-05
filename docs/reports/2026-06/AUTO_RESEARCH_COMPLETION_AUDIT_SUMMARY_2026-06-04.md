@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `69`
-- Status counts: `blocked=1, covered=68`
+- Criteria: `70`
+- Status counts: `blocked=1, covered=69`
 
 ## Missing Required
 
@@ -419,6 +419,12 @@
 - Evidence paths: `4`
 
 ### dailynews_notebooklm_speech_alias_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
+
+### pr_analysis_comment_trigger_guard
 
 - Required: `true`
 - Status: `covered`
