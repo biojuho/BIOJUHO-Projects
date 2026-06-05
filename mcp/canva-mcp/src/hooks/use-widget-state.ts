@@ -24,6 +24,10 @@ export function useWidgetState<T extends UnknownObject>(
   });
 
   useEffect(() => {
+    if (widgetStateFromWindow == null) {
+      return;
+    }
+
     _setWidgetState(widgetStateFromWindow);
   }, [widgetStateFromWindow]);
 

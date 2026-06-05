@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `44`
-- Status counts: `blocked=1, covered=43`
+- Criteria: `45`
+- Status counts: `blocked=1, covered=44`
 
 ## Missing Required
 
@@ -81,6 +81,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### canva_widget_state_continuation_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### canva_mcp_openai_namespace_metadata_guard
 

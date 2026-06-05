@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T10:05:00+09:00",
+  "generated_at": "2026-06-05T10:25:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -625,6 +625,54 @@
             "mastra-ai/mastra",
             "continuation",
             "12 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "canva_widget_state_continuation_guard",
+      "requirement": "Canva widget state hooks preserve default/local state across continuation-style OpenAI global updates until the host supplies a real widgetState value, with the regression guard wired into pre-push.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "mcp/canva-mcp/src/hooks/use-widget-state.ts",
+          "must_contain": [
+            "useWidgetState",
+            "if (widgetStateFromWindow == null)",
+            "_setWidgetState(widgetStateFromWindow)",
+            "window.openai.setWidgetState(newState)"
+          ]
+        },
+        {
+          "path": "tests/test_canva_widget_hooks.py",
+          "must_contain": [
+            "test_widget_state_preserves_default_until_host_state_exists",
+            "test_openai_global_subscription_only_reacts_to_present_keys",
+            "widgetStateFromWindow == null",
+            "SET_GLOBALS_EVENT_TYPE"
+          ]
+        },
+        {
+          "path": "ops/hooks/pre-push",
+          "must_contain": [
+            "tests/test_canva_widget_hooks.py"
+          ]
+        },
+        {
+          "path": "tests/test_pre_push_hook.py",
+          "must_contain": [
+            "tests/test_canva_widget_hooks.py"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_STATE_CONTINUATION_2026-06-05.md",
+          "must_contain": [
+            "Canva Widget State Continuation",
+            "mastra-ai/mastra",
+            "fix(client-js): keep client tools for signal continuations (#17593)",
+            "tests/test_canva_widget_hooks.py",
             "global_objective_complete=false"
           ]
         }
