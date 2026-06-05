@@ -52,7 +52,6 @@
   - JSON and HTML evidence suitable for CI
 - Local evidence:
   - `ops/scripts/run_workspace_smoke.py`
-  - `ops/scripts/workspace_smoke_report.py`
   - `ops/scripts/mcp_smoke_trace_metrics.py`
   - `tests/test_mcp_smoke_trace_metrics.py`
   - `apps/desci-platform/scripts/product_smoke.py`
@@ -80,7 +79,7 @@
   - `packages/shared/harness/core.py`
   - `packages/shared/harness/adapters/native.py`
   - `packages/shared/harness/token_tracker.py`
-  - `packages/shared/tests/test_workflow_trace.py`
+  - `packages/shared/telemetry/workflow_trace.py`
 - Gap: No remaining structural gap for declaring app-level agent workflows; future work can wire the manifest directly into runtime orchestration.
 
 ### dsifry/metaswarm
@@ -95,10 +94,13 @@
   - durable learning and next-action capture
 - Local evidence:
   - `ops/scripts/run_workspace_smoke.py`
-  - `ops/scripts/release_approval_check.py`
-  - `docs/reports/2026-05/RELEASE_APPROVAL_WORKSPACE_2026-05-28.json`
+  - `ops/scripts/github_modernization_radar.py`
+  - `tests/test_workspace_smoke.py`
+  - `tests/test_github_modernization_radar.py`
+  - `docs/QUALITY_GATE.md`
   - `next-actions.md`
-- Gap: No remaining structural gap for deterministic quality gates; future work should keep evidence current.
+  - `docs/reports/2026-06/AUTO_RESEARCH_RADAR_TRACKED_EVIDENCE_GUARD_2026-06-05.md`
+- Gap: No remaining structural gap for deterministic quality gates and tracked evidence manifests; future work should keep evidence current.
 
 ### open-webui/mcpo
 
@@ -114,7 +116,7 @@
   - `mcp/canva-mcp/src/server/tools.ts`
   - `mcp/canva-mcp/src/server/auth.ts`
   - `mcp/canva-mcp/assets/preview.js`
-  - `docs/MCP_HEALTH_CHECK.md`
+  - `ops/references/mcp_services.json`
 - Gap: The workspace does not yet publish MCP tools as OpenAPI endpoints; keep this as an interoperability option.
 
 ### Uninen/devserver-mcp
@@ -136,7 +138,7 @@
   - `docs/guides/dev-server-control.md`
   - `apps/desci-platform/scripts/browser_smoke.py`
   - `apps/dashboard/src/components/QualityPanel.jsx`
-  - `ops/scripts/workspace_smoke_report.py`
+  - `tests/test_workspace_smoke.py`
   - `docs/QUALITY_GATE.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_CONTROL_2026-06-04.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_RUNBOOK_2026-06-04.md`

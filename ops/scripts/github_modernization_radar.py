@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from collections import Counter
 from datetime import datetime
@@ -221,6 +222,9 @@ def _validate_evidence_paths(value: Any, field: str, workspace_root: Path, error
             continue
         if not (workspace_root / path_value).exists():
             errors.append(f"{path_field} must exist in the workspace")
+            continue
+        if not _is_git_tracked(workspace_root, path_value):
+            errors.append(f"{path_field} must be tracked by git")
 
 
 def _is_repo_relative(value: str) -> bool:
@@ -232,6 +236,18 @@ def _is_repo_relative(value: str) -> bool:
     if "/../" in f"/{normalized}/":
         return False
     return not Path(value).is_absolute()
+
+
+def _is_git_tracked(workspace_root: Path, path_value: str) -> bool:
+    completed = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", path_value],
+        cwd=workspace_root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+        text=True,
+    )
+    return completed.returncode == 0
 
 
 def _format_status_counts(counts: dict[str, int]) -> str:

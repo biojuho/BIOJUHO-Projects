@@ -19,6 +19,29 @@ def load_radar_module():
     return module
 
 
+def minimal_manifest(local_evidence: list[str]) -> dict:
+    return {
+        "schema_version": 1,
+        "generated_at": "2026-06-05T00:00:00+00:00",
+        "search_context": {
+            "objective": "Map source-backed modernization signals.",
+            "queries": ["agent quality gate"],
+        },
+        "sources": [
+            {
+                "repo": "owner/project",
+                "url": "https://github.com/owner/project",
+                "category": "quality-gate",
+                "adoption_status": "watch",
+                "why_similar": "It validates durable evidence.",
+                "observed_patterns": ["tracked evidence"],
+                "local_evidence": local_evidence,
+                "gap": "Synthetic fixture.",
+            }
+        ],
+    }
+
+
 def test_current_manifest_validates_against_real_workspace_evidence() -> None:
     radar = load_radar_module()
     payload = radar.load_manifest(MANIFEST_PATH)
@@ -79,6 +102,17 @@ def test_manifest_rejects_missing_local_evidence(tmp_path: Path) -> None:
     errors = radar.validate_manifest(payload, workspace_root=PROJECT_ROOT)
 
     assert "sources[0].local_evidence[0] must exist in the workspace" in errors
+
+
+def test_manifest_rejects_untracked_local_evidence(tmp_path: Path) -> None:
+    radar = load_radar_module()
+    evidence_path = tmp_path / "local-only-report.md"
+    evidence_path.write_text("local only", encoding="utf-8")
+    payload = minimal_manifest(["local-only-report.md"])
+
+    errors = radar.validate_manifest(payload, workspace_root=tmp_path)
+
+    assert "sources[0].local_evidence[0] must be tracked by git" in errors
 
 
 def test_manifest_rejects_untrusted_or_escaping_source_data() -> None:
