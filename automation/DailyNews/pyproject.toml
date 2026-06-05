@@ -31,7 +31,7 @@ newsletter = [
 ]
 dev = [
     "pytest>=8.3,<8.4",  # pinned: 8.4+ capture crash with Python 3.13
-    "pytest-asyncio>=0.23.0,<1.0",
+    "pytest-asyncio>=0.23.0,<2.0",
     "respx>=0.22.0,<1.0",
 ]
 
