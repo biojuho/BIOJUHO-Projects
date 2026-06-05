@@ -60,6 +60,7 @@ class _JobRecord:
             progress=self.progress,
             message=self.message,
             storage=self.storage,
+            partial=self.status not in _TERMINAL_STATUSES,
             result=self.result,
             error=self.error,
             created_at=self.created_at,

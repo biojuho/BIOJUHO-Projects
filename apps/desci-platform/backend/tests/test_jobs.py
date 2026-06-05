@@ -43,6 +43,7 @@ async def test_notice_collection_job_completes_and_is_public(async_client: Async
 
     terminal = await wait_for_terminal_job(async_client, job["id"])
     assert terminal["status"] == "succeeded"
+    assert terminal["partial"] is False
     assert terminal["result"]["collected"] == 2
 
     transport = ASGITransport(app=app_main.app)
@@ -72,6 +73,8 @@ async def test_notice_collection_job_streams_terminal_snapshot(async_client: Asy
                 events.append(json.loads(line[6:]))
 
     assert any(event["status"] == "succeeded" for event in events)
+    assert all(event["partial"] is True for event in events[:-1])
+    assert events[-1]["partial"] is False
     assert events[-1]["result"]["collected"] == 1
 
 
@@ -96,6 +99,7 @@ async def test_terminal_job_streams_snapshot_for_late_subscriber(async_client: A
                 events.append(json.loads(line[6:]))
 
     assert [event["status"] for event in events] == ["succeeded"]
+    assert [event["partial"] for event in events] == [False]
     assert events[0]["result"]["collected"] == 1
 
 

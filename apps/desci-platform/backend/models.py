@@ -131,6 +131,7 @@ class JobSnapshot(BaseModel):
     progress: int = Field(..., ge=0, le=100)
     message: str = Field(..., min_length=1)
     storage: Literal["memory", "redis"] = "memory"
+    partial: bool = Field(True, description="False when this snapshot is a terminal stream frame.")
     result: Any | None = None
     error: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

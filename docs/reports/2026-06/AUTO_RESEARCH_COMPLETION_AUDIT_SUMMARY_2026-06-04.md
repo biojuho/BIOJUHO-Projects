@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `62`
-- Status counts: `blocked=1, covered=61`
+- Criteria: `63`
+- Status counts: `blocked=1, covered=62`
 
 ## Missing Required
 
@@ -381,6 +381,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### desci_job_stream_partial_false_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### external_credential_boundaries
 

@@ -60,6 +60,7 @@ describe('useJobProgress', () => {
       FakeEventSource.instances[0].emit({
         id: 'job-1',
         status: 'running',
+        partial: true,
         progress: 55,
         message: 'Working',
       });
@@ -72,6 +73,7 @@ describe('useJobProgress', () => {
       FakeEventSource.instances[0].emit({
         id: 'job-1',
         status: 'succeeded',
+        partial: false,
         progress: 100,
         result: { ok: true },
       });

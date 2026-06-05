@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T12:00:00+09:00",
+  "generated_at": "2026-06-05T12:06:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -166,7 +166,6 @@
             "tests/test_dev_server_mcp_runtime_smoke.py",
             "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_TOOL_ERROR_CONTINUATION_2026-06-05.md",
             "ops/scripts/agent_workflow_gate_runner.py",
-            "tests/test_agent_workflow_gate_runner.py",
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_STATE_SNAPSHOT_GUARD_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
             "apps/dashboard/routers/gdt.py",
@@ -184,14 +183,13 @@
             "tests/test_pr_triage.py",
             "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
-            "d08c2ea",
+            "3cfd183",
             "packages/shared/llm/reasoning/vibe_tools.py",
             "tests/test_vibe_tools_validation.py",
-            "docs/reports/2026-06/AUTO_RESEARCH_VIBE_TOOLS_WORKSPACE_PATH_GUARD_2026-06-05.md",
-            "d08c2ea"
+            "docs/reports/2026-06/AUTO_RESEARCH_VIBE_TOOLS_WORKSPACE_PATH_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "d08c2ea",
+            "proof_commit": "3cfd183",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -3700,6 +3698,54 @@
             "A/B Contract",
             "Path escapes workspace root",
             "34",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desci_job_stream_partial_false_guard",
+      "requirement": "DeSci job progress streams expose a final partial=false terminal frame so SSE clients can distinguish completion from partial progress frames.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "apps/desci-platform/backend/models.py",
+          "must_contain": [
+            "partial: bool = Field(True",
+            "terminal stream frame"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/services/job_manager.py",
+          "must_contain": [
+            "partial=self.status not in _TERMINAL_STATUSES"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/backend/tests/test_jobs.py",
+          "must_contain": [
+            "terminal[\"partial\"] is False",
+            "events[-1][\"partial\"] is False",
+            "event[\"partial\"] is True for event in events[:-1]"
+          ]
+        },
+        {
+          "path": "apps/desci-platform/frontend/src/hooks/useJobProgress.test.jsx",
+          "must_contain": [
+            "partial: true",
+            "partial: false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "DeSci Job Stream Partial False Guard",
+            "google/adk-python",
+            "final partial=False frame",
+            "10 passed",
+            "3 passed",
+            "7`, `failed=0",
             "global_objective_complete=false"
           ]
         }

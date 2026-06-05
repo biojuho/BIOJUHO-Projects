@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T03:01:29.320487+00:00",
+  "generated_at": "2026-06-05T03:06:43.560420+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -33,7 +33,8 @@
         "desci_uploaded_file_label_guard",
         "pre_push_regression_gate",
         "dashboard_falsy_credential_metadata_guard",
-        "browser_smoke_clear_error_expected_text_guard"
+        "browser_smoke_clear_error_expected_text_guard",
+        "desci_job_stream_partial_false_guard"
       ],
       "evidence": [
         {
@@ -75,6 +76,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -109,7 +114,8 @@
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
         "shared_llm_grok_seed_settings_guard",
-        "vibe_tools_workspace_path_guard"
+        "vibe_tools_workspace_path_guard",
+        "desci_job_stream_partial_false_guard"
       ],
       "evidence": [
         {
@@ -179,6 +185,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_VIBE_TOOLS_WORKSPACE_PATH_GUARD_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "github_related_project_research",
@@ -258,7 +268,8 @@
         "dashboard_credential_operator_checklist",
         "canva_mcp_sdk_floor_guard",
         "dashboard_falsy_credential_metadata_guard",
-        "browser_smoke_clear_error_expected_text_guard"
+        "browser_smoke_clear_error_expected_text_guard",
+        "desci_job_stream_partial_false_guard"
       ],
       "evidence": [
         {
@@ -324,6 +335,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_EPHEMERAL_CONTEXT_GUARD_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "direct_app_click_qa",
@@ -369,7 +384,8 @@
         "dashboard_falsy_credential_metadata_guard",
         "browser_smoke_clear_error_expected_text_guard",
         "shared_llm_grok_seed_settings_guard",
-        "vibe_tools_workspace_path_guard"
+        "vibe_tools_workspace_path_guard",
+        "desci_job_stream_partial_false_guard"
       ],
       "evidence": [
         {
@@ -463,6 +479,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_VIBE_TOOLS_WORKSPACE_PATH_GUARD_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "beyond_user_expected_quality",
