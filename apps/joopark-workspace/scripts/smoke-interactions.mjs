@@ -368,6 +368,7 @@ const interactionExpression = `
   let candidateBenchmarkFocusVisibleOk = false;
   let candidateBenchmarkQueueVisibleOk = false;
   let candidateBenchmarkRubricVisibleOk = false;
+  let candidateBenchmarkScoredRubricVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -712,6 +713,13 @@ const interactionExpression = `
     ].forEach((term) => {
       assert(benchmarkRubric.innerText.includes(term), "benchmark rubric value did not render: " + term);
     });
+    const rubricText = benchmarkRubric.innerText;
+    assert(rubricText.includes("happybhati/workstream") && rubricText.includes("88점"), "Workstream rubric total did not render");
+    assert(rubricText.includes("Taskosaur/Taskosaur") && rubricText.includes("86점"), "Taskosaur rubric total did not render");
+    assert(rubricText.includes("GitHub/GitLab PR + Jira task + Google Calendar") && rubricText.includes("30점"), "Workstream input rubric score did not render");
+    assert(rubricText.includes("in-app conversational execution + browser task execution") && rubricText.includes("28점"), "Taskosaur AI rubric score did not render");
+    assert(rubricText.includes("88점") && rubricText.includes("86점") && rubricText.includes("30점") && rubricText.includes("28점"), "benchmark rubric score labels did not render");
+    candidateBenchmarkScoredRubricVisibleOk = true;
     candidateBenchmarkRubricVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
@@ -900,6 +908,7 @@ const interactionExpression = `
     candidateBenchmarkFocusVisibleOk = true;
     candidateBenchmarkQueueVisibleOk = true;
     candidateBenchmarkRubricVisibleOk = true;
+    candidateBenchmarkScoredRubricVisibleOk = true;
   });
 
   let projectId = "";
@@ -1135,6 +1144,7 @@ const interactionExpression = `
     candidateBenchmarkFocusVisible: candidateBenchmarkFocusVisibleOk,
     candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
+    candidateBenchmarkScoredRubricVisible: candidateBenchmarkScoredRubricVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
