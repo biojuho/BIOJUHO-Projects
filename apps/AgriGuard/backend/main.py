@@ -7,6 +7,7 @@ import warnings
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from admin import setup_admin
 from database import initialize_database, verify_database_connection
 from dependencies import close_cache, get_cache
 from fastapi import FastAPI
@@ -18,6 +19,7 @@ from iot_service import (
     redis_subscriber_loop,
     sensor_simulation_loop,
 )
+from routers import dashboard, iot, products, qr_events, users
 from starlette.middleware.sessions import SessionMiddleware
 
 logger = logging.getLogger(__name__)
@@ -203,8 +205,6 @@ if not _SECRET_KEY:
 
 app.add_middleware(SessionMiddleware, secret_key=_SECRET_KEY)
 
-from admin import setup_admin
-
 setup_admin(app)
 
 if _LOGFIRE_OK:
@@ -255,8 +255,6 @@ async def rate_limit_middleware(request, call_next):
     response.headers["X-RateLimit-Remaining"] = str(max(0, _RATE_LIMIT_MAX - count))
     return response
 
-
-from routers import dashboard, iot, products, qr_events, users
 
 app.include_router(dashboard.router, tags=["Dashboard"])
 app.include_router(users.router, tags=["Users"])

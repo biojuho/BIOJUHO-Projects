@@ -23,9 +23,14 @@ BASELINE_TABLES = {
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from env_loader import load_backend_env
 
-load_backend_env(override=False)
+def _load_env() -> None:
+    from env_loader import load_backend_env
+
+    load_backend_env(override=False)
+
+
+_load_env()
 
 
 def _display_database_target() -> str:
