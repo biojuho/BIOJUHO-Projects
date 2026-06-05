@@ -999,6 +999,18 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkReviewHandoffCopyTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkReviewIssueDraftTerms = [
+    { file: "app.js", terms: ["function benchmarkReviewIssueDraft", "function candidateBenchmarkReviewIssueDraft", "function createBenchmarkReviewIssue", "data-review-issue-draft", "data-review-issue-create"] },
+    { file: "styles.css", terms: [".portfolio-review-issue-draft", ".portfolio-issue-draft-grid", ".portfolio-issue-draft-body"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkReviewIssueDraftVisible", "benchmark review issue draft did not create an issue", "benchmark review issue draft did not persist source key"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_review_issue_draft",
+    requirement: "Taskosaur benchmark review handoff decisions can be converted into a PM issue draft with stable source key, priority, labels, and browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkReviewIssueDraftTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkReviewIssueDraftTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

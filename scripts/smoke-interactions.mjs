@@ -53,7 +53,7 @@ class CdpClient {
     callbacks.forEach((callback) => callback(message.params || {}));
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = 10000) {
     const id = this.nextId++;
     this.ws.send(JSON.stringify({ id, method, params }));
     return new Promise((resolve, reject) => {
@@ -62,7 +62,7 @@ class CdpClient {
         if (!this.pending.has(id)) return;
         this.pending.delete(id);
         reject(new Error(`Timed out waiting for ${method}`));
-      }, 10000);
+      }, timeoutMs);
     });
   }
 
@@ -137,12 +137,12 @@ async function pageWebSocketUrl(browserWsUrl) {
   throw new Error(`No page target exposed by Chrome.${cause}`);
 }
 
-async function evaluate(client, expression) {
+async function evaluate(client, expression, timeoutMs = 30000) {
   const result = await client.send("Runtime.evaluate", {
     expression,
     awaitPromise: true,
     returnByValue: true,
-  });
+  }, timeoutMs);
   if (result.exceptionDetails) {
     const detail = result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Runtime evaluation failed";
     throw new Error(detail);
@@ -373,6 +373,7 @@ const interactionExpression = `
   let candidateBenchmarkReviewQueueVisibleOk = false;
   let candidateBenchmarkReviewHandoffVisibleOk = false;
   let candidateBenchmarkReviewHandoffCopyVisibleOk = false;
+  let candidateBenchmarkReviewIssueDraftVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -772,11 +773,33 @@ const interactionExpression = `
     await waitFor(() => window.__smokeClipboardText.includes("Primary decision key: benchmark-review:repo-taskosaur-taskosaur:86"), "benchmark review handoff copy text did not reach clipboard");
     await waitFor(() => reviewHandoff.dataset.reviewHandoffCopied === "true", "benchmark review handoff copy state did not update");
     assert(qs("[data-review-handoff-copy-status]", reviewHandoff).textContent.includes("복사됨"), "benchmark review handoff copy status did not render");
+    const reviewIssueDraft = qs("[data-review-issue-draft]", reviewHandoff);
+    const reviewIssueCreate = qs("[data-review-issue-create]", reviewIssueDraft);
+    const reviewIssueBody = qs("[data-issue-draft-body]", reviewIssueDraft).innerText;
+    assert(reviewIssueDraft.dataset.issueDraftTitle === "[Benchmark] Taskosaur/Taskosaur 도입 검토", "benchmark review issue draft title did not render");
+    assert(reviewIssueDraft.dataset.issueDraftProject === "Taskosaur/Taskosaur", "benchmark review issue draft project did not render");
+    assert(reviewIssueDraft.dataset.issueDraftPriority === "high", "benchmark review issue draft priority did not render");
+    assert(reviewIssueDraft.dataset.issueDraftKey === "benchmark-review:repo-taskosaur-taskosaur:86", "benchmark review issue draft key did not render");
+    assert(reviewIssueBody.includes("Persist key: benchmark-review:repo-taskosaur-taskosaur:86") && reviewIssueBody.includes("Compare with: happybhati/workstream"), "benchmark review issue draft body did not render");
+    const beforeIssueCount = dashboard.issues.length;
+    click("[data-review-issue-create]", reviewIssueDraft);
+    await waitFor(() => dashboard.issues.length === beforeIssueCount + 1, "benchmark review issue draft did not create an issue");
+    const createdIssue = dashboard.issues.find((issue) => issue.sourceKey === "benchmark-review:repo-taskosaur-taskosaur:86");
+    assert(createdIssue, "benchmark review issue draft did not persist source key");
+    assert(createdIssue.title === "[Benchmark] Taskosaur/Taskosaur 도입 검토", "benchmark review issue draft title was not saved");
+    assert(createdIssue.project === "repo-taskosaur-taskosaur", "benchmark review issue draft project was not saved");
+    assert(createdIssue.priority === "high", "benchmark review issue draft priority was not saved");
+    assert(createdIssue.labels.includes("benchmark") && createdIssue.labels.includes("handoff"), "benchmark review issue draft labels were not saved");
+    await waitFor(() => {
+      const nextDraft = document.querySelector("[data-review-issue-draft]");
+      return nextDraft && nextDraft.dataset.issueDraftCreated === "true" && nextDraft.dataset.issueDraftId === createdIssue.id;
+    }, "benchmark review issue draft created state did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
     candidateBenchmarkReviewHandoffCopyVisibleOk = true;
+    candidateBenchmarkReviewIssueDraftVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -969,6 +992,7 @@ const interactionExpression = `
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
     candidateBenchmarkReviewHandoffCopyVisibleOk = true;
+    candidateBenchmarkReviewIssueDraftVisibleOk = true;
   });
 
   let projectId = "";
@@ -1209,6 +1233,7 @@ const interactionExpression = `
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,
     candidateBenchmarkReviewHandoffCopyVisible: candidateBenchmarkReviewHandoffCopyVisibleOk,
+    candidateBenchmarkReviewIssueDraftVisible: candidateBenchmarkReviewIssueDraftVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
