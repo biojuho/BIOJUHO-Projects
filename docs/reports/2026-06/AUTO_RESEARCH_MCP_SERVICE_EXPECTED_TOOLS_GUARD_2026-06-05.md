@@ -44,6 +44,12 @@ Generated at: `2026-06-05T10:55:00+09:00`
 - `python ops\scripts\autoresearch_objective_coverage.py --json-out var\autoresearch-mcp-expected-tools-objective.json --markdown-out var\autoresearch-mcp-expected-tools-objective.md`
   - valid `7` requirements
 
+## Freshness Baseline
+
+- Pushed proof commit: `9df96e1`.
+- Post-push completion audit initially failed against the prior current-tip baseline because `ops/references/mcp_service_manifest.json`, `ops/scripts/mcp_service_manifest.py`, and `tests/test_mcp_service_manifest.py` changed in the product commit.
+- `current_tip_freshness_gate` now uses `9df96e1`, and the MCP service manifest validator files are explicitly classified as audit evidence paths.
+
 ## Boundaries
 
 - This does not call credential-gated Telegram delivery tools.
