@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T23:25:38+09:00",
+  "generatedAt": "2026-06-05T23:44:07+09:00",
   "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
@@ -441,7 +441,7 @@
     {
       "id": "repo-veritas-autoresearch-skill-system",
       "name": "Veritas-7/autoresearch-skill-system",
-      "description": "v8.381 최신 completion audit Markdown invalid UTF-8 gate를 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
+      "description": "v8.387 최신 stdin command start failure gate를 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
       "category": "Harness/오토리서치",
       "owner": "도입 후보",
       "language": "Python",
@@ -450,11 +450,11 @@
       "sourceKind": "adoption-candidate",
       "adoptionStage": "adopt",
       "topics": ["autoresearch", "codex", "skill", "ab-testing"],
-      "progress": 81,
+      "progress": 87,
       "status": "on-track",
       "health": "green",
       "deadline": "2026-06-30",
-      "burn": [8, 18, 28, 40, 52, 64, 81],
+      "burn": [8, 18, 28, 40, 52, 64, 87],
       "risks": 1,
       "openIssues": 1,
       "openPRs": 0,
@@ -463,9 +463,9 @@
       "stars": 1,
       "forks": 1,
       "diskKb": 787,
-      "pushedAt": "2026-06-05T14:20:51Z",
+      "pushedAt": "2026-06-05T14:42:41Z",
       "createdAt": "2026-06-03T04:43:01Z",
-      "lastCommit": "04714cdc78e2997594cc2daad5a9403d2e4d2b20"
+      "lastCommit": "01e7835311a43f951c8a462a4070dc73d88329e2"
     },
     {
       "id": "repo-biojuho-autoresearch-skill-system",

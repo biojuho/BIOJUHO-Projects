@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T23:25:38+09:00",
+  "generatedAt": "2026-06-05T23:44:07+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -296,6 +296,13 @@
       "primaryMetric": "veritasCurrentHeadFresh",
       "baseline": 0,
       "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-data-driven-freshness-gate",
+      "primaryMetric": "hardcodedVeritasFreshnessExpectationsInGateCode",
+      "baseline": 7,
+      "candidate": 0,
       "decision": "keep"
     }
   ],

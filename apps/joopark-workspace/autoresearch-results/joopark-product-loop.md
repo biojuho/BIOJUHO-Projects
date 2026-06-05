@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T23:25:38+09:00
+Generated: 2026-06-05T23:44:07+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -506,6 +506,19 @@ Generated: 2026-06-05T23:25:38+09:00
 
 - `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `04714cdc78e2997594cc2daad5a9403d2e4d2b20` dated `2026-06-05T14:20:50Z` with message `v8.381 Completion Audit Markdown Invalid UTF8 Gate`.
 - `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:20:51Z`, `updated_at: 2026-06-05T14:21:03Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
+
+## Experiment: Veritas data-driven freshness gate
+
+- Hypothesis: Veritas freshness updates should not require audit and smoke code edits every time the upstream harness advances.
+- Primary metric: `hardcodedVeritasFreshnessExpectationsInGateCode`.
+- Baseline: audit and interaction smoke hardcoded the Veritas full SHA, short SHA, pushedAt, and description version, so every new upstream commit required changing gate code.
+- Candidate: audit now validates the Veritas snapshot has a 40-character commit, parseable `pushedAt`, and source marker; interaction smoke derives the search term and expected badge metadata from the loaded snapshot. The data snapshot itself was refreshed to v8.387.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `01e7835311a43f951c8a462a4070dc73d88329e2` dated `2026-06-05T14:42:39Z` with message `v8.387 Stdin Command Start Failure Gate`.
+- `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:42:41Z`, `updated_at: 2026-06-05T14:42:46Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
 
 ## Next Loop
 

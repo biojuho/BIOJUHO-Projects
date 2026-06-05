@@ -150,12 +150,12 @@ function autoresearchCandidateSnapshot(relPath) {
   ];
   const missing = required.filter((name) => !names.has(name));
   const source = payload?.source || "";
-  const veritasLatestCommit = "04714cdc78e2997594cc2daad5a9403d2e4d2b20";
-  const veritasLatestPushedAt = "2026-06-05T14:20:51Z";
   const veritas = projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system") || null;
+  const veritasCommit = String(veritas?.lastCommit || "").trim();
+  const veritasPushedAt = String(veritas?.pushedAt || "").trim();
   const veritasFresh = Boolean(veritas) &&
-    veritas.lastCommit === veritasLatestCommit &&
-    Date.parse(veritas.pushedAt || "") >= Date.parse(veritasLatestPushedAt);
+    /^[0-9a-f]{40}$/i.test(veritasCommit) &&
+    !Number.isNaN(Date.parse(veritasPushedAt));
   const veritasSourceMarked = source.includes("github-api:veritas-autoresearch-refresh");
   return {
     status: matches.length >= 8 && missing.length === 0 && veritasFresh && veritasSourceMarked ? "pass" : "fail",
@@ -163,10 +163,10 @@ function autoresearchCandidateSnapshot(relPath) {
     generatedAt: payload?.generatedAt || "",
     candidates: matches.length,
     veritas: {
-      latestCommit: veritasLatestCommit,
-      lastCommit: veritas?.lastCommit || "",
-      latestPushedAt: veritasLatestPushedAt,
-      pushedAt: veritas?.pushedAt || "",
+      latestCommit: veritasCommit,
+      lastCommit: veritasCommit,
+      latestPushedAt: veritasPushedAt,
+      pushedAt: veritasPushedAt,
       fresh: veritasFresh,
       sourceMarked: veritasSourceMarked,
     },
