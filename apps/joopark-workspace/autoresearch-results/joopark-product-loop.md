@@ -1029,6 +1029,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/audit-release-readiness.mjs` now includes `outline_knowledge_base_candidate_freshness_ui_smoke`.
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 19 monitored candidates and 33 source markers.
 
+## Experiment: BookStack documentation benchmark candidate
+
+- Hypothesis: The GitHub project discovery surface becomes more useful for JooPark documentation direction when a self-hosted, book/chapter/page-style documentation benchmark is tracked next to Outline.
+- Primary metric: BookStack documentation candidate freshness checks.
+- Baseline: 0 BookStack documentation candidate checks; `BookStackApp/BookStack` was absent from the adoption candidate snapshot.
+- Candidate: add `BookStackApp/BookStack` as a researched self-hosted documentation/wiki candidate with current GitHub mirror metadata, Codeberg migration risk context, default-branch commit, and portfolio interaction smoke.
+- Decision: keep; BookStack has 18,814 stars, 2,384 forks, 0 open issues, 1 open PR, recent push `2026-06-05T04:31:28Z`, and commit `f01bb749ab3f11fc465bf5f247dc84e297e4f98a`.
+
+## Evidence
+
+- `data/adoption-candidates.json` now includes `BookStackApp/BookStack` with source markers `github-search:bookstack-documentation-benchmark` and `github-api:bookstack-freshness-refresh`.
+- `scripts/smoke-interactions.mjs` now reports `bookStackCandidateFreshnessVisible` and verifies BookStack by commit search, star/fork count, language, spike recommendation action, pushedAt, and safe GitHub link.
+- `scripts/audit-release-readiness.mjs` now includes `bookstack_documentation_candidate_freshness_ui_smoke`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 20 monitored candidates and 34 source markers.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric, research BookStack as a self-hosted documentation benchmark after the Outline candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, turn Outline, BookStack, AppFlowy, and AFFiNE benchmark evidence into a notes/workspace comparison rubric, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
