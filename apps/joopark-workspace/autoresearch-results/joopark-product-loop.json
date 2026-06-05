@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T19:53:06+09:00",
+  "generatedAt": "2026-06-05T20:13:02+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -147,6 +147,20 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
+    },
+    {
+      "id": "github-release-artifact-workflow",
+      "primaryMetric": "publishableReleaseArtifactWorkflow",
+      "baseline": 0,
+      "candidate": 0,
+      "decision": "reject"
+    },
+    {
+      "id": "github-prerelease-asset-publication",
+      "primaryMetric": "publicDownloadableReleaseAssets",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -155,11 +169,20 @@
     "remote": "biojuho-projects",
     "push": "pass",
     "draftPr": "pass",
-    "draftPrUrl": "https://github.com/biojuho/BIOJUHO-Projects/pull/149"
+    "draftPrUrl": "https://github.com/biojuho/BIOJUHO-Projects/pull/149",
+    "prerelease": {
+      "status": "pass",
+      "tag": "joopark-workspace-v3.0.0-rc.1",
+      "url": "https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0-rc.1",
+      "targetCommit": "c9d689a2d935c89a38370e62abef1635baa53d79",
+      "asset": "joopark-workspace-v3.0.0-rc.1.zip",
+      "assetBytes": 137650,
+      "assetSha256": "da4f72efcd547f0dbe8a0510e0d9d8d7939ad9e611f205a24287dcca2b81bcf6"
+    }
   },
   "nextCandidates": [
-    "standalone release publication",
-    "no-common-history PR strategy",
+    "release-link surfacing in the PR",
+    "draft-to-ready release criteria",
     "deeper UI workflow coverage"
   ]
 }

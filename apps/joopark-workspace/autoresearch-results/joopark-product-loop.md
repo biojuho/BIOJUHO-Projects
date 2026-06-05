@@ -257,6 +257,42 @@ Generated: 2026-06-05T19:53:06+09:00
 - Pushed `9f07a71 Port JooPark release to main branch` to `biojuho-projects/codex/joopark-workspace-release-main`.
 - Created draft PR `#149`: `https://github.com/biojuho/BIOJUHO-Projects/pull/149`.
 
+## Experiment: GitHub release artifact workflow
+
+- Hypothesis: Product launch readiness improves when GitHub can package the static JooPark Workspace release and expose it as a downloadable Actions artifact without requiring deployment credentials.
+- Primary metric: publishable release artifact workflow availability.
+- Baseline: no `joopark-workspace-release.yml` workflow existed, so PR and main builds did not produce a JooPark Workspace release artifact.
+- Candidate: a local `.github/workflows/joopark-workspace-release.yml` package workflow passed syntax, release, and packaged-browser gates, but could not be published from this OAuth session.
+- Decision: reject.
+
+## Evidence
+
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/joopark-workspace-release.yml"); puts "workflow_yaml=pass"'` passed.
+- `git diff --check` passed.
+- `python3 ops/scripts/pr_self_review.py --base biojuho-projects/main` passed with 0 red findings.
+- `npm run lint`, `npm run build`, `node scripts/verify-release.mjs`, and `npm run test` passed in `apps/joopark-workspace`.
+- Packaged-release smoke passed 15 desktop routes, 15 mobile routes, 18 interaction steps, Markdown sanitizer checks, candidate next-action checks, and accessibility checks with 0 console, network, and layout issues.
+- `git push biojuho-projects codex/joopark-workspace-release-main` was rejected because the OAuth app cannot create or update `.github/workflows/joopark-workspace-release.yml` without `workflow` scope.
+- Removed the workflow file from the candidate branch and kept the blocker as evidence rather than adopting an unpublishable change.
+
+## Experiment: GitHub prerelease asset publication
+
+- Hypothesis: Product launch readiness improves when the JooPark Workspace package is available as a public GitHub prerelease asset, even without workflow-edit scope.
+- Primary metric: public downloadable release assets.
+- Baseline: `gh release list --repo biojuho/BIOJUHO-Projects --limit 20` returned no releases, and no matching `joopark-workspace` tags existed.
+- Candidate: `joopark-workspace-v3.0.0-rc.1` prerelease targets `codex/joopark-workspace-release-main` and uploads `joopark-workspace-v3.0.0-rc.1.zip`.
+- Decision: keep.
+
+## Evidence
+
+- Built the release package from a clean detached worktree at `c9d689a`.
+- `node scripts/verify-release.mjs` passed with `sourceCommit: c9d689a`, `sourceDirty: false`, and 11 runtime files.
+- `npm run test` passed on the exact release asset, including 15 desktop routes, 15 mobile routes, 18 interaction steps, Markdown sanitizer checks, candidate next-action checks, and accessibility checks with 0 console, network, and layout issues.
+- `gh release create joopark-workspace-v3.0.0-rc.1 ... --target codex/joopark-workspace-release-main --prerelease` succeeded after the short-SHA target attempt was rejected by the API.
+- Published release: `https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0-rc.1`.
+- Published asset: `joopark-workspace-v3.0.0-rc.1.zip`, 137650 bytes, `sha256:da4f72efcd547f0dbe8a0510e0d9d8d7939ad9e611f205a24287dcca2b81bcf6`.
+- `git ls-remote --tags biojuho-projects 'joopark-workspace-v3.0.0-rc.1*'` showed the tag at `c9d689a2d935c89a38370e62abef1635baa53d79`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: standalone release publication, no-common-history PR strategy, or deeper UI workflow coverage.
+- Continue with the highest-impact product gap after the next full gate: draft-to-ready criteria, release-link surfacing in the PR, or deeper UI workflow coverage.
