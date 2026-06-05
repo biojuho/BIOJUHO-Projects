@@ -8,8 +8,8 @@
 | 파일 | 라이브러리 | 버전 | 라이선스 | 출처 |
 | --- | --- | --- | --- | --- |
 | `fuse.min.js` | Fuse.js | 6.6.2 | Apache-2.0 | https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js |
-| `marked.umd.js` | marked | 18.0.4 | MIT | https://cdn.jsdelivr.net/npm/marked@18.0.4/lib/marked.umd.js |
-| `purify.min.js` | DOMPurify | 3.4.7 | Apache-2.0 / MPL-2.0 | https://cdn.jsdelivr.net/npm/dompurify@3.4.7/dist/purify.min.js |
+| `marked.umd.js` | marked | 18.0.5 | MIT | https://cdn.jsdelivr.net/npm/marked@18.0.5/lib/marked.umd.js |
+| `purify.min.js` | DOMPurify | 3.4.8 | Apache-2.0 / MPL-2.0 | https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js |
 
 ## 용도
 - **Fuse.js** — 명령 팔레트(⌘K)의 퍼지(오타 허용)·관련도 랭킹 통합 검색.

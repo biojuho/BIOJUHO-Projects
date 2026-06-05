@@ -5,11 +5,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const runtimeEnv = process["env"];
-const chromePath = runtimeEnv.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const baseUrl = (runtimeEnv.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
+const chromePath = process["env"].CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const baseUrl = (process["env"].BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-a11y-smoke-"));
-const progressEnabled = runtimeEnv.SMOKE_PROGRESS === "1";
+const progressEnabled = process["env"].SMOKE_PROGRESS === "1";
 
 class CdpClient {
   constructor(wsUrl) {

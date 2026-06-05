@@ -731,6 +731,101 @@ button.bell:hover { background: var(--cyan-22); }
   -webkit-line-clamp: 2;
 }
 
+.portfolio-candidate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -3px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.portfolio-candidate-meta span,
+.portfolio-candidate-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid rgba(74, 109, 154, 0.42);
+  border-radius: 6px;
+  background: rgba(20, 32, 52, 0.62);
+  color: var(--muted);
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.portfolio-candidate-meta b {
+  margin-right: 4px;
+  color: #8aa0bf;
+}
+
+.portfolio-candidate-meta small {
+  margin-left: 5px;
+  color: currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
+.portfolio-candidate-link {
+  color: var(--cyan);
+  font-weight: 800;
+}
+
+.portfolio-action {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.portfolio-action-blue {
+  border-color: rgba(35, 135, 255, 0.5);
+  background: rgba(35, 135, 255, 0.11);
+  color: #71adff;
+}
+
+.portfolio-action-cyan {
+  border-color: var(--cyan-60);
+  background: var(--cyan-10);
+  color: var(--cyan);
+}
+
+.portfolio-action-green {
+  border-color: rgba(23, 217, 131, 0.5);
+  background: rgba(23, 217, 131, 0.1);
+  color: var(--green);
+}
+
+.portfolio-action-amber {
+  border-color: rgba(247, 169, 40, 0.55);
+  background: rgba(247, 169, 40, 0.12);
+  color: var(--amber);
+}
+
+.portfolio-action-violet {
+  border-color: rgba(169, 112, 255, 0.55);
+  background: rgba(169, 112, 255, 0.12);
+  color: var(--violet);
+}
+
+.portfolio-action-muted {
+  border-color: rgba(127, 145, 173, 0.45);
+  background: rgba(127, 145, 173, 0.11);
+  color: var(--muted);
+}
+
+.portfolio-priority {
+  border-color: rgba(23, 217, 131, 0.5);
+  background: rgba(23, 217, 131, 0.1);
+  color: var(--green);
+  font-weight: 800;
+}
+
+.portfolio-candidate-link:hover {
+  border-color: var(--cyan-60);
+  background: var(--cyan-08);
+  color: var(--text);
+}
+
 .portfolio-health {
   padding: 3px 10px;
   border-radius: 999px;
@@ -2510,6 +2605,55 @@ textarea:focus:not(:focus-visible) { outline: none; }
 .settings-form input:focus { border-color: var(--cyan-60); background: var(--ink-92); }
 .settings-note { margin: 0 0 12px; color: #9db0c8; font-size: 12px; line-height: 1.6; }
 .settings-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.storage-health[data-storage-tone="warn"] { border-color: rgba(247, 169, 40, 0.35); }
+.storage-health[data-storage-tone="error"] { border-color: rgba(255, 77, 94, 0.38); }
+.storage-meter {
+  height: 8px;
+  overflow: hidden;
+  margin: 2px 0 14px;
+  border-radius: 999px;
+  background: var(--ink-60);
+  border: 1px solid var(--line-soft);
+}
+.storage-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+}
+.storage-health[data-storage-tone="warn"] .storage-meter span {
+  background: linear-gradient(90deg, var(--amber), var(--cyan));
+}
+.storage-health[data-storage-tone="error"] .storage-meter span {
+  background: linear-gradient(90deg, var(--red), var(--amber));
+}
+.storage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.storage-grid div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--ink-40);
+}
+.storage-grid dt {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.storage-grid dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  word-break: keep-all;
+}
+.storage-error { margin-top: 12px; color: var(--red); }
 .file-btn {
   display: inline-flex;
   align-items: center;
@@ -2528,6 +2672,10 @@ textarea:focus:not(:focus-visible) { outline: none; }
 .settings-info { margin: 0; padding-left: 18px; color: #aebbd1; font-size: 12px; line-height: 1.9; }
 .settings-info b { color: var(--cyan); }
 .settings-info strong { color: var(--text); }
+
+@media (max-width: 720px) {
+  .storage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Modal panel scrolls if a form is tall on short screens */
 .modal-panel { max-height: 90vh; overflow-y: auto; }
@@ -2583,7 +2731,10 @@ textarea:focus:not(:focus-visible) { outline: none; }
 
 .portfolio-toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 4px;
 }
 

@@ -5,11 +5,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const runtimeEnv = process["env"];
-const chromePath = runtimeEnv.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const baseUrl = (runtimeEnv.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
+const chromePath = process["env"].CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const baseUrl = (process["env"].BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-interaction-smoke-"));
-const progressEnabled = runtimeEnv.SMOKE_PROGRESS === "1";
+const progressEnabled = process["env"].SMOKE_PROGRESS === "1";
 
 class CdpClient {
   constructor(wsUrl) {
@@ -342,6 +341,12 @@ const interactionExpression = `
   let backupExportOk = false;
   let backupImportOk = false;
   let backupResetOk = false;
+  let markdownSanitizedOk = false;
+  let workspaceCandidateVisibleOk = false;
+  let workspaceCompetitiveCandidateVisibleOk = false;
+  let candidateNextActionVisibleOk = false;
+  let portfolioCandidateFilterOk = false;
+  let portfolioCandidateRankedOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -474,12 +479,26 @@ const interactionExpression = `
     await nav("notes");
     click('[data-action="note-add"]');
     fill('#noteForm [name="title"]', title);
-    fill('#noteForm [name="body"]', "**release** checklist");
+    fill('#noteForm [name="body"]', [
+      '**release** checklist',
+      '',
+      '<a href="javascript:window.__noteXss=1">unsafe link</a><span onclick="window.__noteXss=1">unsafe attr</span><script>window.__noteXss=1</script>',
+    ].join('\\n'));
     check('#noteForm [name="pinned"]', true);
+    window.__noteXss = 0;
     await confirmModal();
     const note = dashboard.notes.find((item) => item.title === title);
     assert(note && note.pinned, "note was not saved pinned");
     assert(savedPayload().notes.some((item) => item.title === title && item.pinned), "note was not persisted");
+    const noteCard = Array.from(document.querySelectorAll(".note-card"))
+      .find((card) => card.querySelector(".note-title")?.textContent.includes(title));
+    assert(noteCard, "saved note card was not rendered");
+    assert(noteCard.querySelector(".markdown-body strong")?.textContent === "release", "markdown strong text was not rendered");
+    assert(!noteCard.querySelector("script"), "unsafe script tag was not sanitized from note markdown");
+    assert(!noteCard.querySelector("[onclick]"), "unsafe event handler attribute was not sanitized from note markdown");
+    assert(!Array.from(noteCard.querySelectorAll("a")).some((link) => /^javascript:/i.test(link.getAttribute("href") || "")), "unsafe javascript link was not sanitized from note markdown");
+    assert(window.__noteXss === 0, "unsafe note markdown executed script");
+    markdownSanitizedOk = true;
   });
 
   await runStep("habit modal save and day toggle", async () => {
@@ -496,6 +515,71 @@ const interactionExpression = `
     const date = day.dataset.date;
     day.click();
     await waitFor(() => !!dashboard.habits.find((item) => item.id === habit.id).log[date], "habit day toggle did not save");
+  });
+
+  await runStep("workspace candidate portfolio search", async () => {
+    await nav("pm-portfolio");
+    const candidate = dashboard.projects.find((project) => project.name === "OpenLoaf/OpenLoaf");
+    assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
+    const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
+    assert(benchmarkCandidate && benchmarkCandidate.sourceKind === "adoption-candidate", "Colanode workspace benchmark candidate was not loaded");
+    const riskCandidate = dashboard.projects.find((project) => project.name === "opf/openproject");
+    assert(riskCandidate && projectCandidateAction(riskCandidate)?.label === "리스크 리뷰", "OpenProject candidate risk action was not computed");
+    const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
+    const ownedCount = dashboard.projects.length - candidateCount;
+    click('[data-action="portfolio-filter"][data-filter="candidates"]');
+    await waitFor(() => state.portfolioFilter === "candidates" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "candidate portfolio filter did not render adoption candidates");
+    assert(qs('[data-action="portfolio-filter"][data-filter="candidates"]').getAttribute("aria-pressed") === "true", "candidate portfolio filter was not active");
+    const rankedCandidates = dashboard.projects
+      .filter((project) => project.sourceKind === "adoption-candidate")
+      .sort((a, b) => (projectCandidatePriority(b)?.score || 0) - (projectCandidatePriority(a)?.score || 0) || String(a.name || "").localeCompare(String(b.name || "")));
+    const firstCandidateCard = qs('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]');
+    assert(firstCandidateCard.dataset.projectId === rankedCandidates[0].id, "candidate portfolio filter did not rank highest priority first");
+    assert(qs("[data-candidate-priority]", firstCandidateCard).textContent.includes(String(projectCandidatePriority(rankedCandidates[0]).score)), "top candidate priority score did not render");
+    click('[data-action="portfolio-filter"][data-filter="owned"]');
+    await waitFor(() => state.portfolioFilter === "owned" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === 0, "owned portfolio filter still rendered adoption candidates");
+    assert(document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === ownedCount, "owned portfolio filter count was wrong");
+    click('[data-action="portfolio-filter"][data-filter="candidates"]');
+    fill("#globalSearch", "OpenLoaf");
+    await waitFor(() => state.query === "OpenLoaf" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "OpenLoaf search did not filter portfolio");
+    const card = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + candidate.id + '"]');
+    const text = card.innerText;
+    const meta = qs("[data-candidate-meta]", card);
+    assert(text.includes("OpenLoaf/OpenLoaf"), "OpenLoaf candidate card did not render");
+    assert(text.includes("AI/로컬 워크스페이스"), "OpenLoaf candidate category did not render");
+    assert(text.includes("에이전트"), "OpenLoaf candidate description did not render");
+    assert(meta.innerText.includes("단계") && meta.innerText.includes("검토"), "OpenLoaf adoption stage did not render");
+    assert(meta.innerText.includes("★") && meta.innerText.includes("65"), "OpenLoaf star count did not render");
+    assert(meta.innerText.includes("Fork") && meta.innerText.includes("7"), "OpenLoaf fork count did not render");
+    assert(meta.innerText.includes("TypeScript"), "OpenLoaf language did not render");
+    assert(qs("[data-candidate-priority]", card).textContent.includes(String(projectCandidatePriority(candidate).score)), "OpenLoaf priority score did not render");
+    const href = qs(".portfolio-candidate-link", card).href;
+    assert(href === "https://github.com/OpenLoaf/OpenLoaf" || href === "https://github.com/OpenLoaf/OpenLoaf/", "OpenLoaf GitHub link did not render safely");
+    fill("#globalSearch", "colanode");
+    await waitFor(() => state.query === "colanode" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Colanode search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]'), "Colanode portfolio card did not render after search");
+    const benchmarkCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]');
+    const benchmarkText = benchmarkCard.innerText;
+    assert(benchmarkText.includes("colanode/colanode"), "Colanode candidate card did not render");
+    assert(benchmarkText.includes("로컬 퍼스트/워크스페이스"), "Colanode candidate category did not render");
+    assert(benchmarkText.includes("Slack/Notion"), "Colanode candidate description did not render");
+    assert(benchmarkText.includes("4,892"), "Colanode star count did not render");
+    assert(benchmarkText.includes("300"), "Colanode fork count did not render");
+    assert(benchmarkText.includes("TypeScript"), "Colanode language did not render");
+    const action = qs("[data-candidate-action]", benchmarkCard);
+    assert(action.textContent.includes("아키텍처 벤치"), "Colanode candidate action did not render");
+    assert(action.textContent.includes("로컬 퍼스트 구조"), "Colanode candidate action reason did not render");
+    const benchmarkHref = qs(".portfolio-candidate-link", benchmarkCard).href;
+    assert(benchmarkHref === "https://github.com/colanode/colanode" || benchmarkHref === "https://github.com/colanode/colanode/", "Colanode GitHub link did not render safely");
+    fill("#globalSearch", "");
+    await waitFor(() => document.querySelectorAll("#view-pm-portfolio .portfolio-card").length > 1, "portfolio did not recover after clearing search");
+    click('[data-action="portfolio-filter"][data-filter="all"]');
+    await waitFor(() => state.portfolioFilter === "all" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === dashboard.projects.length, "portfolio all filter did not recover");
+    portfolioCandidateRankedOk = true;
+    portfolioCandidateFilterOk = true;
+    workspaceCandidateVisibleOk = true;
+    workspaceCompetitiveCandidateVisibleOk = true;
+    candidateNextActionVisibleOk = true;
   });
 
   let projectId = "";
@@ -620,6 +704,16 @@ const interactionExpression = `
   await runStep("settings save and theme", async () => {
     const name = marker + " user";
     await nav("settings");
+    await waitFor(() => document.querySelector("[data-storage-health]"), "storage health panel did not render");
+    click('[data-action="refresh-storage-health"]');
+    await waitFor(() => {
+      const status = document.querySelector("#storageHealthStatus");
+      const local = document.querySelector("[data-storage-local]");
+      const updated = document.querySelector("#storageHealthUpdated");
+      return status && status.textContent.trim().length > 0 &&
+        local && /\\d/.test(local.textContent) &&
+        updated && updated.textContent.trim().length > 0;
+    }, "storage health status did not populate");
     fill('.settings-form [name="displayName"]', name);
     qs(".settings-form").requestSubmit();
     await waitFor(() => document.querySelector(".user strong").textContent === name, "display name did not update");
@@ -696,6 +790,12 @@ const interactionExpression = `
     dbInstance: preImportPayload.dbInstances.some((instance) => instance.name === marker + " db"),
     settings: preImportPayload.settings.displayName === marker + " user",
     backupExport: backupExportOk,
+    markdownSanitized: markdownSanitizedOk,
+    workspaceCandidateVisible: workspaceCandidateVisibleOk,
+    workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
+    candidateNextActionVisible: candidateNextActionVisibleOk,
+    portfolioCandidateFilter: portfolioCandidateFilterOk,
+    portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);

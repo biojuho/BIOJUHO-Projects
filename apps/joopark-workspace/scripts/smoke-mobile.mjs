@@ -5,13 +5,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const runtimeEnv = process["env"];
-const chromePath = runtimeEnv.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const baseUrl = (runtimeEnv.BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
-const viewportWidth = Number(runtimeEnv.MOBILE_SMOKE_WIDTH || 500);
-const viewportHeight = Number(runtimeEnv.MOBILE_SMOKE_HEIGHT || 757);
+const chromePath = process["env"].CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const baseUrl = (process["env"].BASE_URL || "http://127.0.0.1:5178").replace(/\/+$/, "");
+const viewportWidth = Number(process["env"].MOBILE_SMOKE_WIDTH || 500);
+const viewportHeight = Number(process["env"].MOBILE_SMOKE_HEIGHT || 757);
 const tmpProfile = mkdtempSync(join(tmpdir(), "joopark-mobile-smoke-"));
-const progressEnabled = runtimeEnv.SMOKE_PROGRESS === "1";
+const progressEnabled = process["env"].SMOKE_PROGRESS === "1";
 
 const routes = [
   ["home", ["오늘 일정", "팀 · 시스템 관리"]],

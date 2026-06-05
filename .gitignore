@@ -90,6 +90,8 @@ MCP_notion-antigravity/output/
 **/chroma_db/
 **/data/
 !**/data/.gitkeep
+!apps/joopark-workspace/data/
+!apps/joopark-workspace/data/*.json
 var/logs/
 var/data/
 var/db/
