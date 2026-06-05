@@ -170,6 +170,24 @@ function releaseManifestProvenance() {
   };
 }
 
+function gitBranchSync() {
+  const status = run("git", ["status", "--short", "--branch"]);
+  const branchLine = (status.stdout || "").split("\n")[0] || "";
+  const hasTracking = /\.\.\./.test(branchLine);
+  const markers = [];
+  if (/\bahead\b/.test(branchLine)) markers.push("ahead");
+  if (/\bbehind\b/.test(branchLine)) markers.push("behind");
+  if (/\bgone\b/.test(branchLine)) markers.push("gone");
+  if (/\bdiverged\b/.test(branchLine)) markers.push("diverged");
+  return {
+    status: status.ok && hasTracking && markers.length === 0 ? "pass" : "blocked",
+    command: "git status --short --branch",
+    branchLine,
+    hasTracking,
+    markers,
+  };
+}
+
 function verifyRelease() {
   const result = run(process.execPath, ["scripts/verify-release.mjs"], { timeout: 30000 });
   const payload = parseJson(result.stdout);
@@ -327,6 +345,14 @@ function buildChecklist() {
     requirement: "A Git remote exists before claiming push or publish completion.",
     status: remote.ok && remote.stdout.trim() ? "pass" : "blocked",
     evidence: { command: "git remote -v", stdout: remote.stdout.trim() || "none" },
+  });
+
+  const branchSync = gitBranchSync();
+  checklist.push({
+    id: "publish_branch_sync",
+    requirement: "The current branch tracks a remote branch and is not ahead, behind, gone, or diverged before claiming publish completion.",
+    status: branchSync.status,
+    evidence: branchSync,
   });
 
   return checklist;

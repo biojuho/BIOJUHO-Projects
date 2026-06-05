@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T19:03:20+09:00",
+  "generatedAt": "2026-06-05T19:04:40+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -70,6 +70,13 @@
       "primaryMetric": "explicitMarkdownSecurityChecks",
       "baseline": 0,
       "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "publish-branch-sync-audit",
+      "primaryMetric": "publishStateAuditChecks",
+      "baseline": 1,
+      "candidate": 2,
       "decision": "keep"
     }
   ],

@@ -118,6 +118,19 @@ Generated: 2026-06-05T18:50:00+09:00
 - Pushed `3b48ed5` to `biojuho-projects/codex/joopark-workspace-release`.
 - Draft PR creation was blocked because `codex/joopark-workspace-release` has no common history with repository `main`.
 
+## Experiment: publish branch sync audit
+
+- Hypothesis: Release readiness should not claim publish completion when the current branch is ahead, behind, gone, diverged, or not tracking a remote branch.
+- Primary metric: publish-state audit coverage.
+- Baseline: the audit checked only that a Git remote exists.
+- Candidate: audit also checks the current branch tracking line and blocks `ahead`, `behind`, `gone`, or `diverged` states.
+- Decision: keep.
+
+## Evidence
+
+- `scripts/audit-release-readiness.mjs` now includes `publish_branch_sync`.
+- The branch was pushed to `biojuho-projects/codex/joopark-workspace-release`, so the branch sync check can pass after this evidence commit is pushed.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: standalone release publication, no-common-history PR strategy, or deeper UI workflow coverage.
