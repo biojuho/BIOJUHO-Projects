@@ -55,9 +55,10 @@
         "apps/desci-platform/scripts/product_smoke.py",
         "apps/desci-platform/scripts/browser_smoke.py",
         "docs/QUALITY_GATE.md",
-        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md"
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_DEPTH_METRICS_2026-06-05.md"
       ],
-      "gap": "MCP smoke trace metrics now have a deterministic offline post-processor; OpenTelemetry-style timing and path-depth metrics remain future scoped work."
+      "gap": "MCP smoke trace metrics now derive deterministic offline timing and path-depth signals from existing smoke artifacts; full OpenTelemetry span trees, token/cost metrics, and cross-step causality remain future scoped work."
     },
     {
       "repo": "evalstate/fast-agent",

@@ -37,17 +37,31 @@ def smoke_payload(results: list[dict]) -> dict:
     }
 
 
-def result(name: str, command: str, *, scope: str = "mcp", returncode: int = 0, ok: bool = True) -> dict:
-    return {
+def result(
+    name: str,
+    command: str,
+    *,
+    scope: str = "mcp",
+    cwd: str = ".",
+    returncode: int = 0,
+    ok: bool = True,
+    stdout_tail: str = "",
+    stderr_tail: str = "",
+    duration_seconds: float | None = None,
+) -> dict:
+    payload = {
         "scope": scope,
         "name": name,
-        "cwd": ".",
+        "cwd": cwd,
         "command": command,
         "returncode": returncode,
         "ok": ok,
-        "stdout_tail": "",
-        "stderr_tail": "",
+        "stdout_tail": stdout_tail,
+        "stderr_tail": stderr_tail,
     }
+    if duration_seconds is not None:
+        payload["duration_seconds"] = duration_seconds
+    return payload
 
 
 def test_build_metrics_summarizes_mcp_runtime_kinds(tmp_path: Path) -> None:
@@ -55,7 +69,14 @@ def test_build_metrics_summarizes_mcp_runtime_kinds(tmp_path: Path) -> None:
     payload = smoke_payload(
         [
             result("notebooklm compile", "python -m compileall mcp/notebooklm-mcp"),
-            result("canva-mcp build", "npm.cmd run build", returncode=1, ok=False),
+            result(
+                "canva-mcp build",
+                "npm.cmd run build",
+                cwd="mcp\\canva-mcp",
+                returncode=1,
+                ok=False,
+                stdout_tail="built in 1.17s",
+            ),
             result("workspace regression tests", "python -m pytest tests/test_workspace_smoke.py", scope="workspace"),
         ]
     )
@@ -66,8 +87,18 @@ def test_build_metrics_summarizes_mcp_runtime_kinds(tmp_path: Path) -> None:
     assert metrics["summary"]["passed"] == 1
     assert metrics["summary"]["failed"] == 1
     assert metrics["summary"]["runtime_kinds"] == {"compileall": 1, "npm": 1}
+    assert metrics["summary"]["timing"] == {
+        "observed_checks": 1,
+        "missing_checks": 1,
+        "total_seconds": 1.17,
+        "max_seconds": 1.17,
+        "slowest_check": "canva-mcp build",
+    }
+    assert metrics["summary"]["path_depth"]["max_cwd_depth"] == 2
+    assert metrics["summary"]["path_depth"]["max_command_path_depth"] == 2
     assert metrics["trace_integrity"] == {"ok": True, "issues": []}
     assert [check["name"] for check in metrics["checks"]] == ["notebooklm compile", "canva-mcp build"]
+    assert metrics["checks"][1]["duration_source"] == "stdout_tail"
 
 
 def test_build_metrics_reports_trace_integrity_issues(tmp_path: Path) -> None:
@@ -91,6 +122,48 @@ def test_build_metrics_reports_trace_integrity_issues(tmp_path: Path) -> None:
     assert "results[0].cwd is empty" in metrics["trace_integrity"]["issues"]
     assert "results[0].command is empty" in metrics["trace_integrity"]["issues"]
     assert "results[0].ok contradicts returncode" in metrics["trace_integrity"]["issues"]
+
+
+def test_build_metrics_derives_timing_and_path_depth_from_trace_tails(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    payload = smoke_payload(
+        [
+            result(
+                "DailyNews unit tests",
+                "python -m pytest tests/unit -q --basetemp var/tmp/pytest-dailynews",
+                cwd="automation\\DailyNews",
+                stdout_tail="249 passed in 117.48s (0:01:57)",
+            ),
+            result(
+                "canva-mcp build",
+                "npm.cmd run build",
+                cwd="mcp\\canva-mcp",
+                stdout_tail="built in 820ms",
+            ),
+            result(
+                "explicit duration",
+                "python -m pytest tests -q",
+                duration_seconds=0.375,
+            ),
+        ]
+    )
+
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+
+    assert metrics["summary"]["timing"] == {
+        "observed_checks": 3,
+        "missing_checks": 0,
+        "total_seconds": 118.675,
+        "max_seconds": 117.48,
+        "slowest_check": "DailyNews unit tests",
+    }
+    assert metrics["summary"]["path_depth"] == {
+        "max_cwd_depth": 2,
+        "max_command_path_depth": 3,
+        "command_path_tokens": 2,
+    }
+    assert [check["duration_seconds"] for check in metrics["checks"]] == [117.48, 0.82, 0.375]
+    assert metrics["checks"][2]["duration_source"] == "duration_seconds"
 
 
 def test_cli_writes_metrics_json(tmp_path: Path) -> None:
