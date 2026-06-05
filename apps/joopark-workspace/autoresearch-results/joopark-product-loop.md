@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T00:38:38+09:00
+Generated: 2026-06-06T00:52:13+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -594,6 +594,19 @@ Generated: 2026-06-06T00:38:38+09:00
 - `gh api repos/anyproto/anytype-ts/commits/develop` returned `153917ec6d28e41da672ad93cd9448a644dacfb8` dated `2026-06-04T23:49:47Z`; repo metadata returned `pushed_at: 2026-06-05T02:04:08Z`, 8,037 stars, 517 forks, 169 open issues, and size 985,782 KB.
 - `gh api repos/mattermost-community/focalboard/commits/main` returned `a84bbb65e32edf972856b329417096ac413518e9` dated `2025-06-11T13:30:05Z`; repo metadata returned `pushed_at: 2026-05-18T16:05:00Z`, 26,212 stars, 2,544 forks, 779 open issues, and size 59,223 KB.
 
+## Experiment: Workspace benchmark HEAD freshness coverage 2
+
+- Hypothesis: Adding Epicenter and OpenLoaf commit-level evidence closes the largest remaining source-backed gap for local-first workspace candidates.
+- Primary metric: workspace benchmark HEAD snapshots.
+- Baseline: 7 of 14 local-first/project-management candidates had source-backed `lastCommit` snapshots.
+- Candidate: 9 of 14 candidates now carry source-backed `lastCommit` snapshots, adding `EpicenterHQ/epicenter` and `OpenLoaf/OpenLoaf`; audit and interaction smoke require both candidates by short commit.
+- Decision: keep if the full release gate remains all-pass.
+
+## Evidence
+
+- `gh api repos/EpicenterHQ/epicenter/commits/main` returned `6d854a92b5c5a55d171fb6584f9686d50af10b7c` dated `2026-06-04T15:14:45Z`; repo metadata returned `pushed_at: 2026-06-05T14:50:11Z`, 4,605 stars, 348 forks, 234 open issues, and size 59,907 KB.
+- `gh api repos/OpenLoaf/OpenLoaf/commits/main` returned `f7eccf6064317cb2923137079b68d79b8e5c5f3e` dated `2026-05-14T06:51:56Z`; repo metadata returned `pushed_at: 2026-05-14T11:24:18Z`, 65 stars, 7 forks, 1 open issue, and size 201,235 KB.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, refresh Epicenter and OpenLoaf benchmark commit snapshots, or add a drift monitor for candidate freshness metadata.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, refresh the `happybhati/workstream` benchmark commit snapshot, or add a drift monitor for candidate freshness metadata.

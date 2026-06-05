@@ -255,6 +255,16 @@ function workspaceCandidateSnapshot(relPath) {
       name: "mattermost-community/focalboard",
       sourceMarker: "github-api:focalboard-freshness-refresh",
     },
+    {
+      key: "epicenter",
+      name: "EpicenterHQ/epicenter",
+      sourceMarker: "github-api:epicenter-freshness-refresh",
+    },
+    {
+      key: "openloaf",
+      name: "OpenLoaf/OpenLoaf",
+      sourceMarker: "github-api:openloaf-freshness-refresh",
+    },
   ];
   const freshness = Object.fromEntries(workspaceFreshnessExpectations.map((item) => {
     const project = projects.find((candidate) => candidate.name === item.name) || null;
@@ -675,10 +685,12 @@ function buildChecklist() {
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorklenz", "shortWorklenzCommit", "Worklenz freshness commit did not render", "worklenzCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAnytype", "shortAnytypeCommit", "Anytype freshness commit did not render", "anytypeCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotFocalboard", "shortFocalboardCommit", "Focalboard freshness commit did not render", "focalboardCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotEpicenter", "shortEpicenterCommit", "Epicenter freshness commit did not render", "epicenterCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotOpenLoaf", "shortOpenLoafCommit", "OpenLoaf freshness commit did not render", "openLoafCandidateFreshnessVisible"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "workspace_benchmark_freshness_ui_smoke",
-    requirement: "The portfolio UI exposes refreshed Colanode, Parabol, Worklenz, Anytype, and Focalboard upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
+    requirement: "The portfolio UI exposes refreshed Colanode, Parabol, Worklenz, Anytype, Focalboard, Epicenter, and OpenLoaf upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
     status: workspaceBenchmarkFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: workspaceBenchmarkFreshnessUiTerms,
   });
