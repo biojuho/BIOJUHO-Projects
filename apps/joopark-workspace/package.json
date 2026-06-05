@@ -7,7 +7,7 @@
     "build": "node scripts/package-release.mjs",
     "test": "node scripts/smoke-release.mjs",
     "verify": "node scripts/audit-release-readiness.mjs --run-gates",
-    "lint": "node --check app.js && node --check scripts/audit-release-readiness.mjs && node --check scripts/package-release.mjs && node --check scripts/plan-main-bridge.mjs && node --check scripts/prepare-github-pages-workflow.mjs && node --check scripts/smoke-a11y.mjs && node --check scripts/smoke-chrome.mjs && node --check scripts/smoke-interactions.mjs && node --check scripts/smoke-mobile.mjs && node --check scripts/smoke-release.mjs && node --check scripts/verify-release.mjs",
+    "lint": "node --check app.js && node --check scripts/audit-release-readiness.mjs && node --check scripts/check-candidate-freshness-drift.mjs && node --check scripts/package-release.mjs && node --check scripts/plan-main-bridge.mjs && node --check scripts/prepare-github-pages-workflow.mjs && node --check scripts/smoke-a11y.mjs && node --check scripts/smoke-chrome.mjs && node --check scripts/smoke-interactions.mjs && node --check scripts/smoke-mobile.mjs && node --check scripts/smoke-release.mjs && node --check scripts/verify-release.mjs",
     "typecheck": "npm run lint"
   }
 }
