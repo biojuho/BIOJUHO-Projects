@@ -7,12 +7,14 @@ agents (coder, tester) will interact with the local filesystem and testing envir
 import os
 import shlex
 import sys
+from pathlib import Path
 
 from langchain_core.tools import tool
 
 _ALLOWED_DIRECT_COMMANDS = {"pytest", "ruff", "mypy"}
 _ALLOWED_NPM_COMMANDS = {"test", "lint", "typecheck", "build"}
 _ALLOWED_PYTHON_MODULES = {"pytest", "unittest", "ruff", "mypy"}
+WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
 
 
 def _split_command(test_command: str) -> list[str]:
@@ -47,11 +49,28 @@ def _validate_test_command(parts: list[str]) -> list[str]:
     raise ValueError(f"Command is not allowed: {parts[0]}")
 
 
+def _resolve_workspace_file(file_path: str) -> Path:
+    if not file_path.strip():
+        raise ValueError("Path escapes workspace root: empty path")
+
+    requested = Path(file_path)
+    if requested.is_absolute():
+        raise ValueError("Path escapes workspace root: absolute paths are not allowed")
+
+    resolved = (WORKSPACE_ROOT / requested).resolve()
+    try:
+        resolved.relative_to(WORKSPACE_ROOT)
+    except ValueError:
+        raise ValueError(f"Path escapes workspace root: {file_path}") from None
+    return resolved
+
+
 @tool
 def read_file_tool(file_path: str) -> str:
     """Read the contents of a file from the local filesystem."""
     try:
-        with open(file_path, encoding="utf-8") as f:
+        resolved_path = _resolve_workspace_file(file_path)
+        with resolved_path.open(encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         return f"Error reading file {file_path}: {str(e)}"
@@ -61,7 +80,8 @@ def read_file_tool(file_path: str) -> str:
 def write_code_tool(file_path: str, code: str) -> str:
     """Write code to a file on the local filesystem."""
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
+        resolved_path = _resolve_workspace_file(file_path)
+        with resolved_path.open("w", encoding="utf-8") as f:
             f.write(code)
         return f"Successfully wrote code to {file_path}"
     except Exception as e:

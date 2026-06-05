@@ -70,6 +70,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "hosted_agent_approval_boundary",
         "telegram_notification_live_delivery_verifier",
         "agent_workflow_gate_matrix_reuse",
+        "vibe_tools_workspace_path_guard",
     }
 
 

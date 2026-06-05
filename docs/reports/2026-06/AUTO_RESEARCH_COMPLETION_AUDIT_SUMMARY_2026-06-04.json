@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T11:48:44+09:00",
+  "generated_at": "2026-06-05T12:00:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 60
+    "covered": 61
   },
-  "criterion_count": 61,
+  "criterion_count": 62,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 46,
+          "term_count": 50,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -2543,6 +2543,34 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_SHARED_LLM_GROK_SEED_SETTINGS_2026-06-05.md",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "vibe_tools_workspace_path_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "packages/shared/llm/reasoning/vibe_tools.py",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_vibe_tools_validation.py",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_VIBE_TOOLS_WORKSPACE_PATH_GUARD_2026-06-05.md",
           "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,

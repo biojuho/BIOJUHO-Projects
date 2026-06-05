@@ -35,7 +35,54 @@ _SPEC.loader.exec_module(vibe_tools_under_test)
 
 _split_command = vibe_tools_under_test._split_command
 _validate_test_command = vibe_tools_under_test._validate_test_command
+_resolve_workspace_file = vibe_tools_under_test._resolve_workspace_file
+read_file_tool = vibe_tools_under_test.read_file_tool
+write_code_tool = vibe_tools_under_test.write_code_tool
 run_test_tool = vibe_tools_under_test.run_test_tool
+
+
+class TestWorkspaceFileResolution:
+    """Workspace-root confinement for agent-facing file tools."""
+
+    def test_resolves_relative_paths_under_workspace(self, monkeypatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(vibe_tools_under_test, "WORKSPACE_ROOT", tmp_path.resolve())
+        target = tmp_path / "notes.txt"
+        target.write_text("hello", encoding="utf-8")
+
+        assert _resolve_workspace_file("notes.txt") == target.resolve()
+        assert read_file_tool("notes.txt") == "hello"
+
+    def test_write_tool_uses_workspace_root(self, monkeypatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(vibe_tools_under_test, "WORKSPACE_ROOT", tmp_path.resolve())
+        target = tmp_path / "generated.py"
+
+        result = write_code_tool("generated.py", "print('ok')\n")
+
+        assert result == "Successfully wrote code to generated.py"
+        assert target.read_text(encoding="utf-8") == "print('ok')\n"
+
+    def test_rejects_traversal_outside_workspace(self, monkeypatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(vibe_tools_under_test, "WORKSPACE_ROOT", tmp_path.resolve())
+        outside_name = f"{tmp_path.name}-escape.py"
+        traversal = f"../{outside_name}"
+        outside_path = tmp_path.parent / outside_name
+
+        with pytest.raises(ValueError, match="escapes workspace root"):
+            _resolve_workspace_file(traversal)
+
+        assert "Path escapes workspace root" in read_file_tool(traversal)
+        assert "Path escapes workspace root" in write_code_tool(traversal, "x = 1\n")
+        assert not outside_path.exists()
+
+    def test_rejects_absolute_paths(self, monkeypatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(vibe_tools_under_test, "WORKSPACE_ROOT", tmp_path.resolve())
+        absolute_path = str((tmp_path.parent / "absolute-escape.py").resolve())
+
+        with pytest.raises(ValueError, match="absolute paths are not allowed"):
+            _resolve_workspace_file(absolute_path)
+
+        assert "absolute paths are not allowed" in read_file_tool(absolute_path)
+        assert "absolute paths are not allowed" in write_code_tool(absolute_path, "x = 1\n")
 
 
 class TestValidateTestCommand:

@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `61`
-- Status counts: `blocked=1, covered=60`
+- Criteria: `62`
+- Status counts: `blocked=1, covered=61`
 
 ## Missing Required
 
@@ -375,6 +375,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `8`
+
+### vibe_tools_workspace_path_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### external_credential_boundaries
 
