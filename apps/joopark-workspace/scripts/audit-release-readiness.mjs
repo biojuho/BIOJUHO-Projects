@@ -963,6 +963,18 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkRecommendationExportTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkReviewQueueTerms = [
+    { file: "app.js", terms: ["function projectBenchmarkReviewDecision", "function candidateBenchmarkReviewQueue", "data-benchmark-review-queue", "data-benchmark-review-decision", "data-review-score", "data-review-rank", "data-review-persist-key"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-review", ".portfolio-review-item"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkReviewQueueVisible", "benchmark review queue did not persist Taskosaur decision", "benchmark review queue score did not render", "benchmark review queue rank did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_review_queue",
+    requirement: "Taskosaur and Workstream benchmark rubric score decisions persist into a focused review queue with stable decision keys and browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkReviewQueueTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkReviewQueueTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

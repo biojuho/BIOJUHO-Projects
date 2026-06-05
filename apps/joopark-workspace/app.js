@@ -1170,6 +1170,54 @@ function candidateBenchmarkRecommendationExport(scored) {
   `;
 }
 
+function projectBenchmarkReviewDecision(project, rank = 0) {
+  const rubricScore = projectBenchmarkRubricScore(project);
+  if (!project || !rubricScore) return null;
+  const action = projectCandidateAction(project);
+  const focus = projectBenchmarkFocus(project);
+  const status = rubricScore.score >= 86 ? "도입 검토" : rubricScore.score >= 80 ? "비교 유지" : "관찰";
+  return {
+    rank: rank + 1,
+    status,
+    score: rubricScore.score,
+    label: rubricScore.label,
+    actionLabel: action ? action.label : "검토",
+    reason: action ? action.reason : focus ? focus.flow : "벤치 대기",
+    persistKey: `benchmark-review:${project.id}:${rubricScore.score}`,
+  };
+}
+
+function candidateBenchmarkReviewQueue(projects, filter) {
+  if (filter !== "focused") return "";
+  const decisions = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0))
+    .map((project, index) => ({ project, decision: projectBenchmarkReviewDecision(project, index) }))
+    .filter((item) => item.decision)
+    .sort((a, b) => b.decision.score - a.decision.score || a.decision.rank - b.decision.rank)
+    .slice(0, 3)
+    .map((item, index) => ({ ...item, decision: { ...item.decision, rank: index + 1 } }));
+  if (decisions.length === 0) return "";
+  return html`
+    <section class="portfolio-benchmark-review" data-benchmark-review-queue>
+      <div class="portfolio-review-head">
+        <span>리뷰 대기열</span>
+        <strong>${decisions.length}개 결정</strong>
+      </div>
+      <div class="portfolio-review-list">
+        ${raw(decisions.map(({ project, decision }) => html`
+          <article class="portfolio-review-item" data-benchmark-review-decision="${decision.status}" data-review-project="${project.name}" data-review-score="${decision.score}" data-review-rank="${decision.rank}" data-review-persist-key="${decision.persistKey}">
+            <span>${decision.rank}</span>
+            <div>
+              <strong>${project.name}</strong>
+              <small>${decision.status} · ${decision.actionLabel} · ${decision.reason}</small>
+            </div>
+            <b>${decision.label} ${decision.score}</b>
+          </article>
+        `).join(""))}
+      </div>
+    </section>
+  `;
+}
+
 function sortPortfolioProjects(projects) {
   if (state.portfolioFilter !== "candidates") return projects;
   if (state.portfolioBenchmarkFilter === "focused") return sortBenchmarkFocusProjects(projects);
@@ -1221,6 +1269,7 @@ function renderPortfolio() {
   const actionSummary = candidateActionQueueSummary(dashboard.projects, state.portfolioActionFilter);
   const benchmarkSummary = candidateBenchmarkQueueSummary(dashboard.projects, state.portfolioBenchmarkFilter);
   const benchmarkRubric = candidateBenchmarkRubric(dashboard.projects, state.portfolioBenchmarkFilter);
+  const benchmarkReviewQueue = candidateBenchmarkReviewQueue(dashboard.projects, state.portfolioBenchmarkFilter);
 
   const stats = {
     total: dashboard.projects.length,
@@ -1295,6 +1344,7 @@ function renderPortfolio() {
     ${raw(actionSummary)}
     ${raw(benchmarkSummary)}
     ${raw(benchmarkRubric)}
+    ${raw(benchmarkReviewQueue)}
     <section class="portfolio-grid">
       ${list.length === 0 ? raw(html`<article class="empty">일치하는 프로젝트가 없습니다.</article>`) : raw(list.map(card).join(""))}
     </section>

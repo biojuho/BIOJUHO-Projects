@@ -370,6 +370,7 @@ const interactionExpression = `
   let candidateBenchmarkRubricVisibleOk = false;
   let candidateBenchmarkRubricScoreVisibleOk = false;
   let candidateBenchmarkRecommendationExportVisibleOk = false;
+  let candidateBenchmarkReviewQueueVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -741,6 +742,18 @@ const interactionExpression = `
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
+    const reviewQueue = qs("[data-benchmark-review-queue]");
+    const reviewDecision = qs("[data-benchmark-review-decision]", reviewQueue);
+    assert(reviewDecision.dataset.reviewProject === "Taskosaur/Taskosaur", "benchmark review queue did not persist Taskosaur decision");
+    assert(reviewDecision.dataset.reviewScore === "86", "benchmark review queue score did not render");
+    assert(reviewDecision.dataset.reviewRank === "1", "benchmark review queue rank did not render");
+    assert(reviewDecision.dataset.reviewPersistKey === "benchmark-review:repo-taskosaur-taskosaur:86", "benchmark review queue persist key did not render");
+    assert(reviewDecision.dataset.benchmarkReviewDecision === "도입 검토", "benchmark review queue decision did not render");
+    assert(reviewQueue.innerText.includes("리뷰 대기열"), "benchmark review queue heading did not render");
+    assert(reviewQueue.innerText.includes("강한 추천 86"), "benchmark review queue score label did not render");
+    candidateBenchmarkRubricVisibleOk = true;
+    candidateBenchmarkRubricScoreVisibleOk = true;
+    candidateBenchmarkReviewQueueVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -930,6 +943,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     candidateBenchmarkRecommendationExportVisibleOk = true;
+    candidateBenchmarkReviewQueueVisibleOk = true;
   });
 
   let projectId = "";
@@ -1167,6 +1181,7 @@ const interactionExpression = `
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
+    candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
