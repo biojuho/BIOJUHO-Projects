@@ -878,6 +878,22 @@ Generated: 2026-06-06T04:24:30+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_review_queue`.
 - `npm run verify` passed 45/45 with `sourceDirty: false`.
 
+## Experiment: Taskosaur/Workstream benchmark review handoff export
+
+- Hypothesis: Review queue decisions become easier to hand off when the persisted decision keys, ranks, scores, action labels, and benchmark focus can be exported as a Markdown review note.
+- Primary metric: Taskosaur/Workstream benchmark review handoff export checks.
+- Baseline: 0 review queue handoff export checks.
+- Candidate: the focused benchmark review queue now renders a `joopark-benchmark-review-handoff.md` export with Taskosaur as the top handoff target, two decisions, persisted decision keys, and the Workstream secondary comparison included.
+- Decision: keep; `npm run verify` passed 46/46 with `candidateBenchmarkReviewHandoffExportVisible: true`.
+
+## Evidence
+
+- A/B baseline was the persisted review queue without a shareable handoff artifact; B adds the Markdown export while preserving the existing stable decision keys.
+- `app.js` now includes `candidateBenchmarkReviewHandoffExport` and `candidateBenchmarkReviewHandoffMarkdown`.
+- `styles.css` now includes `.portfolio-review-export`.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkReviewHandoffExportVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_review_handoff_export`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, export benchmark review queue decisions for handoff, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, convert the benchmark handoff export into a PM issue draft, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.

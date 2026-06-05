@@ -1187,14 +1187,60 @@ function projectBenchmarkReviewDecision(project, rank = 0) {
   };
 }
 
-function candidateBenchmarkReviewQueue(projects, filter) {
-  if (filter !== "focused") return "";
-  const decisions = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0))
+function candidateBenchmarkReviewDecisions(projects) {
+  return sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0))
     .map((project, index) => ({ project, decision: projectBenchmarkReviewDecision(project, index) }))
     .filter((item) => item.decision)
     .sort((a, b) => b.decision.score - a.decision.score || a.decision.rank - b.decision.rank)
     .slice(0, 3)
     .map((item, index) => ({ ...item, decision: { ...item.decision, rank: index + 1 } }));
+}
+
+function candidateBenchmarkReviewHandoffMarkdown(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return "";
+  const lines = [
+    "# JooPark Benchmark Review Queue Handoff",
+    "",
+    "Decision source: weighted Taskosaur/Workstream benchmark rubric.",
+    `Review count: ${decisions.length}.`,
+    "",
+    "## Decisions",
+  ];
+  decisions.forEach(({ project, decision }) => {
+    const focus = projectBenchmarkFocus(project);
+    lines.push(
+      "",
+      `### ${decision.rank}. ${project.name}`,
+      `- Decision: ${decision.status}`,
+      `- Score: ${decision.label} ${decision.score}`,
+      `- Persist key: ${decision.persistKey}`,
+      `- Action: ${decision.actionLabel}`,
+      `- Reason: ${decision.reason}`,
+      focus ? `- Benchmark focus: ${focus.surface} / ${focus.flow}` : "- Benchmark focus: not set",
+    );
+  });
+  return lines.join("\n");
+}
+
+function candidateBenchmarkReviewHandoffExport(decisions) {
+  const markdown = candidateBenchmarkReviewHandoffMarkdown(decisions);
+  if (!markdown) return "";
+  const top = decisions[0];
+  const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+  return html`
+    <section class="portfolio-review-export" data-benchmark-review-handoff-export data-review-handoff-top="${top.project.name}" data-review-handoff-count="${decisions.length}" data-review-handoff-format="markdown">
+      <div class="portfolio-export-head">
+        <span>handoff export</span>
+        <a class="portfolio-export-download" data-review-handoff-download href="${href}" download="joopark-benchmark-review-handoff.md">MD 저장</a>
+      </div>
+      <pre class="portfolio-export-body" data-review-handoff-text>${markdown}</pre>
+    </section>
+  `;
+}
+
+function candidateBenchmarkReviewQueue(projects, filter) {
+  if (filter !== "focused") return "";
+  const decisions = candidateBenchmarkReviewDecisions(projects);
   if (decisions.length === 0) return "";
   return html`
     <section class="portfolio-benchmark-review" data-benchmark-review-queue>
@@ -1214,6 +1260,7 @@ function candidateBenchmarkReviewQueue(projects, filter) {
           </article>
         `).join(""))}
       </div>
+      ${raw(candidateBenchmarkReviewHandoffExport(decisions))}
     </section>
   `;
 }
