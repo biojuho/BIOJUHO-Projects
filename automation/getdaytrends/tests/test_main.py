@@ -100,6 +100,32 @@ def test_acquire_lock_replaces_stale_lockfile(tmp_path, monkeypatch):
     assert not lock_path.exists()
 
 
+def test_lock_file_env_override_controls_acquire_and_release(tmp_path, monkeypatch):
+    default_lock_path = tmp_path / "default" / "getdaytrends.lock"
+    override_lock_path = tmp_path / "override" / "getdaytrends.lock"
+    monkeypatch.setattr(main_mod, "_LOCK_FILE", default_lock_path)
+    monkeypatch.setenv("GETDAYTRENDS_LOCK_FILE", str(override_lock_path))
+
+    assert _acquire_lock() is True
+    assert override_lock_path.read_text(encoding="utf-8") == str(os.getpid())
+    assert not default_lock_path.exists()
+
+    _release_lock()
+    assert not override_lock_path.exists()
+
+
+def test_blank_lock_file_env_uses_configured_default(tmp_path, monkeypatch):
+    lock_path = tmp_path / "getdaytrends.lock"
+    monkeypatch.setattr(main_mod, "_LOCK_FILE", lock_path)
+    monkeypatch.setenv("GETDAYTRENDS_LOCK_FILE", " ")
+
+    assert _acquire_lock() is True
+    assert lock_path.read_text(encoding="utf-8") == str(os.getpid())
+
+    _release_lock()
+    assert not lock_path.exists()
+
+
 @pytest.mark.asyncio
 async def test_parallel_runner_disables_smart_schedule_for_each_country():
     config = AppConfig()

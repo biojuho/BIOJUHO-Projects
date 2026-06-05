@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `47`
-- Status counts: `blocked=1, covered=46`
+- Criteria: `48`
+- Status counts: `blocked=1, covered=47`
 
 ## Missing Required
 
@@ -110,7 +110,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `7`
+- Evidence paths: `8`
 
 ### dashboard_next_credential_unblock
 
@@ -291,6 +291,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `2`
+
+### getdaytrends_lock_path_override
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### external_credential_boundaries
 

@@ -75,6 +75,13 @@ from getdaytrends.utils import run_async
 _LOCK_FILE = Path(__file__).parent / "data" / "getdaytrends.lock"
 
 
+def _get_lock_file() -> Path:
+    override = os.getenv("GETDAYTRENDS_LOCK_FILE", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return _LOCK_FILE
+
+
 def _is_pid_alive(pid: int) -> bool:
     """PID가 현재 실행 중인지 확인 (크로스 플랫폼)."""
     if sys.platform == "win32":
@@ -99,12 +106,13 @@ def _is_pid_alive(pid: int) -> bool:
 
 def _acquire_lock() -> bool:
     """Lockfile을 획득해 중복 실행을 방지. 이미 실행 중이면 False 반환."""
-    _LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_file = _get_lock_file()
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
 
     def _try_create_lockfile() -> bool:
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
         try:
-            fd = os.open(_LOCK_FILE, flags)
+            fd = os.open(lock_file, flags)
         except FileExistsError:
             return False
 
@@ -114,32 +122,33 @@ def _acquire_lock() -> bool:
                 handle.flush()
             return True
         except Exception:
-            _LOCK_FILE.unlink(missing_ok=True)
+            lock_file.unlink(missing_ok=True)
             raise
 
-    if _LOCK_FILE.exists():
+    if lock_file.exists():
         try:
-            pid = int(_LOCK_FILE.read_text().strip())
+            pid = int(lock_file.read_text().strip())
             if _is_pid_alive(pid):
                 print(f"\n  [오류] GetDayTrends가 이미 실행 중입니다 (PID {pid}).")
                 print("  중복 실행을 방지하기 위해 종료합니다.\n")
                 return False
             # 스테일 lockfile (이전 프로세스가 비정상 종료)
-            _LOCK_FILE.unlink(missing_ok=True)
+            lock_file.unlink(missing_ok=True)
         except (ValueError, OSError):
-            _LOCK_FILE.unlink(missing_ok=True)
+            lock_file.unlink(missing_ok=True)
 
     return _try_create_lockfile()
 
 
 def _release_lock() -> None:
     """Lockfile 해제. 자신이 생성한 lockfile만 삭제."""
+    lock_file = _get_lock_file()
     for attempt in range(3):
         try:
-            if _LOCK_FILE.exists():
-                pid = int(_LOCK_FILE.read_text().strip())
+            if lock_file.exists():
+                pid = int(lock_file.read_text().strip())
                 if pid == os.getpid():
-                    _LOCK_FILE.unlink(missing_ok=True)
+                    lock_file.unlink(missing_ok=True)
             return
         except (ValueError, OSError):
             if attempt == 2:

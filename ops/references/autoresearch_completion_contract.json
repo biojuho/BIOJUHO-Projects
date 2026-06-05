@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:57:51+09:00",
+  "generated_at": "2026-06-05T10:17:45+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,7 +141,7 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "7ef2d1e",
+            "0cd7ad0",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
@@ -152,10 +152,13 @@
             "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_TIMESTAMP_IDENTITY_GUARD_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
-            "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+            "automation/getdaytrends/main.py",
+            "automation/getdaytrends/tests/test_main.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "7ef2d1e",
+            "proof_commit": "0cd7ad0",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -195,7 +198,9 @@
               "tests/test_agent_workflow_gate_runner.py",
               "tests/test_mcp_service_runtime_smoke.py",
               "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
-              "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
+              "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md",
+              "automation/getdaytrends/main.py",
+              "automation/getdaytrends/tests/test_main.py"
             ]
           }
         }
@@ -969,12 +974,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "7ef2d1e",
+            "0cd7ad0",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "7ef2d1e",
+            "proof_commit": "0cd7ad0",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -1026,6 +1031,16 @@
             "DeSci Upload Filename Guard",
             "protected_path_freshness",
             "7ef2d1e",
+            "no changed protected paths after proof",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md",
+          "must_contain": [
+            "GetDayTrends Lock Path Override",
+            "protected_path_freshness",
+            "0cd7ad0",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]
@@ -2786,7 +2801,45 @@
           "must_contain": [
             "Completion Audit Summary Drift Guard",
             "test_checked_in_summary_artifacts_match_current_contract",
-            "valid `27` criteria",
+            "valid `48` criteria",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "getdaytrends_lock_path_override",
+      "requirement": "getdaytrends process lock path can be overridden for operator/runtime isolation without changing the default lockfile behavior.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "automation/getdaytrends/main.py",
+          "must_contain": [
+            "def _get_lock_file() -> Path:",
+            "GETDAYTRENDS_LOCK_FILE",
+            "return _LOCK_FILE",
+            "lock_file = _get_lock_file()"
+          ]
+        },
+        {
+          "path": "automation/getdaytrends/tests/test_main.py",
+          "must_contain": [
+            "test_lock_file_env_override_controls_acquire_and_release",
+            "test_blank_lock_file_env_uses_configured_default",
+            "GETDAYTRENDS_LOCK_FILE",
+            "override_lock_path"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_LOCK_PATH_OVERRIDE_2026-06-05.md",
+          "must_contain": [
+            "crewAIInc/crewAI",
+            "feat(lock_store): make locking backend overridable",
+            "GETDAYTRENDS_LOCK_FILE",
+            "11 passed",
+            "passed=2",
+            "failed=0",
             "global_objective_complete=false"
           ]
         }
