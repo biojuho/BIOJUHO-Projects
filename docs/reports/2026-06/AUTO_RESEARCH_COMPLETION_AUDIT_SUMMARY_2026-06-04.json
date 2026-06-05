@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 56
+    "covered": 57
   },
-  "criterion_count": 57,
+  "criterion_count": 58,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -1318,14 +1318,14 @@
         },
         {
           "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.json",
-          "term_count": 8,
+          "term_count": 9,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_2026-06-05.md",
-          "term_count": 5,
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -1333,6 +1333,48 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_POLICY_TOOL_2026-06-05.md",
           "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "dev_server_mcp_in_process_smoke_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/dev_server_mcp_runtime_smoke.py",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_dev_server_mcp_runtime_smoke.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_IN_PROCESS_2026-06-05.json",
+          "term_count": 7,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_MCP_RUNTIME_SMOKE_IN_PROCESS_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DEV_SERVER_MCP_IN_PROCESS_SMOKE_2026-06-05.md",
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

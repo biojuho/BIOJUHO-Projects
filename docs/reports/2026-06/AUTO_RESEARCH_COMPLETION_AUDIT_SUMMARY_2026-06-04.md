@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `57`
-- Status counts: `blocked=1, covered=56`
+- Criteria: `58`
+- Status counts: `blocked=1, covered=57`
 
 ## Missing Required
 
@@ -189,6 +189,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### dev_server_mcp_in_process_smoke_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### mcp_service_runtime_smoke
 

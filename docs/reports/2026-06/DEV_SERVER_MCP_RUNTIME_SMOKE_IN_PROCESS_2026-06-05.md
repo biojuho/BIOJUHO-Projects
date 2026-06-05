@@ -1,9 +1,9 @@
 # Dev-Server MCP Runtime Smoke
 
-- Generated at: `2026-06-05T02:29:45.712991+00:00`
+- Generated at: `2026-06-05T02:28:24.285491+00:00`
 - Status: `pass`
 - Runtime: `ops/scripts/dev_server_mcp_runtime.py`
-- Execution mode: `subprocess`
+- Execution mode: `in-process`
 - Requests: `6`
 - Responses: `6`
 - Tools: `5`

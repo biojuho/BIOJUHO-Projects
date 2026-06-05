@@ -37,6 +37,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
     assert {item["id"] for item in summary["criteria"]} >= {
         "pre_push_regression_gate",
         "mcp_runtime_subprocess_smoke",
+        "dev_server_mcp_in_process_smoke_guard",
         "mcp_service_runtime_smoke",
         "mcp_service_expected_tools_guard",
         "mcp_otel_collector_handoff",

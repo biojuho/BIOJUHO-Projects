@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import io
 import json
 import subprocess
 import sys
@@ -63,19 +65,20 @@ def build_requests() -> list[dict[str, Any]]:
     ]
 
 
-def run_smoke(*, timeout_seconds: float = 10.0, python_exe: str = sys.executable) -> dict[str, Any]:
+def run_smoke(
+    *,
+    timeout_seconds: float = 10.0,
+    python_exe: str = sys.executable,
+    execution_mode: str = "subprocess",
+) -> dict[str, Any]:
     requests = build_requests()
-    process = subprocess.run(
-        [python_exe, str(RUNTIME_SCRIPT)],
-        cwd=WORKSPACE_ROOT,
-        input="\n".join(json.dumps(request, separators=(",", ":")) for request in requests) + "\n",
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout_seconds,
-        check=False,
-    )
+    payload = "\n".join(json.dumps(request, separators=(",", ":")) for request in requests) + "\n"
+    if execution_mode == "in-process":
+        process = run_runtime_in_process(payload)
+    elif execution_mode == "subprocess":
+        process = run_runtime_subprocess(payload, timeout_seconds=timeout_seconds, python_exe=python_exe)
+    else:
+        raise ValueError(f"unknown execution mode: {execution_mode}")
     raw_lines = [line for line in process.stdout.splitlines() if line.strip()]
     responses = _parse_responses(raw_lines)
     errors = validate_responses(responses, process.returncode, process.stderr)
@@ -85,6 +88,7 @@ def run_smoke(*, timeout_seconds: float = 10.0, python_exe: str = sys.executable
         "generated_at": datetime.now(UTC).isoformat(),
         "status": "pass" if not errors else "fail",
         "runtime": "ops/scripts/dev_server_mcp_runtime.py",
+        "execution_mode": execution_mode,
         "request_count": len(requests),
         "response_count": len(responses),
         "process_returncode": process.returncode,
@@ -92,6 +96,52 @@ def run_smoke(*, timeout_seconds: float = 10.0, python_exe: str = sys.executable
         "summary": summary,
         "errors": errors,
     }
+
+
+def run_runtime_subprocess(
+    payload: str,
+    *,
+    timeout_seconds: float,
+    python_exe: str,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [python_exe, str(RUNTIME_SCRIPT)],
+        cwd=WORKSPACE_ROOT,
+        input=payload,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout_seconds,
+        check=False,
+    )
+
+
+def run_runtime_in_process(payload: str) -> subprocess.CompletedProcess[str]:
+    stdin = io.StringIO(payload)
+    stdout = io.StringIO()
+    try:
+        runtime = load_runtime_module()
+        returncode = runtime.serve(stdin, stdout)
+        stderr = ""
+    except Exception as exc:  # pragma: no cover - defensive runtime capture
+        returncode = 1
+        stderr = f"{type(exc).__name__}: {exc}"
+    return subprocess.CompletedProcess(
+        ["in-process", str(RUNTIME_SCRIPT)],
+        returncode,
+        stdout.getvalue(),
+        stderr,
+    )
+
+
+def load_runtime_module():
+    spec = importlib.util.spec_from_file_location("dev_server_mcp_runtime_in_process", RUNTIME_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def validate_responses(responses: list[dict[str, Any]], returncode: int, stderr: str) -> list[str]:
@@ -188,6 +238,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
         f"- Generated at: `{summary['generated_at']}`",
         f"- Status: `{summary['status']}`",
         f"- Runtime: `{summary['runtime']}`",
+        f"- Execution mode: `{summary['execution_mode']}`",
         f"- Requests: `{summary['request_count']}`",
         f"- Responses: `{summary['response_count']}`",
         f"- Tools: `{details['tool_count']}`",
@@ -255,10 +306,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
     parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--execution-mode", choices=["subprocess", "in-process"], default="subprocess")
     args = parser.parse_args(argv)
     try:
-        summary = run_smoke(timeout_seconds=args.timeout)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        summary = run_smoke(timeout_seconds=args.timeout, execution_mode=args.execution_mode)
+    except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
         print(f"dev-server MCP runtime smoke failed: {exc}", file=sys.stderr)
         return 1
     if args.json_out:
