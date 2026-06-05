@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T22:56:40+09:00
+Generated: 2026-06-05T23:05:50+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -482,6 +482,18 @@ Generated: 2026-06-05T22:56:40+09:00
 - `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T13:51:51Z`, `updated_at: 2026-06-05T13:52:02Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 34/34 with `autoresearch_ecosystem_candidates.veritas.fresh: true`.
 
+## Experiment: candidate metadata refresh gate coverage
+
+- Hypothesis: The persisted-candidate metadata refresh is safer to ship when the release gate proves stale local adoption-candidate metadata is refreshed from the source snapshot.
+- Primary metric: `candidateMetadataRefresh` in packaged interaction smoke.
+- Baseline: `mergeImportedProjects` refreshed existing adoption candidates, but the release audit did not require a stale-metadata refresh smoke.
+- Candidate: `scripts/audit-release-readiness.mjs` now includes `workspace_candidate_metadata_refresh`, and `scripts/smoke-interactions.mjs` intentionally stales the Leantime candidate commit, pushedAt, and stars before verifying `mergeImportedProjects` refreshes and persists the snapshot values.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 35/35 with `persistedChecks.candidateMetadataRefresh: true`, 18 interaction steps, 15 desktop routes, 15 mobile routes, 0 console/network/layout failures, accessibility pass, release header checks 6/6, and fallback checks 4/4.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: refresh the next workspace benchmark freshness signal, verify Pages workflow activation, or clean up post-release workflow handoff docs.
+- Continue with the highest-impact product gap after the next full gate: sync the main-based workspace bridge branch, refresh the next workspace benchmark freshness signal, or verify Pages workflow activation.

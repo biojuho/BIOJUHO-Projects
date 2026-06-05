@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T22:56:40+09:00",
+  "generatedAt": "2026-06-05T23:05:50+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 34,
+      "pass": 35,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 34
+      "total": 35
     },
     "browserEvidence": {
       "routes": 15,
@@ -22,6 +22,7 @@
       "veritasCandidateFreshnessVisible": true,
       "openProjectCandidateFreshnessVisible": true,
       "leantimeCandidateFreshnessVisible": true,
+      "candidateMetadataRefresh": true,
       "candidateNextActionVisible": true,
       "candidateActionFilter": true,
       "candidateActionSummaryVisible": true,
@@ -34,6 +35,7 @@
       "pagesPublishWorkflowTemplateChecks": 3,
       "pagesWorkflowHandoffChecks": 5,
       "mainBridgeStrategyChecks": 5,
+      "candidateMetadataRefreshChecks": 1,
       "veritasFreshnessChecks": 5,
       "openProjectFreshnessChecks": 6,
       "leantimeFreshnessChecks": 6,
@@ -281,6 +283,13 @@
       "baseline": 5,
       "candidate": 5,
       "decision": "keep"
+    },
+    {
+      "id": "candidate-metadata-refresh-gate-coverage",
+      "primaryMetric": "candidateMetadataRefresh",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -292,8 +301,8 @@
     "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
   },
   "nextCandidates": [
+    "main-based workspace bridge sync",
     "next workspace benchmark freshness refresh",
-    "Pages workflow activation verification",
-    "post-release workflow deprecation cleanup"
+    "Pages workflow activation verification"
   ]
 }
