@@ -299,11 +299,43 @@ def test_format_html_summarizes_metrics_for_ci_report(tmp_path: Path) -> None:
     assert '<p class="ok">OK: true</p>' in report
 
 
+def test_format_otel_json_exports_deterministic_span_tree(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    payload = smoke_payload(
+        [
+            result("first", "python -m pytest tests -q", duration_seconds=0.25),
+            result("second", "npm.cmd run test", returncode=1, ok=False),
+        ]
+    )
+
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+    otel = metrics_module.format_otel_json(metrics)
+    spans = otel["resourceSpans"][0]["scopeSpans"][0]["spans"]
+
+    assert otel["resourceSpans"][0]["resource"]["attributes"][0] == {
+        "key": "service.name",
+        "value": {"stringValue": "mcp-smoke-trace-metrics"},
+    }
+    assert len(spans) == 3
+    assert len(spans[0]["traceId"]) == 32
+    assert len(spans[0]["spanId"]) == 16
+    assert spans[0]["name"] == "mcp smoke"
+    assert spans[0]["status"] == {"code": "STATUS_CODE_ERROR"}
+    assert spans[1]["parentSpanId"] == spans[0]["spanId"]
+    assert spans[1]["status"] == {"code": "STATUS_CODE_OK"}
+    assert spans[2]["status"] == {"code": "STATUS_CODE_ERROR"}
+    assert any(
+        attribute == {"key": "mcp.previous_span_id", "value": {"stringValue": "mcp:check:1"}}
+        for attribute in spans[2]["attributes"]
+    )
+
+
 def test_cli_writes_metrics_json_markdown_and_html(tmp_path: Path) -> None:
     smoke_path = tmp_path / "smoke.json"
     metrics_path = tmp_path / "metrics.json"
     markdown_path = tmp_path / "metrics.md"
     html_path = tmp_path / "metrics.html"
+    otel_path = tmp_path / "metrics.otel.json"
     smoke_path.write_text(
         json.dumps(
             smoke_payload(
@@ -327,6 +359,8 @@ def test_cli_writes_metrics_json_markdown_and_html(tmp_path: Path) -> None:
             str(markdown_path),
             "--html-out",
             str(html_path),
+            "--otel-json-out",
+            str(otel_path),
         ],
         cwd=PROJECT_ROOT,
         capture_output=True,
@@ -345,3 +379,5 @@ def test_cli_writes_metrics_json_markdown_and_html(tmp_path: Path) -> None:
     html = html_path.read_text(encoding="utf-8")
     assert "<h1>MCP Smoke Trace Metrics</h1>" in html
     assert "<td>DailyNews unit tests</td>" in html
+    otel = json.loads(otel_path.read_text(encoding="utf-8"))
+    assert len(otel["resourceSpans"][0]["scopeSpans"][0]["spans"]) == 3

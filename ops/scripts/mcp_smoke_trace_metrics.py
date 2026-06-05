@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import re
@@ -207,6 +208,11 @@ def write_markdown(metrics: dict[str, Any], out_path: Path) -> None:
 def write_html(metrics: dict[str, Any], out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(format_html(metrics), encoding="utf-8")
+
+
+def write_otel_json(metrics: dict[str, Any], out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(format_otel_json(metrics), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def format_markdown(metrics: dict[str, Any]) -> str:
@@ -427,6 +433,69 @@ def format_html(metrics: dict[str, Any]) -> str:
 </body>
 </html>
 """
+
+
+def format_otel_json(metrics: dict[str, Any]) -> dict[str, Any]:
+    trace_id = _stable_hex(f"{metrics['source_path']}:{metrics['scope']}", 32)
+    root_span = metrics["span_tree"]["root"]
+    spans = [
+        {
+            "traceId": trace_id,
+            "spanId": _stable_hex(root_span["span_id"], 16),
+            "name": root_span["name"],
+            "kind": "SPAN_KIND_INTERNAL",
+            "status": {"code": _otel_status(root_span["status"])},
+            "attributes": _otel_attributes(
+                {
+                    "mcp.scope": metrics["scope"],
+                    "mcp.source_path": metrics["source_path"],
+                    "mcp.source_status": metrics.get("source_status"),
+                    "mcp.child_spans": metrics["span_tree"]["summary"]["spans"],
+                }
+            ),
+        }
+    ]
+    for span in metrics["span_tree"]["spans"]:
+        spans.append(
+            {
+                "traceId": trace_id,
+                "spanId": _stable_hex(span["span_id"], 16),
+                "parentSpanId": _stable_hex(span["parent_id"], 16),
+                "name": span["name"],
+                "kind": "SPAN_KIND_INTERNAL",
+                "status": {"code": _otel_status(span["status"])},
+                "attributes": _otel_attributes(
+                    {
+                        "mcp.span_id": span["span_id"],
+                        "mcp.parent_span_id": span["parent_id"],
+                        "mcp.previous_span_id": span["previous_span_id"],
+                        "mcp.command_kind": span["command_kind"],
+                        "mcp.cwd": span["cwd"],
+                        "mcp.duration_seconds": span["duration_seconds"],
+                    }
+                ),
+            }
+        )
+    return {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": _otel_attributes(
+                        {
+                            "service.name": "mcp-smoke-trace-metrics",
+                            "service.namespace": "local-ai-workspace",
+                        }
+                    )
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": "ops.scripts.mcp_smoke_trace_metrics"},
+                        "spans": spans,
+                    }
+                ],
+            }
+        ]
+    }
 
 
 def _check_metrics(result: dict[str, Any]) -> dict[str, Any]:
@@ -662,6 +731,31 @@ def _html_cell(value: Any) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _stable_hex(value: str, length: int) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
+
+
+def _otel_status(status: str) -> str:
+    return "STATUS_CODE_OK" if status == "ok" else "STATUS_CODE_ERROR"
+
+
+def _otel_attributes(values: dict[str, Any]) -> list[dict[str, Any]]:
+    attributes: list[dict[str, Any]] = []
+    for key, value in values.items():
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            wrapped = {"boolValue": value}
+        elif isinstance(value, int):
+            wrapped = {"intValue": str(value)}
+        elif isinstance(value, float):
+            wrapped = {"doubleValue": value}
+        else:
+            wrapped = {"stringValue": str(value)}
+        attributes.append({"key": key, "value": wrapped})
+    return attributes
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build MCP trace metrics from workspace-smoke JSON.")
     parser.add_argument("smoke_json", help="Path to a schema v1 workspace smoke JSON report.")
@@ -669,6 +763,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", help="Optional output path for the metrics JSON.")
     parser.add_argument("--markdown-out", help="Optional output path for a Markdown metrics report.")
     parser.add_argument("--html-out", help="Optional output path for a standalone HTML metrics report.")
+    parser.add_argument("--otel-json-out", help="Optional output path for an OTEL-style JSON span export.")
     parser.add_argument("--allow-issues", action="store_true", help="Return success even when trace integrity issues exist.")
     args = parser.parse_args(argv)
 
@@ -679,6 +774,8 @@ def main(argv: list[str] | None = None) -> int:
         write_markdown(metrics, Path(args.markdown_out))
     if args.html_out:
         write_html(metrics, Path(args.html_out))
+    if args.otel_json_out:
+        write_otel_json(metrics, Path(args.otel_json_out))
     write_metrics(metrics, Path(args.json_out) if args.json_out else None)
     return 0 if args.allow_issues or metrics["trace_integrity"]["ok"] else 1
 

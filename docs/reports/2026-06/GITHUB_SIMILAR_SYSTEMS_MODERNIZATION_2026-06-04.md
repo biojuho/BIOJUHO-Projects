@@ -68,7 +68,9 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_HTML_REPORT_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_USAGE_METRICS_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_SPAN_TREE_2026-06-05.md`
-- Gap: MCP smoke trace metrics now derive deterministic offline timing/path-depth signals, optional token/cost summaries, ordered span-tree links, and tracked Markdown/HTML handoff reports; full OpenTelemetry export and live token/cost emission remain future scoped work.
+  - `docs/reports/2026-06/MCP_SMOKE_TRACE_OTEL_2026-06-05.json`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_OTEL_EXPORT_2026-06-05.md`
+- Gap: MCP smoke trace metrics now derive deterministic offline timing/path-depth signals, optional token/cost summaries, ordered span-tree links, tracked Markdown/HTML handoff reports, and an OTEL-style JSON span export; live token/cost emission and collector submission remain future scoped work.
 
 ### evalstate/fast-agent
 

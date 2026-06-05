@@ -1,0 +1,336 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "mcp-smoke-trace-metrics"
+            }
+          },
+          {
+            "key": "service.namespace",
+            "value": {
+              "stringValue": "local-ai-workspace"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "ops.scripts.mcp_smoke_trace_metrics"
+          },
+          "spans": [
+            {
+              "traceId": "45add124b84d2fdd2f16daec21a76e54",
+              "spanId": "33992dd475eef60d",
+              "name": "mcp smoke",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.scope",
+                  "value": {
+                    "stringValue": "mcp"
+                  }
+                },
+                {
+                  "key": "mcp.source_path",
+                  "value": {
+                    "stringValue": "var\\workspace-smoke-mcp-canva-tool-inventory-2026-06-05.json"
+                  }
+                },
+                {
+                  "key": "mcp.source_status",
+                  "value": {
+                    "stringValue": "complete"
+                  }
+                },
+                {
+                  "key": "mcp.child_spans",
+                  "value": {
+                    "intValue": "6"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "45add124b84d2fdd2f16daec21a76e54",
+              "spanId": "9aec6fea284c82bb",
+              "parentSpanId": "33992dd475eef60d",
+              "name": "notebooklm compile",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.span_id",
+                  "value": {
+                    "stringValue": "mcp:check:1"
+                  }
+                },
+                {
+                  "key": "mcp.parent_span_id",
+                  "value": {
+                    "stringValue": "mcp:root"
+                  }
+                },
+                {
+                  "key": "mcp.command_kind",
+                  "value": {
+                    "stringValue": "compileall"
+                  }
+                },
+                {
+                  "key": "mcp.cwd",
+                  "value": {
+                    "stringValue": "."
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "45add124b84d2fdd2f16daec21a76e54",
+              "spanId": "2bfdbb0fb4121ad1",
+              "parentSpanId": "33992dd475eef60d",
+              "name": "github-mcp compile",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.span_id",
+                  "value": {
+                    "stringValue": "mcp:check:2"
+                  }
+                },
+                {
+                  "key": "mcp.parent_span_id",
+                  "value": {
+                    "stringValue": "mcp:root"
+                  }
+                },
+                {
+                  "key": "mcp.previous_span_id",
+                  "value": {
+                    "stringValue": "mcp:check:1"
+                  }
+                },
+                {
+                  "key": "mcp.command_kind",
+                  "value": {
+                    "stringValue": "compileall"
+                  }
+                },
+                {
+                  "key": "mcp.cwd",
+                  "value": {
+                    "stringValue": "."
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "45add124b84d2fdd2f16daec21a76e54",
+              "spanId": "aa5f8879967e8344",
+              "parentSpanId": "33992dd475eef60d",
+              "name": "DailyNews unit tests",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.span_id",
+                  "value": {
+                    "stringValue": "mcp:check:3"
+                  }
+                },
+                {
+                  "key": "mcp.parent_span_id",
+                  "value": {
+                    "stringValue": "mcp:root"
+                  }
+                },
+                {
+                  "key": "mcp.previous_span_id",
+                  "value": {
+                    "stringValue": "mcp:check:2"
+                  }
+                },
+                {
+                  "key": "mcp.command_kind",
+                  "value": {
+                    "stringValue": "pytest"
+                  }
+                },
+                {
+                  "key": "mcp.cwd",
+                  "value": {
+                    "stringValue": "automation\\DailyNews"
+                  }
+                },
+                {
+                  "key": "mcp.duration_seconds",
+                  "value": {
+                    "doubleValue": 117.48
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "45add124b84d2fdd2f16daec21a76e54",
+              "spanId": "91945693079fa861",
+              "parentSpanId": "33992dd475eef60d",
+              "name": "canva-mcp build",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.span_id",
+                  "value": {
+                    "stringValue": "mcp:check:4"
+                  }
+                },
+                {
+                  "key": "mcp.parent_span_id",
+                  "value": {
+                    "stringValue": "mcp:root"
+                  }
+                },
+                {
+                  "key": "mcp.previous_span_id",
+                  "value": {
+                    "stringValue": "mcp:check:3"
+                  }
+                },
+                {
+                  "key": "mcp.command_kind",
+                  "value": {
+                    "stringValue": "npm"
+                  }
+                },
+                {
+                  "key": "mcp.cwd",
+                  "value": {
+                    "stringValue": "mcp\\canva-mcp"
+                  }
+                },
+                {
+                  "key": "mcp.duration_seconds",
+                  "value": {
+                    "doubleValue": 1.17
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "45add124b84d2fdd2f16daec21a76e54",
+              "spanId": "3a28519c3e274161",
+              "parentSpanId": "33992dd475eef60d",
+              "name": "desci-research-mcp tests",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.span_id",
+                  "value": {
+                    "stringValue": "mcp:check:5"
+                  }
+                },
+                {
+                  "key": "mcp.parent_span_id",
+                  "value": {
+                    "stringValue": "mcp:root"
+                  }
+                },
+                {
+                  "key": "mcp.previous_span_id",
+                  "value": {
+                    "stringValue": "mcp:check:4"
+                  }
+                },
+                {
+                  "key": "mcp.command_kind",
+                  "value": {
+                    "stringValue": "pytest"
+                  }
+                },
+                {
+                  "key": "mcp.cwd",
+                  "value": {
+                    "stringValue": "mcp\\desci-research-mcp"
+                  }
+                },
+                {
+                  "key": "mcp.duration_seconds",
+                  "value": {
+                    "doubleValue": 0.38
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "45add124b84d2fdd2f16daec21a76e54",
+              "spanId": "8ce012c535ca072f",
+              "parentSpanId": "33992dd475eef60d",
+              "name": "telegram-mcp tests",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.span_id",
+                  "value": {
+                    "stringValue": "mcp:check:6"
+                  }
+                },
+                {
+                  "key": "mcp.parent_span_id",
+                  "value": {
+                    "stringValue": "mcp:root"
+                  }
+                },
+                {
+                  "key": "mcp.previous_span_id",
+                  "value": {
+                    "stringValue": "mcp:check:5"
+                  }
+                },
+                {
+                  "key": "mcp.command_kind",
+                  "value": {
+                    "stringValue": "pytest"
+                  }
+                },
+                {
+                  "key": "mcp.cwd",
+                  "value": {
+                    "stringValue": "mcp\\telegram-mcp"
+                  }
+                },
+                {
+                  "key": "mcp.duration_seconds",
+                  "value": {
+                    "doubleValue": 0.4
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
