@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T03:09:23+09:00
+Generated: 2026-06-06T03:22:05+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -801,6 +801,22 @@ Generated: 2026-06-06T03:09:23+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_queue`.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 41/41.
 
+## Experiment: Taskosaur/Workstream benchmark comparison rubric
+
+- Hypothesis: Candidate triage improves when the top benchmark-focus projects can be compared side by side on input source, AI assistance, PM surface, and operations model.
+- Primary metric: Taskosaur/Workstream benchmark rubric checks.
+- Baseline: 0 side-by-side rubric checks.
+- Candidate: Workstream and Taskosaur now carry rubric rows in `data/adoption-candidates.json`, the focused benchmark queue renders a comparison grid, and interaction smoke verifies the two projects plus four rubric axes.
+- Decision: keep; the full release gate passed.
+
+## Evidence
+
+- GitHub README evidence mapped Workstream to PR/task/calendar plus AI review/readiness, and Taskosaur to natural-language task execution, browser task execution, Kanban, sprints, and self-hosted PM.
+- `app.js` now includes `projectBenchmarkRubric` and `candidateBenchmarkRubric`.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkRubricVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_rubric`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 42/42.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn the benchmark-focus queue into a side-by-side UX comparison rubric, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, add scored recommendation weights to the benchmark rubric, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.

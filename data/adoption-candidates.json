@@ -788,7 +788,13 @@
       "benchmarkFocus": {
         "surface": "JooPark PM/Calendar",
         "flow": "PR + task + calendar command center",
-        "signals": ["PR dashboard", "calendar agenda", "AI review/readiness"]
+        "signals": ["PR dashboard", "calendar agenda", "AI review/readiness"],
+        "rubric": [
+          { "axis": "입력 소스", "value": "GitHub/GitLab PR + Jira task + Google Calendar" },
+          { "axis": "AI 보조", "value": "AI code review + readiness scanner" },
+          { "axis": "PM 표면", "value": "dashboard + sprint/task status" },
+          { "axis": "운영 방식", "value": "local FastAPI + SQLite + agents dashboard" }
+        ]
       }
     },
     {
@@ -822,7 +828,13 @@
       "benchmarkFocus": {
         "surface": "JooPark PM/Kanban",
         "flow": "Conversational AI task execution",
-        "signals": ["natural-language task creation", "Kanban/sprint workflow", "self-hosted PM"]
+        "signals": ["natural-language task creation", "Kanban/sprint workflow", "self-hosted PM"],
+        "rubric": [
+          { "axis": "입력 소스", "value": "natural-language task commands" },
+          { "axis": "AI 보조", "value": "in-app conversational execution + browser task execution" },
+          { "axis": "PM 표면", "value": "Kanban boards + sprints + task dependencies" },
+          { "axis": "운영 방식", "value": "self-hosted PM + modular architecture" }
+        ]
       }
     },
     {
