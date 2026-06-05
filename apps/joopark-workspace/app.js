@@ -108,6 +108,8 @@ function matches(value, query) {
 }
 function projectSearchText(p) {
   const topics = Array.isArray(p && p.topics) ? p.topics : [];
+  const focus = p && typeof p.benchmarkFocus === "object" ? p.benchmarkFocus : null;
+  const signals = focus && Array.isArray(focus.signals) ? focus.signals : [];
   return [
     p && p.name,
     p && p.owner,
@@ -118,6 +120,9 @@ function projectSearchText(p) {
     p && p.language,
     p && p.lastCommit,
     p && p.pushedAt,
+    focus && focus.surface,
+    focus && focus.flow,
+    ...signals,
     ...topics,
   ].filter(Boolean).join(" ");
 }
@@ -278,6 +283,7 @@ const state = {
   kanbanFilter: null, // priority filter or null
   portfolioFilter: "all",
   portfolioActionFilter: "all",
+  portfolioBenchmarkFilter: "all",
   schemaExpanded: new Set(["db-prod-1"]), // expanded instances in schema tree
   schemaSelectedTable: null,
   storageHealth: {
@@ -910,6 +916,11 @@ const CANDIDATE_ACTION_FILTERS = [
   { key: "source", label: "소스 보강" },
 ];
 
+const CANDIDATE_BENCHMARK_FILTERS = [
+  { key: "all", label: "모든 후보" },
+  { key: "focused", label: "벤치 포커스" },
+];
+
 function portfolioMatchesFilter(project, filter) {
   if (filter === "owned") return project.sourceKind !== "adoption-candidate";
   if (filter === "candidates") return project.sourceKind === "adoption-candidate";
@@ -920,6 +931,35 @@ function portfolioMatchesActionFilter(project, filter) {
   if (!filter || filter === "all") return true;
   const action = projectCandidateAction(project);
   return project.sourceKind === "adoption-candidate" && action && action.key === filter;
+}
+
+function portfolioMatchesBenchmarkFilter(project, filter) {
+  if (!filter || filter === "all") return true;
+  return project.sourceKind === "adoption-candidate" && !!projectBenchmarkFocus(project);
+}
+
+function benchmarkFocusQueueScore(project) {
+  const focus = projectBenchmarkFocus(project);
+  if (!focus) return 0;
+  const text = `${focus.surface} ${focus.flow} ${focus.signals.join(" ")}`.toLowerCase();
+  let score = 100;
+  if (text.includes("calendar")) score += 20;
+  if (text.includes("kanban")) score += 15;
+  if (text.includes("pr")) score += 8;
+  if (text.includes("task")) score += 5;
+  return score;
+}
+
+function sortBenchmarkFocusProjects(projects) {
+  return [...projects].sort((a, b) => {
+    const benchmarkDiff = benchmarkFocusQueueScore(b) - benchmarkFocusQueueScore(a);
+    if (benchmarkDiff !== 0) return benchmarkDiff;
+    const aPriority = projectCandidatePriority(a);
+    const bPriority = projectCandidatePriority(b);
+    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
 }
 
 function candidateActionQueueSummary(projects, filter) {
@@ -964,8 +1004,41 @@ function candidateActionQueueSummary(projects, filter) {
   `;
 }
 
+function candidateBenchmarkQueueSummary(projects, filter) {
+  const selected = CANDIDATE_BENCHMARK_FILTERS.find((item) => item.key === filter) || CANDIDATE_BENCHMARK_FILTERS[0];
+  const focused = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkFocus(p)));
+  const top = focused[0] || null;
+  const topFocus = top ? projectBenchmarkFocus(top) : null;
+  const surfaces = new Set(focused.map((p) => projectBenchmarkFocus(p)?.surface).filter(Boolean)).size;
+  return html`
+    <section class="portfolio-benchmark-summary" data-candidate-benchmark-summary data-benchmark-filter-summary="${selected.key}">
+      <div>
+        <span>벤치 대기열</span>
+        <strong>${selected.label}</strong>
+      </div>
+      <div>
+        <span>포커스</span>
+        <strong>${focused.length}개</strong>
+      </div>
+      <div>
+        <span>최우선</span>
+        <strong data-candidate-benchmark-summary-top>${top ? top.name : "없음"}</strong>
+      </div>
+      <div>
+        <span>표면</span>
+        <strong>${topFocus ? topFocus.surface : `${surfaces}개 표면`}</strong>
+      </div>
+      <div>
+        <span>흐름</span>
+        <strong>${topFocus ? topFocus.flow : "대기 없음"}</strong>
+      </div>
+    </section>
+  `;
+}
+
 function sortPortfolioProjects(projects) {
   if (state.portfolioFilter !== "candidates") return projects;
+  if (state.portfolioBenchmarkFilter === "focused") return sortBenchmarkFocusProjects(projects);
   return [...projects].sort((a, b) => {
     const aPriority = projectCandidatePriority(a);
     const bPriority = projectCandidatePriority(b);
@@ -980,13 +1053,16 @@ function renderPortfolio() {
   if (!view) return;
   if (!state.portfolioFilter) state.portfolioFilter = "all";
   if (!state.portfolioActionFilter) state.portfolioActionFilter = "all";
+  if (!state.portfolioBenchmarkFilter) state.portfolioBenchmarkFilter = "all";
   const q = state.query;
   const list = sortPortfolioProjects(dashboard.projects
     .filter((p) => portfolioMatchesFilter(p, state.portfolioFilter))
     .filter((p) => portfolioMatchesActionFilter(p, state.portfolioActionFilter))
+    .filter((p) => portfolioMatchesBenchmarkFilter(p, state.portfolioBenchmarkFilter))
     .filter((p) => matches(projectSearchText(p), q)));
   const candidateCount = dashboard.projects.filter((p) => p.sourceKind === "adoption-candidate").length;
   const ownedCount = dashboard.projects.length - candidateCount;
+  const benchmarkFocusCount = dashboard.projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkFocus(p)).length;
   const filterChips = PORTFOLIO_FILTERS.map((filter) => {
     const count = filter.key === "owned" ? ownedCount : filter.key === "candidates" ? candidateCount : dashboard.projects.length;
     return html`<button type="button" class="seg-chip ${raw(state.portfolioFilter === filter.key ? "is-active" : "")}" data-action="portfolio-filter" data-filter="${filter.key}" aria-pressed="${raw(state.portfolioFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
@@ -1004,7 +1080,12 @@ function renderPortfolio() {
       const count = filter.key === "all" ? candidateCount : actionCounts[filter.key] || 0;
       return html`<button type="button" class="seg-chip ${raw(state.portfolioActionFilter === filter.key ? "is-active" : "")}" data-action="portfolio-action-filter" data-action-filter="${filter.key}" aria-pressed="${raw(state.portfolioActionFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
     }).join("");
+  const benchmarkFilterChips = CANDIDATE_BENCHMARK_FILTERS.map((filter) => {
+    const count = filter.key === "focused" ? benchmarkFocusCount : candidateCount;
+    return html`<button type="button" class="seg-chip ${raw(state.portfolioBenchmarkFilter === filter.key ? "is-active" : "")}" data-action="portfolio-benchmark-filter" data-benchmark-filter="${filter.key}" aria-pressed="${raw(state.portfolioBenchmarkFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
+  }).join("");
   const actionSummary = candidateActionQueueSummary(dashboard.projects, state.portfolioActionFilter);
+  const benchmarkSummary = candidateBenchmarkQueueSummary(dashboard.projects, state.portfolioBenchmarkFilter);
 
   const stats = {
     total: dashboard.projects.length,
@@ -1073,7 +1154,11 @@ function renderPortfolio() {
     <div class="portfolio-action-filter" data-candidate-action-filter-panel>
       <div class="seg-control" aria-label="후보 액션 필터">${raw(actionFilterChips)}</div>
     </div>
+    <div class="portfolio-benchmark-filter" data-candidate-benchmark-filter-panel>
+      <div class="seg-control" aria-label="후보 벤치 필터">${raw(benchmarkFilterChips)}</div>
+    </div>
     ${raw(actionSummary)}
+    ${raw(benchmarkSummary)}
     <section class="portfolio-grid">
       ${list.length === 0 ? raw(html`<article class="empty">일치하는 프로젝트가 없습니다.</article>`) : raw(list.map(card).join(""))}
     </section>
@@ -2451,13 +2536,28 @@ function setKanbanFilter(priority) {
 
 function setPortfolioFilter(filter) {
   state.portfolioFilter = PORTFOLIO_FILTERS.some((item) => item.key === filter) ? filter : "all";
-  if (state.portfolioFilter !== "candidates") state.portfolioActionFilter = "all";
+  if (state.portfolioFilter !== "candidates") {
+    state.portfolioActionFilter = "all";
+    state.portfolioBenchmarkFilter = "all";
+  }
   renderPortfolio();
 }
 
 function setPortfolioActionFilter(filter) {
   state.portfolioActionFilter = CANDIDATE_ACTION_FILTERS.some((item) => item.key === filter) ? filter : "all";
-  if (state.portfolioActionFilter !== "all") state.portfolioFilter = "candidates";
+  if (state.portfolioActionFilter !== "all") {
+    state.portfolioFilter = "candidates";
+    state.portfolioBenchmarkFilter = "all";
+  }
+  renderPortfolio();
+}
+
+function setPortfolioBenchmarkFilter(filter) {
+  state.portfolioBenchmarkFilter = CANDIDATE_BENCHMARK_FILTERS.some((item) => item.key === filter) ? filter : "all";
+  if (state.portfolioBenchmarkFilter !== "all") {
+    state.portfolioFilter = "candidates";
+    state.portfolioActionFilter = "all";
+  }
   renderPortfolio();
 }
 
@@ -5370,6 +5470,7 @@ function handleActions(event) {
   if (action === "open-project") { openProjectSheet(target.dataset.projectId); return; }
   if (action === "portfolio-filter") { setPortfolioFilter(target.dataset.filter); return; }
   if (action === "portfolio-action-filter") { setPortfolioActionFilter(target.dataset.actionFilter); return; }
+  if (action === "portfolio-benchmark-filter") { setPortfolioBenchmarkFilter(target.dataset.benchmarkFilter); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }

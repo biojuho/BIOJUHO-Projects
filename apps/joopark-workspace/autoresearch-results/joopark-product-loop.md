@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T02:48:46+09:00
+Generated: 2026-06-06T02:54:19+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -773,6 +773,21 @@ Generated: 2026-06-06T02:48:46+09:00
 - During rebase over the Taskosaur/Workstream benchmark branch, the writer refreshed Veritas to v8.435 (`dc6f03ea6f3317e2b202db736b125e4dac31e700`) with `github-api:veritas-focused-drift-refresh-v8435`.
 - After the writer refresh, `--fail-on-change` can pass until the next Veritas upstream move.
 
+## Experiment: Taskosaur/Workstream benchmark focus queue
+
+- Hypothesis: Candidate triage improves when benchmark-focus chips can drive an explicit filtered queue instead of only decorating individual cards.
+- Primary metric: Taskosaur/Workstream benchmark queue checks.
+- Baseline: 0 benchmark-focus queue checks.
+- Candidate: portfolio state now has a benchmark-focus filter, the candidate view can narrow to benchmark-focus cards, the queue sorts focused candidates with PM/Calendar and PM/Kanban signals first, and interaction smoke verifies the filtered count, top summary, and top card chip.
+- Decision: keep; the full release gate passed.
+
+## Evidence
+
+- `app.js` now includes `CANDIDATE_BENCHMARK_FILTERS`, `sortBenchmarkFocusProjects`, `candidateBenchmarkQueueSummary`, and `setPortfolioBenchmarkFilter`.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkQueueVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_queue`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 41/41.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn Taskosaur/Workstream benchmark chips into a sortable benchmark-focus queue, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn the benchmark-focus queue into a side-by-side UX comparison rubric, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
