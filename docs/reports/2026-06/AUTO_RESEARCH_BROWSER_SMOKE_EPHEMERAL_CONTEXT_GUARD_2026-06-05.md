@@ -52,3 +52,7 @@ Generated at: `2026-06-05T11:05:00+09:00`
 
 - This does not claim persistent-profile support; it intentionally avoids persistent profiles for repo-local smoke checks.
 - `global_objective_complete=false`.
+
+## Freshness Baseline
+
+- Pushed proof commit `6570360` is the active baseline for `current_tip_freshness_gate` and `direct_browser_qa_freshness_gate` after this product slice.

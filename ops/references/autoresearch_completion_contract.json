@@ -178,10 +178,10 @@
             "ops/scripts/dev_server_browser_smoke.py",
             "tests/test_dev_server_browser_smoke.py",
             "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_CLEAR_ERROR_EXPECTED_TEXT_2026-06-05.md",
-            "2efc817"
+            "6570360"
           ],
           "git_freshness": {
-            "proof_commit": "2efc817",
+            "proof_commit": "6570360",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -1082,10 +1082,10 @@
             "direct_browser_qa_freshness_gate",
             "apps/dashboard/",
             "mcp/canva-mcp/",
-            "2efc817"
+            "6570360"
           ],
           "protected_path_freshness": {
-            "proof_commit": "2efc817",
+            "proof_commit": "6570360",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
