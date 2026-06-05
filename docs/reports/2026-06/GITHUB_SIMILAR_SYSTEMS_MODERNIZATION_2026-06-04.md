@@ -3,7 +3,7 @@
 ## Summary
 
 - Sources reviewed: 6
-- Adoption counts: adopted=4, partially_adopted=2, watch=0
+- Adoption counts: adopted=5, partially_adopted=1, watch=0
 - Generated at: `2026-06-05T16:43:21+09:00`
 
 ## Search Context
@@ -111,7 +111,7 @@
 
 - URL: https://github.com/open-webui/mcpo
 - Category: `mcp-openapi-interop`
-- Adoption status: `partially_adopted`
+- Adoption status: `adopted`
 - Why similar: MCP-to-OpenAPI proxy pattern that makes MCP tools available through standard HTTP/OpenAPI contracts.
 - Observed patterns:
   - OpenAPI-compatible HTTP exposure for MCP tools
@@ -124,14 +124,18 @@
   - `tests/test_canva_mcp_openapi_contract.py`
   - `ops/scripts/canva_mcp_proxy_readiness.py`
   - `tests/test_canva_mcp_proxy_readiness.py`
+  - `ops/scripts/canva_mcp_proxy_live_smoke.py`
+  - `tests/test_canva_mcp_proxy_live_smoke.py`
   - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-05.json`
   - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_OPENAPI_CONTRACT_2026-06-05.md`
   - `docs/reports/2026-06/CANVA_MCP_PROXY_READINESS_2026-06-05.md`
   - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_PROXY_READINESS_2026-06-05.md`
+  - `docs/reports/2026-06/CANVA_MCP_PROXY_LIVE_SMOKE_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_PROXY_LIVE_SMOKE_2026-06-05.md`
   - `mcp/canva-mcp/assets/preview.js`
   - `ops/references/mcp_services.json`
-- Gap: Canva MCP now has a static tracked OpenAPI contract and local mcpo-style readiness gate; a live API-key protected proxy endpoint and interactive docs smoke remain future scoped work.
+- Gap: No remaining structural gap for local Canva MCP OpenAPI interop: static contract, readiness gate, live strict-auth proxy smoke, docs probe, and unauthenticated rejection are tracked; future work can add scheduled smoke coverage or production hosting.
 
 ### Uninen/devserver-mcp
 
