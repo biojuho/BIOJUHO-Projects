@@ -341,6 +341,7 @@ const interactionExpression = `
   let backupExportOk = false;
   let backupImportOk = false;
   let backupResetOk = false;
+  let markdownSanitizedOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -473,12 +474,26 @@ const interactionExpression = `
     await nav("notes");
     click('[data-action="note-add"]');
     fill('#noteForm [name="title"]', title);
-    fill('#noteForm [name="body"]', "**release** checklist");
+    fill('#noteForm [name="body"]', [
+      '**release** checklist',
+      '',
+      '<a href="javascript:window.__noteXss=1">unsafe link</a><span onclick="window.__noteXss=1">unsafe attr</span><script>window.__noteXss=1</script>',
+    ].join('\\n'));
     check('#noteForm [name="pinned"]', true);
+    window.__noteXss = 0;
     await confirmModal();
     const note = dashboard.notes.find((item) => item.title === title);
     assert(note && note.pinned, "note was not saved pinned");
     assert(savedPayload().notes.some((item) => item.title === title && item.pinned), "note was not persisted");
+    const noteCard = Array.from(document.querySelectorAll(".note-card"))
+      .find((card) => card.querySelector(".note-title")?.textContent.includes(title));
+    assert(noteCard, "saved note card was not rendered");
+    assert(noteCard.querySelector(".markdown-body strong")?.textContent === "release", "markdown strong text was not rendered");
+    assert(!noteCard.querySelector("script"), "unsafe script tag was not sanitized from note markdown");
+    assert(!noteCard.querySelector("[onclick]"), "unsafe event handler attribute was not sanitized from note markdown");
+    assert(!Array.from(noteCard.querySelectorAll("a")).some((link) => /^javascript:/i.test(link.getAttribute("href") || "")), "unsafe javascript link was not sanitized from note markdown");
+    assert(window.__noteXss === 0, "unsafe note markdown executed script");
+    markdownSanitizedOk = true;
   });
 
   await runStep("habit modal save and day toggle", async () => {
@@ -619,6 +634,16 @@ const interactionExpression = `
   await runStep("settings save and theme", async () => {
     const name = marker + " user";
     await nav("settings");
+    await waitFor(() => document.querySelector("[data-storage-health]"), "storage health panel did not render");
+    click('[data-action="refresh-storage-health"]');
+    await waitFor(() => {
+      const status = document.querySelector("#storageHealthStatus");
+      const local = document.querySelector("[data-storage-local]");
+      const updated = document.querySelector("#storageHealthUpdated");
+      return status && status.textContent.trim().length > 0 &&
+        local && /\\d/.test(local.textContent) &&
+        updated && updated.textContent.trim().length > 0;
+    }, "storage health status did not populate");
     fill('.settings-form [name="displayName"]', name);
     qs(".settings-form").requestSubmit();
     await waitFor(() => document.querySelector(".user strong").textContent === name, "display name did not update");
@@ -695,6 +720,7 @@ const interactionExpression = `
     dbInstance: preImportPayload.dbInstances.some((instance) => instance.name === marker + " db"),
     settings: preImportPayload.settings.displayName === marker + " user",
     backupExport: backupExportOk,
+    markdownSanitized: markdownSanitizedOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);

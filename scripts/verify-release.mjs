@@ -80,6 +80,26 @@ function assertManifestShape(manifest, failures) {
   if (!manifest.sourceCommit || typeof manifest.sourceCommit !== "string") {
     failures.push("manifest sourceCommit is missing");
   }
+  if (!manifest.source || typeof manifest.source !== "object" || Array.isArray(manifest.source)) {
+    failures.push("manifest source metadata is missing");
+  } else {
+    if (manifest.source.commit !== manifest.sourceCommit) {
+      failures.push("manifest source.commit must match sourceCommit");
+    }
+    if (!manifest.source.branch || typeof manifest.source.branch !== "string") {
+      failures.push("manifest source.branch is missing");
+    }
+    if (typeof manifest.source.dirty !== "boolean") {
+      failures.push("manifest source.dirty must be a boolean");
+    }
+    if (!Array.isArray(manifest.source.dirtyFiles)) {
+      failures.push("manifest source.dirtyFiles must be an array");
+    } else if (!manifest.source.dirtyFiles.every((file) => typeof file === "string" && file.length > 0)) {
+      failures.push("manifest source.dirtyFiles must contain non-empty strings");
+    } else if (manifest.source.dirty !== (manifest.source.dirtyFiles.length > 0)) {
+      failures.push("manifest source.dirty must match source.dirtyFiles length");
+    }
+  }
   if (!Array.isArray(manifest.files) || manifest.files.length === 0) {
     failures.push("manifest files must be a non-empty array");
   }
@@ -149,6 +169,8 @@ function verify() {
     files: actual.length,
     bytes: actual.reduce((sum, file) => sum + file.bytes, 0),
     sourceCommit: manifest.sourceCommit,
+    sourceDirty: manifest.source.dirty,
+    sourceDirtyFiles: manifest.source.dirtyFiles.length,
   };
 }
 

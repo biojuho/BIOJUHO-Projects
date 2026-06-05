@@ -1,0 +1,73 @@
+{
+  "generatedAt": "2026-06-05T18:58:40+09:00",
+  "project": "JooPark Workspace",
+  "status": "active",
+  "latestGate": {
+    "command": "node scripts/audit-release-readiness.mjs --run-gates",
+    "status": "pass",
+    "checks": {
+      "pass": 13,
+      "fail": 0,
+      "notRun": 0,
+      "blocked": 0,
+      "total": 13
+    },
+    "browserEvidence": {
+      "routes": 15,
+      "mobileRoutes": 15,
+      "interactionSteps": 17,
+      "consoleIssues": 0,
+      "networkIssues": 0,
+      "layoutIssues": 0
+    }
+  },
+  "experiments": [
+    {
+      "id": "autoresearch-ecosystem-launch-data",
+      "primaryMetric": "autoresearchCandidates",
+      "baseline": 0,
+      "candidate": 10,
+      "decision": "keep"
+    },
+    {
+      "id": "release-audit-autoresearch-coverage",
+      "primaryMetric": "releaseAuditChecks",
+      "baseline": 9,
+      "candidate": 11,
+      "decision": "keep"
+    },
+    {
+      "id": "storage-health-surface",
+      "primaryMetric": "releaseAuditChecks",
+      "baseline": 9,
+      "candidate": 10,
+      "decision": "keep"
+    },
+    {
+      "id": "owned-github-repository-snapshot",
+      "primaryMetric": "ownedGitHubRepos",
+      "baseline": 12,
+      "candidate": 14,
+      "decision": "keep"
+    },
+    {
+      "id": "compatible-vendored-oss-freshness",
+      "primaryMetric": "compatibleOutdatedVendoredLibraries",
+      "baseline": 2,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "release-source-provenance",
+      "primaryMetric": "releaseManifestProvenanceFields",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
+    }
+  ],
+  "nextCandidates": [
+    "publish or remote-state hardening",
+    "direct launch packaging evidence",
+    "deeper UI workflow coverage"
+  ]
+}

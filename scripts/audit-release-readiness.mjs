@@ -43,6 +43,7 @@ const appMarkers = [
   { id: "db_catalog_crud", file: "app.js", terms: ["function saveInstanceFromForm", "function saveTableFromForm", "function saveQueryFromForm", "function saveMigrationFromForm"] },
   { id: "command_palette", file: "app.js", terms: ["function openPalette", "function renderPaletteResults", "_buildPaletteItems"] },
   { id: "persistence", file: "app.js", terms: ["joopark.workspace.v3", "function persist", "function loadPersisted"] },
+  { id: "storage_health", file: "app.js", terms: ["function refreshStorageHealth", "navigator.storage", "data-storage-health", "requestStoragePersistence"] },
 ];
 
 const viewIds = [
@@ -117,6 +118,58 @@ function dataSnapshot(relPath) {
   };
 }
 
+function autoresearchCandidateSnapshot(relPath) {
+  if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
+  const payload = parseJson(read(relPath));
+  const projects = Array.isArray(payload?.projects) ? payload.projects : [];
+  const matches = projects.filter((project) => {
+    const topics = Array.isArray(project.topics) ? project.topics : [];
+    return String(project.category || "").includes("오토리서치") ||
+      topics.includes("autoresearch") ||
+      String(project.name || "").toLowerCase().includes("autoresearch");
+  });
+  const names = new Set(matches.map((project) => project.name));
+  const required = [
+    "karpathy/autoresearch",
+    "Veritas-7/autoresearch-skill-system",
+    "biojuho/autoresearch-skill-system",
+  ];
+  const missing = required.filter((name) => !names.has(name));
+  return {
+    status: matches.length >= 8 && missing.length === 0 ? "pass" : "fail",
+    source: payload?.source || "",
+    generatedAt: payload?.generatedAt || "",
+    candidates: matches.length,
+    required,
+    missing,
+  };
+}
+
+function releaseManifestProvenance() {
+  const relPath = "dist/release/release-manifest.json";
+  if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
+  const manifest = parseJson(read(relPath));
+  const missing = [];
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
+    return { status: "fail", reason: "invalid JSON object" };
+  }
+  if (!manifest.sourceCommit) missing.push("sourceCommit");
+  if (!manifest.source || typeof manifest.source !== "object" || Array.isArray(manifest.source)) {
+    missing.push("source");
+  } else {
+    if (manifest.source.commit !== manifest.sourceCommit) missing.push("source.commit");
+    if (!manifest.source.branch) missing.push("source.branch");
+    if (typeof manifest.source.dirty !== "boolean") missing.push("source.dirty");
+    if (!Array.isArray(manifest.source.dirtyFiles)) missing.push("source.dirtyFiles");
+  }
+  return {
+    status: missing.length === 0 ? "pass" : "fail",
+    sourceCommit: manifest.sourceCommit || "",
+    source: manifest.source || null,
+    missing,
+  };
+}
+
 function verifyRelease() {
   const result = run(process.execPath, ["scripts/verify-release.mjs"], { timeout: 30000 });
   const payload = parseJson(result.stdout);
@@ -177,6 +230,19 @@ function buildChecklist() {
     evidence: markerEvidence,
   });
 
+  const storageTerms = [
+    { file: "app.js", terms: ["function refreshStorageHealth", "typeof manager.estimate", "typeof manager.persisted", "data-storage-health"] },
+    { file: "styles.css", terms: [".storage-health", ".storage-meter", ".storage-grid"] },
+    { file: "README.md", terms: ["저장소 상태", "navigator.storage.estimate", "영속 저장"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["storage health status", "data-storage-health"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "storage_health_monitoring",
+    requirement: "The settings surface shows browser storage usage, quota estimate, persistence state, and verifies the panel in the interaction smoke.",
+    status: storageTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: storageTerms,
+  });
+
   const docTerms = hasTerms("README.md", [
     "node scripts/smoke-release.mjs",
     "node scripts/smoke-mobile.mjs",
@@ -201,12 +267,42 @@ function buildChecklist() {
     evidence: snapshots,
   });
 
+  const autoresearchCandidates = autoresearchCandidateSnapshot("data/adoption-candidates.json");
+  checklist.push({
+    id: "autoresearch_ecosystem_candidates",
+    requirement: "AutoResearch product launch data includes the original project, the Veritas source-backed harness, the user mirror, and a useful ecosystem candidate set.",
+    status: autoresearchCandidates.status,
+    evidence: autoresearchCandidates,
+  });
+
+  const vendorTerms = [
+    { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
+    { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },
+    { file: "vendor/LICENSES.md", terms: ["marked | 18.0.5", "DOMPurify | 3.4.8", "Fuse.js는 7.x부터 UMD"] },
+    { file: "README.md", terms: ["marked](https://github.com/markedjs/marked) | 18.0.5", "DOMPurify](https://github.com/cure53/DOMPurify) | 3.4.8"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["unsafe script tag was not sanitized", "unsafe event handler attribute was not sanitized", "unsafe javascript link was not sanitized", "markdown strong text was not rendered", "markdownSanitized"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "vendored_oss_freshness",
+    requirement: "Compatible vendored Markdown/XSS libraries are refreshed, while Fuse.js remains pinned to the last UMD-compatible line.",
+    status: vendorTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: vendorTerms,
+  });
+
   const verify = verifyRelease();
   checklist.push({
     id: "manifest_integrity",
     requirement: "The release manifest matches actual packaged runtime files by path, byte count, and SHA-256.",
     status: verify.status,
     evidence: verify,
+  });
+
+  const provenance = releaseManifestProvenance();
+  checklist.push({
+    id: "release_source_provenance",
+    requirement: "The release manifest records source commit, branch, dirty state, and dirty file paths so packaged artifacts remain traceable even before commit.",
+    status: provenance.status,
+    evidence: provenance,
   });
 
   if (gateEvidence) {
