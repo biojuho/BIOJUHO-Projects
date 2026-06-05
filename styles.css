@@ -759,9 +759,58 @@ button.bell:hover { background: var(--cyan-22); }
   color: #8aa0bf;
 }
 
+.portfolio-candidate-meta small {
+  margin-left: 5px;
+  color: currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
 .portfolio-candidate-link {
   color: var(--cyan);
   font-weight: 800;
+}
+
+.portfolio-action {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.portfolio-action-blue {
+  border-color: rgba(35, 135, 255, 0.5);
+  background: rgba(35, 135, 255, 0.11);
+  color: #71adff;
+}
+
+.portfolio-action-cyan {
+  border-color: var(--cyan-60);
+  background: var(--cyan-10);
+  color: var(--cyan);
+}
+
+.portfolio-action-green {
+  border-color: rgba(23, 217, 131, 0.5);
+  background: rgba(23, 217, 131, 0.1);
+  color: var(--green);
+}
+
+.portfolio-action-amber {
+  border-color: rgba(247, 169, 40, 0.55);
+  background: rgba(247, 169, 40, 0.12);
+  color: var(--amber);
+}
+
+.portfolio-action-violet {
+  border-color: rgba(169, 112, 255, 0.55);
+  background: rgba(169, 112, 255, 0.12);
+  color: var(--violet);
+}
+
+.portfolio-action-muted {
+  border-color: rgba(127, 145, 173, 0.45);
+  background: rgba(127, 145, 173, 0.11);
+  color: var(--muted);
 }
 
 .portfolio-priority {

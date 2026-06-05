@@ -164,13 +164,36 @@ function projectCandidatePriority(p) {
   return { score, label: candidatePriorityLabel(score) };
 }
 
+function projectCandidateAction(p) {
+  if (!p || p.sourceKind !== "adoption-candidate") return null;
+  const topics = new Set((Array.isArray(p.topics) ? p.topics : []).map((topic) => String(topic).toLowerCase()));
+  const category = String(p.category || "");
+  const priority = projectCandidatePriority(p);
+  if (!safeGithubUrl(p.url)) return { label: "소스 보강", reason: "GitHub 링크 확인", tone: "amber" };
+  if (numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200) return { label: "리스크 리뷰", reason: "이슈/복잡도 확인", tone: "amber" };
+  if (p.adoptionStage === "adopt" || (priority && priority.score >= 72)) return { label: "스파이크", reason: "48h 실험", tone: "green" };
+  if (["local-first", "offline-first", "p2p", "privacy", "sqlite", "yjs", "knowledge-base"].some((topic) => topics.has(topic))) {
+    return { label: "아키텍처 벤치", reason: "로컬 퍼스트 구조", tone: "cyan" };
+  }
+  if (category.includes("프로젝트관리") || ["project-management", "task-management", "kanban", "gantt", "roadmap", "workflows"].some((topic) => topics.has(topic))) {
+    return { label: "PM 벤치", reason: "워크플로 비교", tone: "blue" };
+  }
+  if (category.includes("캘린더") || ["calendar", "scheduling"].some((topic) => topics.has(topic))) {
+    return { label: "일정 UX 벤치", reason: "캘린더 패턴", tone: "violet" };
+  }
+  if (p.adoptionStage === "watch") return { label: "월간 관찰", reason: "변화 추적", tone: "muted" };
+  return { label: "기능 검토", reason: "적합성 확인", tone: "blue" };
+}
+
 function projectAdoptionMeta(p) {
   if (!p || p.sourceKind !== "adoption-candidate") return "";
   const stage = ADOPTION_STAGE_LABEL[p.adoptionStage] || p.adoptionStage || "검토";
   const repoUrl = safeGithubUrl(p.url);
   const priority = projectCandidatePriority(p);
+  const action = projectCandidateAction(p);
   return html`
     <div class="portfolio-candidate-meta" data-candidate-meta>
+      ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
       ${priority ? raw(html`<span class="portfolio-priority" data-candidate-priority="${priority.score}"><b>우선</b> ${priority.label} ${priority.score}</span>`) : ""}
       <span data-candidate-stage="${p.adoptionStage || ""}"><b>단계</b> ${stage}</span>
       <span><b>★</b> ${metricValue(p.stars)}</span>

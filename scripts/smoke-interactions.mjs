@@ -344,6 +344,7 @@ const interactionExpression = `
   let markdownSanitizedOk = false;
   let workspaceCandidateVisibleOk = false;
   let workspaceCompetitiveCandidateVisibleOk = false;
+  let candidateNextActionVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -522,6 +523,8 @@ const interactionExpression = `
     assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
     const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
     assert(benchmarkCandidate && benchmarkCandidate.sourceKind === "adoption-candidate", "Colanode workspace benchmark candidate was not loaded");
+    const riskCandidate = dashboard.projects.find((project) => project.name === "opf/openproject");
+    assert(riskCandidate && projectCandidateAction(riskCandidate)?.label === "리스크 리뷰", "OpenProject candidate risk action was not computed");
     const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
     const ownedCount = dashboard.projects.length - candidateCount;
     click('[data-action="portfolio-filter"][data-filter="candidates"]');
@@ -563,6 +566,9 @@ const interactionExpression = `
     assert(benchmarkText.includes("4,892"), "Colanode star count did not render");
     assert(benchmarkText.includes("300"), "Colanode fork count did not render");
     assert(benchmarkText.includes("TypeScript"), "Colanode language did not render");
+    const action = qs("[data-candidate-action]", benchmarkCard);
+    assert(action.textContent.includes("아키텍처 벤치"), "Colanode candidate action did not render");
+    assert(action.textContent.includes("로컬 퍼스트 구조"), "Colanode candidate action reason did not render");
     const benchmarkHref = qs(".portfolio-candidate-link", benchmarkCard).href;
     assert(benchmarkHref === "https://github.com/colanode/colanode" || benchmarkHref === "https://github.com/colanode/colanode/", "Colanode GitHub link did not render safely");
     fill("#globalSearch", "");
@@ -573,6 +579,7 @@ const interactionExpression = `
     portfolioCandidateFilterOk = true;
     workspaceCandidateVisibleOk = true;
     workspaceCompetitiveCandidateVisibleOk = true;
+    candidateNextActionVisibleOk = true;
   });
 
   let projectId = "";
@@ -786,6 +793,7 @@ const interactionExpression = `
     markdownSanitized: markdownSanitizedOk,
     workspaceCandidateVisible: workspaceCandidateVisibleOk,
     workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
+    candidateNextActionVisible: candidateNextActionVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

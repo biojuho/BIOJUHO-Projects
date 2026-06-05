@@ -436,6 +436,18 @@ function buildChecklist() {
     evidence: candidateRankingTerms,
   });
 
+  const candidateNextActionTerms = [
+    { file: "app.js", terms: ["function projectCandidateAction", "data-candidate-action", "아키텍처 벤치", "리스크 리뷰"] },
+    { file: "styles.css", terms: [".portfolio-action", ".portfolio-action-cyan", ".portfolio-action-amber"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateNextActionVisible", "Colanode candidate action did not render", "OpenProject candidate risk action was not computed"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_next_action",
+    requirement: "Adoption candidate cards expose a deterministic next-action recommendation, with browser smoke coverage for architecture and risk-review actions.",
+    status: candidateNextActionTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateNextActionTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },
