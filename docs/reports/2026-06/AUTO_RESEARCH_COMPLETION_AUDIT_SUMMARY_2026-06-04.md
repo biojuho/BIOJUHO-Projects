@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `65`
-- Status counts: `blocked=1, covered=64`
+- Criteria: `66`
+- Status counts: `blocked=1, covered=65`
 
 ## Missing Required
 
@@ -395,6 +395,12 @@
 - Evidence paths: `5`
 
 ### workspace_smoke_trace_final_event_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
+
+### dailynews_notebooklm_audio_artifact_guard
 
 - Required: `true`
 - Status: `covered`

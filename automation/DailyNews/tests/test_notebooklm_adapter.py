@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import importlib
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -368,7 +367,10 @@ def test_generate_artifact_degrades_without_artifacts_api(mock_notebooklm):
 
 
 def test_export_upload_generates_audio_artifact_without_extra_args(mock_notebooklm, monkeypatch, tmp_path):
-    export_mod = importlib.import_module("export_to_notebooklm")
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "export_to_notebooklm.py"
+    export_mod = ModuleType("export_to_notebooklm_under_test")
+    export_mod.__file__ = str(script_path)
+    exec(compile(script_path.read_text(encoding="utf-8"), str(script_path), "exec"), export_mod.__dict__)
     artifact_calls = []
 
     class UploadAdapter:

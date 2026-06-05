@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T12:30:00+09:00",
+  "generated_at": "2026-06-05T12:30:28+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -183,7 +183,7 @@
             "tests/test_pr_triage.py",
             "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
-            "c0867a6",
+            "0b0515b",
             "packages/shared/llm/reasoning/vibe_tools.py",
             "tests/test_vibe_tools_validation.py",
             "docs/reports/2026-06/AUTO_RESEARCH_VIBE_TOOLS_WORKSPACE_PATH_GUARD_2026-06-05.md",
@@ -195,10 +195,15 @@
             "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.json",
             "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
-            "5caa8d4"
+            "0b0515b",
+            "automation/DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py",
+            "automation/DailyNews/scripts/export_to_notebooklm.py",
+            "automation/DailyNews/tests/test_notebooklm_adapter.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_AUDIO_ARTIFACT_GUARD_2026-06-05.md",
+            "dailynews_notebooklm_audio_artifact_guard"
           ],
           "git_freshness": {
-            "proof_commit": "5caa8d4",
+            "proof_commit": "0b0515b",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -274,7 +279,11 @@
               "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_FINAL_EVENT_2026-06-05.md",
               "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.json",
               "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
-              "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md"
+              "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
+              "automation/DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py",
+              "automation/DailyNews/scripts/export_to_notebooklm.py",
+              "automation/DailyNews/tests/test_notebooklm_adapter.py",
+              "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_AUDIO_ARTIFACT_GUARD_2026-06-05.md"
             ]
           }
         }
@@ -3855,6 +3864,52 @@
             "A/B Contract",
             "workspace_smoke.mcp_trace_complete",
             "partial=false",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dailynews_notebooklm_audio_artifact_guard",
+      "requirement": "DailyNews NotebookLM export and weekly digest audio artifact generation route through the audio artifact method and degrade safely when audio generation is unavailable.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "automation/DailyNews/src/antigravity_mcp/integrations/notebooklm_adapter.py",
+          "must_contain": [
+            "def _artifact_identifier(status: Any) -> str:",
+            "WEEKLY_AUDIO_INSTRUCTIONS",
+            "artifacts = getattr(client, \"artifacts\", None)",
+            "generate_audio",
+            "instructions=WEEKLY_AUDIO_INSTRUCTIONS"
+          ]
+        },
+        {
+          "path": "automation/DailyNews/scripts/export_to_notebooklm.py",
+          "must_contain": [
+            "python -m scripts.export_to_notebooklm --content-types audio report",
+            "artifact_id = await adapter._generate_artifact(client, nb.id, ctype)"
+          ]
+        },
+        {
+          "path": "automation/DailyNews/tests/test_notebooklm_adapter.py",
+          "must_contain": [
+            "test_weekly_digest_generates_audio_artifact",
+            "assert_awaited_once_with",
+            "test_generate_artifact_degrades_without_audio_method",
+            "test_generate_artifact_degrades_without_artifacts_api",
+            "test_export_upload_generates_audio_artifact_without_extra_args"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_AUDIO_ARTIFACT_GUARD_2026-06-05.md",
+          "must_contain": [
+            "DailyNews NotebookLM Audio Artifact Guard",
+            "vercel/ai",
+            "Gemini text-to-speech",
+            "19 passed",
+            "237 passed",
             "global_objective_complete=false"
           ]
         }
