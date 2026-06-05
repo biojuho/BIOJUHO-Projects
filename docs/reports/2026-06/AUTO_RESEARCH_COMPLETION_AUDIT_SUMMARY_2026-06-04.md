@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `82`
-- Status counts: `blocked=1, covered=81`
+- Criteria: `83`
+- Status counts: `blocked=1, covered=82`
 
 ## Missing Required
 
@@ -375,6 +375,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `3`
+
+### github_workflow_fork_remote_flag_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `2`
 
 ### pr_analysis_read_only_split_guard
 

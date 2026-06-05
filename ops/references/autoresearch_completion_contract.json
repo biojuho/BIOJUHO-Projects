@@ -250,7 +250,9 @@
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
             "workspace_smoke_ci_manifest_guard",
             ".github/workflows/workspace-smoke.yml",
-            "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
+            "github_workflow_fork_remote_flag_guard",
+            "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
             "proof_commit": "3145ea1",
@@ -3887,6 +3889,35 @@
             "f3c3efed4301905cff795794790bd4b4719742a4",
             "A/B Contract",
             "6 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_workflow_fork_remote_flag_guard",
+      "requirement": "GitHub Actions workflow tests reject unsupported gh repo fork command lines that combine a repository argument with the --remote flag.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_github_workflows.py",
+          "must_contain": [
+            "test_github_workflows_avoid_unsupported_repo_fork_remote_flag",
+            "gh repo fork ",
+            "--remote",
+            "offenders == []"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
+          "must_contain": [
+            "GitHub Workflow Fork Remote Flag Guard",
+            "google/adk-python",
+            "e87558cb0e39e7594b4dc9fa65ecb72c47f33957",
+            "gh repo fork google/adk-python --clone=false --remote=false || true",
+            "A/B Contract",
+            "7 passed",
             "global_objective_complete=false"
           ]
         }

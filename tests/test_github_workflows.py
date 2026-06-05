@@ -9,6 +9,7 @@ DASHBOARD_DEPLOY_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "deploy-das
 DASHBOARD_RELEASE_REFRESH_WORKFLOW = (
     PROJECT_ROOT / ".github" / "workflows" / "dashboard-release-refresh.yml"
 )
+WORKFLOW_DIR = PROJECT_ROOT / ".github" / "workflows"
 
 
 def test_workspace_smoke_workflow_runs_autoresearch_audit_regression_tests() -> None:
@@ -31,6 +32,16 @@ def test_workspace_smoke_workflow_runs_autoresearch_audits_after_smoke_suite() -
     summary_step = workflow.index("Append summary")
 
     assert smoke_step < audit_step < summary_step
+
+
+def test_github_workflows_avoid_unsupported_repo_fork_remote_flag() -> None:
+    offenders: list[str] = []
+    for workflow_path in sorted(WORKFLOW_DIR.glob("*.yml")):
+        for line_number, line in enumerate(workflow_path.read_text(encoding="utf-8").splitlines(), start=1):
+            if "gh repo fork " in line and "--remote" in line:
+                offenders.append(f"{workflow_path.relative_to(PROJECT_ROOT)}:{line_number}: {line.strip()}")
+
+    assert offenders == []
 
 
 def test_pr_analysis_workflow_is_read_only_and_separate_from_triage_comment() -> None:

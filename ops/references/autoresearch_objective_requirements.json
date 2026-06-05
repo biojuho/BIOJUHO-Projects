@@ -40,7 +40,8 @@
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
         "dashboard_release_refresh_workflow_guard",
-        "agent_workflow_role_policy_guard"
+        "agent_workflow_role_policy_guard",
+        "github_workflow_fork_remote_flag_guard"
       ],
       "evidence": [
         {
@@ -219,6 +220,14 @@
             "role_policy",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
+          "must_contain": [
+            "GitHub Workflow Fork Remote Flag Guard",
+            "gh repo fork",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -349,6 +358,16 @@
             "microsoft/agent-framework",
             "f3c3efed4301905cff795794790bd4b4719742a4",
             "Python: Add GitHub Copilot integration tests to CI workflows",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
+          "must_contain": [
+            "google/adk-python",
+            "e87558cb0e39e7594b4dc9fa65ecb72c47f33957",
+            "gh repo fork google/adk-python --clone=false --remote=false || true",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -698,7 +717,8 @@
         "getdaytrends_prompt_injection_normalization_guard",
         "dashboard_release_refresh_workflow_guard",
         "agent_workflow_role_policy_guard",
-        "workspace_smoke_ci_manifest_guard"
+        "workspace_smoke_ci_manifest_guard",
+        "github_workflow_fork_remote_flag_guard"
       ],
       "evidence": [
         {
@@ -838,6 +858,15 @@
             "A/B Contract",
             "Decision: adopted",
             "6 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted",
+            "7 passed",
             "global_objective_complete=false"
           ]
         }

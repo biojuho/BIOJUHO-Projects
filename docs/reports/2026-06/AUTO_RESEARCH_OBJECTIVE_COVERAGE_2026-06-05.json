@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T05:57:58.654813+00:00",
+  "generated_at": "2026-06-05T06:01:54.757616+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -44,7 +44,8 @@
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
         "dashboard_release_refresh_workflow_guard",
-        "agent_workflow_role_policy_guard"
+        "agent_workflow_role_policy_guard",
+        "github_workflow_fork_remote_flag_guard"
       ],
       "evidence": [
         {
@@ -126,6 +127,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
           "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -213,6 +218,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
           "term_count": 5
         },
         {
@@ -392,7 +401,8 @@
         "getdaytrends_prompt_injection_normalization_guard",
         "dashboard_release_refresh_workflow_guard",
         "agent_workflow_role_policy_guard",
-        "workspace_smoke_ci_manifest_guard"
+        "workspace_smoke_ci_manifest_guard",
+        "github_workflow_fork_remote_flag_guard"
       ],
       "evidence": [
         {
@@ -453,6 +463,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
           "term_count": 4
         }
       ],

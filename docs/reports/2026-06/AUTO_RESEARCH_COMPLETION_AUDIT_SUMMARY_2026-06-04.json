@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 81
+    "covered": 82
   },
-  "criterion_count": 82,
+  "criterion_count": 83,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 112,
+          "term_count": 114,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -2628,6 +2628,27 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_MANIFEST_GUARD_2026-06-05.md",
           "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "github_workflow_fork_remote_flag_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "tests/test_github_workflows.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_WORKFLOW_FORK_REMOTE_FLAG_GUARD_2026-06-05.md",
+          "term_count": 7,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
