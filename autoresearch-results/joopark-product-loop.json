@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T20:27:13+09:00",
+  "generatedAt": "2026-06-05T20:38:23+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 29,
+      "pass": 30,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 29
+      "total": 30
     },
     "browserEvidence": {
       "routes": 15,
@@ -29,6 +29,7 @@
       "releaseHeaderSmokeChecks": 6,
       "releaseFallbackSmokeChecks": 4,
       "pagesPublishWorkflowTemplateChecks": 3,
+      "pagesWorkflowHandoffChecks": 4,
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
@@ -189,10 +190,17 @@
       "baseline": 0,
       "candidate": 3,
       "decision": "keep"
+    },
+    {
+      "id": "github-pages-workflow-scope-handoff",
+      "primaryMetric": "pagesWorkflowHandoffChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
   "publish": {
-    "commit": "3b48ed5",
+    "commit": "tracked release branch head",
     "branch": "codex/joopark-workspace-release",
     "remote": "biojuho-projects",
     "push": "pass",
@@ -202,6 +210,6 @@
   "nextCandidates": [
     "no-common-history PR strategy",
     "deeper UI workflow coverage",
-    "pages workflow scope handoff"
+    "Pages workflow activation verification"
   ]
 }

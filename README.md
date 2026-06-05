@@ -49,7 +49,7 @@ python3 -m http.server 5178
 
 `dist/release/`는 그대로 정적 호스팅에 업로드할 수 있습니다. 패키저는 GitHub Pages용 `404.html`, Netlify용 `_headers`/`_redirects`, Vercel용 `vercel.json`을 함께 생성하며, `node scripts/verify-release.mjs`가 이 배포 지원 파일들의 존재와 핵심 헤더/리다이렉트 설정까지 검증합니다.
 
-GitHub Pages에 배포할 때는 `docs/github-pages-workflow.yml` 템플릿을 `.github/workflows/joopark-pages.yml`로 복사한 뒤 Actions에서 **Publish JooPark Pages** 워크플로우를 `workflow_dispatch`로 실행합니다. 이 워크플로우는 `dist/release/`를 만들고 검증한 뒤 GitHub Pages artifact로 업로드해 Pages 환경에 배포합니다. GitHub가 workflow 파일 push에는 `workflow` scope를 요구하므로, 템플릿 복사는 해당 권한이 있는 토큰이나 GitHub UI에서 수행합니다.
+GitHub Pages에 배포할 때는 `docs/github-pages-workflow.yml` 템플릿을 `.github/workflows/joopark-pages.yml`로 복사한 뒤 Actions에서 **Publish JooPark Pages** 워크플로우를 `workflow_dispatch`로 실행합니다. 먼저 `node scripts/prepare-github-pages-workflow.mjs --dry-run`으로 템플릿과 target 경로를 검증하고, `workflow` scope가 있는 토큰이나 GitHub UI 세션에서 `node scripts/prepare-github-pages-workflow.mjs --write`로 workflow 파일을 설치합니다. 이 워크플로우는 `dist/release/`를 만들고 검증한 뒤 GitHub Pages artifact로 업로드해 Pages 환경에 배포합니다. GitHub가 workflow 파일 push에는 `workflow` scope를 요구하므로, 템플릿 복사는 해당 권한이 있는 토큰이나 GitHub UI에서 수행합니다.
 
 패키지 검증은 프로젝트 루트에서 `BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs`로 실행합니다. 포트가 이미 사용 중이면 다른 포트로 서버를 띄우고 `BASE_URL`도 같은 포트로 바꿉니다.
 체크섬 manifest까지 함께 검증하려면 먼저 `node scripts/verify-release.mjs`를 실행합니다.
