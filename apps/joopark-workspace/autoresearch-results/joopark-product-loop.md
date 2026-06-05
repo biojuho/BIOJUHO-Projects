@@ -344,6 +344,21 @@ Generated: 2026-06-05T19:53:06+09:00
 - `npm run build` and `node scripts/verify-release.mjs` passed after the data refresh; manifest provenance correctly showed dirty source files before commit.
 - `npm run verify` passed 23/23, including the refreshed `autoresearch_ecosystem_candidates` evidence with `fresh: true`, 15 desktop routes, 15 mobile routes, 18 interaction steps, and 0 console/network/layout issues.
 
+## Experiment: Veritas freshness UI smoke
+
+- Hypothesis: The Veritas freshness data is more useful when the portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
+- Primary metric: `veritasCandidateFreshnessVisible`.
+- Baseline: the adoption snapshot and audit required `f1015055ea304ee286831fc9ebbbff971efadac9`, but portfolio cards did not render `lastCommit` and the interaction smoke did not prove the Veritas card could be found by source evidence.
+- Candidate: candidate cards render a short `Commit f1015055` badge with the exact pushedAt marker, project search indexes `lastCommit`, and the packaged interaction smoke searches `f1015055` to verify the Veritas card, commit, pushedAt marker, description, and safe GitHub link.
+- Decision: keep.
+
+## Evidence
+
+- `npm run lint` passed in `apps/joopark-workspace`.
+- `npm run build` and `node scripts/verify-release.mjs` passed after adding the UI badge and smoke coverage.
+- `npm run verify` passed 24/24 with the new `veritas_freshness_ui_smoke` audit item.
+- Packaged interaction smoke reported `veritasCandidateFreshnessVisible: true`, 15 desktop routes, 15 mobile routes, 18 interaction steps, and 0 console/network/layout issues.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: merge Veritas freshness PR, post-release workflow deprecation cleanup, or deeper UI workflow coverage.
+- Continue with the highest-impact product gap after the next full gate: merge Veritas UI smoke PR, post-release workflow deprecation cleanup, or deeper UI workflow coverage.
