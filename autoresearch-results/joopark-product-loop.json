@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T01:32:36+09:00",
+  "generatedAt": "2026-06-06T01:43:36+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -62,7 +62,7 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 8,
+      "candidateFreshnessLiveDriftCount": 0,
       "candidateFreshnessMonitored": 15
     }
   },
@@ -395,6 +395,13 @@
       "baseline": 9,
       "candidate": 8,
       "decision": "keep"
+    },
+    {
+      "id": "remaining-live-drift-refresh",
+      "primaryMetric": "candidateFreshnessLiveDriftCount",
+      "baseline": 9,
+      "candidate": 0,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -410,6 +417,6 @@
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces",
     "promote live drift monitor into scheduled CI once GitHub token policy is confirmed",
-    "refresh remaining live drift rows led by OpenProject PR split and Leantime metadata drift"
+    "add a high-churn Veritas refresh cadence before enabling fail-on-drift automation"
   ]
 }
