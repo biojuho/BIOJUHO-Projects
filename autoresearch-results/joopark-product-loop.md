@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T22:52:44+09:00
+Generated: 2026-06-05T22:56:40+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -467,6 +467,20 @@ Generated: 2026-06-05T22:52:44+09:00
 
 - `BASE_URL=http://127.0.0.1:5181 node scripts/smoke-interactions.mjs` passed with `leantimeCandidateFreshnessVisible: true` and no console/network issues.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 34/34; packaged release evidence includes route smoke 15/15, mobile 15/15, 18 interaction steps, accessibility pass, release header checks 6/6, and fallback checks 4/4.
+
+## Experiment: Veritas AutoResearch refresh v8.374
+
+- Hypothesis: The product launch data should track the current Veritas upstream head instead of the earlier v8.344 evidence when the source-backed harness advances.
+- Primary metric: `veritasFreshnessChecks`.
+- Baseline: Veritas freshness evidence pointed to `96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7` / `2026-06-05T11:55:44Z`.
+- Candidate: `data/adoption-candidates.json`, the release audit, and the packaged interaction smoke now require Veritas `lastCommit: b0d4177dadce49f78f6978a2a36c777698ca9cb2`, `pushedAt: 2026-06-05T13:51:51Z`, and a `b0d4177d` portfolio commit search.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `b0d4177dadce49f78f6978a2a36c777698ca9cb2` with message `v8.374 Quality Manifest Status Evidence Exposure Gate`.
+- `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T13:51:51Z`, `updated_at: 2026-06-05T13:52:02Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 34/34 with `autoresearch_ecosystem_candidates.veritas.fresh: true`.
 
 ## Next Loop
 
