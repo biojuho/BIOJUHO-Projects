@@ -909,6 +909,22 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkReviewHandoffCopyVisible`.
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_review_handoff_copy`.
 
+## Experiment: Taskosaur benchmark review issue draft
+
+- Hypothesis: Benchmark review handoff becomes more actionable when the primary decision can be converted into a PM issue draft without leaving the focused queue.
+- Primary metric: Taskosaur/Workstream benchmark review issue draft checks.
+- Baseline: 0 PM issue draft checks for the review handoff export.
+- Candidate: the focused benchmark review handoff now renders a Taskosaur PM issue draft with title, project, priority, labels, stable source key, and an `이슈 생성` action that persists the draft into `dashboard.issues`.
+- Decision: keep; interaction smoke passed with `candidateBenchmarkReviewIssueDraftVisible: true` after creating an issue with source key `benchmark-review:repo-taskosaur-taskosaur:86`.
+
+## Evidence
+
+- `app.js` now includes `benchmarkReviewIssueDraft`, `candidateBenchmarkReviewIssueDraft`, and `createBenchmarkReviewIssue`.
+- `styles.css` now includes `.portfolio-review-issue-draft`, `.portfolio-issue-draft-grid`, and `.portfolio-issue-draft-body`.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkReviewIssueDraftVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_review_issue_draft`.
+- Baseline `npm run verify` was 47/47; the candidate expands the audit target to 48 checks.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, convert the benchmark handoff export into a PM issue draft, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.

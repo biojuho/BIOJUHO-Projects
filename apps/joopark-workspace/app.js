@@ -1249,6 +1249,7 @@ function candidateBenchmarkReviewQueueHandoff(decisions) {
           <strong>${decisions.length}개</strong>
         </div>
       </div>
+      ${raw(candidateBenchmarkReviewIssueDraft(decisions))}
       <pre class="portfolio-export-body" data-review-handoff-text>${markdown}</pre>
     </section>
   `;
@@ -1269,6 +1270,59 @@ function candidateBenchmarkReviewQueueMarkdown(decisions) {
     "## Decisions",
     ...rows,
   ].join("\n");
+}
+
+function benchmarkReviewIssueDraft(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return null;
+  const primary = decisions[0];
+  if (!primary || !primary.project || !primary.decision) return null;
+  const secondary = decisions.find((item) => item.decision.rank > 1);
+  const labels = ["benchmark", "handoff", "adoption"];
+  return {
+    title: `[Benchmark] ${primary.project.name} ${primary.decision.status}`,
+    projectId: primary.project.id,
+    projectName: primary.project.name,
+    priority: primary.decision.score >= 86 ? "high" : "med",
+    status: "todo",
+    estimate: 4,
+    labels,
+    persistKey: primary.decision.persistKey,
+    body: [
+      `Decision: ${primary.project.name} ${primary.decision.status} (${primary.decision.label} ${primary.decision.score})`,
+      `Persist key: ${primary.decision.persistKey}`,
+      `Reason: ${primary.decision.reason}`,
+      secondary ? `Compare with: ${secondary.project.name} ${secondary.decision.status} (${secondary.decision.label} ${secondary.decision.score})` : "",
+    ].filter(Boolean).join("\n"),
+  };
+}
+
+function candidateBenchmarkReviewIssueDraft(decisions) {
+  const draft = benchmarkReviewIssueDraft(decisions);
+  if (!draft) return "";
+  const existing = dashboard.issues.find((issue) => issue.sourceKey === draft.persistKey);
+  return html`
+    <section class="portfolio-review-issue-draft" data-review-issue-draft data-issue-draft-title="${draft.title}" data-issue-draft-project="${draft.projectName}" data-issue-draft-priority="${draft.priority}" data-issue-draft-key="${draft.persistKey}" data-issue-draft-created="${existing ? "true" : "false"}" data-issue-draft-id="${existing ? existing.id : ""}">
+      <div class="portfolio-issue-draft-head">
+        <span>PM issue draft</span>
+        <button type="button" class="portfolio-export-download portfolio-issue-draft-create" data-action="create-review-issue" data-review-issue-create data-review-issue-key="${draft.persistKey}" ${raw(existing ? "disabled" : "")}>${existing ? "생성됨" : "이슈 생성"}</button>
+      </div>
+      <div class="portfolio-issue-draft-grid">
+        <div>
+          <span>제목</span>
+          <strong>${draft.title}</strong>
+        </div>
+        <div>
+          <span>프로젝트</span>
+          <strong>${draft.projectName}</strong>
+        </div>
+        <div>
+          <span>우선순위</span>
+          <strong>${ISSUE_PRIORITY_MAP[draft.priority]}</strong>
+        </div>
+      </div>
+      <pre class="portfolio-issue-draft-body" data-issue-draft-body>${draft.body}</pre>
+    </section>
+  `;
 }
 
 async function writeClipboardText(text) {
@@ -1308,6 +1362,48 @@ function copyBenchmarkReviewHandoff(target) {
     if (status) status.textContent = copied ? "복사됨" : "복사 실패";
     showToast(copied ? "handoff를 복사했습니다" : "복사 실패", copied ? "info" : "error");
   });
+}
+
+function createBenchmarkReviewIssue(target) {
+  const handoff = target.closest("[data-benchmark-review-handoff]");
+  const key = target.dataset.reviewIssueKey || "";
+  if (!handoff || !key) {
+    showToast("이슈 초안을 찾을 수 없습니다", "warn");
+    return;
+  }
+  const draftNode = handoff.querySelector("[data-review-issue-draft]");
+  const title = draftNode ? draftNode.dataset.issueDraftTitle : "";
+  const projectName = draftNode ? draftNode.dataset.issueDraftProject : "";
+  const project = dashboard.projects.find((item) => item.name === projectName);
+  if (!title || !project) {
+    showToast("이슈 초안 프로젝트를 찾을 수 없습니다", "warn");
+    return;
+  }
+  const existing = dashboard.issues.find((issue) => issue.sourceKey === key);
+  if (existing) {
+    showToast(`이미 생성된 이슈입니다: ${existing.id}`, "info");
+    renderCurrentView();
+    return;
+  }
+  const body = draftNode ? draftNode.querySelector("[data-issue-draft-body]")?.textContent || "" : "";
+  const priority = draftNode ? draftNode.dataset.issueDraftPriority || "med" : "med";
+  const newIssue = {
+    id: uid("issue"),
+    project: project.id,
+    title,
+    status: "todo",
+    priority,
+    assignee: "",
+    labels: ["benchmark", "handoff", "adoption"],
+    due: null,
+    estimate: 4,
+    sourceKey: key,
+    body,
+  };
+  dashboard.issues.push(newIssue);
+  rebuildIndexes();
+  commit();
+  showToast(`이슈 초안을 생성했습니다: ${newIssue.id}`, "info");
 }
 
 function sortPortfolioProjects(projects) {
@@ -5750,6 +5846,7 @@ function handleActions(event) {
   if (action === "portfolio-action-filter") { setPortfolioActionFilter(target.dataset.actionFilter); return; }
   if (action === "portfolio-benchmark-filter") { setPortfolioBenchmarkFilter(target.dataset.benchmarkFilter); return; }
   if (action === "copy-review-handoff") { copyBenchmarkReviewHandoff(target); return; }
+  if (action === "create-review-issue") { createBenchmarkReviewIssue(target); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }
