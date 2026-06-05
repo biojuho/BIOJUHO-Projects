@@ -221,14 +221,39 @@ function workspaceCandidateSnapshot(relPath) {
   const freshnessCommitPattern = /^[0-9a-f]{40}$/i;
   const workspaceFreshnessExpectations = [
     {
+      key: "colanode",
+      name: "colanode/colanode",
+      sourceMarker: "github-api:colanode-freshness-refresh",
+    },
+    {
       key: "openProject",
       name: "opf/openproject",
       sourceMarker: "github-api:openproject-freshness-refresh",
     },
     {
+      key: "parabol",
+      name: "ParabolInc/parabol",
+      sourceMarker: "github-api:parabol-freshness-refresh",
+    },
+    {
       key: "leantime",
       name: "Leantime/leantime",
       sourceMarker: "github-api:leantime-freshness-refresh",
+    },
+    {
+      key: "worklenz",
+      name: "Worklenz/worklenz",
+      sourceMarker: "github-api:worklenz-freshness-refresh",
+    },
+    {
+      key: "anytype",
+      name: "anyproto/anytype-ts",
+      sourceMarker: "github-api:anytype-freshness-refresh",
+    },
+    {
+      key: "focalboard",
+      name: "mattermost-community/focalboard",
+      sourceMarker: "github-api:focalboard-freshness-refresh",
     },
   ];
   const freshness = Object.fromEntries(workspaceFreshnessExpectations.map((item) => {
@@ -389,8 +414,8 @@ function buildChecklist() {
 
   const workflowHandoffDryRun = githubPagesWorkflowHandoffDryRun();
   const workflowHandoffTerms = [
-    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "workflowScopeRequired", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath"] },
-    { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --write", "repository root", "workflow` scope"] },
+    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "--check-scope", "workflowScopeRequired", "workflowScopeAvailable", "missing workflow scope", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath"] },
+    { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope", "node scripts/prepare-github-pages-workflow.mjs --write", "repository root", "workflowScopeAvailable", "workflow` scope"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const workflowHandoffFiles = workflowHandoffScripts.map((path) => ({ path, exists: fileExists(path) }));
   checklist.push({
@@ -642,6 +667,20 @@ function buildChecklist() {
     requirement: "The portfolio UI exposes the refreshed Leantime upstream commit and pushedAt marker, and interaction smoke can find the project-management candidate by commit.",
     status: leantimeFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: leantimeFreshnessUiTerms,
+  });
+
+  const workspaceBenchmarkFreshnessUiTerms = [
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotColanode", "shortColanodeCommit", "Colanode freshness commit did not render", "colanodeCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotParabol", "shortParabolCommit", "Parabol freshness commit did not render", "parabolCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorklenz", "shortWorklenzCommit", "Worklenz freshness commit did not render", "worklenzCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAnytype", "shortAnytypeCommit", "Anytype freshness commit did not render", "anytypeCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotFocalboard", "shortFocalboardCommit", "Focalboard freshness commit did not render", "focalboardCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "workspace_benchmark_freshness_ui_smoke",
+    requirement: "The portfolio UI exposes refreshed Colanode, Parabol, Worklenz, Anytype, and Focalboard upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
+    status: workspaceBenchmarkFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: workspaceBenchmarkFreshnessUiTerms,
   });
 
   const candidateMetadataRefreshTerms = [

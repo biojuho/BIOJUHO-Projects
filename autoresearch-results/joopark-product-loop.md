@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T00:05:33+09:00
+Generated: 2026-06-06T00:38:38+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -552,6 +552,48 @@ Generated: 2026-06-06T00:05:33+09:00
 - `rg` found no OpenProject or Leantime exact commit, pushedAt, or short commit literals in the audit and interaction smoke scripts after the candidate change.
 - `npm run verify` passed `35/35` after regenerating `dist/release`.
 
+## Experiment: GitHub Pages workflow scope preflight
+
+- Hypothesis: Pages workflow activation is safer when the handoff script detects missing `workflow` scope before writing the repository-root workflow file.
+- Primary metric: Pages workflow scope preflight checks.
+- Baseline: `scripts/prepare-github-pages-workflow.mjs --write` validated the template and explicit write mode, but did not inspect the current GitHub token scope before attempting the repository-root workflow write.
+- Candidate: `scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` reports `workflowScopeAvailable`, and `--write` fails before creating `.github/workflows/joopark-pages.yml` when the current token lacks `workflow` scope.
+- Decision: keep; current token lacks `workflow` scope, so activation remains a follow-up for a workflow-scope token or GitHub UI session.
+
+## Evidence
+
+- `gh api -i user` reported `X-Oauth-Scopes: gist, read:org, repo`, with no `workflow` scope.
+- `node scripts/prepare-github-pages-workflow.mjs --dry-run` passed with `workflowScopeChecked: false`, `workflowScopeAvailable: null`, and `willWrite: false`.
+- `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` passed with `workflowScopeChecked: true`, `workflowScopeAvailable: false`, and scopes `gist`, `read:org`, `repo`.
+- `node scripts/prepare-github-pages-workflow.mjs --write` failed before writing with `reason: missing workflow scope`, `workflowScopeAvailable: false`, and no `.github/workflows/joopark-pages.yml` file created.
+
+## Experiment: Workspace benchmark HEAD freshness refresh
+
+- Hypothesis: The benchmark queue is more useful for launch triage when Colanode, Parabol, and Worklenz carry commit-level freshness evidence, not only repo-level pushedAt metadata.
+- Primary metric: workspace benchmark HEAD snapshots.
+- Baseline: only OpenProject and Leantime had `lastCommit` snapshots and commit-search browser smoke coverage.
+- Candidate: `data/adoption-candidates.json` now records `lastCommit` for `colanode/colanode`, `ParabolInc/parabol`, and `Worklenz/worklenz`, while audit and interaction smoke require source markers plus commit-search UI coverage for all three.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/colanode/colanode/commits/main` returned `d649523637f0f059c936418488165d4a689da27c` dated `2026-04-03T09:33:46Z`; repo metadata returned `pushed_at: 2026-04-03T14:23:17Z`, 4,892 stars, 300 forks, 44 open issues, and size 79,013 KB.
+- `gh api repos/ParabolInc/parabol/commits/master` returned `f1c60852df00522c74ba9ab49127fd72103ea519` dated `2026-06-04T00:13:54Z`; repo metadata returned `pushed_at: 2026-06-04T00:16:02Z`, 2,002 stars, 366 forks, 68 open issues, and size 149,121 KB.
+- `gh api repos/Worklenz/worklenz/commits/main` returned `c4c32686587ad0d2fcd0b0b7c806a04858f03f7b` dated `2026-02-25T14:39:35Z`; repo metadata returned `pushed_at: 2026-02-25T14:39:35Z`, 3,067 stars, 321 forks, 62 open issues, and size 13,805 KB.
+
+## Experiment: Workspace benchmark HEAD freshness coverage
+
+- Hypothesis: After the benchmark HEAD refresh, the next highest-value coverage gain is to add commit-level evidence for Anytype and Focalboard so local-first knowledge and Kanban benchmark rows are comparable with the PM rows.
+- Primary metric: workspace benchmark HEAD snapshots.
+- Baseline: 5 of 14 local-first/project-management candidates had source-backed `lastCommit` snapshots after PR #167.
+- Candidate: 7 of 14 candidates now carry source-backed `lastCommit` snapshots, adding `anyproto/anytype-ts` and `mattermost-community/focalboard`; audit and interaction smoke require both candidates by short commit.
+- Decision: keep; the rebased release gate remains the deciding proof.
+
+## Evidence
+
+- `gh api repos/anyproto/anytype-ts/commits/develop` returned `153917ec6d28e41da672ad93cd9448a644dacfb8` dated `2026-06-04T23:49:47Z`; repo metadata returned `pushed_at: 2026-06-05T02:04:08Z`, 8,037 stars, 517 forks, 169 open issues, and size 985,782 KB.
+- `gh api repos/mattermost-community/focalboard/commits/main` returned `a84bbb65e32edf972856b329417096ac413518e9` dated `2025-06-11T13:30:05Z`; repo metadata returned `pushed_at: 2026-05-18T16:05:00Z`, 26,212 stars, 2,544 forks, 779 open issues, and size 59,223 KB.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: verify dynamic PM benchmark freshness in CI, verify Pages workflow activation, or refresh the next workspace benchmark freshness signal.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, refresh Epicenter and OpenLoaf benchmark commit snapshots, or add a drift monitor for candidate freshness metadata.

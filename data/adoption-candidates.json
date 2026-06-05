@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T00:05:33+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh",
+  "generatedAt": "2026-06-06T00:38:38+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -833,16 +833,16 @@
       "deadline": "2026-07-31",
       "burn": [0, 1, 2, 3, 4, 5, 6],
       "risks": 2,
-      "openIssues": 728,
+      "openIssues": 779,
       "openPRs": 51,
       "mergedPRs": 0,
       "closedIssues": 0,
-      "stars": 26211,
-      "forks": 2542,
+      "stars": 26212,
+      "forks": 2544,
       "diskKb": 59223,
       "pushedAt": "2026-05-18T16:05:00Z",
       "createdAt": "2020-10-06T16:46:23Z",
-      "lastCommit": null
+      "lastCommit": "a84bbb65e32edf972856b329417096ac413518e9"
     },
     {
       "id": "repo-ioniks-markdowntaskmanager",
@@ -958,7 +958,7 @@
       "diskKb": 79013,
       "pushedAt": "2026-04-03T14:23:17Z",
       "createdAt": "2024-07-29T07:02:36Z",
-      "lastCommit": null
+      "lastCommit": "d649523637f0f059c936418488165d4a689da27c"
     },
     {
       "id": "repo-anyproto-anytype-ts",
@@ -982,12 +982,12 @@
       "openPRs": 0,
       "mergedPRs": 0,
       "closedIssues": 0,
-      "stars": 8034,
+      "stars": 8037,
       "forks": 517,
       "diskKb": 985782,
       "pushedAt": "2026-06-05T02:04:08Z",
       "createdAt": "2023-05-22T10:39:33Z",
-      "lastCommit": null
+      "lastCommit": "153917ec6d28e41da672ad93cd9448a644dacfb8"
     },
     {
       "id": "repo-opf-openproject",
@@ -1045,7 +1045,7 @@
       "diskKb": 149121,
       "pushedAt": "2026-06-04T00:16:02Z",
       "createdAt": "2015-12-21T17:16:49Z",
-      "lastCommit": null
+      "lastCommit": "f1c60852df00522c74ba9ab49127fd72103ea519"
     },
     {
       "id": "repo-leantime-leantime",
@@ -1099,11 +1099,11 @@
       "mergedPRs": 0,
       "closedIssues": 0,
       "stars": 3067,
-      "forks": 322,
+      "forks": 321,
       "diskKb": 13805,
       "pushedAt": "2026-02-25T14:39:35Z",
       "createdAt": "2024-05-16T05:51:01Z",
-      "lastCommit": null
+      "lastCommit": "c4c32686587ad0d2fcd0b0b7c806a04858f03f7b"
     }
   ]
 }

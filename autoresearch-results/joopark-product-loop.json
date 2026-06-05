@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T00:05:33+09:00",
+  "generatedAt": "2026-06-06T00:38:38+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 35,
+      "pass": 36,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 35
+      "total": 36
     },
     "browserEvidence": {
       "routes": 15,
@@ -34,6 +34,7 @@
       "releaseFallbackSmokeChecks": 4,
       "pagesPublishWorkflowTemplateChecks": 3,
       "pagesWorkflowHandoffChecks": 5,
+      "pagesWorkflowScopePreflightChecks": 3,
       "mainBridgeStrategyChecks": 5,
       "candidateMetadataRefreshChecks": 1,
       "veritasHardcodedFreshnessLiterals": 0,
@@ -44,7 +45,14 @@
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
-      "layoutIssues": 0
+      "layoutIssues": 0,
+      "colanodeCandidateFreshnessVisible": true,
+      "parabolCandidateFreshnessVisible": true,
+      "worklenzCandidateFreshnessVisible": true,
+      "anytypeCandidateFreshnessVisible": true,
+      "focalboardCandidateFreshnessVisible": true,
+      "workspaceBenchmarkHeadSnapshots": 7,
+      "workspaceBenchmarkFreshnessChecks": 30
     }
   },
   "experiments": [
@@ -320,6 +328,27 @@
       "baseline": 16,
       "candidate": 0,
       "decision": "keep"
+    },
+    {
+      "id": "github-pages-workflow-scope-preflight",
+      "primaryMetric": "pagesWorkflowScopePreflightChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
+    },
+    {
+      "id": "workspace-benchmark-head-freshness-refresh",
+      "primaryMetric": "workspaceBenchmarkHeadSnapshots",
+      "baseline": 2,
+      "candidate": 5,
+      "decision": "keep"
+    },
+    {
+      "id": "workspace-benchmark-head-freshness-coverage",
+      "primaryMetric": "workspaceBenchmarkHeadSnapshots",
+      "baseline": 5,
+      "candidate": 7,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -331,8 +360,9 @@
     "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
   },
   "nextCandidates": [
-    "verify dynamic PM benchmark freshness in CI",
-    "Pages workflow activation verification",
-    "next workspace benchmark freshness refresh"
+    "install Pages workflow with a workflow-scope token or GitHub UI session",
+    "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
+    "refresh Epicenter and OpenLoaf benchmark commit snapshots",
+    "candidate freshness metadata drift monitor"
   ]
 }
