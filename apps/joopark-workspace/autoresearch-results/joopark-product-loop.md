@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T01:43:36+09:00
+Generated: 2026-06-06T01:53:32+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -686,6 +686,20 @@ Generated: 2026-06-06T01:43:36+09:00
 - The same GraphQL run returned Epicenter `diskUsage: 59907`, Focalboard `stargazerCount: 26211`, Colanode `openPRs: 7`, Anytype `openPRs: 7`, OpenProject `pushedAt: 2026-06-05T15:36:21Z`, `openPRs: 211`, `diskUsage: 2705667`, Parabol `openPRs: 4`, Leantime `stargazerCount: 9988`, issue+PR aggregate 318, `openPRs: 2`, and Worklenz `openPRs: 9`.
 - `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` passed with 15 monitored candidates and 15 GitHub API source markers.
 - `node scripts/check-candidate-freshness-drift.mjs --live` passed with `driftCount: 0`.
+
+## Experiment: Candidate freshness repo filter
+
+- Hypothesis: Before scheduled fail-on-drift automation, operators need a focused check for high-churn repos such as Veritas so one fast-moving source does not obscure the rest of the candidate queue.
+- Primary metric: candidate freshness repo filter checks.
+- Baseline: the drift monitor could only scan every source-backed adoption candidate, so checking a single high-churn repo required reading the full live drift payload.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` now accepts repeatable `--repo owner/name` filters in snapshot-only and live modes, includes `repoFilters` in JSON output, and documents the focused Veritas command in the README.
+- Decision: keep; filtered checks make Veritas refresh cadence and future fail-on-drift automation easier to operate.
+
+## Evidence
+
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system` passed with `monitored: 1` and `repoFilters: ["veritas-7/autoresearch-skill-system"]`.
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo=https://github.com/Veritas-7/autoresearch-skill-system/` passed, proving URL-form filters normalize to the same repo key.
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system` reported only the Veritas drift after upstream moved again from `5da25eadef357ad63a9083b0ca45eb5a2d8ebd26` to `d95324fed121fc359cacf96cfc1aefb9fc2b141b` (`v8.417 api key header redaction`, `2026-06-05T16:51:33Z`).
 
 ## Next Loop
 
