@@ -33,6 +33,7 @@ def test_build_report_counts_actions_and_messages() -> None:
 
     assert report["tool"] == "canva_widget_click_smoke"
     assert report["summary"] == {"actions": 2, "passed": 1, "failed": 1, "messages": 1}
+    assert report["messages"][0]["capture_index"] == 0
     assert report["failures"] == ["open-design-keyboard: timeout"]
 
 
@@ -51,7 +52,43 @@ def test_format_markdown_lists_actions_messages_and_failures() -> None:
     assert "Canva Widget Click Smoke" in markdown
     assert "Status: `pass`" in markdown
     assert "`PASS` `select-candidate-keyboard`" in markdown
-    assert "`canva-create-from-candidate` `candidate_2`" in markdown
+    assert "`0` `canva-create-from-candidate` `candidate_2`" in markdown
+
+
+def test_build_report_preserves_capture_order_over_payload_timestamps() -> None:
+    smoke = load_click_smoke_module()
+    first_message = {
+        "capture_index": 0,
+        "type": "canva-create-from-candidate",
+        "data": {
+            "candidateId": "candidate_1",
+            "createdAt": "2026-06-05T10:00:00Z",
+            "parts": [{"createdAt": "2026-06-05T10:00:30Z"}],
+        },
+    }
+    second_message = {
+        "capture_index": 1,
+        "type": "canva-design-clicked",
+        "data": {
+            "designId": "design_1",
+            "createdAt": "2026-06-05T10:00:03Z",
+        },
+    }
+
+    report = smoke.build_report(
+        "http://127.0.0.1:5176/src/dev/preview.html",
+        [],
+        [first_message, second_message],
+        [],
+        status="pass",
+    )
+
+    assert [message["capture_index"] for message in report["messages"]] == [0, 1]
+    assert [message["type"] for message in report["messages"]] == [
+        "canva-create-from-candidate",
+        "canva-design-clicked",
+    ]
+    assert report["messages"][0]["data"]["parts"][0]["createdAt"] == "2026-06-05T10:00:30Z"
 
 
 def test_record_action_captures_unexpected_exceptions() -> None:

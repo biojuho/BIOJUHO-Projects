@@ -64,9 +64,11 @@ def run_click_smoke(url: str = DEFAULT_URL, *, timeout_seconds: float = 20.0) ->
         page.add_init_script(
             """
             window.__canvaClickMessages = [];
+            window.__canvaClickMessageSequence = 0;
             window.addEventListener('message', (event) => {
               const data = event.data || {};
               window.__canvaClickMessages.push({
+                capture_index: window.__canvaClickMessageSequence++,
                 type: data.type || null,
                 data: data.data || null
               });
@@ -257,7 +259,20 @@ def _wait_for_message(page, message_type: str, id_field: str, expected_id: str, 
 
 def _captured_messages(page) -> list[dict[str, Any]]:
     messages = page.evaluate("window.__canvaClickMessages || []")
-    return messages if isinstance(messages, list) else []
+    return _normalize_messages(messages if isinstance(messages, list) else [])
+
+
+def _normalize_messages(messages: list[Any]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict):
+            continue
+        item = dict(message)
+        capture_index = item.get("capture_index")
+        if not isinstance(capture_index, int) or isinstance(capture_index, bool):
+            item["capture_index"] = index
+        normalized.append(item)
+    return normalized
 
 
 def build_report(
@@ -268,6 +283,7 @@ def build_report(
     *,
     status: str,
 ) -> dict[str, Any]:
+    normalized_messages = _normalize_messages(messages)
     return {
         "schema_version": 1,
         "tool": "canva_widget_click_smoke",
@@ -278,10 +294,10 @@ def build_report(
             "actions": len(actions),
             "passed": sum(1 for action in actions if action.ok),
             "failed": sum(1 for action in actions if not action.ok),
-            "messages": len(messages),
+            "messages": len(normalized_messages),
         },
         "actions": [asdict(action) for action in actions],
-        "messages": messages,
+        "messages": normalized_messages,
         "failures": failures,
     }
 
@@ -312,7 +328,7 @@ def format_markdown(report: dict[str, Any]) -> str:
         lines.append("- none")
     for message in report["messages"]:
         data = message.get("data") if isinstance(message, dict) else None
-        lines.append(f"- `{message.get('type')}` `{_message_id(data)}`")
+        lines.append(f"- `{message.get('capture_index')}` `{message.get('type')}` `{_message_id(data)}`")
 
     if report["failures"]:
         lines.extend(["", "## Failures", ""])

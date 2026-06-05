@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T04:07:29.430011+00:00",
+  "generated_at": "2026-06-05T04:17:17.431965+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -138,7 +138,8 @@
         "external_credential_consent_items_guard",
         "dailynews_notebooklm_speech_alias_guard",
         "pr_analysis_comment_trigger_guard",
-        "typescript_experimental_export_seam_guard"
+        "typescript_experimental_export_seam_guard",
+        "canva_widget_message_capture_order_guard"
       ],
       "evidence": [
         {
@@ -244,6 +245,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_TYPESCRIPT_EXPERIMENTAL_EXPORT_SEAM_GUARD_2026-06-05.md",
           "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_MESSAGE_CAPTURE_ORDER_2026-06-05.md",
+          "term_count": 5
         }
       ],
       "id": "github_related_project_research",
@@ -290,7 +295,8 @@
         "remaining_gap_tracking",
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
-        "github_commit_digest_naive_utc_timestamp_guard"
+        "github_commit_digest_naive_utc_timestamp_guard",
+        "canva_widget_message_capture_order_guard"
       ],
       "evidence": [
         {
@@ -312,6 +318,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_TIMESTAMP_NAIVE_UTC_GUARD_2026-06-05.md",
           "term_count": 6
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_MESSAGE_CAPTURE_ORDER_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "continuous_ab_adoption_commit_push",
@@ -339,7 +349,8 @@
         "canva_mcp_sdk_floor_guard",
         "dashboard_falsy_credential_metadata_guard",
         "browser_smoke_clear_error_expected_text_guard",
-        "desci_job_stream_partial_false_guard"
+        "desci_job_stream_partial_false_guard",
+        "canva_widget_message_capture_order_guard"
       ],
       "evidence": [
         {
@@ -409,6 +420,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_JOB_STREAM_PARTIAL_FALSE_GUARD_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_MESSAGE_CAPTURE_ORDER_2026-06-05.md",
+          "term_count": 5
         }
       ],
       "id": "direct_app_click_qa",
@@ -463,7 +478,8 @@
         "github_commit_digest_naive_utc_timestamp_guard",
         "dailynews_notebooklm_speech_alias_guard",
         "pr_analysis_comment_trigger_guard",
-        "typescript_experimental_export_seam_guard"
+        "typescript_experimental_export_seam_guard",
+        "canva_widget_message_capture_order_guard"
       ],
       "evidence": [
         {
@@ -593,6 +609,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_TYPESCRIPT_EXPERIMENTAL_EXPORT_SEAM_GUARD_2026-06-05.md",
           "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_MESSAGE_CAPTURE_ORDER_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "beyond_user_expected_quality",

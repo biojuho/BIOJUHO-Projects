@@ -11,11 +11,11 @@
 | Requirement | Status | Criteria | Evidence paths |
 | --- | --- | ---: | ---: |
 | `launch_ready_product_hardening` | `covered_current_cycle` | `17` | `14` |
-| `github_related_project_research` | `continuous` | `31` | `26` |
+| `github_related_project_research` | `continuous` | `32` | `27` |
 | `self_improving_autoresearch_skill` | `covered_current_cycle` | `4` | `2` |
-| `continuous_ab_adoption_commit_push` | `continuous` | `6` | `5` |
-| `direct_app_click_qa` | `covered_current_cycle` | `13` | `17` |
-| `beyond_user_expected_quality` | `covered_current_cycle` | `42` | `32` |
+| `continuous_ab_adoption_commit_push` | `continuous` | `7` | `6` |
+| `direct_app_click_qa` | `covered_current_cycle` | `14` | `18` |
+| `beyond_user_expected_quality` | `covered_current_cycle` | `43` | `33` |
 | `external_credential_and_runtime_boundaries` | `blocked_external` | `14` | `9` |
 
 ## Continuous Requirements

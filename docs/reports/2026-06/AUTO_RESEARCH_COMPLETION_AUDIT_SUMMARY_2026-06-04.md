@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `71`
-- Status counts: `blocked=1, covered=70`
+- Criteria: `72`
+- Status counts: `blocked=1, covered=71`
 
 ## Missing Required
 
@@ -435,6 +435,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### canva_widget_message_capture_order_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### external_credential_boundaries
 
