@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T03:22:05+09:00",
+  "generatedAt": "2026-06-06T03:38:01+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -68,7 +68,7 @@
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
       "veritasFocusedDriftRefreshChecks": 3,
-      "veritasFocusedSnapshotVersion": "v8.442",
+      "veritasFocusedSnapshotVersion": "v8.452",
       "veritasSnapshotWriterChecks": 7,
       "veritasSnapshotWriterDryRun": true,
       "veritasSnapshotWriterWrite": true,
@@ -493,6 +493,13 @@
       "primaryMetric": "taskosaurWorkstreamBenchmarkRubricChecks",
       "baseline": 0,
       "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-writer-refresh-v8452",
+      "primaryMetric": "veritasSnapshotWriterWrite",
+      "baseline": 0,
+      "candidate": 1,
       "decision": "keep"
     }
   ],

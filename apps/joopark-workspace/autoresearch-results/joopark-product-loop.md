@@ -817,6 +817,19 @@ Generated: 2026-06-06T03:22:05+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_rubric`.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 42/42.
 
+## Experiment: Veritas writer refresh v8.452
+
+- Hypothesis: After the benchmark comparison rubric landed on main, the release snapshot should still track the current high-churn Veritas source before promoting the next PR.
+- Primary metric: Veritas snapshot writer write.
+- Baseline: main recorded Veritas v8.442, while `--dry-run --fail-on-change` reported v8.452.
+- Candidate: `data/adoption-candidates.json` records Veritas v8.452 (`fe7a7fe5ca0b2008a00a72a848fe3236ddb72f06`), `pushedAt: 2026-06-05T18:36:42Z`, disk size 845 KB, and `github-api:veritas-focused-drift-refresh-v8452`.
+- Decision: keep; the writer refreshed only the high-churn Veritas row plus snapshot metadata.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` exited non-zero with live drift before the write.
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated the Veritas row plus snapshot metadata to v8.452.
+
 ## Next Loop
 
 - Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, add scored recommendation weights to the benchmark rubric, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
