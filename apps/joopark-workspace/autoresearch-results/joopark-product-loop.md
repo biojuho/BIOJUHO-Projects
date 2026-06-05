@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T23:35:42+09:00
+Generated: 2026-06-05T23:52:00+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -521,6 +521,19 @@ Generated: 2026-06-05T23:35:42+09:00
 - `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:29:42Z`, `updated_at: 2026-06-05T14:29:46Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
 - `rg` found no Veritas exact commit, pushedAt, or version literals in the audit and interaction smoke scripts after the candidate change.
 - `npm run verify` passed `35/35` after regenerating `dist/release`.
+
+## Experiment: Veritas AutoResearch refresh v8.389
+
+- Hypothesis: With the Veritas freshness gate snapshot-driven, the product launch data can follow the fast-moving upstream head without editing audit or smoke code.
+- Primary metric: `veritasCurrentHeadFresh`.
+- Baseline: main recorded Veritas v8.383 (`b1d3228587f87e0f25fc31ea32bc583cce451d60`, `2026-06-05T14:29:42Z`) after the dynamic gate landed.
+- Candidate: `data/adoption-candidates.json` now records Veritas v8.389 (`f273071a78bd59bf7b2aae6eed5678453467a3f3`, `2026-06-05T14:50:53Z`) while the release audit and interaction smoke still derive expectations from the snapshot.
+- Decision: keep if the full release gate remains 35/35.
+
+## Evidence
+
+- `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `f273071a78bd59bf7b2aae6eed5678453467a3f3` dated `2026-06-05T14:50:52Z` with message `v8.389 Launchctl Remove Start Failure Gate`.
+- `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:50:53Z`, `updated_at: 2026-06-05T14:51:28Z`, 1 star, 1 fork, 1 open issue, size 1043 KB, default branch `main`, and `archived: false`.
 
 ## Next Loop
 
