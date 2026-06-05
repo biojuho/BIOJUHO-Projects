@@ -369,6 +369,7 @@ const interactionExpression = `
   let candidateBenchmarkQueueVisibleOk = false;
   let candidateBenchmarkRubricVisibleOk = false;
   let candidateBenchmarkRubricScoreVisibleOk = false;
+  let candidateBenchmarkRecommendationExportVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -728,8 +729,18 @@ const interactionExpression = `
     assert(taskosaurAiRubric, "Taskosaur benchmark rubric AI cell did not render: " + JSON.stringify(rubricCells.map((cell) => ({ project: cell.dataset.rubricProject, axis: cell.dataset.rubricAxis }))));
     assert(taskosaurAiRubric.dataset.rubricWeight === "0.3", "benchmark rubric AI weight did not render");
     assert(taskosaurAiRubric.dataset.rubricScore === "92", "benchmark rubric AI score did not render");
+    const benchmarkExport = qs("[data-candidate-benchmark-export]", benchmarkRubric);
+    const exportDownload = qs("[data-benchmark-export-download]", benchmarkExport);
+    const exportText = qs("[data-benchmark-export-text]", benchmarkExport).innerText;
+    assert(benchmarkExport.dataset.benchmarkExportWinner === "Taskosaur/Taskosaur", "benchmark recommendation export winner did not render");
+    assert(benchmarkExport.dataset.benchmarkExportGap === "1", "benchmark recommendation export gap did not render");
+    assert(exportDownload.getAttribute("download") === "joopark-benchmark-recommendation.md", "benchmark recommendation export filename did not render");
+    assert(exportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "benchmark recommendation export markdown link did not render");
+    assert(exportText.includes("Recommendation: adopt Taskosaur/Taskosaur first") && exportText.includes("happybhati/workstream as the secondary benchmark"), "benchmark recommendation export copy did not render");
+    assert(exportText.includes("Score gap: 1 point") && exportText.includes("Primary reason: AI 보조 scored 92 at 30% weight"), "benchmark recommendation export rationale did not render");
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    candidateBenchmarkRecommendationExportVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -918,6 +929,7 @@ const interactionExpression = `
     candidateBenchmarkQueueVisibleOk = true;
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
+    candidateBenchmarkRecommendationExportVisibleOk = true;
   });
 
   let projectId = "";
@@ -1154,6 +1166,7 @@ const interactionExpression = `
     candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
+    candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

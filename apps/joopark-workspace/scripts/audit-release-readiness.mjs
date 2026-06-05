@@ -951,6 +951,18 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkRubricScoreTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkRecommendationExportTerms = [
+    { file: "app.js", terms: ["function candidateBenchmarkRecommendationExport", "function candidateBenchmarkRecommendationMarkdown", "data-candidate-benchmark-export", "joopark-benchmark-recommendation.md"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-export", ".portfolio-export-download", ".portfolio-export-body"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkRecommendationExportVisible", "benchmark recommendation export winner did not render", "benchmark recommendation export markdown link did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_recommendation_export",
+    requirement: "Taskosaur and Workstream weighted benchmark recommendation exposes a Markdown export with browser smoke coverage for winner, score gap, filename, and rationale.",
+    status: taskosaurWorkstreamBenchmarkRecommendationExportTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkRecommendationExportTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

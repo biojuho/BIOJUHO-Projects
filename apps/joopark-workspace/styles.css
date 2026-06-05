@@ -2928,6 +2928,89 @@ textarea:focus:not(:focus-visible) { outline: none; }
   color: var(--cyan);
 }
 
+.portfolio-benchmark-export {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.portfolio-export-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.portfolio-export-head span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.portfolio-export-download {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(35, 135, 255, 0.32);
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(35, 135, 255, 0.1);
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.portfolio-export-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.portfolio-export-grid div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.portfolio-export-grid span,
+.portfolio-export-grid strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.portfolio-export-grid span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.portfolio-export-grid strong {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.portfolio-export-body {
+  max-height: 118px;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.16);
+  font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
 /* 카드 전체를 article로 변경했으므로 head 조정 */
 .portfolio-head {
   display: flex;
