@@ -324,6 +324,28 @@ function buildChecklist() {
     },
   });
 
+  const releaseHeaderSmokeTerms = [
+    { file: "scripts/smoke-release.mjs", terms: ["function smokeReleaseHeaders", "headerChecks", "root_x_content_type_options", "vendor_cache_immutable"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["release_header_smoke", "The packaged release smoke applies release header rules"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const releaseHeaderGateOk = !gateEvidence || gateEvidence.result?.headers?.status === "pass";
+  checklist.push({
+    id: "release_header_smoke",
+    requirement: "The packaged release smoke applies release header rules and verifies security and cache headers over HTTP.",
+    status: releaseHeaderSmokeTerms.every((item) => item.missingTerms.length === 0) && releaseHeaderGateOk ? "pass" : "fail",
+    evidence: {
+      files: releaseHeaderSmokeTerms,
+      gate: gateEvidence ? {
+        command: gateEvidence.command,
+        status: gateEvidence.status,
+        headers: gateEvidence.result?.headers || null,
+      } : {
+        command: "node scripts/audit-release-readiness.mjs --run-gates",
+        status: "not_run",
+      },
+    },
+  });
+
   const indexTerms = hasTerms("index.html", viewIds);
   checklist.push({
     id: "route_surface",

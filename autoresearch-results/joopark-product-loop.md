@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T20:09:25+09:00
+Generated: 2026-06-05T20:15:48+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -288,6 +288,21 @@ Generated: 2026-06-05T20:09:25+09:00
 - Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, and `candidateActionSummaryVisible: true`.
 - External sources checked: `https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site`, `https://docs.netlify.com/manage/routing/headers/`, `https://docs.netlify.com/routing/redirects/`, and `https://vercel.com/docs/project-configuration/vercel-json`.
 
+## Experiment: release host header smoke
+
+- Hypothesis: Deployment header support is stronger if the packaged-release smoke serves `_headers` locally and proves the configured security/cache headers over HTTP.
+- Primary metric: `releaseHeaderSmokeChecks`.
+- Baseline: `scripts/smoke-release.mjs` had 0 explicit HTTP header checks.
+- Candidate: the release smoke parses `_headers`, applies matching rules in its temporary server, and verifies 6 headers: root content-type, frame, referrer, permissions, app no-cache, and vendor immutable cache.
+- Decision: keep.
+
+## Evidence
+
+- External source signals used: Netlify documents `_headers` syntax in the publish directory and Vercel documents equivalent `vercel.json` headers, so local smoke should verify the same intended response behavior before upload.
+- `node scripts/smoke-release.mjs` passed with `headers.status: pass` and all 6 header checks true.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 26/26 with `release_header_smoke`.
+- Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, and `candidateActionSummaryVisible: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: no-common-history PR strategy, deeper UI workflow coverage, or release host header smoke.
+- Continue with the highest-impact product gap after the next full gate: no-common-history PR strategy, deeper UI workflow coverage, or release 404 fallback smoke.

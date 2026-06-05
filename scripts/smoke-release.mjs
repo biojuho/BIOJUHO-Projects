@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import {
   existsSync,
+  readFileSync,
   statSync,
 } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -144,8 +145,58 @@ function safeTarget(pathname) {
   return target;
 }
 
+function readReleaseHeaderRules() {
+  const path = join(releaseDir, "_headers");
+  if (!existsSync(path)) return [];
+  const rules = [];
+  let current = null;
+  for (const line of readFileSync(path, "utf-8").split(/\r?\n/)) {
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    if (/^\s/.test(line)) {
+      if (!current) continue;
+      const index = line.indexOf(":");
+      if (index < 0) continue;
+      current.headers.push({
+        name: line.slice(0, index).trim(),
+        value: line.slice(index + 1).trim(),
+      });
+      continue;
+    }
+    current = { pattern: line.trim(), headers: [] };
+    rules.push(current);
+  }
+  return rules;
+}
+
+function headerRuleMatches(pattern, pathname) {
+  if (pattern === "/*") return true;
+  if (pattern.endsWith("*")) return pathname.startsWith(pattern.slice(0, -1));
+  return pathname === pattern;
+}
+
+function headersForPath(pathname, rules) {
+  const headers = {};
+  for (const rule of rules) {
+    if (!headerRuleMatches(rule.pattern, pathname)) continue;
+    for (const header of rule.headers) headers[header.name] = header.value;
+  }
+  return headers;
+}
+
+function mergeHeaders(base, custom) {
+  const headers = { ...base };
+  for (const [key, value] of Object.entries(custom)) {
+    for (const existing of Object.keys(headers)) {
+      if (existing.toLowerCase() === key.toLowerCase()) delete headers[existing];
+    }
+    headers[key] = value;
+  }
+  return headers;
+}
+
 function createReleaseServer() {
   const sockets = new Set();
+  const releaseHeaderRules = readReleaseHeaderRules();
   const server = createServer(async (request, response) => {
     const url = new URL(request.url || "/", `http://${request.headers.host || host}`);
     const target = safeTarget(url.pathname);
@@ -158,10 +209,10 @@ function createReleaseServer() {
 
     try {
       const body = await readFile(target);
-      response.writeHead(200, {
+      response.writeHead(200, mergeHeaders({
         "cache-control": "no-store",
         "content-type": contentTypes[extname(target)] || "application/octet-stream",
-      });
+      }, headersForPath(url.pathname, releaseHeaderRules)));
       response.end(body);
     } catch {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
@@ -179,6 +230,36 @@ function createReleaseServer() {
     sockets.clear();
   };
   return server;
+}
+
+async function fetchHeaderMap(url) {
+  const response = await fetch(url);
+  const headers = {};
+  for (const [key, value] of response.headers.entries()) headers[key.toLowerCase()] = value;
+  return { status: response.status, headers };
+}
+
+async function smokeReleaseHeaders(baseUrl) {
+  const root = await fetchHeaderMap(`${baseUrl}/`);
+  const app = await fetchHeaderMap(`${baseUrl}/app.js`);
+  const vendor = await fetchHeaderMap(`${baseUrl}/vendor/fuse.min.js`);
+  const headerChecks = {
+    root_x_content_type_options: root.headers["x-content-type-options"] === "nosniff",
+    root_frame_options: root.headers["x-frame-options"] === "DENY",
+    root_referrer_policy: root.headers["referrer-policy"] === "strict-origin-when-cross-origin",
+    root_permissions_policy: root.headers["permissions-policy"] === "camera=(), microphone=(), geolocation=()",
+    app_cache_no_cache: app.headers["cache-control"] === "no-cache",
+    vendor_cache_immutable: vendor.headers["cache-control"] === "public, max-age=31536000, immutable",
+  };
+  return {
+    status: Object.values(headerChecks).every(Boolean) ? "pass" : "fail",
+    checks: headerChecks,
+    responses: {
+      root: root.status,
+      app: app.status,
+      vendor: vendor.status,
+    },
+  };
 }
 
 function listen(server) {
@@ -242,7 +323,9 @@ async function main() {
   let mobileResult;
   let interactionResult;
   let accessibilityResult;
+  let headerResult;
   try {
+    headerResult = await smokeReleaseHeaders(baseUrl);
     smokeResult = parseJsonOutput(
       (await runNodeScriptAsync("scripts/smoke-chrome.mjs", {
         BASE_URL: baseUrl,
@@ -275,6 +358,13 @@ async function main() {
     await close(server);
   }
 
+  if (headerResult.status !== "pass") {
+    throw Object.assign(new Error("release header smoke failed"), {
+      step: "scripts/smoke-release.mjs:headers",
+      stdout: JSON.stringify(headerResult, null, 2),
+      stderr: "",
+    });
+  }
   if (smokeResult.status !== "pass") {
     throw Object.assign(new Error("release browser smoke failed"), {
       step: "scripts/smoke-chrome.mjs",
@@ -310,6 +400,7 @@ async function main() {
     baseUrl,
     package: packageResult,
     verify: verifyResult,
+    headers: headerResult,
     smoke: {
       status: smokeResult.status,
       routeCount: smokeResult.routeCount,
