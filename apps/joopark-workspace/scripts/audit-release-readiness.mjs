@@ -812,6 +812,17 @@ function buildChecklist() {
     evidence: affineFreshnessUiTerms,
   });
 
+  const appflowyAffineFreshnessUiTerms = [
+    { file: "data/adoption-candidates.json", terms: ["AppFlowy-IO/AppFlowy", "toeverything/AFFiNE", "github-search:appflowy-affine-benchmark", "github-api:appflowy-freshness-refresh", "github-api:affine-freshness-refresh"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAppFlowy", "shortAppFlowyCommit", "AppFlowy freshness commit did not render", "appFlowyCandidateFreshnessVisible", "snapshotAffine", "shortAffineCommit", "AFFiNE freshness commit did not render", "affineCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "appflowy_affine_candidate_freshness_ui_smoke",
+    requirement: "The portfolio includes AppFlowy and AFFiNE as researched knowledge-workspace benchmark candidates and interaction smoke can find both by current GitHub commit with popularity and risk-review metadata.",
+    status: appflowyAffineFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: appflowyAffineFreshnessUiTerms,
+  });
+
   const veritasFreshnessUiTerms = [
     { file: "app.js", terms: ["shortCommit", "data-candidate-commit", "data-candidate-pushed-at", "p && p.lastCommit"] },
     { file: "styles.css", terms: [".portfolio-commit"] },

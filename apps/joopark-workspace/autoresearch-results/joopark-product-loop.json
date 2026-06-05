@@ -6,11 +6,11 @@
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 51,
+      "pass": 52,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 51
+      "total": 52
     },
     "browserEvidence": {
       "routes": 15,
@@ -51,8 +51,8 @@
       "worklenzCandidateFreshnessVisible": true,
       "anytypeCandidateFreshnessVisible": true,
       "focalboardCandidateFreshnessVisible": true,
-      "workspaceBenchmarkHeadSnapshots": 15,
-      "workspaceBenchmarkFreshnessChecks": 73,
+      "workspaceBenchmarkHeadSnapshots": 16,
+      "workspaceBenchmarkFreshnessChecks": 77,
       "epicenterCandidateFreshnessVisible": true,
       "openLoafCandidateFreshnessVisible": true,
       "planeCandidateFreshnessVisible": true,
@@ -61,6 +61,7 @@
       "appFlowyWorkspaceCandidateFreshnessChecks": 6,
       "affineCandidateFreshnessVisible": true,
       "affineWorkspaceCandidateFreshnessChecks": 6,
+      "appflowyAffineCandidateFreshnessChecks": 8,
       "workstreamCandidateFreshnessVisible": true,
       "taskosaurCandidateFreshnessVisible": true,
       "markdownTaskManagerCandidateFreshnessVisible": true,
@@ -70,18 +71,19 @@
       "candidateFreshnessDriftSnapshotOnly": true,
       "candidateFreshnessLiveDriftCount": 1,
       "candidateFreshnessMonitored": 18,
+      "candidateFreshnessSourceMarkers": 32,
       "candidateFreshnessRepoFilterChecks": 3,
       "candidateFreshnessCadencePolicyChecks": 4,
       "candidateFreshnessCadencePolicyScoped": true,
       "veritasFocusedDriftRefreshChecks": 3,
-      "veritasFocusedSnapshotVersion": "v8.501",
+      "veritasFocusedSnapshotVersion": "v8.510",
       "veritasSnapshotWriterChecks": 7,
       "veritasSnapshotWriterDryRun": true,
       "veritasSnapshotWriterWrite": true,
       "veritasSnapshotWriterFailOnChange": true,
       "veritasSnapshotWriterChanged": true,
-      "veritasSnapshotWriterSourceMarker": "github-api:veritas-focused-drift-refresh-v8501",
-      "veritasSnapshotWriterLastCommit": "303914c4289aefe0d0b7a23e8faf18d6dd480c20",
+      "veritasSnapshotWriterSourceMarker": "github-api:veritas-focused-drift-refresh-v8510",
+      "veritasSnapshotWriterLastCommit": "5e4b31b0c2b1763f45b2eea4ba7e740dd8209360",
       "candidateBenchmarkFocusVisible": true,
       "taskosaurWorkstreamBenchmarkFocusChecks": 2,
       "candidateBenchmarkQueueVisible": true,
@@ -580,10 +582,10 @@
       "decision": "keep"
     },
     {
-      "id": "veritas-focused-snapshot-writer-v8501",
+      "id": "veritas-focused-snapshot-writer-v8510",
       "primaryMetric": "veritasSnapshotWriterChanged",
-      "baseline": "v8.493",
-      "candidate": "v8.501",
+      "baseline": "v8.509",
+      "candidate": "v8.510",
       "decision": "keep"
     },
     {
@@ -598,6 +600,13 @@
       "primaryMetric": "affineWorkspaceCandidateFreshnessChecks",
       "baseline": 0,
       "candidate": 6,
+      "decision": "keep"
+    },
+    {
+      "id": "appflowy-affine-workspace-benchmark-candidates",
+      "primaryMetric": "appflowyAffineCandidateFreshnessChecks",
+      "baseline": 0,
+      "candidate": 8,
       "decision": "keep"
     }
   ],
@@ -614,6 +623,7 @@
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "research Outline as a knowledge-base candidate after the AFFiNE benchmark candidate lands",
+    "turn AppFlowy and AFFiNE benchmark evidence into a PM/notes/workspace comparison rubric",
     "run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change"
   ]
 }
