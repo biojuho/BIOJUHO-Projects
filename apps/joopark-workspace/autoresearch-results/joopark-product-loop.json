@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T00:40:30+09:00",
+  "generatedAt": "2026-06-06T00:58:00+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -51,10 +51,15 @@
       "worklenzCandidateFreshnessVisible": true,
       "anytypeCandidateFreshnessVisible": true,
       "focalboardCandidateFreshnessVisible": true,
-      "workspaceBenchmarkHeadSnapshots": 9,
-      "workspaceBenchmarkFreshnessChecks": 42,
+      "workspaceBenchmarkHeadSnapshots": 14,
+      "workspaceBenchmarkFreshnessChecks": 67,
       "epicenterCandidateFreshnessVisible": true,
-      "openLoafCandidateFreshnessVisible": true
+      "openLoafCandidateFreshnessVisible": true,
+      "workstreamCandidateFreshnessVisible": true,
+      "taskosaurCandidateFreshnessVisible": true,
+      "markdownTaskManagerCandidateFreshnessVisible": true,
+      "taskcoachCandidateFreshnessVisible": true,
+      "fluidCalendarCandidateFreshnessVisible": true
     }
   },
   "experiments": [
@@ -358,6 +363,13 @@
       "baseline": 7,
       "candidate": 9,
       "decision": "keep"
+    },
+    {
+      "id": "remaining-workspace-freshness-refresh",
+      "primaryMetric": "workspaceBenchmarkHeadSnapshots",
+      "baseline": 9,
+      "candidate": 14,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -371,7 +383,7 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "refresh Workstream and remaining local-first benchmark snapshots",
-    "candidate freshness metadata drift monitor"
+    "candidate freshness metadata drift monitor",
+    "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces"
   ]
 }

@@ -265,6 +265,31 @@ function workspaceCandidateSnapshot(relPath) {
       name: "mattermost-community/focalboard",
       sourceMarker: "github-api:focalboard-freshness-refresh",
     },
+    {
+      key: "workstream",
+      name: "happybhati/workstream",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "taskosaur",
+      name: "Taskosaur/Taskosaur",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "markdownTaskManager",
+      name: "ioniks/MarkdownTaskManager",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "taskcoach",
+      name: "taskcoach/taskcoach",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
+    {
+      key: "fluidCalendar",
+      name: "dotnetfactory/fluid-calendar",
+      sourceMarker: "github-api:remaining-workspace-freshness-refresh",
+    },
   ];
   const freshness = Object.fromEntries(workspaceFreshnessExpectations.map((item) => {
     const project = projects.find((candidate) => candidate.name === item.name) || null;
@@ -687,6 +712,11 @@ function buildChecklist() {
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorklenz", "shortWorklenzCommit", "Worklenz freshness commit did not render", "worklenzCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAnytype", "shortAnytypeCommit", "Anytype freshness commit did not render", "anytypeCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotFocalboard", "shortFocalboardCommit", "Focalboard freshness commit did not render", "focalboardCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "happybhati/workstream", "remainingWorkspaceFreshnessOk.workstream", "workstreamCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "Taskosaur/Taskosaur", "remainingWorkspaceFreshnessOk.taskosaur", "taskosaurCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "ioniks/MarkdownTaskManager", "remainingWorkspaceFreshnessOk.markdownTaskManager", "markdownTaskManagerCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "taskcoach/taskcoach", "remainingWorkspaceFreshnessOk.taskcoach", "taskcoachCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["remainingFreshnessSnapshots", "dotnetfactory/fluid-calendar", "remainingWorkspaceFreshnessOk.fluidCalendar", "fluidCalendarCandidateFreshnessVisible"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "workspace_benchmark_freshness_ui_smoke",
