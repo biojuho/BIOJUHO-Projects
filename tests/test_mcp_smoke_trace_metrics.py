@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import importlib.util
 import json
 import subprocess
@@ -330,6 +332,53 @@ def test_format_otel_json_exports_deterministic_span_tree(tmp_path: Path) -> Non
     )
 
 
+def test_submit_otel_json_posts_payload_to_local_collector(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    payload = smoke_payload([result("first", "python -m pytest tests -q")])
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+    otel = metrics_module.format_otel_json(metrics)
+    captured: dict[str, object] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            captured["path"] = self.path
+            captured["content_type"] = self.headers["Content-Type"]
+            captured["test_header"] = self.headers["X-Test"]
+            captured["body"] = json.loads(body.decode("utf-8"))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"accepted":true}')
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.handle_request, daemon=True)
+    thread.start()
+    try:
+        report = metrics_module.submit_otel_json(
+            otel,
+            f"http://127.0.0.1:{server.server_port}/v1/traces",
+            timeout_seconds=5,
+            headers={"X-Test": "yes"},
+        )
+    finally:
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert report["ok"] is True
+    assert report["status_code"] == 200
+    assert report["request_bytes"] > 0
+    assert "X-Test" in report["request_header_names"]
+    assert report["response_body_preview"] == '{"accepted":true}'
+    assert captured["path"] == "/v1/traces"
+    assert captured["content_type"] == "application/json"
+    assert captured["test_header"] == "yes"
+    assert captured["body"] == otel
+
+
 def test_cli_writes_metrics_json_markdown_and_html(tmp_path: Path) -> None:
     smoke_path = tmp_path / "smoke.json"
     metrics_path = tmp_path / "metrics.json"
@@ -381,3 +430,63 @@ def test_cli_writes_metrics_json_markdown_and_html(tmp_path: Path) -> None:
     assert "<td>DailyNews unit tests</td>" in html
     otel = json.loads(otel_path.read_text(encoding="utf-8"))
     assert len(otel["resourceSpans"][0]["scopeSpans"][0]["spans"]) == 3
+
+
+def test_cli_posts_otel_json_and_writes_submit_report(tmp_path: Path) -> None:
+    smoke_path = tmp_path / "smoke.json"
+    otel_path = tmp_path / "metrics.otel.json"
+    submit_report_path = tmp_path / "submit.json"
+    smoke_path.write_text(
+        json.dumps(smoke_payload([result("DailyNews unit tests", "python -m pytest tests/unit -q")])),
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            captured["path"] = self.path
+            captured["body"] = json.loads(body.decode("utf-8"))
+            self.send_response(202)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"queued":true}')
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.handle_request, daemon=True)
+    thread.start()
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                str(smoke_path),
+                "--otel-json-out",
+                str(otel_path),
+                "--otel-submit-url",
+                f"http://127.0.0.1:{server.server_port}/v1/traces",
+                "--otel-submit-report-out",
+                str(submit_report_path),
+                "--otel-submit-header",
+                "X-Test=cli",
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    finally:
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert completed.returncode == 0, completed.stderr
+    assert captured["path"] == "/v1/traces"
+    otel = json.loads(otel_path.read_text(encoding="utf-8"))
+    assert captured["body"] == otel
+    report = json.loads(submit_report_path.read_text(encoding="utf-8"))
+    assert report["ok"] is True
+    assert report["status_code"] == 202
+    assert report["response_body_preview"] == '{"queued":true}'

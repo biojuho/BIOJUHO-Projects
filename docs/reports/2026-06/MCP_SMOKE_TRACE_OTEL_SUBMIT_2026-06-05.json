@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "endpoint": "http://127.0.0.1:4318/v1/traces",
+  "ok": true,
+  "status_code": 202,
+  "request_bytes": 4362,
+  "request_header_names": [
+    "Accept",
+    "Content-Type",
+    "User-Agent",
+    "X-AutoResearch"
+  ],
+  "response_content_type": "application/json",
+  "response_body_preview": "{\"accepted\":true,\"collector\":\"local-smoke\"}",
+  "error": null,
+  "local_collector_capture": {
+    "path": "/v1/traces",
+    "content_type": "application/json",
+    "request_bytes": 4362,
+    "resource_spans": 1
+  }
+}

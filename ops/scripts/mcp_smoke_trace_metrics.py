@@ -9,6 +9,8 @@ import html
 import json
 import re
 import sys
+import urllib.error
+import urllib.request
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -213,6 +215,11 @@ def write_html(metrics: dict[str, Any], out_path: Path) -> None:
 def write_otel_json(metrics: dict[str, Any], out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(format_otel_json(metrics), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def write_otel_submit_report(report: dict[str, Any], out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def format_markdown(metrics: dict[str, Any]) -> str:
@@ -498,6 +505,53 @@ def format_otel_json(metrics: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def submit_otel_json(
+    otel_payload: dict[str, Any],
+    endpoint: str,
+    *,
+    timeout_seconds: float,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    request_headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "User-Agent": "mcp-smoke-trace-metrics/1",
+    }
+    if headers:
+        request_headers.update(headers)
+    request_body = json.dumps(otel_payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(endpoint, data=request_body, headers=request_headers, method="POST")
+    report: dict[str, Any] = {
+        "schema_version": 1,
+        "endpoint": endpoint,
+        "ok": False,
+        "status_code": None,
+        "request_bytes": len(request_body),
+        "request_header_names": sorted(request_headers),
+        "response_content_type": None,
+        "response_body_preview": "",
+        "error": None,
+    }
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            response_body = response.read(4096)
+            report["status_code"] = response.status
+            report["ok"] = 200 <= response.status < 300
+            report["response_content_type"] = response.headers.get("Content-Type")
+            report["response_body_preview"] = _decode_preview(response_body)
+    except urllib.error.HTTPError as exc:
+        response_body = exc.read(4096)
+        report["status_code"] = exc.code
+        report["response_content_type"] = exc.headers.get("Content-Type")
+        report["response_body_preview"] = _decode_preview(response_body)
+        report["error"] = f"HTTP {exc.code}"
+    except (TimeoutError, urllib.error.URLError, OSError) as exc:
+        report["error"] = str(exc)
+
+    return report
+
+
 def _check_metrics(result: dict[str, Any]) -> dict[str, Any]:
     command = str(result.get("command") or "")
     cwd = str(result.get("cwd") or "")
@@ -731,6 +785,10 @@ def _html_cell(value: Any) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _decode_preview(value: bytes) -> str:
+    return value.decode("utf-8", errors="replace").replace("\r", " ").replace("\n", " ")[:512]
+
+
 def _stable_hex(value: str, length: int) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
 
@@ -756,6 +814,19 @@ def _otel_attributes(values: dict[str, Any]) -> list[dict[str, Any]]:
     return attributes
 
 
+def _parse_submit_headers(values: list[str]) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    for value in values:
+        if "=" not in value:
+            raise ValueError(f"header {value!r} must use NAME=VALUE")
+        name, header_value = value.split("=", 1)
+        name = name.strip()
+        if not name:
+            raise ValueError("header name must not be empty")
+        headers[name] = header_value.strip()
+    return headers
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build MCP trace metrics from workspace-smoke JSON.")
     parser.add_argument("smoke_json", help="Path to a schema v1 workspace smoke JSON report.")
@@ -764,8 +835,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--markdown-out", help="Optional output path for a Markdown metrics report.")
     parser.add_argument("--html-out", help="Optional output path for a standalone HTML metrics report.")
     parser.add_argument("--otel-json-out", help="Optional output path for an OTEL-style JSON span export.")
+    parser.add_argument("--otel-submit-url", help="Optional OTLP/HTTP JSON traces endpoint to POST the OTEL export.")
+    parser.add_argument("--otel-submit-timeout-seconds", type=float, default=10.0, help="Timeout for OTEL submission. Defaults to 10.")
+    parser.add_argument("--otel-submit-header", action="append", default=[], help="Extra OTEL submit header as NAME=VALUE. May be repeated.")
+    parser.add_argument("--otel-submit-report-out", help="Optional JSON report path for OTEL submit result.")
+    parser.add_argument("--allow-otel-submit-failure", action="store_true", help="Return success even when OTEL submission fails.")
     parser.add_argument("--allow-issues", action="store_true", help="Return success even when trace integrity issues exist.")
     args = parser.parse_args(argv)
+    if args.otel_submit_report_out and not args.otel_submit_url:
+        parser.error("--otel-submit-report-out requires --otel-submit-url")
+    try:
+        submit_headers = _parse_submit_headers(args.otel_submit_header)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     source_path = Path(args.smoke_json)
     payload = load_smoke_report(source_path)
@@ -774,10 +856,24 @@ def main(argv: list[str] | None = None) -> int:
         write_markdown(metrics, Path(args.markdown_out))
     if args.html_out:
         write_html(metrics, Path(args.html_out))
-    if args.otel_json_out:
-        write_otel_json(metrics, Path(args.otel_json_out))
+    otel_payload = format_otel_json(metrics) if args.otel_json_out or args.otel_submit_url else None
+    if args.otel_json_out and otel_payload is not None:
+        Path(args.otel_json_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.otel_json_out).write_text(json.dumps(otel_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    submit_report: dict[str, Any] | None = None
+    if args.otel_submit_url and otel_payload is not None:
+        submit_report = submit_otel_json(
+            otel_payload,
+            args.otel_submit_url,
+            timeout_seconds=args.otel_submit_timeout_seconds,
+            headers=submit_headers,
+        )
+        if args.otel_submit_report_out:
+            write_otel_submit_report(submit_report, Path(args.otel_submit_report_out))
     write_metrics(metrics, Path(args.json_out) if args.json_out else None)
-    return 0 if args.allow_issues or metrics["trace_integrity"]["ok"] else 1
+    trace_ok = args.allow_issues or metrics["trace_integrity"]["ok"]
+    submit_ok = submit_report is None or args.allow_otel_submit_failure or submit_report["ok"]
+    return 0 if trace_ok and submit_ok else 1
 
 
 if __name__ == "__main__":
