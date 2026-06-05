@@ -36,6 +36,20 @@ def test_parses_current_canva_mcp_tools() -> None:
     }
     assert sum(1 for tool in tools if tool["read_only"]) == 9
     assert [tool["name"] for tool in tools if tool["destructive"]] == ["commit-editing-transaction"]
+    search_tool = next(tool for tool in tools if tool["name"] == "search-designs")
+    upload_tool = next(tool for tool in tools if tool["name"] == "upload-asset-from-url")
+    assert search_tool["openai_meta_keys"] == [
+        "openai/outputTemplate",
+        "openai/toolInvocation/invoking",
+        "openai/toolInvocation/invoked",
+        "openai/widgetAccessible",
+        "openai/resultCanProduceWidget",
+    ]
+    assert upload_tool["openai_meta_keys"] == [
+        "openai/widgetAccessible",
+        "openai/toolInvocation/invoking",
+        "openai/toolInvocation/invoked",
+    ]
 
 
 def test_openapi_contract_matches_parsed_tool_surface() -> None:
@@ -50,8 +64,11 @@ def test_openapi_contract_matches_parsed_tool_surface() -> None:
     assert spec["openapi"] == "3.1.0"
     assert sorted(spec["paths"]) == ["/tools", "/tools/{toolName}/call"]
     assert spec["components"]["schemas"]["CanvaMcpToolName"]["enum"] == [tool["name"] for tool in tools]
+    assert "openAiMetaKeys" in spec["components"]["schemas"]["CanvaMcpTool"]["required"]
+    assert spec["x-mcp-tools"][1]["openAiMetaKeys"] == tools[1]["openai_meta_keys"]
     assert summary["tool_count"] == 20
     assert summary["destructive_count"] == 1
+    assert summary["openai_meta_tool_count"] == 4
 
 
 def test_cli_writes_openapi_summary_and_markdown(tmp_path: Path) -> None:
@@ -79,7 +96,10 @@ def test_cli_writes_openapi_summary_and_markdown(tmp_path: Path) -> None:
     assert result == 0
     assert spec["components"]["schemas"]["CanvaMcpToolName"]["enum"][0] == "upload-asset-from-url"
     assert summary["read_only_count"] == 9
+    assert summary["openai_meta_tool_count"] == 4
     assert "Canva MCP OpenAPI Interop Contract" in markdown
+    assert "Tools with OpenAI namespaced metadata: 4" in markdown
+    assert "openai/outputTemplate" in markdown
     assert "`commit-editing-transaction` (destructive)" in markdown
 
 
@@ -94,6 +114,17 @@ def test_openapi_validation_rejects_enum_drift() -> None:
     assert "CanvaMcpToolName enum must match parsed tool order" in errors
 
 
+def test_openapi_validation_rejects_openai_namespace_metadata_drift() -> None:
+    contract = load_contract_module()
+    tools = contract.parse_tools(TOOLS_PATH)
+    spec = contract.build_openapi(tools)
+    spec["x-mcp-tools"][1]["openAiMetaKeys"] = []
+
+    errors = contract.validate_openapi(spec, tools)
+
+    assert "x-mcp-tools must preserve OpenAI namespaced metadata keys" in errors
+
+
 def test_canva_mcp_server_exposes_read_only_metadata_routes() -> None:
     server = SERVER_PATH.read_text(encoding="utf-8")
 
@@ -101,6 +132,10 @@ def test_canva_mcp_server_exposes_read_only_metadata_routes() -> None:
     assert '"/tools"' in server
     assert "buildOpenApiContract" in server
     assert "canvaToolSummaries" in server
+    assert "canvaOpenAiMeta" in server
+    assert "openAiMeta" in server
+    assert "openAiMetaKeys" in server
+    assert '"openai/outputTemplate"' in TOOLS_PATH.read_text(encoding="utf-8")
     assert '"http://127.0.0.1:5176"' in server
     assert "getOpenApiToolCallName" in server
     assert "openapi_tool_execution_disabled" in server

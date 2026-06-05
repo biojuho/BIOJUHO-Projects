@@ -11,6 +11,7 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 DEFAULT_TOOLS = WORKSPACE_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "tools.ts"
+OPENAI_META_KEY_PATTERN = re.compile(r'"(openai/[^"]+)"\s*:')
 
 
 def extract_tool_blocks(source: str) -> list[str]:
@@ -27,8 +28,18 @@ def extract_tool_blocks(source: str) -> list[str]:
     return blocks
 
 
+def extract_widget_meta_keys(source: str) -> list[str]:
+    widget_start = source.find("export function widgetMeta")
+    if widget_start < 0:
+        return []
+    widget_end = source.find("//", widget_start + 1)
+    body = source[widget_start:widget_end] if widget_end > 0 else source[widget_start:]
+    return _openai_meta_keys_from_text(body)
+
+
 def parse_tools(path: Path = DEFAULT_TOOLS) -> list[dict[str, Any]]:
     source = path.read_text(encoding="utf-8")
+    widget_meta_keys = extract_widget_meta_keys(source)
     tools: list[dict[str, Any]] = []
     for block in extract_tool_blocks(source):
         name_match = re.search(r"name:\s*\"([^\"]+)\"", block)
@@ -42,6 +53,7 @@ def parse_tools(path: Path = DEFAULT_TOOLS) -> list[dict[str, Any]]:
         if description_match:
             description = next(group for group in description_match.groups() if group is not None)
             description = " ".join(description.split())
+        openai_meta_keys = _openai_meta_keys_for_block(block, widget_meta_keys)
         tools.append(
             {
                 "name": name_match.group(1),
@@ -49,11 +61,23 @@ def parse_tools(path: Path = DEFAULT_TOOLS) -> list[dict[str, Any]]:
                 "schema_ref": f"{schema_match.group(1)}Schema" if schema_match else "",
                 "read_only": read_only,
                 "destructive": destructive,
+                "openai_meta_keys": openai_meta_keys,
             }
         )
     if not tools:
         raise ValueError("tools array did not contain parseable tools")
     return tools
+
+
+def _openai_meta_keys_for_block(block: str, widget_meta_keys: list[str]) -> list[str]:
+    keys = _openai_meta_keys_from_text(block)
+    if "_meta: widgetMeta(" in block:
+        keys.extend(widget_meta_keys)
+    return list(dict.fromkeys(keys))
+
+
+def _openai_meta_keys_from_text(text: str) -> list[str]:
+    return list(dict.fromkeys(OPENAI_META_KEY_PATTERN.findall(text)))
 
 
 def build_openapi(tools: list[dict[str, Any]]) -> dict[str, Any]:
@@ -156,8 +180,19 @@ def build_openapi(tools: list[dict[str, Any]]) -> dict[str, Any]:
                         "schemaRef": {"type": "string"},
                         "readOnly": {"type": "boolean"},
                         "destructive": {"type": "boolean"},
+                        "openAiMetaKeys": {
+                            "type": "array",
+                            "items": {"type": "string", "pattern": "^openai/"},
+                        },
                     },
-                    "required": ["name", "description", "schemaRef", "readOnly", "destructive"],
+                    "required": [
+                        "name",
+                        "description",
+                        "schemaRef",
+                        "readOnly",
+                        "destructive",
+                        "openAiMetaKeys",
+                    ],
                 },
             }
         },
@@ -169,6 +204,7 @@ def build_openapi(tools: list[dict[str, Any]]) -> dict[str, Any]:
                 "schemaRef": tool["schema_ref"],
                 "readOnly": tool["read_only"],
                 "destructive": tool["destructive"],
+                "openAiMetaKeys": tool["openai_meta_keys"],
             }
             for tool in tools
         ],
@@ -194,16 +230,24 @@ def validate_openapi(spec: dict[str, Any], tools: list[dict[str, Any]]) -> list[
     extension = spec.get("x-mcp-tools")
     if not isinstance(extension, list) or len(extension) != len(tools):
         errors.append("x-mcp-tools must include every parsed MCP tool")
+    elif [
+        item.get("openAiMetaKeys")
+        for item in extension
+    ] != [tool["openai_meta_keys"] for tool in tools]:
+        errors.append("x-mcp-tools must preserve OpenAI namespaced metadata keys")
     return errors
 
 
 def summarize(tools: list[dict[str, Any]], spec: dict[str, Any]) -> dict[str, Any]:
+    openai_meta_keys = sorted({key for tool in tools for key in tool["openai_meta_keys"]})
     return {
         "schema_version": 1,
         "generated_at": spec["x-generated-at"],
         "tool_count": len(tools),
         "read_only_count": sum(1 for tool in tools if tool["read_only"]),
         "destructive_count": sum(1 for tool in tools if tool["destructive"]),
+        "openai_meta_tool_count": sum(1 for tool in tools if tool["openai_meta_keys"]),
+        "openai_meta_keys": openai_meta_keys,
         "paths": sorted(spec["paths"]),
         "tools": tools,
     }
@@ -218,6 +262,8 @@ def format_markdown(summary: dict[str, Any], spec_path: Path | None) -> str:
         f"- Tools parsed: {summary['tool_count']}",
         f"- Read-only tools: {summary['read_only_count']}",
         f"- Destructive tools: {summary['destructive_count']}",
+        f"- Tools with OpenAI namespaced metadata: {summary['openai_meta_tool_count']}",
+        f"- OpenAI metadata keys: {', '.join(summary['openai_meta_keys']) or 'none'}",
         f"- Paths: {', '.join(summary['paths'])}",
         f"- Generated at: `{summary['generated_at']}`",
     ]
@@ -231,7 +277,8 @@ def format_markdown(summary: dict[str, Any], spec_path: Path | None) -> str:
         if tool["destructive"]:
             flags.append("destructive")
         flag_text = ", ".join(flags) if flags else "write-capable"
-        lines.append(f"- `{tool['name']}` ({flag_text})")
+        meta_text = ", ".join(tool["openai_meta_keys"]) if tool["openai_meta_keys"] else "none"
+        lines.append(f"- `{tool['name']}` ({flag_text}); OpenAI metadata: {meta_text}")
     lines.extend(
         [
             "",

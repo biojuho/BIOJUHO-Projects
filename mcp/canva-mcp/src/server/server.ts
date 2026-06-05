@@ -66,6 +66,8 @@ import {
   widgetMeta,
 } from "./tools.js";
 
+type CanvaMcpTool = (typeof tools)[number];
+
 // ─── MCP Server factory ────────────────────────────────────────────────────
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -621,13 +623,24 @@ function toolComponentName(toolName: string): string {
 }
 
 function canvaToolSummaries() {
-  return tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description ?? "",
-    readOnly: Boolean(tool.annotations?.readOnlyHint),
-    destructive: Boolean(tool.annotations?.destructiveHint),
-    inputSchemaRef: `#/components/schemas/${toolComponentName(tool.name)}`,
-  }));
+  return tools.map((tool) => {
+    const openAiMeta = canvaOpenAiMeta(tool);
+    return {
+      name: tool.name,
+      description: tool.description ?? "",
+      readOnly: Boolean(tool.annotations?.readOnlyHint),
+      destructive: Boolean(tool.annotations?.destructiveHint),
+      inputSchemaRef: `#/components/schemas/${toolComponentName(tool.name)}`,
+      openAiMeta,
+      openAiMetaKeys: Object.keys(openAiMeta),
+    };
+  });
+}
+
+function canvaOpenAiMeta(tool: CanvaMcpTool) {
+  return Object.fromEntries(
+    Object.entries(tool._meta ?? {}).filter(([key]) => key.startsWith("openai/"))
+  );
 }
 
 function buildOpenApiContract() {
@@ -744,8 +757,24 @@ function buildOpenApiContract() {
             readOnly: { type: "boolean" },
             destructive: { type: "boolean" },
             inputSchemaRef: { type: "string" },
+            openAiMeta: {
+              type: "object",
+              additionalProperties: true,
+            },
+            openAiMetaKeys: {
+              type: "array",
+              items: { type: "string", pattern: "^openai/" },
+            },
           },
-          required: ["name", "description", "readOnly", "destructive", "inputSchemaRef"],
+          required: [
+            "name",
+            "description",
+            "readOnly",
+            "destructive",
+            "inputSchemaRef",
+            "openAiMeta",
+            "openAiMetaKeys",
+          ],
         },
         ...inputSchemas,
       },

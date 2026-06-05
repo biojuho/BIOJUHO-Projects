@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:25:00+09:00",
+  "generated_at": "2026-06-05T09:45:00+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -625,6 +625,69 @@
             "mastra-ai/mastra",
             "continuation",
             "12 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "canva_mcp_openai_namespace_metadata_guard",
+      "requirement": "Canva MCP OpenAPI and /tools metadata surfaces preserve OpenAI namespaced metadata keys so widget/tool namespace context cannot be dropped across interop summaries.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "mcp/canva-mcp/src/server/server.ts",
+          "must_contain": [
+            "canvaOpenAiMeta",
+            "openAiMeta",
+            "openAiMetaKeys",
+            "key.startsWith(\"openai/\")"
+          ]
+        },
+        {
+          "path": "ops/scripts/canva_mcp_openapi_contract.py",
+          "must_contain": [
+            "OPENAI_META_KEY_PATTERN",
+            "extract_widget_meta_keys",
+            "openai_meta_keys",
+            "x-mcp-tools must preserve OpenAI namespaced metadata keys"
+          ]
+        },
+        {
+          "path": "tests/test_canva_mcp_openapi_contract.py",
+          "must_contain": [
+            "test_openapi_validation_rejects_openai_namespace_metadata_drift",
+            "openai/outputTemplate",
+            "openAiMetaKeys",
+            "Tools with OpenAI namespaced metadata: 4"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.json",
+          "must_contain": [
+            "\"openAiMetaKeys\"",
+            "\"openai/outputTemplate\"",
+            "\"openai/resultCanProduceWidget\"",
+            "\"openai/widgetAccessible\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md",
+          "must_contain": [
+            "Tools with OpenAI namespaced metadata: 4",
+            "openai/outputTemplate",
+            "OpenAI metadata: openai/outputTemplate"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAI_NAMESPACE_METADATA_2026-06-05.md",
+          "must_contain": [
+            "Canva MCP OpenAI Namespace Metadata",
+            "vercel/ai",
+            "fix(openai): round-trip namespace on function_call input items (#15193)",
+            "openAiMetaKeys",
+            "7 passed",
             "global_objective_complete=false"
           ]
         }
