@@ -1,0 +1,1176 @@
+{
+  "components": {
+    "schemas": {
+      "McpToolResult": {
+        "additionalProperties": true,
+        "description": "Raw MCP tool result payload returned by the proxy.",
+        "type": "object"
+      },
+      "cancelEditingTransactionSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as cancelEditingTransactionSchema.",
+        "type": "object"
+      },
+      "commentOnDesignSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as commentOnDesignSchema.",
+        "type": "object"
+      },
+      "commitEditingTransactionSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as commitEditingTransactionSchema.",
+        "type": "object"
+      },
+      "createDesignFromCandidateSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as createDesignFromCandidateSchema.",
+        "type": "object"
+      },
+      "createFolderSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as createFolderSchema.",
+        "type": "object"
+      },
+      "generateDesignSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as generateDesignSchema.",
+        "type": "object"
+      },
+      "getAssetsSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as getAssetsSchema.",
+        "type": "object"
+      },
+      "getDesignContentSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as getDesignContentSchema.",
+        "type": "object"
+      },
+      "getDesignPagesSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as getDesignPagesSchema.",
+        "type": "object"
+      },
+      "getDesignSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as getDesignSchema.",
+        "type": "object"
+      },
+      "getDesignThumbnailSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as getDesignThumbnailSchema.",
+        "type": "object"
+      },
+      "listCommentsSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as listCommentsSchema.",
+        "type": "object"
+      },
+      "listFolderItemsSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as listFolderItemsSchema.",
+        "type": "object"
+      },
+      "listRepliesSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as listRepliesSchema.",
+        "type": "object"
+      },
+      "moveItemToFolderSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as moveItemToFolderSchema.",
+        "type": "object"
+      },
+      "performEditingOperationsSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as performEditingOperationsSchema.",
+        "type": "object"
+      },
+      "replyToCommentSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as replyToCommentSchema.",
+        "type": "object"
+      },
+      "searchDesignsSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as searchDesignsSchema.",
+        "type": "object"
+      },
+      "startEditingTransactionSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as startEditingTransactionSchema.",
+        "type": "object"
+      },
+      "uploadAssetFromUrlSchema": {
+        "additionalProperties": true,
+        "description": "Schema referenced by Canva MCP tools.ts as uploadAssetFromUrlSchema.",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "in": "header",
+        "name": "X-API-Key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "description": "Static OpenAPI contract derived from the tracked Canva MCP tool registry.",
+    "title": "Canva MCP OpenAPI Contract",
+    "version": "2026-06-05",
+    "x-generated-at": "2026-06-05T07:46:49.275788+00:00"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/auth-status": {
+      "post": {
+        "description": "Check whether the current Canva MCP session has usable Canva OAuth tokens. This does not call the Canva API and is safe to run before any other tool.",
+        "operationId": "call_auth_status",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call auth-status",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "inline-object",
+        "x-mcp-tool-name": "auth-status"
+      }
+    },
+    "/authenticate": {
+      "post": {
+        "description": "Create a Canva OAuth authorization URL for the current MCP session. Use this when auth-status reports that Canva is not connected.",
+        "operationId": "call_authenticate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call authenticate",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "inline-object",
+        "x-mcp-tool-name": "authenticate"
+      }
+    },
+    "/cancel-editing-transaction": {
+      "post": {
+        "description": "Cancel an editing transaction. This will discard all changes made to the design in the specified editing transaction. Once an editing transaction has been cancelled, the `transaction_id` for that editing transaction becomes invalid and should no longer be used.",
+        "operationId": "call_cancel_editing_transaction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cancelEditingTransactionSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call cancel-editing-transaction",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "cancelEditingTransactionSchema",
+        "x-mcp-tool-name": "cancel-editing-transaction"
+      }
+    },
+    "/comment-on-design": {
+      "post": {
+        "description": "Add a comment on a Canva design. You need to provide the design ID and the message text. The comment will be added to the design and visible to all users with access to the design.",
+        "operationId": "call_comment_on_design",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/commentOnDesignSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call comment-on-design",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "commentOnDesignSchema",
+        "x-mcp-tool-name": "comment-on-design"
+      }
+    },
+    "/commit-editing-transaction": {
+      "post": {
+        "description": "Commit an editing transaction. This will save all the changes made to the design in the specified editing transaction. CRITICAL: You must ALWAYS ask the user to explicitly approve saving the changes before calling this tool. Show them what changes were made and ask \"Would you like me to save these changes to your design?\" Wait for their clear approval before proceeding. After successfully saving changes always provide the user with a direct link to open their design in Canva for review. Use the link they gave you or from the get-design tool. All editing operations are temporary until successfully committed. If the commit fails, ALL changes made during the transaction are lost and no changes are saved to the actual design. Users must start a new editing transaction to retry any failed operations. Once an editing transaction has been committed, the `transaction_id` for that editing transaction becomes invalid and should no longer be used.",
+        "operationId": "call_commit_editing_transaction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/commitEditingTransactionSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call commit-editing-transaction",
+        "x-mcp-annotations": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "commitEditingTransactionSchema",
+        "x-mcp-tool-name": "commit-editing-transaction"
+      }
+    },
+    "/create-design-from-candidate": {
+      "post": {
+        "description": "Create a new Canva design from a generation job candidate ID. This converts an AI-generated design candidate into an editable Canva design. If successful, returns a design summary containing a design ID that can be used with the editing tools. To make changes to the design, first call this tool with the candidate_id from generate-design results, then use the returned design_id with start-editing-transaction and subsequent editing tools.",
+        "operationId": "call_create_design_from_candidate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createDesignFromCandidateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call create-design-from-candidate",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "createDesignFromCandidateSchema",
+        "x-mcp-tool-name": "create-design-from-candidate"
+      }
+    },
+    "/create-folder": {
+      "post": {
+        "description": "Create a new folder in Canva. You can create it at the root level or inside another folder.",
+        "operationId": "call_create_folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createFolderSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call create-folder",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "createFolderSchema",
+        "x-mcp-tool-name": "create-folder"
+      }
+    },
+    "/generate-design": {
+      "post": {
+        "description": "Generate designs with AI. Use the 'query' parameter to tell AI what you want to create. The tool doesn't have context of previous requests. ALWAYS include details from previous queries for each iteration. The tool provides best results with detailed context. ALWAYS look up the chat history and provide as much context as possible in the 'query' parameter. Ask for more details when the tool returns this error message 'Common queries will not be generated'. The generated designs are design candidates for users to select from. Ask for a preferred design and use 'create-design-from-candidate' tool to add the design to users' account. The IDs in the URLs are not design IDs. Do not use them to get design or design content. When using the 'asset_ids' parameter, assets are inserted in the order provided. For small designs with few image slots, only supply the images the user wants. For multi-page designs like presentations, supply images in the order of the slides. The tool will return a list of generated design candidates, including a candidate ID, preview thumbnail and url. Before editing, exporting, or resizing a generated design, follow these steps: 1. call 'create-design-from-candidate' tool with 'job_id' and 'candidate_id' of the selected design 2. call other tools with 'design_id' in the response",
+        "operationId": "call_generate_design",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/generateDesignSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call generate-design",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "generateDesignSchema",
+        "x-mcp-tool-name": "generate-design"
+      }
+    },
+    "/get-assets": {
+      "post": {
+        "description": "Get metadata for particular assets by a list of their IDs. Returns information about ALL the assets including their names, tags, types, creation dates, and thumbnails. Thumbnails returned are in the same order as the list of asset IDs requested. When editing a page with more than one image or video asset ALWAYS request ALL assets from that page. IMPORTANT: ALWAYS ALWAYS ALWAYS show the preview to the user of EACH thumbnail you get in the response in the chat, EVERY SINGLE TIME you call this tool",
+        "operationId": "call_get_assets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/getAssetsSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call get-assets",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "getAssetsSchema",
+        "x-mcp-tool-name": "get-assets"
+      }
+    },
+    "/get-design": {
+      "post": {
+        "description": "Get detailed information about a Canva design, such as a doc, presentation, whiteboard, video, or sheet. This includes design owner information, title, URLs for editing and viewing, thumbnail, created/updated time, and page count. This tool doesn't work on folders or images. You must provide the design ID, which you can find by using the `search-designs` or `list-folder-items` tools.",
+        "operationId": "call_get_design",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/getDesignSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call get-design",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "getDesignSchema",
+        "x-mcp-tool-name": "get-design"
+      }
+    },
+    "/get-design-content": {
+      "post": {
+        "description": "Get the text content of a doc, presentation, whiteboard, social media post, sheet, and other designs in Canva. Use this when you only need to read text content without making changes. IMPORTANT: If the user wants to edit, update, change, translate, or fix content, use `start-editing-transaction` instead as it shows content AND enables editing. You must provide the design ID, which you can find with the `search-designs` tool. When given a URL to a Canva design, you can extract the design ID from the URL. Do not use web search to get the content of a design as the content is not accessible to the public. Example URL: https://www.canva.com/design/{design_id}.",
+        "operationId": "call_get_design_content",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/getDesignContentSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call get-design-content",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "getDesignContentSchema",
+        "x-mcp-tool-name": "get-design-content"
+      }
+    },
+    "/get-design-pages": {
+      "post": {
+        "description": "Get a list of pages in a Canva design, such as a presentation. Each page includes its index and thumbnail. This tool doesn't work on designs that don't have pages (e.g. Canva docs). You must provide the design ID, which you can find using tools like `search-designs` or `list-folder-items`. You can use 'offset' and 'limit' to paginate through the pages. Use `get-design` to find out the total number of pages, if needed.",
+        "operationId": "call_get_design_pages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/getDesignPagesSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call get-design-pages",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "getDesignPagesSchema",
+        "x-mcp-tool-name": "get-design-pages"
+      }
+    },
+    "/get-design-thumbnail": {
+      "post": {
+        "description": "Get the thumbnail for a particular page of the design in the specified editing transaction. This tool needs to be used with the `start-editing-transaction` tool to obtain an editing transaction ID. You need to provide the transaction ID and a page index to get the thumbnail of that particular page. Each call can only get the thumbnail for one page. Retrieving the thumbnails for multiple pages will require multiple calls of this tool. IMPORTANT: ALWAYS ALWAYS ALWAYS show the preview to the user of EACH thumbnail you get in the response in the chat, EVERY SINGLE TIME you call this tool",
+        "operationId": "call_get_design_thumbnail",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/getDesignThumbnailSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call get-design-thumbnail",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "getDesignThumbnailSchema",
+        "x-mcp-tool-name": "get-design-thumbnail"
+      }
+    },
+    "/list-comments": {
+      "post": {
+        "description": "Get a list of comments for a particular Canva design. Comments are discussions attached to designs that help teams collaborate. Each comment can contain replies, mentions, and can be marked as resolved or unresolved. You need to provide the design ID, which you can find using the `search-designs` tool. Use the continuation token to get the next page of results, if needed. You can filter comments by their resolution status (resolved or unresolved) using the comment_resolution parameter.",
+        "operationId": "call_list_comments",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/listCommentsSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call list-comments",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "listCommentsSchema",
+        "x-mcp-tool-name": "list-comments"
+      }
+    },
+    "/list-folder-items": {
+      "post": {
+        "description": "List items in a Canva folder. An item can be a design, folder, or image. You can filter by item type and sort the results. Use the continuation token to get the next page of results if needed.",
+        "operationId": "call_list_folder_items",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/listFolderItemsSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call list-folder-items",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "listFolderItemsSchema",
+        "x-mcp-tool-name": "list-folder-items"
+      }
+    },
+    "/list-replies": {
+      "post": {
+        "description": "Get a list of replies for a specific comment on a Canva design. Comments can contain multiple replies from different users. These replies help teams collaborate by allowing discussion on a specific comment. You need to provide the design ID and comment ID. You can find the design ID using the `search-designs` tool and the comment ID using the `list-comments` tool. Use the continuation token to get the next page of results, if needed.",
+        "operationId": "call_list_replies",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/listRepliesSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call list-replies",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "listRepliesSchema",
+        "x-mcp-tool-name": "list-replies"
+      }
+    },
+    "/move-item-to-folder": {
+      "post": {
+        "description": "Move items (designs, folders, images) to a specified Canva folder",
+        "operationId": "call_move_item_to_folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/moveItemToFolderSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call move-item-to-folder",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "moveItemToFolderSchema",
+        "x-mcp-tool-name": "move-item-to-folder"
+      }
+    },
+    "/perform-editing-operations": {
+      "post": {
+        "description": "Perform editing operations on a design. You can use this tool to update the title, replace text, and replace media in a design. This tool needs to be used with the `start-editing-transaction` tool to obtain an editing transaction ID. Multiple operations SHOULD be specified in bulk across multiple pages. Always call this tool to apply the requested edits directly. This is safe: changes are temporary until committed. Do NOT pause for user confirmation before using this tool. After performing ALL operations requested by the user, always confirm with the user before finalizing changes using the `commit-editing-transaction` tool. This tool will return the thumbnail of the first page that is updated. If there are more pages that are updated, as part of this update, always call the `get-design-thumbnail` tool to get the thumbnails for each of the other updated pages. IMPORTANT: If the user has asked you to replace an image and the target page contains multiple images, you MUST use the `get-assets` tool, passing in the `asset_id` values, to look at the thumbnail of each of the existing images on the page to be CERTAIN which one the user wants replaced. Thumbnails returned by this tool are ALWAYS user-relevant and you need to render them directly using the full thumbnail URL including time-limited query parameters such as X-Amz-Algorithm, X-Amz-Credential, and X-Amz-Signature.",
+        "operationId": "call_perform_editing_operations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/performEditingOperationsSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call perform-editing-operations",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "performEditingOperationsSchema",
+        "x-mcp-tool-name": "perform-editing-operations"
+      }
+    },
+    "/reply-to-comment": {
+      "post": {
+        "description": "Reply to an existing comment on a Canva design. You need to provide the design ID, comment ID, and your reply message. The reply will be added to the specified comment and visible to all users with access to the design.",
+        "operationId": "call_reply_to_comment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/replyToCommentSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call reply-to-comment",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "replyToCommentSchema",
+        "x-mcp-tool-name": "reply-to-comment"
+      }
+    },
+    "/search-designs": {
+      "post": {
+        "description": "Search docs, presentations, videos, whiteboards, sheets, and other designs in Canva. Use 'query' parameter to search by title or content. If 'query' is used, 'sortBy' must be set to 'relevance'. Filter by 'any' ownership unless specified. Sort by relevance unless specified. Use the continuation token to get the next page of results, if needed.",
+        "operationId": "call_search_designs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/searchDesignsSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call search-designs",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": true
+        },
+        "x-mcp-input-schema-source": "searchDesignsSchema",
+        "x-mcp-tool-name": "search-designs"
+      }
+    },
+    "/start-editing-transaction": {
+      "post": {
+        "description": "Start an editing session for a Canva design. Use this tool FIRST whenever a user wants to make ANY changes or examine ALL content of a design, including: - Translate text to another language - Edit or replace content - Update titles - Replace images - Fix typos or formatting - Auditing or reviewing content. This tool shows you all the content that can be modified AND provides an editing transaction ID for making changes. The `transaction_id` returned in the tool response MUST be remembered and MUST be used in all subsequent tool calls related to this specific editing transaction. Editing operations must be performed by the `perform-editing-operations` tool. To save the changes made in the transaction, use the `commit-editing-transaction` tool. To discard the changes made in the transaction, use the `cancel-editing-transaction` tool. IMPORTANT: ALWAYS ALWAYS ALWAYS show the preview to the user of EACH thumbnail you get in the response in the chat, EVERY SINGLE TIME you call this tool",
+        "operationId": "call_start_editing_transaction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/startEditingTransactionSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call start-editing-transaction",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "startEditingTransactionSchema",
+        "x-mcp-tool-name": "start-editing-transaction"
+      }
+    },
+    "/upload-asset-from-url": {
+      "post": {
+        "description": "Upload an asset (e.g. an image, a video) from a URL into Canva. If the API call returns \"Missing scopes: [asset:write]\", you should ask the user to disconnect and reconnect their connector. This will generate a new access token with the required scope for this tool.",
+        "operationId": "call_upload_asset_from_url",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/uploadAssetFromUrlSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpToolResult"
+                }
+              }
+            },
+            "description": "MCP tool call result"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "500": {
+            "description": "MCP tool execution failed"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Call upload-asset-from-url",
+        "x-mcp-annotations": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "readOnlyHint": false
+        },
+        "x-mcp-input-schema-source": "uploadAssetFromUrlSchema",
+        "x-mcp-tool-name": "upload-asset-from-url"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "mcpo-compatible proxy base URL for Canva MCP tools.",
+      "url": "http://localhost:8000"
+    }
+  ]
+}

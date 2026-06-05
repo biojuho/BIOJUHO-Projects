@@ -53,8 +53,7 @@ def test_current_manifest_validates_against_real_workspace_evidence() -> None:
     assert summary["source_count"] == 6
     assert summary["adoption_status_counts"] == {
         "adopted": 4,
-        "partially_adopted": 1,
-        "watch": 1,
+        "partially_adopted": 2,
     }
     assert {source["repo"] for source in summary["sources"]} == {
         "PrefectHQ/fastmcp",
@@ -88,8 +87,8 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     assert result == 0
     assert machine["source_count"] == 6
     assert machine["adoption_status_counts"]["adopted"] == 4
-    assert machine["adoption_status_counts"]["partially_adopted"] == 1
-    assert "GitHub Similar Systems Modernization Radar" in markdown
+    assert machine["adoption_status_counts"]["partially_adopted"] == 2
+    assert markdown.startswith("# GitHub Similar Systems Modernization Radar - 2026-06-05")
     assert "PrefectHQ/fastmcp" in markdown
     assert "Keep the default smoke gate deterministic and offline" in markdown
 

@@ -1,10 +1,10 @@
-# GitHub Similar Systems Modernization Radar - 2026-06-04
+# GitHub Similar Systems Modernization Radar - 2026-06-05
 
 ## Summary
 
 - Sources reviewed: 6
-- Adoption counts: adopted=4, partially_adopted=1, watch=1
-- Generated at: `2026-06-04T12:25:00+09:00`
+- Adoption counts: adopted=4, partially_adopted=2, watch=0
+- Generated at: `2026-06-05T16:43:21+09:00`
 
 ## Search Context
 
@@ -109,7 +109,7 @@
 
 - URL: https://github.com/open-webui/mcpo
 - Category: `mcp-openapi-interop`
-- Adoption status: `watch`
+- Adoption status: `partially_adopted`
 - Why similar: MCP-to-OpenAPI proxy pattern that makes MCP tools available through standard HTTP/OpenAPI contracts.
 - Observed patterns:
   - OpenAPI-compatible HTTP exposure for MCP tools
@@ -118,9 +118,14 @@
 - Local evidence:
   - `mcp/canva-mcp/src/server/tools.ts`
   - `mcp/canva-mcp/src/server/auth.ts`
+  - `ops/scripts/canva_mcp_openapi_contract.py`
+  - `tests/test_canva_mcp_openapi_contract.py`
+  - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-05.json`
+  - `docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-05.md`
+  - `docs/reports/2026-06/AUTO_RESEARCH_CANVA_OPENAPI_CONTRACT_2026-06-05.md`
   - `mcp/canva-mcp/assets/preview.js`
   - `ops/references/mcp_services.json`
-- Gap: The workspace does not yet publish MCP tools as OpenAPI endpoints; keep this as an interoperability option.
+- Gap: Canva MCP now has a static tracked OpenAPI contract; a live API-key protected proxy endpoint and interactive docs server remain future scoped work.
 
 ### Uninen/devserver-mcp
 

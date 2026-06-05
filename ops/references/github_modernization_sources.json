@@ -111,7 +111,7 @@
       "repo": "open-webui/mcpo",
       "url": "https://github.com/open-webui/mcpo",
       "category": "mcp-openapi-interop",
-      "adoption_status": "watch",
+      "adoption_status": "partially_adopted",
       "why_similar": "MCP-to-OpenAPI proxy pattern that makes MCP tools available through standard HTTP/OpenAPI contracts.",
       "observed_patterns": [
         "OpenAPI-compatible HTTP exposure for MCP tools",
@@ -121,10 +121,15 @@
       "local_evidence": [
         "mcp/canva-mcp/src/server/tools.ts",
         "mcp/canva-mcp/src/server/auth.ts",
+        "ops/scripts/canva_mcp_openapi_contract.py",
+        "tests/test_canva_mcp_openapi_contract.py",
+        "docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-05.json",
+        "docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_CANVA_OPENAPI_CONTRACT_2026-06-05.md",
         "mcp/canva-mcp/assets/preview.js",
         "ops/references/mcp_services.json"
       ],
-      "gap": "The workspace does not yet publish MCP tools as OpenAPI endpoints; keep this as an interoperability option."
+      "gap": "Canva MCP now has a static tracked OpenAPI contract; a live API-key protected proxy endpoint and interactive docs server remain future scoped work."
     },
     {
       "repo": "Uninen/devserver-mcp",
