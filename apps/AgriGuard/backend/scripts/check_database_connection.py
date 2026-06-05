@@ -9,10 +9,9 @@ backend_path = str(BACKEND_DIR)
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
-from database import verify_database_connection
-
-
 def main() -> int:
+    from database import verify_database_connection
+
     verify_database_connection()
     print("database-ok")
     return 0

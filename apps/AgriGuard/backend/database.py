@@ -1,9 +1,17 @@
 import os
+import sys
 from pathlib import Path
 
 from env_loader import load_backend_env
 from sqlalchemy import text
 from sqlalchemy.orm import declarative_base, sessionmaker
+
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+_PACKAGES_DIR = _WORKSPACE_ROOT / "packages"
+if _PACKAGES_DIR.exists() and str(_PACKAGES_DIR) not in sys.path:
+    sys.path.insert(0, str(_PACKAGES_DIR))
+
+from shared.db.engine import get_sqlalchemy_engine  # noqa: E402
 
 # Load the backend-local .env before resolving DATABASE_URL so local uvicorn runs
 # do not silently pin themselves to SQLite during module import.
@@ -37,8 +45,6 @@ def should_auto_create_schema(database_url: str | None = None) -> bool:
 
 DATABASE_URL = get_database_url()
 
-# Use shared db engine factory for standardizations
-from shared.db.engine import get_sqlalchemy_engine
 engine = get_sqlalchemy_engine("agriguard", DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
