@@ -53,7 +53,7 @@ class CdpClient {
     callbacks.forEach((callback) => callback(message.params || {}));
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = 10000) {
     const id = this.nextId++;
     this.ws.send(JSON.stringify({ id, method, params }));
     return new Promise((resolve, reject) => {
@@ -62,7 +62,7 @@ class CdpClient {
         if (!this.pending.has(id)) return;
         this.pending.delete(id);
         reject(new Error(`Timed out waiting for ${method}`));
-      }, 10000);
+      }, timeoutMs);
     });
   }
 
@@ -137,12 +137,12 @@ async function pageWebSocketUrl(browserWsUrl) {
   throw new Error(`No page target exposed by Chrome.${cause}`);
 }
 
-async function evaluate(client, expression) {
+async function evaluate(client, expression, timeoutMs = 30000) {
   const result = await client.send("Runtime.evaluate", {
     expression,
     awaitPromise: true,
     returnByValue: true,
-  });
+  }, timeoutMs);
   if (result.exceptionDetails) {
     const detail = result.exceptionDetails.exception?.description || result.exceptionDetails.text || "Runtime evaluation failed";
     throw new Error(detail);
