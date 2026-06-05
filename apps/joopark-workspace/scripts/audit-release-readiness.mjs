@@ -925,6 +925,18 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkQueueTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkRubricTerms = [
+    { file: "app.js", terms: ["function candidateBenchmarkComparisonRubric", "function benchmarkRubricNextCheck", "data-candidate-benchmark-rubric", "data-benchmark-rubric-card", "data-benchmark-rubric-row"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-rubric", ".portfolio-benchmark-rubric-grid", ".portfolio-benchmark-rubric-card"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkRubricVisible", "benchmark rubric did not render side-by-side cards", "benchmark rubric next-check row did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_rubric",
+    requirement: "Taskosaur and Workstream benchmark queue rows have a side-by-side UX comparison rubric with browser smoke coverage.",
+    status: taskosaurWorkstreamBenchmarkRubricTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkRubricTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T03:09:23+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442",
+  "generatedAt": "2026-06-06T03:27:22+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8448+github-api:veritas-focused-drift-refresh-v8449",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -441,7 +441,7 @@
     {
       "id": "repo-veritas-autoresearch-skill-system",
       "name": "Veritas-7/autoresearch-skill-system",
-      "description": "v8.442 최신 fireworks api key env redaction을 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
+      "description": "v8.449 최신 azure openai api key env redaction을 갖춘 제품화 기준 AutoResearch 스킬 진화 하네스",
       "category": "Harness/오토리서치",
       "owner": "도입 후보",
       "language": "Python",
@@ -463,9 +463,9 @@
       "stars": 1,
       "forks": 1,
       "diskKb": 845,
-      "pushedAt": "2026-06-05T18:09:19Z",
+      "pushedAt": "2026-06-05T18:27:13Z",
       "createdAt": "2026-06-03T04:43:01Z",
-      "lastCommit": "e962762d8a2a9c98cb57836d0044bc839786934b"
+      "lastCommit": "635c856398232e9001c6e3e390f0a532f801ac49"
     },
     {
       "id": "repo-biojuho-autoresearch-skill-system",

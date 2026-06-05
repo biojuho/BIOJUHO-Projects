@@ -801,6 +801,47 @@ Generated: 2026-06-06T03:09:23+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_queue`.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 41/41.
 
+## Experiment: Taskosaur/Workstream benchmark comparison rubric
+
+- Hypothesis: Candidate triage improves when the benchmark-focus queue turns the top Taskosaur/Workstream rows into a side-by-side UX comparison rubric instead of leaving operators to compare separate cards.
+- Primary metric: Taskosaur/Workstream benchmark rubric checks.
+- Baseline: 0 benchmark comparison rubric checks; the queue could filter and rank focused candidates but did not expose a side-by-side surface/flow/signal rubric.
+- Candidate: portfolio now renders `data-candidate-benchmark-rubric` with the top two focused benchmark candidates, surface/flow/signal rows, deterministic next UX checks, and interaction smoke verifies both side-by-side cards.
+- Decision: keep; the interaction smoke passed with `candidateBenchmarkRubricVisible: true`.
+
+## Evidence
+
+- `app.js` now includes `candidateBenchmarkComparisonRubric` and `benchmarkRubricNextCheck`.
+- `styles.css` now includes compact desktop/mobile rubric layout rules.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkRubricVisible`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_rubric`.
+
+## Experiment: Veritas writer refresh v8.448
+
+- Hypothesis: Before promoting the benchmark comparison rubric PR, the high-churn Veritas candidate should still match the current upstream snapshot.
+- Primary metric: Veritas snapshot writer write.
+- Baseline: the branch recorded Veritas v8.442, while `--dry-run --fail-on-change` reported v8.448.
+- Candidate: `data/adoption-candidates.json` records Veritas v8.448 (`70927e6dd1ad1cde99614a26917f4d178c3215a4`), `pushedAt: 2026-06-05T18:24:37Z`, disk size 845 KB, and `github-api:veritas-focused-drift-refresh-v8448`.
+- Decision: keep; the writer refreshed only the high-churn Veritas row plus snapshot metadata.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` exited non-zero with live drift before the write.
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated the Veritas row plus snapshot metadata to v8.448.
+
+## Experiment: Veritas writer refresh v8.449
+
+- Hypothesis: The benchmark comparison rubric branch should keep the high-churn Veritas row fresh even after the v8.448 refresh.
+- Primary metric: Veritas snapshot writer write.
+- Baseline: the branch recorded Veritas v8.448, while `--dry-run --fail-on-change` reported v8.449.
+- Candidate: `data/adoption-candidates.json` records Veritas v8.449 (`635c856398232e9001c6e3e390f0a532f801ac49`), `pushedAt: 2026-06-05T18:27:13Z`, disk size 845 KB, and `github-api:veritas-focused-drift-refresh-v8449`.
+- Decision: keep; the writer refreshed only the high-churn Veritas row plus snapshot metadata.
+
+## Evidence
+
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` exited non-zero with live drift before the write.
+- `node scripts/refresh-veritas-candidate-snapshot.mjs --write` updated the Veritas row plus snapshot metadata to v8.449.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn the benchmark-focus queue into a side-by-side UX comparison rubric, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, turn the side-by-side benchmark rubric into persisted decision scores, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.

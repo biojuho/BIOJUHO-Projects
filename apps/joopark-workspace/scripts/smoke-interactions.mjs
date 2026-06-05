@@ -367,6 +367,7 @@ const interactionExpression = `
   let candidateActionSummaryVisibleOk = false;
   let candidateBenchmarkFocusVisibleOk = false;
   let candidateBenchmarkQueueVisibleOk = false;
+  let candidateBenchmarkRubricVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -693,6 +694,22 @@ const interactionExpression = `
     const firstBenchmarkCard = qs('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]');
     assert(firstBenchmarkCard.dataset.projectId === benchmarkFocusQueue[0].id, "benchmark focus queue did not rank top benchmark first");
     assert(qs("[data-candidate-benchmark]", firstBenchmarkCard).dataset.candidateBenchmark === projectBenchmarkFocus(benchmarkFocusQueue[0]).surface, "benchmark focus queue top chip did not render");
+    const benchmarkRubric = qs("[data-candidate-benchmark-rubric]");
+    const benchmarkRubricCards = Array.from(document.querySelectorAll("[data-benchmark-rubric-card]"));
+    assert(benchmarkRubric.dataset.rubricFilter === "focused", "benchmark rubric did not track active filter");
+    assert(benchmarkRubric.dataset.rubricCount === String(Math.min(2, benchmarkFocusCount)), "benchmark rubric comparison count was wrong");
+    assert(benchmarkRubric.textContent.includes("UX 비교 Rubric"), "benchmark rubric label did not render");
+    assert(benchmarkFocusCount >= 2, "benchmark rubric needs at least two focused benchmark candidates");
+    assert(benchmarkRubricCards.length === Math.min(2, benchmarkFocusCount), "benchmark rubric did not render side-by-side cards");
+    assert(qs('[data-benchmark-rubric-card="1"]').dataset.projectId === benchmarkFocusQueue[0].id, "benchmark rubric first card did not match top benchmark");
+    assert(qs('[data-benchmark-rubric-card="2"]').dataset.projectId === benchmarkFocusQueue[1].id, "benchmark rubric second card did not match second benchmark");
+    assert(benchmarkRubric.innerText.includes(benchmarkFocusQueue[0].name), "benchmark rubric top candidate did not render");
+    assert(benchmarkRubric.innerText.includes(benchmarkFocusQueue[1].name), "benchmark rubric second candidate did not render");
+    assert(benchmarkRubric.innerText.includes(projectBenchmarkFocus(benchmarkFocusQueue[0]).surface), "benchmark rubric top surface did not render");
+    assert(benchmarkRubric.innerText.includes(projectBenchmarkFocus(benchmarkFocusQueue[1]).flow), "benchmark rubric second flow did not render");
+    assert(benchmarkRubric.innerText.includes(projectBenchmarkFocus(benchmarkFocusQueue[0]).signals[0]), "benchmark rubric top signal did not render");
+    assert(benchmarkRubric.innerText.includes("다음 UX 체크"), "benchmark rubric next-check row did not render");
+    candidateBenchmarkRubricVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -1113,6 +1130,7 @@ const interactionExpression = `
     candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
     candidateBenchmarkFocusVisible: candidateBenchmarkFocusVisibleOk,
     candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
+    candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

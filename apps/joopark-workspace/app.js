@@ -1036,6 +1036,53 @@ function candidateBenchmarkQueueSummary(projects, filter) {
   `;
 }
 
+function benchmarkRubricNextCheck(project) {
+  const focus = projectBenchmarkFocus(project);
+  if (!focus) return "워크플로 관찰";
+  const text = `${focus.surface} ${focus.flow} ${focus.signals.join(" ")}`.toLowerCase();
+  if (text.includes("calendar") || text.includes("캘린더")) return "일정-업무 연결 밀도";
+  if (text.includes("kanban") || text.includes("sprint")) return "칸반 전환과 스프린트 맥락";
+  if (text.includes("conversational") || text.includes("ai")) return "대화 명령의 실행 피드백";
+  if (text.includes("pr")) return "PR 맥락에서 액션 생성";
+  return "반복 업무의 클릭 수와 상태 인지";
+}
+
+function candidateBenchmarkComparisonRubric(projects, filter) {
+  const selected = CANDIDATE_BENCHMARK_FILTERS.find((item) => item.key === filter) || CANDIDATE_BENCHMARK_FILTERS[0];
+  const focused = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkFocus(p)));
+  const comparison = focused.slice(0, 2);
+  const candidateCards = comparison.map((project, index) => {
+    const focus = projectBenchmarkFocus(project);
+    const action = projectCandidateAction(project);
+    return html`
+      <article class="portfolio-benchmark-rubric-card" data-benchmark-rubric-card="${index + 1}" data-project-id="${project.id}">
+        <header>
+          <span>${index + 1}</span>
+          <strong data-benchmark-rubric-top="${index + 1}">${project.name}</strong>
+        </header>
+        <dl>
+          <div data-benchmark-rubric-row="surface"><dt>표면</dt><dd>${focus.surface}</dd></div>
+          <div data-benchmark-rubric-row="flow"><dt>핵심 흐름</dt><dd>${focus.flow}</dd></div>
+          <div data-benchmark-rubric-row="signals"><dt>증거 신호</dt><dd>${focus.signals.join(" / ")}</dd></div>
+          <div data-benchmark-rubric-row="next-check"><dt>다음 UX 체크</dt><dd>${benchmarkRubricNextCheck(project)}</dd></div>
+          <div data-benchmark-rubric-row="action"><dt>후보 액션</dt><dd>${action ? `${action.label} · ${action.reason}` : "기능 검토"}</dd></div>
+        </dl>
+      </article>
+    `;
+  }).join("");
+  return html`
+    <section class="portfolio-benchmark-rubric" data-candidate-benchmark-rubric data-rubric-filter="${selected.key}" data-rubric-count="${comparison.length}">
+      <header class="portfolio-benchmark-rubric-head">
+        <span>UX 비교 Rubric</span>
+        <strong>${comparison.length >= 2 ? `${comparison[0].name} ↔ ${comparison[1].name}` : "비교 후보 대기"}</strong>
+      </header>
+      <div class="portfolio-benchmark-rubric-grid">
+        ${comparison.length ? raw(candidateCards) : raw(html`<div class="empty">비교할 벤치 포커스 후보가 없습니다.</div>`)}
+      </div>
+    </section>
+  `;
+}
+
 function sortPortfolioProjects(projects) {
   if (state.portfolioFilter !== "candidates") return projects;
   if (state.portfolioBenchmarkFilter === "focused") return sortBenchmarkFocusProjects(projects);
@@ -1086,6 +1133,7 @@ function renderPortfolio() {
   }).join("");
   const actionSummary = candidateActionQueueSummary(dashboard.projects, state.portfolioActionFilter);
   const benchmarkSummary = candidateBenchmarkQueueSummary(dashboard.projects, state.portfolioBenchmarkFilter);
+  const benchmarkRubric = candidateBenchmarkComparisonRubric(dashboard.projects, state.portfolioBenchmarkFilter);
 
   const stats = {
     total: dashboard.projects.length,
@@ -1159,6 +1207,7 @@ function renderPortfolio() {
     </div>
     ${raw(actionSummary)}
     ${raw(benchmarkSummary)}
+    ${raw(benchmarkRubric)}
     <section class="portfolio-grid">
       ${list.length === 0 ? raw(html`<article class="empty">일치하는 프로젝트가 없습니다.</article>`) : raw(list.map(card).join(""))}
     </section>
