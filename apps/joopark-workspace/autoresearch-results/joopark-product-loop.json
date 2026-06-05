@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T04:06:25+09:00",
+  "generatedAt": "2026-06-06T04:24:30+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 44,
+      "pass": 45,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 44
+      "total": 45
     },
     "browserEvidence": {
       "routes": 15,
@@ -82,7 +82,9 @@
       "candidateBenchmarkRubricScoreVisible": true,
       "taskosaurWorkstreamBenchmarkRubricScoreChecks": 4,
       "candidateBenchmarkRecommendationExportVisible": true,
-      "taskosaurWorkstreamBenchmarkRecommendationExportChecks": 4
+      "taskosaurWorkstreamBenchmarkRecommendationExportChecks": 4,
+      "candidateBenchmarkReviewQueueVisible": true,
+      "taskosaurWorkstreamBenchmarkReviewQueueChecks": 4
     }
   },
   "experiments": [
@@ -237,7 +239,7 @@
       "id": "github-pages-publish-workflow-template",
       "primaryMetric": "pagesPublishWorkflowTemplateChecks",
       "baseline": 0,
-      "candidate": 3,
+      "candidate": 4,
       "decision": "keep"
     },
     {
@@ -519,6 +521,13 @@
       "baseline": 0,
       "candidate": 4,
       "decision": "keep"
+    },
+    {
+      "id": "taskosaur-workstream-benchmark-review-queue",
+      "primaryMetric": "taskosaurWorkstreamBenchmarkReviewQueueChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -532,7 +541,7 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "persist benchmark rubric score decisions into the review queue",
+    "export benchmark review queue decisions for handoff",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "use the Veritas snapshot writer for the next focused refresh when dry-run reports changed true"
   ]

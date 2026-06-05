@@ -2873,6 +2873,87 @@ textarea:focus:not(:focus-visible) { outline: none; }
   white-space: nowrap;
 }
 
+.portfolio-benchmark-review {
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid rgba(23, 217, 131, 0.22);
+  border-radius: 8px;
+  background: var(--ink-50);
+}
+
+.portfolio-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.portfolio-review-head span,
+.portfolio-review-item small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.portfolio-review-head strong {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.portfolio-review-list {
+  display: grid;
+  gap: 6px;
+}
+
+.portfolio-review-item {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ink);
+}
+
+.portfolio-review-item > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid rgba(23, 217, 131, 0.3);
+  border-radius: 50%;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.portfolio-review-item div {
+  min-width: 0;
+}
+
+.portfolio-review-item strong,
+.portfolio-review-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portfolio-review-item strong {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.portfolio-review-item b {
+  color: var(--green);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .portfolio-rubric-grid {
   display: grid;
   grid-template-columns: minmax(82px, 0.7fr) repeat(2, minmax(0, 1fr));
@@ -4126,6 +4207,19 @@ select:focus-visible,
 
   .portfolio-rubric-score strong,
   .portfolio-rubric-score small {
+    white-space: normal;
+  }
+
+  .portfolio-review-item {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .portfolio-review-item b {
+    grid-column: 2;
+  }
+
+  .portfolio-review-item strong,
+  .portfolio-review-item small {
     white-space: normal;
   }
 
