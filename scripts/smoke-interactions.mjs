@@ -344,6 +344,8 @@ const interactionExpression = `
   let markdownSanitizedOk = false;
   let workspaceCandidateVisibleOk = false;
   let workspaceCompetitiveCandidateVisibleOk = false;
+  let veritasCandidateFreshnessVisibleOk = false;
+  let openProjectCandidateFreshnessVisibleOk = false;
   let candidateNextActionVisibleOk = false;
   let candidateActionFilterOk = false;
   let candidateActionSummaryVisibleOk = false;
@@ -527,6 +529,12 @@ const interactionExpression = `
     assert(benchmarkCandidate && benchmarkCandidate.sourceKind === "adoption-candidate", "Colanode workspace benchmark candidate was not loaded");
     const riskCandidate = dashboard.projects.find((project) => project.name === "opf/openproject");
     assert(riskCandidate && projectCandidateAction(riskCandidate)?.label === "리스크 리뷰", "OpenProject candidate risk action was not computed");
+    assert(riskCandidate.lastCommit === "5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4", "OpenProject candidate commit was stale");
+    assert(riskCandidate.pushedAt === "2026-06-05T12:44:52Z", "OpenProject candidate pushedAt was stale");
+    const veritasCandidate = dashboard.projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system");
+    assert(veritasCandidate && veritasCandidate.sourceKind === "adoption-candidate", "Veritas AutoResearch candidate was not loaded");
+    assert(veritasCandidate.lastCommit === "96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7", "Veritas AutoResearch candidate commit was stale");
+    assert(veritasCandidate.pushedAt === "2026-06-05T11:55:44Z", "Veritas AutoResearch candidate pushedAt was stale");
     const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
     const ownedCount = dashboard.projects.length - candidateCount;
     click('[data-action="portfolio-filter"][data-filter="candidates"]');
@@ -592,6 +600,29 @@ const interactionExpression = `
     assert(action.textContent.includes("로컬 퍼스트 구조"), "Colanode candidate action reason did not render");
     const benchmarkHref = qs(".portfolio-candidate-link", benchmarkCard).href;
     assert(benchmarkHref === "https://github.com/colanode/colanode" || benchmarkHref === "https://github.com/colanode/colanode/", "Colanode GitHub link did not render safely");
+    fill("#globalSearch", "96858c69");
+    await waitFor(() => state.query === "96858c69" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Veritas commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + veritasCandidate.id + '"]'), "Veritas portfolio card did not render after commit search");
+    const veritasCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + veritasCandidate.id + '"]');
+    const veritasText = veritasCard.innerText;
+    assert(veritasText.includes("Veritas-7/autoresearch-skill-system"), "Veritas candidate card did not render");
+    assert(veritasText.includes("v8.344 최신"), "Veritas candidate description did not render");
+    const veritasCommit = qs("[data-candidate-commit]", veritasCard);
+    assert(veritasCommit.dataset.candidateCommit === "96858c69", "Veritas freshness commit did not render");
+    assert(veritasCommit.dataset.candidatePushedAt === "2026-06-05T11:55:44Z", "Veritas pushedAt freshness marker did not render");
+    const veritasHref = qs(".portfolio-candidate-link", veritasCard).href;
+    assert(veritasHref === "https://github.com/Veritas-7/autoresearch-skill-system" || veritasHref === "https://github.com/Veritas-7/autoresearch-skill-system/", "Veritas GitHub link did not render safely");
+    fill("#globalSearch", "5b5c5c91");
+    await waitFor(() => state.query === "5b5c5c91" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "OpenProject commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + riskCandidate.id + '"]'), "OpenProject portfolio card did not render after commit search");
+    const openProjectCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + riskCandidate.id + '"]');
+    const openProjectText = openProjectCard.innerText;
+    assert(openProjectText.includes("opf/openproject"), "OpenProject candidate card did not render");
+    const openProjectCommit = qs("[data-candidate-commit]", openProjectCard);
+    assert(openProjectCommit.dataset.candidateCommit === "5b5c5c91", "OpenProject freshness commit did not render");
+    assert(openProjectCommit.dataset.candidatePushedAt === "2026-06-05T12:44:52Z", "OpenProject pushedAt freshness marker did not render");
+    const openProjectHref = qs(".portfolio-candidate-link", openProjectCard).href;
+    assert(openProjectHref === "https://github.com/opf/openproject" || openProjectHref === "https://github.com/opf/openproject/", "OpenProject GitHub link did not render safely");
     fill("#globalSearch", "");
     await waitFor(() => document.querySelectorAll("#view-pm-portfolio .portfolio-card").length > 1, "portfolio did not recover after clearing search");
     click('[data-action="portfolio-filter"][data-filter="all"]');
@@ -600,6 +631,8 @@ const interactionExpression = `
     portfolioCandidateFilterOk = true;
     workspaceCandidateVisibleOk = true;
     workspaceCompetitiveCandidateVisibleOk = true;
+    veritasCandidateFreshnessVisibleOk = true;
+    openProjectCandidateFreshnessVisibleOk = true;
     candidateNextActionVisibleOk = true;
     candidateActionFilterOk = true;
     candidateActionSummaryVisibleOk = true;
@@ -816,6 +849,8 @@ const interactionExpression = `
     markdownSanitized: markdownSanitizedOk,
     workspaceCandidateVisible: workspaceCandidateVisibleOk,
     workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
+    veritasCandidateFreshnessVisible: veritasCandidateFreshnessVisibleOk,
+    openProjectCandidateFreshnessVisible: openProjectCandidateFreshnessVisibleOk,
     candidateNextActionVisible: candidateNextActionVisibleOk,
     candidateActionFilter: candidateActionFilterOk,
     candidateActionSummaryVisible: candidateActionSummaryVisibleOk,

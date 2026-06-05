@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T20:56:21+09:00",
+  "generatedAt": "2026-06-05T22:16:13+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 31,
+      "pass": 33,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 31
+      "total": 33
     },
     "browserEvidence": {
       "routes": 15,
@@ -19,6 +19,8 @@
       "markdownSanitized": true,
       "workspaceCandidateVisible": true,
       "workspaceCompetitiveCandidateVisible": true,
+      "veritasCandidateFreshnessVisible": true,
+      "openProjectCandidateFreshnessVisible": true,
       "candidateNextActionVisible": true,
       "candidateActionFilter": true,
       "candidateActionSummaryVisible": true,
@@ -32,6 +34,7 @@
       "pagesWorkflowHandoffChecks": 5,
       "mainBridgeStrategyChecks": 5,
       "veritasFreshnessChecks": 5,
+      "openProjectFreshnessChecks": 6,
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
@@ -227,6 +230,27 @@
       "baseline": 0,
       "candidate": 5,
       "decision": "keep"
+    },
+    {
+      "id": "veritas-freshness-ui-smoke",
+      "primaryMetric": "veritasCandidateFreshnessVisible",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "openproject-freshness-refresh",
+      "primaryMetric": "openProjectFreshnessChecks",
+      "baseline": 0,
+      "candidate": 6,
+      "decision": "keep"
+    },
+    {
+      "id": "openproject-freshness-ui-smoke",
+      "primaryMetric": "openProjectCandidateFreshnessVisible",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -238,8 +262,8 @@
     "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
   },
   "nextCandidates": [
-    "deeper UI workflow coverage",
+    "next workspace benchmark freshness refresh",
     "Pages workflow activation verification",
-    "main-based PR bridge branch"
+    "post-release workflow deprecation cleanup"
   ]
 }

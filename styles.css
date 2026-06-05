@@ -772,6 +772,12 @@ button.bell:hover { background: var(--cyan-22); }
   font-weight: 800;
 }
 
+.portfolio-commit {
+  color: var(--cyan);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 800;
+}
+
 .portfolio-action {
   color: var(--text);
   font-weight: 800;

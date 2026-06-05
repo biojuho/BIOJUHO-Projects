@@ -215,13 +215,28 @@ function workspaceCandidateSnapshot(relPath) {
   const source = payload?.source || "";
   const sourceMarked = source.includes("github-search:local-first-workspace");
   const apiMarked = source.includes("github-api:workspace-benchmark-refresh");
+  const openProjectLatestCommit = "5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4";
+  const openProjectLatestPushedAt = "2026-06-05T12:44:52Z";
+  const openProject = projects.find((project) => project.name === "opf/openproject") || null;
+  const openProjectFresh = Boolean(openProject) &&
+    openProject.lastCommit === openProjectLatestCommit &&
+    Date.parse(openProject.pushedAt || "") >= Date.parse(openProjectLatestPushedAt);
+  const openProjectSourceMarked = source.includes("github-api:openproject-freshness-refresh");
   return {
-    status: matches.length >= 14 && missing.length === 0 && sourceMarked && apiMarked ? "pass" : "fail",
+    status: matches.length >= 14 && missing.length === 0 && sourceMarked && apiMarked && openProjectFresh && openProjectSourceMarked ? "pass" : "fail",
     source,
     generatedAt: payload?.generatedAt || "",
     candidates: matches.length,
     sourceMarked,
     apiMarked,
+    openProject: {
+      latestCommit: openProjectLatestCommit,
+      lastCommit: openProject?.lastCommit || "",
+      latestPushedAt: openProjectLatestPushedAt,
+      pushedAt: openProject?.pushedAt || "",
+      fresh: openProjectFresh,
+      sourceMarked: openProjectSourceMarked,
+    },
     required,
     missing,
   };
@@ -569,6 +584,30 @@ function buildChecklist() {
     requirement: "The interaction smoke proves a newly researched workspace benchmark candidate is searchable and renders current GitHub metadata.",
     status: workspaceCompetitiveTerms.status,
     evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceCompetitiveTerms.missing },
+  });
+
+  const veritasFreshnessUiTerms = [
+    { file: "app.js", terms: ["shortCommit", "data-candidate-commit", "data-candidate-pushed-at", "p && p.lastCommit"] },
+    { file: "styles.css", terms: [".portfolio-commit"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["Veritas-7/autoresearch-skill-system", "Veritas freshness commit did not render", "veritasCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "veritas_freshness_ui_smoke",
+    requirement: "The portfolio UI exposes the refreshed Veritas upstream commit and pushedAt marker, and interaction smoke can find the candidate by commit.",
+    status: veritasFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: veritasFreshnessUiTerms,
+  });
+
+  const openProjectFreshnessUiTerms = [
+    { file: "app.js", terms: ["shortCommit", "data-candidate-commit", "data-candidate-pushed-at", "p && p.lastCommit"] },
+    { file: "styles.css", terms: [".portfolio-commit"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["opf/openproject", "OpenProject freshness commit did not render", "openProjectCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "openproject_freshness_ui_smoke",
+    requirement: "The portfolio UI exposes the refreshed OpenProject upstream commit and pushedAt marker, and interaction smoke can find the risk-review candidate by commit.",
+    status: openProjectFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: openProjectFreshnessUiTerms,
   });
 
   const candidateTriageTerms = [

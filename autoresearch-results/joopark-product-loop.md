@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T20:56:21+09:00
+Generated: 2026-06-05T22:16:13+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -407,6 +407,28 @@ Generated: 2026-06-05T20:56:21+09:00
 - `gh repo view Veritas-7/autoresearch-skill-system --json pushedAt,updatedAt,description,stargazerCount,forkCount,defaultBranchRef,latestRelease` returned pushedAt `2026-06-05T11:55:44Z`, updatedAt `2026-06-05T11:55:49Z`, default branch `main`, 1 star, 1 fork, and no latest release.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 with refreshed `autoresearch_ecosystem_candidates.veritas.fresh: true`.
 
+## Experiment: Veritas freshness UI smoke
+
+- Hypothesis: The Veritas freshness data is more useful when the release portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
+- Primary metric: `veritasCandidateFreshnessVisible`.
+- Baseline: the release data required Veritas freshness, but portfolio cards did not render `lastCommit` and the interaction smoke did not prove the Veritas card could be found by source evidence.
+- Candidate: candidate cards render a short `Commit 96858c69` badge with the exact pushedAt marker, project search indexes `lastCommit`, and the packaged interaction smoke searches `96858c69` to verify the Veritas card, commit, pushedAt marker, description, and safe GitHub link.
+- Decision: keep.
+
+## Experiment: OpenProject freshness refresh
+
+- Hypothesis: The release branch should preserve the main branch's highest-priority project-management benchmark freshness evidence instead of leaving OpenProject with stale metadata.
+- Primary metric: `openProjectFreshnessChecks`.
+- Baseline: `opf/openproject` had `lastCommit: null`, `pushedAt: 2026-06-05T10:35:36Z`, no OpenProject-specific source marker, and no UI smoke that could find the risk-review candidate by upstream commit.
+- Candidate: `data/adoption-candidates.json` records OpenProject `lastCommit: 5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4`, `pushedAt: 2026-06-05T12:44:52Z`, the `github-api:openproject-freshness-refresh` source marker, and audit evidence for freshness/source validity.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/opf/openproject` returned `pushed_at: 2026-06-05T12:44:52Z`, 15,235 stars, 3,288 forks, 212 open issues, default branch `dev`, Ruby, and repository size 2,705,404 KB.
+- `gh api 'repos/opf/openproject/commits?per_page=1'` returned commit `5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4` dated `2026-06-05T11:55:31Z`.
+- The release interaction smoke now verifies `veritasCandidateFreshnessVisible` and `openProjectCandidateFreshnessVisible` through commit searches and commit badge metadata.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: deeper UI workflow coverage, Pages workflow activation verification, or creating the main-based PR bridge branch.
+- Continue with the highest-impact product gap after the next full gate: refresh the next workspace benchmark freshness signal, verify Pages workflow activation, or clean up post-release workflow handoff docs.
