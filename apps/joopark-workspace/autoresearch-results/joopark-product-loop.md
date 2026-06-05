@@ -894,6 +894,22 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_review_handoff_export`.
 - `npm run verify` passed 46/46 with `sourceDirty: false`.
 
+## Experiment: Taskosaur/Workstream benchmark review handoff clipboard
+
+- Hypothesis: Review queue decisions move faster from benchmark to execution when the handoff Markdown can be copied directly, not only downloaded.
+- Primary metric: Taskosaur/Workstream benchmark review handoff clipboard checks.
+- Baseline: 0 clipboard checks for the review handoff export.
+- Candidate: the focused benchmark review handoff now renders a `복사` command beside `MD 저장`, copies the same Markdown text through the Clipboard API with a textarea fallback, and exposes the stable Taskosaur persist key in the copied flow.
+- Decision: keep; interaction smoke passed with `candidateBenchmarkReviewHandoffClipboard: true`, and Computer Use showed the button transition to `복사됨`.
+
+## Evidence
+
+- `app.js` now includes `copyTextToClipboard` and `copyReviewHandoff`.
+- `styles.css` now includes `.portfolio-export-copy` and copied/failed button states.
+- `scripts/smoke-interactions.mjs` now reports `candidateBenchmarkReviewHandoffClipboard`.
+- `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_review_handoff_clipboard`.
+- Baseline `npm run verify` passed 46/46; the candidate expands the audit target to 47 checks.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, add clipboard copy for benchmark review handoff export, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.

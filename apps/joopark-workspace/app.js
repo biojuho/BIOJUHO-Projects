@@ -96,6 +96,43 @@ function showToast(message, tone) {
   setTimeout(() => el.remove(), TOAST_TIMEOUT);
 }
 
+function fallbackCopyText(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-999px";
+  textarea.style.left = "-999px";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (_) {
+    copied = false;
+  }
+  textarea.remove();
+  return copied;
+}
+
+async function copyTextToClipboard(text) {
+  const value = text == null ? "" : String(text);
+  if (!value.trim()) return false;
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(value);
+      window.__jooparkLastCopiedText = value;
+      return true;
+    } catch (_) {
+      // Fall back for static deployments where Clipboard API permission is not available.
+    }
+  }
+  const copied = fallbackCopyText(value);
+  if (copied) window.__jooparkLastCopiedText = value;
+  return copied;
+}
+
 function setHTML(node, htmlString) {
   if (!node) return;
   node.innerHTML = htmlString;
@@ -1229,7 +1266,10 @@ function candidateBenchmarkReviewQueueHandoff(decisions) {
     <section class="portfolio-review-handoff" data-benchmark-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}">
       <div class="portfolio-export-head">
         <span>handoff export</span>
-        <a class="portfolio-export-download" data-review-handoff-download href="${href}" download="joopark-benchmark-review-queue.md">MD 저장</a>
+        <div class="portfolio-export-actions">
+          <button type="button" class="portfolio-export-copy" data-action="review-handoff-copy" data-review-handoff-copy data-review-handoff-copy-key="${primary.decision.persistKey}" data-copy-state="idle" aria-label="handoff Markdown 복사">복사</button>
+          <a class="portfolio-export-download" data-review-handoff-download href="${href}" download="joopark-benchmark-review-queue.md">MD 저장</a>
+        </div>
       </div>
       <div class="portfolio-export-grid">
         <div>
@@ -3375,6 +3415,32 @@ function seedPersonalData() {
   dashboard.notes = [
     { id: uid("nt"), title: "환영합니다 👋", body: "이 워크스페이스는 일정 · 할 일 · 메모를 한곳에서 관리합니다.\n\n• 모든 변경은 이 브라우저에 자동 저장됩니다.\n• 설정 → 데이터 백업에서 JSON으로 내보내기 / 가져오기 / 초기화를 할 수 있어요.\n• 상단 검색(⌘K)으로 현재 화면을 빠르게 필터링합니다.", color: "#22d3ee", pinned: true, updatedAt: nowISO() },
   ];
+}
+
+function copyReviewHandoff(target) {
+  const handoff = target && target.closest("[data-benchmark-review-handoff]");
+  const source = handoff && handoff.querySelector("[data-review-handoff-text]");
+  const text = source ? source.innerText : "";
+  target.dataset.copyState = "copying";
+  target.disabled = true;
+  copyTextToClipboard(text).then((copied) => {
+    target.disabled = false;
+    target.dataset.copyState = copied ? "copied" : "failed";
+    target.textContent = copied ? "복사됨" : "복사 실패";
+    showToast(copied ? "handoff markdown을 복사했습니다" : "handoff 복사에 실패했습니다", copied ? "info" : "warn");
+    if (copied) {
+      setTimeout(() => {
+        if (target.dataset.copyState !== "copied") return;
+        target.dataset.copyState = "idle";
+        target.textContent = "복사";
+      }, 2400);
+    }
+  }).catch(() => {
+    target.disabled = false;
+    target.dataset.copyState = "failed";
+    target.textContent = "복사 실패";
+    showToast("handoff 복사에 실패했습니다", "warn");
+  });
 }
 
 /* ---------- Nav badge counts ---------- */
@@ -5706,6 +5772,7 @@ function handleActions(event) {
   if (action === "portfolio-filter") { setPortfolioFilter(target.dataset.filter); return; }
   if (action === "portfolio-action-filter") { setPortfolioActionFilter(target.dataset.actionFilter); return; }
   if (action === "portfolio-benchmark-filter") { setPortfolioBenchmarkFilter(target.dataset.benchmarkFilter); return; }
+  if (action === "review-handoff-copy") { copyReviewHandoff(target); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }

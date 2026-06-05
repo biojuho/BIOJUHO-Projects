@@ -987,6 +987,18 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkReviewHandoffTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkReviewHandoffClipboardTerms = [
+    { file: "app.js", terms: ["function copyTextToClipboard", "function copyReviewHandoff", "data-review-handoff-copy", "data-copy-state"] },
+    { file: "styles.css", terms: [".portfolio-export-copy", "[data-copy-state=\"copied\"]"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkReviewHandoffClipboard", "benchmark review handoff clipboard did not call writeText", "benchmark review handoff clipboard did not copy markdown text"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_review_handoff_clipboard",
+    requirement: "Taskosaur and Workstream benchmark review handoff Markdown can be copied from the focused review queue with browser smoke coverage for the copied text and stable key.",
+    status: taskosaurWorkstreamBenchmarkReviewHandoffClipboardTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkReviewHandoffClipboardTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

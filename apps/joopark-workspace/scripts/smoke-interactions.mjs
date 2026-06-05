@@ -372,6 +372,7 @@ const interactionExpression = `
   let candidateBenchmarkRecommendationExportVisibleOk = false;
   let candidateBenchmarkReviewQueueVisibleOk = false;
   let candidateBenchmarkReviewHandoffVisibleOk = false;
+  let candidateBenchmarkReviewHandoffClipboardOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -754,16 +755,40 @@ const interactionExpression = `
     assert(reviewQueue.innerText.includes("강한 추천 86"), "benchmark review queue score label did not render");
     const reviewHandoff = qs("[data-benchmark-review-handoff]", reviewQueue);
     const reviewHandoffDownload = qs("[data-review-handoff-download]", reviewHandoff);
+    const reviewHandoffCopy = qs("[data-review-handoff-copy]", reviewHandoff);
     const reviewHandoffText = qs("[data-review-handoff-text]", reviewHandoff).innerText;
     assert(reviewHandoff.dataset.reviewHandoffPrimaryKey === "benchmark-review:repo-taskosaur-taskosaur:86", "benchmark review handoff primary key did not render");
     assert(reviewHandoff.dataset.reviewHandoffCount === "2", "benchmark review handoff count did not render");
     assert(reviewHandoffDownload.getAttribute("download") === "joopark-benchmark-review-queue.md", "benchmark review handoff filename did not render");
     assert(reviewHandoffDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "benchmark review handoff markdown link did not render");
     assert(reviewHandoffText.includes("Primary decision key: benchmark-review:repo-taskosaur-taskosaur:86") && reviewHandoffText.includes("Taskosaur/Taskosaur - 도입 검토") && reviewHandoffText.includes("happybhati/workstream - 비교 유지"), "benchmark review handoff markdown copy did not render");
+    const clipboardWrites = [];
+    const originalClipboard = navigator.clipboard;
+    try {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value) => {
+            clipboardWrites.push(String(value));
+            window.__jooparkClipboardSmokeText = String(value);
+          },
+        },
+      });
+    } catch (_) {}
+    click("[data-review-handoff-copy]", reviewHandoff);
+    await waitFor(() => reviewHandoffCopy.dataset.copyState === "copied", "benchmark review handoff clipboard button did not reach copied state");
+    assert(reviewHandoffCopy.dataset.reviewHandoffCopyKey === "benchmark-review:repo-taskosaur-taskosaur:86", "benchmark review handoff clipboard key did not render");
+    assert(clipboardWrites.length === 1, "benchmark review handoff clipboard did not call writeText");
+    assert(clipboardWrites[0] === reviewHandoffText, "benchmark review handoff clipboard did not copy markdown text");
+    assert(window.__jooparkLastCopiedText === reviewHandoffText, "benchmark review handoff clipboard did not store copied markdown proof");
+    try {
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: originalClipboard });
+    } catch (_) {}
     candidateBenchmarkRubricVisibleOk = true;
     candidateBenchmarkRubricScoreVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
+    candidateBenchmarkReviewHandoffClipboardOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -955,6 +980,7 @@ const interactionExpression = `
     candidateBenchmarkRecommendationExportVisibleOk = true;
     candidateBenchmarkReviewQueueVisibleOk = true;
     candidateBenchmarkReviewHandoffVisibleOk = true;
+    candidateBenchmarkReviewHandoffClipboardOk = true;
   });
 
   let projectId = "";
@@ -1194,6 +1220,7 @@ const interactionExpression = `
     candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     candidateBenchmarkReviewQueueVisible: candidateBenchmarkReviewQueueVisibleOk,
     candidateBenchmarkReviewHandoffVisible: candidateBenchmarkReviewHandoffVisibleOk,
+    candidateBenchmarkReviewHandoffClipboard: candidateBenchmarkReviewHandoffClipboardOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
