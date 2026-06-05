@@ -110,7 +110,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `5`
+- Evidence paths: `6`
 
 ### dashboard_next_credential_unblock
 
@@ -170,7 +170,7 @@
 
 - Required: `true`
 - Status: `covered`
-- Evidence paths: `3`
+- Evidence paths: `5`
 
 ### mcp_otel_collector_handoff
 

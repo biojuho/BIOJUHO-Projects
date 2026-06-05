@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:51:55+09:00",
+  "generated_at": "2026-06-05T09:57:51+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 10,
+          "term_count": 13,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -645,6 +645,13 @@
           "json_freshness": false
         },
         {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
           "path": "docs/reports/2026-06/CANVA_MCP_OPENAPI_CONTRACT_2026-06-04.md",
           "term_count": 3,
           "git_freshness": false,
@@ -1143,7 +1150,14 @@
       "evidence": [
         {
           "path": "ops/scripts/mcp_service_runtime_smoke.py",
-          "term_count": 4,
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_mcp_service_runtime_smoke.py",
+          "term_count": 3,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -1158,6 +1172,13 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_SMOKE_2026-06-05.md",
           "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T00:57:20.764218+00:00",
+  "status": "pass",
+  "manifest_generated_at": "2026-06-04T21:03:00+09:00",
+  "summary": {
+    "total_manifest_services": 4,
+    "checked_services": 3,
+    "skipped_services": 1,
+    "passed_services": 3,
+    "failed_services": 0,
+    "credential_gated_checked_services": 1,
+    "total_tools_listed": 39
+  },
+  "services": [
+    {
+      "id": "dailynews-antigravity",
+      "name": "Antigravity Content Engine MCP",
+      "status": "pass",
+      "command": "\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" -m antigravity_mcp serve",
+      "cwd": "automation/DailyNews",
+      "transport": "stdio",
+      "expected_min_tools": 26,
+      "tool_count": 26,
+      "tools": [
+        "add_task",
+        "append_block",
+        "content_generate_brief",
+        "content_invoke_skill",
+        "content_publish_report",
+        "create_page",
+        "get_token_usage",
+        "notion_append_blocks",
+        "notion_create_page",
+        "notion_create_record",
+        "notion_get_page",
+        "notion_search",
+        "ops_auto_collect_metrics",
+        "ops_check_health",
+        "ops_cleanup",
+        "ops_collect_tweet_metrics",
+        "ops_export_analytics",
+        "ops_get_content_calendar",
+        "ops_get_cost_report",
+        "ops_get_run_status",
+        "ops_get_tweet_performance",
+        "ops_list_runs",
+        "ops_refresh_dashboard",
+        "ops_run_frozen_eval",
+        "read_page",
+        "search_notion"
+      ],
+      "server_name": "Antigravity Content Engine MCP",
+      "server_version": "1.27.2",
+      "capability_keys": [
+        "experimental",
+        "prompts",
+        "resources",
+        "tools"
+      ],
+      "required_env": [],
+      "missing_env": [],
+      "stderr_tail": "2026-06-05 09:57:13,212 [antigravity_mcp.server] WARNING: Config validation: No LLM API key configured (GOOGLE_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY).\n2026-06-05 09:57:13,392 [mcp.server.lowlevel.server] INFO: Processing request of type ListToolsRequest",
+      "errors": []
+    },
+    {
+      "id": "desci-research",
+      "name": "DeSci Research MCP",
+      "status": "pass",
+      "command": "\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" server.py",
+      "cwd": "mcp/desci-research-mcp",
+      "transport": "stdio",
+      "expected_min_tools": 6,
+      "tool_count": 6,
+      "tools": [
+        "find_related_papers",
+        "get_paper_details",
+        "get_research_trends",
+        "search_arxiv",
+        "search_grants",
+        "search_semantic_scholar"
+      ],
+      "server_name": "desci-research",
+      "server_version": "1.27.2",
+      "capability_keys": [
+        "experimental",
+        "prompts",
+        "resources",
+        "tools"
+      ],
+      "required_env": [],
+      "missing_env": [],
+      "stderr_tail": "[06/05/26 09:57:17] INFO     Processing request of type           server.py:727\n                             ListToolsRequest",
+      "errors": []
+    },
+    {
+      "id": "telegram-bot",
+      "name": "Telegram Bot MCP",
+      "status": "pass",
+      "command": "\"D:\\AI project_push_8921d77\\.venv\\Scripts\\python.exe\" server.py",
+      "cwd": "mcp/telegram-mcp",
+      "transport": "stdio",
+      "expected_min_tools": 7,
+      "tool_count": 7,
+      "tools": [
+        "get_updates",
+        "send_alert",
+        "send_approval_request",
+        "send_cost_report",
+        "send_message",
+        "send_pipeline_report",
+        "send_trend_alert"
+      ],
+      "server_name": "telegram-bot",
+      "server_version": "1.27.2",
+      "capability_keys": [
+        "experimental",
+        "prompts",
+        "resources",
+        "tools"
+      ],
+      "required_env": [
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID"
+      ],
+      "missing_env": [
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID"
+      ],
+      "stderr_tail": "[06/05/26 09:57:20] INFO     Processing request of type           server.py:727\n                             ListToolsRequest",
+      "errors": []
+    }
+  ],
+  "skipped_services": [
+    {
+      "id": "canva-local",
+      "reason": "stdio_transport_not_declared"
+    }
+  ],
+  "errors": []
+}

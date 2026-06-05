@@ -119,24 +119,41 @@ def run_service_smoke(
         )
         return build_service_result(service, command, process)
     except subprocess.TimeoutExpired as exc:
-        return {
-            "id": service["id"],
-            "name": service["name"],
-            "status": "fail",
-            "command": format_command(command),
-            "cwd": service["cwd"],
-            "transport": "stdio",
-            "expected_min_tools": service.get("expected_min_tools", 0),
-            "tool_count": 0,
-            "tools": [],
-            "server_name": "",
-            "server_version": "",
-            "capability_keys": [],
-            "required_env": service.get("required_env", []),
-            "missing_env": missing_env(service),
-            "stderr_tail": tail_text(exc.stderr or ""),
-            "errors": [f"runtime timed out after {timeout_seconds}s"],
-        }
+        return build_failed_service_result(
+            service,
+            command,
+            f"runtime timed out after {timeout_seconds}s",
+            stderr_tail=tail_text(exc.stderr or ""),
+        )
+    except OSError as exc:
+        return build_failed_service_result(service, command, f"runtime launch failed: {exc}")
+
+
+def build_failed_service_result(
+    service: dict[str, Any],
+    command: list[str],
+    error: str,
+    *,
+    stderr_tail: str = "",
+) -> dict[str, Any]:
+    return {
+        "id": service["id"],
+        "name": service["name"],
+        "status": "fail",
+        "command": format_command(command),
+        "cwd": service["cwd"],
+        "transport": "stdio",
+        "expected_min_tools": service.get("expected_min_tools", 0),
+        "tool_count": 0,
+        "tools": [],
+        "server_name": "",
+        "server_version": "",
+        "capability_keys": [],
+        "required_env": service.get("required_env", []),
+        "missing_env": missing_env(service),
+        "stderr_tail": stderr_tail,
+        "errors": [error],
+    }
 
 
 def build_service_result(

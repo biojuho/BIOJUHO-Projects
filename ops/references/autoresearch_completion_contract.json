@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T09:51:55+09:00",
+  "generated_at": "2026-06-05T09:57:51+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,17 +141,20 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "6a60bba",
+            "f03c27c",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
             "tests/test_agent_workflow_gate_runner.py",
+            "tests/test_mcp_service_runtime_smoke.py",
+            "ops/scripts/mcp_service_runtime_smoke.py",
             ".gitattributes",
             "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_DRAIN_GUARD_2026-06-05.md",
-            "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_TIMESTAMP_IDENTITY_GUARD_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_TIMESTAMP_IDENTITY_GUARD_2026-06-05.md",
+            "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "6a60bba",
+            "proof_commit": "f03c27c",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -173,6 +176,7 @@
               "ops/scripts/github_source_commit_digest.py",
               "ops/scripts/github_source_review_queue.py",
               "ops/scripts/telegram_notification_live_verify.py",
+              "ops/scripts/mcp_service_runtime_smoke.py",
               "tests/test_workspace_smoke.py",
               "tests/test_autoresearch_objective_coverage.py",
               "tests/test_pre_push_hook.py",
@@ -188,6 +192,7 @@
               "tests/test_github_source_commit_digest.py",
               "tests/test_github_source_review_queue.py",
               "tests/test_agent_workflow_gate_runner.py",
+              "tests/test_mcp_service_runtime_smoke.py",
               "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_PRE_PUSH_TYPECHECK_BUILD_GUARD_2026-06-05.md"
             ]
           }
@@ -962,12 +967,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "6a60bba",
+            "f03c27c",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "6a60bba",
+            "proof_commit": "f03c27c",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -999,6 +1004,16 @@
             "Agent Workflow Timestamp Identity Guard",
             "protected_path_freshness",
             "6a60bba",
+            "no changed protected paths after proof",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "MCP Service Runtime Launch Failure Guard",
+            "protected_path_freshness",
+            "f03c27c",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]
@@ -1683,7 +1698,17 @@
             "initialize",
             "tools/list",
             "eligible_services",
-            "expected_min_tools"
+            "expected_min_tools",
+            "build_failed_service_result",
+            "runtime launch failed"
+          ]
+        },
+        {
+          "path": "tests/test_mcp_service_runtime_smoke.py",
+          "must_contain": [
+            "test_run_service_smoke_converts_launch_error_to_failed_service",
+            "connection refused",
+            "runtime launch failed"
           ]
         },
         {
@@ -1703,6 +1728,16 @@
             "modelcontextprotocol/python-sdk",
             "checked services `3`",
             "total tools listed `39`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
+          "must_contain": [
+            "agno-agi/agno",
+            "MCP connection failures",
+            "runtime launch failed",
+            "3 checked",
+            "39 tools"
           ]
         }
       ]

@@ -93,6 +93,30 @@ def test_build_service_result_fails_when_tool_count_is_too_low() -> None:
     assert result["errors"] == ["expected at least 4 tools, got 3"]
 
 
+def test_run_service_smoke_converts_launch_error_to_failed_service(monkeypatch) -> None:
+    smoke = load_module()
+    service = {
+        "id": "sample",
+        "name": "Sample MCP",
+        "cwd": ".",
+        "command": ["python", "server.py"],
+        "required_env": ["SAMPLE_TOKEN"],
+        "expected_min_tools": 2,
+    }
+
+    def fake_run(*args, **kwargs):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    result = smoke.run_service_smoke(service, timeout_seconds=1, python_exe=sys.executable)
+
+    assert result["status"] == "fail"
+    assert result["tool_count"] == 0
+    assert result["missing_env"] == ["SAMPLE_TOKEN"]
+    assert result["errors"] == ["runtime launch failed: connection refused"]
+
+
 def test_build_report_summarizes_skips_and_credentials() -> None:
     smoke = load_module()
     payload = {"generated_at": "2026-06-05T00:00:00+09:00", "services": [{}, {}, {}]}
