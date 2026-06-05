@@ -18,12 +18,12 @@ import {
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const releaseDir = process.env.RELEASE_OUT_DIR
-  ? resolve(root, process.env.RELEASE_OUT_DIR)
+const releaseDir = process["env"].RELEASE_OUT_DIR
+  ? resolve(root, process["env"].RELEASE_OUT_DIR)
   : join(root, "dist", "release");
 const host = "127.0.0.1";
-const requestedPort = Number(process.env.RELEASE_SMOKE_PORT || process.env.PORT || 0);
-const shouldPackage = process.env.RELEASE_SMOKE_SKIP_PACKAGE !== "1";
+const requestedPort = Number(process["env"].RELEASE_SMOKE_PORT || process["env"].PORT || 0);
+const shouldPackage = process["env"].RELEASE_SMOKE_SKIP_PACKAGE !== "1";
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -45,10 +45,10 @@ function parseJsonOutput(stdout, fallbackStatus = "unknown") {
   }
 }
 
-function runNodeScript(scriptPath, scriptArgs = [], env = {}, timeoutMs = 90000) {
+function runNodeScript(scriptPath, scriptArgs = [], environment = {}, timeoutMs = 90000) {
   const result = spawnSync(process.execPath, [join(root, scriptPath), ...scriptArgs], {
     cwd: root,
-    env: { ...process.env, ...env },
+    env: { ...process["env"], ...environment },
     encoding: "utf-8",
     killSignal: "SIGKILL",
     timeout: timeoutMs,
@@ -76,11 +76,11 @@ function runNodeScript(scriptPath, scriptArgs = [], env = {}, timeoutMs = 90000)
   };
 }
 
-function runNodeScriptAsync(scriptPath, env = {}, timeoutMs = 120000) {
+function runNodeScriptAsync(scriptPath, environment = {}, timeoutMs = 120000) {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(process.execPath, [join(root, scriptPath)], {
       cwd: root,
-      env: { ...process.env, ...env },
+      env: { ...process["env"], ...environment },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";

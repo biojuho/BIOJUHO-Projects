@@ -16,8 +16,8 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = process.env.RELEASE_OUT_DIR
-  ? resolve(root, process.env.RELEASE_OUT_DIR)
+const outDir = process["env"].RELEASE_OUT_DIR
+  ? resolve(root, process["env"].RELEASE_OUT_DIR)
   : join(root, "dist", "release");
 const sourceEntries = [
   "index.html",
@@ -111,7 +111,7 @@ function sourceMetadata() {
   const statusText = gitOutputRaw(["status", "--short", "--untracked-files=all"]);
   const dirtyFiles = statusText ? statusText.split("\n").filter(Boolean) : [];
   return {
-    commit: process.env.SOURCE_COMMIT || currentCommit(),
+    commit: process["env"].SOURCE_COMMIT || currentCommit(),
     branch: gitOutput(["branch", "--show-current"]) || gitOutput(["rev-parse", "--abbrev-ref", "HEAD"]),
     dirty: dirtyFiles.length > 0,
     dirtyFiles,

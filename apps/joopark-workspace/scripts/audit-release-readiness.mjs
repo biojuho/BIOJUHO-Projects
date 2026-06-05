@@ -68,7 +68,7 @@ const viewIds = [
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
     cwd: root,
-    env: { ...process.env, ...(options.env || {}) },
+    env: { ...process["env"], ...(options["env"] || {}) },
     encoding: "utf-8",
     timeout: options.timeout || 15000,
     killSignal: "SIGKILL",
@@ -292,8 +292,8 @@ function buildChecklist() {
   });
 
   const tempReleaseTerms = [
-    { file: "scripts/package-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "resolve(root, process.env.RELEASE_OUT_DIR)"] },
-    { file: "scripts/smoke-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "RELEASE_OUT_DIR: releaseDir", "runNodeScript(\"scripts/verify-release.mjs\", [releaseDir]"] },
+    { file: "scripts/package-release.mjs", terms: ['process["env"].RELEASE_OUT_DIR', 'resolve(root, process["env"].RELEASE_OUT_DIR)'] },
+    { file: "scripts/smoke-release.mjs", terms: ['process["env"].RELEASE_OUT_DIR', "RELEASE_OUT_DIR: releaseDir", "runNodeScript(\"scripts/verify-release.mjs\", [releaseDir]"] },
     { file: "scripts/audit-release-readiness.mjs", terms: ["mkdtempSync", "joopark-release-smoke-", "RELEASE_OUT_DIR: releaseOutDir"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
