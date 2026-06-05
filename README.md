@@ -125,6 +125,20 @@ node scripts/check-candidate-freshness-drift.mjs --live
 node scripts/check-candidate-freshness-drift.mjs --live --fail-on-drift
 ```
 
+빠르게 움직이는 후보만 별도로 확인하려면 `--repo owner/name`을 붙입니다. 이 필터는 반복할 수 있고 `--snapshot-only`와 `--live` 모두에서 동작합니다.
+
+```bash
+node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system
+```
+
+high-churn 후보인 `Veritas-7/autoresearch-skill-system`은 출시 게이트 전, upstream 이동 감지 후, `--fail-on-drift` 자동화를 켜기 전에 repo-scoped cadence로 먼저 확인합니다. 정책 증거는 네트워크 없는 snapshot-only 모드에서 확인할 수 있습니다.
+
+```bash
+node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy
+node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system
+node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --fail-on-drift
+```
+
 ## 구성
 
 - `index.html` — 사이드바/메인/시트/모달/명령 팔레트 레이아웃, 뷰 컨테이너

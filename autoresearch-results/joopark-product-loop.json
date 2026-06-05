@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T01:43:36+09:00",
+  "generatedAt": "2026-06-06T02:03:12+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 37,
+      "pass": 38,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 37
+      "total": 38
     },
     "browserEvidence": {
       "routes": 15,
@@ -62,8 +62,11 @@
       "fluidCalendarCandidateFreshnessVisible": true,
       "candidateFreshnessDriftMonitorChecks": 4,
       "candidateFreshnessDriftSnapshotOnly": true,
-      "candidateFreshnessLiveDriftCount": 0,
-      "candidateFreshnessMonitored": 15
+      "candidateFreshnessLiveDriftCount": 1,
+      "candidateFreshnessMonitored": 15,
+      "candidateFreshnessRepoFilterChecks": 3,
+      "candidateFreshnessCadencePolicyChecks": 4,
+      "candidateFreshnessCadencePolicyScoped": true
     }
   },
   "experiments": [
@@ -402,6 +405,20 @@
       "baseline": 9,
       "candidate": 0,
       "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-repo-filter",
+      "primaryMetric": "candidateFreshnessRepoFilterChecks",
+      "baseline": 0,
+      "candidate": 3,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-freshness-drift-cadence-policy",
+      "primaryMetric": "candidateFreshnessCadencePolicyChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -416,7 +433,7 @@
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
     "benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces",
-    "promote live drift monitor into scheduled CI once GitHub token policy is confirmed",
-    "add a high-churn Veritas refresh cadence before enabling fail-on-drift automation"
+    "refresh Veritas snapshot when the focused live drift check reports a new upstream HEAD",
+    "promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed"
   ]
 }

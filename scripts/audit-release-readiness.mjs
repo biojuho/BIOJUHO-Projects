@@ -633,8 +633,8 @@ function buildChecklist() {
 
   const freshnessDriftFiles = freshnessDriftScripts.map((path) => ({ path, exists: fileExists(path) }));
   const freshnessDriftTerms = [
-    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--snapshot-only", "--live", "--fail-on-drift", "driftCount", "lastCommit", "pushedAt"] },
-    { file: "README.md", terms: ["check-candidate-freshness-drift.mjs", "--snapshot-only", "--live", "--fail-on-drift", "candidate freshness drift"] },
+    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--snapshot-only", "--live", "--fail-on-drift", "--repo", "repoFilters", "driftCount", "lastCommit", "pushedAt"] },
+    { file: "README.md", terms: ["check-candidate-freshness-drift.mjs", "--snapshot-only", "--live", "--fail-on-drift", "--repo", "candidate freshness drift"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const freshnessDriftSnapshot = run("node", ["scripts/check-candidate-freshness-drift.mjs", "--snapshot-only"]);
   checklist.push({
@@ -651,6 +651,43 @@ function buildChecklist() {
         status: freshnessDriftSnapshot.ok ? "pass" : "fail",
         result: parseJson(freshnessDriftSnapshot.stdout) || freshnessDriftSnapshot.stdout.trim(),
         stderr: freshnessDriftSnapshot.stderr.trim(),
+      },
+    },
+  });
+
+  const freshnessCadenceTerms = [
+    { file: "scripts/check-candidate-freshness-drift.mjs", terms: ["--cadence-policy", "candidate-freshness-drift-cadence-v1", "highChurnRepos", "repoScopedHighChurn", "--fail-on-drift"] },
+    { file: "README.md", terms: ["--cadence-policy", "high-churn", "Veritas-7/autoresearch-skill-system", "--fail-on-drift"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const freshnessCadenceSnapshot = run("node", [
+    "scripts/check-candidate-freshness-drift.mjs",
+    "--snapshot-only",
+    "--repo",
+    "Veritas-7/autoresearch-skill-system",
+    "--cadence-policy",
+  ]);
+  const freshnessCadenceResult = parseJson(freshnessCadenceSnapshot.stdout);
+  const cadencePolicy = freshnessCadenceResult?.cadencePolicy || null;
+  const cadenceHighChurnRepos = Array.isArray(cadencePolicy?.highChurnRepos) ? cadencePolicy.highChurnRepos : [];
+  const cadencePolicyReady = Boolean(
+    cadencePolicy?.id === "candidate-freshness-drift-cadence-v1" &&
+    cadencePolicy?.checks?.repoScopedHighChurn &&
+    cadencePolicy?.checks?.failOnDriftCommandScoped &&
+    cadenceHighChurnRepos.some((item) => item.repo === "Veritas-7/autoresearch-skill-system" && item.monitored && item.inScope),
+  );
+  checklist.push({
+    id: "candidate_freshness_drift_cadence_policy",
+    requirement: "High-churn adoption-candidate sources have a repo-scoped refresh cadence before fail-on-drift automation is enabled.",
+    status: freshnessCadenceTerms.every((item) => item.missingTerms.length === 0) &&
+      freshnessCadenceSnapshot.ok &&
+      cadencePolicyReady ? "pass" : "fail",
+    evidence: {
+      terms: freshnessCadenceTerms,
+      snapshotOnly: {
+        command: "node scripts/check-candidate-freshness-drift.mjs --snapshot-only --repo Veritas-7/autoresearch-skill-system --cadence-policy",
+        status: freshnessCadenceSnapshot.ok ? "pass" : "fail",
+        cadencePolicy,
+        stderr: freshnessCadenceSnapshot.stderr.trim(),
       },
     },
   });
