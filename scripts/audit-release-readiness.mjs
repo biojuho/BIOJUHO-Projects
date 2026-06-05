@@ -277,8 +277,10 @@ function githubPagesWorkflowHandoffDryRun() {
 function mainBridgePlan() {
   const result = run(process.execPath, ["scripts/plan-main-bridge.mjs"], { timeout: 15000 });
   const payload = parseJson(result.stdout);
+  const validStrategy = payload?.noCommonHistory === true ||
+    payload?.strategy === "pr-ready-main-history";
   return {
-    status: result.ok && payload && payload.status === "pass" && payload.noCommonHistory === true && payload.mainAppPathExists === true ? "pass" : "fail",
+    status: result.ok && payload && payload.status === "pass" && payload.mainAppPathExists === true && validStrategy ? "pass" : "fail",
     command: "node scripts/plan-main-bridge.mjs",
     result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
   };
@@ -351,7 +353,7 @@ function buildChecklist() {
 
   const bridgePlan = mainBridgePlan();
   const prBridgeTerms = [
-    { file: "scripts/plan-main-bridge.mjs", terms: ["merge-base", "noCommonHistory", "apps/joopark-workspace", "codex/joopark-workspace-main-bridge", "main-subdirectory-bridge"] },
+    { file: "scripts/plan-main-bridge.mjs", terms: ["merge-base", "noCommonHistory", "apps/joopark-workspace", "codex/joopark-workspace-main-bridge", "main-subdirectory-bridge", "pr-ready-main-history"] },
     { file: "README.md", terms: ["node scripts/plan-main-bridge.mjs", "no common history", "apps/joopark-workspace", "codex/joopark-workspace-main-bridge"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const prBridgeFiles = prBridgeScripts.map((path) => ({ path, exists: fileExists(path) }));

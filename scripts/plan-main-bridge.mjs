@@ -44,11 +44,17 @@ const mainCommit = gitMaybe(["rev-parse", "--short", mainRef]);
 const mergeBase = gitMaybe(["merge-base", releaseRef, mainRef]);
 const mainAppPathExists = gitPathExists(mainRef, appPath);
 const noCommonHistory = mergeBase.length === 0;
+const strategy = noCommonHistory ? "main-subdirectory-bridge" : "pr-ready-main-history";
 
-const commands = [
+const bridgeCommands = [
   `git fetch ${remote} main`,
   `git switch -c ${bridgeBranch} ${mainRef}`,
   `sync the release branch runtime files into ${appPath}/ while preserving repository-root .github workflows`,
+  `cd ${appPath} && node scripts/audit-release-readiness.mjs --run-gates`,
+  `git push ${remote} ${bridgeBranch}`,
+  `open the PR from ${bridgeBranch} to main`,
+];
+const prReadyCommands = [
   `cd ${appPath} && node scripts/audit-release-readiness.mjs --run-gates`,
   `git push ${remote} ${bridgeBranch}`,
   `open the PR from ${bridgeBranch} to main`,
@@ -71,13 +77,17 @@ const payload = {
   appPath,
   mainAppPathExists,
   bridgeBranch,
-  strategy: noCommonHistory ? "main-subdirectory-bridge" : "direct-pr-or-subdirectory-sync",
-  notes: [
+  strategy,
+  notes: noCommonHistory ? [
     "Do not open a PR from an orphan release branch when GitHub reports no common history.",
     `Use a branch based on ${mainRef} and sync the app into ${appPath}/.`,
     "Keep repository-root .github workflows under the main branch ownership boundary.",
+  ] : [
+    "This branch has common history with main and is PR-ready after the app subdirectory gates pass.",
+    `Keep syncing only ${appPath}/ unless a repository-root workflow change is explicitly authorized.`,
+    "Keep repository-root .github workflows under the main branch ownership boundary.",
   ],
-  commands,
+  commands: noCommonHistory ? bridgeCommands : prReadyCommands,
   blockers,
 };
 
