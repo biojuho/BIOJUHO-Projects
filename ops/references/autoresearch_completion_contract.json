@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T11:15:45+09:00",
+  "generated_at": "2026-06-05T11:36:44+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -183,10 +183,10 @@
             "ops/scripts/pr_triage.py",
             "tests/test_pr_triage.py",
             "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_READ_ONLY_SPLIT_2026-06-05.md",
-            "4439a39"
+            "4401cb2"
           ],
           "git_freshness": {
-            "proof_commit": "4439a39",
+            "proof_commit": "4401cb2",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -3522,6 +3522,80 @@
             "test_report_snapshots_do_not_mutate_manifest_nested_state",
             "17 passed",
             "workflows=6",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shared_llm_grok_seed_settings_guard",
+      "requirement": "Shared LLM Grok/xAI deterministic seed and provider-specific settings survive cache, proxy, direct OpenAI-compatible, and LiteLLM dispatch paths.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "packages/shared/llm/models.py",
+          "must_contain": [
+            "seed: int | None = None"
+          ]
+        },
+        {
+          "path": "packages/shared/llm/client.py",
+          "must_contain": [
+            "\"seed\": policy.seed",
+            "**({\"seed\": policy.seed} if policy.seed is not None else {})"
+          ]
+        },
+        {
+          "path": "packages/shared/llm/backends.py",
+          "must_contain": [
+            "_provider_extra_body",
+            "\"seed\"",
+            "\"reasoning\"",
+            "extra_body=extra_body",
+            "kwargs[\"extra_body\"] = dict(extra_body)"
+          ]
+        },
+        {
+          "path": "packages/shared/llm/proxy_adapter.py",
+          "must_contain": [
+            "seed: int | None = None",
+            "if seed is not None:",
+            "kwargs[\"seed\"] = seed"
+          ]
+        },
+        {
+          "path": "packages/shared/llm/test_backends_b017.py",
+          "must_contain": [
+            "TestOpenAICompatProviderSettings",
+            "test_grok_json_and_seed_forward_to_direct_extra_body",
+            "test_async_grok_json_and_seed_forward_to_litellm_extra_body",
+            "{\"reasoning\": False, \"seed\": 123}"
+          ]
+        },
+        {
+          "path": "packages/shared/llm/tests/test_proxy_adapter.py",
+          "must_contain": [
+            "LLMPolicy(seed=0)",
+            "kwargs[\"seed\"] == 0"
+          ]
+        },
+        {
+          "path": "packages/shared/llm/tests/test_client_cache_and_dispatch.py",
+          "must_contain": [
+            "test_different_seed_different_key",
+            "LLMPolicy(seed=0)",
+            "LLMPolicy(seed=123)"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SHARED_LLM_GROK_SEED_SETTINGS_2026-06-05.md",
+          "must_contain": [
+            "Shared LLM Grok Seed Settings Guard",
+            "pydantic/pydantic-ai",
+            "Map base seed setting to xAI",
+            "LLMPolicy.seed",
+            "65 passed",
             "global_objective_complete=false"
           ]
         }

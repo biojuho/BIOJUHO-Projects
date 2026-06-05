@@ -117,6 +117,110 @@ class TestOpenAICompatEmptyChoices:
         assert result.text == "Hi"
 
 
+class TestOpenAICompatProviderSettings:
+    def test_grok_json_and_seed_forward_to_direct_extra_body(self, mgr: BackendManager) -> None:
+        resp = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="Hi"))],
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=3),
+        )
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = resp
+        mgr._clients["grok"] = mock_client
+
+        import shared.llm.backends as _backends_mod
+
+        with patch.object(_backends_mod, "LITELLM_AVAILABLE", False):
+            result = mgr.call(
+                "grok",
+                "grok-3",
+                MESSAGES,
+                100,
+                "",
+                TaskTier.MEDIUM,
+                response_mode="json",
+                seed=123,
+            )
+
+        kwargs = mock_client.chat.completions.create.call_args.kwargs
+        assert result.text == "Hi"
+        assert kwargs["response_format"] == {"type": "json_object"}
+        assert kwargs["extra_body"] == {"reasoning": False, "seed": 123}
+
+    def test_grok_json_and_seed_forward_to_litellm_extra_body(self, mgr: BackendManager) -> None:
+        mock_resp = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
+            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2),
+        )
+        mock_litellm = MagicMock()
+        mock_litellm.completion.return_value = mock_resp
+        mock_litellm.completion_cost.return_value = 0
+
+        import shared.llm.backends as _backends_mod
+
+        original = getattr(_backends_mod, "litellm", None)
+        _backends_mod.litellm = mock_litellm
+        try:
+            with patch.object(_backends_mod, "LITELLM_AVAILABLE", True):
+                result = mgr.call(
+                    "grok",
+                    "grok-3",
+                    MESSAGES,
+                    100,
+                    "",
+                    TaskTier.MEDIUM,
+                    response_mode="json",
+                    seed=123,
+                )
+        finally:
+            if original is not None:
+                _backends_mod.litellm = original
+            elif hasattr(_backends_mod, "litellm"):
+                delattr(_backends_mod, "litellm")
+
+        kwargs = mock_litellm.completion.call_args.kwargs
+        assert result.text == "ok"
+        assert kwargs["model"] == "xai/grok-3"
+        assert kwargs["response_format"] == {"type": "json_object"}
+        assert kwargs["extra_body"] == {"reasoning": False, "seed": 123}
+
+    @pytest.mark.asyncio
+    async def test_async_grok_json_and_seed_forward_to_litellm_extra_body(self, mgr: BackendManager) -> None:
+        mock_resp = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok-async"))],
+            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2),
+        )
+        mock_litellm = MagicMock()
+        mock_litellm.acompletion = AsyncMock(return_value=mock_resp)
+
+        import shared.llm.backends as _backends_mod
+
+        original = getattr(_backends_mod, "litellm", None)
+        _backends_mod.litellm = mock_litellm
+        try:
+            with patch.object(_backends_mod, "LITELLM_AVAILABLE", True):
+                result = await mgr.acall(
+                    "grok",
+                    "grok-3",
+                    MESSAGES,
+                    100,
+                    "",
+                    TaskTier.MEDIUM,
+                    response_mode="json",
+                    seed=123,
+                )
+        finally:
+            if original is not None:
+                _backends_mod.litellm = original
+            elif hasattr(_backends_mod, "litellm"):
+                delattr(_backends_mod, "litellm")
+
+        kwargs = mock_litellm.acompletion.call_args.kwargs
+        assert result.text == "ok-async"
+        assert kwargs["model"] == "xai/grok-3"
+        assert kwargs["response_format"] == {"type": "json_object"}
+        assert kwargs["extra_body"] == {"reasoning": False, "seed": 123}
+
+
 # ── 3. Gemini sync: IndexError on resp.text ──────────────────────────
 
 

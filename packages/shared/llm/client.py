@@ -102,6 +102,7 @@ def _make_cache_key(
                 "allow_source_quotes": policy.allow_source_quotes,
                 "preserve_terms": policy.preserve_terms,
                 "response_mode": policy.response_mode,
+                "seed": policy.seed,
             },
         },
         sort_keys=True,
@@ -639,6 +640,7 @@ class LLMClient:
             messages=wrapped_messages,
             max_tokens=max_tokens,
             system=wrapped_system,
+            **({"seed": policy.seed} if policy.seed is not None else {}),
         )
         response.policy = resolved_policy
         self._record_success_usage(
@@ -669,6 +671,7 @@ class LLMClient:
                 messages=wrapped_messages,
                 max_tokens=max_tokens,
                 system=wrapped_system,
+                **({"seed": policy.seed} if policy.seed is not None else {}),
             ),
             timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
         )
@@ -752,6 +755,7 @@ class LLMClient:
                         system=wrapped_system,
                         tier=resolved_tier,
                         response_mode=policy.response_mode,
+                        **({"seed": policy.seed} if policy.seed is not None else {}),
                     )
                     final, rejected_meta, repaired_from_deepseek, quality_error = self._handle_backend_result(
                         response=response,
@@ -842,6 +846,7 @@ class LLMClient:
                             system=wrapped_system,
                             tier=resolved_tier,
                             response_mode=policy.response_mode,
+                            **({"seed": policy.seed} if policy.seed is not None else {}),
                         ),
                         timeout=_ASYNC_BACKEND_TIMEOUT_SECONDS,
                     )

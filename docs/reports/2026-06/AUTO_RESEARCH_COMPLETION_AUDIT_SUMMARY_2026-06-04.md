@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `59`
-- Status counts: `blocked=1, covered=58`
+- Criteria: `60`
+- Status counts: `blocked=1, covered=59`
 
 ## Missing Required
 
@@ -363,6 +363,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### shared_llm_grok_seed_settings_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `8`
 
 ### external_credential_boundaries
 

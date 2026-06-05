@@ -61,6 +61,16 @@ _LITELLM_MODEL_MAP: dict[tuple[str, str], str] = {
     ("mimo", "mimo-v2-pro"): "openai/mimo-v2-pro",
 }
 
+_FORWARDED_MODEL_SETTINGS = {
+    "frequency_penalty",
+    "presence_penalty",
+    "reasoning",
+    "reasoning_effort",
+    "seed",
+    "temperature",
+    "top_p",
+}
+
 
 import json as _json
 import threading as _threading
@@ -121,6 +131,17 @@ def _ollama_has_model(model_name: str) -> bool:
         if m == model_name or m.startswith(base):
             return True
     return False
+
+
+def _provider_extra_body(patch_kwargs: dict[str, Any]) -> dict[str, Any]:
+    extra_body: dict[str, Any] = {}
+    nested = patch_kwargs.get("extra_params")
+    if isinstance(nested, dict):
+        extra_body.update(nested)
+    for key in _FORWARDED_MODEL_SETTINGS:
+        if key in patch_kwargs and patch_kwargs[key] is not None:
+            extra_body[key] = patch_kwargs[key]
+    return extra_body
 
 
 class BackendManager:
@@ -270,12 +291,16 @@ class BackendManager:
         system: str,
         tier: TaskTier,
         response_mode: str = "text",
+        seed: int | None = None,
     ) -> LLMResponse:
         """Dispatch a sync LLM call to the given backend."""
         # Apply model-specific parameter patches (GiniGen-inspired)
         patch_kwargs = {"max_tokens": max_tokens, "response_mode": response_mode}
+        if seed is not None:
+            patch_kwargs["seed"] = seed
         patch_kwargs = apply_model_patch(backend, model, patch_kwargs)
         max_tokens = patch_kwargs.get("max_tokens", max_tokens)
+        extra_body = _provider_extra_body(patch_kwargs)
 
         if backend == "bitnet":
             return self._call_bitnet(model, messages, max_tokens, system, tier)
@@ -284,7 +309,16 @@ class BackendManager:
         elif backend == "gemini":
             return self._call_gemini(model, messages, max_tokens, system, tier, response_mode)
         else:
-            return self._call_openai_compat(backend, model, messages, max_tokens, system, tier, response_mode)
+            return self._call_openai_compat(
+                backend,
+                model,
+                messages,
+                max_tokens,
+                system,
+                tier,
+                response_mode,
+                extra_body=extra_body,
+            )
 
     def _call_anthropic(
         self,
@@ -383,6 +417,7 @@ class BackendManager:
         system: str,
         tier: TaskTier,
         response_mode: str = "text",
+        extra_body: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """OpenAI-compatible API call (OpenAI, Grok, DeepSeek, Moonshot, Ollama).
 
@@ -393,7 +428,15 @@ class BackendManager:
         litellm_model_id = _LITELLM_MODEL_MAP.get((backend, model))
         if LITELLM_AVAILABLE and litellm_model_id and backend != "ollama":
             return self._call_via_litellm(
-                backend, model, litellm_model_id, messages, max_tokens, system, tier, response_mode
+                backend,
+                model,
+                litellm_model_id,
+                messages,
+                max_tokens,
+                system,
+                tier,
+                response_mode,
+                extra_body=extra_body,
             )
 
         # 기존 직접 호출 경로 (LiteLLM 미설치 또는 매핑 없는 모델)
@@ -419,6 +462,8 @@ class BackendManager:
         }
         if response_mode == "json":
             kwargs["response_format"] = {"type": "json_object"}
+        if extra_body:
+            kwargs["extra_body"] = dict(extra_body)
         resp = client.chat.completions.create(**kwargs)
         # B-017 fix: OpenAI-호환 API가 빈 choices 반환 시 방어
         if not resp.choices or not resp.choices[0].message:
@@ -446,6 +491,7 @@ class BackendManager:
         system: str,
         tier: TaskTier,
         response_mode: str = "text",
+        extra_body: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """LiteLLM unified API를 통한 호출."""
         oai_messages: list[dict] = []
@@ -461,6 +507,8 @@ class BackendManager:
         }
         if response_mode == "json":
             kwargs["response_format"] = {"type": "json_object"}
+        if extra_body:
+            kwargs["extra_body"] = dict(extra_body)
 
         # LiteLLM에 API 키 직접 전달 (환경변수 의존 회피)
         key_map = {
@@ -542,6 +590,7 @@ class BackendManager:
         system: str,
         tier: TaskTier,
         response_mode: str = "text",
+        seed: int | None = None,
     ) -> LLMResponse:
         """Dispatch an async LLM call. Gemini uses native async; others use to_thread.
 
@@ -550,14 +599,39 @@ class BackendManager:
         if backend == "gemini":
             return await self._acall_gemini(model, messages, max_tokens, system, tier, response_mode)
 
+        patch_kwargs = {"max_tokens": max_tokens, "response_mode": response_mode}
+        if seed is not None:
+            patch_kwargs["seed"] = seed
+        patch_kwargs = apply_model_patch(backend, model, patch_kwargs)
+        max_tokens = patch_kwargs.get("max_tokens", max_tokens)
+        extra_body = _provider_extra_body(patch_kwargs)
+
         # LiteLLM 네이티브 async (to_thread 불필요)
         litellm_model_id = _LITELLM_MODEL_MAP.get((backend, model))
         if LITELLM_AVAILABLE and litellm_model_id and backend != "ollama":
             return await self._acall_via_litellm(
-                backend, model, litellm_model_id, messages, max_tokens, system, tier, response_mode
+                backend,
+                model,
+                litellm_model_id,
+                messages,
+                max_tokens,
+                system,
+                tier,
+                response_mode,
+                extra_body=extra_body,
             )
 
-        return await asyncio.to_thread(self.call, backend, model, messages, max_tokens, system, tier, response_mode)
+        return await asyncio.to_thread(
+            self.call,
+            backend,
+            model,
+            messages,
+            max_tokens,
+            system,
+            tier,
+            response_mode,
+            seed,
+        )
 
     async def _acall_via_litellm(
         self,
@@ -569,6 +643,7 @@ class BackendManager:
         system: str,
         tier: TaskTier,
         response_mode: str = "text",
+        extra_body: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """LiteLLM acompletion()을 통한 네이티브 async 호출."""
         oai_messages: list[dict] = []
@@ -584,6 +659,8 @@ class BackendManager:
         }
         if response_mode == "json":
             kwargs["response_format"] = {"type": "json_object"}
+        if extra_body:
+            kwargs["extra_body"] = dict(extra_body)
         if self._keys.get(backend):
             kwargs["api_key"] = self._keys[backend]
         if backend == "moonshot":

@@ -50,6 +50,7 @@ class LLMPolicy:
     allow_source_quotes: bool = False
     preserve_terms: list[str] = field(default_factory=list)
     response_mode: ResponseMode = "text"
+    seed: int | None = None
 
 
 @dataclass

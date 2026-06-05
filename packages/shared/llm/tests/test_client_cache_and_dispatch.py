@@ -219,6 +219,14 @@ class TestCacheKey:
         k2 = _make_cache_key(TaskTier.MEDIUM, msgs, "sys", p2)
         assert k1 != k2
 
+    def test_different_seed_different_key(self):
+        msgs = [{"role": "user", "content": "hi"}]
+        p1 = LLMPolicy(seed=0)
+        p2 = LLMPolicy(seed=123)
+        k1 = _make_cache_key(TaskTier.MEDIUM, msgs, "sys", p1)
+        k2 = _make_cache_key(TaskTier.MEDIUM, msgs, "sys", p2)
+        assert k1 != k2
+
     def test_key_length_24_chars(self):
         msgs = [{"role": "user", "content": "test"}]
         key = _make_cache_key(TaskTier.LIGHTWEIGHT, msgs, "", _default_policy())

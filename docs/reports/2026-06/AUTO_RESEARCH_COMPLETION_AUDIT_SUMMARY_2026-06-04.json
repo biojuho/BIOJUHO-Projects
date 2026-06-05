@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T11:15:45+09:00",
+  "generated_at": "2026-06-05T11:36:44+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "valid": true,
   "cycle_evidence_ready": true,
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 58
+    "covered": 59
   },
-  "criterion_count": 59,
+  "criterion_count": 60,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -2438,6 +2438,69 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_STATE_SNAPSHOT_GUARD_2026-06-05.md",
+          "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "shared_llm_grok_seed_settings_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "packages/shared/llm/models.py",
+          "term_count": 1,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "packages/shared/llm/client.py",
+          "term_count": 2,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "packages/shared/llm/backends.py",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "packages/shared/llm/proxy_adapter.py",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "packages/shared/llm/test_backends_b017.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "packages/shared/llm/tests/test_proxy_adapter.py",
+          "term_count": 2,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "packages/shared/llm/tests/test_client_cache_and_dispatch.py",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_SHARED_LLM_GROK_SEED_SETTINGS_2026-06-05.md",
           "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,

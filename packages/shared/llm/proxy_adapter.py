@@ -80,14 +80,18 @@ def call(
     messages: list[dict[str, Any]],
     max_tokens: int,
     system: str,
+    seed: int | None = None,
 ) -> LLMResponse:
     client = _make_client(async_client=False)
     t0 = time.perf_counter()
-    completion = client.chat.completions.create(
-        model=_resolve_model_alias(tier),
-        messages=_build_messages(system, messages),
-        max_tokens=max_tokens,
-    )
+    kwargs: dict[str, Any] = {
+        "model": _resolve_model_alias(tier),
+        "messages": _build_messages(system, messages),
+        "max_tokens": max_tokens,
+    }
+    if seed is not None:
+        kwargs["seed"] = seed
+    completion = client.chat.completions.create(**kwargs)
     return _coerce_response(completion, tier=tier, t0=t0)
 
 
@@ -97,12 +101,16 @@ async def acall(
     messages: list[dict[str, Any]],
     max_tokens: int,
     system: str,
+    seed: int | None = None,
 ) -> LLMResponse:
     client = _make_client(async_client=True)
     t0 = time.perf_counter()
-    completion = await client.chat.completions.create(
-        model=_resolve_model_alias(tier),
-        messages=_build_messages(system, messages),
-        max_tokens=max_tokens,
-    )
+    kwargs: dict[str, Any] = {
+        "model": _resolve_model_alias(tier),
+        "messages": _build_messages(system, messages),
+        "max_tokens": max_tokens,
+    }
+    if seed is not None:
+        kwargs["seed"] = seed
+    completion = await client.chat.completions.create(**kwargs)
     return _coerce_response(completion, tier=tier, t0=t0)

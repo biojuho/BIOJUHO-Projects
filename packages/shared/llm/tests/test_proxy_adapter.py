@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from shared.llm import proxy_adapter
-from shared.llm.models import LLMResponse, TaskTier
+from shared.llm.models import LLMPolicy, LLMResponse, TaskTier
 
 
 @pytest.fixture(autouse=True)
@@ -79,6 +79,7 @@ def test_call_proxies_to_openai_client(monkeypatch):
             messages=[{"role": "user", "content": "hi"}],
             max_tokens=128,
             system="SYS",
+            seed=0,
         )
         mk.assert_called_once_with(async_client=False)
 
@@ -86,6 +87,7 @@ def test_call_proxies_to_openai_client(monkeypatch):
     kwargs = fake_client.chat.completions.create.call_args.kwargs
     assert kwargs["model"] == "tier-medium"
     assert kwargs["max_tokens"] == 128
+    assert kwargs["seed"] == 0
     assert kwargs["messages"][0] == {"role": "system", "content": "SYS"}
 
     assert isinstance(response, LLMResponse)
@@ -144,6 +146,7 @@ async def test_acall_proxies_to_async_openai_client(monkeypatch):
             messages=[{"role": "user", "content": "hi"}],
             max_tokens=64,
             system="SYS-A",
+            seed=0,
         )
         mk.assert_called_once_with(async_client=True)
 
@@ -151,6 +154,7 @@ async def test_acall_proxies_to_async_openai_client(monkeypatch):
     kwargs = fake_client.chat.completions.create.call_args.kwargs
     assert kwargs["model"] == "tier-heavy"
     assert kwargs["max_tokens"] == 64
+    assert kwargs["seed"] == 0
     assert kwargs["messages"][0] == {"role": "system", "content": "SYS-A"}
 
     assert isinstance(response, LLMResponse)
@@ -211,8 +215,10 @@ def test_client_dispatch_invokes_proxy_when_enabled(monkeypatch):
                 messages=[{"role": "user", "content": "hi"}],
                 max_tokens=64,
                 system="",
+                policy=LLMPolicy(seed=0),
             )
         proxy_call.assert_called_once()
+        assert proxy_call.call_args.kwargs["seed"] == 0
         assert response.text == "from-proxy"
         assert response.backend == "litellm-proxy"
     finally:

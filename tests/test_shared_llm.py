@@ -32,7 +32,7 @@ class TestConfig:
             LLMPolicy(task_kind="classification", enforce_korean_output=True),
         )
         assert chain[0][0] == "gemini"
-        assert chain[0][1] == "gemini-2.5-flash-lite"
+        assert chain[0][1] == TIER_CHAINS[TaskTier.MEDIUM][0][1]
 
     def test_json_extraction_prioritizes_anthropic(self):
         chain = get_routing_chain(
