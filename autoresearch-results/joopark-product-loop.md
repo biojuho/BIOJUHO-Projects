@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T23:52:00+09:00
+Generated: 2026-06-06T00:05:33+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -528,13 +528,30 @@ Generated: 2026-06-05T23:52:00+09:00
 - Primary metric: `veritasCurrentHeadFresh`.
 - Baseline: main recorded Veritas v8.383 (`b1d3228587f87e0f25fc31ea32bc583cce451d60`, `2026-06-05T14:29:42Z`) after the dynamic gate landed.
 - Candidate: `data/adoption-candidates.json` now records Veritas v8.389 (`f273071a78bd59bf7b2aae6eed5678453467a3f3`, `2026-06-05T14:50:53Z`) while the release audit and interaction smoke still derive expectations from the snapshot.
-- Decision: keep if the full release gate remains 35/35.
+- Decision: keep.
 
 ## Evidence
 
 - `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `f273071a78bd59bf7b2aae6eed5678453467a3f3` dated `2026-06-05T14:50:52Z` with message `v8.389 Launchctl Remove Start Failure Gate`.
 - `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T14:50:53Z`, `updated_at: 2026-06-05T14:51:28Z`, 1 star, 1 fork, 1 open issue, size 1043 KB, default branch `main`, and `archived: false`.
 
+## Experiment: Workspace benchmark dynamic snapshot freshness gate
+
+- Hypothesis: OpenProject and Leantime freshness gates should follow the source-backed adoption snapshot instead of hard-coding fast-moving benchmark commits in scripts.
+- Primary metric: OpenProject/Leantime exact freshness literals in `scripts/audit-release-readiness.mjs` and `scripts/smoke-interactions.mjs`.
+- Baseline: scripts hard-coded OpenProject and Leantime full commits, short commit searches, pushedAt markers, and audit expectations, for 16 exact freshness literals across the two scripts.
+- Candidate: `data/adoption-candidates.json` now records OpenProject `6885ca695dd38384c651704675143be63f9a514d` / `2026-06-05T15:01:04Z` and refreshed Leantime popularity metadata, while audit and interaction smoke read OpenProject/Leantime expected commit, pushedAt, and short commit from the adoption snapshot.
+- Decision: keep; the full release gate passed with snapshot-driven workspace benchmark checks.
+
+## Evidence
+
+- `gh api repos/opf/openproject/commits/dev` returned `6885ca695dd38384c651704675143be63f9a514d` dated `2026-06-05T14:42:32Z` with message `Merge pull request #23580 from opf/merge-release/17.5-20260605114354`.
+- `gh api repos/opf/openproject` returned `pushed_at: 2026-06-05T15:01:04Z`, `updated_at: 2026-06-05T14:42:41Z`, 15,235 stars, 3,288 forks, 211 open issues, size 2,705,681 KB, default branch `dev`, and `archived: false`.
+- `gh api repos/Leantime/leantime/commits/master` still returned `b3a1037bf596d284b53355d23cadf1d9ab56b599` dated `2026-06-04T20:06:21Z`.
+- `gh api repos/Leantime/leantime` returned `pushed_at: 2026-06-05T04:17:00Z`, `updated_at: 2026-06-05T13:39:16Z`, 9,987 stars, 983 forks, 317 open issues, size 247,835 KB, default branch `master`, and `archived: false`.
+- `rg` found no OpenProject or Leantime exact commit, pushedAt, or short commit literals in the audit and interaction smoke scripts after the candidate change.
+- `npm run verify` passed `35/35` after regenerating `dist/release`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: verify dynamic Veritas freshness in CI, refresh the next workspace benchmark freshness signal, or verify Pages workflow activation.
+- Continue with the highest-impact product gap after the next full gate: verify dynamic PM benchmark freshness in CI, verify Pages workflow activation, or refresh the next workspace benchmark freshness signal.

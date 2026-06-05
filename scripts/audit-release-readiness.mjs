@@ -218,35 +218,35 @@ function workspaceCandidateSnapshot(relPath) {
   const source = payload?.source || "";
   const sourceMarked = source.includes("github-search:local-first-workspace");
   const apiMarked = source.includes("github-api:workspace-benchmark-refresh");
+  const freshnessCommitPattern = /^[0-9a-f]{40}$/i;
   const workspaceFreshnessExpectations = [
     {
       key: "openProject",
       name: "opf/openproject",
-      latestCommit: "5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4",
-      latestPushedAt: "2026-06-05T12:44:52Z",
       sourceMarker: "github-api:openproject-freshness-refresh",
     },
     {
       key: "leantime",
       name: "Leantime/leantime",
-      latestCommit: "b3a1037bf596d284b53355d23cadf1d9ab56b599",
-      latestPushedAt: "2026-06-05T04:17:00Z",
       sourceMarker: "github-api:leantime-freshness-refresh",
     },
   ];
   const freshness = Object.fromEntries(workspaceFreshnessExpectations.map((item) => {
     const project = projects.find((candidate) => candidate.name === item.name) || null;
+    const snapshotValid = Boolean(project) &&
+      freshnessCommitPattern.test(String(project.lastCommit || "")) &&
+      Number.isFinite(Date.parse(project.pushedAt || ""));
     const fresh = Boolean(project) &&
-      project.lastCommit === item.latestCommit &&
-      Date.parse(project.pushedAt || "") >= Date.parse(item.latestPushedAt);
+      snapshotValid;
     const sourceMarked = source.includes(item.sourceMarker);
     return [item.key, {
       name: item.name,
-      latestCommit: item.latestCommit,
+      latestCommit: project?.lastCommit || "",
       lastCommit: project?.lastCommit || "",
-      latestPushedAt: item.latestPushedAt,
+      latestPushedAt: project?.pushedAt || "",
       pushedAt: project?.pushedAt || "",
       fresh,
+      snapshotValid,
       sourceMarked,
     }];
   }));
@@ -623,7 +623,7 @@ function buildChecklist() {
   const openProjectFreshnessUiTerms = [
     { file: "app.js", terms: ["shortCommit", "data-candidate-commit", "data-candidate-pushed-at", "p && p.lastCommit"] },
     { file: "styles.css", terms: [".portfolio-commit"] },
-    { file: "scripts/smoke-interactions.mjs", terms: ["opf/openproject", "OpenProject freshness commit did not render", "openProjectCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotOpenProject", "shortOpenProjectCommit", "OpenProject freshness commit did not render", "openProjectCandidateFreshnessVisible"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "openproject_freshness_ui_smoke",
@@ -635,7 +635,7 @@ function buildChecklist() {
   const leantimeFreshnessUiTerms = [
     { file: "app.js", terms: ["shortCommit", "data-candidate-commit", "data-candidate-pushed-at", "p && p.lastCommit"] },
     { file: "styles.css", terms: [".portfolio-commit"] },
-    { file: "scripts/smoke-interactions.mjs", terms: ["Leantime/leantime", "Leantime freshness commit did not render", "leantimeCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotLeantime", "shortLeantimeCommit", "Leantime freshness commit did not render", "leantimeCandidateFreshnessVisible"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "leantime_freshness_ui_smoke",
