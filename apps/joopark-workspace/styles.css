@@ -2808,6 +2808,60 @@ textarea:focus:not(:focus-visible) { outline: none; }
   white-space: nowrap;
 }
 
+.portfolio-benchmark-rubric {
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid rgba(35, 135, 255, 0.28);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(35, 135, 255, 0.08), rgba(23, 217, 131, 0.06));
+}
+
+.portfolio-rubric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.portfolio-rubric-head span,
+.portfolio-rubric-axis {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.portfolio-rubric-head strong,
+.portfolio-rubric-project {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.portfolio-rubric-grid {
+  display: grid;
+  grid-template-columns: minmax(82px, 0.7fr) repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+}
+
+.portfolio-rubric-grid > div {
+  min-width: 0;
+  padding: 8px;
+  background: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.portfolio-rubric-value {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 /* 카드 전체를 article로 변경했으므로 head 조정 */
 .portfolio-head {
   display: flex;

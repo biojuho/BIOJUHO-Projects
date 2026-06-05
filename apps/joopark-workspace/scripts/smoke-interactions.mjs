@@ -367,6 +367,7 @@ const interactionExpression = `
   let candidateActionSummaryVisibleOk = false;
   let candidateBenchmarkFocusVisibleOk = false;
   let candidateBenchmarkQueueVisibleOk = false;
+  let candidateBenchmarkRubricVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -693,6 +694,25 @@ const interactionExpression = `
     const firstBenchmarkCard = qs('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]');
     assert(firstBenchmarkCard.dataset.projectId === benchmarkFocusQueue[0].id, "benchmark focus queue did not rank top benchmark first");
     assert(qs("[data-candidate-benchmark]", firstBenchmarkCard).dataset.candidateBenchmark === projectBenchmarkFocus(benchmarkFocusQueue[0]).surface, "benchmark focus queue top chip did not render");
+    assert(!!document.querySelector("[data-candidate-benchmark-rubric]"), "benchmark rubric did not render");
+    const benchmarkRubric = qs("[data-candidate-benchmark-rubric]");
+    assert(benchmarkRubric.innerText.includes("happybhati/workstream"), "Workstream rubric did not render");
+    assert(benchmarkRubric.innerText.includes("Taskosaur/Taskosaur"), "Taskosaur rubric did not render");
+    ["입력 소스", "AI 보조", "PM 표면", "운영 방식"].forEach((axis) => {
+      assert(!!document.querySelector('[data-benchmark-rubric-axis="' + axis + '"]'), "benchmark rubric axis did not render: " + axis);
+    });
+    [
+      "GitHub/GitLab PR",
+      "Google Calendar",
+      "AI code review",
+      "natural-language task commands",
+      "browser task execution",
+      "Kanban boards",
+      "self-hosted PM",
+    ].forEach((term) => {
+      assert(benchmarkRubric.innerText.includes(term), "benchmark rubric value did not render: " + term);
+    });
+    candidateBenchmarkRubricVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -879,6 +899,7 @@ const interactionExpression = `
     candidateActionSummaryVisibleOk = true;
     candidateBenchmarkFocusVisibleOk = true;
     candidateBenchmarkQueueVisibleOk = true;
+    candidateBenchmarkRubricVisibleOk = true;
   });
 
   let projectId = "";
@@ -1113,6 +1134,7 @@ const interactionExpression = `
     candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
     candidateBenchmarkFocusVisible: candidateBenchmarkFocusVisibleOk,
     candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
+    candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

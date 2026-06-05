@@ -925,6 +925,19 @@ function buildChecklist() {
     evidence: taskosaurWorkstreamBenchmarkQueueTerms,
   });
 
+  const taskosaurWorkstreamBenchmarkRubricTerms = [
+    { file: "data/adoption-candidates.json", terms: ["rubric", "GitHub/GitLab PR + Jira task + Google Calendar", "in-app conversational execution + browser task execution", "Kanban boards + sprints + task dependencies", "local FastAPI + SQLite + agents dashboard"] },
+    { file: "app.js", terms: ["function projectBenchmarkRubric", "function candidateBenchmarkRubric", "data-candidate-benchmark-rubric", "data-rubric-project"] },
+    { file: "styles.css", terms: [".portfolio-benchmark-rubric", ".portfolio-rubric-grid"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateBenchmarkRubricVisible", "benchmark rubric did not render", "Taskosaur rubric did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "taskosaur_workstream_benchmark_rubric",
+    requirement: "Taskosaur and Workstream benchmark-focus candidates expose a side-by-side comparison rubric with browser smoke coverage for the source, AI, PM, and operations axes.",
+    status: taskosaurWorkstreamBenchmarkRubricTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: taskosaurWorkstreamBenchmarkRubricTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },
