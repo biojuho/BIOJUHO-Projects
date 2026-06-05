@@ -55,6 +55,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "canva_mcp_continuation_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_openai_namespace_metadata_guard",
+        "canva_mcp_sdk_floor_guard",
         "prompt_to_artifact_objective_coverage",
         "external_credential_boundary_registry",
         "external_credential_handoff",

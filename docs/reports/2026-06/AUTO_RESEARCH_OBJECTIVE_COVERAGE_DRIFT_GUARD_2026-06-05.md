@@ -33,7 +33,7 @@ drifting away from the current requirements manifest or Markdown renderer.
 ## Verification
 
 - `python ops/scripts/autoresearch_completion_audit.py --json-out docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_2026-06-04.json --markdown-out docs/reports/2026-06/AUTO_RESEARCH_COMPLETION_AUDIT_SUMMARY_2026-06-04.md`
-  - valid `50` criteria
+  - valid `53` criteria
   - `global_objective_complete=false`
 - `python ops/scripts/autoresearch_objective_coverage.py --json-out docs/reports/2026-06/AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.json --markdown-out docs/reports/2026-06/AUTO_RESEARCH_OBJECTIVE_COVERAGE_2026-06-05.md`
   - valid `7` requirements

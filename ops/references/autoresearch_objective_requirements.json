@@ -135,6 +135,7 @@
         "github_modernization_radar_report_drift_guard",
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
+        "canva_mcp_sdk_floor_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
@@ -235,6 +236,15 @@
             "A/B Contract",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
+          "must_contain": [
+            "microsoft/agent-framework",
+            "Bump ModelContextProtocol from 1.1.0 to 1.2.0",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
         }
       ],
       "residual_risk": "The word 'all' is unbounded; the current cycle proves a live tracked source set and recency gate, not an exhaustive internet-wide proof."
@@ -322,7 +332,8 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
-        "dashboard_credential_operator_checklist"
+        "dashboard_credential_operator_checklist",
+        "canva_mcp_sdk_floor_guard"
       ],
       "evidence": [
         {
@@ -423,6 +434,15 @@
             "pass: 8/8 actions",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
+          "must_contain": [
+            "Canva MCP SDK Floor Guard",
+            "pass: `1/1` route",
+            "pass: `8/8` actions",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -455,6 +475,7 @@
         "hosted_agent_approval_boundary",
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
+        "canva_mcp_sdk_floor_guard",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
@@ -579,6 +600,14 @@
           "must_contain": [
             "GitHub Actions",
             "audit artifact drift",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
+          "must_contain": [
+            "current locked Model Context Protocol SDK floor",
+            "package and lockfile are synchronized",
             "global_objective_complete=false"
           ]
         }

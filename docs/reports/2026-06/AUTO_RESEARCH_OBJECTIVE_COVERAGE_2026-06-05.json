@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T01:28:48.040375+00:00",
+  "generated_at": "2026-06-05T01:46:09.023134+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -98,6 +98,7 @@
         "github_modernization_radar_report_drift_guard",
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
+        "canva_mcp_sdk_floor_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
@@ -144,6 +145,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
           "term_count": 4
         }
       ],
@@ -220,7 +225,8 @@
         "dashboard_next_credential_command",
         "dashboard_credential_live_plan_status",
         "dashboard_credential_live_unblock_queue",
-        "dashboard_credential_operator_checklist"
+        "dashboard_credential_operator_checklist",
+        "canva_mcp_sdk_floor_guard"
       ],
       "evidence": [
         {
@@ -270,6 +276,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_ACCESSIBLE_CLICK_SMOKE_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "direct_app_click_qa",
@@ -303,6 +313,7 @@
         "hosted_agent_approval_boundary",
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
+        "canva_mcp_sdk_floor_guard",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
@@ -366,6 +377,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
           "term_count": 3
         }
       ],

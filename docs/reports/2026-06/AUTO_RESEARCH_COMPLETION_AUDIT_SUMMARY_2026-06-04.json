@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 51
+    "covered": 52
   },
-  "criterion_count": 52,
+  "criterion_count": 53,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -472,6 +472,55 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAI_NAMESPACE_METADATA_2026-06-05.md",
           "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "canva_mcp_sdk_floor_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "mcp/canva-mcp/package.json",
+          "term_count": 1,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "mcp/canva-mcp/package-lock.json",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_canva_mcp_openapi_contract.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_CANVA_MCP_SDK_FLOOR_2026-06-05.json",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/CANVA_WIDGET_CLICK_SMOKE_MCP_SDK_FLOOR_2026-06-05.json",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
+          "term_count": 7,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

@@ -10,6 +10,8 @@ SCRIPT_PATH = PROJECT_ROOT / "ops" / "scripts" / "canva_mcp_openapi_contract.py"
 TOOLS_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "tools.ts"
 SERVER_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "server.ts"
 SCHEMAS_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "src" / "server" / "schemas.ts"
+PACKAGE_JSON_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "package.json"
+PACKAGE_LOCK_PATH = PROJECT_ROOT / "mcp" / "canva-mcp" / "package-lock.json"
 
 
 def load_contract_module():
@@ -69,6 +71,19 @@ def test_openapi_contract_matches_parsed_tool_surface() -> None:
     assert summary["tool_count"] == 20
     assert summary["destructive_count"] == 1
     assert summary["openai_meta_tool_count"] == 4
+
+
+def test_canva_mcp_manifest_tracks_current_mcp_sdk_floor() -> None:
+    package = json.loads(PACKAGE_JSON_PATH.read_text(encoding="utf-8"))
+    package_lock = json.loads(PACKAGE_LOCK_PATH.read_text(encoding="utf-8"))
+
+    declared_sdk = package["dependencies"]["@modelcontextprotocol/sdk"]
+    lock_root_sdk = package_lock["packages"][""]["dependencies"]["@modelcontextprotocol/sdk"]
+    locked_sdk = package_lock["packages"]["node_modules/@modelcontextprotocol/sdk"]["version"]
+
+    assert locked_sdk == "1.29.0"
+    assert declared_sdk == f"^{locked_sdk}"
+    assert lock_root_sdk == declared_sdk
 
 
 def test_cli_writes_openapi_summary_and_markdown(tmp_path: Path) -> None:
