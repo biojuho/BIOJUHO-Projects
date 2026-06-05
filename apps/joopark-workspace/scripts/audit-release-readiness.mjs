@@ -430,6 +430,18 @@ function buildChecklist() {
     evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceCompetitiveTerms.missing },
   });
 
+  const veritasFreshnessUiTerms = [
+    { file: "app.js", terms: ["shortCommit", "data-candidate-commit", "data-candidate-pushed-at", "p && p.lastCommit"] },
+    { file: "styles.css", terms: [".portfolio-commit"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["Veritas-7/autoresearch-skill-system", "Veritas freshness commit did not render", "veritasCandidateFreshnessVisible"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "veritas_freshness_ui_smoke",
+    requirement: "The portfolio UI exposes the refreshed Veritas upstream commit and pushedAt marker, and interaction smoke can find the candidate by commit.",
+    status: veritasFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: veritasFreshnessUiTerms,
+  });
+
   const candidateTriageTerms = [
     { file: "app.js", terms: ["function projectAdoptionMeta", "safeGithubUrl", "data-candidate-meta", "portfolio-candidate-link"] },
     { file: "styles.css", terms: [".portfolio-candidate-meta", ".portfolio-candidate-link"] },

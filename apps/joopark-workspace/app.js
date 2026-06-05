@@ -127,6 +127,8 @@ function projectSearchText(p) {
     p && p.description,
     p && p.category,
     p && p.language,
+    p && p.lastCommit,
+    p && p.pushedAt,
     ...topics,
   ].filter(Boolean).join(" ");
 }
@@ -148,6 +150,11 @@ function metricValue(value) {
 
 function numericMetric(value) {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function shortCommit(value) {
+  const commit = String(value || "").trim();
+  return /^[0-9a-f]{7,40}$/i.test(commit) ? commit.slice(0, 8) : "";
 }
 
 function daysSinceIso(iso) {
@@ -202,6 +209,8 @@ function projectAdoptionMeta(p) {
   const repoUrl = safeGithubUrl(p.url);
   const priority = projectCandidatePriority(p);
   const action = projectCandidateAction(p);
+  const commit = shortCommit(p.lastCommit);
+  const commitTitle = p.pushedAt ? `갱신 ${formatLocalDateTime(p.pushedAt)}` : "최신 커밋";
   return html`
     <div class="portfolio-candidate-meta" data-candidate-meta>
       ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
@@ -210,6 +219,7 @@ function projectAdoptionMeta(p) {
       <span><b>★</b> ${metricValue(p.stars)}</span>
       <span><b>Fork</b> ${metricValue(p.forks)}</span>
       ${p.language ? raw(html`<span><b>언어</b> ${p.language}</span>`) : ""}
+      ${commit ? raw(html`<span class="portfolio-commit" data-candidate-commit="${commit}" data-candidate-pushed-at="${p.pushedAt || ""}" title="${commitTitle}"><b>Commit</b> ${commit}</span>`) : ""}
       ${repoUrl ? raw(html`<a class="portfolio-candidate-link" href="${repoUrl}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>`) : ""}
     </div>
   `;

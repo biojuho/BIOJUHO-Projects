@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T20:46:58+09:00",
+  "generatedAt": "2026-06-05T21:01:23+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -10,7 +10,7 @@
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 23
+      "total": 24
     },
     "browserEvidence": {
       "routes": 15,
@@ -19,6 +19,7 @@
       "markdownSanitized": true,
       "workspaceCandidateVisible": true,
       "workspaceCompetitiveCandidateVisible": true,
+      "veritasCandidateFreshnessVisible": true,
       "candidateNextActionVisible": true,
       "candidateTriageMetaVisible": true,
       "portfolioCandidateFilter": true,
@@ -183,6 +184,13 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
+    },
+    {
+      "id": "veritas-freshness-ui-smoke",
+      "primaryMetric": "veritasCandidateFreshnessVisible",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -212,7 +220,7 @@
     }
   },
   "nextCandidates": [
-    "merge Veritas freshness PR",
+    "merge Veritas UI smoke PR",
     "post-release workflow deprecation cleanup",
     "deeper UI workflow coverage"
   ]
