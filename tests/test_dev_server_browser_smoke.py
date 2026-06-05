@@ -195,6 +195,46 @@ def test_route_result_records_missing_expected_text() -> None:
     assert any("missing expected text 'Queue #2'" in failure for failure in result.failures)
 
 
+def test_route_result_marks_expected_text_missing_on_browser_error() -> None:
+    smoke = load_browser_smoke_module()
+
+    class Page:
+        url = "http://127.0.0.1:5173/"
+
+        def on(self, event: str, callback) -> None:
+            return None
+
+        def remove_listener(self, event: str, callback) -> None:
+            return None
+
+        def goto(self, url: str, wait_until: str, timeout: int):
+            raise smoke.PlaywrightError(
+                "Tab creation is not supported yet. Update Playwright MCP or CLI to the latest version."
+            )
+
+    result = smoke.run_route(
+        Page(),
+        {"id": "dashboard-frontend", "url": "http://127.0.0.1:5173/"},
+        {"name": "home", "path": "/", "expected_text": ["AI Projects Dashboard", "Queue #2"]},
+        1000,
+    )
+    report = smoke.build_report(
+        [{"target_id": "dashboard-frontend", "routes": [{"name": "home"}]}],
+        [result],
+        status="fail",
+    )
+    markdown = smoke.format_markdown(report)
+
+    assert result.ok is False
+    assert result.matched_expected_text == []
+    assert result.missing_expected_text == ["AI Projects Dashboard", "Queue #2"]
+    assert any("Tab creation is not supported yet" in failure for failure in result.failures)
+    assert "- `dashboard-frontend` `home` matched=`0/2`" in markdown
+    assert "  - missing: `AI Projects Dashboard`" in markdown
+    assert "  - missing: `Queue #2`" in markdown
+    assert "  - missing: none" not in markdown
+
+
 def test_markdown_lists_expected_text_evidence() -> None:
     smoke = load_browser_smoke_module()
     route_result = smoke.RouteResult(

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T11:07:45+09:00",
+  "generated_at": "2026-06-05T11:13:09+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -175,10 +175,13 @@
             "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_FALSY_CREDENTIAL_METADATA_2026-06-05.md",
             "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.json",
             "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.md",
-            "c6718e3"
+            "e88ac07",
+            "ops/scripts/dev_server_browser_smoke.py",
+            "tests/test_dev_server_browser_smoke.py",
+            "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_CLEAR_ERROR_EXPECTED_TEXT_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "c6718e3",
+            "proof_commit": "e88ac07",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -238,7 +241,10 @@
               "tests/test_dashboard_api.py",
               "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_FALSY_CREDENTIAL_METADATA_2026-06-05.md",
               "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.json",
-              "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.md"
+              "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.md",
+              "ops/scripts/dev_server_browser_smoke.py",
+              "tests/test_dev_server_browser_smoke.py",
+              "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_CLEAR_ERROR_EXPECTED_TEXT_2026-06-05.md"
             ]
           }
         }
@@ -1076,10 +1082,10 @@
             "direct_browser_qa_freshness_gate",
             "apps/dashboard/",
             "mcp/canva-mcp/",
-            "c6718e3"
+            "e88ac07"
           ],
           "protected_path_freshness": {
-            "proof_commit": "c6718e3",
+            "proof_commit": "e88ac07",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -1656,6 +1662,42 @@
             "Browser Smoke Expected Text Evidence",
             "expected=11/11",
             "matched expected text",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "browser_smoke_clear_error_expected_text_guard",
+      "requirement": "Browser-smoke reports list unchecked expected text as missing when browser errors prevent page inspection.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/dev_server_browser_smoke.py",
+          "must_contain": [
+            "mark_unchecked_expected_text",
+            "PlaywrightTimeoutError",
+            "PlaywrightError",
+            "missing_expected_text"
+          ]
+        },
+        {
+          "path": "tests/test_dev_server_browser_smoke.py",
+          "must_contain": [
+            "test_route_result_marks_expected_text_missing_on_browser_error",
+            "Tab creation is not supported yet",
+            "matched=`0/2`",
+            "missing: none"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_CLEAR_ERROR_EXPECTED_TEXT_2026-06-05.md",
+          "must_contain": [
+            "Browser Smoke Clear-Error Expected Text Guard",
+            "microsoft/playwright-mcp",
+            "01adf2d",
+            "matched=0/2",
             "global_objective_complete=false"
           ]
         }
@@ -3031,7 +3073,7 @@
           "must_contain": [
             "Objective Coverage Drift Guard",
             "test_checked_in_coverage_artifacts_match_current_requirements",
-            "valid `55` criteria",
+            "valid `56` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -3103,7 +3145,7 @@
           "must_contain": [
             "Completion Audit Summary Drift Guard",
             "test_checked_in_summary_artifacts_match_current_contract",
-            "valid `55` criteria",
+            "valid `56` criteria",
             "global_objective_complete=false"
           ]
         }

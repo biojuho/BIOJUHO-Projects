@@ -165,6 +165,11 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
     matched_expected_text: list[str] = []
     missing_expected_text: list[str] = []
 
+    def mark_unchecked_expected_text() -> None:
+        for expected in expected_text:
+            if expected not in matched_expected_text and expected not in missing_expected_text:
+                missing_expected_text.append(expected)
+
     def collect_console(message) -> None:
         if message.type == "error":
             console_errors.append(message.text)
@@ -197,8 +202,10 @@ def run_route(page, target: dict[str, Any], route: dict[str, Any], timeout_ms: i
         if expected_url_path and final_path != expected_url_path:
             failures.append(f"{target_id}/{route_name}: expected final path {expected_url_path}, got {final_path}")
     except PlaywrightTimeoutError as exc:
+        mark_unchecked_expected_text()
         failures.append(f"{target_id}/{route_name}: timed out ({exc})")
     except PlaywrightError as exc:
+        mark_unchecked_expected_text()
         failures.append(f"{target_id}/{route_name}: browser error ({exc})")
     finally:
         page.remove_listener("console", collect_console)
