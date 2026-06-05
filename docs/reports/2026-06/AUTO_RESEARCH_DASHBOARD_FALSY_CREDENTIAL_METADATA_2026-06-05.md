@@ -63,4 +63,6 @@ with fallback labels or counts.
 - The first browser-smoke attempt failed because the dashboard API dependency
   was not running; after starting the managed dashboard target, the same smoke
   passed and overwrote the failure artifact.
+- Pushed proof commit `c6718e3` is the active baseline for
+  `current_tip_freshness_gate` and `direct_browser_qa_freshness_gate`.
 - `global_objective_complete=false`

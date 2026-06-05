@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T11:04:34+09:00",
+  "generated_at": "2026-06-05T11:07:45+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -169,16 +169,16 @@
             "tests/test_agent_workflow_gate_runner.py",
             "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_STATE_SNAPSHOT_GUARD_2026-06-05.md",
             "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
-            "297f437",
             "apps/dashboard/routers/gdt.py",
             "tests/test_dashboard_api.py",
             "tests/test_autoresearch_completion_audit.py",
             "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_FALSY_CREDENTIAL_METADATA_2026-06-05.md",
             "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.json",
-            "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.md"
+            "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_DASHBOARD_FALSY_METADATA_2026-06-05.md",
+            "c6718e3"
           ],
           "git_freshness": {
-            "proof_commit": "297f437",
+            "proof_commit": "c6718e3",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -1076,10 +1076,10 @@
             "direct_browser_qa_freshness_gate",
             "apps/dashboard/",
             "mcp/canva-mcp/",
-            "297f437"
+            "c6718e3"
           ],
           "protected_path_freshness": {
-            "proof_commit": "297f437",
+            "proof_commit": "c6718e3",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
