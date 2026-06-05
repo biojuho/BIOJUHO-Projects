@@ -3,3 +3,6 @@ mcp/canva-mcp/assets/**/*.html text eol=lf
 mcp/canva-mcp/assets/**/*.js text eol=lf
 mcp/canva-mcp/src/**/*.html text eol=lf
 mcp/canva-mcp/vite.config.ts text eol=lf
+ops/hooks/pre-push text eol=lf
+ops/hooks/*.py text eol=lf
+tests/test_pre_push_hook.py text eol=lf

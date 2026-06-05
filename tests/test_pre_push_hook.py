@@ -62,7 +62,21 @@ def test_hook_installer_normalizes_shell_hook_line_endings(tmp_path: Path) -> No
 
     installer._install_hook_file(source, destination)
 
-    assert destination.read_bytes() == b"#!/bin/sh\necho ok\n"
+    assert b"\r\n" not in destination.read_bytes()
+    assert destination.read_text(encoding="utf-8") == installer._hook_install_content(source)
+
+
+def test_hook_installer_uses_stable_worktree_shim(tmp_path: Path) -> None:
+    installer = load_installer()
+
+    source = tmp_path / "pre-push"
+    source.write_text("#!/bin/sh\necho first\n", encoding="utf-8")
+    first = installer._hook_install_content(source)
+    source.write_text("#!/bin/sh\necho second\n", encoding="utf-8")
+
+    assert installer._hook_install_content(source) == first
+    assert 'hook_path="ops/hooks/$hook_name"' in first
+    assert 'exec sh "$hook_path" "$@"' in first
 
 
 def test_hook_installer_check_detects_stale_shell_hook(tmp_path: Path) -> None:
@@ -86,9 +100,22 @@ def test_hook_installer_check_normalizes_destination_line_endings(tmp_path: Path
     source = tmp_path / "pre-push"
     destination = tmp_path / "installed-pre-push"
     source.write_text("#!/bin/sh\r\necho ok\r\n", encoding="utf-8", newline="")
-    destination.write_text("#!/bin/sh\r\necho ok\r\n", encoding="utf-8", newline="")
+    destination.write_text(
+        installer._hook_install_content(source).replace("\n", "\r\n"),
+        encoding="utf-8",
+        newline="",
+    )
 
     assert installer._installed_hook_matches(source, destination) is True
+
+
+def test_hook_installer_treats_active_source_hook_as_current(tmp_path: Path) -> None:
+    installer = load_installer()
+
+    source = tmp_path / "pre-push"
+    source.write_text("#!/bin/sh\necho active\n", encoding="utf-8")
+
+    assert installer._installed_hook_matches(source, source) is True
 
 
 def test_hook_installer_check_mode_does_not_overwrite_stale_hook(tmp_path: Path) -> None:
