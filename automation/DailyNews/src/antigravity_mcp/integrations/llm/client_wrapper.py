@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 from antigravity_mcp.config import emit_metric, get_settings
@@ -40,6 +41,7 @@ _llm_breakers: dict[str, CircuitBreaker] = {
 
 _L1_MAX_SIZE = 128
 _L1_CACHE: OrderedDict[str, str] = OrderedDict()
+WORKSPACE_SMOKE_USAGE_ENV = "WORKSPACE_SMOKE_USAGE_OUT"
 
 
 def _initial_meta(cache_scope: str) -> dict[str, Any]:
@@ -79,6 +81,38 @@ def _l1_put(key: str, value: str) -> None:
     _L1_CACHE.move_to_end(key)
     if len(_L1_CACHE) > _L1_MAX_SIZE:
         _L1_CACHE.popitem(last=False)
+
+
+def _emit_workspace_smoke_usage(meta: dict[str, Any], *, cache_scope: str) -> None:
+    out_path = os.getenv(WORKSPACE_SMOKE_USAGE_ENV)
+    if not out_path:
+        return
+    input_tokens = int(meta.get("input_tokens", 0) or 0)
+    output_tokens = int(meta.get("output_tokens", 0) or 0)
+    cost_value = meta.get("cost_usd")
+    cost_usd = float(cost_value) if isinstance(cost_value, (int, float)) and not isinstance(cost_value, bool) else None
+    if input_tokens <= 0 and output_tokens <= 0 and cost_usd is None:
+        return
+
+    usage: dict[str, int | float] = {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+    if cost_usd is not None and cost_usd >= 0:
+        usage["cost_usd"] = round(cost_usd, 6)
+    payload = {
+        "usage": usage,
+        "provider": meta.get("provider", ""),
+        "model_name": meta.get("model_name", ""),
+        "cache_scope": cache_scope,
+    }
+    try:
+        path = Path(out_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8")
+    except OSError as exc:
+        logger.warning("failed to write workspace smoke usage sidecar: %s", exc)
 
 
 class LLMClientWrapper:
@@ -249,6 +283,7 @@ class LLMClientWrapper:
             input_tokens=meta["input_tokens"],
             output_tokens=meta["output_tokens"],
         )
+        _emit_workspace_smoke_usage(meta, cache_scope=cache_scope)
 
         total_tokens = meta.get("input_tokens", 0) + meta.get("output_tokens", 0)
         if total_tokens > 0:

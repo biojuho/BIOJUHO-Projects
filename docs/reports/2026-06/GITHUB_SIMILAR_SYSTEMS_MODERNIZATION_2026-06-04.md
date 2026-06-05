@@ -3,7 +3,7 @@
 ## Summary
 
 - Sources reviewed: 6
-- Adoption counts: adopted=5, partially_adopted=1, watch=0
+- Adoption counts: adopted=6, partially_adopted=0, watch=0
 - Generated at: `2026-06-05T16:43:21+09:00`
 
 ## Search Context
@@ -47,7 +47,7 @@
 
 - URL: https://github.com/lastmile-ai/mcp-eval
 - Category: `mcp-agent-evaluation`
-- Adoption status: `partially_adopted`
+- Adoption status: `adopted`
 - Why similar: MCP eval framework focused on real agent-to-server tests, observability, reports, and CI-friendly regression detection.
 - Observed patterns:
   - real environment tests instead of mocks for agent tool paths
@@ -72,7 +72,15 @@
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_OTEL_EXPORT_2026-06-05.md`
   - `docs/reports/2026-06/MCP_SMOKE_TRACE_OTEL_SUBMIT_2026-06-05.json`
   - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_OTEL_SUBMIT_2026-06-05.md`
-- Gap: MCP smoke trace metrics now derive deterministic offline timing/path-depth signals, optional token/cost summaries, ordered span-tree links, tracked Markdown/HTML handoff reports, an OTEL-style JSON span export, and an opt-in local collector submission path; live token/cost emission remains future scoped work.
+  - `automation/DailyNews/src/antigravity_mcp/integrations/llm/client_wrapper.py`
+  - `tests/test_dailynews_llm_usage_sidecar.py`
+  - `tests/test_workspace_smoke_usage_sidecar.py`
+  - `docs/reports/2026-06/WORKSPACE_SMOKE_USAGE_SIDECAR_2026-06-05.json`
+  - `docs/reports/2026-06/MCP_SMOKE_TRACE_USAGE_SIDECAR_2026-06-05.json`
+  - `docs/reports/2026-06/MCP_SMOKE_TRACE_USAGE_SIDECAR_2026-06-05.md`
+  - `docs/reports/2026-06/MCP_SMOKE_TRACE_USAGE_SIDECAR_OTEL_2026-06-05.json`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_TRACE_LIVE_USAGE_EMISSION_2026-06-05.md`
+- Gap: No remaining structural gap for MCP eval-style evidence: real smoke checks, token/cost sidecar emission, trace usage summaries, ordered span trees, Markdown/HTML handoff reports, OTEL-style JSON export, and opt-in local collector submission are tracked; future work can expand sidecar emission to wrappers that bypass the DailyNews LLM client.
 
 ### evalstate/fast-agent
 

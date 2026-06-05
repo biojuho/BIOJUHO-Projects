@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "source_path": "docs\\reports\\2026-06\\WORKSPACE_SMOKE_USAGE_SIDECAR_2026-06-05.json",
+  "source_status": "complete",
+  "source_generated_at": "2026-06-05T08:43:44.031405+00:00",
+  "scope": "mcp",
+  "summary": {
+    "checks": 1,
+    "passed": 1,
+    "failed": 0,
+    "runtime_kinds": {
+      "other": 1
+    },
+    "cwd_counts": {
+      ".": 1
+    },
+    "timing": {
+      "observed_checks": 0,
+      "missing_checks": 1,
+      "total_seconds": null,
+      "max_seconds": null,
+      "slowest_check": null
+    },
+    "usage": {
+      "observed_checks": 1,
+      "missing_checks": 0,
+      "input_tokens": 120,
+      "output_tokens": 35,
+      "total_tokens": 155,
+      "cost_usd": 0.0042,
+      "max_tokens": 155,
+      "token_heaviest_check": "usage sidecar probe",
+      "max_cost_usd": 0.0042,
+      "costliest_check": "usage sidecar probe"
+    },
+    "path_depth": {
+      "max_cwd_depth": 0,
+      "max_command_path_depth": 0,
+      "command_path_tokens": 0
+    }
+  },
+  "checks": [
+    {
+      "name": "usage sidecar probe",
+      "cwd": ".",
+      "cwd_depth": 0,
+      "command_kind": "other",
+      "command_path_tokens": 0,
+      "command_path_depth": 0,
+      "duration_seconds": null,
+      "duration_source": null,
+      "input_tokens": 120,
+      "output_tokens": 35,
+      "total_tokens": 155,
+      "cost_usd": 0.0042,
+      "usage_sources": [
+        "cost_usd",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens"
+      ],
+      "returncode": 0,
+      "ok": true
+    }
+  ],
+  "span_tree": {
+    "root": {
+      "span_id": "mcp:root",
+      "parent_id": null,
+      "name": "mcp smoke",
+      "status": "ok"
+    },
+    "summary": {
+      "spans": 1,
+      "max_depth": 1,
+      "linked_spans": 0
+    },
+    "spans": [
+      {
+        "span_id": "mcp:check:1",
+        "parent_id": "mcp:root",
+        "previous_span_id": null,
+        "name": "usage sidecar probe",
+        "status": "ok",
+        "duration_seconds": null,
+        "command_kind": "other",
+        "cwd": "."
+      }
+    ]
+  },
+  "trace_integrity": {
+    "ok": true,
+    "issues": []
+  }
+}

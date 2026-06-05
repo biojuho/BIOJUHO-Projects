@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T08:43:44.031405+00:00",
+  "status": "complete",
+  "summary": {
+    "total": 1,
+    "completed": 1,
+    "passed": 1,
+    "failed": 0,
+    "remaining": 0
+  },
+  "results": [
+    {
+      "scope": "mcp",
+      "name": "usage sidecar probe",
+      "cwd": ".",
+      "command": "python -c \"import json, os, pathlib; pathlib.Path(os.environ['WORKSPACE_SMOKE_USAGE_OUT']).write_text(json.dumps({'usage': {'prompt_tokens': 120, 'completion_tokens': 35, 'estimated_cost_usd': 0.0042}}), encoding='utf-8'); print('usage emitted')\"",
+      "returncode": 0,
+      "ok": true,
+      "stdout_tail": "usage emitted\r\n",
+      "stderr_tail": "",
+      "input_tokens": 120,
+      "output_tokens": 35,
+      "total_tokens": 155,
+      "cost_usd": 0.0042
+    }
+  ]
+}

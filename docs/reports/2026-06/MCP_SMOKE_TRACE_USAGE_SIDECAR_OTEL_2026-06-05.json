@@ -1,0 +1,102 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "mcp-smoke-trace-metrics"
+            }
+          },
+          {
+            "key": "service.namespace",
+            "value": {
+              "stringValue": "local-ai-workspace"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "ops.scripts.mcp_smoke_trace_metrics"
+          },
+          "spans": [
+            {
+              "traceId": "13b60c98bebb59cc734c6eb074cbea26",
+              "spanId": "33992dd475eef60d",
+              "name": "mcp smoke",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.scope",
+                  "value": {
+                    "stringValue": "mcp"
+                  }
+                },
+                {
+                  "key": "mcp.source_path",
+                  "value": {
+                    "stringValue": "docs\\reports\\2026-06\\WORKSPACE_SMOKE_USAGE_SIDECAR_2026-06-05.json"
+                  }
+                },
+                {
+                  "key": "mcp.source_status",
+                  "value": {
+                    "stringValue": "complete"
+                  }
+                },
+                {
+                  "key": "mcp.child_spans",
+                  "value": {
+                    "intValue": "1"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "13b60c98bebb59cc734c6eb074cbea26",
+              "spanId": "9aec6fea284c82bb",
+              "parentSpanId": "33992dd475eef60d",
+              "name": "usage sidecar probe",
+              "kind": "SPAN_KIND_INTERNAL",
+              "status": {
+                "code": "STATUS_CODE_OK"
+              },
+              "attributes": [
+                {
+                  "key": "mcp.span_id",
+                  "value": {
+                    "stringValue": "mcp:check:1"
+                  }
+                },
+                {
+                  "key": "mcp.parent_span_id",
+                  "value": {
+                    "stringValue": "mcp:root"
+                  }
+                },
+                {
+                  "key": "mcp.command_kind",
+                  "value": {
+                    "stringValue": "other"
+                  }
+                },
+                {
+                  "key": "mcp.cwd",
+                  "value": {
+                    "stringValue": "."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
