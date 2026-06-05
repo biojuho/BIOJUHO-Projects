@@ -137,11 +137,27 @@ function autoresearchCandidateSnapshot(relPath) {
     "biojuho/autoresearch-skill-system",
   ];
   const missing = required.filter((name) => !names.has(name));
+  const source = payload?.source || "";
+  const veritasLatestCommit = "f1015055ea304ee286831fc9ebbbff971efadac9";
+  const veritasLatestPushedAt = "2026-06-05T11:42:50Z";
+  const veritas = projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system") || null;
+  const veritasFresh = Boolean(veritas) &&
+    veritas.lastCommit === veritasLatestCommit &&
+    Date.parse(veritas.pushedAt || "") >= Date.parse(veritasLatestPushedAt);
+  const veritasSourceMarked = source.includes("github-api:veritas-autoresearch-refresh");
   return {
-    status: matches.length >= 8 && missing.length === 0 ? "pass" : "fail",
-    source: payload?.source || "",
+    status: matches.length >= 8 && missing.length === 0 && veritasFresh && veritasSourceMarked ? "pass" : "fail",
+    source,
     generatedAt: payload?.generatedAt || "",
     candidates: matches.length,
+    veritas: {
+      latestCommit: veritasLatestCommit,
+      lastCommit: veritas?.lastCommit || "",
+      latestPushedAt: veritasLatestPushedAt,
+      pushedAt: veritas?.pushedAt || "",
+      fresh: veritasFresh,
+      sourceMarked: veritasSourceMarked,
+    },
     required,
     missing,
   };
@@ -376,7 +392,7 @@ function buildChecklist() {
   const autoresearchCandidates = autoresearchCandidateSnapshot("data/adoption-candidates.json");
   checklist.push({
     id: "autoresearch_ecosystem_candidates",
-    requirement: "AutoResearch product launch data includes the original project, the Veritas source-backed harness, the user mirror, and a useful ecosystem candidate set.",
+    requirement: "AutoResearch product launch data includes the original project, the refreshed Veritas source-backed harness, the user mirror, and a useful ecosystem candidate set.",
     status: autoresearchCandidates.status,
     evidence: autoresearchCandidates,
   });
