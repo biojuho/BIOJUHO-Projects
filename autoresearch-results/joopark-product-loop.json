@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T20:43:52+09:00",
+  "generatedAt": "2026-06-05T20:49:00+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -29,7 +29,7 @@
       "releaseHeaderSmokeChecks": 6,
       "releaseFallbackSmokeChecks": 4,
       "pagesPublishWorkflowTemplateChecks": 3,
-      "pagesWorkflowHandoffChecks": 4,
+      "pagesWorkflowHandoffChecks": 5,
       "mainBridgeStrategyChecks": 4,
       "releaseFiles": 15,
       "consoleIssues": 0,
@@ -204,6 +204,13 @@
       "primaryMetric": "mainBridgeStrategyChecks",
       "baseline": 0,
       "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "monorepo-safe-pages-workflow-target",
+      "primaryMetric": "pagesWorkflowHandoffChecks",
+      "baseline": 4,
+      "candidate": 5,
       "decision": "keep"
     }
   ],

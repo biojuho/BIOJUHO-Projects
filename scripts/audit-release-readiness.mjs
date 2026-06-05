@@ -268,7 +268,7 @@ function githubPagesWorkflowHandoffDryRun() {
   const result = run(process.execPath, ["scripts/prepare-github-pages-workflow.mjs", "--dry-run"], { timeout: 15000 });
   const payload = parseJson(result.stdout);
   return {
-    status: result.ok && payload && payload.status === "pass" && payload.mode === "dry-run" && payload.willWrite === false ? "pass" : "fail",
+    status: result.ok && payload && payload.status === "pass" && payload.mode === "dry-run" && payload.willWrite === false && payload.targetRepositoryPath === ".github/workflows/joopark-pages.yml" ? "pass" : "fail",
     command: "node scripts/prepare-github-pages-workflow.mjs --dry-run",
     result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
   };
@@ -334,13 +334,13 @@ function buildChecklist() {
 
   const workflowHandoffDryRun = githubPagesWorkflowHandoffDryRun();
   const workflowHandoffTerms = [
-    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "workflowScopeRequired", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite"] },
-    { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --write", "workflow` scope"] },
+    { file: "scripts/prepare-github-pages-workflow.mjs", terms: ["--dry-run", "--write", "workflowScopeRequired", "docs/github-pages-workflow.yml", ".github/workflows/joopark-pages.yml", "willWrite", "gitRoot", "rev-parse", "--show-toplevel", "targetRepositoryPath"] },
+    { file: "README.md", terms: ["node scripts/prepare-github-pages-workflow.mjs --dry-run", "node scripts/prepare-github-pages-workflow.mjs --write", "repository root", "workflow` scope"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   const workflowHandoffFiles = workflowHandoffScripts.map((path) => ({ path, exists: fileExists(path) }));
   checklist.push({
     id: "github_pages_workflow_scope_handoff",
-    requirement: "GitHub Pages workflow installation has a dry-run handoff script that validates the template and only writes the workflow target when explicitly requested with a workflow-scope token or UI session.",
+    requirement: "GitHub Pages workflow installation has a dry-run handoff script that validates the template and only writes the repository-root workflow target when explicitly requested with a workflow-scope token or UI session.",
     status: workflowHandoffFiles.every((item) => item.exists) && workflowHandoffTerms.every((item) => item.missingTerms.length === 0) && workflowHandoffDryRun.status === "pass" ? "pass" : "fail",
     evidence: {
       files: workflowHandoffFiles,

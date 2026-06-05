@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = gitRoot();
 const templateRel = "docs/github-pages-workflow.yml";
 const targetRel = ".github/workflows/joopark-pages.yml";
 const templatePath = join(root, templateRel);
-const targetPath = join(root, targetRel);
+const targetPath = join(repositoryRoot, targetRel);
+const targetDisplayPath = relative(root, targetPath).replaceAll("\\", "/") || targetRel;
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has("--dry-run") || !args.has("--write");
 const write = args.has("--write") && !dryRun;
@@ -27,16 +30,30 @@ const requiredTerms = [
   "path: dist/release",
 ];
 
+function gitRoot() {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: root,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return root;
+  }
+}
+
 function result(status, extra = {}) {
   const payload = {
     status,
     mode: dryRun ? "dry-run" : "write",
     template: templateRel,
-    target: targetRel,
+    target: targetDisplayPath,
+    targetRepositoryPath: targetRel,
+    repositoryRoot,
     willWrite: write,
     force,
     workflowScopeRequired: true,
-    workflowScopeHint: "Commit or push the target workflow only with a GitHub token or UI session that has workflow scope.",
+    workflowScopeHint: "Commit or push the repository-root workflow only with a GitHub token or UI session that has workflow scope.",
     ...extra,
   };
   console.log(JSON.stringify(payload, null, 2));
@@ -77,7 +94,7 @@ mkdirSync(dirname(targetPath), { recursive: true });
 writeFileSync(targetPath, template, "utf-8");
 result("pass", {
   targetExists: true,
-  wrote: targetRel,
+  wrote: targetDisplayPath,
   checks: {
     templateExists: true,
     requiredTerms: true,
