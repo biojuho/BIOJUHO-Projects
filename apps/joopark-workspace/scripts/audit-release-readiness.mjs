@@ -150,8 +150,8 @@ function autoresearchCandidateSnapshot(relPath) {
   ];
   const missing = required.filter((name) => !names.has(name));
   const source = payload?.source || "";
-  const veritasLatestCommit = "96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7";
-  const veritasLatestPushedAt = "2026-06-05T11:55:44Z";
+  const veritasLatestCommit = "b0d4177dadce49f78f6978a2a36c777698ca9cb2";
+  const veritasLatestPushedAt = "2026-06-05T13:51:51Z";
   const veritas = projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system") || null;
   const veritasFresh = Boolean(veritas) &&
     veritas.lastCommit === veritasLatestCommit &&

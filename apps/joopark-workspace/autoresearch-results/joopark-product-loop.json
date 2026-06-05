@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T22:55:29+09:00",
+  "generatedAt": "2026-06-05T23:05:50+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -35,10 +35,10 @@
       "pagesPublishWorkflowTemplateChecks": 3,
       "pagesWorkflowHandoffChecks": 5,
       "mainBridgeStrategyChecks": 5,
+      "candidateMetadataRefreshChecks": 1,
       "veritasFreshnessChecks": 5,
       "openProjectFreshnessChecks": 6,
       "leantimeFreshnessChecks": 6,
-      "candidateMetadataRefreshChecks": 4,
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
@@ -271,7 +271,21 @@
       "decision": "keep"
     },
     {
-      "id": "persisted-candidate-metadata-refresh",
+      "id": "imported-candidate-metadata-refresh",
+      "primaryMetric": "leantimeCandidateFreshnessVisible",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "veritas-autoresearch-refresh-v8374",
+      "primaryMetric": "veritasFreshnessChecks",
+      "baseline": 5,
+      "candidate": 5,
+      "decision": "keep"
+    },
+    {
+      "id": "candidate-metadata-refresh-gate-coverage",
       "primaryMetric": "candidateMetadataRefresh",
       "baseline": 0,
       "candidate": 1,
@@ -287,8 +301,8 @@
     "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
   },
   "nextCandidates": [
+    "main-based workspace bridge sync",
     "next workspace benchmark freshness refresh",
-    "Pages workflow activation verification",
-    "post-release workflow deprecation cleanup"
+    "Pages workflow activation verification"
   ]
 }
