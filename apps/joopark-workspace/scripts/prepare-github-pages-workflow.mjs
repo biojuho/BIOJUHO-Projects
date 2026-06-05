@@ -70,8 +70,8 @@ if (missingTerms.length > 0) {
   result("fail", { reason: "template missing required terms", missingTerms });
 }
 
-const targetExists = existsSync(targetPath);
 if (!write) {
+  const targetExists = existsSync(targetPath);
   result("pass", {
     targetExists,
     checks: {
@@ -83,15 +83,18 @@ if (!write) {
   });
 }
 
-if (targetExists && !force) {
-  result("fail", {
-    reason: "target already exists; pass --force to overwrite",
-    targetExists,
-  });
-}
-
 mkdirSync(dirname(targetPath), { recursive: true });
-writeFileSync(targetPath, template, "utf-8");
+try {
+  writeFileSync(targetPath, template, { encoding: "utf-8", flag: force ? "w" : "wx" });
+} catch (error) {
+  if (error && error.code === "EEXIST" && !force) {
+    result("fail", {
+      reason: "target already exists; pass --force to overwrite",
+      targetExists: true,
+    });
+  }
+  throw error;
+}
 result("pass", {
   targetExists: true,
   wrote: targetDisplayPath,
