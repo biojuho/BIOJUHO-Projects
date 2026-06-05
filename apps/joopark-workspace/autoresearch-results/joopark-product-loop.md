@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T22:55:29+09:00
+Generated: 2026-06-05T23:05:50+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -409,22 +409,15 @@ Generated: 2026-06-05T22:55:29+09:00
 
 ## Experiment: Veritas freshness UI smoke
 
-- Hypothesis: The Veritas freshness data is more useful when the portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
+- Hypothesis: The Veritas freshness data is more useful when the release portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
 - Primary metric: `veritasCandidateFreshnessVisible`.
-- Baseline: the adoption snapshot and audit required `f1015055ea304ee286831fc9ebbbff971efadac9`, but portfolio cards did not render the newest `lastCommit` and the interaction smoke did not prove the Veritas card could be found by source evidence.
+- Baseline: the release data required Veritas freshness, but portfolio cards did not render `lastCommit` and the interaction smoke did not prove the Veritas card could be found by source evidence.
 - Candidate: candidate cards render a short `Commit 96858c69` badge with the exact pushedAt marker, project search indexes `lastCommit`, and the packaged interaction smoke searches `96858c69` to verify the Veritas card, commit, pushedAt marker, description, and safe GitHub link.
 - Decision: keep.
 
-## Evidence
-
-- `npm run lint` passed in `apps/joopark-workspace`.
-- `npm run build` and `node scripts/verify-release.mjs` passed after adding the UI badge and smoke coverage.
-- `npm run verify` passed 24/24 with the new `veritas_freshness_ui_smoke` audit item.
-- Packaged interaction smoke reported `veritasCandidateFreshnessVisible: true`, 15 desktop routes, 15 mobile routes, 18 interaction steps, and 0 console/network/layout issues.
-
 ## Experiment: OpenProject freshness refresh
 
-- Hypothesis: The highest-priority project-management benchmark candidate should carry source-backed commit freshness, not only stale star and pushedAt metadata.
+- Hypothesis: The release branch should preserve the main branch's highest-priority project-management benchmark freshness evidence instead of leaving OpenProject with stale metadata.
 - Primary metric: `openProjectFreshnessChecks`.
 - Baseline: `opf/openproject` had `lastCommit: null`, `pushedAt: 2026-06-05T10:35:36Z`, no OpenProject-specific source marker, and no UI smoke that could find the risk-review candidate by upstream commit.
 - Candidate: `data/adoption-candidates.json` records OpenProject `lastCommit: 5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4`, `pushedAt: 2026-06-05T12:44:52Z`, the `github-api:openproject-freshness-refresh` source marker, and audit evidence for freshness/source validity.
@@ -434,11 +427,11 @@ Generated: 2026-06-05T22:55:29+09:00
 
 - `gh api repos/opf/openproject` returned `pushed_at: 2026-06-05T12:44:52Z`, 15,235 stars, 3,288 forks, 212 open issues, default branch `dev`, Ruby, and repository size 2,705,404 KB.
 - `gh api 'repos/opf/openproject/commits?per_page=1'` returned commit `5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4` dated `2026-06-05T11:55:31Z`.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 33/33 with `workspace_ecosystem_candidates.openProject.fresh: true` and packaged interaction smoke `openProjectCandidateFreshnessVisible: true`.
+- The release interaction smoke now verifies `veritasCandidateFreshnessVisible` and `openProjectCandidateFreshnessVisible` through commit searches and commit badge metadata.
 
 ## Experiment: Leantime freshness refresh
 
-- Hypothesis: A high-relevance project-management benchmark should carry source-backed commit freshness before it is used for product comparison.
+- Hypothesis: The release branch should preserve the main branch's next project-management benchmark freshness evidence instead of leaving Leantime with stale `lastCommit` metadata.
 - Primary metric: `leantimeFreshnessChecks`.
 - Baseline: `Leantime/leantime` had `lastCommit: null`, no `github-api:leantime-freshness-refresh` source marker, and no commit-search UI smoke.
 - Candidate: `data/adoption-candidates.json` records Leantime `lastCommit: b3a1037bf596d284b53355d23cadf1d9ab56b599`, `pushedAt: 2026-06-05T04:17:00Z`, the `github-api:leantime-freshness-refresh` source marker, and audit evidence for freshness/source validity.
@@ -452,7 +445,7 @@ Generated: 2026-06-05T22:55:29+09:00
 
 ## Experiment: Leantime freshness UI smoke
 
-- Hypothesis: Leantime freshness is more useful when the portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
+- Hypothesis: Leantime freshness is more useful when the release portfolio UI exposes the upstream commit and the interaction smoke can find that candidate by commit.
 - Primary metric: `leantimeCandidateFreshnessVisible`.
 - Baseline: portfolio cards could not be searched by Leantime upstream commit because `lastCommit` was absent.
 - Candidate: the packaged interaction smoke searches `b3a1037b` and verifies the Leantime card, commit, pushedAt marker, and safe GitHub link.
@@ -460,21 +453,47 @@ Generated: 2026-06-05T22:55:29+09:00
 
 ## Evidence
 
-- `scripts/smoke-interactions.mjs` now reports `persistedChecks.leantimeCandidateFreshnessVisible: true` when the packaged UI renders the Leantime freshness badge.
+- The release interaction smoke now reports `persistedChecks.leantimeCandidateFreshnessVisible: true` when the packaged UI renders the Leantime freshness badge.
 
-## Experiment: persisted candidate metadata refresh
+## Experiment: Imported candidate metadata refresh
 
-- Hypothesis: Users with persisted adoption candidates should still receive newer source-backed metadata when the imported snapshot has the same repository identity.
-- Primary metric: `candidateMetadataRefresh`.
-- Baseline: `mergeImportedProjects` skipped candidates whose `id` already existed, so stale `lastCommit`, `pushedAt`, and popularity metadata could remain in localStorage after a data refresh.
-- Candidate: `mergeImportedProjects` matches existing candidates by id or repository identity, refreshes source-backed metadata fields, persists the update, and the packaged interaction smoke stales Leantime before proving the latest snapshot restores its commit, pushedAt, and stars.
+- Hypothesis: Freshness evidence should stay current for users who already have persisted project data; importing only missing candidates leaves existing adoption candidates with stale `lastCommit` metadata.
+- Primary metric: `leantimeCandidateFreshnessVisible`.
+- Baseline: `node scripts/audit-release-readiness.mjs --run-gates` failed 31/34 because the packaged interaction smoke found `Leantime candidate commit was stale`; release header and fallback checks could not pass while interaction smoke failed.
+- Candidate: `mergeImportedProjects` now deduplicates by canonical GitHub repo key and refreshes metadata fields (`lastCommit`, `pushedAt`, stars, forks, issues, language, URL, topics, stage) for existing `sourceKind: "adoption-candidate"` records while preserving user-owned fields and members.
 - Decision: keep.
 
 ## Evidence
 
-- `scripts/smoke-interactions.mjs` now reports `persistedChecks.candidateMetadataRefresh: true`.
-- The release audit now expects 35/35 checks with `workspace_candidate_metadata_refresh`.
+- `BASE_URL=http://127.0.0.1:5181 node scripts/smoke-interactions.mjs` passed with `leantimeCandidateFreshnessVisible: true` and no console/network issues.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 34/34; packaged release evidence includes route smoke 15/15, mobile 15/15, 18 interaction steps, accessibility pass, release header checks 6/6, and fallback checks 4/4.
+
+## Experiment: Veritas AutoResearch refresh v8.374
+
+- Hypothesis: The product launch data should track the current Veritas upstream head instead of the earlier v8.344 evidence when the source-backed harness advances.
+- Primary metric: `veritasFreshnessChecks`.
+- Baseline: Veritas freshness evidence pointed to `96858c69be8712c9ad34f9ee6ce9f01f0b09c7a7` / `2026-06-05T11:55:44Z`.
+- Candidate: `data/adoption-candidates.json`, the release audit, and the packaged interaction smoke now require Veritas `lastCommit: b0d4177dadce49f78f6978a2a36c777698ca9cb2`, `pushedAt: 2026-06-05T13:51:51Z`, and a `b0d4177d` portfolio commit search.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned `b0d4177dadce49f78f6978a2a36c777698ca9cb2` with message `v8.374 Quality Manifest Status Evidence Exposure Gate`.
+- `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T13:51:51Z`, `updated_at: 2026-06-05T13:52:02Z`, 1 star, 1 fork, 1 open issue, size 787 KB, default branch `main`, and `archived: false`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 34/34 with `autoresearch_ecosystem_candidates.veritas.fresh: true`.
+
+## Experiment: candidate metadata refresh gate coverage
+
+- Hypothesis: The persisted-candidate metadata refresh is safer to ship when the release gate proves stale local adoption-candidate metadata is refreshed from the source snapshot.
+- Primary metric: `candidateMetadataRefresh` in packaged interaction smoke.
+- Baseline: `mergeImportedProjects` refreshed existing adoption candidates, but the release audit did not require a stale-metadata refresh smoke.
+- Candidate: `scripts/audit-release-readiness.mjs` now includes `workspace_candidate_metadata_refresh`, and `scripts/smoke-interactions.mjs` intentionally stales the Leantime candidate commit, pushedAt, and stars before verifying `mergeImportedProjects` refreshes and persists the snapshot values.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 35/35 with `persistedChecks.candidateMetadataRefresh: true`, 18 interaction steps, 15 desktop routes, 15 mobile routes, 0 console/network/layout failures, accessibility pass, release header checks 6/6, and fallback checks 4/4.
 
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: refresh the next workspace benchmark freshness signal, verify Pages workflow activation, or clean up post-release workflow handoff docs.
+- Continue with the highest-impact product gap after the next full gate: sync the main-based workspace bridge branch, refresh the next workspace benchmark freshness signal, or verify Pages workflow activation.
