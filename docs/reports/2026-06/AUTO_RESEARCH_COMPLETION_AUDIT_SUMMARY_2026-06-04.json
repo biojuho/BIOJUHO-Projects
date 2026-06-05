@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 52
+    "covered": 53
   },
-  "criterion_count": 53,
+  "criterion_count": 54,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -1255,6 +1255,62 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_RUNTIME_LAUNCH_FAILURE_GUARD_2026-06-05.md",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "mcp_service_expected_tools_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/references/mcp_service_manifest.json",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "ops/scripts/mcp_service_manifest.py",
+          "term_count": 2,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "ops/scripts/mcp_service_runtime_smoke.py",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_mcp_service_runtime_smoke.py",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_EXPECTED_TOOLS_2026-06-05.json",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/MCP_SERVICE_RUNTIME_SMOKE_EXPECTED_TOOLS_2026-06-05.md",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_EXPECTED_TOOLS_GUARD_2026-06-05.md",
           "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,

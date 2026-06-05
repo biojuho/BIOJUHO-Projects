@@ -38,6 +38,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "pre_push_regression_gate",
         "mcp_runtime_subprocess_smoke",
         "mcp_service_runtime_smoke",
+        "mcp_service_expected_tools_guard",
         "mcp_otel_collector_handoff",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",

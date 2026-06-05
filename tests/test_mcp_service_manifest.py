@@ -32,6 +32,7 @@ def test_current_mcp_service_manifest_validates() -> None:
     assert summary["summary"]["languages"] == {"python": 3, "typescript": 1}
     assert summary["summary"]["transports"]["stdio"] == 3
     assert summary["summary"]["transports"]["sse"] == 1
+    assert summary["services"][0]["expected_tools_count"] == 26
 
 
 def test_tool_count_detection_covers_python_and_typescript_services() -> None:
@@ -55,6 +56,7 @@ def test_manifest_rejects_invalid_service_data() -> None:
     payload["services"][0]["language"] = "ruby"
     payload["services"][0]["transports"] = ["stdio", "websocket"]
     payload["services"][0]["expected_min_tools"] = 999
+    payload["services"][0]["expected_tools"] = ["notion_search", "notion_search"]
 
     errors = manifest.validate_manifest(payload, workspace_root=PROJECT_ROOT)
 
@@ -63,6 +65,7 @@ def test_manifest_rejects_invalid_service_data() -> None:
     assert "services[0].source_path must be a repo-relative path" in errors
     assert "services[0].language must be one of python, typescript" in errors
     assert "services[0].transports contains unknown transport: websocket" in errors
+    assert "services[0].expected_tools must not contain duplicates" in errors
 
 
 def test_cli_writes_summary_outputs(tmp_path: Path) -> None:
@@ -81,3 +84,4 @@ def test_cli_writes_summary_outputs(tmp_path: Path) -> None:
     assert payload["summary"]["fastmcp_services"] == 3
     assert "dailynews-antigravity" in markdown
     assert "Detected tools" in markdown
+    assert "Expected runtime tools" in markdown

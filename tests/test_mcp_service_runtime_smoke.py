@@ -64,6 +64,7 @@ def test_build_service_result_accepts_tools_list_response() -> None:
         "command": ["python", "server.py"],
         "required_env": ["SAMPLE_TOKEN"],
         "expected_min_tools": 2,
+        "expected_tools": ["tool_0", "tool_2"],
     }
 
     result = smoke.build_service_result(service, ["python", "server.py"], sample_process(tool_count=3))
@@ -72,6 +73,8 @@ def test_build_service_result_accepts_tools_list_response() -> None:
     assert result["tool_count"] == 3
     assert result["server_name"] == "sample-server"
     assert result["capability_keys"] == ["tools"]
+    assert result["expected_tools"] == ["tool_0", "tool_2"]
+    assert result["missing_expected_tools"] == []
     assert result["missing_env"] == ["SAMPLE_TOKEN"]
     assert result["stderr_tail"] == "runtime warning"
 
@@ -91,6 +94,25 @@ def test_build_service_result_fails_when_tool_count_is_too_low() -> None:
 
     assert result["status"] == "fail"
     assert result["errors"] == ["expected at least 4 tools, got 3"]
+
+
+def test_build_service_result_fails_when_expected_tool_is_missing() -> None:
+    smoke = load_module()
+    service = {
+        "id": "sample",
+        "name": "Sample MCP",
+        "cwd": ".",
+        "command": ["python", "server.py"],
+        "required_env": [],
+        "expected_min_tools": 2,
+        "expected_tools": ["tool_0", "tool_missing"],
+    }
+
+    result = smoke.build_service_result(service, ["python", "server.py"], sample_process(tool_count=3))
+
+    assert result["status"] == "fail"
+    assert result["missing_expected_tools"] == ["tool_missing"]
+    assert result["errors"] == ["missing expected tools: tool_missing"]
 
 
 def test_run_service_smoke_converts_launch_error_to_failed_service(monkeypatch) -> None:
@@ -149,8 +171,10 @@ def test_runtime_smoke_cli_writes_report_with_fake_runner(tmp_path: Path, monkey
             "cwd": service["cwd"],
             "transport": "stdio",
             "expected_min_tools": service["expected_min_tools"],
+            "expected_tools": service.get("expected_tools", []),
             "tool_count": service["expected_min_tools"],
             "tools": ["tool"],
+            "missing_expected_tools": [],
             "server_name": service["name"],
             "server_version": "1.0",
             "capability_keys": ["tools"],

@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `53`
-- Status counts: `blocked=1, covered=52`
+- Criteria: `54`
+- Status counts: `blocked=1, covered=53`
 
 ## Missing Required
 
@@ -177,6 +177,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `5`
+
+### mcp_service_expected_tools_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `7`
 
 ### mcp_otel_collector_handoff
 

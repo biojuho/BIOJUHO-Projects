@@ -144,8 +144,10 @@ def build_failed_service_result(
         "cwd": service["cwd"],
         "transport": "stdio",
         "expected_min_tools": service.get("expected_min_tools", 0),
+        "expected_tools": sorted(service.get("expected_tools", [])),
         "tool_count": 0,
         "tools": [],
+        "missing_expected_tools": sorted(service.get("expected_tools", [])),
         "server_name": "",
         "server_version": "",
         "capability_keys": [],
@@ -166,6 +168,9 @@ def build_service_result(
     initialize = result_for_id(responses, 1)
     tools_result = result_for_id(responses, 2)
     tools = tools_from_result(tools_result)
+    tool_names = sorted(tool["name"] for tool in tools)
+    expected_tools = sorted(service.get("expected_tools", []))
+    missing_expected_tools = sorted(set(expected_tools) - set(tool_names))
     server_info = initialize.get("serverInfo", {}) if isinstance(initialize.get("serverInfo"), dict) else {}
     capabilities = initialize.get("capabilities", {}) if isinstance(initialize.get("capabilities"), dict) else {}
     return {
@@ -176,8 +181,10 @@ def build_service_result(
         "cwd": service["cwd"],
         "transport": "stdio",
         "expected_min_tools": service.get("expected_min_tools", 0),
+        "expected_tools": expected_tools,
         "tool_count": len(tools),
-        "tools": sorted(tool["name"] for tool in tools),
+        "tools": tool_names,
+        "missing_expected_tools": missing_expected_tools,
         "server_name": server_info.get("name", ""),
         "server_version": server_info.get("version", ""),
         "capability_keys": sorted(capabilities),
@@ -210,6 +217,12 @@ def validate_responses(service: dict[str, Any], responses: list[dict[str, Any]],
     expected_min_tools = service.get("expected_min_tools", 0)
     if len(tools) < expected_min_tools:
         errors.append(f"expected at least {expected_min_tools} tools, got {len(tools)}")
+    expected_tools = sorted(service.get("expected_tools", []))
+    if expected_tools:
+        tool_names = {tool["name"] for tool in tools}
+        missing_expected_tools = sorted(set(expected_tools) - tool_names)
+        if missing_expected_tools:
+            errors.append(f"missing expected tools: {', '.join(missing_expected_tools)}")
     return errors
 
 
@@ -298,6 +311,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for service in report["services"]:
         missing_env = ", ".join(service["missing_env"]) if service["missing_env"] else "none"
+        expected_tools = service.get("expected_tools", [])
+        missing_expected_tools = service.get("missing_expected_tools", [])
         lines.extend(
             [
                 f"### {service['id']}",
@@ -307,6 +322,8 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- Command: `{service['command']}`",
                 f"- Tools listed: `{service['tool_count']}`",
                 f"- Expected minimum tools: `{service['expected_min_tools']}`",
+                f"- Expected runtime tools: `{', '.join(expected_tools) if expected_tools else 'none'}`",
+                f"- Missing expected tools: `{', '.join(missing_expected_tools) if missing_expected_tools else 'none'}`",
                 f"- Missing env for tool calls: `{missing_env}`",
                 f"- Capability keys: `{', '.join(service['capability_keys'])}`",
                 "",

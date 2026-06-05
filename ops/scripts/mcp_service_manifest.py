@@ -66,6 +66,11 @@ def validate_manifest(payload: dict[str, Any], *, workspace_root: Path = WORKSPA
         _validate_string_list(service.get("domains"), f"{prefix}.domains", errors, non_empty=True)
         _validate_string_list(service.get("required_env"), f"{prefix}.required_env", errors)
         _validate_string_list(service.get("smoke_checks"), f"{prefix}.smoke_checks", errors, non_empty=True)
+        expected_tools = _validate_string_list(
+            service.get("expected_tools", []), f"{prefix}.expected_tools", errors
+        )
+        if len(expected_tools) != len(set(expected_tools)):
+            errors.append(f"{prefix}.expected_tools must not contain duplicates")
         transports = _validate_string_list(service.get("transports"), f"{prefix}.transports", errors, non_empty=True)
         for transport in transports:
             if transport not in ALLOWED_TRANSPORTS:
@@ -102,6 +107,7 @@ def build_summary(payload: dict[str, Any], *, workspace_root: Path = WORKSPACE_R
                 "framework": service["framework"],
                 "transports": service["transports"],
                 "tool_count_detected": detect_tool_count(source_path, service["language"]),
+                "expected_tools_count": len(service.get("expected_tools", [])),
                 "required_env_count": len(service.get("required_env", [])),
                 "smoke_checks": service["smoke_checks"],
             }
@@ -147,6 +153,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
                 f"- Language/framework: `{service['language']}` / `{service['framework']}`",
                 f"- Transports: `{', '.join(service['transports'])}`",
                 f"- Detected tools: `{service['tool_count_detected']}`",
+                f"- Expected runtime tools: `{service['expected_tools_count']}`",
                 f"- Required env count: `{service['required_env_count']}`",
                 f"- Smoke checks: `{', '.join(service['smoke_checks'])}`",
                 "",

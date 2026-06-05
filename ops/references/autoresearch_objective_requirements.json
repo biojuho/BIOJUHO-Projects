@@ -136,6 +136,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_sdk_floor_guard",
+        "mcp_service_expected_tools_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
@@ -242,6 +243,15 @@
           "must_contain": [
             "microsoft/agent-framework",
             "Bump ModelContextProtocol from 1.1.0 to 1.2.0",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_EXPECTED_TOOLS_GUARD_2026-06-05.md",
+          "must_contain": [
+            "mastra-ai/mastra",
+            "merge dynamically created tools with bundler-discovered tools",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -476,6 +486,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_sdk_floor_guard",
+        "mcp_service_expected_tools_guard",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
@@ -568,6 +579,14 @@
           "must_contain": [
             "openAiMetaKeys",
             "OpenAI namespaced metadata",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_EXPECTED_TOOLS_GUARD_2026-06-05.md",
+          "must_contain": [
+            "MCP Service Expected Tools Guard",
+            "missing_expected_tools=[]",
             "global_objective_complete=false"
           ]
         },

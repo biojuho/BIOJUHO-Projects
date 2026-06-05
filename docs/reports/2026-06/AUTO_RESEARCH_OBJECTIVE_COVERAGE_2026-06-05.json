@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T01:49:27.471486+00:00",
+  "generated_at": "2026-06-05T01:55:44.516913+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -99,6 +99,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_sdk_floor_guard",
+        "mcp_service_expected_tools_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
@@ -149,6 +150,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_SDK_FLOOR_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_EXPECTED_TOOLS_GUARD_2026-06-05.md",
           "term_count": 4
         }
       ],
@@ -314,6 +319,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "canva_mcp_sdk_floor_guard",
+        "mcp_service_expected_tools_guard",
         "workspace_smoke_trace_drain_guard",
         "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
@@ -361,6 +367,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAI_NAMESPACE_METADATA_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_SERVICE_EXPECTED_TOOLS_GUARD_2026-06-05.md",
           "term_count": 3
         },
         {

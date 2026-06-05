@@ -16,6 +16,34 @@
       "domains": ["notion", "content", "operations", "analytics"],
       "required_env": [],
       "smoke_checks": ["DailyNews unit tests"],
+      "expected_tools": [
+        "add_task",
+        "append_block",
+        "content_generate_brief",
+        "content_invoke_skill",
+        "content_publish_report",
+        "create_page",
+        "get_token_usage",
+        "notion_append_blocks",
+        "notion_create_page",
+        "notion_create_record",
+        "notion_get_page",
+        "notion_search",
+        "ops_auto_collect_metrics",
+        "ops_check_health",
+        "ops_cleanup",
+        "ops_collect_tweet_metrics",
+        "ops_export_analytics",
+        "ops_get_content_calendar",
+        "ops_get_cost_report",
+        "ops_get_run_status",
+        "ops_get_tweet_performance",
+        "ops_list_runs",
+        "ops_refresh_dashboard",
+        "ops_run_frozen_eval",
+        "read_page",
+        "search_notion"
+      ],
       "expected_min_tools": 26
     },
     {
@@ -31,6 +59,14 @@
       "domains": ["research", "papers", "grants"],
       "required_env": [],
       "smoke_checks": ["desci-research-mcp helper tests"],
+      "expected_tools": [
+        "find_related_papers",
+        "get_paper_details",
+        "get_research_trends",
+        "search_arxiv",
+        "search_grants",
+        "search_semantic_scholar"
+      ],
       "expected_min_tools": 6
     },
     {
@@ -46,6 +82,15 @@
       "domains": ["notifications", "approvals", "monitoring"],
       "required_env": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"],
       "smoke_checks": ["telegram-mcp helper tests"],
+      "expected_tools": [
+        "get_updates",
+        "send_alert",
+        "send_approval_request",
+        "send_cost_report",
+        "send_message",
+        "send_pipeline_report",
+        "send_trend_alert"
+      ],
       "expected_min_tools": 7
     },
     {
