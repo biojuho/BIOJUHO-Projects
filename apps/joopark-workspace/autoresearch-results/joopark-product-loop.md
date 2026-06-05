@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T00:23:30+09:00
+Generated: 2026-06-06T00:38:38+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -581,6 +581,19 @@ Generated: 2026-06-06T00:23:30+09:00
 - `gh api repos/ParabolInc/parabol/commits/master` returned `f1c60852df00522c74ba9ab49127fd72103ea519` dated `2026-06-04T00:13:54Z`; repo metadata returned `pushed_at: 2026-06-04T00:16:02Z`, 2,002 stars, 366 forks, 68 open issues, and size 149,121 KB.
 - `gh api repos/Worklenz/worklenz/commits/main` returned `c4c32686587ad0d2fcd0b0b7c806a04858f03f7b` dated `2026-02-25T14:39:35Z`; repo metadata returned `pushed_at: 2026-02-25T14:39:35Z`, 3,067 stars, 321 forks, 62 open issues, and size 13,805 KB.
 
+## Experiment: Workspace benchmark HEAD freshness coverage
+
+- Hypothesis: After the benchmark HEAD refresh, the next highest-value coverage gain is to add commit-level evidence for Anytype and Focalboard so local-first knowledge and Kanban benchmark rows are comparable with the PM rows.
+- Primary metric: workspace benchmark HEAD snapshots.
+- Baseline: 5 of 14 local-first/project-management candidates had source-backed `lastCommit` snapshots after PR #167.
+- Candidate: 7 of 14 candidates now carry source-backed `lastCommit` snapshots, adding `anyproto/anytype-ts` and `mattermost-community/focalboard`; audit and interaction smoke require both candidates by short commit.
+- Decision: keep; the rebased release gate remains the deciding proof.
+
+## Evidence
+
+- `gh api repos/anyproto/anytype-ts/commits/develop` returned `153917ec6d28e41da672ad93cd9448a644dacfb8` dated `2026-06-04T23:49:47Z`; repo metadata returned `pushed_at: 2026-06-05T02:04:08Z`, 8,037 stars, 517 forks, 169 open issues, and size 985,782 KB.
+- `gh api repos/mattermost-community/focalboard/commits/main` returned `a84bbb65e32edf972856b329417096ac413518e9` dated `2025-06-11T13:30:05Z`; repo metadata returned `pushed_at: 2026-05-18T16:05:00Z`, 26,212 stars, 2,544 forks, 779 open issues, and size 59,223 KB.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, or refresh Anytype, Epicenter, and OpenLoaf benchmark commit snapshots.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, refresh Epicenter and OpenLoaf benchmark commit snapshots, or add a drift monitor for candidate freshness metadata.
