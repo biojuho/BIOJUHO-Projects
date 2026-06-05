@@ -971,6 +971,21 @@ Generated: 2026-06-06T04:34:36+09:00
 - `autoresearch-results/joopark-product-loop.json` now reports `veritasFocusedSnapshotVersion: v8.501`.
 - Pages workflow installation and scheduled CI wiring remain blocked in this session because `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` reported `workflowScopeAvailable: false`.
 
+## Experiment: AppFlowy workspace benchmark candidate
+
+- Hypothesis: The GitHub project discovery surface becomes more useful for JooPark planning when a large open-source Notion-class workspace benchmark is tracked next to PM-specific candidates.
+- Primary metric: AppFlowy workspace candidate freshness checks.
+- Baseline: 0 AppFlowy workspace candidate checks; `AppFlowy-IO/AppFlowy` was absent from the adoption candidate snapshot.
+- Candidate: add `AppFlowy-IO/AppFlowy` as a researched AI collaboration workspace candidate with current GitHub metadata, AGPL risk context, default-branch commit, and portfolio interaction smoke.
+- Decision: keep; AppFlowy has 71,842 stars, 5,402 forks, 936 open issues, 70 open PRs, recent push `2026-06-05T12:00:29Z`, and commit `4af02cdc87468be10ab15dbb4afd27fbf53ce89b`.
+
+## Evidence
+
+- `data/adoption-candidates.json` now includes `AppFlowy-IO/AppFlowy` with source markers `github-search:appflowy-workspace-benchmark` and `github-api:appflowy-freshness-refresh`.
+- `scripts/smoke-interactions.mjs` now reports `appFlowyCandidateFreshnessVisible` and verifies AppFlowy by commit search, star/fork count, language, risk-review action, pushedAt, and safe GitHub link.
+- `scripts/audit-release-readiness.mjs` now includes `appflowy_workspace_candidate_freshness_ui_smoke`.
+- AFFiNE remains the next high-signal workspace candidate after AppFlowy lands.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research AppFlowy and AFFiNE as workspace candidates after the Plane PM benchmark candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research AFFiNE as a workspace candidate after the AppFlowy benchmark candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.

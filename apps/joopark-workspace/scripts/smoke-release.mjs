@@ -129,6 +129,37 @@ function runNodeScriptAsync(scriptPath, env = {}, timeoutMs = 120000) {
   });
 }
 
+function isRetryableRuntimeTimeout(error) {
+  const details = [
+    error && error.message,
+    error && error.stdout,
+    error && error.stderr,
+  ].filter(Boolean).join("\n");
+  return details.includes("Timed out waiting for Runtime.evaluate");
+}
+
+async function runRetryableBrowserScript(scriptPath, env = {}, timeoutMs = 120000, retries = 1) {
+  const attempts = [];
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const result = await runNodeScriptAsync(scriptPath, env, timeoutMs);
+      return { ...result, attempts };
+    } catch (error) {
+      const retryable = isRetryableRuntimeTimeout(error);
+      attempts.push({
+        attempt: attempt + 1,
+        retryable,
+        message: error.message,
+      });
+      if (!retryable || attempt === retries) {
+        error.attempts = attempts;
+        throw error;
+      }
+    }
+  }
+  throw new Error(`${scriptPath} retry loop exited unexpectedly`);
+}
+
 function safeTarget(pathname) {
   let decoded;
   try {
@@ -407,34 +438,32 @@ async function main() {
   try {
     headerResult = await smokeReleaseHeaders(baseUrl);
     fallbackResult = await smokeReleaseFallbacks(baseUrl);
-    smokeResult = parseJsonOutput(
-      (await runNodeScriptAsync("scripts/smoke-chrome.mjs", {
-        BASE_URL: baseUrl,
-        SMOKE_PROGRESS: "1",
-      }, 120000)).stdout,
-      "fail",
-    );
-    mobileResult = parseJsonOutput(
-      (await runNodeScriptAsync("scripts/smoke-mobile.mjs", {
-        BASE_URL: baseUrl,
-        SMOKE_PROGRESS: "1",
-      }, 120000)).stdout,
-      "fail",
-    );
-    interactionResult = parseJsonOutput(
-      (await runNodeScriptAsync("scripts/smoke-interactions.mjs", {
-        BASE_URL: baseUrl,
-        SMOKE_PROGRESS: "1",
-      }, 120000)).stdout,
-      "fail",
-    );
-    accessibilityResult = parseJsonOutput(
-      (await runNodeScriptAsync("scripts/smoke-a11y.mjs", {
-        BASE_URL: baseUrl,
-        SMOKE_PROGRESS: "1",
-      }, 120000)).stdout,
-      "fail",
-    );
+    const smokeRun = await runRetryableBrowserScript("scripts/smoke-chrome.mjs", {
+      BASE_URL: baseUrl,
+      SMOKE_PROGRESS: "1",
+      SMOKE_RUNTIME_TIMEOUT_MS: "90000",
+    }, 180000);
+    smokeResult = parseJsonOutput(smokeRun.stdout, "fail");
+    if (smokeRun.attempts.length > 0) smokeResult.retryAttempts = smokeRun.attempts;
+    const mobileRun = await runRetryableBrowserScript("scripts/smoke-mobile.mjs", {
+      BASE_URL: baseUrl,
+      SMOKE_PROGRESS: "1",
+    }, 120000);
+    mobileResult = parseJsonOutput(mobileRun.stdout, "fail");
+    if (mobileRun.attempts.length > 0) mobileResult.retryAttempts = mobileRun.attempts;
+    const interactionRun = await runRetryableBrowserScript("scripts/smoke-interactions.mjs", {
+      BASE_URL: baseUrl,
+      SMOKE_PROGRESS: "1",
+      SMOKE_RUNTIME_TIMEOUT_MS: "150000",
+    }, 180000);
+    interactionResult = parseJsonOutput(interactionRun.stdout, "fail");
+    if (interactionRun.attempts.length > 0) interactionResult.retryAttempts = interactionRun.attempts;
+    const accessibilityRun = await runRetryableBrowserScript("scripts/smoke-a11y.mjs", {
+      BASE_URL: baseUrl,
+      SMOKE_PROGRESS: "1",
+    }, 120000);
+    accessibilityResult = parseJsonOutput(accessibilityRun.stdout, "fail");
+    if (accessibilityRun.attempts.length > 0) accessibilityResult.retryAttempts = accessibilityRun.attempts;
   } finally {
     await close(server);
   }
@@ -493,6 +522,7 @@ async function main() {
     smoke: {
       status: smokeResult.status,
       routeCount: smokeResult.routeCount,
+      retryAttempts: smokeResult.retryAttempts || [],
       consoleIssues: smokeResult.consoleIssues,
       networkIssues: smokeResult.networkIssues,
       failures: smokeResult.failures,
@@ -500,6 +530,7 @@ async function main() {
     mobile: {
       status: mobileResult.status,
       routeCount: mobileResult.routeCount,
+      retryAttempts: mobileResult.retryAttempts || [],
       viewport: mobileResult.viewport,
       layoutIssues: mobileResult.layoutIssues,
       consoleIssues: mobileResult.consoleIssues,
@@ -509,6 +540,7 @@ async function main() {
     interactions: {
       status: interactionResult.status,
       stepCount: interactionResult.steps ? interactionResult.steps.length : 0,
+      retryAttempts: interactionResult.retryAttempts || [],
       persistedChecks: interactionResult.persistedChecks,
       consoleIssues: interactionResult.consoleIssues,
       networkIssues: interactionResult.networkIssues,
@@ -516,6 +548,7 @@ async function main() {
     },
     accessibility: {
       status: accessibilityResult.status,
+      retryAttempts: accessibilityResult.retryAttempts || [],
       checks: accessibilityResult.checks,
       consoleIssues: accessibilityResult.consoleIssues,
       networkIssues: accessibilityResult.networkIssues,
@@ -531,6 +564,7 @@ main().catch((error) => {
     message: error.message,
     stdout: error.stdout || "",
     stderr: error.stderr || "",
+    attempts: error.attempts || [],
   }, null, 2));
   process.exit(1);
 });

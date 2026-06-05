@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-06-06T05:54:50+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -785,6 +785,35 @@
       "pushedAt": "2026-06-05T15:22:38Z",
       "createdAt": "2022-11-19T12:55:01Z",
       "lastCommit": "0bbfe95cc74c9c958d66b156df2783fdbc180f8e"
+    },
+    {
+      "id": "repo-appflowy-io-appflowy",
+      "name": "AppFlowy-IO/AppFlowy",
+      "description": "AI 협업 워크스페이스와 Notion 대안: 프로젝트, wiki, 팀, 데이터 제어 UX 벤치 후보",
+      "category": "협업 워크스페이스",
+      "owner": "도입 후보",
+      "language": "Dart",
+      "color": "cyan",
+      "url": "https://github.com/AppFlowy-IO/AppFlowy",
+      "sourceKind": "adoption-candidate",
+      "adoptionStage": "review",
+      "topics": ["notion-alternative", "project-management", "team-collaboration", "task-management", "wiki", "flutter"],
+      "progress": 8,
+      "status": "on-track",
+      "health": "amber",
+      "deadline": "2026-08-07",
+      "burn": [0, 1, 2, 3, 5, 6, 8],
+      "risks": 3,
+      "openIssues": 936,
+      "openPRs": 70,
+      "mergedPRs": 3895,
+      "closedIssues": 3148,
+      "stars": 71842,
+      "forks": 5402,
+      "diskKb": 93896,
+      "pushedAt": "2026-06-05T12:00:29Z",
+      "createdAt": "2021-06-16T12:56:48Z",
+      "lastCommit": "4af02cdc87468be10ab15dbb4afd27fbf53ce89b"
     },
     {
       "id": "repo-happybhati-workstream",
