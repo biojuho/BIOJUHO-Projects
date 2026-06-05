@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T12:56:59+09:00",
+  "generated_at": "2026-06-05T13:07:21+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -207,7 +207,14 @@
             "tests/test_github_workflows.py",
             "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_COMMENT_TRIGGER_2026-06-05.md",
             "82a1f19",
-            "pr_analysis_comment_trigger_guard"
+            "pr_analysis_comment_trigger_guard",
+            "CONTRIBUTING.md",
+            "ops/scripts/typescript_export_convention_audit.py",
+            "tests/test_typescript_export_convention_audit.py",
+            "docs/reports/2026-06/TYPESCRIPT_EXPORT_CONVENTION_AUDIT_2026-06-05.json",
+            "docs/reports/2026-06/TYPESCRIPT_EXPORT_CONVENTION_AUDIT_2026-06-05.md",
+            "docs/reports/2026-06/AUTO_RESEARCH_TYPESCRIPT_EXPERIMENTAL_EXPORT_SEAM_GUARD_2026-06-05.md",
+            "typescript_experimental_export_seam_guard"
           ],
           "git_freshness": {
             "proof_commit": "82a1f19",
@@ -292,7 +299,13 @@
               "automation/DailyNews/tests/test_notebooklm_adapter.py",
               "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_AUDIO_ARTIFACT_GUARD_2026-06-05.md",
               "docs/reports/2026-06/AUTO_RESEARCH_DAILYNEWS_NOTEBOOKLM_SPEECH_ALIAS_2026-06-05.md",
-              "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_COMMENT_TRIGGER_2026-06-05.md"
+              "docs/reports/2026-06/AUTO_RESEARCH_PR_ANALYSIS_COMMENT_TRIGGER_2026-06-05.md",
+              "CONTRIBUTING.md",
+              "ops/scripts/typescript_export_convention_audit.py",
+              "tests/test_typescript_export_convention_audit.py",
+              "docs/reports/2026-06/TYPESCRIPT_EXPORT_CONVENTION_AUDIT_2026-06-05.json",
+              "docs/reports/2026-06/TYPESCRIPT_EXPORT_CONVENTION_AUDIT_2026-06-05.md",
+              "docs/reports/2026-06/AUTO_RESEARCH_TYPESCRIPT_EXPERIMENTAL_EXPORT_SEAM_GUARD_2026-06-05.md"
             ]
           }
         }
@@ -4169,6 +4182,56 @@
             "pull request comments",
             "A/B Contract",
             "issues: read",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typescript_experimental_export_seam_guard",
+      "requirement": "Experimental TypeScript and JavaScript API prefixes are confined to public import/export seams.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/typescript_export_convention_audit.py",
+          "must_contain": [
+            "vercel/ai@beb6c72357fc970c3985a9b7e5ec346622102f28",
+            "experimental_prefix_declaration",
+            "experimental_prefix_import_alias",
+            "experimental_prefix_direct_export",
+            "accepted_export_alias_count"
+          ]
+        },
+        {
+          "path": "tests/test_typescript_export_convention_audit.py",
+          "must_contain": [
+            "test_current_workspace_has_no_experimental_prefix_violations",
+            "test_audit_rejects_prefixed_declarations",
+            "test_audit_allows_alias_at_export_seam",
+            "test_audit_rejects_unaliased_prefixed_imports",
+            "test_cli_writes_json_and_markdown"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/TYPESCRIPT_EXPORT_CONVENTION_AUDIT_2026-06-05.md",
+          "must_contain": [
+            "TypeScript Experimental Export Convention Audit",
+            "Status: `pass`",
+            "Scanned files: `164`",
+            "Violations: `0`",
+            "Global objective complete: `false`"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_TYPESCRIPT_EXPERIMENTAL_EXPORT_SEAM_GUARD_2026-06-05.md",
+          "must_contain": [
+            "TypeScript Experimental Export Seam Guard",
+            "vercel/ai",
+            "Experimental_ prefix seam convention",
+            "5 passed",
+            "164 files",
+            "0 violations",
             "global_objective_complete=false"
           ]
         }

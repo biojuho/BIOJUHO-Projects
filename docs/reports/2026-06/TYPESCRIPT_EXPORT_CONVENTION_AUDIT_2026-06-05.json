@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T04:03:14.952986+00:00",
+  "status": "pass",
+  "complete": true,
+  "global_objective_complete": false,
+  "source_signal": "vercel/ai@beb6c72357fc970c3985a9b7e5ec346622102f28 docs(contributing): document the Experimental_ prefix seam convention",
+  "convention": "Declare experimental symbols with plain internal names and apply Experimental_ or experimental_ prefixes only at public import/export seams.",
+  "scanned_roots": [
+    "mcp/canva-mcp/src",
+    "apps/dashboard/src",
+    "apps/desci-platform/frontend/src",
+    "apps/AgriGuard/frontend/src",
+    "packages"
+  ],
+  "scanned_files": 164,
+  "accepted_export_alias_count": 0,
+  "accepted_export_aliases": [],
+  "violation_count": 0,
+  "violations": []
+}

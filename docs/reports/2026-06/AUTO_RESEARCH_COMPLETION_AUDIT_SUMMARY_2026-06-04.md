@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `70`
-- Status counts: `blocked=1, covered=69`
+- Criteria: `71`
+- Status counts: `blocked=1, covered=70`
 
 ## Missing Required
 
@@ -425,6 +425,12 @@
 - Evidence paths: `4`
 
 ### pr_analysis_comment_trigger_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
+
+### typescript_experimental_export_seam_guard
 
 - Required: `true`
 - Status: `covered`

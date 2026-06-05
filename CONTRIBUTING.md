@@ -60,3 +60,13 @@ python scripts/run_workspace_smoke.py --scope all
 - `packages/shared` contains shared LLM, telemetry, and utility code
 - `ops/scripts` contains workspace automation and smoke orchestration
 - `docs/reports/` is for dated reports; keep root docs focused on living guidance
+
+## Experimental TypeScript exports
+
+When a TypeScript or JavaScript feature is still experimental, keep the experimental prefix at package seams only:
+
+- Declare implementation symbols with plain internal names.
+- Export experimental public symbols through aliases such as `export { Widget as Experimental_Widget }`.
+- Import experimental public symbols under plain local aliases, for example `import { Experimental_Widget as Widget } from "pkg"`.
+
+Run `python ops/scripts/typescript_export_convention_audit.py` after adding experimental exports. The audit fails if `Experimental_*` or `experimental_*` leaks into declaration names or unaliased imports.
