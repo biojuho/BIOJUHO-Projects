@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T02:03:12+09:00
+Generated: 2026-06-06T02:14:17+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -715,6 +715,20 @@ Generated: 2026-06-06T02:03:12+09:00
 - `scripts/audit-release-readiness.mjs` now includes `candidate_freshness_drift_cadence_policy` and exposes the policy under `evidence.snapshotOnly.cadencePolicy`.
 - The README now documents the high-churn Veritas cadence commands before enabling fail-on-drift automation.
 
+## Experiment: Veritas focused drift refresh v8.424
+
+- Hypothesis: The new repo-scoped cadence policy should translate a focused Veritas drift signal into a snapshot refresh without touching broader benchmark rows.
+- Primary metric: Veritas focused drift refresh checks.
+- Baseline: the focused live drift check reported Veritas moving from v8.414 (`5da25eadef357ad63a9083b0ca45eb5a2d8ebd26`) to a newer upstream HEAD.
+- Candidate: `data/adoption-candidates.json` now records Veritas v8.424 (`6e833346ef5ba9f8d3426ff8287f89c151435bc8`), `pushedAt: 2026-06-05T17:13:31Z`, disk size 826 KB, and a `github-api:veritas-focused-drift-refresh-v8424` source marker.
+- Decision: keep; this validates the cadence-policy handoff with a narrow source-data refresh.
+
+## Evidence
+
+- `node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autoresearch-skill-system --cadence-policy` reported Veritas drift to `6e833346ef5ba9f8d3426ff8287f89c151435bc8` with `committedAt: 2026-06-05T17:13:30Z`.
+- `gh api repos/Veritas-7/autoresearch-skill-system/commits/main` returned message `v8.424 session token header redaction`.
+- `gh api repos/Veritas-7/autoresearch-skill-system` returned `pushed_at: 2026-06-05T17:13:31Z`, 1 star, 1 fork, REST `open_issues_count: 1`, size 826 KB, default branch `main`, and `archived: false`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces, refresh Veritas when the focused live drift check reports a new upstream HEAD, or promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces, promote repo-scoped fail-on-drift automation once GitHub token policy is confirmed, or add a lightweight Veritas snapshot writer once repeated focused refreshes stabilize.
