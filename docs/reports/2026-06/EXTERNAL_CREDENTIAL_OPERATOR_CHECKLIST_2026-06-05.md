@@ -33,6 +33,7 @@ Checklist:
 - `not_blocking` Optional env: none
 - `not_blocking` Operator approval: A real Canva user completes login and consent through http://localhost:8001/auth/callback; Proxy authentication and tool-call authorization behavior are selected and verified
 - `ready` Operator approval marker: none required
+- `ready` Operator consent items: none
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:
@@ -53,6 +54,7 @@ Checklist:
 - `blocked` Optional env: GITHUB_TOKEN, GH_TOKEN
 - `not_blocking` Operator approval: A GitHub token is supplied when live source-refresh volume exceeds unauthenticated API limits
 - `ready` Operator approval marker: none required
+- `ready` Operator consent items: none
 - `blocked` Verification commands: 1 command(s)
 
 Verify after unblock:
@@ -72,6 +74,7 @@ Checklist:
 - `not_blocking` Optional env: none
 - `not_blocking` Operator approval: Notification bot token and chat target are provided for real delivery checks
 - `ready` Operator approval marker: none required
+- `ready` Operator consent items: none
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:
@@ -92,6 +95,7 @@ Checklist:
 - `not_blocking` Optional env: OTEL_EXPORTER_OTLP_HEADERS, OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE, OTEL_EXPORTER_OTLP_CLIENT_KEY
 - `not_blocking` Operator approval: The operator selects the collector distribution, endpoint, authentication, retention, sampling, and retry policy
 - `ready` Operator approval marker: none required
+- `ready` Operator consent items: none
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:
@@ -112,6 +116,7 @@ Checklist:
 - `not_blocking` Optional env: OPENAI_API_KEY, LANGCHAIN_API_KEY, LOGFIRE_TOKEN
 - `blocked` Operator approval: A concrete hosted agent runtime, tracing backend, approval UI, and credential owner are selected; HOSTED_AGENT_RUNTIME_APPROVED=true is set only after the operator confirms the hosted runtime consent and approval policy
 - `blocked` Operator approval marker: HOSTED_AGENT_RUNTIME_APPROVED
+- `blocked` Operator consent items: hosted_agent_toolbox_mcp, hosted_agent_tracing_runtime
 - `blocked` Verification commands: 2 command(s)
 
 Verify after unblock:

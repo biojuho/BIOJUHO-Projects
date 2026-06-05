@@ -77,8 +77,8 @@ def format_markdown(report: dict[str, Any]) -> str:
         "",
         "## Boundaries",
         "",
-        "| Boundary | Status | Required env missing | Optional env available | Evidence paths | Verification commands |",
-        "| --- | --- | ---: | --- | ---: | ---: |",
+        "| Boundary | Status | Required env missing | Optional env available | Consent items | Evidence paths | Verification commands |",
+        "| --- | --- | ---: | --- | ---: | ---: | ---: |",
     ]
     for boundary in report["boundaries"]:
         lines.append(
@@ -88,6 +88,7 @@ def format_markdown(report: dict[str, Any]) -> str:
                     f"`{boundary['status']}`",
                     f"`{len(boundary['missing_required_env'])}`",
                     f"`{str(boundary['optional_env_available']).lower()}`",
+                    f"`{boundary['consent_item_count']}`",
                     f"`{boundary['evidence_count']}`",
                     f"`{boundary['verification_command_count']}` |",
                 ]
@@ -109,6 +110,7 @@ def format_markdown(report: dict[str, Any]) -> str:
                 f"- Owner: `{boundary['owner']}`",
                 f"- Policy: {boundary['claim_policy']}",
                 f"- Blocked until: {'; '.join(boundary['blocked_until'])}",
+                f"- Consent items: `{boundary['consent_item_count']}`",
                 "",
             ]
         )
@@ -217,6 +219,11 @@ def _validate_boundaries(
             f"{prefix}.verification_commands",
             errors,
         )
+        consent_items = _validate_consent_items(
+            item.get("operator_consent_items", []),
+            f"{prefix}.operator_consent_items",
+            errors,
+        )
         evidence = _validate_evidence(item.get("evidence"), f"{prefix}.evidence", workspace_root, errors)
         missing_required_env = [name for name in required_env if not env.get(name)]
         optional_env_available = any(env.get(name) for name in optional_env_any_of)
@@ -240,9 +247,43 @@ def _validate_boundaries(
                 "operator_approval_required": operator_approval_required,
                 "operator_approval_env": operator_approval_env,
                 "operator_approval_available": operator_approval_available,
+                "operator_consent_items": consent_items,
+                "consent_item_count": len(consent_items),
                 "evidence_count": len(evidence),
                 "verification_commands": verification_commands,
                 "verification_command_count": len(verification_commands),
+            }
+        )
+    return normalized
+
+
+def _validate_consent_items(value: Any, field: str, errors: list[str]) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        errors.append(f"{field} must be an array")
+        return []
+    normalized: list[dict[str, str]] = []
+    seen_names: set[str] = set()
+    for index, item in enumerate(value):
+        prefix = f"{field}[{index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        name = _require_string(item.get("name"), f"{prefix}.name", errors)
+        consent_type = _require_string(item.get("type"), f"{prefix}.type", errors)
+        reason = _require_string(item.get("reason"), f"{prefix}.reason", errors)
+        approval_env = str(item.get("approval_env", "") or "").strip()
+        if approval_env and not approval_env.replace("_", "").isalnum():
+            errors.append(f"{prefix}.approval_env must be an env-var-like string when present")
+        if name:
+            if name in seen_names:
+                errors.append(f"{prefix}.name must be unique")
+            seen_names.add(name)
+        normalized.append(
+            {
+                "name": name,
+                "type": consent_type,
+                "reason": reason,
+                "approval_env": approval_env,
             }
         )
     return normalized

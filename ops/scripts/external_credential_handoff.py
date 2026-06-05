@@ -69,6 +69,7 @@ def build_handoff(
                 "operator_approval_required": item["operator_approval_required"],
                 "operator_approval_env": item["operator_approval_env"],
                 "operator_approval_available": item["operator_approval_available"],
+                "operator_consent_items": item["operator_consent_items"],
                 "blocked_until": item["blocked_until"],
                 "verification_commands": item["verification_commands"],
                 "claim_policy": item["claim_policy"],
@@ -149,12 +150,19 @@ def format_markdown(handoff: dict[str, Any]) -> str:
                 f"- Required env: {_format_env_names(item['required_env'])}",
                 f"- Optional env: {_format_env_names(item['optional_env_any_of'])}",
                 f"- Missing required env: {_format_env_names(item['missing_required_env'])}",
+                f"- Consent items: `{len(item['operator_consent_items'])}`",
                 f"- Claim policy: {item['claim_policy']}",
                 "",
                 "Blocked until:",
             ]
         )
         lines.extend(f"- {text}" for text in item["blocked_until"])
+        if item["operator_consent_items"]:
+            lines.extend(["", "Consent items:"])
+            lines.extend(
+                f"- `{consent['name']}` (`{consent['type']}`): {consent['reason']}"
+                for consent in item["operator_consent_items"]
+            )
         lines.extend(["", "Commands:"])
         lines.extend(f"- `{command}`" for command in item["verification_commands"])
         lines.append("")
@@ -459,6 +467,7 @@ def _build_unblock_queue(boundaries: list[dict[str, Any]]) -> list[dict[str, Any
             "status": item["status"],
             "operator_action": _operator_action(item),
             "env_names": _queue_env_names(item),
+            "operator_consent_items": item["operator_consent_items"],
             "verify_after_unblock": item["verification_commands"],
             "claim_policy": item["claim_policy"],
         }
@@ -521,6 +530,7 @@ def _operator_checklist_item(boundary: dict[str, Any], queue_item: dict[str, Any
         "operator_approval_required": boundary["operator_approval_required"],
         "operator_approval_env": boundary["operator_approval_env"],
         "operator_approval_available": boundary["operator_approval_available"],
+        "operator_consent_items": boundary["operator_consent_items"],
         "env_names": queue_item["env_names"],
         "verify_after_unblock": queue_item["verify_after_unblock"],
         "claim_policy": boundary["claim_policy"],
@@ -589,6 +599,16 @@ def _operator_checklist_steps(boundary: dict[str, Any], live_status: str) -> lis
             "detail": approval_detail,
         },
         {
+            "id": "operator_consent_items",
+            "state": (
+                "blocked"
+                if boundary["operator_consent_items"] and not boundary["operator_approval_available"]
+                else "ready"
+            ),
+            "label": "Operator consent items",
+            "detail": _plain_consent_item_names(boundary["operator_consent_items"]),
+        },
+        {
             "id": "verify_commands",
             "state": "ready" if live_status == "ready_for_execution" else "blocked",
             "label": "Verification commands",
@@ -605,6 +625,10 @@ def _operator_approval_step_state(boundary: dict[str, Any]) -> str:
 
 def _plain_env_names(names: list[str]) -> str:
     return ", ".join(names) if names else "none"
+
+
+def _plain_consent_item_names(items: list[dict[str, str]]) -> str:
+    return ", ".join(item["name"] for item in items) if items else "none"
 
 
 def _repo_relative(path: Path) -> str:

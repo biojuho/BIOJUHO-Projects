@@ -42,6 +42,7 @@
 - Required env: `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`
 - Optional env: none
 - Missing required env: `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`
+- Consent items: `0`
 - Claim policy: do not claim complete without real Canva user credentials, login/consent redirect evidence, and proxy authentication approval
 
 Blocked until:
@@ -59,6 +60,7 @@ Commands:
 - Required env: `OTEL_EXPORTER_OTLP_ENDPOINT`
 - Optional env: `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE`, `OTEL_EXPORTER_OTLP_CLIENT_KEY`
 - Missing required env: `OTEL_EXPORTER_OTLP_ENDPOINT`
+- Consent items: `0`
 - Claim policy: do not claim live collector shipping complete without an operator-owned OTLP endpoint and credential policy
 
 Blocked until:
@@ -75,6 +77,7 @@ Commands:
 - Required env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 - Optional env: none
 - Missing required env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+- Consent items: `0`
 - Claim policy: do not claim notification delivery complete from tools/list smoke alone
 
 Blocked until:
@@ -91,6 +94,7 @@ Commands:
 - Required env: none
 - Optional env: `GITHUB_TOKEN`, `GH_TOKEN`
 - Missing required env: none
+- Consent items: `0`
 - Claim policy: do not claim a live source refresh complete by replacing the last complete source snapshot with a rate-limited partial artifact
 
 Blocked until:
@@ -106,11 +110,16 @@ Commands:
 - Required env: none
 - Optional env: `OPENAI_API_KEY`, `LANGCHAIN_API_KEY`, `LOGFIRE_TOKEN`
 - Missing required env: none
+- Consent items: `2`
 - Claim policy: do not claim hosted autonomous agent runtime complete without operator-owned runtime, tracing, approval credentials, and HOSTED_AGENT_RUNTIME_APPROVED=true
 
 Blocked until:
 - A concrete hosted agent runtime, tracing backend, approval UI, and credential owner are selected.
 - HOSTED_AGENT_RUNTIME_APPROVED=true is set only after the operator confirms the hosted runtime consent and approval policy.
+
+Consent items:
+- `hosted_agent_toolbox_mcp` (`mcp_toolbox`): Review and approve hosted toolbox MCP tool access before setting HOSTED_AGENT_RUNTIME_APPROVED=true.
+- `hosted_agent_tracing_runtime` (`runtime_tracing`): Confirm hosted runtime and tracing backend policy before live execution.
 
 Commands:
 - `python ops/scripts/agent_workflow_gate_runner.py --workflow workspace-quality-dashboard --max-gates 1`

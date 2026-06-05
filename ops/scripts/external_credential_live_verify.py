@@ -192,8 +192,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Boundaries",
         "",
-        "| Rank | Boundary | Live status | Missing required env | Commands |",
-        "| ---: | --- | --- | ---: | ---: |",
+        "| Rank | Boundary | Live status | Missing required env | Consent items | Commands |",
+        "| ---: | --- | --- | ---: | ---: | ---: |",
     ]
     for boundary in report["boundaries"]:
         lines.append(
@@ -203,10 +203,22 @@ def render_markdown(report: dict[str, Any]) -> str:
                     f"`{boundary['id']}`",
                     f"`{boundary['live_status']}`",
                     f"`{len(boundary['missing_required_env'])}`",
+                    f"`{boundary['consent_item_count']}`",
                     f"`{len(boundary['verification_commands'])}` |",
                 ]
             )
         )
+    consent_boundaries = [boundary for boundary in report["boundaries"] if boundary["operator_consent_items"]]
+    if consent_boundaries:
+        lines.extend(["", "## Operator Consent Items", ""])
+        for boundary in consent_boundaries:
+            lines.append(f"### {boundary['title']}")
+            lines.append("")
+            lines.extend(
+                f"- `{item['name']}` (`{item['type']}`): {item['reason']}"
+                for item in boundary["operator_consent_items"]
+            )
+            lines.append("")
     lines.extend(["", "## Commands", ""])
     for command in report["commands"]:
         lines.extend(
@@ -297,6 +309,8 @@ def _planned_boundary(boundary: dict[str, Any], *, plan_rank: int) -> dict[str, 
         "operator_approval_required": boundary["operator_approval_required"],
         "operator_approval_env": boundary["operator_approval_env"],
         "operator_approval_available": boundary["operator_approval_available"],
+        "operator_consent_items": boundary["operator_consent_items"],
+        "consent_item_count": boundary["consent_item_count"],
         "verification_commands": boundary["verification_commands"],
         "claim_policy": boundary["claim_policy"],
     }
@@ -327,6 +341,8 @@ def _next_unblock(boundaries: list[dict[str, Any]]) -> dict[str, Any] | None:
             "plan_rank": boundary["plan_rank"],
             "live_status": boundary["live_status"],
             "env_names": _boundary_env_names(boundary),
+            "operator_consent_items": boundary["operator_consent_items"],
+            "consent_item_count": boundary["consent_item_count"],
             "verification_commands": boundary["verification_commands"],
         }
     return None
@@ -336,7 +352,8 @@ def _format_next_unblock(value: dict[str, Any] | None) -> str:
     if value is None:
         return "`none`"
     env_names = ", ".join(f"`{name}`" for name in value["env_names"]) if value["env_names"] else "`none`"
-    return f"`{value['boundary_id']}` (rank `{value['plan_rank']}`, env: {env_names})"
+    consent_items = _format_consent_items(value["operator_consent_items"])
+    return f"`{value['boundary_id']}` (rank `{value['plan_rank']}`, env: {env_names}, consent: {consent_items})"
 
 
 def _format_next_unblock_cli(value: dict[str, Any] | None) -> str:
@@ -384,6 +401,12 @@ def _boundary_env_names(boundary: dict[str, Any]) -> list[str]:
     if boundary.get("operator_approval_env"):
         names.append(boundary["operator_approval_env"])
     return list(dict.fromkeys(names))
+
+
+def _format_consent_items(items: list[dict[str, str]]) -> str:
+    if not items:
+        return "`none`"
+    return ", ".join(f"`{item['name']}`" for item in items)
 
 
 def _planned_command(boundary: dict[str, Any], command: str) -> dict[str, Any]:

@@ -69,6 +69,7 @@ def test_default_registry_dry_run_uses_unblock_queue_order() -> None:
     assert [boundary["plan_rank"] for boundary in report["boundaries"]] == [1, 2, 3, 4, 5]
     assert report["summary"]["next_unblock"]["plan_rank"] == 1
     assert report["summary"]["next_unblock"]["env_names"] == ["CANVA_CLIENT_ID", "CANVA_CLIENT_SECRET"]
+    assert report["summary"]["next_unblock"]["consent_item_count"] == 0
     assert [command["boundary_id"] for command in report["commands"][:4]] == [
         "canva_oauth_and_openapi_tool_execution",
         "canva_oauth_and_openapi_tool_execution",
@@ -147,6 +148,11 @@ def test_hosted_agent_runtime_requires_operator_approval_marker() -> None:
     assert hosted["operator_approval_required"] is True
     assert hosted["operator_approval_env"] == "HOSTED_AGENT_RUNTIME_APPROVED"
     assert hosted["operator_approval_available"] is False
+    assert hosted["consent_item_count"] == 2
+    assert [item["name"] for item in hosted["operator_consent_items"]] == [
+        "hosted_agent_toolbox_mcp",
+        "hosted_agent_tracing_runtime",
+    ]
 
 
 def test_ready_only_execute_ignores_blocked_boundary(tmp_path: Path) -> None:
@@ -208,6 +214,8 @@ def test_cli_writes_dry_run_markdown(tmp_path: Path) -> None:
     assert payload["mode"] == "dry_run"
     assert "External Credential Live Verifier" in markdown
     assert "blocked_missing_required_env" in markdown
+    assert "Operator Consent Items" in markdown
+    assert "hosted_agent_toolbox_mcp" in markdown
 
 
 def test_checked_in_dry_run_artifacts_match_current_plan() -> None:

@@ -36,6 +36,12 @@ def test_default_registry_validates_boundaries_without_secret_values() -> None:
     assert hosted["operator_approval_required"] is True
     assert hosted["operator_approval_env"] == "HOSTED_AGENT_RUNTIME_APPROVED"
     assert hosted["operator_approval_available"] is False
+    assert hosted["consent_item_count"] == 2
+    consent_names = {item["name"] for item in hosted["operator_consent_items"]}
+    assert consent_names == {"hosted_agent_toolbox_mcp", "hosted_agent_tracing_runtime"}
+    assert {item["approval_env"] for item in hosted["operator_consent_items"]} == {
+        "HOSTED_AGENT_RUNTIME_APPROVED"
+    }
 
 
 def test_registry_rejects_missing_evidence_terms() -> None:
@@ -58,6 +64,25 @@ def test_registry_rejects_missing_verification_commands() -> None:
 
     assert summary["status"] == "fail"
     assert any("verification_commands" in error for error in summary["errors"])
+
+
+def test_registry_rejects_malformed_operator_consent_items() -> None:
+    audit = load_module()
+    payload = audit.load_registry(REGISTRY_PATH)
+    hosted = next(
+        boundary for boundary in payload["boundaries"] if boundary["id"] == "hosted_agent_runtime_credentials"
+    )
+    hosted["operator_consent_items"] = [
+        {"name": "duplicate", "type": "mcp_toolbox", "reason": "first approval"},
+        {"name": "duplicate", "type": "runtime_tracing", "approval_env": "not-valid-env!"},
+    ]
+
+    summary = audit.audit_registry(payload, workspace_root=PROJECT_ROOT, env={})
+
+    assert summary["status"] == "fail"
+    assert any("operator_consent_items[1].name must be unique" in error for error in summary["errors"])
+    assert any("operator_consent_items[1].reason must be a non-empty string" in error for error in summary["errors"])
+    assert any("operator_consent_items[1].approval_env" in error for error in summary["errors"])
 
 
 def test_required_env_reports_names_without_values(tmp_path: Path) -> None:

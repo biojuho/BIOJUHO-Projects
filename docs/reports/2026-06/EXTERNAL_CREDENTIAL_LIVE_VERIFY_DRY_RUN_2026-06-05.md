@@ -7,19 +7,27 @@
 - Selected boundaries: `5`
 - Ready boundaries: `0`
 - Blocked boundaries: `5`
-- Next unblock: `canva_oauth_and_openapi_tool_execution` (rank `1`, env: `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`)
+- Next unblock: `canva_oauth_and_openapi_tool_execution` (rank `1`, env: `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET`, consent: `none`)
 - Commands planned: `9`
 - Commands executed: `0`
 
 ## Boundaries
 
-| Rank | Boundary | Live status | Missing required env | Commands |
-| ---: | --- | --- | ---: | ---: |
-| `1` | `canva_oauth_and_openapi_tool_execution` | `blocked_missing_required_env` | `2` | `2` |
-| `2` | `github_source_refresh_rate_limit_token` | `blocked_missing_optional_env` | `0` | `1` |
-| `3` | `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `2` | `2` |
-| `4` | `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `1` | `2` |
-| `5` | `hosted_agent_runtime_credentials` | `blocked_operator_approval` | `0` | `2` |
+| Rank | Boundary | Live status | Missing required env | Consent items | Commands |
+| ---: | --- | --- | ---: | ---: | ---: |
+| `1` | `canva_oauth_and_openapi_tool_execution` | `blocked_missing_required_env` | `2` | `0` | `2` |
+| `2` | `github_source_refresh_rate_limit_token` | `blocked_missing_optional_env` | `0` | `0` | `1` |
+| `3` | `telegram_notification_mcp_credentials` | `blocked_missing_required_env` | `2` | `0` | `2` |
+| `4` | `otel_collector_endpoint_and_credentials` | `blocked_missing_required_env` | `1` | `0` | `2` |
+| `5` | `hosted_agent_runtime_credentials` | `blocked_operator_approval` | `0` | `2` | `2` |
+
+## Operator Consent Items
+
+### Hosted agent runtime and tracing credentials
+
+- `hosted_agent_toolbox_mcp` (`mcp_toolbox`): Review and approve hosted toolbox MCP tool access before setting HOSTED_AGENT_RUNTIME_APPROVED=true.
+- `hosted_agent_tracing_runtime` (`runtime_tracing`): Confirm hosted runtime and tracing backend policy before live execution.
+
 
 ## Commands
 

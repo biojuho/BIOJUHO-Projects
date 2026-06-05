@@ -13,8 +13,8 @@
 
 ## Boundaries
 
-| Rank | Boundary | Live status | Missing required env | Commands |
-| ---: | --- | --- | ---: | ---: |
+| Rank | Boundary | Live status | Missing required env | Consent items | Commands |
+| ---: | --- | --- | ---: | ---: | ---: |
 
 ## Commands
 
