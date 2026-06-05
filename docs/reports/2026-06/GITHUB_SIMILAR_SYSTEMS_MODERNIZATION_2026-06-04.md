@@ -3,7 +3,7 @@
 ## Summary
 
 - Sources reviewed: 6
-- Adoption counts: adopted=2, partially_adopted=3, watch=1
+- Adoption counts: adopted=3, partially_adopted=2, watch=1
 - Generated at: `2026-06-04T12:25:00+09:00`
 
 ## Search Context
@@ -59,18 +59,22 @@
 
 - URL: https://github.com/evalstate/fast-agent
 - Category: `agent-workflow-runtime`
-- Adoption status: `partially_adopted`
+- Adoption status: `adopted`
 - Why similar: Agent workflow runtime with MCP server composition, provider flexibility, workflow patterns, and tested glue code.
 - Observed patterns:
   - declarative agent workflows and MCP server assignment
   - provider abstraction across OpenAI, Anthropic, Google, and local backends
   - token and tool-use tracking for agent runs
 - Local evidence:
+  - `ops/references/agent_workflows.json`
+  - `ops/scripts/agent_workflow_manifest.py`
+  - `tests/test_agent_workflow_manifest.py`
+  - `docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-05.md`
   - `packages/shared/harness/core.py`
   - `packages/shared/harness/adapters/native.py`
   - `packages/shared/harness/token_tracker.py`
   - `packages/shared/tests/test_workflow_trace.py`
-- Gap: The shared harness has runtime pieces, but no single manifest that declares agent workflows for every app.
+- Gap: No remaining structural gap for declaring app-level agent workflows; future work can wire the manifest directly into runtime orchestration.
 
 ### dsifry/metaswarm
 

@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T17:30:00+09:00",
+  "description": "Declarative workflow map for local agent-oriented app and operator surfaces.",
+  "workflows": [
+    {
+      "id": "getdaytrends-content-loop",
+      "label": "getdaytrends Content Loop",
+      "project": "getdaytrends",
+      "status": "active",
+      "objective": "Collect trends, analyze context, and generate operator-ready content artifacts.",
+      "entrypoints": [
+        "automation/getdaytrends/main.py",
+        "automation/getdaytrends/run_scheduled_getdaytrends.ps1"
+      ],
+      "providers": ["openai", "local"],
+      "mcp_servers": [],
+      "tools": ["workspace-smoke", "scheduler-json", "content-qa"],
+      "smoke_scope": "getdaytrends",
+      "evidence": [
+        "automation/getdaytrends/tests/test_main.py",
+        "automation/getdaytrends/QC_LOG.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_KARPATHY_SKILL_2026-06-04.md"
+      ]
+    },
+    {
+      "id": "dailynews-x-ops-loop",
+      "label": "DailyNews X Ops Loop",
+      "project": "DailyNews",
+      "status": "active",
+      "objective": "Build ranked discussion-ready X operations artifacts and verify the content tooling path.",
+      "entrypoints": [
+        "automation/DailyNews/src/antigravity_mcp/cli_ops.py",
+        "automation/DailyNews/src/antigravity_mcp/tooling/ops_tools.py"
+      ],
+      "providers": ["openai", "local"],
+      "mcp_servers": [],
+      "tools": ["ops-doctor", "x-conversation-pack", "workspace-smoke"],
+      "smoke_scope": "mcp",
+      "evidence": [
+        "automation/DailyNews/tests/unit/test_tooling_content_ops.py",
+        "automation/DailyNews/devlog.md",
+        "docs/reports/2026-06/GITHUB_SIMILAR_SYSTEMS_MODERNIZATION_2026-06-04.md"
+      ]
+    },
+    {
+      "id": "canva-mcp-widget-ops",
+      "label": "Canva MCP Widget Ops",
+      "project": "canva-mcp",
+      "status": "active",
+      "objective": "Expose Canva OAuth, tool inventory, and widget flows through MCP stdio and browser preview checks.",
+      "entrypoints": [
+        "mcp/canva-mcp/src/server/server.ts",
+        "mcp/canva-mcp/src/server/stdio.ts"
+      ],
+      "providers": ["canva", "local"],
+      "mcp_servers": ["canva-local"],
+      "tools": ["mcp-list-tools", "widget-preview", "oauth-doctor"],
+      "smoke_scope": "mcp",
+      "evidence": [
+        "mcp/canva-mcp/tests/stdio-auth.test.mjs",
+        "mcp/canva-mcp/tests/tool-inventory.test.mjs",
+        "docs/reports/2026-06/AUTO_RESEARCH_CANVA_TOOL_INVENTORY_GUARD_2026-06-05.md"
+      ]
+    },
+    {
+      "id": "desci-grant-readiness-agent",
+      "label": "DeSci Grant Readiness Agent",
+      "project": "desci-platform",
+      "status": "active",
+      "objective": "Coordinate research asset ingestion, grant readiness, worker dispatch, and product smoke evidence.",
+      "entrypoints": [
+        "apps/desci-platform/backend/services/agent_service.py",
+        "apps/desci-platform/scripts/product_smoke.py"
+      ],
+      "providers": ["openai", "google", "local"],
+      "mcp_servers": [],
+      "tools": ["product-smoke", "release-gate", "worker-dispatch"],
+      "smoke_scope": "desci",
+      "evidence": [
+        "apps/desci-platform/backend/tests/test_worker.py",
+        "apps/desci-platform/QC_LOG.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_DESCI_DEV_SERVER_CONTROL_2026-06-04.md"
+      ]
+    },
+    {
+      "id": "workspace-quality-operator",
+      "label": "Workspace Quality Operator",
+      "project": "dashboard",
+      "status": "active",
+      "objective": "Aggregate workspace quality, smoke evidence, and dev-server readiness for operator review.",
+      "entrypoints": [
+        "apps/dashboard/api.py",
+        "ops/scripts/run_workspace_smoke.py"
+      ],
+      "providers": ["local"],
+      "mcp_servers": [],
+      "tools": ["workspace-smoke", "dev-server-status", "quality-dashboard"],
+      "smoke_scope": "workspace",
+      "evidence": [
+        "apps/dashboard/src/components/QualityPanel.jsx",
+        "tests/test_dashboard_api.py",
+        "ops/references/dev_server_targets.json"
+      ]
+    }
+  ]
+}

@@ -57,7 +57,7 @@
       "repo": "evalstate/fast-agent",
       "url": "https://github.com/evalstate/fast-agent",
       "category": "agent-workflow-runtime",
-      "adoption_status": "partially_adopted",
+      "adoption_status": "adopted",
       "why_similar": "Agent workflow runtime with MCP server composition, provider flexibility, workflow patterns, and tested glue code.",
       "observed_patterns": [
         "declarative agent workflows and MCP server assignment",
@@ -65,12 +65,16 @@
         "token and tool-use tracking for agent runs"
       ],
       "local_evidence": [
+        "ops/references/agent_workflows.json",
+        "ops/scripts/agent_workflow_manifest.py",
+        "tests/test_agent_workflow_manifest.py",
+        "docs/reports/2026-06/AGENT_WORKFLOW_MANIFEST_2026-06-05.md",
         "packages/shared/harness/core.py",
         "packages/shared/harness/adapters/native.py",
         "packages/shared/harness/token_tracker.py",
         "packages/shared/tests/test_workflow_trace.py"
       ],
-      "gap": "The shared harness has runtime pieces, but no single manifest that declares agent workflows for every app."
+      "gap": "No remaining structural gap for declaring app-level agent workflows; future work can wire the manifest directly into runtime orchestration."
     },
     {
       "repo": "dsifry/metaswarm",
