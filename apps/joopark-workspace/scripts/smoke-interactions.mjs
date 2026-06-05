@@ -347,6 +347,7 @@ const interactionExpression = `
   let veritasCandidateFreshnessVisibleOk = false;
   let openProjectCandidateFreshnessVisibleOk = false;
   let leantimeCandidateFreshnessVisibleOk = false;
+  let candidateMetadataRefreshOk = false;
   let candidateNextActionVisibleOk = false;
   let candidateActionFilterOk = false;
   let candidateActionSummaryVisibleOk = false;
@@ -540,6 +541,23 @@ const interactionExpression = `
     assert(leantimeCandidate && leantimeCandidate.sourceKind === "adoption-candidate", "Leantime candidate was not loaded");
     assert(leantimeCandidate.lastCommit === "b3a1037bf596d284b53355d23cadf1d9ab56b599", "Leantime candidate commit was stale");
     assert(leantimeCandidate.pushedAt === "2026-06-05T04:17:00Z", "Leantime candidate pushedAt was stale");
+    const adoptionResponse = await fetch("./data/adoption-candidates.json", { cache: "no-store" });
+    assert(adoptionResponse.ok, "adoption candidate snapshot did not load for metadata refresh");
+    const adoptionSnapshot = await adoptionResponse.json();
+    const snapshotLeantime = adoptionSnapshot.projects.find((project) => project.name === "Leantime/leantime");
+    assert(snapshotLeantime && snapshotLeantime.lastCommit, "Leantime snapshot freshness evidence was missing");
+    leantimeCandidate.lastCommit = null;
+    leantimeCandidate.pushedAt = "2026-01-01T00:00:00Z";
+    leantimeCandidate.stars = 1;
+    persist();
+    const refreshed = mergeImportedProjects(adoptionSnapshot);
+    assert(refreshed, "stale adoption candidate metadata refresh did not report changes");
+    assert(leantimeCandidate.lastCommit === snapshotLeantime.lastCommit, "stale Leantime commit was not refreshed from snapshot");
+    assert(leantimeCandidate.pushedAt === snapshotLeantime.pushedAt, "stale Leantime pushedAt was not refreshed from snapshot");
+    assert(leantimeCandidate.stars === snapshotLeantime.stars, "stale Leantime stars were not refreshed from snapshot");
+    const persistedLeantime = savedPayload().projects.find((project) => project.name === "Leantime/leantime");
+    assert(persistedLeantime && persistedLeantime.lastCommit === snapshotLeantime.lastCommit, "refreshed Leantime metadata was not persisted");
+    candidateMetadataRefreshOk = true;
     const candidateCount = dashboard.projects.filter((project) => project.sourceKind === "adoption-candidate").length;
     const ownedCount = dashboard.projects.length - candidateCount;
     click('[data-action="portfolio-filter"][data-filter="candidates"]');
@@ -650,6 +668,7 @@ const interactionExpression = `
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
     leantimeCandidateFreshnessVisibleOk = true;
+    candidateMetadataRefreshOk = true;
     candidateNextActionVisibleOk = true;
     candidateActionFilterOk = true;
     candidateActionSummaryVisibleOk = true;
@@ -869,6 +888,7 @@ const interactionExpression = `
     veritasCandidateFreshnessVisible: veritasCandidateFreshnessVisibleOk,
     openProjectCandidateFreshnessVisible: openProjectCandidateFreshnessVisibleOk,
     leantimeCandidateFreshnessVisible: leantimeCandidateFreshnessVisibleOk,
+    candidateMetadataRefresh: candidateMetadataRefreshOk,
     candidateNextActionVisible: candidateNextActionVisibleOk,
     candidateActionFilter: candidateActionFilterOk,
     candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
