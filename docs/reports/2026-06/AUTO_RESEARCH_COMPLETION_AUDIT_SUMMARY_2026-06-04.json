@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 48
+    "covered": 49
   },
-  "criterion_count": 49,
+  "criterion_count": 50,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -1921,6 +1921,41 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_OBJECTIVE_COVERAGE_DRIFT_GUARD_2026-06-05.md",
           "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "workspace_smoke_ci_autoresearch_audit_tests",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": ".github/workflows/workspace-smoke.yml",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_github_workflows.py",
+          "term_count": 3,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_autoresearch_ci_regression.py",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

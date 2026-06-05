@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T01:11:08.162541+00:00",
+  "generated_at": "2026-06-05T01:28:48.040375+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -29,6 +29,7 @@
         "dashboard_credential_live_unblock_queue",
         "dashboard_credential_operator_checklist",
         "workspace_smoke_trace_drain_guard",
+        "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
         "pre_push_regression_gate"
       ],
@@ -68,6 +69,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
           "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "term_count": 3
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -93,6 +98,7 @@
         "github_modernization_radar_report_drift_guard",
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
+        "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
       "evidence": [
@@ -134,6 +140,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
           "term_count": 4
         }
       ],
@@ -294,6 +304,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "workspace_smoke_trace_drain_guard",
+        "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
       "evidence": [
@@ -351,6 +362,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
           "term_count": 3
         }
       ],

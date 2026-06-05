@@ -59,6 +59,13 @@ jobs:
           uv run pytest tests/test_workspace_regressions.py tests/test_workspace_smoke.py -q --tb=short
           uv run python ops/scripts/run_workspace_smoke.py --scope all --json-out smoke-all.json
 
+      - name: Run AutoResearch audit regression tests
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: |
+          uv run pytest tests/test_github_workflows.py tests/test_autoresearch_ci_regression.py tests/test_autoresearch_objective_coverage.py -q --tb=short
+
       - name: Append summary
         if: always()
         run: |

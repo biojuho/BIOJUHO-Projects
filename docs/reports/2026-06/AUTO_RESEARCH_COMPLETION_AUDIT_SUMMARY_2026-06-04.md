@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `49`
-- Status counts: `blocked=1, covered=48`
+- Criteria: `50`
+- Status counts: `blocked=1, covered=49`
 
 ## Missing Required
 
@@ -285,6 +285,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `2`
+
+### workspace_smoke_ci_autoresearch_audit_tests
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `4`
 
 ### completion_audit_summary_drift_guard
 

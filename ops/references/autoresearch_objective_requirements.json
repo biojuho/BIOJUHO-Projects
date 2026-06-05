@@ -25,6 +25,7 @@
         "dashboard_credential_live_unblock_queue",
         "dashboard_credential_operator_checklist",
         "workspace_smoke_trace_drain_guard",
+        "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard",
         "pre_push_regression_gate"
       ],
@@ -101,6 +102,14 @@
             "normalize_client_upload_filename",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "must_contain": [
+            "Workspace Smoke CI AutoResearch Audit Tests",
+            "branch-portable AutoResearch audit regression tests",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -126,6 +135,7 @@
         "github_modernization_radar_report_drift_guard",
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
+        "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
       "evidence": [
@@ -213,6 +223,15 @@
           "must_contain": [
             "pydantic/pydantic-ai",
             "Handle UploadedFile consistently with FileUrl",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "must_contain": [
+            "microsoft/agent-framework",
+            "Python: Add GitHub Copilot integration tests to CI workflows",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -437,6 +456,7 @@
         "canva_mcp_openai_namespace_metadata_guard",
         "canva_widget_state_continuation_guard",
         "workspace_smoke_trace_drain_guard",
+        "workspace_smoke_ci_autoresearch_audit_tests",
         "desci_uploaded_file_label_guard"
       ],
       "evidence": [
@@ -551,6 +571,14 @@
           "must_contain": [
             "URL/path-like filenames",
             "normalize_client_upload_filename",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_CI_AUDIT_TESTS_2026-06-05.md",
+          "must_contain": [
+            "GitHub Actions",
+            "audit artifact drift",
             "global_objective_complete=false"
           ]
         }
