@@ -194,10 +194,35 @@ def test_format_markdown_summarizes_metrics_for_handoff(tmp_path: Path) -> None:
     assert "- Issues: none" in report
 
 
-def test_cli_writes_metrics_json_and_markdown(tmp_path: Path) -> None:
+def test_format_html_summarizes_metrics_for_ci_report(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    payload = smoke_payload(
+        [
+            result(
+                "canva<script>",
+                "npm.cmd run build",
+                cwd="mcp\\canva-mcp",
+                stdout_tail="built in 820ms",
+            ),
+        ]
+    )
+
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+    report = metrics_module.format_html(metrics)
+
+    assert report.startswith("<!doctype html>")
+    assert "<title>MCP Smoke Trace Metrics</title>" in report
+    assert "canva&lt;script&gt;" in report
+    assert "<li>Checks: 1</li>" in report
+    assert "<td>npm</td><td>1</td>" in report
+    assert '<p class="ok">OK: true</p>' in report
+
+
+def test_cli_writes_metrics_json_markdown_and_html(tmp_path: Path) -> None:
     smoke_path = tmp_path / "smoke.json"
     metrics_path = tmp_path / "metrics.json"
     markdown_path = tmp_path / "metrics.md"
+    html_path = tmp_path / "metrics.html"
     smoke_path.write_text(
         json.dumps(
             smoke_payload(
@@ -219,6 +244,8 @@ def test_cli_writes_metrics_json_and_markdown(tmp_path: Path) -> None:
             str(metrics_path),
             "--markdown-out",
             str(markdown_path),
+            "--html-out",
+            str(html_path),
         ],
         cwd=PROJECT_ROOT,
         capture_output=True,
@@ -234,3 +261,6 @@ def test_cli_writes_metrics_json_and_markdown(tmp_path: Path) -> None:
     markdown = markdown_path.read_text(encoding="utf-8")
     assert "# MCP Smoke Trace Metrics" in markdown
     assert "| DailyNews unit tests | pytest | true | . |  | 2 |" in markdown
+    html = html_path.read_text(encoding="utf-8")
+    assert "<h1>MCP Smoke Trace Metrics</h1>" in html
+    assert "<td>DailyNews unit tests</td>" in html

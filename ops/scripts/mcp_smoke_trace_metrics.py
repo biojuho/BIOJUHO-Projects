@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import sys
@@ -173,6 +174,11 @@ def write_markdown(metrics: dict[str, Any], out_path: Path) -> None:
     out_path.write_text(format_markdown(metrics), encoding="utf-8")
 
 
+def write_html(metrics: dict[str, Any], out_path: Path) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(format_html(metrics), encoding="utf-8")
+
+
 def format_markdown(metrics: dict[str, Any]) -> str:
     summary = metrics["summary"]
     timing = summary["timing"]
@@ -248,6 +254,88 @@ def format_markdown(metrics: dict[str, Any]) -> str:
         lines.append("- Issues: none")
     lines.append("")
     return "\n".join(lines)
+
+
+def format_html(metrics: dict[str, Any]) -> str:
+    summary = metrics["summary"]
+    timing = summary["timing"]
+    path_depth = summary["path_depth"]
+    runtime_rows = "\n".join(
+        f"<tr><td>{_html_cell(kind)}</td><td>{count}</td></tr>"
+        for kind, count in summary["runtime_kinds"].items()
+    ) or "<tr><td>none</td><td>0</td></tr>"
+    check_rows = "\n".join(
+        "<tr>"
+        f"<td>{_html_cell(check['name'])}</td>"
+        f"<td>{_html_cell(check['command_kind'])}</td>"
+        f"<td>{str(check['ok']).lower()}</td>"
+        f"<td>{_html_cell(check['cwd'])}</td>"
+        f"<td>{'' if check['duration_seconds'] is None else check['duration_seconds']}</td>"
+        f"<td>{check['command_path_depth']}</td>"
+        "</tr>"
+        for check in metrics["checks"]
+    )
+    issues = metrics["trace_integrity"]["issues"]
+    issue_items = "\n".join(f"<li>{_html_cell(issue)}</li>" for issue in issues) or "<li>none</li>"
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MCP Smoke Trace Metrics</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; margin: 32px; color: #1f2937; }}
+    h1, h2 {{ color: #111827; }}
+    table {{ border-collapse: collapse; width: 100%; margin: 12px 0 24px; }}
+    th, td {{ border: 1px solid #d1d5db; padding: 8px; text-align: left; }}
+    th {{ background: #f3f4f6; }}
+    code {{ background: #f3f4f6; padding: 2px 4px; border-radius: 4px; }}
+    .ok {{ color: #047857; font-weight: 700; }}
+    .fail {{ color: #b91c1c; font-weight: 700; }}
+  </style>
+</head>
+<body>
+  <h1>MCP Smoke Trace Metrics</h1>
+  <h2>Source</h2>
+  <ul>
+    <li>Smoke report: <code>{_html_cell(metrics['source_path'])}</code></li>
+    <li>Scope: <code>{_html_cell(metrics['scope'])}</code></li>
+    <li>Source status: <code>{_html_cell(metrics.get('source_status'))}</code></li>
+    <li>Source generated at: <code>{_html_cell(metrics.get('source_generated_at'))}</code></li>
+  </ul>
+  <h2>Summary</h2>
+  <ul>
+    <li>Checks: {summary['checks']}</li>
+    <li>Passed: {summary['passed']}</li>
+    <li>Failed: {summary['failed']}</li>
+    <li>Timing observed: {timing['observed_checks']} observed, {timing['missing_checks']} missing</li>
+    <li>Total observed seconds: {_html_cell(timing['total_seconds'])}</li>
+    <li>Slowest check: {_html_cell(timing['slowest_check'])} ({_html_cell(timing['max_seconds'])}s)</li>
+    <li>Max cwd depth: {path_depth['max_cwd_depth']}</li>
+    <li>Max command path depth: {path_depth['max_command_path_depth']}</li>
+    <li>Command path tokens: {path_depth['command_path_tokens']}</li>
+  </ul>
+  <h2>Runtime Kinds</h2>
+  <table>
+    <thead><tr><th>Kind</th><th>Count</th></tr></thead>
+    <tbody>
+{runtime_rows}
+    </tbody>
+  </table>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Command path depth</th></tr></thead>
+    <tbody>
+{check_rows}
+    </tbody>
+  </table>
+  <h2>Trace Integrity</h2>
+  <p class="{'ok' if metrics['trace_integrity']['ok'] else 'fail'}">OK: {str(metrics['trace_integrity']['ok']).lower()}</p>
+  <ul>
+{issue_items}
+  </ul>
+</body>
+</html>
+"""
 
 
 def _check_metrics(result: dict[str, Any]) -> dict[str, Any]:
@@ -371,12 +459,17 @@ def _markdown_cell(value: Any) -> str:
     return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
 
 
+def _html_cell(value: Any) -> str:
+    return html.escape(str(value), quote=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build MCP trace metrics from workspace-smoke JSON.")
     parser.add_argument("smoke_json", help="Path to a schema v1 workspace smoke JSON report.")
     parser.add_argument("--scope", default="mcp", help="Scope to summarize. Defaults to mcp.")
     parser.add_argument("--json-out", help="Optional output path for the metrics JSON.")
     parser.add_argument("--markdown-out", help="Optional output path for a Markdown metrics report.")
+    parser.add_argument("--html-out", help="Optional output path for a standalone HTML metrics report.")
     parser.add_argument("--allow-issues", action="store_true", help="Return success even when trace integrity issues exist.")
     args = parser.parse_args(argv)
 
@@ -385,6 +478,8 @@ def main(argv: list[str] | None = None) -> int:
     metrics = build_metrics(payload, source_path=source_path, scope=args.scope)
     if args.markdown_out:
         write_markdown(metrics, Path(args.markdown_out))
+    if args.html_out:
+        write_html(metrics, Path(args.html_out))
     write_metrics(metrics, Path(args.json_out) if args.json_out else None)
     return 0 if args.allow_issues or metrics["trace_integrity"]["ok"] else 1
 

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MCP Smoke Trace Metrics</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #1f2937; }
+    h1, h2 { color: #111827; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 24px; }
+    th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+    th { background: #f3f4f6; }
+    code { background: #f3f4f6; padding: 2px 4px; border-radius: 4px; }
+    .ok { color: #047857; font-weight: 700; }
+    .fail { color: #b91c1c; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>MCP Smoke Trace Metrics</h1>
+  <h2>Source</h2>
+  <ul>
+    <li>Smoke report: <code>var\workspace-smoke-mcp-canva-tool-inventory-2026-06-05.json</code></li>
+    <li>Scope: <code>mcp</code></li>
+    <li>Source status: <code>complete</code></li>
+    <li>Source generated at: <code>2026-06-05T07:13:25.621676+00:00</code></li>
+  </ul>
+  <h2>Summary</h2>
+  <ul>
+    <li>Checks: 6</li>
+    <li>Passed: 6</li>
+    <li>Failed: 0</li>
+    <li>Timing observed: 4 observed, 2 missing</li>
+    <li>Total observed seconds: 119.43</li>
+    <li>Slowest check: DailyNews unit tests (117.48s)</li>
+    <li>Max cwd depth: 2</li>
+    <li>Max command path depth: 5</li>
+    <li>Command path tokens: 14</li>
+  </ul>
+  <h2>Runtime Kinds</h2>
+  <table>
+    <thead><tr><th>Kind</th><th>Count</th></tr></thead>
+    <tbody>
+<tr><td>compileall</td><td>2</td></tr>
+<tr><td>npm</td><td>1</td></tr>
+<tr><td>pytest</td><td>3</td></tr>
+    </tbody>
+  </table>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Command path depth</th></tr></thead>
+    <tbody>
+<tr><td>notebooklm compile</td><td>compileall</td><td>true</td><td>.</td><td></td><td>5</td></tr>
+<tr><td>github-mcp compile</td><td>compileall</td><td>true</td><td>.</td><td></td><td>5</td></tr>
+<tr><td>DailyNews unit tests</td><td>pytest</td><td>true</td><td>automation\DailyNews</td><td>117.48</td><td>4</td></tr>
+<tr><td>canva-mcp build</td><td>npm</td><td>true</td><td>mcp\canva-mcp</td><td>1.17</td><td>0</td></tr>
+<tr><td>desci-research-mcp tests</td><td>pytest</td><td>true</td><td>mcp\desci-research-mcp</td><td>0.38</td><td>4</td></tr>
+<tr><td>telegram-mcp tests</td><td>pytest</td><td>true</td><td>mcp\telegram-mcp</td><td>0.4</td><td>4</td></tr>
+    </tbody>
+  </table>
+  <h2>Trace Integrity</h2>
+  <p class="ok">OK: true</p>
+  <ul>
+<li>none</li>
+  </ul>
+</body>
+</html>
