@@ -11,9 +11,18 @@ const args = new Set(rawArgs);
 const live = args.has("--live");
 const snapshotOnly = args.has("--snapshot-only") || !live;
 const failOnDrift = args.has("--fail-on-drift");
+const includeCadencePolicy = args.has("--cadence-policy");
 const dataPath = join(root, "data/adoption-candidates.json");
 const commitPattern = /^[0-9a-f]{40}$/i;
 const repoFilters = collectOptionValues("--repo").map(normalizeRepoFilter).filter(Boolean);
+const cadencePolicyId = "candidate-freshness-drift-cadence-v1";
+const highChurnRepoPolicies = [
+  {
+    repo: "Veritas-7/autoresearch-skill-system",
+    cadenceHours: 4,
+    reason: "Fast-moving AutoResearch source used directly by the launch candidate snapshot.",
+  },
+];
 
 function collectOptionValues(flag) {
   const values = [];
@@ -175,6 +184,62 @@ function compare(monitored, liveData) {
   });
 }
 
+function cadenceCommand(repo, mode, blocking = false) {
+  const args = ["node", "scripts/check-candidate-freshness-drift.mjs", mode, "--repo", repo];
+  if (mode === "--snapshot-only") args.push("--cadence-policy");
+  if (blocking) args.push("--fail-on-drift");
+  return args.join(" ");
+}
+
+function buildCadencePolicy(snapshot) {
+  const monitoredRepos = new Set(snapshot.monitored.map((project) => String(project.repo?.nameWithOwner || "").toLowerCase()));
+  const highChurnRepos = highChurnRepoPolicies.map((policy) => {
+    const normalizedRepo = normalizeRepoFilter(policy.repo);
+    const inScope = repoFilters.length === 0 || repoFilters.includes(normalizedRepo);
+    return {
+      repo: policy.repo,
+      repoFilter: normalizedRepo,
+      monitored: monitoredRepos.has(normalizedRepo),
+      inScope,
+      cadenceHours: policy.cadenceHours,
+      trigger: "Before release gates, after upstream movement, and before enabling fail-on-drift automation.",
+      reason: policy.reason,
+      snapshotCommand: cadenceCommand(policy.repo, "--snapshot-only"),
+      liveCommand: cadenceCommand(policy.repo, "--live"),
+      blockingCommand: cadenceCommand(policy.repo, "--live", true),
+    };
+  });
+  const monitoredHighChurn = highChurnRepos.filter((item) => item.monitored).length;
+  const scopedHighChurn = highChurnRepos.filter((item) => item.monitored && item.inScope).length;
+  return {
+    id: cadencePolicyId,
+    repoFilters,
+    scope: repoFilters.length > 0 ? "repo-filtered" : "all-monitored",
+    snapshotOnlyCadence: "every release audit",
+    liveCadence: "before release gates and after high-churn upstream movement",
+    automationRule: "Run the repo-scoped live check, refresh the snapshot, then use repo-scoped --fail-on-drift for that source.",
+    highChurnRepos,
+    standardRepos: {
+      monitored: Math.max(0, snapshot.monitored.length - monitoredHighChurn),
+      liveCadence: "weekly, before release gates, or after planned benchmark refresh work",
+      blockingCadence: "after the corresponding snapshot refresh has been committed",
+    },
+    checks: {
+      snapshotOnlyRequired: true,
+      repoScopedHighChurn: scopedHighChurn > 0,
+      failOnDriftCommandScoped: highChurnRepos.every((item) => item.blockingCommand.includes("--repo")),
+    },
+  };
+}
+
+function withCadencePolicy(payload, snapshot) {
+  if (!includeCadencePolicy) return payload;
+  return {
+    ...payload,
+    cadencePolicy: buildCadencePolicy(snapshot),
+  };
+}
+
 function finish(payload) {
   console.log(JSON.stringify(payload, null, 2));
   if (payload.status === "fail" || payload.status === "blocked") process.exit(1);
@@ -184,7 +249,7 @@ function finish(payload) {
 
 const snapshot = readSnapshot();
 if (snapshot.invalid.length > 0 || snapshot.monitored.length === 0) {
-  finish({
+  finish(withCadencePolicy({
     status: "fail",
     mode: snapshotOnly ? "snapshot-only" : "live",
     generatedAt: snapshot.payload.generatedAt || "",
@@ -192,11 +257,11 @@ if (snapshot.invalid.length > 0 || snapshot.monitored.length === 0) {
     monitored: snapshot.monitored.length,
     sourceMarkers: snapshot.sourceMarkers.length,
     invalidSnapshots: snapshot.invalid,
-  });
+  }, snapshot));
 }
 
 if (snapshotOnly) {
-  finish({
+  finish(withCadencePolicy({
     status: "pass",
     mode: "snapshot-only",
     generatedAt: snapshot.payload.generatedAt || "",
@@ -209,12 +274,12 @@ if (snapshotOnly) {
       sourceMarkers: snapshot.sourceMarkers.length > 0,
       liveNetwork: false,
     },
-  });
+  }, snapshot));
 }
 
 const liveResult = fetchLiveSnapshots(snapshot.monitored);
 if (!liveResult.ok) {
-  finish({
+  finish(withCadencePolicy({
     status: "blocked",
     mode: "live",
     generatedAt: snapshot.payload.generatedAt || "",
@@ -222,12 +287,12 @@ if (!liveResult.ok) {
     monitored: snapshot.monitored.length,
     reason: liveResult.error,
     stderr: liveResult.stderr || "",
-  });
+  }, snapshot));
 }
 
 const comparisons = compare(snapshot.monitored, liveResult.data);
 const drifted = comparisons.filter((item) => item.drift.length > 0);
-finish({
+finish(withCadencePolicy({
   status: drifted.length === 0 ? "pass" : "drift",
   mode: "live",
   generatedAt: snapshot.payload.generatedAt || "",
@@ -236,4 +301,4 @@ finish({
   driftCount: drifted.length,
   failOnDrift,
   drifted,
-});
+}, snapshot));
