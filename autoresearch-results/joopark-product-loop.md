@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T20:02:08+09:00
+Generated: 2026-06-05T20:09:25+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -272,6 +272,22 @@ Generated: 2026-06-05T20:02:08+09:00
 - `scripts/smoke-interactions.mjs` verifies the architecture summary shows `colanode/colanode` and `로컬 퍼스트 구조`, and the risk summary shows `리스크 리뷰`.
 - External sources checked: `https://linear.app/docs/filters`, `https://linear.app/docs/triage`, and `https://www.openproject.org/docs/user-guide/work-packages`.
 
+## Experiment: standalone deploy support files
+
+- Hypothesis: The release artifact is more publishable if the package includes host-specific static deployment support files and the verifier rejects missing or malformed deployment metadata.
+- Primary metric: `standaloneDeploySupportFiles`.
+- Baseline: `dist/release` had 0 of the target static-host support files: `404.html`, `_headers`, `_redirects`, and `vercel.json`.
+- Candidate: `scripts/package-release.mjs` generates all 4 files, and `scripts/verify-release.mjs` validates GitHub Pages 404 fallback, Netlify headers/redirects, and Vercel header configuration.
+- Decision: keep.
+
+## Evidence
+
+- External source signals used: GitHub Pages documents `404.html` custom pages, Netlify documents `_headers` and `_redirects` files in the publish directory, and Vercel documents project configuration through `vercel.json` headers.
+- `node scripts/package-release.mjs && node scripts/verify-release.mjs` passed with `files: 15`, `bytes: 557204`, and `deploySupportFiles: 4`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 25/25.
+- Packaged browser gates still reported 15 desktop routes, 15 mobile routes, 18 interaction steps, 0 console/network/layout failures, and `candidateActionSummaryVisible: true`.
+- External sources checked: `https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-custom-404-page-for-your-github-pages-site`, `https://docs.netlify.com/manage/routing/headers/`, `https://docs.netlify.com/routing/redirects/`, and `https://vercel.com/docs/project-configuration/vercel-json`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: standalone release publication, no-common-history PR strategy, or deeper UI workflow coverage.
+- Continue with the highest-impact product gap after the next full gate: no-common-history PR strategy, deeper UI workflow coverage, or release host header smoke.

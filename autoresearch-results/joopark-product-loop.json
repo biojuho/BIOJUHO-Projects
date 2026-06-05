@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T20:02:08+09:00",
+  "generatedAt": "2026-06-05T20:09:25+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 24,
+      "pass": 25,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 24
+      "total": 25
     },
     "browserEvidence": {
       "routes": 15,
@@ -25,6 +25,8 @@
       "candidateTriageMetaVisible": true,
       "portfolioCandidateFilter": true,
       "portfolioCandidateRanked": true,
+      "deploySupportFiles": 4,
+      "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
       "layoutIssues": 0
@@ -156,6 +158,13 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
+    },
+    {
+      "id": "standalone-deploy-support-files",
+      "primaryMetric": "standaloneDeploySupportFiles",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -167,8 +176,8 @@
     "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
   },
   "nextCandidates": [
-    "standalone release publication",
     "no-common-history PR strategy",
-    "deeper UI workflow coverage"
+    "deeper UI workflow coverage",
+    "release host header smoke"
   ]
 }

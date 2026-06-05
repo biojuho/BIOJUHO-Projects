@@ -274,6 +274,7 @@ function smokeRelease() {
 function buildChecklist() {
   const checklist = [];
   const gateEvidence = runGates ? smokeRelease() : null;
+  const verify = verifyRelease();
 
   const fileEvidence = runtimeFiles.map((path) => ({ path, exists: fileExists(path) }));
   checklist.push({
@@ -301,6 +302,26 @@ function buildChecklist() {
     requirement: "The full release smoke can package and verify into a temporary directory, preserving the checked release artifact while still testing a fresh package.",
     status: tempReleaseTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: tempReleaseTerms,
+  });
+
+  const deploySupportTerms = [
+    { file: "scripts/package-release.mjs", terms: ["function writeDeploySupportFiles", "404.html", "_headers", "_redirects", "vercel.json"] },
+    { file: "scripts/verify-release.mjs", terms: ["function verifyDeploySupport", "expectedDeploySupportFiles", "deploySupportFiles"] },
+    { file: "README.md", terms: ["GitHub Pages", "Netlify", "Vercel", "_headers", "vercel.json"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const deploySupportCount = verify.result?.deploySupportFiles || 0;
+  checklist.push({
+    id: "standalone_deploy_support",
+    requirement: "The release package includes static-host deployment support files for GitHub Pages, Netlify, and Vercel, and the verifier checks their contents.",
+    status: deploySupportTerms.every((item) => item.missingTerms.length === 0) && deploySupportCount === 4 ? "pass" : "fail",
+    evidence: {
+      files: deploySupportTerms,
+      verify: {
+        command: verify.command,
+        status: verify.status,
+        deploySupportFiles: deploySupportCount,
+      },
+    },
   });
 
   const indexTerms = hasTerms("index.html", viewIds);
@@ -486,7 +507,6 @@ function buildChecklist() {
     evidence: vendorTerms,
   });
 
-  const verify = verifyRelease();
   checklist.push({
     id: "manifest_integrity",
     requirement: "The release manifest matches actual packaged runtime files by path, byte count, and SHA-256.",
