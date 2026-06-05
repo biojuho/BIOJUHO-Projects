@@ -1778,7 +1778,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.0,<1.0" },
     { name = "instructor", specifier = ">=1.14.5" },
     { name = "jsonref", specifier = ">=1.1.0,<2.0" },
-    { name = "loguru", specifier = ">=0.7.0,<1.0" },
+    { name = "loguru", specifier = ">=0.7.3,<1.0" },
     { name = "lxml", specifier = ">=6.0.2,<7.0" },
     { name = "notion-client", specifier = ">=2.2.1,<4.0" },
     { name = "prometheus-client", specifier = ">=0.21.0" },
