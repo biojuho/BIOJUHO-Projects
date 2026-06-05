@@ -15,7 +15,7 @@
       "repo": "PrefectHQ/fastmcp",
       "url": "https://github.com/PrefectHQ/fastmcp",
       "category": "production-mcp-framework",
-      "adoption_status": "partially_adopted",
+      "adoption_status": "adopted",
       "why_similar": "Production MCP framework with transport, auth, tooling, docs, and testing patterns relevant to local MCP projects.",
       "observed_patterns": [
         "production MCP server composition and transport options",
@@ -23,12 +23,18 @@
         "LLM-readable documentation surface"
       ],
       "local_evidence": [
+        "ops/references/mcp_services.json",
+        "ops/scripts/mcp_service_inventory.py",
+        "tests/test_mcp_service_inventory.py",
+        "docs/reports/2026-06/MCP_SERVICE_INVENTORY_2026-06-05.md",
         "mcp/canva-mcp/src/server/server.ts",
-        "mcp/canva-mcp/src/server/stdio.ts",
-        "mcp/canva-mcp/tests",
-        "docs/MCP_HEALTH_CHECK.md"
+        "mcp/canva-mcp/src/server/tools.ts",
+        "mcp/canva-mcp/tests/tool-inventory.test.mjs",
+        "mcp/desci-research-mcp/server.py",
+        "mcp/telegram-mcp/server.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md"
       ],
-      "gap": "Python MCP services can evaluate FastMCP-style composition when the next MCP expansion is scoped."
+      "gap": "No remaining structural gap for tracked MCP service inventory and composition metadata; future work can connect the inventory to live MCP health probes."
     },
     {
       "repo": "lastmile-ai/mcp-eval",

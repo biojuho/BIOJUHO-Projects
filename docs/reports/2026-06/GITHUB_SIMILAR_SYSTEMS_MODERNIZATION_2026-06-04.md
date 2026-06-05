@@ -3,7 +3,7 @@
 ## Summary
 
 - Sources reviewed: 6
-- Adoption counts: adopted=3, partially_adopted=2, watch=1
+- Adoption counts: adopted=4, partially_adopted=1, watch=1
 - Generated at: `2026-06-04T12:25:00+09:00`
 
 ## Search Context
@@ -21,18 +21,24 @@
 
 - URL: https://github.com/PrefectHQ/fastmcp
 - Category: `production-mcp-framework`
-- Adoption status: `partially_adopted`
+- Adoption status: `adopted`
 - Why similar: Production MCP framework with transport, auth, tooling, docs, and testing patterns relevant to local MCP projects.
 - Observed patterns:
   - production MCP server composition and transport options
   - uv-first Python installation and upgrade workflow
   - LLM-readable documentation surface
 - Local evidence:
+  - `ops/references/mcp_services.json`
+  - `ops/scripts/mcp_service_inventory.py`
+  - `tests/test_mcp_service_inventory.py`
+  - `docs/reports/2026-06/MCP_SERVICE_INVENTORY_2026-06-05.md`
   - `mcp/canva-mcp/src/server/server.ts`
-  - `mcp/canva-mcp/src/server/stdio.ts`
-  - `mcp/canva-mcp/tests`
-  - `docs/MCP_HEALTH_CHECK.md`
-- Gap: Python MCP services can evaluate FastMCP-style composition when the next MCP expansion is scoped.
+  - `mcp/canva-mcp/src/server/tools.ts`
+  - `mcp/canva-mcp/tests/tool-inventory.test.mjs`
+  - `mcp/desci-research-mcp/server.py`
+  - `mcp/telegram-mcp/server.py`
+  - `docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md`
+- Gap: No remaining structural gap for tracked MCP service inventory and composition metadata; future work can connect the inventory to live MCP health probes.
 
 ### lastmile-ai/mcp-eval
 

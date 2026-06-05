@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-05T18:10:00+09:00",
+  "description": "Tracked MCP service inventory for local composition, smoke coverage, and operator evidence.",
+  "services": [
+    {
+      "id": "canva-mcp",
+      "label": "Canva MCP",
+      "project": "canva-mcp",
+      "status": "active",
+      "language": "typescript",
+      "transport_modes": ["http-sse", "stdio"],
+      "auth_boundary": "canva-oauth",
+      "entrypoints": [
+        "mcp/canva-mcp/package.json",
+        "mcp/canva-mcp/src/server/server.ts",
+        "mcp/canva-mcp/src/server/tools.ts"
+      ],
+      "smoke_scope": "mcp",
+      "smoke_checks": ["canva-mcp build"],
+      "evidence": [
+        "mcp/canva-mcp/tests/tool-inventory.test.mjs",
+        "docs/reports/2026-06/AUTO_RESEARCH_CANVA_TOOL_INVENTORY_GUARD_2026-06-05.md",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md"
+      ]
+    },
+    {
+      "id": "desci-research-mcp",
+      "label": "DeSci Research MCP",
+      "project": "desci-research-mcp",
+      "status": "active",
+      "language": "python",
+      "transport_modes": ["stdio"],
+      "auth_boundary": "public-apis",
+      "entrypoints": [
+        "mcp/desci-research-mcp/pyproject.toml",
+        "mcp/desci-research-mcp/server.py"
+      ],
+      "smoke_scope": "mcp",
+      "smoke_checks": ["desci-research-mcp tests"],
+      "evidence": [
+        "mcp/desci-research-mcp/tests/test_server_helpers.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md"
+      ]
+    },
+    {
+      "id": "telegram-mcp",
+      "label": "Telegram MCP",
+      "project": "telegram-mcp",
+      "status": "active",
+      "language": "python",
+      "transport_modes": ["stdio"],
+      "auth_boundary": "environment-credentials",
+      "entrypoints": [
+        "mcp/telegram-mcp/pyproject.toml",
+        "mcp/telegram-mcp/server.py"
+      ],
+      "smoke_scope": "mcp",
+      "smoke_checks": ["telegram-mcp tests"],
+      "evidence": [
+        "mcp/telegram-mcp/tests/test_server_helpers.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md"
+      ]
+    },
+    {
+      "id": "github-mcp",
+      "label": "GitHub MCP",
+      "project": "github-mcp",
+      "status": "active",
+      "language": "external",
+      "transport_modes": ["stdio"],
+      "auth_boundary": "github-token",
+      "entrypoints": [
+        "mcp/github-mcp/README.md",
+        "mcp/github-mcp/package.json",
+        "mcp/github-mcp/scripts/fetch_info.py"
+      ],
+      "smoke_scope": "mcp",
+      "smoke_checks": ["github-mcp compile"],
+      "evidence": [
+        "mcp/github-mcp/tests/test_github_mcp.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md"
+      ]
+    },
+    {
+      "id": "notebooklm-mcp",
+      "label": "NotebookLM MCP",
+      "project": "notebooklm-mcp",
+      "status": "candidate",
+      "language": "python",
+      "transport_modes": ["cli"],
+      "auth_boundary": "browser-auth",
+      "entrypoints": [
+        "mcp/notebooklm-mcp/pyproject.toml",
+        "mcp/notebooklm-mcp/scripts/list_notebooks.py"
+      ],
+      "smoke_scope": "mcp",
+      "smoke_checks": ["notebooklm compile"],
+      "evidence": [
+        "mcp/notebooklm-mcp/tests/test_local_smoke.py",
+        "docs/reports/2026-06/AUTO_RESEARCH_MCP_SMOKE_TRACE_METRICS_2026-06-05.md"
+      ]
+    }
+  ]
+}
