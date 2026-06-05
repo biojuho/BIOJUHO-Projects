@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `72`
-- Status counts: `blocked=1, covered=71`
+- Criteria: `73`
+- Status counts: `blocked=1, covered=72`
 
 ## Missing Required
 
@@ -437,6 +437,12 @@
 - Evidence paths: `4`
 
 ### canva_widget_message_capture_order_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
+
+### agent_workflow_json_safe_model_serialization_guard
 
 - Required: `true`
 - Status: `covered`

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import copy
+import dataclasses
 import json
 import os
 import subprocess
@@ -391,15 +391,15 @@ def build_report(
         "will_execute": execute,
         "allow_side_effect_gates": allow_side_effect_gates,
         "manifest_generated_at": payload.get("generated_at"),
-        "source_context": copy.deepcopy(payload.get("source_context")),
+        "source_context": to_json_safe(payload.get("source_context")),
         "workflow": {
             "id": workflow["id"],
             "project": workflow["project"],
             "goal": workflow["goal"],
             "smoke_scope": workflow["smoke_scope"],
             "launch_status": workflow["launch_status"],
-            "agent_roles": copy.deepcopy(workflow["agent_roles"]),
-            "mcp_servers": copy.deepcopy(workflow["mcp_servers"]),
+            "agent_roles": to_json_safe(workflow["agent_roles"]),
+            "mcp_servers": to_json_safe(workflow["mcp_servers"]),
             "quality_gate_count": len(workflow.get("quality_gates", [])),
         },
         "summary": {
@@ -416,7 +416,7 @@ def build_report(
             ),
             "elapsed_seconds": round(sum(result.get("elapsed_seconds", 0.0) for result in results), 3),
         },
-        "gates": copy.deepcopy(results),
+        "gates": to_json_safe(results),
         "errors": errors,
     }
 
@@ -454,7 +454,7 @@ def build_matrix_report(
         "will_execute": execute,
         "allow_side_effect_gates": allow_side_effect_gates,
         "manifest_generated_at": payload.get("generated_at"),
-        "source_context": copy.deepcopy(payload.get("source_context")),
+        "source_context": to_json_safe(payload.get("source_context")),
         "summary": {
             "requested_max_gates": max_gates,
             "requested_smoke_scope": smoke_scope,
@@ -470,7 +470,7 @@ def build_matrix_report(
             "approval_required_gates": approval_required,
             "elapsed_seconds": round(elapsed_seconds, 3),
         },
-        "workflows": copy.deepcopy(workflow_reports),
+        "workflows": to_json_safe(workflow_reports),
         "errors": errors,
     }
 
@@ -585,10 +585,27 @@ def tail_text(text: str, *, line_count: int = 12) -> str:
     return "\n".join(lines[-line_count:])
 
 
+def to_json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    model_name = getattr(value, "model", None)
+    if isinstance(model_name, str):
+        return model_name
+    if isinstance(value, Path):
+        return str(value)
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return to_json_safe(dataclasses.asdict(value))
+    if isinstance(value, dict):
+        return {str(key): to_json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [to_json_safe(item) for item in value]
+    return str(value)
+
+
 def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp.write_text(json.dumps(to_json_safe(payload), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     tmp.replace(path)
 
 

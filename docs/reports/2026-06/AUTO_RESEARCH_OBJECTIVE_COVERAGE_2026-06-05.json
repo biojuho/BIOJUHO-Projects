@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T04:17:17.431965+00:00",
+  "generated_at": "2026-06-05T04:24:17.111103+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -139,7 +139,8 @@
         "dailynews_notebooklm_speech_alias_guard",
         "pr_analysis_comment_trigger_guard",
         "typescript_experimental_export_seam_guard",
-        "canva_widget_message_capture_order_guard"
+        "canva_widget_message_capture_order_guard",
+        "agent_workflow_json_safe_model_serialization_guard"
       ],
       "evidence": [
         {
@@ -249,6 +250,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_MESSAGE_CAPTURE_ORDER_2026-06-05.md",
           "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_JSON_SAFE_MODEL_SERIALIZATION_2026-06-05.md",
+          "term_count": 5
         }
       ],
       "id": "github_related_project_research",
@@ -296,7 +301,8 @@
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
         "github_commit_digest_naive_utc_timestamp_guard",
-        "canva_widget_message_capture_order_guard"
+        "canva_widget_message_capture_order_guard",
+        "agent_workflow_json_safe_model_serialization_guard"
       ],
       "evidence": [
         {
@@ -321,6 +327,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_MESSAGE_CAPTURE_ORDER_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_JSON_SAFE_MODEL_SERIALIZATION_2026-06-05.md",
           "term_count": 4
         }
       ],
@@ -479,7 +489,8 @@
         "dailynews_notebooklm_speech_alias_guard",
         "pr_analysis_comment_trigger_guard",
         "typescript_experimental_export_seam_guard",
-        "canva_widget_message_capture_order_guard"
+        "canva_widget_message_capture_order_guard",
+        "agent_workflow_json_safe_model_serialization_guard"
       ],
       "evidence": [
         {
@@ -612,6 +623,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_MESSAGE_CAPTURE_ORDER_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_JSON_SAFE_MODEL_SERIALIZATION_2026-06-05.md",
           "term_count": 4
         }
       ],

@@ -54,6 +54,7 @@ def test_default_contract_maps_objective_to_existing_artifacts() -> None:
         "pr_analysis_read_only_split_guard",
         "pr_analysis_comment_trigger_guard",
         "canva_widget_message_capture_order_guard",
+        "agent_workflow_json_safe_model_serialization_guard",
         "github_source_freshness_snapshot",
         "github_source_snapshot_recency_gate",
         "github_source_viability_gate",

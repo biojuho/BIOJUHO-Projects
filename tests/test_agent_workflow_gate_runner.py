@@ -166,6 +166,59 @@ def test_report_snapshots_do_not_mutate_manifest_nested_state() -> None:
     assert "--mutated" not in result["command"]
 
 
+def test_report_serializes_model_like_objects_as_json_safe_model_names() -> None:
+    runner = load_module()
+
+    class RuntimeModel:
+        def __init__(self, model: str) -> None:
+            self.model = model
+
+    runtime_model = RuntimeModel("ollama_chat/llama3")
+    payload = {
+        "generated_at": "2026-06-05T00:00:00+00:00",
+        "source_context": {"llm": runtime_model},
+    }
+    workflow = {
+        "id": "graph-serialization",
+        "project": "ops",
+        "goal": "serialize runtime graph",
+        "smoke_scope": "workspace",
+        "launch_status": "proof",
+        "agent_roles": [runtime_model],
+        "mcp_servers": [],
+        "quality_gates": [],
+    }
+    result = {
+        "index": 1,
+        "workflow_id": "graph-serialization",
+        "command": ["python", "ops/scripts/noop.py"],
+        "cwd": ".",
+        "source": {"model": runtime_model},
+        "safety": {"risk": "deterministic", "requires_approval": False, "reasons": []},
+        "status": "planned",
+        "returncode": None,
+        "elapsed_seconds": 0.0,
+        "stdout_tail": "",
+        "stderr_tail": "",
+        "skip_reason": "",
+    }
+
+    report = runner.build_report(
+        payload,
+        workflow,
+        [result],
+        execute=False,
+        allow_side_effect_gates=False,
+        max_gates=1,
+        gate_index=None,
+    )
+
+    assert report["source_context"]["llm"] == "ollama_chat/llama3"
+    assert report["workflow"]["agent_roles"] == ["ollama_chat/llama3"]
+    assert report["gates"][0]["source"]["model"] == "ollama_chat/llama3"
+    json.dumps(report)
+
+
 def test_execute_uses_existing_quality_gate_command(monkeypatch) -> None:
     runner = load_module()
     seen: list[tuple[list[str], Path]] = []

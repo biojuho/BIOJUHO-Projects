@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T13:15:40+09:00",
+  "generated_at": "2026-06-05T13:23:04+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -218,10 +218,12 @@
             "e5763b6",
             "ops/scripts/canva_widget_click_smoke.py",
             "tests/test_canva_widget_click_smoke.py",
-            "canva_widget_message_capture_order_guard"
+            "canva_widget_message_capture_order_guard",
+            "7aa03a8",
+            "agent_workflow_json_safe_model_serialization_guard"
           ],
           "git_freshness": {
-            "proof_commit": "e5763b6",
+            "proof_commit": "7aa03a8",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -3509,7 +3511,7 @@
           "must_contain": [
             "Objective Coverage Drift Guard",
             "test_checked_in_coverage_artifacts_match_current_requirements",
-            "valid `72` criteria",
+            "valid `73` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -3664,7 +3666,7 @@
           "must_contain": [
             "Completion Audit Summary Drift Guard",
             "test_checked_in_summary_artifacts_match_current_contract",
-            "valid `72` criteria",
+            "valid `73` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -3801,10 +3803,10 @@
         {
           "path": "ops/scripts/agent_workflow_gate_runner.py",
           "must_contain": [
-            "import copy",
-            "copy.deepcopy(payload.get(\"source_context\"))",
-            "copy.deepcopy(workflow[\"agent_roles\"])",
-            "copy.deepcopy(results)"
+            "def to_json_safe(value: Any) -> Any:",
+            "to_json_safe(payload.get(\"source_context\"))",
+            "to_json_safe(workflow[\"agent_roles\"])",
+            "to_json_safe(results)"
           ]
         },
         {
@@ -4275,6 +4277,44 @@
             "A/B Contract",
             "capture_index",
             "5 passed",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent_workflow_json_safe_model_serialization_guard",
+      "requirement": "Agent workflow reports serialize model-like runtime objects to JSON-safe model-name strings before writing reports.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/agent_workflow_gate_runner.py",
+          "must_contain": [
+            "def to_json_safe(value: Any) -> Any:",
+            "model_name = getattr(value, \"model\", None)",
+            "return model_name",
+            "json.dumps(to_json_safe(payload), indent=2, ensure_ascii=False)"
+          ]
+        },
+        {
+          "path": "tests/test_agent_workflow_gate_runner.py",
+          "must_contain": [
+            "test_report_serializes_model_like_objects_as_json_safe_model_names",
+            "class RuntimeModel:",
+            "self.model = model",
+            "json.dumps(report)",
+            "ollama_chat/llama3"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_JSON_SAFE_MODEL_SERIALIZATION_2026-06-05.md",
+          "must_contain": [
+            "google/adk-python",
+            "Serialize LiteLlm graph models safely",
+            "A/B Contract",
+            "to_json_safe",
+            "21 passed",
             "global_objective_complete=false"
           ]
         }
