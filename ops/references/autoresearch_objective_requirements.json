@@ -38,7 +38,8 @@
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
-        "dashboard_release_refresh_workflow_guard"
+        "dashboard_release_refresh_workflow_guard",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -200,6 +201,15 @@
             "npm run check:bundle",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "must_contain": [
+            "Agent Workflow Role Policy Guard",
+            "strands-agents/harness-sdk",
+            "role_policy",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -252,7 +262,8 @@
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
-        "dashboard_release_refresh_workflow_guard"
+        "dashboard_release_refresh_workflow_guard",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -309,6 +320,16 @@
             "mastra-ai/mastra",
             "SignalProvider abstraction + @mastra/github-signals package",
             "github_commit_delta",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "must_contain": [
+            "strands-agents/harness-sdk",
+            "050ab14955a4ee0adf7b2b21df0124b6c094630a",
+            "allowed-roles: 'triage,write,maintain,admin'",
+            "A/B Contract",
             "global_objective_complete=false"
           ]
         },
@@ -600,7 +621,8 @@
         "self_improving_skill",
         "agent_workflow_gate_runner",
         "agent_workflow_gate_matrix",
-        "agent_workflow_gate_matrix_reuse"
+        "agent_workflow_gate_matrix_reuse",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -616,6 +638,15 @@
           "must_contain": [
             "completion-audit section",
             "ok=true"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted",
+            "10 passed",
+            "global_objective_complete=false"
           ]
         }
       ]
@@ -645,7 +676,8 @@
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
-        "dashboard_release_refresh_workflow_guard"
+        "dashboard_release_refresh_workflow_guard",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -767,6 +799,15 @@
             "A/B Contract",
             "Decision: adopted",
             "github_commit_delta",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted",
+            "allowed-roles: 'triage,write,maintain,admin'",
             "global_objective_complete=false"
           ]
         }

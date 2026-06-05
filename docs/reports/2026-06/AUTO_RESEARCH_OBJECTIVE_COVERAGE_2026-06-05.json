@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T05:39:00.822101+00:00",
+  "generated_at": "2026-06-05T05:47:46.291873+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -42,7 +42,8 @@
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
-        "dashboard_release_refresh_workflow_guard"
+        "dashboard_release_refresh_workflow_guard",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -116,6 +117,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
           "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -168,7 +173,8 @@
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
-        "dashboard_release_refresh_workflow_guard"
+        "dashboard_release_refresh_workflow_guard",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -193,6 +199,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
+          "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
           "term_count": 5
         },
         {
@@ -327,7 +337,8 @@
         "self_improving_skill",
         "agent_workflow_gate_runner",
         "agent_workflow_gate_matrix",
-        "agent_workflow_gate_matrix_reuse"
+        "agent_workflow_gate_matrix_reuse",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -337,6 +348,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_SKILL_COMPLETION_AUDIT_2026-06-04.md",
           "term_count": 2
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
+          "term_count": 4
         }
       ],
       "id": "self_improving_autoresearch_skill",
@@ -365,7 +380,8 @@
         "mcp_long_running_task_capability_guard",
         "browser_smoke_websocket_failure_evidence_guard",
         "getdaytrends_prompt_injection_normalization_guard",
-        "dashboard_release_refresh_workflow_guard"
+        "dashboard_release_refresh_workflow_guard",
+        "agent_workflow_role_policy_guard"
       ],
       "evidence": [
         {
@@ -418,6 +434,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_ROLE_POLICY_GUARD_2026-06-05.md",
           "term_count": 4
         }
       ],

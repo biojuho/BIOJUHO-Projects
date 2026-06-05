@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `80`
-- Status counts: `blocked=1, covered=79`
+- Criteria: `81`
+- Status counts: `blocked=1, covered=80`
 
 ## Missing Required
 
@@ -263,6 +263,12 @@
 - Evidence paths: `3`
 
 ### agent_workflow_smoke_scope_route_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
+
+### agent_workflow_role_policy_guard
 
 - Required: `true`
 - Status: `covered`

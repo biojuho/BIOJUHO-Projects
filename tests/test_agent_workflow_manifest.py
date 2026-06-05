@@ -28,6 +28,9 @@ def test_current_manifest_validates_against_real_workspace_paths() -> None:
 
     assert errors == []
     assert summary["workflow_count"] == 6
+    assert summary["allowed_agent_role_count"] == 15
+    assert summary["review_allowed_roles"] == ["triage", "write", "maintain", "admin"]
+    allowed_roles = set(payload["role_policy"]["allowed_agent_roles"])
     assert summary["launch_status_counts"] == {"active": 6}
     assert summary["smoke_scope_counts"] == {
         "agriguard": 1,
@@ -44,6 +47,11 @@ def test_current_manifest_validates_against_real_workspace_paths() -> None:
         "canva-widget-oauth-preview",
         "workspace-quality-dashboard",
     }
+    assert all(
+        role in allowed_roles
+        for workflow in payload["workflows"]
+        for role in workflow["agent_roles"]
+    )
     assert all(workflow["entrypoint_count"] >= 2 for workflow in summary["workflows"])
 
 
@@ -67,8 +75,12 @@ def test_cli_writes_machine_and_markdown_evidence(tmp_path: Path) -> None:
     markdown = markdown_out.read_text(encoding="utf-8")
     assert result == 0
     assert machine["workflow_count"] == 6
+    assert machine["allowed_agent_role_count"] == 15
+    assert machine["review_allowed_roles"] == ["triage", "write", "maintain", "admin"]
     assert machine["mcp_server_counts"]["playwright"] >= 4
     assert "Agent Workflow Manifest" in markdown
+    assert "Role Policy" in markdown
+    assert "Review allowed roles: triage, write, maintain, admin" in markdown
     assert "evalstate/fast-agent" in markdown
     assert "workspace-quality-dashboard" in markdown
 
@@ -149,3 +161,33 @@ def test_manifest_rejects_untrusted_source_and_escaping_evidence() -> None:
 
     assert "source_context.url must be a GitHub HTTPS URL" in errors
     assert "workflows[0].evidence[0] must be a repo-relative path" in errors
+
+
+def test_manifest_rejects_workflow_roles_missing_from_role_policy() -> None:
+    manifest = load_manifest_module()
+    payload = manifest.load_manifest(MANIFEST_PATH)
+    payload["workflows"][0]["agent_roles"].append("mutated-role")
+
+    errors = manifest.validate_manifest(payload, workspace_root=PROJECT_ROOT)
+
+    assert "workflows[0].agent_roles[3] must be declared in role_policy.allowed_agent_roles" in errors
+
+
+def test_manifest_rejects_review_policy_without_maintain_role() -> None:
+    manifest = load_manifest_module()
+    payload = manifest.load_manifest(MANIFEST_PATH)
+    payload["role_policy"]["review_allowed_roles"] = ["triage", "write", "admin"]
+
+    errors = manifest.validate_manifest(payload, workspace_root=PROJECT_ROOT)
+
+    assert "role_policy.review_allowed_roles must include maintain" in errors
+
+
+def test_manifest_rejects_duplicate_policy_roles() -> None:
+    manifest = load_manifest_module()
+    payload = manifest.load_manifest(MANIFEST_PATH)
+    payload["role_policy"]["allowed_agent_roles"].append("browser-qa")
+
+    errors = manifest.validate_manifest(payload, workspace_root=PROJECT_ROOT)
+
+    assert "role_policy.allowed_agent_roles[15] must be unique" in errors

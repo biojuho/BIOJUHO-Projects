@@ -10,10 +10,10 @@
 
 | Requirement | Status | Criteria | Evidence paths |
 | --- | --- | ---: | ---: |
-| `launch_ready_product_hardening` | `covered_current_cycle` | `22` | `18` |
-| `github_related_project_research` | `continuous` | `40` | `35` |
-| `self_improving_autoresearch_skill` | `covered_current_cycle` | `4` | `2` |
-| `continuous_ab_adoption_commit_push` | `continuous` | `15` | `13` |
+| `launch_ready_product_hardening` | `covered_current_cycle` | `23` | `19` |
+| `github_related_project_research` | `continuous` | `41` | `36` |
+| `self_improving_autoresearch_skill` | `covered_current_cycle` | `5` | `3` |
+| `continuous_ab_adoption_commit_push` | `continuous` | `16` | `14` |
 | `direct_app_click_qa` | `covered_current_cycle` | `15` | `19` |
 | `beyond_user_expected_quality` | `covered_current_cycle` | `49` | `38` |
 | `external_credential_and_runtime_boundaries` | `blocked_external` | `15` | `9` |

@@ -27,6 +27,12 @@ REQUIRED_WORKFLOW_FIELDS = {
     "evidence",
     "launch_status",
 }
+REQUIRED_ROLE_POLICY_FIELDS = {
+    "source_signal",
+    "source_url",
+    "allowed_agent_roles",
+    "review_allowed_roles",
+}
 
 
 def load_manifest(path: Path = DEFAULT_MANIFEST) -> dict[str, Any]:
@@ -43,6 +49,8 @@ def validate_manifest(payload: dict[str, Any], *, workspace_root: Path = WORKSPA
         errors.append("schema_version must be 1")
     _validate_timestamp(payload.get("generated_at"), errors)
     _validate_source_context(payload.get("source_context"), errors)
+    role_policy = _validate_role_policy(payload.get("role_policy"), errors)
+    allowed_agent_roles = set(role_policy["allowed_agent_roles"]) if role_policy else set()
 
     workflows = payload.get("workflows")
     if not isinstance(workflows, list) or not workflows:
@@ -65,7 +73,13 @@ def validate_manifest(payload: dict[str, Any], *, workspace_root: Path = WORKSPA
             seen_ids.add(workflow_id)
         _require_string(workflow.get("project"), f"{prefix}.project", errors)
         _require_string(workflow.get("goal"), f"{prefix}.goal", errors)
-        _validate_string_list(workflow.get("agent_roles"), f"{prefix}.agent_roles", errors)
+        agent_roles = _validate_string_list(workflow.get("agent_roles"), f"{prefix}.agent_roles", errors)
+        if allowed_agent_roles:
+            for role_index, role in enumerate(agent_roles):
+                if role not in allowed_agent_roles:
+                    errors.append(
+                        f"{prefix}.agent_roles[{role_index}] must be declared in role_policy.allowed_agent_roles"
+                    )
         _validate_string_list(workflow.get("mcp_servers"), f"{prefix}.mcp_servers", errors)
         _validate_string_list(workflow.get("quality_gates"), f"{prefix}.quality_gates", errors)
         smoke_scope = _require_string(workflow.get("smoke_scope"), f"{prefix}.smoke_scope", errors)
@@ -81,6 +95,7 @@ def validate_manifest(payload: dict[str, Any], *, workspace_root: Path = WORKSPA
 
 def summarize_manifest(payload: dict[str, Any]) -> dict[str, Any]:
     workflows = payload["workflows"]
+    role_policy = payload["role_policy"]
     scope_counts = Counter(workflow["smoke_scope"] for workflow in workflows)
     status_counts = Counter(workflow["launch_status"] for workflow in workflows)
     mcp_counts = Counter(server for workflow in workflows for server in workflow["mcp_servers"])
@@ -88,6 +103,10 @@ def summarize_manifest(payload: dict[str, Any]) -> dict[str, Any]:
         "schema_version": payload["schema_version"],
         "generated_at": payload["generated_at"],
         "workflow_count": len(workflows),
+        "allowed_agent_role_count": len(role_policy["allowed_agent_roles"]),
+        "review_allowed_roles": role_policy["review_allowed_roles"],
+        "role_policy_source_signal": role_policy["source_signal"],
+        "role_policy_source_url": role_policy["source_url"],
         "smoke_scope_counts": dict(sorted(scope_counts.items())),
         "launch_status_counts": dict(sorted(status_counts.items())),
         "mcp_server_counts": dict(sorted(mcp_counts.items())),
@@ -123,6 +142,13 @@ def format_markdown(payload: dict[str, Any], summary: dict[str, Any]) -> str:
         "",
         f"- Source: {payload['source_context']['repo']} ({payload['source_context']['url']})",
         f"- Adopted pattern: {payload['source_context']['adopted_pattern']}",
+        "",
+        "## Role Policy",
+        "",
+        f"- Source signal: {summary['role_policy_source_signal']}",
+        f"- Source URL: {summary['role_policy_source_url']}",
+        f"- Allowed agent roles: {summary['allowed_agent_role_count']}",
+        f"- Review allowed roles: {', '.join(summary['review_allowed_roles'])}",
         "",
         "## Workflows",
         "",
@@ -324,6 +350,41 @@ def _validate_source_context(value: Any, errors: list[str]) -> None:
     _require_string(value.get("adopted_pattern"), "source_context.adopted_pattern", errors)
 
 
+def _validate_role_policy(value: Any, errors: list[str]) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        errors.append("role_policy must be an object")
+        return None
+    missing = REQUIRED_ROLE_POLICY_FIELDS - set(value)
+    for field in sorted(missing):
+        errors.append(f"role_policy.{field} is required")
+    source_signal = _require_string(value.get("source_signal"), "role_policy.source_signal", errors)
+    source_url = _require_string(value.get("source_url"), "role_policy.source_url", errors)
+    if source_url and not source_url.startswith("https://github.com/"):
+        errors.append("role_policy.source_url must be a GitHub HTTPS URL")
+    allowed_agent_roles = _validate_string_list(
+        value.get("allowed_agent_roles"),
+        "role_policy.allowed_agent_roles",
+        errors,
+        unique=True,
+    )
+    review_allowed_roles = _validate_string_list(
+        value.get("review_allowed_roles"),
+        "role_policy.review_allowed_roles",
+        errors,
+        unique=True,
+    )
+    if review_allowed_roles and "maintain" not in review_allowed_roles:
+        errors.append("role_policy.review_allowed_roles must include maintain")
+    if not source_signal or not source_url or not allowed_agent_roles or not review_allowed_roles:
+        return None
+    return {
+        "source_signal": source_signal,
+        "source_url": source_url,
+        "allowed_agent_roles": allowed_agent_roles,
+        "review_allowed_roles": review_allowed_roles,
+    }
+
+
 def _require_string(value: Any, field: str, errors: list[str]) -> str:
     if not isinstance(value, str) or not value.strip():
         errors.append(f"{field} must be a non-empty string")
@@ -331,13 +392,21 @@ def _require_string(value: Any, field: str, errors: list[str]) -> str:
     return value.strip()
 
 
-def _validate_string_list(value: Any, field: str, errors: list[str]) -> None:
+def _validate_string_list(value: Any, field: str, errors: list[str], *, unique: bool = False) -> list[str]:
     if not isinstance(value, list) or not value:
         errors.append(f"{field} must be a non-empty array")
-        return
+        return []
+    result: list[str] = []
+    seen: set[str] = set()
     for index, item in enumerate(value):
-        if not isinstance(item, str) or not item.strip():
-            errors.append(f"{field}[{index}] must be a non-empty string")
+        text = _require_string(item, f"{field}[{index}]", errors)
+        if not text:
+            continue
+        if unique and text in seen:
+            errors.append(f"{field}[{index}] must be unique")
+        seen.add(text)
+        result.append(text)
+    return result
 
 
 def _validate_paths(value: Any, field: str, workspace_root: Path, errors: list[str]) -> None:

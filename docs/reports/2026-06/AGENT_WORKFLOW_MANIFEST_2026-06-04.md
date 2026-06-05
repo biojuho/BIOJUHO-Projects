@@ -13,6 +13,13 @@
 - Source: evalstate/fast-agent (https://github.com/evalstate/fast-agent)
 - Adopted pattern: Declarative agent workflow inventory with MCP/server assignments, provider/runtime notes, and repeatable quality gates.
 
+## Role Policy
+
+- Source signal: strands-agents/harness-sdk fix: add maintain role to auto-strands-review allowed-roles (#2633)
+- Source URL: https://github.com/strands-agents/harness-sdk/commit/050ab14955a4ee0adf7b2b21df0124b6c094630a
+- Allowed agent roles: 15
+- Review allowed roles: triage, write, maintain, admin
+
 ## Workflows
 
 ### dailynews-x-ops
