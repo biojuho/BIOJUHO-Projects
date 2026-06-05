@@ -44,7 +44,7 @@ jobs:
       NOTION_REPORTS_DATABASE_ID: ${{ secrets.DAILYNEWS_NOTION_REPORTS_DB_ID || secrets.NOTION_REPORTS_DATABASE_ID || secrets.ANTIGRAVITY_NEWS_DB_ID || secrets.NOTION_DATABASE_ID }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py

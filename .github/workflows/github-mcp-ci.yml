@@ -19,7 +19,7 @@ jobs:
         working-directory: mcp/github-mcp
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Bootstrap legacy paths
         working-directory: .
@@ -54,7 +54,7 @@ jobs:
         working-directory: mcp/github-mcp
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Bootstrap legacy paths
         working-directory: .

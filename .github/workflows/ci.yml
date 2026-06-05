@@ -15,7 +15,7 @@ jobs:
     name: Ruff Lint & Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Bootstrap legacy paths
         run: python3 bootstrap_legacy_paths.py
       - uses: ./.github/actions/setup-python-uv
@@ -36,7 +36,7 @@ jobs:
       run:
         working-directory: apps/desci-platform/biolinker
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-python-uv
         with:
           python-version: '3.13'
@@ -56,7 +56,7 @@ jobs:
       run:
         working-directory: apps/desci-platform/frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Bootstrap legacy paths
         working-directory: .
         run: python3 bootstrap_legacy_paths.py
@@ -81,7 +81,7 @@ jobs:
       run:
         working-directory: apps/desci-platform/contracts
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Bootstrap legacy paths
         working-directory: .
         run: python3 bootstrap_legacy_paths.py
