@@ -7,9 +7,9 @@
   "global_objective_complete": false,
   "status_counts": {
     "blocked": 1,
-    "covered": 78
+    "covered": 79
   },
-  "criterion_count": 79,
+  "criterion_count": 80,
   "missing_required": [],
   "explicit_blockers": [
     "external_credential_boundaries"
@@ -79,7 +79,7 @@
         },
         {
           "path": "ops/references/autoresearch_completion_contract.json",
-          "term_count": 101,
+          "term_count": 103,
           "git_freshness": true,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -310,28 +310,28 @@
       "evidence": [
         {
           "path": "ops/scripts/github_source_commit_digest.py",
-          "term_count": 7,
+          "term_count": 9,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "tests/test_github_source_commit_digest.py",
-          "term_count": 5,
+          "term_count": 6,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json",
-          "term_count": 13,
+          "term_count": 16,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.md",
-          "term_count": 11,
+          "term_count": 13,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false
@@ -346,6 +346,48 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_SOURCE_COMMIT_DIGEST_BATCH_GUARD_2026-06-05.md",
           "term_count": 6,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        }
+      ]
+    },
+    {
+      "id": "github_commit_digest_signal_provider_guard",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_commit_digest.py",
+          "term_count": 7,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "tests/test_github_source_commit_digest.py",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json",
+          "term_count": 5,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.md",
+          "term_count": 4,
+          "git_freshness": false,
+          "protected_path_freshness": false,
+          "json_freshness": false
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
+          "term_count": 5,
           "git_freshness": false,
           "protected_path_freshness": false,
           "json_freshness": false

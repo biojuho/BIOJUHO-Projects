@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `79`
-- Status counts: `blocked=1, covered=78`
+- Criteria: `80`
+- Status counts: `blocked=1, covered=79`
 
 ## Missing Required
 
@@ -75,6 +75,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `6`
+
+### github_commit_digest_signal_provider_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `5`
 
 ### github_commit_digest_branch_feed_fallback_guard
 

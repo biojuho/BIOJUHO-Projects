@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T05:31:06.112743+00:00",
+  "generated_at": "2026-06-05T05:39:00.822101+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -155,6 +155,7 @@
         "workspace_smoke_trace_final_event_guard",
         "github_commit_digest_branch_feed_fallback_guard",
         "github_commit_digest_naive_utc_timestamp_guard",
+        "github_commit_digest_signal_provider_guard",
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
         "hosted_agent_trace_provider_registry_guard",
@@ -188,7 +189,11 @@
         },
         {
           "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json",
-          "term_count": 6
+          "term_count": 8
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
+          "term_count": 5
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_AGENT_WORKFLOW_SMOKE_SCOPE_ROUTE_2026-06-05.md",
@@ -353,6 +358,7 @@
         "external_credential_consent_items_guard",
         "hosted_agent_trace_provider_registry_guard",
         "github_commit_digest_naive_utc_timestamp_guard",
+        "github_commit_digest_signal_provider_guard",
         "canva_widget_message_capture_order_guard",
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
@@ -408,6 +414,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
           "term_count": 4
         }
       ],

@@ -239,7 +239,9 @@
             "dashboard_release_refresh_workflow_guard",
             ".github/workflows/dashboard-release-refresh.yml",
             ".github/workflows/deploy-dashboard.yml",
-            "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+            "github_commit_digest_signal_provider_guard",
+            "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md"
           ],
           "git_freshness": {
             "proof_commit": "3145ea1",
@@ -352,7 +354,10 @@
               "automation/getdaytrends/utils.py",
               "automation/getdaytrends/tests/test_utils.py",
               "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
-              "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md"
+              "docs/reports/2026-06/AUTO_RESEARCH_DASHBOARD_RELEASE_REFRESH_WORKFLOW_2026-06-05.md",
+              "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json",
+              "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.md",
+              "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md"
             ]
           }
         }
@@ -705,6 +710,8 @@
             "commits/main.atom",
             "github_atom_feed",
             "selection_batch",
+            "_source_signal_metadata",
+            "source_signal_provider",
             "overflow_repositories",
             "review_required_before_local_adoption",
             "no_local_adoption_commit_window_empty"
@@ -715,6 +722,7 @@
           "must_contain": [
             "test_build_commit_digest_selects_pushed_queue_items_and_windows",
             "test_build_commit_digest_reports_unfetched_overflow_queue",
+            "test_selection_batch_prefers_signal_provider_commit_metadata",
             "test_fetch_commit_delta_falls_back_to_atom_feed_on_rate_limit",
             "test_checked_in_commit_digest_matches_renderer",
             "GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json"
@@ -735,6 +743,9 @@
             "\"repo\": \"microsoft/playwright-mcp\"",
             "\"repo\": \"vercel/ai\"",
             "\"fetch_source\"",
+            "\"source_signal_provider\": \"github_commit_delta\"",
+            "\"source_signal_repo\": \"mastra-ai/mastra\"",
+            "\"source_signal_sha\": \"e9be4e747ec3\"",
             "\"no_local_adoption_commit_window_empty\""
           ]
         },
@@ -750,6 +761,8 @@
             "mastra-ai/mastra",
             "microsoft/playwright-mcp",
             "vercel/ai",
+            "Source signal provider: `github_commit_delta`",
+            "Source signal commit: `mastra-ai/mastra@e9be4e747ec3`",
             "review_required_before_local_adoption",
             "no_local_adoption_commit_window_empty"
           ]
@@ -771,6 +784,65 @@
             "opt-in batched delivery",
             "selection_batch",
             "overflow_repositories",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "github_commit_digest_signal_provider_guard",
+      "requirement": "GitHub commit digests derive source-signal provider metadata from selected commit deltas instead of carrying a stale static source-signal string.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "ops/scripts/github_source_commit_digest.py",
+          "must_contain": [
+            "_source_signal_metadata",
+            "source_signal_provider",
+            "source_signal_repo",
+            "source_signal_sha",
+            "signalprovider",
+            "github-signals",
+            "github_commit_delta"
+          ]
+        },
+        {
+          "path": "tests/test_github_source_commit_digest.py",
+          "must_contain": [
+            "test_selection_batch_prefers_signal_provider_commit_metadata",
+            "SignalProvider abstraction",
+            "source_signal_fetch_source",
+            "source_signal_provider",
+            "mastra-ai/mastra@e9be4e747ec3"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.json",
+          "must_contain": [
+            "\"source_signal_provider\": \"github_commit_delta\"",
+            "\"source_signal_repo\": \"mastra-ai/mastra\"",
+            "\"source_signal_sha\": \"e9be4e747ec3\"",
+            "\"source_signal_fetch_source\": \"github_api\"",
+            "\"source_signal_url\": \"https://github.com/mastra-ai/mastra/commit/e9be4e747ec3d8b65548bff92f9377db06105376\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_2026-06-05.md",
+          "must_contain": [
+            "Source signal provider: `github_commit_delta`",
+            "Source signal commit: `mastra-ai/mastra@e9be4e747ec3`",
+            "Source signal fetch source: `github_api`",
+            "https://github.com/mastra-ai/mastra/commit/e9be4e747ec3d8b65548bff92f9377db06105376"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
+          "must_contain": [
+            "mastra-ai/mastra",
+            "SignalProvider abstraction + @mastra/github-signals package",
+            "A/B Contract",
+            "github_commit_delta",
             "global_objective_complete=false"
           ]
         }

@@ -239,6 +239,7 @@
         "workspace_smoke_trace_final_event_guard",
         "github_commit_digest_branch_feed_fallback_guard",
         "github_commit_digest_naive_utc_timestamp_guard",
+        "github_commit_digest_signal_provider_guard",
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
         "hosted_agent_trace_provider_registry_guard",
@@ -296,7 +297,19 @@
             "\"overflow_repositories\": 9",
             "\"repo\": \"microsoft/agent-framework\"",
             "\"repo\": \"mastra-ai/mastra\"",
-            "\"review_required_before_local_adoption\""
+            "\"review_required_before_local_adoption\"",
+            "\"source_signal_provider\": \"github_commit_delta\"",
+            "\"source_signal_sha\": \"e9be4e747ec3\""
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
+          "must_contain": [
+            "GitHub Commit Digest Signal Provider",
+            "mastra-ai/mastra",
+            "SignalProvider abstraction + @mastra/github-signals package",
+            "github_commit_delta",
+            "global_objective_complete=false"
           ]
         },
         {
@@ -625,6 +638,7 @@
         "external_credential_consent_items_guard",
         "hosted_agent_trace_provider_registry_guard",
         "github_commit_digest_naive_utc_timestamp_guard",
+        "github_commit_digest_signal_provider_guard",
         "canva_widget_message_capture_order_guard",
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
@@ -744,6 +758,15 @@
             "A/B Contract",
             "Decision: adopted",
             "workflow_dispatch",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_SIGNAL_PROVIDER_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted",
+            "github_commit_delta",
             "global_objective_complete=false"
           ]
         }

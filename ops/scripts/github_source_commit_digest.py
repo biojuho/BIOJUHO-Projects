@@ -154,7 +154,7 @@ def build_commit_digest(
         "selected_repositories": len(items),
         "failed_repositories": len(failed),
         "commit_limit_per_repo": max_commits,
-        "selection_batch": _selection_batch(pushed_candidates, selected, batch_size=top),
+        "selection_batch": _selection_batch(pushed_candidates, selected, items, batch_size=top),
         "selection_policy": (
             "Select the highest-ranked queued repositories with pushed_at movement, then review live commit "
             "subjects before any local adoption decision. Repositories beyond the configured batch are "
@@ -209,6 +209,10 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.extend(
         [
             f"- Source signal: `{selection_batch['source_signal']}`",
+            f"- Source signal provider: `{selection_batch['source_signal_provider']}`",
+            f"- Source signal commit: `{selection_batch['source_signal_repo']}@{selection_batch['source_signal_sha']}`",
+            f"- Source signal fetch source: `{selection_batch['source_signal_fetch_source']}`",
+            f"- Source signal URL: {selection_batch['source_signal_url'] or 'none'}",
             f"- Batch size: `{selection_batch['batch_size']}`",
             f"- Candidate repositories: `{selection_batch['candidate_repositories']}`",
             f"- Selected repositories: `{selection_batch['selected_repositories']}`",
@@ -377,13 +381,21 @@ def _pushed_queue_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _selection_batch(
     pushed_candidates: list[dict[str, Any]],
     selected: list[dict[str, Any]],
+    digest_items: list[dict[str, Any]],
     *,
     batch_size: int,
 ) -> dict[str, Any]:
     selected_repos = {item["repo"] for item in selected}
     overflow = [item for item in pushed_candidates if item["repo"] not in selected_repos]
+    source_signal = _source_signal_metadata(digest_items)
     return {
-        "source_signal": "mastra-ai/mastra opt-in PubSub subscriber batching",
+        "source_signal": source_signal["label"],
+        "source_signal_provider": source_signal["provider"],
+        "source_signal_repo": source_signal["repo"],
+        "source_signal_sha": source_signal["sha"],
+        "source_signal_subject": source_signal["subject"],
+        "source_signal_url": source_signal["html_url"],
+        "source_signal_fetch_source": source_signal["fetch_source"],
         "batch_size": batch_size,
         "candidate_repositories": len(pushed_candidates),
         "selected_repositories": len(selected),
@@ -399,6 +411,48 @@ def _selection_batch(
             for item in overflow
         ],
     }
+
+
+def _source_signal_metadata(digest_items: list[dict[str, Any]]) -> dict[str, str]:
+    commit_signals: list[dict[str, str]] = []
+    for item in digest_items:
+        fetch_source = str(item.get("fetch_source") or "")
+        repo = str(item.get("repo") or "")
+        for commit in item.get("latest_commits", []):
+            if not isinstance(commit, dict):
+                continue
+            subject = str(commit.get("subject") or "")
+            commit_signals.append(
+                {
+                    "provider": "github_commit_delta",
+                    "repo": repo,
+                    "sha": str(commit.get("sha") or ""),
+                    "subject": subject,
+                    "html_url": str(commit.get("html_url") or ""),
+                    "fetch_source": fetch_source or str(commit.get("source") or ""),
+                    "label": f"{repo} {subject}" if subject else repo,
+                }
+            )
+    if not commit_signals:
+        return {
+            "provider": "none",
+            "repo": "",
+            "sha": "",
+            "subject": "",
+            "html_url": "",
+            "fetch_source": "none",
+            "label": "no selected commit signals",
+        }
+
+    def score(signal: dict[str, str]) -> tuple[int, int]:
+        subject = signal["subject"].lower()
+        if "signalprovider" in subject or "github-signals" in subject:
+            return (0, 0)
+        if "signal" in subject:
+            return (1, 0)
+        return (2, 0)
+
+    return sorted(commit_signals, key=score)[0]
 
 
 def _simplify_commit(item: dict[str, Any]) -> dict[str, Any]:

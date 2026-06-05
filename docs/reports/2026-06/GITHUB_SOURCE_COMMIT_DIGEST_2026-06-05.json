@@ -3,7 +3,7 @@
   "commit_limit_per_repo": 5,
   "complete": true,
   "failed_repositories": 0,
-  "generated_at": "2026-06-05T00:29:26.591970+00:00",
+  "generated_at": "2026-06-05T05:35:21.734724+00:00",
   "github_api_version": "2022-11-28",
   "items": [
     {
@@ -324,7 +324,13 @@
     ],
     "overflow_repositories": 9,
     "selected_repositories": 4,
-    "source_signal": "mastra-ai/mastra opt-in PubSub subscriber batching"
+    "source_signal": "mastra-ai/mastra feat(core): add SignalProvider abstraction + @mastra/github-signals package (#17577)",
+    "source_signal_fetch_source": "github_api",
+    "source_signal_provider": "github_commit_delta",
+    "source_signal_repo": "mastra-ai/mastra",
+    "source_signal_sha": "e9be4e747ec3",
+    "source_signal_subject": "feat(core): add SignalProvider abstraction + @mastra/github-signals package (#17577)",
+    "source_signal_url": "https://github.com/mastra-ai/mastra/commit/e9be4e747ec3d8b65548bff92f9377db06105376"
   },
   "selection_policy": "Select the highest-ranked queued repositories with pushed_at movement, then review live commit subjects before any local adoption decision. Repositories beyond the configured batch are reported as overflow for the next digest instead of being silently hidden.",
   "source_change_generated_at": "2026-06-04T23:01:51.324669+00:00",

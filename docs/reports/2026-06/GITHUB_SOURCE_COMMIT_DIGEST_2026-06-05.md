@@ -12,7 +12,7 @@
 - Source change summary: `docs/reports/2026-06/GITHUB_SOURCE_CHANGE_SUMMARY_2026-06-05.json`
 - Baseline generated at: `2026-06-04T18:54:22.968302+00:00`
 - Source change generated at: `2026-06-04T23:01:51.324669+00:00`
-- Generated at: `2026-06-05T00:29:26.591970+00:00`
+- Generated at: `2026-06-05T05:35:21.734724+00:00`
 
 ## Digest
 
@@ -25,7 +25,11 @@
 
 ## Selection Batch
 
-- Source signal: `mastra-ai/mastra opt-in PubSub subscriber batching`
+- Source signal: `mastra-ai/mastra feat(core): add SignalProvider abstraction + @mastra/github-signals package (#17577)`
+- Source signal provider: `github_commit_delta`
+- Source signal commit: `mastra-ai/mastra@e9be4e747ec3`
+- Source signal fetch source: `github_api`
+- Source signal URL: https://github.com/mastra-ai/mastra/commit/e9be4e747ec3d8b65548bff92f9377db06105376
 - Batch size: `4`
 - Candidate repositories: `13`
 - Selected repositories: `4`

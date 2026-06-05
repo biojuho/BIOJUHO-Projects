@@ -94,6 +94,56 @@ def test_build_commit_digest_reports_unfetched_overflow_queue(tmp_path: Path) ->
     ]
 
 
+def test_selection_batch_prefers_signal_provider_commit_metadata(tmp_path: Path) -> None:
+    digest = load_module()
+    queue_path = tmp_path / "queue.json"
+    change_summary_path = tmp_path / "change-summary.json"
+    queue_path.write_text(json.dumps(_queue_payload()), encoding="utf-8")
+    change_summary_path.write_text(json.dumps(_change_summary_payload()), encoding="utf-8")
+
+    def fake_fetch(repo: str, since: str, until: str, limit: int, timeout_seconds: float):
+        if repo == "mastra-ai/mastra":
+            return [
+                {
+                    "sha": "e9be4e747ec3",
+                    "html_url": "https://github.com/mastra-ai/mastra/commit/e9be4e747ec3d8b65548bff92f9377db06105376",
+                    "subject": "feat(core): add SignalProvider abstraction + @mastra/github-signals package (#17577)",
+                    "author": "bot",
+                    "authored_at": until,
+                    "committed_at": until,
+                    "source": "github_api",
+                }
+            ]
+        return [
+            {
+                "sha": "f3c3efed4301",
+                "html_url": "https://github.com/microsoft/agent-framework/commit/f3c3efed4301",
+                "subject": "Python: Add GitHub Copilot integration tests to CI workflows (#6346)",
+                "author": "bot",
+                "authored_at": until,
+                "committed_at": until,
+                "source": "github_api",
+            }
+        ]
+
+    report = digest.build_commit_digest(
+        queue_path,
+        change_summary_path,
+        top=2,
+        fetch_commits=fake_fetch,
+    )
+    selection_batch = report["selection_batch"]
+    markdown = digest.render_markdown(report)
+
+    assert selection_batch["source_signal_provider"] == "github_commit_delta"
+    assert selection_batch["source_signal_repo"] == "mastra-ai/mastra"
+    assert selection_batch["source_signal_sha"] == "e9be4e747ec3"
+    assert selection_batch["source_signal_fetch_source"] == "github_api"
+    assert "SignalProvider abstraction" in selection_batch["source_signal"]
+    assert "Source signal provider: `github_commit_delta`" in markdown
+    assert "Source signal commit: `mastra-ai/mastra@e9be4e747ec3`" in markdown
+
+
 def test_build_commit_digest_records_fetch_failures(tmp_path: Path) -> None:
     digest = load_module()
     queue_path = tmp_path / "queue.json"
