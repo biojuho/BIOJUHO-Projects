@@ -43,6 +43,10 @@ const workflowHandoffScripts = [
   "scripts/prepare-github-pages-workflow.mjs",
 ];
 
+const prBridgeScripts = [
+  "scripts/plan-main-bridge.mjs",
+];
+
 const appMarkers = [
   { id: "calendar_crud", file: "app.js", terms: ["function openEventModal", "function saveEventFromForm", "function deleteEvent"] },
   { id: "todo_crud", file: "app.js", terms: ["function quickAddTodo", "function saveTodoFromForm", "function toggleTodo", "function deleteTodo"] },
@@ -270,6 +274,16 @@ function githubPagesWorkflowHandoffDryRun() {
   };
 }
 
+function mainBridgePlan() {
+  const result = run(process.execPath, ["scripts/plan-main-bridge.mjs"], { timeout: 15000 });
+  const payload = parseJson(result.stdout);
+  return {
+    status: result.ok && payload && payload.status === "pass" && payload.noCommonHistory === true && payload.mainAppPathExists === true ? "pass" : "fail",
+    command: "node scripts/plan-main-bridge.mjs",
+    result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
+  };
+}
+
 function smokeRelease() {
   const releaseOutDir = mkdtempSync(join(tmpdir(), "joopark-release-smoke-"));
   let result;
@@ -332,6 +346,23 @@ function buildChecklist() {
       files: workflowHandoffFiles,
       terms: workflowHandoffTerms,
       dryRun: workflowHandoffDryRun,
+    },
+  });
+
+  const bridgePlan = mainBridgePlan();
+  const prBridgeTerms = [
+    { file: "scripts/plan-main-bridge.mjs", terms: ["merge-base", "noCommonHistory", "apps/joopark-workspace", "codex/joopark-workspace-main-bridge", "main-subdirectory-bridge"] },
+    { file: "README.md", terms: ["node scripts/plan-main-bridge.mjs", "no common history", "apps/joopark-workspace", "codex/joopark-workspace-main-bridge"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  const prBridgeFiles = prBridgeScripts.map((path) => ({ path, exists: fileExists(path) }));
+  checklist.push({
+    id: "github_main_pr_bridge_strategy",
+    requirement: "The project has a dry-run strategy for turning the orphan release branch into a PR-ready main-based branch under apps/joopark-workspace when GitHub reports no common history.",
+    status: prBridgeFiles.every((item) => item.exists) && prBridgeTerms.every((item) => item.missingTerms.length === 0) && bridgePlan.status === "pass" ? "pass" : "fail",
+    evidence: {
+      files: prBridgeFiles,
+      terms: prBridgeTerms,
+      plan: bridgePlan,
     },
   });
 

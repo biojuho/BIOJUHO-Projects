@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T20:38:23+09:00
+Generated: 2026-06-05T20:43:52+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -350,6 +350,21 @@ Generated: 2026-06-05T20:38:23+09:00
 - `node scripts/prepare-github-pages-workflow.mjs --write --dry-run` also stayed in dry-run mode, proving the safer flag wins.
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 30/30 with `github_pages_workflow_scope_handoff`.
 
+## Experiment: GitHub main PR bridge strategy
+
+- Hypothesis: The no-common-history PR blocker becomes actionable when the release branch can prove why direct PR creation fails and outputs a main-based bridge plan for `apps/joopark-workspace`.
+- Primary metric: `mainBridgeStrategyChecks`.
+- Baseline: 0 PR bridge strategy checks; the log only recorded that GitHub rejected a draft PR because `codex/joopark-workspace-release` has no common history with `main`.
+- Candidate: `scripts/plan-main-bridge.mjs` checks `merge-base`, verifies GitHub `main` already has `apps/joopark-workspace`, and prints the main-based bridge branch plan for `codex/joopark-workspace-main-bridge`; the release audit verifies the script, README guidance, and live plan output.
+- Decision: keep.
+
+## Evidence
+
+- `git ls-remote --heads biojuho-projects main codex/joopark-workspace-release` observed `main` at `f32affb` and the release branch at `01f9bee`.
+- `git merge-base HEAD biojuho-projects/main` returned no merge base, matching the previous GitHub PR blocker.
+- `node scripts/plan-main-bridge.mjs` passed with `noCommonHistory: true`, `mainAppPathExists: true`, `appPath: apps/joopark-workspace`, and `bridgeBranch: codex/joopark-workspace-main-bridge`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 31/31 with `github_main_pr_bridge_strategy`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: no-common-history PR strategy, deeper UI workflow coverage, or Pages workflow activation verification.
+- Continue with the highest-impact product gap after the next full gate: deeper UI workflow coverage, Pages workflow activation verification, or creating the main-based PR bridge branch.
