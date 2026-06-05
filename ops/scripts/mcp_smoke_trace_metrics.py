@@ -14,6 +14,10 @@ from typing import Any
 
 REQUIRED_RESULT_FIELDS = ("scope", "name", "cwd", "command", "returncode", "ok")
 DURATION_FIELDS = ("duration_seconds", "elapsed_seconds", "duration", "elapsed")
+INPUT_TOKEN_FIELDS = ("input_tokens", "prompt_tokens", "tokens_input")
+OUTPUT_TOKEN_FIELDS = ("output_tokens", "completion_tokens", "tokens_output")
+TOTAL_TOKEN_FIELDS = ("total_tokens", "tokens")
+COST_FIELDS = ("cost_usd", "estimated_cost_usd", "usd_cost")
 DURATION_PATTERN = re.compile(
     r"\b(?:built|completed|finished|passed|failed|errors?|warnings?)\b[^\r\n]*?\bin\s+"
     r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>ms|milliseconds?|s|sec|secs|seconds?|m|min|mins|minutes?)\b",
@@ -92,6 +96,30 @@ def command_path_metrics(command: str) -> dict[str, int]:
     }
 
 
+def extract_usage(result: dict[str, Any]) -> dict[str, Any]:
+    usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
+    input_tokens, input_source = _first_number(result, usage, INPUT_TOKEN_FIELDS, integer=True)
+    output_tokens, output_source = _first_number(result, usage, OUTPUT_TOKEN_FIELDS, integer=True)
+    total_tokens, total_source = _first_number(result, usage, TOTAL_TOKEN_FIELDS, integer=True)
+    if total_tokens is None and input_tokens is not None and output_tokens is not None:
+        total_tokens = input_tokens + output_tokens
+        total_source = "derived"
+
+    cost_usd, cost_source = _first_number(result, usage, COST_FIELDS, integer=False)
+    sources = sorted(
+        source
+        for source in {input_source, output_source, total_source, cost_source}
+        if source is not None
+    )
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "cost_usd": _round_cost(cost_usd) if cost_usd is not None else None,
+        "sources": sources,
+    }
+
+
 def result_issue(result: Any, index: int) -> list[str]:
     issues: list[str] = []
     if not isinstance(result, dict):
@@ -150,6 +178,7 @@ def build_metrics(payload: dict[str, Any], *, source_path: Path, scope: str = "m
             "runtime_kinds": dict(sorted(kind_counts.items())),
             "cwd_counts": dict(sorted(cwd_counts.items())),
             "timing": _timing_summary(checks),
+            "usage": _usage_summary(checks),
             "path_depth": _path_depth_summary(checks),
         },
         "checks": checks,
@@ -182,6 +211,7 @@ def write_html(metrics: dict[str, Any], out_path: Path) -> None:
 def format_markdown(metrics: dict[str, Any]) -> str:
     summary = metrics["summary"]
     timing = summary["timing"]
+    usage = summary["usage"]
     path_depth = summary["path_depth"]
     lines = [
         "# MCP Smoke Trace Metrics",
@@ -201,6 +231,10 @@ def format_markdown(metrics: dict[str, Any]) -> str:
         f"- Timing observed: {timing['observed_checks']} observed, {timing['missing_checks']} missing",
         f"- Total observed seconds: {_markdown_value(timing['total_seconds'])}",
         f"- Slowest check: {_markdown_value(timing['slowest_check'])} ({_markdown_value(timing['max_seconds'])}s)",
+        f"- Usage observed: {usage['observed_checks']} observed, {usage['missing_checks']} missing",
+        f"- Total tokens: {_markdown_value(usage['total_tokens'])}",
+        f"- Cost USD: {_markdown_value(usage['cost_usd'])}",
+        f"- Costliest check: {_markdown_value(usage['costliest_check'])} ({_markdown_value(usage['max_cost_usd'])} USD)",
         f"- Max cwd depth: {path_depth['max_cwd_depth']}",
         f"- Max command path depth: {path_depth['max_command_path_depth']}",
         f"- Command path tokens: {path_depth['command_path_tokens']}",
@@ -221,13 +255,15 @@ def format_markdown(metrics: dict[str, Any]) -> str:
             "",
             "## Checks",
             "",
-            "| Check | Kind | OK | CWD | Duration seconds | Command path depth |",
-            "| --- | --- | --- | --- | ---: | ---: |",
+            "| Check | Kind | OK | CWD | Duration seconds | Total tokens | Cost USD | Command path depth |",
+            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: |",
         ]
     )
     for check in metrics["checks"]:
         duration = check["duration_seconds"]
         duration_cell = "" if duration is None else str(duration)
+        total_tokens = "" if check["total_tokens"] is None else str(check["total_tokens"])
+        cost_usd = "" if check["cost_usd"] is None else str(check["cost_usd"])
         lines.append(
             "| "
             f"{_markdown_cell(check['name'])} | "
@@ -235,6 +271,8 @@ def format_markdown(metrics: dict[str, Any]) -> str:
             f"{str(check['ok']).lower()} | "
             f"{_markdown_cell(check['cwd'])} | "
             f"{duration_cell} | "
+            f"{total_tokens} | "
+            f"{cost_usd} | "
             f"{check['command_path_depth']} |"
         )
 
@@ -259,6 +297,7 @@ def format_markdown(metrics: dict[str, Any]) -> str:
 def format_html(metrics: dict[str, Any]) -> str:
     summary = metrics["summary"]
     timing = summary["timing"]
+    usage = summary["usage"]
     path_depth = summary["path_depth"]
     runtime_rows = "\n".join(
         f"<tr><td>{_html_cell(kind)}</td><td>{count}</td></tr>"
@@ -271,6 +310,8 @@ def format_html(metrics: dict[str, Any]) -> str:
         f"<td>{str(check['ok']).lower()}</td>"
         f"<td>{_html_cell(check['cwd'])}</td>"
         f"<td>{'' if check['duration_seconds'] is None else check['duration_seconds']}</td>"
+        f"<td>{'' if check['total_tokens'] is None else check['total_tokens']}</td>"
+        f"<td>{'' if check['cost_usd'] is None else check['cost_usd']}</td>"
         f"<td>{check['command_path_depth']}</td>"
         "</tr>"
         for check in metrics["checks"]
@@ -310,6 +351,10 @@ def format_html(metrics: dict[str, Any]) -> str:
     <li>Timing observed: {timing['observed_checks']} observed, {timing['missing_checks']} missing</li>
     <li>Total observed seconds: {_html_cell(timing['total_seconds'])}</li>
     <li>Slowest check: {_html_cell(timing['slowest_check'])} ({_html_cell(timing['max_seconds'])}s)</li>
+    <li>Usage observed: {usage['observed_checks']} observed, {usage['missing_checks']} missing</li>
+    <li>Total tokens: {_html_cell(usage['total_tokens'])}</li>
+    <li>Cost USD: {_html_cell(usage['cost_usd'])}</li>
+    <li>Costliest check: {_html_cell(usage['costliest_check'])} ({_html_cell(usage['max_cost_usd'])} USD)</li>
     <li>Max cwd depth: {path_depth['max_cwd_depth']}</li>
     <li>Max command path depth: {path_depth['max_command_path_depth']}</li>
     <li>Command path tokens: {path_depth['command_path_tokens']}</li>
@@ -323,7 +368,7 @@ def format_html(metrics: dict[str, Any]) -> str:
   </table>
   <h2>Checks</h2>
   <table>
-    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Command path depth</th></tr></thead>
+    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Total tokens</th><th>Cost USD</th><th>Command path depth</th></tr></thead>
     <tbody>
 {check_rows}
     </tbody>
@@ -342,6 +387,7 @@ def _check_metrics(result: dict[str, Any]) -> dict[str, Any]:
     command = str(result.get("command") or "")
     cwd = str(result.get("cwd") or "")
     duration = extract_duration(result)
+    usage = extract_usage(result)
     command_paths = command_path_metrics(command)
     return {
         "name": str(result.get("name") or ""),
@@ -352,6 +398,11 @@ def _check_metrics(result: dict[str, Any]) -> dict[str, Any]:
         "command_path_depth": command_paths["max_depth"],
         "duration_seconds": duration["seconds"],
         "duration_source": duration["source"],
+        "input_tokens": usage["input_tokens"],
+        "output_tokens": usage["output_tokens"],
+        "total_tokens": usage["total_tokens"],
+        "cost_usd": usage["cost_usd"],
+        "usage_sources": usage["sources"],
         "returncode": result.get("returncode"),
         "ok": result.get("ok"),
     }
@@ -374,12 +425,80 @@ def _timing_summary(checks: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _usage_summary(checks: list[dict[str, Any]]) -> dict[str, Any]:
+    observed = [
+        check
+        for check in checks
+        if check["input_tokens"] is not None
+        or check["output_tokens"] is not None
+        or check["total_tokens"] is not None
+        or check["cost_usd"] is not None
+    ]
+    token_observed = [check for check in checks if check["total_tokens"] is not None]
+    cost_observed = [check for check in checks if check["cost_usd"] is not None]
+    heaviest = max(token_observed, key=lambda item: item["total_tokens"], default=None)
+    costliest = max(cost_observed, key=lambda item: item["cost_usd"], default=None)
+    input_total = _sum_optional_int(check["input_tokens"] for check in checks)
+    output_total = _sum_optional_int(check["output_tokens"] for check in checks)
+    token_total = _sum_optional_int(check["total_tokens"] for check in checks)
+    cost_total = _sum_optional_float(check["cost_usd"] for check in checks)
+    return {
+        "observed_checks": len(observed),
+        "missing_checks": len(checks) - len(observed),
+        "input_tokens": input_total,
+        "output_tokens": output_total,
+        "total_tokens": token_total,
+        "cost_usd": _round_cost(cost_total) if cost_total is not None else None,
+        "max_tokens": heaviest["total_tokens"] if heaviest else None,
+        "token_heaviest_check": heaviest["name"] if heaviest else None,
+        "max_cost_usd": costliest["cost_usd"] if costliest else None,
+        "costliest_check": costliest["name"] if costliest else None,
+    }
+
+
 def _path_depth_summary(checks: list[dict[str, Any]]) -> dict[str, int]:
     return {
         "max_cwd_depth": max((check["cwd_depth"] for check in checks), default=0),
         "max_command_path_depth": max((check["command_path_depth"] for check in checks), default=0),
         "command_path_tokens": sum(check["command_path_tokens"] for check in checks),
     }
+
+
+def _first_number(
+    result: dict[str, Any],
+    usage: dict[str, Any],
+    fields: tuple[str, ...],
+    *,
+    integer: bool,
+) -> tuple[int | float | None, str | None]:
+    for container, prefix in ((result, ""), (usage, "usage.")):
+        for field in fields:
+            value = _number_value(container.get(field), integer=integer)
+            if value is not None:
+                return value, f"{prefix}{field}"
+    return None, None
+
+
+def _number_value(value: Any, *, integer: bool) -> int | float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)) and value >= 0:
+        return int(value) if integer else float(value)
+    return None
+
+
+def _sum_optional_int(values: Any) -> int | None:
+    observed = [value for value in values if value is not None]
+    return sum(observed) if observed else None
+
+
+def _sum_optional_float(values: Any) -> float | None:
+    observed = [value for value in values if value is not None]
+    return sum(observed) if observed else None
+
+
+def _round_cost(value: float) -> float:
+    return round(value, 6)
 
 
 def _duration_field_seconds(value: Any) -> float | None:

@@ -48,6 +48,7 @@ def result(
     stdout_tail: str = "",
     stderr_tail: str = "",
     duration_seconds: float | None = None,
+    **extra,
 ) -> dict:
     payload = {
         "scope": scope,
@@ -61,6 +62,7 @@ def result(
     }
     if duration_seconds is not None:
         payload["duration_seconds"] = duration_seconds
+    payload.update(extra)
     return payload
 
 
@@ -93,6 +95,18 @@ def test_build_metrics_summarizes_mcp_runtime_kinds(tmp_path: Path) -> None:
         "total_seconds": 1.17,
         "max_seconds": 1.17,
         "slowest_check": "canva-mcp build",
+    }
+    assert metrics["summary"]["usage"] == {
+        "observed_checks": 0,
+        "missing_checks": 2,
+        "input_tokens": None,
+        "output_tokens": None,
+        "total_tokens": None,
+        "cost_usd": None,
+        "max_tokens": None,
+        "token_heaviest_check": None,
+        "max_cost_usd": None,
+        "costliest_check": None,
     }
     assert metrics["summary"]["path_depth"]["max_cwd_depth"] == 2
     assert metrics["summary"]["path_depth"]["max_command_path_depth"] == 2
@@ -166,6 +180,50 @@ def test_build_metrics_derives_timing_and_path_depth_from_trace_tails(tmp_path: 
     assert metrics["checks"][2]["duration_source"] == "duration_seconds"
 
 
+def test_build_metrics_summarizes_optional_token_and_cost_usage(tmp_path: Path) -> None:
+    metrics_module = load_metrics_module()
+    payload = smoke_payload(
+        [
+            result(
+                "agent eval",
+                "python -m pytest tests -q",
+                input_tokens=120,
+                output_tokens=30,
+                cost_usd=0.00123456,
+            ),
+            result(
+                "nested eval",
+                "python -m pytest tests -q",
+                usage={"prompt_tokens": 50, "completion_tokens": 10, "estimated_cost_usd": 0.002},
+            ),
+            result("no usage", "python -m pytest tests -q"),
+        ]
+    )
+
+    metrics = metrics_module.build_metrics(payload, source_path=tmp_path / "smoke.json")
+
+    assert metrics["summary"]["usage"] == {
+        "observed_checks": 2,
+        "missing_checks": 1,
+        "input_tokens": 170,
+        "output_tokens": 40,
+        "total_tokens": 210,
+        "cost_usd": 0.003235,
+        "max_tokens": 150,
+        "token_heaviest_check": "agent eval",
+        "max_cost_usd": 0.002,
+        "costliest_check": "nested eval",
+    }
+    assert metrics["checks"][0]["total_tokens"] == 150
+    assert metrics["checks"][0]["usage_sources"] == ["cost_usd", "derived", "input_tokens", "output_tokens"]
+    assert metrics["checks"][1]["usage_sources"] == [
+        "derived",
+        "usage.completion_tokens",
+        "usage.estimated_cost_usd",
+        "usage.prompt_tokens",
+    ]
+
+
 def test_format_markdown_summarizes_metrics_for_handoff(tmp_path: Path) -> None:
     metrics_module = load_metrics_module()
     payload = smoke_payload(
@@ -175,6 +233,8 @@ def test_format_markdown_summarizes_metrics_for_handoff(tmp_path: Path) -> None:
                 "npm.cmd run build",
                 cwd="mcp\\canva-mcp",
                 stdout_tail="built in 820ms",
+                total_tokens=88,
+                cost_usd=0.0042,
             ),
             result("telegram tests", "python -m pytest tests -q"),
         ]
@@ -187,9 +247,12 @@ def test_format_markdown_summarizes_metrics_for_handoff(tmp_path: Path) -> None:
     assert "- Checks: 2" in report
     assert "- Total observed seconds: `0.82`" in report
     assert "- Slowest check: `canva\\|build` (`0.82`s)" in report
+    assert "- Usage observed: 1 observed, 1 missing" in report
+    assert "- Total tokens: `88`" in report
+    assert "- Cost USD: `0.0042`" in report
     assert "| npm | 1 |" in report
     assert "| pytest | 1 |" in report
-    assert "| canva\\|build | npm | true | mcp\\canva-mcp | 0.82 | 0 |" in report
+    assert "| canva\\|build | npm | true | mcp\\canva-mcp | 0.82 | 88 | 0.0042 | 0 |" in report
     assert "- OK: `true`" in report
     assert "- Issues: none" in report
 
@@ -203,6 +266,8 @@ def test_format_html_summarizes_metrics_for_ci_report(tmp_path: Path) -> None:
                 "npm.cmd run build",
                 cwd="mcp\\canva-mcp",
                 stdout_tail="built in 820ms",
+                total_tokens=88,
+                cost_usd=0.0042,
             ),
         ]
     )
@@ -214,7 +279,10 @@ def test_format_html_summarizes_metrics_for_ci_report(tmp_path: Path) -> None:
     assert "<title>MCP Smoke Trace Metrics</title>" in report
     assert "canva&lt;script&gt;" in report
     assert "<li>Checks: 1</li>" in report
+    assert "<li>Usage observed: 1 observed, 0 missing</li>" in report
+    assert "<li>Total tokens: 88</li>" in report
     assert "<td>npm</td><td>1</td>" in report
+    assert "<td>0.0042</td>" in report
     assert '<p class="ok">OK: true</p>' in report
 
 
@@ -260,7 +328,7 @@ def test_cli_writes_metrics_json_markdown_and_html(tmp_path: Path) -> None:
     assert metrics["trace_integrity"]["ok"] is True
     markdown = markdown_path.read_text(encoding="utf-8")
     assert "# MCP Smoke Trace Metrics" in markdown
-    assert "| DailyNews unit tests | pytest | true | . |  | 2 |" in markdown
+    assert "| DailyNews unit tests | pytest | true | . |  |  |  | 2 |" in markdown
     html = html_path.read_text(encoding="utf-8")
     assert "<h1>MCP Smoke Trace Metrics</h1>" in html
     assert "<td>DailyNews unit tests</td>" in html

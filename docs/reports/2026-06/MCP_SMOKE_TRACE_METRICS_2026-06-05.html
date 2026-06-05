@@ -31,6 +31,10 @@
     <li>Timing observed: 4 observed, 2 missing</li>
     <li>Total observed seconds: 119.43</li>
     <li>Slowest check: DailyNews unit tests (117.48s)</li>
+    <li>Usage observed: 0 observed, 6 missing</li>
+    <li>Total tokens: None</li>
+    <li>Cost USD: None</li>
+    <li>Costliest check: None (None USD)</li>
     <li>Max cwd depth: 2</li>
     <li>Max command path depth: 5</li>
     <li>Command path tokens: 14</li>
@@ -46,14 +50,14 @@
   </table>
   <h2>Checks</h2>
   <table>
-    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Command path depth</th></tr></thead>
+    <thead><tr><th>Check</th><th>Kind</th><th>OK</th><th>CWD</th><th>Duration seconds</th><th>Total tokens</th><th>Cost USD</th><th>Command path depth</th></tr></thead>
     <tbody>
-<tr><td>notebooklm compile</td><td>compileall</td><td>true</td><td>.</td><td></td><td>5</td></tr>
-<tr><td>github-mcp compile</td><td>compileall</td><td>true</td><td>.</td><td></td><td>5</td></tr>
-<tr><td>DailyNews unit tests</td><td>pytest</td><td>true</td><td>automation\DailyNews</td><td>117.48</td><td>4</td></tr>
-<tr><td>canva-mcp build</td><td>npm</td><td>true</td><td>mcp\canva-mcp</td><td>1.17</td><td>0</td></tr>
-<tr><td>desci-research-mcp tests</td><td>pytest</td><td>true</td><td>mcp\desci-research-mcp</td><td>0.38</td><td>4</td></tr>
-<tr><td>telegram-mcp tests</td><td>pytest</td><td>true</td><td>mcp\telegram-mcp</td><td>0.4</td><td>4</td></tr>
+<tr><td>notebooklm compile</td><td>compileall</td><td>true</td><td>.</td><td></td><td></td><td></td><td>5</td></tr>
+<tr><td>github-mcp compile</td><td>compileall</td><td>true</td><td>.</td><td></td><td></td><td></td><td>5</td></tr>
+<tr><td>DailyNews unit tests</td><td>pytest</td><td>true</td><td>automation\DailyNews</td><td>117.48</td><td></td><td></td><td>4</td></tr>
+<tr><td>canva-mcp build</td><td>npm</td><td>true</td><td>mcp\canva-mcp</td><td>1.17</td><td></td><td></td><td>0</td></tr>
+<tr><td>desci-research-mcp tests</td><td>pytest</td><td>true</td><td>mcp\desci-research-mcp</td><td>0.38</td><td></td><td></td><td>4</td></tr>
+<tr><td>telegram-mcp tests</td><td>pytest</td><td>true</td><td>mcp\telegram-mcp</td><td>0.4</td><td></td><td></td><td>4</td></tr>
     </tbody>
   </table>
   <h2>Trace Integrity</h2>
