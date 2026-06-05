@@ -213,20 +213,55 @@ function projectBenchmarkRubric(p) {
   const focus = p && typeof p.benchmarkFocus === "object" ? p.benchmarkFocus : null;
   const rubric = focus && Array.isArray(focus.rubric) ? focus.rubric : [];
   return rubric
-    .map((row) => {
-      const score = Number(row && row.score);
-      return {
-        axis: String(row && row.axis || "").trim(),
-        value: String(row && row.value || "").trim(),
-        score: Number.isFinite(score) ? Math.max(0, Math.round(score)) : null,
-      };
-    })
+    .map((row) => ({
+      axis: String(row && row.axis || "").trim(),
+      value: String(row && row.value || "").trim(),
+      weight: Math.max(0, Math.min(1, Number(row && row.weight) || 0)),
+      score: Math.max(0, Math.min(100, Number(row && row.score) || 0)),
+    }))
     .filter((row) => row.axis && row.value)
     .slice(0, 6);
 }
 
-function projectBenchmarkRubricScore(project) {
-  return projectBenchmarkRubric(project).reduce((sum, row) => sum + (Number.isFinite(row.score) ? row.score : 0), 0);
+function projectBenchmarkRubricScore(p) {
+  const scored = projectBenchmarkRubric(p).filter((row) => row.weight > 0 && row.score > 0);
+  const totalWeight = scored.reduce((sum, row) => sum + row.weight, 0);
+  if (!totalWeight) return null;
+  const score = Math.round(scored.reduce((sum, row) => sum + row.score * row.weight, 0) / totalWeight);
+  const label = score >= 86 ? "강한 추천" : score >= 80 ? "추천" : score >= 72 ? "조건부" : "보류";
+  return { score, label };
+}
+
+function candidateBenchmarkRubricRanking(projects) {
+  return (Array.isArray(projects) ? projects : [])
+    .map((project) => ({ project, rubricScore: projectBenchmarkRubricScore(project) }))
+    .filter((item) => item.rubricScore)
+    .sort((a, b) => b.rubricScore.score - a.rubricScore.score || String(a.project.name || "").localeCompare(String(b.project.name || "")));
+}
+
+function candidateBenchmarkRecommendationMarkdown(scored) {
+  if (!Array.isArray(scored) || scored.length < 2) return "";
+  const [top, runnerUp] = scored;
+  const gap = top.rubricScore.score - runnerUp.rubricScore.score;
+  const topAxis = projectBenchmarkRubric(top.project)
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
+  const lines = [
+    "# JooPark Benchmark Recommendation",
+    "",
+    `Recommendation: adopt ${top.project.name} first (${top.rubricScore.label} ${top.rubricScore.score}), and keep ${runnerUp.project.name} as the secondary benchmark (${runnerUp.rubricScore.label} ${runnerUp.rubricScore.score}).`,
+    `Score gap: ${gap} point${gap === 1 ? "" : "s"}.`,
+    topAxis ? `Primary reason: ${topAxis.axis} scored ${topAxis.score} at ${Math.round(topAxis.weight * 100)}% weight because ${topAxis.value}.` : "",
+    "",
+    "## Weighted Scores",
+  ].filter(Boolean);
+  scored.forEach(({ project, rubricScore }) => {
+    lines.push("", `### ${project.name}: ${rubricScore.label} ${rubricScore.score}`);
+    projectBenchmarkRubric(project).forEach((row) => {
+      lines.push(`- ${row.axis}: weight ${Math.round(row.weight * 100)}%, score ${row.score} - ${row.value}`);
+    });
+  });
+  return lines.join("\n");
 }
 
 function projectAdoptionMeta(p) {
@@ -1061,38 +1096,76 @@ function candidateBenchmarkRubric(projects, filter) {
   const focused = sortBenchmarkFocusProjects(projects.filter((p) => p.sourceKind === "adoption-candidate" && projectBenchmarkRubric(p).length > 0)).slice(0, 2);
   if (focused.length < 2) return "";
   const axes = ["입력 소스", "AI 보조", "PM 표면", "운영 방식"];
-  const rowFor = (project, axis) => projectBenchmarkRubric(project).find((row) => row.axis === axis) || { value: "비교 대기", score: null };
+  const rowFor = (project, axis) => projectBenchmarkRubric(project).find((row) => row.axis === axis) || null;
+  const scored = candidateBenchmarkRubricRanking(focused);
+  const topRecommendation = scored[0] || null;
   const header = html`
     <div class="portfolio-rubric-axis">비교 축</div>
-    ${focused.map((project) => html`
-      <div class="portfolio-rubric-project" data-rubric-project="${project.name}" data-rubric-total="${projectBenchmarkRubricScore(project)}">
-        <span>${project.name}</span>
-        <strong class="portfolio-rubric-project-score">${projectBenchmarkRubricScore(project)}점</strong>
-      </div>
-    `).join("")}
+    ${raw(focused.map((project) => {
+      const score = projectBenchmarkRubricScore(project);
+      return html`<div class="portfolio-rubric-project" data-rubric-project="${project.name}">${project.name}${score ? raw(html`<small data-rubric-total-score="${score.score}">${score.label} ${score.score}</small>`) : ""}</div>`;
+    }).join(""))}
   `;
   const rows = axes.map((axis) => html`
     <div class="portfolio-rubric-axis" data-benchmark-rubric-axis="${axis}">${axis}</div>
-    ${focused.map((project) => {
+    ${raw(focused.map((project) => {
       const row = rowFor(project, axis);
-      return html`
-        <div class="portfolio-rubric-value" data-rubric-project="${project.name}" data-rubric-axis="${axis}" data-rubric-score="${Number.isFinite(row.score) ? row.score : ""}">
-          <span>${row.value}</span>
-          ${Number.isFinite(row.score) ? raw(html`<b class="portfolio-rubric-score">${row.score}점</b>`) : ""}
-        </div>
-      `;
-    }).join("")}
+      const weight = row && row.weight ? `${Math.round(row.weight * 100)}%` : "가중 없음";
+      const score = row && row.score ? `${row.score}점` : "점수 없음";
+      return html`<div class="portfolio-rubric-value" data-rubric-project="${project.name}" data-rubric-axis="${axis}" data-rubric-weight="${row ? row.weight : 0}" data-rubric-score="${row ? row.score : 0}"><span>${row ? row.value : "비교 대기"}</span><small>${weight} · ${score}</small></div>`;
+    }).join(""))}
   `).join("");
   return html`
     <section class="portfolio-benchmark-rubric" data-candidate-benchmark-rubric>
       <div class="portfolio-rubric-head">
         <span>벤치 비교표</span>
-        <strong>${focused.map((project) => `${project.name.split("/").pop()} ${projectBenchmarkRubricScore(project)}점`).join(" / ")}</strong>
+        <strong>${focused.map((project) => project.name.split("/").pop()).join(" / ")}</strong>
       </div>
+      ${topRecommendation ? raw(html`<div class="portfolio-rubric-score" data-benchmark-rubric-recommendation="${topRecommendation.project.name}" data-rubric-score="${topRecommendation.rubricScore.score}"><span>추천 후보</span><strong>${topRecommendation.project.name}</strong><small>${topRecommendation.rubricScore.label} ${topRecommendation.rubricScore.score}</small></div>`) : ""}
       <div class="portfolio-rubric-grid">
         ${raw(header)}
         ${raw(rows)}
       </div>
+      ${raw(candidateBenchmarkRecommendationExport(scored))}
+    </section>
+  `;
+}
+
+function candidateBenchmarkRecommendationExport(scored) {
+  if (!Array.isArray(scored) || scored.length < 2) return "";
+  const [top, runnerUp] = scored;
+  const markdown = candidateBenchmarkRecommendationMarkdown(scored);
+  if (!markdown) return "";
+  const gap = top.rubricScore.score - runnerUp.rubricScore.score;
+  const topAxis = projectBenchmarkRubric(top.project)
+    .filter((row) => row.weight > 0 && row.score > 0)
+    .sort((a, b) => (b.score * b.weight) - (a.score * a.weight))[0] || null;
+  const href = `data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`;
+  return html`
+    <section class="portfolio-benchmark-export" data-candidate-benchmark-export data-benchmark-export-winner="${top.project.name}" data-benchmark-export-gap="${gap}" data-benchmark-export-format="markdown">
+      <div class="portfolio-export-head">
+        <span>추천 export</span>
+        <a class="portfolio-export-download" data-benchmark-export-download href="${href}" download="joopark-benchmark-recommendation.md">MD 저장</a>
+      </div>
+      <div class="portfolio-export-grid">
+        <div>
+          <span>우선 채택</span>
+          <strong>${top.project.name} ${top.rubricScore.label} ${top.rubricScore.score}</strong>
+        </div>
+        <div>
+          <span>보조 벤치</span>
+          <strong>${runnerUp.project.name} ${runnerUp.rubricScore.label} ${runnerUp.rubricScore.score}</strong>
+        </div>
+        <div>
+          <span>격차</span>
+          <strong>${gap}점</strong>
+        </div>
+        <div>
+          <span>근거</span>
+          <strong>${topAxis ? `${topAxis.axis} ${topAxis.score}` : "점수 대기"}</strong>
+        </div>
+      </div>
+      <pre class="portfolio-export-body" data-benchmark-export-text>${markdown}</pre>
     </section>
   `;
 }

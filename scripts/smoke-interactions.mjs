@@ -368,7 +368,8 @@ const interactionExpression = `
   let candidateBenchmarkFocusVisibleOk = false;
   let candidateBenchmarkQueueVisibleOk = false;
   let candidateBenchmarkRubricVisibleOk = false;
-  let candidateBenchmarkScoredRubricVisibleOk = false;
+  let candidateBenchmarkRubricScoreVisibleOk = false;
+  let candidateBenchmarkRecommendationExportVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -713,14 +714,33 @@ const interactionExpression = `
     ].forEach((term) => {
       assert(benchmarkRubric.innerText.includes(term), "benchmark rubric value did not render: " + term);
     });
-    const rubricText = benchmarkRubric.innerText;
-    assert(rubricText.includes("happybhati/workstream") && rubricText.includes("88점"), "Workstream rubric total did not render");
-    assert(rubricText.includes("Taskosaur/Taskosaur") && rubricText.includes("86점"), "Taskosaur rubric total did not render");
-    assert(rubricText.includes("GitHub/GitLab PR + Jira task + Google Calendar") && rubricText.includes("30점"), "Workstream input rubric score did not render");
-    assert(rubricText.includes("in-app conversational execution + browser task execution") && rubricText.includes("28점"), "Taskosaur AI rubric score did not render");
-    assert(rubricText.includes("88점") && rubricText.includes("86점") && rubricText.includes("30점") && rubricText.includes("28점"), "benchmark rubric score labels did not render");
-    candidateBenchmarkScoredRubricVisibleOk = true;
+    const taskosaurBenchmark = benchmarkFocusQueue.find((project) => project.name === "Taskosaur/Taskosaur");
+    const workstreamBenchmark = benchmarkFocusQueue.find((project) => project.name === "happybhati/workstream");
+    const taskosaurScore = projectBenchmarkRubricScore(taskosaurBenchmark);
+    const workstreamScore = projectBenchmarkRubricScore(workstreamBenchmark);
+    const recommendation = qs("[data-benchmark-rubric-recommendation]", benchmarkRubric);
+    assert(taskosaurScore && taskosaurScore.score === 86, "Taskosaur benchmark rubric score was wrong");
+    assert(workstreamScore && workstreamScore.score === 85, "Workstream benchmark rubric score was wrong");
+    assert(recommendation.dataset.benchmarkRubricRecommendation === "Taskosaur/Taskosaur", "benchmark rubric recommendation did not pick Taskosaur");
+    assert(recommendation.dataset.rubricScore === String(taskosaurScore.score), "benchmark rubric recommendation score did not render");
+    assert(benchmarkRubric.innerText.includes("강한 추천 86"), "benchmark rubric score label did not render");
+    const rubricCells = Array.from(benchmarkRubric.querySelectorAll("[data-rubric-project][data-rubric-axis]"));
+    const taskosaurAiRubric = rubricCells.find((cell) => cell.dataset.rubricProject === "Taskosaur/Taskosaur" && cell.dataset.rubricAxis === "AI 보조");
+    assert(taskosaurAiRubric, "Taskosaur benchmark rubric AI cell did not render: " + JSON.stringify(rubricCells.map((cell) => ({ project: cell.dataset.rubricProject, axis: cell.dataset.rubricAxis }))));
+    assert(taskosaurAiRubric.dataset.rubricWeight === "0.3", "benchmark rubric AI weight did not render");
+    assert(taskosaurAiRubric.dataset.rubricScore === "92", "benchmark rubric AI score did not render");
+    const benchmarkExport = qs("[data-candidate-benchmark-export]", benchmarkRubric);
+    const exportDownload = qs("[data-benchmark-export-download]", benchmarkExport);
+    const exportText = qs("[data-benchmark-export-text]", benchmarkExport).innerText;
+    assert(benchmarkExport.dataset.benchmarkExportWinner === "Taskosaur/Taskosaur", "benchmark recommendation export winner did not render");
+    assert(benchmarkExport.dataset.benchmarkExportGap === "1", "benchmark recommendation export gap did not render");
+    assert(exportDownload.getAttribute("download") === "joopark-benchmark-recommendation.md", "benchmark recommendation export filename did not render");
+    assert(exportDownload.getAttribute("href").startsWith("data:text/markdown;charset=utf-8,"), "benchmark recommendation export markdown link did not render");
+    assert(exportText.includes("Recommendation: adopt Taskosaur/Taskosaur first") && exportText.includes("happybhati/workstream as the secondary benchmark"), "benchmark recommendation export copy did not render");
+    assert(exportText.includes("Score gap: 1 point") && exportText.includes("Primary reason: AI 보조 scored 92 at 30% weight"), "benchmark recommendation export rationale did not render");
     candidateBenchmarkRubricVisibleOk = true;
+    candidateBenchmarkRubricScoreVisibleOk = true;
+    candidateBenchmarkRecommendationExportVisibleOk = true;
     click('[data-action="portfolio-benchmark-filter"][data-benchmark-filter="all"]');
     await waitFor(() => state.portfolioBenchmarkFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "benchmark focus filter did not reset");
     candidateBenchmarkQueueVisibleOk = true;
@@ -908,7 +928,8 @@ const interactionExpression = `
     candidateBenchmarkFocusVisibleOk = true;
     candidateBenchmarkQueueVisibleOk = true;
     candidateBenchmarkRubricVisibleOk = true;
-    candidateBenchmarkScoredRubricVisibleOk = true;
+    candidateBenchmarkRubricScoreVisibleOk = true;
+    candidateBenchmarkRecommendationExportVisibleOk = true;
   });
 
   let projectId = "";
@@ -1144,7 +1165,8 @@ const interactionExpression = `
     candidateBenchmarkFocusVisible: candidateBenchmarkFocusVisibleOk,
     candidateBenchmarkQueueVisible: candidateBenchmarkQueueVisibleOk,
     candidateBenchmarkRubricVisible: candidateBenchmarkRubricVisibleOk,
-    candidateBenchmarkScoredRubricVisible: candidateBenchmarkScoredRubricVisibleOk,
+    candidateBenchmarkRubricScoreVisible: candidateBenchmarkRubricScoreVisibleOk,
+    candidateBenchmarkRecommendationExportVisible: candidateBenchmarkRecommendationExportVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-06T03:45:38+09:00",
+  "generatedAt": "2026-06-06T04:06:25+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 43,
+      "pass": 44,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 43
+      "total": 44
     },
     "browserEvidence": {
       "routes": 15,
@@ -79,8 +79,10 @@
       "taskosaurWorkstreamBenchmarkQueueChecks": 3,
       "candidateBenchmarkRubricVisible": true,
       "taskosaurWorkstreamBenchmarkRubricChecks": 4,
-      "candidateBenchmarkScoredRubricVisible": true,
-      "taskosaurWorkstreamBenchmarkScoredRubricChecks": 5
+      "candidateBenchmarkRubricScoreVisible": true,
+      "taskosaurWorkstreamBenchmarkRubricScoreChecks": 4,
+      "candidateBenchmarkRecommendationExportVisible": true,
+      "taskosaurWorkstreamBenchmarkRecommendationExportChecks": 4
     }
   },
   "experiments": [
@@ -505,10 +507,17 @@
       "decision": "keep"
     },
     {
-      "id": "taskosaur-workstream-benchmark-scored-rubric",
-      "primaryMetric": "taskosaurWorkstreamBenchmarkScoredRubricChecks",
+      "id": "taskosaur-workstream-benchmark-rubric-score",
+      "primaryMetric": "taskosaurWorkstreamBenchmarkRubricScoreChecks",
       "baseline": 0,
-      "candidate": 5,
+      "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "taskosaur-workstream-benchmark-recommendation-export",
+      "primaryMetric": "taskosaurWorkstreamBenchmarkRecommendationExportChecks",
+      "baseline": 0,
+      "candidate": 4,
       "decision": "keep"
     }
   ],
@@ -523,7 +532,7 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "add a benchmark recommendation export for the scored rubric",
+    "persist benchmark rubric score decisions into the review queue",
     "wire Veritas --fail-on-change into scheduled CI once GitHub token policy is confirmed",
     "use the Veritas snapshot writer for the next focused refresh when dry-run reports changed true"
   ]
