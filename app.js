@@ -898,6 +898,48 @@ function portfolioMatchesActionFilter(project, filter) {
   return project.sourceKind === "adoption-candidate" && action && action.key === filter;
 }
 
+function candidateActionQueueSummary(projects, filter) {
+  const selected = CANDIDATE_ACTION_FILTERS.find((item) => item.key === filter) || CANDIDATE_ACTION_FILTERS[0];
+  const queue = projects.filter((p) => p.sourceKind === "adoption-candidate" && portfolioMatchesActionFilter(p, selected.key));
+  const ranked = [...queue].sort((a, b) => {
+    const aPriority = projectCandidatePriority(a);
+    const bPriority = projectCandidatePriority(b);
+    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+  const top = ranked[0] || null;
+  const topPriority = top ? projectCandidatePriority(top) : null;
+  const topAction = top ? projectCandidateAction(top) : null;
+  const riskCount = queue.filter((p) => numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200).length;
+  const activeActions = new Set(queue.map((p) => projectCandidateAction(p)?.key).filter(Boolean)).size;
+  return html`
+    <section class="portfolio-action-summary" data-candidate-action-summary data-action-filter-summary="${selected.key}">
+      <div>
+        <span>액션 대기열</span>
+        <strong>${selected.label}</strong>
+      </div>
+      <div>
+        <span>후보</span>
+        <strong>${queue.length}개</strong>
+      </div>
+      <div>
+        <span>최우선</span>
+        <strong data-candidate-action-summary-top>${top ? top.name : "없음"}</strong>
+        ${topPriority ? raw(html`<small>${topPriority.label} ${topPriority.score}</small>`) : ""}
+      </div>
+      <div>
+        <span>검토 기준</span>
+        <strong>${topAction ? topAction.reason : selected.key === "all" ? `${activeActions}개 액션` : "대기 없음"}</strong>
+      </div>
+      <div>
+        <span>리스크</span>
+        <strong>${riskCount}개</strong>
+      </div>
+    </section>
+  `;
+}
+
 function sortPortfolioProjects(projects) {
   if (state.portfolioFilter !== "candidates") return projects;
   return [...projects].sort((a, b) => {
@@ -938,6 +980,7 @@ function renderPortfolio() {
       const count = filter.key === "all" ? candidateCount : actionCounts[filter.key] || 0;
       return html`<button type="button" class="seg-chip ${raw(state.portfolioActionFilter === filter.key ? "is-active" : "")}" data-action="portfolio-action-filter" data-action-filter="${filter.key}" aria-pressed="${raw(state.portfolioActionFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
     }).join("");
+  const actionSummary = candidateActionQueueSummary(dashboard.projects, state.portfolioActionFilter);
 
   const stats = {
     total: dashboard.projects.length,
@@ -1006,6 +1049,7 @@ function renderPortfolio() {
     <div class="portfolio-action-filter" data-candidate-action-filter-panel>
       <div class="seg-control" aria-label="후보 액션 필터">${raw(actionFilterChips)}</div>
     </div>
+    ${raw(actionSummary)}
     <section class="portfolio-grid">
       ${list.length === 0 ? raw(html`<article class="empty">일치하는 프로젝트가 없습니다.</article>`) : raw(list.map(card).join(""))}
     </section>

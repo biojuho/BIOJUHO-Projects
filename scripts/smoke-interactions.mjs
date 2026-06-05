@@ -346,6 +346,7 @@ const interactionExpression = `
   let workspaceCompetitiveCandidateVisibleOk = false;
   let candidateNextActionVisibleOk = false;
   let candidateActionFilterOk = false;
+  let candidateActionSummaryVisibleOk = false;
   let portfolioCandidateFilterOk = false;
   let portfolioCandidateRankedOk = false;
   let importedMarker = "";
@@ -544,9 +545,16 @@ const interactionExpression = `
     await waitFor(() => state.portfolioFilter === "candidates" && state.portfolioActionFilter === "architecture" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === architectureCount, "architecture action filter did not narrow candidate cards");
     assert(qs('[data-action="portfolio-action-filter"][data-action-filter="architecture"]').getAttribute("aria-pressed") === "true", "architecture action filter was not active");
     assert(!!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + benchmarkCandidate.id + '"]'), "architecture action filter did not keep Colanode visible");
+    const actionSummary = qs("[data-candidate-action-summary]");
+    assert(actionSummary.dataset.actionFilterSummary === "architecture", "architecture action summary did not track active filter");
+    assert(actionSummary.innerText.includes("아키텍처 벤치"), "architecture action summary label did not render");
+    assert(actionSummary.innerText.includes(architectureCount + "개"), "architecture action summary count did not render");
+    assert(actionSummary.innerText.includes("colanode/colanode"), "architecture action summary top candidate did not render");
+    assert(actionSummary.innerText.includes("로컬 퍼스트 구조"), "architecture action summary reason did not render");
     click('[data-action="portfolio-action-filter"][data-action-filter="risk"]');
     await waitFor(() => state.portfolioActionFilter === "risk" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === riskCount, "risk action filter did not narrow candidate cards");
     assert(!!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + riskCandidate.id + '"]'), "risk action filter did not keep OpenProject visible");
+    assert(qs("[data-candidate-action-summary]").innerText.includes("리스크 리뷰"), "risk action summary label did not render");
     click('[data-action="portfolio-action-filter"][data-action-filter="all"]');
     await waitFor(() => state.portfolioActionFilter === "all" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "candidate action filter did not reset");
     click('[data-action="portfolio-filter"][data-filter="owned"]');
@@ -594,6 +602,7 @@ const interactionExpression = `
     workspaceCompetitiveCandidateVisibleOk = true;
     candidateNextActionVisibleOk = true;
     candidateActionFilterOk = true;
+    candidateActionSummaryVisibleOk = true;
   });
 
   let projectId = "";
@@ -809,6 +818,7 @@ const interactionExpression = `
     workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
     candidateNextActionVisible: candidateNextActionVisibleOk,
     candidateActionFilter: candidateActionFilterOk,
+    candidateActionSummaryVisible: candidateActionSummaryVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
     portfolioCandidateRanked: portfolioCandidateRankedOk,
   };

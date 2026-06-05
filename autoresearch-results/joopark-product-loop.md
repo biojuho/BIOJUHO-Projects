@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T19:54:24+09:00
+Generated: 2026-06-05T20:02:08+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -255,6 +255,22 @@ Generated: 2026-06-05T19:54:24+09:00
 - `node scripts/audit-release-readiness.mjs --run-gates` passed 23/23.
 - Packaged interaction smoke reported `candidateActionFilter: true`, `candidateNextActionVisible: true`, and `portfolioCandidateRanked: true`.
 - `scripts/smoke-interactions.mjs` verifies the architecture filter keeps Colanode visible and the risk filter keeps OpenProject visible.
+
+## Experiment: portfolio candidate action summary
+
+- Hypothesis: Selected action queues are easier to act on when the UI shows the matching count, top candidate, top reason, and risk count near the action filter.
+- Primary metric: `candidateActionSummaryVisible` in packaged interaction smoke.
+- Baseline: the action filter narrowed candidate cards, but operators had no queue summary for the selected next action.
+- Candidate: the selected action queue renders a compact summary with the action label, queue count, top candidate, top priority reason, and risk count.
+- Decision: keep.
+
+## Evidence
+
+- External source signals used: Linear filter and triage patterns, plus OpenProject filtered work package views, support keeping filtered queues visible with review context.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 24/24.
+- Packaged interaction smoke reported `candidateActionSummaryVisible: true`.
+- `scripts/smoke-interactions.mjs` verifies the architecture summary shows `colanode/colanode` and `로컬 퍼스트 구조`, and the risk summary shows `리스크 리뷰`.
+- External sources checked: `https://linear.app/docs/filters`, `https://linear.app/docs/triage`, and `https://www.openproject.org/docs/user-guide/work-packages`.
 
 ## Next Loop
 

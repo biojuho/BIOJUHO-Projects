@@ -460,6 +460,18 @@ function buildChecklist() {
     evidence: candidateActionFilterTerms,
   });
 
+  const candidateActionSummaryTerms = [
+    { file: "app.js", terms: ["function candidateActionQueueSummary", "data-candidate-action-summary", "data-candidate-action-summary-top"] },
+    { file: "styles.css", terms: [".portfolio-action-summary"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateActionSummaryVisible", "architecture action summary top candidate did not render", "risk action summary label did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_action_summary",
+    requirement: "The portfolio candidate action queue exposes a summary of the selected action, including count, top candidate, review reason, and risk count, with browser smoke coverage.",
+    status: candidateActionSummaryTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateActionSummaryTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },

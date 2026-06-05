@@ -2748,6 +2748,42 @@ textarea:focus:not(:focus-visible) { outline: none; }
   font-size: 11px;
 }
 
+.portfolio-action-summary {
+  display: grid;
+  grid-template-columns: 1.1fr 0.7fr 1.6fr 1.3fr 0.7fr;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ink-50);
+}
+
+.portfolio-action-summary div {
+  min-width: 0;
+}
+
+.portfolio-action-summary span,
+.portfolio-action-summary small {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portfolio-action-summary strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 카드 전체를 article로 변경했으므로 head 조정 */
 .portfolio-head {
   display: flex;
