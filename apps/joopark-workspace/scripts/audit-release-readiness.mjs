@@ -245,6 +245,16 @@ function workspaceCandidateSnapshot(relPath) {
       name: "Worklenz/worklenz",
       sourceMarker: "github-api:worklenz-freshness-refresh",
     },
+    {
+      key: "anytype",
+      name: "anyproto/anytype-ts",
+      sourceMarker: "github-api:anytype-freshness-refresh",
+    },
+    {
+      key: "focalboard",
+      name: "mattermost-community/focalboard",
+      sourceMarker: "github-api:focalboard-freshness-refresh",
+    },
   ];
   const freshness = Object.fromEntries(workspaceFreshnessExpectations.map((item) => {
     const project = projects.find((candidate) => candidate.name === item.name) || null;
@@ -663,10 +673,12 @@ function buildChecklist() {
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotColanode", "shortColanodeCommit", "Colanode freshness commit did not render", "colanodeCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotParabol", "shortParabolCommit", "Parabol freshness commit did not render", "parabolCandidateFreshnessVisible"] },
     { file: "scripts/smoke-interactions.mjs", terms: ["snapshotWorklenz", "shortWorklenzCommit", "Worklenz freshness commit did not render", "worklenzCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotAnytype", "shortAnytypeCommit", "Anytype freshness commit did not render", "anytypeCandidateFreshnessVisible"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["snapshotFocalboard", "shortFocalboardCommit", "Focalboard freshness commit did not render", "focalboardCandidateFreshnessVisible"] },
   ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
   checklist.push({
     id: "workspace_benchmark_freshness_ui_smoke",
-    requirement: "The portfolio UI exposes refreshed Colanode, Parabol, and Worklenz upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
+    requirement: "The portfolio UI exposes refreshed Colanode, Parabol, Worklenz, Anytype, and Focalboard upstream commits and pushedAt markers, and interaction smoke can find each benchmark by commit.",
     status: workspaceBenchmarkFreshnessUiTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: workspaceBenchmarkFreshnessUiTerms,
   });

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T00:23:30+09:00",
+  "generatedAt": "2026-06-06T00:38:38+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
@@ -49,8 +49,10 @@
       "colanodeCandidateFreshnessVisible": true,
       "parabolCandidateFreshnessVisible": true,
       "worklenzCandidateFreshnessVisible": true,
-      "workspaceBenchmarkHeadSnapshots": 5,
-      "workspaceBenchmarkFreshnessChecks": 18
+      "anytypeCandidateFreshnessVisible": true,
+      "focalboardCandidateFreshnessVisible": true,
+      "workspaceBenchmarkHeadSnapshots": 7,
+      "workspaceBenchmarkFreshnessChecks": 30
     }
   },
   "experiments": [
@@ -340,6 +342,13 @@
       "baseline": 2,
       "candidate": 5,
       "decision": "keep"
+    },
+    {
+      "id": "workspace-benchmark-head-freshness-coverage",
+      "primaryMetric": "workspaceBenchmarkHeadSnapshots",
+      "baseline": 5,
+      "candidate": 7,
+      "decision": "keep"
     }
   ],
   "publish": {
@@ -353,6 +362,7 @@
   "nextCandidates": [
     "install Pages workflow with a workflow-scope token or GitHub UI session",
     "trigger Publish JooPark Pages workflow_dispatch after workflow installation",
-    "refresh Anytype, Epicenter, and OpenLoaf benchmark commit snapshots"
+    "refresh Epicenter and OpenLoaf benchmark commit snapshots",
+    "candidate freshness metadata drift monitor"
   ]
 }
