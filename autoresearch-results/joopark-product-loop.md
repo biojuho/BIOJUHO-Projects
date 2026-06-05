@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T01:12:26+09:00
+Generated: 2026-06-06T01:25:24+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -640,6 +640,22 @@ Generated: 2026-06-06T01:12:26+09:00
 - `gh api repos/taskcoach/taskcoach` returned `open_issues_count: 95`, with 31 stars, 6 forks, and `pushed_at: 2026-05-28T16:07:10Z`.
 - `gh api repos/dotnetfactory/fluid-calendar` returned `open_issues_count: 65`, with 959 stars, 63 forks, and `pushed_at: 2026-05-28T16:42:40Z`.
 
+## Experiment: Candidate freshness drift monitor
+
+- Hypothesis: Once the benchmark queue has source-backed snapshots, launch readiness improves if operators can detect stale GitHub HEAD metadata without editing the release data by hand.
+- Primary metric: candidate freshness drift monitor checks.
+- Baseline: no dedicated drift monitor; freshness was only enforced by static release audit expectations and browser smoke for known candidates.
+- Candidate: `scripts/check-candidate-freshness-drift.mjs` validates local snapshot shape offline and compares live GitHub GraphQL HEAD/pushedAt/star/fork/issue/PR/disk metadata on demand; release audit requires the script, README handoff, and snapshot-only proof.
+- Decision: keep; live drift failure can be promoted to scheduled CI after token policy is confirmed.
+
+## Evidence
+
+- `node scripts/check-candidate-freshness-drift.mjs --snapshot-only` validates all source-backed adoption candidates without network access.
+- `node scripts/check-candidate-freshness-drift.mjs --live` monitored 15 source-backed candidates and reported `driftCount: 9`, proving the monitor catches current upstream movement without failing unless `--fail-on-drift` is set.
+- The live run already detected `Veritas-7/autoresearch-skill-system` moving from `f273071a78bd59bf7b2aae6eed5678453467a3f3` to `ee204b1d561134d9a72edc1be112b58d546797e9`, making the next refresh target concrete.
+- `--live --fail-on-drift` converts detected drift into a failing exit code for automation.
+- `scripts/audit-release-readiness.mjs` now includes `candidate_freshness_drift_monitor`, while `npm run lint` checks the new script syntax.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, add a drift monitor for candidate freshness metadata, or benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, benchmark Taskosaur and Workstream UX flows against JooPark PM/calendar surfaces, promote the live drift monitor into scheduled CI once GitHub token policy is confirmed, or refresh high-churn benchmark repo counts after scheduled drift detection lands.
