@@ -925,6 +925,22 @@ Generated: 2026-06-06T04:34:36+09:00
 - `scripts/audit-release-readiness.mjs` now includes `taskosaur_workstream_benchmark_review_issue_draft`.
 - Baseline `npm run verify` was 47/47; the candidate expands the audit target to 48 checks.
 
+## Experiment: Veritas focused snapshot writer v8.487
+
+- Hypothesis: The high-churn Veritas AutoResearch candidate stays product-useful when a repo-scoped dry-run fails on upstream change and the snapshot writer immediately records the new focused version.
+- Primary metric: Veritas snapshot writer changed flag.
+- Baseline: the focused Veritas snapshot was v8.452 with commit `fe7a7fe5ca0b2008a00a72a848fe3236ddb72f06`.
+- Candidate: `node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change` reported `changed: true`, then `--write` updated the candidate to v8.487 with commit `00b59fdb4e6ac72baa38bfd50523279e07c0a6bb`.
+- Decision: keep; the writer added source marker `github-api:veritas-focused-drift-refresh-v8487`, refreshed pushedAt to `2026-06-05T20:17:58Z`, and preserved the existing repo-scoped audit path.
+
+## Evidence
+
+- `data/adoption-candidates.json` now records `v8.487 최신 modal token secret env redaction`.
+- `data/adoption-candidates.json` now records `diskKb: 865`, `openPRs: 1`, and the latest observed Veritas commit `00b59fdb4e6ac72baa38bfd50523279e07c0a6bb`.
+- `autoresearch-results/joopark-product-loop.json` now reports `veritasSnapshotWriterChanged: true`.
+- Veritas moved from v8.484 to v8.487 during this loop, so PR-time freshness is time-dependent; the retained control is the repo-scoped writer plus `--fail-on-change` detection.
+- Pages workflow installation and scheduled CI wiring remain blocked in this session because `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` reported `workflowScopeAvailable: false`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or use the Veritas snapshot writer for the next focused refresh when dry-run reports `changed: true`.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
