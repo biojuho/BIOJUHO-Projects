@@ -1229,8 +1229,12 @@ function candidateBenchmarkReviewQueueHandoff(decisions) {
     <section class="portfolio-review-handoff" data-benchmark-review-handoff data-review-handoff-format="markdown" data-review-handoff-count="${decisions.length}" data-review-handoff-primary-key="${primary.decision.persistKey}">
       <div class="portfolio-export-head">
         <span>handoff export</span>
-        <a class="portfolio-export-download" data-review-handoff-download href="${href}" download="joopark-benchmark-review-queue.md">MD 저장</a>
+        <div class="portfolio-export-actions">
+          <a class="portfolio-export-download" data-review-handoff-download href="${href}" download="joopark-benchmark-review-queue.md">MD 저장</a>
+          <button type="button" class="portfolio-export-download portfolio-export-copy" data-action="copy-review-handoff" data-review-handoff-copy data-review-handoff-copy-key="${primary.decision.persistKey}">복사</button>
+        </div>
       </div>
+      <small class="portfolio-export-status" data-review-handoff-copy-status aria-live="polite"></small>
       <div class="portfolio-export-grid">
         <div>
           <span>우선 결정</span>
@@ -1265,6 +1269,45 @@ function candidateBenchmarkReviewQueueMarkdown(decisions) {
     "## Decisions",
     ...rows,
   ].join("\n");
+}
+
+async function writeClipboardText(text) {
+  if (!text) return false;
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // Fall through to the legacy textarea path.
+    }
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (err) {
+    copied = false;
+  }
+  textarea.remove();
+  return copied;
+}
+
+function copyBenchmarkReviewHandoff(target) {
+  const handoff = target.closest("[data-benchmark-review-handoff]");
+  const text = handoff ? handoff.querySelector("[data-review-handoff-text]")?.textContent || "" : "";
+  const status = handoff ? handoff.querySelector("[data-review-handoff-copy-status]") : null;
+  writeClipboardText(text).then((copied) => {
+    target.dataset.reviewHandoffCopied = copied ? "true" : "false";
+    if (handoff) handoff.dataset.reviewHandoffCopied = copied ? "true" : "false";
+    if (status) status.textContent = copied ? "복사됨" : "복사 실패";
+    showToast(copied ? "handoff를 복사했습니다" : "복사 실패", copied ? "info" : "error");
+  });
 }
 
 function sortPortfolioProjects(projects) {
@@ -5706,6 +5749,7 @@ function handleActions(event) {
   if (action === "portfolio-filter") { setPortfolioFilter(target.dataset.filter); return; }
   if (action === "portfolio-action-filter") { setPortfolioActionFilter(target.dataset.actionFilter); return; }
   if (action === "portfolio-benchmark-filter") { setPortfolioBenchmarkFilter(target.dataset.benchmarkFilter); return; }
+  if (action === "copy-review-handoff") { copyBenchmarkReviewHandoff(target); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }
