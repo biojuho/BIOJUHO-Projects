@@ -2,6 +2,15 @@
 
 일정·할 일·메모·습관·통계를 한 화면에서 관리하는 **개인 워크스페이스**에, 프로젝트(PM)·DB 카탈로그 관리까지 더한 정적 SPA입니다. 빌드/패키지 없이 정적 파일만으로 동작하며, 내가 만든 모든 데이터는 브라우저(localStorage)에 자동 저장됩니다.
 
+## 공개 릴리스
+
+- 최신 릴리스: [JooPark Workspace v3.0.0](https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0)
+- ZIP 다운로드: [joopark-workspace-v3.0.0.zip](https://github.com/biojuho/BIOJUHO-Projects/releases/download/joopark-workspace-v3.0.0/joopark-workspace-v3.0.0.zip)
+- SHA-256: `704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681`
+- 대상 커밋: `bf7852dfed3204b869b94b893e6e628c1c5c2d47`
+
+ZIP을 받은 뒤 압축을 풀고 해당 폴더에서 `python3 -m http.server 5178`을 실행하면 브라우저에서 바로 사용할 수 있습니다.
+
 ## 실행
 
 ```bash

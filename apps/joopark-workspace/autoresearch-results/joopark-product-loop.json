@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T20:13:02+09:00",
+  "generatedAt": "2026-06-05T20:29:44+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 22,
+      "pass": 23,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 22
+      "total": 23
     },
     "browserEvidence": {
       "routes": 15,
@@ -23,6 +23,7 @@
       "candidateTriageMetaVisible": true,
       "portfolioCandidateFilter": true,
       "portfolioCandidateRanked": true,
+      "releaseInfoVisible": true,
       "consoleIssues": 0,
       "networkIssues": 0,
       "layoutIssues": 0
@@ -161,11 +162,25 @@
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
+    },
+    {
+      "id": "github-final-release-publication",
+      "primaryMetric": "publicFinalReleaseAssets",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "release-publication-surface",
+      "primaryMetric": "releasePublicationSurfaceAuditChecks",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
     }
   ],
   "publish": {
-    "commit": "9f07a71",
-    "branch": "codex/joopark-workspace-release-main",
+    "commit": "bf7852d",
+    "branch": "main",
     "remote": "biojuho-projects",
     "push": "pass",
     "draftPr": "pass",
@@ -178,11 +193,20 @@
       "asset": "joopark-workspace-v3.0.0-rc.1.zip",
       "assetBytes": 137650,
       "assetSha256": "da4f72efcd547f0dbe8a0510e0d9d8d7939ad9e611f205a24287dcca2b81bcf6"
+    },
+    "release": {
+      "status": "pass",
+      "tag": "joopark-workspace-v3.0.0",
+      "url": "https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0",
+      "targetCommit": "bf7852dfed3204b869b94b893e6e628c1c5c2d47",
+      "asset": "joopark-workspace-v3.0.0.zip",
+      "assetBytes": 137649,
+      "assetSha256": "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681"
     }
   },
   "nextCandidates": [
-    "release-link surfacing in the PR",
-    "draft-to-ready release criteria",
+    "merge-ready release-surface PR",
+    "post-release workflow deprecation cleanup",
     "deeper UI workflow coverage"
   ]
 }

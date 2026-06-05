@@ -106,6 +106,17 @@ function matches(value, query) {
   if (!query) return true;
   return normalize(value).includes(normalize(query));
 }
+
+const RELEASE_INFO = Object.freeze({
+  version: "3.0.0",
+  tag: "joopark-workspace-v3.0.0",
+  publishedAt: "2026-06-05T11:24:29Z",
+  url: "https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0",
+  assetUrl: "https://github.com/biojuho/BIOJUHO-Projects/releases/download/joopark-workspace-v3.0.0/joopark-workspace-v3.0.0.zip",
+  assetSha256: "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681",
+  targetCommit: "bf7852dfed3204b869b94b893e6e628c1c5c2d47",
+});
+
 function projectSearchText(p) {
   const topics = Array.isArray(p && p.topics) ? p.topics : [];
   return [
@@ -1781,6 +1792,27 @@ function renderSettings() {
         <div><dt>확인 시각</dt><dd id="storageHealthUpdated">${lastChecked}</dd></div>
       </dl>
       ${health.lastError ? raw(html`<p class="settings-note storage-error">최근 오류: ${health.lastError}</p>`) : ""}
+    </section>
+
+    <section class="panel release-panel" data-release-card>
+      <div class="panel-head">
+        <div>
+          <h2>공개 릴리스</h2>
+          <small>${RELEASE_INFO.tag}</small>
+        </div>
+        <a class="release-link" data-release-download href="${RELEASE_INFO.assetUrl}" target="_blank" rel="noopener noreferrer">ZIP 다운로드</a>
+      </div>
+      <dl class="release-grid">
+        <div><dt>버전</dt><dd>${RELEASE_INFO.version}</dd></div>
+        <div><dt>릴리스 시각</dt><dd>${formatLocalDateTime(RELEASE_INFO.publishedAt)}</dd></div>
+        <div><dt>대상 커밋</dt><dd class="release-code">${RELEASE_INFO.targetCommit.slice(0, 12)}</dd></div>
+        <div><dt>상태</dt><dd>최신 공개 릴리스</dd></div>
+      </dl>
+      <p class="settings-note">릴리스 패키지는 브라우저에서 바로 실행 가능한 정적 파일 묶음입니다. 다운로드 후 압축을 풀고 해당 폴더에서 <code>python3 -m http.server 5178</code>로 확인할 수 있습니다.</p>
+      <p class="release-digest" data-release-digest><strong>SHA-256</strong> ${RELEASE_INFO.assetSha256}</p>
+      <div class="settings-actions">
+        <a class="release-link secondary" href="${RELEASE_INFO.url}" target="_blank" rel="noopener noreferrer">릴리스 노트 열기</a>
+      </div>
     </section>
 
     <section class="panel">

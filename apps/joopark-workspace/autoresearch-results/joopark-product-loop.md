@@ -293,6 +293,41 @@ Generated: 2026-06-05T19:53:06+09:00
 - Published asset: `joopark-workspace-v3.0.0-rc.1.zip`, 137650 bytes, `sha256:da4f72efcd547f0dbe8a0510e0d9d8d7939ad9e611f205a24287dcca2b81bcf6`.
 - `git ls-remote --tags biojuho-projects 'joopark-workspace-v3.0.0-rc.1*'` showed the tag at `c9d689a2d935c89a38370e62abef1635baa53d79`.
 
+## Experiment: final GitHub release publication
+
+- Hypothesis: Product launch is materially stronger when the merged `main` commit has a non-prerelease release asset, not only an RC asset.
+- Primary metric: public final release assets.
+- Baseline: only `joopark-workspace-v3.0.0-rc.1` existed.
+- Candidate: `joopark-workspace-v3.0.0` targets the `main` merge commit and uploads `joopark-workspace-v3.0.0.zip`.
+- Decision: keep.
+
+## Evidence
+
+- PR `#149` merged into `main` as `bf7852dfed3204b869b94b893e6e628c1c5c2d47`.
+- Main-branch workflows after merge passed: Workspace Smoke Test, Security & Quality Gate, CodeQL Security Scan, and Gitleaks Secret Scan.
+- Built the final release package from a clean detached worktree at `bf7852d`.
+- `node scripts/verify-release.mjs` passed with `sourceCommit: bf7852d`, `sourceDirty: false`, and 11 runtime files.
+- `npm run test` passed on the exact final release asset, including 15 desktop routes, 15 mobile routes, 18 interaction steps, Markdown sanitizer checks, candidate next-action checks, and accessibility checks with 0 console, network, and layout issues.
+- Published release: `https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0`.
+- Published asset: `joopark-workspace-v3.0.0.zip`, 137649 bytes, `sha256:704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681`.
+- `git ls-remote --tags biojuho-projects 'joopark-workspace-v3.0.0'` showed the tag at `bf7852dfed3204b869b94b893e6e628c1c5c2d47`.
+
+## Experiment: release publication surface
+
+- Hypothesis: Users should be able to find and verify the public release from the product settings screen and README, not only from GitHub release history.
+- Primary metric: release-publication audit and browser-smoke coverage.
+- Baseline: the app documented local package generation, but did not surface the actual public release URL, ZIP asset, target commit, or SHA-256 checksum in the app UI; the release audit had no publication-surface requirement.
+- Candidate: settings renders a `공개 릴리스` panel with release tag, download link, target commit, and SHA-256 digest; README mirrors the release URL and digest; interaction smoke asserts the card/link/digest; release audit adds `release_publication_surface`.
+- Decision: keep.
+
+## Evidence
+
+- `npm run lint` passed in `apps/joopark-workspace`.
+- `npm run build` and `node scripts/verify-release.mjs` passed after adding the release surface.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 23/23 with `release_publication_surface`.
+- Packaged interaction smoke reported `releaseInfoVisible: true`, along with `candidateNextActionVisible: true`, `portfolioCandidateRanked: true`, and 0 console/network/layout issues.
+- Computer Use app attachment was attempted for Chrome and Safari at `http://127.0.0.1:5181/#settings`, but the local Computer Use server returned `cgWindowNotFound` for both native app windows; deterministic Chrome/CDP smoke remains the verified browser evidence.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: draft-to-ready criteria, release-link surfacing in the PR, or deeper UI workflow coverage.
+- Continue with the highest-impact product gap after the next full gate: merge-ready release-surface PR, post-release workflow deprecation cleanup, or deeper UI workflow coverage.

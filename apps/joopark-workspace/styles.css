@@ -2605,6 +2605,80 @@ textarea:focus:not(:focus-visible) { outline: none; }
 .settings-form input:focus { border-color: var(--cyan-60); background: var(--ink-92); }
 .settings-note { margin: 0 0 12px; color: #9db0c8; font-size: 12px; line-height: 1.6; }
 .settings-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.release-panel .panel-head {
+  align-items: flex-start;
+}
+.release-panel .panel-head small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.release-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.release-grid div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--ink-40);
+}
+.release-grid dt {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.release-grid dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+.release-code,
+.release-digest {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.release-digest {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--ink-40);
+  color: #b9c7da;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.release-digest strong {
+  color: var(--cyan);
+  margin-right: 8px;
+}
+.release-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(45, 126, 255, 0.42);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(13, 27, 50, 0.92), rgba(8, 17, 31, 0.95));
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.release-link:hover {
+  border-color: var(--cyan-60);
+  color: var(--cyan);
+}
+.release-link.secondary {
+  color: #bed0e8;
+  font-weight: 700;
+}
 .storage-health[data-storage-tone="warn"] { border-color: rgba(247, 169, 40, 0.35); }
 .storage-health[data-storage-tone="error"] { border-color: rgba(255, 77, 94, 0.38); }
 .storage-meter {
@@ -2675,6 +2749,7 @@ textarea:focus:not(:focus-visible) { outline: none; }
 
 @media (max-width: 720px) {
   .storage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .release-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Modal panel scrolls if a form is tall on short screens */
