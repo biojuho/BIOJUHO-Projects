@@ -6,6 +6,7 @@ getdaytrends - 공통 유틸리티
 import asyncio
 import concurrent.futures
 import re
+import unicodedata
 
 # ══════════════════════════════════════════════════════
 #  Prompt Injection Guard
@@ -24,6 +25,15 @@ _INJECTION_PATTERNS = re.compile(
 )
 
 
+def _normalize_for_injection_scan(value: str) -> str:
+    return (
+        unicodedata.normalize("NFKC", value)
+        .replace("\\\r\n", "")
+        .replace("\\\n", "")
+        .replace("\\\r", "")
+    )
+
+
 def sanitize_keyword(keyword: str, max_len: int = 200) -> str:
     """
     LLM 프롬프트에 삽입되는 키워드 정제.
@@ -34,7 +44,11 @@ def sanitize_keyword(keyword: str, max_len: int = 200) -> str:
     keyword = keyword[:max_len]
     # 제어문자 제거 (탭·줄바꿈 제외)
     keyword = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", keyword)
-    keyword = _INJECTION_PATTERNS.sub("***", keyword)
+    normalized_keyword = _normalize_for_injection_scan(keyword)
+    if _INJECTION_PATTERNS.search(normalized_keyword):
+        keyword = _INJECTION_PATTERNS.sub("***", normalized_keyword)
+    else:
+        keyword = _INJECTION_PATTERNS.sub("***", keyword)
     return keyword.strip()
 
 

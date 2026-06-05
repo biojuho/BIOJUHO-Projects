@@ -3,8 +3,8 @@
 - Valid: `true`
 - Cycle evidence ready: `true`
 - Global objective complete: `false`
-- Criteria: `76`
-- Status counts: `blocked=1, covered=75`
+- Criteria: `77`
+- Status counts: `blocked=1, covered=76`
 
 ## Missing Required
 
@@ -465,6 +465,12 @@
 - Required: `true`
 - Status: `covered`
 - Evidence paths: `4`
+
+### getdaytrends_prompt_injection_normalization_guard
+
+- Required: `true`
+- Status: `covered`
+- Evidence paths: `3`
 
 ### external_credential_boundaries
 

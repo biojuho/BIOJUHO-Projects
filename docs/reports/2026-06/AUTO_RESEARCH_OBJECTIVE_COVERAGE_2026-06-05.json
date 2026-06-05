@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T04:51:44.372922+00:00",
+  "generated_at": "2026-06-05T05:03:08.768953+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -39,7 +39,8 @@
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -105,6 +106,10 @@
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.md",
           "term_count": 5
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
+          "term_count": 5
         }
       ],
       "id": "launch_ready_product_hardening",
@@ -153,7 +158,8 @@
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -198,6 +204,14 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_DESCI_UPLOAD_FILENAME_GUARD_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_CONTINUE_2026-06-05.md",
+          "term_count": 3
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
           "term_count": 4
         },
         {
@@ -330,7 +344,8 @@
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -367,6 +382,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_MCP_LONG_RUNNING_TASK_CAPABILITY_GUARD_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
           "term_count": 4
         },
         {
@@ -538,7 +557,8 @@
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -687,6 +707,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
           "term_count": 4
         }
       ],

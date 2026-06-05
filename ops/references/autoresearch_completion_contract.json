@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T13:51:24+09:00",
+  "generated_at": "2026-06-05T14:00:30+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -233,10 +233,12 @@
             "ad9411a",
             "mcp_long_running_task_capability_guard",
             "f251dc5",
-            "browser_smoke_websocket_failure_evidence_guard"
+            "browser_smoke_websocket_failure_evidence_guard",
+            "3145ea1",
+            "getdaytrends_prompt_injection_normalization_guard"
           ],
           "git_freshness": {
-            "proof_commit": "f251dc5",
+            "proof_commit": "3145ea1",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -340,7 +342,10 @@
               "ops/scripts/dev_server_browser_smoke.py",
               "tests/test_dev_server_browser_smoke.py",
               "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.json",
-              "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.md"
+              "docs/reports/2026-06/DEV_SERVER_BROWSER_SMOKE_WEBSOCKET_FAILURE_EVIDENCE_2026-06-05.md",
+              "automation/getdaytrends/utils.py",
+              "automation/getdaytrends/tests/test_utils.py",
+              "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md"
             ]
           }
         }
@@ -3538,7 +3543,7 @@
           "must_contain": [
             "Objective Coverage Drift Guard",
             "test_checked_in_coverage_artifacts_match_current_requirements",
-            "valid `76` criteria",
+            "valid `77` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -3693,7 +3698,7 @@
           "must_contain": [
             "Completion Audit Summary Drift Guard",
             "test_checked_in_summary_artifacts_match_current_contract",
-            "valid `76` criteria",
+            "valid `77` criteria",
             "global_objective_complete=false"
           ]
         }
@@ -4481,6 +4486,43 @@
             "A/B Contract",
             "11 passed",
             "WebSocket failures: `0`",
+            "global_objective_complete=false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "getdaytrends_prompt_injection_normalization_guard",
+      "requirement": "getdaytrends keyword prompt-injection filtering normalizes confusable Unicode and explicit backslash-newline joins before matching forbidden prompt-control phrases.",
+      "required": true,
+      "status": "covered",
+      "evidence": [
+        {
+          "path": "automation/getdaytrends/utils.py",
+          "must_contain": [
+            "_normalize_for_injection_scan",
+            "unicodedata.normalize(\"NFKC\", value)",
+            "normalized_keyword = _normalize_for_injection_scan(keyword)",
+            "_INJECTION_PATTERNS.search(normalized_keyword)"
+          ]
+        },
+        {
+          "path": "automation/getdaytrends/tests/test_utils.py",
+          "must_contain": [
+            "test_homoglyph_prompt_injection_replaced",
+            "\\u1d62gnore previous instructions",
+            "test_fullwidth_role_marker_replaced",
+            "test_backslash_line_continuation_replaced"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
+          "must_contain": [
+            "FlowiseAI/Flowise",
+            "Fix Flowise 591 (#6476)",
+            "NFKC",
+            "22 passed",
+            "2/2 passed",
             "global_objective_complete=false"
           ]
         }

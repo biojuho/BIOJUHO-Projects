@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T13:45:14+09:00",
+  "generated_at": "2026-06-05T14:00:30+09:00",
   "objective_original": "제품출시할꺼야 제품완성해줘\n\n오토리서치 카파시 개념 스킬로 만들어줘 깃허브 관련 프로젝트도 모두 찾아서 보완하고 절대 명시적 멈추라는 말하기 전까지 끊임없이 A/B테스트 후 더 좋으면 채택하고 커밋푸시하는 자가개선하는 스킬을 만들어줘.\n\n코덱스 컴퓨터유즈 기능 사용해서 직접 앱 하나씩 클릭하며 오류 잡고 최적화해. 내가 생각하지 못한 부분까지 알아서 퀄리티 높여. 외부 조사 a/b 조사도하고 최신 코드 반영해서 내가 멈추라고 하기전까지 무한반복해 $오토리서치 오토리서치 스킬도 적극적으로 활용해.",
   "completion_contract": "ops/references/autoresearch_completion_contract.json",
   "policy": {
@@ -35,7 +35,8 @@
         "dailynews_notebooklm_audio_artifact_guard",
         "external_credential_consent_items_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -177,6 +178,16 @@
             "WebSocket failures: `0`",
             "global_objective_complete=false"
           ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
+          "must_contain": [
+            "getdaytrends Prompt Injection Normalization",
+            "FlowiseAI/Flowise",
+            "22 passed",
+            "2/2 passed",
+            "global_objective_complete=false"
+          ]
         }
       ]
     },
@@ -225,7 +236,8 @@
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -321,6 +333,23 @@
           "must_contain": [
             "pydantic/pydantic-ai",
             "Handle UploadedFile consistently with FileUrl",
+            "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/GITHUB_SOURCE_COMMIT_DIGEST_CONTINUE_2026-06-05.md",
+          "must_contain": [
+            "FlowiseAI/Flowise",
+            "Fix Flowise 591",
+            "42d593f8ca85"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
+          "must_contain": [
+            "FlowiseAI/Flowise",
+            "Fix Flowise 591 (#6476)",
             "A/B Contract",
             "global_objective_complete=false"
           ]
@@ -575,7 +604,8 @@
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -661,6 +691,15 @@
             "A/B Contract",
             "Decision: adopted",
             "9 passed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
+          "must_contain": [
+            "A/B Contract",
+            "Decision: adopted",
+            "22 passed",
             "global_objective_complete=false"
           ]
         },
@@ -918,7 +957,8 @@
         "agent_workflow_json_safe_model_serialization_guard",
         "getdaytrends_tap_alert_batch_coalesce_guard",
         "mcp_long_running_task_capability_guard",
-        "browser_smoke_websocket_failure_evidence_guard"
+        "browser_smoke_websocket_failure_evidence_guard",
+        "getdaytrends_prompt_injection_normalization_guard"
       ],
       "evidence": [
         {
@@ -1242,6 +1282,15 @@
             "Browser Smoke WebSocket Failure Evidence",
             "socketerror",
             "websocket failed",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GETDAYTRENDS_PROMPT_INJECTION_NORMALIZATION_2026-06-05.md",
+          "must_contain": [
+            "prompt-injection filtering",
+            "NFKC",
+            "backslash-newline",
             "global_objective_complete=false"
           ]
         }
