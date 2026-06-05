@@ -120,6 +120,90 @@ function projectSearchText(p) {
   ].filter(Boolean).join(" ");
 }
 
+const ADOPTION_STAGE_LABEL = {
+  adopt: "도입",
+  review: "검토",
+  watch: "관찰",
+};
+
+function safeGithubUrl(url) {
+  const value = String(url || "").trim().replace(/\/+$/, "");
+  return /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value) ? value : "";
+}
+
+function metricValue(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("en-US") : "-";
+}
+
+function numericMetric(value) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function daysSinceIso(iso) {
+  const time = Date.parse(iso || "");
+  if (Number.isNaN(time)) return 365;
+  return Math.max(0, Math.round((Date.now() - time) / (24 * 60 * 60 * 1000)));
+}
+
+function candidatePriorityLabel(score) {
+  if (score >= 70) return "높음";
+  if (score >= 45) return "중간";
+  return "관찰";
+}
+
+function projectCandidatePriority(p) {
+  if (!p || p.sourceKind !== "adoption-candidate") return null;
+  const stageScore = { adopt: 24, review: 14, watch: 6 }[p.adoptionStage] || 8;
+  const recentDays = daysSinceIso(p.pushedAt);
+  const activityScore = Math.max(0, 24 - Math.min(recentDays, 180) / 180 * 24);
+  const popularityScore = Math.min(28, Math.log10(numericMetric(p.stars) + 1) * 7);
+  const forkScore = Math.min(10, Math.log10(numericMetric(p.forks) + 1) * 4);
+  const healthScore = p.health === "green" ? 8 : p.health === "amber" ? 4 : 0;
+  const riskPenalty = Math.min(14, numericMetric(p.risks) * 3 + Math.log10(numericMetric(p.openIssues) + 1));
+  const score = Math.round(Math.max(0, Math.min(100, stageScore + activityScore + popularityScore + forkScore + healthScore - riskPenalty)));
+  return { score, label: candidatePriorityLabel(score) };
+}
+
+function projectCandidateAction(p) {
+  if (!p || p.sourceKind !== "adoption-candidate") return null;
+  const topics = new Set((Array.isArray(p.topics) ? p.topics : []).map((topic) => String(topic).toLowerCase()));
+  const category = String(p.category || "");
+  const priority = projectCandidatePriority(p);
+  if (!safeGithubUrl(p.url)) return { label: "소스 보강", reason: "GitHub 링크 확인", tone: "amber" };
+  if (numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200) return { label: "리스크 리뷰", reason: "이슈/복잡도 확인", tone: "amber" };
+  if (p.adoptionStage === "adopt" || (priority && priority.score >= 72)) return { label: "스파이크", reason: "48h 실험", tone: "green" };
+  if (["local-first", "offline-first", "p2p", "privacy", "sqlite", "yjs", "knowledge-base"].some((topic) => topics.has(topic))) {
+    return { label: "아키텍처 벤치", reason: "로컬 퍼스트 구조", tone: "cyan" };
+  }
+  if (category.includes("프로젝트관리") || ["project-management", "task-management", "kanban", "gantt", "roadmap", "workflows"].some((topic) => topics.has(topic))) {
+    return { label: "PM 벤치", reason: "워크플로 비교", tone: "blue" };
+  }
+  if (category.includes("캘린더") || ["calendar", "scheduling"].some((topic) => topics.has(topic))) {
+    return { label: "일정 UX 벤치", reason: "캘린더 패턴", tone: "violet" };
+  }
+  if (p.adoptionStage === "watch") return { label: "월간 관찰", reason: "변화 추적", tone: "muted" };
+  return { label: "기능 검토", reason: "적합성 확인", tone: "blue" };
+}
+
+function projectAdoptionMeta(p) {
+  if (!p || p.sourceKind !== "adoption-candidate") return "";
+  const stage = ADOPTION_STAGE_LABEL[p.adoptionStage] || p.adoptionStage || "검토";
+  const repoUrl = safeGithubUrl(p.url);
+  const priority = projectCandidatePriority(p);
+  const action = projectCandidateAction(p);
+  return html`
+    <div class="portfolio-candidate-meta" data-candidate-meta>
+      ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
+      ${priority ? raw(html`<span class="portfolio-priority" data-candidate-priority="${priority.score}"><b>우선</b> ${priority.label} ${priority.score}</span>`) : ""}
+      <span data-candidate-stage="${p.adoptionStage || ""}"><b>단계</b> ${stage}</span>
+      <span><b>★</b> ${metricValue(p.stars)}</span>
+      <span><b>Fork</b> ${metricValue(p.forks)}</span>
+      ${p.language ? raw(html`<span><b>언어</b> ${p.language}</span>`) : ""}
+      ${repoUrl ? raw(html`<a class="portfolio-candidate-link" href="${repoUrl}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>`) : ""}
+    </div>
+  `;
+}
+
 function spark(points, color) {
   if (!Array.isArray(points) || points.length === 0) return "";
   const max = Math.max(...points);
@@ -168,8 +252,20 @@ const state = {
   previousFocus: null,
   modalOnConfirm: null,
   kanbanFilter: null, // priority filter or null
+  portfolioFilter: "all",
   schemaExpanded: new Set(["db-prod-1"]), // expanded instances in schema tree
   schemaSelectedTable: null,
+  storageHealth: {
+    status: "checking",
+    localBytes: 0,
+    usageBytes: null,
+    quotaBytes: null,
+    persisted: null,
+    estimateSupported: false,
+    persistedSupported: false,
+    checkedAt: "",
+    lastError: "",
+  },
 };
 
 /* ---------- Static demo data ---------- */
@@ -443,7 +539,7 @@ const dashboard = {
     { id: "M-2026-05-20-01", instance: "db-prod-1",  title: "add billing.refunds.reason", status: "applied", appliedAt: "2026-05-20 02:04", rolledBack: false },
     { id: "M-2026-05-25-03", instance: "db-stage-1", title: "drop users.legacy_token",  status: "pending",  scheduledAt: "2026-05-30 02:00" },
     { id: "M-2026-05-28-01", instance: "db-prod-1",  title: "alter audit_log.actor_id nullable",  status: "review",   author: "jp" },
-    { id: "M-2026-05-28-02", instance: "db-stage-1", title: "create feature_flags entity", status: "applied", appliedAt: "2026-05-28 02:10", rolledBack: false },
+    { id: "M-2026-05-28-02", instance: "db-stage-1", title: "create table feature_flags", status: "applied", appliedAt: "2026-05-28 02:10", rolledBack: false },
     { id: "M-2026-05-29-01", instance: "db-prod-1",  title: "create materialized view monthly_orders", status: "pending", scheduledAt: "2026-05-31 02:00" },
     { id: "M-2026-05-29-02", instance: "db-prod-1",  title: "drop audit_log.legacy",   status: "rolled-back", appliedAt: "2026-05-26 02:00", rolledBack: true, rollbackReason: "타이밍 충돌로 롤백" },
   ],
@@ -771,11 +867,43 @@ function renderHome() {
  * View: Portfolio
  * ============================================================ */
 
+const PORTFOLIO_FILTERS = [
+  { key: "all", label: "전체" },
+  { key: "owned", label: "운영 프로젝트" },
+  { key: "candidates", label: "도입 후보" },
+];
+
+function portfolioMatchesFilter(project, filter) {
+  if (filter === "owned") return project.sourceKind !== "adoption-candidate";
+  if (filter === "candidates") return project.sourceKind === "adoption-candidate";
+  return true;
+}
+
+function sortPortfolioProjects(projects) {
+  if (state.portfolioFilter !== "candidates") return projects;
+  return [...projects].sort((a, b) => {
+    const aPriority = projectCandidatePriority(a);
+    const bPriority = projectCandidatePriority(b);
+    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+}
+
 function renderPortfolio() {
   const view = refs.views["pm-portfolio"];
   if (!view) return;
+  if (!state.portfolioFilter) state.portfolioFilter = "all";
   const q = state.query;
-  const list = dashboard.projects.filter((p) => matches(projectSearchText(p), q));
+  const list = sortPortfolioProjects(dashboard.projects
+    .filter((p) => portfolioMatchesFilter(p, state.portfolioFilter))
+    .filter((p) => matches(projectSearchText(p), q)));
+  const candidateCount = dashboard.projects.filter((p) => p.sourceKind === "adoption-candidate").length;
+  const ownedCount = dashboard.projects.length - candidateCount;
+  const filterChips = PORTFOLIO_FILTERS.map((filter) => {
+    const count = filter.key === "owned" ? ownedCount : filter.key === "candidates" ? candidateCount : dashboard.projects.length;
+    return html`<button type="button" class="seg-chip ${raw(state.portfolioFilter === filter.key ? "is-active" : "")}" data-action="portfolio-filter" data-filter="${filter.key}" aria-pressed="${raw(state.portfolioFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
+  }).join("");
 
   const stats = {
     total: dashboard.projects.length,
@@ -796,7 +924,7 @@ function renderPortfolio() {
     const category = p.category || "";
     const description = p.description || "";
     return html`
-      <article class="portfolio-card panel">
+      <article class="portfolio-card panel" data-project-id="${p.id}" data-source-kind="${p.sourceKind || "owned"}">
         <div class="portfolio-head">
           <button type="button" class="portfolio-name-btn" data-action="open-project" data-project-id="${p.id}">
             <strong class="portfolio-name">${p.name}</strong>
@@ -816,6 +944,7 @@ function renderPortfolio() {
             ${description ? raw(html`<p>${description}</p>`) : ""}
           </div>
         `) : ""}
+        ${raw(projectAdoptionMeta(p))}
         <div class="portfolio-body">
           <div class="donut portfolio-donut" style="--value:${raw(p.progress)}">
             <span>진행률</span>
@@ -837,6 +966,7 @@ function renderPortfolio() {
   setHTML(view, html`
     <section class="kpis">${raw(kpis.map((k) => kpiCard(k)).join(""))}</section>
     <div class="portfolio-toolbar">
+      <div class="seg-control" aria-label="포트폴리오 필터">${raw(filterChips)}</div>
       <button type="button" class="primary-btn" data-action="project-add">+ 새 프로젝트</button>
     </div>
     <section class="portfolio-grid">
@@ -1575,11 +1705,18 @@ function renderSettings() {
   const view = refs.views.settings;
   if (!view) return;
   const name = (dashboard.settings && dashboard.settings.displayName) || "박주호";
-  let usedKb = "0";
-  try {
-    const sz = (localStorage.getItem(STORE_KEY_V3) || "").length;
-    usedKb = (sz / 1024).toFixed(1);
-  } catch (_) { /* ignore */ }
+  const health = state.storageHealth || {};
+  const localBytes = Number.isFinite(health.localBytes) ? health.localBytes : storedPayloadBytes();
+  const usageBytes = Number.isFinite(health.usageBytes) ? health.usageBytes : localBytes;
+  const quotaBytes = Number.isFinite(health.quotaBytes) ? health.quotaBytes : null;
+  const usagePct = storagePercent(usageBytes, quotaBytes);
+  const usagePctLabel = usagePct === null ? "추정치 없음" : `${usagePct.toFixed(1)}%`;
+  const meterWidth = usagePct === null ? 3 : Math.max(3, Math.min(100, usagePct));
+  const tone = storageTone(health);
+  const statusLabel = storageStatusLabel(health);
+  const quotaLabel = quotaBytes ? formatBytes(quotaBytes) : "추정치 없음";
+  const lastChecked = health.checkedAt ? formatLocalDateTime(health.checkedAt) : "대기 중";
+  const persistedLabel = storagePersistentLabel(health);
   const saved = formatLocalDateTime(dashboard.lastSavedAt);
   const theme = (dashboard.ui && dashboard.ui.theme === "light") ? "light" : "dark";
 
@@ -1588,7 +1725,7 @@ function renderSettings() {
       ${raw(kpiCard({ title: "저장된 일정", value: String(dashboard.events.length), unit: "건", color: "#2387ff", badge: "◷", delta: "" }))}
       ${raw(kpiCard({ title: "저장된 할 일", value: String(dashboard.todos.length), unit: "건", color: "#22d3ee", badge: "☑", delta: "" }))}
       ${raw(kpiCard({ title: "저장된 메모", value: String(dashboard.notes.length), unit: "개", color: "#a970ff", badge: "✎", delta: "" }))}
-      ${raw(kpiCard({ title: "저장 용량", value: usedKb, unit: "KB", color: "#17d983", badge: "✓", delta: `마지막 저장 ${saved}` }))}
+      ${raw(kpiCard({ title: "저장 상태", value: statusLabel, unit: "", color: tone === "error" ? "#ff4d5e" : tone === "warn" ? "#f7a928" : "#17d983", badge: tone === "error" ? "!" : tone === "warn" ? "!" : "✓", delta: `${formatBytes(localBytes)} · 마지막 저장 ${saved}` }))}
     </section>
 
     <section class="panel">
@@ -1620,6 +1757,30 @@ function renderSettings() {
         </label>
         <button type="button" class="danger-btn" data-action="reset-data">전체 초기화</button>
       </div>
+    </section>
+
+    <section class="panel storage-health" data-storage-health data-storage-tone="${tone}">
+      <div class="panel-head">
+        <div><h2>저장소 상태</h2></div>
+        <div class="settings-actions">
+          <button type="button" data-action="refresh-storage-health">새로고침</button>
+          <button type="button" class="primary-btn" data-action="request-storage-persistence">영속 저장 요청</button>
+        </div>
+      </div>
+      <div class="storage-meter" aria-label="브라우저 저장소 사용률">
+        <span style="width:${raw(meterWidth.toFixed(1))}%"></span>
+      </div>
+      <dl class="storage-grid">
+        <div><dt>상태</dt><dd id="storageHealthStatus">${statusLabel}</dd></div>
+        <div><dt>저장 데이터</dt><dd data-storage-local>${formatBytes(localBytes)}</dd></div>
+        <div><dt>브라우저 사용량</dt><dd>${formatBytes(usageBytes)}</dd></div>
+        <div><dt>추정 한도</dt><dd>${quotaLabel}</dd></div>
+        <div><dt>사용률</dt><dd>${usagePctLabel}</dd></div>
+        <div><dt>영속 저장</dt><dd>${persistedLabel}</dd></div>
+        <div><dt>StorageManager</dt><dd>${health.estimateSupported ? "지원" : "미지원"}</dd></div>
+        <div><dt>확인 시각</dt><dd id="storageHealthUpdated">${lastChecked}</dd></div>
+      </dl>
+      ${health.lastError ? raw(html`<p class="settings-note storage-error">최근 오류: ${health.lastError}</p>`) : ""}
     </section>
 
     <section class="panel">
@@ -2183,6 +2344,11 @@ function setKanbanFilter(priority) {
   renderKanban();
 }
 
+function setPortfolioFilter(filter) {
+  state.portfolioFilter = PORTFOLIO_FILTERS.some((item) => item.key === filter) ? filter : "all";
+  renderPortfolio();
+}
+
 function openNewProjectModal() {
   // 사이드바 "새 프로젝트 등록" 버튼이 이 함수를 호출하므로 새 CRUD 모달로 위임
   openProjectModal(null);
@@ -2521,6 +2687,117 @@ function normalizePersonalData() { normalizeAllData(); }
 
 /* ---------- Persistence ---------- */
 
+function storageByteLength(value) {
+  const text = value == null ? "" : String(value);
+  try { return new Blob([text]).size; } catch (_) { return text.length; }
+}
+
+function storedPayloadBytes() {
+  try { return storageByteLength(localStorage.getItem(STORE_KEY_V3) || ""); }
+  catch (_) { return 0; }
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return "확인 중";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function storagePercent(usageBytes, quotaBytes) {
+  if (!Number.isFinite(usageBytes) || !Number.isFinite(quotaBytes) || quotaBytes <= 0) return null;
+  return Math.max(0, Math.min(100, (usageBytes / quotaBytes) * 100));
+}
+
+function storageTone(health) {
+  if (health && health.lastError) return "error";
+  const pct = storagePercent(health && health.usageBytes, health && health.quotaBytes);
+  if (pct !== null && pct >= 90) return "error";
+  if (pct !== null && pct >= 75) return "warn";
+  if (health && health.estimateSupported === false) return "warn";
+  return "ok";
+}
+
+function storageStatusLabel(health) {
+  if (health && health.lastError) return "저장 실패";
+  const pct = storagePercent(health && health.usageBytes, health && health.quotaBytes);
+  if (pct !== null && pct >= 90) return "위험";
+  if (pct !== null && pct >= 75) return "주의";
+  if (health && health.status === "checking") return "확인 중";
+  if (health && health.estimateSupported === false) return "기본 저장";
+  return "정상";
+}
+
+function storagePersistentLabel(health) {
+  if (!health || health.persistedSupported === false) return "미지원";
+  if (health.persisted === true) return "영속";
+  if (health.persisted === false) return "일반";
+  return "확인 중";
+}
+
+async function refreshStorageHealth(options = {}) {
+  const next = {
+    ...state.storageHealth,
+    status: "checking",
+    localBytes: storedPayloadBytes(),
+    usageBytes: null,
+    quotaBytes: null,
+    persisted: null,
+    estimateSupported: false,
+    persistedSupported: false,
+    checkedAt: nowISO(),
+    lastError: "",
+  };
+
+  try {
+    const manager = typeof navigator !== "undefined" && navigator.storage ? navigator.storage : null;
+    if (manager && typeof manager.estimate === "function") {
+      next.estimateSupported = true;
+      const estimate = await manager.estimate();
+      next.usageBytes = Number(estimate && estimate.usage) || next.localBytes;
+      next.quotaBytes = Number(estimate && estimate.quota) || null;
+    } else {
+      next.usageBytes = next.localBytes;
+    }
+    if (manager && typeof manager.persisted === "function") {
+      next.persistedSupported = true;
+      next.persisted = await manager.persisted();
+    }
+    next.status = "ready";
+  } catch (err) {
+    next.status = "error";
+    next.usageBytes = next.localBytes;
+    next.lastError = err && err.message ? err.message : "storage estimate failed";
+  }
+
+  state.storageHealth = next;
+  if (options.render && dashboard.currentView === "settings") renderSettings();
+  return next;
+}
+
+async function requestStoragePersistence() {
+  try {
+    const manager = typeof navigator !== "undefined" && navigator.storage ? navigator.storage : null;
+    if (!manager || typeof manager.persist !== "function") {
+      showToast("이 브라우저는 영속 저장 요청을 지원하지 않습니다", "warn");
+      await refreshStorageHealth({ render: true });
+      return;
+    }
+    const granted = await manager.persist();
+    await refreshStorageHealth({ render: true });
+    showToast(granted ? "영속 저장이 활성화되었습니다" : "영속 저장 요청이 허용되지 않았습니다", granted ? "info" : "warn");
+  } catch (err) {
+    state.storageHealth = {
+      ...state.storageHealth,
+      status: "error",
+      lastError: err && err.message ? err.message : "persistent storage request failed",
+      checkedAt: nowISO(),
+    };
+    if (dashboard.currentView === "settings") renderSettings();
+    showToast("영속 저장 요청에 실패했습니다", "error");
+  }
+}
+
 function persist() {
   try {
     const savedAt = nowISO();
@@ -2543,12 +2820,26 @@ function persist() {
       imports:     dashboard.imports,
       savedAt,
     };
-    localStorage.setItem(STORE_KEY_V3, JSON.stringify(payload));
+    const serialized = JSON.stringify(payload);
+    localStorage.setItem(STORE_KEY_V3, serialized);
     dashboard.lastSavedAt = savedAt;
+    state.storageHealth = {
+      ...state.storageHealth,
+      localBytes: storageByteLength(serialized),
+      lastError: "",
+      checkedAt: savedAt,
+    };
     return true;
   } catch (err) {
     console.warn("[workspace] persist failed:", err && err.message);
-    showToast("저장 실패: 브라우저 저장공간을 확인하세요", "error");
+    state.storageHealth = {
+      ...state.storageHealth,
+      status: "error",
+      localBytes: storedPayloadBytes(),
+      lastError: err && err.message ? err.message : "localStorage write failed",
+      checkedAt: nowISO(),
+    };
+    showToast(`저장 실패: ${err && err.name ? err.name : "브라우저 저장공간"} 확인`, "error");
     return false;
   }
 }
@@ -3894,6 +4185,7 @@ function setView(name) {
   if (refs.query) refs.query.value = "";
   if (refs.searchCount) refs.searchCount.textContent = "";
   renderCurrentView();
+  if (name === "settings") refreshStorageHealth({ render: true });
   document.querySelector(".main").scrollTo({ top: 0, behavior: "instant" });
 }
 
@@ -4956,12 +5248,15 @@ function handleActions(event) {
   if (action === "export-data") { exportData(); return; }
   if (action === "reset-data") { confirmResetData(); return; }
   if (action === "save-settings") { saveSettingsFromForm(target); return; }
+  if (action === "refresh-storage-health") { refreshStorageHealth({ render: true }); return; }
+  if (action === "request-storage-persistence") { requestStoragePersistence(); return; }
   if (action === "toggle-theme") { toggleTheme(); return; }
   if (action === "set-theme") { setTheme(target.dataset.theme); return; }
 
   if (action === "toggle-project-picker") { toggleProjectPicker(); return; }
   if (action === "pick-project") { pickProject(target.dataset.projectId); return; }
   if (action === "open-project") { openProjectSheet(target.dataset.projectId); return; }
+  if (action === "portfolio-filter") { setPortfolioFilter(target.dataset.filter); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }
@@ -5830,6 +6125,7 @@ function setup() {
     if (document.hidden) pauseFooterTick();
     else { updateFooter(); scheduleFooterTick(); }
   });
+  refreshStorageHealth();
   loadGithubProjects().then((loaded) => { if (loaded) refreshAfterSnapshot(); });
 
   // Boot toast: warn about overdue todos once on load.

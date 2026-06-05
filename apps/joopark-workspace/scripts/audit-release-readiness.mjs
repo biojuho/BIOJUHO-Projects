@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,6 +44,7 @@ const appMarkers = [
   { id: "db_catalog_crud", file: "app.js", terms: ["function saveInstanceFromForm", "function saveTableFromForm", "function saveQueryFromForm", "function saveMigrationFromForm"] },
   { id: "command_palette", file: "app.js", terms: ["function openPalette", "function renderPaletteResults", "_buildPaletteItems"] },
   { id: "persistence", file: "app.js", terms: ["joopark.workspace.v3", "function persist", "function loadPersisted"] },
+  { id: "storage_health", file: "app.js", terms: ["function refreshStorageHealth", "navigator.storage", "data-storage-health", "requestStoragePersistence"] },
 ];
 
 const viewIds = [
@@ -66,6 +68,7 @@ const viewIds = [
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
     cwd: root,
+    env: { ...process.env, ...(options.env || {}) },
     encoding: "utf-8",
     timeout: options.timeout || 15000,
     killSignal: "SIGKILL",
@@ -117,6 +120,128 @@ function dataSnapshot(relPath) {
   };
 }
 
+function autoresearchCandidateSnapshot(relPath) {
+  if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
+  const payload = parseJson(read(relPath));
+  const projects = Array.isArray(payload?.projects) ? payload.projects : [];
+  const matches = projects.filter((project) => {
+    const topics = Array.isArray(project.topics) ? project.topics : [];
+    return String(project.category || "").includes("오토리서치") ||
+      topics.includes("autoresearch") ||
+      String(project.name || "").toLowerCase().includes("autoresearch");
+  });
+  const names = new Set(matches.map((project) => project.name));
+  const required = [
+    "karpathy/autoresearch",
+    "Veritas-7/autoresearch-skill-system",
+    "biojuho/autoresearch-skill-system",
+  ];
+  const missing = required.filter((name) => !names.has(name));
+  return {
+    status: matches.length >= 8 && missing.length === 0 ? "pass" : "fail",
+    source: payload?.source || "",
+    generatedAt: payload?.generatedAt || "",
+    candidates: matches.length,
+    required,
+    missing,
+  };
+}
+
+function workspaceCandidateSnapshot(relPath) {
+  if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
+  const payload = parseJson(read(relPath));
+  const projects = Array.isArray(payload?.projects) ? payload.projects : [];
+  const workspaceTopics = new Set([
+    "local-first",
+    "workspace",
+    "offline-first",
+    "project-management",
+    "kanban",
+    "calendar",
+    "task-manager",
+    "scheduling",
+    "developer-productivity",
+  ]);
+  const matches = projects.filter((project) => {
+    const topics = Array.isArray(project.topics) ? project.topics : [];
+    const category = String(project.category || "");
+    return category.includes("워크스페이스") ||
+      category.includes("프로젝트관리") ||
+      category.includes("일정관리") ||
+      category.includes("캘린더/일정") ||
+      topics.some((topic) => workspaceTopics.has(topic));
+  });
+  const names = new Set(matches.map((project) => project.name));
+  const required = [
+    "EpicenterHQ/epicenter",
+    "OpenLoaf/OpenLoaf",
+    "happybhati/workstream",
+    "colanode/colanode",
+    "anyproto/anytype-ts",
+    "opf/openproject",
+    "ParabolInc/parabol",
+    "Leantime/leantime",
+    "Worklenz/worklenz",
+  ];
+  const missing = required.filter((name) => !names.has(name));
+  const source = payload?.source || "";
+  const sourceMarked = source.includes("github-search:local-first-workspace");
+  const apiMarked = source.includes("github-api:workspace-benchmark-refresh");
+  return {
+    status: matches.length >= 14 && missing.length === 0 && sourceMarked && apiMarked ? "pass" : "fail",
+    source,
+    generatedAt: payload?.generatedAt || "",
+    candidates: matches.length,
+    sourceMarked,
+    apiMarked,
+    required,
+    missing,
+  };
+}
+
+function releaseManifestProvenance() {
+  const relPath = "dist/release/release-manifest.json";
+  if (!fileExists(relPath)) return { status: "fail", reason: "missing" };
+  const manifest = parseJson(read(relPath));
+  const missing = [];
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
+    return { status: "fail", reason: "invalid JSON object" };
+  }
+  if (!manifest.sourceCommit) missing.push("sourceCommit");
+  if (!manifest.source || typeof manifest.source !== "object" || Array.isArray(manifest.source)) {
+    missing.push("source");
+  } else {
+    if (manifest.source.commit !== manifest.sourceCommit) missing.push("source.commit");
+    if (!manifest.source.branch) missing.push("source.branch");
+    if (typeof manifest.source.dirty !== "boolean") missing.push("source.dirty");
+    if (!Array.isArray(manifest.source.dirtyFiles)) missing.push("source.dirtyFiles");
+  }
+  return {
+    status: missing.length === 0 ? "pass" : "fail",
+    sourceCommit: manifest.sourceCommit || "",
+    source: manifest.source || null,
+    missing,
+  };
+}
+
+function gitBranchSync() {
+  const status = run("git", ["status", "--short", "--branch"]);
+  const branchLine = (status.stdout || "").split("\n")[0] || "";
+  const hasTracking = /\.\.\./.test(branchLine);
+  const markers = [];
+  if (/\bahead\b/.test(branchLine)) markers.push("ahead");
+  if (/\bbehind\b/.test(branchLine)) markers.push("behind");
+  if (/\bgone\b/.test(branchLine)) markers.push("gone");
+  if (/\bdiverged\b/.test(branchLine)) markers.push("diverged");
+  return {
+    status: status.ok && hasTracking && markers.length === 0 ? "pass" : "blocked",
+    command: "git status --short --branch",
+    branchLine,
+    hasTracking,
+    markers,
+  };
+}
+
 function verifyRelease() {
   const result = run(process.execPath, ["scripts/verify-release.mjs"], { timeout: 30000 });
   const payload = parseJson(result.stdout);
@@ -128,11 +253,20 @@ function verifyRelease() {
 }
 
 function smokeRelease() {
-  const result = run(process.execPath, ["scripts/smoke-release.mjs"], { timeout: 180000 });
+  const releaseOutDir = mkdtempSync(join(tmpdir(), "joopark-release-smoke-"));
+  let result;
+  try {
+    result = run(process.execPath, ["scripts/smoke-release.mjs"], {
+      timeout: 180000,
+      env: { RELEASE_OUT_DIR: releaseOutDir },
+    });
+  } finally {
+    rmSync(releaseOutDir, { recursive: true, force: true });
+  }
   const payload = parseJson(result.stdout);
   return {
     status: result.ok && payload && payload.status === "pass" ? "pass" : "fail",
-    command: "node scripts/smoke-release.mjs",
+    command: "RELEASE_OUT_DIR=<temp> node scripts/smoke-release.mjs",
     result: payload || { stdout: result.stdout.trim(), stderr: result.stderr.trim(), error: result.error },
   };
 }
@@ -157,6 +291,18 @@ function buildChecklist() {
     evidence: scriptEvidence,
   });
 
+  const tempReleaseTerms = [
+    { file: "scripts/package-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "resolve(root, process.env.RELEASE_OUT_DIR)"] },
+    { file: "scripts/smoke-release.mjs", terms: ["process.env.RELEASE_OUT_DIR", "RELEASE_OUT_DIR: releaseDir", "runNodeScript(\"scripts/verify-release.mjs\", [releaseDir]"] },
+    { file: "scripts/audit-release-readiness.mjs", terms: ["mkdtempSync", "joopark-release-smoke-", "RELEASE_OUT_DIR: releaseOutDir"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "release_smoke_temp_output",
+    requirement: "The full release smoke can package and verify into a temporary directory, preserving the checked release artifact while still testing a fresh package.",
+    status: tempReleaseTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: tempReleaseTerms,
+  });
+
   const indexTerms = hasTerms("index.html", viewIds);
   checklist.push({
     id: "route_surface",
@@ -175,6 +321,19 @@ function buildChecklist() {
     requirement: "Core calendar, todo, note, habit, PM, DB, command palette, and localStorage persistence code paths are present.",
     status: markerEvidence.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
     evidence: markerEvidence,
+  });
+
+  const storageTerms = [
+    { file: "app.js", terms: ["function refreshStorageHealth", "typeof manager.estimate", "typeof manager.persisted", "data-storage-health"] },
+    { file: "styles.css", terms: [".storage-health", ".storage-meter", ".storage-grid"] },
+    { file: "README.md", terms: ["저장소 상태", "navigator.storage.estimate", "영속 저장"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["storage health status", "data-storage-health"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "storage_health_monitoring",
+    requirement: "The settings surface shows browser storage usage, quota estimate, persistence state, and verifies the panel in the interaction smoke.",
+    status: storageTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: storageTerms,
   });
 
   const docTerms = hasTerms("README.md", [
@@ -201,12 +360,122 @@ function buildChecklist() {
     evidence: snapshots,
   });
 
+  const autoresearchCandidates = autoresearchCandidateSnapshot("data/adoption-candidates.json");
+  checklist.push({
+    id: "autoresearch_ecosystem_candidates",
+    requirement: "AutoResearch product launch data includes the original project, the Veritas source-backed harness, the user mirror, and a useful ecosystem candidate set.",
+    status: autoresearchCandidates.status,
+    evidence: autoresearchCandidates,
+  });
+
+  const workspaceCandidates = workspaceCandidateSnapshot("data/adoption-candidates.json");
+  checklist.push({
+    id: "workspace_ecosystem_candidates",
+    requirement: "Local-first workspace discovery data includes current candidates for offline-first apps, AI workspace, developer dashboard, task, project, Kanban, calendar, and benchmark PM workflows.",
+    status: workspaceCandidates.status,
+    evidence: workspaceCandidates,
+  });
+
+  const workspaceUiTerms = hasTerms("scripts/smoke-interactions.mjs", [
+    "workspace candidate portfolio search",
+    "OpenLoaf/OpenLoaf",
+    "workspaceCandidateVisible",
+  ]);
+  checklist.push({
+    id: "workspace_candidate_ui_smoke",
+    requirement: "The interaction smoke proves at least one imported workspace adoption candidate is searchable and visible in the portfolio UI.",
+    status: workspaceUiTerms.status,
+    evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceUiTerms.missing },
+  });
+
+  const workspaceCompetitiveTerms = hasTerms("scripts/smoke-interactions.mjs", [
+    "colanode/colanode",
+    "workspaceCompetitiveCandidateVisible",
+    "Colanode star count did not render",
+    "Colanode GitHub link did not render safely",
+  ]);
+  checklist.push({
+    id: "workspace_competitive_candidate_smoke",
+    requirement: "The interaction smoke proves a newly researched workspace benchmark candidate is searchable and renders current GitHub metadata.",
+    status: workspaceCompetitiveTerms.status,
+    evidence: { file: "scripts/smoke-interactions.mjs", missingTerms: workspaceCompetitiveTerms.missing },
+  });
+
+  const candidateTriageTerms = [
+    { file: "app.js", terms: ["function projectAdoptionMeta", "safeGithubUrl", "data-candidate-meta", "portfolio-candidate-link"] },
+    { file: "styles.css", terms: [".portfolio-candidate-meta", ".portfolio-candidate-link"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["OpenLoaf adoption stage did not render", "OpenLoaf star count did not render", "OpenLoaf GitHub link did not render safely"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "workspace_candidate_triage_meta",
+    requirement: "Portfolio adoption candidates expose stage, GitHub popularity, language, and safe repository links, with interaction smoke coverage.",
+    status: candidateTriageTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateTriageTerms,
+  });
+
+  const candidateFilterTerms = [
+    { file: "app.js", terms: ["PORTFOLIO_FILTERS", "function setPortfolioFilter", "data-action=\"portfolio-filter\""] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["portfolioCandidateFilter", "candidate portfolio filter did not render adoption candidates", "owned portfolio filter still rendered adoption candidates"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_filter",
+    requirement: "The portfolio has an explicit segmented filter for all projects, owned projects, and adoption candidates, with browser smoke coverage.",
+    status: candidateFilterTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateFilterTerms,
+  });
+
+  const candidateRankingTerms = [
+    { file: "app.js", terms: ["function projectCandidatePriority", "function sortPortfolioProjects", "data-candidate-priority"] },
+    { file: "styles.css", terms: [".portfolio-priority"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["portfolioCandidateRanked", "candidate portfolio filter did not rank highest priority first", "OpenLoaf priority score did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_ranking",
+    requirement: "Adoption candidates receive a metadata-based priority score and the candidate-only portfolio view sorts by that score, with browser smoke coverage.",
+    status: candidateRankingTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateRankingTerms,
+  });
+
+  const candidateNextActionTerms = [
+    { file: "app.js", terms: ["function projectCandidateAction", "data-candidate-action", "아키텍처 벤치", "리스크 리뷰"] },
+    { file: "styles.css", terms: [".portfolio-action", ".portfolio-action-cyan", ".portfolio-action-amber"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateNextActionVisible", "Colanode candidate action did not render", "OpenProject candidate risk action was not computed"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_next_action",
+    requirement: "Adoption candidate cards expose a deterministic next-action recommendation, with browser smoke coverage for architecture and risk-review actions.",
+    status: candidateNextActionTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateNextActionTerms,
+  });
+
+  const vendorTerms = [
+    { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
+    { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },
+    { file: "vendor/LICENSES.md", terms: ["marked | 18.0.5", "DOMPurify | 3.4.8", "Fuse.js는 7.x부터 UMD"] },
+    { file: "README.md", terms: ["marked](https://github.com/markedjs/marked) | 18.0.5", "DOMPurify](https://github.com/cure53/DOMPurify) | 3.4.8"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["unsafe script tag was not sanitized", "unsafe event handler attribute was not sanitized", "unsafe javascript link was not sanitized", "markdown strong text was not rendered", "markdownSanitized"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "vendored_oss_freshness",
+    requirement: "Compatible vendored Markdown/XSS libraries are refreshed, while Fuse.js remains pinned to the last UMD-compatible line.",
+    status: vendorTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: vendorTerms,
+  });
+
   const verify = verifyRelease();
   checklist.push({
     id: "manifest_integrity",
     requirement: "The release manifest matches actual packaged runtime files by path, byte count, and SHA-256.",
     status: verify.status,
     evidence: verify,
+  });
+
+  const provenance = releaseManifestProvenance();
+  checklist.push({
+    id: "release_source_provenance",
+    requirement: "The release manifest records source commit, branch, dirty state, and dirty file paths so packaged artifacts remain traceable even before commit.",
+    status: provenance.status,
+    evidence: provenance,
   });
 
   if (gateEvidence) {
@@ -231,6 +500,14 @@ function buildChecklist() {
     requirement: "A Git remote exists before claiming push or publish completion.",
     status: remote.ok && remote.stdout.trim() ? "pass" : "blocked",
     evidence: { command: "git remote -v", stdout: remote.stdout.trim() || "none" },
+  });
+
+  const branchSync = gitBranchSync();
+  checklist.push({
+    id: "publish_branch_sync",
+    requirement: "The current branch tracks a remote branch and is not ahead, behind, gone, or diverged before claiming publish completion.",
+    status: branchSync.status,
+    evidence: branchSync,
   });
 
   return checklist;

@@ -97,6 +97,7 @@ node scripts/audit-release-readiness.mjs --run-gates
 | 항목 | 위치 |
 | --- | --- |
 | 일정·할 일·메모·습관·프로필·PM·DB·테마 | 브라우저 localStorage 키 `joopark.workspace.v3` (자동 저장, v2 자동 마이그레이션) |
+| 저장소 상태 | 설정 화면에서 localStorage payload 크기, `navigator.storage.estimate` 기반 브라우저 사용량/추정 한도, 영속 저장 여부를 확인 |
 | 백업 파일 | 설정에서 내보낸 `joopark-workspace-YYYY-MM-DD.json` (전체 데이터) |
 | 프로젝트 카드 시드 | `data/repos.json` (GitHub 스냅샷) + `data/adoption-candidates.json` (도입 후보, 기존 저장소에도 1회 병합) |
 
@@ -106,10 +107,10 @@ node scripts/audit-release-readiness.mjs --run-gates
 
 - `index.html` — 사이드바/메인/시트/모달/명령 팔레트 레이아웃, 뷰 컨테이너
 - `styles.css` — 디자인 토큰, 라이트/다크 테마, 카드/캘린더/차트/습관 그리드/팔레트 UI
-- `app.js` — 뷰 렌더, 전 영역 CRUD + localStorage v3 영속화, 반복 일정 전개, 알림 계산, 명령 팔레트, 인덱스, GitHub/도입 후보 스냅샷 머지
+- `app.js` — 뷰 렌더, 전 영역 CRUD + localStorage v3 영속화, 저장소 상태/영속 저장 진단, 반복 일정 전개, 알림 계산, 명령 팔레트, 인덱스, GitHub/도입 후보 스냅샷 머지
 - `favicon.svg` — 정적 배포 시 브라우저 favicon 404를 막는 로컬 SVG 아이콘
 - `scripts/smoke-chrome.mjs` — Chrome DevTools Protocol 기반 출시 스모크 검증
-- `scripts/smoke-interactions.mjs` — 독립 Chrome 프로필에서 주요 CRUD·토글·JSON 백업 내보내기/가져오기/전체 초기화/초기화 후 재시작 유지/초기화 후 첫 생성·명령 팔레트 사용자 흐름을 클릭/입력으로 검증
+- `scripts/smoke-interactions.mjs` — 독립 Chrome 프로필에서 주요 CRUD·토글·저장소 상태 패널·JSON 백업 내보내기/가져오기/전체 초기화/초기화 후 재시작 유지/초기화 후 첫 생성·명령 팔레트 사용자 흐름을 클릭/입력으로 검증
 - `scripts/smoke-a11y.mjs` — 명령 팔레트·모달·프로젝트 선택기의 키보드 포커스 복귀와 ARIA 상태를 실제 Chrome DOM에서 검증
 - `scripts/package-release.mjs` — 정적 출시 패키지와 SHA-256 manifest 생성
 - `scripts/verify-release.mjs` — 출시 패키지 manifest의 파일 목록·바이트·SHA-256 재검증
@@ -126,8 +127,8 @@ node scripts/audit-release-readiness.mjs --run-gates
 | 라이브러리 | 버전 | 라이선스 | 용도 |
 | --- | --- | --- | --- |
 | [Fuse.js](https://github.com/krisk/Fuse) | 6.6.2 | Apache-2.0 | 명령 팔레트 퍼지(오타 허용)·관련도 랭킹 검색 |
-| [marked](https://github.com/markedjs/marked) | 18.0.4 | MIT | 메모 본문 Markdown 렌더 |
-| [DOMPurify](https://github.com/cure53/DOMPurify) | 3.4.7 | Apache-2.0 / MPL-2.0 | marked 출력 HTML XSS 소독 |
+| [marked](https://github.com/markedjs/marked) | 18.0.5 | MIT | 메모 본문 Markdown 렌더 |
+| [DOMPurify](https://github.com/cure53/DOMPurify) | 3.4.8 | Apache-2.0 / MPL-2.0 | marked 출력 HTML XSS 소독 |
 
 라이브러리가 로드되지 않은 환경에서도 앱은 정상 동작합니다(검색은 부분일치, 메모는 평문으로 자동 폴백). 여전히 **외부 빌드/패키지 매니저 없이 정적 파일만으로** 동작합니다.
 

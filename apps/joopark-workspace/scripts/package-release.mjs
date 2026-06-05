@@ -12,12 +12,13 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = join(root, "dist", "release");
-const runtimeEnv = process["env"];
+const outDir = process.env.RELEASE_OUT_DIR
+  ? resolve(root, process.env.RELEASE_OUT_DIR)
+  : join(root, "dist", "release");
 const sourceEntries = [
   "index.html",
   "app.js",
@@ -65,6 +66,7 @@ function copyEntry(entry) {
 }
 
 function buildManifest() {
+  const source = sourceMetadata();
   const files = walkFiles(outDir)
     .filter((file) => !["RELEASE.md", "release-manifest.json"].includes(basename(file)))
     .map((file) => {
@@ -79,30 +81,54 @@ function buildManifest() {
     name: "JooPark Workspace",
     version: "3.0.0",
     generatedAt: new Date().toISOString(),
-    sourceCommit: runtimeEnv.SOURCE_COMMIT || currentCommit(),
+    sourceCommit: source.commit,
+    source,
     files,
   };
 }
 
-function currentCommit() {
+function gitOutput(args) {
+  return gitOutputRaw(args).trim();
+}
+
+function gitOutputRaw(args) {
   try {
-    return execFileSync("git", ["rev-parse", "--short", "HEAD"], {
+    return execFileSync("git", args, {
       cwd: root,
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    }).replace(/\r?\n$/, "");
   } catch {
     return "";
   }
 }
 
+function currentCommit() {
+  return gitOutput(["rev-parse", "--short", "HEAD"]);
+}
+
+function sourceMetadata() {
+  const statusText = gitOutputRaw(["status", "--short", "--untracked-files=all"]);
+  const dirtyFiles = statusText ? statusText.split("\n").filter(Boolean) : [];
+  return {
+    commit: process.env.SOURCE_COMMIT || currentCommit(),
+    branch: gitOutput(["branch", "--show-current"]) || gitOutput(["rev-parse", "--abbrev-ref", "HEAD"]),
+    dirty: dirtyFiles.length > 0,
+    dirtyFiles,
+  };
+}
+
 function writeReleaseNotes(manifest) {
   const totalBytes = manifest.files.reduce((sum, file) => sum + file.bytes, 0);
+  const dirtyLabel = manifest.source?.dirty ? `dirty (${manifest.source.dirtyFiles.length} paths)` : "clean";
   const lines = [
     "# JooPark Workspace Release",
     "",
     `- Version: ${manifest.version}`,
     `- Generated: ${manifest.generatedAt}`,
+    `- Source commit: ${manifest.sourceCommit}`,
+    `- Source branch: ${manifest.source?.branch || "unknown"}`,
+    `- Source tree: ${dirtyLabel}`,
     `- Runtime files: ${manifest.files.length}`,
     `- Total bytes: ${totalBytes}`,
     "",

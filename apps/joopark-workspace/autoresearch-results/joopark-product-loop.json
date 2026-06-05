@@ -1,0 +1,165 @@
+{
+  "generatedAt": "2026-06-05T19:51:23+09:00",
+  "project": "JooPark Workspace",
+  "status": "active",
+  "latestGate": {
+    "command": "node scripts/audit-release-readiness.mjs --run-gates",
+    "status": "pass",
+    "checks": {
+      "pass": 22,
+      "fail": 0,
+      "notRun": 0,
+      "blocked": 0,
+      "total": 22
+    },
+    "browserEvidence": {
+      "routes": 15,
+      "mobileRoutes": 15,
+      "interactionSteps": 18,
+      "markdownSanitized": true,
+      "workspaceCandidateVisible": true,
+      "workspaceCompetitiveCandidateVisible": true,
+      "candidateNextActionVisible": true,
+      "candidateTriageMetaVisible": true,
+      "portfolioCandidateFilter": true,
+      "portfolioCandidateRanked": true,
+      "consoleIssues": 0,
+      "networkIssues": 0,
+      "layoutIssues": 0
+    }
+  },
+  "experiments": [
+    {
+      "id": "autoresearch-ecosystem-launch-data",
+      "primaryMetric": "autoresearchCandidates",
+      "baseline": 0,
+      "candidate": 10,
+      "decision": "keep"
+    },
+    {
+      "id": "release-audit-autoresearch-coverage",
+      "primaryMetric": "releaseAuditChecks",
+      "baseline": 9,
+      "candidate": 11,
+      "decision": "keep"
+    },
+    {
+      "id": "storage-health-surface",
+      "primaryMetric": "releaseAuditChecks",
+      "baseline": 9,
+      "candidate": 10,
+      "decision": "keep"
+    },
+    {
+      "id": "owned-github-repository-snapshot",
+      "primaryMetric": "ownedGitHubRepos",
+      "baseline": 12,
+      "candidate": 14,
+      "decision": "keep"
+    },
+    {
+      "id": "compatible-vendored-oss-freshness",
+      "primaryMetric": "compatibleOutdatedVendoredLibraries",
+      "baseline": 2,
+      "candidate": 0,
+      "decision": "keep"
+    },
+    {
+      "id": "release-source-provenance",
+      "primaryMetric": "releaseManifestProvenanceFields",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "note-markdown-sanitizer-smoke",
+      "primaryMetric": "explicitMarkdownSecurityChecks",
+      "baseline": 0,
+      "candidate": 4,
+      "decision": "keep"
+    },
+    {
+      "id": "publish-branch-sync-audit",
+      "primaryMetric": "publishStateAuditChecks",
+      "baseline": 1,
+      "candidate": 2,
+      "decision": "keep"
+    },
+    {
+      "id": "workspace-ecosystem-candidates",
+      "primaryMetric": "workspaceCandidates",
+      "baseline": 0,
+      "candidate": 8,
+      "decision": "keep"
+    },
+    {
+      "id": "workspace-candidate-ui-smoke",
+      "primaryMetric": "browserVisibleWorkspaceCandidateChecks",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "workspace-candidate-triage-meta",
+      "primaryMetric": "candidateTriageMetadataAuditChecks",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "portfolio-candidate-filter",
+      "primaryMetric": "portfolioCandidateFilter",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "release-smoke-isolated-output",
+      "primaryMetric": "releaseSmokeTempOutputAuditChecks",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "portfolio-candidate-ranking",
+      "primaryMetric": "portfolioCandidateRanked",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "workspace-benchmark-candidate-refresh",
+      "primaryMetric": "workspaceCandidates",
+      "baseline": 8,
+      "candidate": 14,
+      "decision": "keep"
+    },
+    {
+      "id": "portfolio-candidate-next-action",
+      "primaryMetric": "candidateNextActionVisible",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "main-compatible-release-branch",
+      "primaryMetric": "prCompatibleBranch",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep-after-pr"
+    }
+  ],
+  "publish": {
+    "commit": "3b48ed5",
+    "branch": "codex/joopark-workspace-release",
+    "remote": "biojuho-projects",
+    "push": "pass",
+    "draftPr": "blocked",
+    "draftPrBlocker": "codex/joopark-workspace-release has no common history with main"
+  },
+  "nextCandidates": [
+    "standalone release publication",
+    "no-common-history PR strategy",
+    "deeper UI workflow coverage"
+  ]
+}
