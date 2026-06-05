@@ -106,17 +106,6 @@ function matches(value, query) {
   if (!query) return true;
   return normalize(value).includes(normalize(query));
 }
-
-const RELEASE_INFO = Object.freeze({
-  version: "3.0.0",
-  tag: "joopark-workspace-v3.0.0",
-  publishedAt: "2026-06-05T11:24:29Z",
-  url: "https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0",
-  assetUrl: "https://github.com/biojuho/BIOJUHO-Projects/releases/download/joopark-workspace-v3.0.0/joopark-workspace-v3.0.0.zip",
-  assetSha256: "704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681",
-  targetCommit: "bf7852dfed3204b869b94b893e6e628c1c5c2d47",
-});
-
 function projectSearchText(p) {
   const topics = Array.isArray(p && p.topics) ? p.topics : [];
   return [
@@ -187,20 +176,20 @@ function projectCandidateAction(p) {
   const topics = new Set((Array.isArray(p.topics) ? p.topics : []).map((topic) => String(topic).toLowerCase()));
   const category = String(p.category || "");
   const priority = projectCandidatePriority(p);
-  if (!safeGithubUrl(p.url)) return { label: "소스 보강", reason: "GitHub 링크 확인", tone: "amber" };
-  if (numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200) return { label: "리스크 리뷰", reason: "이슈/복잡도 확인", tone: "amber" };
-  if (p.adoptionStage === "adopt" || (priority && priority.score >= 72)) return { label: "스파이크", reason: "48h 실험", tone: "green" };
+  if (!safeGithubUrl(p.url)) return { key: "source", label: "소스 보강", reason: "GitHub 링크 확인", tone: "amber" };
+  if (numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200) return { key: "risk", label: "리스크 리뷰", reason: "이슈/복잡도 확인", tone: "amber" };
+  if (p.adoptionStage === "adopt" || (priority && priority.score >= 72)) return { key: "spike", label: "스파이크", reason: "48h 실험", tone: "green" };
   if (["local-first", "offline-first", "p2p", "privacy", "sqlite", "yjs", "knowledge-base"].some((topic) => topics.has(topic))) {
-    return { label: "아키텍처 벤치", reason: "로컬 퍼스트 구조", tone: "cyan" };
+    return { key: "architecture", label: "아키텍처 벤치", reason: "로컬 퍼스트 구조", tone: "cyan" };
   }
   if (category.includes("프로젝트관리") || ["project-management", "task-management", "kanban", "gantt", "roadmap", "workflows"].some((topic) => topics.has(topic))) {
-    return { label: "PM 벤치", reason: "워크플로 비교", tone: "blue" };
+    return { key: "pm", label: "PM 벤치", reason: "워크플로 비교", tone: "blue" };
   }
   if (category.includes("캘린더") || ["calendar", "scheduling"].some((topic) => topics.has(topic))) {
-    return { label: "일정 UX 벤치", reason: "캘린더 패턴", tone: "violet" };
+    return { key: "calendar", label: "일정 UX 벤치", reason: "캘린더 패턴", tone: "violet" };
   }
-  if (p.adoptionStage === "watch") return { label: "월간 관찰", reason: "변화 추적", tone: "muted" };
-  return { label: "기능 검토", reason: "적합성 확인", tone: "blue" };
+  if (p.adoptionStage === "watch") return { key: "watch", label: "월간 관찰", reason: "변화 추적", tone: "muted" };
+  return { key: "feature", label: "기능 검토", reason: "적합성 확인", tone: "blue" };
 }
 
 function projectAdoptionMeta(p) {
@@ -213,7 +202,7 @@ function projectAdoptionMeta(p) {
   const commitTitle = p.pushedAt ? `갱신 ${formatLocalDateTime(p.pushedAt)}` : "최신 커밋";
   return html`
     <div class="portfolio-candidate-meta" data-candidate-meta>
-      ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
+      ${action ? raw(html`<span class="portfolio-action portfolio-action-${action.tone}" data-candidate-action="${action.label}" data-candidate-action-key="${action.key}" title="${action.reason}"><b>액션</b> ${action.label}<small>${action.reason}</small></span>`) : ""}
       ${priority ? raw(html`<span class="portfolio-priority" data-candidate-priority="${priority.score}"><b>우선</b> ${priority.label} ${priority.score}</span>`) : ""}
       <span data-candidate-stage="${p.adoptionStage || ""}"><b>단계</b> ${stage}</span>
       <span><b>★</b> ${metricValue(p.stars)}</span>
@@ -274,6 +263,7 @@ const state = {
   modalOnConfirm: null,
   kanbanFilter: null, // priority filter or null
   portfolioFilter: "all",
+  portfolioActionFilter: "all",
   schemaExpanded: new Set(["db-prod-1"]), // expanded instances in schema tree
   schemaSelectedTable: null,
   storageHealth: {
@@ -560,7 +550,7 @@ const dashboard = {
     { id: "M-2026-05-20-01", instance: "db-prod-1",  title: "add billing.refunds.reason", status: "applied", appliedAt: "2026-05-20 02:04", rolledBack: false },
     { id: "M-2026-05-25-03", instance: "db-stage-1", title: "drop users.legacy_token",  status: "pending",  scheduledAt: "2026-05-30 02:00" },
     { id: "M-2026-05-28-01", instance: "db-prod-1",  title: "alter audit_log.actor_id nullable",  status: "review",   author: "jp" },
-    { id: "M-2026-05-28-02", instance: "db-stage-1", title: "create feature_flags entity", status: "applied", appliedAt: "2026-05-28 02:10", rolledBack: false },
+    { id: "M-2026-05-28-02", instance: "db-stage-1", title: "create table feature_flags", status: "applied", appliedAt: "2026-05-28 02:10", rolledBack: false },
     { id: "M-2026-05-29-01", instance: "db-prod-1",  title: "create materialized view monthly_orders", status: "pending", scheduledAt: "2026-05-31 02:00" },
     { id: "M-2026-05-29-02", instance: "db-prod-1",  title: "drop audit_log.legacy",   status: "rolled-back", appliedAt: "2026-05-26 02:00", rolledBack: true, rollbackReason: "타이밍 충돌로 롤백" },
   ],
@@ -894,10 +884,70 @@ const PORTFOLIO_FILTERS = [
   { key: "candidates", label: "도입 후보" },
 ];
 
+const CANDIDATE_ACTION_FILTERS = [
+  { key: "all", label: "모든 액션" },
+  { key: "spike", label: "스파이크" },
+  { key: "architecture", label: "아키텍처 벤치" },
+  { key: "pm", label: "PM 벤치" },
+  { key: "risk", label: "리스크 리뷰" },
+  { key: "calendar", label: "일정 UX 벤치" },
+  { key: "watch", label: "월간 관찰" },
+  { key: "feature", label: "기능 검토" },
+  { key: "source", label: "소스 보강" },
+];
+
 function portfolioMatchesFilter(project, filter) {
   if (filter === "owned") return project.sourceKind !== "adoption-candidate";
   if (filter === "candidates") return project.sourceKind === "adoption-candidate";
   return true;
+}
+
+function portfolioMatchesActionFilter(project, filter) {
+  if (!filter || filter === "all") return true;
+  const action = projectCandidateAction(project);
+  return project.sourceKind === "adoption-candidate" && action && action.key === filter;
+}
+
+function candidateActionQueueSummary(projects, filter) {
+  const selected = CANDIDATE_ACTION_FILTERS.find((item) => item.key === filter) || CANDIDATE_ACTION_FILTERS[0];
+  const queue = projects.filter((p) => p.sourceKind === "adoption-candidate" && portfolioMatchesActionFilter(p, selected.key));
+  const ranked = [...queue].sort((a, b) => {
+    const aPriority = projectCandidatePriority(a);
+    const bPriority = projectCandidatePriority(b);
+    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+  const top = ranked[0] || null;
+  const topPriority = top ? projectCandidatePriority(top) : null;
+  const topAction = top ? projectCandidateAction(top) : null;
+  const riskCount = queue.filter((p) => numericMetric(p.risks) >= 3 || numericMetric(p.openIssues) >= 200).length;
+  const activeActions = new Set(queue.map((p) => projectCandidateAction(p)?.key).filter(Boolean)).size;
+  return html`
+    <section class="portfolio-action-summary" data-candidate-action-summary data-action-filter-summary="${selected.key}">
+      <div>
+        <span>액션 대기열</span>
+        <strong>${selected.label}</strong>
+      </div>
+      <div>
+        <span>후보</span>
+        <strong>${queue.length}개</strong>
+      </div>
+      <div>
+        <span>최우선</span>
+        <strong data-candidate-action-summary-top>${top ? top.name : "없음"}</strong>
+        ${topPriority ? raw(html`<small>${topPriority.label} ${topPriority.score}</small>`) : ""}
+      </div>
+      <div>
+        <span>검토 기준</span>
+        <strong>${topAction ? topAction.reason : selected.key === "all" ? `${activeActions}개 액션` : "대기 없음"}</strong>
+      </div>
+      <div>
+        <span>리스크</span>
+        <strong>${riskCount}개</strong>
+      </div>
+    </section>
+  `;
 }
 
 function sortPortfolioProjects(projects) {
@@ -915,9 +965,11 @@ function renderPortfolio() {
   const view = refs.views["pm-portfolio"];
   if (!view) return;
   if (!state.portfolioFilter) state.portfolioFilter = "all";
+  if (!state.portfolioActionFilter) state.portfolioActionFilter = "all";
   const q = state.query;
   const list = sortPortfolioProjects(dashboard.projects
     .filter((p) => portfolioMatchesFilter(p, state.portfolioFilter))
+    .filter((p) => portfolioMatchesActionFilter(p, state.portfolioActionFilter))
     .filter((p) => matches(projectSearchText(p), q)));
   const candidateCount = dashboard.projects.filter((p) => p.sourceKind === "adoption-candidate").length;
   const ownedCount = dashboard.projects.length - candidateCount;
@@ -925,6 +977,20 @@ function renderPortfolio() {
     const count = filter.key === "owned" ? ownedCount : filter.key === "candidates" ? candidateCount : dashboard.projects.length;
     return html`<button type="button" class="seg-chip ${raw(state.portfolioFilter === filter.key ? "is-active" : "")}" data-action="portfolio-filter" data-filter="${filter.key}" aria-pressed="${raw(state.portfolioFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
   }).join("");
+  const actionCounts = dashboard.projects
+    .filter((p) => p.sourceKind === "adoption-candidate")
+    .reduce((acc, p) => {
+      const key = projectCandidateAction(p)?.key || "feature";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  const actionFilterChips = CANDIDATE_ACTION_FILTERS
+    .filter((filter) => filter.key === "all" || actionCounts[filter.key] || state.portfolioActionFilter === filter.key)
+    .map((filter) => {
+      const count = filter.key === "all" ? candidateCount : actionCounts[filter.key] || 0;
+      return html`<button type="button" class="seg-chip ${raw(state.portfolioActionFilter === filter.key ? "is-active" : "")}" data-action="portfolio-action-filter" data-action-filter="${filter.key}" aria-pressed="${raw(state.portfolioActionFilter === filter.key ? "true" : "false")}">${filter.label} ${count}</button>`;
+    }).join("");
+  const actionSummary = candidateActionQueueSummary(dashboard.projects, state.portfolioActionFilter);
 
   const stats = {
     total: dashboard.projects.length,
@@ -990,6 +1056,10 @@ function renderPortfolio() {
       <div class="seg-control" aria-label="포트폴리오 필터">${raw(filterChips)}</div>
       <button type="button" class="primary-btn" data-action="project-add">+ 새 프로젝트</button>
     </div>
+    <div class="portfolio-action-filter" data-candidate-action-filter-panel>
+      <div class="seg-control" aria-label="후보 액션 필터">${raw(actionFilterChips)}</div>
+    </div>
+    ${raw(actionSummary)}
     <section class="portfolio-grid">
       ${list.length === 0 ? raw(html`<article class="empty">일치하는 프로젝트가 없습니다.</article>`) : raw(list.map(card).join(""))}
     </section>
@@ -1804,27 +1874,6 @@ function renderSettings() {
       ${health.lastError ? raw(html`<p class="settings-note storage-error">최근 오류: ${health.lastError}</p>`) : ""}
     </section>
 
-    <section class="panel release-panel" data-release-card>
-      <div class="panel-head">
-        <div>
-          <h2>공개 릴리스</h2>
-          <small>${RELEASE_INFO.tag}</small>
-        </div>
-        <a class="release-link" data-release-download href="${RELEASE_INFO.assetUrl}" target="_blank" rel="noopener noreferrer">ZIP 다운로드</a>
-      </div>
-      <dl class="release-grid">
-        <div><dt>버전</dt><dd>${RELEASE_INFO.version}</dd></div>
-        <div><dt>릴리스 시각</dt><dd>${formatLocalDateTime(RELEASE_INFO.publishedAt)}</dd></div>
-        <div><dt>대상 커밋</dt><dd class="release-code">${RELEASE_INFO.targetCommit.slice(0, 12)}</dd></div>
-        <div><dt>상태</dt><dd>최신 공개 릴리스</dd></div>
-      </dl>
-      <p class="settings-note">릴리스 패키지는 브라우저에서 바로 실행 가능한 정적 파일 묶음입니다. 다운로드 후 압축을 풀고 해당 폴더에서 <code>python3 -m http.server 5178</code>로 확인할 수 있습니다.</p>
-      <p class="release-digest" data-release-digest><strong>SHA-256</strong> ${RELEASE_INFO.assetSha256}</p>
-      <div class="settings-actions">
-        <a class="release-link secondary" href="${RELEASE_INFO.url}" target="_blank" rel="noopener noreferrer">릴리스 노트 열기</a>
-      </div>
-    </section>
-
     <section class="panel">
       <div class="panel-head"><div><h2>정보</h2></div></div>
       <ul class="settings-info">
@@ -2388,6 +2437,13 @@ function setKanbanFilter(priority) {
 
 function setPortfolioFilter(filter) {
   state.portfolioFilter = PORTFOLIO_FILTERS.some((item) => item.key === filter) ? filter : "all";
+  if (state.portfolioFilter !== "candidates") state.portfolioActionFilter = "all";
+  renderPortfolio();
+}
+
+function setPortfolioActionFilter(filter) {
+  state.portfolioActionFilter = CANDIDATE_ACTION_FILTERS.some((item) => item.key === filter) ? filter : "all";
+  if (state.portfolioActionFilter !== "all") state.portfolioFilter = "candidates";
   renderPortfolio();
 }
 
@@ -5299,6 +5355,7 @@ function handleActions(event) {
   if (action === "pick-project") { pickProject(target.dataset.projectId); return; }
   if (action === "open-project") { openProjectSheet(target.dataset.projectId); return; }
   if (action === "portfolio-filter") { setPortfolioFilter(target.dataset.filter); return; }
+  if (action === "portfolio-action-filter") { setPortfolioActionFilter(target.dataset.actionFilter); return; }
   if (action === "open-issue")   { openIssueSheet(target.dataset.issueId); return; }
   if (action === "open-task")    { openTaskSheet(target.dataset.taskId); return; }
   if (action === "open-member")  { openMemberSheet(target.dataset.memberId); return; }

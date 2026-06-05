@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import {
   existsSync,
+  readFileSync,
   statSync,
 } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -18,12 +19,12 @@ import {
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const releaseDir = process["env"].RELEASE_OUT_DIR
-  ? resolve(root, process["env"].RELEASE_OUT_DIR)
+const releaseDir = process.env.RELEASE_OUT_DIR
+  ? resolve(root, process.env.RELEASE_OUT_DIR)
   : join(root, "dist", "release");
 const host = "127.0.0.1";
-const requestedPort = Number(process["env"].RELEASE_SMOKE_PORT || process["env"].PORT || 0);
-const shouldPackage = process["env"].RELEASE_SMOKE_SKIP_PACKAGE !== "1";
+const requestedPort = Number(process.env.RELEASE_SMOKE_PORT || process.env.PORT || 0);
+const shouldPackage = process.env.RELEASE_SMOKE_SKIP_PACKAGE !== "1";
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -45,10 +46,10 @@ function parseJsonOutput(stdout, fallbackStatus = "unknown") {
   }
 }
 
-function runNodeScript(scriptPath, scriptArgs = [], environment = {}, timeoutMs = 90000) {
+function runNodeScript(scriptPath, scriptArgs = [], env = {}, timeoutMs = 90000) {
   const result = spawnSync(process.execPath, [join(root, scriptPath), ...scriptArgs], {
     cwd: root,
-    env: { ...process["env"], ...environment },
+    env: { ...process.env, ...env },
     encoding: "utf-8",
     killSignal: "SIGKILL",
     timeout: timeoutMs,
@@ -76,11 +77,11 @@ function runNodeScript(scriptPath, scriptArgs = [], environment = {}, timeoutMs 
   };
 }
 
-function runNodeScriptAsync(scriptPath, environment = {}, timeoutMs = 120000) {
+function runNodeScriptAsync(scriptPath, env = {}, timeoutMs = 120000) {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(process.execPath, [join(root, scriptPath)], {
       cwd: root,
-      env: { ...process["env"], ...environment },
+      env: { ...process.env, ...env },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -144,11 +145,86 @@ function safeTarget(pathname) {
   return target;
 }
 
+function readReleaseHeaderRules() {
+  const path = join(releaseDir, "_headers");
+  if (!existsSync(path)) return [];
+  const rules = [];
+  let current = null;
+  for (const line of readFileSync(path, "utf-8").split(/\r?\n/)) {
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    if (/^\s/.test(line)) {
+      if (!current) continue;
+      const index = line.indexOf(":");
+      if (index < 0) continue;
+      current.headers.push({
+        name: line.slice(0, index).trim(),
+        value: line.slice(index + 1).trim(),
+      });
+      continue;
+    }
+    current = { pattern: line.trim(), headers: [] };
+    rules.push(current);
+  }
+  return rules;
+}
+
+function readReleaseRedirectRules() {
+  const path = join(releaseDir, "_redirects");
+  if (!existsSync(path)) return [];
+  const rules = [];
+  for (const line of readFileSync(path, "utf-8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const [from, to, status = "301"] = trimmed.split(/\s+/);
+    if (!from || !to) continue;
+    rules.push({ from, to, status: Number(status) || 301 });
+  }
+  return rules;
+}
+
+function headerRuleMatches(pattern, pathname) {
+  if (pattern === "/*") return true;
+  if (pattern.endsWith("*")) return pathname.startsWith(pattern.slice(0, -1));
+  return pathname === pattern;
+}
+
+function headersForPath(pathname, rules) {
+  const headers = {};
+  for (const rule of rules) {
+    if (!headerRuleMatches(rule.pattern, pathname)) continue;
+    for (const header of rule.headers) headers[header.name] = header.value;
+  }
+  return headers;
+}
+
+function redirectRuleMatches(pattern, pathname) {
+  if (pattern === "/*") return true;
+  if (pattern.endsWith("*")) return pathname.startsWith(pattern.slice(0, -1));
+  return pathname === pattern;
+}
+
+function redirectForPath(pathname, rules) {
+  return rules.find((rule) => redirectRuleMatches(rule.from, pathname)) || null;
+}
+
+function mergeHeaders(base, custom) {
+  const headers = { ...base };
+  for (const [key, value] of Object.entries(custom)) {
+    for (const existing of Object.keys(headers)) {
+      if (existing.toLowerCase() === key.toLowerCase()) delete headers[existing];
+    }
+    headers[key] = value;
+  }
+  return headers;
+}
+
 function createReleaseServer() {
   const sockets = new Set();
+  const releaseHeaderRules = readReleaseHeaderRules();
+  const releaseRedirectRules = readReleaseRedirectRules();
   const server = createServer(async (request, response) => {
     const url = new URL(request.url || "/", `http://${request.headers.host || host}`);
-    const target = safeTarget(url.pathname);
+    let target = safeTarget(url.pathname);
 
     if (!target) {
       response.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
@@ -158,12 +234,36 @@ function createReleaseServer() {
 
     try {
       const body = await readFile(target);
-      response.writeHead(200, {
+      response.writeHead(200, mergeHeaders({
         "cache-control": "no-store",
         "content-type": contentTypes[extname(target)] || "application/octet-stream",
-      });
+      }, headersForPath(url.pathname, releaseHeaderRules)));
       response.end(body);
     } catch {
+      const redirectRule = redirectForPath(url.pathname, releaseRedirectRules);
+      const redirectTarget = redirectRule ? safeTarget(redirectRule.to) : null;
+      if (redirectRule?.status === 200 && redirectTarget) {
+        try {
+          target = redirectTarget;
+          const body = await readFile(target);
+          response.writeHead(200, mergeHeaders({
+            "cache-control": "no-store",
+            "content-type": contentTypes[extname(target)] || "application/octet-stream",
+          }, headersForPath(redirectRule.to, releaseHeaderRules)));
+          response.end(body);
+          return;
+        } catch {
+          // Fall through to the 404 response below.
+        }
+      }
+      if (redirectRule && redirectRule.status >= 300 && redirectRule.status < 400) {
+        response.writeHead(redirectRule.status, {
+          "content-type": "text/plain; charset=utf-8",
+          location: redirectRule.to,
+        });
+        response.end("Redirect");
+        return;
+      }
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       response.end("Not found");
     }
@@ -179,6 +279,66 @@ function createReleaseServer() {
     sockets.clear();
   };
   return server;
+}
+
+async function fetchHeaderMap(url) {
+  const response = await fetch(url);
+  const headers = {};
+  for (const [key, value] of response.headers.entries()) headers[key.toLowerCase()] = value;
+  return { status: response.status, headers };
+}
+
+async function smokeReleaseHeaders(baseUrl) {
+  const root = await fetchHeaderMap(`${baseUrl}/`);
+  const app = await fetchHeaderMap(`${baseUrl}/app.js`);
+  const vendor = await fetchHeaderMap(`${baseUrl}/vendor/fuse.min.js`);
+  const headerChecks = {
+    root_x_content_type_options: root.headers["x-content-type-options"] === "nosniff",
+    root_frame_options: root.headers["x-frame-options"] === "DENY",
+    root_referrer_policy: root.headers["referrer-policy"] === "strict-origin-when-cross-origin",
+    root_permissions_policy: root.headers["permissions-policy"] === "camera=(), microphone=(), geolocation=()",
+    app_cache_no_cache: app.headers["cache-control"] === "no-cache",
+    vendor_cache_immutable: vendor.headers["cache-control"] === "public, max-age=31536000, immutable",
+  };
+  return {
+    status: Object.values(headerChecks).every(Boolean) ? "pass" : "fail",
+    checks: headerChecks,
+    responses: {
+      root: root.status,
+      app: app.status,
+      vendor: vendor.status,
+    },
+  };
+}
+
+async function fetchTextResponse(url) {
+  const response = await fetch(url, { redirect: "manual" });
+  return {
+    status: response.status,
+    headers: Object.fromEntries([...response.headers.entries()].map(([key, value]) => [key.toLowerCase(), value])),
+    body: await response.text(),
+  };
+}
+
+async function smokeReleaseFallbacks(baseUrl) {
+  const root = await fetchTextResponse(`${baseUrl}/`);
+  const direct = await fetchTextResponse(`${baseUrl}/workspace/direct-link-check`);
+  const notFound = await fetchTextResponse(`${baseUrl}/404.html`);
+  const fallbackChecks = {
+    direct_path_rewrites_to_index: direct.status === 200 && direct.body === root.body,
+    direct_path_keeps_url_without_redirect: !direct.headers.location,
+    custom_404_matches_index: notFound.status === 200 && notFound.body === root.body,
+    fallback_html_content_type: String(direct.headers["content-type"] || "").startsWith("text/html"),
+  };
+  return {
+    status: Object.values(fallbackChecks).every(Boolean) ? "pass" : "fail",
+    checks: fallbackChecks,
+    responses: {
+      root: root.status,
+      direct: direct.status,
+      notFound: notFound.status,
+    },
+  };
 }
 
 function listen(server) {
@@ -242,7 +402,11 @@ async function main() {
   let mobileResult;
   let interactionResult;
   let accessibilityResult;
+  let headerResult;
+  let fallbackResult;
   try {
+    headerResult = await smokeReleaseHeaders(baseUrl);
+    fallbackResult = await smokeReleaseFallbacks(baseUrl);
     smokeResult = parseJsonOutput(
       (await runNodeScriptAsync("scripts/smoke-chrome.mjs", {
         BASE_URL: baseUrl,
@@ -275,6 +439,20 @@ async function main() {
     await close(server);
   }
 
+  if (headerResult.status !== "pass") {
+    throw Object.assign(new Error("release header smoke failed"), {
+      step: "scripts/smoke-release.mjs:headers",
+      stdout: JSON.stringify(headerResult, null, 2),
+      stderr: "",
+    });
+  }
+  if (fallbackResult.status !== "pass") {
+    throw Object.assign(new Error("release fallback smoke failed"), {
+      step: "scripts/smoke-release.mjs:fallbacks",
+      stdout: JSON.stringify(fallbackResult, null, 2),
+      stderr: "",
+    });
+  }
   if (smokeResult.status !== "pass") {
     throw Object.assign(new Error("release browser smoke failed"), {
       step: "scripts/smoke-chrome.mjs",
@@ -310,6 +488,8 @@ async function main() {
     baseUrl,
     package: packageResult,
     verify: verifyResult,
+    headers: headerResult,
+    fallbacks: fallbackResult,
     smoke: {
       status: smokeResult.status,
       routeCount: smokeResult.routeCount,

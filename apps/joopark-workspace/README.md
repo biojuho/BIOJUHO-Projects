@@ -2,15 +2,6 @@
 
 일정·할 일·메모·습관·통계를 한 화면에서 관리하는 **개인 워크스페이스**에, 프로젝트(PM)·DB 카탈로그 관리까지 더한 정적 SPA입니다. 빌드/패키지 없이 정적 파일만으로 동작하며, 내가 만든 모든 데이터는 브라우저(localStorage)에 자동 저장됩니다.
 
-## 공개 릴리스
-
-- 최신 릴리스: [JooPark Workspace v3.0.0](https://github.com/biojuho/BIOJUHO-Projects/releases/tag/joopark-workspace-v3.0.0)
-- ZIP 다운로드: [joopark-workspace-v3.0.0.zip](https://github.com/biojuho/BIOJUHO-Projects/releases/download/joopark-workspace-v3.0.0/joopark-workspace-v3.0.0.zip)
-- SHA-256: `704ca4fadaa4f05bbfd7bc635e6914b3638a1a158561c2a08b158b93263e9681`
-- 대상 커밋: `bf7852dfed3204b869b94b893e6e628c1c5c2d47`
-
-ZIP을 받은 뒤 압축을 풀고 해당 폴더에서 `python3 -m http.server 5178`을 실행하면 브라우저에서 바로 사용할 수 있습니다.
-
 ## 실행
 
 ```bash
@@ -55,6 +46,12 @@ node scripts/package-release.mjs
 cd dist/release
 python3 -m http.server 5178
 ```
+
+`dist/release/`는 그대로 정적 호스팅에 업로드할 수 있습니다. 패키저는 GitHub Pages용 `404.html`, Netlify용 `_headers`/`_redirects`, Vercel용 `vercel.json`을 함께 생성하며, `node scripts/verify-release.mjs`가 이 배포 지원 파일들의 존재와 핵심 헤더/리다이렉트 설정까지 검증합니다.
+
+GitHub Pages에 배포할 때는 `docs/github-pages-workflow.yml` 템플릿을 repository root의 `.github/workflows/joopark-pages.yml`로 복사한 뒤 Actions에서 **Publish JooPark Pages** 워크플로우를 `workflow_dispatch`로 실행합니다. 먼저 `node scripts/prepare-github-pages-workflow.mjs --dry-run`으로 템플릿과 target 경로를 검증하고, `workflow` scope가 있는 토큰이나 GitHub UI 세션에서 `node scripts/prepare-github-pages-workflow.mjs --write`로 workflow 파일을 설치합니다. 이 워크플로우는 `dist/release/`를 만들고 검증한 뒤 GitHub Pages artifact로 업로드해 Pages 환경에 배포합니다. GitHub가 workflow 파일 push에는 `workflow` scope를 요구하므로, 템플릿 복사는 해당 권한이 있는 토큰이나 GitHub UI에서 수행합니다.
+
+GitHub PR이 `no common history`로 막히면 `node scripts/plan-main-bridge.mjs`로 bridge 계획을 먼저 확인합니다. 이 리포트는 GitHub `main`의 `apps/joopark-workspace` 경로를 확인하고, `codex/joopark-workspace-main-bridge`처럼 main 기반 브랜치에서 앱 하위 디렉터리를 동기화하는 전략을 제시합니다.
 
 패키지 검증은 프로젝트 루트에서 `BASE_URL=http://127.0.0.1:5178 node scripts/smoke-chrome.mjs`로 실행합니다. 포트가 이미 사용 중이면 다른 포트로 서버를 띄우고 `BASE_URL`도 같은 포트로 바꿉니다.
 체크섬 manifest까지 함께 검증하려면 먼저 `node scripts/verify-release.mjs`를 실행합니다.
