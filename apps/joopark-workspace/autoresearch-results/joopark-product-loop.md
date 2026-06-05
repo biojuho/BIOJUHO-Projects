@@ -984,8 +984,22 @@ Generated: 2026-06-06T04:34:36+09:00
 - `data/adoption-candidates.json` now includes `AppFlowy-IO/AppFlowy` with source markers `github-search:appflowy-workspace-benchmark` and `github-api:appflowy-freshness-refresh`.
 - `scripts/smoke-interactions.mjs` now reports `appFlowyCandidateFreshnessVisible` and verifies AppFlowy by commit search, star/fork count, language, risk-review action, pushedAt, and safe GitHub link.
 - `scripts/audit-release-readiness.mjs` now includes `appflowy_workspace_candidate_freshness_ui_smoke`.
-- AFFiNE remains the next high-signal workspace candidate after AppFlowy lands.
+
+## Experiment: AFFiNE workspace benchmark candidate
+
+- Hypothesis: The GitHub project discovery surface becomes more useful for JooPark planning when a Notion/Miro-class knowledge-base and whiteboard benchmark is tracked alongside AppFlowy.
+- Primary metric: AFFiNE workspace candidate freshness checks.
+- Baseline: 0 AFFiNE workspace candidate checks; `toeverything/AFFiNE` was absent from the adoption candidate snapshot.
+- Candidate: add `toeverything/AFFiNE` as a researched knowledge-base workspace candidate with current GitHub metadata, license risk context, default-branch commit, and portfolio interaction smoke.
+- Decision: keep; AFFiNE has 69,107 stars, 4,913 forks, 555 open issues, 74 open PRs, recent push `2026-06-04T22:48:17Z`, and commit `edc87e38df01db79f969e6f61981a10c16f9a0bb`.
+
+## Evidence
+
+- `data/adoption-candidates.json` now includes `toeverything/AFFiNE` with source markers `github-search:affine-workspace-benchmark` and `github-api:affine-freshness-refresh`.
+- `scripts/smoke-interactions.mjs` now reports `affineCandidateFreshnessVisible` and verifies AFFiNE by commit search, star/fork count, language, risk-review action, pushedAt, and safe GitHub link.
+- `scripts/audit-release-readiness.mjs` now includes `affine_workspace_candidate_freshness_ui_smoke`.
+- Outline remains a next high-signal knowledge-base candidate after AFFiNE lands.
 
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research AFFiNE as a workspace candidate after the AppFlowy benchmark candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, wire Veritas `--fail-on-change` into scheduled CI once GitHub token policy is confirmed, research Outline as a knowledge-base candidate after the AFFiNE benchmark candidate lands, or run the next repo-scoped live drift refresh when a source-backed candidate reports a new focused change.

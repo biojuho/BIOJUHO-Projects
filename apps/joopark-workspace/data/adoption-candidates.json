@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T05:54:50+09:00",
-  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh",
+  "generatedAt": "2026-06-06T06:23:48+09:00",
+  "source": "manual:image-import+github-search:autoresearch+github-search:local-first-workspace+github-api:workspace-benchmark-refresh+github-api:veritas-autoresearch-refresh+github-api:openproject-freshness-refresh+github-api:leantime-freshness-refresh+github-api:colanode-freshness-refresh+github-api:parabol-freshness-refresh+github-api:worklenz-freshness-refresh+github-api:anytype-freshness-refresh+github-api:focalboard-freshness-refresh+github-api:epicenter-freshness-refresh+github-api:openloaf-freshness-refresh+github-api:remaining-workspace-freshness-refresh+github-api:remaining-workspace-metadata-refresh+github-api:veritas-drift-refresh-v8410+github-api:remaining-live-drift-refresh+github-api:veritas-focused-drift-refresh-v8424+github-api:veritas-focused-drift-refresh-v8428+github-readme:taskosaur-workstream-ux-benchmark+github-api:veritas-focused-drift-refresh-v8435+github-api:veritas-focused-drift-refresh-v8442+github-api:veritas-focused-drift-refresh-v8450+github-api:veritas-focused-drift-refresh-v8452+github-api:veritas-focused-drift-refresh-v8484+github-api:veritas-focused-drift-refresh-v8485+github-api:veritas-focused-drift-refresh-v8486+github-api:veritas-focused-drift-refresh-v8487+github-search:plane-pm-benchmark+github-api:plane-freshness-refresh+github-api:veritas-focused-drift-refresh-v8493+github-api:veritas-focused-drift-refresh-v8501+github-search:appflowy-workspace-benchmark+github-api:appflowy-freshness-refresh+github-search:affine-workspace-benchmark+github-api:affine-freshness-refresh",
   "importId": "2026-06-04-repo-adoption-candidates",
   "projects": [
     {
@@ -814,6 +814,35 @@
       "pushedAt": "2026-06-05T12:00:29Z",
       "createdAt": "2021-06-16T12:56:48Z",
       "lastCommit": "4af02cdc87468be10ab15dbb4afd27fbf53ce89b"
+    },
+    {
+      "id": "repo-toeverything-affine",
+      "name": "toeverything/AFFiNE",
+      "description": "Notion/Miro 대안형 지식 베이스와 화이트보드 워크스페이스: 계획, 정렬, 생성 UX 벤치 후보",
+      "category": "협업 워크스페이스",
+      "owner": "도입 후보",
+      "language": "TypeScript",
+      "color": "violet",
+      "url": "https://github.com/toeverything/AFFiNE",
+      "sourceKind": "adoption-candidate",
+      "adoptionStage": "review",
+      "topics": ["notion-alternative", "knowledge-base", "whiteboard", "workspace", "wiki", "crdt"],
+      "progress": 8,
+      "status": "on-track",
+      "health": "amber",
+      "deadline": "2026-08-14",
+      "burn": [0, 1, 2, 3, 5, 7, 8],
+      "risks": 3,
+      "openIssues": 555,
+      "openPRs": 74,
+      "mergedPRs": 9223,
+      "closedIssues": 3257,
+      "stars": 69107,
+      "forks": 4913,
+      "diskKb": 436492,
+      "pushedAt": "2026-06-04T22:48:17Z",
+      "createdAt": "2022-07-31T18:45:21Z",
+      "lastCommit": "edc87e38df01db79f969e6f61981a10c16f9a0bb"
     },
     {
       "id": "repo-happybhati-workstream",
