@@ -641,6 +641,17 @@ function buildChecklist() {
     evidence: leantimeFreshnessUiTerms,
   });
 
+  const candidateMetadataRefreshTerms = [
+    { file: "app.js", terms: ["function projectRepoKey", "function refreshImportedProjectMetadata", "refreshed ${updated} adoption candidate projects"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["candidateMetadataRefresh", "stale adoption candidate metadata refresh did not report changes", "refreshed Leantime metadata was not persisted"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "workspace_candidate_metadata_refresh",
+    requirement: "Persisted adoption candidates refresh source-backed metadata when a newer imported snapshot has the same repo identity.",
+    status: candidateMetadataRefreshTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateMetadataRefreshTerms,
+  });
+
   const candidateTriageTerms = [
     { file: "app.js", terms: ["function projectAdoptionMeta", "safeGithubUrl", "data-candidate-meta", "portfolio-candidate-link"] },
     { file: "styles.css", terms: [".portfolio-candidate-meta", ".portfolio-candidate-link"] },

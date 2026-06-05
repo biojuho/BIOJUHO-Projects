@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T22:27:24+09:00
+Generated: 2026-06-05T22:55:29+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -461,6 +461,19 @@ Generated: 2026-06-05T22:27:24+09:00
 ## Evidence
 
 - `scripts/smoke-interactions.mjs` now reports `persistedChecks.leantimeCandidateFreshnessVisible: true` when the packaged UI renders the Leantime freshness badge.
+
+## Experiment: persisted candidate metadata refresh
+
+- Hypothesis: Users with persisted adoption candidates should still receive newer source-backed metadata when the imported snapshot has the same repository identity.
+- Primary metric: `candidateMetadataRefresh`.
+- Baseline: `mergeImportedProjects` skipped candidates whose `id` already existed, so stale `lastCommit`, `pushedAt`, and popularity metadata could remain in localStorage after a data refresh.
+- Candidate: `mergeImportedProjects` matches existing candidates by id or repository identity, refreshes source-backed metadata fields, persists the update, and the packaged interaction smoke stales Leantime before proving the latest snapshot restores its commit, pushedAt, and stars.
+- Decision: keep.
+
+## Evidence
+
+- `scripts/smoke-interactions.mjs` now reports `persistedChecks.candidateMetadataRefresh: true`.
+- The release audit now expects 35/35 checks with `workspace_candidate_metadata_refresh`.
 
 ## Next Loop
 

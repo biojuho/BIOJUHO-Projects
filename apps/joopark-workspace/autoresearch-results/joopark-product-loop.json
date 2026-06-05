@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-06-05T22:27:24+09:00",
+  "generatedAt": "2026-06-05T22:55:29+09:00",
   "project": "JooPark Workspace",
   "status": "active",
   "latestGate": {
     "command": "node scripts/audit-release-readiness.mjs --run-gates",
     "status": "pass",
     "checks": {
-      "pass": 34,
+      "pass": 35,
       "fail": 0,
       "notRun": 0,
       "blocked": 0,
-      "total": 34
+      "total": 35
     },
     "browserEvidence": {
       "routes": 15,
@@ -22,6 +22,7 @@
       "veritasCandidateFreshnessVisible": true,
       "openProjectCandidateFreshnessVisible": true,
       "leantimeCandidateFreshnessVisible": true,
+      "candidateMetadataRefresh": true,
       "candidateNextActionVisible": true,
       "candidateActionFilter": true,
       "candidateActionSummaryVisible": true,
@@ -37,6 +38,7 @@
       "veritasFreshnessChecks": 5,
       "openProjectFreshnessChecks": 6,
       "leantimeFreshnessChecks": 6,
+      "candidateMetadataRefreshChecks": 4,
       "releaseFiles": 15,
       "consoleIssues": 0,
       "networkIssues": 0,
@@ -264,6 +266,13 @@
     {
       "id": "leantime-freshness-ui-smoke",
       "primaryMetric": "leantimeCandidateFreshnessVisible",
+      "baseline": 0,
+      "candidate": 1,
+      "decision": "keep"
+    },
+    {
+      "id": "persisted-candidate-metadata-refresh",
+      "primaryMetric": "candidateMetadataRefresh",
       "baseline": 0,
       "candidate": 1,
       "decision": "keep"
