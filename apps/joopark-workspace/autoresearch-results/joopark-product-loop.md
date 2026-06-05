@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-06T00:12:45+09:00
+Generated: 2026-06-06T00:23:30+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -567,6 +567,20 @@ Generated: 2026-06-06T00:12:45+09:00
 - `node scripts/prepare-github-pages-workflow.mjs --dry-run --check-scope` passed with `workflowScopeChecked: true`, `workflowScopeAvailable: false`, and scopes `gist`, `read:org`, `repo`.
 - `node scripts/prepare-github-pages-workflow.mjs --write` failed before writing with `reason: missing workflow scope`, `workflowScopeAvailable: false`, and no `.github/workflows/joopark-pages.yml` file created.
 
+## Experiment: Workspace benchmark HEAD freshness refresh
+
+- Hypothesis: The benchmark queue is more useful for launch triage when Colanode, Parabol, and Worklenz carry commit-level freshness evidence, not only repo-level pushedAt metadata.
+- Primary metric: workspace benchmark HEAD snapshots.
+- Baseline: only OpenProject and Leantime had `lastCommit` snapshots and commit-search browser smoke coverage.
+- Candidate: `data/adoption-candidates.json` now records `lastCommit` for `colanode/colanode`, `ParabolInc/parabol`, and `Worklenz/worklenz`, while audit and interaction smoke require source markers plus commit-search UI coverage for all three.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/colanode/colanode/commits/main` returned `d649523637f0f059c936418488165d4a689da27c` dated `2026-04-03T09:33:46Z`; repo metadata returned `pushed_at: 2026-04-03T14:23:17Z`, 4,892 stars, 300 forks, 44 open issues, and size 79,013 KB.
+- `gh api repos/ParabolInc/parabol/commits/master` returned `f1c60852df00522c74ba9ab49127fd72103ea519` dated `2026-06-04T00:13:54Z`; repo metadata returned `pushed_at: 2026-06-04T00:16:02Z`, 2,002 stars, 366 forks, 68 open issues, and size 149,121 KB.
+- `gh api repos/Worklenz/worklenz/commits/main` returned `c4c32686587ad0d2fcd0b0b7c806a04858f03f7b` dated `2026-02-25T14:39:35Z`; repo metadata returned `pushed_at: 2026-02-25T14:39:35Z`, 3,067 stars, 321 forks, 62 open issues, and size 13,805 KB.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, or refresh the next workspace benchmark freshness signal.
+- Continue with the highest-impact product gap after the next full gate: install the Pages workflow with a workflow-scope token or GitHub UI session, trigger the `Publish JooPark Pages` workflow, or refresh Anytype, Epicenter, and OpenLoaf benchmark commit snapshots.

@@ -344,6 +344,9 @@ const interactionExpression = `
   let markdownSanitizedOk = false;
   let workspaceCandidateVisibleOk = false;
   let workspaceCompetitiveCandidateVisibleOk = false;
+  let colanodeCandidateFreshnessVisibleOk = false;
+  let parabolCandidateFreshnessVisibleOk = false;
+  let worklenzCandidateFreshnessVisibleOk = false;
   let veritasCandidateFreshnessVisibleOk = false;
   let openProjectCandidateFreshnessVisibleOk = false;
   let leantimeCandidateFreshnessVisibleOk = false;
@@ -529,22 +532,39 @@ const interactionExpression = `
     assert(candidate && candidate.sourceKind === "adoption-candidate", "OpenLoaf workspace candidate was not loaded");
     const benchmarkCandidate = dashboard.projects.find((project) => project.name === "colanode/colanode");
     assert(benchmarkCandidate && benchmarkCandidate.sourceKind === "adoption-candidate", "Colanode workspace benchmark candidate was not loaded");
+    const parabolCandidate = dashboard.projects.find((project) => project.name === "ParabolInc/parabol");
+    assert(parabolCandidate && parabolCandidate.sourceKind === "adoption-candidate", "Parabol workspace benchmark candidate was not loaded");
+    const worklenzCandidate = dashboard.projects.find((project) => project.name === "Worklenz/worklenz");
+    assert(worklenzCandidate && worklenzCandidate.sourceKind === "adoption-candidate", "Worklenz workspace benchmark candidate was not loaded");
     const riskCandidate = dashboard.projects.find((project) => project.name === "opf/openproject");
     assert(riskCandidate && projectCandidateAction(riskCandidate)?.label === "리스크 리뷰", "OpenProject candidate risk action was not computed");
     const adoptionResponse = await fetch("./data/adoption-candidates.json", { cache: "no-store" });
     assert(adoptionResponse.ok, "adoption candidate snapshot did not load for metadata refresh");
     const adoptionSnapshot = await adoptionResponse.json();
+    const snapshotColanode = adoptionSnapshot.projects.find((project) => project.name === "colanode/colanode");
+    assert(snapshotColanode && /^[0-9a-f]{40}$/i.test(snapshotColanode.lastCommit || "") && !Number.isNaN(Date.parse(snapshotColanode.pushedAt || "")), "Colanode snapshot freshness evidence was missing");
+    const shortColanodeCommit = snapshotColanode.lastCommit.slice(0, 8);
     const snapshotOpenProject = adoptionSnapshot.projects.find((project) => project.name === "opf/openproject");
     assert(snapshotOpenProject && /^[0-9a-f]{40}$/i.test(snapshotOpenProject.lastCommit || "") && !Number.isNaN(Date.parse(snapshotOpenProject.pushedAt || "")), "OpenProject snapshot freshness evidence was missing");
     const shortOpenProjectCommit = snapshotOpenProject.lastCommit.slice(0, 8);
+    const snapshotParabol = adoptionSnapshot.projects.find((project) => project.name === "ParabolInc/parabol");
+    assert(snapshotParabol && /^[0-9a-f]{40}$/i.test(snapshotParabol.lastCommit || "") && !Number.isNaN(Date.parse(snapshotParabol.pushedAt || "")), "Parabol snapshot freshness evidence was missing");
+    const shortParabolCommit = snapshotParabol.lastCommit.slice(0, 8);
     const snapshotVeritas = adoptionSnapshot.projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system");
     assert(snapshotVeritas && /^[0-9a-f]{40}$/i.test(snapshotVeritas.lastCommit || ""), "Veritas snapshot freshness evidence was missing");
     const shortVeritasCommit = snapshotVeritas.lastCommit.slice(0, 8);
     const snapshotLeantime = adoptionSnapshot.projects.find((project) => project.name === "Leantime/leantime");
     assert(snapshotLeantime && /^[0-9a-f]{40}$/i.test(snapshotLeantime.lastCommit || "") && !Number.isNaN(Date.parse(snapshotLeantime.pushedAt || "")), "Leantime snapshot freshness evidence was missing");
     const shortLeantimeCommit = snapshotLeantime.lastCommit.slice(0, 8);
+    const snapshotWorklenz = adoptionSnapshot.projects.find((project) => project.name === "Worklenz/worklenz");
+    assert(snapshotWorklenz && /^[0-9a-f]{40}$/i.test(snapshotWorklenz.lastCommit || "") && !Number.isNaN(Date.parse(snapshotWorklenz.pushedAt || "")), "Worklenz snapshot freshness evidence was missing");
+    const shortWorklenzCommit = snapshotWorklenz.lastCommit.slice(0, 8);
+    assert(benchmarkCandidate.lastCommit === snapshotColanode.lastCommit, "Colanode candidate commit was stale");
+    assert(benchmarkCandidate.pushedAt === snapshotColanode.pushedAt, "Colanode candidate pushedAt was stale");
     assert(riskCandidate.lastCommit === snapshotOpenProject.lastCommit, "OpenProject candidate commit was stale");
     assert(riskCandidate.pushedAt === snapshotOpenProject.pushedAt, "OpenProject candidate pushedAt was stale");
+    assert(parabolCandidate.lastCommit === snapshotParabol.lastCommit, "Parabol candidate commit was stale");
+    assert(parabolCandidate.pushedAt === snapshotParabol.pushedAt, "Parabol candidate pushedAt was stale");
     const veritasCandidate = dashboard.projects.find((project) => project.name === "Veritas-7/autoresearch-skill-system");
     assert(veritasCandidate && veritasCandidate.sourceKind === "adoption-candidate", "Veritas AutoResearch candidate was not loaded");
     assert(veritasCandidate.lastCommit === snapshotVeritas.lastCommit, "Veritas AutoResearch candidate commit was stale");
@@ -553,6 +573,8 @@ const interactionExpression = `
     assert(leantimeCandidate && leantimeCandidate.sourceKind === "adoption-candidate", "Leantime candidate was not loaded");
     assert(leantimeCandidate.lastCommit === snapshotLeantime.lastCommit, "Leantime candidate commit was stale");
     assert(leantimeCandidate.pushedAt === snapshotLeantime.pushedAt, "Leantime candidate pushedAt was stale");
+    assert(worklenzCandidate.lastCommit === snapshotWorklenz.lastCommit, "Worklenz candidate commit was stale");
+    assert(worklenzCandidate.pushedAt === snapshotWorklenz.pushedAt, "Worklenz candidate pushedAt was stale");
     leantimeCandidate.lastCommit = null;
     leantimeCandidate.pushedAt = "2026-01-01T00:00:00Z";
     leantimeCandidate.stars = 1;
@@ -628,8 +650,33 @@ const interactionExpression = `
     const action = qs("[data-candidate-action]", benchmarkCard);
     assert(action.textContent.includes("아키텍처 벤치"), "Colanode candidate action did not render");
     assert(action.textContent.includes("로컬 퍼스트 구조"), "Colanode candidate action reason did not render");
+    const colanodeCommit = qs("[data-candidate-commit]", benchmarkCard);
+    assert(colanodeCommit.dataset.candidateCommit === shortColanodeCommit, "Colanode freshness commit did not render");
+    assert(colanodeCommit.dataset.candidatePushedAt === snapshotColanode.pushedAt, "Colanode pushedAt freshness marker did not render");
     const benchmarkHref = qs(".portfolio-candidate-link", benchmarkCard).href;
     assert(benchmarkHref === "https://github.com/colanode/colanode" || benchmarkHref === "https://github.com/colanode/colanode/", "Colanode GitHub link did not render safely");
+    fill("#globalSearch", shortParabolCommit);
+    await waitFor(() => state.query === shortParabolCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Parabol commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + parabolCandidate.id + '"]'), "Parabol portfolio card did not render after commit search");
+    const parabolCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + parabolCandidate.id + '"]');
+    const parabolText = parabolCard.innerText;
+    assert(parabolText.includes("ParabolInc/parabol"), "Parabol candidate card did not render");
+    const parabolCommit = qs("[data-candidate-commit]", parabolCard);
+    assert(parabolCommit.dataset.candidateCommit === shortParabolCommit, "Parabol freshness commit did not render");
+    assert(parabolCommit.dataset.candidatePushedAt === snapshotParabol.pushedAt, "Parabol pushedAt freshness marker did not render");
+    const parabolHref = qs(".portfolio-candidate-link", parabolCard).href;
+    assert(parabolHref === "https://github.com/ParabolInc/parabol" || parabolHref === "https://github.com/ParabolInc/parabol/", "Parabol GitHub link did not render safely");
+    fill("#globalSearch", shortWorklenzCommit);
+    await waitFor(() => state.query === shortWorklenzCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Worklenz commit search did not filter portfolio");
+    await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + worklenzCandidate.id + '"]'), "Worklenz portfolio card did not render after commit search");
+    const worklenzCard = qs('#view-pm-portfolio .portfolio-card[data-project-id="' + worklenzCandidate.id + '"]');
+    const worklenzText = worklenzCard.innerText;
+    assert(worklenzText.includes("Worklenz/worklenz"), "Worklenz candidate card did not render");
+    const worklenzCommit = qs("[data-candidate-commit]", worklenzCard);
+    assert(worklenzCommit.dataset.candidateCommit === shortWorklenzCommit, "Worklenz freshness commit did not render");
+    assert(worklenzCommit.dataset.candidatePushedAt === snapshotWorklenz.pushedAt, "Worklenz pushedAt freshness marker did not render");
+    const worklenzHref = qs(".portfolio-candidate-link", worklenzCard).href;
+    assert(worklenzHref === "https://github.com/Worklenz/worklenz" || worklenzHref === "https://github.com/Worklenz/worklenz/", "Worklenz GitHub link did not render safely");
     fill("#globalSearch", shortVeritasCommit);
     await waitFor(() => state.query === shortVeritasCommit && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === 1, "Veritas commit search did not filter portfolio");
     await waitFor(() => !!document.querySelector('#view-pm-portfolio .portfolio-card[data-project-id="' + veritasCandidate.id + '"]'), "Veritas portfolio card did not render after commit search");
@@ -672,6 +719,9 @@ const interactionExpression = `
     portfolioCandidateFilterOk = true;
     workspaceCandidateVisibleOk = true;
     workspaceCompetitiveCandidateVisibleOk = true;
+    colanodeCandidateFreshnessVisibleOk = true;
+    parabolCandidateFreshnessVisibleOk = true;
+    worklenzCandidateFreshnessVisibleOk = true;
     veritasCandidateFreshnessVisibleOk = true;
     openProjectCandidateFreshnessVisibleOk = true;
     leantimeCandidateFreshnessVisibleOk = true;
@@ -892,6 +942,9 @@ const interactionExpression = `
     markdownSanitized: markdownSanitizedOk,
     workspaceCandidateVisible: workspaceCandidateVisibleOk,
     workspaceCompetitiveCandidateVisible: workspaceCompetitiveCandidateVisibleOk,
+    colanodeCandidateFreshnessVisible: colanodeCandidateFreshnessVisibleOk,
+    parabolCandidateFreshnessVisible: parabolCandidateFreshnessVisibleOk,
+    worklenzCandidateFreshnessVisible: worklenzCandidateFreshnessVisibleOk,
     veritasCandidateFreshnessVisible: veritasCandidateFreshnessVisibleOk,
     openProjectCandidateFreshnessVisible: openProjectCandidateFreshnessVisibleOk,
     leantimeCandidateFreshnessVisible: leantimeCandidateFreshnessVisibleOk,
