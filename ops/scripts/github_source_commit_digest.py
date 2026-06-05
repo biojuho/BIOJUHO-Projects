@@ -51,14 +51,24 @@ def fetch_commit_feed_delta(
     limit: int = DEFAULT_MAX_COMMITS,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> list[dict[str, Any]]:
-    request = urllib.request.Request(
-        f"https://github.com/{repo}/commits/main.atom",
-        headers={"User-Agent": "BIOJUHO-AutoResearch-CommitDigest/1.0"},
-        method="GET",
-    )
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-        payload = response.read()
-    return _parse_commit_feed(payload, since=since, until=until, limit=limit)
+    last_error: urllib.error.HTTPError | None = None
+    for feed_url in _commit_feed_urls(repo):
+        request = urllib.request.Request(
+            feed_url,
+            headers={"User-Agent": "BIOJUHO-AutoResearch-CommitDigest/1.0"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                payload = response.read()
+            return _parse_commit_feed(payload, since=since, until=until, limit=limit)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            last_error = exc
+    if last_error is not None:
+        raise last_error
+    return []
 
 
 def _fetch_commit_api_delta(
@@ -438,6 +448,14 @@ def _parse_commit_feed(payload: bytes, *, since: str, until: str, limit: int) ->
         if len(commits) >= limit:
             break
     return commits
+
+
+def _commit_feed_urls(repo: str) -> list[str]:
+    return [
+        f"https://github.com/{repo}/commits/main.atom",
+        f"https://github.com/{repo}/commits/master.atom",
+        f"https://github.com/{repo}/commits.atom",
+    ]
 
 
 def _parse_github_time(value: str) -> datetime:

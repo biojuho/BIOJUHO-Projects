@@ -167,7 +167,8 @@
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
         "desci_job_stream_partial_false_guard",
-        "workspace_smoke_trace_final_event_guard"
+        "workspace_smoke_trace_final_event_guard",
+        "github_commit_digest_branch_feed_fallback_guard"
       ],
       "evidence": [
         {
@@ -336,6 +337,15 @@
             "google/adk-python",
             "final partial=False frame is always yielded",
             "A/B Contract",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "Significant-Gravitas/AutoGPT",
+            "selected=12",
+            "failed=0",
             "global_objective_complete=false"
           ]
         }
@@ -618,7 +628,8 @@
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
         "desci_job_stream_partial_false_guard",
-        "workspace_smoke_trace_final_event_guard"
+        "workspace_smoke_trace_final_event_guard",
+        "github_commit_digest_branch_feed_fallback_guard"
       ],
       "evidence": [
         {
@@ -825,6 +836,15 @@
             "Workspace Smoke Trace Final Event",
             "partial=false",
             "JSONL rows: `4`",
+            "global_objective_complete=false"
+          ]
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
+          "must_contain": [
+            "branch-fallback",
+            "master.atom",
+            "no_local_adoption_commit_window_empty",
             "global_objective_complete=false"
           ]
         }

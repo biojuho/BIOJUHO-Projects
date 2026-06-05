@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import sys
 from pathlib import Path
@@ -177,6 +178,52 @@ def test_fetch_commit_delta_falls_back_to_atom_feed_on_rate_limit(monkeypatch) -
 
     assert commits[0]["source"] == "github_atom_feed"
     assert commits[0]["subject"] == "fallback commit"
+
+
+def test_fetch_commit_feed_delta_tries_master_when_main_feed_404(monkeypatch) -> None:
+    digest = load_module()
+    seen_urls: list[str] = []
+    payload = b"""<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <title>fix: branch fallback</title>
+    <updated>2026-06-04T20:00:00Z</updated>
+    <author><name>bot</name></author>
+    <link rel="alternate" href="https://github.com/Significant-Gravitas/AutoGPT/commit/abc123456789"/>
+    <id>tag:github.com,2008:Grit::Commit/abc123456789</id>
+  </entry>
+</feed>"""
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self) -> bytes:
+            return payload
+
+    def fake_urlopen(request, timeout: float):
+        seen_urls.append(request.full_url)
+        if request.full_url.endswith("/commits/main.atom"):
+            raise digest.urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, io.BytesIO())
+        return FakeResponse()
+
+    monkeypatch.setattr(digest.urllib.request, "urlopen", fake_urlopen)
+
+    commits = digest.fetch_commit_feed_delta(
+        "Significant-Gravitas/AutoGPT",
+        "2026-06-04T19:00:00Z",
+        "2026-06-04T21:00:00Z",
+    )
+
+    assert seen_urls == [
+        "https://github.com/Significant-Gravitas/AutoGPT/commits/main.atom",
+        "https://github.com/Significant-Gravitas/AutoGPT/commits/master.atom",
+    ]
+    assert commits[0]["subject"] == "fix: branch fallback"
+    assert commits[0]["source"] == "github_atom_feed"
 
 
 def test_checked_in_commit_digest_matches_renderer() -> None:

@@ -14,7 +14,7 @@
   ],
   "cycle_prompt_covered": true,
   "errors": [],
-  "generated_at": "2026-06-05T03:15:09.611476+00:00",
+  "generated_at": "2026-06-05T03:26:54.847027+00:00",
   "global_objective_complete": false,
   "requirement_count": 7,
   "requirements": [
@@ -121,7 +121,8 @@
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
         "desci_job_stream_partial_false_guard",
-        "workspace_smoke_trace_final_event_guard"
+        "workspace_smoke_trace_final_event_guard",
+        "github_commit_digest_branch_feed_fallback_guard"
       ],
       "evidence": [
         {
@@ -198,6 +199,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_FINAL_EVENT_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
           "term_count": 4
         }
       ],
@@ -396,7 +401,8 @@
         "shared_llm_grok_seed_settings_guard",
         "vibe_tools_workspace_path_guard",
         "desci_job_stream_partial_false_guard",
-        "workspace_smoke_trace_final_event_guard"
+        "workspace_smoke_trace_final_event_guard",
+        "github_commit_digest_branch_feed_fallback_guard"
       ],
       "evidence": [
         {
@@ -497,6 +503,10 @@
         },
         {
           "path": "docs/reports/2026-06/AUTO_RESEARCH_WORKSPACE_SMOKE_TRACE_FINAL_EVENT_2026-06-05.md",
+          "term_count": 4
+        },
+        {
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_GITHUB_COMMIT_DIGEST_BRANCH_FALLBACK_2026-06-05.md",
           "term_count": 4
         }
       ],
