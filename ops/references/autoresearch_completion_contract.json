@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-05T10:25:00+09:00",
+  "generated_at": "2026-06-05T09:24:12+09:00",
   "objective": "Launch-ready product hardening with continuous source-backed AutoResearch A/B loops, GitHub project comparison, direct app-click QA, commit/push evidence, and no global stop until the user explicitly stops.",
   "global_completion_policy": {
     "open_ended_until_user_stop": true,
@@ -141,15 +141,15 @@
           "must_contain": [
             "current_tip_freshness_gate",
             "origin/feat/observability-gateway-2026-05",
-            "d430855",
+            "4d4f02d",
             "allowed_paths_since_proof",
             "ops/hooks/install_hooks.py",
             "tests/test_pre_push_hook.py",
             ".gitattributes",
-            "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAI_NAMESPACE_METADATA_2026-06-05.md"
+            "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_STATE_CONTINUATION_2026-06-05.md"
           ],
           "git_freshness": {
-            "proof_commit": "d430855",
+            "proof_commit": "4d4f02d",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "allowed_paths_since_proof": [
               ".gitattributes",
@@ -938,12 +938,12 @@
           "path": "ops/references/autoresearch_completion_contract.json",
           "must_contain": [
             "direct_browser_qa_freshness_gate",
-            "d430855",
+            "4d4f02d",
             "apps/dashboard/",
             "mcp/canva-mcp/"
           ],
           "protected_path_freshness": {
-            "proof_commit": "d430855",
+            "proof_commit": "4d4f02d",
             "remote_ref": "origin/feat/observability-gateway-2026-05",
             "protected_paths": [
               "apps/dashboard/",
@@ -960,11 +960,11 @@
           }
         },
         {
-          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_MCP_OPENAI_NAMESPACE_METADATA_2026-06-05.md",
+          "path": "docs/reports/2026-06/AUTO_RESEARCH_CANVA_WIDGET_STATE_CONTINUATION_2026-06-05.md",
           "must_contain": [
-            "Canva MCP OpenAI Namespace Metadata",
+            "Canva Widget State Continuation",
             "protected_path_freshness",
-            "d430855",
+            "4d4f02d",
             "no changed protected paths after proof",
             "global_objective_complete=false"
           ]

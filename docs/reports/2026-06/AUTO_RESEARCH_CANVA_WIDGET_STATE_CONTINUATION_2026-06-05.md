@@ -51,6 +51,14 @@
 - `npm.cmd --prefix mcp/canva-mcp run build`
   - Passed.
 
+## Post-Push Freshness
+
+- Pushed proof commit: `4d4f02d`.
+- `current_tip_freshness_gate`: `4d4f02d` is the active proof baseline for
+  `origin/feat/observability-gateway-2026-05`.
+- `protected_path_freshness`: no changed protected paths after proof.
+- Audit marker: `global_objective_complete=false`.
+
 ## Next Cycle
 
 - Continue source-backed adoption from the GitHub digest; runtime or browser
