@@ -44,7 +44,7 @@ jobs:
         run: cat var/pr-triage/pr-triage-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload triage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr-triage-${{ github.event.pull_request.number }}
           path: var/pr-triage/

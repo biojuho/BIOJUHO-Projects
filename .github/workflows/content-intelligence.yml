@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload calibration report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: calibration-report-${{ github.run_number }}
           path: automation/getdaytrends/data/calibration_report_*.json
@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload ROI report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: roi-report-${{ github.run_number }}
           path: var/reports/roi_*.json
