@@ -764,6 +764,13 @@ button.bell:hover { background: var(--cyan-22); }
   font-weight: 800;
 }
 
+.portfolio-priority {
+  border-color: rgba(23, 217, 131, 0.5);
+  background: rgba(23, 217, 131, 0.1);
+  color: var(--green);
+  font-weight: 800;
+}
+
 .portfolio-candidate-link:hover {
   border-color: var(--cyan-60);
   background: var(--cyan-08);

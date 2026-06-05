@@ -135,12 +135,43 @@ function metricValue(value) {
   return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("en-US") : "-";
 }
 
+function numericMetric(value) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function daysSinceIso(iso) {
+  const time = Date.parse(iso || "");
+  if (Number.isNaN(time)) return 365;
+  return Math.max(0, Math.round((Date.now() - time) / (24 * 60 * 60 * 1000)));
+}
+
+function candidatePriorityLabel(score) {
+  if (score >= 70) return "높음";
+  if (score >= 45) return "중간";
+  return "관찰";
+}
+
+function projectCandidatePriority(p) {
+  if (!p || p.sourceKind !== "adoption-candidate") return null;
+  const stageScore = { adopt: 24, review: 14, watch: 6 }[p.adoptionStage] || 8;
+  const recentDays = daysSinceIso(p.pushedAt);
+  const activityScore = Math.max(0, 24 - Math.min(recentDays, 180) / 180 * 24);
+  const popularityScore = Math.min(28, Math.log10(numericMetric(p.stars) + 1) * 7);
+  const forkScore = Math.min(10, Math.log10(numericMetric(p.forks) + 1) * 4);
+  const healthScore = p.health === "green" ? 8 : p.health === "amber" ? 4 : 0;
+  const riskPenalty = Math.min(14, numericMetric(p.risks) * 3 + Math.log10(numericMetric(p.openIssues) + 1));
+  const score = Math.round(Math.max(0, Math.min(100, stageScore + activityScore + popularityScore + forkScore + healthScore - riskPenalty)));
+  return { score, label: candidatePriorityLabel(score) };
+}
+
 function projectAdoptionMeta(p) {
   if (!p || p.sourceKind !== "adoption-candidate") return "";
   const stage = ADOPTION_STAGE_LABEL[p.adoptionStage] || p.adoptionStage || "검토";
   const repoUrl = safeGithubUrl(p.url);
+  const priority = projectCandidatePriority(p);
   return html`
     <div class="portfolio-candidate-meta" data-candidate-meta>
+      ${priority ? raw(html`<span class="portfolio-priority" data-candidate-priority="${priority.score}"><b>우선</b> ${priority.label} ${priority.score}</span>`) : ""}
       <span data-candidate-stage="${p.adoptionStage || ""}"><b>단계</b> ${stage}</span>
       <span><b>★</b> ${metricValue(p.stars)}</span>
       <span><b>Fork</b> ${metricValue(p.forks)}</span>
@@ -825,14 +856,25 @@ function portfolioMatchesFilter(project, filter) {
   return true;
 }
 
+function sortPortfolioProjects(projects) {
+  if (state.portfolioFilter !== "candidates") return projects;
+  return [...projects].sort((a, b) => {
+    const aPriority = projectCandidatePriority(a);
+    const bPriority = projectCandidatePriority(b);
+    const scoreDiff = (bPriority?.score || 0) - (aPriority?.score || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+}
+
 function renderPortfolio() {
   const view = refs.views["pm-portfolio"];
   if (!view) return;
   if (!state.portfolioFilter) state.portfolioFilter = "all";
   const q = state.query;
-  const list = dashboard.projects
+  const list = sortPortfolioProjects(dashboard.projects
     .filter((p) => portfolioMatchesFilter(p, state.portfolioFilter))
-    .filter((p) => matches(projectSearchText(p), q));
+    .filter((p) => matches(projectSearchText(p), q)));
   const candidateCount = dashboard.projects.filter((p) => p.sourceKind === "adoption-candidate").length;
   const ownedCount = dashboard.projects.length - candidateCount;
   const filterChips = PORTFOLIO_FILTERS.map((filter) => {

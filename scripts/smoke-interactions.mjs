@@ -344,6 +344,7 @@ const interactionExpression = `
   let markdownSanitizedOk = false;
   let workspaceCandidateVisibleOk = false;
   let portfolioCandidateFilterOk = false;
+  let portfolioCandidateRankedOk = false;
   let importedMarker = "";
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -523,6 +524,12 @@ const interactionExpression = `
     click('[data-action="portfolio-filter"][data-filter="candidates"]');
     await waitFor(() => state.portfolioFilter === "candidates" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === candidateCount, "candidate portfolio filter did not render adoption candidates");
     assert(qs('[data-action="portfolio-filter"][data-filter="candidates"]').getAttribute("aria-pressed") === "true", "candidate portfolio filter was not active");
+    const rankedCandidates = dashboard.projects
+      .filter((project) => project.sourceKind === "adoption-candidate")
+      .sort((a, b) => (projectCandidatePriority(b)?.score || 0) - (projectCandidatePriority(a)?.score || 0) || String(a.name || "").localeCompare(String(b.name || "")));
+    const firstCandidateCard = qs('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]');
+    assert(firstCandidateCard.dataset.projectId === rankedCandidates[0].id, "candidate portfolio filter did not rank highest priority first");
+    assert(qs("[data-candidate-priority]", firstCandidateCard).textContent.includes(String(projectCandidatePriority(rankedCandidates[0]).score)), "top candidate priority score did not render");
     click('[data-action="portfolio-filter"][data-filter="owned"]');
     await waitFor(() => state.portfolioFilter === "owned" && document.querySelectorAll('#view-pm-portfolio .portfolio-card[data-source-kind="adoption-candidate"]').length === 0, "owned portfolio filter still rendered adoption candidates");
     assert(document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === ownedCount, "owned portfolio filter count was wrong");
@@ -539,12 +546,14 @@ const interactionExpression = `
     assert(meta.innerText.includes("★") && meta.innerText.includes("65"), "OpenLoaf star count did not render");
     assert(meta.innerText.includes("Fork") && meta.innerText.includes("7"), "OpenLoaf fork count did not render");
     assert(meta.innerText.includes("TypeScript"), "OpenLoaf language did not render");
+    assert(qs("[data-candidate-priority]", card).textContent.includes(String(projectCandidatePriority(candidate).score)), "OpenLoaf priority score did not render");
     const href = qs(".portfolio-candidate-link", card).href;
     assert(href === "https://github.com/OpenLoaf/OpenLoaf" || href === "https://github.com/OpenLoaf/OpenLoaf/", "OpenLoaf GitHub link did not render safely");
     fill("#globalSearch", "");
     await waitFor(() => document.querySelectorAll("#view-pm-portfolio .portfolio-card").length > 1, "portfolio did not recover after clearing search");
     click('[data-action="portfolio-filter"][data-filter="all"]');
     await waitFor(() => state.portfolioFilter === "all" && document.querySelectorAll("#view-pm-portfolio .portfolio-card").length === dashboard.projects.length, "portfolio all filter did not recover");
+    portfolioCandidateRankedOk = true;
     portfolioCandidateFilterOk = true;
     workspaceCandidateVisibleOk = true;
   });
@@ -760,6 +769,7 @@ const interactionExpression = `
     markdownSanitized: markdownSanitizedOk,
     workspaceCandidateVisible: workspaceCandidateVisibleOk,
     portfolioCandidateFilter: portfolioCandidateFilterOk,
+    portfolioCandidateRanked: portfolioCandidateRankedOk,
   };
   Object.entries(persistedChecks).forEach(([key, ok]) => {
     if (!ok) failures.push("persisted check failed: " + key);

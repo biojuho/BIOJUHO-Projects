@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T19:29:20+09:00
+Generated: 2026-06-05T19:33:24+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -143,7 +143,7 @@ Generated: 2026-06-05T19:29:20+09:00
 
 - `data/adoption-candidates.json` now includes the `github-search:local-first-workspace` source marker.
 - `scripts/audit-release-readiness.mjs` now includes `workspace_ecosystem_candidates`.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 19/19 with 8 workspace candidates.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 20/20 with 8 workspace candidates.
 
 ## Experiment: workspace candidate UI smoke
 
@@ -184,6 +184,19 @@ Generated: 2026-06-05T19:29:20+09:00
 - `node scripts/audit-release-readiness.mjs --run-gates` passed with `persistedChecks.portfolioCandidateFilter: true`.
 - `scripts/audit-release-readiness.mjs` now includes `portfolio_candidate_filter`.
 
+## Experiment: portfolio candidate ranking
+
+- Hypothesis: Candidate filtering becomes more useful when the candidate-only view sorts by a metadata-based priority score instead of only showing raw project cards.
+- Primary metric: portfolio candidate ranking smoke coverage.
+- Baseline: candidate cards exposed metadata, but the candidate-only view did not compute or verify an ordered priority list.
+- Candidate: adoption candidates receive a local priority score from stage, recent activity, stars/forks, health, and risks; candidate-only portfolio view sorts by score; interaction smoke verifies the highest-priority candidate appears first.
+- Decision: keep.
+
+## Evidence
+
+- `node scripts/audit-release-readiness.mjs --run-gates` passed with `persistedChecks.portfolioCandidateRanked: true`.
+- `scripts/audit-release-readiness.mjs` now includes `portfolio_candidate_ranking`.
+
 ## Experiment: release smoke isolated output
 
 - Hypothesis: The release audit should test a fresh package without deleting or rewriting the shared `dist/release` directory.
@@ -195,8 +208,8 @@ Generated: 2026-06-05T19:29:20+09:00
 ## Evidence
 
 - `node --check scripts/package-release.mjs`, `node --check scripts/smoke-release.mjs`, and `node --check scripts/audit-release-readiness.mjs` passed.
-- `node scripts/audit-release-readiness.mjs --run-gates` passed 19/19, with packaged browser gates served from `RELEASE_OUT_DIR=<temp>`.
-- The final gate still had 15 desktop routes, 15 mobile routes, 18 interaction steps, `markdownSanitized: true`, `workspaceCandidateVisible: true`, `portfolioCandidateFilter: true`, candidate triage metadata checks, and 0 console, network, and layout issues.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 20/20, with packaged browser gates served from `RELEASE_OUT_DIR=<temp>`.
+- The final gate still had 15 desktop routes, 15 mobile routes, 18 interaction steps, `markdownSanitized: true`, `workspaceCandidateVisible: true`, `portfolioCandidateFilter: true`, `portfolioCandidateRanked: true`, candidate triage metadata checks, and 0 console, network, and layout issues.
 
 ## Next Loop
 

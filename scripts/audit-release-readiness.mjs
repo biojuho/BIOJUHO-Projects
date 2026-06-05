@@ -403,6 +403,18 @@ function buildChecklist() {
     evidence: candidateFilterTerms,
   });
 
+  const candidateRankingTerms = [
+    { file: "app.js", terms: ["function projectCandidatePriority", "function sortPortfolioProjects", "data-candidate-priority"] },
+    { file: "styles.css", terms: [".portfolio-priority"] },
+    { file: "scripts/smoke-interactions.mjs", terms: ["portfolioCandidateRanked", "candidate portfolio filter did not rank highest priority first", "OpenLoaf priority score did not render"] },
+  ].map((item) => ({ file: item.file, missingTerms: hasTerms(item.file, item.terms).missing }));
+  checklist.push({
+    id: "portfolio_candidate_ranking",
+    requirement: "Adoption candidates receive a metadata-based priority score and the candidate-only portfolio view sorts by that score, with browser smoke coverage.",
+    status: candidateRankingTerms.every((item) => item.missingTerms.length === 0) ? "pass" : "fail",
+    evidence: candidateRankingTerms,
+  });
+
   const vendorTerms = [
     { file: "vendor/marked.umd.js", terms: ["marked v18.0.5"] },
     { file: "vendor/purify.min.js", terms: ["DOMPurify 3.4.8"] },
