@@ -1,6 +1,6 @@
 # JooPark Product AutoResearch Loop
 
-Generated: 2026-06-05T21:11:00+09:00
+Generated: 2026-06-05T21:55:50+09:00
 
 ## Experiment: autoresearch ecosystem launch data
 
@@ -422,6 +422,20 @@ Generated: 2026-06-05T21:11:00+09:00
 - `npm run verify` passed 24/24 with the new `veritas_freshness_ui_smoke` audit item.
 - Packaged interaction smoke reported `veritasCandidateFreshnessVisible: true`, 15 desktop routes, 15 mobile routes, 18 interaction steps, and 0 console/network/layout issues.
 
+## Experiment: OpenProject freshness refresh
+
+- Hypothesis: The highest-priority project-management benchmark candidate should carry source-backed commit freshness, not only stale star and pushedAt metadata.
+- Primary metric: `openProjectFreshnessChecks`.
+- Baseline: `opf/openproject` had `lastCommit: null`, `pushedAt: 2026-06-05T10:35:36Z`, no OpenProject-specific source marker, and no UI smoke that could find the risk-review candidate by upstream commit.
+- Candidate: `data/adoption-candidates.json` records OpenProject `lastCommit: 5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4`, `pushedAt: 2026-06-05T12:44:52Z`, the `github-api:openproject-freshness-refresh` source marker, and audit evidence for freshness/source validity.
+- Decision: keep.
+
+## Evidence
+
+- `gh api repos/opf/openproject` returned `pushed_at: 2026-06-05T12:44:52Z`, 15,235 stars, 3,288 forks, 212 open issues, default branch `dev`, Ruby, and repository size 2,705,404 KB.
+- `gh api 'repos/opf/openproject/commits?per_page=1'` returned commit `5b5c5c911788d7b77f9b80e1fc3bd4b0c1b61ce4` dated `2026-06-05T11:55:31Z`.
+- `node scripts/audit-release-readiness.mjs --run-gates` passed 33/33 with `workspace_ecosystem_candidates.openProject.fresh: true` and packaged interaction smoke `openProjectCandidateFreshnessVisible: true`.
+
 ## Next Loop
 
-- Continue with the highest-impact product gap after the next full gate: open the main-based PR bridge, verify Pages workflow activation, or clean up post-release workflow handoff docs.
+- Continue with the highest-impact product gap after the next full gate: refresh the next workspace benchmark freshness signal, verify Pages workflow activation, or clean up post-release workflow handoff docs.
