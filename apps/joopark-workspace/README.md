@@ -144,6 +144,7 @@ node scripts/check-candidate-freshness-drift.mjs --live --repo Veritas-7/autores
 ```bash
 node scripts/refresh-veritas-candidate-snapshot.mjs --snapshot-only
 node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run
+node scripts/refresh-veritas-candidate-snapshot.mjs --dry-run --fail-on-change
 node scripts/refresh-veritas-candidate-snapshot.mjs --write
 ```
 
